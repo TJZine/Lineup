@@ -1,8 +1,10 @@
 import type { PlexLibrary as PlexLibraryModel } from '../../../plex/library/types';
 import type { FocusableElement, KeyEvent } from '../../../navigation/interfaces';
 import { PLEX_DISCOVERY_CONSTANTS } from '../../../plex/discovery/constants';
-import type { ChannelSetupSessionGateway } from '../../../../core/channel-setup/ChannelSetupSessionGateway';
+import type { ChannelSetupWorkflowPort } from '../../../../core/channel-setup/ChannelSetupWorkflowPort';
 import type { ChannelBuildSummary } from '../../../../core/channel-setup/types';
+import type { ChannelSetupScreenPorts } from '../ChannelSetupScreenPorts';
+import type { ChannelSetupScreen } from '../ChannelSetupScreen';
 
 type Focusable = Pick<FocusableElement, 'id' | 'neighbors'>;
 
@@ -126,26 +128,69 @@ export const createNavigationMock = (): NavigationMock => {
 };
 
 export const createOrchestrator = (
-    overrides: Partial<ChannelSetupSessionGateway> = {}
-): ChannelSetupSessionGateway => ({
-    getNavigation: jest.fn(() => null),
+    overrides: Partial<ChannelSetupWorkflowPort & ChannelSetupScreenPorts> = {}
+): ChannelSetupWorkflowPort & ChannelSetupScreenPorts => ({
+    ...createWorkflowPort(overrides),
+    ...createScreenPorts(overrides),
+});
+
+export const createWorkflowPort = (
+    overrides: Partial<ChannelSetupWorkflowPort> = {}
+): ChannelSetupWorkflowPort => ({
     getLibrariesForSetup: jest.fn().mockResolvedValue([]),
     getChannelSetupRecord: jest.fn(() => null),
     getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
+    invalidateFacetSnapshot: jest.fn(),
+    createChannelsFromSetup: jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT),
+    markSetupComplete: jest.fn(),
+    getSetupPreview: jest.fn().mockResolvedValue(DEFAULT_PREVIEW),
+    getSetupReview: jest.fn().mockResolvedValue(DEFAULT_REVIEW),
+    getSetupPlanDiagnostics: jest.fn().mockResolvedValue({
+        status: 'ready',
+        diagnostics: null,
+        warnings: [],
+        reachedMaxChannels: false,
+    }),
+    ...overrides,
+});
+
+export const createScreenPorts = (
+    overrides: Partial<ChannelSetupScreenPorts> = {}
+): ChannelSetupScreenPorts => ({
+    getNavigation: jest.fn(() => null),
     getSelectedServerStorageKey: jest.fn(() => PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY),
     getServerHealthStorageKey: jest.fn(() => PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY),
     getSelectedServerId: jest.fn(() => null),
     openServerSelect: jest.fn(),
     switchToChannelByNumber: jest.fn(),
     openEPG: jest.fn(),
-    requestChannelSetupRerun: jest.fn(),
-    invalidateFacetSnapshot: jest.fn(),
-    createChannelsFromSetup: jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT),
-    markSetupComplete: jest.fn(),
-    getSetupPreview: jest.fn().mockResolvedValue(DEFAULT_PREVIEW),
-    getSetupReview: jest.fn().mockResolvedValue(DEFAULT_REVIEW),
     ...overrides,
-} satisfies ChannelSetupSessionGateway);
+});
+
+export type SplitScreenTestPorts = {
+    workflowPort: ChannelSetupWorkflowPort;
+    screenPorts: ChannelSetupScreenPorts;
+    orchestrator: ChannelSetupWorkflowPort & ChannelSetupScreenPorts;
+};
+
+export const createSplitScreenPorts = (
+    overrides: Partial<ChannelSetupWorkflowPort & ChannelSetupScreenPorts> = {}
+): SplitScreenTestPorts => {
+    const workflowPort = createWorkflowPort(overrides);
+    const screenPorts = createScreenPorts(overrides);
+    return {
+        workflowPort,
+        screenPorts,
+        orchestrator: { ...workflowPort, ...screenPorts } satisfies ChannelSetupWorkflowPort & ChannelSetupScreenPorts,
+    };
+};
+
+export const createScreenDeps = (
+    input: { workflowPort: ChannelSetupWorkflowPort; screenPorts: ChannelSetupScreenPorts }
+): ConstructorParameters<typeof ChannelSetupScreen>[1] => ({
+    workflowPort: input.workflowPort,
+    screenPorts: input.screenPorts,
+});
 
 // Intentionally button-only to enforce accessible remote-first UI semantics.
 export const clickButton = (container: HTMLElement, selector: string): void => {

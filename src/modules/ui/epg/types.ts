@@ -4,17 +4,20 @@
  */
 
 import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
+import type { ModuleRuntimeStatus } from '../../../core/module-status';
 import type {
     EpgChannel,
     EpgItemDetails,
     EpgScheduleWindow,
     EpgScheduledProgram,
-} from './domainTypes';
+} from './model/domainTypes';
+import type { IEpgDebugRuntime } from './EPGDebugRuntime';
 
 // Re-export EPG-owned aliases for UI contracts.
 export type ScheduledProgram = EpgScheduledProgram;
 export type ScheduleWindow = EpgScheduleWindow;
 export type ChannelConfig = EpgChannel;
+export type EpgUiStatus = ModuleRuntimeStatus | undefined;
 
 // ============================================
 // EPG Configuration & State
@@ -72,12 +75,8 @@ export interface EPGConfig {
     } | null;
     /** Optional callback when layout mode changes */
     onLayoutModeChange?: (mode: EpgLayoutMode) => void;
-    /**
-     * Debug flag refresh interval for same-tab devtools toggles.
-     * StorageEvent does not fire in the same document that calls localStorage.setItem(),
-     * so we periodically refresh the cached debug flag.
-     */
-    debugStorageRefreshIntervalMs?: number;
+    /** Optional explicit debug runtime shared by EPG UI and runtime collaborators. */
+    debugRuntime?: IEpgDebugRuntime | null;
     /**
      * Debug render log rate limit (ms). When debug is enabled we avoid writing to storage on every RAF.
      * Set to 0 to log every render (not recommended).
@@ -282,6 +281,8 @@ export type CellRenderData =
         isPast: boolean;
         /** Has focus */
         isFocused: boolean;
+        /** Whether cell is a buffer-only entry outside the visible window */
+        isBufferOnly: boolean;
         /**
          * Horizontal text shift (pixels) applied to title/show/time so labels remain readable
          * when the cell is partially clipped on the left due to time scrolling.
@@ -315,6 +316,8 @@ export type CellRenderData =
         isPast: boolean;
         /** Has focus */
         isFocused: boolean;
+        /** Placeholders are visible-window cells, not buffer-only entries */
+        isBufferOnly: boolean;
         /** See `program.textShiftPx` (placeholders usually 0). */
         textShiftPx: number;
         /** DOM element reference */

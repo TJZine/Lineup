@@ -1,8 +1,10 @@
 import type { ChannelConfig } from '../../scheduler/channel-manager';
 import type { EPGConfig } from './types';
-import type { EpgPastItemsWindowSetting } from '../settings/types';
-import { readStoredBoolean, safeLocalStorageGet } from '../../../utils/storage';
-import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import type {
+    EpgPastItemsWindow,
+    EpgScheduleRangeSnapshot,
+} from '../../settings/EpgPreferencesStore';
+import type { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
 import {
     buildLibraries,
     countLibraryTypeVotes,
@@ -17,42 +19,22 @@ export type EpgScheduleRangeDeps = {
     getLocalMidnightMs: (timeMs: number) => number;
 };
 
-export type EpgStorageSnapshotForScheduleRange = {
-    pastItemsWindowSetting: EpgPastItemsWindowSetting;
-    tabsEnabled: boolean;
-    selectedLibraryId: string | null;
-};
-
-export const readEpgStorageSnapshotForScheduleRange = (): EpgStorageSnapshotForScheduleRange => {
-    const rawPastWindow = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW);
-    const pastItemsWindowSetting: EpgPastItemsWindowSetting =
-        rawPastWindow === '0' || rawPastWindow === '15' || rawPastWindow === '30' || rawPastWindow === 'auto'
-            ? rawPastWindow
-            : 'auto';
-
-    const tabsEnabled = readStoredBoolean(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, true);
-
-    const rawSelected = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
-    const selectedLibraryId = rawSelected ? (rawSelected.trim() || null) : null;
-
-    return {
-        pastItemsWindowSetting,
-        tabsEnabled,
-        selectedLibraryId,
-    };
-};
-
-export const computeLibraryFilterSnapshot = (
-    all: ChannelConfig[],
-    storage: EpgStorageSnapshotForScheduleRange
-): {
+export type EpgStorageSnapshotForScheduleRange = EpgScheduleRangeSnapshot;
+export type NormalizedLibraryFilterState = {
     selectedId: string | null;
     tabsEnabled: boolean;
     shouldFilter: boolean;
     libraries: Array<{ id: string; name: string }>;
-} => {
+    shouldClearPersistedSelection: boolean;
+};
+
+export const computeNormalizedLibraryFilterState = (
+    all: ChannelConfig[],
+    storage: EpgStorageSnapshotForScheduleRange
+): NormalizedLibraryFilterState => {
     const tabsEnabled = storage.tabsEnabled;
-    let selectedId = storage.selectedLibraryId;
+    const requestedSelectionId = storage.selectedLibraryId;
+    let selectedId = requestedSelectionId;
     const libraries = buildLibraries(all);
     const hasMultipleLibraries = libraries.length > 1;
     const hasSelectedMatch = selectedId
@@ -63,26 +45,60 @@ export const computeLibraryFilterSnapshot = (
           )
         : false;
 
-    if (!tabsEnabled || !hasMultipleLibraries || (selectedId && !hasSelectedMatch)) {
+    const hasInvalidSelectedLibrary = Boolean(selectedId) && !hasSelectedMatch;
+    if (!tabsEnabled || !hasMultipleLibraries || hasInvalidSelectedLibrary) {
         selectedId = null;
     }
 
     const shouldFilter = tabsEnabled && hasMultipleLibraries && Boolean(selectedId);
+    const shouldClearPersistedSelection =
+        Boolean(requestedSelectionId) &&
+        selectedId === null &&
+        (hasInvalidSelectedLibrary || (tabsEnabled && hasMultipleLibraries));
 
     return {
         selectedId,
         tabsEnabled,
         shouldFilter,
         libraries,
+        shouldClearPersistedSelection,
     };
+};
+
+export const readAppliedLibraryFilterState = (
+    all: ChannelConfig[],
+    epgPreferencesStore: Pick<EpgPreferencesStore, 'readScheduleRangeSnapshot' | 'writeSelectedLibraryId'>
+): NormalizedLibraryFilterState => {
+    const normalized = computeNormalizedLibraryFilterState(all, epgPreferencesStore.readScheduleRangeSnapshot());
+    if (normalized.shouldClearPersistedSelection) {
+        epgPreferencesStore.writeSelectedLibraryId(null);
+    }
+    return normalized;
+};
+
+export const selectVisibleChannelsForLibraryFilter = (
+    all: ChannelConfig[],
+    selectedId: string | null,
+    shouldFilter: boolean
+): ChannelConfig[] => {
+    if (!shouldFilter || !selectedId) return all;
+    return all.filter((channel) => {
+        if (channel.sourceLibraryId === selectedId) return true;
+        if (channel.contentSource.type === 'library' && channel.contentSource.libraryId === selectedId) return true;
+        return false;
+    });
 };
 
 export const computeEffectivePastWindowMinutes = (
     all: ChannelConfig[],
     storage: EpgStorageSnapshotForScheduleRange,
-    filter: { selectedId: string | null; shouldFilter: boolean }
+    filter: {
+        selectedId: string | null;
+        shouldFilter: boolean;
+        shouldClearPersistedSelection: boolean;
+    }
 ): number => {
-    const setting = storage.pastItemsWindowSetting;
+    const setting: EpgPastItemsWindow = storage.pastItemsWindowSetting;
     if (setting !== 'auto') {
         return Number(setting);
     }
@@ -116,7 +132,7 @@ export const computeEpgScheduleRangeMs = (
 
     const channelManager = deps.getChannelManager();
     const allChannels = channelManager?.getAllChannels() ?? [];
-    const filter = computeLibraryFilterSnapshot(allChannels, storage);
+    const filter = computeNormalizedLibraryFilterState(allChannels, storage);
     const pastWindowMinutes = computeEffectivePastWindowMinutes(allChannels, storage, filter);
 
     const startTime = Math.max(

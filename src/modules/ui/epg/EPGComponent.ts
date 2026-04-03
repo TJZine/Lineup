@@ -1,18 +1,17 @@
-/** EPG component that orchestrates the Electronic Program Guide. */
+/** EPG component that renders the Electronic Program Guide surface. */
 
 import { EventEmitter } from '../../../utils/EventEmitter';
 import { EPG_CONSTANTS, EPG_CLASSES, EPG_ERRORS, DEFAULT_EPG_CONFIG } from './constants';
-import { EPGVirtualizer } from './EPGVirtualizer';
+import { EPGVirtualizer } from './view/EPGVirtualizer';
 import { EPGInfoPanel } from './EPGInfoPanel';
 import { EPGInfoPanelCoordinator } from './EPGInfoPanelCoordinator';
-import { EPGTimeHeader } from './EPGTimeHeader';
-import { EPGChannelList } from './EPGChannelList';
+import { EPGTimeHeader } from './view/EPGTimeHeader';
+import { EPGChannelList } from './view/EPGChannelList';
 import { EPGErrorBoundary } from './EPGErrorBoundary';
 import { EPGLibraryTabs } from './EPGLibraryTabs';
 import { EPGVisibleRangeEmitter } from './EPGVisibleRangeEmitter';
-import { rafThrottle, appendEpgDebugLog } from './utils';
-import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
-import { DebugOverridesStore } from '../../debug/DebugOverridesStore';
+import { rafThrottle } from './utils';
+import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from './debugRuntimeGuards';
 import { createLineupBrandGlyph } from '../common/brandGlyph';
 import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
 import type { IEPGComponent } from './interfaces';
@@ -30,7 +29,7 @@ import type {
 
 /**
  * EPG Component class.
- * Main orchestrator for the Electronic Program Guide grid.
+ * Render/focus/event surface for the Electronic Program Guide grid.
  * Implements virtualized rendering for 60fps performance on TV hardware.
  */
 export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGComponent {
@@ -85,15 +84,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private _lastNowWatchingTuple: [string, string, string] | null = null;
     private _appliedLayoutMode: EpgLayoutMode | null = null;
     private _appliedPipMode: EpgLayoutMode | null = null;
-    private readonly _debugOverridesStore = new DebugOverridesStore();
-    private _debugEnabled: boolean = false;
-    private _lastDebugEnabledStorageReadMs: number = 0;
     private _lastRenderGridDebugLogMs: number = 0;
-    private _onStorage = (event: StorageEvent): void => {
-        if (event.key !== LINEUP_STORAGE_KEYS.EPG_DEBUG) return;
-        this._debugEnabled = event.newValue === '1';
-        this._lastDebugEnabledStorageReadMs = Date.now();
-    };
 
     // Timers
     private timeUpdateInterval: ReturnType<typeof setInterval> | null = null;
@@ -127,13 +118,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         this.config = { ...DEFAULT_EPG_CONFIG, ...config };
         this._visibleRangeEmitter = new EPGVisibleRangeEmitter(this.config.onVisibleRangeChange);
-        this._debugEnabled = this._readDebugEnabledFromStorage();
-        this._lastDebugEnabledStorageReadMs = Date.now();
-        try {
-            window.addEventListener('storage', this._onStorage);
-        } catch {
-            // ignore
-        }
         this.state.currentTime = Date.now();
         this.state.gridAnchorTime = this.calculateGridAnchorTime(this.state.currentTime);
         this.state.focusTimeMs = this.state.currentTime;
@@ -192,24 +176,12 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.state.isInitialized = true;
     }
 
-    private _readDebugEnabledFromStorage(): boolean {
-        try {
-            return this._debugOverridesStore.readEpgDebugEnabled(false);
-        } catch {
-            return false;
-        }
+    private _isDebugEnabled(): boolean {
+        return isDebugRuntimeEnabled(this.config.debugRuntime);
     }
 
-    private isDebugEnabled(): boolean {
-        // StorageEvent does not fire in the same document that calls localStorage.setItem(),
-        // so periodically refresh to support same-tab toggles without reading on every call.
-        const now = Date.now();
-        const refreshIntervalMs = this.config.debugStorageRefreshIntervalMs ?? 500;
-        if (now - this._lastDebugEnabledStorageReadMs >= refreshIntervalMs) {
-            this._lastDebugEnabledStorageReadMs = now;
-            this._debugEnabled = this._readDebugEnabledFromStorage();
-        }
-        return this._debugEnabled;
+    private _appendDebugLog(event: string, payload: Record<string, unknown>): void {
+        appendDebugRuntimeLog(this.config.debugRuntime, event, payload);
     }
 
     /**
@@ -219,11 +191,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.infoPanelCoordinator.destroy();
         this.stopTimeUpdateInterval();
         document.removeEventListener('visibilitychange', this._onVisibilityChange);
-        try {
-            window.removeEventListener('storage', this._onStorage);
-        } catch {
-            // ignore
-        }
 
         this.virtualizer.destroy();
         this.infoPanel.destroy();
@@ -277,8 +244,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this.config.onLayoutModeChange?.('overlay');
         }
         this._appliedPipMode = null;
-        this._debugEnabled = false;
-        this._lastDebugEnabledStorageReadMs = Date.now();
         this._lastRenderGridDebugLogMs = 0;
         this._visibleRangeEmitter = new EPGVisibleRangeEmitter();
 
@@ -293,8 +258,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.errorBoundary.setCallbacks({
             showFallbackRow: (context: string) => {
                 // Fallback: just skip the problematic row, don't crash.
-                if (this.isDebugEnabled()) {
-                    appendEpgDebugLog('EPG.showFallbackRow', { context });
+                if (this._isDebugEnabled()) {
+                    this._appendDebugLog('EPG.showFallbackRow', { context });
                 }
             },
             resetScrollPosition: () => {
@@ -308,8 +273,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         // Forward degraded mode events
         this.errorBoundary.on('degradedMode', (data) => {
-            if (this.isDebugEnabled()) {
-                appendEpgDebugLog('EPG.degradedMode', data);
+            if (this._isDebugEnabled()) {
+                this._appendDebugLog('EPG.degradedMode', data);
             }
             console.warn('[EPG] Degraded mode');
         });
@@ -633,14 +598,14 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             }
         }
 
-        if (this.isDebugEnabled()) {
+        if (this._isDebugEnabled()) {
             const payload = {
                 channelCount: this.state.channels.length,
                 scheduleCount: this.state.schedules.size,
                 timeOffset: this.state.scrollPosition.timeOffset,
                 gridAnchorTime: this.state.gridAnchorTime,
             };
-            appendEpgDebugLog('EPG.show', payload);
+            this._appendDebugLog('EPG.show', payload);
         }
 
         this.emit('open', undefined);
@@ -724,12 +689,12 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             }
         }
 
-        if (this.isDebugEnabled()) {
+        if (this._isDebugEnabled()) {
             const payload = {
                 channelCount: channels.length,
                 timeOffset: this.state.scrollPosition.timeOffset,
             };
-            appendEpgDebugLog('EPG.loadChannels', payload);
+            this._appendDebugLog('EPG.loadChannels', payload);
         }
     }
 
@@ -837,7 +802,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             }
         }
 
-        if (this.isDebugEnabled()) {
+        if (this._isDebugEnabled()) {
             const payload = {
                 channelId,
                 programCount: schedule.programs.length,
@@ -848,7 +813,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
                 focusKeyAfter: this._getFocusKey(this.state.focusedCell),
                 didAutoFocus,
             };
-            appendEpgDebugLog('EPG.loadScheduleForChannel', payload);
+            this._appendDebugLog('EPG.loadScheduleForChannel', payload);
         }
     }
 
@@ -868,11 +833,11 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this.renderGrid();
         }
 
-        if (this.isDebugEnabled()) {
+        if (this._isDebugEnabled()) {
             const payload = {
                 channelCount: this.state.channels.length,
             };
-            appendEpgDebugLog('EPG.clearSchedules', payload);
+            this._appendDebugLog('EPG.clearSchedules', payload);
         }
     }
 
@@ -1602,7 +1567,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this._isSelectInProgress = false;
         }, 0);
 
-        if (this.isDebugEnabled()) {
+        if (this._isDebugEnabled()) {
             const payload = {
                 channelId: channel.id,
                 focusKey: this._getFocusKey(focusedCell),
@@ -1618,7 +1583,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
                 focusedKind: focusedCell.kind,
                 scheduleLoaded: this.state.schedules.has(channel.id),
             };
-            appendEpgDebugLog('EPG.handleSelect', payload);
+            this._appendDebugLog('EPG.handleSelect', payload);
         }
 
         if (focusedCell.kind === 'placeholder') {
@@ -1757,7 +1722,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
                 this.hasRenderedOnce = true;
             }
 
-            if (this.isDebugEnabled()) {
+            if (this._isDebugEnabled()) {
                 const now = Date.now();
                 const intervalMs = this.config.debugRenderGridLogIntervalMs ?? 1000;
                 const shouldLog = intervalMs <= 0 || now - this._lastRenderGridDebugLogMs >= intervalMs;
@@ -1772,7 +1737,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
                     visibleRows: range.visibleRows.length,
                     renderedCells: this.virtualizer.getElementCount(),
                 };
-                appendEpgDebugLog('EPG.renderGrid', payload);
+                this._appendDebugLog('EPG.renderGrid', payload);
             }
         });
     }

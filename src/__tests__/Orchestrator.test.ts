@@ -518,6 +518,7 @@ jest.mock('../modules/player', () => ({
 // Mock EPGComponent
 const mockEpg = {
     initialize: jest.fn(),
+    ensureReady: jest.fn().mockResolvedValue(undefined),
     show: jest.fn(),
     hide: jest.fn(),
     destroy: jest.fn(),
@@ -554,9 +555,20 @@ const mockEpg = {
     off: jest.fn(),
 };
 
+const createMockEpgDebugRuntime = (): {
+    isEnabled: jest.Mock<boolean, []>;
+    append: jest.Mock<void, [string, unknown?]>;
+    destroy: jest.Mock<void, []>;
+} => ({
+    isEnabled: jest.fn().mockReturnValue(false),
+    append: jest.fn(),
+    destroy: jest.fn(),
+});
+
 jest.mock('../modules/ui/epg', () => ({
     EPGComponent: jest.fn(() => mockEpg),
     DeferredEpgComponent: jest.fn(() => mockEpg),
+    EPGDebugRuntime: jest.fn(() => createMockEpgDebugRuntime()),
 }));
 
 jest.mock('../modules/ui/epg/DeferredEpgComponent', () => ({
@@ -1897,16 +1909,14 @@ describe('AppOrchestrator', () => {
         });
     });
 
-    describe('channel setup gateway rerun', () => {
+    describe('channel setup rerun', () => {
         beforeEach(async () => {
             await orchestrator.initialize(mockConfig);
         });
 
         it('should clear setup record and navigate to channel-setup', () => {
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-3' });
-            const gateway = orchestrator.getChannelSetupSessionGateway();
-
-            gateway.requestChannelSetupRerun();
+            orchestrator.requestChannelSetupRerun();
 
             expect(mockLocalStorage.removeItem).toHaveBeenCalledWith(
                 'lineup_channel_setup_v2:server-3'
@@ -1923,24 +1933,24 @@ describe('AppOrchestrator', () => {
         it('returns first-time when selected server has no channels', () => {
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-4' });
             mockChannelManager.getAllChannels.mockReturnValue([]);
-            const gateway = orchestrator.getChannelSetupSessionGateway();
+            const workflowPort = orchestrator.getChannelSetupWorkflowPort();
 
-            expect(gateway.getSetupContextForSelectedServer()).toBe('first-time');
+            expect(workflowPort.getSetupContextForSelectedServer()).toBe('first-time');
         });
 
         it('returns existing when selected server has channels', () => {
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-4' });
             mockChannelManager.getAllChannels.mockReturnValue([{ ...mockChannel, id: 'channel-1' }]);
-            const gateway = orchestrator.getChannelSetupSessionGateway();
+            const workflowPort = orchestrator.getChannelSetupWorkflowPort();
 
-            expect(gateway.getSetupContextForSelectedServer()).toBe('existing');
+            expect(workflowPort.getSetupContextForSelectedServer()).toBe('existing');
         });
 
         it('returns unknown when selected server is unavailable', () => {
             mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
-            const gateway = orchestrator.getChannelSetupSessionGateway();
+            const workflowPort = orchestrator.getChannelSetupWorkflowPort();
 
-            expect(gateway.getSetupContextForSelectedServer()).toBe('unknown');
+            expect(workflowPort.getSetupContextForSelectedServer()).toBe('unknown');
         });
     });
 
@@ -2107,10 +2117,7 @@ describe('AppOrchestrator', () => {
                 key === 'lineup_epg_guide_density' ? 'wide' : null
             );
             mockEpg.isVisible.mockReturnValue(true);
-            const clearSpy = jest.spyOn(EPGCoordinator.prototype, 'clearScheduleCaches');
-            const refreshSpy = jest
-                .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
-                .mockResolvedValue(undefined);
+            const primeSpy = jest.spyOn(EPGCoordinator.prototype, 'primeEpgChannels');
 
             try {
                 await orchestrator.start();
@@ -2118,77 +2125,53 @@ describe('AppOrchestrator', () => {
                 orchestrator.onGuideSettingChange({ key: 'guideDensity', density: 'wide' });
 
                 expect(mockEpg.setVisibleHours).toHaveBeenCalledWith(3);
-                expect(clearSpy).toHaveBeenCalled();
                 expect(mockEpg.clearSchedules).toHaveBeenCalled();
-                expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
+                expect(primeSpy).toHaveBeenCalled();
             } finally {
-                clearSpy.mockRestore();
-                refreshSpy.mockRestore();
+                primeSpy.mockRestore();
                 jest.useRealTimers();
             }
         });
 
         it('clears and refreshes schedules when aggressive preload changes while EPG visible', () => {
             mockEpg.isVisible.mockReturnValue(true);
-            const clearSpy = jest.spyOn(EPGCoordinator.prototype, 'clearScheduleCaches');
             const primeSpy = jest.spyOn(EPGCoordinator.prototype, 'primeEpgChannels');
-            const refreshSpy = jest
-                .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
-                .mockResolvedValue(undefined);
 
             try {
                 orchestrator.onGuideSettingChange({ key: 'aggressivePreload', enabled: true });
 
-                expect(clearSpy).toHaveBeenCalled();
                 expect(mockEpg.clearSchedules).toHaveBeenCalled();
                 expect(primeSpy).toHaveBeenCalled();
-                expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
             } finally {
-                clearSpy.mockRestore();
                 primeSpy.mockRestore();
-                refreshSpy.mockRestore();
             }
         });
 
         it('clears and refreshes schedules when past-items window changes while EPG visible', () => {
             mockEpg.isVisible.mockReturnValue(true);
-            const clearSpy = jest.spyOn(EPGCoordinator.prototype, 'clearScheduleCaches');
             const primeSpy = jest.spyOn(EPGCoordinator.prototype, 'primeEpgChannels');
-            const refreshSpy = jest
-                .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
-                .mockResolvedValue(undefined);
 
             try {
                 orchestrator.onGuideSettingChange({ key: 'pastItemsWindow', value: '15' });
 
-                expect(clearSpy).toHaveBeenCalled();
                 expect(mockEpg.clearSchedules).toHaveBeenCalled();
                 expect(primeSpy).toHaveBeenCalled();
-                expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
             } finally {
-                clearSpy.mockRestore();
                 primeSpy.mockRestore();
-                refreshSpy.mockRestore();
             }
         });
 
         it('invalidates cached schedules but skips refresh when aggressive preload changes while EPG is hidden', () => {
             mockEpg.isVisible.mockReturnValue(false);
-            const clearSpy = jest.spyOn(EPGCoordinator.prototype, 'clearScheduleCaches');
             const primeSpy = jest.spyOn(EPGCoordinator.prototype, 'primeEpgChannels');
-            const refreshSpy = jest.spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules');
 
             try {
                 orchestrator.onGuideSettingChange({ key: 'aggressivePreload', enabled: true });
 
-                expect(clearSpy).toHaveBeenCalled();
                 expect(primeSpy).not.toHaveBeenCalled();
-                expect(refreshSpy).not.toHaveBeenCalled();
                 expect(mockEpg.clearSchedules).toHaveBeenCalled();
             } finally {
-                clearSpy.mockRestore();
                 primeSpy.mockRestore();
-                refreshSpy.mockRestore();
             }
         });
     });

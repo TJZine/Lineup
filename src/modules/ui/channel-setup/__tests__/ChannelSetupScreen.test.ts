@@ -13,7 +13,8 @@ import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
 import {
     clickButton,
     createNavigationMock,
-    createOrchestrator,
+    createSplitScreenPorts,
+    createScreenDeps,
     DEFAULT_BUILD_RESULT,
     DEFAULT_PREVIEW,
     DEFAULT_REVIEW,
@@ -48,11 +49,14 @@ describe('ChannelSetupScreen', () => {
             resolveLibraries = resolve;
         });
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn(() => librariesPromise),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({
+            workflowPort,
+            screenPorts,
+        }));
         screen.show();
 
         expect(container.textContent ?? '').toContain('Loading libraries');
@@ -68,11 +72,11 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockRejectedValue(new Error('library load failed')),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
 
@@ -85,14 +89,14 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([
                 makeLibrary({ id: 'movies', title: 'Movies', contentCount: 1234 }),
                 makeLibrary({ id: 'shows', title: 'Shows', type: 'show', contentCount: 56, episodeCount: 999 }),
             ]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
 
@@ -116,14 +120,14 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([
                 makeLibrary({ id: 'movies' }),
                 makeLibrary({ id: 'shows', type: 'show' }),
             ]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
 
@@ -138,14 +142,14 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([
                 makeLibrary({ id: 'movies' }),
                 makeLibrary({ id: 'shows', type: 'show' }),
             ]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
 
@@ -162,13 +166,13 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([
                 makeLibrary({ id: 'movies' }),
             ]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
 
@@ -188,7 +192,7 @@ describe('ChannelSetupScreen', () => {
         document.body.appendChild(container);
 
         const nav = createNavigationMock();
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([
                 makeLibrary({ id: 'movies' }),
@@ -196,7 +200,7 @@ describe('ChannelSetupScreen', () => {
             ]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
 
@@ -214,12 +218,12 @@ describe('ChannelSetupScreen', () => {
         document.body.appendChild(container);
 
         const nav = createNavigationMock();
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
 
@@ -253,12 +257,12 @@ describe('ChannelSetupScreen', () => {
         });
 
         const nav = createNavigationMock();
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn(() => librariesPromise),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         screen.hide();
 
@@ -282,12 +286,12 @@ describe('ChannelSetupScreen', () => {
         });
 
         const nav = createNavigationMock();
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn(() => librariesPromise),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         screen.hide();
 
@@ -306,11 +310,11 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -335,11 +339,11 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -357,12 +361,12 @@ describe('ChannelSetupScreen', () => {
         document.body.appendChild(container);
 
         const nav = createNavigationMock();
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -384,12 +388,12 @@ describe('ChannelSetupScreen', () => {
         document.body.appendChild(container);
 
         const nav = createNavigationMock();
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -414,12 +418,12 @@ describe('ChannelSetupScreen', () => {
         document.body.appendChild(container);
 
         const nav = createNavigationMock();
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -438,12 +442,12 @@ describe('ChannelSetupScreen', () => {
         document.body.appendChild(container);
 
         const nav = createNavigationMock();
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -471,12 +475,12 @@ describe('ChannelSetupScreen', () => {
         document.body.appendChild(container);
 
         const nav = createNavigationMock();
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -492,13 +496,13 @@ describe('ChannelSetupScreen', () => {
         document.body.appendChild(container);
 
         const nav = createNavigationMock();
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -520,12 +524,12 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -558,11 +562,11 @@ describe('ChannelSetupScreen', () => {
             const container = document.createElement('div');
             document.body.appendChild(container);
 
-            const orchestrator = createOrchestrator({
+            const { workflowPort, screenPorts } = createSplitScreenPorts({
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -578,12 +582,12 @@ describe('ChannelSetupScreen', () => {
             document.body.appendChild(container);
 
             const nav = createNavigationMock();
-            const orchestrator = createOrchestrator({
+            const { workflowPort, screenPorts } = createSplitScreenPorts({
                 getNavigation: jest.fn(() => nav as unknown as INavigationManager),
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -598,11 +602,11 @@ describe('ChannelSetupScreen', () => {
             const container = document.createElement('div');
             document.body.appendChild(container);
 
-            const orchestrator = createOrchestrator({
+            const { workflowPort, screenPorts } = createSplitScreenPorts({
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -621,12 +625,12 @@ describe('ChannelSetupScreen', () => {
             document.body.appendChild(container);
 
             const nav = createNavigationMock();
-            const orchestrator = createOrchestrator({
+            const { workflowPort, screenPorts } = createSplitScreenPorts({
                 getNavigation: jest.fn(() => nav as unknown as INavigationManager),
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -645,12 +649,12 @@ describe('ChannelSetupScreen', () => {
             document.body.appendChild(container);
 
             const nav = createNavigationMock();
-            const orchestrator = createOrchestrator({
+            const { workflowPort, screenPorts } = createSplitScreenPorts({
                 getNavigation: jest.fn(() => nav as unknown as INavigationManager),
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -669,11 +673,11 @@ describe('ChannelSetupScreen', () => {
             const container = document.createElement('div');
             document.body.appendChild(container);
 
-            const orchestrator = createOrchestrator({
+            const { workflowPort, screenPorts } = createSplitScreenPorts({
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -692,11 +696,11 @@ describe('ChannelSetupScreen', () => {
             const container = document.createElement('div');
             document.body.appendChild(container);
 
-            const orchestrator = createOrchestrator({
+            const { workflowPort, screenPorts } = createSplitScreenPorts({
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -717,14 +721,14 @@ describe('ChannelSetupScreen', () => {
 
             const nav = createNavigationMock();
             const getSetupPreview = jest.fn().mockResolvedValue(DEFAULT_PREVIEW);
-            const orchestrator = createOrchestrator({
+            const { workflowPort, screenPorts } = createSplitScreenPorts({
                 getNavigation: jest.fn(() => nav as unknown as INavigationManager),
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
                 getSetupPreview,
                 getSelectedServerId: jest.fn(() => 'server-1'),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -760,13 +764,13 @@ describe('ChannelSetupScreen', () => {
                 resolvePreview = resolve;
             });
 
-            const orchestrator = createOrchestrator({
+            const { workflowPort, screenPorts } = createSplitScreenPorts({
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
                 getSetupPreview: jest.fn(() => previewPromise),
                 getSelectedServerId: jest.fn(() => 'server-1'),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -794,7 +798,7 @@ describe('ChannelSetupScreen', () => {
             const container = document.createElement('div');
             document.body.appendChild(container);
 
-            const orchestrator = createOrchestrator({
+            const { workflowPort, screenPorts } = createSplitScreenPorts({
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
                 getSetupPreview: jest.fn().mockResolvedValue({
                     ...DEFAULT_PREVIEW,
@@ -805,7 +809,7 @@ describe('ChannelSetupScreen', () => {
                 getSelectedServerId: jest.fn(() => 'server-1'),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -824,12 +828,12 @@ describe('ChannelSetupScreen', () => {
             document.body.appendChild(container);
 
             const nav = createNavigationMock();
-            const orchestrator = createOrchestrator({
+            const { workflowPort, screenPorts } = createSplitScreenPorts({
                 getNavigation: jest.fn(() => nav as unknown as INavigationManager),
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             });
 
-            const screen = new ChannelSetupScreen(container, orchestrator);
+            const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
             screen.show();
             await flushPromises();
             await enterStep2(container);
@@ -849,11 +853,11 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -879,11 +883,11 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -911,11 +915,11 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -939,12 +943,12 @@ describe('ChannelSetupScreen', () => {
         document.body.appendChild(container);
 
         const nav = createNavigationMock();
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -966,13 +970,13 @@ describe('ChannelSetupScreen', () => {
         const getSetupPreview = jest.fn().mockImplementation(() =>
             Promise.resolve(previews[Math.min(callCount++, previews.length - 1)])
         );
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupPreview,
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -999,11 +1003,11 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1025,7 +1029,7 @@ describe('ChannelSetupScreen', () => {
 
         const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
         const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
             createChannelsFromSetup,
@@ -1033,7 +1037,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1054,14 +1058,14 @@ describe('ChannelSetupScreen', () => {
         document.body.appendChild(container);
 
         const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'existing'),
             getSetupReview,
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1085,7 +1089,7 @@ describe('ChannelSetupScreen', () => {
         const createChannelsFromSetup = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_BUILD_RESULT>((resolve) => {
             resolveBuild = resolve;
         }));
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'existing'),
             getSetupReview: jest.fn().mockResolvedValue(DEFAULT_REVIEW),
@@ -1093,7 +1097,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1120,12 +1124,12 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1139,14 +1143,14 @@ describe('ChannelSetupScreen', () => {
         document.body.appendChild(container);
 
         const createChannelsFromSetup = jest.fn().mockRejectedValue(new DOMException('Aborted', 'AbortError'));
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
             getSelectedServerId: jest.fn(() => 'server-1'),
             createChannelsFromSetup,
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1171,14 +1175,14 @@ describe('ChannelSetupScreen', () => {
             created: 0,
         });
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
             getSelectedServerId: jest.fn(() => 'server-1'),
             createChannelsFromSetup,
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1199,14 +1203,14 @@ describe('ChannelSetupScreen', () => {
         document.body.appendChild(container);
 
         const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'existing'),
             getSetupReview,
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1246,14 +1250,14 @@ describe('ChannelSetupScreen', () => {
                 message,
             },
         });
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'existing'),
             getSetupReview,
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1277,14 +1281,14 @@ describe('ChannelSetupScreen', () => {
             resolveReview = resolve;
         }));
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'existing'),
             getSetupReview,
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1309,14 +1313,14 @@ describe('ChannelSetupScreen', () => {
             resolveReview = resolve;
         }));
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'existing'),
             getSetupReview,
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1343,14 +1347,14 @@ describe('ChannelSetupScreen', () => {
         document.body.appendChild(container);
 
         const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'existing'),
             getSetupReview,
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1369,14 +1373,14 @@ describe('ChannelSetupScreen', () => {
         document.body.appendChild(container);
 
         const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'existing'),
             getSetupReview,
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1403,7 +1407,7 @@ describe('ChannelSetupScreen', () => {
             resolveBuild = resolve;
         }));
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
             getSetupPreview,
@@ -1411,7 +1415,7 @@ describe('ChannelSetupScreen', () => {
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1444,12 +1448,12 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1475,11 +1479,11 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1507,13 +1511,13 @@ describe('ChannelSetupScreen', () => {
         document.body.appendChild(container);
 
         const nav = createNavigationMock();
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1552,14 +1556,14 @@ describe('ChannelSetupScreen', () => {
 
         const nav = createNavigationMock();
         const getSetupPreview = jest.fn().mockResolvedValue(DEFAULT_PREVIEW);
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSelectedServerId: jest.fn(() => 'server-1'),
             getSetupPreview,
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1582,11 +1586,11 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1623,13 +1627,13 @@ describe('ChannelSetupScreen', () => {
         document.body.appendChild(container);
 
         const nav = createNavigationMock();
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1674,13 +1678,13 @@ describe('ChannelSetupScreen', () => {
         document.body.appendChild(container);
 
         const nav = createNavigationMock();
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1716,7 +1720,7 @@ describe('ChannelSetupScreen', () => {
 
         const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
         const markSetupComplete = jest.fn();
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
             getSelectedServerId: jest.fn(() => 'server-1'),
@@ -1724,7 +1728,7 @@ describe('ChannelSetupScreen', () => {
             markSetupComplete,
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1753,14 +1757,14 @@ describe('ChannelSetupScreen', () => {
             resolveBuild = resolve;
         }));
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
             createChannelsFromSetup,
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1781,13 +1785,13 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
             getSelectedServerId: jest.fn(() => null),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);
@@ -1802,13 +1806,13 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
             getSelectedServerId: jest.fn(() => null),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show();
         await flushPromises();
         await enterStep2(container);

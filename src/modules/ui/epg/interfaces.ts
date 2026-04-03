@@ -26,12 +26,6 @@ export interface IEPGComponent {
     initialize(config: EPGConfig): void;
 
     /**
-     * Ensure the deferred runtime is loaded and ready for use.
-     * Present on deferred proxy implementations; real runtime components may omit it.
-     */
-    ensureReady?(): Promise<void>;
-
-    /**
      * Destroy the EPG component and clean up resources.
      */
     destroy(): void;
@@ -211,6 +205,10 @@ export interface IEPGComponent {
         event: K,
         handler: (payload: EPGEventMap[K]) => void
     ): void;
+}
+
+export interface IEpgReadinessPort {
+    ensureReady(): Promise<void>;
 }
 
 /**

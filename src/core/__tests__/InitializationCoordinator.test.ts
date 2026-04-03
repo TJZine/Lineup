@@ -56,6 +56,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         scheduler: InitializationDependencies['modules']['scheduler'];
         videoPlayer: InitializationDependencies['modules']['videoPlayer'];
         epg: InitializationDependencies['modules']['epg'];
+        epgReadiness: InitializationDependencies['readiness']['epg'];
         playerOsd: InitializationDependencies['overlays']['playerOsd'];
         channelNumberOverlay: InitializationDependencies['overlays']['channelNumberOverlay'];
         channelBadgeOverlay: InitializationDependencies['overlays']['channelBadgeOverlay'];
@@ -130,6 +131,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             scheduler: null,
             videoPlayer: null,
             epg: null,
+            epgReadiness: null,
             playerOsd: null,
             channelNumberOverlay: null,
             channelBadgeOverlay: null,
@@ -156,6 +158,9 @@ describe('InitializationCoordinator (Plex Home)', () => {
                 videoPlayer: legacyDeps.videoPlayer,
                 epg: legacyDeps.epg,
             },
+            readiness: {
+                epg: legacyDeps.epgReadiness,
+            },
             overlays: {
                 playerOsd: legacyDeps.playerOsd,
                 channelNumberOverlay: legacyDeps.channelNumberOverlay,
@@ -164,6 +169,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
                 channelTransition: legacyDeps.channelTransition,
             },
             uiInitializer: legacyDeps.uiInitializer,
+            epgDebugRuntime: null,
             stores: {
                 epgPreferencesStore: legacyDeps.epgPreferencesStore,
                 profileSessionStore: legacyDeps.profileSessionStore,
@@ -503,12 +509,15 @@ describe('InitializationCoordinator (Plex Home)', () => {
             initialize: jest.fn(() => {
                 callOrder.push('epg-initialize');
             }),
+        } as unknown as LegacyInitializationDependencies['epg'];
+        const epgReadiness = {
             ensureReady: jest.fn(async () => {
                 callOrder.push('epg-ready');
             }),
-        } as unknown as LegacyInitializationDependencies['epg'];
+        } as NonNullable<LegacyInitializationDependencies['epgReadiness']>;
         const { coordinator, deps, callbacks } = makeCoordinator({
             epg,
+            epgReadiness,
         });
         const plexDiscovery = deps.plexDiscovery as unknown as {
             initialize: jest.Mock;
@@ -662,10 +671,13 @@ describe('InitializationCoordinator (Plex Home)', () => {
         jest.useFakeTimers();
         const epg = {
             initialize: jest.fn(),
-            ensureReady: jest.fn(async () => undefined),
         } as unknown as LegacyInitializationDependencies['epg'];
+        const epgReadiness = {
+            ensureReady: jest.fn(async () => undefined),
+        } as NonNullable<LegacyInitializationDependencies['epgReadiness']>;
         const { coordinator, deps } = makeCoordinator({
             epg,
+            epgReadiness,
         });
         const plexAuth = deps.plexAuth as unknown as {
             getStoredCredentials: jest.Mock;
@@ -685,14 +697,14 @@ describe('InitializationCoordinator (Plex Home)', () => {
             plexDiscovery.isConnected.mockReturnValue(true);
 
             await coordinator.runStartup(1);
-            expect((epg as unknown as { ensureReady: jest.Mock }).ensureReady).not.toHaveBeenCalled();
+            expect(epgReadiness.ensureReady).not.toHaveBeenCalled();
 
             await coordinator.runStartup(3);
-            expect((epg as unknown as { ensureReady: jest.Mock }).ensureReady).toHaveBeenCalledTimes(1);
+            expect(epgReadiness.ensureReady).toHaveBeenCalledTimes(1);
 
             await jest.advanceTimersByTimeAsync(1500);
 
-            expect((epg as unknown as { ensureReady: jest.Mock }).ensureReady).toHaveBeenCalledTimes(1);
+            expect(epgReadiness.ensureReady).toHaveBeenCalledTimes(1);
         } finally {
             jest.useRealTimers();
         }

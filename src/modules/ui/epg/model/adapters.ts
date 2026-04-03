@@ -3,12 +3,12 @@
  * @module modules/ui/epg/adapters
  */
 
-import type { ChannelConfig as SchedulerChannelConfig } from '../../scheduler/channel-manager';
+import type { ChannelConfig as SchedulerChannelConfig } from '../../../scheduler/channel-manager';
 import type {
     ScheduleWindow as SchedulerScheduleWindow,
     ScheduledProgram as SchedulerScheduledProgram,
-} from '../../scheduler/scheduler';
-import type { PlexMediaItem } from '../../plex/library';
+} from '../../../scheduler/scheduler';
+import type { PlexMediaItem } from '../../../plex/library';
 import type {
     EpgChannel,
     EpgItemDetails,

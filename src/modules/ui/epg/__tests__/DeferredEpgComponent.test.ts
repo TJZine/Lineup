@@ -46,7 +46,7 @@ const makeChannel = (id: string): ChannelConfig => ({
     name: `Channel ${id}`,
     number: 1,
     contentSource: { type: 'manual', items: [] },
-    playbackMode: 'loop',
+    playbackMode: 'sequential',
     startTimeAnchor: 0,
     skipIntros: false,
     skipCredits: false,
@@ -270,9 +270,15 @@ describe('DeferredEpgComponent', () => {
 
     it('replays queued config, channels, schedules, layout mode, banner mode, and tabs after load', async () => {
         const callLog: string[] = [];
+        const debugRuntime = {
+            isEnabled: jest.fn().mockReturnValue(false),
+            append: jest.fn(),
+            destroy: jest.fn(),
+        };
         const loader = createLoader({
             initialize(config: EPGConfig): void {
                 callLog.push(`initialize:${config.containerId}`);
+                callLog.push(`debugRuntime:${config.debugRuntime === debugRuntime}`);
             },
             show(): void {
                 callLog.push('show');
@@ -310,7 +316,7 @@ describe('DeferredEpgComponent', () => {
         });
 
         const component = new DeferredEpgComponent(loader as never);
-        const config = makeConfig();
+        const config = { ...makeConfig(), debugRuntime };
         const channels = [makeChannel('ch-1'), makeChannel('ch-2')];
         const libraries = [{ id: 'lib-1', name: 'Library 1' }];
 
@@ -327,6 +333,7 @@ describe('DeferredEpgComponent', () => {
 
         expect(callLog).toEqual([
             'initialize:epg-container',
+            'debugRuntime:true',
             'loadChannels:ch-1,ch-2',
             'loadScheduleForChannel:ch-1',
             'setCategoryColorsEnabled:true',

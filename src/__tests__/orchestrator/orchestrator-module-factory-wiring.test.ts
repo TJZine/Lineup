@@ -30,6 +30,7 @@ describe('createOrchestratorModules wiring', () => {
 
         expect(pauseSpy).toHaveBeenCalled();
         expect(onSleepTimerTick).toHaveBeenCalled();
+        expect(modules.epgReadinessPort).toBe(modules.epg);
 
         pauseSpy.mockRestore();
         modules.sleepTimer.destroy();

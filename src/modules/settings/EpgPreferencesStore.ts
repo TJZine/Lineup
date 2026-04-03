@@ -12,6 +12,11 @@ import {
 export type EpgLayoutMode = 'overlay' | 'classic';
 export type EpgGuideDensity = 'detailed' | 'wide';
 export type EpgPastItemsWindow = 'auto' | '0' | '15' | '30';
+export type EpgScheduleRangeSnapshot = {
+    pastItemsWindowSetting: EpgPastItemsWindow;
+    tabsEnabled: boolean;
+    selectedLibraryId: string | null;
+};
 
 const EPG_PAST_ITEMS_WINDOWS: readonly EpgPastItemsWindow[] = ['auto', '0', '15', '30'];
 
@@ -99,6 +104,14 @@ export class EpgPreferencesStore {
 
     writePastItemsWindow(window: EpgPastItemsWindow): void {
         safeLocalStorageSet(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, window);
+    }
+
+    readScheduleRangeSnapshot(): EpgScheduleRangeSnapshot {
+        return {
+            pastItemsWindowSetting: this.readPastItemsWindow('auto'),
+            tabsEnabled: this.readLibraryTabsEnabled(true),
+            selectedLibraryId: this.readSelectedLibraryId(),
+        };
     }
 
     readInfoBackgroundMode(fallback: 0 | 1 | 2 = 0): 0 | 1 | 2 {

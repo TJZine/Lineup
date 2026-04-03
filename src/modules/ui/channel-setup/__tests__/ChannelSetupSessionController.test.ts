@@ -1,7 +1,7 @@
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
 import { DEFAULT_MIN_ITEMS_PER_CHANNEL } from '../../../../core/channel-setup/constants';
 import type { ChannelSetupConfig, ChannelSetupRecord } from '../../../../core/channel-setup/types';
-import type { ChannelSetupSessionGateway } from '../../../../core/channel-setup/ChannelSetupSessionGateway';
+import type { ChannelSetupWorkflowPort } from '../../../../core/channel-setup/ChannelSetupWorkflowPort';
 import type { PlexLibrary as PlexLibraryModel } from '../../../plex/library/types';
 import {
     ChannelSetupSessionController,
@@ -32,26 +32,24 @@ const createDeferred = <T>(): {
     return { promise, resolve, reject };
 };
 
-type OrchestratorOverrides = Partial<jest.Mocked<ChannelSetupSessionGateway>>;
+type WorkflowPortOverrides = Partial<jest.Mocked<ChannelSetupWorkflowPort>>;
 
-const createOrchestrator = (overrides: OrchestratorOverrides = {}): jest.Mocked<ChannelSetupSessionGateway> => {
-    const base: jest.Mocked<ChannelSetupSessionGateway> = {
-        getNavigation: jest.fn(() => null),
+const createWorkflowPort = (overrides: WorkflowPortOverrides = {}): jest.Mocked<ChannelSetupWorkflowPort> => {
+    const base: jest.Mocked<ChannelSetupWorkflowPort> = {
         getLibrariesForSetup: jest.fn().mockResolvedValue([]),
         getChannelSetupRecord: jest.fn((_serverId: string) => null),
         getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
-        getSelectedServerStorageKey: jest.fn(() => 'selected-server-key'),
-        getServerHealthStorageKey: jest.fn(() => 'server-health-key'),
-        getSelectedServerId: jest.fn(() => null),
-        openServerSelect: jest.fn(),
-        switchToChannelByNumber: jest.fn((_number: number) => Promise.resolve()),
-        openEPG: jest.fn(),
-        requestChannelSetupRerun: jest.fn(),
         invalidateFacetSnapshot: jest.fn(),
         createChannelsFromSetup: jest.fn((_config, _options) => Promise.resolve(DEFAULT_BUILD_RESULT)),
         markSetupComplete: jest.fn((_serverId: string, _setupConfig) => {}),
         getSetupPreview: jest.fn().mockResolvedValue(DEFAULT_PREVIEW),
         getSetupReview: jest.fn().mockResolvedValue(DEFAULT_REVIEW),
+        getSetupPlanDiagnostics: jest.fn().mockResolvedValue({
+            status: 'ready',
+            diagnostics: null,
+            warnings: [],
+            reachedMaxChannels: false,
+        }),
     };
 
     return { ...base, ...overrides };
@@ -69,13 +67,12 @@ describe('ChannelSetupSessionController', () => {
 
     it('beginSession() resets to Step 1 defaults', async (): Promise<void> => {
         const libraries: PlexLibraryModel[] = [makeLibrary({ id: 'movies' }), makeLibrary({ id: 'shows' })];
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             getLibrariesForSetup: jest.fn().mockResolvedValue(libraries),
-            getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -102,13 +99,12 @@ describe('ChannelSetupSessionController', () => {
 
     it('buildConfig() serializes strategy, expansion, ordering, and min/max settings', async (): Promise<void> => {
         const libraries: PlexLibraryModel[] = [makeLibrary({ id: 'movies' }), makeLibrary({ id: 'shows' })];
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             getLibrariesForSetup: jest.fn().mockResolvedValue(libraries),
-            getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -151,9 +147,9 @@ describe('ChannelSetupSessionController', () => {
     });
 
     it('defaults strategy config to enabled per-library with higher-volume min/max defaults', (): void => {
-        const orchestrator = createOrchestrator();
+        const workflowPort = createWorkflowPort();
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -168,11 +164,11 @@ describe('ChannelSetupSessionController', () => {
 
     it('buildPreviewKey() changes when preview-relevant config changes', async (): Promise<void> => {
         const libraries: PlexLibraryModel[] = [makeLibrary({ id: 'movies' })];
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             getLibrariesForSetup: jest.fn().mockResolvedValue(libraries),
         });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -192,9 +188,9 @@ describe('ChannelSetupSessionController', () => {
     });
 
     it('updateStrategyState() clones nested state before mutation', (): void => {
-        const orchestrator = createOrchestrator();
+        const workflowPort = createWorkflowPort();
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -250,13 +246,13 @@ describe('ChannelSetupSessionController', () => {
             },
         };
 
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             getLibrariesForSetup: jest.fn().mockResolvedValue(libraries),
             getChannelSetupRecord: jest.fn((_serverId: string) => record),
         });
 
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -305,13 +301,13 @@ describe('ChannelSetupSessionController', () => {
             },
         } as unknown as ChannelSetupRecord;
 
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             getLibrariesForSetup: jest.fn().mockResolvedValue(libraries),
             getChannelSetupRecord: jest.fn((_serverId: string) => unsafeRecord),
         });
 
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -326,11 +322,11 @@ describe('ChannelSetupSessionController', () => {
     });
 
     it('loadLibraries() handles failure by clearing loading state and exposing load error', async (): Promise<void> => {
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             getLibrariesForSetup: jest.fn().mockRejectedValue(new Error('library load failed')),
         });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -346,7 +342,7 @@ describe('ChannelSetupSessionController', () => {
 
     it('loadLibraries() ignores stale success results after a new session begins', async (): Promise<void> => {
         let resolveLibraries: ((value: PlexLibraryModel[]) => void) | undefined;
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             getLibrariesForSetup: jest.fn().mockImplementation(
                 () => new Promise<PlexLibraryModel[]>((resolve) => {
                     resolveLibraries = resolve;
@@ -354,7 +350,7 @@ describe('ChannelSetupSessionController', () => {
             ),
         });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -377,7 +373,7 @@ describe('ChannelSetupSessionController', () => {
 
     it('loadLibraries() passes an abort signal and ends loading quietly when the session ends', async (): Promise<void> => {
         let capturedSignal: AbortSignal | null | undefined;
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             getLibrariesForSetup: jest.fn().mockImplementation((signal?: AbortSignal | null) => {
                 capturedSignal = signal;
                 if (!signal) {
@@ -392,7 +388,7 @@ describe('ChannelSetupSessionController', () => {
             }),
         });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -410,11 +406,11 @@ describe('ChannelSetupSessionController', () => {
     });
 
     it('getSnapshot() returns detached mutable state copies', async (): Promise<void> => {
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -443,14 +439,14 @@ describe('ChannelSetupSessionController', () => {
 
     it('syncSetupContext() preserves first-time/existing/unknown and falls back to unknown', (): void => {
         const getSetupContextForSelectedServer = jest
-            .fn<ReturnType<ChannelSetupSessionGateway['getSetupContextForSelectedServer']>, []>()
+            .fn<ReturnType<ChannelSetupWorkflowPort['getSetupContextForSelectedServer']>, []>()
             .mockReturnValueOnce('first-time')
             .mockReturnValueOnce('existing')
             .mockReturnValueOnce('unknown')
             .mockReturnValueOnce('invalid' as never);
-        const orchestrator = createOrchestrator({ getSetupContextForSelectedServer });
+        const workflowPort = createWorkflowPort({ getSetupContextForSelectedServer });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -467,12 +463,12 @@ describe('ChannelSetupSessionController', () => {
 
     it('schedulePreview() debounces calls and suppresses duplicate keys', async (): Promise<void> => {
         const getSetupPreview = jest.fn().mockResolvedValue(DEFAULT_PREVIEW);
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             getSetupPreview,
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -504,12 +500,12 @@ describe('ChannelSetupSessionController', () => {
                 resolvePreview = resolve;
             })
         );
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             getSetupPreview,
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -543,12 +539,12 @@ describe('ChannelSetupSessionController', () => {
             .mockResolvedValueOnce(previews[0])
             .mockResolvedValueOnce(previews[1]);
 
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             getSetupPreview,
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -581,12 +577,12 @@ describe('ChannelSetupSessionController', () => {
             .mockImplementationOnce(() => first.promise)
             .mockImplementationOnce(() => second.promise);
 
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             getSetupPreview,
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -628,12 +624,12 @@ describe('ChannelSetupSessionController', () => {
                 return slowPreview.promise;
             }
         );
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             getSetupPreview,
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -668,12 +664,12 @@ describe('ChannelSetupSessionController', () => {
             message: 'Unsupported facet',
         };
         const getSetupPreview = jest.fn().mockResolvedValue(blockedPreview);
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             getSetupPreview,
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -696,12 +692,12 @@ describe('ChannelSetupSessionController', () => {
     it('does not re-fetch preview for unchanged slow key after timeout', async (): Promise<void> => {
         const slowPreview = createDeferred<typeof DEFAULT_PREVIEW>();
         const getSetupPreview = jest.fn().mockImplementation(() => slowPreview.promise);
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             getSetupPreview,
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -732,9 +728,9 @@ describe('ChannelSetupSessionController', () => {
             .mockResolvedValueOnce(DEFAULT_REVIEW)
             .mockRejectedValueOnce(new Error('review failed'))
             .mockRejectedValueOnce(new DOMException('Aborted', 'AbortError'));
-        const orchestrator = createOrchestrator({ getSetupReview });
+        const workflowPort = createWorkflowPort({ getSetupReview });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -762,9 +758,9 @@ describe('ChannelSetupSessionController', () => {
             .fn()
             .mockImplementationOnce(() => first.promise)
             .mockImplementationOnce(() => second.promise);
-        const orchestrator = createOrchestrator({ getSetupReview });
+        const workflowPort = createWorkflowPort({ getSetupReview });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -790,9 +786,9 @@ describe('ChannelSetupSessionController', () => {
 
     it('ensureReviewLoaded() propagates onStateChange errors after cleanup without leaking loading state', async (): Promise<void> => {
         const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
-        const orchestrator = createOrchestrator({ getSetupReview });
+        const workflowPort = createWorkflowPort({ getSetupReview });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
         const stateError = new Error('render failed');
@@ -812,9 +808,9 @@ describe('ChannelSetupSessionController', () => {
     });
 
     it('beginBuild() returns missing-server when no server is selected', async (): Promise<void> => {
-        const orchestrator = createOrchestrator();
+        const workflowPort = createWorkflowPort();
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => null,
         });
 
@@ -828,9 +824,9 @@ describe('ChannelSetupSessionController', () => {
     });
 
     it('beginConfirmedBuild() switches Step 3 into active build mode for review-confirm flow', (): void => {
-        const orchestrator = createOrchestrator();
+        const workflowPort = createWorkflowPort();
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -859,9 +855,9 @@ describe('ChannelSetupSessionController', () => {
                 });
             }
         );
-        const orchestrator = createOrchestrator({ createChannelsFromSetup });
+        const workflowPort = createWorkflowPort({ createChannelsFromSetup });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -878,7 +874,7 @@ describe('ChannelSetupSessionController', () => {
     });
 
     it('beginBuild() returns blocked outcome for required tag-directory failures', async (): Promise<void> => {
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             createChannelsFromSetup: jest.fn().mockResolvedValue({
                 ...DEFAULT_BUILD_RESULT,
                 canceled: false,
@@ -888,7 +884,7 @@ describe('ChannelSetupSessionController', () => {
         });
 
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -905,7 +901,7 @@ describe('ChannelSetupSessionController', () => {
     });
 
     it('beginBuild() returns blocked outcome when blockedMessage is an empty string', async (): Promise<void> => {
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             createChannelsFromSetup: jest.fn().mockResolvedValue({
                 ...DEFAULT_BUILD_RESULT,
                 canceled: false,
@@ -915,7 +911,7 @@ describe('ChannelSetupSessionController', () => {
         });
 
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -932,11 +928,11 @@ describe('ChannelSetupSessionController', () => {
     });
 
     it('beginBuild() returns error outcome for non-abort failures', async (): Promise<void> => {
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             createChannelsFromSetup: jest.fn().mockRejectedValue(new Error('boom')),
         });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -952,12 +948,12 @@ describe('ChannelSetupSessionController', () => {
     it('beginBuild() returns success and marks setup complete only on success', async (): Promise<void> => {
         const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
         const markSetupComplete = jest.fn((_serverId: string, _setupConfig: ChannelSetupConfig) => {});
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             createChannelsFromSetup,
             markSetupComplete,
         });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -976,12 +972,12 @@ describe('ChannelSetupSessionController', () => {
         const markSetupComplete = jest.fn((_serverId: string, _setupConfig: ChannelSetupConfig) => {
             throw new Error('persist failed');
         });
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             createChannelsFromSetup,
             markSetupComplete,
         });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -1005,9 +1001,9 @@ describe('ChannelSetupSessionController', () => {
             .fn()
             .mockImplementationOnce(() => first.promise)
             .mockImplementationOnce(() => second.promise);
-        const orchestrator = createOrchestrator({ createChannelsFromSetup });
+        const workflowPort = createWorkflowPort({ createChannelsFromSetup });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 
@@ -1038,12 +1034,12 @@ describe('ChannelSetupSessionController', () => {
     it('expand-lineup style state updates are preserved in build config and setup completion', async (): Promise<void> => {
         const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
         const markSetupComplete = jest.fn((_serverId: string, _setupConfig: ChannelSetupConfig) => {});
-        const orchestrator = createOrchestrator({
+        const workflowPort = createWorkflowPort({
             createChannelsFromSetup,
             markSetupComplete,
         });
         const controller = new ChannelSetupSessionController({
-            orchestrator,
+            workflowPort,
             getSelectedServerId: (): string | null => 'server-1',
         });
 

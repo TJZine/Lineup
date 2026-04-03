@@ -57,6 +57,8 @@ import {
 } from './modules/player';
 import { PlaybackRecoveryManager } from './modules/player/PlaybackRecoveryManager';
 import {
+    EPGDebugRuntime,
+    type IEpgDebugRuntime,
     type IEPGComponent,
 } from './modules/ui/epg';
 import { EPGCoordinator } from './modules/ui/epg/EPGCoordinator';
@@ -108,8 +110,8 @@ import type {
 import type { OrchestratorPlaybackStateAccessors } from './core/orchestrator/OrchestratorPlaybackStateAccessors';
 import {
     ChannelSetupCoordinator,
-    createChannelSetupSessionGateway,
-    type ChannelSetupSessionGateway,
+    createChannelSetupWorkflowPort,
+    type ChannelSetupWorkflowPort,
 } from './core/channel-setup';
 import { NowPlayingDebugManager } from './modules/debug/NowPlayingDebugManager';
 import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
@@ -294,8 +296,9 @@ export class AppOrchestrator {
     private readonly _platformServices: PlatformServices;
     private readonly _storageContext: OrchestratorStorageContext;
     private readonly _debugOverridesStore = new DebugOverridesStore();
+    private _epgDebugRuntime: IEpgDebugRuntime | null = null;
     private readonly _playbackStateAccessors: OrchestratorPlaybackStateAccessors;
-    private readonly _channelSetupSessionGateway: ChannelSetupSessionGateway;
+    private readonly _channelSetupWorkflowPort: ChannelSetupWorkflowPort;
 
     private _throwModuleInitPreconditionError(
         message: string,
@@ -343,18 +346,7 @@ export class AppOrchestrator {
                 this._shouldAutoShowInfoBannerOnNextPlay = value;
             },
         };
-        this._channelSetupSessionGateway = createChannelSetupSessionGateway({
-            getNavigation: (): INavigationManager | null => this._navigation,
-            getSelectedServerStorageKey: (): string => this._storageContext.getSelectedServerStorageKey(),
-            getServerHealthStorageKey: (): string => this._storageContext.getServerHealthStorageKey(),
-            getSelectedServerId: (): string | null => this._getSelectedServerId(),
-            openServerSelect: (): void => {
-                this._navigation?.goTo('server-select', { allowAutoConnect: false });
-            },
-            switchToChannelByNumber: (number: number, options?: { signal?: AbortSignal }): Promise<void> =>
-                this._channelTuning?.switchToChannelByNumber(number, options).then((): void => undefined)
-                ?? Promise.resolve(),
-            openEPG: (): void => this._epgCoordinator?.openEPG(),
+        this._channelSetupWorkflowPort = createChannelSetupWorkflowPort({
             getChannelSetupCoordinator: (): ChannelSetupCoordinator | null => this._channelSetup,
         });
         this._initializeModuleStatus();
@@ -407,6 +399,8 @@ export class AppOrchestrator {
         this._playbackOptionsModal = modules.playbackOptionsModal;
         this._exitConfirmModal = modules.exitConfirmModal;
         this._sleepTimer = modules.sleepTimer;
+        this._epgDebugRuntime?.destroy();
+        this._epgDebugRuntime = new EPGDebugRuntime();
 
         this._configureDiscoveryStorageKeysForActiveUser();
 
@@ -444,6 +438,9 @@ export class AppOrchestrator {
                     videoPlayer: this._videoPlayer,
                     epg: this._epg,
                 },
+                readiness: {
+                    epg: modules.epgReadinessPort,
+                },
                 overlays: {
                     playerOsd: this._playerOsd,
                     channelNumberOverlay: this._channelNumberOverlay,
@@ -452,6 +449,7 @@ export class AppOrchestrator {
                     channelTransition: this._channelTransitionOverlay,
                 },
                 uiInitializer: initializationUiInitializer,
+                epgDebugRuntime: this._epgDebugRuntime,
                 stores: {
                     epgPreferencesStore: this._epgPreferencesStore,
                     profileSessionStore: this._profileSessionStore,
@@ -542,6 +540,7 @@ export class AppOrchestrator {
         }
 
         const coordinators = createOrchestratorCoordinators({
+            epgDebugRuntime: this._epgDebugRuntime,
             config: this._config,
             moduleStatus: this._moduleStatus,
             init: {
@@ -781,6 +780,14 @@ export class AppOrchestrator {
             } catch (error) {
                 recordTeardownFailure('epg.destroy', error);
             }
+        }
+        if (this._epgDebugRuntime) {
+            try {
+                this._epgDebugRuntime.destroy();
+            } catch (error) {
+                recordTeardownFailure('epgDebugRuntime.destroy', error);
+            }
+            this._epgDebugRuntime = null;
         }
         try {
             this._nowPlayingInfoCoordinator?.dispose();
@@ -1275,8 +1282,12 @@ export class AppOrchestrator {
         await this._plexDiscovery.initialize();
     }
 
-    getChannelSetupSessionGateway(): ChannelSetupSessionGateway {
-        return this._channelSetupSessionGateway;
+    getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort {
+        return this._channelSetupWorkflowPort;
+    }
+
+    requestChannelSetupRerun(): void {
+        this._requireChannelSetupCoordinator().requestChannelSetupRerun();
     }
 
     /**
@@ -1892,6 +1903,13 @@ export class AppOrchestrator {
             throw new Error('PlaybackRuntimeController not initialized');
         }
         return this._playbackRuntimeController;
+    }
+
+    private _requireChannelSetupCoordinator(): ChannelSetupCoordinator {
+        if (!this._channelSetup) {
+            throw new Error('Channel setup not initialized');
+        }
+        return this._channelSetup;
     }
 
     private _stopPlayback(): void {

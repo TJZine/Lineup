@@ -1,4 +1,4 @@
-import type { ScheduleWindow } from '../../scheduler/scheduler';
+import type { ScheduleWindow } from '../../../scheduler/scheduler';
 
 export const EPG_SCHEDULE_CACHE_TTL_MS = 2 * 60_000;
 export const EPG_SCHEDULE_CACHE_STALE_TTL_MS = 10 * 60_000;

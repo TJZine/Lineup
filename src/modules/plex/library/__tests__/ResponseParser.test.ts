@@ -402,10 +402,24 @@ describe('ResponseParser', () => {
             expect(result[1]).toEqual({
                 key: 'k2',
                 title: 'Actor B',
-                count: 0,
+                count: null,
             });
             expect(result[1]).not.toHaveProperty('fastKey');
             expect(result[1]).not.toHaveProperty('thumb');
+        });
+
+        it('preserves unknown tag counts instead of coercing them to zero', () => {
+            const raw: RawDirectoryTag[] = [
+                { key: 'k1', title: 'Studio A' },
+                { key: 'k2', title: 'Actor B', count: '12' as unknown as number },
+            ];
+
+            const result = parseDirectoryTags(raw);
+
+            expect(result).toEqual([
+                { key: 'k1', title: 'Studio A', count: null },
+                { key: 'k2', title: 'Actor B', count: 12 },
+            ]);
         });
     });
 

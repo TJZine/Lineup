@@ -7,8 +7,9 @@
  * regardless of channel/program count. See ADR-003 for rationale.
  */
 
-import { EPG_CONSTANTS, EPG_CLASSES } from './constants';
-import { formatCellTimeLabel, appendEpgDebugLog, isEpgDebugLoggingEnabled } from './utils';
+import { EPG_CONSTANTS, EPG_CLASSES } from '../constants';
+import { formatCellTimeLabel } from '../utils';
+import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debugRuntimeGuards';
 import type {
     ScheduledProgram,
     ScheduleWindow,
@@ -16,7 +17,7 @@ import type {
     EPGProgramCell,
     VirtualizedGridState,
     CellRenderData,
-} from './types';
+} from '../types';
 
 /**
  * Calculates cell position from program timing.
@@ -102,6 +103,21 @@ type FocusedCellOptions = {
     syncTicker?: boolean;
 };
 
+type RenderPassContext = {
+    newVisibleCells: Map<string, CellRenderData>;
+    channelOffsetChanged: boolean;
+    maxDomElements: number;
+    visibleWindowStartMinutes: number;
+    visibleWindowEndMinutes: number;
+    stageCell: (
+        cellData: CellRenderData,
+        isFocusedCell: boolean,
+        overlapsVisibleWindow: boolean
+    ) => void;
+    finalizeRow: (rowIndex: number) => void;
+    finalizeAllRows: () => void;
+};
+
 /**
  * EPG Virtualizer class.
  * Manages DOM element pooling and efficient grid rendering.
@@ -128,7 +144,7 @@ export class EPGVirtualizer {
     private _focusedTickerTimer: ReturnType<typeof setTimeout> | null = null;
     private _focusedTickerTargets: TickerTarget[] = [];
     private isDebugEnabled(): boolean {
-        return isEpgDebugLoggingEnabled();
+        return isDebugRuntimeEnabled(this.config?.debugRuntime);
     }
 
     /**
@@ -272,7 +288,12 @@ export class EPGVirtualizer {
         startMinutes: number,
         endMinutes: number,
         label: string,
-        addCell: (cellData: CellRenderData, isFocusedCell: boolean) => void
+        focusedCellKey: string | undefined,
+        stageCell: (
+            cellData: CellRenderData,
+            isFocusedCell: boolean,
+            overlapsVisibleWindow: boolean
+        ) => void
     ): void {
         if (!this.config) return;
 
@@ -285,7 +306,8 @@ export class EPGVirtualizer {
         const cellKey = `${channelId}-placeholder-${scheduledStartTime}`;
         const left = normalizedStart * this.config.pixelsPerMinute;
         const width = Math.max((normalizedEnd - normalizedStart) * this.config.pixelsPerMinute, 20);
-        addCell({
+        const isFocusedCell = cellKey === focusedCellKey;
+        stageCell({
             kind: 'placeholder',
             key: cellKey,
             channelId,
@@ -300,10 +322,11 @@ export class EPGVirtualizer {
             isPartial: false,
             isCurrent: false,
             isPast: false,
-            isFocused: false,
+            isFocused: isFocusedCell,
+            isBufferOnly: false,
             textShiftPx: 0,
             cellElement: null,
-        }, false);
+        }, isFocusedCell, true);
     }
 
     /**
@@ -325,10 +348,18 @@ export class EPGVirtualizer {
     ): void {
         if (!this.contentElement || !this.config) return;
 
+        const context = this.createRenderPassContext(range);
+        this.collectVisibleCells(channelIds, schedules, range, context, focusedCellKey, nowMs);
+        context.finalizeAllRows();
+        this.pruneToDomBudget(context.newVisibleCells, context.maxDomElements, focusedCellKey);
+        this.reconcileVisibleCells(context.newVisibleCells, context.channelOffsetChanged, nowMs);
+        this.finishRenderPass(context.newVisibleCells, focusedCellKey, range);
+    }
+
+    private createRenderPassContext(range: VirtualizedGridState): RenderPassContext {
         const previousChannelOffset = this.channelOffset;
         this.channelOffset = range.channelOffset;
         const channelOffsetChanged = previousChannelOffset !== this.channelOffset;
-
         const newVisibleCells = new Map<string, CellRenderData>();
         const maxDomElements = EPG_CONSTANTS.MAX_DOM_ELEMENTS;
         const visibleRowCount = Math.max(1, range.visibleRows.length);
@@ -337,10 +368,11 @@ export class EPGVirtualizer {
         const timeBuffer = EPG_CONSTANTS.TIME_BUFFER_MINUTES;
         const visibleWindowStartMinutes = range.visibleTimeRange.start + timeBuffer;
         const visibleWindowEndMinutes = range.visibleTimeRange.end - timeBuffer;
+        const queuedVisibleByRow = new Map<number, CellRenderData[]>();
+        const queuedBufferByRow = new Map<number, CellRenderData[]>();
 
-        const addCell = (cellData: CellRenderData, isFocusedCell: boolean): void => {
+        const tryAddCommittedCell = (cellData: CellRenderData, isFocusedCell: boolean): void => {
             const currentRowCount = perRowCounts.get(cellData.rowIndex) ?? 0;
-
             if (!isFocusedCell) {
                 if (newVisibleCells.size >= maxDomElements) {
                     return;
@@ -349,17 +381,120 @@ export class EPGVirtualizer {
                     return;
                 }
             }
-
             newVisibleCells.set(cellData.key, cellData);
             if (!isFocusedCell) {
                 perRowCounts.set(cellData.rowIndex, currentRowCount + 1);
             }
         };
 
-        // Determine needed cells
+        const stageCell = (
+            cellData: CellRenderData,
+            isFocusedCell: boolean,
+            overlapsVisibleWindow: boolean
+        ): void => {
+            if (isFocusedCell) {
+                tryAddCommittedCell(cellData, true);
+                return;
+            }
+
+            const target = overlapsVisibleWindow ? queuedVisibleByRow : queuedBufferByRow;
+            const queue = target.get(cellData.rowIndex) ?? [];
+            queue.push(cellData);
+            target.set(cellData.rowIndex, queue);
+        };
+
+        const selectVisibleQueueCells = (queue: CellRenderData[]): CellRenderData[] => {
+            if (queue.length <= perRowLimit) {
+                return queue;
+            }
+
+            const selected = new Map<number, CellRenderData>();
+            const maxIndex = queue.length - 1;
+            const sampleCount = Math.min(perRowLimit, queue.length);
+            const seedIndices = [
+                0,
+                Math.round(maxIndex / 3),
+                Math.round((maxIndex * 2) / 3),
+                maxIndex,
+            ];
+
+            for (const index of seedIndices) {
+                if (index >= 0 && index <= maxIndex) {
+                    selected.set(index, queue[index]!);
+                }
+            }
+
+            for (let i = 0; i < sampleCount; i += 1) {
+                const index = Math.round((i * maxIndex) / Math.max(1, sampleCount - 1));
+                selected.set(index, queue[index]!);
+            }
+
+            if (selected.size < sampleCount) {
+                for (let index = 0; index < queue.length && selected.size < sampleCount; index += 1) {
+                    if (!selected.has(index)) {
+                        selected.set(index, queue[index]!);
+                    }
+                }
+            }
+
+            return Array.from(selected.entries())
+                .sort(([a], [b]) => a - b)
+                .slice(0, sampleCount)
+                .map(([, cell]) => cell);
+        };
+
+        const flushQueue = (
+            rowIndex: number,
+            queued: Map<number, CellRenderData[]>,
+            isVisibleQueue: boolean
+        ): void => {
+            const queue = queued.get(rowIndex);
+            if (!queue || queue.length === 0) {
+                return;
+            }
+
+            const cellsToCommit = isVisibleQueue ? selectVisibleQueueCells(queue) : queue;
+
+            for (const cellData of cellsToCommit) {
+                tryAddCommittedCell(cellData, false);
+            }
+
+            queued.delete(rowIndex);
+        };
+
+        const finalizeRow = (rowIndex: number): void => {
+            flushQueue(rowIndex, queuedVisibleByRow, true);
+            flushQueue(rowIndex, queuedBufferByRow, false);
+        };
+
+        const finalizeAllRows = (): void => {
+            for (const rowIndex of range.visibleRows) {
+                finalizeRow(rowIndex);
+            }
+        };
+
+        return {
+            newVisibleCells,
+            channelOffsetChanged,
+            maxDomElements,
+            visibleWindowStartMinutes,
+            visibleWindowEndMinutes,
+            stageCell,
+            finalizeRow,
+            finalizeAllRows,
+        };
+    }
+
+    private collectVisibleCells(
+        channelIds: string[],
+        schedules: Map<string, ScheduleWindow>,
+        range: VirtualizedGridState,
+        context: RenderPassContext,
+        focusedCellKey: string | undefined,
+        nowMs: number
+    ): void {
         for (const rowIndex of range.visibleRows) {
             if (rowIndex >= channelIds.length) continue;
-
             const channelId = channelIds[rowIndex];
             if (channelId === undefined) continue;
             const schedule = schedules.get(channelId);
@@ -367,141 +502,174 @@ export class EPGVirtualizer {
                 this.addPlaceholderCell(
                     channelId,
                     rowIndex,
-                    Math.max(0, visibleWindowStartMinutes),
-                    Math.max(0, visibleWindowEndMinutes),
+                    Math.max(0, context.visibleWindowStartMinutes),
+                    Math.max(0, context.visibleWindowEndMinutes),
                     'Loading...',
-                    addCell
+                    focusedCellKey,
+                    context.stageCell
                 );
+                context.finalizeRow(rowIndex);
+                continue;
+            }
+            this.collectCellsForScheduledRow(channelId, rowIndex, schedule, range, context, focusedCellKey, nowMs);
+            context.finalizeRow(rowIndex);
+        }
+    }
+
+    private collectCellsForScheduledRow(
+        channelId: string,
+        rowIndex: number,
+        schedule: ScheduleWindow,
+        range: VirtualizedGridState,
+        context: RenderPassContext,
+        focusedCellKey: string | undefined,
+        nowMs: number
+    ): void {
+        const config = this.config;
+        if (!config) return;
+
+        let hadVisibleOverlap = false;
+        const visibleWindowStartMs = this.gridAnchorTime + (Math.max(0, context.visibleWindowStartMinutes) * 60000);
+        const visibleWindowEndMs = this.gridAnchorTime + (Math.max(0, context.visibleWindowEndMinutes) * 60000);
+        let lastCoveredTimeMs = visibleWindowStartMs;
+
+        for (const program of schedule.programs) {
+            if (!this.overlapsTimeRange(program, range.visibleTimeRange)) {
                 continue;
             }
 
-            let hadVisibleOverlap = false;
-            const visibleWindowStartMs = this.gridAnchorTime + (Math.max(0, visibleWindowStartMinutes) * 60000);
-            const visibleWindowEndMs = this.gridAnchorTime + (Math.max(0, visibleWindowEndMinutes) * 60000);
-            let lastCoveredTimeMs = visibleWindowStartMs;
+            const cellKey = `${channelId}-${program.scheduledStartTime}`;
+            const isFocusedCell = focusedCellKey === cellKey;
+            const overlapsVisibleWindow = program.scheduledEndTime > visibleWindowStartMs &&
+                program.scheduledStartTime < visibleWindowEndMs;
+            if (overlapsVisibleWindow) {
+                hadVisibleOverlap = true;
+            }
 
-            for (const program of schedule.programs) {
-                if (this.overlapsTimeRange(program, range.visibleTimeRange)) {
-                    const cellKey = `${channelId}-${program.scheduledStartTime}`;
-                    const isFocusedCell = focusedCellKey === cellKey;
-                    const overlapsVisibleWindow = program.scheduledEndTime > visibleWindowStartMs &&
-                        program.scheduledStartTime < visibleWindowEndMs;
-                    if (overlapsVisibleWindow) {
-                        hadVisibleOverlap = true;
-                    }
+            const cell = positionCell(program, this.gridAnchorTime, config.pixelsPerMinute, nowMs);
+            const isCurrent = cell.isCurrent;
+            const isPast = nowMs >= program.scheduledEndTime;
+            const rawLeft = cell.left;
+            let left = rawLeft;
+            let width = cell.width;
+            if (rawLeft < 0) {
+                width = Math.max(20, width + left);
+                left = 0;
+            }
 
-                    const cell = positionCell(program, this.gridAnchorTime, this.config.pixelsPerMinute, nowMs);
-                    const isCurrent = cell.isCurrent;
-                    const isPast = nowMs >= program.scheduledEndTime;
-                    const rawLeft = cell.left;
-                    // If the program started before the visible guide window, clip to the left edge (no past).
-                    let left = rawLeft;
-                    let width = cell.width;
-                    const wasLeftClipped = rawLeft < 0;
-                    if (wasLeftClipped) {
-                        width = Math.max(20, width + left);
-                        left = 0;
-                    }
+            const programStartMinutes = (program.scheduledStartTime - this.gridAnchorTime) / 60000;
+            const programEndMinutes = (program.scheduledEndTime - this.gridAnchorTime) / 60000;
+            const isPartial =
+                programStartMinutes < context.visibleWindowStartMinutes ||
+                programEndMinutes > context.visibleWindowEndMinutes;
+            const textMetrics = this.computeVisibleTextMetrics({
+                rawLeftPx: rawLeft,
+                clippedLeftPx: left,
+                clippedWidthPx: width,
+                visibleWindowStartMinutes: context.visibleWindowStartMinutes,
+                visibleWindowEndMinutes: context.visibleWindowEndMinutes,
+            });
+            const textShiftPx = textMetrics.safeTextShiftPx;
 
-                    // Compute isPartial: true if program is clipped by visible window
-                    const programStartMinutes = (program.scheduledStartTime - this.gridAnchorTime) / 60000;
-                    const programEndMinutes = (program.scheduledEndTime - this.gridAnchorTime) / 60000;
-                    const isPartial =
-                        programStartMinutes < visibleWindowStartMinutes ||
-                        programEndMinutes > visibleWindowEndMinutes;
-                    const textMetrics = this.computeVisibleTextMetrics({
-                        rawLeftPx: rawLeft,
-                        clippedLeftPx: left,
-                        clippedWidthPx: width,
-                        visibleWindowStartMinutes,
-                        visibleWindowEndMinutes,
-                    });
-                    const textShiftPx = textMetrics.safeTextShiftPx;
+            context.stageCell({
+                kind: 'program',
+                key: cellKey,
+                channelId,
+                rowIndex,
+                program,
+                left,
+                width,
+                isPartial,
+                isCurrent,
+                isPast,
+                isFocused: isFocusedCell,
+                isBufferOnly: !overlapsVisibleWindow,
+                textShiftPx,
+                cellElement: null,
+            }, isFocusedCell, overlapsVisibleWindow);
 
-                    addCell({
-                        kind: 'program',
-                        key: cellKey,
+            if (overlapsVisibleWindow && program.scheduledStartTime > lastCoveredTimeMs) {
+                const gapEndMs = Math.min(program.scheduledStartTime, visibleWindowEndMs);
+                if (gapEndMs > lastCoveredTimeMs) {
+                    this.addPlaceholderCell(
                         channelId,
                         rowIndex,
-                        program,
-                        left,
-                        width,
-                        isPartial,
-                        isCurrent,
-                        isPast,
-                        isFocused: isFocusedCell,
-                        textShiftPx,
-                        cellElement: null,
-                    }, isFocusedCell);
-
-                    if (overlapsVisibleWindow && program.scheduledStartTime > lastCoveredTimeMs) {
-                        const gapEndMs = Math.min(program.scheduledStartTime, visibleWindowEndMs);
-                        if (gapEndMs > lastCoveredTimeMs) {
-                            this.addPlaceholderCell(
-                                channelId,
-                                rowIndex,
-                                (lastCoveredTimeMs - this.gridAnchorTime) / 60000,
-                                (gapEndMs - this.gridAnchorTime) / 60000,
-                                'No Program',
-                                addCell
-                            );
-                        }
-                    }
-
-                    if (overlapsVisibleWindow) {
-                        lastCoveredTimeMs = Math.max(lastCoveredTimeMs, program.scheduledEndTime);
-                    }
+                        (lastCoveredTimeMs - this.gridAnchorTime) / 60000,
+                        (gapEndMs - this.gridAnchorTime) / 60000,
+                        'No Program',
+                        focusedCellKey,
+                        context.stageCell
+                    );
                 }
             }
 
-            if (!hadVisibleOverlap) {
-                this.addPlaceholderCell(
-                    channelId,
-                    rowIndex,
-                    Math.max(0, visibleWindowStartMinutes),
-                    Math.max(0, visibleWindowEndMinutes),
-                    'No Program',
-                    addCell
-                );
-            } else if (lastCoveredTimeMs < visibleWindowEndMs) {
-                this.addPlaceholderCell(
-                    channelId,
-                    rowIndex,
-                    (lastCoveredTimeMs - this.gridAnchorTime) / 60000,
-                    Math.max(0, visibleWindowEndMinutes),
-                    'No Program',
-                    addCell
-                );
+            if (overlapsVisibleWindow) {
+                lastCoveredTimeMs = Math.max(lastCoveredTimeMs, program.scheduledEndTime);
             }
         }
 
-        // Ensure we never exceed the DOM cap; preferentially keep focused cell if present.
-        while (newVisibleCells.size > maxDomElements) {
-            let removed = false;
-            for (const key of newVisibleCells.keys()) {
-                if (key !== focusedCellKey) {
-                    newVisibleCells.delete(key);
-                    removed = true;
-                    break;
+        if (!hadVisibleOverlap) {
+            this.addPlaceholderCell(
+                channelId,
+                rowIndex,
+                Math.max(0, context.visibleWindowStartMinutes),
+                Math.max(0, context.visibleWindowEndMinutes),
+                'No Program',
+                focusedCellKey,
+                context.stageCell
+            );
+        } else if (lastCoveredTimeMs < visibleWindowEndMs) {
+            this.addPlaceholderCell(
+                channelId,
+                rowIndex,
+                (lastCoveredTimeMs - this.gridAnchorTime) / 60000,
+                Math.max(0, context.visibleWindowEndMinutes),
+                'No Program',
+                focusedCellKey,
+                context.stageCell
+            );
+        }
+    }
+
+    private pruneToDomBudget(
+        newVisibleCells: Map<string, CellRenderData>,
+        maxDomElements: number,
+        focusedCellKey?: string
+    ): void {
+        const removeUntilWithinBudget = (entries: Array<[string, CellRenderData]>): void => {
+            for (const [key] of entries) {
+                if (newVisibleCells.size <= maxDomElements) {
+                    return;
                 }
+                if (key === focusedCellKey) {
+                    continue;
+                }
+                newVisibleCells.delete(key);
             }
-            if (!removed) {
-                break;
-            }
-        }
+        };
 
-        // Recycle cells no longer visible
+        removeUntilWithinBudget(
+            Array.from(newVisibleCells.entries()).filter(([key, cell]) => key !== focusedCellKey && cell.isBufferOnly)
+        );
+        removeUntilWithinBudget(
+            Array.from(newVisibleCells.entries()).reverse().filter(([key]) => key !== focusedCellKey)
+        );
+    }
+
+    private reconcileVisibleCells(
+        newVisibleCells: Map<string, CellRenderData>,
+        channelOffsetChanged: boolean,
+        nowMs: number
+    ): void {
         for (const [key, cellData] of this.visibleCells) {
             if (!newVisibleCells.has(key)) {
                 this.recycleElement(key, cellData);
             }
         }
 
-        // Render new cells
         for (const [key, cellData] of newVisibleCells) {
             const existing = this.visibleCells.get(key);
             if (existing && existing.cellElement) {
-                // Reuse existing element, update position and content
                 cellData.cellElement = existing.cellElement;
                 if (channelOffsetChanged || this.hasCellPositionDelta(existing, cellData)) {
                     this.updateCellPosition(cellData);
@@ -510,11 +678,16 @@ export class EPGVirtualizer {
                     this.updateCellContent(cellData, nowMs);
                 }
             } else {
-                // Render new cell
                 this.renderCell(key, cellData, nowMs);
             }
         }
+    }
 
+    private finishRenderPass(
+        newVisibleCells: Map<string, CellRenderData>,
+        focusedCellKey: string | undefined,
+        range: VirtualizedGridState
+    ): void {
         this.visibleCells = newVisibleCells;
         this.focusedVisibleCellKey = this.resolveFocusedVisibleCellKey(newVisibleCells, focusedCellKey);
         this._syncFocusedTitleTickerForVisibleFocus();
@@ -532,7 +705,7 @@ export class EPGVirtualizer {
                 visibleRows: range.visibleRows.length,
                 timeOffset: range.visibleTimeRange.start + EPG_CONSTANTS.TIME_BUFFER_MINUTES,
             };
-            appendEpgDebugLog('EPGVirtualizer.render', payload);
+            appendDebugRuntimeLog(this.config?.debugRuntime, 'EPGVirtualizer.render', payload);
         }
     }
 

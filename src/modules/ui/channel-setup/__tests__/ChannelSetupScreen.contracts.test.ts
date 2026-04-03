@@ -16,7 +16,8 @@ import { SETUP_STRATEGY_KEYS } from '../../../../core/channel-setup/constants';
 import {
     clickButton,
     createNavigationMock,
-    createOrchestrator,
+    createSplitScreenPorts,
+    createScreenDeps,
     makeLibrary,
 } from './channel-setup-test-helpers';
 
@@ -39,13 +40,16 @@ describe('ChannelSetupScreen contracts', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'existing'),
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({
+            workflowPort,
+            screenPorts,
+        }));
         activeScreen = screen;
         screen.show();
         await flushPromises();
@@ -118,13 +122,13 @@ describe('ChannelSetupScreen contracts', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
             getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         activeScreen = screen;
         screen.show();
         await flushPromises();
@@ -142,12 +146,12 @@ describe('ChannelSetupScreen contracts', () => {
         document.body.appendChild(container);
 
         const nav = createNavigationMock();
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         activeScreen = screen;
         screen.show();
         await flushPromises();
@@ -161,12 +165,12 @@ describe('ChannelSetupScreen contracts', () => {
         document.body.appendChild(container);
 
         const nav = createNavigationMock();
-        const orchestrator = createOrchestrator({
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
         });
 
-        const screen = new ChannelSetupScreen(container, orchestrator);
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         activeScreen = screen;
         screen.show();
         await flushPromises();

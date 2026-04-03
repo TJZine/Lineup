@@ -9,7 +9,8 @@ import type { IChannelScheduler } from '../../modules/scheduler/scheduler';
 import type { IVideoPlayer } from '../../modules/player';
 import type { EpgLayoutMode } from '../../modules/settings/EpgPreferencesStore';
 import { formatTimeRange } from '../../modules/ui/epg';
-import { toEpgItemDetails } from '../../modules/ui/epg/adapters';
+import type { IEpgDebugRuntime } from '../../modules/ui/epg';
+import { toEpgItemDetails } from '../../modules/ui/epg/model/adapters';
 import type { OrchestratorConfig, ModuleStatus } from '../orchestrator/OrchestratorTypes';
 import { summarizeErrorForLog } from '../../utils/errors';
 
@@ -75,6 +76,7 @@ export interface EpgStartupConfigInputs {
     buildPlexResourceUrl: (pathOrUrl: string | null) => string | null;
     readEpgLayoutMode: () => EpgLayoutMode;
     readShowNowWatchingBanner: () => boolean;
+    debugRuntime: IEpgDebugRuntime | null;
 }
 
 export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs): Promise<void> {
@@ -279,6 +281,7 @@ export function buildEpgConfigWithStartupPolicy(
         ...inputs.epgConfig,
         layoutMode,
         showNowWatchingBanner,
+        debugRuntime: inputs.debugRuntime,
         fetchItemDetails: async (
             ratingKey: string,
             options?: { signal?: AbortSignal | null }

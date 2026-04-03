@@ -128,7 +128,7 @@ export interface PlexPlaylist {
 export interface PlexTagDirectoryItem {
     key: string;
     title: string;
-    count: number;
+    count: number | null;
     fastKey?: string;
     thumb?: string;
 }
@@ -463,7 +463,7 @@ export interface RawPlaylist {
 export interface RawDirectoryTag {
     key: string;
     title: string;
-    count?: number;
+    count?: number | string;
     fastKey?: string;
     thumb?: string;
 }

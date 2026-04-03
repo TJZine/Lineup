@@ -1,4 +1,9 @@
-import { buildChannelSetupPlan, createChannelIdentityKey, diffChannelPlans } from '../ChannelSetupPlanner';
+import {
+    buildChannelSetupPlan,
+    buildChannelSetupPlanDiagnostics,
+    createChannelIdentityKey,
+    diffChannelPlans,
+} from '../ChannelSetupPlanner';
 import type { ChannelSetupConfig, SetupStrategyConfig, SetupStrategyKey } from '../types';
 import type { PlexLibraryType, PlexPlaylist } from '../../../modules/plex/library';
 import type { ChannelConfig } from '../../../modules/scheduler/channel-manager';
@@ -195,6 +200,32 @@ describe('ChannelSetupPlanner', () => {
         expect(action?.contentFilters).toBeUndefined();
     });
 
+    it('does not drop native facet channels when Plex tag directories omit counts', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['s1'],
+                strategyConfig: createStrategyConfig({
+                    genres: { enabled: true },
+                    studios: { enabled: true },
+                }),
+                minItemsPerChannel: 5,
+            }),
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 25 }] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map([['s1', [{ key: 'action', title: 'Action', count: null }]]]),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map([['s1', [{ key: 'studio-a', title: 'Studio A', count: null }]]]),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(plan.pendingChannels.map((channel) => channel.name)).toContain('Shows - Action');
+        expect(plan.pendingChannels.map((channel) => channel.name)).toContain('Studio A - TV');
+    });
+
     it('marks a legacy per-library genre channel as replaced when libraryFilter becomes source-of-truth', () => {
         const plan = buildChannelSetupPlan({
             config: createConfig({
@@ -331,6 +362,84 @@ describe('ChannelSetupPlanner', () => {
         expect(sequentialVariant?.isSequentialVariant).toBe(true);
     });
 
+    it('preserves known cross-library subtotals for ordering when another source omits counts', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['s1', 's2'],
+                minItemsPerChannel: 5,
+                strategyConfig: createStrategyConfig({
+                    genres: { enabled: true, scope: 'cross-library' },
+                }),
+                channelExpansion: {
+                    addAlternateLineups: false,
+                    alternateLineupCopies: 1,
+                    variantType: 'none',
+                    variantBlockSize: 3,
+                },
+            }),
+            libraries: [
+                { id: 's1', title: 'Shows A', type: 'show', contentCount: 10 },
+                { id: 's2', title: 'Shows B', type: 'show', contentCount: 10 },
+            ] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map([
+                ['s1', [{ key: 'genre-action-a', title: 'Action', count: 9 }]],
+                ['s2', [
+                    { key: 'genre-action-b', title: 'Action', count: null },
+                    { key: 'genre-drama-b', title: 'Drama', count: 8 },
+                ]],
+            ]),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(plan.pendingChannels.map((channel) => channel.name)).toEqual(['Action', 'Drama']);
+    });
+
+    it('preserves known cross-library subtotals for actors when another source omits counts', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['s1', 's2'],
+                minItemsPerChannel: 5,
+                strategyConfig: createStrategyConfig({
+                    actors: { enabled: true, scope: 'cross-library' },
+                }),
+                channelExpansion: {
+                    addAlternateLineups: false,
+                    alternateLineupCopies: 1,
+                    variantType: 'none',
+                    variantBlockSize: 3,
+                },
+            }),
+            libraries: [
+                { id: 's1', title: 'Shows A', type: 'show', contentCount: 10 },
+                { id: 's2', title: 'Shows B', type: 'show', contentCount: 10 },
+            ] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map([
+                ['s1', [{ key: 'actor-alex-a', title: 'Alex Star', count: 9 }]],
+                ['s2', [
+                    { key: 'actor-alex-b', title: 'Alex Star', count: null },
+                    { key: 'actor-blake-b', title: 'Blake Star', count: 8 },
+                ]],
+            ]),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(plan.pendingChannels.map((channel) => channel.name)).toEqual(['Alex Star', 'Blake Star']);
+    });
+
     it('sanitizes non-finite/invalid baseBlockSize for base series ordering', () => {
         const plan = buildChannelSetupPlan({
             config: createConfig({
@@ -455,5 +564,287 @@ describe('ChannelSetupPlanner', () => {
 
         expect(plan.pendingChannels.map((channel) => channel.name)).toContain('Shows - 1980s');
         expect(plan.pendingChannels.map((channel) => channel.name)).not.toContain('Shows - 1990s');
+    });
+
+    it('does not drop decade channels when Plex year tags omit counts', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['s1'],
+                strategyConfig: createStrategyConfig({ decades: { enabled: true } }),
+                minItemsPerChannel: 5,
+            }),
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 1200 }] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map([
+                ['s1', [
+                    { key: '1981', title: '1981', count: null },
+                    { key: '1988', title: '1988', count: null },
+                ]],
+            ]),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(plan.pendingChannels.map((channel) => channel.name)).toContain('Shows - 1980s');
+    });
+
+    it('counts min-item-rejected native facet candidates in plan.skipped', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['m1'],
+                minItemsPerChannel: 5,
+                strategyConfig: createStrategyConfig({
+                    genres: { enabled: true },
+                    directors: { enabled: true },
+                    decades: { enabled: true },
+                    studios: { enabled: true },
+                    actors: { enabled: true },
+                }),
+                channelExpansion: {
+                    addAlternateLineups: false,
+                    alternateLineupCopies: 1,
+                    variantType: 'none',
+                    variantBlockSize: 3,
+                },
+            }),
+            libraries: [{ id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 }] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map([['m1', [
+                { key: 'genre-a', title: 'Action', count: 8 },
+                { key: 'genre-b', title: 'Drama', count: 2 },
+            ]]]),
+            directorsByLibraryId: new Map([['m1', [
+                { key: 'dir-a', title: 'Jane Doe', count: 6 },
+                { key: 'dir-b', title: 'John Roe', count: 4 },
+            ]]]),
+            yearsByLibraryId: new Map([['m1', [
+                { key: '1981', title: '1981', count: 2 },
+                { key: '1994', title: '1994', count: 8 },
+            ]]]),
+            actorsByLibraryId: new Map([['m1', [
+                { key: 'actor-a', title: 'Alex Star', count: 10 },
+                { key: 'actor-b', title: 'Blake Star', count: 1 },
+            ]]]),
+            studiosByLibraryId: new Map([['m1', [
+                { key: 'studio-a', title: 'Studio A', count: 7 },
+                { key: 'studio-b', title: 'Studio B', count: 3 },
+            ]]]),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(plan.skipped).toBe(5);
+        expect(plan.pendingChannels.map((channel) => channel.name)).toEqual(expect.arrayContaining([
+            'Movies - Action',
+            'Movies - Jane Doe',
+            'Movies - 1990s',
+            'Studio A - Movies',
+            'Alex Star - Movies',
+        ]));
+    });
+
+    it('counts rejected decade candidates once while preserving diagnostics totals', () => {
+        const diagnostics = buildChannelSetupPlanDiagnostics({
+            config: createConfig({
+                selectedLibraryIds: ['m1'],
+                minItemsPerChannel: 5,
+                strategyConfig: createStrategyConfig({
+                    decades: { enabled: true },
+                }),
+            }),
+            libraries: [{ id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 }] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map([['m1', [
+                { key: '1981', title: '1981', count: 2 },
+                { key: '1988', title: '1988', count: 1 },
+                { key: '1994', title: '1994', count: 8 },
+            ]]]),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(diagnostics.candidatesBeforeMinItems.decades).toBe(2);
+        expect(diagnostics.candidatesAfterMinItems.decades).toBe(1);
+    });
+
+    it('reports fetched-tag and candidate counts for native facet families', () => {
+        const diagnostics = buildChannelSetupPlanDiagnostics({
+            config: createConfig({
+                selectedLibraryIds: ['m1'],
+                minItemsPerChannel: 5,
+                strategyConfig: createStrategyConfig({
+                    genres: { enabled: true },
+                    directors: { enabled: true },
+                    studios: { enabled: true },
+                    actors: { enabled: true },
+                }),
+            }),
+            libraries: [{ id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 }] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map([['m1', [
+                { key: 'genre-a', title: 'Action', count: 8 },
+                { key: 'genre-b', title: 'Drama', count: 2 },
+                { key: 'genre-c', title: 'Mystery', count: null },
+            ]]]),
+            directorsByLibraryId: new Map([['m1', [
+                { key: 'dir-a', title: 'Jane Doe', count: 6 },
+                { key: 'dir-b', title: 'John Roe', count: 4 },
+            ]]]),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map([['m1', [
+                { key: 'actor-a', title: 'Alex Star', count: 10 },
+                { key: 'actor-b', title: 'Blake Star', count: 1 },
+                { key: 'actor-c', title: 'Casey Star', count: null },
+            ]]]),
+            studiosByLibraryId: new Map([['m1', [
+                { key: 'studio-a', title: 'Studio A', count: 7 },
+                { key: 'studio-b', title: 'Studio B', count: 3 },
+            ]]]),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(diagnostics.fetchedTagsByFamily.genres).toEqual([
+            { libraryId: 'm1', libraryName: 'Movies', count: 3 },
+        ]);
+        expect(diagnostics.fetchedTagsByFamily.directors).toEqual([
+            { libraryId: 'm1', libraryName: 'Movies', count: 2 },
+        ]);
+        expect(diagnostics.fetchedTagsByFamily.studios).toEqual([
+            { libraryId: 'm1', libraryName: 'Movies', count: 2 },
+        ]);
+        expect(diagnostics.fetchedTagsByFamily.actors).toEqual([
+            { libraryId: 'm1', libraryName: 'Movies', count: 3 },
+        ]);
+
+        expect(diagnostics.candidatesBeforeMinItems).toEqual(expect.objectContaining({
+            total: 10,
+            genres: 3,
+            directors: 2,
+            studios: 2,
+            actors: 3,
+        }));
+        expect(diagnostics.candidatesAfterMinItems).toEqual(expect.objectContaining({
+            total: 6,
+            genres: 2,
+            directors: 1,
+            studios: 1,
+            actors: 2,
+        }));
+        expect(diagnostics.strategyBucketSizes).toEqual(expect.objectContaining({
+            total: 6,
+            genres: 2,
+            directors: 1,
+            studios: 1,
+            actors: 2,
+        }));
+        expect(diagnostics.lostToMaxChannels.total).toBe(0);
+    });
+
+    it('reports alternate-lineup cap losses separately from base strategy bucket sizes', () => {
+        const libraries = [{ id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 }] as PlexLibraryType[];
+        const baseInput = {
+            config: createConfig({
+                selectedLibraryIds: ['m1'],
+                maxChannels: 5,
+                minItemsPerChannel: 1,
+                strategyConfig: createStrategyConfig({
+                    genres: { enabled: true, priority: 4 },
+                    studios: { enabled: true, priority: 5 },
+                    actors: { enabled: true, priority: 6 },
+                    directors: { enabled: true, priority: 8 },
+                }),
+                channelExpansion: {
+                    addAlternateLineups: false,
+                    alternateLineupCopies: 1,
+                    variantType: 'none',
+                    variantBlockSize: 3,
+                },
+            }),
+            libraries,
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map([['m1', [{ key: 'genre-a', title: 'Action', count: 10 }]]]),
+            directorsByLibraryId: new Map([['m1', [
+                { key: 'dir-a', title: 'Director One', count: 10 },
+                { key: 'dir-b', title: 'Director Two', count: 10 },
+            ]]]),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map([['m1', [
+                { key: 'actor-a', title: 'Actor One', count: 10 },
+                { key: 'actor-b', title: 'Actor Two', count: 10 },
+                { key: 'actor-c', title: 'Actor Three', count: 10 },
+                { key: 'actor-d', title: 'Actor Four', count: 10 },
+            ]]]),
+            studiosByLibraryId: new Map([['m1', [{ key: 'studio-a', title: 'Studio A', count: 10 }]]]),
+            warnings: [],
+            seedFor,
+        };
+
+        const withoutAlternate = buildChannelSetupPlanDiagnostics(baseInput);
+        const withAlternate = buildChannelSetupPlanDiagnostics({
+            ...baseInput,
+            config: {
+                ...baseInput.config,
+                channelExpansion: {
+                    addAlternateLineups: true,
+                    alternateLineupCopies: 1,
+                    variantType: 'none',
+                    variantBlockSize: 3,
+                },
+            },
+        });
+
+        expect(withoutAlternate.strategyBucketSizes).toEqual(expect.objectContaining({
+            total: 8,
+            genres: 1,
+            studios: 1,
+            actors: 4,
+            directors: 2,
+        }));
+        expect(withoutAlternate.afterMaxChannels).toEqual(expect.objectContaining({
+            total: 5,
+            genres: 1,
+            studios: 1,
+            actors: 3,
+            directors: 0,
+        }));
+        expect(withoutAlternate.lostToMaxChannels).toEqual(expect.objectContaining({
+            total: 3,
+            actors: 1,
+            directors: 2,
+        }));
+
+        expect(withAlternate.afterAlternateLineups).toEqual(expect.objectContaining({
+            total: 16,
+            genres: 2,
+            studios: 2,
+            actors: 8,
+            directors: 4,
+        }));
+        expect(withAlternate.afterMaxChannels).toEqual(expect.objectContaining({
+            total: 5,
+            genres: 2,
+            studios: 2,
+            actors: 1,
+            directors: 0,
+        }));
+        expect(withAlternate.lostToMaxChannels).toEqual(expect.objectContaining({
+            total: 11,
+            actors: 7,
+            directors: 4,
+        }));
     });
 });

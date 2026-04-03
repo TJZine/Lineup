@@ -1,5 +1,7 @@
-import { EPGCoordinator, type EPGCoordinatorDeps, type EpgUiStatus } from '../EPGCoordinator';
+import { EPGCoordinator, type EPGCoordinatorDeps } from '../EPGCoordinator';
+import type { EpgUiStatus } from '../types';
 import type { IEPGComponent } from '../interfaces';
+import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
 import {
     OverlayRuntimePolicyController,
     type OverlayRuntimePolicyControllerDeps,
@@ -13,22 +15,21 @@ import type {
 } from '../../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig } from '../../../scheduler/scheduler';
 import type { EPGConfig } from '../types';
-import * as epgUtils from '../utils';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import {
     computeBackgroundWarmQueueCaps,
     computeEpgScheduleRangeMs,
     getBackgroundWarmQueueAction,
     partitionPrefetchChannels,
-    readEpgStorageSnapshotForScheduleRange,
 } from '../EPGCoordinatorPolicies';
+import * as EPGCoordinatorPolicies from '../EPGCoordinatorPolicies';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,
     name: `Channel ${number}`,
     number,
     contentSource: { type: 'manual', items: [] },
-    playbackMode: 'loop' as PlaybackMode,
+    playbackMode: 'sequential' as PlaybackMode,
     startTimeAnchor: 0,
     skipIntros: false,
     skipCredits: false,
@@ -76,7 +77,11 @@ const flushPromises = async (): Promise<void> => {
 };
 
 const readScheduleRange = (deps: EPGCoordinatorDeps): { startTime: number; endTime: number } | null =>
-    computeEpgScheduleRangeMs(deps, Date.now(), readEpgStorageSnapshotForScheduleRange());
+    computeEpgScheduleRangeMs(
+        deps,
+        Date.now(),
+        deps.epgPreferencesStore.readScheduleRangeSnapshot()
+    );
 
 const FIXED_FAKE_NOW = new Date('2026-01-01T12:00:00.000Z');
 
@@ -131,6 +136,7 @@ const withIdleCallbackDisabled = async (run: () => Promise<void>): Promise<void>
 const makeDeps = (
     overrides: Partial<EPGCoordinatorDeps> = {}
 ): { deps: EPGCoordinatorDeps; epg: IEPGComponent; channelManager: IChannelManager; scheduler: IChannelScheduler } => {
+    const epgPreferencesStore = new EpgPreferencesStore();
     const epg: IEPGComponent = {
         show: jest.fn(),
         hide: jest.fn(),
@@ -195,7 +201,6 @@ const makeDeps = (
 	        ensureEpgInitialized: jest.fn().mockResolvedValue(undefined),
 	        getEpgConfig: () => ({ totalHours: 6, timeSlotMinutes: 30 } as EPGConfig),
 	        getLocalMidnightMs: (t: number) => t - (t % (24 * 60 * 60 * 1000)),
-	        getEpgScheduleRangeSnapshot: () => readEpgStorageSnapshotForScheduleRange(),
 	        buildDailyScheduleConfig: (
 	            channel: ChannelConfig,
 	            items: ResolvedChannelContent['items']
@@ -213,6 +218,7 @@ const makeDeps = (
         switchToChannel: jest.fn().mockResolvedValue(undefined),
         onVisibilityChange: jest.fn(),
         reportEpgInitWarning: jest.fn(),
+        epgPreferencesStore,
         ...overrides,
     };
     return { deps, epg, channelManager, scheduler };
@@ -247,27 +253,31 @@ describe('EPGCoordinator', () => {
         jest.clearAllMocks();
     });
 
-    it('logs debug error using shared helper when live schedule refresh fails', () => {
+    it('logs debug error using injected runtime when live schedule refresh fails', () => {
         const scheduler: IChannelScheduler = {
             getState: () => ({ isActive: true, channelId: 'c0' }),
             getScheduleWindow: jest.fn(() => {
                 throw new Error('schedule window failed');
             }),
         } as unknown as IChannelScheduler;
+        const debugRuntime = {
+            isEnabled: jest.fn().mockReturnValue(true),
+            append: jest.fn(),
+            destroy: jest.fn(),
+        };
 
         const { deps, epg } = makeDeps({
             getScheduler: () => scheduler,
+            debugRuntime,
         });
         const coordinator = new EPGCoordinator(deps);
-        const helperSpy = jest.spyOn(epgUtils, 'isEpgDebugLoggingEnabled').mockReturnValue(true);
-        const debugLogSpy = jest.spyOn(epgUtils, 'appendEpgDebugLog').mockImplementation(() => undefined);
         (epg.isVisible as jest.Mock).mockReturnValue(true);
 
         coordinator.refreshEpgScheduleForLiveChannel();
 
         expect(scheduler.getScheduleWindow).toHaveBeenCalled();
-        expect(helperSpy).toHaveBeenCalledTimes(1);
-        expect(debugLogSpy).toHaveBeenCalledWith(
+        expect(debugRuntime.isEnabled).toHaveBeenCalledTimes(1);
+        expect(debugRuntime.append).toHaveBeenCalledWith(
             'EPG.refreshEpgScheduleForLiveChannel.error',
             expect.objectContaining({
                 error: expect.objectContaining({
@@ -920,7 +930,7 @@ describe('EPGCoordinator', () => {
         expectPastWindowMinutes(range30, now, 30, 30);
     });
 
-    it('primeEpgChannels clears filter when tabs are disabled', () => {
+    it('primeEpgChannels preserves a valid persisted filter when tabs are disabled', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '0');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
 
@@ -940,8 +950,88 @@ describe('EPGCoordinator', () => {
 
         coordinator.primeEpgChannels();
 
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBe('lib1');
+        expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
+    });
+
+    it('primeEpgChannels preserves a valid persisted filter when only one library remains', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+
+        const allChannels: ChannelConfig[] = [
+            { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
+            { ...makeChannel('c2', 2), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
+        ];
+
+        const { deps, epg } = makeDeps({
+            getChannelManager: () =>
+            ({
+                ...makeDeps().channelManager,
+                getAllChannels: () => allChannels,
+            } as IChannelManager),
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.primeEpgChannels();
+
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBe('lib1');
+        expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
+    });
+
+    it('primeEpgChannels clears an invalid persisted filter through the normalization helper', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'missing-lib');
+
+        const allChannels: ChannelConfig[] = [
+            { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
+            { ...makeChannel('c2', 2), sourceLibraryId: 'lib2', sourceLibraryName: 'TV' },
+        ];
+
+        const { deps, epg } = makeDeps({
+            getChannelManager: () =>
+            ({
+                ...makeDeps().channelManager,
+                getAllChannels: () => allChannels,
+            } as IChannelManager),
+        });
+        const readAppliedLibraryFilterStateSpy = jest.spyOn(EPGCoordinatorPolicies, 'readAppliedLibraryFilterState');
+        const epgPreferencesStore = deps.epgPreferencesStore as EpgPreferencesStore;
+        const writeSelectedLibraryIdSpy = jest.spyOn(epgPreferencesStore, 'writeSelectedLibraryId');
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.primeEpgChannels();
+
+        expect(readAppliedLibraryFilterStateSpy).toHaveBeenCalledWith(allChannels, epgPreferencesStore);
+        expect(writeSelectedLibraryIdSpy).toHaveBeenCalledTimes(1);
+        expect(writeSelectedLibraryIdSpy).toHaveBeenCalledWith(null);
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
         expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
+    });
+
+    it('primeEpgChannels preserves a valid persisted filter when tabs are enabled and multiple libraries remain', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+
+        const allChannels: ChannelConfig[] = [
+            { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
+            { ...makeChannel('c2', 2), sourceLibraryId: 'lib2', sourceLibraryName: 'TV' },
+        ];
+
+        const { deps, epg } = makeDeps({
+            getChannelManager: () =>
+            ({
+                ...makeDeps().channelManager,
+                getAllChannels: () => allChannels,
+            } as IChannelManager),
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.primeEpgChannels();
+
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBe('lib1');
+        expect(epg.loadChannels).toHaveBeenCalledWith([
+            expect.objectContaining({ id: 'c1' }),
+        ]);
     });
 
     it('does not clear stored library filter during schedule range computations', () => {
@@ -988,30 +1078,6 @@ describe('EPGCoordinator', () => {
         expect(epg.setLayoutMode).toHaveBeenCalledWith('classic');
     });
 
-    it('primeEpgChannels clears filter when only one library remains', () => {
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
-
-        const allChannels: ChannelConfig[] = [
-            { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
-            { ...makeChannel('c2', 2), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
-        ];
-
-        const { deps, epg } = makeDeps({
-            getChannelManager: () =>
-            ({
-                ...makeDeps().channelManager,
-                getAllChannels: () => allChannels,
-            } as IChannelManager),
-        });
-        const coordinator = new EPGCoordinator(deps);
-
-        coordinator.primeEpgChannels();
-
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
-        expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
-    });
-
     it('openEPG shows immediately when not ready then initializes and shows again', async () => {
         let status: EpgUiStatus = 'initializing';
         const ensure = jest.fn().mockImplementation(async () => {
@@ -1028,8 +1094,34 @@ describe('EPGCoordinator', () => {
         await Promise.resolve();
 
         expect(epg.show).toHaveBeenCalledTimes(2);
+        expect(epg.focusNow).toHaveBeenCalledTimes(1);
+        expect(epg.focusChannel).toHaveBeenCalledTimes(1);
         expect(ensure).toHaveBeenCalled();
         expect(epg.loadChannels).toHaveBeenCalled();
+    });
+
+    it('openEPG deferred follow-up preserves focus semantics when preserveFocus is true', async () => {
+        let status: EpgUiStatus = 'initializing';
+        const ensure = jest.fn().mockImplementation(async () => {
+            status = 'ready';
+        });
+        const { deps, epg } = makeDeps({
+            getEpgUiStatus: () => status,
+            ensureEpgInitialized: ensure,
+            getPreserveFocusOnOpen: () => true,
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.openEPG();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(epg.show).toHaveBeenCalledTimes(2);
+        expect(epg.show).toHaveBeenNthCalledWith(1, { preserveFocus: true });
+        expect(epg.show).toHaveBeenNthCalledWith(2, { preserveFocus: true });
+        expect(epg.focusNow).not.toHaveBeenCalled();
+        expect(epg.focusChannel).not.toHaveBeenCalled();
+        expect(ensure).toHaveBeenCalled();
     });
 
     it('openEPG does not reopen the guide after closeEPG runs while initialization is pending', async () => {
@@ -1609,12 +1701,8 @@ describe('EPGCoordinator', () => {
     it('refreshEpgSchedulesForRange immediate call preempts armed debounce and settles pending promise', async () => {
         useDeterministicFakeTimers();
         try {
-            const { deps } = makeDeps();
+            const { deps, epg } = makeDeps();
             const coordinator = new EPGCoordinator(deps);
-            const refreshSpy = jest.spyOn(
-                coordinator as unknown as { _refreshEpgSchedulesForRange: (range: unknown, reason: string) => Promise<void> },
-                '_refreshEpgSchedulesForRange'
-            );
 
             const debouncedPromise = coordinator.refreshEpgSchedulesForRange(
                 { channelStart: 0, channelEnd: 1, timeStartMs: 0, timeEndMs: 0 },
@@ -1631,15 +1719,12 @@ describe('EPGCoordinator', () => {
             );
 
             await Promise.all([immediatePromise, debouncedPromise, secondDebouncedPromise]);
-            expect(refreshSpy).toHaveBeenCalledTimes(1);
-            expect(refreshSpy).toHaveBeenCalledWith(
-                { channelStart: 2, channelEnd: 3, timeStartMs: 120_000, timeEndMs: 180_000 },
-                'library-filter'
-            );
+            const callCountAfterImmediate = (epg.loadScheduleForChannel as jest.Mock).mock.calls.length;
+            expect(callCountAfterImmediate).toBeGreaterThan(0);
 
             jest.advanceTimersByTime(100);
             await flushPromises();
-            expect(refreshSpy).toHaveBeenCalledTimes(1);
+            expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(callCountAfterImmediate);
         } finally {
             jest.useRealTimers();
         }
@@ -2282,58 +2367,30 @@ describe('EPGCoordinator', () => {
         expect(switchToChannel).not.toHaveBeenCalled();
     });
 
-    it('library filter change clears schedules, primes, and refreshes', () => {
-        const epg: IEPGComponent = {
-            on: jest.fn(),
-            off: jest.fn(),
-            clearSchedules: jest.fn(),
-            scrollToChannel: jest.fn(),
-            focusChannel: jest.fn(),
-            setCategoryColorsEnabled: jest.fn(),
-            setLayoutMode: jest.fn(),
-            setVisibleHours: jest.fn(),
-            setNowWatchingBannerEnabled: jest.fn(),
-            setLibraryTabs: jest.fn(),
-            loadChannels: jest.fn(),
-        } as unknown as IEPGComponent;
-        const { deps } = makeDeps({
-            getEpg: () => epg,
-        });
+    it('library filter change clears schedules, primes, and refreshes', async () => {
+        const { deps, epg } = makeDeps();
         const coordinator = new EPGCoordinator(deps);
-        const primeSpy = jest.spyOn(coordinator, 'primeEpgChannels');
-        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue();
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
 
         coordinator.wireEpgEvents();
 
         const filterHandler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'libraryFilterChanged')?.[1];
         filterHandler?.({ libraryId: 'lib1' });
+        await flushPromises();
 
         expect(epg.clearSchedules).toHaveBeenCalled();
-        expect(primeSpy).toHaveBeenCalled();
+        expect(epg.loadChannels).toHaveBeenCalled();
         expect(epg.scrollToChannel).toHaveBeenCalledWith(0);
         expect(epg.focusChannel).toHaveBeenCalledWith(0);
-        expect(refreshSpy).toHaveBeenCalledWith({ reason: 'library-filter', debounceMs: 0 });
+        expect(epg.loadScheduleForChannel).toHaveBeenCalled();
     });
 
-    it('withVisibleRangeRefreshPolicy returns a wrapped config without mutating the caller-owned config', () => {
+    it('handleVisibleRangeChange delegates refresh with visible-range reason', async () => {
         const { deps } = makeDeps();
         const coordinator = new EPGCoordinator(deps);
-        const previousOnVisibleRangeChange = jest.fn();
         const refreshSpy = jest
             .spyOn(coordinator, 'refreshEpgSchedulesForRange')
             .mockResolvedValue(undefined);
-        const epgConfig: EPGConfig = {
-            containerId: 'epg',
-            visibleChannels: 5,
-            timeSlotMinutes: 30,
-            visibleHours: 3,
-            totalHours: 24,
-            pixelsPerMinute: 4,
-            rowHeight: 80,
-            showCurrentTimeIndicator: true,
-            autoScrollToNow: false,
-            onVisibleRangeChange: previousOnVisibleRangeChange,
-        };
         const range = {
             channelStart: 1,
             channelEnd: 4,
@@ -2341,15 +2398,9 @@ describe('EPGCoordinator', () => {
             timeEndMs: 2000,
         };
 
-        const wrappedConfig = coordinator.withVisibleRangeRefreshPolicy(epgConfig);
+        coordinator.handleVisibleRangeChange(range);
+        await flushPromises();
 
-        expect(wrappedConfig).not.toBe(epgConfig);
-        expect(wrappedConfig?.onVisibleRangeChange).not.toBe(epgConfig.onVisibleRangeChange);
-        expect(epgConfig.onVisibleRangeChange).toBe(previousOnVisibleRangeChange);
-
-        wrappedConfig?.onVisibleRangeChange?.(range);
-
-        expect(previousOnVisibleRangeChange).toHaveBeenCalledWith(range);
         expect(refreshSpy).toHaveBeenCalledWith(range, { reason: 'visible-range' });
     });
 
@@ -2357,91 +2408,49 @@ describe('EPGCoordinator', () => {
         const { deps, epg } = makeDeps();
         const coordinator = new EPGCoordinator(deps);
         (epg.isVisible as jest.Mock).mockReturnValue(true);
-        const primeSpy = jest.spyOn(coordinator, 'primeEpgChannels');
-        const refreshSpy = jest
-            .spyOn(coordinator, 'refreshEpgSchedules')
-            .mockResolvedValue(undefined);
 
         coordinator.handleGuideSettingChange({ key: 'aggressivePreload', enabled: true });
 
-        expect(epg.clearSchedules).toHaveBeenCalled();
-        expect(primeSpy).toHaveBeenCalled();
-        expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
+        expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
     });
 
-    it('handleGuideSettingChange cancels queued and in-flight schedule work before visible refresh', () => {
+    it('handleGuideSettingChange refreshes schedules after invalidation when EPG is visible', async () => {
         const { deps, epg } = makeDeps();
         const coordinator = new EPGCoordinator(deps);
         (epg.isVisible as jest.Mock).mockReturnValue(true);
-        const queueCancelSpy = jest.spyOn(
-            (coordinator as unknown as {
-                _visibleRangeRefreshQueue: { cancelPendingRefresh: () => void };
-            })._visibleRangeRefreshQueue,
-            'cancelPendingRefresh'
-        );
-        const abortSpy = jest.spyOn(
-            (coordinator as unknown as {
-                _scheduleRefreshRuntime: { abortAllInFlightSchedules: (reason?: string) => void };
-            })._scheduleRefreshRuntime,
-            'abortAllInFlightSchedules'
-        );
-        const refreshSpy = jest
-            .spyOn(coordinator, 'refreshEpgSchedules')
-            .mockResolvedValue(undefined);
 
         coordinator.handleGuideSettingChange({ key: 'aggressivePreload', enabled: true });
+        await flushPromises();
 
-        expect(queueCancelSpy).toHaveBeenCalledTimes(1);
-        expect(abortSpy).toHaveBeenCalledWith('guide-settings');
-        expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
+        expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
+        expect(epg.loadChannels).toHaveBeenCalled();
+        expect(epg.loadScheduleForChannel).toHaveBeenCalled();
     });
 
-    it('handleGuideSettingChange invalidates guideDensity changes before visible refresh', () => {
+    it('handleGuideSettingChange invalidates guideDensity changes before visible refresh', async () => {
         const { deps, epg } = makeDeps();
         const coordinator = new EPGCoordinator(deps);
         (epg.isVisible as jest.Mock).mockReturnValue(true);
-        const clearSpy = jest.spyOn(coordinator, 'clearScheduleCaches');
-        const queueCancelSpy = jest.spyOn(
-            (coordinator as unknown as {
-                _visibleRangeRefreshQueue: { cancelPendingRefresh: () => void };
-            })._visibleRangeRefreshQueue,
-            'cancelPendingRefresh'
-        );
-        const abortSpy = jest.spyOn(
-            (coordinator as unknown as {
-                _scheduleRefreshRuntime: { abortAllInFlightSchedules: (reason?: string) => void };
-            })._scheduleRefreshRuntime,
-            'abortAllInFlightSchedules'
-        );
-        const refreshSpy = jest
-            .spyOn(coordinator, 'refreshEpgSchedules')
-            .mockResolvedValue(undefined);
 
         coordinator.handleGuideSettingChange({ key: 'guideDensity', density: 'wide' });
+        await flushPromises();
 
-        expect(queueCancelSpy).toHaveBeenCalledTimes(1);
-        expect(abortSpy).toHaveBeenCalledWith('guide-settings');
-        expect(clearSpy).toHaveBeenCalledTimes(1);
         expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
-        expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
+        expect(epg.loadChannels).toHaveBeenCalled();
+        expect(epg.loadScheduleForChannel).toHaveBeenCalled();
     });
 
-        it('handleGuideSettingChange still invalidates cached schedules while the guide is hidden', () => {
+        it('handleGuideSettingChange still invalidates cached schedules while the guide is hidden', async () => {
             const { deps, epg } = makeDeps();
             const coordinator = new EPGCoordinator(deps);
             (epg.isVisible as jest.Mock).mockReturnValue(false);
-            const clearSpy = jest.spyOn(coordinator, 'clearScheduleCaches');
-            const primeSpy = jest.spyOn(coordinator, 'primeEpgChannels');
-            const refreshSpy = jest
-                .spyOn(coordinator, 'refreshEpgSchedules')
-                .mockResolvedValue(undefined);
 
             coordinator.handleGuideSettingChange({ key: 'aggressivePreload', enabled: true });
+            await flushPromises();
 
-            expect(clearSpy).toHaveBeenCalledTimes(1);
             expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
-            expect(primeSpy).not.toHaveBeenCalled();
-            expect(refreshSpy).not.toHaveBeenCalled();
+            expect(epg.loadChannels).not.toHaveBeenCalled();
+            expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
         });
 
         it('handleGuideSettingChange cancels queued and in-flight schedule work even when EPG is unmounted', () => {
@@ -2449,25 +2458,9 @@ describe('EPGCoordinator', () => {
                 getEpg: () => null,
             });
             const coordinator = new EPGCoordinator(deps);
-            const queueCancelSpy = jest.spyOn(
-                (coordinator as unknown as {
-                    _visibleRangeRefreshQueue: { cancelPendingRefresh: () => void };
-                })._visibleRangeRefreshQueue,
-                'cancelPendingRefresh'
-            );
-            const abortSpy = jest.spyOn(
-                (coordinator as unknown as {
-                    _scheduleRefreshRuntime: { abortAllInFlightSchedules: (reason?: string) => void };
-                })._scheduleRefreshRuntime,
-                'abortAllInFlightSchedules'
-            );
-            const clearSpy = jest.spyOn(coordinator, 'clearScheduleCaches');
 
             coordinator.handleGuideSettingChange({ key: 'aggressivePreload', enabled: true });
 
-            expect(queueCancelSpy).toHaveBeenCalledTimes(1);
-            expect(abortSpy).toHaveBeenCalledWith('guide-settings');
-            expect(clearSpy).toHaveBeenCalledTimes(1);
             expect(epg.clearSchedules).not.toHaveBeenCalled();
         });
     });

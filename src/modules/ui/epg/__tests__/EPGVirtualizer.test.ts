@@ -6,7 +6,7 @@
  * @module modules/ui/epg/__tests__/EPGVirtualizer.test
  */
 
-import { EPGVirtualizer, positionCell } from '../EPGVirtualizer';
+import { EPGVirtualizer, positionCell } from '../view/EPGVirtualizer';
 import { EPG_CONSTANTS, EPG_CLASSES } from '../constants';
 import type { ScheduledProgram, ScheduleWindow, EPGConfig } from '../types';
 
@@ -1009,6 +1009,31 @@ describe('EPGVirtualizer', () => {
             expect(focused?.classList.contains('focused')).toBe(true);
         });
 
+        it('retains focused placeholder styling after rerendering the same placeholder window', () => {
+            const channelIds = ['ch0'];
+            const schedules = new Map<string, ScheduleWindow>();
+
+            virtualizer.setChannelCount(1);
+            const range = virtualizer.calculateVisibleRange({
+                channelOffset: 0,
+                timeOffset: 0,
+            });
+
+            virtualizer.renderVisibleCells(channelIds, schedules, range);
+
+            const focusTimeMs = gridAnchorTime + (30 * 60000);
+            const focusedElement = virtualizer.setFocusedCell('ch0', focusTimeMs, focusTimeMs);
+            expect(focusedElement).not.toBeNull();
+            expect(focusedElement?.classList.contains(EPG_CLASSES.CELL_FOCUSED)).toBe(true);
+
+            const focusedKey = `ch0-placeholder-${gridAnchorTime}`;
+            virtualizer.renderVisibleCells(channelIds, schedules, range, focusedKey);
+
+            const rerenderedCell = container.querySelector(`[data-key="${focusedKey}"]`) as HTMLElement | null;
+            expect(rerenderedCell).not.toBeNull();
+            expect(rerenderedCell?.classList.contains(EPG_CLASSES.CELL_FOCUSED)).toBe(true);
+        });
+
         it('applies horizontal scroll transform to the content wrapper', () => {
             const channelIds = ['ch0'];
             const schedules = new Map<string, ScheduleWindow>();
@@ -1073,6 +1098,173 @@ describe('EPGVirtualizer', () => {
             const titles = Array.from(container.querySelectorAll('.epg-cell-title'))
                 .map((el) => el.textContent);
             expect(titles).toContain('No Program');
+        });
+
+        it('prioritizes visible-window cells over buffer-only cells when a row has many short programs', () => {
+            const channelId = 'dense-row';
+            const channelIds = [channelId];
+            const programs: ScheduledProgram[] = [];
+
+            for (let minute = 0; minute < 300; minute += 1) {
+                programs.push({
+                    item: {
+                        ratingKey: `${channelId}-${minute}`,
+                        type: 'movie',
+                        title: `Program ${minute}`,
+                        fullTitle: `Program ${minute}`,
+                        durationMs: 60_000,
+                        thumb: null,
+                        year: 2026,
+                        scheduledIndex: minute,
+                    },
+                    scheduledStartTime: gridAnchorTime + (minute * 60_000),
+                    scheduledEndTime: gridAnchorTime + ((minute + 1) * 60_000),
+                    elapsedMs: 0,
+                    remainingMs: 60_000,
+                    scheduleIndex: minute,
+                    loopNumber: 0,
+                    streamDescriptor: null,
+                    isCurrent: false,
+                });
+            }
+
+            const schedules = new Map<string, ScheduleWindow>([
+                [channelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + (24 * 60 * 60_000),
+                    programs,
+                }],
+            ]);
+
+            virtualizer.setChannelCount(1);
+            const range = virtualizer.calculateVisibleRange({
+                channelOffset: 0,
+                timeOffset: 60,
+            });
+
+            virtualizer.renderVisibleCells(channelIds, schedules, range);
+
+            const titles = Array.from(container.querySelectorAll('.epg-cell-title'))
+                .map((el) => el.textContent);
+
+            expect(titles).toContain('Program 60');
+            expect(titles).toContain('Program 180');
+            expect(titles).toContain('Program 239');
+            expect(titles).toContain('Program 0');
+            expect(titles).toContain('Program 19');
+            expect(titles).not.toContain('Program 20');
+        });
+
+        it('drops buffer-only cells before visible cells when the global DOM budget is exceeded across rows', () => {
+            const rowCount = 8;
+            const channelIds = Array.from({ length: rowCount }, (_, index) => `row-${index}`);
+            const schedules = new Map<string, ScheduleWindow>();
+
+            for (const channelId of channelIds) {
+                const programs: ScheduledProgram[] = [];
+                for (let minute = 0; minute < 360; minute += 1) {
+                    programs.push({
+                        item: {
+                            ratingKey: `${channelId}-${minute}`,
+                            type: 'movie',
+                            title: `Program ${minute}`,
+                            fullTitle: `Program ${minute}`,
+                            durationMs: 60_000,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: minute,
+                        },
+                        scheduledStartTime: gridAnchorTime + (minute * 60_000),
+                        scheduledEndTime: gridAnchorTime + ((minute + 1) * 60_000),
+                        elapsedMs: 0,
+                        remainingMs: 60_000,
+                        scheduleIndex: minute,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    });
+                }
+
+                schedules.set(channelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + (24 * 60 * 60_000),
+                    programs,
+                });
+            }
+
+            virtualizer.setChannelCount(channelIds.length);
+            const range = virtualizer.calculateVisibleRange({
+                channelOffset: 0,
+                timeOffset: 120,
+            });
+
+            virtualizer.renderVisibleCells(channelIds, schedules, range);
+
+            expect(container.querySelector(`[data-key="row-0-${gridAnchorTime}"]`)).toBeNull();
+            expect(container.querySelector(`[data-key="row-0-${gridAnchorTime + (119 * 60_000)}"]`)).toBeNull();
+            expect(container.querySelector(`[data-key="row-0-${gridAnchorTime + (120 * 60_000)}"]`)).not.toBeNull();
+            expect(container.querySelector(`[data-key="row-0-${gridAnchorTime + (180 * 60_000)}"]`)).not.toBeNull();
+            expect(container.querySelector(`[data-key="row-6-${gridAnchorTime + (120 * 60_000)}"]`)).not.toBeNull();
+            expect(container.querySelector(`[data-key="row-6-${gridAnchorTime + (180 * 60_000)}"]`)).not.toBeNull();
+            expect(container.querySelector(`[data-key="row-6-${gridAnchorTime}"]`)).toBeNull();
+        });
+
+        it('caps sampled visible queue cells to the per-row limit when seed indices add extra entries', () => {
+            const rowCount = 40;
+            const channelIds = Array.from({ length: rowCount }, (_, index) => `row-${index}`);
+            const schedules = new Map<string, ScheduleWindow>();
+            config = {
+                ...config,
+                visibleChannels: 38,
+            };
+            virtualizer.initialize(container, config, gridAnchorTime);
+
+            for (const channelId of channelIds) {
+                const programs: ScheduledProgram[] = [];
+                for (let minute = 0; minute < 10; minute += 1) {
+                    programs.push({
+                        item: {
+                            ratingKey: `${channelId}-${minute}`,
+                            type: 'movie',
+                            title: `Program ${minute}`,
+                            fullTitle: `Program ${minute}`,
+                            durationMs: 60_000,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: minute,
+                        },
+                        scheduledStartTime: gridAnchorTime + (minute * 60_000),
+                        scheduledEndTime: gridAnchorTime + ((minute + 1) * 60_000),
+                        elapsedMs: 0,
+                        remainingMs: 60_000,
+                        scheduleIndex: minute,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    });
+                }
+
+                schedules.set(channelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + (24 * 60 * 60_000),
+                    programs,
+                });
+            }
+
+            virtualizer.setChannelCount(channelIds.length);
+
+            const range = virtualizer.calculateVisibleRange({
+                channelOffset: 0,
+                timeOffset: 0,
+            });
+
+            virtualizer.renderVisibleCells(channelIds, schedules, range);
+
+            const rowZeroCells = Array.from(
+                container.querySelectorAll('[data-key^="row-0-"]')
+            ) as HTMLElement[];
+
+            expect(rowZeroCells).toHaveLength(5);
         });
 
         it('should maintain DOM element count under 200 during virtualized render', () => {

@@ -8,7 +8,7 @@ import { EPG_CLASSES } from './constants';
 import { formatTime, formatDuration } from './utils';
 import type { IEPGInfoPanel } from './interfaces';
 import type { ScheduledProgram } from './types';
-import type { EpgItemDetails } from './domainTypes';
+import type { EpgItemDetails } from './model/domainTypes';
 import { extractHdrLabelFromPlexMedia } from '../../plex/stream/hdr';
 import { formatContentRatingBadge } from '../../../utils/contentRating';
 import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';

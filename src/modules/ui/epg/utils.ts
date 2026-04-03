@@ -3,10 +3,6 @@
  * @module modules/ui/epg/utils
  */
 
-import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
-import { DebugOverridesStore } from '../../debug/DebugOverridesStore';
-import { safeLocalStorageGet, safeLocalStorageSet } from '../../../utils/storage';
-
 /**
  * Format a timestamp as a time string (e.g., "12:30 PM").
  *
@@ -107,90 +103,4 @@ export function rafThrottle<T extends (...args: unknown[]) => void>(
             });
         }
     };
-}
-
-/**
- * Append a debug log entry to localStorage when EPG debug mode is enabled.
- * Keeps a bounded log for simulator copy/paste.
- */
-export function appendEpgDebugLog(event: string, data: unknown): void {
-    if (!isEpgDebugLoggingEnabled()) {
-        return;
-    }
-    const entry = { ts: Date.now(), event, data };
-    appendEpgDebugEntry(entry);
-}
-
-type EpgDebugEntry = { ts: number; event: string; data: unknown };
-
-const EPG_DEBUG_LOG_STORAGE_KEY = LINEUP_STORAGE_KEYS.EPG_DEBUG_LOG;
-const EPG_DEBUG_LOG_MAX_ENTRIES = 200;
-const EPG_DEBUG_LOG_FLUSH_DELAY_MS = 250;
-const EPG_DEBUG_FLAG_REFRESH_MS = 500;
-const debugOverridesStore = new DebugOverridesStore();
-
-let epgDebugEntries: EpgDebugEntry[] | null = null;
-let epgDebugFlushTimer: ReturnType<typeof setTimeout> | null = null;
-let epgDebugEnabledCache: boolean | null = null;
-let epgDebugEnabledCacheReadMs = 0;
-
-export function isEpgDebugLoggingEnabled(): boolean {
-    const now = Date.now();
-    if (
-        epgDebugEnabledCache !== null &&
-        now - epgDebugEnabledCacheReadMs < EPG_DEBUG_FLAG_REFRESH_MS
-    ) {
-        return epgDebugEnabledCache;
-    }
-    epgDebugEnabledCacheReadMs = now;
-    try {
-        epgDebugEnabledCache = debugOverridesStore.readEpgDebugEnabled(false);
-    } catch {
-        epgDebugEnabledCache = false;
-    }
-    return epgDebugEnabledCache;
-}
-
-function loadEpgDebugEntries(): EpgDebugEntry[] {
-    if (epgDebugEntries) {
-        return epgDebugEntries;
-    }
-    try {
-        const raw = safeLocalStorageGet(EPG_DEBUG_LOG_STORAGE_KEY);
-        const parsed: unknown = raw ? JSON.parse(raw) : [];
-        epgDebugEntries = Array.isArray(parsed) ? (parsed as EpgDebugEntry[]) : [];
-        return epgDebugEntries;
-    } catch {
-        epgDebugEntries = [];
-        return epgDebugEntries;
-    }
-}
-
-function scheduleEpgDebugFlush(): void {
-    if (epgDebugFlushTimer) {
-        return;
-    }
-    epgDebugFlushTimer = setTimeout(() => {
-        epgDebugFlushTimer = null;
-        safeLocalStorageSet(EPG_DEBUG_LOG_STORAGE_KEY, JSON.stringify(epgDebugEntries ?? []));
-    }, EPG_DEBUG_LOG_FLUSH_DELAY_MS);
-}
-
-function appendEpgDebugEntry(entry: EpgDebugEntry): void {
-    const entries = loadEpgDebugEntries();
-    entries.push(entry);
-    if (entries.length > EPG_DEBUG_LOG_MAX_ENTRIES) {
-        entries.splice(0, entries.length - EPG_DEBUG_LOG_MAX_ENTRIES);
-    }
-    scheduleEpgDebugFlush();
-}
-
-export function __resetEpgDebugStateForTests(): void {
-    if (epgDebugFlushTimer) {
-        clearTimeout(epgDebugFlushTimer);
-        epgDebugFlushTimer = null;
-    }
-    epgDebugEntries = null;
-    epgDebugEnabledCache = null;
-    epgDebugEnabledCacheReadMs = 0;
 }

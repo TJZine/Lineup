@@ -21,7 +21,7 @@ import type { IPlexStreamResolver } from '../modules/plex/stream';
 import type { IChannelManager } from '../modules/scheduler/channel-manager';
 import type { IChannelScheduler } from '../modules/scheduler/scheduler';
 import type { IVideoPlayer } from '../modules/player';
-import type { IEPGComponent } from '../modules/ui/epg';
+import type { IEPGComponent, IEpgReadinessPort, IEpgDebugRuntime } from '../modules/ui/epg';
 import type { IPlayerOsdOverlay } from '../modules/ui/player-osd';
 import type { IMiniGuideOverlay } from '../modules/ui/mini-guide';
 import type { IChannelTransitionOverlay } from '../modules/ui/channel-transition';
@@ -63,6 +63,9 @@ export interface InitializationDependencies {
         videoPlayer: IVideoPlayer | null;
         epg: IEPGComponent | null;
     };
+    readiness: {
+        epg: IEpgReadinessPort | null;
+    };
     overlays: {
         playerOsd: IPlayerOsdOverlay | null;
         channelNumberOverlay: ChannelNumberOverlayInitPort | null;
@@ -71,6 +74,7 @@ export interface InitializationDependencies {
         channelTransition: IChannelTransitionOverlay | null;
     };
     uiInitializer: InitializationUiInitializer;
+    epgDebugRuntime: IEpgDebugRuntime | null;
     stores: {
         epgPreferencesStore: EpgPreferencesStore;
         profileSessionStore: ProfileSessionStore;
@@ -579,11 +583,10 @@ export class InitializationCoordinator {
                     this._deps.stores.epgPreferencesStore.readLayoutMode('classic'),
                 readShowNowWatchingBanner: (): boolean =>
                     this._deps.stores.epgPreferencesStore.readNowWatchingEnabled(true),
+                debugRuntime: this._deps.epgDebugRuntime,
             });
             this._deps.modules.epg!.initialize(epgConfigWithResolver);
-            if (this._deps.modules.epg!.ensureReady) {
-                await this._deps.modules.epg!.ensureReady();
-            }
+            await this._deps.readiness.epg?.ensureReady();
             this._callbacks.status.updateModuleStatus(
                 'epg-ui',
                 'ready',

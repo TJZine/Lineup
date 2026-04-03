@@ -162,6 +162,5 @@ export const DEFAULT_EPG_CONFIG: EPGConfig = {
     autoScrollToNow: true,
     layoutMode: 'classic',
     showNowWatchingBanner: true,
-    debugStorageRefreshIntervalMs: 500,
     debugRenderGridLogIntervalMs: 1000,
 };

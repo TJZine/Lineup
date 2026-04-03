@@ -35,13 +35,14 @@ import type {
 import { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryManager';
 import {
     EPGCoordinator,
-    type EpgUiStatus,
 } from '../../modules/ui/epg/EPGCoordinator';
-import { readEpgStorageSnapshotForScheduleRange } from '../../modules/ui/epg/EPGCoordinatorPolicies';
+import { withEpgVisibleRangeChangeBinding } from '../../modules/ui/epg/EPGConfigBindings';
 import type {
     IEPGComponent,
     EPGConfig,
+    IEpgDebugRuntime,
 } from '../../modules/ui/epg';
+import type { EpgUiStatus } from '../../modules/ui/epg/types';
 import {
     NOW_PLAYING_INFO_MODAL_ID,
     type INowPlayingInfoOverlay,
@@ -93,6 +94,7 @@ import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackS
 import type { ChannelNumberOverlayRuntimePort } from './OverlayPorts';
 
 export interface OrchestratorCoordinatorFactoryDeps {
+    epgDebugRuntime: IEpgDebugRuntime | null;
     config: OrchestratorConfig | null;
     moduleStatus: Map<string, ModuleStatus>;
     init: {
@@ -237,6 +239,7 @@ export function createOrchestratorCoordinators(
         onOverlayVisibilityChange: input.actions.onOverlayVisibilityChange,
         toggleNowPlayingInfoOverlay: input.actions.toggleNowPlayingInfoOverlay,
         nowPlayingHandler: input.nowPlaying.handler,
+        epgDebugRuntime: input.epgDebugRuntime,
     } as const;
 
     const epgCoordinator = new EPGCoordinator({
@@ -247,8 +250,7 @@ export function createOrchestratorCoordinators(
         ensureEpgInitialized: (): Promise<void> => deps.ensureEpgInitialized(),
         getEpgConfig: (): EPGConfig | null => deps.config?.epgConfig ?? null,
         getLocalMidnightMs: (t: number): number => deps.getLocalMidnightMs(t),
-        getEpgScheduleRangeSnapshot: (): ReturnType<typeof readEpgStorageSnapshotForScheduleRange> =>
-            readEpgStorageSnapshotForScheduleRange(),
+        debugRuntime: deps.epgDebugRuntime,
         buildDailyScheduleConfig: (
             channel: ChannelConfig,
             items: ResolvedChannelContent['items'],
@@ -276,7 +278,10 @@ export function createOrchestratorCoordinators(
     });
     if (deps.config?.epgConfig) {
         deps.config.epgConfig =
-            epgCoordinator.withVisibleRangeRefreshPolicy(deps.config.epgConfig) ?? deps.config.epgConfig;
+            withEpgVisibleRangeChangeBinding(
+                deps.config.epgConfig,
+                (range) => epgCoordinator.handleVisibleRangeChange(range)
+            ) ?? deps.config.epgConfig;
     }
 
     const channelSetup = new ChannelSetupCoordinator({

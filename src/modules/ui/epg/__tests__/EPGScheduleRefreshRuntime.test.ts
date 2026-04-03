@@ -1,4 +1,4 @@
-import { EPGScheduleRefreshRuntime, type EPGScheduleRefreshRuntimeDeps } from '../EPGScheduleRefreshRuntime';
+import { EPGScheduleRefreshRuntime, type EPGScheduleRefreshRuntimeDeps } from '../runtime/EPGScheduleRefreshRuntime';
 import type {
     ChannelConfig,
     IChannelManager,
@@ -14,7 +14,7 @@ const makeChannel = (id: string, number: number): ChannelConfig => ({
     name: `Channel ${number}`,
     number,
     contentSource: { type: 'manual', items: [] },
-    playbackMode: 'loop' as PlaybackMode,
+    playbackMode: 'sequential' as PlaybackMode,
     startTimeAnchor: 0,
     skipIntros: false,
     skipCredits: false,

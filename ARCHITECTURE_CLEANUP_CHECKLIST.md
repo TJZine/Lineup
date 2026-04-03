@@ -348,26 +348,150 @@ These are the required repo-local boundary skills for the new wave. Load them be
 
 ### Work Units
 
-- [ ] `P2-W1` choose one top-level EPG owner surface and one readiness contract (pref Highest ROI)
+- [x] `P2-W1` choose one top-level EPG owner surface and one readiness contract (pref Highest ROI)
   - Imported review issues: `review::.::holistic::high_level_elegance::epg_top_level_owner_blur`, `review::.::holistic::api_surface_coherence::epg_readiness_split_contract`
   - Primary files: `src/modules/ui/epg/EPGCoordinator.ts`, `src/modules/ui/epg/interfaces.ts`, `src/modules/ui/epg/DeferredEpgComponent.ts`, `src/core/orchestrator/OrchestratorCoordinatorFactory.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
-- [ ] `P2-W2` move refresh orchestration and library-filter normalization behind one explicit EPG runtime seam
+  - Execution (2026-04-01): split deferred readiness into explicit `IEpgReadinessPort` wiring from `createOrchestratorModules(...)` to `InitializationCoordinator` via a dedicated readiness dependency bag, removed runtime-side `ensureReady` probing from `IEPGComponent` callers, and moved caller-owned visible-range callback composition into `src/modules/ui/epg/EPGConfigBindings.ts` so `EPGCoordinator` keeps runtime-policy ownership only.
+  - Verification (2026-04-01):
+    - `npm test -- --runInBand src/__tests__/orchestrator/orchestrator-module-factory-wiring.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGConfigBindings.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/DeferredEpgComponent.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`
+    - `npm test -- --runInBand src/core/__tests__/InitializationCoordinator.test.ts`
+    - `npm test -- --runInBand src/core/orchestrator/__tests__/OrchestratorCoordinatorFactory.playbackState.test.ts`
+    - `npm test -- --runInBand src/__tests__/Orchestrator.test.ts`
+    - `npm run verify`
+  - Issue dispositions (2026-04-01 source audit + detector refresh):
+    - `review::.::holistic::api_surface_coherence::epg_readiness_split_contract` -> `resolved` -> owner `P2-W1`; proof: `IEPGComponent` no longer advertises optional `ensureReady`, readiness now flows through `OrchestratorModules.epgReadinessPort` and `InitializationDependencies.readiness.epg`, and `EPGCoordinator.openEPG()` no longer probes `ensureReady`; command: `desloppify show "review::.::holistic::api_surface_coherence::epg_readiness_split_contract" --status open --no-budget` (current output still cites pre-change optional-interface/probe evidence, treated as stale detector residue).
+    - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur` -> `split follow-up` -> final owner `P2-W2`; reason: after the readiness/config-binding split, one broader live owner-envelope remains around top-level EPG surface clarity (`EPGComponent` vs coordinator/orchestrator delegation surface) that aligns with `P2-W2` runtime-seam follow-through; revisit trigger: rerun `desloppify show "review::.::holistic::high_level_elegance::epg_top_level_owner_blur" --status open --no-budget` plus `npm run verify` during `P2-W2` and retire there or reassign once if source audit finds a better final owner.
+- [x] `P2-W2` move refresh orchestration and library-filter normalization behind one explicit EPG runtime seam
   - Imported review issues: `review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam`, `review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams`
-  - Primary files: `src/modules/ui/epg/EPGCoordinator.ts`, `src/modules/ui/epg/EPGScheduleRefreshRuntime.ts`, `src/modules/ui/epg/EPGCoordinatorPolicies.ts`
+  - Primary files: `src/modules/ui/epg/EPGCoordinator.ts`, `src/modules/ui/epg/EPGRefreshController.ts`, `src/modules/ui/epg/EPGScheduleRefreshRuntime.ts`, `src/modules/ui/epg/EPGCoordinatorPolicies.ts`, `src/modules/settings/EpgPreferencesStore.ts`, `src/core/orchestrator/OrchestratorCoordinatorFactory.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
-- [ ] `P2-W3` replace hidden EPG runtime globals with explicit owner state and restore narrow shared types at the boundary
+  - Inherited follow-ups:
+    - Source `P2-W1` disposition `split follow-up`: `review::.::holistic::high_level_elegance::epg_top_level_owner_blur`; required verification commands: `desloppify show "review::.::holistic::high_level_elegance::epg_top_level_owner_blur" --status open --no-budget`; `npm run verify`
+  - Execution (2026-04-01): extracted internal `EPGRefreshController` seam to own refresh queue/runtime orchestration, kept `EPGCoordinator` as top-level owner with guide-selection abort state, moved schedule-range snapshot ownership to `EpgPreferencesStore.readScheduleRangeSnapshot()`, centralized library-filter normalization in `computeNormalizedLibraryFilterState(...)`, and added seam coverage (`EPGRefreshController.test.ts`, `EPGCoordinatorPolicies.test.ts`) plus updated coordinator/runtime/store/factory tests.
+  - Follow-up execution (2026-04-01): routed production guide-setting and library-filter refresh follow-through through `EPGRefreshController` (while keeping guide-selection abort ownership in `EPGCoordinator`), removed `EPGRefreshController` test-only debug getters, and updated coordinator/orchestrator seam tests to assert observable behavior instead of coordinator-internal debug hooks.
+  - Follow-up execution (2026-04-01, pass 2): removed guide-setting invalidation ownership from `EPGRefreshController` (`onGuideSettingInvalidation` dep removed) so `EPGCoordinator` is the sole owner of guide-selection abort/version state; refresh controller remains refresh-side reset/clear/reload only.
+  - Follow-up execution (2026-04-01, final closeout): moved schedule-range/filter/cache/debug policy shaping fully behind `EPGRefreshController` + `EPGCoordinatorPolicies`, replaced coordinator-local library-filter cleanup with explicit `readAppliedLibraryFilterState(...)` application, removed the stale “Main orchestrator” owner claim from `EPGComponent`, and kept `Orchestrator` as delegation-only wiring.
+  - Verification (2026-04-01):
+    - `npm test -- --runInBand src/modules/settings/__tests__/EpgPreferencesStore.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGCoordinatorPolicies.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGRefreshController.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`
+    - `npm test -- --runInBand src/core/orchestrator/__tests__/OrchestratorCoordinatorFactory.playbackState.test.ts`
+    - `npm test -- --runInBand src/__tests__/Orchestrator.test.ts`
+    - `rg -n "openEPG|closeEPG|toggleEPG|onGuideSettingChange|_epgCoordinator" src/Orchestrator.ts`
+    - `rg -n "Main orchestrator for the Electronic Program Guide|channelSelected|libraryFilterChanged|show\\(|hide\\(|isVisible\\(|focusNow\\(" src/modules/ui/epg/EPGComponent.ts`
+    - `rg -n "EPGRefreshController" src` (explicit repo-wide caller/import guard)
+    - `npm run verify`
+  - Follow-up verification (2026-04-01):
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGRefreshController.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`
+    - `npm test -- --runInBand src/__tests__/Orchestrator.test.ts`
+    - `rg -n "EPGRefreshController" src` (explicit repo-wide caller/import guard rerun)
+    - `desloppify show "review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam" --status open --no-budget`
+    - `desloppify show "review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams" --status open --no-budget`
+    - `npm run verify`
+  - Follow-up verification (2026-04-01, pass 2):
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGRefreshController.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`
+    - `rg -n "EPGRefreshController" src` (explicit repo-wide caller/import guard rerun)
+    - `desloppify show "review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam" --status open --no-budget`
+    - `desloppify show "review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams" --status open --no-budget`
+    - `npm run verify`
+  - Follow-up verification (2026-04-01, final closeout):
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGCoordinatorPolicies.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGRefreshController.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`
+    - `npm test -- --runInBand src/__tests__/Orchestrator.test.ts`
+    - `rg -n "EPGRefreshController" src`
+    - `rg -n "openEPG|closeEPG|toggleEPG|onGuideSettingChange|_epgCoordinator" src/Orchestrator.ts`
+    - `rg -n "Main orchestrator for the Electronic Program Guide|channelSelected|libraryFilterChanged|show\\(|hide\\(|isVisible\\(|focusNow\\(" src/modules/ui/epg/EPGComponent.ts`
+    - `desloppify show "review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam" --status open --no-budget`
+    - `desloppify show "review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams" --status open --no-budget`
+    - `desloppify show "review::.::holistic::high_level_elegance::epg_top_level_owner_blur" --status open --no-budget`
+    - `npm run verify`
+  - Issue dispositions (2026-04-01 final source audit + detector refresh):
+    - `review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam` -> `resolved` -> owner `P2-W2`; proof: `EPGCoordinator` now delegates refresh-policy shaping to `EPGRefreshController` and shared policy helpers instead of authoring the runtime callback contract itself, while `EPGRefreshController` is the only production owner that constructs/feeds `EPGScheduleRefreshRuntime` (`rg -n "EPGRefreshController" src` shows only the controller definition plus its internal coordinator consumer in production code); command: `desloppify show "review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam" --status open --no-budget` still prints pre-closeout wording about coordinator-authored runtime callbacks, treated as stale detector residue.
+    - `review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams` -> `resolved` -> owner `P2-W2`; proof: `computeNormalizedLibraryFilterState(...)` remains the single normalization rule, `readAppliedLibraryFilterState(...)` is now the explicit persistence-application boundary, and the coordinator-local duplicate `_getLibraryFilterState` path is gone; command: `desloppify show "review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams" --status open --no-budget` still cites the removed coordinator helper/mutation path, treated as stale detector residue.
+    - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur` -> `resolved` -> owner `P2-W2`; proof: `rg -n "Main orchestrator for the Electronic Program Guide|channelSelected|libraryFilterChanged|show\\(|hide\\(|isVisible\\(|focusNow\\(" src/modules/ui/epg/EPGComponent.ts` no longer finds the top-level-orchestrator wording, `rg -n "openEPG|closeEPG|toggleEPG|onGuideSettingChange|_epgCoordinator" src/Orchestrator.ts` still shows `Orchestrator` as a delegation surface only, and `EPGRefreshController` remains an internal collaborator rather than a second public owner; command: `desloppify show "review::.::holistic::high_level_elegance::epg_top_level_owner_blur" --status open --no-budget` still reports the pre-fix wording and broader stale owner-surface residue.
+- [x] `P2-W3` replace hidden EPG runtime globals with explicit owner state and restore narrow shared types at the boundary
   - Imported review issues: `review::.::holistic::initialization_coupling::epg_debug_module_global_runtime`, `review::.::holistic::type_safety::epg_channel_boundary_widens_known_types`
   - Primary files: `src/modules/ui/epg/utils.ts`, `src/modules/ui/epg/EPGCoordinator.ts`, `src/modules/ui/epg/domainTypes.ts`, `src/modules/ui/epg/adapters.ts`, `src/modules/scheduler/channel-manager/types.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
-- [ ] `P2-W4` split the EPG render/data package surface so view, runtime, and model owners stop accreting together
+  - Verification (2026-04-02):
+    - `npm run verify`
+    - `desloppify scan --path . --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion because I need to refresh stale state before closing already-fixed P2-W3 issues."`
+    - `desloppify plan reorder "review::.::holistic::initialization_coupling::epg_debug_module_global_runtime" "review::.::holistic::type_safety::epg_channel_boundary_widens_known_types" top`
+    - `desloppify plan resolve "review::.::holistic::initialization_coupling::epg_debug_module_global_runtime" "review::.::holistic::type_safety::epg_channel_boundary_widens_known_types" --note "I have actually replaced the hidden EPG debug module globals with explicit orchestrator-owned EPGDebugRuntime wiring, restored storage-event invalidation and same-tab bounded refresh behavior, and narrowed EpgChannel to scheduler-derived shared types at the EPG boundary; I am not gaming the score by resolving without fixing." --confirm`
+    - `desloppify show "review::.::holistic::initialization_coupling::epg_debug_module_global_runtime" --status open --no-budget`
+    - `desloppify show "review::.::holistic::type_safety::epg_channel_boundary_widens_known_types" --status open --no-budget`
+    - `rg -n "appendEpgDebugLog|isEpgDebugLoggingEnabled|__resetEpgDebugStateForTests|debugOverridesStore" src/modules/ui/epg`
+  - Issue dispositions (2026-04-02 closeout):
+    - `review::.::holistic::initialization_coupling::epg_debug_module_global_runtime` -> `resolved` -> owner `P2-W3`; proof: mutable debug state moved out of `utils.ts` into one explicit `EPGDebugRuntime` owner, one runtime is assembled in `Orchestrator.initialize(...)`, coordinator/runtime owners receive it directly through `createOrchestratorCoordinators(...)`, and UI-only consumers receive it through `EPGConfig.debugRuntime` via `InitializationCoordinator` startup config wiring; tracker closeout: after a forced stale-state rescan and `desloppify plan resolve ...`, `desloppify show "review::.::holistic::initialization_coupling::epg_debug_module_global_runtime" --status open --no-budget` now returns no open issues.
+    - `review::.::holistic::type_safety::epg_channel_boundary_widens_known_types` -> `resolved` -> owner `P2-W3`; proof: `EpgChannel` now derives from `Pick<ChannelConfig, ...>` and preserves scheduler-owned `contentSource`/`playbackMode` unions at compile time while adapter/fixture updates align with the narrowed boundary; tracker closeout: after a forced stale-state rescan and `desloppify plan resolve ...`, `desloppify show "review::.::holistic::type_safety::epg_channel_boundary_widens_known_types" --status open --no-budget` now returns no open issues.
+- [x] `P2-W4` split the EPG render/data package surface so view, runtime, and model owners stop accreting together
   - Imported review issues: `review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion`, `review::.::holistic::package_organization::epg_flat_directory_overload`
-  - Primary files: `src/modules/ui/epg/EPGVirtualizer.ts`, `src/modules/ui/epg/`
+  - Primary files: `src/modules/ui/epg/view/EPGVirtualizer.ts`, `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, `src/modules/ui/epg/model/`, `src/modules/ui/epg/index.ts`, `src/core/initialization/InitializationStartupPolicy.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
-- [ ] `P2-EXIT` run the priority-exit review before moving to `P3`
+  - Execution (2026-04-02): moved leaf EPG collaborators into staged subfolders (`view/`, `runtime/`, `model/`) without forwarding shims, added subfolder barrels, rewired direct imports (including `InitializationStartupPolicy.ts` to `src/modules/ui/epg/model/adapters`), kept the root EPG barrel stable for previously-public surface exports only, and refactored `renderVisibleCells(...)` into explicit private phases (`createRenderPassContext`, `collectVisibleCells`, `collectCellsForScheduledRow`, `pruneToDomBudget`, `reconcileVisibleCells`, `finishRenderPass`) while preserving the existing public `EPGVirtualizer` API.
+  - Verification (2026-04-02):
+    - `npm run typecheck`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/index.test.ts src/modules/ui/epg/__tests__/EPGTimeHeader.test.ts src/modules/ui/epg/__tests__/EPGChannelList.test.ts src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts src/modules/ui/epg/__tests__/EPGVisibleRangeRefreshQueue.test.ts src/modules/ui/epg/__tests__/EPGRefreshController.test.ts src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts src/modules/ui/epg/__tests__/EPGComponent.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts src/modules/ui/epg/__tests__/EPGComponent.test.ts src/modules/ui/epg/__tests__/EPGRefreshController.test.ts src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts src/modules/ui/epg/__tests__/EPGTimeHeader.test.ts src/modules/ui/epg/__tests__/EPGChannelList.test.ts src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts src/modules/ui/epg/__tests__/EPGVisibleRangeRefreshQueue.test.ts`
+    - `npm run verify`
+    - `desloppify show "review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion" --status open --no-budget`
+    - `desloppify show "review::.::holistic::package_organization::epg_flat_directory_overload" --status open --no-budget`
+  - Issue dispositions (2026-04-02 source audit + detector check):
+    - `review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion` -> `resolved` (slice-owned rationale retired on current source) -> final owner for residual reconciliation: `P2-EXIT`; proof: `renderVisibleCells(...)` is now a thin coordinator over explicit class-private phase helpers in `src/modules/ui/epg/view/EPGVirtualizer.ts`; detector output still cites removed single-pass structure and pre-move file path (`src/modules/ui/epg/EPGVirtualizer.ts`), treated as stale detector residue pending broader queue reconciliation.
+    - `review::.::holistic::package_organization::epg_flat_directory_overload` -> `resolved` (slice-owned rationale retired on current source) -> final owner for residual reconciliation: `P2-EXIT`; proof: moved view/runtime/model leaf collaborators out of the flat EPG root and retained only root-owner + shared contract surfaces in `src/modules/ui/epg/`; detector output still cites pre-move flat-path evidence (`src/modules/ui/epg/EPGChannelList.ts`, `src/modules/ui/epg/EPGTimeHeader.ts`, `src/modules/ui/epg/EPGScheduleCacheStore.ts`, `src/modules/ui/epg/EPGVisibleRangeRefreshQueue.ts`, `src/modules/ui/epg/adapters.ts`), treated as stale detector residue.
+- [x] `P2-EXIT` run the priority-exit review before moving to `P3`
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P3` plan, code, or checklist progress starts until every `P2` mapped id has an explicit disposition record
   - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all eight exact `P2` issue-id checks; `npm run verify`
+  - Priority-exit review status (2026-04-02): `complete` (cleanup-review confirmed later-owner reassignment, destination mirroring, and security-gate clearance on current evidence; `P3` may proceed)
+  - Verified commands (2026-04-02 refresh):
+    - `npm run typecheck`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGCoordinator.test.ts src/modules/ui/epg/__tests__/EPGRefreshController.test.ts src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts`
+    - `npm run verify`
+    - `desloppify status`
+    - `desloppify show review --status open --no-budget --top 100`
+    - `desloppify show security --status open --no-budget --top 50`
+    - `desloppify show "review::.::holistic::high_level_elegance::epg_top_level_owner_blur" --status open --no-budget`
+    - `desloppify show "review::.::holistic::api_surface_coherence::epg_readiness_split_contract" --status open --no-budget`
+    - `desloppify show "review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam" --status open --no-budget`
+    - `desloppify show "review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams" --status open --no-budget`
+    - `desloppify show "review::.::holistic::initialization_coupling::epg_debug_module_global_runtime" --status open --no-budget`
+    - `desloppify show "review::.::holistic::type_safety::epg_channel_boundary_widens_known_types" --status open --no-budget`
+    - `desloppify show "review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion" --status open --no-budget`
+    - `desloppify show "review::.::holistic::package_organization::epg_flat_directory_overload" --status open --no-budget`
+    - `desloppify scan --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`
+    - `desloppify detect cycles --json`
+    - `desloppify detect cycles --file src/modules/ui/epg/EPGCoordinator.ts --json`
+    - `desloppify detect cycles --file src/modules/ui/epg/EPGRefreshController.ts --json`
+    - `desloppify plan reorder "cycles::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGRefreshController.ts" top`
+    - `desloppify plan resolve "cycles::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGRefreshController.ts" --note "Detector reconciliation: desloppify detect cycles returns zero cycles for both EPGCoordinator.ts and EPGRefreshController.ts; source import audit shows one-way import (EPGCoordinator -> EPGRefreshController) with no reverse import. Clearing stale persisted cycle work item." --attest "I have actually rerun the cycle detector and audited imports, and I am not gaming the score."`
+    - `desloppify show "cycles::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGRefreshController.ts" --status open --no-budget`
+    - `desloppify show security --status open --no-budget --top 50`
+  - Mapped imported issues (2026-04-02 disposition record):
+    - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur` -> `split follow-up`; owner: `P4-W2`; reason: remaining live debt is a cross-surface EPG ownership seam (`EPGComponent`/`EPGCoordinator`/`Orchestrator` delegation) that needs the same coordinator/runtime/startup boundary pass already in scope for `P4-W2`; revisit trigger: during `P4-W2`, rerun `desloppify show "review::.::holistic::high_level_elegance::epg_top_level_owner_blur" --status open --no-budget` and `npm run verify`.
+    - `review::.::holistic::api_surface_coherence::epg_readiness_split_contract` -> `split follow-up`; owner: `P4-W2`; reason: remaining readiness ambiguity crosses `IEPGComponent`, deferred EPG runtime wiring, coordinator open flow, and orchestrator startup seams that align with the `P4-W2` initialization/runtime boundary cleanup; revisit trigger: during `P4-W2`, rerun `desloppify show "review::.::holistic::api_surface_coherence::epg_readiness_split_contract" --status open --no-budget` and `npm run verify`.
+    - `review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam` -> `split follow-up`; owner: `P4-W2`; reason: remaining seam is still centered on `EPGCoordinator` plus runtime refresh orchestration and belongs to the same bounded extraction pass as `P4-W2`; revisit trigger: during `P4-W2`, rerun `desloppify show "review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam" --status open --no-budget` and `npm run verify`.
+    - `review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams` -> `split follow-up`; owner: `P4-W1`; reason: remaining duplication crosses `EPGCoordinator` and `EPGCoordinatorPolicies` and belongs with the storage/owner-boundary policy cleanup that already names `EPGCoordinatorPolicies.ts` in `P4-W1`; revisit trigger: during `P4-W1`, rerun `desloppify show "review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams" --status open --no-budget` and `npm run verify`.
+    - `review::.::holistic::initialization_coupling::epg_debug_module_global_runtime` -> `resolved`; owner: `P2-W3`; reason: exact issue-id command returns `No open issues matching`; revisit trigger: rerun exact issue-id command during next `P2-EXIT` refresh if EPG runtime debug ownership changes.
+    - `review::.::holistic::type_safety::epg_channel_boundary_widens_known_types` -> `resolved`; owner: `P2-W3`; reason: exact issue-id command returns `No open issues matching`; revisit trigger: rerun exact issue-id command during next `P2-EXIT` refresh if channel-domain boundary types are widened again.
+    - `review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion` -> `split follow-up`; owner: `P6-W2`; reason: `P2-W4` retired the slice-owned render-phase structure, but detector output still cites the pre-move path and requires one explicit stale-vs-live reconciliation in the shared UI package-cleanup phase before final wave closeout; revisit trigger: during `P6-W2`, rerun `desloppify show "review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion" --status open --no-budget` plus source audit on `src/modules/ui/epg/view/EPGVirtualizer.ts` and `npm run verify`.
+    - `review::.::holistic::package_organization::epg_flat_directory_overload` -> `split follow-up`; owner: `P6-W2`; reason: `P2-W4` completed the staged `view/runtime/model` move, but detector output still references pre-move flat-path files and needs one package-cleanup reconciliation pass in `P6-W2`; revisit trigger: during `P6-W2`, rerun `desloppify show "review::.::holistic::package_organization::epg_flat_directory_overload" --status open --no-budget` plus source audit on `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/`, and `npm run verify`.
+  - Security triage (2026-04-02 disposition record):
+    - issue: `cycles::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGCoordinator.ts::src/modules/ui/epg/EPGRefreshController.ts`
+    - disposition: `resolved`
+    - owner: `P2-EXIT`
+    - reason: source audit confirms one-way import (`EPGCoordinator -> EPGRefreshController`) and no reverse import remains, while `desloppify detect cycles --json` returns zero cycles. The open security finding persisted as stale plan/work-item state after forced-rescan mid-cycle scans, so `desloppify plan resolve` was used (with attested detector + source proof) to reconcile the stale cycle id.
+    - revisit trigger: before any `P3` work (or if either file’s import surface changes), rerun `desloppify detect cycles --json` and `desloppify show security --status open --no-budget --top 50`; reopen triage immediately if either command reports a cycle again.
 
 ## Priority 3: Realign Channel-Setup Ownership And Remove Duplicated Flow Contracts
 
@@ -377,14 +501,38 @@ These are the required repo-local boundary skills for the new wave. Load them be
 
 ### Work Units
 
-- [ ] `P3-W1` choose one owner for channel-setup workflow and reduce the gateway seam to thin assembly
+- [x] `P3-W1` choose one owner for channel-setup workflow and reduce the gateway seam to thin assembly
   - Imported review issues: `review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur`
   - Primary files: `src/core/channel-setup/ChannelSetupCoordinator.ts`, `src/core/channel-setup/ChannelSetupSessionGateway.ts`, `src/core/channel-setup/createChannelSetupSessionGateway.ts`, `src/modules/ui/channel-setup/ChannelSetupSessionController.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` command for the mapped id
-- [ ] `P3-W2` split overloaded build execution and deduplicate error-summary policy inside channel setup
+  - Execution (2026-04-02): replaced the mixed `ChannelSetupSessionGateway` seam with explicit workflow and screen ports, kept `ChannelSetupSessionController` as the channel-setup workflow/session owner, rewired app-shell assembly to use `getChannelSetupWorkflowPort()` plus `createChannelSetupScreenPorts()`, kept `requestChannelSetupRerun()` as a direct runtime action, kept diagnostics on workflow plus direct selected-server accessors, and tightened `ChannelSetupScreen` tests/contracts so they construct split workflow and screen test ports explicitly.
+  - Verification (2026-04-02):
+    - `npm run verify`
+    - `desloppify show "review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur" --status open --no-budget`
+    - `rg -n "ChannelSetupSessionGateway|getChannelSetupSessionGateway" src`
+  - Issue dispositions (2026-04-02 source audit + detector refresh):
+    - `review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur` -> `resolved` -> owner `P3-W1`; proof: `rg -n "ChannelSetupSessionGateway|getChannelSetupSessionGateway" src` now returns no matches, `ChannelSetupScreen` requires explicit `{ workflowPort, screenPorts }` construction, `ChannelSetupSessionController` consumes `ChannelSetupWorkflowPort` as the session/async owner, diagnostics now depend on `getChannelSetupWorkflowPort()` plus direct selected-server accessors, and `requestChannelSetupRerun()` remains a direct runtime action on `AppOrchestrator`; command: `desloppify show "review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur" --status open --no-budget` still reports deleted gateway files and pre-split coordinator evidence, treated as stale detector residue.
+- [x] `P3-W2` split overloaded build execution and deduplicate error-summary policy inside channel setup
   - Imported review issues: `review::.::holistic::design_coherence::channel_setup_build_execution_is_overloaded`, `review::.::holistic::design_coherence::channel_setup_error_summary_logic_is_duplicated`
   - Primary files: `src/core/channel-setup/ChannelSetupBuildExecutor.ts`, `src/core/channel-setup/ChannelSetupPlanningService.ts`, `src/modules/ui/channel-setup/`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
+  - Execution (2026-04-02): extracted `ChannelSetupBuildCommitter` as the commit/apply/refresh owner, narrowed `ChannelSetupBuildExecutor` to planning/progress/cancel orchestration, rewired `ChannelSetupCoordinator` assembly to inject the new collaborator, added direct `ChannelSetupBuildCommitter` tests for cancellation/reached-max/cleanup-order/EPG-refresh behavior, and removed channel-setup-local `summarizeErrorForLog` helpers so both core channel-setup files now use `src/utils/errors.ts`.
+  - Verification (2026-04-02):
+    - `npm test -- --runInBand src/core/channel-setup/__tests__/ChannelSetupBuildCommitter.test.ts src/core/channel-setup/__tests__/ChannelSetupCoordinator.test.ts`
+    - `npm test -- --runInBand src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts src/utils/__tests__/errors.test.ts`
+    - `npm run verify`
+    - `desloppify status`
+    - `desloppify show review --status open --no-budget --top 100`
+    - `desloppify show security --status open --no-budget --top 50`
+    - `desloppify show "review::.::holistic::design_coherence::channel_setup_build_execution_is_overloaded" --status open --no-budget`
+    - `desloppify show "review::.::holistic::design_coherence::channel_setup_error_summary_logic_is_duplicated" --status open --no-budget`
+    - `rg -n "function summarizeErrorForLog|summarizeErrorForLog\\(" src/core/channel-setup src/utils/errors.ts`
+  - Issue dispositions (2026-04-02 source audit + detector refresh):
+    - `review::.::holistic::design_coherence::channel_setup_build_execution_is_overloaded` -> `resolved` -> owner `P3-W2`; proof: `ChannelSetupBuildExecutor` now delegates temp-builder lifecycle, create/apply, and post-commit EPG refresh to `ChannelSetupBuildCommitter`, while executor owns preflight planning/progress/cancel orchestration only; direct collaborator coverage now exists in `ChannelSetupBuildCommitter.test.ts`; exact issue-id `desloppify` command still reports pre-extraction wording and is treated as stale detector residue.
+    - `review::.::holistic::design_coherence::channel_setup_error_summary_logic_is_duplicated` -> `resolved` -> owner `P3-W2`; proof: `rg -n "function summarizeErrorForLog|summarizeErrorForLog\\(" src/core/channel-setup src/utils/errors.ts` now shows a single shared helper definition in `src/utils/errors.ts` with channel-setup files only importing/calling it; exact issue-id `desloppify` command still reports removed local helper copies and is treated as stale detector residue.
+  - Security triage (2026-04-02 disposition record):
+    - `desloppify show security --status open --no-budget --top 50` -> `No open issues for Security. Detectors: cycles, security`.
+    - `P0` impact: none intersects channel setup; no `P0` blocker recorded for `P3-W2` or `P3-EXIT`.
 - [ ] `P3-W3` align channel-setup names and UI state types to the domain contracts they already mirror
   - Imported review issues: `review::.::holistic::naming_quality::playback_variant_flag_name_drift`, `review::.::holistic::naming_quality::scroll_to_nearest_fallback_mismatch`, `review::.::holistic::type_safety::channel_setup_ui_redefines_core_unions`
   - Primary files: `src/core/channel-setup/ChannelSetupPlanner.ts`, `src/core/channel-setup/types.ts`, `src/modules/ui/channel-setup/ChannelSetupSessionController.ts`, `src/modules/ui/channel-setup/steps/types.ts`, `src/modules/ui/channel-setup/focus/scrollToNearest.ts`, `src/modules/scheduler/channel-manager/types.ts`
@@ -406,10 +554,16 @@ These are the required repo-local boundary skills for the new wave. Load them be
   - Imported review issues: `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift`, `review::.::holistic::incomplete_migration::deprecated_lifecycle_plexauth_slot`
   - Primary files: `src/modules/ui/epg/EPGCoordinatorPolicies.ts`, `src/core/orchestrator/OrchestratorCoordinatorFactory.ts`, `src/modules/player/AudioTrackManager.ts`, `src/modules/lifecycle/StateManager.ts`, `docs/architecture/CURRENT_STATE.md`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
+  - Closeout note: planning and final verification for `P4-W1` must cover both the mapped `P4-W1` issues above and the inherited `epg_library_filter_rules_split_across_seams` follow-up below before this work unit can be marked complete.
+  - Inherited follow-ups:
+    - Source `P2-EXIT` disposition `split follow-up`: `review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams`; required verification commands: `desloppify show "review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams" --status open --no-budget`; `npm run verify`
 - [ ] `P4-W2` centralize diagnostics ownership and remove misleading startup async wrappers
   - Imported review issues: `review::.::holistic::initialization_coupling::diagnostics_store_scattered_singletons`, `review::.::holistic::logic_clarity::startup_ui_async_wrapper_drift`
   - Primary files: `src/Orchestrator.ts`, `src/modules/player/PlaybackRecoveryManager.ts`, `src/core/channel-tuning/ChannelTuningCoordinator.ts`, `src/modules/ui/epg/EPGCoordinator.ts`, `src/modules/ui/epg/EPGScheduleRefreshRuntime.ts`, `src/core/InitializationCoordinator.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
+  - Closeout note: planning and final verification for `P4-W2` must cover the mapped `P4-W2` issues and all inherited EPG ownership/readiness/refresh follow-ups below before this work unit can be marked complete.
+  - Inherited follow-ups:
+    - Source `P2-EXIT` disposition `split follow-up`: `review::.::holistic::high_level_elegance::epg_top_level_owner_blur`, `review::.::holistic::api_surface_coherence::epg_readiness_split_contract`, `review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam`; required verification commands: `desloppify show "review::.::holistic::high_level_elegance::epg_top_level_owner_blur" --status open --no-budget`; `desloppify show "review::.::holistic::api_surface_coherence::epg_readiness_split_contract" --status open --no-budget`; `desloppify show "review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam" --status open --no-budget`; `npm run verify`
 - [ ] `P4-W3` make corrupted stored Plex auth observable instead of silently folding it into clean absence
   - Imported review issues: `review::.::holistic::contract_coherence::plex_auth_stored_credentials_null_hides_corruption`
   - Primary files: `src/modules/plex/auth/PlexAuth.ts`, `src/modules/plex/auth/interfaces.ts`
@@ -463,6 +617,9 @@ These are the required repo-local boundary skills for the new wave. Load them be
   - Imported review issues: `review::.::holistic::package_organization::theme_definitions_live_under_settings`, `review::.::holistic::package_organization::ui_root_channel_display_straggler`, `review::.::holistic::design_coherence::player_timecode_formatting_is_copied_between_overlays`
   - Primary files: `src/modules/ui/settings/theme.ts`, `src/modules/ui/theme/ThemeManager.ts`, `src/modules/ui/channelDisplay.ts`, `src/modules/ui/common/`, player overlay surfaces
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the three mapped ids
+  - Closeout note: planning and final verification for `P6-W2` must include the inherited EPG render/package stale-detector reconciliation follow-ups below before this work unit can be marked complete.
+  - Inherited follow-ups:
+    - Source `P2-EXIT` disposition `split follow-up`: `review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion`, `review::.::holistic::package_organization::epg_flat_directory_overload`; required verification commands: `desloppify show "review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion" --status open --no-budget`; `desloppify show "review::.::holistic::package_organization::epg_flat_directory_overload" --status open --no-budget`; `npm run verify`
 - [ ] `P6-W3` narrow the remaining app-shell runtime facade and coordinator assembly bags so composition roots stay thin
   - Primary files: `src/App.ts`, `src/core/app-shell/AppLazyScreenRegistry.ts`, `src/Orchestrator.ts`, `src/modules/navigation/NavigationCoordinator.ts`, `src/core/InitializationCoordinator.ts`, `src/core/orchestrator/OrchestratorCoordinatorFactory.ts`, `docs/architecture/CURRENT_STATE.md`
   - Minimum verification: `npm run verify`

@@ -6,6 +6,7 @@ import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { flushPromises } from '../../../__tests__/helpers';
 import { DebugOverridesStore } from '../../../modules/debug/DebugOverridesStore';
 import { AppDiagnosticsSurface, type DiagnosticsOrchestrator } from '../AppDiagnosticsSurface';
+import type { ChannelSetupWorkflowPort } from '../../channel-setup/ChannelSetupWorkflowPort';
 
 const createContainer = (): HTMLDivElement => {
     const el = document.createElement('div');
@@ -18,6 +19,78 @@ const createSnapshot = (): { channel: null; program: null; stream: null } => ({
     channel: null,
     program: null,
     stream: null,
+});
+
+const createWorkflowPort = (
+    overrides: Partial<jest.Mocked<ChannelSetupWorkflowPort>> = {}
+): jest.Mocked<ChannelSetupWorkflowPort> => ({
+    invalidateFacetSnapshot: jest.fn(),
+    getLibrariesForSetup: jest.fn().mockResolvedValue([]),
+    getChannelSetupRecord: jest.fn().mockReturnValue(null),
+    getSetupContextForSelectedServer: jest.fn().mockReturnValue('unknown'),
+    getSetupPreview: jest.fn().mockResolvedValue({
+        estimates: {
+            total: 0,
+            collections: 0,
+            playlists: 0,
+            genres: 0,
+            directors: 0,
+            decades: 0,
+            recentlyAdded: 0,
+            studios: 0,
+            actors: 0,
+        },
+        warnings: [],
+        reachedMaxChannels: false,
+    }),
+    getSetupReview: jest.fn().mockResolvedValue({
+        preview: {
+            estimates: {
+                total: 0,
+                collections: 0,
+                playlists: 0,
+                genres: 0,
+                directors: 0,
+                decades: 0,
+                recentlyAdded: 0,
+                studios: 0,
+                actors: 0,
+            },
+            warnings: [],
+            reachedMaxChannels: false,
+        },
+        diff: {
+            summary: { created: 0, removed: 0, unchanged: 0 },
+            samples: { created: [], removed: [], unchanged: [] },
+        },
+    }),
+    getSetupPlanDiagnostics: jest.fn().mockResolvedValue({
+        status: 'ready',
+        diagnostics: null,
+        warnings: [],
+        reachedMaxChannels: false,
+    }),
+    createChannelsFromSetup: jest.fn().mockResolvedValue({
+        created: 0,
+        skipped: 0,
+        reachedMaxChannels: false,
+        errorCount: 0,
+        canceled: false,
+        lastTask: 'done',
+    }),
+    markSetupComplete: jest.fn(),
+    ...overrides,
+});
+
+const createOrchestrator = (
+    overrides: Partial<DiagnosticsOrchestrator> = {}
+): DiagnosticsOrchestrator => ({
+    toggleServerSelect: jest.fn(),
+    refreshPlaybackInfoSnapshot: jest.fn().mockResolvedValue(createSnapshot()),
+    getSelectedServerId: jest.fn().mockReturnValue('server-1'),
+    getSelectedServerStorageKey: jest.fn().mockReturnValue('selected-server'),
+    getChannelSetupWorkflowPort: jest.fn().mockReturnValue(createWorkflowPort()),
+    ...overrides,
 });
 
 describe('AppDiagnosticsSurface', () => {
@@ -54,7 +127,8 @@ describe('AppDiagnosticsSurface', () => {
         document.body.appendChild(container);
 
         surface = new AppDiagnosticsSurface({
-            getOrchestrator: (): DiagnosticsOrchestrator => ({ toggleServerSelect, refreshPlaybackInfoSnapshot }),
+            getOrchestrator: (): DiagnosticsOrchestrator =>
+                createOrchestrator({ toggleServerSelect, refreshPlaybackInfoSnapshot }),
             showToast,
             debugOverridesStore: new DebugOverridesStore(),
         });
@@ -85,7 +159,8 @@ describe('AppDiagnosticsSurface', () => {
         document.body.appendChild(container);
 
         surface = new AppDiagnosticsSurface({
-            getOrchestrator: (): DiagnosticsOrchestrator => ({ toggleServerSelect, refreshPlaybackInfoSnapshot }),
+            getOrchestrator: (): DiagnosticsOrchestrator =>
+                createOrchestrator({ toggleServerSelect, refreshPlaybackInfoSnapshot }),
             showToast: jest.fn(),
             debugOverridesStore: new DebugOverridesStore(),
         });
@@ -109,7 +184,8 @@ describe('AppDiagnosticsSurface', () => {
         document.body.appendChild(container);
 
         surface = new AppDiagnosticsSurface({
-            getOrchestrator: (): DiagnosticsOrchestrator => ({ toggleServerSelect: jest.fn(), refreshPlaybackInfoSnapshot }),
+            getOrchestrator: (): DiagnosticsOrchestrator =>
+                createOrchestrator({ toggleServerSelect: jest.fn(), refreshPlaybackInfoSnapshot }),
             showToast: jest.fn(),
             debugOverridesStore: new DebugOverridesStore(),
         });
@@ -132,6 +208,157 @@ describe('AppDiagnosticsSurface', () => {
         expect(refreshPlaybackInfoSnapshot).toHaveBeenCalledTimes(2);
     });
 
+    it('dumps saved channel-setup planner diagnostics through the global helper', async () => {
+        const getSetupPlanDiagnostics = jest.fn().mockResolvedValue({
+            status: 'ready',
+            diagnostics: {
+                effectiveMaxChannels: 500,
+                minItems: 5,
+                fetchedTagsByFamily: {
+                    genres: [{ libraryId: 'lib-1', libraryName: 'Shows', count: 4 }],
+                    directors: [{ libraryId: 'lib-1', libraryName: 'Shows', count: 2 }],
+                    decades: [],
+                    studios: [{ libraryId: 'lib-1', libraryName: 'Shows', count: 1 }],
+                    actors: [{ libraryId: 'lib-1', libraryName: 'Shows', count: 9 }],
+                },
+                candidatesBeforeMinItems: {
+                    total: 16,
+                    collections: 0,
+                    playlists: 0,
+                    genres: 4,
+                    directors: 2,
+                    decades: 0,
+                    recentlyAdded: 0,
+                    studios: 1,
+                    actors: 9,
+                },
+                candidatesAfterMinItems: {
+                    total: 12,
+                    collections: 0,
+                    playlists: 0,
+                    genres: 3,
+                    directors: 1,
+                    decades: 0,
+                    recentlyAdded: 0,
+                    studios: 1,
+                    actors: 7,
+                },
+                strategyBucketSizes: {
+                    total: 12,
+                    collections: 0,
+                    playlists: 0,
+                    genres: 3,
+                    directors: 1,
+                    decades: 0,
+                    recentlyAdded: 0,
+                    studios: 1,
+                    actors: 7,
+                },
+                afterAlternateLineups: {
+                    total: 12,
+                    collections: 0,
+                    playlists: 0,
+                    genres: 3,
+                    directors: 1,
+                    decades: 0,
+                    recentlyAdded: 0,
+                    studios: 1,
+                    actors: 7,
+                },
+                afterVariants: {
+                    total: 12,
+                    collections: 0,
+                    playlists: 0,
+                    genres: 3,
+                    directors: 1,
+                    decades: 0,
+                    recentlyAdded: 0,
+                    studios: 1,
+                    actors: 7,
+                },
+                afterMaxChannels: {
+                    total: 10,
+                    collections: 0,
+                    playlists: 0,
+                    genres: 3,
+                    directors: 0,
+                    decades: 0,
+                    recentlyAdded: 0,
+                    studios: 0,
+                    actors: 7,
+                },
+                lostToMaxChannels: {
+                    total: 2,
+                    collections: 0,
+                    playlists: 0,
+                    genres: 0,
+                    directors: 1,
+                    decades: 0,
+                    recentlyAdded: 0,
+                    studios: 1,
+                    actors: 0,
+                },
+            },
+            warnings: [],
+            reachedMaxChannels: true,
+        });
+        const workflowPort = createWorkflowPort({
+            getChannelSetupRecord: jest.fn().mockReturnValue({
+                serverId: 'server-1',
+                selectedLibraryIds: ['lib-1'],
+                maxChannels: 500,
+                buildMode: 'replace',
+                strategyConfig: {
+                    collections: { enabled: false, priority: 1, scope: 'per-library' },
+                    playlists: { enabled: false, priority: 2, scope: 'per-library' },
+                    genres: { enabled: true, priority: 3, scope: 'per-library' },
+                    directors: { enabled: true, priority: 4, scope: 'per-library' },
+                    decades: { enabled: false, priority: 5, scope: 'per-library' },
+                    recentlyAdded: { enabled: false, priority: 6, scope: 'per-library' },
+                    studios: { enabled: true, priority: 7, scope: 'per-library' },
+                    actors: { enabled: true, priority: 8, scope: 'per-library' },
+                },
+                actorStudioCombineMode: 'separate',
+                minItemsPerChannel: 5,
+                createdAt: 1,
+                updatedAt: 2,
+            }),
+            getSetupPlanDiagnostics,
+        });
+        const consoleInfo = jest.spyOn(console, 'info').mockImplementation(() => {});
+        const consoleGroupCollapsed = jest.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
+        const consoleGroupEnd = jest.spyOn(console, 'groupEnd').mockImplementation(() => {});
+        const consoleTable = jest.spyOn(console, 'table').mockImplementation(() => {});
+        const container = createContainer();
+        document.body.appendChild(container);
+
+        surface = new AppDiagnosticsSurface({
+            getOrchestrator: (): DiagnosticsOrchestrator =>
+                createOrchestrator({ getChannelSetupWorkflowPort: jest.fn().mockReturnValue(workflowPort) }),
+            showToast: jest.fn(),
+            debugOverridesStore: new DebugOverridesStore(),
+        });
+        surface.setContainer(container);
+        surface.initialize();
+
+        const dump = await (window as {
+            lineup?: { dumpChannelSetupPlannerDiagnostics: () => Promise<unknown> };
+        }).lineup?.dumpChannelSetupPlannerDiagnostics();
+
+        expect(getSetupPlanDiagnostics).toHaveBeenCalledWith(
+            expect.objectContaining({ serverId: 'server-1', selectedLibraryIds: ['lib-1'] })
+        );
+        expect(dump).toEqual(expect.objectContaining({
+            selectedServerId: 'server-1',
+            recordSource: 'saved-record',
+            result: expect.objectContaining({ reachedMaxChannels: true }),
+        }));
+        expect(consoleInfo).toHaveBeenCalledWith('Selected server:', 'server-1');
+        expect(consoleTable).toHaveBeenCalledTimes(4);
+        expect(consoleGroupCollapsed).toHaveBeenCalledWith('[lineup] Channel setup planner diagnostics');
+        expect(consoleGroupEnd).toHaveBeenCalled();
+    });
+
     it('dispose removes key handlers and lineup helper', async () => {
         const toggleServerSelect = jest.fn();
         const refreshPlaybackInfoSnapshot = jest.fn().mockResolvedValue(createSnapshot());
@@ -139,7 +366,8 @@ describe('AppDiagnosticsSurface', () => {
         document.body.appendChild(container);
 
         surface = new AppDiagnosticsSurface({
-            getOrchestrator: (): DiagnosticsOrchestrator => ({ toggleServerSelect, refreshPlaybackInfoSnapshot }),
+            getOrchestrator: (): DiagnosticsOrchestrator =>
+                createOrchestrator({ toggleServerSelect, refreshPlaybackInfoSnapshot }),
             showToast: jest.fn(),
             debugOverridesStore: new DebugOverridesStore(),
         });
@@ -164,7 +392,8 @@ describe('AppDiagnosticsSurface', () => {
         document.body.appendChild(container);
 
         surface = new AppDiagnosticsSurface({
-            getOrchestrator: (): DiagnosticsOrchestrator => ({ toggleServerSelect: jest.fn(), refreshPlaybackInfoSnapshot }),
+            getOrchestrator: (): DiagnosticsOrchestrator =>
+                createOrchestrator({ toggleServerSelect: jest.fn(), refreshPlaybackInfoSnapshot }),
             showToast: jest.fn(),
             debugOverridesStore: new DebugOverridesStore(),
         });
@@ -191,10 +420,7 @@ describe('AppDiagnosticsSurface', () => {
         document.body.appendChild(container);
 
         surface = new AppDiagnosticsSurface({
-            getOrchestrator: (): DiagnosticsOrchestrator => ({
-                toggleServerSelect: jest.fn(),
-                refreshPlaybackInfoSnapshot: jest.fn().mockResolvedValue(createSnapshot()),
-            }),
+            getOrchestrator: (): DiagnosticsOrchestrator => createOrchestrator(),
             showToast,
             debugOverridesStore: new DebugOverridesStore(),
         });
