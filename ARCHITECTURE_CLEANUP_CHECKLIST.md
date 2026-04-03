@@ -554,10 +554,41 @@ These are the required repo-local boundary skills for the new wave. Load them be
     - `review::.::holistic::naming_quality::playback_variant_flag_name_drift` -> `resolved` -> owner `P3-W3`; proof: planner/build/scheduler now use `isPlaybackModeVariant`, and legacy `isSequentialVariant` appears only in `ChannelRepository` migration logic and migration-specific tests; exact issue-id `desloppify` command still reports pre-rename evidence and is treated as stale detector residue.
     - `review::.::holistic::naming_quality::scroll_to_nearest_fallback_mismatch` -> `resolved` -> owner `P3-W3`; proof: `scrollToNearest` now attempts `{ block: 'nearest', inline: 'nearest' }`, then falls back to nearest-edge approximation for above/below cases with explicit unit coverage in `focus/__tests__/scrollToNearest.test.ts`; exact issue-id `desloppify` command still reports old fallback wording and is treated as stale detector residue.
     - `review::.::holistic::type_safety::channel_setup_ui_redefines_core_unions` -> `resolved` -> owner `P3-W3`; proof: `ChannelSetupSessionController` and `steps/types` now reference core contracts (`SetupStrategyConfig['scope']`, `ChannelExpansionConfig['variantType']`, `SeriesOrderingConfig['basePlaybackMode']`) instead of local duplicate unions; exact issue-id `desloppify` command still reports pre-refactor evidence and is treated as stale detector residue.
-- [ ] `P3-EXIT` run the priority-exit review before moving to `P4`
+- [x] `P3-EXIT` run the priority-exit review before moving to `P4`
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P4` plan, code, or checklist progress starts until every `P3` mapped id has an explicit disposition record
   - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all six exact `P3` issue-id checks; `npm run verify`
+  - Priority-exit review status (2026-04-03): `complete` (all six mapped `P3` ids now return `No open issues matching`; no `deferred`/`split follow-up` carry-forward required)
+  - Verified commands (2026-04-03 final refresh):
+    - `desloppify status`
+    - `desloppify show review --status open --no-budget --top 100`
+    - `desloppify show security --status open --no-budget --top 50`
+    - `desloppify show "review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur" --status open --no-budget`
+    - `desloppify show "review::.::holistic::design_coherence::channel_setup_build_execution_is_overloaded" --status open --no-budget`
+    - `desloppify show "review::.::holistic::design_coherence::channel_setup_error_summary_logic_is_duplicated" --status open --no-budget`
+    - `desloppify show "review::.::holistic::naming_quality::playback_variant_flag_name_drift" --status open --no-budget`
+    - `desloppify show "review::.::holistic::naming_quality::scroll_to_nearest_fallback_mismatch" --status open --no-budget`
+    - `desloppify show "review::.::holistic::type_safety::channel_setup_ui_redefines_core_unions" --status open --no-budget`
+    - `rg -n "ChannelSetupSessionGateway|getChannelSetupSessionGateway" src`
+    - `rg -n "function summarizeErrorForLog|summarizeErrorForLog\\(" src/core/channel-setup src/utils/errors.ts`
+    - `rg -n "isSequentialVariant|isPlaybackModeVariant" src/core/channel-setup src/modules/scheduler/channel-manager src/modules/ui/channel-setup`
+    - `rg -n "scrollToNearest\\(|scrollIntoView\\(" src/modules/ui/channel-setup`
+    - `rg -n "'per-library'|'cross-library'|'none'\\s*\\|\\s*'sequential'\\s*\\|\\s*'block'|'shuffle'\\s*\\|\\s*'sequential'\\s*\\|\\s*'block'" src/modules/ui/channel-setup`
+    - `rg -n "\\[x\\] \`P4-" ARCHITECTURE_CLEANUP_CHECKLIST.md`
+    - `ls docs/plans | rg -i '(^|-)p4(-|_)'`
+    - `desloppify plan reorder "review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur" "review::.::holistic::design_coherence::channel_setup_build_execution_is_overloaded" "review::.::holistic::design_coherence::channel_setup_error_summary_logic_is_duplicated" "review::.::holistic::naming_quality::playback_variant_flag_name_drift" "review::.::holistic::naming_quality::scroll_to_nearest_fallback_mismatch" "review::.::holistic::type_safety::channel_setup_ui_redefines_core_unions" top`
+    - `desloppify plan resolve "review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur" "review::.::holistic::design_coherence::channel_setup_build_execution_is_overloaded" "review::.::holistic::design_coherence::channel_setup_error_summary_logic_is_duplicated" "review::.::holistic::naming_quality::playback_variant_flag_name_drift" "review::.::holistic::naming_quality::scroll_to_nearest_fallback_mismatch" "review::.::holistic::type_safety::channel_setup_ui_redefines_core_unions" --note "I reran the P3 source-audit gates and confirmed stale detector residue only: no gateway seam references, no duplicate summarizeErrorForLog definitions in channel-setup, planner/scheduler use isPlaybackModeVariant with one-time migration in repository, scrollToNearest fallback preserves nearest semantics, and UI state unions derive from core contracts. Resolving stale plan items after evidence refresh." --confirm`
+    - `npm run verify`
+  - Mapped imported issues (2026-04-03 disposition record):
+    - `review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur` -> `resolved`; owner: `P3-W1`; reason: exact issue-id command now returns `No open issues matching` after stale-state reconciliation.
+    - `review::.::holistic::design_coherence::channel_setup_build_execution_is_overloaded` -> `resolved`; owner: `P3-W2`; reason: exact issue-id command now returns `No open issues matching` after stale-state reconciliation.
+    - `review::.::holistic::design_coherence::channel_setup_error_summary_logic_is_duplicated` -> `resolved`; owner: `P3-W2`; reason: exact issue-id command now returns `No open issues matching` after stale-state reconciliation.
+    - `review::.::holistic::naming_quality::playback_variant_flag_name_drift` -> `resolved`; owner: `P3-W3`; reason: exact issue-id command now returns `No open issues matching` after stale-state reconciliation.
+    - `review::.::holistic::naming_quality::scroll_to_nearest_fallback_mismatch` -> `resolved`; owner: `P3-W3`; reason: exact issue-id command now returns `No open issues matching` after stale-state reconciliation.
+    - `review::.::holistic::type_safety::channel_setup_ui_redefines_core_unions` -> `resolved`; owner: `P3-W3`; reason: exact issue-id command now returns `No open issues matching` after stale-state reconciliation.
+  - Security triage (2026-04-03 disposition record):
+    - `desloppify show security --status open --no-budget --top 50` -> `No open issues for Security. Detectors: cycles, security`.
+    - `P0` impact: none; no `P0` defer/split records required for `P3-EXIT`.
 
 ## Priority 4: Tighten Persistence, Lifecycle, And Diagnostics Ownership
 
