@@ -1,7 +1,6 @@
 import { EPGCoordinator, type EPGCoordinatorDeps } from '../EPGCoordinator';
 import type { EpgUiStatus } from '../types';
 import type { IEPGComponent } from '../interfaces';
-import { EPGRefreshController } from '../EPGRefreshController';
 import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
 import {
     OverlayRuntimePolicyController,
@@ -1099,6 +1098,30 @@ describe('EPGCoordinator', () => {
         expect(epg.focusChannel).toHaveBeenCalledTimes(1);
         expect(ensure).toHaveBeenCalled();
         expect(epg.loadChannels).toHaveBeenCalled();
+    });
+
+    it('openEPG deferred follow-up preserves focus semantics when preserveFocus is true', async () => {
+        let status: EpgUiStatus = 'initializing';
+        const ensure = jest.fn().mockImplementation(async () => {
+            status = 'ready';
+        });
+        const { deps, epg } = makeDeps({
+            getEpgUiStatus: () => status,
+            ensureEpgInitialized: ensure,
+            getPreserveFocusOnOpen: () => true,
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.openEPG();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(epg.show).toHaveBeenCalledTimes(2);
+        expect(epg.show).toHaveBeenNthCalledWith(1, { preserveFocus: true });
+        expect(epg.show).toHaveBeenNthCalledWith(2, { preserveFocus: true });
+        expect(epg.focusNow).not.toHaveBeenCalled();
+        expect(epg.focusChannel).not.toHaveBeenCalled();
+        expect(ensure).toHaveBeenCalled();
     });
 
     it('openEPG does not reopen the guide after closeEPG runs while initialization is pending', async () => {
@@ -2379,18 +2402,6 @@ describe('EPGCoordinator', () => {
         await flushPromises();
 
         expect(refreshSpy).toHaveBeenCalledWith(range, { reason: 'visible-range' });
-    });
-
-    it('clearScheduleCaches clears both schedule caches and loaded schedule markers', () => {
-        const { deps } = makeDeps();
-        const coordinator = new EPGCoordinator(deps);
-        const clearCachesSpy = jest.spyOn(EPGRefreshController.prototype, 'clearScheduleCaches');
-        const clearMarkersSpy = jest.spyOn(EPGRefreshController.prototype, 'clearLoadedScheduleMarkers');
-
-        coordinator.clearScheduleCaches();
-
-        expect(clearCachesSpy).toHaveBeenCalledTimes(1);
-        expect(clearMarkersSpy).toHaveBeenCalledTimes(1);
     });
 
     it('handleGuideSettingChange delegates guide-setting policy when EPG is visible', () => {

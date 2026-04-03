@@ -117,7 +117,6 @@ export class EPGCoordinator {
      */
     clearScheduleCaches(): void {
         this._refreshController.clearScheduleCaches();
-        this._refreshController.clearLoadedScheduleMarkers();
     }
 
     clearSelectedChannelScheduleSnapshot(): void {
