@@ -20,16 +20,29 @@
 }
 
 .now-playing-info-panel {
+  --npi-scrim-fallback-rgb: 0, 0, 0;
+  --npi-start-alpha: 30%;
+  --npi-end-alpha: 50%;
+  --npi-border-alpha: 8%;
   margin: 0;
   display: grid;
   grid-template-columns: clamp(220px, 20vw, 300px) minmax(0, 1fr);
   gap: 0;
   height: clamp(380px, 50vh, 560px);
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.30), rgba(0, 0, 0, 0.50));
+  background: linear-gradient(
+    135deg,
+    rgba(var(--npi-scrim-fallback-rgb), 0.30),
+    rgba(var(--npi-scrim-fallback-rgb), 0.50)
+  );
+  background: linear-gradient(
+    135deg,
+    rgb(var(--scrim-tint-rgb) / var(--npi-start-alpha)),
+    rgb(var(--scrim-tint-rgb) / var(--npi-end-alpha))
+  );
   border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0 16px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, var(--npi-border-alpha));
+  border-right: 1px solid rgba(255, 255, 255, var(--npi-border-alpha));
+  border-radius: 0 var(--panel-radius, 16px) 0 0;
   box-shadow: none;
   padding: 0;
   max-width: 1180px;
@@ -377,9 +390,10 @@
 }
 
 .theme-glass .now-playing-info-panel {
-  background: linear-gradient(135deg, rgb(6 9 13 / 62%), rgb(8 11 15 / 80%));
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  --npi-scrim-fallback-rgb: 8, 11, 15;
+  --npi-start-alpha: 62%;
+  --npi-end-alpha: 80%;
+  --npi-border-alpha: 6%;
   box-shadow: none;
 }
 
@@ -390,4 +404,44 @@
 
 .theme-glass .now-playing-info-subtitle {
   letter-spacing: 0.02em;
+}
+
+.theme-slate-pine .now-playing-info-panel {
+  --npi-scrim-fallback-rgb: 22, 24, 22;
+  --npi-start-alpha: 36%;
+  --npi-end-alpha: 58%;
+  --npi-border-alpha: 8%;
+}
+
+.theme-swiss .now-playing-info-panel {
+  --npi-scrim-fallback-rgb: 0, 0, 0;
+  --npi-start-alpha: 36%;
+  --npi-end-alpha: 58%;
+  --npi-border-alpha: 4%;
+}
+
+.theme-swiss .now-playing-info-title {
+  font-family: var(--font-family-display);
+}
+
+.theme-directv .now-playing-info-panel {
+  --npi-scrim-fallback-rgb: 0, 24, 48;
+  --npi-start-alpha: 50%;
+  --npi-end-alpha: 72%;
+  --npi-border-alpha: 36%;
+}
+
+.theme-directv .now-playing-info-title {
+  font-family: var(--font-family-display);
+}
+
+.theme-ember-steel .now-playing-info-panel {
+  --npi-scrim-fallback-rgb: 20, 20, 20;
+  --npi-start-alpha: 44%;
+  --npi-end-alpha: 66%;
+  --npi-border-alpha: 10%;
+}
+
+.theme-ember-steel .now-playing-info-title {
+  font-family: var(--font-family-display);
 }
