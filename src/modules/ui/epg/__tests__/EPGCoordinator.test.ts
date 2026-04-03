@@ -1,6 +1,7 @@
 import { EPGCoordinator, type EPGCoordinatorDeps } from '../EPGCoordinator';
 import type { EpgUiStatus } from '../types';
 import type { IEPGComponent } from '../interfaces';
+import { EPGRefreshController } from '../EPGRefreshController';
 import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
 import {
     OverlayRuntimePolicyController,
@@ -2376,6 +2377,18 @@ describe('EPGCoordinator', () => {
         await flushPromises();
 
         expect(refreshSpy).toHaveBeenCalledWith(range, { reason: 'visible-range' });
+    });
+
+    it('clearScheduleCaches clears both schedule caches and loaded schedule markers', () => {
+        const { deps } = makeDeps();
+        const coordinator = new EPGCoordinator(deps);
+        const clearCachesSpy = jest.spyOn(EPGRefreshController.prototype, 'clearScheduleCaches');
+        const clearMarkersSpy = jest.spyOn(EPGRefreshController.prototype, 'clearLoadedScheduleMarkers');
+
+        coordinator.clearScheduleCaches();
+
+        expect(clearCachesSpy).toHaveBeenCalledTimes(1);
+        expect(clearMarkersSpy).toHaveBeenCalledTimes(1);
     });
 
     it('handleGuideSettingChange delegates guide-setting policy when EPG is visible', () => {
