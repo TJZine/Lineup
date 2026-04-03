@@ -596,6 +596,64 @@
   border-radius: 0;
 }
 
+.theme-slate-pine .settings-dropdown {
+  background: rgb(var(--scrim-tint-rgb) / 92%);
+  border: 1px solid rgba(var(--focus-color-rgb), 0.24);
+}
+
+.theme-slate-pine .settings-dropdown-option:hover,
+.theme-slate-pine .settings-dropdown-option:focus,
+.theme-slate-pine .settings-dropdown-option.focused {
+  background: rgba(var(--focus-color-rgb), 0.16);
+  border-color: rgba(var(--focus-color-rgb), 0.32);
+}
+
+.theme-directv .settings-dropdown {
+  background: linear-gradient(
+    180deg,
+    var(--directv-panel-gradient-start),
+    var(--directv-panel-gradient-end)
+  );
+  border: 1px solid rgb(var(--color-primary-rgb) / 78%);
+  border-radius: var(--panel-radius, 2px);
+}
+
+.theme-directv .settings-dropdown-option {
+  border-radius: calc(var(--panel-radius, 2px) + 2px);
+}
+
+.theme-directv .settings-dropdown-option:hover,
+.theme-directv .settings-dropdown-option:focus,
+.theme-directv .settings-dropdown-option.focused {
+  background: rgb(var(--color-primary-rgb) / 24%);
+  border-color: rgb(var(--color-primary-rgb) / 72%);
+}
+
+.theme-directv .settings-dropdown-option--selected,
+.theme-directv .settings-dropdown-option--selected:hover,
+.theme-directv .settings-dropdown-option--selected:focus,
+.theme-directv .settings-dropdown-option--selected.focused {
+  background: var(--directv-focus-fill);
+  border-color: var(--directv-focus-border);
+  color: var(--directv-focus-text);
+}
+
+.theme-directv .settings-dropdown-option-check {
+  color: var(--directv-focus-text);
+}
+
+.theme-ember-steel .settings-dropdown {
+  background: rgb(var(--scrim-tint-rgb) / 94%);
+  border: 1px solid rgba(var(--focus-color-rgb), 0.30);
+}
+
+.theme-ember-steel .settings-dropdown-option:hover,
+.theme-ember-steel .settings-dropdown-option:focus,
+.theme-ember-steel .settings-dropdown-option.focused {
+  background: rgba(var(--focus-color-rgb), 0.20);
+  border-color: rgba(var(--focus-color-rgb), 0.34);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .settings-dropdown {
     animation: none;
