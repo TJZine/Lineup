@@ -5,6 +5,9 @@ import type {
     ChannelSetupPreview,
     ChannelSetupRecord,
     ChannelSetupReview,
+    ChannelExpansionConfig,
+    SeriesOrderingConfig,
+    SetupStrategyConfig,
 } from '../../../core/channel-setup/types';
 import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/ChannelSetupWorkflowPort';
 import {
@@ -43,22 +46,15 @@ export const clampSeriesBlockPreset = (raw: unknown): number => {
     return Math.min(SERIES_BLOCK_PRESET_MAX, Math.max(SERIES_BLOCK_PRESET_MIN, value));
 };
 
-export type SetupStrategyState = Record<SetupStrategyKey, {
-    enabled: boolean;
-    scope: 'per-library' | 'cross-library';
-}>;
+type SetupStrategyStateItem = Pick<SetupStrategyConfig, 'enabled' | 'scope'>;
+export type SetupStrategyState = Record<SetupStrategyKey, SetupStrategyStateItem>;
 
-export type ChannelExpansionState = {
-    addAlternateLineups: boolean;
-    alternateLineupCopies: number;
-    variantType: 'none' | 'sequential' | 'block';
-    variantBlockSize: number;
-};
+export type ChannelExpansionState = Pick<
+    ChannelExpansionConfig,
+    'addAlternateLineups' | 'alternateLineupCopies' | 'variantType' | 'variantBlockSize'
+>;
 
-export type SeriesOrderingState = {
-    basePlaybackMode: 'shuffle' | 'sequential' | 'block';
-    baseBlockSize: number;
-};
+export type SeriesOrderingState = Pick<SeriesOrderingConfig, 'basePlaybackMode' | 'baseBlockSize'>;
 
 export type StrategyStepMutableState = {
     activeStrategyCategory: StrategyCategoryKey;

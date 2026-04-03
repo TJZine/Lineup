@@ -1,9 +1,12 @@
 import type {
     ChannelSetupConfig,
     ChannelSetupContext,
+    ChannelExpansionConfig,
     ChannelSetupPreview,
     ChannelSetupReview,
-} from '../../../../Orchestrator';
+    SeriesOrderingConfig,
+    SetupStrategyConfig,
+} from '../../../../core/channel-setup/types';
 import type { PlexLibraryType } from '../../../plex/library';
 import type { SetupStrategyKey, StrategyCategoryKey } from './constants';
 
@@ -17,11 +20,9 @@ export interface StepRenderContext {
     errorEl: HTMLElement;
 }
 
-type StrategyScope = 'per-library' | 'cross-library';
-
 interface StrategyStateItem {
     enabled: boolean;
-    scope: StrategyScope;
+    scope: SetupStrategyConfig['scope'];
 }
 
 type StrategyStateMap = Record<SetupStrategyKey, StrategyStateItem>;
@@ -29,12 +30,12 @@ type StrategyStateMap = Record<SetupStrategyKey, StrategyStateItem>;
 export interface ChannelExpansionState {
     addAlternateLineups: boolean;
     alternateLineupCopies: number;
-    variantType: 'none' | 'sequential' | 'block';
+    variantType: ChannelExpansionConfig['variantType'];
     variantBlockSize: number;
 }
 
 export interface SeriesOrderingState {
-    basePlaybackMode: 'shuffle' | 'sequential' | 'block';
+    basePlaybackMode: SeriesOrderingConfig['basePlaybackMode'];
     baseBlockSize: number;
 }
 
