@@ -51,6 +51,23 @@ describe('scrollToNearest', () => {
         return { container, element, scrollIntoView };
     };
 
+    const setupViewportOnlyElement = (): {
+        element: HTMLButtonElement;
+        scrollIntoView: jest.Mock;
+    } => {
+        const element = document.createElement('button');
+        document.body.appendChild(element);
+
+        const scrollIntoView = jest.fn((arg?: unknown) => {
+            if (arg && typeof arg === 'object') {
+                throw new Error('options object not supported');
+            }
+        });
+        element.scrollIntoView = scrollIntoView as unknown as typeof element.scrollIntoView;
+
+        return { element, scrollIntoView };
+    };
+
     it('falls back to align-to-top when target is above scrollable viewport', () => {
         const { container, element, scrollIntoView } = setupScrollableElements();
         container.getBoundingClientRect = jest.fn(() => rect(100, 200));
@@ -79,6 +96,50 @@ describe('scrollToNearest', () => {
         const { container, element, scrollIntoView } = setupScrollableElements();
         container.getBoundingClientRect = jest.fn(() => rect(100, 200));
         element.getBoundingClientRect = jest.fn(() => rect(120, 180));
+
+        scrollToNearest(element);
+
+        expect(scrollIntoView).toHaveBeenNthCalledWith(1, { block: 'nearest', inline: 'nearest' });
+        expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back to align-to-top against the viewport when no scrollable ancestor exists', () => {
+        const { element, scrollIntoView } = setupViewportOnlyElement();
+        Object.defineProperty(window, 'innerHeight', {
+            configurable: true,
+            value: 200,
+        });
+        element.getBoundingClientRect = jest.fn(() => rect(-20, 20));
+
+        scrollToNearest(element);
+
+        expect(scrollIntoView).toHaveBeenNthCalledWith(1, { block: 'nearest', inline: 'nearest' });
+        expect(scrollIntoView).toHaveBeenNthCalledWith(2, true);
+        expect(scrollIntoView).toHaveBeenCalledTimes(2);
+    });
+
+    it('falls back to align-to-bottom against the viewport when no scrollable ancestor exists', () => {
+        const { element, scrollIntoView } = setupViewportOnlyElement();
+        Object.defineProperty(window, 'innerHeight', {
+            configurable: true,
+            value: 200,
+        });
+        element.getBoundingClientRect = jest.fn(() => rect(220, 260));
+
+        scrollToNearest(element);
+
+        expect(scrollIntoView).toHaveBeenNthCalledWith(1, { block: 'nearest', inline: 'nearest' });
+        expect(scrollIntoView).toHaveBeenNthCalledWith(2, false);
+        expect(scrollIntoView).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not issue a second scroll when already visible in the viewport and no scrollable ancestor exists', () => {
+        const { element, scrollIntoView } = setupViewportOnlyElement();
+        Object.defineProperty(window, 'innerHeight', {
+            configurable: true,
+            value: 200,
+        });
+        element.getBoundingClientRect = jest.fn(() => rect(50, 150));
 
         scrollToNearest(element);
 

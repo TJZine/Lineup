@@ -21,13 +21,22 @@ export const scrollToNearest = (element: HTMLElement): void => {
         // Fall through to compatibility path for browsers that reject options objects.
     }
 
+    const elementBounds = element.getBoundingClientRect();
     const ancestor = findScrollableAncestor(element);
     if (!ancestor) {
-        element.scrollIntoView();
+        const viewportTop = 0;
+        const viewportBottom = window.innerHeight;
+        const isAboveViewport = elementBounds.top < viewportTop;
+        const isBelowViewport = elementBounds.bottom > viewportBottom;
+
+        if (!isAboveViewport && !isBelowViewport) {
+            return;
+        }
+
+        element.scrollIntoView(isAboveViewport);
         return;
     }
 
-    const elementBounds = element.getBoundingClientRect();
     const ancestorBounds = ancestor.getBoundingClientRect();
     const isAboveViewport = elementBounds.top < ancestorBounds.top;
     const isBelowViewport = elementBounds.bottom > ancestorBounds.bottom;
