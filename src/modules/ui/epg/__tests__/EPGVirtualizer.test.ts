@@ -1066,6 +1066,39 @@ describe('EPGVirtualizer', () => {
             expect(rerenderedFocusedCell?.classList.contains(EPG_CLASSES.CELL_FOCUSED)).toBe(true);
         });
 
+        it('does not keep placeholder focus when a rebuilt placeholder no longer contains the focused time', () => {
+            const channelIds = ['ch0'];
+            const schedules = new Map<string, ScheduleWindow>();
+
+            virtualizer.setChannelCount(1);
+
+            const initialRange = virtualizer.calculateVisibleRange({
+                channelOffset: 0,
+                timeOffset: 0,
+            });
+            virtualizer.renderVisibleCells(channelIds, schedules, initialRange);
+
+            const focusTimeMs = gridAnchorTime;
+            const focusedElement = virtualizer.setFocusedCell('ch0', focusTimeMs, focusTimeMs);
+            expect(focusedElement).not.toBeNull();
+            expect(focusedElement?.classList.contains(EPG_CLASSES.CELL_FOCUSED)).toBe(true);
+
+            const shiftedRange = virtualizer.calculateVisibleRange({
+                channelOffset: 0,
+                timeOffset: 90,
+            });
+            const originalFocusedKey = `ch0-placeholder-${gridAnchorTime}`;
+            virtualizer.renderVisibleCells(channelIds, schedules, shiftedRange, originalFocusedKey);
+
+            const shiftedPlaceholder = container.querySelector(
+                `[data-key="ch0-placeholder-${gridAnchorTime + (90 * 60000)}"]`
+            ) as HTMLElement | null;
+
+            expect(shiftedPlaceholder).not.toBeNull();
+            expect(shiftedPlaceholder?.classList.contains(EPG_CLASSES.CELL_FOCUSED)).toBe(false);
+            expect(container.querySelector(`.${EPG_CLASSES.CELL_FOCUSED}`)).toBeNull();
+        });
+
         it('applies horizontal scroll transform to the content wrapper', () => {
             const channelIds = ['ch0'];
             const schedules = new Map<string, ScheduleWindow>();

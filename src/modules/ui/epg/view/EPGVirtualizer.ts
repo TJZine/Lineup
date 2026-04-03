@@ -138,6 +138,7 @@ export class EPGVirtualizer {
     private cellChildrenCache: WeakMap<HTMLElement, CellChildren> = new WeakMap();
     private poolSequence = 0;
     private focusedVisibleCellKey: string | null = null;
+    private focusedTimeMs: number | null = null;
 
     /** Total channel count */
     private totalChannels: number = 0;
@@ -170,6 +171,7 @@ export class EPGVirtualizer {
         this.channelOffset = 0;
         this.totalChannels = 0;
         this.focusedVisibleCellKey = null;
+        this.focusedTimeMs = null;
         this.elementPool.clear();
         this.visibleCells.clear();
         this.cellChildrenCache = new WeakMap();
@@ -189,6 +191,7 @@ export class EPGVirtualizer {
         this.elementPool.clear();
         this.visibleCells.clear();
         this.focusedVisibleCellKey = null;
+        this.focusedTimeMs = null;
         if (this.contentElement) {
             this.contentElement.remove();
         }
@@ -292,17 +295,11 @@ export class EPGVirtualizer {
             return false;
         }
 
-        const existingFocusedCell = this.visibleCells.get(focusedCellKey);
-        if (existingFocusedCell) {
-            const focusedStartTime = existingFocusedCell.kind === 'program'
-                ? existingFocusedCell.program.scheduledStartTime
-                : existingFocusedCell.placeholder.scheduledStartTime;
-            const focusedEndTime = existingFocusedCell.kind === 'program'
-                ? existingFocusedCell.program.scheduledEndTime
-                : existingFocusedCell.placeholder.scheduledEndTime;
-            return existingFocusedCell.channelId === channelId &&
-                focusedStartTime < scheduledEndTime &&
-                focusedEndTime > scheduledStartTime;
+        if (this.focusedTimeMs !== null) {
+            const existingFocusedCell = this.visibleCells.get(focusedCellKey);
+            if (existingFocusedCell?.channelId === channelId) {
+                return this.focusedTimeMs >= scheduledStartTime && this.focusedTimeMs < scheduledEndTime;
+            }
         }
 
         const placeholderMatch = focusedCellKey.match(/^(.*)-placeholder-(\d+)$/);
@@ -1807,8 +1804,10 @@ export class EPGVirtualizer {
                 }
             }
             this.focusedVisibleCellKey = targetCellData.key;
+            this.focusedTimeMs = focusTimeMs ?? programStartTime;
         } else {
             this.focusedVisibleCellKey = null;
+            this.focusedTimeMs = null;
         }
         if (options?.syncTicker !== false) {
             this._syncFocusedTitleTickerForVisibleFocus();
