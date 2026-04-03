@@ -401,6 +401,45 @@ describe('ChannelSetupPlanner', () => {
         expect(plan.pendingChannels.map((channel) => channel.name)).toEqual(['Action', 'Drama']);
     });
 
+    it('preserves known cross-library subtotals for actors when another source omits counts', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['s1', 's2'],
+                minItemsPerChannel: 5,
+                strategyConfig: createStrategyConfig({
+                    actors: { enabled: true, scope: 'cross-library' },
+                }),
+                channelExpansion: {
+                    addAlternateLineups: false,
+                    alternateLineupCopies: 1,
+                    variantType: 'none',
+                    variantBlockSize: 3,
+                },
+            }),
+            libraries: [
+                { id: 's1', title: 'Shows A', type: 'show', contentCount: 10 },
+                { id: 's2', title: 'Shows B', type: 'show', contentCount: 10 },
+            ] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map([
+                ['s1', [{ key: 'actor-alex-a', title: 'Alex Star', count: 9 }]],
+                ['s2', [
+                    { key: 'actor-alex-b', title: 'Alex Star', count: null },
+                    { key: 'actor-blake-b', title: 'Blake Star', count: 8 },
+                ]],
+            ]),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(plan.pendingChannels.map((channel) => channel.name)).toEqual(['Alex Star', 'Blake Star']);
+    });
+
     it('sanitizes non-finite/invalid baseBlockSize for base series ordering', () => {
         const plan = buildChannelSetupPlan({
             config: createConfig({
