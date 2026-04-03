@@ -282,6 +282,52 @@ export class EPGVirtualizer {
         return programEndMinutes > timeRange.start && programStartMinutes < timeRange.end;
     }
 
+    private matchesFocusedPlaceholderWindow(
+        channelId: string,
+        scheduledStartTime: number,
+        scheduledEndTime: number,
+        focusedCellKey?: string
+    ): boolean {
+        if (!focusedCellKey) {
+            return false;
+        }
+
+        const existingFocusedCell = this.visibleCells.get(focusedCellKey);
+        if (existingFocusedCell) {
+            const focusedStartTime = existingFocusedCell.kind === 'program'
+                ? existingFocusedCell.program.scheduledStartTime
+                : existingFocusedCell.placeholder.scheduledStartTime;
+            const focusedEndTime = existingFocusedCell.kind === 'program'
+                ? existingFocusedCell.program.scheduledEndTime
+                : existingFocusedCell.placeholder.scheduledEndTime;
+            return existingFocusedCell.channelId === channelId &&
+                focusedStartTime < scheduledEndTime &&
+                focusedEndTime > scheduledStartTime;
+        }
+
+        const placeholderMatch = focusedCellKey.match(/^(.*)-placeholder-(\d+)$/);
+        if (placeholderMatch) {
+            const [, focusedChannelId, focusedStartRaw] = placeholderMatch;
+            const focusedStartTime = Number(focusedStartRaw);
+            return focusedChannelId === channelId &&
+                Number.isFinite(focusedStartTime) &&
+                focusedStartTime >= scheduledStartTime &&
+                focusedStartTime < scheduledEndTime;
+        }
+
+        const programMatch = focusedCellKey.match(/^(.*)-(\d+)$/);
+        if (!programMatch) {
+            return false;
+        }
+
+        const [, focusedChannelId, focusedStartRaw] = programMatch;
+        const focusedStartTime = Number(focusedStartRaw);
+        return focusedChannelId === channelId &&
+            Number.isFinite(focusedStartTime) &&
+            focusedStartTime >= scheduledStartTime &&
+            focusedStartTime < scheduledEndTime;
+    }
+
     private addPlaceholderCell(
         channelId: string,
         rowIndex: number,
@@ -306,7 +352,14 @@ export class EPGVirtualizer {
         const cellKey = `${channelId}-placeholder-${scheduledStartTime}`;
         const left = normalizedStart * this.config.pixelsPerMinute;
         const width = Math.max((normalizedEnd - normalizedStart) * this.config.pixelsPerMinute, 20);
-        const isFocusedCell = cellKey === focusedCellKey;
+        const isFocusedCell =
+            cellKey === focusedCellKey ||
+            this.matchesFocusedPlaceholderWindow(
+                channelId,
+                scheduledStartTime,
+                scheduledEndTime,
+                focusedCellKey
+            );
         stageCell({
             kind: 'placeholder',
             key: cellKey,
@@ -437,9 +490,41 @@ export class EPGVirtualizer {
                 }
             }
 
-            return Array.from(selected.entries())
+            const orderedSelected = Array.from(selected.entries()).sort(([a], [b]) => a - b);
+
+            if (orderedSelected.length <= sampleCount) {
+                return orderedSelected.map(([, cell]) => cell);
+            }
+
+            if (sampleCount === 1) {
+                return [orderedSelected[0]![1]];
+            }
+
+            const step = (orderedSelected.length - 1) / (sampleCount - 1);
+            const resampled = new Map<number, CellRenderData>();
+
+            for (let i = 0; i < sampleCount; i += 1) {
+                const orderedIndex = Math.round(i * step);
+                const selectedEntry = orderedSelected[orderedIndex];
+                if (!selectedEntry) {
+                    continue;
+                }
+                resampled.set(selectedEntry[0], selectedEntry[1]);
+            }
+
+            if (resampled.size < sampleCount) {
+                for (const [index, cell] of orderedSelected) {
+                    if (resampled.size >= sampleCount) {
+                        break;
+                    }
+                    if (!resampled.has(index)) {
+                        resampled.set(index, cell);
+                    }
+                }
+            }
+
+            return Array.from(resampled.entries())
                 .sort(([a], [b]) => a - b)
-                .slice(0, sampleCount)
                 .map(([, cell]) => cell);
         };
 
