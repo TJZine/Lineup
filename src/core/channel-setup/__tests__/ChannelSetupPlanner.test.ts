@@ -169,6 +169,28 @@ describe('ChannelSetupPlanner', () => {
         expect(diff.matchedPairs).toHaveLength(plan.pendingChannels.length);
     });
 
+    it('preserves legacy identity-hash compatibility for playback variants after the public field rename', () => {
+        const variantCandidate: PendingChannel = {
+            name: 'Variant',
+            contentSource: {
+                type: 'library',
+                libraryId: 'library-identity',
+                libraryType: 'show',
+                includeWatched: true,
+            },
+            playbackMode: 'block',
+            lineupReplicaIndex: 0,
+            isPlaybackModeVariant: true,
+            shuffleSeed: 123,
+        } as PendingChannel;
+
+        const identityKey = createChannelIdentityKey(variantCandidate);
+
+        expect(identityKey).toContain('"isSequentialVariant":true');
+        expect(identityKey).toContain('"variantPlaybackMode":"block"');
+        expect(identityKey).not.toContain('"isPlaybackModeVariant":true');
+    });
+
     it('emits per-library genre channels using libraryFilter instead of contentFilters', () => {
         const plan = buildChannelSetupPlan({
             config: createConfig({
