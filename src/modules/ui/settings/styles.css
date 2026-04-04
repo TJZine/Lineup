@@ -623,6 +623,7 @@
 }
 
 .theme-slate-pine .settings-dropdown {
+  background: rgba(var(--scrim-tint-rgb), 0.92);
   background: rgb(var(--scrim-tint-rgb) / 92%);
   border: 1px solid rgba(var(--focus-color-rgb), 0.24);
 }
@@ -640,6 +641,7 @@
     var(--directv-panel-gradient-start),
     var(--directv-panel-gradient-end)
   );
+  border: 1px solid rgba(var(--color-primary-rgb), 0.78);
   border: 1px solid rgb(var(--color-primary-rgb) / 78%);
   border-radius: var(--panel-radius, 2px);
 }
@@ -651,7 +653,9 @@
 .theme-directv .settings-dropdown-option:hover,
 .theme-directv .settings-dropdown-option:focus,
 .theme-directv .settings-dropdown-option.focused {
+  background: rgba(var(--color-primary-rgb), 0.24);
   background: rgb(var(--color-primary-rgb) / 24%);
+  border-color: rgba(var(--color-primary-rgb), 0.72);
   border-color: rgb(var(--color-primary-rgb) / 72%);
 }
 
@@ -669,6 +673,7 @@
 }
 
 .theme-ember-steel .settings-dropdown {
+  background: rgba(var(--scrim-tint-rgb), 0.94);
   background: rgb(var(--scrim-tint-rgb) / 94%);
   border: 1px solid rgba(var(--focus-color-rgb), 0.30);
 }
