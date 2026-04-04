@@ -12,6 +12,7 @@ const REQUIRED_TOKENS = [
     '--focus-color-rgb',
     '--color-primary',
     '--color-primary-rgb',
+    '--color-primary-rgb-legacy',
     '--color-primary-dark',
     '--color-primary-light',
     '--color-bg-deep',
@@ -23,6 +24,7 @@ const REQUIRED_TOKENS = [
     '--panel-border',
     '--panel-radius',
     '--scrim-tint-rgb',
+    '--scrim-tint-rgb-legacy',
 ] as const;
 
 const stylesDir = path.join(process.cwd(), 'src', 'styles');
@@ -65,6 +67,15 @@ describe('theme tokens', () => {
 
             // --color-primary-rgb must be space-separated (rgb(var(--color-primary-rgb) / a))
             expect(block).toMatch(/--color-primary-rgb\s*:\s*\d+\s+\d+\s+\d+\s*;/);
+
+            // --color-primary-rgb-legacy must be comma-separated (rgba(var(--color-primary-rgb-legacy), a))
+            expect(block).toMatch(/--color-primary-rgb-legacy\s*:\s*\d+\s*,\s*\d+\s*,\s*\d+\s*;/);
+
+            // --scrim-tint-rgb must be space-separated (rgb(var(--scrim-tint-rgb) / a))
+            expect(block).toMatch(/--scrim-tint-rgb\s*:\s*\d+\s+\d+\s+\d+\s*;/);
+
+            // --scrim-tint-rgb-legacy must be comma-separated (rgba(var(--scrim-tint-rgb-legacy), a))
+            expect(block).toMatch(/--scrim-tint-rgb-legacy\s*:\s*\d+\s*,\s*\d+\s*,\s*\d+\s*;/);
         }
     });
 });

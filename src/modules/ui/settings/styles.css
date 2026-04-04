@@ -367,8 +367,8 @@
 .theme-slate-pine .settings-categories {
   background: linear-gradient(
     135deg,
-    rgba(var(--scrim-tint-rgb), 0.54) 0%,
-    rgba(var(--scrim-tint-rgb), 0.72) 100%
+    rgba(var(--scrim-tint-rgb-legacy), 0.54) 0%,
+    rgba(var(--scrim-tint-rgb-legacy), 0.72) 100%
   );
   background: linear-gradient(
     135deg,
@@ -383,7 +383,7 @@
 .theme-slate-pine .settings-profile-row {
   border-radius: var(--panel-radius, 8px);
   border-color: rgba(var(--focus-color-rgb), 0.20);
-  background: rgba(var(--scrim-tint-rgb), 0.34);
+  background: rgba(var(--scrim-tint-rgb-legacy), 0.34);
   background: rgb(var(--scrim-tint-rgb) / 34%);
 }
 
@@ -406,7 +406,7 @@
     var(--directv-panel-gradient-start),
     var(--directv-panel-gradient-end)
   );
-  border-right: 1px solid rgba(var(--color-primary-rgb), 0.82);
+  border-right: 1px solid rgba(var(--color-primary-rgb-legacy), 0.82);
   border-right: 1px solid rgb(var(--color-primary-rgb) / 82%);
   border-radius: 0 var(--panel-radius, 2px) var(--panel-radius, 2px) 0;
 }
@@ -419,9 +419,9 @@
 .theme-directv .settings-category-button,
 .theme-directv .settings-profile-row {
   border-radius: var(--panel-radius, 2px);
-  background: rgba(var(--scrim-tint-rgb), 0.56);
+  background: rgba(var(--scrim-tint-rgb-legacy), 0.56);
   background: rgb(var(--scrim-tint-rgb) / 56%);
-  border-color: rgba(var(--color-primary-rgb), 0.68);
+  border-color: rgba(var(--color-primary-rgb-legacy), 0.68);
   border-color: rgb(var(--color-primary-rgb) / 68%);
 }
 
@@ -429,15 +429,15 @@
 .theme-directv .settings-category-button[aria-selected="true"] {
   background: linear-gradient(
     90deg,
-    rgba(var(--color-primary-rgb), 0.30),
-    rgba(var(--color-primary-rgb), 0.14)
+    rgba(var(--color-primary-rgb-legacy), 0.30),
+    rgba(var(--color-primary-rgb-legacy), 0.14)
   );
   background: linear-gradient(
     90deg,
     rgb(var(--color-primary-rgb) / 30%),
     rgb(var(--color-primary-rgb) / 14%)
   );
-  border-color: rgba(var(--color-primary-rgb), 0.76);
+  border-color: rgba(var(--color-primary-rgb-legacy), 0.76);
   border-color: rgb(var(--color-primary-rgb) / 76%);
   border-left-color: var(--focus-color);
   color: #eff8ff;
@@ -464,8 +464,8 @@
 .theme-ember-steel .settings-categories {
   background: linear-gradient(
     135deg,
-    rgba(var(--scrim-tint-rgb), 0.56) 0%,
-    rgba(var(--scrim-tint-rgb), 0.74) 100%
+    rgba(var(--scrim-tint-rgb-legacy), 0.56) 0%,
+    rgba(var(--scrim-tint-rgb-legacy), 0.74) 100%
   );
   background: linear-gradient(
     135deg,
@@ -485,7 +485,7 @@
 .theme-ember-steel .settings-profile-row {
   border-radius: var(--panel-radius, 4px);
   border-color: rgba(var(--focus-color-rgb), 0.24);
-  background: rgba(var(--scrim-tint-rgb), 0.36);
+  background: rgba(var(--scrim-tint-rgb-legacy), 0.36);
   background: rgb(var(--scrim-tint-rgb) / 36%);
 }
 
@@ -623,7 +623,7 @@
 }
 
 .theme-slate-pine .settings-dropdown {
-  background: rgba(var(--scrim-tint-rgb), 0.92);
+  background: rgba(var(--scrim-tint-rgb-legacy), 0.92);
   background: rgb(var(--scrim-tint-rgb) / 92%);
   border: 1px solid rgba(var(--focus-color-rgb), 0.24);
 }
@@ -641,7 +641,7 @@
     var(--directv-panel-gradient-start),
     var(--directv-panel-gradient-end)
   );
-  border: 1px solid rgba(var(--color-primary-rgb), 0.78);
+  border: 1px solid rgba(var(--color-primary-rgb-legacy), 0.78);
   border: 1px solid rgb(var(--color-primary-rgb) / 78%);
   border-radius: var(--panel-radius, 2px);
 }
@@ -653,9 +653,9 @@
 .theme-directv .settings-dropdown-option:hover,
 .theme-directv .settings-dropdown-option:focus,
 .theme-directv .settings-dropdown-option.focused {
-  background: rgba(var(--color-primary-rgb), 0.24);
+  background: rgba(var(--color-primary-rgb-legacy), 0.24);
   background: rgb(var(--color-primary-rgb) / 24%);
-  border-color: rgba(var(--color-primary-rgb), 0.72);
+  border-color: rgba(var(--color-primary-rgb-legacy), 0.72);
   border-color: rgb(var(--color-primary-rgb) / 72%);
 }
 
@@ -673,7 +673,7 @@
 }
 
 .theme-ember-steel .settings-dropdown {
-  background: rgba(var(--scrim-tint-rgb), 0.94);
+  background: rgba(var(--scrim-tint-rgb-legacy), 0.94);
   background: rgb(var(--scrim-tint-rgb) / 94%);
   border: 1px solid rgba(var(--focus-color-rgb), 0.30);
 }

@@ -6,6 +6,9 @@
  * - Use fallback-first progressive enhancement for alpha colors: legacy rgba() then modern rgb(... / ...).
  * - Keep `--focus-color-rgb` comma-separated (used by rgba(var(--focus-color-rgb), a)).
  * - Keep `--color-primary-rgb` space-separated (used by rgb(var(--color-primary-rgb) / a)).
+ * - Keep `--color-primary-rgb-legacy` comma-separated (used by rgba(var(--color-primary-rgb-legacy), a)).
+ * - Keep `--scrim-tint-rgb` space-separated (used by rgb(var(--scrim-tint-rgb) / a)).
+ * - Keep `--scrim-tint-rgb-legacy` comma-separated (used by rgba(var(--scrim-tint-rgb-legacy), a)).
  */
 
 .theme-slate-pine {
@@ -13,6 +16,7 @@
   --focus-color-rgb: 128, 154, 121;
   --color-primary: #809a79;
   --color-primary-rgb: 128 154 121;
+  --color-primary-rgb-legacy: 128, 154, 121;
   --color-primary-dark: #607a58;
   --color-primary-light: #a4bea0;
   --color-bg-deep: #161917;
@@ -37,6 +41,7 @@
   --shadow-md: 0 4px 10px rgba(0, 0, 0, 0.50);
   --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.60);
   --scrim-tint-rgb: 22 24 22;
+  --scrim-tint-rgb-legacy: 22, 24, 22;
 }
 
 .theme-swiss {
@@ -44,6 +49,7 @@
   --focus-color-rgb: 52, 211, 153;
   --color-primary: #34d399;
   --color-primary-rgb: 52 211 153;
+  --color-primary-rgb-legacy: 52, 211, 153;
   --color-primary-dark: #10b981;
   --color-primary-light: #6ee7b7;
   --color-bg-deep: #020202;
@@ -67,6 +73,7 @@
   --shadow-lg: none;
   --panel-inner-glow: none;
   --scrim-tint-rgb: 0 0 0;
+  --scrim-tint-rgb-legacy: 0, 0, 0;
   --font-family-display: "Helvetica Neue", helvetica, "Avenir Next", arial, sans-serif;
 }
 
@@ -76,6 +83,7 @@
 
   --color-primary: #00a6d6;
   --color-primary-rgb: 0 166 214;
+  --color-primary-rgb-legacy: 0, 166, 214;
   --color-primary-dark: #0087af;
   --color-primary-light: #61d9ff;
 
@@ -105,6 +113,7 @@
   --shadow-lg: 0 12px 32px rgba(0, 5, 10, 0.82);
 
   --scrim-tint-rgb: 0 24 48;
+  --scrim-tint-rgb-legacy: 0, 24, 48;
   --font-family-display: "Helvetica Neue", helvetica, "Avenir Next", arial, sans-serif;
 
   --directv-panel-gradient-start: #001020;
@@ -146,6 +155,7 @@
 
   --color-primary: #00e5ff;
   --color-primary-rgb: 0 229 255;
+  --color-primary-rgb-legacy: 0, 229, 255;
   --color-primary-dark: #009fb4;
   --color-primary-light: #7af1ff;
 
@@ -206,6 +216,7 @@
     rgb(0 0 0 / 30%) 100%
   );
   --scrim-tint-rgb: 8 11 15;
+  --scrim-tint-rgb-legacy: 8, 11, 15;
 }
 
 .theme-ember-steel {
@@ -214,6 +225,7 @@
 
   --color-primary: #e0782a;
   --color-primary-rgb: 224 120 42;
+  --color-primary-rgb-legacy: 224, 120, 42;
   --color-primary-dark: #c45f12;
   --color-primary-light: #f0a060;
 
@@ -236,6 +248,7 @@
   --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.65);
   --color-live: var(--color-live-warm);
   --scrim-tint-rgb: 20 20 20;
+  --scrim-tint-rgb-legacy: 20, 20, 20;
 
   --font-family-display: "Avenir Next", "Segoe UI", "Noto Sans", sans-serif;
 }
