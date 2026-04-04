@@ -17,6 +17,9 @@
     --color-primary: #00a8e1;
     /* Space-separated RGB is intentional: consumed by CSS Color 4 `rgb(var(--...)/alpha)` tokens below. */
     --color-primary-rgb: 0 168 225;
+    /* Comma-separated legacy companion for CSS Color 3 `rgba(var(--...),
+       alpha)` fallbacks. Keep in sync with --color-primary-rgb. */
+    --color-primary-rgb-legacy: 0, 168, 225;
 
     /* Primary color alpha variants (for use in backgrounds/borders without opacity) */
     --color-primary-alpha-08: rgb(var(--color-primary-rgb) / 8%);
@@ -43,6 +46,9 @@
     --color-bg-overlay: rgba(6, 8, 10, 0.86);
     /* Scrim tint token (defined now, consumed in later design-pass plans). */
     --scrim-tint-rgb: 6 8 10;
+    /* Comma-separated legacy companion for CSS Color 3 `rgba(var(--...),
+       alpha)` fallbacks. Keep in sync with --scrim-tint-rgb. */
+    --scrim-tint-rgb-legacy: 6, 8, 10;
     --color-surface-hover: rgba(255, 255, 255, 0.08);
 
     /* Text */

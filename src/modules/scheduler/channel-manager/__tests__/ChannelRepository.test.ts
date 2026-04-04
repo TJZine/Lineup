@@ -149,6 +149,53 @@ describe('ChannelRepository', () => {
         expect(normalized.didMutate).toBe(true);
     });
 
+    it('migrates isSequentialVariant to isPlaybackModeVariant once during normalized load', () => {
+        const repo = new ChannelRepository();
+        const payload = {
+            channels: [
+                createStoredChannel({
+                    id: 'variant-channel',
+                    isSequentialVariant: true,
+                }),
+            ],
+            channelOrder: ['variant-channel'],
+            currentChannelId: 'variant-channel',
+            savedAt: Date.now(),
+        };
+
+        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        const normalized = loadNormalized(repo);
+        const channel = normalized.data.channels[0] as unknown as Record<string, unknown>;
+
+        expect(channel.isPlaybackModeVariant).toBe(true);
+        expect(channel).not.toHaveProperty('isSequentialVariant');
+        expect(normalized.didMutate).toBe(true);
+    });
+
+    it('does not let legacy isSequentialVariant overwrite an existing boolean isPlaybackModeVariant value', () => {
+        const repo = new ChannelRepository();
+        const payload = {
+            channels: [
+                createStoredChannel({
+                    id: 'mixed-version-channel',
+                    isSequentialVariant: true,
+                    isPlaybackModeVariant: false,
+                }),
+            ],
+            channelOrder: ['mixed-version-channel'],
+            currentChannelId: 'mixed-version-channel',
+            savedAt: Date.now(),
+        };
+
+        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        const normalized = loadNormalized(repo);
+        const channel = normalized.data.channels[0] as unknown as Record<string, unknown>;
+
+        expect(channel.isPlaybackModeVariant).toBe(false);
+        expect(channel).not.toHaveProperty('isSequentialVariant');
+        expect(normalized.didMutate).toBe(true);
+    });
+
     it('prunes invalid content sources during normalized load', () => {
         const repo = new ChannelRepository();
         const payload = {

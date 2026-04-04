@@ -153,13 +153,13 @@ describe('ChannelManager', () => {
                 playbackMode: 'block',
                 blockSize: 4,
                 lineupReplicaIndex: 2,
-                isSequentialVariant: true,
+                isPlaybackModeVariant: true,
             });
 
             expect(channel.playbackMode).toBe('block');
             expect(channel.blockSize).toBe(4);
             expect(channel.lineupReplicaIndex).toBe(2);
-            expect(channel.isSequentialVariant).toBe(true);
+            expect(channel.isPlaybackModeVariant).toBe(true);
         });
 
         it('should assign next available channel number', async () => {
@@ -1051,6 +1051,29 @@ describe('ChannelManager', () => {
             expect(result.importedCount).toBe(1);
             expect(result.errors).toHaveLength(0);
             expect(manager.getAllChannels()).toHaveLength(1);
+        });
+
+        it('preserves playback variant metadata when importing legacy exports that use isSequentialVariant', async () => {
+            const importData = JSON.stringify([
+                {
+                    name: 'Imported Variant',
+                    contentSource: createMockContentSource(),
+                    playbackMode: 'block',
+                    blockSize: 4,
+                    isSequentialVariant: true,
+                },
+            ]);
+
+            const result = await manager.importChannels(importData);
+
+            expect(result.success).toBe(true);
+            expect(result.importedCount).toBe(1);
+            expect(result.errors).toHaveLength(0);
+
+            const channels = manager.getAllChannels();
+            expect(channels).toHaveLength(1);
+            expect(channels[0]?.isPlaybackModeVariant).toBe(true);
+            expect(((channels[0] as unknown) as Record<string, unknown>)['isSequentialVariant']).toBeUndefined();
         });
 
         it('should handle invalid import data', async () => {

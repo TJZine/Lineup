@@ -37,7 +37,7 @@ export type PendingChannel = {
     sourceLibraryId?: string;
     sourceLibraryName?: string;
     lineupReplicaIndex?: number;
-    isSequentialVariant?: boolean;
+    isPlaybackModeVariant?: boolean;
 };
 
 interface ChannelSetupPlanInput {
@@ -90,7 +90,7 @@ interface ChannelIdentityCandidate {
     playbackMode: ChannelConfig['playbackMode'];
     blockSize?: number;
     lineupReplicaIndex?: number;
-    isSequentialVariant?: boolean;
+    isPlaybackModeVariant?: boolean;
 }
 
 interface ChannelDiffEntry {
@@ -235,7 +235,7 @@ function buildChannelSetupPlanInternal(
             ...channel,
             buildStrategy: strategy,
             lineupReplicaIndex: channel.lineupReplicaIndex ?? 0,
-            isSequentialVariant: channel.isSequentialVariant === true,
+            isPlaybackModeVariant: channel.isPlaybackModeVariant === true,
         });
     };
 
@@ -794,7 +794,7 @@ function buildChannelSetupPlanInternal(
         const baseChannel: PendingChannel = {
             ...channel,
             lineupReplicaIndex: channel.lineupReplicaIndex ?? 0,
-            isSequentialVariant: false,
+            isPlaybackModeVariant: false,
         };
         withAlternateLineups.push(baseChannel);
 
@@ -807,7 +807,7 @@ function buildChannelSetupPlanInternal(
                 name: `${baseChannel.name} (${replicaIndex + 1})`,
                 shuffleSeed: seedFor(`${createChannelIdentityKey(baseChannel)}:replica:${replicaIndex}`),
                 lineupReplicaIndex: replicaIndex,
-                isSequentialVariant: false,
+                isPlaybackModeVariant: false,
             });
         }
     }
@@ -841,7 +841,7 @@ function buildChannelSetupPlanInternal(
                 name: `${channel.name} • ${variantLabel}`,
                 playbackMode: variantType,
                 // Marks this as a setup-generated playback-mode variant (sequential/block) for identity/diffing.
-                isSequentialVariant: true,
+                isPlaybackModeVariant: true,
                 shuffleSeed: seedFor(`${createChannelIdentityKey(channel)}:variant:${variantType}`),
             };
             if (variantType === 'block') {
@@ -897,8 +897,8 @@ export function createChannelIdentityKey(candidate: ChannelIdentityCandidate): s
         filters: normalizeFilters(candidate.contentFilters),
         sortOrder: candidate.sortOrder ?? null,
         lineupReplicaIndex: candidate.lineupReplicaIndex ?? 0,
-        isSequentialVariant: candidate.isSequentialVariant === true,
-        variantPlaybackMode: candidate.isSequentialVariant === true ? candidate.playbackMode : null,
+        isSequentialVariant: candidate.isPlaybackModeVariant === true,
+        variantPlaybackMode: candidate.isPlaybackModeVariant === true ? candidate.playbackMode : null,
     };
     return stableStringify(normalized);
 }

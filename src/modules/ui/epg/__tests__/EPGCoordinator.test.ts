@@ -2386,7 +2386,7 @@ describe('EPGCoordinator', () => {
     });
 
     it('handleVisibleRangeChange delegates refresh with visible-range reason', async () => {
-        const { deps } = makeDeps();
+        const { deps, epg } = makeDeps();
         const coordinator = new EPGCoordinator(deps);
         const refreshSpy = jest
             .spyOn(coordinator, 'refreshEpgSchedulesForRange')
@@ -2398,10 +2398,33 @@ describe('EPGCoordinator', () => {
             timeEndMs: 2000,
         };
 
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+
         coordinator.handleVisibleRangeChange(range);
         await flushPromises();
 
         expect(refreshSpy).toHaveBeenCalledWith(range, { reason: 'visible-range' });
+    });
+
+    it('handleVisibleRangeChange does not enqueue refresh work when the guide is hidden', async () => {
+        const { deps, epg } = makeDeps();
+        const coordinator = new EPGCoordinator(deps);
+        const refreshSpy = jest
+            .spyOn(coordinator, 'refreshEpgSchedulesForRange')
+            .mockResolvedValue(undefined);
+        const range = {
+            channelStart: 1,
+            channelEnd: 4,
+            timeStartMs: 1000,
+            timeEndMs: 2000,
+        };
+
+        (epg.isVisible as jest.Mock).mockReturnValue(false);
+
+        coordinator.handleVisibleRangeChange(range);
+        await flushPromises();
+
+        expect(refreshSpy).not.toHaveBeenCalled();
     });
 
     it('handleGuideSettingChange delegates guide-setting policy when EPG is visible', () => {

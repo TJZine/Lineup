@@ -124,6 +124,10 @@ export class EPGCoordinator {
     }
 
     handleVisibleRangeChange(range: EpgVisibleRange): void {
+        const epg = this.deps.getEpg();
+        if (!epg || !epg.isVisible()) {
+            return;
+        }
         this._refreshEpgSchedulesForRangeBestEffort(range, { reason: 'visible-range' });
     }
 

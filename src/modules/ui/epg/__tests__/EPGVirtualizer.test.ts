@@ -1034,6 +1034,71 @@ describe('EPGVirtualizer', () => {
             expect(rerenderedCell?.classList.contains(EPG_CLASSES.CELL_FOCUSED)).toBe(true);
         });
 
+        it('retains focused placeholder styling when horizontal scroll rebuilds the placeholder key', () => {
+            const channelIds = ['ch0'];
+            const schedules = new Map<string, ScheduleWindow>();
+
+            virtualizer.setChannelCount(1);
+
+            const initialRange = virtualizer.calculateVisibleRange({
+                channelOffset: 0,
+                timeOffset: 0,
+            });
+            virtualizer.renderVisibleCells(channelIds, schedules, initialRange);
+
+            const focusTimeMs = gridAnchorTime + (30 * 60000);
+            const focusedElement = virtualizer.setFocusedCell('ch0', focusTimeMs, focusTimeMs);
+            expect(focusedElement).not.toBeNull();
+            expect(focusedElement?.classList.contains(EPG_CLASSES.CELL_FOCUSED)).toBe(true);
+
+            const shiftedRange = virtualizer.calculateVisibleRange({
+                channelOffset: 0,
+                timeOffset: 30,
+            });
+            const originalFocusedKey = `ch0-placeholder-${gridAnchorTime}`;
+            virtualizer.renderVisibleCells(channelIds, schedules, shiftedRange, originalFocusedKey);
+
+            const rerenderedFocusedCell = container.querySelector(
+                `[data-key="ch0-placeholder-${gridAnchorTime + (30 * 60000)}"]`
+            ) as HTMLElement | null;
+
+            expect(rerenderedFocusedCell).not.toBeNull();
+            expect(rerenderedFocusedCell?.classList.contains(EPG_CLASSES.CELL_FOCUSED)).toBe(true);
+        });
+
+        it('does not keep placeholder focus when a rebuilt placeholder no longer contains the focused time', () => {
+            const channelIds = ['ch0'];
+            const schedules = new Map<string, ScheduleWindow>();
+
+            virtualizer.setChannelCount(1);
+
+            const initialRange = virtualizer.calculateVisibleRange({
+                channelOffset: 0,
+                timeOffset: 0,
+            });
+            virtualizer.renderVisibleCells(channelIds, schedules, initialRange);
+
+            const focusTimeMs = gridAnchorTime;
+            const focusedElement = virtualizer.setFocusedCell('ch0', focusTimeMs, focusTimeMs);
+            expect(focusedElement).not.toBeNull();
+            expect(focusedElement?.classList.contains(EPG_CLASSES.CELL_FOCUSED)).toBe(true);
+
+            const shiftedRange = virtualizer.calculateVisibleRange({
+                channelOffset: 0,
+                timeOffset: 90,
+            });
+            const originalFocusedKey = `ch0-placeholder-${gridAnchorTime}`;
+            virtualizer.renderVisibleCells(channelIds, schedules, shiftedRange, originalFocusedKey);
+
+            const shiftedPlaceholder = container.querySelector(
+                `[data-key="ch0-placeholder-${gridAnchorTime + (90 * 60000)}"]`
+            ) as HTMLElement | null;
+
+            expect(shiftedPlaceholder).not.toBeNull();
+            expect(shiftedPlaceholder?.classList.contains(EPG_CLASSES.CELL_FOCUSED)).toBe(false);
+            expect(container.querySelector(`.${EPG_CLASSES.CELL_FOCUSED}`)).toBeNull();
+        });
+
         it('applies horizontal scroll transform to the content wrapper', () => {
             const channelIds = ['ch0'];
             const schedules = new Map<string, ScheduleWindow>();
@@ -1265,6 +1330,68 @@ describe('EPGVirtualizer', () => {
             ) as HTMLElement[];
 
             expect(rowZeroCells).toHaveLength(5);
+        });
+
+        it('keeps both queue edges when capped visible sampling overflows the row limit', () => {
+            const rowCount = 40;
+            const channelIds = Array.from({ length: rowCount }, (_, index) => `row-${index}`);
+            const schedules = new Map<string, ScheduleWindow>();
+
+            config = {
+                ...config,
+                visibleChannels: 38,
+                visibleHours: 10 / 60,
+            };
+            virtualizer.initialize(container, config, gridAnchorTime);
+
+            for (const channelId of channelIds) {
+                const programs: ScheduledProgram[] = [];
+                for (let minute = 0; minute < 10; minute += 1) {
+                    programs.push({
+                        item: {
+                            ratingKey: `${channelId}-${minute}`,
+                            type: 'movie',
+                            title: `Program ${minute}`,
+                            fullTitle: `Program ${minute}`,
+                            durationMs: 60_000,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: minute,
+                        },
+                        scheduledStartTime: gridAnchorTime + (minute * 60_000),
+                        scheduledEndTime: gridAnchorTime + ((minute + 1) * 60_000),
+                        elapsedMs: 0,
+                        remainingMs: 60_000,
+                        scheduleIndex: minute,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    });
+                }
+
+                schedules.set(channelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + (24 * 60 * 60_000),
+                    programs,
+                });
+            }
+
+            virtualizer.setChannelCount(channelIds.length);
+
+            const range = virtualizer.calculateVisibleRange({
+                channelOffset: 0,
+                timeOffset: 0,
+            });
+
+            virtualizer.renderVisibleCells(channelIds, schedules, range);
+
+            const rowZeroKeys = Array.from(
+                container.querySelectorAll('[data-key^="row-0-"]')
+            ).map((node) => (node as HTMLElement).dataset.key);
+
+            expect(rowZeroKeys).toHaveLength(5);
+            expect(rowZeroKeys).toContain(`row-0-${gridAnchorTime}`);
+            expect(rowZeroKeys).toContain(`row-0-${gridAnchorTime + (9 * 60_000)}`);
         });
 
         it('should maintain DOM element count under 200 during virtualized render', () => {

@@ -1239,7 +1239,7 @@ describe('ChannelSetupCoordinator', () => {
             'Classics (2) • Sequential',
             'Classics (3) • Sequential',
         ]);
-        expect(calls.filter((cfg) => cfg.isSequentialVariant === true)).toHaveLength(3);
+        expect(calls.filter((cfg) => cfg.isPlaybackModeVariant === true)).toHaveLength(3);
     });
 
     it('keeps sequential expansion off by default', async () => {

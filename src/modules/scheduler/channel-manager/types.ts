@@ -224,7 +224,7 @@ export interface ChannelConfig {
      * True when this channel is a playback-mode variant generated from a setup channel
      * (e.g., "Sequential" or "Block" variants). Used for identity/diffing in setup flows.
      */
-    isSequentialVariant?: boolean;
+    isPlaybackModeVariant?: boolean;
 
     // Content source definition
     /** Where content comes from */

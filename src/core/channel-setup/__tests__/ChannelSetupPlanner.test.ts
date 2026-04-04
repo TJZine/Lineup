@@ -77,8 +77,8 @@ const makeExistingChannel = (planned: PendingChannel, index: number): ChannelCon
     if (planned.lineupReplicaIndex !== undefined) {
         existing.lineupReplicaIndex = planned.lineupReplicaIndex;
     }
-    if (planned.isSequentialVariant !== undefined) {
-        existing.isSequentialVariant = planned.isSequentialVariant;
+    if (planned.isPlaybackModeVariant !== undefined) {
+        existing.isPlaybackModeVariant = planned.isPlaybackModeVariant;
     }
     if (planned.blockSize !== undefined) {
         existing.blockSize = planned.blockSize;
@@ -167,6 +167,28 @@ describe('ChannelSetupPlanner', () => {
         const diff = diffChannelPlans(existing, plan.pendingChannels);
         expect(diff.summary).toEqual({ created: 0, removed: 0, unchanged: plan.pendingChannels.length });
         expect(diff.matchedPairs).toHaveLength(plan.pendingChannels.length);
+    });
+
+    it('preserves legacy identity-hash compatibility for playback variants after the public field rename', () => {
+        const variantCandidate: PendingChannel = {
+            name: 'Variant',
+            contentSource: {
+                type: 'library',
+                libraryId: 'library-identity',
+                libraryType: 'show',
+                includeWatched: true,
+            },
+            playbackMode: 'block',
+            lineupReplicaIndex: 0,
+            isPlaybackModeVariant: true,
+            shuffleSeed: 123,
+        } as PendingChannel;
+
+        const identityKey = createChannelIdentityKey(variantCandidate);
+
+        expect(identityKey).toContain('"isSequentialVariant":true');
+        expect(identityKey).toContain('"variantPlaybackMode":"block"');
+        expect(identityKey).not.toContain('"isPlaybackModeVariant":true');
     });
 
     it('emits per-library genre channels using libraryFilter instead of contentFilters', () => {
@@ -305,7 +327,7 @@ describe('ChannelSetupPlanner', () => {
         expect(blockVariant).toBeDefined();
         expect(blockVariant?.playbackMode).toBe('block');
         expect(blockVariant?.blockSize).toBe(4);
-        expect(blockVariant?.isSequentialVariant).toBe(true);
+        expect(blockVariant?.isPlaybackModeVariant).toBe(true);
 
         const sequentialVariantCandidate: PendingChannel = {
             ...(blockVariant as PendingChannel),
@@ -359,7 +381,7 @@ describe('ChannelSetupPlanner', () => {
         const sequentialVariant = plan.pendingChannels.find((channel) => channel.name === 'Jane Doe • Sequential');
         expect(sequentialVariant).toBeDefined();
         expect(sequentialVariant?.playbackMode).toBe('sequential');
-        expect(sequentialVariant?.isSequentialVariant).toBe(true);
+        expect(sequentialVariant?.isPlaybackModeVariant).toBe(true);
     });
 
     it('preserves known cross-library subtotals for ordering when another source omits counts', () => {
@@ -716,6 +738,8 @@ describe('ChannelSetupPlanner', () => {
             seedFor,
         });
 
+        expect(diagnostics.minItems).toBe(5);
+        expect(diagnostics.effectiveMaxChannels).toBeGreaterThan(0);
         expect(diagnostics.fetchedTagsByFamily.genres).toEqual([
             { libraryId: 'm1', libraryName: 'Movies', count: 3 },
         ]);
