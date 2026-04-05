@@ -33,6 +33,7 @@ Track possible adverse effects for EPG performance changes, especially medium/hi
 | EPG-PND-004 | Remove `refreshCurrentTime()` from `renderGridInternal()` and run on dedicated cadence | Not started | Medium | Current-time indicator drifts or updates late while scrolling/focusing | Time indicator lags by >1 minute or snaps unexpectedly during navigation | Immediate revert; restore inline refresh call path |
 | EPG-PND-005 | Program-window indexing/binary search for visible range lookup | Not started | High | Incorrect program selection around boundaries/day rollover; missing cells | Edge programs disappear at day boundaries; wrong focused program chosen | Feature-flag or full revert to linear scan path |
 | EPG-PND-006 | Theme-glass TV performance mode reducing `backdrop-filter` load | Not started | Medium | Visual regression from reduced blur/contrast; readability issues in glass theme | Theme appears flat or lower contrast; text legibility complaints | Keep existing theme default; rollback perf-mode toggle and CSS variables |
+| EPG-IMP-004 | Classic PiP real-video geometry stabilization (`video.css`) | Implemented (`e2413139`) | Medium | Abrupt PiP snap or shell/video timing mismatch on guide open | EPG open shows visual snap artifacts or border/mask misalignment in classic mode | `git restore --source=HEAD~1 -- src/styles/video.css src/modules/ui/epg/__tests__/EPGComponent.test.ts docs/qa/reports/2026-04-04-epg-osd-sequence-bug-report.md` |
 
 ## Not Yet Implemented From Findings List
 
@@ -78,3 +79,7 @@ Use this block for any observed issue:
 - `Date:` 2026-03-04
 - `Scope:` EPG-PND-001, EPG-PND-002, EPG-PND-003
 - `Adverse effects observed: none`
+- `Date:` 2026-04-04
+- `Scope:` EPG-IMP-004 (classic PiP real-video geometry stabilization)
+- `Evidence:` `src/styles/video.css` removed real-video `transition` on classic PiP rule; regression guard added in `src/modules/ui/epg/__tests__/EPGComponent.test.ts`
+- `Adverse effects observed:` pending manual device replay for sequence A/B + classic EPG open

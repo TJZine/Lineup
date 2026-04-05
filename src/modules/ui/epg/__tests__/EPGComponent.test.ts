@@ -12,6 +12,7 @@ import { EPG_CLASSES } from '../constants';
 import type { ScheduledProgram, ScheduleWindow, ChannelConfig, EPGConfig } from '../types';
 import { DebugOverridesStore } from '../../../debug/DebugOverridesStore';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
+import { readFileSync } from 'node:fs';
 
 describe('EPGComponent', () => {
     let epg: EPGComponent;
@@ -832,6 +833,22 @@ describe('EPGComponent', () => {
                 localEpg.destroy();
                 localContainer.remove();
             }
+        });
+
+        it('keeps classic PiP real-video geometry unanimated in video.css', () => {
+            const css = readFileSync('src/styles/video.css', 'utf8');
+            const ruleMatch = css.match(
+                /\.video-container\.epg-pip-active\s+#lineup-video-player\s*\{([\s\S]*?)\}/
+            );
+            expect(ruleMatch).not.toBeNull();
+            const ruleBody = ruleMatch?.[1] ?? '';
+            expect(ruleBody).not.toMatch(/\btransition\s*:/);
+            expect(ruleBody).toMatch(/\btop:\s*var\(--classic-guide-pip-top\)\s*!important;/);
+            expect(ruleBody).toMatch(/\bleft:\s*var\(--classic-guide-pip-left\)\s*!important;/);
+            expect(ruleBody).toMatch(/\bwidth:\s*var\(--classic-guide-pip-width\)\s*!important;/);
+            expect(ruleBody).toMatch(
+                /\bheight:\s*calc\(var\(--classic-guide-pip-width\)\s*\*\s*9\s*\/\s*16\)\s*!important;/
+            );
         });
 
         it('updates layout class when setLayoutMode is called while visible', () => {
