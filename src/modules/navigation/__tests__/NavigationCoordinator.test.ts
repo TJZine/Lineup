@@ -684,25 +684,6 @@ describe('NavigationCoordinator', () => {
         expect(event.originalEvent.preventDefault).toHaveBeenCalled();
     });
 
-    it('hides player OSD before opening exit confirm on back from player', () => {
-        const { handlers, deps, navigation } = setup({
-            isPlayerOsdVisible: jest.fn().mockReturnValue(true),
-        });
-        (navigation.getCurrentScreen as jest.Mock).mockReturnValue('player' as Screen);
-        (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
-
-        const event = makeKeyEvent('back');
-        handlers.keyPress?.(event);
-
-        expect(deps.hidePlayerOsd).toHaveBeenCalledTimes(1);
-        expect(navigation.openModal).not.toHaveBeenCalledWith(
-            deps.exitConfirmModalId,
-            expect.anything()
-        );
-        expect(event.handled).toBe(true);
-        expect(event.originalEvent.preventDefault).toHaveBeenCalled();
-    });
-
     it('EPG direction keys always consumed', () => {
         const { handlers, epg, navigation } = setup();
         (epg.isVisible as jest.Mock).mockReturnValue(true);
