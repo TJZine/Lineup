@@ -4,6 +4,7 @@
 
 import { InitializationCoordinator } from '../InitializationCoordinator';
 import type { InitializationDependencies, InitializationCallbacks } from '../InitializationCoordinator';
+import { CLASSIC_EPG_PIP_CLASS } from '../initialization/InitializationStartupPolicy';
 import type { PlexAuthDataV2 } from '../../modules/plex/auth';
 import { CHANNEL_BADGE_CONTAINER_ID } from '../../modules/ui/channel-badge';
 import { EpgPreferencesStore, type EpgLayoutMode } from '../../modules/settings/EpgPreferencesStore';
@@ -882,6 +883,29 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	            initArg.onLayoutModeChange?.('classic');
 
 	            expect(onLayoutModeChange).toHaveBeenCalledWith('classic');
+	        });
+
+	        it('adds and removes the classic PiP class through startup-policy layout mode callback', async () => {
+	            const epg = { initialize: jest.fn() } as unknown as LegacyInitializationDependencies['epg'];
+	            const { coordinator } = makeCoordinator({ epg, plexLibrary: null });
+            const videoContainer = document.createElement('div');
+            videoContainer.id = 'video-container';
+            document.body.appendChild(videoContainer);
+
+	            try {
+	                await coordinator.ensureEPGInitialized();
+
+	                const initArg = (epg as unknown as { initialize: jest.Mock }).initialize.mock.calls[0]?.[0] as {
+	                    onLayoutModeChange?: (mode: EpgLayoutMode) => void;
+	                };
+	                initArg.onLayoutModeChange?.('classic');
+	                expect(videoContainer.classList.contains(CLASSIC_EPG_PIP_CLASS)).toBe(true);
+
+	                initArg.onLayoutModeChange?.('overlay');
+	                expect(videoContainer.classList.contains(CLASSIC_EPG_PIP_CLASS)).toBe(false);
+	            } finally {
+                videoContainer.remove();
+            }
 	        });
 	    });
 	});

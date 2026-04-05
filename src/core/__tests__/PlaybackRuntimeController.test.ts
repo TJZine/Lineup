@@ -253,6 +253,69 @@ describe('PlaybackRuntimeController', () => {
         await deferred.promise;
     });
 
+    it('marks overlay reopen as unsafe after a program start until playback returns to playing', () => {
+        const { controller } = makeSetup();
+        const deferred = createDeferred<void>();
+        const paused: PlaybackState = {
+            status: 'paused',
+            currentTimeMs: 1000,
+            durationMs: 5000,
+            bufferPercent: 75,
+            volume: 1,
+            isMuted: false,
+            playbackRate: 1,
+            activeSubtitleId: null,
+            activeAudioId: 'audio-1',
+            errorInfo: null,
+        };
+        const playing: PlaybackState = {
+            ...paused,
+            status: 'playing',
+        };
+
+        expect(controller.isOverlayReopenSafe()).toBe(true);
+        controller.trackProgramStart(deferred.promise);
+        expect(controller.isOverlayReopenSafe()).toBe(false);
+
+        controller.handlePlayerStateChange(paused);
+        expect(controller.isOverlayReopenSafe()).toBe(false);
+
+        controller.handlePlayerStateChange(playing);
+        expect(controller.isOverlayReopenSafe()).toBe(true);
+    });
+
+    it('exposes overlay readiness snapshot timing for phase-1 proof instrumentation', () => {
+        const { controller } = makeSetup();
+        const deferred = createDeferred<void>();
+        const before = controller.getOverlayReadinessSnapshot();
+        expect(before.pendingReason).toBe('none');
+        expect(before.pendingSinceMs).toBeNull();
+        expect(before.lastReadyAtMs).toBeNull();
+
+        controller.trackProgramStart(deferred.promise);
+        const pending = controller.getOverlayReadinessSnapshot();
+        expect(pending.pendingReason).toBe('program-start');
+        expect(typeof pending.pendingSinceMs).toBe('number');
+        expect(pending.lastReadyAtMs).toBeNull();
+
+        controller.handlePlayerStateChange({
+            status: 'playing',
+            currentTimeMs: 0,
+            durationMs: 1000,
+            bufferPercent: 100,
+            volume: 1,
+            isMuted: false,
+            playbackRate: 1,
+            activeSubtitleId: null,
+            activeAudioId: null,
+            errorInfo: null,
+        });
+        const ready = controller.getOverlayReadinessSnapshot();
+        expect(ready.pendingReason).toBe('none');
+        expect(ready.pendingSinceMs).toBeNull();
+        expect(typeof ready.lastReadyAtMs).toBe('number');
+    });
+
     it('handleLifecyclePause pauses playback, pauses scheduler sync, and then saves lifecycle state', async () => {
         const { controller, deps, callOrder } = makeSetup();
 
