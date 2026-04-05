@@ -744,7 +744,14 @@ export class ChannelSetupScreen {
             return current;
         }
         const currentIndex = options.indexOf(current);
-        const baseIndex = currentIndex >= 0 ? currentIndex : 0;
+        let baseIndex = currentIndex;
+        if (baseIndex < 0) {
+            if (typeof current === 'number' && options.every((option) => typeof option === 'number')) {
+                baseIndex = this._getNearestOptionIndex(options as unknown as number[], current);
+            } else {
+                baseIndex = 0;
+            }
+        }
         const nextIndex = dir === 'left'
             ? Math.max(0, baseIndex - 1)
             : Math.min(options.length - 1, baseIndex + 1);

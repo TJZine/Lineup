@@ -3,6 +3,7 @@
  */
 
 import { ChannelSetupScreen } from '../ChannelSetupScreen';
+import type { StrategyStepMutableState } from '../ChannelSetupSessionController';
 import type { PlexLibrary } from '../../../plex/library/types';
 import type { INavigationManager } from '../../../navigation/interfaces';
 import { MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
@@ -525,6 +526,87 @@ describe('ChannelSetupScreen', () => {
         expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('10');
         expect(container.querySelector('#setup-dropdown')).toBeNull();
         expect(nav.setFocus).not.toHaveBeenLastCalledWith('setup-category-limits');
+    });
+
+    it('steps off-preset block-size controls from the nearest preset during inline left/right navigation', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+            getChannelSetupRecord: jest.fn(() => ({
+                serverId: 'server-1',
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                selectedLibraryIds: ['movies'],
+                maxChannels: MAX_CHANNELS,
+                buildMode: 'replace',
+                actorStudioCombineMode: 'separate',
+                minItemsPerChannel: DEFAULT_MIN_ITEMS_PER_CHANNEL,
+                strategyConfig: Object.fromEntries(
+                    SETUP_STRATEGY_KEYS.map((key, index) => [
+                        key,
+                        { enabled: true, priority: index + 1, scope: 'per-library' },
+                    ])
+                ) as Record<
+                    typeof SETUP_STRATEGY_KEYS[number],
+                    { enabled: boolean; priority: number; scope: 'per-library' | 'cross-library' }
+                >,
+                channelExpansion: {
+                    addAlternateLineups: true,
+                    alternateLineupCopies: 2,
+                    variantType: 'block',
+                    variantBlockSize: 5,
+                },
+                seriesOrdering: {
+                    basePlaybackMode: 'block',
+                    baseBlockSize: 5,
+                },
+            })),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-series-ordering');
+
+        const session = Reflect.get(screen as object, '_session') as {
+            updateStrategyState: (mutate: (draft: StrategyStepMutableState) => void) => void;
+        };
+        session.updateStrategyState((draft) => {
+            draft.seriesOrdering.baseBlockSize = 6;
+            draft.channelExpansion.variantBlockSize = 6;
+        });
+        clickButton(container, '#setup-category-limits');
+        clickButton(container, '#setup-category-series-ordering');
+        await flushPromises();
+
+        const baseBlockButton = container.querySelector('#setup-series-base-block-size') as HTMLButtonElement | null;
+        const variantBlockButton = container.querySelector('#setup-series-variant-block-size') as HTMLButtonElement | null;
+
+        expect(baseBlockButton?.disabled).toBe(false);
+        expect(variantBlockButton?.disabled).toBe(false);
+        expect(baseBlockButton?.textContent ?? '').toContain('6');
+        expect(variantBlockButton?.textContent ?? '').toContain('6');
+
+        nav.setMockFocus('setup-series-base-block-size');
+        const leftBase = nav.emitKeyPress('left');
+
+        expect(leftBase.handled).toBe(true);
+        expect((container.querySelector('#setup-series-base-block-size') as HTMLButtonElement | null)?.textContent ?? '').toContain('4');
+        expect(container.querySelector('#setup-dropdown')).toBeNull();
+
+        nav.setMockFocus('setup-series-variant-block-size');
+        const rightVariant = nav.emitKeyPress('right');
+
+        expect(rightVariant.handled).toBe(true);
+        expect((container.querySelector('#setup-series-variant-block-size') as HTMLButtonElement | null)?.textContent ?? '').toContain('5');
+        expect(container.querySelector('#setup-dropdown')).toBeNull();
     });
 
     it('returns focus to the category rail when left is pressed at the first inline option', async () => {
