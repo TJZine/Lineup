@@ -23,15 +23,4 @@
   object-fit: cover;
   border-radius: 8px;
   outline: 1px solid rgba(255, 255, 255, 0.08);
-  transition:
-    top var(--transition-normal, 200ms ease),
-    left var(--transition-normal, 200ms ease),
-    width var(--transition-normal, 200ms ease),
-    height var(--transition-normal, 200ms ease);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .video-container.epg-pip-active #lineup-video-player {
-    transition: none;
-  }
 }

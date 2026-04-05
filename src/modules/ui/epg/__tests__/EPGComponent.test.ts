@@ -808,6 +808,32 @@ describe('EPGComponent', () => {
             }
         });
 
+        it('keeps PiP activation tied to classic visibility instead of repeated geometry transitions', () => {
+            const onLayoutModeChange = jest.fn();
+            const { epg: localEpg, container: localContainer } = createEpgInstance({
+                containerId: 'epg-container-classic-stability',
+                layoutMode: 'classic',
+                onLayoutModeChange,
+                isVideoPlaying: () => true,
+            });
+
+            try {
+                localEpg.show();
+                localEpg.hide();
+                localEpg.show();
+
+                expect(onLayoutModeChange).toHaveBeenCalledTimes(3);
+                expect(onLayoutModeChange.mock.calls).toEqual([
+                    ['classic'],
+                    ['overlay'],
+                    ['classic'],
+                ]);
+            } finally {
+                localEpg.destroy();
+                localContainer.remove();
+            }
+        });
+
         it('updates layout class when setLayoutMode is called while visible', () => {
             const { epg: localEpg, container: localContainer } = createEpgInstance({
                 containerId: 'epg-container-layout-setter',
