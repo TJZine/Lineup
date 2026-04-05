@@ -57,6 +57,21 @@ export class PlaybackRuntimeController {
         this._lastProgramStartPromise = promise;
         this._overlayReadiness.pendingReason = 'program-start';
         this._overlayReadiness.pendingSinceMs = Date.now();
+
+        void promise
+            .catch(() => {
+                if (this._lastProgramStartPromise !== promise) {
+                    return;
+                }
+                this._overlayReadiness.pendingReason = 'none';
+                this._overlayReadiness.pendingSinceMs = null;
+            })
+            .finally(() => {
+                if (this._lastProgramStartPromise === promise) {
+                    this._lastProgramStartPromise = null;
+                }
+            });
+
         return promise;
     }
 
