@@ -1,4 +1,9 @@
-import type { SetupStrategyKey } from '../../../../core/channel-setup/types';
+import type {
+    ChannelExpansionConfig,
+    ChannelSetupConfig,
+    SeriesOrderingConfig,
+    SetupStrategyKey,
+} from '../../../../core/channel-setup/types';
 
 export type { SetupStrategyKey } from '../../../../core/channel-setup/types';
 
@@ -48,5 +53,15 @@ export const STEP2_ADJUSTABLE_CONTROL_IDS = [
     STEP2_CONTROL_IDS.seriesBaseBlockSize,
     STEP2_CONTROL_IDS.seriesVariantBlockSize,
 ] as const;
+
+export const BUILD_MODE_OPTIONS = (['replace', 'append', 'merge'] as const) satisfies readonly ChannelSetupConfig['buildMode'][];
+
+export const COMBINE_MODE_OPTIONS = (['separate', 'combined'] as const) satisfies readonly ChannelSetupConfig['actorStudioCombineMode'][];
+
+export const ALTERNATE_LINEUP_COPY_OPTIONS = [1, 2, 3] as const;
+
+export const SERIES_BASE_MODE_OPTIONS = (['shuffle', 'sequential', 'block'] as const) satisfies readonly SeriesOrderingConfig['basePlaybackMode'][];
+
+export const SERIES_VARIANT_TYPE_OPTIONS = (['none', 'sequential', 'block'] as const) satisfies readonly ChannelExpansionConfig['variantType'][];
 
 export const SERIES_BLOCK_PRESETS = [2, 3, 4, 5] as const;

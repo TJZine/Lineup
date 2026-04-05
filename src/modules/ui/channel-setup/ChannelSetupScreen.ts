@@ -21,8 +21,13 @@ import { BuildProgressStepController } from './steps/BuildProgressStepController
 import type { BuildReviewStateSnapshot } from './steps/types';
 import {
     ADVANCED_STRATEGY_KEYS,
+    ALTERNATE_LINEUP_COPY_OPTIONS,
+    BUILD_MODE_OPTIONS,
+    COMBINE_MODE_OPTIONS,
     CONTENT_STRATEGY_KEYS,
+    SERIES_BASE_MODE_OPTIONS,
     SERIES_BLOCK_PRESETS,
+    SERIES_VARIANT_TYPE_OPTIONS,
     STEP2_CONTROL_IDS,
     STRATEGY_CATEGORIES,
     type SetupStrategyKey,
@@ -39,11 +44,6 @@ import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/Chann
 import type { ChannelSetupScreenPorts } from './ChannelSetupScreenPorts';
 
 const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
-const BUILD_MODE_OPTIONS = ['replace', 'append', 'merge'] as const;
-const COMBINE_MODE_OPTIONS = ['separate', 'combined'] as const;
-const SERIES_BASE_MODE_OPTIONS = ['shuffle', 'sequential', 'block'] as const;
-const SERIES_VARIANT_TYPE_OPTIONS = ['none', 'sequential', 'block'] as const;
-const ALTERNATE_LINEUP_COPY_OPTIONS = [1, 2, 3] as const;
 
 type AdjustableControl = {
     cyclePrev: () => boolean;

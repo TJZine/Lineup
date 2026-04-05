@@ -1,5 +1,16 @@
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
-import { ADVANCED_STRATEGY_KEYS, CONTENT_STRATEGY_KEYS, SERIES_BLOCK_PRESETS, STEP2_CONTROL_IDS, STRATEGY_CATEGORIES } from './constants';
+import {
+    ADVANCED_STRATEGY_KEYS,
+    ALTERNATE_LINEUP_COPY_OPTIONS,
+    BUILD_MODE_OPTIONS,
+    COMBINE_MODE_OPTIONS,
+    CONTENT_STRATEGY_KEYS,
+    SERIES_BASE_MODE_OPTIONS,
+    SERIES_BLOCK_PRESETS,
+    SERIES_VARIANT_TYPE_OPTIONS,
+    STEP2_CONTROL_IDS,
+    STRATEGY_CATEGORIES,
+} from './constants';
 import type {
     SetupStrategyKey,
     StepRenderContext,
@@ -134,11 +145,10 @@ export class StrategyStepController {
             onClick: () => {
                 deps.openDropdown({
                     anchorId: STEP2_CONTROL_IDS.buildMode,
-                    options: [
-                        { label: 'Replace', value: 'replace' },
-                        { label: 'Append', value: 'append' },
-                        { label: 'Merge', value: 'merge' },
-                    ],
+                    options: BUILD_MODE_OPTIONS.map((value) => ({
+                        label: this._capitalize(value),
+                        value,
+                    })),
                     currentValue: state.buildMode,
                     onSelect: (value) => {
                         deps.applySettingChange(STEP2_CONTROL_IDS.buildMode, (draft) => {
@@ -159,10 +169,10 @@ export class StrategyStepController {
             onClick: () => {
                 deps.openDropdown({
                     anchorId: STEP2_CONTROL_IDS.combineMode,
-                    options: [
-                        { label: 'Separate', value: 'separate' },
-                        { label: 'Combined', value: 'combined' },
-                    ],
+                    options: COMBINE_MODE_OPTIONS.map((value) => ({
+                        label: this._capitalize(value),
+                        value,
+                    })),
                     currentValue: state.actorStudioCombineMode,
                     onSelect: (value) => {
                         deps.applySettingChange(STEP2_CONTROL_IDS.combineMode, (draft) => {
@@ -252,7 +262,10 @@ export class StrategyStepController {
                 }
                 deps.openDropdown({
                     anchorId: STEP2_CONTROL_IDS.alternateLineupCopies,
-                    options: [1, 2, 3].map((value) => ({ label: String(value), value: String(value) })),
+                    options: ALTERNATE_LINEUP_COPY_OPTIONS.map((value) => ({
+                        label: String(value),
+                        value: String(value),
+                    })),
                     currentValue: String(state.channelExpansion.alternateLineupCopies),
                     onSelect: (value) => {
                         deps.applySettingChange(STEP2_CONTROL_IDS.alternateLineupCopies, (draft) => {
@@ -263,8 +276,6 @@ export class StrategyStepController {
             },
         });
 
-        const baseModeOptions: Array<typeof state.seriesOrdering.basePlaybackMode> = ['shuffle', 'sequential', 'block'];
-        const variantTypeOptions: Array<typeof state.channelExpansion.variantType> = ['none', 'sequential', 'block'];
         const blockSizeOptions = [...SERIES_BLOCK_PRESETS];
 
         const baseModeStateText = state.seriesOrdering.basePlaybackMode === 'block'
@@ -281,7 +292,7 @@ export class StrategyStepController {
             onClick: () => {
                 deps.openDropdown({
                     anchorId: STEP2_CONTROL_IDS.seriesBaseMode,
-                    options: baseModeOptions.map((value) => ({
+                    options: SERIES_BASE_MODE_OPTIONS.map((value) => ({
                         label: this._capitalize(value),
                         value,
                     })),
@@ -336,7 +347,7 @@ export class StrategyStepController {
             onClick: () => {
                 deps.openDropdown({
                     anchorId: STEP2_CONTROL_IDS.seriesVariantType,
-                    options: variantTypeOptions.map((value) => ({
+                    options: SERIES_VARIANT_TYPE_OPTIONS.map((value) => ({
                         label: this._capitalize(value),
                         value,
                     })),
