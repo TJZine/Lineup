@@ -48,6 +48,40 @@
 - If those files or the bug-report conclusions changed materially, update this plan before implementing.
 - If a fresh repro proves the OSD slide is itself broken even in steady-state playback, stop and refresh the plan; that would change the current decision gate.
 
+## Planner Self-Check
+
+1. Unresolved architecture seam or ownership ambiguity hidden in the task?
+   - No. The plan explicitly assigns PiP/layout ownership to `InitializationStartupPolicy`, post-switch overlay-readiness ownership to `PlaybackRuntimeController`, and keeps `NavigationCoordinator` as a consumer only.
+2. Adjacent files needing contract or type changes that are not in scope?
+   - No. `NavigationCoordinator` and `PlayerOsdCoordinator` may assert consumer behavior in tests, but no cross-module contract expansion is required unless phase 3 is entered, and that escalation is already named here.
+3. Any file declared out of scope that implementation still implicitly relies on?
+   - No. The out-of-scope motion files remain frozen unless phase-3 proof explicitly reopens them.
+4. Full Codanna evidence path plus fallback reads recorded?
+   - Yes. The Codanna discovery section records noisy semantic results and the direct tracked-doc / `rg` fallback reads that shaped the plan.
+5. Repo-preferred owner selected, or is a hotspot quietly growing?
+   - Repo-preferred owners are selected. The plan avoids regrowing `Orchestrator` and keeps runtime timing logic out of navigation/UI owners.
+6. Would a fresh session need to invent anything important to execute safely?
+   - No. The owner seams, decision gates, in-scope files, and escalation order are all explicit.
+7. Is this execution-grade, or is a design decision still unresolved?
+   - Execution-grade. The only conditional path is whether phase 3 is needed, and that condition is governed by the explicit proof and decision-gate sections below.
+
+## Architecture Seam Decision Gate
+
+- Chosen seam for issue 2:
+  - classic PiP layout/class ownership remains in `src/core/initialization/InitializationStartupPolicy.ts` plus `src/styles/video.css`
+  - the fix removes animated real-video geometry from the PiP path without moving ownership into navigation or player OSD surfaces
+- Chosen seam for issue 1:
+  - post-switch overlay timing/readiness belongs to `src/core/PlaybackRuntimeController.ts`
+  - `src/modules/navigation/NavigationCoordinator.ts` may only consume a read-only readiness signal if phase 3 proves that gating is required
+- Frozen seams unless phase-3 proof reopens them:
+  - `src/modules/ui/player-osd/styles.css`
+  - `src/modules/ui/exit-confirm/styles.css`
+  - `src/modules/ui/player-osd/PlayerOsdCoordinator.ts`
+  - `src/modules/ui/exit-confirm/ExitConfirmCoordinator.ts`
+- Decision-point-free execution rule:
+  - do not invent new adapters, timers, or UI-local timing heuristics mid-implementation
+  - if phase-1 or phase-2 proof contradicts these owner choices, stop and refresh the plan instead of improvising a new seam during execution
+
 ## Required Reading
 
 1. `docs/qa/reports/2026-04-04-epg-osd-sequence-bug-report.md`
