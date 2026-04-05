@@ -145,7 +145,7 @@ describe('EPGChannelList', () => {
         expect(row.dataset.buildStrategy).toBeUndefined();
     });
 
-    it('renders buildStrategy branding icon when no custom channel icon exists', () => {
+    it('does not render branding art in the channel row when no custom icon exists', () => {
         const list = new EPGChannelList();
         list.initialize(parent, createConfig({ visibleChannels: 1 }));
         list.updateChannels([
@@ -153,6 +153,9 @@ describe('EPGChannelList', () => {
         ]);
 
         const row = parent.querySelector('.epg-channel-row') as HTMLElement;
-        expect(row.querySelector('.channel-branding-icon')).not.toBeNull();
+        expect(row.querySelector('.channel-branding-icon')).toBeNull();
+        expect(row.querySelector('.epg-channel-icon')).toBeNull();
+        expect(row.querySelector('.epg-channel-number')?.textContent).toBe('1');
+        expect(row.querySelector('.epg-channel-name')?.textContent).toBe('Channel 1');
     });
 });
