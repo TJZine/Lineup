@@ -491,7 +491,7 @@ describe('ChannelSetupScreen', () => {
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-category-content-sources');
     });
 
-    it('moves left from adjustable controls to active category without mutating value', async () => {
+    it('cycles an adjustable control with right/left keys without opening the dropdown', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -508,16 +508,76 @@ describe('ChannelSetupScreen', () => {
         await enterStep2(container);
 
         clickButton(container, '#setup-category-limits');
-        const minItemsButtonBefore = container.querySelector('#setup-min-items') as HTMLButtonElement | null;
-        const minItemsTextBefore = minItemsButtonBefore?.textContent;
+        clickButton(container, '#setup-min-items');
+        clickButton(container, '#setup-dropdown-option-2');
+        expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('10');
+
+        nav.setMockFocus('setup-min-items');
+        nav.setFocus.mockClear();
+        const rightEvent = nav.emitKeyPress('right');
+        expect(rightEvent.handled).toBe(true);
+        expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('20');
+        expect(container.querySelector('#setup-dropdown')).toBeNull();
+        expect(nav.setFocus).not.toHaveBeenLastCalledWith('setup-category-limits');
+
+        const leftEvent = nav.emitKeyPress('left');
+        expect(leftEvent.handled).toBe(true);
+        expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('10');
+        expect(container.querySelector('#setup-dropdown')).toBeNull();
+        expect(nav.setFocus).not.toHaveBeenLastCalledWith('setup-category-limits');
+    });
+
+    it('returns focus to the category rail when left is pressed at the first inline option', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-limits');
+        clickButton(container, '#setup-min-items');
+        clickButton(container, '#setup-dropdown-option-0');
+        expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('1');
 
         nav.setMockFocus('setup-min-items');
         const event = nav.emitKeyPress('left');
 
         expect(event.handled).toBe(true);
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-category-limits');
-        const minItemsButtonAfter = container.querySelector('#setup-min-items') as HTMLButtonElement | null;
-        expect(minItemsButtonAfter?.textContent).toBe(minItemsTextBefore);
+        expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('1');
+    });
+
+    it('still opens the dropdown on OK for adjustable controls', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-build-options');
+        nav.setMockFocus('setup-build-mode');
+
+        const event = nav.emitKeyPress('ok');
+        expect(event.handled).toBe(true);
+        expect(container.querySelector('#setup-dropdown')).not.toBeNull();
     });
 
     it('updates adjustable values through dropdown selection', async () => {
@@ -714,7 +774,7 @@ describe('ChannelSetupScreen', () => {
             expect(container.querySelector('#setup-dropdown')).toBeNull();
         });
 
-        it('updates preview after selection without mutating on left nav', async () => {
+    it('updates preview after selection and supports inline left decrement', async () => {
             jest.useFakeTimers();
             const container = document.createElement('div');
             document.body.appendChild(container);
@@ -738,7 +798,6 @@ describe('ChannelSetupScreen', () => {
             getSetupPreview.mockClear();
 
             clickButton(container, '#setup-category-limits');
-            const beforeLeft = (container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '';
             clickButton(container, '#setup-min-items');
             clickButton(container, '#setup-dropdown-option-2');
             await flushPromises();
@@ -751,7 +810,7 @@ describe('ChannelSetupScreen', () => {
             const leftEvent = nav.emitKeyPress('left');
 
             expect(leftEvent.handled).toBe(true);
-            expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').not.toBe(beforeLeft);
+            expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('5');
         });
 
         it('keeps dropdown open while preview refresh state changes are emitted', async () => {
