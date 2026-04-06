@@ -16,12 +16,13 @@ type DiagnosticsWindow = Window & {
         dumpChannelSetupPlannerDiagnostics: (
             configOverride?: ChannelSetupConfig
         ) => Promise<ChannelSetupPlannerDiagnosticsDump>;
+        dumpActiveChannelSetupPlannerDiagnostics: () => Promise<ChannelSetupPlannerDiagnosticsDump>;
     };
 };
 
 interface ChannelSetupPlannerDiagnosticsDump {
     selectedServerId: string;
-    recordSource: 'saved-record' | 'override';
+    recordSource: 'saved-record' | 'override' | 'active-screen';
     config: ChannelSetupConfig;
     savedRecord: ChannelSetupRecord | null;
     result: ChannelSetupPlanDiagnosticsResult;
@@ -36,12 +37,14 @@ export type DiagnosticsOrchestrator = Pick<
 
 export interface AppDiagnosticsSurfaceOptions {
     getOrchestrator: () => DiagnosticsOrchestrator | null;
+    getActiveChannelSetupConfig?: () => ChannelSetupConfig | null;
     showToast: (input: ToastInput) => void;
     debugOverridesStore: DebugOverridesStore;
 }
 
 export class AppDiagnosticsSurface {
     private readonly _getOrchestrator: () => DiagnosticsOrchestrator | null;
+    private readonly _getActiveChannelSetupConfig: () => ChannelSetupConfig | null;
     private readonly _showToast: (input: ToastInput) => void;
     private readonly _debugOverridesStore: DebugOverridesStore;
     private readonly _audioSettingsStore = new AudioSettingsStore();
@@ -51,6 +54,7 @@ export class AppDiagnosticsSurface {
 
     constructor(options: AppDiagnosticsSurfaceOptions) {
         this._getOrchestrator = options.getOrchestrator;
+        this._getActiveChannelSetupConfig = options.getActiveChannelSetupConfig ?? (() : ChannelSetupConfig | null => null);
         this._showToast = options.showToast;
         this._debugOverridesStore = options.debugOverridesStore;
     }
@@ -79,6 +83,8 @@ export class AppDiagnosticsSurface {
                 dumpChannelSetupPlannerDiagnostics: async (
                     configOverride?: ChannelSetupConfig
                 ): Promise<ChannelSetupPlannerDiagnosticsDump> => this._dumpChannelSetupPlannerDiagnostics(configOverride),
+                dumpActiveChannelSetupPlannerDiagnostics: async (): Promise<ChannelSetupPlannerDiagnosticsDump> =>
+                    this._dumpActiveChannelSetupPlannerDiagnostics(),
             };
         }
         if (!this._isDebugSurfaceEnabled()) {
@@ -141,6 +147,39 @@ export class AppDiagnosticsSurface {
         const dump: ChannelSetupPlannerDiagnosticsDump = {
             selectedServerId,
             recordSource: configOverride ? 'override' : 'saved-record',
+            config,
+            savedRecord,
+            result,
+        };
+
+        this._logChannelSetupPlannerDiagnostics(orchestrator.getSelectedServerStorageKey(), dump);
+        return dump;
+    }
+
+    private async _dumpActiveChannelSetupPlannerDiagnostics(): Promise<ChannelSetupPlannerDiagnosticsDump> {
+        const orchestrator = this._getOrchestrator();
+        if (!orchestrator) {
+            throw new Error('Diagnostics orchestrator is unavailable');
+        }
+
+        const selectedServerId = orchestrator.getSelectedServerId();
+        if (!selectedServerId) {
+            throw new Error('No Plex server is currently selected');
+        }
+
+        const config = this._getActiveChannelSetupConfig();
+        if (!config) {
+            throw new Error(
+                'No active channel setup draft is available. Open Channel Setup and return to Step 2 before dumping diagnostics.'
+            );
+        }
+
+        const workflowPort = orchestrator.getChannelSetupWorkflowPort();
+        const savedRecord = workflowPort.getChannelSetupRecord(selectedServerId);
+        const result = await workflowPort.getSetupPlanDiagnostics(config);
+        const dump: ChannelSetupPlannerDiagnosticsDump = {
+            selectedServerId,
+            recordSource: 'active-screen',
             config,
             savedRecord,
             result,

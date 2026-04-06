@@ -35,6 +35,7 @@ import { SplashScreen } from './modules/ui/splash';
 import { ThemeManager } from './modules/ui/theme';
 import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';
 import type { ChannelSetupScreenPorts } from './modules/ui/channel-setup/ChannelSetupScreenPorts';
+import type { ChannelSetupConfig } from './core/channel-setup/types';
 import { summarizeErrorForLog } from './utils/errors';
 
 // ============================================
@@ -133,6 +134,8 @@ export class App {
     private readonly _toastPresenter = new AppToastPresenter();
     private readonly _diagnosticsSurface = new AppDiagnosticsSurface({
         getOrchestrator: (): AppOrchestrator | null => this._orchestrator,
+        getActiveChannelSetupConfig: (): ChannelSetupConfig | null =>
+            this._lazyScreenRegistry?.getChannelSetupScreen()?.getPlannerDiagnosticsConfig() ?? null,
         showToast: (toast): void => this._toastPresenter.show(toast),
         debugOverridesStore: this._debugOverridesStore,
     });

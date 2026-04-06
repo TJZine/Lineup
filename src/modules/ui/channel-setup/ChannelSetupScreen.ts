@@ -2,6 +2,7 @@
 
 import {
     type ChannelBuildProgress,
+    type ChannelSetupConfig,
 } from '../../../core/channel-setup/types';
 import type { FocusableElement, KeyEvent } from '../../navigation';
 import { ServerSelectionStore } from '../../plex/discovery/ServerSelectionStore';
@@ -438,6 +439,14 @@ export class ChannelSetupScreen {
         this._focus.unregisterAll();
         this._container.style.display = 'none';
         this._container.classList.remove('visible');
+    }
+
+    getPlannerDiagnosticsConfig(): ChannelSetupConfig | null {
+        const serverId = this._getSelectedServerId();
+        if (!serverId) {
+            return null;
+        }
+        return this._session.buildConfig(serverId);
     }
 
     private _renderStep(): void {
