@@ -221,6 +221,65 @@ describe('AppDiagnosticsSurface', () => {
                     studios: [{ libraryId: 'lib-1', libraryName: 'Shows', count: 1 }],
                     actors: [{ libraryId: 'lib-1', libraryName: 'Shows', count: 9 }],
                 },
+                tagCountDiagnosticsByFamily: {
+                    genres: [{
+                        libraryId: 'lib-1',
+                        libraryName: 'Shows',
+                        rawTagCount: 4,
+                        effectiveCandidateCount: 4,
+                        candidatesWithKnownCount: 4,
+                        candidatesWithUnknownCount: 0,
+                        candidatesBelowMinItems: 1,
+                        minKnownCount: 2,
+                        maxKnownCount: 22,
+                        sampleKnownCounts: [{ title: 'Comedy', count: 22 }],
+                        sampleUnknownCountTitles: [],
+                        sampleBelowMinItems: [{ title: 'Mystery', count: 2 }],
+                    }],
+                    directors: [{
+                        libraryId: 'lib-1',
+                        libraryName: 'Shows',
+                        rawTagCount: 2,
+                        effectiveCandidateCount: 2,
+                        candidatesWithKnownCount: 2,
+                        candidatesWithUnknownCount: 0,
+                        candidatesBelowMinItems: 1,
+                        minKnownCount: 4,
+                        maxKnownCount: 14,
+                        sampleKnownCounts: [{ title: 'Jane Doe', count: 14 }],
+                        sampleUnknownCountTitles: [],
+                        sampleBelowMinItems: [{ title: 'John Roe', count: 4 }],
+                    }],
+                    decades: [],
+                    studios: [{
+                        libraryId: 'lib-1',
+                        libraryName: 'Shows',
+                        rawTagCount: 1,
+                        effectiveCandidateCount: 1,
+                        candidatesWithKnownCount: 1,
+                        candidatesWithUnknownCount: 0,
+                        candidatesBelowMinItems: 0,
+                        minKnownCount: 7,
+                        maxKnownCount: 7,
+                        sampleKnownCounts: [{ title: 'Studio A', count: 7 }],
+                        sampleUnknownCountTitles: [],
+                        sampleBelowMinItems: [],
+                    }],
+                    actors: [{
+                        libraryId: 'lib-1',
+                        libraryName: 'Shows',
+                        rawTagCount: 9,
+                        effectiveCandidateCount: 9,
+                        candidatesWithKnownCount: 7,
+                        candidatesWithUnknownCount: 2,
+                        candidatesBelowMinItems: 2,
+                        minKnownCount: 1,
+                        maxKnownCount: 30,
+                        sampleKnownCounts: [{ title: 'Lead Actor', count: 30 }],
+                        sampleUnknownCountTitles: ['Mystery Guest', 'Unknown Star'],
+                        sampleBelowMinItems: [{ title: 'Bit Part', count: 1 }],
+                    }],
+                },
                 candidatesBeforeMinItems: {
                     total: 16,
                     collections: 0,
@@ -354,7 +413,7 @@ describe('AppDiagnosticsSurface', () => {
             result: expect.objectContaining({ reachedMaxChannels: true }),
         }));
         expect(consoleInfo).toHaveBeenCalledWith('Selected server:', 'server-1');
-        expect(consoleTable).toHaveBeenCalledTimes(4);
+        expect(consoleTable).toHaveBeenCalledTimes(5);
         expect(consoleGroupCollapsed).toHaveBeenCalledWith('[lineup] Channel setup planner diagnostics');
         expect(consoleGroupEnd).toHaveBeenCalled();
     });

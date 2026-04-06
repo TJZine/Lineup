@@ -70,10 +70,31 @@ export interface ChannelSetupPlannerLibraryCount {
     count: number;
 }
 
+export interface ChannelSetupPlannerCountSample {
+    title: string;
+    count: number;
+}
+
+export interface ChannelSetupPlannerFacetCountDiagnostics {
+    libraryId: string;
+    libraryName: string;
+    rawTagCount: number;
+    effectiveCandidateCount: number;
+    candidatesWithKnownCount: number;
+    candidatesWithUnknownCount: number;
+    candidatesBelowMinItems: number;
+    minKnownCount: number | null;
+    maxKnownCount: number | null;
+    sampleKnownCounts: ChannelSetupPlannerCountSample[];
+    sampleUnknownCountTitles: string[];
+    sampleBelowMinItems: ChannelSetupPlannerCountSample[];
+}
+
 export interface ChannelSetupPlannerDiagnostics {
     effectiveMaxChannels: number;
     minItems: number;
     fetchedTagsByFamily: Record<ChannelSetupPlannerFacetFamily, ChannelSetupPlannerLibraryCount[]>;
+    tagCountDiagnosticsByFamily: Record<ChannelSetupPlannerFacetFamily, ChannelSetupPlannerFacetCountDiagnostics[]>;
     candidatesBeforeMinItems: ChannelSetupEstimates;
     candidatesAfterMinItems: ChannelSetupEstimates;
     strategyBucketSizes: ChannelSetupEstimates;
@@ -131,6 +152,32 @@ const emptyEstimates = (): ChannelSetupEstimates => ({
     studios: 0,
     actors: 0,
 });
+
+const sortTagValuesByCountThenTitle = <T extends { title: string; count: number }>(values: T[]): T[] => (
+    [...values].sort((a, b) => {
+        const countDiff = b.count - a.count;
+        if (countDiff !== 0) return countDiff;
+        return a.title.localeCompare(b.title);
+    })
+);
+
+const sortTagTitles = (titles: string[]): string[] => [...titles].sort((a, b) => a.localeCompare(b));
+
+const toCountSamples = (values: Array<{ title: string; count: number }>, limit: number = 5): ChannelSetupPlannerCountSample[] =>
+    sortTagValuesByCountThenTitle(values).slice(0, limit).map((value) => ({
+        title: value.title,
+        count: value.count,
+    }));
+
+const toDecadeValue = (tag: PlexTagDirectoryItem): number | null => {
+    const year = Number.parseInt(tag.title, 10);
+    if (!Number.isFinite(year)) {
+        return null;
+    }
+    return Math.floor(year / 10) * 10;
+};
+
+const formatDecadeLabel = (decade: number): string => `${decade}s`;
 
 export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetupPlan {
     return buildChannelSetupPlanInternal(input).plan;
@@ -282,14 +329,6 @@ function buildChannelSetupPlanInternal(
             ...candidate,
             itemCount,
         };
-    };
-
-    const toDecade = (tag: PlexTagDirectoryItem): number | null => {
-        const year = Number.parseInt(tag.title, 10);
-        if (!Number.isFinite(year)) {
-            return null;
-        }
-        return Math.floor(year / 10) * 10;
     };
 
     // 0. Server-wide Playlists
@@ -455,7 +494,7 @@ function buildChannelSetupPlanInternal(
                 const decadeCounts = new Map<number, number>();
                 const decadesWithUnknownCounts = new Set<number>();
                 for (const yearTag of years) {
-                    const decade = toDecade(yearTag);
+                    const decade = toDecadeValue(yearTag);
                     if (decade === null) {
                         continue;
                     }
@@ -1075,6 +1114,88 @@ function combineTagSources(
         });
 }
 
+function buildFacetCountDiagnostics(
+    library: PlexLibraryType,
+    tags: PlexTagDirectoryItem[],
+    minItems: number
+): ChannelSetupPlannerFacetCountDiagnostics {
+    const knownCounts = sortTagValuesByCountThenTitle(
+        tags
+            .filter((tag): tag is PlexTagDirectoryItem & { count: number } => tag.count !== null)
+            .map((tag) => ({ title: tag.title, count: tag.count }))
+    );
+    const unknownCountTitles = sortTagTitles(
+        tags
+            .filter((tag) => tag.count === null)
+            .map((tag) => tag.title)
+    );
+    const belowMinItems = knownCounts.filter((tag) => tag.count < minItems);
+
+    return {
+        libraryId: library.id,
+        libraryName: library.title,
+        rawTagCount: tags.length,
+        effectiveCandidateCount: tags.length,
+        candidatesWithKnownCount: knownCounts.length,
+        candidatesWithUnknownCount: unknownCountTitles.length,
+        candidatesBelowMinItems: belowMinItems.length,
+        minKnownCount: knownCounts.length > 0 ? knownCounts[knownCounts.length - 1]?.count ?? null : null,
+        maxKnownCount: knownCounts.length > 0 ? knownCounts[0]?.count ?? null : null,
+        sampleKnownCounts: toCountSamples(knownCounts),
+        sampleUnknownCountTitles: unknownCountTitles.slice(0, 5),
+        sampleBelowMinItems: toCountSamples(belowMinItems),
+    };
+}
+
+function buildDecadeFacetCountDiagnostics(
+    library: PlexLibraryType,
+    yearTags: PlexTagDirectoryItem[],
+    minItems: number
+): ChannelSetupPlannerFacetCountDiagnostics {
+    const decades = new Map<number, { totalCount: number; hasUnknownCount: boolean }>();
+
+    for (const yearTag of yearTags) {
+        const decade = toDecadeValue(yearTag);
+        if (decade === null) {
+            continue;
+        }
+        const entry = decades.get(decade) ?? { totalCount: 0, hasUnknownCount: false };
+        if (yearTag.count === null) {
+            entry.hasUnknownCount = true;
+        } else {
+            entry.totalCount += yearTag.count;
+        }
+        decades.set(decade, entry);
+    }
+
+    const knownCounts = sortTagValuesByCountThenTitle(
+        Array.from(decades.entries())
+            .filter(([, entry]) => entry.hasUnknownCount === false)
+            .map(([decade, entry]) => ({ title: formatDecadeLabel(decade), count: entry.totalCount }))
+    );
+    const unknownCountTitles = sortTagTitles(
+        Array.from(decades.entries())
+            .filter(([, entry]) => entry.hasUnknownCount === true)
+            .map(([decade]) => formatDecadeLabel(decade))
+    );
+    const belowMinItems = knownCounts.filter((tag) => tag.count < minItems);
+
+    return {
+        libraryId: library.id,
+        libraryName: library.title,
+        rawTagCount: yearTags.length,
+        effectiveCandidateCount: decades.size,
+        candidatesWithKnownCount: knownCounts.length,
+        candidatesWithUnknownCount: unknownCountTitles.length,
+        candidatesBelowMinItems: belowMinItems.length,
+        minKnownCount: knownCounts.length > 0 ? knownCounts[knownCounts.length - 1]?.count ?? null : null,
+        maxKnownCount: knownCounts.length > 0 ? knownCounts[0]?.count ?? null : null,
+        sampleKnownCounts: toCountSamples(knownCounts),
+        sampleUnknownCountTitles: unknownCountTitles.slice(0, 5),
+        sampleBelowMinItems: toCountSamples(belowMinItems),
+    };
+}
+
 function createPlannerDiagnostics(
     selectedLibraries: PlexLibraryType[],
     genresByLibraryId: Map<string, PlexTagDirectoryItem[]>,
@@ -1092,6 +1213,14 @@ function createPlannerDiagnostics(
         libraryName: library.title,
         count: valuesByLibraryId.get(library.id)?.length ?? 0,
     }));
+    const toFacetCountDiagnostics = (
+        valuesByLibraryId: Map<string, PlexTagDirectoryItem[]>
+    ): ChannelSetupPlannerFacetCountDiagnostics[] => selectedLibraries.map((library) =>
+        buildFacetCountDiagnostics(library, valuesByLibraryId.get(library.id) ?? [], minItems)
+    );
+    const toDecadeFacetCountDiagnostics = (): ChannelSetupPlannerFacetCountDiagnostics[] => selectedLibraries.map((library) =>
+        buildDecadeFacetCountDiagnostics(library, yearsByLibraryId.get(library.id) ?? [], minItems)
+    );
 
     return {
         effectiveMaxChannels,
@@ -1102,6 +1231,13 @@ function createPlannerDiagnostics(
             decades: toCounts(yearsByLibraryId),
             studios: toCounts(studiosByLibraryId),
             actors: toCounts(actorsByLibraryId),
+        },
+        tagCountDiagnosticsByFamily: {
+            genres: toFacetCountDiagnostics(genresByLibraryId),
+            directors: toFacetCountDiagnostics(directorsByLibraryId),
+            decades: toDecadeFacetCountDiagnostics(),
+            studios: toFacetCountDiagnostics(studiosByLibraryId),
+            actors: toFacetCountDiagnostics(actorsByLibraryId),
         },
         candidatesBeforeMinItems: emptyEstimates(),
         candidatesAfterMinItems: emptyEstimates(),

@@ -200,10 +200,11 @@ export class AppDiagnosticsSurface {
         console.info('Record source:', dump.recordSource);
         console.info('Diagnostics payload:', dump);
         if (dump.result.diagnostics) {
-            console.table(dump.result.diagnostics.fetchedTagsByFamily.genres);
-            console.table(dump.result.diagnostics.fetchedTagsByFamily.directors);
-            console.table(dump.result.diagnostics.fetchedTagsByFamily.studios);
-            console.table(dump.result.diagnostics.fetchedTagsByFamily.actors);
+            console.table(dump.result.diagnostics.tagCountDiagnosticsByFamily.genres);
+            console.table(dump.result.diagnostics.tagCountDiagnosticsByFamily.directors);
+            console.table(dump.result.diagnostics.tagCountDiagnosticsByFamily.decades);
+            console.table(dump.result.diagnostics.tagCountDiagnosticsByFamily.studios);
+            console.table(dump.result.diagnostics.tagCountDiagnosticsByFamily.actors);
         }
         console.groupEnd();
     }
