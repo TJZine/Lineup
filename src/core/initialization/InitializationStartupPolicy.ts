@@ -21,6 +21,8 @@ type UpdateModuleStatus = (
     loadTimeMs?: number
 ) => void;
 
+export const CLASSIC_EPG_PIP_CLASS = 'epg-pip-active';
+
 type Phase2AuthPlexAuth = Pick<
     IPlexAuth,
     'getStoredCredentials' | 'validateToken' | 'getCurrentUser' | 'storeCredentials' | 'getHomeUsers'
@@ -345,9 +347,9 @@ export function buildEpgConfigWithStartupPolicy(
             const videoContainer = document.getElementById('video-container');
             if (!videoContainer) return;
             if (mode === 'classic') {
-                videoContainer.classList.add('epg-pip-active');
+                videoContainer.classList.add(CLASSIC_EPG_PIP_CLASS);
             } else {
-                videoContainer.classList.remove('epg-pip-active');
+                videoContainer.classList.remove(CLASSIC_EPG_PIP_CLASS);
             }
         },
     };

@@ -246,6 +246,18 @@ describe('VideoPlayer', () => {
             player.destroy();
         });
 
+        it('starts with video element hidden until a stream is loaded', async () => {
+            const player = new VideoPlayer();
+            const config = createMockConfig();
+
+            await player.initialize(config);
+
+            const videoElement = container.querySelector('video');
+            expect(videoElement?.style.display).toBe('none');
+
+            player.destroy();
+        });
+
         it('should throw if container not found', async () => {
             const player = new VideoPlayer();
             const config = createMockConfig({ containerId: 'nonexistent' });
@@ -281,6 +293,16 @@ describe('VideoPlayer', () => {
 
             const videoElement = container.querySelector('video');
             expect(videoElement?.src).toContain('test.m3u8');
+        });
+
+        it('shows video element when loading a stream', async () => {
+            const descriptor = createMockDescriptor();
+            const videoElement = container.querySelector('video') as HTMLVideoElement;
+            expect(videoElement.style.display).toBe('none');
+
+            await player.loadStream(descriptor);
+
+            expect(videoElement.style.display).toBe('block');
         });
 
         it('should set video.src for direct play', async () => {
@@ -559,6 +581,15 @@ describe('VideoPlayer', () => {
             player.pause();
 
             expect(videoElement?.pause).toHaveBeenCalled();
+        });
+
+        it('hides video element on unloadStream', () => {
+            const videoElement = container.querySelector('video') as HTMLVideoElement;
+            expect(videoElement.style.display).toBe('block');
+
+            player.unloadStream();
+
+            expect(videoElement.style.display).toBe('none');
         });
 
         it('should stop and unload on stop()', () => {

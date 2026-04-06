@@ -37,14 +37,52 @@ export interface PlaybackRuntimeControllerDeps {
     onPlayerBufferUpdate(payload: PlayerBufferUpdatePayload): void;
 }
 
+export interface OverlayReadinessSnapshot {
+    pendingReason: 'none' | 'program-start';
+    pendingSinceMs: number | null;
+    lastReadyAtMs: number | null;
+}
+
 export class PlaybackRuntimeController {
     private _lastProgramStartPromise: Promise<void> | null = null;
+    private _overlayReadiness: OverlayReadinessSnapshot = {
+        pendingReason: 'none',
+        pendingSinceMs: null,
+        lastReadyAtMs: null,
+    };
 
     constructor(private readonly _deps: PlaybackRuntimeControllerDeps) {}
 
     public trackProgramStart(promise: Promise<void>): Promise<void> {
         this._lastProgramStartPromise = promise;
+        this._overlayReadiness.pendingReason = 'program-start';
+        this._overlayReadiness.pendingSinceMs = Date.now();
+
+        void promise
+            .catch(() => {
+                if (this._lastProgramStartPromise !== promise) {
+                    return;
+                }
+                this._overlayReadiness.pendingReason = 'none';
+                this._overlayReadiness.pendingSinceMs = null;
+            })
+            .finally(() => {
+                if (this._lastProgramStartPromise === promise) {
+                    this._lastProgramStartPromise = null;
+                }
+            });
+
         return promise;
+    }
+
+    public isOverlayReopenSafe(): boolean {
+        return this._overlayReadiness.pendingReason === 'none';
+    }
+
+    public getOverlayReadinessSnapshot(): OverlayReadinessSnapshot {
+        return {
+            ...this._overlayReadiness,
+        };
     }
 
     public async handleLifecyclePause(): Promise<void> {
@@ -99,6 +137,12 @@ export class PlaybackRuntimeController {
 
     public handlePlayerStateChange(state: PlaybackState): void {
         this._deps.onPlayerStateChange(state);
+
+        if (state.status === 'playing' && this._overlayReadiness.pendingReason !== 'none') {
+            this._overlayReadiness.pendingReason = 'none';
+            this._overlayReadiness.pendingSinceMs = null;
+            this._overlayReadiness.lastReadyAtMs = Date.now();
+        }
 
         if (
             state.status === 'playing' &&

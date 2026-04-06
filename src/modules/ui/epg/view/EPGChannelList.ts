@@ -8,7 +8,6 @@ import { EPG_CLASSES, EPG_CONSTANTS } from '../constants';
 import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debugRuntimeGuards';
 import type { EPGConfig, ChannelConfig } from '../types';
 import { getChannelNameForDisplay } from '../../channelDisplay';
-import { getChannelBrandingIcon } from '../../common/channelBrandingIcons';
 
 /**
  * EPG Channel List class.
@@ -25,12 +24,8 @@ export class EPGChannelList {
     private rowContentCache: WeakMap<
         HTMLElement,
         {
-            mediaSlot: HTMLElement;
             number: HTMLSpanElement;
             name: HTMLSpanElement;
-            icon: HTMLImageElement | null;
-            branding: SVGElement | null;
-            brandingStrategy: string | null;
         }
     > = new WeakMap();
     private focusedChannelIndex: number = -1;
@@ -219,7 +214,6 @@ export class EPGChannelList {
     private createChannelRow(): HTMLElement {
         const row = document.createElement('div');
         row.className = EPG_CLASSES.CHANNEL_ROW;
-        const mediaSlot = document.createElement('div');
 
         const number = document.createElement('span');
         number.className = EPG_CLASSES.CHANNEL_NUMBER;
@@ -227,14 +221,10 @@ export class EPGChannelList {
         const name = document.createElement('span');
         name.className = EPG_CLASSES.CHANNEL_NAME;
 
-        row.append(mediaSlot, number, name);
+        row.append(number, name);
         this.rowContentCache.set(row, {
-            mediaSlot,
             number,
             name,
-            icon: null,
-            branding: null,
-            brandingStrategy: null,
         });
         return row;
     }
@@ -266,61 +256,6 @@ export class EPGChannelList {
 
         if (this.config) {
             row.style.height = `${this.config.rowHeight}px`;
-        }
-
-        // Channel icon (if available) - validate URL scheme
-        let iconUrl: string | null = null;
-        if (channel.icon) {
-            // Only allow http(s) or safe raster data URIs (avoid svg in img for WebViews)
-            const isValidIconUrl = /^https?:\/\//i.test(channel.icon) ||
-                /^data:image\/(png|jpeg|jpg|gif|webp);/i.test(channel.icon);
-            if (isValidIconUrl) {
-                iconUrl = channel.icon;
-            }
-        }
-        if (iconUrl) {
-            if (!cached.icon) {
-                cached.icon = document.createElement('img');
-                cached.icon.className = EPG_CLASSES.CHANNEL_ICON;
-                cached.mediaSlot.appendChild(cached.icon);
-            }
-            if (cached.branding) {
-                cached.branding.remove();
-                cached.branding = null;
-                cached.brandingStrategy = null;
-            }
-            if (cached.icon.src !== iconUrl) {
-                cached.icon.src = iconUrl;
-            }
-            if (cached.icon.alt !== displayName) {
-                cached.icon.alt = displayName;
-            }
-        } else {
-            if (cached.icon) {
-                cached.icon.remove();
-                cached.icon = null;
-            }
-            const nextStrategy = channel.buildStrategy ?? null;
-            if (!nextStrategy) {
-                if (cached.branding) {
-                    cached.branding.remove();
-                    cached.branding = null;
-                }
-                cached.brandingStrategy = null;
-            } else if (cached.brandingStrategy !== nextStrategy || !cached.branding) {
-                if (cached.branding) {
-                    cached.branding.remove();
-                    cached.branding = null;
-                }
-                const brandingIcon = getChannelBrandingIcon(nextStrategy);
-                if (brandingIcon) {
-                    cached.mediaSlot.appendChild(brandingIcon);
-                    cached.branding = brandingIcon;
-                    cached.brandingStrategy = nextStrategy;
-                } else {
-                    cached.brandingStrategy = null;
-                }
-            }
         }
 
         const channelNumber = channel.number.toString();

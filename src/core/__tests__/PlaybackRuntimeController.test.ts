@@ -253,6 +253,141 @@ describe('PlaybackRuntimeController', () => {
         await deferred.promise;
     });
 
+    it('clears pending overlay readiness and tracked promise when the active program start rejects', async () => {
+        const { controller, deps, callOrder } = makeSetup();
+        const deferred = createDeferred<void>();
+        const error = new Error('program start failed');
+
+        const tracked = controller.trackProgramStart(deferred.promise);
+
+        expect(controller.isOverlayReopenSafe()).toBe(false);
+        expect(controller.getOverlayReadinessSnapshot().pendingReason).toBe('program-start');
+
+        deferred.reject(error);
+
+        await expect(tracked).rejects.toBe(error);
+        await Promise.resolve();
+
+        expect(controller.isOverlayReopenSafe()).toBe(true);
+        expect(controller.getOverlayReadinessSnapshot()).toEqual({
+            pendingReason: 'none',
+            pendingSinceMs: null,
+            lastReadyAtMs: null,
+        });
+
+        await controller.handleLifecycleResume();
+
+        expect(deps.resumeSchedulerSync).toHaveBeenCalledTimes(1);
+        expect(deps.syncSchedulerToCurrentTime).toHaveBeenCalledTimes(1);
+        expect(deps.playPlayer).toHaveBeenCalledTimes(1);
+        expect(callOrder).toEqual([
+            'resume-scheduler',
+            'sync-scheduler',
+            'play-player',
+        ]);
+    });
+
+    it('ignores rejection cleanup from an older program start after a newer one is tracked', async () => {
+        const { controller } = makeSetup();
+        const older = createDeferred<void>();
+        const newer = createDeferred<void>();
+        const olderError = new Error('older program start failed');
+
+        controller.trackProgramStart(older.promise);
+        controller.trackProgramStart(newer.promise);
+
+        older.reject(olderError);
+
+        await expect(older.promise).rejects.toBe(olderError);
+        await Promise.resolve();
+
+        expect(controller.isOverlayReopenSafe()).toBe(false);
+        expect(controller.getOverlayReadinessSnapshot().pendingReason).toBe('program-start');
+
+        newer.resolve(undefined);
+        await newer.promise;
+
+        expect(controller.isOverlayReopenSafe()).toBe(false);
+
+        controller.handlePlayerStateChange({
+            status: 'playing',
+            currentTimeMs: 0,
+            durationMs: 1000,
+            bufferPercent: 100,
+            volume: 1,
+            isMuted: false,
+            playbackRate: 1,
+            activeSubtitleId: null,
+            activeAudioId: null,
+            errorInfo: null,
+        });
+
+        expect(controller.isOverlayReopenSafe()).toBe(true);
+    });
+
+    it('marks overlay reopen as unsafe after a program start until playback returns to playing', () => {
+        const { controller } = makeSetup();
+        const deferred = createDeferred<void>();
+        const paused: PlaybackState = {
+            status: 'paused',
+            currentTimeMs: 1000,
+            durationMs: 5000,
+            bufferPercent: 75,
+            volume: 1,
+            isMuted: false,
+            playbackRate: 1,
+            activeSubtitleId: null,
+            activeAudioId: 'audio-1',
+            errorInfo: null,
+        };
+        const playing: PlaybackState = {
+            ...paused,
+            status: 'playing',
+        };
+
+        expect(controller.isOverlayReopenSafe()).toBe(true);
+        controller.trackProgramStart(deferred.promise);
+        expect(controller.isOverlayReopenSafe()).toBe(false);
+
+        controller.handlePlayerStateChange(paused);
+        expect(controller.isOverlayReopenSafe()).toBe(false);
+
+        controller.handlePlayerStateChange(playing);
+        expect(controller.isOverlayReopenSafe()).toBe(true);
+    });
+
+    it('exposes overlay readiness snapshot timing for phase-1 proof instrumentation', () => {
+        const { controller } = makeSetup();
+        const deferred = createDeferred<void>();
+        const before = controller.getOverlayReadinessSnapshot();
+        expect(before.pendingReason).toBe('none');
+        expect(before.pendingSinceMs).toBeNull();
+        expect(before.lastReadyAtMs).toBeNull();
+
+        controller.trackProgramStart(deferred.promise);
+        const pending = controller.getOverlayReadinessSnapshot();
+        expect(pending.pendingReason).toBe('program-start');
+        expect(typeof pending.pendingSinceMs).toBe('number');
+        expect(pending.lastReadyAtMs).toBeNull();
+
+        controller.handlePlayerStateChange({
+            status: 'playing',
+            currentTimeMs: 0,
+            durationMs: 1000,
+            bufferPercent: 100,
+            volume: 1,
+            isMuted: false,
+            playbackRate: 1,
+            activeSubtitleId: null,
+            activeAudioId: null,
+            errorInfo: null,
+        });
+        const ready = controller.getOverlayReadinessSnapshot();
+        expect(ready.pendingReason).toBe('none');
+        expect(ready.pendingSinceMs).toBeNull();
+        expect(typeof ready.lastReadyAtMs).toBe('number');
+    });
+
     it('handleLifecyclePause pauses playback, pauses scheduler sync, and then saves lifecycle state', async () => {
         const { controller, deps, callOrder } = makeSetup();
 

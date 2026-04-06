@@ -21,7 +21,13 @@ import { BuildProgressStepController } from './steps/BuildProgressStepController
 import type { BuildReviewStateSnapshot } from './steps/types';
 import {
     ADVANCED_STRATEGY_KEYS,
+    ALTERNATE_LINEUP_COPY_OPTIONS,
+    BUILD_MODE_OPTIONS,
+    COMBINE_MODE_OPTIONS,
     CONTENT_STRATEGY_KEYS,
+    SERIES_BASE_MODE_OPTIONS,
+    SERIES_BLOCK_PRESETS,
+    SERIES_VARIANT_TYPE_OPTIONS,
     STEP2_CONTROL_IDS,
     STRATEGY_CATEGORIES,
     type SetupStrategyKey,
@@ -38,6 +44,13 @@ import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/Chann
 import type { ChannelSetupScreenPorts } from './ChannelSetupScreenPorts';
 
 const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
+
+type AdjustableControl = {
+    cyclePrev: () => boolean;
+    cycleNext: () => boolean;
+    isDisabled: () => boolean;
+    openDropdown: () => void;
+};
 
 const MOVIE_SVG = `
 <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" aria-hidden="true">
@@ -241,6 +254,33 @@ export class ChannelSetupScreen {
                 const focusedId = nav.getFocusedElement()?.id ?? null;
                 if (!focusedId) return;
 
+                const activeCategoryButtonId = this._categoryButtonId(this._activeStrategyCategory);
+                const adjustableControl = this._getAdjustableStep2Control(focusedId);
+                if (adjustableControl && !adjustableControl.isDisabled()) {
+                    if (event.button === 'ok') {
+                        event.handled = true;
+                        event.originalEvent.preventDefault();
+                        adjustableControl.openDropdown();
+                        return;
+                    }
+                    if (event.button === 'right') {
+                        event.handled = true;
+                        event.originalEvent.preventDefault();
+                        adjustableControl.cycleNext();
+                        return;
+                    }
+                    if (event.button === 'left') {
+                        event.handled = true;
+                        event.originalEvent.preventDefault();
+                        const changed = adjustableControl.cyclePrev();
+                        if (!changed) {
+                            this._preferredFocusId = activeCategoryButtonId;
+                            nav.setFocus(activeCategoryButtonId);
+                        }
+                        return;
+                    }
+                }
+
                 // Grab/drop toggle for priority reorder
                 if (
                     this._activeStrategyCategory === 'priority-order'
@@ -322,7 +362,6 @@ export class ChannelSetupScreen {
                         : null;
                 if (!direction) return;
 
-                const activeCategoryButtonId = this._categoryButtonId(this._activeStrategyCategory);
                 const activeDetailIds = this._getDetailControlIdsForCategory(this._activeStrategyCategory);
                 const focusedCategory = this._categoryFromButtonId(focusedId);
 
@@ -602,66 +641,10 @@ export class ChannelSetupScreen {
                 this._renderStep();
             },
             applySettingChange: (focusId, mutate) => {
-                this._preferredFocusId = focusId;
-                this._rememberActiveDetailFocus(focusId);
-                this._session.updateStrategyState((draft: StrategyStepMutableState) => {
-                    draft.activeStrategyCategory = this._activeStrategyCategory;
-                    mutate(draft);
-                    this._activeStrategyCategory = draft.activeStrategyCategory;
-                });
-                this._session.schedulePreview(() => this._renderStep());
-
-                if (focusId.startsWith('setup-priority-row-')) {
-                    const strategy = this._strategyKeyFromControlId(focusId, 'setup-priority-row-');
-                    if (strategy) {
-                        const updatedSession = this._session.getSnapshot();
-                        const updated = this._strategyStep.updatePriorityRowState(
-                            this._contentEl,
-                            this._priorityRowId(strategy),
-                            updatedSession.strategies[strategy].enabled
-                        );
-                        if (updated) {
-                            this._preferredFocusId = null;
-                            return;
-                        }
-                    }
-                }
-
-                if (this._activeDropdown) {
-                    this._pendingDropdownDeferredRender = true;
-                    return;
-                }
-
-                this._renderStep();
+                this._applyStep2SettingChange(focusId, mutate);
             },
             openDropdown: (config) => {
-                this._closeDropdown();
-                const anchor = document.getElementById(config.anchorId);
-                if (!(anchor instanceof HTMLElement)) {
-                    return;
-                }
-                const nav = this._screenPorts.getNavigation();
-                this._activeDropdown = createDropdownPopover({
-                    anchor,
-                    container: this._contentEl,
-                    options: config.options,
-                    currentValue: config.currentValue,
-                    onSelect: (value) => {
-                        try {
-                            config.onSelect(value);
-                        } finally {
-                            this._closeDropdown();
-                            this._preferredFocusId = config.anchorId;
-                            this._flushDeferredDropdownRender();
-                        }
-                    },
-                    onDismiss: () => {
-                        nav?.setFocus(config.anchorId);
-                    },
-                    nav,
-                    cssClass: 'setup-dropdown',
-                    optionCssClass: 'setup-dropdown-option',
-                });
+                this._openStep2Dropdown(config);
             },
             onBack: () => {
                 this._grabbedPriorityKey = null;
@@ -681,6 +664,380 @@ export class ChannelSetupScreen {
                 : '',
             schedulePreview: () => this._session.schedulePreview(() => this._renderStep()),
         });
+    }
+
+    private _applyStep2SettingChange(focusId: string, mutate: (state: StrategyStepMutableState) => void): void {
+        this._preferredFocusId = focusId;
+        this._rememberActiveDetailFocus(focusId);
+        this._session.updateStrategyState((draft: StrategyStepMutableState) => {
+            draft.activeStrategyCategory = this._activeStrategyCategory;
+            mutate(draft);
+            this._activeStrategyCategory = draft.activeStrategyCategory;
+        });
+        this._session.schedulePreview(() => this._renderStep());
+
+        if (focusId.startsWith('setup-priority-row-')) {
+            const strategy = this._strategyKeyFromControlId(focusId, 'setup-priority-row-');
+            if (strategy) {
+                const updatedSession = this._session.getSnapshot();
+                const updated = this._strategyStep.updatePriorityRowState(
+                    this._contentEl,
+                    this._priorityRowId(strategy),
+                    updatedSession.strategies[strategy].enabled
+                );
+                if (updated) {
+                    this._preferredFocusId = null;
+                    return;
+                }
+            }
+        }
+
+        if (this._activeDropdown) {
+            this._pendingDropdownDeferredRender = true;
+            return;
+        }
+
+        this._renderStep();
+    }
+
+    private _openStep2Dropdown(config: {
+        anchorId: string;
+        options: Array<{ label: string; value: string }>;
+        currentValue: string;
+        onSelect: (value: string) => void;
+    }): void {
+        this._closeDropdown();
+        const anchor = document.getElementById(config.anchorId);
+        if (!(anchor instanceof HTMLElement)) {
+            return;
+        }
+        const nav = this._screenPorts.getNavigation();
+        this._activeDropdown = createDropdownPopover({
+            anchor,
+            container: this._contentEl,
+            options: config.options,
+            currentValue: config.currentValue,
+            onSelect: (value) => {
+                try {
+                    config.onSelect(value);
+                } finally {
+                    this._closeDropdown();
+                    this._preferredFocusId = config.anchorId;
+                    this._flushDeferredDropdownRender();
+                }
+            },
+            onDismiss: () => {
+                nav?.setFocus(config.anchorId);
+            },
+            nav,
+            cssClass: 'setup-dropdown',
+            optionCssClass: 'setup-dropdown-option',
+        });
+    }
+
+    private _cycleStep2Option<T extends string | number>(
+        options: readonly T[],
+        current: T,
+        dir: 'left' | 'right'
+    ): T {
+        if (options.length === 0) {
+            return current;
+        }
+        const currentIndex = options.indexOf(current);
+        let baseIndex = currentIndex;
+        if (baseIndex < 0) {
+            if (typeof current === 'number' && options.every((option) => typeof option === 'number')) {
+                baseIndex = this._getNearestOptionIndex(options as unknown as number[], current);
+            } else {
+                baseIndex = 0;
+            }
+        }
+        const nextIndex = dir === 'left'
+            ? Math.max(0, baseIndex - 1)
+            : Math.min(options.length - 1, baseIndex + 1);
+        return options[nextIndex] ?? current;
+    }
+
+    private _getAdjustableStep2Control(controlId: string): AdjustableControl | null {
+        const openDropdown = (): void => {
+            const control = document.getElementById(controlId);
+            if (control instanceof HTMLButtonElement && !control.disabled) {
+                control.click();
+            }
+        };
+
+        if (controlId === STEP2_CONTROL_IDS.buildMode) {
+            return {
+                cyclePrev: (): boolean => {
+                    const session = this._session.getSnapshot();
+                    const next = this._cycleStep2Option(BUILD_MODE_OPTIONS, session.buildMode, 'left');
+                    if (next === session.buildMode) return false;
+                    this._applyStep2SettingChange(controlId, (draft) => {
+                        draft.buildMode = next;
+                    });
+                    return true;
+                },
+                cycleNext: (): boolean => {
+                    const session = this._session.getSnapshot();
+                    const next = this._cycleStep2Option(BUILD_MODE_OPTIONS, session.buildMode, 'right');
+                    if (next === session.buildMode) return false;
+                    this._applyStep2SettingChange(controlId, (draft) => {
+                        draft.buildMode = next;
+                    });
+                    return true;
+                },
+                isDisabled: () => false,
+                openDropdown,
+            };
+        }
+
+        if (controlId === STEP2_CONTROL_IDS.combineMode) {
+            return {
+                cyclePrev: (): boolean => {
+                    const session = this._session.getSnapshot();
+                    const next = this._cycleStep2Option(COMBINE_MODE_OPTIONS, session.actorStudioCombineMode, 'left');
+                    if (next === session.actorStudioCombineMode) return false;
+                    this._applyStep2SettingChange(controlId, (draft) => {
+                        draft.actorStudioCombineMode = next;
+                    });
+                    return true;
+                },
+                cycleNext: (): boolean => {
+                    const session = this._session.getSnapshot();
+                    const next = this._cycleStep2Option(COMBINE_MODE_OPTIONS, session.actorStudioCombineMode, 'right');
+                    if (next === session.actorStudioCombineMode) return false;
+                    this._applyStep2SettingChange(controlId, (draft) => {
+                        draft.actorStudioCombineMode = next;
+                    });
+                    return true;
+                },
+                isDisabled: () => false,
+                openDropdown,
+            };
+        }
+
+        if (controlId === STEP2_CONTROL_IDS.alternateLineupCopies) {
+            return {
+                cyclePrev: (): boolean => {
+                    const session = this._session.getSnapshot();
+                    if (!session.channelExpansion.addAlternateLineups) return false;
+                    const next = this._cycleStep2Option(
+                        ALTERNATE_LINEUP_COPY_OPTIONS,
+                        session.channelExpansion.alternateLineupCopies,
+                        'left'
+                    );
+                    if (next === session.channelExpansion.alternateLineupCopies) return false;
+                    this._applyStep2SettingChange(controlId, (draft) => {
+                        draft.channelExpansion.alternateLineupCopies = next;
+                    });
+                    return true;
+                },
+                cycleNext: (): boolean => {
+                    const session = this._session.getSnapshot();
+                    if (!session.channelExpansion.addAlternateLineups) return false;
+                    const next = this._cycleStep2Option(
+                        ALTERNATE_LINEUP_COPY_OPTIONS,
+                        session.channelExpansion.alternateLineupCopies,
+                        'right'
+                    );
+                    if (next === session.channelExpansion.alternateLineupCopies) return false;
+                    this._applyStep2SettingChange(controlId, (draft) => {
+                        draft.channelExpansion.alternateLineupCopies = next;
+                    });
+                    return true;
+                },
+                isDisabled: () => !this._session.getSnapshot().channelExpansion.addAlternateLineups,
+                openDropdown,
+            };
+        }
+
+        if (controlId === STEP2_CONTROL_IDS.seriesBaseMode) {
+            return {
+                cyclePrev: (): boolean => {
+                    const session = this._session.getSnapshot();
+                    const next = this._cycleStep2Option(
+                        SERIES_BASE_MODE_OPTIONS,
+                        session.seriesOrdering.basePlaybackMode,
+                        'left'
+                    );
+                    if (next === session.seriesOrdering.basePlaybackMode) return false;
+                    this._applyStep2SettingChange(controlId, (draft) => {
+                        draft.seriesOrdering.basePlaybackMode = next;
+                    });
+                    return true;
+                },
+                cycleNext: (): boolean => {
+                    const session = this._session.getSnapshot();
+                    const next = this._cycleStep2Option(
+                        SERIES_BASE_MODE_OPTIONS,
+                        session.seriesOrdering.basePlaybackMode,
+                        'right'
+                    );
+                    if (next === session.seriesOrdering.basePlaybackMode) return false;
+                    this._applyStep2SettingChange(controlId, (draft) => {
+                        draft.seriesOrdering.basePlaybackMode = next;
+                    });
+                    return true;
+                },
+                isDisabled: () => false,
+                openDropdown,
+            };
+        }
+
+        if (controlId === STEP2_CONTROL_IDS.seriesBaseBlockSize) {
+            return {
+                cyclePrev: (): boolean => {
+                    const session = this._session.getSnapshot();
+                    if (session.seriesOrdering.basePlaybackMode !== 'block') return false;
+                    const next = this._cycleStep2Option(
+                        SERIES_BLOCK_PRESETS,
+                        session.seriesOrdering.baseBlockSize,
+                        'left'
+                    );
+                    if (next === session.seriesOrdering.baseBlockSize) return false;
+                    this._applyStep2SettingChange(controlId, (draft) => {
+                        draft.seriesOrdering.baseBlockSize = next;
+                    });
+                    return true;
+                },
+                cycleNext: (): boolean => {
+                    const session = this._session.getSnapshot();
+                    if (session.seriesOrdering.basePlaybackMode !== 'block') return false;
+                    const next = this._cycleStep2Option(
+                        SERIES_BLOCK_PRESETS,
+                        session.seriesOrdering.baseBlockSize,
+                        'right'
+                    );
+                    if (next === session.seriesOrdering.baseBlockSize) return false;
+                    this._applyStep2SettingChange(controlId, (draft) => {
+                        draft.seriesOrdering.baseBlockSize = next;
+                    });
+                    return true;
+                },
+                isDisabled: () => this._session.getSnapshot().seriesOrdering.basePlaybackMode !== 'block',
+                openDropdown,
+            };
+        }
+
+        if (controlId === STEP2_CONTROL_IDS.seriesVariantType) {
+            return {
+                cyclePrev: (): boolean => {
+                    const session = this._session.getSnapshot();
+                    const next = this._cycleStep2Option(
+                        SERIES_VARIANT_TYPE_OPTIONS,
+                        session.channelExpansion.variantType,
+                        'left'
+                    );
+                    if (next === session.channelExpansion.variantType) return false;
+                    this._applyStep2SettingChange(controlId, (draft) => {
+                        draft.channelExpansion.variantType = next;
+                    });
+                    return true;
+                },
+                cycleNext: (): boolean => {
+                    const session = this._session.getSnapshot();
+                    const next = this._cycleStep2Option(
+                        SERIES_VARIANT_TYPE_OPTIONS,
+                        session.channelExpansion.variantType,
+                        'right'
+                    );
+                    if (next === session.channelExpansion.variantType) return false;
+                    this._applyStep2SettingChange(controlId, (draft) => {
+                        draft.channelExpansion.variantType = next;
+                    });
+                    return true;
+                },
+                isDisabled: () => false,
+                openDropdown,
+            };
+        }
+
+        if (controlId === STEP2_CONTROL_IDS.seriesVariantBlockSize) {
+            return {
+                cyclePrev: (): boolean => {
+                    const session = this._session.getSnapshot();
+                    if (session.channelExpansion.variantType !== 'block') return false;
+                    const next = this._cycleStep2Option(
+                        SERIES_BLOCK_PRESETS,
+                        session.channelExpansion.variantBlockSize,
+                        'left'
+                    );
+                    if (next === session.channelExpansion.variantBlockSize) return false;
+                    this._applyStep2SettingChange(controlId, (draft) => {
+                        draft.channelExpansion.variantBlockSize = next;
+                    });
+                    return true;
+                },
+                cycleNext: (): boolean => {
+                    const session = this._session.getSnapshot();
+                    if (session.channelExpansion.variantType !== 'block') return false;
+                    const next = this._cycleStep2Option(
+                        SERIES_BLOCK_PRESETS,
+                        session.channelExpansion.variantBlockSize,
+                        'right'
+                    );
+                    if (next === session.channelExpansion.variantBlockSize) return false;
+                    this._applyStep2SettingChange(controlId, (draft) => {
+                        draft.channelExpansion.variantBlockSize = next;
+                    });
+                    return true;
+                },
+                isDisabled: () => this._session.getSnapshot().channelExpansion.variantType !== 'block',
+                openDropdown,
+            };
+        }
+
+        if (controlId === STEP2_CONTROL_IDS.maxChannels) {
+            return {
+                cyclePrev: (): boolean => {
+                    const session = this._session.getSnapshot();
+                    const next = this._stepPreset(this._channelLimitOptions, session.maxChannels, 'left', 'clamp');
+                    if (next === session.maxChannels) return false;
+                    this._applyStep2SettingChange(controlId, (draft) => {
+                        draft.maxChannels = next;
+                    });
+                    return true;
+                },
+                cycleNext: (): boolean => {
+                    const session = this._session.getSnapshot();
+                    const next = this._stepPreset(this._channelLimitOptions, session.maxChannels, 'right', 'clamp');
+                    if (next === session.maxChannels) return false;
+                    this._applyStep2SettingChange(controlId, (draft) => {
+                        draft.maxChannels = next;
+                    });
+                    return true;
+                },
+                isDisabled: () => false,
+                openDropdown,
+            };
+        }
+
+        if (controlId === STEP2_CONTROL_IDS.minItems) {
+            return {
+                cyclePrev: (): boolean => {
+                    const session = this._session.getSnapshot();
+                    const next = this._stepPreset(this._minItemsOptions, session.minItems, 'left', 'clamp');
+                    if (next === session.minItems) return false;
+                    this._applyStep2SettingChange(controlId, (draft) => {
+                        draft.minItems = next;
+                    });
+                    return true;
+                },
+                cycleNext: (): boolean => {
+                    const session = this._session.getSnapshot();
+                    const next = this._stepPreset(this._minItemsOptions, session.minItems, 'right', 'clamp');
+                    if (next === session.minItems) return false;
+                    this._applyStep2SettingChange(controlId, (draft) => {
+                        draft.minItems = next;
+                    });
+                    return true;
+                },
+                isDisabled: () => false,
+                openDropdown,
+            };
+        }
+
+        return null;
     }
 
     private _closeDropdown(): void {
