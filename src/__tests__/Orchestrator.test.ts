@@ -612,20 +612,44 @@ describe('AppOrchestrator', () => {
     let pauseHandler: (() => void | Promise<void>) | null;
     let resumeHandler: (() => void | Promise<void>) | null;
 
-	    beforeEach(() => {
-	        // NOTE: `jest.clearAllMocks()` clears call history but does not reset mock implementations.
-	        // Prefer per-test `mockResolvedValueOnce()` stubs to avoid cross-test leakage.
-	        jest.clearAllMocks();
-	        mockLocalStorage.getItem.mockReturnValue(null);
-	        mockNavigation.isModalOpen.mockReturnValue(false);
-	        mockEpg.isVisible.mockReturnValue(false);
-	        mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
-	        mockChannelManager.getAllChannels.mockReturnValue([mockChannel]);
-	        schedulerHandlers = {};
-	        playerHandlers = {};
-	        navHandlers = {};
-	        channelManagerHandlers = {};
-	        pauseHandler = null;
+    beforeEach(() => {
+        jest.clearAllMocks();
+
+        mockPlexAuth.getStoredCredentials.mockReset();
+        mockPlexAuth.getStoredCredentials.mockResolvedValue({ kind: 'missing' });
+
+        mockPlexAuth.validateToken.mockReset();
+        mockPlexAuth.validateToken.mockResolvedValue(true);
+
+        mockLocalStorage.getItem.mockReset();
+        mockLocalStorage.getItem.mockReturnValue(null);
+
+        mockNavigation.isModalOpen.mockReset();
+        mockNavigation.isModalOpen.mockReturnValue(false);
+
+        mockEpg.isVisible.mockReset();
+        mockEpg.isVisible.mockReturnValue(false);
+
+        mockPlexDiscovery.getSelectedServer.mockReset();
+        mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
+
+        mockChannelManager.getAllChannels.mockReset();
+        mockChannelManager.getAllChannels.mockReturnValue([mockChannel]);
+
+        mockLifecycle.onPause.mockReset();
+        mockLifecycle.onResume.mockReset();
+        mockScheduler.on.mockReset();
+        mockScheduler.off.mockReset();
+        mockVideoPlayer.on.mockReset();
+        mockVideoPlayer.off.mockReset();
+        mockNavigation.on.mockReset();
+        mockChannelManager.on.mockReset();
+
+        schedulerHandlers = {};
+        playerHandlers = {};
+        navHandlers = {};
+        channelManagerHandlers = {};
+        pauseHandler = null;
         resumeHandler = null;
 
         (mockScheduler.on as jest.Mock).mockImplementation(
@@ -2380,6 +2404,8 @@ describe('AppOrchestrator', () => {
         it('shows warning toast when channel manager emits persistenceWarning', async () => {
             const toastHandler = jest.fn();
             orchestrator.setNowPlayingHandler(toastHandler);
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
             await orchestrator.start();
 
             channelManagerHandlers.persistenceWarning?.({
@@ -2496,6 +2522,8 @@ describe('AppOrchestrator', () => {
             const pauseDispose = jest.fn(() => {
                 throw new Error('pause cleanup failed');
             });
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
 
             (mockLifecycle.onPause as jest.Mock).mockImplementationOnce(
                 (handler: () => void | Promise<void>) => {
