@@ -54,7 +54,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - `src/modules/lifecycle/`
 - owns lifecycle state, visibility, persistence coordination, and recovery concerns
-- `src/modules/lifecycle/StateManager.ts` owns the lifecycle storage key `lineup_app_state` only (versioned lifecycle payload: `plexAuth` null marker, `userPreferences`, `lastUpdated`) and deletes the bounded cleanup-only keys in `STORAGE_CONFIG.CLEANUP_KEYS` as a helper; it does not own their schema or migrations
+- `src/modules/lifecycle/StateManager.ts` owns the lifecycle storage key `lineup_app_state` only (versioned lifecycle payload: `userPreferences`, `lastUpdated`) and deletes the bounded cleanup-only keys in `STORAGE_CONFIG.CLEANUP_KEYS` as a helper; it does not own their schema or migrations
 
 ### Navigation
 
@@ -104,10 +104,11 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - `src/modules/plex/auth/clientIdentifier.ts`
 - these are the current designated owners for storage-backed state
 - `src/modules/ui/settings/SettingsStore.ts` is a UI-facing facade; `debugLogging` and `subtitleDebugLogging` persistence now routes through `src/modules/settings/DeveloperSettingsStore.ts`
-- runtime consumers route mapped key families through typed stores (for example `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`, `ProfileSelectScreen` -> `ProfileSessionStore`, `ThemeManager` -> `ThemePreferencesStore`, `EPGInfoPanel` -> `NowPlayingDisplayStore`/`EpgPreferencesStore`, `SettingsStore` -> dedicated settings stores, `AudioSetupScreen`/`Orchestrator` -> `AudioSettingsStore` for `lineup_audio_setup_complete`, `Orchestrator` -> `SubtitlePreferencesStore` subtitle mode policy for burn-in decisions)
+- runtime consumers route mapped key families through typed stores (for example `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`, `ProfileSelectScreen` -> `ProfileSessionStore`, `ThemeManager` -> `ThemePreferencesStore`, `EPGInfoPanel` -> `NowPlayingDisplayStore`/`EpgPreferencesStore`, `SettingsStore` -> dedicated settings stores, `AudioSetupScreen`/`Orchestrator`/`AudioTrackManager` -> `AudioSettingsStore` policy reads and setup completion state, `Orchestrator` -> `SubtitlePreferencesStore` subtitle mode policy for burn-in decisions)
 - `src/modules/ui/epg/EPGDebugRuntime.ts` is the bounded EPG-layer owner for `lineup_debug_epg_log` buffering + flush scheduling and debug-flag cache reads used by EPG runtime/UI consumers; it is not a general storage-owner precedent
 - `src/modules/debug/DebugOverridesStore.ts` is the canonical owner for the `lineup_debug_epg` flag
 - `src/core/channel-setup/ChannelSetupRecordStore.ts` owns the `lineup_channel_setup_v2:${serverId}` family and its prefix cleanup through `safeLocalStorageRemoveByPrefixes`
+- `src/core/channel-setup/ChannelSetupCoordinator.ts` consumes `ChannelSetupRecordStore` through a typed record-store seam; composition-root wiring no longer forwards raw setup-record storage get/set callbacks
 - `src/bootstrap.ts` still carries the one-off `lineup_debug_transcode` -> `lineup_debug_logging` migration path
 - `P8-W5` removed the known direct-storage bypasses for `lineup_audio_setup_complete`, `lineup_subtitle_allow_burn_in`, and `lineup_debug_epg`
 
@@ -117,6 +118,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - owns TV screens, overlays, shared primitives, and user-visible composition
 - `src/modules/ui/common/appShellContainerIds.ts` is the shared owner for app-shell overlay container IDs consumed by app-shell wiring and feature constants
 - `src/modules/ui/epg/EPGCoordinator.ts` owns EPG runtime policy entrypoints (open/close/toggle/guide-setting handling and schedule-policy orchestration), while `src/Orchestrator.ts` remains a delegation surface that wires this owner
+- `src/modules/ui/epg/EPGCoordinatorPolicies.ts` keeps library-filter normalization pure, while `EPGCoordinator` and `EPGRefreshController` own explicit persisted-selection cleanup writes through `EpgPreferencesStore`
 - visual rules are governed by [`docs/design/ui-design-language.md`](../design/ui-design-language.md)
 
 ## Current Hotspots

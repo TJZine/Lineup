@@ -598,13 +598,31 @@ These are the required repo-local boundary skills for the new wave. Load them be
 
 ### Work Units
 
-- [ ] `P4-W1` retire remaining raw storage-owner drift and remove deprecated lifecycle/auth schema carry-forward
+- [x] `P4-W1` retire remaining raw storage-owner drift and remove deprecated lifecycle/auth schema carry-forward
   - Imported review issues: `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift`, `review::.::holistic::incomplete_migration::deprecated_lifecycle_plexauth_slot`
   - Primary files: `src/modules/ui/epg/EPGCoordinatorPolicies.ts`, `src/core/orchestrator/OrchestratorCoordinatorFactory.ts`, `src/modules/player/AudioTrackManager.ts`, `src/modules/lifecycle/StateManager.ts`, `docs/architecture/CURRENT_STATE.md`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
   - Closeout note: planning and final verification for `P4-W1` must cover both the mapped `P4-W1` issues above and the inherited `epg_library_filter_rules_split_across_seams` follow-up below before this work unit can be marked complete.
   - Inherited follow-ups:
     - Source `P2-EXIT` disposition `split follow-up`: `review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams`; required verification commands: `desloppify show "review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams" --status open --no-budget`; `npm run verify`
+  - Execution (2026-04-07): removed lifecycle `PersistentState.plexAuth` from live schema/save-repair output while retaining load compatibility tests for legacy payloads; routed DTS passthrough policy in `AudioTrackManager` through injected `AudioSettingsStore`; changed `ChannelSetupCoordinator` to consume a typed `recordStore` seam (no raw setup-record storage get/set callbacks in coordinator deps); made EPG library-filter normalization helper pure and moved persisted-selection cleanup writes into `EPGCoordinator` and `EPGRefreshController`; refreshed architecture truth for these ownership seams.
+  - Verification (2026-04-07):
+    - `desloppify status`
+    - `desloppify show security --status open --no-budget --top 50`
+    - `desloppify show "review::.::holistic::cross_module_architecture::storage_owner_boundary_drift" --status open --no-budget`
+    - `desloppify show "review::.::holistic::incomplete_migration::deprecated_lifecycle_plexauth_slot" --status open --no-budget`
+    - `desloppify show "review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams" --status open --no-budget`
+    - `npm test -- src/modules/lifecycle/__tests__/StateManager.test.ts src/modules/lifecycle/__tests__/AppLifecycle.test.ts src/modules/player/__tests__/AudioTrackManager.test.ts src/core/channel-setup/__tests__/ChannelSetupCoordinator.test.ts src/core/channel-setup/__tests__/ChannelSetupRecordStore.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorFactory.playbackState.test.ts src/modules/ui/epg/__tests__/EPGCoordinatorPolicies.test.ts src/modules/ui/epg/__tests__/EPGCoordinator.test.ts src/modules/ui/epg/__tests__/EPGRefreshController.test.ts`
+    - `rg -n "plexAuth" src/modules/lifecycle` (matches only compatibility-focused lifecycle tests; no live lifecycle type/save-path `plexAuth` field remains)
+    - `rg -n "safeLocalStorage(Get|Set|Remove)|localStorage\\." src/core/orchestrator/OrchestratorCoordinatorFactory.ts src/core/channel-setup src/modules/player/AudioTrackManager.ts src/modules/ui/epg` (no direct storage calls remain in `AudioTrackManager`; setup-record ownership remains in `ChannelSetupRecordStore`; factory still assembles typed owners)
+    - `npm run verify` (pass)
+  - Security triage (2026-04-07 disposition record):
+    - `desloppify show security --status open --no-budget --top 50` -> `No open issues for Security. Detectors: cycles, security`.
+    - `P0` impact: none; no `P0` defer/split records required for `P4-W1`.
+  - Proof matrix (2026-04-07 source-audit closeout):
+    - `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift` -> `resolved` (slice-owned rationale retired on current source for DTS and channel-setup record seams; no live `AudioTrackManager` direct storage read remains; no new residual owner discovered in this slice; detector output is stale against current source and still references pre-change patterns).
+    - `review::.::holistic::incomplete_migration::deprecated_lifecycle_plexauth_slot` -> `resolved` (slice-owned rationale retired on current source; live `PersistentState` schema/save path no longer carries `plexAuth`; legacy payload handling remains load-only compatibility; detector wording is stale against current source).
+    - `review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams` -> `resolved on current-code proof` (normalization is now pure in `computeNormalizedLibraryFilterState(...)`; runtime owners perform explicit persistence cleanup writes; no live residual owner outside `P4-W1`; detector wording remains stale and still describes pre-change coordinator duplication).
 - [ ] `P4-W2` centralize diagnostics ownership and remove misleading startup async wrappers
   - Imported review issues: `review::.::holistic::initialization_coupling::diagnostics_store_scattered_singletons`, `review::.::holistic::logic_clarity::startup_ui_async_wrapper_drift`
   - Primary files: `src/Orchestrator.ts`, `src/modules/player/PlaybackRecoveryManager.ts`, `src/core/channel-tuning/ChannelTuningCoordinator.ts`, `src/modules/ui/epg/EPGCoordinator.ts`, `src/modules/ui/epg/EPGScheduleRefreshRuntime.ts`, `src/core/InitializationCoordinator.ts`
