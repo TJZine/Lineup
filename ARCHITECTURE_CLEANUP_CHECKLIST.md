@@ -228,7 +228,7 @@ These are the required repo-local boundary skills for the new wave. Load them be
 - Priority exit command checklist:
   - do not run authoritative `desloppify` evidence commands in worktrees; run them on the target integration branch that will carry the checklist state forward
   - rerun `desloppify status`
-  - rerun `desloppify show review --status open --no-budget --top 100`
+  - rerun `desloppify plan queue`
   - rerun `desloppify show security --status open --no-budget --top 50`
   - rerun every exact mapped `desloppify show "<issue-id>" --status open --no-budget` command for the closing priority
   - rerun the strongest task-specific verification used by the closing work units
@@ -239,7 +239,7 @@ These are the required repo-local boundary skills for the new wave. Load them be
 - Evidence refresh checklist:
   - refresh authoritative `desloppify` evidence on the same integration branch where checklist updates are committed; treat worktree-only output as non-authoritative for checklist and plan dispositions
   - rerun `desloppify status`
-  - rerun `desloppify show review --status open --no-budget --top 100`
+  - rerun `desloppify plan queue`
   - rerun `desloppify show security --status open --no-budget --top 50`
   - refresh hotspot counts with `wc -l` for the files listed in the evidence snapshot when a priority closes or the queue meaningfully shifts
   - update this checklist in the same pass when a priority closes, strict score shifts materially, or the imported review ownership map changes
@@ -744,7 +744,7 @@ These are the required repo-local boundary skills for the new wave. Load them be
 - [ ] `P5-EXIT` run the priority-exit review before moving to `P6`
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P6` plan, code, or checklist progress starts until every `P5` mapped id has an explicit disposition record
-  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all eight exact `P5` issue-id checks; `npm run verify`
+  - Required verification: `desloppify status`; `desloppify plan queue`; `desloppify show security --status open --no-budget --top 50`; all eight exact `P5` issue-id checks; `npm run verify`
 
 ## Priority 6: Finish Shared UI Owner Placement And Package Cleanup
 
@@ -775,7 +775,7 @@ These are the required repo-local boundary skills for the new wave. Load them be
 - [ ] `P6-EXIT` run the priority-exit review before moving to `P7`
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P7` plan, code, or checklist progress starts until every `P6` mapped id has an explicit disposition record
-  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all five exact inherited `P6-W3` issue-id checks listed above; `npm run verify`
+  - Required verification: `desloppify status`; `desloppify plan queue`; `desloppify show security --status open --no-budget --top 50`; all five exact inherited `P6-W3` issue-id checks listed above; `npm run verify`
 
 ## Priority 7: Finish Remaining UI Naming Drift And Player Safeguard Coverage
 
@@ -796,7 +796,7 @@ These are the required repo-local boundary skills for the new wave. Load them be
 - [ ] `P7-EXIT` run the priority-exit review before moving to `P8`
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P8` plan, code, or checklist progress starts until every `P7` mapped id has an explicit disposition record
-  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all two exact `P7` issue-id checks; `npm run verify`
+  - Required verification: `desloppify status`; `desloppify plan queue`; `desloppify show security --status open --no-budget --top 50`; all two exact `P7` issue-id checks; `npm run verify`
 
 ## Priority 8: Remove Remaining Ceremony Residue And Close The Wave
 
@@ -813,7 +813,7 @@ These are the required repo-local boundary skills for the new wave. Load them be
 - [ ] `P8-EXIT` run the final priority-exit review before declaring this wave complete
   - required: record every mapped imported issue with an exact disposition
   - Gate: this checklist is not complete until every one of the `44` imported review issue ids listed above has a final disposition record
-  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; the exact `P8-W1` issue-id check; `npm run verify`; `npm run verify:docs`; `npm run plans:check`
+  - Required verification: `desloppify status`; `desloppify plan queue`; `desloppify show security --status open --no-budget --top 50`; the exact `P8-W1` issue-id check; `npm run verify`; `npm run verify:docs`; `npm run plans:check`
 
 ## Closeout Rules For This Checklist
 

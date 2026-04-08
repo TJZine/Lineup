@@ -530,7 +530,7 @@ describe('EPGVirtualizer', () => {
             const key = `${channelId}-${program.scheduledStartTime}`;
             const cell = container.querySelector(`[data-key="${key}"]`) as HTMLElement;
             expect(cell).not.toBeNull();
-            expect(cell.classList.contains('epg-cell-sliver')).toBe(true);
+            expect(cell.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS)).toBe(true);
             expect(cell.style.width).toBe('960px');
         });
 
@@ -620,7 +620,7 @@ describe('EPGVirtualizer', () => {
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
             expect(cell).not.toBeNull();
             expect(cell.style.width).toBe('40px');
-            expect(cell.classList.contains('epg-cell-sliver')).toBe(true);
+            expect(cell.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS)).toBe(true);
         });
 
         it('keeps focused episodes out of sliver suppression so compact subtitle and ticker behavior remain active', () => {
@@ -676,7 +676,7 @@ describe('EPGVirtualizer', () => {
             virtualizer.setFocusedCell(channelId, start);
 
             expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
-            expect(cell.classList.contains('epg-cell-sliver')).toBe(false);
+            expect(cell.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS)).toBe(false);
             expect(subtitle.style.display).toBe('block');
             expect(subtitle.textContent).toBe('S01E07 - Episode With A Very Long Focused Subtitle');
             expect(time.style.display).toBe('none');
@@ -2479,7 +2479,7 @@ describe('EPGVirtualizer', () => {
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
             const badge = cell.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement;
 
-            expect(cell.classList.contains('epg-cell-sliver')).toBe(true);
+            expect(cell.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS)).toBe(true);
             expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_NARROW)).toBe(false);
             expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_TINY)).toBe(false);
             expect(badge.hidden).toBe(false);

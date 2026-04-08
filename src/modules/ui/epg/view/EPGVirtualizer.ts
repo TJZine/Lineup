@@ -55,7 +55,6 @@ const TIER_WIDE_MIN_PX = 220;
 const TIER_MEDIUM_MIN_PX = 140;
 const TIER_NARROW_MIN_PX = 88;
 const FOCUSED_MOVIE_OVERLAY_CLASS = 'epg-cell-focused-movie-overlay';
-const SLIVER_CELL_CLASS = 'epg-cell-sliver';
 const SLIVER_VISIBLE_WIDTH_MAX_PX = 56;
 
 type CellWidthTier = 'wide' | 'medium' | 'narrow' | 'tiny';
@@ -105,14 +104,18 @@ type FocusedCellOptions = {
     syncTicker?: boolean;
 };
 
+type VirtualizedCellRenderData = CellRenderData & {
+    visibleWidthPx: number;
+};
+
 type RenderPassContext = {
-    newVisibleCells: Map<string, CellRenderData>;
+    newVisibleCells: Map<string, VirtualizedCellRenderData>;
     channelOffsetChanged: boolean;
     maxDomElements: number;
     visibleWindowStartMinutes: number;
     visibleWindowEndMinutes: number;
     stageCell: (
-        cellData: CellRenderData,
+        cellData: VirtualizedCellRenderData,
         isFocusedCell: boolean,
         overlapsVisibleWindow: boolean
     ) => void;
@@ -135,7 +138,7 @@ export class EPGVirtualizer {
     private elementPool: Map<string, HTMLElement> = new Map();
 
     /** Currently visible cells */
-    private visibleCells: Map<string, CellRenderData> = new Map();
+    private visibleCells: Map<string, VirtualizedCellRenderData> = new Map();
 
     private cellChildrenCache: WeakMap<HTMLElement, CellChildren> = new WeakMap();
     private poolSequence = 0;
@@ -335,7 +338,7 @@ export class EPGVirtualizer {
         label: string,
         focusedCellKey: string | undefined,
         stageCell: (
-            cellData: CellRenderData,
+            cellData: VirtualizedCellRenderData,
             isFocusedCell: boolean,
             overlapsVisibleWindow: boolean
         ) => void
@@ -379,7 +382,7 @@ export class EPGVirtualizer {
             textShiftPx: 0,
             cellElement: null,
             visibleWidthPx: width,
-        } as CellRenderData & { visibleWidthPx: number }, isFocusedCell, true);
+        }, isFocusedCell, true);
     }
 
     /**
@@ -413,7 +416,7 @@ export class EPGVirtualizer {
         const previousChannelOffset = this.channelOffset;
         this.channelOffset = range.channelOffset;
         const channelOffsetChanged = previousChannelOffset !== this.channelOffset;
-        const newVisibleCells = new Map<string, CellRenderData>();
+        const newVisibleCells = new Map<string, VirtualizedCellRenderData>();
         const maxDomElements = EPG_CONSTANTS.MAX_DOM_ELEMENTS;
         const visibleRowCount = Math.max(1, range.visibleRows.length);
         const perRowLimit = Math.max(1, Math.ceil(maxDomElements / visibleRowCount));
@@ -421,10 +424,10 @@ export class EPGVirtualizer {
         const timeBuffer = EPG_CONSTANTS.TIME_BUFFER_MINUTES;
         const visibleWindowStartMinutes = range.visibleTimeRange.start + timeBuffer;
         const visibleWindowEndMinutes = range.visibleTimeRange.end - timeBuffer;
-        const queuedVisibleByRow = new Map<number, CellRenderData[]>();
-        const queuedBufferByRow = new Map<number, CellRenderData[]>();
+        const queuedVisibleByRow = new Map<number, VirtualizedCellRenderData[]>();
+        const queuedBufferByRow = new Map<number, VirtualizedCellRenderData[]>();
 
-        const tryAddCommittedCell = (cellData: CellRenderData, isFocusedCell: boolean): void => {
+        const tryAddCommittedCell = (cellData: VirtualizedCellRenderData, isFocusedCell: boolean): void => {
             const currentRowCount = perRowCounts.get(cellData.rowIndex) ?? 0;
             if (!isFocusedCell) {
                 if (newVisibleCells.size >= maxDomElements) {
@@ -441,7 +444,7 @@ export class EPGVirtualizer {
         };
 
         const stageCell = (
-            cellData: CellRenderData,
+            cellData: VirtualizedCellRenderData,
             isFocusedCell: boolean,
             overlapsVisibleWindow: boolean
         ): void => {
@@ -456,12 +459,12 @@ export class EPGVirtualizer {
             target.set(cellData.rowIndex, queue);
         };
 
-        const selectVisibleQueueCells = (queue: CellRenderData[]): CellRenderData[] => {
+        const selectVisibleQueueCells = (queue: VirtualizedCellRenderData[]): VirtualizedCellRenderData[] => {
             if (queue.length <= perRowLimit) {
                 return queue;
             }
 
-            const selected = new Map<number, CellRenderData>();
+            const selected = new Map<number, VirtualizedCellRenderData>();
             const maxIndex = queue.length - 1;
             const sampleCount = Math.min(perRowLimit, queue.length);
             const seedIndices = [
@@ -501,7 +504,7 @@ export class EPGVirtualizer {
             }
 
             const step = (orderedSelected.length - 1) / (sampleCount - 1);
-            const resampled = new Map<number, CellRenderData>();
+            const resampled = new Map<number, VirtualizedCellRenderData>();
 
             for (let i = 0; i < sampleCount; i += 1) {
                 const orderedIndex = Math.round(i * step);
@@ -530,7 +533,7 @@ export class EPGVirtualizer {
 
         const flushQueue = (
             rowIndex: number,
-            queued: Map<number, CellRenderData[]>,
+            queued: Map<number, VirtualizedCellRenderData[]>,
             isVisibleQueue: boolean
         ): void => {
             const queue = queued.get(rowIndex);
@@ -672,7 +675,7 @@ export class EPGVirtualizer {
                 textShiftPx,
                 cellElement: null,
                 visibleWidthPx: textMetrics.visibleWidthPx,
-            } as CellRenderData & { visibleWidthPx: number }, isFocusedCell, overlapsVisibleWindow);
+            }, isFocusedCell, overlapsVisibleWindow);
 
             if (overlapsVisibleWindow && program.scheduledStartTime > lastCoveredTimeMs) {
                 const gapEndMs = Math.min(program.scheduledStartTime, visibleWindowEndMs);
@@ -718,11 +721,11 @@ export class EPGVirtualizer {
     }
 
     private pruneToDomBudget(
-        newVisibleCells: Map<string, CellRenderData>,
+        newVisibleCells: Map<string, VirtualizedCellRenderData>,
         maxDomElements: number,
         focusedCellKey?: string
     ): void {
-        const removeUntilWithinBudget = (entries: Array<[string, CellRenderData]>): void => {
+        const removeUntilWithinBudget = (entries: Array<[string, VirtualizedCellRenderData]>): void => {
             for (const [key] of entries) {
                 if (newVisibleCells.size <= maxDomElements) {
                     return;
@@ -743,7 +746,7 @@ export class EPGVirtualizer {
     }
 
     private reconcileVisibleCells(
-        newVisibleCells: Map<string, CellRenderData>,
+        newVisibleCells: Map<string, VirtualizedCellRenderData>,
         channelOffsetChanged: boolean,
         nowMs: number
     ): void {
@@ -770,7 +773,7 @@ export class EPGVirtualizer {
     }
 
     private finishRenderPass(
-        newVisibleCells: Map<string, CellRenderData>,
+        newVisibleCells: Map<string, VirtualizedCellRenderData>,
         focusedCellKey: string | undefined,
         range: VirtualizedGridState
     ): void {
@@ -796,7 +799,7 @@ export class EPGVirtualizer {
     }
 
     private resolveFocusedVisibleCellKey(
-        visibleCells: Map<string, CellRenderData>,
+        visibleCells: Map<string, VirtualizedCellRenderData>,
         preferredKey?: string
     ): string | null {
         if (preferredKey && visibleCells.has(preferredKey)) {
@@ -810,7 +813,7 @@ export class EPGVirtualizer {
         return null;
     }
 
-    private hasCellPositionDelta(previous: CellRenderData, next: CellRenderData): boolean {
+    private hasCellPositionDelta(previous: VirtualizedCellRenderData, next: VirtualizedCellRenderData): boolean {
         return previous.left !== next.left ||
             previous.width !== next.width ||
             previous.rowIndex !== next.rowIndex ||
@@ -820,7 +823,7 @@ export class EPGVirtualizer {
             previous.isPast !== next.isPast;
     }
 
-    private hasCellContentDelta(previous: CellRenderData, next: CellRenderData): boolean {
+    private hasCellContentDelta(previous: VirtualizedCellRenderData, next: VirtualizedCellRenderData): boolean {
         if (previous.kind !== next.kind) {
             return true;
         }
@@ -1009,7 +1012,7 @@ export class EPGVirtualizer {
             EPG_CLASSES.CELL_LOADING,
             EPG_CLASSES.CELL_TEXT_SHIFTED,
             FOCUSED_MOVIE_OVERLAY_CLASS,
-            SLIVER_CELL_CLASS,
+            EPG_CLASSES.SLIVER_CELL_CLASS,
             EPG_CLASSES.CELL_TIER_WIDE,
             EPG_CLASSES.CELL_TIER_MEDIUM,
             EPG_CLASSES.CELL_TIER_NARROW,
@@ -1265,7 +1268,7 @@ export class EPGVirtualizer {
         element: HTMLElement,
         children: CellChildren,
         tier: CellWidthTier,
-        cellData: CellRenderData,
+        cellData: VirtualizedCellRenderData,
         textLayout: CellTextLayout
     ): void {
         element.classList.remove(
@@ -1287,7 +1290,7 @@ export class EPGVirtualizer {
         const usesSliverPresentation = this.isSliverCell(cellData) && !usesFocusedCompactLayout;
         element.classList.toggle(EPG_CLASSES.CELL_FOCUSED_COMPACT, usesFocusedCompactLayout);
         element.classList.toggle(FOCUSED_MOVIE_OVERLAY_CLASS, usesFocusedMovieOverlay);
-        element.classList.toggle(SLIVER_CELL_CLASS, usesSliverPresentation);
+        element.classList.toggle(EPG_CLASSES.SLIVER_CELL_CLASS, usesSliverPresentation);
 
         if (tier === 'wide') {
             element.classList.add(EPG_CLASSES.CELL_TIER_WIDE);
@@ -1319,15 +1322,11 @@ export class EPGVirtualizer {
         }
     }
 
-    private getRenderedVisibleWidthPx(cellData: CellRenderData): number {
-        const visibleWidthPx = (cellData as CellRenderData & { visibleWidthPx?: number }).visibleWidthPx;
-        if (typeof visibleWidthPx === 'number' && Number.isFinite(visibleWidthPx)) {
-            return Math.max(0, Math.min(cellData.width, visibleWidthPx));
-        }
-        return Math.max(0, cellData.width);
+    private getRenderedVisibleWidthPx(cellData: VirtualizedCellRenderData): number {
+        return Math.max(0, Math.min(cellData.width, cellData.visibleWidthPx));
     }
 
-    private isSliverCell(cellData: CellRenderData): boolean {
+    private isSliverCell(cellData: VirtualizedCellRenderData): boolean {
         const renderedVisibleWidthPx = this.getRenderedVisibleWidthPx(cellData);
         return renderedVisibleWidthPx > 0 && renderedVisibleWidthPx <= SLIVER_VISIBLE_WIDTH_MAX_PX;
     }
@@ -1399,7 +1398,7 @@ export class EPGVirtualizer {
      * @param key - Unique cell key
      * @param cellData - Cell data to render
      */
-    private renderCell(key: string, cellData: CellRenderData, nowMs: number): void {
+    private renderCell(key: string, cellData: VirtualizedCellRenderData, nowMs: number): void {
         if (!this.contentElement || !this.config) return;
 
         const element = this.getOrCreateElement();
@@ -1472,7 +1471,7 @@ export class EPGVirtualizer {
      *
      * @param cellData - Cell data with updated position
      */
-    private updateCellPosition(cellData: CellRenderData): void {
+    private updateCellPosition(cellData: VirtualizedCellRenderData): void {
         const element = cellData.cellElement;
         if (!element || !this.config) return;
 
@@ -1561,7 +1560,7 @@ export class EPGVirtualizer {
             isNarrowOrTiny ||
             element.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT) ||
             element.classList.contains(FOCUSED_MOVIE_OVERLAY_CLASS) ||
-            element.classList.contains(SLIVER_CELL_CLASS);
+            element.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS);
 
         badge.classList.toggle(EPG_CLASSES.CELL_LIVE_COMPACT, shouldCompact);
         badge.textContent = shouldCompact ? '' : 'LIVE';
@@ -1630,7 +1629,7 @@ export class EPGVirtualizer {
         const focusedKey = this.focusedVisibleCellKey;
         const focusedCell = focusedKey ? this.visibleCells.get(focusedKey) : null;
         if (!focusedCell?.cellElement) return;
-        if (focusedCell.cellElement.classList.contains(SLIVER_CELL_CLASS)) return;
+        if (focusedCell.cellElement.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS)) return;
 
         const children = this.getCellChildren(focusedCell.cellElement);
         const targets = [
@@ -1702,7 +1701,7 @@ export class EPGVirtualizer {
      *
      * @param cellData - Cell data with program info
      */
-    private updateCellContent(cellData: CellRenderData, nowMs: number): void {
+    private updateCellContent(cellData: VirtualizedCellRenderData, nowMs: number): void {
         const element = cellData.cellElement;
         if (!element) return;
 

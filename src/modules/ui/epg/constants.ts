@@ -84,6 +84,7 @@ export const EPG_CLASSES = {
     CELL_TIME_COMPACT: 'epg-cell-time-compact',
     LIVE_BADGE: 'epg-live-badge',
     CELL_LIVE_COMPACT: 'epg-live-badge-compact',
+    SLIVER_CELL_CLASS: 'epg-cell-sliver',
     PROGRAM_EDGE_MASK: 'epg-program-edge-mask',
     PROGRAM_EDGE_MASK_LEFT: 'epg-program-edge-mask-left',
     PROGRAM_EDGE_MASK_RIGHT: 'epg-program-edge-mask-right',
