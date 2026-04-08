@@ -961,6 +961,25 @@
   margin-top: auto;
 }
 
+.epg-cell.epg-cell-sliver {
+  padding: 4px 6px;
+  gap: 0;
+}
+
+.epg-cell.epg-cell-sliver .epg-cell-time,
+.epg-cell.epg-cell-sliver .epg-cell-subtitle,
+.epg-cell.epg-cell-sliver .epg-cell-meta {
+  display: none;
+}
+
+.epg-cell.epg-cell-sliver .epg-cell-title {
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: initial;
+}
+
 .epg-cell.text-shifted .epg-cell-content,
 .epg-cell.text-shifted .epg-cell-rail {
   transform: translateX(var(--epg-cell-text-shift-px));

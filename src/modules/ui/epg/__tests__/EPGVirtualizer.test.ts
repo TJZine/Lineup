@@ -492,6 +492,48 @@ describe('EPGVirtualizer', () => {
             expect(visibleRight - titleLeft).toBeGreaterThanOrEqual(12);
         });
 
+        it('marks heavily clipped visible programs as slivers without changing their geometry', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-sliver-clipped';
+            const program: ScheduledProgram = {
+                item: {
+                    ratingKey: 'sliver-clipped-1',
+                    type: 'movie',
+                    title: 'Sliver Clipped Program',
+                    fullTitle: 'Sliver Clipped Program',
+                    durationMs: 240 * 60 * 1000,
+                    thumb: null,
+                    year: 2026,
+                    scheduledIndex: 0,
+                },
+                scheduledStartTime: gridAnchorTime,
+                scheduledEndTime: gridAnchorTime + (240 * 60000),
+                elapsedMs: 0,
+                remainingMs: 0,
+                scheduleIndex: 0,
+                loopNumber: 0,
+                streamDescriptor: null,
+                isCurrent: false,
+            };
+            const schedules = new Map<string, ScheduleWindow>([
+                [channelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + (24 * 60 * 60000),
+                    programs: [program],
+                }],
+            ]);
+
+            const timeOffset = 226;
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset });
+            virtualizer.renderVisibleCells([channelId], schedules, range);
+
+            const key = `${channelId}-${program.scheduledStartTime}`;
+            const cell = container.querySelector(`[data-key="${key}"]`) as HTMLElement;
+            expect(cell).not.toBeNull();
+            expect(cell.classList.contains('epg-cell-sliver')).toBe(true);
+            expect(cell.style.width).toBe('960px');
+        });
+
         it('does not shift text when the cell is already clipped to the left edge', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-left-clipped';
@@ -535,6 +577,50 @@ describe('EPGVirtualizer', () => {
             expect(cell).not.toBeNull();
             expect(cell.classList.contains(EPG_CLASSES.CELL_TEXT_SHIFTED)).toBe(false);
             expect(cell.style.getPropertyValue('--epg-cell-text-shift-px')).toBe('');
+        });
+
+        it('marks genuinely short visible program cells as slivers', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-sliver-short';
+            const start = gridAnchorTime;
+            const end = start + (10 * 60000);
+
+            const schedules = new Map<string, ScheduleWindow>([
+                [channelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + (24 * 60 * 60000),
+                    programs: [
+                        {
+                            item: {
+                                ratingKey: 'sliver-short-1',
+                                type: 'movie',
+                                title: 'Short Sliver',
+                                fullTitle: 'Short Sliver',
+                                durationMs: end - start,
+                                thumb: null,
+                                year: 2026,
+                                scheduledIndex: 0,
+                            },
+                            scheduledStartTime: start,
+                            scheduledEndTime: end,
+                            elapsedMs: 0,
+                            remainingMs: end - start,
+                            scheduleIndex: 0,
+                            loopNumber: 0,
+                            streamDescriptor: null,
+                            isCurrent: false,
+                        },
+                    ],
+                }],
+            ]);
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], schedules, range);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            expect(cell).not.toBeNull();
+            expect(cell.style.width).toBe('40px');
+            expect(cell.classList.contains('epg-cell-sliver')).toBe(true);
         });
 
         it('shifts text for pre-anchor long programs after scrolling right', () => {

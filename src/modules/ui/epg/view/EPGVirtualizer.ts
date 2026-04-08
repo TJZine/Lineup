@@ -55,6 +55,8 @@ const TIER_WIDE_MIN_PX = 220;
 const TIER_MEDIUM_MIN_PX = 140;
 const TIER_NARROW_MIN_PX = 88;
 const FOCUSED_MOVIE_OVERLAY_CLASS = 'epg-cell-focused-movie-overlay';
+const SLIVER_CELL_CLASS = 'epg-cell-sliver';
+const SLIVER_VISIBLE_WIDTH_MAX_PX = 56;
 
 type CellWidthTier = 'wide' | 'medium' | 'narrow' | 'tiny';
 type FocusedLayoutMode = 'normal' | 'compact';
@@ -376,7 +378,8 @@ export class EPGVirtualizer {
             isBufferOnly: false,
             textShiftPx: 0,
             cellElement: null,
-        }, isFocusedCell, true);
+            visibleWidthPx: width,
+        } as CellRenderData & { visibleWidthPx: number }, isFocusedCell, true);
     }
 
     /**
@@ -668,7 +671,8 @@ export class EPGVirtualizer {
                 isBufferOnly: !overlapsVisibleWindow,
                 textShiftPx,
                 cellElement: null,
-            }, isFocusedCell, overlapsVisibleWindow);
+                visibleWidthPx: textMetrics.visibleWidthPx,
+            } as CellRenderData & { visibleWidthPx: number }, isFocusedCell, overlapsVisibleWindow);
 
             if (overlapsVisibleWindow && program.scheduledStartTime > lastCoveredTimeMs) {
                 const gapEndMs = Math.min(program.scheduledStartTime, visibleWindowEndMs);
@@ -822,6 +826,10 @@ export class EPGVirtualizer {
         }
 
         if (this.getCellWidthTier(previous.width) !== this.getCellWidthTier(next.width)) {
+            return true;
+        }
+
+        if (this.isSliverCell(previous) !== this.isSliverCell(next)) {
             return true;
         }
 
@@ -1001,6 +1009,7 @@ export class EPGVirtualizer {
             EPG_CLASSES.CELL_LOADING,
             EPG_CLASSES.CELL_TEXT_SHIFTED,
             FOCUSED_MOVIE_OVERLAY_CLASS,
+            SLIVER_CELL_CLASS,
             EPG_CLASSES.CELL_TIER_WIDE,
             EPG_CLASSES.CELL_TIER_MEDIUM,
             EPG_CLASSES.CELL_TIER_NARROW,
@@ -1275,25 +1284,52 @@ export class EPGVirtualizer {
             !usesFocusedCompactLayout &&
             cellData.kind === 'program' &&
             cellData.program.item.type === 'movie';
+        const usesSliverPresentation = this.isSliverCell(cellData);
         element.classList.toggle(EPG_CLASSES.CELL_FOCUSED_COMPACT, usesFocusedCompactLayout);
         element.classList.toggle(FOCUSED_MOVIE_OVERLAY_CLASS, usesFocusedMovieOverlay);
+        element.classList.toggle(SLIVER_CELL_CLASS, usesSliverPresentation);
 
         if (tier === 'wide') {
             element.classList.add(EPG_CLASSES.CELL_TIER_WIDE);
+        } else if (tier === 'medium') {
+            element.classList.add(EPG_CLASSES.CELL_TIER_MEDIUM);
+        } else if (tier === 'narrow' || tier === 'tiny') {
+            element.classList.add(tier === 'narrow' ? EPG_CLASSES.CELL_TIER_NARROW : EPG_CLASSES.CELL_TIER_TINY);
+        }
+
+        if (usesSliverPresentation) {
+            if (meta) meta.style.display = 'none';
+            if (subtitle) subtitle.style.display = 'none';
+            if (time) time.style.display = 'none';
+            return;
+        }
+
+        if (tier === 'wide') {
             if (meta) meta.style.display = hasMetaContent ? 'flex' : 'none';
             if (subtitle) subtitle.style.display = hasSubtitleContent ? 'block' : 'none';
             if (time) time.style.display = usesFocusedCompactLayout ? 'none' : 'block';
         } else if (tier === 'medium') {
-            element.classList.add(EPG_CLASSES.CELL_TIER_MEDIUM);
             if (meta) meta.style.display = 'none';
             if (subtitle) subtitle.style.display = hasSubtitleContent ? 'block' : 'none';
             if (time) time.style.display = usesFocusedCompactLayout ? 'none' : 'block';
         } else if (tier === 'narrow' || tier === 'tiny') {
-            element.classList.add(tier === 'narrow' ? EPG_CLASSES.CELL_TIER_NARROW : EPG_CLASSES.CELL_TIER_TINY);
             if (meta) meta.style.display = 'none';
             if (subtitle) subtitle.style.display = usesFocusedCompactLayout && hasSubtitleContent ? 'block' : 'none';
             if (time) time.style.display = isFocused && !usesFocusedCompactLayout ? 'block' : 'none';
         }
+    }
+
+    private getRenderedVisibleWidthPx(cellData: CellRenderData): number {
+        const visibleWidthPx = (cellData as CellRenderData & { visibleWidthPx?: number }).visibleWidthPx;
+        if (typeof visibleWidthPx === 'number' && Number.isFinite(visibleWidthPx)) {
+            return Math.max(0, Math.min(cellData.width, visibleWidthPx));
+        }
+        return Math.max(0, cellData.width);
+    }
+
+    private isSliverCell(cellData: CellRenderData): boolean {
+        const renderedVisibleWidthPx = this.getRenderedVisibleWidthPx(cellData);
+        return renderedVisibleWidthPx > 0 && renderedVisibleWidthPx <= SLIVER_VISIBLE_WIDTH_MAX_PX;
     }
 
     private computeVisibleTextMetrics(input: {
@@ -1593,6 +1629,7 @@ export class EPGVirtualizer {
         const focusedKey = this.focusedVisibleCellKey;
         const focusedCell = focusedKey ? this.visibleCells.get(focusedKey) : null;
         if (!focusedCell?.cellElement) return;
+        if (focusedCell.cellElement.classList.contains(SLIVER_CELL_CLASS)) return;
 
         const children = this.getCellChildren(focusedCell.cellElement);
         const targets = [

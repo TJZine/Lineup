@@ -103,6 +103,25 @@ describe('focused EPG overflow style contract', () => {
         expect(railBlock).toContain('right: 10px');
     });
 
+    it('keeps sliver cells in a compact one-line presentation contract', () => {
+        const block = getBlock('.epg-cell.epg-cell-sliver');
+        expect(block).toContain('padding: 4px 6px');
+        expect(block).toContain('gap: 0');
+
+        const hiddenBlock = getBlock(
+            '.epg-cell.epg-cell-sliver .epg-cell-time,\n' +
+            '.epg-cell.epg-cell-sliver .epg-cell-subtitle,\n' +
+            '.epg-cell.epg-cell-sliver .epg-cell-meta'
+        );
+        expect(hiddenBlock).toContain('display: none');
+
+        const titleBlock = getBlock('.epg-cell.epg-cell-sliver .epg-cell-title');
+        expect(titleBlock).toContain('font-size: var(--text-sm)');
+        expect(titleBlock).toContain('white-space: nowrap');
+        expect(titleBlock).toContain('text-overflow: ellipsis');
+        expect(titleBlock).toContain('-webkit-line-clamp: unset');
+    });
+
     it('keeps focused movie rail anchoring stable across badge visibility in tiny and medium tiers', () => {
         const timeBlock = getBlock(
             '.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-time'
