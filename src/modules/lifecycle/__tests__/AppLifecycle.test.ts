@@ -28,7 +28,6 @@ describe('AppLifecycle', () => {
             clear: jest.fn().mockResolvedValue(undefined),
             createDefaultState: jest.fn().mockReturnValue({
                 version: 1,
-                plexAuth: null,
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             }),
@@ -97,7 +96,6 @@ describe('AppLifecycle', () => {
         it('should restore state and set phase to authenticating when state exists', async () => {
             const savedState: PersistentState = {
                 version: 1,
-                plexAuth: null,
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
@@ -111,7 +109,6 @@ describe('AppLifecycle', () => {
         it('should emit stateRestored event with saved state', async () => {
             const savedState: PersistentState = {
                 version: 1,
-                plexAuth: null,
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };

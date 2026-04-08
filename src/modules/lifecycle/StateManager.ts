@@ -120,7 +120,6 @@ export class StateManager implements IStateManager {
     public createDefaultState(): PersistentState {
         return {
             version: this._currentVersion,
-            plexAuth: null,
             userPreferences: { ...DEFAULT_USER_PREFERENCES } as UserPreferences,
             lastUpdated: Date.now(),
         };
@@ -213,7 +212,6 @@ export class StateManager implements IStateManager {
 
         return {
             version,
-            plexAuth: null,
             userPreferences,
             lastUpdated,
         };

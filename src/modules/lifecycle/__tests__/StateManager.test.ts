@@ -91,7 +91,6 @@ describe('StateManager', () => {
         it('should load and parse state from localStorage', async () => {
             const state: PersistentState = {
                 version: 1,
-                plexAuth: null,
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
@@ -132,7 +131,6 @@ describe('StateManager', () => {
         it('should handle future version gracefully', async () => {
             const futureState = {
                 version: 999,
-                plexAuth: null,
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
@@ -155,7 +153,7 @@ describe('StateManager', () => {
 
             const loaded = await stateManager.load();
 
-            expect(loaded?.plexAuth).toBeNull();
+            expect(loaded).not.toHaveProperty('plexAuth');
             expect(loaded?.userPreferences).toEqual(state.userPreferences);
         });
 
@@ -174,13 +172,12 @@ describe('StateManager', () => {
 
             const loaded = await stateManager.load();
 
-            expect(loaded?.plexAuth).toBeNull();
+            expect(loaded).not.toHaveProperty('plexAuth');
         });
 
         it('should default invalid userPreferences', async () => {
             const state = {
                 version: 1,
-                plexAuth: null,
                 userPreferences: { theme: 'nope', volume: 999 },
                 lastUpdated: Date.now(),
             };
@@ -194,7 +191,6 @@ describe('StateManager', () => {
         it('should ignore legacy channel fields from older persisted payloads', async () => {
             const state = {
                 version: 1,
-                plexAuth: null,
                 channelConfigs: [
                     { id: 'c1', name: 'Channel 1', number: 1 },
                     { id: 'bad', name: 123, number: 'x' },
@@ -241,7 +237,6 @@ describe('StateManager', () => {
             const state = stateManager.createDefaultState();
 
             expect(state.version).toBe(STORAGE_CONFIG.STATE_VERSION);
-            expect(state.plexAuth).toBeNull();
             expect(state.userPreferences).toBeDefined();
             expect(state.lastUpdated).toBeGreaterThan(0);
         });

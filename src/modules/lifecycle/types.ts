@@ -52,11 +52,6 @@ export interface UserPreferences {
 export interface PersistentState {
     /** Schema version for migrations */
     version: number;
-    /**
-     * Plex authentication data
-     * @deprecated Always null; authentication is managed by the PlexAuth module.
-     */
-    plexAuth: null;
     /** User preferences */
     userPreferences: UserPreferences;
     /** Last update timestamp */
