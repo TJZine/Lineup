@@ -2036,9 +2036,12 @@ describe('AppOrchestrator', () => {
             }
         });
 
-        it('wires ensureEpgInitialized as a safe no-op before init coordinator construction', async () => {
+        it('wires ensureEpgInitialized through the real InitializationCoordinator before coordinator assembly', async () => {
             const originalFactory = orchestratorCoordinatorFactory.createOrchestratorCoordinators;
             const earlyEnsureCalls: Array<Promise<void>> = [];
+            const ensureEpgInitializedSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'ensureEPGInitialized')
+                .mockResolvedValue(undefined);
             const factorySpy = jest
                 .spyOn(orchestratorCoordinatorFactory, 'createOrchestratorCoordinators')
                 .mockImplementation((deps) => {
@@ -2052,9 +2055,11 @@ describe('AppOrchestrator', () => {
                 await expect(Promise.all(earlyEnsureCalls)).resolves.toEqual(
                     expect.arrayContaining([undefined])
                 );
+                expect(ensureEpgInitializedSpy).toHaveBeenCalled();
                 expect(mockLifecycle.reportError).not.toHaveBeenCalled();
             } finally {
                 factorySpy.mockRestore();
+                ensureEpgInitializedSpy.mockRestore();
             }
         });
 

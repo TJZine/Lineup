@@ -404,10 +404,6 @@ export class AppOrchestrator {
 
         this._configureDiscoveryStorageKeysForActiveUser();
 
-        this._createCoordinators();
-        this._channelSetup?.cleanupStaleChannelBuildKeys();
-        this._initializePriorityOneControllers();
-
         const initializationUiInitializer = new InitializationUiInitializer(
             config,
             {
@@ -497,6 +493,10 @@ export class AppOrchestrator {
             }
         );
 
+        this._createCoordinators();
+        this._channelSetup?.cleanupStaleChannelBuildKeys();
+        this._initializePriorityOneControllers();
+
         this.registerErrorHandler('channel-number-overlay', (error) => {
             if (typeof document === 'undefined') return false;
             if (error.code !== AppErrorCode.CHANNEL_NOT_FOUND) return false;
@@ -538,6 +538,10 @@ export class AppOrchestrator {
         ) {
             throw new Error('Orchestrator coordinator initialization requires module instances');
         }
+        if (!this._initCoordinator) {
+            throw new Error('InitializationCoordinator must exist before coordinator assembly');
+        }
+        const initCoordinator = this._initCoordinator;
 
         const appendIssueDiagnostic: AppendIssueDiagnostic = (issue: string, event: string, data: unknown): void => {
             this._issueDiagnosticsStore.append(issue, event, data);
@@ -549,7 +553,7 @@ export class AppOrchestrator {
             moduleStatus: this._moduleStatus,
             init: {
                 ensureEpgInitialized: (): Promise<void> =>
-                    this._initCoordinator?.ensureEPGInitialized() ?? Promise.resolve(),
+                    initCoordinator.ensureEPGInitialized(),
             },
             modules: {
                 navigation: this._navigation,
