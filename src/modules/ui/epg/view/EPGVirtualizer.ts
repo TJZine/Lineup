@@ -1595,10 +1595,33 @@ export class EPGVirtualizer {
         return globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
     }
 
-    private measureReadyStateTickerOverflow(target: TickerTarget, textShiftPx: number): number {
+    private getEffectiveTickerClientWidth(
+        target: TickerTarget,
+        cellWidthPx: number,
+        visibleWidthPx: number,
+        textShiftPx: number
+    ): number {
+        const shiftedClientWidth = Math.max(0, target.viewport.clientWidth - textShiftPx);
+        if (visibleWidthPx >= cellWidthPx) {
+            return shiftedClientWidth;
+        }
+        return Math.max(0, Math.min(shiftedClientWidth, visibleWidthPx));
+    }
+
+    private measureReadyStateTickerOverflow(
+        target: TickerTarget,
+        cellWidthPx: number,
+        visibleWidthPx: number,
+        textShiftPx: number
+    ): number {
         target.viewport.classList.add(target.readyClass);
         void target.viewport.offsetWidth;
-        const effectiveClientWidth = Math.max(0, target.viewport.clientWidth - textShiftPx);
+        const effectiveClientWidth = this.getEffectiveTickerClientWidth(
+            target,
+            cellWidthPx,
+            visibleWidthPx,
+            textShiftPx
+        );
         const contentWidth = Math.max(target.content.scrollWidth, target.viewport.scrollWidth);
         return Math.max(0, contentWidth - effectiveClientWidth);
     }
@@ -1659,7 +1682,12 @@ export class EPGVirtualizer {
         const activeTargets: TickerTarget[] = [];
 
         for (const target of targets) {
-            const effectiveClientWidth = Math.max(0, target.viewport.clientWidth - textShiftPx);
+            const effectiveClientWidth = this.getEffectiveTickerClientWidth(
+                target,
+                focusedCell.width,
+                focusedCell.visibleWidthPx,
+                textShiftPx
+            );
             const contentWidth = Math.max(target.content.scrollWidth, target.viewport.scrollWidth);
             const overflowPx = contentWidth - effectiveClientWidth;
             const clampHiddenPx = target.viewport.scrollHeight - target.viewport.clientHeight;
@@ -1673,7 +1701,12 @@ export class EPGVirtualizer {
             }
 
             const travelPx = hasClampHiddenText
-                ? this.measureReadyStateTickerOverflow(target, textShiftPx)
+                ? this.measureReadyStateTickerOverflow(
+                    target,
+                    focusedCell.width,
+                    focusedCell.visibleWidthPx,
+                    textShiftPx
+                )
                 : Math.max(overflowPx, 0);
             if (travelPx <= FOCUSED_TICKER_MIN_OVERFLOW_PX) {
                 target.viewport.classList.remove(target.readyClass);

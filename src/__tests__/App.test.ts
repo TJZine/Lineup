@@ -813,18 +813,27 @@ describe('App bootstrap smoke', () => {
     });
 
     it('does not expose hidden channel-setup drafts through active planner diagnostics', async () => {
-        const activeDraft = {
+        const activeDraft: ChannelSetupConfig = {
             serverId: 'server-1',
             selectedLibraryIds: ['movies'],
             maxChannels: 25,
             buildMode: 'replace',
+            strategyConfig: {
+                collections: { enabled: false, priority: 1, scope: 'per-library' },
+                playlists: { enabled: false, priority: 2, scope: 'per-library' },
+                genres: { enabled: false, priority: 3, scope: 'per-library' },
+                directors: { enabled: false, priority: 4, scope: 'per-library' },
+                decades: { enabled: false, priority: 5, scope: 'per-library' },
+                recentlyAdded: { enabled: false, priority: 6, scope: 'per-library' },
+                studios: { enabled: false, priority: 7, scope: 'per-library' },
+                actors: { enabled: false, priority: 8, scope: 'per-library' },
+            },
             actorStudioCombineMode: 'separate',
             minItemsPerChannel: 5,
-            strategyConfig: {},
             channelExpansion: {
                 addAlternateLineups: false,
                 alternateLineupCopies: 0,
-                variantType: 'time',
+                variantType: 'block',
                 variantBlockSize: 2,
             },
             seriesOrdering: {
@@ -857,16 +866,20 @@ describe('App bootstrap smoke', () => {
         (AppOrchestrator.prototype.getCurrentScreen as unknown as jest.Mock).mockImplementation(() => currentScreen);
 
         const appUnderTest = await bootstrapApp();
+        type PlannerDiagnosticsScreen = {
+            getPlannerDiagnosticsConfig: jest.Mock<ChannelSetupConfig | null, []>;
+        };
+
         const lazyScreenRegistry = (appUnderTest as unknown as {
-            _lazyScreenRegistry: { getChannelSetupScreen: () => unknown } | null;
+            _lazyScreenRegistry: { getChannelSetupScreen: () => PlannerDiagnosticsScreen | null } | null;
         })._lazyScreenRegistry;
-        const cachedChannelSetupScreen = {
-            getPlannerDiagnosticsConfig: jest.fn(() => activeDraft),
+        const cachedChannelSetupScreen: PlannerDiagnosticsScreen = {
+            getPlannerDiagnosticsConfig: jest.fn<ChannelSetupConfig | null, []>(() => activeDraft),
         };
         if (!lazyScreenRegistry) {
             throw new Error('Expected App to initialize lazy screen registry');
         }
-        lazyScreenRegistry.getChannelSetupScreen = (): typeof cachedChannelSetupScreen => cachedChannelSetupScreen;
+        lazyScreenRegistry.getChannelSetupScreen = (): PlannerDiagnosticsScreen => cachedChannelSetupScreen;
 
         currentScreen = 'channel-setup';
         await expect(

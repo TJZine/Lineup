@@ -2706,6 +2706,70 @@ describe('EPGVirtualizer', () => {
             }
         });
 
+        it('arms a focused ticker when right clipping reduces visible width below the title width', () => {
+            jest.useFakeTimers();
+            try {
+                const channelId = 'ch-right-clip-focused-ticker';
+                const start = gridAnchorTime;
+                const end = start + 25 * 60 * 1000;
+
+                const schedule: ScheduleWindow = {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                    programs: [{
+                        item: {
+                            ratingKey: 'right-clip-focused-ticker-1',
+                            type: 'movie',
+                            title: 'Right Clip Ticker Title',
+                            fullTitle: 'Right Clip Ticker Title',
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    }],
+                };
+
+                virtualizer.setChannelCount(1);
+                const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+                virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+                const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+                const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+
+                Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 75 });
+                Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
+
+                const visibleCells = (virtualizer as unknown as {
+                    visibleCells: Map<string, { visibleWidthPx: number }>;
+                }).visibleCells;
+                const focusedCell = visibleCells.get(`${channelId}-${start}`);
+                if (!focusedCell) {
+                    throw new Error('Expected focused cell to exist in visibleCells');
+                }
+                focusedCell.visibleWidthPx = 70;
+
+                virtualizer.setFocusedCell(channelId, start);
+
+                expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_READY)).toBe(true);
+                expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_RUNNING)).toBe(false);
+
+                jest.advanceTimersByTime(900);
+
+                expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_RUNNING)).toBe(true);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
         it('derives show title from fullTitle when episode title includes a leading episode code', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-episode-normalized-show-title';
