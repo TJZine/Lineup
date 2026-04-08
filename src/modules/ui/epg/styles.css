@@ -891,6 +891,7 @@
   line-height: 1.2;
   text-align: right;
   font-variant-numeric: tabular-nums;
+  margin-top: auto;
 }
 
 .epg-cell-subtitle {

@@ -71,6 +71,11 @@ describe('focused EPG overflow style contract', () => {
         expect(block).toContain('display: none');
     });
 
+    it('keeps the base time lane bottom-anchored via auto margin', () => {
+        const block = getBlock('\n.epg-cell-time {');
+        expect(block).toContain('margin-top: auto');
+    });
+
     it('keeps focused compact selector contract for overlay rail semantics', () => {
         const layoutBlock = getBlock('.epg-cell.focused.epg-cell-focused-compact');
         expect(layoutBlock).toContain('grid-template-columns: 1fr');
