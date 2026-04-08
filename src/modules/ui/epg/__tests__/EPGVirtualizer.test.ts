@@ -683,6 +683,54 @@ describe('EPGVirtualizer', () => {
             expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_READY)).toBe(true);
         });
 
+        it('does not duplicate focused episode text in the subtitle lane when no show title or episode tag exists', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-focused-episode-no-show-title';
+            const start = gridAnchorTime;
+            const end = start + (20 * 60000);
+
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60000),
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'focused-episode-no-show-title-1',
+                            type: 'episode',
+                            title: 'Standalone Episode Title',
+                            fullTitle: 'Standalone Episode Title',
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+            virtualizer.setFocusedCell(channelId, start);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const titleText = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE_TEXT}`) as HTMLElement;
+            const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
+            const subtitleText = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE_TEXT}`) as HTMLElement;
+
+            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
+            expect(titleText.textContent).toBe('Standalone Episode Title');
+            expect(subtitle.style.display).toBe('none');
+            expect(subtitleText.textContent).toBe('');
+        });
+
         it('shifts text for pre-anchor long programs after scrolling right', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-pre-anchor';
@@ -2588,6 +2636,71 @@ describe('EPGVirtualizer', () => {
                 expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(true);
                 jest.advanceTimersByTime(900);
                 expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(true);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('does not arm a focused ticker for focused cells with no visible width', () => {
+            jest.useFakeTimers();
+            try {
+                const channelId = 'ch-zero-width-focused-ticker';
+                const start = gridAnchorTime;
+                const end = start + 20 * 60 * 1000;
+
+                const schedule: ScheduleWindow = {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                    programs: [{
+                        item: {
+                            ratingKey: 'zero-width-focused-ticker-1',
+                            type: 'movie',
+                            title: 'Zero Width Focused Ticker Title',
+                            fullTitle: 'Zero Width Focused Ticker Title',
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    }],
+                };
+
+                virtualizer.setChannelCount(1);
+                const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+                virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+                const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+                const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+
+                Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 300 });
+                Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
+
+                const visibleCells = (virtualizer as unknown as {
+                    visibleCells: Map<string, { visibleWidthPx: number }>;
+                }).visibleCells;
+                const focusedCell = visibleCells.get(`${channelId}-${start}`);
+                if (!focusedCell) {
+                    throw new Error('Expected focused cell to exist in visibleCells');
+                }
+                focusedCell.visibleWidthPx = 0;
+
+                virtualizer.setFocusedCell(channelId, start);
+
+                expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(false);
+                expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
+
+                jest.advanceTimersByTime(900);
+
+                expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(false);
+                expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
             } finally {
                 jest.useRealTimers();
             }

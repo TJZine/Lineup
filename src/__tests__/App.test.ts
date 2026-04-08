@@ -6,6 +6,7 @@ import { App } from '../App';
 import { AppOrchestrator, type PlaybackInfoSnapshot } from '../Orchestrator';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../core/app-shell/constants';
+import type { ChannelSetupConfig } from '../core/channel-setup/types';
 import { ThemeManager } from '../modules/ui/theme';
 import { STORAGE_KEYS } from '../types';
 
@@ -120,7 +121,7 @@ jest.mock('../modules/ui/settings/SettingsScreen', () => {
 
 const channelSetupScreenChunkLoaded = jest.fn();
 const channelSetupScreenConstructed = jest.fn();
-const getPlannerDiagnosticsConfigMock = jest.fn();
+const getPlannerDiagnosticsConfigMock = jest.fn<ChannelSetupConfig | null, []>();
 jest.mock('../modules/ui/channel-setup/ChannelSetupScreen', () => {
     channelSetupScreenChunkLoaded();
     return {
@@ -137,7 +138,7 @@ jest.mock('../modules/ui/channel-setup/ChannelSetupScreen', () => {
             destroy(): void {
                 return;
             }
-            getPlannerDiagnosticsConfig(): unknown {
+            getPlannerDiagnosticsConfig(): ChannelSetupConfig | null {
                 return getPlannerDiagnosticsConfigMock();
             }
         },

@@ -1179,10 +1179,12 @@ export class EPGVirtualizer {
             episodeTitle.length > 0 && episodeTag ? `${episodeTag} - ${episodeTitle}` : episodeTitle;
 
         if (isFocused) {
+            const title = showTitle || item.title;
+            const showSubtitle = focusedCompactSubtitle.length > 0 && focusedCompactSubtitle !== title;
             return {
-                title: showTitle || item.title,
+                title,
                 subtitle: episodeTitle,
-                showSubtitle: focusedCompactSubtitle.length > 0 || episodeTitle.length > 0,
+                showSubtitle,
                 focusedCompactSubtitle,
                 focusedLayoutMode: 'compact',
             };
@@ -1629,9 +1631,11 @@ export class EPGVirtualizer {
         const focusedKey = this.focusedVisibleCellKey;
         const focusedCell = focusedKey ? this.visibleCells.get(focusedKey) : null;
         if (!focusedCell?.cellElement) return;
-        if (focusedCell.cellElement.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS)) return;
+        const focusedElement = focusedCell.cellElement;
+        if (focusedElement.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS)) return;
+        if (focusedCell.visibleWidthPx === 0) return;
 
-        const children = this.getCellChildren(focusedCell.cellElement);
+        const children = this.getCellChildren(focusedElement);
         const targets = [
             this.buildTickerTarget(children.title, children.titleText, {
                 readyClass: EPG_CLASSES.CELL_TITLE_TICKER_READY,
