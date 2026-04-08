@@ -678,11 +678,11 @@ These are the required repo-local boundary skills for the new wave. Load them be
 - [x] `P4-EXIT` run the priority-exit review before moving to `P5`
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P5` plan, code, or checklist progress starts until every `P4` mapped id has an explicit disposition record
-  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all five exact `P4` issue-id checks; `npm run verify`
+  - Required verification: `desloppify status`; `desloppify plan queue`; `desloppify show security --status open --no-budget --top 50`; all five exact `P4` issue-id checks; `npm run verify`
   - Priority-exit review status (2026-04-08): `complete` (all five mapped `P4` ids return `No open issues matching`; no `deferred`/`split follow-up` carry-forward required)
   - Verified commands (2026-04-08 final refresh):
     - `desloppify status`
-    - `desloppify show review --status open --no-budget --top 100`
+    - `desloppify plan queue`
     - `desloppify show security --status open --no-budget --top 50`
     - `desloppify show "review::.::holistic::cross_module_architecture::storage_owner_boundary_drift" --status open --no-budget`
     - `desloppify show "review::.::holistic::incomplete_migration::deprecated_lifecycle_plexauth_slot" --status open --no-budget`
@@ -692,11 +692,16 @@ These are the required repo-local boundary skills for the new wave. Load them be
     - `npm run verify`
   - Refreshed verification results (2026-04-08):
     - `desloppify status` -> `Scores: overall 80.9/100 · objective 90.7/100 · strict 79.0/100 · verified 90.7/100`; `Review: 33 issues open, 33 uninvestigated`; `Last scan: 2026-04-08T04:17:13+00:00`.
-    - literal output: `desloppify show review --status open --no-budget --top 100`
+    - `desloppify plan queue` -> `Queue: 2 items (57 planned · 1 subjective)`; both queued items are subjective review work (`subjective_assessment`, `subjective_review`) and align with `desloppify status` reporting open review work.
+    - literal output: `desloppify plan queue`
       ```text
-        → query.json updated
-      No open issues matching: review
-        Try: show <detector>, show <file>, or show subjective. Detectors: logs, unused, exports, deprecated, structural, props, single_use, coupling, cycles, orphaned, ...
+      
+        Queue: 2 items (57 planned · 1 subjective)
+      
+      #     Confidence  Detector      Summary                                             Cluster
+      ──────────────────────────────────────────────────────────────────────────────────────────────
+      1     medium  subjective_assessment  Subjective review needed: Auth consistency (91.…                    
+      2     medium  subjective_review  File changed since last review — re-review reco…
       ```
     - `desloppify show security --status open --no-budget --top 50` -> `Security: 100.0% health (strict: 96.0%)`; `No open issues for Security. Detectors: cycles, security`.
     - `npm run verify` -> pass (`typecheck`, `lint`, `lint:css`, `test:all`, `verify:docs`, `build` all passed on current branch).
