@@ -224,6 +224,26 @@ describe('focused EPG overflow style contract', () => {
         expect(getComputedStyle(movieRail).transform).toBe('none');
     });
 
+    it('keeps channel-row focus selectors aligned with theme focus tokens', () => {
+        const baseBlock = getBlock('.epg-channel-row.focused');
+        expect(baseBlock).toContain('rgba(var(--focus-color-rgb),');
+
+        const classicBlock = getBlock('.epg-container.layout-classic .epg-channel-row.focused');
+        expect(classicBlock).toContain('rgba(var(--focus-color-rgb),');
+
+        const glassBlock = getBlock('.theme-glass .epg-channel-row.focused::before');
+        expect(glassBlock).toContain('rgba(var(--focus-color-rgb), 0.14)');
+
+        const emberBlock = getBlock('.theme-ember-steel .epg-channel-row.focused');
+        expect(emberBlock).toContain('rgba(var(--focus-color-rgb),');
+
+        const swissBlock = getBlock('.theme-swiss .epg-channel-row.focused');
+        expect(swissBlock).toContain('rgba(var(--focus-color-rgb),');
+
+        const directvBlock = getBlock('.theme-directv .epg-container.layout-classic .epg-channel-row.focused');
+        expect(directvBlock).toContain('var(--directv-focus-fill)');
+    });
+
     it('keeps reduced-motion ticker suppression selectors', () => {
         const reducedMotionBlock = getAtRuleBlocks('@media (prefers-reduced-motion: reduce)')
             .find((block) => block.includes('.epg-cell-title.epg-cell-title-ticker-ready'));
