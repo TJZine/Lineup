@@ -120,6 +120,7 @@ jest.mock('../modules/ui/settings/SettingsScreen', () => {
 
 const channelSetupScreenChunkLoaded = jest.fn();
 const channelSetupScreenConstructed = jest.fn();
+const getPlannerDiagnosticsConfigMock = jest.fn();
 jest.mock('../modules/ui/channel-setup/ChannelSetupScreen', () => {
     channelSetupScreenChunkLoaded();
     return {
@@ -135,6 +136,9 @@ jest.mock('../modules/ui/channel-setup/ChannelSetupScreen', () => {
             }
             destroy(): void {
                 return;
+            }
+            getPlannerDiagnosticsConfig(): unknown {
+                return getPlannerDiagnosticsConfigMock();
             }
         },
     };
@@ -195,6 +199,8 @@ describe('App bootstrap smoke', () => {
         settingsScreenConstructed.mockClear();
         channelSetupScreenChunkLoaded.mockClear();
         channelSetupScreenConstructed.mockClear();
+        getPlannerDiagnosticsConfigMock.mockReset();
+        getPlannerDiagnosticsConfigMock.mockReturnValue(null);
         audioSetupScreenChunkLoaded.mockClear();
         audioSetupScreenConstructed.mockClear();
         capturedAudioSetupComplete = null;
@@ -803,6 +809,64 @@ describe('App bootstrap smoke', () => {
         const devMenu = document.getElementById('dev-menu') as HTMLElement | null;
         expect(devMenu?.style.display).toBe('none');
         expect(devMenu?.innerHTML ?? '').toBe('');
+    });
+
+    it('does not expose hidden channel-setup drafts through active planner diagnostics', async () => {
+        const activeDraft = {
+            serverId: 'server-1',
+            selectedLibraryIds: ['movies'],
+            maxChannels: 25,
+            buildMode: 'replace',
+            actorStudioCombineMode: 'separate',
+            minItemsPerChannel: 5,
+            strategyConfig: {},
+            channelExpansion: {
+                addAlternateLineups: false,
+                alternateLineupCopies: 0,
+                variantType: 'time',
+                variantBlockSize: 2,
+            },
+            seriesOrdering: {
+                basePlaybackMode: 'sequential',
+                baseBlockSize: 2,
+            },
+        };
+        const getSetupPlanDiagnostics = jest.fn().mockResolvedValue({
+            status: 'ready',
+            diagnostics: null,
+            warnings: [],
+            reachedMaxChannels: false,
+        });
+
+        getPlannerDiagnosticsConfigMock.mockReturnValue(activeDraft);
+        jest.spyOn(AppOrchestrator.prototype, 'getSelectedServerId').mockReturnValue('server-1');
+        jest.spyOn(AppOrchestrator.prototype, 'getSelectedServerStorageKey').mockReturnValue('selected-server');
+        jest.spyOn(AppOrchestrator.prototype, 'getChannelSetupWorkflowPort').mockReturnValue({
+            invalidateFacetSnapshot: jest.fn(),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([]),
+            getChannelSetupRecord: jest.fn().mockReturnValue(null),
+            getSetupContextForSelectedServer: jest.fn().mockReturnValue('unknown'),
+            getSetupPreview: jest.fn(),
+            getSetupReview: jest.fn(),
+            getSetupPlanDiagnostics,
+            createChannelsFromSetup: jest.fn(),
+            markSetupComplete: jest.fn(),
+        } as never);
+
+        let currentScreen: string | null = 'player';
+        (AppOrchestrator.prototype.getCurrentScreen as unknown as jest.Mock).mockImplementation(() => currentScreen);
+
+        await bootstrapApp();
+
+        await expect(
+            (window as {
+                lineup?: { dumpActiveChannelSetupPlannerDiagnostics: () => Promise<unknown> };
+            }).lineup?.dumpActiveChannelSetupPlannerDiagnostics()
+        ).rejects.toThrow(
+            'No active channel setup draft is available. Open Channel Setup and return to Step 2 before dumping diagnostics.'
+        );
+
+        expect(getSetupPlanDiagnostics).not.toHaveBeenCalled();
     });
 
     it('handles debug key bindings when debug surface is enabled', async () => {

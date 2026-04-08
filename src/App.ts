@@ -134,8 +134,16 @@ export class App {
     private readonly _toastPresenter = new AppToastPresenter();
     private readonly _diagnosticsSurface = new AppDiagnosticsSurface({
         getOrchestrator: (): AppOrchestrator | null => this._orchestrator,
-        getActiveChannelSetupConfig: (): ChannelSetupConfig | null =>
-            this._lazyScreenRegistry?.getChannelSetupScreen()?.getPlannerDiagnosticsConfig() ?? null,
+        getActiveChannelSetupConfig: (): ChannelSetupConfig | null => {
+            const channelSetupScreen = this._lazyScreenRegistry?.getChannelSetupScreen() ?? null;
+            const activeScreen = this._orchestrator?.getCurrentScreen() ?? null;
+
+            if (activeScreen !== 'channel-setup') {
+                return null;
+            }
+
+            return channelSetupScreen?.getPlannerDiagnosticsConfig() ?? null;
+        },
         showToast: (toast): void => this._toastPresenter.show(toast),
         debugOverridesStore: this._debugOverridesStore,
     });
