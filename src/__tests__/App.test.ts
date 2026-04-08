@@ -865,7 +865,7 @@ describe('App bootstrap smoke', () => {
         if (!lazyScreenRegistry) {
             throw new Error('Expected App to initialize lazy screen registry');
         }
-        lazyScreenRegistry.getChannelSetupScreen = () => cachedChannelSetupScreen;
+        lazyScreenRegistry.getChannelSetupScreen = (): typeof cachedChannelSetupScreen => cachedChannelSetupScreen;
 
         currentScreen = 'channel-setup';
         await expect(
