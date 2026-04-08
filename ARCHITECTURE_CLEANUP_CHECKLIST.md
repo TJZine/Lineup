@@ -675,10 +675,43 @@ These are the required repo-local boundary skills for the new wave. Load them be
     - `review::.::holistic::contract_coherence::plex_auth_stored_credentials_null_hides_corruption` -> `resolved` -> owner `P4-W3`; proof: malformed persisted auth is now observable as `kind: 'corrupted'` instead of being collapsed into clean absence, cleanup remains inside `PlexAuth`, and blocked storage writes do not fabricate persisted availability.
   - Explicit `P4-EXIT` fallback disposition language (required before any `P5` work):
     - If the exact detector id above ever reappears after this slice, `P4-EXIT` is the single final owner for reconciliation (`resolved on current-code proof with stale detector residue` vs `split follow-up` only when a different live owner is proven). No `P5` plan/code/checklist progress may begin until `P4-EXIT` records that explicit disposition with owner, reason, revisit trigger, and refreshed evidence.
-- [ ] `P4-EXIT` run the priority-exit review before moving to `P5`
+- [x] `P4-EXIT` run the priority-exit review before moving to `P5`
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P5` plan, code, or checklist progress starts until every `P4` mapped id has an explicit disposition record
   - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all five exact `P4` issue-id checks; `npm run verify`
+  - Priority-exit review status (2026-04-08): `complete` (all five mapped `P4` ids return `No open issues matching`; no `deferred`/`split follow-up` carry-forward required)
+  - Verified commands (2026-04-08 final refresh):
+    - `desloppify status`
+    - `desloppify show review --status open --no-budget --top 100`
+    - `desloppify show security --status open --no-budget --top 50`
+    - `desloppify show "review::.::holistic::cross_module_architecture::storage_owner_boundary_drift" --status open --no-budget`
+    - `desloppify show "review::.::holistic::incomplete_migration::deprecated_lifecycle_plexauth_slot" --status open --no-budget`
+    - `desloppify show "review::.::holistic::initialization_coupling::diagnostics_store_scattered_singletons" --status open --no-budget`
+    - `desloppify show "review::.::holistic::logic_clarity::startup_ui_async_wrapper_drift" --status open --no-budget`
+    - `desloppify show "review::.::holistic::contract_coherence::plex_auth_stored_credentials_null_hides_corruption" --status open --no-budget`
+    - `npm run verify`
+  - Refreshed verification results (2026-04-08):
+    - `desloppify status` -> `Scores: overall 80.9/100 · objective 90.7/100 · strict 79.0/100 · verified 90.7/100`; `Review: 33 issues open, 33 uninvestigated`; `Last scan: 2026-04-08T04:17:13+00:00`.
+    - literal output: `desloppify show review --status open --no-budget --top 100`
+      ```text
+        → query.json updated
+      No open issues matching: review
+        Try: show <detector>, show <file>, or show subjective. Detectors: logs, unused, exports, deprecated, structural, props, single_use, coupling, cycles, orphaned, ...
+      ```
+    - `desloppify show security --status open --no-budget --top 50` -> `Security: 100.0% health (strict: 96.0%)`; `No open issues for Security. Detectors: cycles, security`.
+    - `npm run verify` -> pass (`typecheck`, `lint`, `lint:css`, `test:all`, `verify:docs`, `build` all passed on current branch).
+  - Mapped imported issues (2026-04-08 disposition record):
+    - `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift` -> `resolved`; owner: `P4-W1`; reason: exact issue-id command returns `No open issues matching`.
+    - `review::.::holistic::incomplete_migration::deprecated_lifecycle_plexauth_slot` -> `resolved`; owner: `P4-W1`; reason: exact issue-id command returns `No open issues matching`.
+    - `review::.::holistic::initialization_coupling::diagnostics_store_scattered_singletons` -> `resolved`; owner: `P4-W2`; reason: exact issue-id command returns `No open issues matching`.
+    - `review::.::holistic::logic_clarity::startup_ui_async_wrapper_drift` -> `resolved`; owner: `P4-W2`; reason: exact issue-id command returns `No open issues matching`.
+    - `review::.::holistic::contract_coherence::plex_auth_stored_credentials_null_hides_corruption` -> `resolved`; owner: `P4-W3`; reason: exact issue-id command returns `No open issues matching`.
+  - Follow-up ownership and residuals (2026-04-08):
+    - Follow-up ownership: none.
+    - Residuals: none on current-code proof in the `P4` issue envelope.
+  - Security triage (2026-04-08 disposition record):
+    - `desloppify show security --status open --no-budget --top 50` confirms no open security findings.
+    - `P0` impact: none; no deferred `P0` findings and no `P0` revisit trigger required for `P4-EXIT`.
 
 ## Priority 5: Normalize Plex And Player Contracts, Dependencies, And Pipelines
 
