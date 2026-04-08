@@ -146,26 +146,61 @@ describe('ChannelSetupPlanningService', () => {
         expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - 1980s'))).toBe(true);
     });
 
-    it('still plans native channels when Plex tag directories omit counts', async () => {
+    it('recovers missing native tag counts before applying min-items filtering', async () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
+            getLibraryItemCount: jest.fn().mockImplementation(
+                async (
+                    _libraryId: string,
+                    options?: { filter?: Record<string, string | number> }
+                ) => {
+                    const filter = options?.filter ?? {};
+                    if (filter.genre === 'Comedy') return 4;
+                    if (filter.genre === 'Drama') return 8;
+                    if (filter.director === 'Jane Doe') return 3;
+                    if (filter.director === 'John Roe') return 9;
+                    if (filter.year === '1981') return 2;
+                    if (filter.year === '1988') return 4;
+                    if (filter.year === '1991') return 1;
+                    if (filter.actor === 'Alex Star') return 6;
+                    if (filter.actor === 'actor-2') return 2;
+                    if (filter.studio === 'Studio A') return 7;
+                    if (filter.studio === 'studio-2') return 1;
+                    return 0;
+                }
+            ),
             getLibraryItems: jest.fn(),
             getGenres: jest.fn().mockResolvedValue([
                 makeTag({ title: 'Comedy', count: null }),
+                makeTag({ title: 'Drama', count: null }),
             ]),
             getDirectors: jest.fn().mockResolvedValue([
                 makeTag({ title: 'Jane Doe', count: null }),
+                makeTag({ title: 'John Roe', count: null }),
             ]),
             getYears: jest.fn().mockResolvedValue([
                 makeTag({ title: '1981', count: null }),
                 makeTag({ title: '1988', count: null }),
+                makeTag({ title: '1991', count: null }),
             ]),
             getActors: jest.fn().mockResolvedValue([
-                makeTag({ key: 'actor-1', title: 'Alex Star', count: null }),
+                makeTag({
+                    key: 'actor-1',
+                    title: 'Alex Star',
+                    count: null,
+                    fastKey: '/library/sections/shows/actor?type=4&actor=Alex%20Star',
+                }),
+                makeTag({ key: 'actor-2', title: 'Taylor Guest', count: null }),
             ]),
             getStudios: jest.fn().mockResolvedValue([
-                makeTag({ key: 'studio-1', title: 'Studio A', count: null }),
+                makeTag({
+                    key: 'studio-1',
+                    title: 'Studio A',
+                    count: null,
+                    fastKey: '/library/sections/shows/studio?type=4&studio=Studio%20A',
+                }),
+                makeTag({ key: 'studio-2', title: 'Studio B', count: null }),
             ]),
         } as unknown as jest.Mocked<IPlexLibrary>;
 
@@ -198,11 +233,51 @@ describe('ChannelSetupPlanningService', () => {
         expect(result.plan).not.toBeNull();
         expect(result.failureReason).toBeUndefined();
         expect(result.blockedMessage).toBeUndefined();
-        expect(result.plan?.estimates.genres).toBeGreaterThan(0);
-        expect(result.plan?.estimates.directors).toBeGreaterThan(0);
-        expect(result.plan?.estimates.decades).toBeGreaterThan(0);
-        expect(result.plan?.estimates.studios).toBeGreaterThan(0);
-        expect(result.plan?.estimates.actors).toBeGreaterThan(0);
+        expect(result.plan?.estimates).toEqual(expect.objectContaining({
+            genres: 1,
+            directors: 1,
+            decades: 1,
+            studios: 1,
+            actors: 1,
+        }));
+        expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - Drama'))).toBe(true);
+        expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - Comedy'))).toBe(false);
+        expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - John Roe'))).toBe(true);
+        expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - Jane Doe'))).toBe(false);
+        expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - 1980s'))).toBe(true);
+        expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - 1990s'))).toBe(false);
+        expect(result.plan?.pendingChannels.some((c) => c.name === 'Alex Star - TV')).toBe(true);
+        expect(result.plan?.pendingChannels.some((c) => c.name === 'Taylor Guest - TV')).toBe(false);
+        expect(result.plan?.pendingChannels.some((c) => c.name === 'Studio A - TV')).toBe(true);
+        expect(result.plan?.pendingChannels.some((c) => c.name === 'Studio B - TV')).toBe(false);
+        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
+            filter: { type: PLEX_MEDIA_TYPES.SHOW, genre: 'Comedy' },
+            signal: expect.any(Object),
+        }));
+        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
+            filter: { type: PLEX_MEDIA_TYPES.EPISODE, director: 'Jane Doe' },
+            signal: expect.any(Object),
+        }));
+        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
+            filter: { type: PLEX_MEDIA_TYPES.EPISODE, year: '1981' },
+            signal: expect.any(Object),
+        }));
+        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
+            filter: { type: PLEX_MEDIA_TYPES.EPISODE, actor: 'Alex Star' },
+            signal: expect.any(Object),
+        }));
+        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
+            filter: { type: PLEX_MEDIA_TYPES.EPISODE, actor: 'actor-2' },
+            signal: expect.any(Object),
+        }));
+        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
+            filter: { type: PLEX_MEDIA_TYPES.EPISODE, studio: 'Studio A' },
+            signal: expect.any(Object),
+        }));
+        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
+            filter: { type: PLEX_MEDIA_TYPES.EPISODE, studio: 'studio-2' },
+            signal: expect.any(Object),
+        }));
     });
 
     it('stops planning when a required tag directory endpoint is unsupported', async () => {
