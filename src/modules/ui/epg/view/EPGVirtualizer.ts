@@ -1135,8 +1135,7 @@ export class EPGVirtualizer {
 
     private getProgramCellTextLayout(
         cellData: CellRenderData,
-        isFocused: boolean,
-        tier: CellWidthTier
+        isFocused: boolean
     ): CellTextLayout {
         if (cellData.kind !== 'program') {
             return {
@@ -1163,32 +1162,17 @@ export class EPGVirtualizer {
         const showTitle = (item.showTitle ?? '').trim() ||
             this.extractShowTitleFromFullTitle(item.fullTitle, episodeTitle) ||
             '';
-        const canSplitFocusedLines =
-            showTitle.length > 0 &&
-            episodeTitle.length > 0 &&
-            showTitle !== episodeTitle;
         const episodeTag = this.formatEpisodeTag(item);
         const focusedCompactSubtitle =
             episodeTitle.length > 0 && episodeTag ? `${episodeTag} - ${episodeTitle}` : episodeTitle;
 
         if (isFocused) {
-            if (canSplitFocusedLines) {
-                return {
-                    title: showTitle,
-                    subtitle: episodeTitle,
-                    showSubtitle: true,
-                    focusedCompactSubtitle,
-                    focusedLayoutMode: tier !== 'wide' ? 'compact' : 'normal',
-                };
-            }
-
-            const fullTitle = item.fullTitle.trim();
             return {
-                title: fullTitle.length > 0 ? fullTitle : item.title,
-                subtitle: '',
-                showSubtitle: false,
-                focusedCompactSubtitle: '',
-                focusedLayoutMode: 'normal',
+                title: showTitle || item.title,
+                subtitle: episodeTitle,
+                showSubtitle: focusedCompactSubtitle.length > 0 || episodeTitle.length > 0,
+                focusedCompactSubtitle,
+                focusedLayoutMode: 'compact',
             };
         }
 
@@ -1385,7 +1369,7 @@ export class EPGVirtualizer {
         const element = this.getOrCreateElement();
         const children = this.getCellChildren(element);
         const tier = this.getCellWidthTier(cellData.width);
-        const textLayout = this.getProgramCellTextLayout(cellData, cellData.isFocused, tier);
+        const textLayout = this.getProgramCellTextLayout(cellData, cellData.isFocused);
 
         // Set content
         if (cellData.kind === 'program') {
@@ -1686,7 +1670,7 @@ export class EPGVirtualizer {
 
         const children = this.getCellChildren(element);
         const tier = this.getCellWidthTier(cellData.width);
-        const textLayout = this.getProgramCellTextLayout(cellData, cellData.isFocused, tier);
+        const textLayout = this.getProgramCellTextLayout(cellData, cellData.isFocused);
         if (cellData.kind === 'program') {
             if (children.titleText) {
                 children.titleText.textContent = textLayout.title;
