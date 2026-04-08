@@ -2436,6 +2436,57 @@ describe('EPGVirtualizer', () => {
             expect(liveBadge.textContent).toBe('');
         });
 
+        it('uses compact LIVE badge for current sliver cells even when they are not narrow or focused-compact', () => {
+            const now = gridAnchorTime + 227 * 60 * 1000;
+            jest.spyOn(Date, 'now').mockReturnValue(now);
+
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-sliver-live';
+            const start = gridAnchorTime;
+            const end = gridAnchorTime + (240 * 60 * 1000);
+
+            const schedules = new Map<string, ScheduleWindow>([
+                [channelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + (24 * 60 * 60000),
+                    programs: [{
+                        item: {
+                            ratingKey: 'sliver-live-1',
+                            type: 'movie',
+                            title: 'Current Sliver Program',
+                            fullTitle: 'Current Sliver Program',
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: now - start,
+                        remainingMs: end - now,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    }],
+                }],
+            ]);
+
+            const timeOffset = 226;
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset });
+            virtualizer.renderVisibleCells([channelId], schedules, range);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const badge = cell.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement;
+
+            expect(cell.classList.contains('epg-cell-sliver')).toBe(true);
+            expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_NARROW)).toBe(false);
+            expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_TINY)).toBe(false);
+            expect(badge.hidden).toBe(false);
+            expect(badge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
+            expect(badge.textContent).toBe('');
+        });
+
         it('keeps focused wide episode cells in compact mode with full-width title and subtitle lanes', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-episode-wide-time-visible';

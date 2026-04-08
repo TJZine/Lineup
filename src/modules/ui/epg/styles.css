@@ -973,11 +973,11 @@
 }
 
 .epg-cell.epg-cell-sliver .epg-cell-title {
+  display: block;
+  overflow: hidden;
   font-size: var(--text-sm);
   white-space: nowrap;
   text-overflow: ellipsis;
-  -webkit-line-clamp: unset;
-  -webkit-box-orient: initial;
 }
 
 .epg-cell.text-shifted .epg-cell-content,

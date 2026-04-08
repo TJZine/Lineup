@@ -116,10 +116,11 @@ describe('focused EPG overflow style contract', () => {
         expect(hiddenBlock).toContain('display: none');
 
         const titleBlock = getBlock('.epg-cell.epg-cell-sliver .epg-cell-title');
+        expect(titleBlock).toContain('display: block');
+        expect(titleBlock).toContain('overflow: hidden');
         expect(titleBlock).toContain('font-size: var(--text-sm)');
         expect(titleBlock).toContain('white-space: nowrap');
         expect(titleBlock).toContain('text-overflow: ellipsis');
-        expect(titleBlock).toContain('-webkit-line-clamp: unset');
     });
 
     it('keeps focused movie rail anchoring stable across badge visibility in tiny and medium tiers', () => {

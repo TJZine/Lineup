@@ -1560,7 +1560,8 @@ export class EPGVirtualizer {
         const shouldCompact =
             isNarrowOrTiny ||
             element.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT) ||
-            element.classList.contains(FOCUSED_MOVIE_OVERLAY_CLASS);
+            element.classList.contains(FOCUSED_MOVIE_OVERLAY_CLASS) ||
+            element.classList.contains(SLIVER_CELL_CLASS);
 
         badge.classList.toggle(EPG_CLASSES.CELL_LIVE_COMPACT, shouldCompact);
         badge.textContent = shouldCompact ? '' : 'LIVE';
