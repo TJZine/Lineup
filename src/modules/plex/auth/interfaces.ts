@@ -136,6 +136,16 @@ export interface PlexAuthDataV2 {
  */
 export type PlexAuthData = PlexAuthDataV2;
 
+export type PlexStoredCredentialsReadCorruptionReason =
+    | 'invalid-json'
+    | 'invalid-shape'
+    | 'unsupported-version';
+
+export type PlexStoredCredentialsReadResult =
+    | { kind: 'missing' }
+    | { kind: 'available'; credentials: PlexAuthData }
+    | { kind: 'corrupted'; reason: PlexStoredCredentialsReadCorruptionReason };
+
 // ============================================
 // Internal State Types
 // ============================================
@@ -262,9 +272,9 @@ export interface IPlexAuth {
 
     /**
      * Get stored credentials from localStorage.
-     * @returns Stored auth data or null if none
+     * @returns Explicit stored-read classification
      */
-    getStoredCredentials(): Promise<PlexAuthData | null>;
+    getStoredCredentials(): Promise<PlexStoredCredentialsReadResult>;
 
     /**
      * Store credentials to localStorage.

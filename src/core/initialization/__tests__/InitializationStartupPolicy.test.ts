@@ -1,6 +1,11 @@
 import { AppErrorCode, type IAppLifecycle } from '../../../modules/lifecycle';
 import type { INavigationManager } from '../../../modules/navigation';
-import type { IPlexAuth, PlexAuthDataV2, PlexAuthToken } from '../../../modules/plex/auth';
+import type {
+    IPlexAuth,
+    PlexAuthDataV2,
+    PlexAuthToken,
+    PlexStoredCredentialsReadResult,
+} from '../../../modules/plex/auth';
 import { applyPhase2AuthGatePolicy, type Phase2AuthGateInputs } from '../InitializationStartupPolicy';
 
 type PlexAuthGateMock = Pick<
@@ -67,10 +72,14 @@ function createPlexAuthMock(
     storedCredentials: PlexAuthDataV2,
     overrides: Phase2PlexAuthOverrides = {}
 ): PlexAuthGateMock {
+    const storedReadResult: PlexStoredCredentialsReadResult = {
+        kind: 'available',
+        credentials: storedCredentials,
+    };
     return {
         validateToken: jest.fn().mockResolvedValue(true),
         getHomeUsers: jest.fn().mockResolvedValue([]),
-        getStoredCredentials: jest.fn().mockResolvedValue(storedCredentials),
+        getStoredCredentials: jest.fn().mockResolvedValue(storedReadResult),
         storeCredentials: jest.fn().mockResolvedValue(undefined),
         getCurrentUser: jest.fn().mockReturnValue(storedCredentials.activeToken),
         ...overrides,

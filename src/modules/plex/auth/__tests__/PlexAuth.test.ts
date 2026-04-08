@@ -475,15 +475,15 @@ describe('PlexAuth', () => {
     });
 
     describe('getStoredCredentials', () => {
-        it('should return null when no credentials stored', async () => {
+        it('should return missing when no credentials stored', async () => {
             const auth = new PlexAuth(mockConfig);
 
             const result = await auth.getStoredCredentials();
 
-            expect(result).toBeNull();
+            expect(result).toEqual({ kind: 'missing' });
         });
 
-        it('should return stored credentials with restored Date objects', async () => {
+        it('should return available credentials with restored Date objects', async () => {
             const now = new Date();
             const storedData = {
                 version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
@@ -523,23 +523,22 @@ describe('PlexAuth', () => {
             const auth = new PlexAuth(mockConfig);
             const result = await auth.getStoredCredentials();
 
-            expect(result).not.toBeNull();
-            if (result !== null) {
-                expect(result.activeToken.token).toBe('test-token');
-                expect(result.activeToken.issuedAt).toBeInstanceOf(Date);
-                expect(result.activeToken.expiresAt).toBeInstanceOf(Date);
-                expect(result.selectedServerByUserId.user1).toBeDefined();
-                expect(result.selectedServerByUserId.user1?.serverId).toBe('server1');
-            }
+            expect(result.kind).toBe('available');
+            if (result.kind !== 'available') return;
+            expect(result.credentials.activeToken.token).toBe('test-token');
+            expect(result.credentials.activeToken.issuedAt).toBeInstanceOf(Date);
+            expect(result.credentials.activeToken.expiresAt).toBeInstanceOf(Date);
+            expect(result.credentials.selectedServerByUserId.user1).toBeDefined();
+            expect(result.credentials.selectedServerByUserId.user1?.serverId).toBe('server1');
         });
 
-        it('should return null when storage access throws', async () => {
+        it('should return missing when storage access throws', async () => {
             jest.spyOn(mockLocalStorage, 'getItem').mockImplementation(() => {
                 throw new Error('blocked');
             });
             const auth = new PlexAuth(mockConfig);
 
-            await expect(auth.getStoredCredentials()).resolves.toBeNull();
+            await expect(auth.getStoredCredentials()).resolves.toEqual({ kind: 'missing' });
         });
     });
 

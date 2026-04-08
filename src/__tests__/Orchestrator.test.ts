@@ -12,7 +12,7 @@ import {
 } from '../modules/ui/now-playing-info/NowPlayingInfoCoordinator';
 import { EPGCoordinator } from '../modules/ui/epg/EPGCoordinator';
 import type { INavigationManager } from '../modules/navigation';
-import type { PlexAuthDataV2 } from '../modules/plex/auth';
+import type { PlexAuthDataV2, PlexStoredCredentialsReadResult } from '../modules/plex/auth';
 import type { IPlexLibrary } from '../modules/plex/library';
 import type { ChannelConfig, IChannelManager } from '../modules/scheduler/channel-manager';
 import type { ScheduledProgram } from '../modules/scheduler/scheduler';
@@ -292,7 +292,7 @@ jest.mock('../modules/ui/channel-transition', () => ({
 const mockPlexAuth = {
     validateToken: jest.fn().mockResolvedValue(true),
     storeCredentials: jest.fn().mockResolvedValue(undefined),
-    getStoredCredentials: jest.fn().mockResolvedValue(null),
+    getStoredCredentials: jest.fn().mockResolvedValue({ kind: 'missing' }),
     isAuthenticated: jest.fn().mockReturnValue(true),
     getAuthHeaders: jest.fn().mockReturnValue({}),
     getCurrentUser: jest.fn().mockReturnValue(null),
@@ -305,29 +305,35 @@ const mockPlexAuth = {
     on: jest.fn(() => ({ dispose: jest.fn() })),
 };
 
-const createStoredCredentials = (token: string, userId: string = 'user-1'): PlexAuthDataV2 => ({
-    accountToken: {
-        token,
-        userId,
-        username: 'testuser',
-        email: 'test@example.com',
-        thumb: '',
-        expiresAt: null,
-        issuedAt: new Date(),
-    },
-    activeToken: {
-        token,
-        userId,
-        username: 'testuser',
-        email: 'test@example.com',
-        thumb: '',
-        expiresAt: null,
-        issuedAt: new Date(),
-    },
-    activeUserId: userId,
-    selectedServerByUserId: {
-        [userId]: { serverId: null, serverUri: null },
-    },
+const createStoredCredentials = (
+    token: string,
+    userId: string = 'user-1'
+): PlexStoredCredentialsReadResult => ({
+    kind: 'available',
+    credentials: {
+        accountToken: {
+            token,
+            userId,
+            username: 'testuser',
+            email: 'test@example.com',
+            thumb: '',
+            expiresAt: null,
+            issuedAt: new Date(),
+        },
+        activeToken: {
+            token,
+            userId,
+            username: 'testuser',
+            email: 'test@example.com',
+            thumb: '',
+            expiresAt: null,
+            issuedAt: new Date(),
+        },
+        activeUserId: userId,
+        selectedServerByUserId: {
+            [userId]: { serverId: null, serverUri: null },
+        },
+    } satisfies PlexAuthDataV2,
 });
 
 const makeDecision = (overrides: Partial<StreamDecision> = {}): StreamDecision => ({
@@ -1282,7 +1288,7 @@ describe('AppOrchestrator', () => {
     describe('start', () => {
         beforeEach(async () => {
             await orchestrator.initialize(mockConfig);
-            mockPlexAuth.getStoredCredentials.mockResolvedValue(null);
+            mockPlexAuth.getStoredCredentials.mockResolvedValue({ kind: 'missing' });
         });
 
         it('should initialize modules in correct phase order', async () => {

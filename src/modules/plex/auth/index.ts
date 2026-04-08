@@ -14,6 +14,8 @@ export type {
     PlexAuthToken,
     PlexAuthData,
     PlexAuthDataV2,
+    PlexStoredCredentialsReadCorruptionReason,
+    PlexStoredCredentialsReadResult,
     PlexHomeUser,
     PlexAuthEvents,
 } from './interfaces';
