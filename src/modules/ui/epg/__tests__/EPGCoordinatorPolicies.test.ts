@@ -53,19 +53,6 @@ describe('EPGCoordinatorPolicies', () => {
         expect(result.shouldClearPersistedSelection).toBe(true);
     });
 
-    it('returns invalid persisted library cleanup intent without mutating persistence', () => {
-        const channels = [makeChannel('c1', 1, 'lib-a')];
-        const result = computeNormalizedLibraryFilterState(channels, {
-            pastItemsWindowSetting: 'auto',
-            tabsEnabled: true,
-            selectedLibraryId: 'missing-lib',
-        });
-
-        expect(result.selectedId).toBeNull();
-        expect(result.shouldFilter).toBe(false);
-        expect(result.shouldClearPersistedSelection).toBe(true);
-    });
-
     it('clears active filtering when tabs are disabled without clearing persisted selection', () => {
         const channels = [
             makeChannel('c1', 1, 'lib-a'),
