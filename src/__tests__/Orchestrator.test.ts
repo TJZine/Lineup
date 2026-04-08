@@ -999,6 +999,27 @@ describe('AppOrchestrator', () => {
                 runStartupSpy.mockRestore();
             }
         });
+
+        it('does not rewrite persisted selected-server state when stored auth is corrupted', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            const runStartupSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'runStartup')
+                .mockResolvedValue(undefined);
+            mockPlexDiscovery.selectServer.mockResolvedValue(true);
+            mockPlexAuth.getStoredCredentials.mockResolvedValue({
+                kind: 'corrupted',
+                reason: 'invalid-json',
+            });
+
+            try {
+                await expect(orchestrator.selectServer('server-1')).resolves.toBe(false);
+                expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
+                expect(runStartupSpy).toHaveBeenCalledWith(3);
+            } finally {
+                runStartupSpy.mockRestore();
+            }
+        });
     });
 
     describe('schedule day rollover', () => {
@@ -1331,6 +1352,18 @@ describe('AppOrchestrator', () => {
             await orchestrator.start();
 
             expect(mockNavigation.goTo).toHaveBeenCalledWith('auth');
+        });
+
+        it('routes corrupted stored credentials to auth without token validation', async () => {
+            mockPlexAuth.getStoredCredentials.mockResolvedValue({
+                kind: 'corrupted',
+                reason: 'invalid-json',
+            });
+
+            await orchestrator.start();
+
+            expect(mockNavigation.goTo).toHaveBeenCalledWith('auth');
+            expect(mockPlexAuth.validateToken).not.toHaveBeenCalled();
         });
 
         it('should validate token and proceed if valid', async () => {

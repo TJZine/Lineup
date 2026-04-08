@@ -1633,23 +1633,24 @@ export class AppOrchestrator {
             return;
         }
         const stored = await this._plexAuth.getStoredCredentials();
-        if (!stored) {
+        if (stored.kind !== 'available') {
             return;
         }
-        const activeUserId = this._plexAuth.getActiveUserId() ?? stored.activeUserId;
+        const credentials = stored.credentials;
+        const activeUserId = this._plexAuth.getActiveUserId() ?? credentials.activeUserId;
         if (!activeUserId) {
             return;
         }
         const selectedServerByUserId = {
-            ...(stored.selectedServerByUserId ?? {}),
+            ...(credentials.selectedServerByUserId ?? {}),
         };
         selectedServerByUserId[activeUserId] = { serverId, serverUri };
         await this._plexAuth.storeCredentials({
-            accountToken: stored.accountToken,
-            activeToken: stored.activeToken,
+            accountToken: credentials.accountToken,
+            activeToken: credentials.activeToken,
             activeUserId,
             selectedServerByUserId,
-            deviceKey: stored.deviceKey ?? null,
+            deviceKey: credentials.deviceKey ?? null,
         });
     }
 

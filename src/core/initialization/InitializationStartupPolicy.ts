@@ -121,8 +121,20 @@ export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs
 }
 
 export async function applyPhase2AuthGatePolicy(inputs: Phase2AuthGateInputs): Promise<boolean> {
-    const storedCredentials = await inputs.plexAuth.getStoredCredentials();
-    if (storedCredentials) {
+    const storedReadResult = await inputs.plexAuth.getStoredCredentials();
+    if (storedReadResult.kind === 'corrupted') {
+        inputs.updateModuleStatus('plex-auth', 'pending', {
+            code: AppErrorCode.STORAGE_CORRUPTED,
+            message: 'Stored Plex auth credentials were invalid and were cleared.',
+            recoverable: true,
+        });
+        inputs.handlers.registerAuthResume();
+        inputs.navigation.goTo('auth');
+        return false;
+    }
+
+    if (storedReadResult.kind === 'available') {
+        const storedCredentials = storedReadResult.credentials;
         try {
             const activeValid = await inputs.plexAuth.validateToken(
                 storedCredentials.activeToken.token
