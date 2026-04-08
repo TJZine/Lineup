@@ -1719,7 +1719,7 @@ describe('EPGVirtualizer', () => {
             expect(time.style.display).toBe('none');
         });
 
-        it('keeps focused compact mode tied to split-lane episode presentation, even when focused title overflows', () => {
+        it('keeps focused episodes in compact mode even when they do not expose split lanes before focus', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-episode-no-split';
             const start = gridAnchorTime;
@@ -1769,9 +1769,10 @@ describe('EPGVirtualizer', () => {
 
             virtualizer.setFocusedCell(channelId, start);
 
-            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(false);
-            expect(subtitle.style.display).toBe('none');
-            expect(time.style.display).toBe('block');
+            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
+            expect(subtitle.textContent).toBe('S01E02 - Episode Without Split Lanes');
+            expect(subtitle.style.display).toBe('block');
+            expect(time.style.display).toBe('none');
             expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_READY)).toBe(true);
         });
 
@@ -2289,7 +2290,7 @@ describe('EPGVirtualizer', () => {
             expect(liveBadge.textContent).toBe('');
         });
 
-        it('keeps the in-cell time on focused wide episode cells that can stay in the normal layout', () => {
+        it('keeps focused wide episode cells in compact mode with full-width title and subtitle lanes', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-episode-wide-time-visible';
             const start = gridAnchorTime;
@@ -2330,13 +2331,16 @@ describe('EPGVirtualizer', () => {
             virtualizer.setFocusedCell(channelId, start);
 
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
             expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_WIDE)).toBe(true);
-            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(false);
+            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
 
             const time = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
             const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
-            expect(time.style.display).toBe('block');
+            expect(title.textContent).toBe('Great Show');
+            expect(subtitle.textContent).toBe('S01E03 - A Day At The Shore');
             expect(subtitle.style.display).toBe('block');
+            expect(time.style.display).toBe('none');
         });
 
         it('starts ticker when focused title overflow is small but still visible', () => {
