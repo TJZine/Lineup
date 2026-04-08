@@ -121,6 +121,8 @@ describe('focused EPG overflow style contract', () => {
         expect(titleBlock).toContain('font-size: var(--text-sm)');
         expect(titleBlock).toContain('white-space: nowrap');
         expect(titleBlock).toContain('text-overflow: ellipsis');
+        expect(titleBlock).not.toContain('-webkit-line-clamp');
+        expect(titleBlock).not.toContain('-webkit-box-orient');
     });
 
     it('keeps focused movie rail anchoring stable across badge visibility in tiny and medium tiers', () => {

@@ -292,6 +292,57 @@ describe('ChannelSetupPlanningService', () => {
         }));
     });
 
+    it('counts failed fallback tag recovery time in libraryQueryMs', async () => {
+        const performanceNowSpy = jest.spyOn(performance, 'now')
+            .mockReturnValueOnce(100)
+            .mockReturnValueOnce(117);
+        const plexLibrary = {
+            getPlaylists: jest.fn(),
+            getCollections: jest.fn(),
+            getLibraryItemCount: jest.fn().mockRejectedValue({
+                name: 'Error',
+                code: 'SERVER_ERROR',
+                message: 'count endpoint failed',
+            }),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn().mockResolvedValue([
+                makeTag({ title: 'Drama', count: null }),
+            ]),
+            getDirectors: jest.fn(),
+            getYears: jest.fn(),
+            getActors: jest.fn(),
+            getStudios: jest.fn(),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['shows'],
+            strategyConfig: {
+                genres: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        }));
+
+        const libraries = [makeLibrary({
+            id: 'shows',
+            title: 'Shows',
+            type: 'show',
+            contentCount: 1200,
+        })];
+
+        const result = await service.buildSetupPlan(config, libraries, null, 'preview');
+
+        expect(result.plan).toBeNull();
+        expect(result.failureReason).toBe('error');
+        expect(result.blockedMessage).toContain('count endpoint failed');
+        expect(result.libraryQueryMs).toBe(17);
+
+        performanceNowSpy.mockRestore();
+    });
+
     it('stops planning when a required tag directory endpoint is unsupported', async () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),

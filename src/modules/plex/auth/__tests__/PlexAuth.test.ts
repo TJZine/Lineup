@@ -556,6 +556,89 @@ describe('PlexAuth', () => {
             });
         });
 
+        it('preserves valid persisted deviceKey payloads', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const token = createAuthToken('account-token', 'user-1');
+            const createdAt = new Date('2026-04-08T12:00:00.000Z');
+
+            mockLocalStorage.setItem(
+                PLEX_AUTH_CONSTANTS.STORAGE_KEY,
+                JSON.stringify({
+                    version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
+                    data: {
+                        ...createAuthData(token),
+                        deviceKey: {
+                            kid: 'device-key-1',
+                            privateKey: 'base64url-private-key',
+                            createdAt: createdAt.toISOString(),
+                            publicJwk: {
+                                kty: 'OKP',
+                                crv: 'Ed25519',
+                                x: 'public-x',
+                                alg: 'EdDSA',
+                                use: 'sig',
+                                kid: 'jwk-kid-1',
+                            },
+                        },
+                    },
+                })
+            );
+
+            await expect(auth.getStoredCredentials()).resolves.toEqual({
+                kind: 'available',
+                credentials: expect.objectContaining({
+                    activeUserId: 'user-1',
+                    deviceKey: {
+                        kid: 'device-key-1',
+                        privateKey: 'base64url-private-key',
+                        createdAt,
+                        publicJwk: {
+                            kty: 'OKP',
+                            crv: 'Ed25519',
+                            x: 'public-x',
+                            alg: 'EdDSA',
+                            use: 'sig',
+                            kid: 'jwk-kid-1',
+                        },
+                    },
+                }),
+            });
+        });
+
+        it('normalizes deviceKey to null when persisted publicJwk is malformed', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const token = createAuthToken('account-token', 'user-1');
+
+            mockLocalStorage.setItem(
+                PLEX_AUTH_CONSTANTS.STORAGE_KEY,
+                JSON.stringify({
+                    version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
+                    data: {
+                        ...createAuthData(token),
+                        deviceKey: {
+                            kid: 'device-key-1',
+                            privateKey: 'base64url-private-key',
+                            createdAt: '2026-04-08T12:00:00.000Z',
+                            publicJwk: {
+                                kty: 'OKP',
+                                crv: 'Ed25519',
+                                x: 42,
+                                alg: 'EdDSA',
+                            },
+                        },
+                    },
+                })
+            );
+
+            await expect(auth.getStoredCredentials()).resolves.toEqual({
+                kind: 'available',
+                credentials: expect.objectContaining({
+                    activeUserId: 'user-1',
+                    deviceKey: null,
+                }),
+            });
+        });
+
         it('should return missing when storage access throws', async () => {
             jest.spyOn(mockLocalStorage, 'getItem').mockImplementation(() => {
                 throw new Error('blocked');

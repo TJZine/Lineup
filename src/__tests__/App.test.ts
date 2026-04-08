@@ -838,7 +838,6 @@ describe('App bootstrap smoke', () => {
             reachedMaxChannels: false,
         });
 
-        getPlannerDiagnosticsConfigMock.mockReturnValue(activeDraft);
         jest.spyOn(AppOrchestrator.prototype, 'getSelectedServerId').mockReturnValue('server-1');
         jest.spyOn(AppOrchestrator.prototype, 'getSelectedServerStorageKey').mockReturnValue('selected-server');
         jest.spyOn(AppOrchestrator.prototype, 'getChannelSetupWorkflowPort').mockReturnValue({
@@ -856,7 +855,34 @@ describe('App bootstrap smoke', () => {
         let currentScreen: string | null = 'player';
         (AppOrchestrator.prototype.getCurrentScreen as unknown as jest.Mock).mockImplementation(() => currentScreen);
 
-        await bootstrapApp();
+        const appUnderTest = await bootstrapApp();
+        const lazyScreenRegistry = (appUnderTest as unknown as {
+            _lazyScreenRegistry: { getChannelSetupScreen: () => unknown } | null;
+        })._lazyScreenRegistry;
+        const cachedChannelSetupScreen = {
+            getPlannerDiagnosticsConfig: jest.fn(() => activeDraft),
+        };
+        if (!lazyScreenRegistry) {
+            throw new Error('Expected App to initialize lazy screen registry');
+        }
+        lazyScreenRegistry.getChannelSetupScreen = () => cachedChannelSetupScreen;
+
+        currentScreen = 'channel-setup';
+        await expect(
+            (window as {
+                lineup?: { dumpActiveChannelSetupPlannerDiagnostics: () => Promise<unknown> };
+            }).lineup?.dumpActiveChannelSetupPlannerDiagnostics()
+        ).resolves.toEqual(expect.objectContaining({
+            recordSource: 'active-screen',
+            config: activeDraft,
+        }));
+        expect(getSetupPlanDiagnostics).toHaveBeenCalledWith(activeDraft);
+        expect(cachedChannelSetupScreen.getPlannerDiagnosticsConfig).toHaveBeenCalledTimes(1);
+
+        getSetupPlanDiagnostics.mockClear();
+        cachedChannelSetupScreen.getPlannerDiagnosticsConfig.mockClear();
+
+        currentScreen = 'player';
 
         await expect(
             (window as {
@@ -867,6 +893,7 @@ describe('App bootstrap smoke', () => {
         );
 
         expect(getSetupPlanDiagnostics).not.toHaveBeenCalled();
+        expect(cachedChannelSetupScreen.getPlannerDiagnosticsConfig).not.toHaveBeenCalled();
     });
 
     it('handles debug key bindings when debug surface is enabled', async () => {
