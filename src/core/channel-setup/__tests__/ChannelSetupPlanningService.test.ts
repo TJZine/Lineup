@@ -259,6 +259,18 @@ describe('ChannelSetupPlanningService', () => {
             signal: expect.any(Object),
         }));
         expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
+            filter: { type: PLEX_MEDIA_TYPES.SHOW, genre: 'Drama' },
+            signal: expect.any(Object),
+        }));
+        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
+            filter: { type: PLEX_MEDIA_TYPES.EPISODE, director: 'John Roe' },
+            signal: expect.any(Object),
+        }));
+        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
+            filter: { type: PLEX_MEDIA_TYPES.EPISODE, year: '1988' },
+            signal: expect.any(Object),
+        }));
+        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
             filter: { type: PLEX_MEDIA_TYPES.EPISODE, year: '1981' },
             signal: expect.any(Object),
         }));

@@ -618,10 +618,16 @@ class ChannelSetupFacetSnapshotLoader {
                     if (!tag || tag.count !== null) {
                         continue;
                     }
-                    const count = await this._deps.plexLibrary.getLibraryItemCount(libraryId, {
-                        filter: buildChannelSetupFacetCountFilter(tag, family, mediaType),
-                        signal: tagSignal,
-                    });
+                    const countStart = performance.now();
+                    let count: number | null;
+                    try {
+                        count = await this._deps.plexLibrary.getLibraryItemCount(libraryId, {
+                            filter: buildChannelSetupFacetCountFilter(tag, family, mediaType),
+                            signal: tagSignal,
+                        });
+                    } finally {
+                        libraryQueryMs += performance.now() - countStart;
+                    }
                     if (count === null) {
                         throw {
                             name: 'Error',
