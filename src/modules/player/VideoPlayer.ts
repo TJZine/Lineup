@@ -28,6 +28,7 @@ import {
     DEFAULT_CONFIG,
 } from './constants';
 import { DeveloperSettingsStore } from '../settings/DeveloperSettingsStore';
+import { AudioSettingsStore } from '../settings/AudioSettingsStore';
 import { redactSensitiveTokens, safeStringifyForLog } from '../../utils/redact';
 import { summarizeErrorForLog } from '../../utils/errors';
 import type { PlatformPlaybackService, PlatformSubtitleService } from '../../platform';
@@ -107,7 +108,10 @@ export class VideoPlayer implements IVideoPlayer {
     private _subtitleManager: SubtitleManager;
 
     /** Audio track manager */
-    private _audioTrackManager: AudioTrackManager = new AudioTrackManager();
+    private readonly _audioSettingsStore = new AudioSettingsStore();
+    private _audioTrackManager: AudioTrackManager = new AudioTrackManager({
+        audioSettingsStore: this._audioSettingsStore,
+    });
 
     /** Event handler manager */
     private _eventManager: VideoPlayerEvents = new VideoPlayerEvents();

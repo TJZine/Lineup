@@ -9,8 +9,7 @@ import type { AudioTrack, PlaybackError } from './types';
 import { PlayerErrorCode as ErrorCode } from './types';
 import { AUDIO_TRACK_SWITCH_TIMEOUT_MS } from './constants';
 import { SUPPORTED_AUDIO_CODECS } from '../plex/stream/constants';
-import { isStoredTrue, safeLocalStorageGet } from '../../utils/storage';
-import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
+import type { AudioSettingsStore } from '../settings/AudioSettingsStore';
 
 // ============================================
 // Type Augmentation for AudioTrackList
@@ -60,6 +59,10 @@ const TRACK_SWITCH_POLL_INTERVAL_MS = 100;
 /**
  * Manages audio track switching with retry logic.
  */
+export type AudioTrackManagerDeps = {
+    audioSettingsStore: Pick<AudioSettingsStore, 'readDtsPassthroughEnabled'>;
+};
+
 export class AudioTrackManager {
     /** Reference to the video element */
     private _videoElement: HTMLVideoElement | null = null;
@@ -69,6 +72,12 @@ export class AudioTrackManager {
 
     /** Currently active track ID */
     private _activeTrackId: string | null = null;
+
+    private readonly _audioSettingsStore: Pick<AudioSettingsStore, 'readDtsPassthroughEnabled'>;
+
+    constructor(deps: AudioTrackManagerDeps) {
+        this._audioSettingsStore = deps.audioSettingsStore;
+    }
 
     /**
      * Initialize with a video element.
@@ -209,7 +218,7 @@ export class AudioTrackManager {
     private _isCodecSupported(codec: string): boolean {
         const normalizedCodec = codec.toLowerCase().trim();
         if (normalizedCodec === 'dts' || normalizedCodec === 'dca' || normalizedCodec.startsWith('dts')) {
-            return isStoredTrue(safeLocalStorageGet(LINEUP_STORAGE_KEYS.DTS_PASSTHROUGH));
+            return this._audioSettingsStore.readDtsPassthroughEnabled(false);
         }
         return SUPPORTED_AUDIO_CODECS.some(
             (supported) => normalizedCodec === supported || normalizedCodec.startsWith(supported)

@@ -80,9 +80,15 @@ function initializeWithVideo(manager: AudioTrackManager): HTMLVideoElement {
 
 describe('AudioTrackManager', () => {
     let manager: AudioTrackManager;
+    let readDtsPassthroughEnabled: jest.Mock<boolean, [boolean?]>;
 
     beforeEach(() => {
-        manager = new AudioTrackManager();
+        readDtsPassthroughEnabled = jest.fn().mockReturnValue(false);
+        manager = new AudioTrackManager({
+            audioSettingsStore: {
+                readDtsPassthroughEnabled,
+            },
+        });
     });
 
     afterEach(() => {
@@ -198,6 +204,22 @@ describe('AudioTrackManager', () => {
             await expect(manager.switchTrack('track-dts')).rejects.toMatchObject({
                 code: PlayerErrorCode.CODEC_UNSUPPORTED,
             });
+        });
+
+        it('should allow DTS when passthrough is enabled via AudioSettingsStore', async () => {
+            readDtsPassthroughEnabled.mockReturnValue(true);
+            const videoEl = createMockVideoElement([
+                { id: 'track-aac', enabled: true },
+                { id: 'track-dts', enabled: false },
+            ]);
+            manager.initialize(videoEl);
+            manager.setTracks([
+                createMockTrack({ id: 'track-aac', codec: 'aac' }),
+                createMockTrack({ id: 'track-dts', codec: 'dts', default: false }),
+            ]);
+
+            await expect(manager.switchTrack('track-dts')).resolves.toBeUndefined();
+            expect(manager.getActiveTrackId()).toBe('track-dts');
         });
 
         it('should handle case-insensitive codec matching (AAC, EAC3)', async () => {
