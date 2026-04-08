@@ -24,6 +24,7 @@ import {
     PlexHomeUser,
     PlexPinRequest,
     PlexAuthState,
+    PlexDeviceKey,
     StoredAuthData,
 } from './interfaces';
 import {
@@ -771,6 +772,7 @@ export class PlexAuth implements IPlexAuth {
             data.selectedServerByUserId,
             activeUserId
         );
+        const deviceKey = this._normalizeDeviceKey(data.deviceKey);
 
         return {
             kind: 'available',
@@ -779,7 +781,7 @@ export class PlexAuth implements IPlexAuth {
                 activeToken,
                 selectedServerByUserId,
                 activeUserId,
-                deviceKey: data.deviceKey ?? null,
+                deviceKey,
             },
         };
     }
@@ -833,6 +835,58 @@ export class PlexAuth implements IPlexAuth {
             ...token,
             issuedAt,
             expiresAt,
+        };
+    }
+
+    private _normalizeDeviceKey(deviceKey: unknown): PlexDeviceKey | null {
+        if (!deviceKey || typeof deviceKey !== 'object') {
+            return null;
+        }
+
+        const candidate = deviceKey as Partial<PlexDeviceKey> & {
+            createdAt?: unknown;
+            publicJwk?: unknown;
+        };
+
+        if (typeof candidate.kid !== 'string' || candidate.kid.length === 0) {
+            return null;
+        }
+
+        if (typeof candidate.privateKey !== 'string' || candidate.privateKey.length === 0) {
+            return null;
+        }
+
+        if (!candidate.publicJwk || typeof candidate.publicJwk !== 'object') {
+            return null;
+        }
+
+        const publicJwk = candidate.publicJwk as unknown as Record<string, unknown>;
+        if (
+            publicJwk.kty !== 'OKP' ||
+            publicJwk.crv !== 'Ed25519' ||
+            typeof publicJwk.x !== 'string' ||
+            publicJwk.alg !== 'EdDSA'
+        ) {
+            return null;
+        }
+
+        const createdAt = new Date(candidate.createdAt as string | number | Date);
+        if (Number.isNaN(createdAt.getTime())) {
+            return null;
+        }
+
+        return {
+            kid: candidate.kid,
+            privateKey: candidate.privateKey,
+            createdAt,
+            publicJwk: {
+                kty: 'OKP',
+                crv: 'Ed25519',
+                x: publicJwk.x,
+                alg: 'EdDSA',
+                ...(publicJwk.use === 'sig' ? { use: 'sig' as const } : {}),
+                ...(typeof publicJwk.kid === 'string' ? { kid: publicJwk.kid } : {}),
+            },
         };
     }
 

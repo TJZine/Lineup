@@ -532,6 +532,30 @@ describe('PlexAuth', () => {
             expect(result.credentials.selectedServerByUserId.user1?.serverId).toBe('server1');
         });
 
+        it('normalizes malformed persisted deviceKey payloads to null', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const token = createAuthToken('account-token', 'user-1');
+
+            mockLocalStorage.setItem(
+                PLEX_AUTH_CONSTANTS.STORAGE_KEY,
+                JSON.stringify({
+                    version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
+                    data: {
+                        ...createAuthData(token),
+                        deviceKey: {},
+                    },
+                })
+            );
+
+            await expect(auth.getStoredCredentials()).resolves.toEqual({
+                kind: 'available',
+                credentials: expect.objectContaining({
+                    activeUserId: 'user-1',
+                    deviceKey: null,
+                }),
+            });
+        });
+
         it('should return missing when storage access throws', async () => {
             jest.spyOn(mockLocalStorage, 'getItem').mockImplementation(() => {
                 throw new Error('blocked');
