@@ -623,6 +623,66 @@ describe('EPGVirtualizer', () => {
             expect(cell.classList.contains('epg-cell-sliver')).toBe(true);
         });
 
+        it('keeps focused episodes out of sliver suppression so compact subtitle and ticker behavior remain active', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-focused-episode-sliver';
+            const start = gridAnchorTime;
+            const end = start + (10 * 60000); // 40px rendered width
+
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60000),
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'focused-episode-sliver-1',
+                            type: 'episode',
+                            title: 'Episode With A Very Long Focused Subtitle',
+                            fullTitle: 'Prestige Show - S01E07 - Episode With A Very Long Focused Subtitle',
+                            showTitle: 'Prestige Show',
+                            seasonNumber: 1,
+                            episodeNumber: 7,
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+            virtualizer.setFocusedCell(channelId, start);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+            const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
+            const time = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
+
+            Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 180 });
+            Object.defineProperty(title, 'clientWidth', { configurable: true, value: 40 });
+            Object.defineProperty(subtitle, 'scrollWidth', { configurable: true, value: 200 });
+            Object.defineProperty(subtitle, 'clientWidth', { configurable: true, value: 40 });
+
+            virtualizer.setFocusedCell(channelId, start);
+
+            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
+            expect(cell.classList.contains('epg-cell-sliver')).toBe(false);
+            expect(subtitle.style.display).toBe('block');
+            expect(subtitle.textContent).toBe('S01E07 - Episode With A Very Long Focused Subtitle');
+            expect(time.style.display).toBe('none');
+            expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_READY)).toBe(true);
+        });
+
         it('shifts text for pre-anchor long programs after scrolling right', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-pre-anchor';
@@ -2418,6 +2478,7 @@ describe('EPGVirtualizer', () => {
 
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
             const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+            const meta = cell.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement;
             expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_WIDE)).toBe(true);
             expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
 
@@ -2425,6 +2486,7 @@ describe('EPGVirtualizer', () => {
             const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
             expect(title.textContent).toBe('Great Show');
             expect(subtitle.textContent).toBe('S01E03 - A Day At The Shore');
+            expect(meta.style.display).toBe('none');
             expect(subtitle.style.display).toBe('block');
             expect(time.style.display).toBe('none');
         });

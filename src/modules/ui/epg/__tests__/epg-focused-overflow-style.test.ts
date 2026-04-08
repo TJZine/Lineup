@@ -244,6 +244,16 @@ describe('focused EPG overflow style contract', () => {
         expect(directvBlock).toContain('var(--directv-focus-fill)');
     });
 
+    it('keeps an explicit glass classic row-focus selector so the pill overlay owns the focus fill', () => {
+        const block = getBlock('.theme-glass .epg-container.layout-classic .epg-channel-row.focused');
+        expect(block).toContain('background: transparent');
+    });
+
+    it('keeps an explicit swiss classic row-focus selector so classic swiss does not inherit the generic classic tint', () => {
+        const block = getBlock('.theme-swiss .epg-container.layout-classic .epg-channel-row.focused');
+        expect(block).toContain('rgba(var(--focus-color-rgb), 0.12)');
+    });
+
     it('keeps reduced-motion ticker suppression selectors', () => {
         const reducedMotionBlock = getAtRuleBlocks('@media (prefers-reduced-motion: reduce)')
             .find((block) => block.includes('.epg-cell-title.epg-cell-title-ticker-ready'));

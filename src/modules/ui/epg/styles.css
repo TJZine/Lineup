@@ -1803,6 +1803,10 @@
   box-shadow: none;
 }
 
+.theme-glass .epg-container.layout-classic .epg-channel-row.focused {
+  background: transparent;
+}
+
 .theme-glass .epg-channel-row.focused::before {
   background: rgba(var(--focus-color-rgb), 0.14);
   border: 1px solid rgba(var(--focus-color-rgb), 0.28);
@@ -1833,6 +1837,10 @@
 }
 
 .theme-ember-steel .epg-channel-row.focused {
+  background: rgba(var(--focus-color-rgb), 0.18);
+}
+
+.theme-ember-steel .epg-container.layout-classic .epg-channel-row.focused {
   background: rgba(var(--focus-color-rgb), 0.18);
 }
 
@@ -1900,6 +1908,10 @@
 }
 
 .theme-swiss .epg-channel-row.focused {
+  background: rgba(var(--focus-color-rgb), 0.12);
+}
+
+.theme-swiss .epg-container.layout-classic .epg-channel-row.focused {
   background: rgba(var(--focus-color-rgb), 0.12);
 }
 

@@ -1284,7 +1284,7 @@ export class EPGVirtualizer {
             !usesFocusedCompactLayout &&
             cellData.kind === 'program' &&
             cellData.program.item.type === 'movie';
-        const usesSliverPresentation = this.isSliverCell(cellData);
+        const usesSliverPresentation = this.isSliverCell(cellData) && !usesFocusedCompactLayout;
         element.classList.toggle(EPG_CLASSES.CELL_FOCUSED_COMPACT, usesFocusedCompactLayout);
         element.classList.toggle(FOCUSED_MOVIE_OVERLAY_CLASS, usesFocusedMovieOverlay);
         element.classList.toggle(SLIVER_CELL_CLASS, usesSliverPresentation);
@@ -1305,7 +1305,7 @@ export class EPGVirtualizer {
         }
 
         if (tier === 'wide') {
-            if (meta) meta.style.display = hasMetaContent ? 'flex' : 'none';
+            if (meta) meta.style.display = usesFocusedCompactLayout ? 'none' : hasMetaContent ? 'flex' : 'none';
             if (subtitle) subtitle.style.display = hasSubtitleContent ? 'block' : 'none';
             if (time) time.style.display = usesFocusedCompactLayout ? 'none' : 'block';
         } else if (tier === 'medium') {
