@@ -17,7 +17,7 @@ import { IssueDiagnosticsStore } from '../../debug/IssueDiagnosticsStore';
 import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import {
-    readAppliedLibraryFilterState,
+    computeNormalizedLibraryFilterState,
     selectVisibleChannelsForLibraryFilter,
 } from './EPGCoordinatorPolicies';
 import { countLibraryTypeVotes } from './epgLibraryUtils';
@@ -294,10 +294,13 @@ export class EPGCoordinator {
         if (!epg || !channelManager) return;
         if (this.deps.getEpgUiStatus() !== 'ready') return;
         const all = channelManager.getAllChannels();
-        const { selectedId, tabsEnabled, shouldFilter, libraries } = readAppliedLibraryFilterState(
+        const { selectedId, tabsEnabled, shouldFilter, libraries, shouldClearPersistedSelection } = computeNormalizedLibraryFilterState(
             all,
-            this._epgPreferencesStore
+            this._epgPreferencesStore.readScheduleRangeSnapshot()
         );
+        if (shouldClearPersistedSelection) {
+            this._epgPreferencesStore.writeSelectedLibraryId(null);
+        }
 
         // Category colors
         const categoryColorsEnabled = this._epgPreferencesStore.readGuideCategoryColorsEnabled(true);
@@ -451,7 +454,13 @@ export class EPGCoordinator {
         const current = channelManager.getCurrentChannel();
         if (!current) return;
         const all = channelManager.getAllChannels();
-        const { selectedId, shouldFilter } = readAppliedLibraryFilterState(all, this._epgPreferencesStore);
+        const { selectedId, shouldFilter, shouldClearPersistedSelection } = computeNormalizedLibraryFilterState(
+            all,
+            this._epgPreferencesStore.readScheduleRangeSnapshot()
+        );
+        if (shouldClearPersistedSelection) {
+            this._epgPreferencesStore.writeSelectedLibraryId(null);
+        }
         const channels = selectVisibleChannelsForLibraryFilter(all, selectedId, shouldFilter);
         const index = channels.findIndex((channel) => channel.id === current.id);
         if (index >= 0) {

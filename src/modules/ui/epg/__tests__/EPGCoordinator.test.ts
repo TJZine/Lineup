@@ -978,7 +978,7 @@ describe('EPGCoordinator', () => {
         expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
     });
 
-    it('primeEpgChannels clears an invalid persisted filter through the normalization helper', () => {
+    it('primeEpgChannels clears an invalid persisted filter through explicit runtime-owner cleanup', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'missing-lib');
 
@@ -994,14 +994,21 @@ describe('EPGCoordinator', () => {
                 getAllChannels: () => allChannels,
             } as IChannelManager),
         });
-        const readAppliedLibraryFilterStateSpy = jest.spyOn(EPGCoordinatorPolicies, 'readAppliedLibraryFilterState');
+        const computeNormalizedLibraryFilterStateSpy = jest.spyOn(EPGCoordinatorPolicies, 'computeNormalizedLibraryFilterState');
         const epgPreferencesStore = deps.epgPreferencesStore as EpgPreferencesStore;
         const writeSelectedLibraryIdSpy = jest.spyOn(epgPreferencesStore, 'writeSelectedLibraryId');
         const coordinator = new EPGCoordinator(deps);
 
         coordinator.primeEpgChannels();
 
-        expect(readAppliedLibraryFilterStateSpy).toHaveBeenCalledWith(allChannels, epgPreferencesStore);
+        expect(computeNormalizedLibraryFilterStateSpy).toHaveBeenCalledWith(
+            allChannels,
+            {
+                pastItemsWindowSetting: 'auto',
+                tabsEnabled: true,
+                selectedLibraryId: 'missing-lib',
+            }
+        );
         expect(writeSelectedLibraryIdSpy).toHaveBeenCalledTimes(1);
         expect(writeSelectedLibraryIdSpy).toHaveBeenCalledWith(null);
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();

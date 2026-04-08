@@ -17,8 +17,8 @@ import type { EpgUiStatus, EpgVisibleRange } from './types';
 import { EPGVisibleRangeRefreshQueue } from './runtime/EPGVisibleRangeRefreshQueue';
 import { EPGScheduleRefreshRuntime } from './runtime/EPGScheduleRefreshRuntime';
 import {
+    computeNormalizedLibraryFilterState,
     computeEpgScheduleRangeMs,
-    readAppliedLibraryFilterState,
     selectVisibleChannelsForLibraryFilter,
 } from './EPGCoordinatorPolicies';
 import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from './debugRuntimeGuards';
@@ -111,7 +111,13 @@ export class EPGRefreshController {
         selectedId: string | null;
         shouldFilter: boolean;
     } {
-        const { selectedId, shouldFilter } = readAppliedLibraryFilterState(allChannels, this._deps.epgPreferencesStore);
+        const { selectedId, shouldFilter, shouldClearPersistedSelection } = computeNormalizedLibraryFilterState(
+            allChannels,
+            this._deps.epgPreferencesStore.readScheduleRangeSnapshot()
+        );
+        if (shouldClearPersistedSelection) {
+            this._deps.epgPreferencesStore.writeSelectedLibraryId(null);
+        }
         return { selectedId, shouldFilter };
     }
 

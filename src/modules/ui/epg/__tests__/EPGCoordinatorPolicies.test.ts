@@ -1,10 +1,8 @@
 import type { ChannelConfig, PlaybackMode } from '../../../scheduler/channel-manager';
-import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
 import type { EPGConfig } from '../types';
 import {
     computeEpgScheduleRangeMs,
     computeNormalizedLibraryFilterState,
-    readAppliedLibraryFilterState,
 } from '../EPGCoordinatorPolicies';
 
 const makeChannel = (
@@ -55,22 +53,17 @@ describe('EPGCoordinatorPolicies', () => {
         expect(result.shouldClearPersistedSelection).toBe(true);
     });
 
-    it('applies invalid persisted library cleanup through one explicit boundary helper', () => {
+    it('returns invalid persisted library cleanup intent without mutating persistence', () => {
         const channels = [makeChannel('c1', 1, 'lib-a')];
-        const epgPreferencesStore = {
-            readScheduleRangeSnapshot: jest.fn(() => ({
-                pastItemsWindowSetting: 'auto' as const,
-                tabsEnabled: true,
-                selectedLibraryId: 'missing-lib',
-            })),
-            writeSelectedLibraryId: jest.fn(),
-        } as unknown as Pick<EpgPreferencesStore, 'readScheduleRangeSnapshot' | 'writeSelectedLibraryId'>;
-
-        const result = readAppliedLibraryFilterState(channels, epgPreferencesStore);
+        const result = computeNormalizedLibraryFilterState(channels, {
+            pastItemsWindowSetting: 'auto',
+            tabsEnabled: true,
+            selectedLibraryId: 'missing-lib',
+        });
 
         expect(result.selectedId).toBeNull();
         expect(result.shouldFilter).toBe(false);
-        expect(epgPreferencesStore.writeSelectedLibraryId).toHaveBeenCalledWith(null);
+        expect(result.shouldClearPersistedSelection).toBe(true);
     });
 
     it('clears active filtering when tabs are disabled without clearing persisted selection', () => {
