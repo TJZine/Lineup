@@ -78,6 +78,9 @@ import {
 } from '../../modules/ui/exit-confirm';
 import { SleepTimerManager } from '../../modules/ui/sleep-timer';
 import { ChannelSetupCoordinator } from '../channel-setup';
+import type { ChannelSetupConfig } from '../channel-setup';
+import { ChannelSetupPlanningService } from '../channel-setup/ChannelSetupPlanningService';
+import { ChannelSetupRecordStore } from '../channel-setup/ChannelSetupRecordStore';
 import { ChannelTuningCoordinator } from '../channel-tuning';
 import type { GuideSelectionSnapshot } from '../channel-tuning';
 import type { ModuleStatus, OrchestratorConfig } from './OrchestratorTypes';
@@ -284,15 +287,26 @@ export function createOrchestratorCoordinators(
             ) ?? deps.config.epgConfig;
     }
 
+    const channelSetupPlanningService = new ChannelSetupPlanningService({
+        plexLibrary: deps.plexLibrary,
+        channelManager: deps.channelManager,
+    });
+
     const channelSetup = new ChannelSetupCoordinator({
+        recordStore: new ChannelSetupRecordStore({
+            storageGet: (key: string): string | null => safeLocalStorageGet(key),
+            storageSet: (key: string, value: string): void => {
+                safeLocalStorageSet(key, value);
+            },
+            storageRemove: (key: string): void => {
+                safeLocalStorageRemove(key);
+            },
+            normalizeConfig: (config: ChannelSetupConfig): ChannelSetupConfig => channelSetupPlanningService.normalizeConfig(config),
+        }),
         plexLibrary: deps.plexLibrary,
         channelManager: deps.channelManager,
         navigation: deps.navigation,
         getSelectedServerId: (): string | null => deps.getSelectedServerId(),
-        storageGet: (key: string): string | null => safeLocalStorageGet(key),
-        storageSet: (key: string, value: string): void => {
-            safeLocalStorageSet(key, value);
-        },
         storageRemove: (key: string): void => {
             safeLocalStorageRemove(key);
         },

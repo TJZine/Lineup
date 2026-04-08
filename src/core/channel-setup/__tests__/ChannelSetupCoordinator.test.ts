@@ -5,6 +5,7 @@
 import { ChannelSetupCoordinator } from '../ChannelSetupCoordinator';
 import type { ChannelSetupCoordinatorDeps } from '../ChannelSetupCoordinator';
 import { ChannelSetupPlanningService } from '../ChannelSetupPlanningService';
+import { ChannelSetupRecordStore } from '../ChannelSetupRecordStore';
 import type { ChannelSetupConfig, ChannelSetupRecord, SetupStrategyConfig, SetupStrategyKey } from '../types';
 import type { IPlexLibrary, PlexLibraryType, PlexTagDirectoryItem } from '../../../modules/plex/library';
 import type { IChannelManager, ChannelConfig } from '../../../modules/scheduler/channel-manager';
@@ -79,8 +80,6 @@ type CoordinatorHarness = {
     channelManager: jest.Mocked<IChannelManager>;
     navigation: jest.Mocked<INavigationManager>;
     storage: Map<string, string>;
-    storageGet: jest.Mock<string | null, [string]>;
-    storageSet: jest.Mock<void, [string, string]>;
     storageRemove: jest.Mock<void, [string]>;
     getSelectedServerId: jest.Mock<string | null, []>;
 };
@@ -110,12 +109,19 @@ const createCoordinator = (overrides?: Partial<ChannelSetupCoordinatorDeps>): Co
     } as unknown as jest.Mocked<INavigationManager>;
 
     const storage = new Map<string, string>();
-    const storageGet = jest.fn((key: string) => storage.get(key) ?? null);
-    const storageSet = jest.fn((key: string, value: string) => {
+    const storageSet = (key: string, value: string): void => {
         storage.set(key, value);
-    });
+    };
     const storageRemove = jest.fn((key: string) => {
         storage.delete(key);
+    });
+    const recordStore = new ChannelSetupRecordStore({
+        storageGet: (key: string): string | null => storage.get(key) ?? null,
+        storageSet,
+        storageRemove: (key: string): void => {
+            storage.delete(key);
+        },
+        normalizeConfig: (config: ChannelSetupConfig): ChannelSetupConfig => config,
     });
 
     const getSelectedServerId = jest.fn().mockReturnValue('server-1');
@@ -125,8 +131,7 @@ const createCoordinator = (overrides?: Partial<ChannelSetupCoordinatorDeps>): Co
         channelManager,
         navigation,
         getSelectedServerId,
-        storageGet,
-        storageSet,
+        recordStore,
         storageRemove,
         handleGlobalError: jest.fn(),
         ensureEpgInitialized: jest.fn().mockResolvedValue(undefined),
@@ -145,8 +150,6 @@ const createCoordinator = (overrides?: Partial<ChannelSetupCoordinatorDeps>): Co
         channelManager,
         navigation,
         storage,
-        storageGet,
-        storageSet,
         storageRemove,
         getSelectedServerId,
     };
@@ -249,14 +252,19 @@ describe('ChannelSetupCoordinator', () => {
         expect(navigation.goTo).not.toHaveBeenCalled();
     });
 
-    it('requestChannelSetupRerun clears storage and navigates when server id exists', () => {
-        const { coordinator, storageRemove, navigation } = createCoordinator({
+    it('requestChannelSetupRerun clears setup record and navigates when server id exists', () => {
+        const { coordinator, storage, navigation } = createCoordinator({
             getSelectedServerId: jest.fn().mockReturnValue('server-9'),
         });
+        storage.set('lineup_channel_setup_v2:server-9', JSON.stringify({
+            ...createConfig({ serverId: 'server-9' }),
+            createdAt: 1,
+            updatedAt: 2,
+        }));
 
         coordinator.requestChannelSetupRerun();
 
-        expect(storageRemove).toHaveBeenCalledWith('lineup_channel_setup_v2:server-9');
+        expect(storage.has('lineup_channel_setup_v2:server-9')).toBe(false);
         expect(navigation.goTo).toHaveBeenCalledWith('channel-setup');
         expect(coordinator.shouldRunChannelSetup()).toBe(true);
     });
