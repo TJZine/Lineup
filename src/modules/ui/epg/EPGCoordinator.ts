@@ -13,7 +13,7 @@ import type {
     IChannelScheduler,
     ScheduleConfig,
 } from '../../scheduler/scheduler';
-import { IssueDiagnosticsStore } from '../../debug/IssueDiagnosticsStore';
+import type { AppendIssueDiagnostic } from '../../debug/IssueDiagnosticsStore';
 import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import {
@@ -57,13 +57,13 @@ export interface EPGCoordinatorDeps {
     onVisibilityChange?: (visible: boolean) => void;
     reportEpgInitWarning: (error: unknown) => void;
     epgPreferencesStore: EpgPreferencesStore;
+    appendIssueDiagnostic: AppendIssueDiagnostic;
 }
 
 const DEFAULT_GUIDE_DENSITY: EpgGuideDensity = 'detailed';
 const DETAILED_VISIBLE_HOURS = 2;
 const WIDE_VISIBLE_HOURS = 3;
 const QA_003B_ISSUE_ID = 'QA-003b';
-const issueDiagnosticsStore = new IssueDiagnosticsStore();
 
 export class EPGCoordinator {
     private readonly _epgPreferencesStore: EpgPreferencesStore;
@@ -90,6 +90,8 @@ export class EPGCoordinator {
             ): ScheduleConfig => this.deps.buildDailyScheduleConfig(channel, items, referenceTimeMs),
             epgPreferencesStore: this._epgPreferencesStore,
             primeEpgChannels: (): void => this.primeEpgChannels(),
+            appendIssueDiagnostic: (issue: string, event: string, data: unknown): void =>
+                this.deps.appendIssueDiagnostic(issue, event, data),
         });
     }
 
@@ -376,7 +378,7 @@ export class EPGCoordinator {
             if (now < scheduledStartTime || now >= scheduledEndTime) {
                 return;
             }
-            issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'epg.channelSelected', {
+            this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'epg.channelSelected', {
                 channelId: payload.channel.id,
                 ratingKey: payload.program.item.ratingKey,
                 scheduledStartTime,
@@ -503,7 +505,7 @@ export class EPGCoordinator {
             if (isAbortLikeError(error, controller.signal)) {
                 return;
             }
-            issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'epg.guideSnapshotBuildFailed', {
+            this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'epg.guideSnapshotBuildFailed', {
                 channelId,
                 ratingKey: program.item.ratingKey,
                 selectedAt,

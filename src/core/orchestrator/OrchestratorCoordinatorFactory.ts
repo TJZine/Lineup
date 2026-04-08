@@ -86,6 +86,7 @@ import type { GuideSelectionSnapshot } from '../channel-tuning';
 import type { ModuleStatus, OrchestratorConfig } from './OrchestratorTypes';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import { NowPlayingDebugManager } from '../../modules/debug/NowPlayingDebugManager';
+import type { AppendIssueDiagnostic } from '../../modules/debug/IssueDiagnosticsStore';
 import { EpgPreferencesStore } from '../../modules/settings/EpgPreferencesStore';
 import { NowPlayingDisplayStore } from '../../modules/settings/NowPlayingDisplayStore';
 import { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
@@ -131,6 +132,9 @@ export interface OrchestratorCoordinatorFactoryDeps {
         epgPreferencesStore: EpgPreferencesStore;
         nowPlayingDisplayStore: NowPlayingDisplayStore;
         profileSessionStore: ProfileSessionStore;
+    };
+    diagnostics: {
+        appendIssueDiagnostic: AppendIssueDiagnostic;
     };
     playback: {
         state: OrchestratorPlaybackStateAccessors;
@@ -219,6 +223,7 @@ export function createOrchestratorCoordinators(
         epgPreferencesStore: input.stores.epgPreferencesStore,
         nowPlayingDisplayStore: input.stores.nowPlayingDisplayStore,
         profileSessionStore: input.stores.profileSessionStore,
+        appendIssueDiagnostic: input.diagnostics.appendIssueDiagnostic,
         playbackState: input.playback.state,
         lastChannelChangeSource: input.schedule.lastChannelChangeSource,
         setLastChannelChangeSource: input.schedule.setLastChannelChangeSource,
@@ -278,6 +283,7 @@ export function createOrchestratorCoordinators(
             });
         },
         epgPreferencesStore: deps.epgPreferencesStore,
+        appendIssueDiagnostic: deps.appendIssueDiagnostic,
     });
     if (deps.config?.epgConfig) {
         deps.config.epgConfig =
@@ -472,6 +478,7 @@ export function createOrchestratorCoordinators(
             handler(type ? { message, type } : message);
         },
         subtitlePreferencesStore: deps.subtitlePreferencesStore,
+        appendIssueDiagnostic: deps.appendIssueDiagnostic,
         handleGlobalError: (error: AppError, context: string): void =>
             deps.handleGlobalError(error, context),
     });
@@ -504,6 +511,7 @@ export function createOrchestratorCoordinators(
         armChannelTransitionForSwitch: (prefix: string): void => {
             channelTransitionCoordinator.armForChannelSwitch(prefix);
         },
+        appendIssueDiagnostic: deps.appendIssueDiagnostic,
         handleGlobalError: (error: AppError, context: string): void =>
             deps.handleGlobalError(error, context),
         saveLifecycleState: (): Promise<void> => deps.lifecycle.saveState(),

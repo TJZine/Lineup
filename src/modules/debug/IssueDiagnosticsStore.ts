@@ -9,6 +9,8 @@ export interface IssueDiagnosticEntry {
     data: unknown;
 }
 
+export type AppendIssueDiagnostic = (issue: string, event: string, data: unknown) => void;
+
 const ISSUE_DIAGNOSTICS_MAX_ENTRIES = 250;
 
 export class IssueDiagnosticsStore {

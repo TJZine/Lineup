@@ -153,6 +153,9 @@ const makeDeps = (
             nowPlayingDisplayStore,
             profileSessionStore,
         },
+        diagnostics: {
+            appendIssueDiagnostic: jest.fn(),
+        },
         playback: {
             state: playbackState,
             getPlaybackInfoSnapshot: jest.fn().mockReturnValue(null),

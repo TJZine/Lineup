@@ -13,7 +13,7 @@ import type {
     ScheduleConfig,
     ScheduleWindow,
 } from '../../../scheduler/scheduler';
-import { IssueDiagnosticsStore } from '../../../debug/IssueDiagnosticsStore';
+import type { AppendIssueDiagnostic } from '../../../debug/IssueDiagnosticsStore';
 import type { IEPGComponent } from '../interfaces';
 import { computeBackgroundWarmQueueCaps, partitionPrefetchChannels } from '../EPGCoordinatorPolicies';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
@@ -25,7 +25,6 @@ import type { GuideSelectionSnapshot } from '../../../../core/channel-tuning';
 
 const EPG_BACKGROUND_DEBUG_LOG_EVERY_N = 20;
 const QA_003B_ISSUE_ID = 'QA-003b';
-const issueDiagnosticsStore = new IssueDiagnosticsStore();
 
 type EpgUiStatus = ModuleRuntimeStatus | undefined;
 
@@ -101,6 +100,7 @@ export interface EPGScheduleRefreshRuntimeDeps {
     isAggressivePreloadEnabled: () => boolean;
     isDebugEnabled: () => boolean;
     appendDebugLog: (event: string, payload: Record<string, unknown>) => void;
+    appendIssueDiagnostic: AppendIssueDiagnostic;
 }
 
 export class EPGScheduleRefreshRuntime {
@@ -409,7 +409,7 @@ export class EPGScheduleRefreshRuntime {
                 const currentProgram =
                     schedule.programs.find((program) => now >= program.scheduledStartTime && now < program.scheduledEndTime) ??
                     null;
-                issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'epg.scheduleApplied', {
+                this._deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'epg.scheduleApplied', {
                     channelId,
                     phase,
                     source: options?.source ?? 'resolved-immediate',

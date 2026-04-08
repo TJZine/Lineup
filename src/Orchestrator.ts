@@ -115,7 +115,7 @@ import {
 } from './core/channel-setup';
 import { NowPlayingDebugManager } from './modules/debug/NowPlayingDebugManager';
 import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
-import { IssueDiagnosticsStore } from './modules/debug/IssueDiagnosticsStore';
+import { IssueDiagnosticsStore, type AppendIssueDiagnostic } from './modules/debug/IssueDiagnosticsStore';
 import { NowPlayingInfoCoordinator } from './modules/ui/now-playing-info/NowPlayingInfoCoordinator';
 import { PlaybackOptionsCoordinator } from './modules/ui/playback-options';
 import { EpgPreferencesStore } from './modules/settings/EpgPreferencesStore';
@@ -147,7 +147,6 @@ import { InitializationUiInitializer } from './core/initialization/Initializatio
 export type { ModuleStatus, OrchestratorConfig } from './core/orchestrator/OrchestratorTypes';
 
 const QA_003B_ISSUE_ID = 'QA-003b';
-const issueDiagnosticsStore = new IssueDiagnosticsStore();
 
 export type {
     ChannelSetupConfig,
@@ -296,6 +295,7 @@ export class AppOrchestrator {
     private readonly _platformServices: PlatformServices;
     private readonly _storageContext: OrchestratorStorageContext;
     private readonly _debugOverridesStore = new DebugOverridesStore();
+    private readonly _issueDiagnosticsStore = new IssueDiagnosticsStore();
     private _epgDebugRuntime: IEpgDebugRuntime | null = null;
     private readonly _playbackStateAccessors: OrchestratorPlaybackStateAccessors;
     private readonly _channelSetupWorkflowPort: ChannelSetupWorkflowPort;
@@ -539,6 +539,10 @@ export class AppOrchestrator {
             throw new Error('Orchestrator coordinator initialization requires module instances');
         }
 
+        const appendIssueDiagnostic: AppendIssueDiagnostic = (issue: string, event: string, data: unknown): void => {
+            this._issueDiagnosticsStore.append(issue, event, data);
+        };
+
         const coordinators = createOrchestratorCoordinators({
             epgDebugRuntime: this._epgDebugRuntime,
             config: this._config,
@@ -575,6 +579,9 @@ export class AppOrchestrator {
                 epgPreferencesStore: this._epgPreferencesStore,
                 nowPlayingDisplayStore: this._nowPlayingDisplayStore,
                 profileSessionStore: this._profileSessionStore,
+            },
+            diagnostics: {
+                appendIssueDiagnostic,
             },
             playback: {
                 state: this._playbackStateAccessors,
@@ -670,7 +677,7 @@ export class AppOrchestrator {
             getCurrentStreamDecision: (): StreamDecision | null => this._currentStreamDecision,
             getCurrentStreamDescriptor: (): StreamDescriptor | null => this._currentStreamDescriptor,
             appendIssueDiagnostic: ({ key, data }): void => {
-                issueDiagnosticsStore.append(QA_003B_ISSUE_ID, key, data);
+                appendIssueDiagnostic(QA_003B_ISSUE_ID, key, data);
             },
         });
     }

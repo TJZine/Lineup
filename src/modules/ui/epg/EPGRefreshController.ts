@@ -10,7 +10,7 @@ import type {
 } from '../../scheduler/scheduler';
 import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
 import type { GuideSettingChange } from '../settings/types';
-import { IssueDiagnosticsStore } from '../../debug/IssueDiagnosticsStore';
+import type { AppendIssueDiagnostic } from '../../debug/IssueDiagnosticsStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import type { IEPGComponent } from './interfaces';
 import type { EpgUiStatus, EpgVisibleRange } from './types';
@@ -33,7 +33,6 @@ const EPG_SCHEDULE_CACHE_MIN_ENTRIES_AGGRESSIVE = 120;
 const EPG_SCHEDULE_CACHE_MAX_ENTRIES_AGGRESSIVE = 360;
 
 const QA_003B_ISSUE_ID = 'QA-003b';
-const issueDiagnosticsStore = new IssueDiagnosticsStore();
 
 export interface EPGRefreshControllerDeps {
     getEpg: () => IEPGComponent | null;
@@ -48,6 +47,7 @@ export interface EPGRefreshControllerDeps {
         items: ResolvedChannelContent['items'],
         referenceTimeMs: number
     ) => ScheduleConfig;
+    appendIssueDiagnostic: AppendIssueDiagnostic;
     epgPreferencesStore: EpgPreferencesStore;
     primeEpgChannels: () => void;
 }
@@ -89,6 +89,8 @@ export class EPGRefreshController {
             isAggressivePreloadEnabled: (): boolean => this._isAggressivePreloadEnabled(),
             isDebugEnabled: (): boolean => this._isDebugEnabled(),
             appendDebugLog: (event: string, payload: Record<string, unknown>): void => this._appendDebugLog(event, payload),
+            appendIssueDiagnostic: (issue: string, event: string, data: unknown): void =>
+                this._deps.appendIssueDiagnostic(issue, event, data),
         });
         this._visibleRangeRefreshQueue = new EPGVisibleRangeRefreshQueue(
             (range: EpgVisibleRange, reason: string) => this._refreshEpgSchedulesForRange(range, reason)
@@ -244,7 +246,7 @@ export class EPGRefreshController {
             const currentProgram =
                 schedule.programs.find((program) => now >= program.scheduledStartTime && now < program.scheduledEndTime) ??
                 null;
-            issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'epg.liveRowOverwrite', {
+            this._deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'epg.liveRowOverwrite', {
                 channelId: current.id,
                 source: 'live-scheduler',
                 rangeStartTime: range.startTime,
