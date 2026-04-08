@@ -5,7 +5,7 @@
 import { InitializationCoordinator } from '../InitializationCoordinator';
 import type { InitializationDependencies, InitializationCallbacks } from '../InitializationCoordinator';
 import { CLASSIC_EPG_PIP_CLASS } from '../initialization/InitializationStartupPolicy';
-import type { PlexAuthDataV2 } from '../../modules/plex/auth';
+import type { PlexAuthDataV2, PlexStoredCredentialsReadResult } from '../../modules/plex/auth';
 import { CHANNEL_BADGE_CONTAINER_ID } from '../../modules/ui/channel-badge';
 import { EpgPreferencesStore, type EpgLayoutMode } from '../../modules/settings/EpgPreferencesStore';
 import { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
@@ -15,29 +15,32 @@ const createStoredCredentials = (
     activeToken: string,
     accountToken: string,
     userId: string = 'user-1'
-): PlexAuthDataV2 => ({
-    accountToken: {
-        token: accountToken,
-        userId,
-        username: 'account',
-        email: 'account@example.com',
-        thumb: '',
-        expiresAt: null,
-        issuedAt: new Date(),
-    },
-    activeToken: {
-        token: activeToken,
-        userId,
-        username: 'active',
-        email: 'active@example.com',
-        thumb: '',
-        expiresAt: null,
-        issuedAt: new Date(),
-    },
-    activeUserId: userId,
-    selectedServerByUserId: {
-        [userId]: { serverId: null, serverUri: null },
-    },
+): PlexStoredCredentialsReadResult => ({
+    kind: 'available',
+    credentials: {
+        accountToken: {
+            token: accountToken,
+            userId,
+            username: 'account',
+            email: 'account@example.com',
+            thumb: '',
+            expiresAt: null,
+            issuedAt: new Date(),
+        },
+        activeToken: {
+            token: activeToken,
+            userId,
+            username: 'active',
+            email: 'active@example.com',
+            thumb: '',
+            expiresAt: null,
+            issuedAt: new Date(),
+        },
+        activeUserId: userId,
+        selectedServerByUserId: {
+            [userId]: { serverId: null, serverUri: null },
+        },
+    } satisfies PlexAuthDataV2,
 });
 
 describe('InitializationCoordinator (Plex Home)', () => {
@@ -107,7 +110,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         } as unknown as LegacyInitializationDependencies['navigation'];
 
         const plexAuth = {
-            getStoredCredentials: jest.fn().mockResolvedValue(null),
+            getStoredCredentials: jest.fn().mockResolvedValue({ kind: 'missing' }),
             validateToken: jest.fn().mockResolvedValue(true),
             getCurrentUser: jest.fn().mockReturnValue(null),
             storeCredentials: jest.fn().mockResolvedValue(undefined),
@@ -336,7 +339,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             getStoredCredentials: jest.Mock;
         };
 
-        plexAuth.getStoredCredentials.mockResolvedValue(null);
+        plexAuth.getStoredCredentials.mockResolvedValue({ kind: 'missing' });
 
         await coordinator.runStartup(1);
 

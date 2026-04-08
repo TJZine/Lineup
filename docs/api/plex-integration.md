@@ -38,10 +38,13 @@ Pin-based OAuth flow for TV devices.
 interface IPlexAuth {
   requestPin(): Promise<PlexPinRequest>;
   checkPinStatus(pinId: number): Promise<PlexPinRequest>;
+  getStoredCredentials(): Promise<PlexStoredCredentialsReadResult>;
   // Throws PlexApiError for malformed success payloads and non-abort network failures.
   validateToken(token: string): Promise<boolean>;
 }
 ```
+
+Stored-credentials reads now distinguish `missing`, `available`, and `corrupted`. Corrupted payloads are cleared by `PlexAuth` and surfaced distinctly from first-run missing state.
 
 ## Library Access (`IPlexLibrary`)
 

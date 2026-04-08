@@ -662,10 +662,19 @@ These are the required repo-local boundary skills for the new wave. Load them be
     - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur` -> `resolved` -> owner `P4-W2`; proof: current source still keeps `Orchestrator` as delegation/wiring surface while EPG runtime policy entrypoints remain in `EPGCoordinator`; detector check now reports no open issue.
     - `review::.::holistic::api_surface_coherence::epg_readiness_split_contract` -> `resolved` -> owner `P4-W2`; proof: readiness seam now routes through a real startup owner callback with truthful construction order; detector check now reports no open issue.
     - `review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam` -> `resolved` -> owner `P4-W2`; proof: refresh runtime remains internally owned by `EPGRefreshController`/`EPGScheduleRefreshRuntime` with explicit injected diagnostics seam; detector check now reports no open issue.
-- [ ] `P4-W3` make corrupted stored Plex auth observable instead of silently folding it into clean absence
+- [x] `P4-W3` make corrupted stored Plex auth observable instead of silently folding it into clean absence
   - Imported review issues: `review::.::holistic::contract_coherence::plex_auth_stored_credentials_null_hides_corruption`
   - Primary files: `src/modules/plex/auth/PlexAuth.ts`, `src/modules/plex/auth/interfaces.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` command for the mapped id
+  - Execution (2026-04-08): replaced `IPlexAuth.getStoredCredentials()` null contract with `PlexStoredCredentialsReadResult` (`missing` | `available` | `corrupted`) and kept corruption detection/cleanup private to `PlexAuth`; constructor-time corruption is surfaced once via a boot marker, corrupted payloads are cleared by `PlexAuth`, startup auth gate now routes `kind: 'corrupted'` to pending-auth with `STORAGE_CORRUPTED`, and Orchestrator/internal profile-switch/logout carry-forward reuse persisted metadata only when `kind === 'available'`.
+  - Verification (2026-04-08):
+    - `npm test -- --runInBand src/modules/plex/auth/__tests__/PlexAuth.test.ts src/core/initialization/__tests__/InitializationStartupPolicy.test.ts src/__tests__/Orchestrator.test.ts` (pass)
+    - `npm run verify` (pass)
+    - `desloppify show "review::.::holistic::contract_coherence::plex_auth_stored_credentials_null_hides_corruption" --status open --no-budget` -> `No open issues matching: review::.::holistic::contract_coherence::plex_auth_stored_credentials_null_hides_corruption`
+  - Proof matrix (2026-04-08 source audit):
+    - `review::.::holistic::contract_coherence::plex_auth_stored_credentials_null_hides_corruption` -> `resolved` -> owner `P4-W3`; proof: malformed persisted auth is now observable as `kind: 'corrupted'` instead of being collapsed into clean absence, cleanup remains inside `PlexAuth`, and blocked storage writes do not fabricate persisted availability.
+  - Explicit `P4-EXIT` fallback disposition language (required before any `P5` work):
+    - If the exact detector id above ever reappears after this slice, `P4-EXIT` is the single final owner for reconciliation (`resolved on current-code proof with stale detector residue` vs `split follow-up` only when a different live owner is proven). No `P5` plan/code/checklist progress may begin until `P4-EXIT` records that explicit disposition with owner, reason, revisit trigger, and refreshed evidence.
 - [ ] `P4-EXIT` run the priority-exit review before moving to `P5`
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P5` plan, code, or checklist progress starts until every `P4` mapped id has an explicit disposition record
