@@ -899,10 +899,56 @@ These are the required repo-local boundary skills for the new wave. Load them be
   - Inherited follow-ups:
     - Source `P1-EXIT` disposition `split follow-up`: `review::.::holistic::cross_module_architecture::orchestrator_runtime_hub`, `review::.::holistic::abstraction_fitness::orchestrator_facade_sprawl`, `review::.::holistic::design_coherence::app_orchestrator_remains_multi_hub`, `review::.::holistic::high_level_elegance::composition_root_role_drift`; required verification commands: `desloppify show "review::.::holistic::cross_module_architecture::orchestrator_runtime_hub" --status open --no-budget`; `desloppify show "review::.::holistic::abstraction_fitness::orchestrator_facade_sprawl" --status open --no-budget`; `desloppify show "review::.::holistic::design_coherence::app_orchestrator_remains_multi_hub" --status open --no-budget`; `desloppify show "review::.::holistic::high_level_elegance::composition_root_role_drift" --status open --no-budget`; `npm run verify`
     - Source `P1-EXIT` disposition `split follow-up`: `review::.::holistic::abstraction_fitness::oversized_runtime_dependency_bags`; required verification commands: `desloppify show "review::.::holistic::abstraction_fitness::oversized_runtime_dependency_bags" --status open --no-budget`; `npm run verify`
-- [ ] `P6-EXIT` run the priority-exit review before moving to `P7`
+- [x] `P6-EXIT` run the priority-exit review before moving to `P7`
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P7` plan, code, or checklist progress starts until every `P6` mapped id has an explicit disposition record
-  - Required verification: `desloppify status`; `desloppify plan queue`; `desloppify show security --status open --no-budget --top 50`; all five exact inherited `P6-W3` issue-id checks listed above; `npm run verify`
+  - Required verification: `desloppify status`; `desloppify plan queue`; `desloppify show security --status open --no-budget --top 50`; all twelve exact `P6` issue-id checks listed in `P6-W1`/`P6-W2`/`P6-W3`; `npm run verify`
+  - Priority-exit review status (2026-04-09): `complete` (all twelve mapped `P6` ids still return `No open issues matching`; no `deferred`/`split follow-up` carry-forward is required for `P6`)
+  - Verified commands (2026-04-09 final refresh):
+    - `desloppify status`
+    - `desloppify plan queue`
+    - `desloppify show security --status open --no-budget --top 50`
+    - `desloppify show "review::.::holistic::convention_outlier::container_id_convention_split" --status open --no-budget`
+    - `desloppify show "review::.::holistic::naming_quality::get_or_create_div_hidden_cleanup" --status open --no-budget`
+    - `desloppify show "review::.::holistic::package_organization::theme_definitions_live_under_settings" --status open --no-budget`
+    - `desloppify show "review::.::holistic::package_organization::ui_root_channel_display_straggler" --status open --no-budget`
+    - `desloppify show "review::.::holistic::design_coherence::player_timecode_formatting_is_copied_between_overlays" --status open --no-budget`
+    - `desloppify show "review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion" --status open --no-budget`
+    - `desloppify show "review::.::holistic::package_organization::epg_flat_directory_overload" --status open --no-budget`
+    - `desloppify show "review::.::holistic::cross_module_architecture::orchestrator_runtime_hub" --status open --no-budget`
+    - `desloppify show "review::.::holistic::abstraction_fitness::orchestrator_facade_sprawl" --status open --no-budget`
+    - `desloppify show "review::.::holistic::design_coherence::app_orchestrator_remains_multi_hub" --status open --no-budget`
+    - `desloppify show "review::.::holistic::high_level_elegance::composition_root_role_drift" --status open --no-budget`
+    - `desloppify show "review::.::holistic::abstraction_fitness::oversized_runtime_dependency_bags" --status open --no-budget`
+    - `npm run verify`
+  - Refreshed verification results (2026-04-09):
+    - `desloppify status` -> `Scores: overall 80.9/100 · objective 90.7/100 · strict 79.0/100 · verified 90.7/100`; `Queue: 2 items (7 planned · 50 stale tracked · 1 subjective)`; `Objective queue complete`; `Review: 33 issues open, 33 uninvestigated`; `Last scan: 2026-04-08T04:17:13+00:00`.
+    - `desloppify plan queue` -> `Queue: 2 items (57 planned · 1 subjective)` with:
+      - `subjective_assessment` -> `Subjective review needed: Auth consistency (91...)`
+      - `subjective_review` -> `File changed since last review — re-review recommended`
+    - Queue residue disposition: the two remaining `desloppify plan queue` items are not any of the twelve mapped `P6` ids below, so `P6-EXIT` records them as non-blocking global queue residue rather than minting a new `P6` successor owner.
+    - All twelve exact mapped issue-id commands -> `No open issues matching ...`
+    - `npm run verify` -> pass (`typecheck`, `lint`, `lint:css`, `test:all`, `verify:docs`, `build`)
+  - Mapped imported issues (2026-04-09 disposition record):
+    - `review::.::holistic::convention_outlier::container_id_convention_split` -> `resolved`; owner: `P6-W1`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the shared app-shell container-id owner recorded in `P6-W1`.
+    - `review::.::holistic::naming_quality::get_or_create_div_hidden_cleanup` -> `resolved`; owner: `P6-W1`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the explicit `ensureUniqueContainerDiv(...)` helper plus focused regression coverage recorded in `P6-W1`.
+    - `review::.::holistic::package_organization::theme_definitions_live_under_settings` -> `resolved`; owner: `P6-W2`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the `ui/theme` metadata ownership move recorded in `P6-W2`.
+    - `review::.::holistic::package_organization::ui_root_channel_display_straggler` -> `resolved`; owner: `P6-W2`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the `ui/common/channelDisplay.ts` ownership move recorded in `P6-W2`.
+    - `review::.::holistic::design_coherence::player_timecode_formatting_is_copied_between_overlays` -> `resolved`; owner: `P6-W2`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the shared pure formatter plus overlay-local policy split recorded in `P6-W2`.
+    - `review::.::holistic::low_level_elegance::epg_virtual_render_method_accretion` -> `resolved`; owner: `P6-W2`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the bounded `EPGVirtualizer` render-phase owner recorded in `P6-W2`.
+    - `review::.::holistic::package_organization::epg_flat_directory_overload` -> `resolved`; owner: `P6-W2`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the `view/` + `runtime/` + `model/` package split recorded in `P6-W2`.
+    - `review::.::holistic::cross_module_architecture::orchestrator_runtime_hub` -> `resolved`; owner: `P6-W3`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the retired broad app-shell runtime-facade seam recorded in `P6-W3`.
+    - `review::.::holistic::abstraction_fitness::orchestrator_facade_sprawl` -> `resolved`; owner: `P6-W3`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the screen-scoped port-factory seam recorded in `P6-W3`.
+    - `review::.::holistic::design_coherence::app_orchestrator_remains_multi_hub` -> `resolved`; owner: `P6-W3`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the narrowed screen-facing app-shell runtime seam recorded in `P6-W3`.
+    - `review::.::holistic::high_level_elegance::composition_root_role_drift` -> `resolved`; owner: `P6-W3`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the removal of the broad inline lazy-screen runtime assembly from `src/App.ts` recorded in `P6-W3`.
+    - `review::.::holistic::abstraction_fitness::oversized_runtime_dependency_bags` -> `resolved`; owner: `P6-W3`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the concern-bounded grouped bag audit recorded in `P6-W3`.
+  - Follow-up ownership and residuals (2026-04-09):
+    - Follow-up ownership: none.
+    - Residuals: none on current-code proof in the `P6` issue envelope.
+  - Security triage (2026-04-09 disposition record):
+    - `desloppify show security --status open --no-budget --top 50` -> `Security: 100.0% health (strict: 96.0%)`; `No open issues for Security. Detectors: cycles, security`.
+    - `P0` impact: none; no `P0` defer/split records required for `P6-EXIT`.
+  - Closeout basis: `P6` closes on current-code source audit plus the targeted `P6-W1`/`P6-W2`/`P6-W3` verification already recorded above and the refreshed full `npm run verify` gate, not on detector silence alone.
 
 ## Priority 7: Finish Remaining UI Naming Drift And Player Safeguard Coverage
 
