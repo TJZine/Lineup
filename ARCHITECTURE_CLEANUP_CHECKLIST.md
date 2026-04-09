@@ -1012,7 +1012,10 @@ These are the required repo-local boundary skills for the new wave. Load them be
     - `review::.::holistic::test_strategy::keepalive_path_untested` -> `resolved`; owner: `P7-W2`; reason: durable collaborator + integration keep-alive tests now cover interval scheduling, dispatch behavior, and teardown stop semantics, and exact issue-id command now reports `No open issues matching`.
   - Follow-up ownership and residuals (2026-04-09):
     - Follow-up ownership: none.
-    - Residuals: none in the `P7` issue envelope on current-code proof.
+    - Residuals: none in the imported `P7` issue envelope on current-code proof.
+    - Non-imported file-health note:
+      - `test_coverage::src/modules/player/KeepAliveManager.ts::transitive_only` still reports open under `desloppify show src/modules/player/KeepAliveManager.ts --status open`, but current code now includes a direct collaborator suite at `src/modules/player/__tests__/KeepAliveManager.test.ts`; treat this as stale detector residue rather than live `P7` debt unless a future scan proves otherwise.
+      - `test_coverage::src/modules/ui/epg/EPGLibraryTabs.ts::transitive_only` still reports open under `desloppify show src/modules/ui/epg/EPGLibraryTabs.ts --status open`; this is a live direct-test gap on a `P7`-touched file, but it is outside the imported holistic-review ids mapped to `P7` and should be handled as a separate file-health follow-up instead of reopening `P7-EXIT`.
   - Security triage (2026-04-09 disposition record):
     - `desloppify show security --status open --no-budget --top 50` confirms no open security findings.
     - `P0` impact: none; no `P0` defer/split records required for `P7-EXIT`.
