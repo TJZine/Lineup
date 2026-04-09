@@ -1325,6 +1325,9 @@ export class AppOrchestrator {
         this._requireChannelSetupCoordinator().requestChannelSetupRerun();
     }
 
+    // Runtime channel-switch commands are intentionally best-effort: remote input can
+    // arrive before tuning modules are assembled, so these methods no-op safely.
+    // Setup/capability entrypoints still enforce strict precondition throws.
     /**
      * Switch to a channel by ID.
      * Stops current playback, resolves content, configures scheduler, and syncs.

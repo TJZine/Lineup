@@ -16,6 +16,10 @@ describe('AppOrchestrator precondition errors', () => {
             code: AppErrorCode.MODULE_INIT_FAILED,
             recoverable: true,
         });
+        await expect(orchestrator.selectServer('server-1')).rejects.toMatchObject({
+            code: AppErrorCode.MODULE_INIT_FAILED,
+            recoverable: true,
+        });
     });
 
     it('preserves recognizable precondition messages while normalizing error shape', async () => {
@@ -34,6 +38,12 @@ describe('AppOrchestrator precondition errors', () => {
         });
 
         await expect(orchestrator.discoverServers()).rejects.toMatchObject({
+            code: AppErrorCode.MODULE_INIT_FAILED,
+            recoverable: true,
+            message: expect.stringContaining('PlexServerDiscovery not initialized'),
+        });
+
+        await expect(orchestrator.selectServer('server-1')).rejects.toMatchObject({
             code: AppErrorCode.MODULE_INIT_FAILED,
             recoverable: true,
             message: expect.stringContaining('PlexServerDiscovery not initialized'),
