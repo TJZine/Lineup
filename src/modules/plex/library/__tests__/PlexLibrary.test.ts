@@ -1,3 +1,4 @@
+import { AppErrorCode } from '../../../../types/app-errors';
 import { PlexLibrary, PlexLibraryError, PlexLibraryErrorCode } from '../PlexLibrary';
 import type { PlexLibraryConfig, PlexTagDirectoryQueryOptions } from '../interfaces';
 import { mockLocalStorage, installMockLocalStorage } from '../../../../__tests__/mocks/localStorage';
@@ -352,6 +353,26 @@ describe('PlexLibrary', () => {
             expect(libs[3]!.type).toBe('photo');
         });
 
+        it('throws typed parse error when library sections payload omits Directory', async () => {
+            mockFetchJson({ MediaContainer: {} });
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getLibraries()).rejects.toMatchObject({
+                code: PlexLibraryErrorCode.PARSE_ERROR,
+                message: expect.stringContaining('Invalid library sections payload'),
+            });
+        });
+
+        it('throws typed parse error when library sections payload omits MediaContainer', async () => {
+            mockFetchJson({});
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getLibraries()).rejects.toMatchObject({
+                code: PlexLibraryErrorCode.PARSE_ERROR,
+                message: expect.stringContaining('Invalid library sections payload'),
+            });
+        });
+
         it('should cache libraries', async () => {
             mockFetchJson(mockLibrarySectionsResponse);
             const library = new PlexLibrary(mockConfig);
@@ -421,6 +442,25 @@ describe('PlexLibrary', () => {
             const lib = await library.getLibrary('999');
 
             expect(lib).toBeNull();
+        });
+
+        it('throws typed error when section lookup is unavailable', async () => {
+            mockFetchJson({ error: 'Not found' }, 404);
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getLibrary('1')).rejects.toMatchObject({
+                code: PlexLibraryErrorCode.SERVER_ERROR,
+            });
+        });
+
+        it('throws typed parse error when section lookup payload is malformed', async () => {
+            mockFetchSequence([{ json: { MediaContainer: { Directory: {} } } as unknown }]);
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getLibrary('1')).rejects.toMatchObject({
+                code: PlexLibraryErrorCode.PARSE_ERROR,
+                message: expect.stringContaining('Invalid library sections payload'),
+            });
         });
     });
 
@@ -1073,6 +1113,20 @@ describe('PlexLibrary', () => {
             await expect(request).rejects.toMatchObject({
                 code: PlexLibraryErrorCode.AUTH_EXPIRED,
             });
+        });
+
+        it('surfaces thrown PlexLibraryError codes through the canonical subset export shape', async () => {
+            mockFetchJson({ error: 'Unauthorized' }, 401);
+            const library = new PlexLibrary(mockConfig);
+
+            try {
+                await library.getLibraries();
+                throw new Error('Expected getLibraries() to throw');
+            } catch (error) {
+                expect(error).toBeInstanceOf(PlexLibraryError);
+                expect((error as PlexLibraryError).code).toBe(PlexLibraryErrorCode.AUTH_EXPIRED);
+                expect((error as PlexLibraryError).code).toBe(AppErrorCode.AUTH_EXPIRED);
+            }
         });
 
         it('should throw SERVER_ERROR on 500', async () => {

@@ -65,6 +65,8 @@
 - **Antigravity / other agents (repo-local)**: use a generated local mirror under `.agent/skills/`, materialized with `scripts/sync_agent_skills.sh`.
 - **Codex CLI (repo-local)**: source-of-truth repo skills live in `.codex/skills/`.
 - **No duplicate local Codex globals**: if a skill already exists in Codex global skills, do not copy it into `.codex/skills/`; keep `.codex/skills/` reserved for Lineup-specific skills.
+- **Global skills are global-first**: if a skill exists in Codex global skills (for example under `${CODEX_HOME:-$HOME/.codex}/skills/`), treat that as the canonical Codex source instead of expecting a repo-local `.codex/skills/<skill>/` copy.
 - **Antigravity mirrors use copies, not symlinks**: `.agent/skills/` is a local generated mirror containing copied skill folders from the pinned allowlist in [`docs/agentic/skill-mirror-allowlist.txt`](./docs/agentic/skill-mirror-allowlist.txt) plus mirrors of the Lineup-specific repo skills.
+- **Missing `.agent/skills/<skill>` does not mean the skill is missing overall**: it usually means the Antigravity mirror has not been materialized in this checkout/worktree yet; Codex should still fall back to the global skill source when available.
 - **Repo-local skill publishing order**: When adding or editing repo-local skills, create or update `.codex/skills/<skill>/` first, then run `scripts/sync_agent_skills.sh` to refresh `.agent/skills/`.
 - **Workflow reference**: See `docs/AGENTIC_DEV_WORKFLOW.md` and `docs/agentic/skill-strategy.md` for the current skill topology and workflow rules.

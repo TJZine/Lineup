@@ -43,6 +43,11 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - focused startup sequencing collaborator between app shell and orchestrator
 
+### `src/core/server-selection/`
+
+- focused server-selection collaborators shared between app shell and orchestrator
+- owns the app-shell-facing selected-server workflow/result contract, including selected-server persistence handoff and post-selection runtime swap delegation
+
 ### `src/Orchestrator.ts`
 
 - central runtime coordinator

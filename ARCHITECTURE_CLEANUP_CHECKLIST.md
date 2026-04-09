@@ -726,25 +726,96 @@ These are the required repo-local boundary skills for the new wave. Load them be
 
 ### Work Units
 
-- [ ] `P5-W1` normalize library and server-selection contracts so boolean and null results mean one thing at each boundary
+- [x] `P5-W1` normalize library and server-selection contracts so boolean and null results mean one thing at each boundary
   - Imported review issues: `review::.::holistic::api_surface_coherence::server_selection_boolean_semantics_drift`, `review::.::holistic::contract_coherence::plex_library_null_conflates_not_found_and_invalid_response`
   - Primary files: `src/modules/plex/discovery/PlexServerDiscovery.ts`, `src/Orchestrator.ts`, `src/modules/ui/server-select/ServerSelectScreen.ts`, `src/modules/plex/library/PlexLibrary.ts`, `src/modules/plex/library/interfaces.ts`
-  - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
-  - Closeout note: planning and final verification for `P5-W1` must cover both the mapped `P5-W1` issues above and the inherited `review::.::holistic::error_consistency::orchestrator_precondition_strategy_drift` follow-up below before this work unit can be marked complete.
-  - Inherited follow-ups:
-    - Source `P1-EXIT` disposition `split follow-up`: `review::.::holistic::error_consistency::orchestrator_precondition_strategy_drift`; required verification commands: `desloppify show "review::.::holistic::error_consistency::orchestrator_precondition_strategy_drift" --status open --no-budget`; `npm run verify`
-- [ ] `P5-W2` slim auth-path dependencies and reduce recovery narration to intentional diagnostics only
+  - Verification (2026-04-09):
+    - `desloppify show "review::.::holistic::api_surface_coherence::server_selection_boolean_semantics_drift" --status open --no-budget` -> `No open issues matching ...`
+    - `desloppify show "review::.::holistic::contract_coherence::plex_library_null_conflates_not_found_and_invalid_response" --status open --no-budget` -> `No open issues matching ...`
+    - `desloppify show "review::.::holistic::error_consistency::orchestrator_precondition_strategy_drift" --status open --no-budget` -> `No open issues matching ...`
+    - `npm test -- --runInBand src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts src/modules/ui/server-select/__tests__/ServerSelectScreen.test.ts src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts src/__tests__/Orchestrator.test.ts` -> pass
+    - `npm test -- --runInBand src/modules/plex/library/__tests__/PlexLibrary.test.ts` -> pass
+    - `npm test -- --runInBand src/__tests__/orchestrator/orchestrator-preconditions.test.ts src/__tests__/orchestrator/playback-flow.test.ts src/__tests__/Orchestrator.test.ts` -> pass
+    - `npm test -- --runInBand src/__tests__/Orchestrator.test.ts` -> pass (public `selectServer` branch coverage refresh: `selection_failed` translation + `persistedSelection: 'skipped_missing_credentials'`)
+    - `npm run verify` -> pass (`typecheck`, `lint`, `lint:css`, `test:all`, `verify:docs`, `build`)
+  - Mapped imported issues (2026-04-09 disposition record):
+    - `review::.::holistic::api_surface_coherence::server_selection_boolean_semantics_drift` -> `resolved`; owner: `P5-W1`; proof: `IPlexServerDiscovery.selectServer(...)` now returns explicit `PlexServerSelectionResult`, and app-level `AppOrchestrator.selectServer(...)` now returns explicit `OrchestratorServerSelectionResult` with truthful `readiness` + `persistedSelection` variants instead of overloaded booleans (`src/modules/plex/discovery/interfaces.ts`, `src/modules/plex/discovery/PlexServerDiscovery.ts`, `src/Orchestrator.ts`, `src/modules/ui/server-select/ServerSelectScreen.ts`). Targeted `src/__tests__/Orchestrator.test.ts` coverage now exercises the remaining public branches for `selection_failed` translation (`server_not_found` and `connection_unavailable`) plus `persistedSelection: 'skipped_missing_credentials'`.
+    - `review::.::holistic::contract_coherence::plex_library_null_conflates_not_found_and_invalid_response` -> `resolved`; owner: `P5-W1`; proof: `PlexLibrary` now uses a private section-lookup helper so public `getLibrary(...)` keeps `Promise<PlexLibrary | null>` with `null` only for `not_found`, while unavailable/invalid section-list fetches throw typed `PlexLibraryError` (`src/modules/plex/library/PlexLibrary.ts`, `src/modules/plex/library/interfaces.ts`, `src/modules/plex/library/__tests__/PlexLibrary.test.ts`).
+    - Inherited follow-up `review::.::holistic::error_consistency::orchestrator_precondition_strategy_drift` -> `resolved`; owner: `P5-W1`; proof: strict precondition throws remain explicit on setup/capability entrypoints (including `selectServer`) while runtime `switchToChannel*` methods are now explicitly documented + tested as intentional best-effort safe no-op commands before tuning readiness (`src/Orchestrator.ts`, `src/__tests__/orchestrator/orchestrator-preconditions.test.ts`, `src/__tests__/orchestrator/playback-flow.test.ts`).
+  - Source-proof closeout note: exact issue-id detector commands all report `No open issues matching`, but this item was closed on current-code source audit and targeted contract tests above rather than detector silence alone.
+- [x] `P5-W2` slim auth-path dependencies and reduce recovery narration to intentional diagnostics only
   - Imported review issues: `review::.::holistic::dependency_health::qrcode_cli_transitives_for_browser_render`, `review::.::holistic::ai_generated_debt::playback_recovery_diagnostic_narration`
   - Primary files: `package.json`, `package-lock.json`, `src/modules/ui/auth/AuthScreen.ts`, `src/modules/player/PlaybackRecoveryManager.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
-- [ ] `P5-W3` split overpacked stream and subtitle fallback pipelines and stop duplicating shared app-error taxonomies
+  - Execution (2026-04-09): replaced the auth-screen runtime `qrcode` import path with a trusted static `plex.tv/link` SVG rendered inside `AuthScreen`, preserved the existing `.auth-qr-canvas` styling hook without changing `src/styles/shell.css`, removed `qrcode` and `@types/qrcode` from the package graph, and normalized `PlaybackRecoveryManager` repeated-failure/recovery telemetry to terse event labels plus structured diagnostics and `AppError.context`.
+  - Verification (2026-04-09):
+    - `npm test -- --runInBand src/modules/ui/auth/__tests__/AuthScreen.test.ts` -> pass
+    - `npm test -- --runInBand src/modules/player/__tests__/PlaybackRecoveryManager.test.ts` -> pass
+    - `npm test -- --runInBand src/modules/player/__tests__/PlaybackRecoveryManager.test.ts src/core/__tests__/PlaybackStartController.test.ts src/core/__tests__/PlaybackRuntimeController.test.ts src/__tests__/orchestrator/subtitle-track-recovery-warning-contract.test.ts src/__tests__/orchestrator/lifecycle-resume-race.test.ts` -> pass
+    - `desloppify show "review::.::holistic::dependency_health::qrcode_cli_transitives_for_browser_render" --status open --no-budget` -> `No open issues matching ...`
+    - `desloppify show "review::.::holistic::ai_generated_debt::playback_recovery_diagnostic_narration" --status open --no-budget` -> `No open issues matching ...`
+    - `npm run verify` -> pass (`typecheck`, `lint`, `lint:css`, `test:all`, `verify:docs`, `build`)
+  - Mapped imported issues (2026-04-09 disposition record):
+    - `review::.::holistic::dependency_health::qrcode_cli_transitives_for_browser_render` -> `resolved`; owner: `P5-W2`; proof: `AuthScreen` now renders a developer-controlled static QR SVG through the trusted inline-SVG helper and no longer imports `qrcode`; `package.json`/`package-lock.json` no longer carry the browser-inappropriate dependency path (`src/modules/ui/auth/AuthScreen.ts`, `src/modules/ui/auth/plexLinkQrSvg.ts`, `src/utils/inlineSvg.ts`, `package.json`, `package-lock.json`).
+    - `review::.::holistic::ai_generated_debt::playback_recovery_diagnostic_narration` -> `resolved`; owner: `P5-W2`; proof: `PlaybackRecoveryManager` now emits terse blocking error text (`Playback failed repeatedly`) with structured `context` plus short event-style telemetry payloads for audio reload, transcode fallback, burn-in reload, and disable-burn-in paths, while caller contracts remain unchanged (`src/modules/player/PlaybackRecoveryManager.ts`, `src/modules/player/__tests__/PlaybackRecoveryManager.test.ts`, `src/core/__tests__/PlaybackStartController.test.ts`, `src/core/__tests__/PlaybackRuntimeController.test.ts`, `src/__tests__/orchestrator/subtitle-track-recovery-warning-contract.test.ts`).
+  - Source-proof closeout note: exact issue-id detector commands now report `No open issues matching`, and the closeout is also backed by direct source audit plus focused regression coverage rather than detector silence alone.
+- [x] `P5-W3` split overpacked stream and subtitle fallback pipelines and stop duplicating shared app-error taxonomies
   - Imported review issues: `review::.::holistic::low_level_elegance::stream_resolution_pipeline_overpacked`, `review::.::holistic::low_level_elegance::subtitle_fallback_fetch_monolith`, `review::.::holistic::type_safety::parallel_error_code_enums_duplicate_app_taxonomy`
   - Primary files: `src/modules/plex/stream/PlexStreamResolver.ts`, `src/modules/player/SubtitleManager.ts`, `src/types/app-errors.ts`, `src/modules/player/types.ts`, `src/modules/plex/library/types.ts`, `src/modules/plex/stream/types.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the three mapped ids
-- [ ] `P5-EXIT` run the priority-exit review before moving to `P6`
+  - Execution (2026-04-09): extracted `resolveStreamPipeline(...)` inside `src/modules/plex/stream/` so `PlexStreamResolver` keeps item fetch, session/debug ownership, and `StreamResolverError` emission while the media-selection/direct-vs-transcode assembly becomes one local pipeline helper; extracted `fetchSubtitleFallbackVtt(...)` inside `src/modules/player/` so `SubtitleManager` keeps active-track state, readiness timers, `_fallbackControllers`, `_blobUrls`, and deactivation/unavailable callbacks while the fetch/XHR/transcode fallback attempt matrix plus subtitle conversion move into one player-local helper; replaced duplicate player/Plex/library error enums with AppErrorCode-backed subset exports, preserved `PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND` as the one local supplement, and kept `PlexLibrary.ts` explicitly covered for the export-shape fallout.
+  - Verification (2026-04-09):
+    - `npm test -- --runInBand src/modules/plex/stream/__tests__/resolveStreamPipeline.test.ts src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts src/modules/plex/stream/__tests__/PlexStreamResolver.subtitle-errors.test.ts` -> pass
+    - `npm test -- --runInBand src/modules/player/__tests__/SubtitleManager.test.ts` -> pass
+    - `npm test -- --runInBand src/modules/player/__tests__/error-taxonomy.test.ts src/modules/plex/stream/__tests__/error-taxonomy.test.ts src/modules/plex/library/__tests__/error-taxonomy.test.ts src/modules/plex/library/__tests__/PlexLibrary.test.ts src/core/__tests__/PlaybackRuntimeController.test.ts` -> pass
+    - `desloppify show "review::.::holistic::low_level_elegance::stream_resolution_pipeline_overpacked" --status open --no-budget` -> `No open issues matching ...`
+    - `desloppify show "review::.::holistic::low_level_elegance::subtitle_fallback_fetch_monolith" --status open --no-budget` -> `No open issues matching ...`
+    - `desloppify show "review::.::holistic::type_safety::parallel_error_code_enums_duplicate_app_taxonomy" --status open --no-budget` -> `No open issues matching ...`
+    - `npm run verify` -> pass (`typecheck`, `lint`, `lint:css`, `test:all`, `verify:docs`, `build`)
+  - Mapped imported issues (2026-04-09 disposition record):
+    - `review::.::holistic::low_level_elegance::stream_resolution_pipeline_overpacked` -> `resolved`; owner: `P5-W3`; proof: `resolveStream()` no longer carries the full media-selection/direct-play/transcode assembly inline, while `PlexStreamResolver` still owns server/auth/settings reads, session/debug behavior, and resolver-local error creation (`src/modules/plex/stream/PlexStreamResolver.ts`, `src/modules/plex/stream/resolveStreamPipeline.ts`, `src/modules/plex/stream/__tests__/resolveStreamPipeline.test.ts`).
+    - `review::.::holistic::low_level_elegance::subtitle_fallback_fetch_monolith` -> `resolved`; owner: `P5-W3`; proof: `SubtitleManager` no longer owns the fetch/XHR/transcode fallback attempt matrix or subtitle conversion inline, but it still owns abort-controller registration, blob-URL revocation, readiness timers, and subtitle deactivation/unavailable callbacks (`src/modules/player/SubtitleManager.ts`, `src/modules/player/subtitleFallbackPipeline.ts`, `src/modules/player/__tests__/SubtitleManager.test.ts`).
+    - `review::.::holistic::type_safety::parallel_error_code_enums_duplicate_app_taxonomy` -> `resolved`; owner: `P5-W3`; proof: player, Plex stream, and Plex library error exports now reuse canonical `AppErrorCode` values through subset `as const` objects while preserving stable mapping-helper imports and the resolver-local `SUBTITLE_STREAM_NOT_FOUND` special case (`src/modules/player/types.ts`, `src/modules/plex/stream/types.ts`, `src/modules/plex/library/types.ts`, `src/modules/player/__tests__/error-taxonomy.test.ts`, `src/modules/plex/stream/__tests__/error-taxonomy.test.ts`, `src/modules/plex/library/__tests__/error-taxonomy.test.ts`, `src/modules/plex/library/__tests__/PlexLibrary.test.ts`).
+  - Source-proof closeout note: the three exact detector commands now return `No open issues matching`, but `P5-W3` is closed on current-code source audit plus the targeted resolver/subtitle/taxonomy suites above and the final `npm run verify` gate, not on detector silence alone.
+- [x] `P5-EXIT` run the priority-exit review before moving to `P6`
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P6` plan, code, or checklist progress starts until every `P5` mapped id has an explicit disposition record
   - Required verification: `desloppify status`; `desloppify plan queue`; `desloppify show security --status open --no-budget --top 50`; all eight exact `P5` issue-id checks; `npm run verify`
+  - Priority-exit review status (2026-04-09): `complete` (all eight mapped `P5` ids still return `No open issues matching`; no `deferred`/`split follow-up` carry-forward is required for `P5`)
+  - Verified commands (2026-04-09 final refresh):
+    - `desloppify status`
+    - `desloppify plan queue`
+    - `desloppify show security --status open --no-budget --top 50`
+    - `desloppify show "review::.::holistic::api_surface_coherence::server_selection_boolean_semantics_drift" --status open --no-budget`
+    - `desloppify show "review::.::holistic::contract_coherence::plex_library_null_conflates_not_found_and_invalid_response" --status open --no-budget`
+    - `desloppify show "review::.::holistic::error_consistency::orchestrator_precondition_strategy_drift" --status open --no-budget`
+    - `desloppify show "review::.::holistic::dependency_health::qrcode_cli_transitives_for_browser_render" --status open --no-budget`
+    - `desloppify show "review::.::holistic::ai_generated_debt::playback_recovery_diagnostic_narration" --status open --no-budget`
+    - `desloppify show "review::.::holistic::low_level_elegance::stream_resolution_pipeline_overpacked" --status open --no-budget`
+    - `desloppify show "review::.::holistic::low_level_elegance::subtitle_fallback_fetch_monolith" --status open --no-budget`
+    - `desloppify show "review::.::holistic::type_safety::parallel_error_code_enums_duplicate_app_taxonomy" --status open --no-budget`
+    - `npm run verify`
+  - Refreshed verification results (2026-04-09):
+    - `desloppify status` -> `Scores: overall 80.9/100 · objective 90.7/100 · strict 79.0/100 · verified 90.7/100`; `Queue: 2 items (7 planned · 50 stale tracked · 1 subjective)`; `Objective queue complete`; `Review: 33 issues open, 33 uninvestigated`; `Last scan: 2026-04-08T04:17:13+00:00`.
+    - `desloppify plan queue` -> `Queue: 2 items (57 planned · 1 subjective)` with:
+      - `subjective_assessment` -> `Subjective review needed: Auth consistency (91...)`
+      - `subjective_review` -> `File changed since last review — re-review recommended`
+    - Queue residue disposition: the two remaining `desloppify plan queue` items are not any of the eight mapped `P5` ids above, so `P5-EXIT` records them as non-blocking global queue residue rather than inventing a new `P5` successor owner.
+    - All eight exact mapped issue-id commands -> `No open issues matching ...`
+    - `npm run verify` -> pass (`typecheck`, `lint`, `lint:css`, `test:all`, `verify:docs`, `build`)
+  - Mapped imported issues (2026-04-09 disposition record):
+    - `review::.::holistic::api_surface_coherence::server_selection_boolean_semantics_drift` -> `resolved`; owner: `P5-W1`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the explicit selection-result contract normalization recorded in `P5-W1`.
+    - `review::.::holistic::contract_coherence::plex_library_null_conflates_not_found_and_invalid_response` -> `resolved`; owner: `P5-W1`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the `PlexLibrary` not-found vs invalid-response contract split recorded in `P5-W1`.
+    - `review::.::holistic::error_consistency::orchestrator_precondition_strategy_drift` -> `resolved`; owner: `P5-W1`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the explicit precondition-vs-best-effort public `Orchestrator` contract recorded in `P5-W1`.
+    - `review::.::holistic::dependency_health::qrcode_cli_transitives_for_browser_render` -> `resolved`; owner: `P5-W2`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the static QR asset path plus package-graph removal recorded in `P5-W2`.
+    - `review::.::holistic::ai_generated_debt::playback_recovery_diagnostic_narration` -> `resolved`; owner: `P5-W2`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the terse recovery narration plus structured diagnostics contract recorded in `P5-W2`.
+    - `review::.::holistic::low_level_elegance::stream_resolution_pipeline_overpacked` -> `resolved`; owner: `P5-W3`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the local stream-pipeline extraction with `PlexStreamResolver` ownership preserved as recorded in `P5-W3`.
+    - `review::.::holistic::low_level_elegance::subtitle_fallback_fetch_monolith` -> `resolved`; owner: `P5-W3`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the local subtitle fallback pipeline extraction with cleanup lifecycle ownership preserved in `SubtitleManager` as recorded in `P5-W3`.
+    - `review::.::holistic::type_safety::parallel_error_code_enums_duplicate_app_taxonomy` -> `resolved`; owner: `P5-W3`; reason: rerun exact issue-id command still reports `No open issues matching`, and the current-code source proof remains the AppErrorCode-backed subset export shape with the one stream-local supplement recorded in `P5-W3`.
+  - Security triage (2026-04-09 disposition record):
+    - `desloppify show security --status open --no-budget --top 50` -> `No open issues for Security. Detectors: cycles, security`.
+    - `P0` impact: none; no `P0` defer/split records required for `P5-EXIT`.
+  - Closeout basis: `P5` closes on current-code source audit plus the targeted `P5-W1`/`P5-W2`/`P5-W3` verification already recorded above and the refreshed full `npm run verify` gate, not on detector silence alone.
 
 ## Priority 6: Finish Shared UI Owner Placement And Package Cleanup
 
@@ -768,6 +839,7 @@ These are the required repo-local boundary skills for the new wave. Load them be
 - [ ] `P6-W3` narrow the remaining app-shell runtime facade and coordinator assembly bags so composition roots stay thin
   - Primary files: `src/App.ts`, `src/core/app-shell/AppLazyScreenRegistry.ts`, `src/Orchestrator.ts`, `src/modules/navigation/NavigationCoordinator.ts`, `src/core/InitializationCoordinator.ts`, `src/core/orchestrator/OrchestratorCoordinatorFactory.ts`, `docs/architecture/CURRENT_STATE.md`
   - Minimum verification: `npm run verify`
+  - Progress note (2026-04-09): extracted `src/core/server-selection/ServerSelectionCoordinator.ts` so `AppOrchestrator.selectServer()` now delegates the full app-shell-facing selected-server workflow (discovery-result translation, selected-server persistence handoff, and post-selection runtime swap), and kept `src/core/server-selection/ServerSelectionTypes.ts` as the durable owner of the app-shell result contract; the broader runtime-facade and dependency-bag narrowing below still remains open before `P6-W3` can close.
   - Closeout note: planning and final verification for `P6-W3` must cover all inherited runtime-root and dependency-bag follow-ups below before this work unit can be marked complete.
   - Inherited follow-ups:
     - Source `P1-EXIT` disposition `split follow-up`: `review::.::holistic::cross_module_architecture::orchestrator_runtime_hub`, `review::.::holistic::abstraction_fitness::orchestrator_facade_sprawl`, `review::.::holistic::design_coherence::app_orchestrator_remains_multi_hub`, `review::.::holistic::high_level_elegance::composition_root_role_drift`; required verification commands: `desloppify show "review::.::holistic::cross_module_architecture::orchestrator_runtime_hub" --status open --no-budget`; `desloppify show "review::.::holistic::abstraction_fitness::orchestrator_facade_sprawl" --status open --no-budget`; `desloppify show "review::.::holistic::design_coherence::app_orchestrator_remains_multi_hub" --status open --no-budget`; `desloppify show "review::.::holistic::high_level_elegance::composition_root_role_drift" --status open --no-budget`; `npm run verify`

@@ -6,6 +6,7 @@
 
 import type { PlexServer } from '../../plex/discovery/types';
 import { PlexApiError } from '../../plex/auth';
+import type { OrchestratorServerSelectionResult } from '../../../core/server-selection/ServerSelectionTypes';
 import type {
     FocusableElement,
     ServerSelectScreenNavigationPort,
@@ -21,7 +22,7 @@ const FOCUS_RESTORE_DELAY_MS = 50;
 
 export interface ServerSelectScreenPorts {
     discoverServers(forceRefresh?: boolean): Promise<PlexServer[]>;
-    selectServer(serverId: string): Promise<boolean>;
+    selectServer(serverId: string): Promise<OrchestratorServerSelectionResult>;
     clearSelectedServer(): void;
     getSelectedServerStorageKey(): string;
     getServerHealthStorageKey(): string;
@@ -220,13 +221,13 @@ export class ServerSelectScreen {
             if (options.autoSelect) {
                 if (savedId && servers.some(s => s.id === savedId)) {
                     try {
-                        const success = await this._ports.selectServer(savedId);
-                        if (success) {
+                        const result = await this._ports.selectServer(savedId);
+                        if (result.kind === 'selected') {
                             this._setStatus('Connected…', 'Continuing startup…', 'success');
                             return;
                         }
                         savedServerUnavailable = true;
-                        autoSelectError = new Error('Unable to use the saved server.');
+                        autoSelectError = new Error(this._selectionFailureMessage(result.reason));
                     } catch (error) {
                         savedServerUnavailable = true;
                         autoSelectError = error;
@@ -528,20 +529,35 @@ export class ServerSelectScreen {
         this._detailEl.textContent = '';
 
         try {
-            const success = await this._ports.selectServer(server.id);
-            if (success) {
+            const result = await this._ports.selectServer(server.id);
+            if (result.kind === 'selected') {
                 this._setStatus(`Connected to ${server.name}.`, 'Continuing startup…', 'success');
                 return;
             }
             this._setStatus('Connection failed.', '', 'error');
             this._detailEl.textContent = '';
-            this._errorEl.textContent = 'Unable to use the selected server.';
+            this._errorEl.textContent = this._selectionFailureMessage(result.reason);
         } catch (error) {
             this._clearError();
             this._setStatus('Connection failed.', '', 'error');
             this._detailEl.textContent = '';
             this._handleError(error, 'Unable to use the selected server.');
             console.error('[ServerSelect] Failed to select server:', summarizeErrorForLog(error));
+        }
+    }
+
+    private _selectionFailureMessage(
+        reason: 'server_not_found' | 'unreachable' | 'auth_required' | 'auth_invalid'
+    ): string {
+        switch (reason) {
+            case 'server_not_found':
+                return 'Selected server is no longer available.';
+            case 'auth_required':
+                return 'Authentication required. Sign in to Plex and try again.';
+            case 'auth_invalid':
+                return 'Stored Plex credentials are invalid. Sign in again.';
+            case 'unreachable':
+                return 'Selected server is unreachable right now.';
         }
     }
 

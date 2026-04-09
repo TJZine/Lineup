@@ -82,6 +82,10 @@ const INTERACTIVE_REQUEST_POLICY = {
 
 type PrivateRequestProfile = 'default' | 'interactive';
 
+type LibrarySectionsLookupSource =
+    | { kind: 'available'; libraries: PlexLibraryType[] }
+    | { kind: 'unavailable'; error: PlexLibraryError };
+
 const resolveRequestProfileForIntent = (
     intent: PlexLibraryRequestIntent | undefined
 ): PrivateRequestProfile => (intent === 'preview' ? 'interactive' : 'default');
@@ -164,6 +168,66 @@ export class PlexLibrary implements IPlexLibrary {
         return redactUrlForLog(url);
     }
 
+    private _extractLibrarySectionDirectories(
+        response: PlexMediaContainer<RawLibrarySection>,
+        context: string
+    ): RawLibrarySection[] {
+        const mediaContainer = response.MediaContainer;
+        if (!mediaContainer || typeof mediaContainer !== 'object') {
+            throw new PlexLibraryError(
+                PlexLibraryErrorCode.PARSE_ERROR,
+                `Invalid library sections payload for ${context}: missing MediaContainer object`
+            );
+        }
+
+        const rawDirectories = (mediaContainer as { Directory?: unknown }).Directory;
+        if (!Array.isArray(rawDirectories)) {
+            throw new PlexLibraryError(
+                PlexLibraryErrorCode.PARSE_ERROR,
+                `Invalid library sections payload for ${context}: Directory must be an array`
+            );
+        }
+
+        return rawDirectories as RawLibrarySection[];
+    }
+
+    private async _fetchLibrarySectionsForLookup(libraryId: string): Promise<LibrarySectionsLookupSource> {
+        const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTIONS);
+        const response = await this._fetchWithRetry<PlexMediaContainer<RawLibrarySection>>(url);
+
+        if (!response) {
+            return {
+                kind: 'unavailable',
+                error: new PlexLibraryError(
+                    PlexLibraryErrorCode.SERVER_ERROR,
+                    `Library section lookup unavailable while resolving ${libraryId}`
+                ),
+            };
+        }
+
+        try {
+            const directories = this._extractLibrarySectionDirectories(
+                response,
+                `library lookup for ${libraryId}`
+            );
+            return {
+                kind: 'available',
+                libraries: parseLibrarySections(directories),
+            };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            return {
+                kind: 'unavailable',
+                error: error instanceof PlexLibraryError
+                    ? error
+                    : new PlexLibraryError(
+                        PlexLibraryErrorCode.PARSE_ERROR,
+                        `Invalid library section payload while resolving ${libraryId}: ${message}`
+                    ),
+            };
+        }
+    }
+
     // ============================================
     // Library Sections
     // ============================================
@@ -185,7 +249,7 @@ export class PlexLibrary implements IPlexLibrary {
             return [];
         }
 
-        const directories = response.MediaContainer.Directory || [];
+        const directories = this._extractLibrarySectionDirectories(response, 'getLibraries');
         const libraries = parseLibrarySections(directories);
 
         if (options?.includeItemCounts) {
@@ -268,7 +332,7 @@ export class PlexLibrary implements IPlexLibrary {
     /**
      * Get a specific library by ID.
      * @param libraryId - Library section ID
-     * @returns Promise resolving to library or null if not found
+     * @returns Promise resolving to library or null when not found in a valid section list
      */
     async getLibrary(libraryId: string): Promise<PlexLibraryType | null> {
         this._ensureCacheScope();
@@ -278,9 +342,17 @@ export class PlexLibrary implements IPlexLibrary {
             return cached.library;
         }
 
-        // Fetch all libraries (they come as a batch)
-        const libraries = await this.getLibraries();
-        return libraries.find((lib) => lib.id === libraryId) ?? null;
+        const lookupSource = await this._fetchLibrarySectionsForLookup(libraryId);
+        if (lookupSource.kind === 'unavailable') {
+            throw lookupSource.error;
+        }
+
+        const now = Date.now();
+        for (const library of lookupSource.libraries) {
+            this._state.libraryCache.set(library.id, { library, cachedAt: now });
+        }
+
+        return lookupSource.libraries.find((lib) => lib.id === libraryId) ?? null;
     }
 
     // ============================================

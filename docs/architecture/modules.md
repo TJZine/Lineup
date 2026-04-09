@@ -35,6 +35,7 @@ This document is directory-oriented and lists file-level owners where the canoni
   - `src/core/error-recovery/`
   - `src/core/initialization/`
   - `src/core/orchestrator/`
+  - `src/core/server-selection/`
   - `src/core/__tests__/`
 
 ### `src/core/orchestrator/`
@@ -50,6 +51,12 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - startup policy collaborators extracted from `InitializationCoordinator`
 - `src/core/initialization/InitializationStartupPolicy.ts` owns startup routing policy (auth/profile/server-select/post-ready) plus EPG startup config shaping
+
+### `src/core/server-selection/`
+
+- focused server-selection collaborators shared between app shell and orchestrator
+- `src/core/server-selection/ServerSelectionTypes.ts` owns `OrchestratorServerSelectionResult`
+- `src/core/server-selection/ServerSelectionCoordinator.ts` owns the app-shell-facing selected-server workflow previously assembled inline in `AppOrchestrator.selectServer()`, including discovery-result translation, persistence handoff, and post-selection runtime swap delegation
 
 ### `src/config/`
 

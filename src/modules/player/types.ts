@@ -1,15 +1,16 @@
 import { AppErrorCode } from '../../types/app-errors';
-export enum PlayerErrorCode {
-    // Playback Errors
-    NETWORK_TIMEOUT = 'NETWORK_TIMEOUT',
-    PLAYBACK_DECODE_ERROR = 'PLAYBACK_DECODE_ERROR',
-    PLAYBACK_FORMAT_UNSUPPORTED = 'PLAYBACK_FORMAT_UNSUPPORTED',
-    TRACK_NOT_FOUND = 'TRACK_NOT_FOUND',
-    TRACK_SWITCH_FAILED = 'TRACK_SWITCH_FAILED',
-    TRACK_SWITCH_TIMEOUT = 'TRACK_SWITCH_TIMEOUT',
-    CODEC_UNSUPPORTED = 'CODEC_UNSUPPORTED',
-    UNKNOWN = 'UNKNOWN',
-}
+export const PlayerErrorCode = {
+    NETWORK_TIMEOUT: AppErrorCode.NETWORK_TIMEOUT,
+    PLAYBACK_DECODE_ERROR: AppErrorCode.PLAYBACK_DECODE_ERROR,
+    PLAYBACK_FORMAT_UNSUPPORTED: AppErrorCode.PLAYBACK_FORMAT_UNSUPPORTED,
+    TRACK_NOT_FOUND: AppErrorCode.TRACK_NOT_FOUND,
+    TRACK_SWITCH_FAILED: AppErrorCode.TRACK_SWITCH_FAILED,
+    TRACK_SWITCH_TIMEOUT: AppErrorCode.TRACK_SWITCH_TIMEOUT,
+    CODEC_UNSUPPORTED: AppErrorCode.CODEC_UNSUPPORTED,
+    UNKNOWN: AppErrorCode.UNKNOWN,
+} as const;
+
+export type PlayerErrorCode = typeof PlayerErrorCode[keyof typeof PlayerErrorCode];
 
 interface PlayerError {
     /** Player-module error code (maps to AppErrorCode via mapPlayerErrorCodeToAppErrorCode) */
@@ -23,26 +24,7 @@ interface PlayerError {
 }
 
 export function mapPlayerErrorCodeToAppErrorCode(code: PlayerErrorCode): AppErrorCode {
-    switch (code) {
-        case PlayerErrorCode.NETWORK_TIMEOUT:
-            return AppErrorCode.NETWORK_TIMEOUT;
-        case PlayerErrorCode.PLAYBACK_DECODE_ERROR:
-            return AppErrorCode.PLAYBACK_DECODE_ERROR;
-        case PlayerErrorCode.PLAYBACK_FORMAT_UNSUPPORTED:
-            return AppErrorCode.PLAYBACK_FORMAT_UNSUPPORTED;
-        case PlayerErrorCode.TRACK_NOT_FOUND:
-            return AppErrorCode.TRACK_NOT_FOUND;
-        case PlayerErrorCode.TRACK_SWITCH_FAILED:
-            return AppErrorCode.TRACK_SWITCH_FAILED;
-        case PlayerErrorCode.TRACK_SWITCH_TIMEOUT:
-            return AppErrorCode.TRACK_SWITCH_TIMEOUT;
-        case PlayerErrorCode.CODEC_UNSUPPORTED:
-            return AppErrorCode.CODEC_UNSUPPORTED;
-        case PlayerErrorCode.UNKNOWN:
-            return AppErrorCode.UNKNOWN;
-        default:
-            return AppErrorCode.UNKNOWN;
-    }
+    return code;
 }
 
 export interface VideoPlayerConfig {
@@ -146,6 +128,7 @@ export interface StreamDescriptor {
     /** Subtitle fetch context (for fallback) */
     subtitleContext?: {
         serverUri: string | null;
+        resolvedBaseUrl?: string;
         authHeaders: Record<string, string>;
         /** ratingKey for the media item (used for PMS subtitle transcode fallback) */
         itemKey?: string;

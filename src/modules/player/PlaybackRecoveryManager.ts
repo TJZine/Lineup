@@ -129,6 +129,25 @@ export class PlaybackRecoveryManager {
         }
     }
 
+    private _logRecoveryWarn(event: string, data: Record<string, unknown>): void {
+        console.warn(`[PlaybackRecovery] ${event}`, data);
+    }
+
+    private _logRecoveryError(event: string, data: Record<string, unknown>): void {
+        console.error(`[PlaybackRecovery] ${event}`, data);
+    }
+
+    private _buildPlaybackFailureContext(context: string, error: unknown): Record<string, unknown> {
+        const schedulerState = this.deps.getScheduler()?.getState();
+        return {
+            source: redactSensitiveTokens(context),
+            failureCount: this._playbackFailureCount,
+            itemKey: this._getCurrentItemKey(),
+            channelId: schedulerState?.channelId ?? null,
+            safeError: summarizeErrorForLog(error),
+        };
+    }
+
     private _resolvePreferredSubtitleId(
         _itemKey: string | null,
         tracks: SubtitleTrack[]
@@ -305,25 +324,18 @@ export class PlaybackRecoveryManager {
             if (scheduler) {
                 scheduler.pauseSyncTimer();
             }
-            const message = ((): string => {
-                if (error instanceof Error) {
-                    return error.message;
-                }
-                if (
-                    error &&
-                    typeof error === 'object' &&
-                    'message' in error &&
-                    typeof (error as { message?: unknown }).message === 'string'
-                ) {
-                    return (error as { message: string }).message;
-                }
-                return String(error);
-            })();
+            const failureContext = this._buildPlaybackFailureContext(context, error);
+            this.deps.appendIssueDiagnostic(
+                QA_003B_ISSUE_ID,
+                'playbackRecovery.failureGuardTripped',
+                failureContext
+            );
             this.deps.handleGlobalError(
                 {
                     code: AppErrorCode.PLAYBACK_FAILED,
-                    message: `Playback failed repeatedly (${context}): ${message}`,
+                    message: 'Playback failed repeatedly',
                     recoverable: true,
+                    context: failureContext,
                 },
                 'playback'
             );
@@ -419,8 +431,9 @@ export class PlaybackRecoveryManager {
                 ? preReloadState.activeSubtitleId
                 : null;
 
-        console.warn('[PlaybackRecovery] Audio reload start:', {
-            reason: redactSensitiveTokens(reason),
+        const safeReason = redactSensitiveTokens(reason);
+        this._logRecoveryWarn('audioReload.start', {
+            reason: safeReason,
             trackId,
             itemKey,
             preserveDirectPlayPreference,
@@ -457,7 +470,8 @@ export class PlaybackRecoveryManager {
 
             const decision: StreamDecision = await resolver.resolveStream(request);
             if (this.deps.getCurrentProgramForPlayback() !== program) {
-                console.warn('[PlaybackRecovery] Audio reload aborted:', {
+                this._logRecoveryWarn('audioReload.aborted', {
+                    reason: safeReason,
                     outcome: 'program_changed',
                     trackId,
                     itemKey,
@@ -484,7 +498,12 @@ export class PlaybackRecoveryManager {
             this.resetPlaybackFailureGuard();
             return true;
         } catch (error) {
-            console.error('[PlaybackRecovery] Audio reload failed:', summarizeErrorForLog(error));
+            this._logRecoveryError('audioReload.failed', {
+                reason: safeReason,
+                trackId,
+                itemKey,
+                safeError: summarizeErrorForLog(error),
+            });
             return false;
         } finally {
             this._streamRecoveryInProgress = false;
@@ -556,12 +575,20 @@ export class PlaybackRecoveryManager {
             ? this._mapSubtitleTracks(decision.availableSubtitleStreams ?? [])
             : [];
         const itemKey = this._getCurrentItemKey();
+        const resolvedSubtitleBaseUrl = decision.resolvedBaseUrl ?? ((): string | undefined => {
+            try {
+                return new URL(decision.playbackUrl).origin;
+            } catch {
+                return undefined;
+            }
+        })();
         const preferredSubtitleTrackId = subtitleMode !== 'off'
             ? this._resolvePreferredSubtitleId(itemKey, subtitleTracks)
             : null;
         const subtitleContext: StreamDescriptor['subtitleContext'] | undefined = subtitlesEnabled
             ? {
                 serverUri: this.deps.getServerUri(),
+                ...(resolvedSubtitleBaseUrl ? { resolvedBaseUrl: resolvedSubtitleBaseUrl } : {}),
                 authHeaders: this.deps.getAuthHeaders(),
                 itemKey: program.item.ratingKey,
                 mediaIndex: decision.mediaIndex,
@@ -633,8 +660,9 @@ export class PlaybackRecoveryManager {
         }
 
         this._directFallbackAttemptedForItemKey.add(itemKey);
-        console.warn('[PlaybackRecovery] Transcode fallback start:', {
-            reason: redactSensitiveTokens(reason),
+        const safeReason = redactSensitiveTokens(reason);
+        this._logRecoveryWarn('transcodeFallback.start', {
+            reason: safeReason,
             itemKey,
         });
         this._streamRecoveryInProgress = true;
@@ -648,7 +676,8 @@ export class PlaybackRecoveryManager {
                 directPlay: false,
             });
             if (this.deps.getCurrentProgramForPlayback() !== programAtStart) {
-                console.warn('[PlaybackRecovery] Transcode fallback aborted:', {
+                this._logRecoveryWarn('transcodeFallback.aborted', {
+                    reason: safeReason,
                     outcome: 'program_changed',
                     itemKey,
                 });
@@ -668,7 +697,11 @@ export class PlaybackRecoveryManager {
             this.resetPlaybackFailureGuard();
             return true;
         } catch (error) {
-            console.error('[PlaybackRecovery] Transcode fallback failed:', summarizeErrorForLog(error));
+            this._logRecoveryError('transcodeFallback.failed', {
+                reason: safeReason,
+                itemKey,
+                safeError: summarizeErrorForLog(error),
+            });
             return false;
         } finally {
             this._streamRecoveryInProgress = false;
@@ -702,8 +735,9 @@ export class PlaybackRecoveryManager {
             return false;
         }
 
-        console.warn('[PlaybackRecovery] Burn-in reload start:', {
-            reason: redactSensitiveTokens(reason),
+        const safeReason = redactSensitiveTokens(reason);
+        this._logRecoveryWarn('burnInReload.start', {
+            reason: safeReason,
             trackId,
             itemKey,
         });
@@ -731,7 +765,8 @@ export class PlaybackRecoveryManager {
                 ...(activeAudioId ? { audioStreamId: activeAudioId } : {}),
             });
             if (this.deps.getCurrentProgramForPlayback() !== program) {
-                console.warn('[PlaybackRecovery] Burn-in reload aborted:', {
+                this._logRecoveryWarn('burnInReload.aborted', {
+                    reason: safeReason,
                     outcome: 'program_changed',
                     trackId,
                     itemKey,
@@ -751,7 +786,12 @@ export class PlaybackRecoveryManager {
             this._burnInAttemptedForItemKey.add(attemptKey);
             return true;
         } catch (error) {
-            console.error('[PlaybackRecovery] Burn-in reload failed:', summarizeErrorForLog(error));
+            this._logRecoveryError('burnInReload.failed', {
+                reason: safeReason,
+                trackId,
+                itemKey,
+                safeError: summarizeErrorForLog(error),
+            });
             return false;
         } finally {
             this._streamRecoveryInProgress = false;
@@ -783,8 +823,9 @@ export class PlaybackRecoveryManager {
 
         const itemKey = program.item.ratingKey;
         const burnedInTrackId = transcodeRequest?.subtitleStreamId ?? null;
-        console.warn('[PlaybackRecovery] Disable burn-in start:', {
-            reason: redactSensitiveTokens(reason),
+        const safeReason = redactSensitiveTokens(reason);
+        this._logRecoveryWarn('disableBurnIn.start', {
+            reason: safeReason,
             itemKey,
             burnedInTrackId,
         });
@@ -817,7 +858,8 @@ export class PlaybackRecoveryManager {
                 ...(activeAudioId ? { audioStreamId: activeAudioId } : {}),
             });
             if (this.deps.getCurrentProgramForPlayback() !== program) {
-                console.warn('[PlaybackRecovery] Disable burn-in aborted:', {
+                this._logRecoveryWarn('disableBurnIn.aborted', {
+                    reason: safeReason,
                     outcome: 'program_changed',
                     itemKey,
                 });
@@ -840,7 +882,12 @@ export class PlaybackRecoveryManager {
 
             return { outcome: 'disabled' };
         } catch (error) {
-            console.error('[PlaybackRecovery] Disable burn-in reload failed:', summarizeErrorForLog(error));
+            this._logRecoveryError('disableBurnIn.failed', {
+                reason: safeReason,
+                itemKey,
+                burnedInTrackId,
+                safeError: summarizeErrorForLog(error),
+            });
             return { outcome: 'failed' };
         } finally {
             this._streamRecoveryInProgress = false;

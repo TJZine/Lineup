@@ -4,12 +4,9 @@
 
 import { AuthScreen, type AuthScreenPorts } from '../AuthScreen';
 import type { AuthScreenNavigationPort } from '../../../navigation';
+import * as inlineSvg from '../../../../utils/inlineSvg';
 
 import { flushPromises } from '../../../../__tests__/helpers';
-
-jest.mock('qrcode', () => ({
-    toCanvas: jest.fn().mockResolvedValue(undefined),
-}));
 
 type NavigationMock = AuthScreenNavigationPort & {
     registerFocusable: jest.Mock;
@@ -196,6 +193,71 @@ describe('AuthScreen', () => {
         expect(pin).toBe('----');
         expect(qr.style.display).toBe('none');
         expect(status?.textContent ?? '').toContain('Cancelled.');
+    });
+
+    it('renders the Plex link QR as a trusted inline SVG with the existing canvas styling hook', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const ports = createPorts({
+            requestAuthPin: jest.fn().mockResolvedValue({
+                id: 9,
+                code: 'ABCD',
+                expiresAt: new Date(Date.now() + 5_000),
+                authToken: null,
+                clientIdentifier: 'client-id',
+            }),
+            pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+
+        const qrWrap = container.querySelector('.auth-qr') as HTMLElement | null;
+        const qrSvg = container.querySelector('.auth-qr-card svg');
+
+        expect(qrWrap?.style.display).toBe('flex');
+        expect(qrSvg).toBeInstanceOf(SVGSVGElement);
+        expect(qrSvg?.classList.contains('auth-qr-canvas')).toBe(true);
+    });
+
+    it('keeps the QR wrapper hidden when trusted inline SVG rendering leaves no svg element', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const inlineSvgSpy = jest.spyOn(inlineSvg, 'setTrustedInlineSvg').mockImplementation((host) => {
+            host.replaceChildren();
+        });
+
+        const ports = createPorts({
+            requestAuthPin: jest.fn().mockResolvedValue({
+                id: 9,
+                code: 'ABCD',
+                expiresAt: new Date(Date.now() + 5_000),
+                authToken: null,
+                clientIdentifier: 'client-id',
+            }),
+            pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
+        });
+
+        try {
+            const screen = new AuthScreen(container, ports);
+            screen.show();
+
+            click(container, '#btn-auth-request');
+            await flushPromises();
+
+            const qrWrap = container.querySelector('.auth-qr') as HTMLElement | null;
+            const qrSvg = container.querySelector('.auth-qr-card svg');
+
+            expect(qrWrap?.style.display).toBe('none');
+            expect(qrSvg).toBeNull();
+        } finally {
+            inlineSvgSpy.mockRestore();
+        }
     });
 
     it('clears PIN and QR when code expires', async () => {

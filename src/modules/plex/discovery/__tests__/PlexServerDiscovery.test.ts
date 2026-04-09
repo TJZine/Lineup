@@ -938,14 +938,68 @@ describe('PlexServerDiscovery', () => {
             expect(handler).toHaveBeenCalledWith(expect.any(String));
         });
 
-        it('should return false for unknown server ID', async () => {
+        it('returns server_not_found for unknown server ID', async () => {
             mockFetchJson([]);
             const discovery = new PlexServerDiscovery(mockConfig);
             await discovery.discoverServers();
 
             const result = await discovery.selectServer('unknown');
 
-            expect(result).toBe(false);
+            expect(result).toEqual({ kind: 'server_not_found' });
+        });
+
+        it('preserves the previous successful selection when a later switch attempt fails', async () => {
+            const discovery = new PlexServerDiscovery(mockConfig);
+
+            mockFetchJson([
+                {
+                    clientIdentifier: 'srv1',
+                    name: 'Server One',
+                    sourceTitle: 'user',
+                    ownerId: 'owner',
+                    owned: true,
+                    provides: 'server',
+                    connections: [createMockConnection({ uri: 'https://srv1:32400', address: 'srv1' })],
+                },
+                {
+                    clientIdentifier: 'srv2',
+                    name: 'Server Two',
+                    sourceTitle: 'user',
+                    ownerId: 'owner',
+                    owned: true,
+                    provides: 'server',
+                    connections: [createMockConnection({ uri: 'https://srv2:32400', address: 'srv2' })],
+                },
+            ]);
+
+            await discovery.discoverServers();
+
+            const connectionSpy = jest.spyOn(discovery, 'findFastestConnection');
+            connectionSpy.mockImplementation(async (server) => {
+                if (server.id === 'srv1') {
+                    return {
+                        connection: createMockConnection({ uri: 'https://srv1:32400', address: 'srv1' }),
+                        authRequired: false,
+                        authState: null,
+                    };
+                }
+
+                return {
+                    connection: null,
+                    authRequired: false,
+                    authState: null,
+                };
+            });
+
+            await expect(discovery.selectServer('srv1')).resolves.toEqual({ kind: 'selected' });
+            await expect(discovery.selectServer('srv2')).resolves.toEqual({
+                kind: 'connection_unavailable',
+                reason: 'unreachable',
+            });
+
+            expect(discovery.getSelectedServer()?.id).toBe('srv1');
+            expect(discovery.getServerUri()).toBe('https://srv1:32400');
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srv1');
         });
     });
 
@@ -1227,7 +1281,10 @@ describe('PlexServerDiscovery', () => {
 
             const selected = await discovery.selectServer('srv1');
 
-            expect(selected).toBe(false);
+            expect(selected).toEqual({
+                kind: 'connection_unavailable',
+                reason: 'auth_invalid',
+            });
             const rawHealth = mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY);
             expect(rawHealth).toBeTruthy();
             const parsed = rawHealth ? JSON.parse(rawHealth) : {};

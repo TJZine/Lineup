@@ -220,6 +220,27 @@ describe('SubtitleManager', () => {
             expect(foreignUrl).toContain('X-Plex-Token=token');
             expect(foreignUrl).not.toContain('malicious.example');
         });
+
+        it('prefers the resolved playback base url for direct subtitle urls', () => {
+            manager.loadTracks([], {
+                serverUri: 'http://example.com',
+                resolvedBaseUrl: 'https://secure.plex.direct:32400',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            });
+
+            const normalizedTrack = createMockSubtitleTrack({
+                id: 'sub-absolute',
+                key: 'http://example.com/library/streams/sub-absolute',
+                format: 'vtt',
+            });
+
+            const normalizedUrl = (manager as unknown as {
+                _buildDirectTrackUrl: (track: SubtitleTrack) => string | null;
+            })._buildDirectTrackUrl(normalizedTrack);
+
+            expect(normalizedUrl).toContain('https://secure.plex.direct:32400/library/streams/sub-absolute');
+            expect(normalizedUrl).toContain('X-Plex-Token=token');
+        });
     });
 
     // ========================================
@@ -463,6 +484,91 @@ Hello`,
             expect(u.searchParams.get('X-Plex-Session-Identifier')).toBe('sess-1');
         });
 
+        it('normalizes itemKey when the subtitle transcode fallback receives a metadata path', async () => {
+            const track = createMockSubtitleTrack({
+                id: 'srt-1',
+                codec: 'srt',
+                format: 'srt',
+                key: '/library/streams/1',
+                fetchableViaKey: true,
+            });
+
+            manager.loadTracks([track], {
+                serverUri: 'http://example.com',
+                authHeaders: {
+                    'X-Plex-Token': 'token',
+                    'X-Plex-Client-Identifier': 'client-1',
+                },
+                itemKey: '/library/metadata/999',
+                sessionId: 'sess-1',
+            });
+
+            const fetchMock = globalThis.fetch as unknown as jest.Mock;
+            fetchMock
+                .mockResolvedValueOnce({ ok: false, status: 501 })
+                .mockResolvedValueOnce({ ok: false, status: 501 })
+                .mockResolvedValueOnce({ ok: false, status: 501 })
+                .mockResolvedValueOnce({ ok: false, status: 501 })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    text: async () => `1
+00:00:00,000 --> 00:00:01,000
+Hello`,
+                });
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const blobUrl = await (manager as any)._fetchFallbackBlobUrl(track, (manager as any)._loadToken);
+            expect(blobUrl).toBe('blob:mock');
+
+            const [transcodeUrl] = fetchMock.mock.calls[4] ?? [];
+            const u = new URL(String(transcodeUrl));
+            expect(u.searchParams.get('path')).toBe('/library/metadata/999');
+        });
+
+        it('uses the resolved playback base url for subtitle transcode fallback requests', async () => {
+            const track = createMockSubtitleTrack({
+                id: 'srt-1',
+                codec: 'srt',
+                format: 'srt',
+                key: '/library/streams/1',
+                fetchableViaKey: true,
+            });
+
+            manager.loadTracks([track], {
+                serverUri: 'http://192.168.1.20:32400',
+                resolvedBaseUrl: 'https://relay.plex.tv',
+                authHeaders: {
+                    'X-Plex-Token': 'token',
+                    'X-Plex-Client-Identifier': 'client-1',
+                },
+                itemKey: '/library/metadata/999',
+                sessionId: 'sess-1',
+            });
+
+            const fetchMock = globalThis.fetch as unknown as jest.Mock;
+            fetchMock
+                .mockResolvedValueOnce({ ok: false, status: 501 })
+                .mockResolvedValueOnce({ ok: false, status: 501 })
+                .mockResolvedValueOnce({ ok: false, status: 501 })
+                .mockResolvedValueOnce({ ok: false, status: 501 })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    text: async () => `1
+00:00:00,000 --> 00:00:01,000
+Hello`,
+                });
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const blobUrl = await (manager as any)._fetchFallbackBlobUrl(track, (manager as any)._loadToken);
+            expect(blobUrl).toBe('blob:mock');
+
+            const [transcodeUrl] = fetchMock.mock.calls[4] ?? [];
+            const u = new URL(String(transcodeUrl));
+            expect(u.origin).toBe('https://relay.plex.tv');
+        });
+
         it('should fall back to XHR when fetch fails for subtitle transcode endpoint', async () => {
             const track = createMockSubtitleTrack({
                 id: 'srt-1',
@@ -577,6 +683,28 @@ Hello`;
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             await (manager as any)._triggerFallback(track, 'test', (manager as any)._loadToken);
             expect(fetchMock).not.toHaveBeenCalled();
+        });
+
+        it('keeps abort-controller and blob-url cleanup inside SubtitleManager', () => {
+            const abort = jest.fn();
+            const controller = { abort } as unknown as AbortController;
+            const revokeSpy = jest.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+
+            const state = manager as unknown as {
+                _fallbackControllers: Map<string, AbortController>;
+                _blobUrls: Map<string, string>;
+            };
+            state._fallbackControllers.set('sub-1', controller);
+            state._blobUrls.set('sub-1', 'blob:subtitle-1');
+
+            manager.unloadTracks();
+
+            expect(abort).toHaveBeenCalledTimes(1);
+            expect(revokeSpy).toHaveBeenCalledWith('blob:subtitle-1');
+            expect(state._fallbackControllers.size).toBe(0);
+            expect(state._blobUrls.size).toBe(0);
+
+            revokeSpy.mockRestore();
         });
     });
 

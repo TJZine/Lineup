@@ -7,6 +7,13 @@
 import { PlexServer, PlexConnection } from './types';
 import { IDisposable } from '../../../utils/interfaces';
 
+export type PlexServerSelectionFailureReason = 'unreachable' | 'auth_required' | 'auth_invalid';
+
+export type PlexServerSelectionResult =
+    | { kind: 'selected' }
+    | { kind: 'server_not_found' }
+    | { kind: 'connection_unavailable'; reason: PlexServerSelectionFailureReason };
+
 // ============================================
 // Main Interface
 // ============================================
@@ -75,9 +82,9 @@ export interface IPlexServerDiscovery {
      * Select a server and find its best connection.
      * Persists selection to localStorage.
      * @param serverId - Machine identifier of server to select
-     * @returns Promise resolving to true if selection succeeded
+     * @returns Promise resolving to an explicit selection outcome
      */
-    selectServer(serverId: string): Promise<boolean>;
+    selectServer(serverId: string): Promise<PlexServerSelectionResult>;
 
     /**
      * Get the currently selected server.

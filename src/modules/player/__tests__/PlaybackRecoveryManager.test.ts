@@ -209,11 +209,18 @@ describe('PlaybackRecoveryManager', () => {
 
         expect(scheduler.pauseSyncTimer).toHaveBeenCalled();
         expect(handleGlobalError).toHaveBeenCalledWith(
-            {
+            expect.objectContaining({
                 code: AppErrorCode.PLAYBACK_FAILED,
-                message: 'Playback failed repeatedly (context): boom',
+                message: 'Playback failed repeatedly',
                 recoverable: true,
-            },
+                context: expect.objectContaining({
+                    source: 'context',
+                    failureCount: 3,
+                    safeError: expect.any(Object),
+                    itemKey: 'item-1',
+                    channelId: 'ch1',
+                }),
+            }),
             'playback'
         );
     });
@@ -417,6 +424,35 @@ describe('PlaybackRecoveryManager', () => {
         );
     });
 
+    it('logs audio reload events with structured payloads', async () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        const { manager, resolver } = setup();
+        (resolver.resolveStream as jest.Mock).mockRejectedValueOnce(new Error('audio reload failed'));
+
+        const ok = await manager.attemptAudioTrackReloadForCurrentProgram('audio-alt', 'audio_track_change');
+
+        expect(ok).toBe(false);
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[PlaybackRecovery] audioReload.start',
+            expect.objectContaining({
+                reason: 'audio_track_change',
+                trackId: 'audio-alt',
+                itemKey: 'item-1',
+                preserveDirectPlayPreference: true,
+            })
+        );
+        expect(errorSpy).toHaveBeenCalledWith(
+            '[PlaybackRecovery] audioReload.failed',
+            expect.objectContaining({
+                reason: 'audio_track_change',
+                trackId: 'audio-alt',
+                itemKey: 'item-1',
+                safeError: expect.any(Object),
+            })
+        );
+    });
+
     it('maps ACCESS_DENIED resolver errors to lifecycle access denied', () => {
         const { manager, deps } = setup();
         const handleGlobalError = deps.handleGlobalError as jest.Mock;
@@ -574,15 +610,19 @@ describe('PlaybackRecoveryManager', () => {
 
         expect(ok).toBe(false);
         expect(warnSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] Transcode fallback start:',
+            '[PlaybackRecovery] transcodeFallback.start',
             expect.objectContaining({
                 reason: 'subtitle_decode_failed',
                 itemKey: 'item-1',
             })
         );
         expect(errorSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] Transcode fallback failed:',
-            expect.any(Object)
+            '[PlaybackRecovery] transcodeFallback.failed',
+            expect.objectContaining({
+                reason: 'subtitle_decode_failed',
+                itemKey: 'item-1',
+                safeError: expect.any(Object),
+            })
         );
     });
 
@@ -680,6 +720,22 @@ describe('PlaybackRecoveryManager', () => {
         expect(notifyToast).not.toHaveBeenCalled();
     });
 
+    it('propagates the resolved playback base url into subtitle context', async () => {
+        const decision = makeDecision({
+            playbackUrl: 'https://relay.plex.tv/video/:/transcode/universal/start.m3u8?session=sess-1',
+            protocol: 'hls',
+            isDirectPlay: false,
+            isTranscoding: true,
+            availableSubtitleStreams: makeSubtitleStreams(),
+        });
+        const { manager, resolver } = setup();
+        (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(decision);
+
+        const stream = await manager.resolveStreamForProgram(makeProgram());
+
+        expect(stream.subtitleContext?.resolvedBaseUrl).toBe('https://relay.plex.tv');
+    });
+
     it('escalates subtitle deactivation to burn-in in Full mode', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
@@ -774,7 +830,7 @@ describe('PlaybackRecoveryManager', () => {
 
         expect(ok).toBe(false);
         expect(warnSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] Burn-in reload start:',
+            '[PlaybackRecovery] burnInReload.start',
             expect.objectContaining({
                 trackId: 'sub-keyless',
                 reason: 'subtitle_extract_failed:test',
@@ -782,8 +838,13 @@ describe('PlaybackRecoveryManager', () => {
             })
         );
         expect(errorSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] Burn-in reload failed:',
-            expect.any(Object)
+            '[PlaybackRecovery] burnInReload.failed',
+            expect.objectContaining({
+                trackId: 'sub-keyless',
+                reason: 'subtitle_extract_failed:test',
+                itemKey: 'item-1',
+                safeError: expect.any(Object),
+            })
         );
     });
 
@@ -866,12 +927,16 @@ describe('PlaybackRecoveryManager', () => {
 
         expect(result).toEqual({ outcome: 'ignored', reason: 'program_changed' });
         expect(warnSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] Disable burn-in start:',
+            '[PlaybackRecovery] disableBurnIn.start',
             expect.objectContaining({ reason: 'subtitle_decode_stable', itemKey: 'item-1' })
         );
         expect(warnSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] Disable burn-in aborted:',
-            expect.objectContaining({ outcome: 'program_changed' })
+            '[PlaybackRecovery] disableBurnIn.aborted',
+            expect.objectContaining({
+                reason: 'subtitle_decode_stable',
+                itemKey: 'item-1',
+                outcome: 'program_changed',
+            })
         );
     });
 

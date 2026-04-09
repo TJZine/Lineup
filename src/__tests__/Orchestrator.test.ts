@@ -367,7 +367,7 @@ const mockPlexDiscovery = {
     isConnected: jest.fn().mockReturnValue(true),
     getSelectedServer: jest.fn().mockReturnValue(null),
     getServerUri: jest.fn().mockReturnValue('http://localhost:32400'),
-    selectServer: jest.fn().mockResolvedValue(true),
+    selectServer: jest.fn().mockResolvedValue({ kind: 'selected' }),
     clearSelection: jest.fn(),
     setStorageKeys: jest.fn(),
     on: jest.fn(() => ({ dispose: jest.fn() })),
@@ -1006,9 +1006,14 @@ describe('AppOrchestrator', () => {
                 .mockResolvedValue(undefined);
 
             try {
-                mockPlexDiscovery.selectServer.mockResolvedValue(true);
+                mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
+                mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
 
-                await orchestrator.selectServer('server-1');
+                await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
+                    kind: 'selected',
+                    readiness: 'startup_pending',
+                    persistedSelection: 'updated',
+                });
 
                 expect(mockPlexDiscovery.selectServer).toHaveBeenCalledWith('server-1');
                 expect(runStartupSpy).toHaveBeenCalledWith(3);
@@ -1024,20 +1029,91 @@ describe('AppOrchestrator', () => {
             }
         });
 
+        it('returns selection_failed when discovery reports server_not_found', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            const runStartupSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'runStartup')
+                .mockResolvedValue(undefined);
+            mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'server_not_found' });
+
+            try {
+                await expect(orchestrator.selectServer('missing-server')).resolves.toEqual({
+                    kind: 'selection_failed',
+                    reason: 'server_not_found',
+                });
+                expect(mockPlexAuth.getStoredCredentials).not.toHaveBeenCalled();
+                expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
+                expect(runStartupSpy).not.toHaveBeenCalled();
+            } finally {
+                runStartupSpy.mockRestore();
+            }
+        });
+
+        it('returns selection_failed when discovery reports connection_unavailable', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            const runStartupSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'runStartup')
+                .mockResolvedValue(undefined);
+            mockPlexDiscovery.selectServer.mockResolvedValue({
+                kind: 'connection_unavailable',
+                reason: 'auth_required',
+            });
+
+            try {
+                await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
+                    kind: 'selection_failed',
+                    reason: 'auth_required',
+                });
+                expect(mockPlexAuth.getStoredCredentials).not.toHaveBeenCalled();
+                expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
+                expect(runStartupSpy).not.toHaveBeenCalled();
+            } finally {
+                runStartupSpy.mockRestore();
+            }
+        });
+
+        it('reports skipped_missing_credentials when selected-server persistence has no stored auth', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            const runStartupSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'runStartup')
+                .mockResolvedValue(undefined);
+            mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
+            mockPlexAuth.getStoredCredentials.mockResolvedValue({ kind: 'missing' });
+
+            try {
+                await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
+                    kind: 'selected',
+                    readiness: 'startup_pending',
+                    persistedSelection: 'skipped_missing_credentials',
+                });
+                expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
+                expect(runStartupSpy).toHaveBeenCalledWith(3);
+            } finally {
+                runStartupSpy.mockRestore();
+            }
+        });
+
         it('does not rewrite persisted selected-server state when stored auth is corrupted', async () => {
             await orchestrator.initialize(mockConfig);
 
             const runStartupSpy = jest
                 .spyOn(InitializationCoordinator.prototype, 'runStartup')
                 .mockResolvedValue(undefined);
-            mockPlexDiscovery.selectServer.mockResolvedValue(true);
+            mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
             mockPlexAuth.getStoredCredentials.mockResolvedValue({
                 kind: 'corrupted',
                 reason: 'invalid-json',
             });
 
             try {
-                await expect(orchestrator.selectServer('server-1')).resolves.toBe(false);
+                await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
+                    kind: 'selected',
+                    readiness: 'startup_pending',
+                    persistedSelection: 'skipped_corrupted_credentials',
+                });
                 expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
                 expect(runStartupSpy).toHaveBeenCalledWith(3);
             } finally {

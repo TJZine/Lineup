@@ -9,22 +9,18 @@ import type { SubtitleTrack } from './types';
 import { BURN_IN_SUBTITLE_FORMATS } from './constants';
 import { DeveloperSettingsStore } from '../settings/DeveloperSettingsStore';
 import { redactSensitiveTokens, safeStringifyForLog } from '../../utils/redact';
-import {
-    looksLikeHtml,
-    normalizeSubtitleToVtt,
-} from './subtitleConversion';
 import type { PlatformSubtitleService } from '../../platform';
 import { webosPlatformServices } from '../../platform';
-import { fetchWithTimeout } from '../plex/shared/fetchWithTimeout';
 import {
-    applyXPlexQueryParamsFromHeaders,
     applyXPlexTokenQueryParam,
     buildPlexUrlFromKey,
     tryBuildPlexServerUrlFromKey,
 } from '../plex/shared/plexUrl';
+import { fetchSubtitleFallbackVtt } from './subtitleFallbackPipeline';
 
 interface SubtitleTrackContext {
     serverUri: string | null;
+    resolvedBaseUrl?: string;
     authHeaders: Record<string, string>;
     itemKey?: string;
     mediaIndex?: number;
@@ -358,7 +354,9 @@ export class SubtitleManager {
 
     private _buildDirectTrackUrl(track: SubtitleTrack): string | null {
         try {
-            const baseUri = this._subtitleContext?.serverUri ?? null;
+            const baseUri = this._subtitleContext?.resolvedBaseUrl
+                ?? this._subtitleContext?.serverUri
+                ?? null;
             let url: URL;
             if (track.key) {
                 if (!baseUri) return null;
@@ -535,126 +533,25 @@ export class SubtitleManager {
         this._fallbackControllers.set(track.id, controller);
 
         try {
-            let lastAttempt: string = 'init';
-            let lastAttemptUrl: string = url.toString();
-
-            const tokenFromHeaders = ((): string | null => {
-                const headers = this._subtitleContext?.authHeaders ?? null;
-                if (!headers) return null;
-                return this._getAuthTokenFromHeaders(headers);
-            })();
-
-            const baseAcceptHeader = { Accept: 'text/vtt, text/plain, */*' };
-
-            const attempts: Array<{
-                name: 'query' | 'header' | 'query_download' | 'header_download';
-                url: URL;
-                headers: Record<string, string>;
-            }> = [
-                { name: 'query', url, headers: baseAcceptHeader },
-            ];
-
-            if (tokenFromHeaders) {
-                // Some PMS setups accept token-in-header but reject token-in-query for /library/streams/*.
-                // Keep query-first to avoid extra preflight work, then retry with token header.
-                const headerUrl = new URL(url.toString());
-                headerUrl.searchParams.delete('X-Plex-Token');
-                attempts.push({
-                    name: 'header',
-                    url: headerUrl,
-                    headers: { ...baseAcceptHeader, 'X-Plex-Token': tokenFromHeaders },
-                });
-
-                const queryDownloadUrl = new URL(url.toString());
-                if (!queryDownloadUrl.searchParams.has('download')) {
-                    queryDownloadUrl.searchParams.set('download', '1');
-                }
-                attempts.push({ name: 'query_download', url: queryDownloadUrl, headers: baseAcceptHeader });
-
-                const headerDownloadUrl = new URL(headerUrl.toString());
-                if (!headerDownloadUrl.searchParams.has('download')) {
-                    headerDownloadUrl.searchParams.set('download', '1');
-                }
-                attempts.push({
-                    name: 'header_download',
-                    url: headerDownloadUrl,
-                    headers: { ...baseAcceptHeader, 'X-Plex-Token': tokenFromHeaders },
-                });
-            }
-
-            let raw: string | null = null;
-            for (const attempt of attempts) {
-                lastAttempt = attempt.name;
-                lastAttemptUrl = attempt.url.toString();
-                raw = await this._fetchSubtitleTextWithFallbacks(
-                    attempt.url,
-                    attempt.headers,
-                    controller.signal,
-                    loadToken,
-                    track.id
-                );
-                if (loadToken !== this._loadToken) return null;
-                if (raw) break;
-            }
-
-            // Some PMS setups return 501 for keyless subtitle streams via /library/streams/{id}.
-            // As a last resort, ask PMS to extract/transcode the selected subtitle stream.
-            if (!raw) {
-                const paths = this._getSubtitleTranscodePaths();
-                const formats: Array<'srt' | 'vtt'> = ['srt', 'vtt'];
-                for (const path of paths) {
-                    for (const format of formats) {
-                        const transcodeUrl = this._buildSubtitleTranscodeUrl(track, tokenFromHeaders, path, format);
-                        if (!transcodeUrl) continue;
-                        lastAttempt = `universal_subtitles_${format}`;
-                        lastAttemptUrl = transcodeUrl.toString();
-                        try {
-                            raw = await this._fetchSubtitleTextWithFallbacks(
-                                transcodeUrl,
-                                baseAcceptHeader,
-                                controller.signal,
-                                loadToken,
-                                track.id
-                            );
-                            if (raw) {
-                                break;
-                            }
-                        } catch (error) {
-                            if (loadToken !== this._loadToken) return null;
-                            const message = error instanceof Error ? error.message : String(error);
-                            this._logSubtitleDebug('subtitle_fetch_error', () => ({
-                                id: track.id,
-                                error: message,
-                                attempt: 'subtitle_text_fetch_exception',
-                                url: redactSensitiveTokens(transcodeUrl.toString()),
-                            }));
-                        }
-                    }
-                    if (raw) break;
-                }
-            }
-
-            if (!raw) return null;
-            if (looksLikeHtml(raw)) {
-                this._logSubtitleDebug('subtitle_fetch_error', () => ({
-                    id: track.id,
-                    error: 'html_response',
-                    attempt: lastAttempt,
-                    url: redactSensitiveTokens(lastAttemptUrl),
-                }));
-                return null;
-            }
-            const start = typeof performance !== 'undefined' ? performance.now() : Date.now();
-            const converted = normalizeSubtitleToVtt(raw);
-            const end = typeof performance !== 'undefined' ? performance.now() : Date.now();
-            const durationMs = Math.max(0, Math.round(end - start));
-            this._logSubtitleDebug('subtitle_conversion_result', () => ({
-                id: track.id,
-                format: converted.format,
-                bytes: converted.vtt.length,
-                durationMs,
-                success: true,
-            }));
+            const convertedVtt = await fetchSubtitleFallbackVtt({
+                track,
+                initialUrl: url,
+                context: {
+                    serverUri: this._subtitleContext?.serverUri ?? null,
+                    resolvedBaseUrl: this._subtitleContext?.resolvedBaseUrl,
+                    authHeaders: this._subtitleContext?.authHeaders ?? {},
+                    itemKey: this._subtitleContext?.itemKey,
+                    mediaIndex: this._subtitleContext?.mediaIndex,
+                    partIndex: this._subtitleContext?.partIndex,
+                    sessionId: this._subtitleContext?.sessionId,
+                },
+                signal: controller.signal,
+                isCurrentLoad: () => loadToken === this._loadToken,
+                deriveLanHttpUrl: (original) => this._deriveLanHttpUrl(original),
+                logDebug: (event, contextFactory) => this._logSubtitleDebug(event, contextFactory),
+            });
+            if (loadToken !== this._loadToken) return null;
+            if (!convertedVtt) return null;
 
             const existing = this._blobUrls.get(track.id);
             if (existing) {
@@ -666,7 +563,7 @@ export class SubtitleManager {
                 this._blobUrls.delete(track.id);
             }
 
-            const blob = new Blob([converted.vtt], { type: 'text/vtt' });
+            const blob = new Blob([convertedVtt], { type: 'text/vtt' });
             const blobUrl = URL.createObjectURL(blob);
             this._blobUrls.set(track.id, blobUrl);
             return blobUrl;
@@ -684,254 +581,8 @@ export class SubtitleManager {
         }
     }
 
-    /**
-     * Fetch subtitle text, with a best-effort XHR fallback for environments where `fetch()`
-     * can fail on large/chunked responses (seen on some webOS Chromium builds).
-     */
-    private async _fetchSubtitleTextWithFallbacks(
-        url: URL,
-        headers: Record<string, string>,
-        signal: AbortSignal,
-        loadToken: number,
-        trackId: string
-    ): Promise<string | null> {
-        const urlsToTry: Array<{ variant: 'primary' | 'lan_http'; url: URL }> = [{ variant: 'primary', url }];
-        const lanHttp = this._deriveLanHttpUrl(url);
-        if (lanHttp) {
-            const lan = lanHttp.toString();
-            const primary = url.toString();
-            if (lan !== primary) {
-                urlsToTry.push({ variant: 'lan_http', url: lanHttp });
-            }
-        }
-
-        for (const entry of urlsToTry) {
-            const suffix = entry.variant === 'lan_http' ? '_lan_http' : '';
-            try {
-                const response = await fetchWithTimeout(
-                    entry.url.toString(),
-                    { headers },
-                    10_000,
-                    signal
-                );
-                if (loadToken !== this._loadToken) return null;
-                if (!response.ok) {
-                    let bodySample: string | null = null;
-                    let contentType: string | null = null;
-                    try {
-                        contentType = response.headers.get('content-type');
-                        const rawText = await response.text();
-                        bodySample = rawText.slice(0, 200);
-                    } catch {
-                        // ignore
-                    }
-                    this._logSubtitleDebug('subtitle_fetch_error', () => ({
-                        id: trackId,
-                        status: response.status,
-                        attempt: (`subtitle_text_fetch_status${suffix}`) as string,
-                        url: redactSensitiveTokens(entry.url.toString()),
-                        ...(contentType ? { contentType } : {}),
-                        ...(bodySample ? { bodySample } : {}),
-                    }));
-                } else {
-                    return await response.text();
-                }
-            } catch (error) {
-                if (loadToken !== this._loadToken) return null;
-
-                // If fetch fails (e.g. ERR_INCOMPLETE_CHUNKED_ENCODING), try XHR which can behave differently
-                // on older embedded Chromium stacks.
-                const message = error instanceof Error ? error.message : String(error);
-                this._logSubtitleDebug('subtitle_fetch_error', () => ({
-                    id: trackId,
-                    error: message,
-                    attempt: (`subtitle_text_fetch_failed${suffix}`) as string,
-                    url: redactSensitiveTokens(entry.url.toString()),
-                }));
-
-                const xhrText = await this._xhrGetText(entry.url.toString(), headers, signal, loadToken, trackId);
-                if (xhrText) return xhrText;
-            }
-        }
-
-        return null;
-    }
-
-    private _xhrGetText(
-        url: string,
-        headers: Record<string, string>,
-        signal: AbortSignal,
-        loadToken: number,
-        trackId: string
-    ): Promise<string | null> {
-        return new Promise((resolve) => {
-            let xhr: XMLHttpRequest | null = null;
-            let settled = false;
-            const finish = (value: string | null): void => {
-                if (settled) return;
-                settled = true;
-                signal.removeEventListener('abort', onAbort);
-                resolve(value);
-            };
-
-            const onAbort = (): void => {
-                try {
-                    xhr?.abort();
-                } catch {
-                    // ignore
-                }
-                finish(null);
-            };
-
-            if (signal.aborted) {
-                finish(null);
-                return;
-            }
-
-            try {
-                xhr = new XMLHttpRequest();
-                const xhrRef = xhr;
-                xhr.open('GET', url, true);
-                for (const [k, v] of Object.entries(headers)) {
-                    try {
-                        xhr.setRequestHeader(k, v);
-                    } catch {
-                        // Some environments restrict certain headers; ignore and proceed.
-                    }
-                }
-                // Encourage plain text decoding.
-                try {
-                    xhr.overrideMimeType('text/plain; charset=utf-8');
-                } catch {
-                    // ignore
-                }
-
-                signal.addEventListener('abort', onAbort, { once: true });
-
-                xhr.onerror = (): void => {
-                    if (loadToken !== this._loadToken) {
-                        finish(null);
-                        return;
-                    }
-                    this._logSubtitleDebug('subtitle_fetch_error', () => ({
-                        id: trackId,
-                        attempt: 'subtitle_text_xhr_error',
-                        status: xhrRef.status,
-                        readyState: xhrRef.readyState,
-                        url: redactSensitiveTokens(url),
-                    }));
-                    finish(null);
-                };
-                xhr.ontimeout = (): void => {
-                    if (loadToken !== this._loadToken) {
-                        finish(null);
-                        return;
-                    }
-                    this._logSubtitleDebug('subtitle_fetch_error', () => ({
-                        id: trackId,
-                        attempt: 'subtitle_text_xhr_timeout',
-                        status: xhrRef.status,
-                        readyState: xhrRef.readyState,
-                        url: redactSensitiveTokens(url),
-                    }));
-                    finish(null);
-                };
-                xhr.onabort = (): void => {
-                    finish(null);
-                };
-                xhr.onload = (): void => {
-                    if (loadToken !== this._loadToken) {
-                        finish(null);
-                        return;
-                    }
-                    if (xhrRef.status < 200 || xhrRef.status >= 300) {
-                        const bodySample =
-                            typeof xhrRef.responseText === 'string' && xhrRef.responseText.length > 0
-                                ? xhrRef.responseText.slice(0, 200)
-                                : null;
-                        this._logSubtitleDebug('subtitle_fetch_error', () => ({
-                            id: trackId,
-                            status: xhrRef.status,
-                            attempt: 'subtitle_text_xhr_status',
-                            url: redactSensitiveTokens(url),
-                            ...(bodySample ? { bodySample } : {}),
-                        }));
-                        finish(null);
-                        return;
-                    }
-                    finish(typeof xhrRef.responseText === 'string' ? xhrRef.responseText : null);
-                };
-
-                xhr.timeout = 10000;
-                xhr.send();
-            } catch (e) {
-                const message = e instanceof Error ? e.message : String(e);
-                this._logSubtitleDebug('subtitle_fetch_error', () => ({
-                    id: trackId,
-                    attempt: 'subtitle_text_xhr_exception',
-                    error: message,
-                    url: redactSensitiveTokens(url),
-                }));
-                finish(null);
-            }
-        });
-    }
-
     private _deriveLanHttpUrl(original: URL): URL | null {
         return this._subtitleService.deriveLanHttpSubtitleUrl(original);
-    }
-
-    private _buildSubtitleTranscodeUrl(
-        track: SubtitleTrack,
-        token: string | null,
-        path: string,
-        format: 'srt' | 'vtt'
-    ): URL | null {
-        try {
-            const ctx = this._subtitleContext;
-            const baseUri = ctx?.serverUri ?? null;
-            if (!baseUri || !path) return null;
-
-            const url = new URL('/video/:/transcode/universal/subtitles', baseUri);
-
-            // Minimal required request shape (best-effort). PMS may accept additional identity params.
-            url.searchParams.set('path', path);
-            url.searchParams.set('mediaIndex', String(ctx?.mediaIndex ?? 0));
-            url.searchParams.set('partIndex', String(ctx?.partIndex ?? 0));
-            url.searchParams.set('subtitleStreamID', track.id);
-            // Ask PMS for SRT (or plain text) and run conversion locally.
-            // This avoids relying on PMS WebVTT conversion behavior and has been more robust in practice.
-            url.searchParams.set('format', format);
-            url.searchParams.set('download', '1');
-
-            if (ctx?.sessionId) {
-                url.searchParams.set('X-Plex-Session-Identifier', ctx.sessionId);
-                url.searchParams.set('session', ctx.sessionId);
-            }
-
-            // Prefer token in query to avoid CORS preflight and to match <video>/<track> request constraints.
-            applyXPlexTokenQueryParam(url.searchParams, token);
-
-            // Carry through any X-Plex-* identity headers as query params (matches how direct-play URLs are built).
-            applyXPlexQueryParamsFromHeaders(url.searchParams, ctx?.authHeaders ?? {});
-
-            // Some PMS setups require a client profile name for universal transcode endpoints.
-            if (!url.searchParams.has('X-Plex-Client-Profile-Name')) {
-                url.searchParams.set('X-Plex-Client-Profile-Name', 'HTML TV App');
-            }
-
-            return url;
-        } catch {
-            return null;
-        }
-    }
-
-    private _getSubtitleTranscodePaths(): string[] {
-        // Canonical universal-subtitles path for Lineup.
-        const ctx = this._subtitleContext;
-        const itemKey = ctx?.itemKey ?? null;
-        if (!itemKey) return [];
-        return [`/library/metadata/${itemKey}`];
     }
 
     private _replaceTrackElement(track: SubtitleTrack, src: string, loadToken: number): void {

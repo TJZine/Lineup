@@ -54,9 +54,9 @@ describe('ResponseParser', () => {
             expect(result[0]!.thumb).toBe('/thumb/path');
         });
 
-        it('should handle null/undefined input', () => {
-            expect(parseLibrarySections(null as unknown as RawLibrarySection[])).toEqual([]);
-            expect(parseLibrarySections(undefined as unknown as RawLibrarySection[])).toEqual([]);
+        it('requires callers to pass a validated library section array', () => {
+            expect(() => parseLibrarySections(null as unknown as RawLibrarySection[])).toThrow();
+            expect(() => parseLibrarySections(undefined as unknown as RawLibrarySection[])).toThrow();
         });
 
         it('should handle missing optional fields', () => {

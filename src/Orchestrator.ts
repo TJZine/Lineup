@@ -29,6 +29,7 @@ import {
 } from './modules/plex/auth';
 import {
     type IPlexServerDiscovery,
+    type PlexServerSelectionResult,
     type PlexServer,
 } from './modules/plex/discovery';
 import {
@@ -96,6 +97,12 @@ import {
     ProfileSwitchCleanupController,
     PlaybackRuntimeController,
 } from './core';
+import type {
+    OrchestratorServerSelectionReadiness,
+    OrchestratorServerSelectionResult,
+    SelectedServerPersistenceResult,
+} from './core/server-selection/ServerSelectionTypes';
+import { ServerSelectionCoordinator } from './core/server-selection/ServerSelectionCoordinator';
 import type {
     ModuleStatus,
     OrchestratorConfig,
@@ -215,6 +222,7 @@ export interface PlaybackInfoSnapshot {
     | null;
 }
 
+export type { OrchestratorServerSelectionResult } from './core/server-selection/ServerSelectionTypes';
 export type { ErrorRecoveryAction } from './core/error-recovery/types';
 
 // Re-export AppErrorCode for consumers
@@ -299,6 +307,7 @@ export class AppOrchestrator {
     private _epgDebugRuntime: IEpgDebugRuntime | null = null;
     private readonly _playbackStateAccessors: OrchestratorPlaybackStateAccessors;
     private readonly _channelSetupWorkflowPort: ChannelSetupWorkflowPort;
+    private readonly _serverSelectionCoordinator: ServerSelectionCoordinator;
 
     private _throwModuleInitPreconditionError(
         message: string,
@@ -348,6 +357,35 @@ export class AppOrchestrator {
         };
         this._channelSetupWorkflowPort = createChannelSetupWorkflowPort({
             getChannelSetupCoordinator: (): ChannelSetupCoordinator | null => this._channelSetup,
+        });
+        this._serverSelectionCoordinator = new ServerSelectionCoordinator({
+            selectServer: async (serverId: string): Promise<PlexServerSelectionResult> => {
+                if (!this._plexDiscovery) {
+                    throw new Error('PlexServerDiscovery not initialized');
+                }
+                return this._plexDiscovery.selectServer(serverId);
+            },
+            getSelectedServerUri: (): string | null => this._plexDiscovery?.getServerUri() ?? null,
+            persistSelection: async (
+                serverId: string,
+                serverUri: string | null
+            ): Promise<SelectedServerPersistenceResult> =>
+                this._persistSelectedServerForActiveUser(serverId, serverUri),
+            runPostSelectionRuntimeSwap: async (): Promise<void> => {
+                if (!this._initCoordinator) {
+                    return;
+                }
+                await this._initCoordinator.runStartup(3);
+                if (this._epg) {
+                    this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
+                    this._epgCoordinator?.clearScheduleCaches();
+                }
+                this._epg?.clearSchedules();
+                this._epgCoordinator?.primeEpgChannels();
+                await this._epgCoordinator?.refreshEpgSchedules({ reason: 'server-swap' });
+            },
+            getReadiness: (): OrchestratorServerSelectionReadiness =>
+                (this._ready ? 'ready' : 'startup_pending'),
         });
         this._initializeModuleStatus();
     }
@@ -1237,34 +1275,14 @@ export class AppOrchestrator {
     /**
      * Select a Plex server to connect to.
      */
-    async selectServer(serverId: string): Promise<boolean> {
+    async selectServer(serverId: string): Promise<OrchestratorServerSelectionResult> {
         if (!this._plexDiscovery) {
             this._throwModuleInitPreconditionError('PlexServerDiscovery not initialized', {
                 method: 'selectServer',
                 dependency: 'PlexServerDiscovery',
             });
         }
-        const ok = await this._plexDiscovery.selectServer(serverId);
-        if (ok) {
-            await this._persistSelectedServerForActiveUser(
-                serverId,
-                this._plexDiscovery.getServerUri()
-            );
-            // If we're already running (or resuming from the server-select screen),
-            // re-run the channel/player/EPG phases to swap to the selected server.
-            if (this._initCoordinator) {
-                await this._initCoordinator.runStartup(3);
-                if (this._epg) {
-                    this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
-                    this._epgCoordinator?.clearScheduleCaches();
-                    this._epg.clearSchedules();
-                }
-                this._epgCoordinator?.primeEpgChannels();
-                await this._epgCoordinator?.refreshEpgSchedules({ reason: 'server-swap' });
-            }
-            return this._ready;
-        }
-        return ok;
+        return this._serverSelectionCoordinator.selectServer(serverId);
     }
 
     /**
@@ -1301,6 +1319,9 @@ export class AppOrchestrator {
         this._requireChannelSetupCoordinator().requestChannelSetupRerun();
     }
 
+    // Runtime channel-switch commands are intentionally best-effort: remote input can
+    // arrive before tuning modules are assembled, so these methods no-op safely.
+    // Setup/capability entrypoints still enforce strict precondition throws.
     /**
      * Switch to a channel by ID.
      * Stops current playback, resolves content, configures scheduler, and syncs.
@@ -1628,18 +1649,21 @@ export class AppOrchestrator {
     private async _persistSelectedServerForActiveUser(
         serverId: string | null,
         serverUri: string | null
-    ): Promise<void> {
+    ): Promise<'updated' | 'skipped_missing_credentials' | 'skipped_corrupted_credentials'> {
         if (!this._plexAuth) {
-            return;
+            return 'skipped_missing_credentials';
         }
         const stored = await this._plexAuth.getStoredCredentials();
-        if (stored.kind !== 'available') {
-            return;
+        if (stored.kind === 'missing') {
+            return 'skipped_missing_credentials';
+        }
+        if (stored.kind === 'corrupted') {
+            return 'skipped_corrupted_credentials';
         }
         const credentials = stored.credentials;
         const activeUserId = this._plexAuth.getActiveUserId() ?? credentials.activeUserId;
         if (!activeUserId) {
-            return;
+            return 'skipped_missing_credentials';
         }
         const selectedServerByUserId = {
             ...(credentials.selectedServerByUserId ?? {}),
@@ -1652,6 +1676,7 @@ export class AppOrchestrator {
             selectedServerByUserId,
             deviceKey: credentials.deviceKey ?? null,
         });
+        return 'updated';
     }
 
     private _shouldRunAudioSetup(): boolean {

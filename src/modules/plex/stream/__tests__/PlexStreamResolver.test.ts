@@ -276,6 +276,38 @@ describe('PlexStreamResolver', () => {
             expect(decision.playbackUrl).toContain('X-Plex-Token=mock-token');
         });
 
+        it('keeps explicit audio selection in the direct-play url when the requested track is compatible', async () => {
+            const mockItem = createMockMediaItem(
+                { audioCodec: 'dts' },
+                {
+                    extraStreams: [
+                        {
+                            id: 'audio-2',
+                            streamType: 2,
+                            codec: 'aac',
+                            language: 'Spanish',
+                            languageCode: 'es',
+                            channels: 2,
+                        },
+                    ],
+                }
+            );
+
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            const decision = await resolver.resolveStream({
+                itemKey: '12345',
+                audioStreamId: 'audio-2',
+            });
+
+            expect(decision.isDirectPlay).toBe(true);
+            expect(decision.audioCodec).toBe('aac');
+            expect(decision.playbackUrl).toContain('audioStreamID=audio-2');
+        });
+
         it('keeps direct play for DV MKV (P8.1) when Smart is enabled and content is already direct-playable', async () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
@@ -1333,6 +1365,30 @@ describe('PlexStreamResolver', () => {
             const resolver = new PlexStreamResolver(config);
 
             expect(() => resolver.getTranscodeUrl('12345', {})).toThrow();
+        });
+
+        it('throws a typed parse error and emits it when the item key cannot build a metadata path', () => {
+            const resolver = new PlexStreamResolver(createMockConfig());
+            const errorHandler = jest.fn();
+            resolver.on('error', errorHandler);
+
+            try {
+                resolver.getTranscodeUrl('   ', {});
+                throw new Error('Expected getTranscodeUrl() to throw');
+            } catch (error) {
+                expect(error).toMatchObject({
+                    code: 'PARSE_ERROR',
+                    message: expect.stringContaining('Invalid item key for transcode URL'),
+                    recoverable: false,
+                });
+            }
+
+            expect(errorHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: 'PARSE_ERROR',
+                    recoverable: false,
+                })
+            );
         });
     });
 

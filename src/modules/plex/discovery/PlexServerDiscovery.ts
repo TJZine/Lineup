@@ -2,6 +2,7 @@ import { EventEmitter } from '../../../utils/EventEmitter';
 import { PLEX_DISCOVERY_CONSTANTS, DEFAULT_MIXED_CONTENT_CONFIG } from './constants';
 import {
     IPlexServerDiscovery,
+    PlexServerSelectionResult,
     PlexServerDiscoveryConfig,
 } from './interfaces';
 import {
@@ -428,18 +429,22 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         };
     }
 
-    public async selectServer(serverId: string): Promise<boolean> {
+    public async selectServer(serverId: string): Promise<PlexServerSelectionResult> {
         const server = this._findServerById(serverId);
 
         if (!server) {
-            return false;
+            return { kind: 'server_not_found' };
         }
 
         const { connection, authRequired, authState } = await this.findFastestConnection(server);
 
         if (!connection) {
-            this._persistServerHealth(serverId, authState ?? (authRequired ? 'auth_required' : 'unreachable'));
-            return false;
+            const reason = authState ?? (authRequired ? 'auth_required' : 'unreachable');
+            this._persistServerHealth(serverId, reason);
+            return {
+                kind: 'connection_unavailable',
+                reason,
+            };
         }
 
         // Update state
@@ -462,7 +467,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             latency: connection.latencyMs ?? 0
         });
 
-        return true;
+        return { kind: 'selected' };
     }
 
     public getSelectedServer(): PlexServer | null {
