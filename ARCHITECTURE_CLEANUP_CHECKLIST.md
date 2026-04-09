@@ -1035,14 +1035,55 @@ These are the required repo-local boundary skills for the new wave. Load them be
 
 ### Work Units
 
-- [ ] `P8-W1` remove systemic restating JSDoc and template residue without deleting comments that carry real boundary rules
+- [x] `P8-W1` remove systemic restating JSDoc and template residue without deleting comments that carry real boundary rules
   - Imported review issues: `review::.::holistic::ai_generated_debt::systemic_restating_jsdoc`
-  - Primary files: high-noise production files touched by the current wave, including `src/config/storageKeys.ts`, `src/modules/ui/epg/EPGTimeHeader.ts`, `src/modules/ui/settings/SettingsToggle.ts`, `src/modules/ui/epg/utils.ts`
+  - Primary files: high-noise production files touched by the current wave, including `src/config/storageKeys.ts`, `src/modules/ui/epg/view/EPGTimeHeader.ts`, `src/modules/ui/settings/SettingsToggle.ts`, `src/modules/ui/epg/utils.ts`, `src/modules/ui/settings/constants.ts`, `src/modules/ui/epg/index.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` command for the mapped id
-- [ ] `P8-EXIT` run the final priority-exit review before declaring this wave complete
+  - Execution (2026-04-09): removed fileoverview/version boilerplate and restating JSDoc from the current-code residue pocket in `src/config/storageKeys.ts`, `src/modules/ui/settings/SettingsToggle.ts`, `src/modules/ui/epg/utils.ts`, `src/modules/ui/epg/view/EPGTimeHeader.ts`, `src/modules/ui/settings/constants.ts`, and `src/modules/ui/epg/index.ts` while preserving the real import-boundary note in `storageKeys.ts`, the `SUBTITLE_MODE` contract block, and other non-obvious inline behavior comments.
+  - Source-audit note (2026-04-09): the earlier checklist example path `src/modules/ui/epg/EPGTimeHeader.ts` was stale; the live file is `src/modules/ui/epg/view/EPGTimeHeader.ts`.
+  - Verification (2026-04-09):
+    - `desloppify show "review::.::holistic::ai_generated_debt::systemic_restating_jsdoc" --status open --no-budget` -> `No open issues matching: review::.::holistic::ai_generated_debt::systemic_restating_jsdoc`
+    - `npm run verify` -> pass
+- [x] `P8-EXIT` run the final priority-exit review before declaring this wave complete
   - required: record every mapped imported issue with an exact disposition
   - Gate: this checklist is not complete until every one of the `44` imported review issue ids listed above has a final disposition record
   - Required verification: `desloppify status`; `desloppify plan queue`; `desloppify show security --status open --no-budget --top 50`; the exact `P8-W1` issue-id check; `npm run verify`; `npm run verify:docs`; `npm run plans:check`
+  - Priority-exit review status (2026-04-09): `complete` (the final imported `P8` issue resolves on current-code proof; no imported `review` ids remain open)
+  - Verified commands (2026-04-09):
+    - `desloppify status`
+    - `desloppify plan queue`
+    - `desloppify show review --status open --no-budget --top 100`
+    - `desloppify show security --status open --no-budget --top 50`
+    - `desloppify show "review::.::holistic::ai_generated_debt::systemic_restating_jsdoc" --status open --no-budget`
+    - `npm run verify`
+    - `npm run verify:docs`
+    - `npm run plans:check`
+  - Refreshed verification results (2026-04-09):
+    - `desloppify status` -> `Scores: overall 82.1/100 · objective 95.2/100 · strict 81.8/100 · verified 95.1/100`; `Queue: 2 items (7 planned · 51 stale tracked · 1 subjective)`; `Objective queue complete`; `Review: 33 issues open, 33 uninvestigated`; `Last scan: 2026-04-09T14:18:33+00:00`.
+    - `desloppify plan queue` -> `Queue: 1 item (58 planned · 1 subjective)` with `subjective_assessment` (`Auth consistency`) only.
+    - `desloppify show review --status open --no-budget --top 100` -> `No open issues matching: review`
+    - `desloppify show security --status open --no-budget --top 50` -> `No open issues for Security`
+    - `desloppify show "review::.::holistic::ai_generated_debt::systemic_restating_jsdoc" --status open --no-budget` -> `No open issues matching: review::.::holistic::ai_generated_debt::systemic_restating_jsdoc`
+    - `npm run verify` -> pass
+    - `npm run verify:docs` -> pass
+    - `npm run plans:check` -> fail, unchanged from pre-`P8` planning, due to older active tracked plans outside the imported 44-id checklist envelope:
+      - `docs/plans/2026-03-31-epg-focused-cell-overlay-layout.md`
+      - `docs/plans/2026-04-02-epg-dom-budget-row-fairness-remediation.md`
+      - `docs/plans/2026-04-02-epg-review-suggestion-remediation.md`
+      - `docs/plans/2026-04-02-p3-w3-channel-setup-naming-and-types.md`
+      - `docs/plans/2026-04-03-p3-exit-priority-3-exit-review.md`
+      - `docs/plans/2026-04-04-onboarding-settings-epg-ui-cleanup-plan.md`
+      - `docs/plans/2026-04-07-epg-cell-presentation-fixes.md`
+  - Mapped imported issues (2026-04-09 disposition record):
+    - `review::.::holistic::ai_generated_debt::systemic_restating_jsdoc` -> `resolved`; owner: `P8-W1`; reason: bounded source cleanup removed the remaining low-value comment/template residue in the approved file pocket, the stale `EPGTimeHeader` example path was corrected to the current `view/` location, and the exact issue-id command now reports `No open issues matching`.
+  - Follow-up ownership and residuals (2026-04-09):
+    - Follow-up ownership: none inside the imported 44-id checklist envelope.
+    - Residuals: imported checklist residuals none.
+    - Post-checklist global residue: `desloppify plan queue` still reports one subjective `Auth consistency` item, and `plans:check` still reports older active-plan conformance drift outside `P8`; these remain separate post-checklist cleanup inputs and do not reopen the imported review-id wave.
+  - Security triage (2026-04-09 disposition record):
+    - `desloppify show security --status open --no-budget --top 50` confirms no open security findings.
+    - `P0` impact: none; no `P0` defer/split records required for `P8-EXIT`.
+  - Final wave closeout note (2026-04-09): every imported review issue id in this checklist now has a final disposition record, and all exact imported `review` issue checks close on current evidence. The next step is a fresh full `desloppify` scan/review after this checklist closeout, not additional `P8` work.
 
 ## Closeout Rules For This Checklist
 
