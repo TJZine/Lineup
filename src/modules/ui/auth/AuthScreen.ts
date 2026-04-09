@@ -7,16 +7,10 @@
 import { AppErrorCode, PlexApiError, type PlexPinRequest } from '../../plex/auth';
 import type { AuthScreenNavigationPort } from '../../navigation';
 import { summarizeErrorForLog } from '../../../utils/errors';
+import { setTrustedInlineSvg } from '../../../utils/inlineSvg';
 import { createScreenShell } from '../common/ScreenShell';
 import type { ScreenError, ScreenStatus, ScreenTone } from '../types/screen-shell';
-
-type QrCodeModule = {
-    toCanvas: (
-        canvas: HTMLCanvasElement,
-        text: string,
-        options?: { width?: number; margin?: number; color?: { dark?: string; light?: string } }
-    ) => Promise<void>;
-};
+import { PLEX_LINK_QR_SVG } from './plexLinkQrSvg';
 
 export interface AuthScreenPorts {
     requestAuthPin(): Promise<PlexPinRequest>;
@@ -33,7 +27,7 @@ export class AuthScreen {
     private _pinLiveEl: HTMLElement;
     private _pinBoxesEl: HTMLElement;
     private _qrWrapEl: HTMLElement;
-    private _qrCanvasEl: HTMLCanvasElement;
+    private _qrCardEl: HTMLElement;
     private _statusEl: HTMLElement;
     private _detailEl: HTMLElement;
     private _requestButton: HTMLButtonElement;
@@ -124,15 +118,10 @@ export class AuthScreen {
         const qrCard = document.createElement('div');
         qrCard.className = 'auth-qr-card';
 
-        const qrCanvas = document.createElement('canvas');
-        qrCanvas.className = 'auth-qr-canvas';
-        qrCanvas.width = 160;
-        qrCanvas.height = 160;
-        qrCard.appendChild(qrCanvas);
         qrWrap.appendChild(qrCard);
         shell.contentEl.insertBefore(qrWrap, this._statusEl);
         this._qrWrapEl = qrWrap;
-        this._qrCanvasEl = qrCanvas;
+        this._qrCardEl = qrCard;
 
         const pinLive = document.createElement('div');
         pinLive.className = 'sr-only';
@@ -224,7 +213,7 @@ export class AuthScreen {
             this._activeCode = pin.code;
             this._expiresAt = pin.expiresAt;
             this._renderPin(pin.code);
-            void this._renderQrBestEffort();
+            this._renderQr();
             this._startExpiryTimer();
             this._startPolling(pin);
         } catch (error) {
@@ -484,18 +473,10 @@ export class AuthScreen {
         return null;
     }
 
-    private async _renderQrBestEffort(): Promise<void> {
-        try {
-            const mod = (await import('qrcode')) as unknown as QrCodeModule;
-            await mod.toCanvas(this._qrCanvasEl, 'https://plex.tv/link', {
-                width: 160,
-                margin: 1,
-                color: { dark: '#000000', light: '#ffffff' },
-            });
-            this._qrWrapEl.style.display = 'flex';
-        } catch {
-            this._qrWrapEl.style.display = 'none';
-        }
+    private _renderQr(): void {
+        setTrustedInlineSvg(this._qrCardEl, PLEX_LINK_QR_SVG);
+        this._qrCardEl.querySelector('svg')?.classList.add('auth-qr-canvas');
+        this._qrWrapEl.style.display = 'flex';
     }
 
     private _registerFocusables(): void {
