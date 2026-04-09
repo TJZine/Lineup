@@ -12,7 +12,7 @@ import {
 } from '../modules/ui/now-playing-info/NowPlayingInfoCoordinator';
 import { EPGCoordinator } from '../modules/ui/epg/EPGCoordinator';
 import type { INavigationManager } from '../modules/navigation';
-import type { PlexAuthDataV2 } from '../modules/plex/auth';
+import type { PlexAuthDataV2, PlexStoredCredentialsReadResult } from '../modules/plex/auth';
 import type { IPlexLibrary } from '../modules/plex/library';
 import type { ChannelConfig, IChannelManager } from '../modules/scheduler/channel-manager';
 import type { ScheduledProgram } from '../modules/scheduler/scheduler';
@@ -292,7 +292,7 @@ jest.mock('../modules/ui/channel-transition', () => ({
 const mockPlexAuth = {
     validateToken: jest.fn().mockResolvedValue(true),
     storeCredentials: jest.fn().mockResolvedValue(undefined),
-    getStoredCredentials: jest.fn().mockResolvedValue(null),
+    getStoredCredentials: jest.fn().mockResolvedValue({ kind: 'missing' }),
     isAuthenticated: jest.fn().mockReturnValue(true),
     getAuthHeaders: jest.fn().mockReturnValue({}),
     getCurrentUser: jest.fn().mockReturnValue(null),
@@ -305,29 +305,35 @@ const mockPlexAuth = {
     on: jest.fn(() => ({ dispose: jest.fn() })),
 };
 
-const createStoredCredentials = (token: string, userId: string = 'user-1'): PlexAuthDataV2 => ({
-    accountToken: {
-        token,
-        userId,
-        username: 'testuser',
-        email: 'test@example.com',
-        thumb: '',
-        expiresAt: null,
-        issuedAt: new Date(),
-    },
-    activeToken: {
-        token,
-        userId,
-        username: 'testuser',
-        email: 'test@example.com',
-        thumb: '',
-        expiresAt: null,
-        issuedAt: new Date(),
-    },
-    activeUserId: userId,
-    selectedServerByUserId: {
-        [userId]: { serverId: null, serverUri: null },
-    },
+const createStoredCredentials = (
+    token: string,
+    userId: string = 'user-1'
+): PlexStoredCredentialsReadResult => ({
+    kind: 'available',
+    credentials: {
+        accountToken: {
+            token,
+            userId,
+            username: 'testuser',
+            email: 'test@example.com',
+            thumb: '',
+            expiresAt: null,
+            issuedAt: new Date(),
+        },
+        activeToken: {
+            token,
+            userId,
+            username: 'testuser',
+            email: 'test@example.com',
+            thumb: '',
+            expiresAt: null,
+            issuedAt: new Date(),
+        },
+        activeUserId: userId,
+        selectedServerByUserId: {
+            [userId]: { serverId: null, serverUri: null },
+        },
+    } satisfies PlexAuthDataV2,
 });
 
 const makeDecision = (overrides: Partial<StreamDecision> = {}): StreamDecision => ({
@@ -606,20 +612,44 @@ describe('AppOrchestrator', () => {
     let pauseHandler: (() => void | Promise<void>) | null;
     let resumeHandler: (() => void | Promise<void>) | null;
 
-	    beforeEach(() => {
-	        // NOTE: `jest.clearAllMocks()` clears call history but does not reset mock implementations.
-	        // Prefer per-test `mockResolvedValueOnce()` stubs to avoid cross-test leakage.
-	        jest.clearAllMocks();
-	        mockLocalStorage.getItem.mockReturnValue(null);
-	        mockNavigation.isModalOpen.mockReturnValue(false);
-	        mockEpg.isVisible.mockReturnValue(false);
-	        mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
-	        mockChannelManager.getAllChannels.mockReturnValue([mockChannel]);
-	        schedulerHandlers = {};
-	        playerHandlers = {};
-	        navHandlers = {};
-	        channelManagerHandlers = {};
-	        pauseHandler = null;
+    beforeEach(() => {
+        jest.clearAllMocks();
+
+        mockPlexAuth.getStoredCredentials.mockReset();
+        mockPlexAuth.getStoredCredentials.mockResolvedValue({ kind: 'missing' });
+
+        mockPlexAuth.validateToken.mockReset();
+        mockPlexAuth.validateToken.mockResolvedValue(true);
+
+        mockLocalStorage.getItem.mockReset();
+        mockLocalStorage.getItem.mockReturnValue(null);
+
+        mockNavigation.isModalOpen.mockReset();
+        mockNavigation.isModalOpen.mockReturnValue(false);
+
+        mockEpg.isVisible.mockReset();
+        mockEpg.isVisible.mockReturnValue(false);
+
+        mockPlexDiscovery.getSelectedServer.mockReset();
+        mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
+
+        mockChannelManager.getAllChannels.mockReset();
+        mockChannelManager.getAllChannels.mockReturnValue([mockChannel]);
+
+        mockLifecycle.onPause.mockReset();
+        mockLifecycle.onResume.mockReset();
+        mockScheduler.on.mockReset();
+        mockScheduler.off.mockReset();
+        mockVideoPlayer.on.mockReset();
+        mockVideoPlayer.off.mockReset();
+        mockNavigation.on.mockReset();
+        mockChannelManager.on.mockReset();
+
+        schedulerHandlers = {};
+        playerHandlers = {};
+        navHandlers = {};
+        channelManagerHandlers = {};
+        pauseHandler = null;
         resumeHandler = null;
 
         (mockScheduler.on as jest.Mock).mockImplementation(
@@ -993,6 +1023,27 @@ describe('AppOrchestrator', () => {
                 runStartupSpy.mockRestore();
             }
         });
+
+        it('does not rewrite persisted selected-server state when stored auth is corrupted', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            const runStartupSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'runStartup')
+                .mockResolvedValue(undefined);
+            mockPlexDiscovery.selectServer.mockResolvedValue(true);
+            mockPlexAuth.getStoredCredentials.mockResolvedValue({
+                kind: 'corrupted',
+                reason: 'invalid-json',
+            });
+
+            try {
+                await expect(orchestrator.selectServer('server-1')).resolves.toBe(false);
+                expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
+                expect(runStartupSpy).toHaveBeenCalledWith(3);
+            } finally {
+                runStartupSpy.mockRestore();
+            }
+        });
     });
 
     describe('schedule day rollover', () => {
@@ -1282,7 +1333,7 @@ describe('AppOrchestrator', () => {
     describe('start', () => {
         beforeEach(async () => {
             await orchestrator.initialize(mockConfig);
-            mockPlexAuth.getStoredCredentials.mockResolvedValue(null);
+            mockPlexAuth.getStoredCredentials.mockResolvedValue({ kind: 'missing' });
         });
 
         it('should initialize modules in correct phase order', async () => {
@@ -1325,6 +1376,18 @@ describe('AppOrchestrator', () => {
             await orchestrator.start();
 
             expect(mockNavigation.goTo).toHaveBeenCalledWith('auth');
+        });
+
+        it('routes corrupted stored credentials to auth without token validation', async () => {
+            mockPlexAuth.getStoredCredentials.mockResolvedValue({
+                kind: 'corrupted',
+                reason: 'invalid-json',
+            });
+
+            await orchestrator.start();
+
+            expect(mockNavigation.goTo).toHaveBeenCalledWith('auth');
+            expect(mockPlexAuth.validateToken).not.toHaveBeenCalled();
         });
 
         it('should validate token and proceed if valid', async () => {
@@ -2036,9 +2099,12 @@ describe('AppOrchestrator', () => {
             }
         });
 
-        it('wires ensureEpgInitialized as a safe no-op before init coordinator construction', async () => {
+        it('wires ensureEpgInitialized through the real InitializationCoordinator before coordinator assembly', async () => {
             const originalFactory = orchestratorCoordinatorFactory.createOrchestratorCoordinators;
             const earlyEnsureCalls: Array<Promise<void>> = [];
+            const ensureEpgInitializedSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'ensureEPGInitialized')
+                .mockResolvedValue(undefined);
             const factorySpy = jest
                 .spyOn(orchestratorCoordinatorFactory, 'createOrchestratorCoordinators')
                 .mockImplementation((deps) => {
@@ -2052,9 +2118,11 @@ describe('AppOrchestrator', () => {
                 await expect(Promise.all(earlyEnsureCalls)).resolves.toEqual(
                     expect.arrayContaining([undefined])
                 );
+                expect(ensureEpgInitializedSpy).toHaveBeenCalled();
                 expect(mockLifecycle.reportError).not.toHaveBeenCalled();
             } finally {
                 factorySpy.mockRestore();
+                ensureEpgInitializedSpy.mockRestore();
             }
         });
 
@@ -2336,6 +2404,8 @@ describe('AppOrchestrator', () => {
         it('shows warning toast when channel manager emits persistenceWarning', async () => {
             const toastHandler = jest.fn();
             orchestrator.setNowPlayingHandler(toastHandler);
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
             await orchestrator.start();
 
             channelManagerHandlers.persistenceWarning?.({
@@ -2452,6 +2522,8 @@ describe('AppOrchestrator', () => {
             const pauseDispose = jest.fn(() => {
                 throw new Error('pause cleanup failed');
             });
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
 
             (mockLifecycle.onPause as jest.Mock).mockImplementationOnce(
                 (handler: () => void | Promise<void>) => {

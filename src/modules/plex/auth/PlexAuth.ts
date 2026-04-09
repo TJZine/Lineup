@@ -19,9 +19,12 @@ import {
     PlexAuthEvents,
     PlexAuthToken,
     PlexAuthData,
+    PlexStoredCredentialsReadResult,
+    PlexStoredCredentialsReadCorruptionReason,
     PlexHomeUser,
     PlexPinRequest,
     PlexAuthState,
+    PlexDeviceKey,
     StoredAuthData,
 } from './interfaces';
 import {
@@ -51,6 +54,10 @@ export class PlexAuth implements IPlexAuth {
     private _state: PlexAuthState;
     private _emitter: EventEmitter<PlexAuthEvents>;
     private _credentialsEpoch = 0;
+    private _bootStoredCredentialsCorruption: {
+        kind: 'corrupted';
+        reason: PlexStoredCredentialsReadCorruptionReason;
+    } | null = null;
 
     private isValidUserPayload(payload: unknown): payload is Record<string, unknown> {
         if (typeof payload !== 'object' || payload === null) return false;
@@ -274,18 +281,20 @@ export class PlexAuth implements IPlexAuth {
 
     /**
      * Get stored credentials from localStorage.
-     * @returns Stored auth data or null if none
+     * @returns Explicit stored-read classification
      */
-    public async getStoredCredentials(): Promise<PlexAuthData | null> {
-        try {
-            const stored = safeLocalStorageGet(PLEX_AUTH_CONSTANTS.STORAGE_KEY);
-            if (!stored) return null;
-
-            const parsed: StoredAuthData = JSON.parse(stored);
-            return this._parseStoredAuthData(parsed);
-        } catch {
-            return null;
+    public async getStoredCredentials(): Promise<PlexStoredCredentialsReadResult> {
+        const result = this._readStoredCredentials();
+        if (result.kind === 'available') {
+            this._bootStoredCredentialsCorruption = null;
+            return result;
         }
+        if (result.kind === 'missing' && this._bootStoredCredentialsCorruption) {
+            const bootCorruption = this._bootStoredCredentialsCorruption;
+            this._bootStoredCredentialsCorruption = null;
+            return bootCorruption;
+        }
+        return result;
     }
 
     /**
@@ -304,6 +313,7 @@ export class PlexAuth implements IPlexAuth {
         this._state.activeToken = auth.activeToken;
         this._state.activeUserId = auth.activeUserId;
         this._state.isValidated = true;
+        this._bootStoredCredentialsCorruption = null;
         this._emitter.emit('authChange', true);
     }
 
@@ -320,6 +330,7 @@ export class PlexAuth implements IPlexAuth {
         this._state.activeUserId = null;
         this._state.isValidated = false;
         this._state.pendingPin = null;
+        this._bootStoredCredentialsCorruption = null;
         this._emitter.emit('authChange', false);
     }
 
@@ -612,8 +623,9 @@ export class PlexAuth implements IPlexAuth {
         this._state.isValidated = true;
 
         const stored = await this.getStoredCredentials();
+        const persisted = stored.kind === 'available' ? stored.credentials : null;
         const selectedServerByUserId = {
-            ...(stored?.selectedServerByUserId ?? {}),
+            ...(persisted?.selectedServerByUserId ?? {}),
         };
         if (!selectedServerByUserId[scopedUserId]) {
             selectedServerByUserId[scopedUserId] = { serverId: null, serverUri: null };
@@ -624,7 +636,7 @@ export class PlexAuth implements IPlexAuth {
             activeToken: userToken,
             activeUserId: scopedUserId,
             selectedServerByUserId,
-            deviceKey: stored?.deviceKey ?? null,
+            deviceKey: persisted?.deviceKey ?? null,
         });
 
         if (fromUserId !== scopedUserId) {
@@ -647,8 +659,9 @@ export class PlexAuth implements IPlexAuth {
         const fromUserId = this._state.activeUserId ?? this._state.activeToken?.userId ?? null;
         const toUserId = this._state.accountToken.userId;
         const stored = await this.getStoredCredentials();
+        const persisted = stored.kind === 'available' ? stored.credentials : null;
         const selectedServerByUserId = {
-            ...(stored?.selectedServerByUserId ?? {}),
+            ...(persisted?.selectedServerByUserId ?? {}),
         };
         if (!selectedServerByUserId[toUserId]) {
             selectedServerByUserId[toUserId] = { serverId: null, serverUri: null };
@@ -658,7 +671,7 @@ export class PlexAuth implements IPlexAuth {
             activeToken: this._state.accountToken,
             activeUserId: toUserId,
             selectedServerByUserId,
-            deviceKey: stored?.deviceKey ?? null,
+            deviceKey: persisted?.deviceKey ?? null,
         });
         if (fromUserId !== toUserId) {
             this._emitter.emit('profileChange', { fromUserId, toUserId });
@@ -703,46 +716,52 @@ export class PlexAuth implements IPlexAuth {
     }
 
     private _loadStoredCredentials(): void {
-        try {
-            const stored = safeLocalStorageGet(PLEX_AUTH_CONSTANTS.STORAGE_KEY);
-            if (!stored) return;
-
-            const parsed: StoredAuthData = JSON.parse(stored);
-            const data = this._parseStoredAuthData(parsed);
-            if (!data) return;
-
-            this._state.accountToken = data.accountToken;
-            this._state.activeToken = data.activeToken;
-            this._state.activeUserId = data.activeUserId;
-            this._state.isValidated = false;
-        } catch {
-            // Ignore parse errors
+        const result = this._readStoredCredentials();
+        if (result.kind === 'corrupted') {
+            this._bootStoredCredentialsCorruption = result;
+            return;
         }
+        if (result.kind !== 'available') {
+            return;
+        }
+        this._state.accountToken = result.credentials.accountToken;
+        this._state.activeToken = result.credentials.activeToken;
+        this._state.activeUserId = result.credentials.activeUserId;
+        this._state.isValidated = false;
     }
 
     /**
      * Parse stored auth data, converting date strings back to Date objects.
      * @param parsed - The parsed JSON from storage
-     * @returns PlexAuthData with proper Date objects, or null if invalid
+     * @returns Parsed credentials or corruption reason
      */
-    private _parseStoredAuthData(parsed: StoredAuthData): PlexAuthData | null {
+    private _parseStoredAuthData(parsed: unknown):
+        | { kind: 'available'; credentials: PlexAuthData }
+        | { kind: 'corrupted'; reason: 'invalid-shape' | 'unsupported-version' } {
         if (!parsed || typeof parsed !== 'object') {
-            return null;
+            return { kind: 'corrupted', reason: 'invalid-shape' };
         }
+        const payload = parsed as Record<string, unknown>;
 
-        if (parsed.version !== PLEX_AUTH_CONSTANTS.STORAGE_VERSION) {
-            return null;
+        if (typeof payload.version !== 'number') {
+            return { kind: 'corrupted', reason: 'invalid-shape' };
         }
+        if (payload.version !== PLEX_AUTH_CONSTANTS.STORAGE_VERSION) {
+            return { kind: 'corrupted', reason: 'unsupported-version' };
+        }
+        if (!('data' in payload)) {
+            return { kind: 'corrupted', reason: 'invalid-shape' };
+        }
+        const data = payload.data as PlexAuthData | null | undefined;
 
-        const data = parsed.data as PlexAuthData;
         if (!data || typeof data !== 'object') {
-            return null;
+            return { kind: 'corrupted', reason: 'invalid-shape' };
         }
 
         const accountToken = this._normalizeTokenDates(data.accountToken);
         const activeToken = this._normalizeTokenDates(data.activeToken);
         if (!accountToken || !activeToken) {
-            return null;
+            return { kind: 'corrupted', reason: 'invalid-shape' };
         }
 
         const activeUserId = typeof data.activeUserId === 'string' && data.activeUserId.length > 0
@@ -753,14 +772,48 @@ export class PlexAuth implements IPlexAuth {
             data.selectedServerByUserId,
             activeUserId
         );
+        const deviceKey = this._normalizeDeviceKey(data.deviceKey);
 
         return {
-            accountToken,
-            activeToken,
-            selectedServerByUserId,
-            activeUserId,
-            deviceKey: data.deviceKey ?? null,
+            kind: 'available',
+            credentials: {
+                accountToken,
+                activeToken,
+                selectedServerByUserId,
+                activeUserId,
+                deviceKey,
+            },
         };
+    }
+
+    private _readStoredCredentials(): PlexStoredCredentialsReadResult {
+        try {
+            const stored = safeLocalStorageGet(PLEX_AUTH_CONSTANTS.STORAGE_KEY);
+            if (!stored) {
+                return { kind: 'missing' };
+            }
+            let parsed: unknown;
+            try {
+                parsed = JSON.parse(stored);
+            } catch {
+                this._clearCorruptedStoredCredentials();
+                return { kind: 'corrupted', reason: 'invalid-json' };
+            }
+            const result = this._parseStoredAuthData(parsed);
+            if (result.kind === 'corrupted') {
+                this._clearCorruptedStoredCredentials();
+                return result;
+            }
+            return result;
+        } catch {
+            return { kind: 'missing' };
+        }
+    }
+
+    private _clearCorruptedStoredCredentials(): void {
+        if (!safeLocalStorageRemove(PLEX_AUTH_CONSTANTS.STORAGE_KEY)) {
+            // localStorage can be blocked/unavailable; clearing will be retried on future reads.
+        }
     }
 
     private _normalizeTokenDates(token: PlexAuthToken | null | undefined): PlexAuthToken | null {
@@ -782,6 +835,58 @@ export class PlexAuth implements IPlexAuth {
             ...token,
             issuedAt,
             expiresAt,
+        };
+    }
+
+    private _normalizeDeviceKey(deviceKey: unknown): PlexDeviceKey | null {
+        if (!deviceKey || typeof deviceKey !== 'object') {
+            return null;
+        }
+
+        const candidate = deviceKey as Partial<PlexDeviceKey> & {
+            createdAt?: unknown;
+            publicJwk?: unknown;
+        };
+
+        if (typeof candidate.kid !== 'string' || candidate.kid.length === 0) {
+            return null;
+        }
+
+        if (typeof candidate.privateKey !== 'string' || candidate.privateKey.length === 0) {
+            return null;
+        }
+
+        if (!candidate.publicJwk || typeof candidate.publicJwk !== 'object') {
+            return null;
+        }
+
+        const publicJwk = candidate.publicJwk as unknown as Record<string, unknown>;
+        if (
+            publicJwk.kty !== 'OKP' ||
+            publicJwk.crv !== 'Ed25519' ||
+            typeof publicJwk.x !== 'string' ||
+            publicJwk.alg !== 'EdDSA'
+        ) {
+            return null;
+        }
+
+        const createdAt = new Date(candidate.createdAt as string | number | Date);
+        if (Number.isNaN(createdAt.getTime())) {
+            return null;
+        }
+
+        return {
+            kid: candidate.kid,
+            privateKey: candidate.privateKey,
+            createdAt,
+            publicJwk: {
+                kty: 'OKP',
+                crv: 'Ed25519',
+                x: publicJwk.x,
+                alg: 'EdDSA',
+                ...(publicJwk.use === 'sig' ? { use: 'sig' as const } : {}),
+                ...(typeof publicJwk.kid === 'string' ? { kid: publicJwk.kid } : {}),
+            },
         };
     }
 

@@ -1,6 +1,11 @@
 import { AppErrorCode, type IAppLifecycle } from '../../../modules/lifecycle';
 import type { INavigationManager } from '../../../modules/navigation';
-import type { IPlexAuth, PlexAuthDataV2, PlexAuthToken } from '../../../modules/plex/auth';
+import type {
+    IPlexAuth,
+    PlexAuthDataV2,
+    PlexAuthToken,
+    PlexStoredCredentialsReadResult,
+} from '../../../modules/plex/auth';
 import { applyPhase2AuthGatePolicy, type Phase2AuthGateInputs } from '../InitializationStartupPolicy';
 
 type PlexAuthGateMock = Pick<
@@ -67,10 +72,14 @@ function createPlexAuthMock(
     storedCredentials: PlexAuthDataV2,
     overrides: Phase2PlexAuthOverrides = {}
 ): PlexAuthGateMock {
+    const storedReadResult: PlexStoredCredentialsReadResult = {
+        kind: 'available',
+        credentials: storedCredentials,
+    };
     return {
         validateToken: jest.fn().mockResolvedValue(true),
         getHomeUsers: jest.fn().mockResolvedValue([]),
-        getStoredCredentials: jest.fn().mockResolvedValue(storedCredentials),
+        getStoredCredentials: jest.fn().mockResolvedValue(storedReadResult),
         storeCredentials: jest.fn().mockResolvedValue(undefined),
         getCurrentUser: jest.fn().mockReturnValue(storedCredentials.activeToken),
         ...overrides,
@@ -176,6 +185,38 @@ describe('applyPhase2AuthGatePolicy', () => {
         const error = { code: AppErrorCode.AUTH_INVALID };
         const inputs = createInputs({
             validateToken: jest.fn().mockRejectedValue(error),
+        });
+
+        await expect(applyPolicy(inputs)).resolves.toBe(false);
+
+        expect(inputs.updateModuleStatus).toHaveBeenCalledWith('plex-auth', 'pending');
+        expect(inputs.handlers.registerAuthResume).toHaveBeenCalledTimes(1);
+        expect(inputs.navigation.goTo).toHaveBeenCalledWith('auth');
+    });
+
+    it('routes corrupted stored credentials to auth with STORAGE_CORRUPTED status', async () => {
+        const inputs = createInputs({
+            getStoredCredentials: jest.fn().mockResolvedValue({
+                kind: 'corrupted',
+                reason: 'invalid-json',
+            }),
+        });
+
+        await expect(applyPolicy(inputs)).resolves.toBe(false);
+
+        expect(inputs.updateModuleStatus).toHaveBeenCalledWith('plex-auth', 'pending', {
+            code: AppErrorCode.STORAGE_CORRUPTED,
+            message: 'Stored Plex auth credentials were invalid and were cleared.',
+            recoverable: true,
+        });
+        expect(inputs.handlers.registerAuthResume).toHaveBeenCalledTimes(1);
+        expect(inputs.navigation.goTo).toHaveBeenCalledWith('auth');
+        expect(inputs.plexAuth.validateToken).not.toHaveBeenCalled();
+    });
+
+    it('treats missing stored credentials as normal pending-auth startup', async () => {
+        const inputs = createInputs({
+            getStoredCredentials: jest.fn().mockResolvedValue({ kind: 'missing' }),
         });
 
         await expect(applyPolicy(inputs)).resolves.toBe(false);

@@ -147,6 +147,7 @@ const setup = (overrides: Partial<PlaybackRecoveryDeps> = {}): {
         getPreferredSubtitleLanguage: () => null,
         getPlexPreferredSubtitleLanguage: () => null,
         notifySubtitleUnavailable: jest.fn(),
+        appendIssueDiagnostic: jest.fn(),
         handleGlobalError: jest.fn(),
         ...overrides,
     };
@@ -179,18 +180,30 @@ describe('PlaybackRecoveryManager', () => {
 
     it('skips on failures until tripped, then pauses and surfaces error', () => {
         const { manager, scheduler, deps } = setup();
-        localStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, '1');
         const handleGlobalError = deps.handleGlobalError as jest.Mock;
+        const appendIssueDiagnostic = deps.appendIssueDiagnostic as jest.Mock;
 
         manager.handlePlaybackFailure('context', new Error('boom'));
         manager.handlePlaybackFailure('context', new Error('boom'));
 
         expect(scheduler.skipToNext).toHaveBeenCalledTimes(2);
         expect(scheduler.pauseSyncTimer).not.toHaveBeenCalled();
-        const stored = JSON.parse(
-            localStorage.getItem(LINEUP_STORAGE_KEYS.ISSUE_DIAGNOSTICS_LOG) as string
-        ) as Array<{ event: string }>;
-        expect(stored.filter((entry) => entry.event === 'playbackRecovery.skipToNext')).toHaveLength(2);
+        expect(appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'playbackRecovery.skipToNext',
+            expect.objectContaining({
+                context: 'context',
+                failureCount: 1,
+            })
+        );
+        expect(appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'playbackRecovery.skipToNext',
+            expect.objectContaining({
+                context: 'context',
+                failureCount: 2,
+            })
+        );
 
         manager.handlePlaybackFailure('context', new Error('boom'));
 

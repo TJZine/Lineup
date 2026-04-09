@@ -18,7 +18,7 @@ import type {
     IChannelScheduler,
     ScheduleConfig,
 } from '../../modules/scheduler/scheduler';
-import { IssueDiagnosticsStore } from '../../modules/debug/IssueDiagnosticsStore';
+import type { AppendIssueDiagnostic } from '../../modules/debug/IssueDiagnosticsStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
 import type { GuideSelectionSnapshot } from './GuideSelectionSnapshot';
 
@@ -44,6 +44,7 @@ export interface ChannelTuningCoordinatorDeps {
     resetPlaybackGuardsForNewChannel: () => void;
     stopActiveTranscodeSession: () => void;
     armChannelTransitionForSwitch: (channelPrefix: string) => void;
+    appendIssueDiagnostic: AppendIssueDiagnostic;
 
     handleGlobalError: (error: AppError, context: string) => void;
     saveLifecycleState: () => Promise<void>;
@@ -72,7 +73,6 @@ function createAbortLikeError(message: string): Error {
 }
 
 const QA_003B_ISSUE_ID = 'QA-003b';
-const issueDiagnosticsStore = new IssueDiagnosticsStore();
 
 export class ChannelTuningCoordinator {
     private _isChannelSwitching = false;
@@ -253,7 +253,7 @@ export class ChannelTuningCoordinator {
             let scheduleReferenceTimeMs = snapshotValidationReferenceTimeMs;
             if (snapshotValidation.valid && snapshotValidation.snapshot) {
                 scheduleItems = [...snapshotValidation.snapshot.orderedItems];
-                issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'channelTuning.guideSnapshotApplied', {
+                this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'channelTuning.guideSnapshotApplied', {
                     channelId,
                     source: snapshotValidation.snapshot.source,
                     dayKey: snapshotValidation.snapshot.dayKey,
@@ -264,7 +264,7 @@ export class ChannelTuningCoordinator {
                     sampleRatingKeys: scheduleItems.slice(0, 5).map((item) => item.ratingKey),
                 });
             } else if (snapshotValidation.reason) {
-                issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'channelTuning.guideSnapshotRejected', {
+                this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'channelTuning.guideSnapshotRejected', {
                     channelId,
                     reason: snapshotValidation.reason,
                 });
@@ -280,7 +280,7 @@ export class ChannelTuningCoordinator {
                     });
                     scheduleItems = content.items;
                     scheduleReferenceTimeMs = Date.now();
-                    issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'channelTuning.resolveChannelContent', {
+                    this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'channelTuning.resolveChannelContent', {
                         channelId,
                         resolvedAt: content.resolvedAt,
                         fromCache: content.fromCache ?? false,
@@ -363,7 +363,7 @@ export class ChannelTuningCoordinator {
             this.deps.setPendingNowPlayingChannelId(channelId);
             scheduler.loadChannel(scheduleConfig);
             this.deps.setActiveScheduleDayKey(this.deps.getLocalDayKey(scheduleReferenceTimeMs));
-            issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'channelTuning.schedulerLoaded', {
+            this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'channelTuning.schedulerLoaded', {
                 channelId,
                 referenceTimeMs: scheduleReferenceTimeMs,
                 anchorTime: scheduleConfig.anchorTime,

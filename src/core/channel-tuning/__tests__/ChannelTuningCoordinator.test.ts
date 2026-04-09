@@ -1,7 +1,6 @@
 import { ChannelTuningCoordinator } from '../ChannelTuningCoordinator';
 import { AppErrorCode } from '../../../modules/lifecycle';
 import type { IVideoPlayer } from '../../../modules/player';
-import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import type {
     IChannelManager,
     ChannelConfig,
@@ -71,6 +70,7 @@ type CoordinatorHarness = {
         resetPlaybackGuardsForNewChannel: jest.Mock<void, []>;
         stopActiveTranscodeSession: jest.Mock<void, []>;
         armChannelTransitionForSwitch: jest.Mock<void, [string]>;
+        appendIssueDiagnostic: jest.Mock<void, [string, string, unknown]>;
         handleGlobalError: jest.Mock<void, [unknown, string]>;
         saveLifecycleState: jest.Mock<Promise<void>, []>;
     };
@@ -120,6 +120,7 @@ const createCoordinator = (): CoordinatorHarness => {
         resetPlaybackGuardsForNewChannel: jest.fn<void, []>(),
         stopActiveTranscodeSession: jest.fn<void, []>(),
         armChannelTransitionForSwitch: jest.fn<void, [string]>(),
+        appendIssueDiagnostic: jest.fn<void, [string, string, unknown]>(),
         handleGlobalError: jest.fn<void, [unknown, string]>(),
         saveLifecycleState: jest.fn<Promise<void>, []>().mockResolvedValue(undefined),
     };
@@ -148,7 +149,6 @@ describe('ChannelTuningCoordinator', () => {
 
     it('uses a single now for schedule + dayKey', async () => {
         const { coordinator, deps, buildDailyScheduleConfig } = createCoordinator();
-        localStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, '1');
         const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
 
         await coordinator.switchToChannel('ch1');
@@ -156,14 +156,19 @@ describe('ChannelTuningCoordinator', () => {
         expect(buildDailyScheduleConfig).toHaveBeenCalledWith(mockChannel, resolvedContent.items, 1_000_000);
         expect(deps.getLocalDayKey).toHaveBeenCalledWith(1_000_000);
         expect(deps.setActiveScheduleDayKey).toHaveBeenCalledWith(123);
-        const stored = JSON.parse(
-            localStorage.getItem(LINEUP_STORAGE_KEYS.ISSUE_DIAGNOSTICS_LOG) as string
-        ) as Array<{ event: string }>;
-        expect(stored.map((entry) => entry.event)).toEqual(
-            expect.arrayContaining([
-                'channelTuning.resolveChannelContent',
-                'channelTuning.schedulerLoaded',
-            ])
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'channelTuning.resolveChannelContent',
+            expect.objectContaining({
+                channelId: 'ch1',
+            })
+        );
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'channelTuning.schedulerLoaded',
+            expect.objectContaining({
+                channelId: 'ch1',
+            })
         );
 
         nowSpy.mockRestore();

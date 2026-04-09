@@ -228,7 +228,7 @@ These are the required repo-local boundary skills for the new wave. Load them be
 - Priority exit command checklist:
   - do not run authoritative `desloppify` evidence commands in worktrees; run them on the target integration branch that will carry the checklist state forward
   - rerun `desloppify status`
-  - rerun `desloppify show review --status open --no-budget --top 100`
+  - rerun `desloppify plan queue`
   - rerun `desloppify show security --status open --no-budget --top 50`
   - rerun every exact mapped `desloppify show "<issue-id>" --status open --no-budget` command for the closing priority
   - rerun the strongest task-specific verification used by the closing work units
@@ -239,7 +239,7 @@ These are the required repo-local boundary skills for the new wave. Load them be
 - Evidence refresh checklist:
   - refresh authoritative `desloppify` evidence on the same integration branch where checklist updates are committed; treat worktree-only output as non-authoritative for checklist and plan dispositions
   - rerun `desloppify status`
-  - rerun `desloppify show review --status open --no-budget --top 100`
+  - rerun `desloppify plan queue`
   - rerun `desloppify show security --status open --no-budget --top 50`
   - refresh hotspot counts with `wc -l` for the files listed in the evidence snapshot when a priority closes or the queue meaningfully shifts
   - update this checklist in the same pass when a priority closes, strict score shifts materially, or the imported review ownership map changes
@@ -598,28 +598,125 @@ These are the required repo-local boundary skills for the new wave. Load them be
 
 ### Work Units
 
-- [ ] `P4-W1` retire remaining raw storage-owner drift and remove deprecated lifecycle/auth schema carry-forward
+- [x] `P4-W1` retire remaining raw storage-owner drift and remove deprecated lifecycle/auth schema carry-forward
   - Imported review issues: `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift`, `review::.::holistic::incomplete_migration::deprecated_lifecycle_plexauth_slot`
   - Primary files: `src/modules/ui/epg/EPGCoordinatorPolicies.ts`, `src/core/orchestrator/OrchestratorCoordinatorFactory.ts`, `src/modules/player/AudioTrackManager.ts`, `src/modules/lifecycle/StateManager.ts`, `docs/architecture/CURRENT_STATE.md`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
   - Closeout note: planning and final verification for `P4-W1` must cover both the mapped `P4-W1` issues above and the inherited `epg_library_filter_rules_split_across_seams` follow-up below before this work unit can be marked complete.
   - Inherited follow-ups:
     - Source `P2-EXIT` disposition `split follow-up`: `review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams`; required verification commands: `desloppify show "review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams" --status open --no-budget`; `npm run verify`
-- [ ] `P4-W2` centralize diagnostics ownership and remove misleading startup async wrappers
+  - Execution (2026-04-07): removed lifecycle `PersistentState.plexAuth` from live schema/save-repair output while retaining load compatibility tests for legacy payloads; routed DTS passthrough policy in `AudioTrackManager` through injected `AudioSettingsStore`; changed `ChannelSetupCoordinator` to consume a typed `recordStore` seam (no raw setup-record storage get/set callbacks in coordinator deps); made EPG library-filter normalization helper pure and moved persisted-selection cleanup writes into `EPGCoordinator` and `EPGRefreshController`; refreshed architecture truth for these ownership seams.
+  - Verification (2026-04-07):
+    - `desloppify status`
+    - `desloppify show security --status open --no-budget --top 50`
+    - `desloppify show "review::.::holistic::cross_module_architecture::storage_owner_boundary_drift" --status open --no-budget`
+    - `desloppify show "review::.::holistic::incomplete_migration::deprecated_lifecycle_plexauth_slot" --status open --no-budget`
+    - `desloppify show "review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams" --status open --no-budget`
+    - `npm test -- src/modules/lifecycle/__tests__/StateManager.test.ts src/modules/lifecycle/__tests__/AppLifecycle.test.ts src/modules/player/__tests__/AudioTrackManager.test.ts src/core/channel-setup/__tests__/ChannelSetupCoordinator.test.ts src/core/channel-setup/__tests__/ChannelSetupRecordStore.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorFactory.playbackState.test.ts src/modules/ui/epg/__tests__/EPGCoordinatorPolicies.test.ts src/modules/ui/epg/__tests__/EPGCoordinator.test.ts src/modules/ui/epg/__tests__/EPGRefreshController.test.ts`
+    - `rg -n "plexAuth" src/modules/lifecycle` (matches only compatibility-focused lifecycle tests; no live lifecycle type/save-path `plexAuth` field remains)
+    - `rg -n "safeLocalStorage(Get|Set|Remove)|localStorage\\." src/core/orchestrator/OrchestratorCoordinatorFactory.ts src/core/channel-setup src/modules/player/AudioTrackManager.ts src/modules/ui/epg` (no direct storage calls remain in `AudioTrackManager`; setup-record ownership remains in `ChannelSetupRecordStore`; factory still assembles typed owners)
+    - `npm run verify` (pass)
+  - Verification (2026-04-08 tracker refresh):
+    - `desloppify scan --path . --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion because I need to refresh stale state before closing already-fixed P4-W1 issues."`
+    - `desloppify plan resolve "review::.::holistic::cross_module_architecture::storage_owner_boundary_drift" "review::.::holistic::incomplete_migration::deprecated_lifecycle_plexauth_slot" "review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams" --note "I have actually landed the P4-W1 storage and lifecycle owner cleanup and I am not gaming the score by resolving without fixing: lifecycle PersistentState no longer carries plexAuth in live schema/save paths, AudioTrackManager now reads DTS passthrough policy through AudioSettingsStore, ChannelSetupCoordinator now consumes a typed ChannelSetupRecordStore seam instead of raw setup-record get/set callbacks, and EPG library-filter normalization is pure while EPGCoordinator and EPGRefreshController perform the explicit persistence cleanup writes." --confirm --force-resolve`
+    - `desloppify status` -> `Last scan: 2026-04-08T04:17:13+00:00` (tracker state refreshed; score movement reflects broader scan scope, not a new `P4-W1` seam regression)
+    - `desloppify show security --status open --no-budget --top 50` -> `No open issues for Security. Detectors: cycles, security`
+    - `desloppify show "review::.::holistic::cross_module_architecture::storage_owner_boundary_drift" --status open --no-budget` -> `No open issues matching: review::.::holistic::cross_module_architecture::storage_owner_boundary_drift`
+    - `desloppify show "review::.::holistic::incomplete_migration::deprecated_lifecycle_plexauth_slot" --status open --no-budget` -> `No open issues matching: review::.::holistic::incomplete_migration::deprecated_lifecycle_plexauth_slot`
+    - `desloppify show "review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams" --status open --no-budget` -> `No open issues matching: review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams`
+  - Security triage (2026-04-07 disposition record):
+    - `desloppify show security --status open --no-budget --top 50` -> `No open issues for Security. Detectors: cycles, security`.
+    - `P0` impact: none; no `P0` defer/split records required for `P4-W1`.
+  - Security triage (2026-04-08 tracker refresh):
+    - `desloppify show security --status open --no-budget --top 50` -> `No open issues for Security. Detectors: cycles, security`.
+    - `P0` impact: none; no `P0` defer/split records required for `P4-W1`.
+  - Proof matrix (2026-04-07 source-audit closeout):
+    - `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift` -> `resolved` (slice-owned rationale retired on current source for DTS and channel-setup record seams; no live `AudioTrackManager` direct storage read remains; no new residual owner discovered in this slice; tracker closeout: after the forced stale-state rescan and `desloppify plan resolve ...`, the exact `desloppify show ... --status open --no-budget` command now returns no open issues.)
+    - `review::.::holistic::incomplete_migration::deprecated_lifecycle_plexauth_slot` -> `resolved` (slice-owned rationale retired on current source; live `PersistentState` schema/save path no longer carries `plexAuth`; legacy payload handling remains load-only compatibility; tracker closeout: after the forced stale-state rescan and `desloppify plan resolve ...`, the exact `desloppify show ... --status open --no-budget` command now returns no open issues.)
+    - `review::.::holistic::mid_level_elegance::epg_library_filter_rules_split_across_seams` -> `resolved on current-code proof` (normalization is now pure in `computeNormalizedLibraryFilterState(...)`; runtime owners perform explicit persistence cleanup writes; no live residual owner outside `P4-W1`; tracker closeout: after the forced stale-state rescan and `desloppify plan resolve ...`, the exact `desloppify show ... --status open --no-budget` command now returns no open issues.)
+- [x] `P4-W2` centralize diagnostics ownership and remove misleading startup async wrappers
   - Imported review issues: `review::.::holistic::initialization_coupling::diagnostics_store_scattered_singletons`, `review::.::holistic::logic_clarity::startup_ui_async_wrapper_drift`
-  - Primary files: `src/Orchestrator.ts`, `src/modules/player/PlaybackRecoveryManager.ts`, `src/core/channel-tuning/ChannelTuningCoordinator.ts`, `src/modules/ui/epg/EPGCoordinator.ts`, `src/modules/ui/epg/EPGScheduleRefreshRuntime.ts`, `src/core/InitializationCoordinator.ts`
+  - Primary files: `src/Orchestrator.ts`, `src/core/orchestrator/OrchestratorCoordinatorFactory.ts`, `src/modules/debug/IssueDiagnosticsStore.ts`, `src/modules/player/PlaybackRecoveryManager.ts`, `src/core/channel-tuning/ChannelTuningCoordinator.ts`, `src/modules/ui/epg/EPGCoordinator.ts`, `src/modules/ui/epg/EPGRefreshController.ts`, `src/modules/ui/epg/EPGScheduleRefreshRuntime.ts`, `docs/architecture/CURRENT_STATE.md`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
   - Closeout note: planning and final verification for `P4-W2` must cover the mapped `P4-W2` issues and all inherited EPG ownership/readiness/refresh follow-ups below before this work unit can be marked complete.
   - Inherited follow-ups:
     - Source `P2-EXIT` disposition `split follow-up`: `review::.::holistic::high_level_elegance::epg_top_level_owner_blur`, `review::.::holistic::api_surface_coherence::epg_readiness_split_contract`, `review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam`; required verification commands: `desloppify show "review::.::holistic::high_level_elegance::epg_top_level_owner_blur" --status open --no-budget`; `desloppify show "review::.::holistic::api_surface_coherence::epg_readiness_split_contract" --status open --no-budget`; `desloppify show "review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam" --status open --no-budget`; `npm run verify`
-- [ ] `P4-W3` make corrupted stored Plex auth observable instead of silently folding it into clean absence
+  - Execution (2026-04-08): introduced a narrow `AppendIssueDiagnostic` callback contract at `IssueDiagnosticsStore` boundary and moved all in-scope QA-003b append paths (`PlaybackRecoveryManager`, `ChannelTuningCoordinator`, `EPGCoordinator`, `EPGRefreshController`, `EPGScheduleRefreshRuntime`) to consume one composition-root-wired sink; kept `IssueDiagnosticsStore` as the storage owner. In the same pass, removed the misleading startup no-op readiness seam by constructing `InitializationCoordinator` before coordinator assembly and requiring real `ensureEPGInitialized()` wiring.
+  - Verification (2026-04-08):
+    - `npm test -- --runInBand src/modules/player/__tests__/PlaybackRecoveryManager.test.ts`
+    - `npm test -- --runInBand src/core/channel-tuning/__tests__/ChannelTuningCoordinator.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGRefreshController.test.ts`
+    - `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts`
+    - `npm test -- --runInBand src/__tests__/Orchestrator.test.ts`
+    - `npm test -- --runInBand src/core/orchestrator/__tests__/OrchestratorCoordinatorFactory.playbackState.test.ts`
+    - `npm run verify` (pass)
+    - `desloppify show "review::.::holistic::initialization_coupling::diagnostics_store_scattered_singletons" --status open --no-budget` -> `No open issues matching`
+    - `desloppify show "review::.::holistic::logic_clarity::startup_ui_async_wrapper_drift" --status open --no-budget` -> `No open issues matching`
+    - `desloppify show "review::.::holistic::high_level_elegance::epg_top_level_owner_blur" --status open --no-budget` -> `No open issues matching`
+    - `desloppify show "review::.::holistic::api_surface_coherence::epg_readiness_split_contract" --status open --no-budget` -> `No open issues matching`
+    - `desloppify show "review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam" --status open --no-budget` -> `No open issues matching`
+  - Proof matrix (2026-04-08 source audit):
+    - `review::.::holistic::initialization_coupling::diagnostics_store_scattered_singletons` -> `resolved` -> owner `P4-W2`; proof: one `AppOrchestrator` sink now owns diagnostics append wiring (`_issueDiagnosticsStore` + injected `AppendIssueDiagnostic` callback), while collaborators no longer instantiate module-scope `IssueDiagnosticsStore` singletons.
+    - `review::.::holistic::logic_clarity::startup_ui_async_wrapper_drift` -> `resolved` -> owner `P4-W2`; proof: `InitializationCoordinator` now exists before `_createCoordinators()` runs, `_createCoordinators()` hard-fails if startup owner is missing, and coordinator deps no longer accept a fake `Promise.resolve()` fallback for EPG readiness.
+    - `review::.::holistic::high_level_elegance::epg_top_level_owner_blur` -> `resolved` -> owner `P4-W2`; proof: current source still keeps `Orchestrator` as delegation/wiring surface while EPG runtime policy entrypoints remain in `EPGCoordinator`; detector check now reports no open issue.
+    - `review::.::holistic::api_surface_coherence::epg_readiness_split_contract` -> `resolved` -> owner `P4-W2`; proof: readiness seam now routes through a real startup owner callback with truthful construction order; detector check now reports no open issue.
+    - `review::.::holistic::mid_level_elegance::epg_coordinator_still_owns_refresh_seam` -> `resolved` -> owner `P4-W2`; proof: refresh runtime remains internally owned by `EPGRefreshController`/`EPGScheduleRefreshRuntime` with explicit injected diagnostics seam; detector check now reports no open issue.
+- [x] `P4-W3` make corrupted stored Plex auth observable instead of silently folding it into clean absence
   - Imported review issues: `review::.::holistic::contract_coherence::plex_auth_stored_credentials_null_hides_corruption`
   - Primary files: `src/modules/plex/auth/PlexAuth.ts`, `src/modules/plex/auth/interfaces.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` command for the mapped id
-- [ ] `P4-EXIT` run the priority-exit review before moving to `P5`
+  - Execution (2026-04-08): replaced `IPlexAuth.getStoredCredentials()` null contract with `PlexStoredCredentialsReadResult` (`missing` | `available` | `corrupted`) and kept corruption detection/cleanup private to `PlexAuth`; constructor-time corruption is surfaced once via a boot marker, corrupted payloads are cleared by `PlexAuth`, startup auth gate now routes `kind: 'corrupted'` to pending-auth with `STORAGE_CORRUPTED`, and Orchestrator/internal profile-switch/logout carry-forward reuse persisted metadata only when `kind === 'available'`.
+  - Verification (2026-04-08):
+    - `npm test -- --runInBand src/modules/plex/auth/__tests__/PlexAuth.test.ts src/core/initialization/__tests__/InitializationStartupPolicy.test.ts src/__tests__/Orchestrator.test.ts` (pass)
+    - `npm run verify` (pass)
+    - `desloppify show "review::.::holistic::contract_coherence::plex_auth_stored_credentials_null_hides_corruption" --status open --no-budget` -> `No open issues matching: review::.::holistic::contract_coherence::plex_auth_stored_credentials_null_hides_corruption`
+  - Proof matrix (2026-04-08 source audit):
+    - `review::.::holistic::contract_coherence::plex_auth_stored_credentials_null_hides_corruption` -> `resolved` -> owner `P4-W3`; proof: malformed persisted auth is now observable as `kind: 'corrupted'` instead of being collapsed into clean absence, cleanup remains inside `PlexAuth`, and blocked storage writes do not fabricate persisted availability.
+  - Explicit `P4-EXIT` fallback disposition language (required before any `P5` work):
+    - If the exact detector id above ever reappears after this slice, `P4-EXIT` is the single final owner for reconciliation (`resolved on current-code proof with stale detector residue` vs `split follow-up` only when a different live owner is proven). No `P5` plan/code/checklist progress may begin until `P4-EXIT` records that explicit disposition with owner, reason, revisit trigger, and refreshed evidence.
+- [x] `P4-EXIT` run the priority-exit review before moving to `P5`
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P5` plan, code, or checklist progress starts until every `P4` mapped id has an explicit disposition record
-  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all five exact `P4` issue-id checks; `npm run verify`
+  - Required verification: `desloppify status`; `desloppify plan queue`; `desloppify show security --status open --no-budget --top 50`; all five exact `P4` issue-id checks; `npm run verify`
+  - Priority-exit review status (2026-04-08): `complete` (all five mapped `P4` ids return `No open issues matching`; no `deferred`/`split follow-up` carry-forward required)
+  - Verified commands (2026-04-08 final refresh):
+    - `desloppify status`
+    - `desloppify plan queue`
+    - `desloppify show security --status open --no-budget --top 50`
+    - `desloppify show "review::.::holistic::cross_module_architecture::storage_owner_boundary_drift" --status open --no-budget`
+    - `desloppify show "review::.::holistic::incomplete_migration::deprecated_lifecycle_plexauth_slot" --status open --no-budget`
+    - `desloppify show "review::.::holistic::initialization_coupling::diagnostics_store_scattered_singletons" --status open --no-budget`
+    - `desloppify show "review::.::holistic::logic_clarity::startup_ui_async_wrapper_drift" --status open --no-budget`
+    - `desloppify show "review::.::holistic::contract_coherence::plex_auth_stored_credentials_null_hides_corruption" --status open --no-budget`
+    - `npm run verify`
+  - Refreshed verification results (2026-04-08):
+    - `desloppify status` -> `Scores: overall 80.9/100 · objective 90.7/100 · strict 79.0/100 · verified 90.7/100`; `Review: 33 issues open, 33 uninvestigated`; `Last scan: 2026-04-08T04:17:13+00:00`.
+    - `desloppify plan queue` -> `Queue: 2 items (57 planned · 1 subjective)`; both queued items are subjective review work (`subjective_assessment`, `subjective_review`) and align with `desloppify status` reporting open review work.
+    - literal output: `desloppify plan queue`
+      ```text
+      
+        Queue: 2 items (57 planned · 1 subjective)
+      
+      #     Confidence  Detector      Summary                                             Cluster
+      ──────────────────────────────────────────────────────────────────────────────────────────────
+      1     medium  subjective_assessment  Subjective review needed: Auth consistency (91.…                    
+      2     medium  subjective_review  File changed since last review — re-review reco…
+      ```
+    - `desloppify show security --status open --no-budget --top 50` -> `Security: 100.0% health (strict: 96.0%)`; `No open issues for Security. Detectors: cycles, security`.
+    - `npm run verify` -> pass (`typecheck`, `lint`, `lint:css`, `test:all`, `verify:docs`, `build` all passed on current branch).
+  - Mapped imported issues (2026-04-08 disposition record):
+    - `review::.::holistic::cross_module_architecture::storage_owner_boundary_drift` -> `resolved`; owner: `P4-W1`; reason: exact issue-id command returns `No open issues matching`.
+    - `review::.::holistic::incomplete_migration::deprecated_lifecycle_plexauth_slot` -> `resolved`; owner: `P4-W1`; reason: exact issue-id command returns `No open issues matching`.
+    - `review::.::holistic::initialization_coupling::diagnostics_store_scattered_singletons` -> `resolved`; owner: `P4-W2`; reason: exact issue-id command returns `No open issues matching`.
+    - `review::.::holistic::logic_clarity::startup_ui_async_wrapper_drift` -> `resolved`; owner: `P4-W2`; reason: exact issue-id command returns `No open issues matching`.
+    - `review::.::holistic::contract_coherence::plex_auth_stored_credentials_null_hides_corruption` -> `resolved`; owner: `P4-W3`; reason: exact issue-id command returns `No open issues matching`.
+  - Follow-up ownership and residuals (2026-04-08):
+    - Follow-up ownership: none.
+    - Residuals: none on current-code proof in the `P4` issue envelope.
+  - Security triage (2026-04-08 disposition record):
+    - `desloppify show security --status open --no-budget --top 50` confirms no open security findings.
+    - `P0` impact: none; no deferred `P0` findings and no `P0` revisit trigger required for `P4-EXIT`.
 
 ## Priority 5: Normalize Plex And Player Contracts, Dependencies, And Pipelines
 
@@ -647,7 +744,7 @@ These are the required repo-local boundary skills for the new wave. Load them be
 - [ ] `P5-EXIT` run the priority-exit review before moving to `P6`
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P6` plan, code, or checklist progress starts until every `P5` mapped id has an explicit disposition record
-  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all eight exact `P5` issue-id checks; `npm run verify`
+  - Required verification: `desloppify status`; `desloppify plan queue`; `desloppify show security --status open --no-budget --top 50`; all eight exact `P5` issue-id checks; `npm run verify`
 
 ## Priority 6: Finish Shared UI Owner Placement And Package Cleanup
 
@@ -678,7 +775,7 @@ These are the required repo-local boundary skills for the new wave. Load them be
 - [ ] `P6-EXIT` run the priority-exit review before moving to `P7`
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P7` plan, code, or checklist progress starts until every `P6` mapped id has an explicit disposition record
-  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all five exact inherited `P6-W3` issue-id checks listed above; `npm run verify`
+  - Required verification: `desloppify status`; `desloppify plan queue`; `desloppify show security --status open --no-budget --top 50`; all five exact inherited `P6-W3` issue-id checks listed above; `npm run verify`
 
 ## Priority 7: Finish Remaining UI Naming Drift And Player Safeguard Coverage
 
@@ -699,7 +796,7 @@ These are the required repo-local boundary skills for the new wave. Load them be
 - [ ] `P7-EXIT` run the priority-exit review before moving to `P8`
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P8` plan, code, or checklist progress starts until every `P7` mapped id has an explicit disposition record
-  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; all two exact `P7` issue-id checks; `npm run verify`
+  - Required verification: `desloppify status`; `desloppify plan queue`; `desloppify show security --status open --no-budget --top 50`; all two exact `P7` issue-id checks; `npm run verify`
 
 ## Priority 8: Remove Remaining Ceremony Residue And Close The Wave
 
@@ -716,7 +813,7 @@ These are the required repo-local boundary skills for the new wave. Load them be
 - [ ] `P8-EXIT` run the final priority-exit review before declaring this wave complete
   - required: record every mapped imported issue with an exact disposition
   - Gate: this checklist is not complete until every one of the `44` imported review issue ids listed above has a final disposition record
-  - Required verification: `desloppify status`; `desloppify show review --status open --no-budget --top 100`; `desloppify show security --status open --no-budget --top 50`; the exact `P8-W1` issue-id check; `npm run verify`; `npm run verify:docs`; `npm run plans:check`
+  - Required verification: `desloppify status`; `desloppify plan queue`; `desloppify show security --status open --no-budget --top 50`; the exact `P8-W1` issue-id check; `npm run verify`; `npm run verify:docs`; `npm run plans:check`
 
 ## Closeout Rules For This Checklist
 

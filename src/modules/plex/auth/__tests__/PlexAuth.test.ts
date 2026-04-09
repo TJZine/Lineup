@@ -475,15 +475,15 @@ describe('PlexAuth', () => {
     });
 
     describe('getStoredCredentials', () => {
-        it('should return null when no credentials stored', async () => {
+        it('should return missing when no credentials stored', async () => {
             const auth = new PlexAuth(mockConfig);
 
             const result = await auth.getStoredCredentials();
 
-            expect(result).toBeNull();
+            expect(result).toEqual({ kind: 'missing' });
         });
 
-        it('should return stored credentials with restored Date objects', async () => {
+        it('should return available credentials with restored Date objects', async () => {
             const now = new Date();
             const storedData = {
                 version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
@@ -523,23 +523,209 @@ describe('PlexAuth', () => {
             const auth = new PlexAuth(mockConfig);
             const result = await auth.getStoredCredentials();
 
-            expect(result).not.toBeNull();
-            if (result !== null) {
-                expect(result.activeToken.token).toBe('test-token');
-                expect(result.activeToken.issuedAt).toBeInstanceOf(Date);
-                expect(result.activeToken.expiresAt).toBeInstanceOf(Date);
-                expect(result.selectedServerByUserId.user1).toBeDefined();
-                expect(result.selectedServerByUserId.user1?.serverId).toBe('server1');
-            }
+            expect(result.kind).toBe('available');
+            if (result.kind !== 'available') return;
+            expect(result.credentials.activeToken.token).toBe('test-token');
+            expect(result.credentials.activeToken.issuedAt).toBeInstanceOf(Date);
+            expect(result.credentials.activeToken.expiresAt).toBeInstanceOf(Date);
+            expect(result.credentials.selectedServerByUserId.user1).toBeDefined();
+            expect(result.credentials.selectedServerByUserId.user1?.serverId).toBe('server1');
         });
 
-        it('should return null when storage access throws', async () => {
+        it('normalizes malformed persisted deviceKey payloads to null', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const token = createAuthToken('account-token', 'user-1');
+
+            mockLocalStorage.setItem(
+                PLEX_AUTH_CONSTANTS.STORAGE_KEY,
+                JSON.stringify({
+                    version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
+                    data: {
+                        ...createAuthData(token),
+                        deviceKey: {},
+                    },
+                })
+            );
+
+            await expect(auth.getStoredCredentials()).resolves.toEqual({
+                kind: 'available',
+                credentials: expect.objectContaining({
+                    activeUserId: 'user-1',
+                    deviceKey: null,
+                }),
+            });
+        });
+
+        it('preserves valid persisted deviceKey payloads', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const token = createAuthToken('account-token', 'user-1');
+            const createdAt = new Date('2026-04-08T12:00:00.000Z');
+
+            mockLocalStorage.setItem(
+                PLEX_AUTH_CONSTANTS.STORAGE_KEY,
+                JSON.stringify({
+                    version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
+                    data: {
+                        ...createAuthData(token),
+                        deviceKey: {
+                            kid: 'device-key-1',
+                            privateKey: 'base64url-private-key',
+                            createdAt: createdAt.toISOString(),
+                            publicJwk: {
+                                kty: 'OKP',
+                                crv: 'Ed25519',
+                                x: 'public-x',
+                                alg: 'EdDSA',
+                                use: 'sig',
+                                kid: 'jwk-kid-1',
+                            },
+                        },
+                    },
+                })
+            );
+
+            await expect(auth.getStoredCredentials()).resolves.toEqual({
+                kind: 'available',
+                credentials: expect.objectContaining({
+                    activeUserId: 'user-1',
+                    deviceKey: {
+                        kid: 'device-key-1',
+                        privateKey: 'base64url-private-key',
+                        createdAt,
+                        publicJwk: {
+                            kty: 'OKP',
+                            crv: 'Ed25519',
+                            x: 'public-x',
+                            alg: 'EdDSA',
+                            use: 'sig',
+                            kid: 'jwk-kid-1',
+                        },
+                    },
+                }),
+            });
+        });
+
+        it('normalizes deviceKey to null when persisted publicJwk is malformed', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const token = createAuthToken('account-token', 'user-1');
+
+            mockLocalStorage.setItem(
+                PLEX_AUTH_CONSTANTS.STORAGE_KEY,
+                JSON.stringify({
+                    version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
+                    data: {
+                        ...createAuthData(token),
+                        deviceKey: {
+                            kid: 'device-key-1',
+                            privateKey: 'base64url-private-key',
+                            createdAt: '2026-04-08T12:00:00.000Z',
+                            publicJwk: {
+                                kty: 'OKP',
+                                crv: 'Ed25519',
+                                x: 42,
+                                alg: 'EdDSA',
+                            },
+                        },
+                    },
+                })
+            );
+
+            await expect(auth.getStoredCredentials()).resolves.toEqual({
+                kind: 'available',
+                credentials: expect.objectContaining({
+                    activeUserId: 'user-1',
+                    deviceKey: null,
+                }),
+            });
+        });
+
+        it('should return missing when storage access throws', async () => {
             jest.spyOn(mockLocalStorage, 'getItem').mockImplementation(() => {
                 throw new Error('blocked');
             });
             const auth = new PlexAuth(mockConfig);
 
-            await expect(auth.getStoredCredentials()).resolves.toBeNull();
+            await expect(auth.getStoredCredentials()).resolves.toEqual({ kind: 'missing' });
+        });
+
+        it('returns corrupted invalid-json and clears stored key', async () => {
+            mockLocalStorage.setItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY, '{not-json');
+            const auth = new PlexAuth(mockConfig);
+
+            const result = await auth.getStoredCredentials();
+
+            expect(result).toEqual({ kind: 'corrupted', reason: 'invalid-json' });
+            expect(mockLocalStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBeNull();
+            await expect(auth.getStoredCredentials()).resolves.toEqual({ kind: 'missing' });
+        });
+
+        it('returns corrupted invalid-shape for malformed payloads', async () => {
+            mockLocalStorage.setItem(
+                PLEX_AUTH_CONSTANTS.STORAGE_KEY,
+                JSON.stringify({
+                    version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
+                    data: {
+                        accountToken: null,
+                    },
+                })
+            );
+            const auth = new PlexAuth(mockConfig);
+
+            const result = await auth.getStoredCredentials();
+
+            expect(result).toEqual({ kind: 'corrupted', reason: 'invalid-shape' });
+            expect(mockLocalStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBeNull();
+        });
+
+        it('returns corrupted unsupported-version for unsupported storage version', async () => {
+            const now = new Date().toISOString();
+            mockLocalStorage.setItem(
+                PLEX_AUTH_CONSTANTS.STORAGE_KEY,
+                JSON.stringify({
+                    version: 999,
+                    data: {
+                        accountToken: {
+                            token: 'test-token',
+                            userId: 'user1',
+                            username: 'testuser',
+                            email: 'test@example.com',
+                            thumb: '',
+                            expiresAt: null,
+                            issuedAt: now,
+                        },
+                        activeToken: {
+                            token: 'test-token',
+                            userId: 'user1',
+                            username: 'testuser',
+                            email: 'test@example.com',
+                            thumb: '',
+                            expiresAt: null,
+                            issuedAt: now,
+                        },
+                        activeUserId: 'user1',
+                        selectedServerByUserId: {
+                            user1: { serverId: null, serverUri: null },
+                        },
+                    },
+                })
+            );
+            const auth = new PlexAuth(mockConfig);
+
+            const result = await auth.getStoredCredentials();
+
+            expect(result).toEqual({ kind: 'corrupted', reason: 'unsupported-version' });
+            expect(mockLocalStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBeNull();
+        });
+
+        it('surfaces constructor-detected corruption once on next read', async () => {
+            mockLocalStorage.setItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY, '{not-json');
+            const auth = new PlexAuth(mockConfig);
+
+            await expect(auth.getStoredCredentials()).resolves.toEqual({
+                kind: 'corrupted',
+                reason: 'invalid-json',
+            });
+            await expect(auth.getStoredCredentials()).resolves.toEqual({ kind: 'missing' });
         });
     });
 
@@ -555,6 +741,7 @@ describe('PlexAuth', () => {
 
             expect(auth.isAuthenticated()).toBe(true);
             expect(auth.getCurrentUser()?.token).toBe('blocked-storage-token');
+            await expect(auth.getStoredCredentials()).resolves.toEqual({ kind: 'missing' });
         });
     });
 

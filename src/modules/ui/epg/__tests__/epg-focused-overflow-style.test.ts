@@ -71,6 +71,11 @@ describe('focused EPG overflow style contract', () => {
         expect(block).toContain('display: none');
     });
 
+    it('keeps the base time lane bottom-anchored via auto margin', () => {
+        const block = getBlock('\n.epg-cell-time {');
+        expect(block).toContain('margin-top: auto');
+    });
+
     it('keeps focused compact selector contract for overlay rail semantics', () => {
         const layoutBlock = getBlock('.epg-cell.focused.epg-cell-focused-compact');
         expect(layoutBlock).toContain('grid-template-columns: 1fr');
@@ -96,6 +101,28 @@ describe('focused EPG overflow style contract', () => {
         expect(railBlock).toContain('position: absolute');
         expect(railBlock).toContain('top: 8px');
         expect(railBlock).toContain('right: 10px');
+    });
+
+    it('keeps sliver cells in a compact one-line presentation contract', () => {
+        const block = getBlock('.epg-cell.epg-cell-sliver');
+        expect(block).toContain('padding: 4px 6px');
+        expect(block).toContain('gap: 0');
+
+        const hiddenBlock = getBlock(
+            '.epg-cell.epg-cell-sliver .epg-cell-time,\n' +
+            '.epg-cell.epg-cell-sliver .epg-cell-subtitle,\n' +
+            '.epg-cell.epg-cell-sliver .epg-cell-meta'
+        );
+        expect(hiddenBlock).toContain('display: none');
+
+        const titleBlock = getBlock('.epg-cell.epg-cell-sliver .epg-cell-title');
+        expect(titleBlock).toContain('display: block');
+        expect(titleBlock).toContain('overflow: hidden');
+        expect(titleBlock).toContain('font-size: var(--text-sm)');
+        expect(titleBlock).toContain('white-space: nowrap');
+        expect(titleBlock).toContain('text-overflow: ellipsis');
+        expect(titleBlock).not.toContain('-webkit-line-clamp');
+        expect(titleBlock).not.toContain('-webkit-box-orient');
     });
 
     it('keeps focused movie rail anchoring stable across badge visibility in tiny and medium tiers', () => {
@@ -198,6 +225,36 @@ describe('focused EPG overflow style contract', () => {
 
         expect(getComputedStyle(compactRail).transform).toBe('none');
         expect(getComputedStyle(movieRail).transform).toBe('none');
+    });
+
+    it('keeps channel-row focus selectors aligned with theme focus tokens', () => {
+        const baseBlock = getBlock('.epg-channel-row.focused');
+        expect(baseBlock).toContain('rgba(var(--focus-color-rgb),');
+
+        const classicBlock = getBlock('.epg-container.layout-classic .epg-channel-row.focused');
+        expect(classicBlock).toContain('rgba(var(--focus-color-rgb),');
+
+        const glassBlock = getBlock('.theme-glass .epg-channel-row.focused::before');
+        expect(glassBlock).toContain('rgba(var(--focus-color-rgb), 0.14)');
+
+        const emberBlock = getBlock('.theme-ember-steel .epg-channel-row.focused');
+        expect(emberBlock).toContain('rgba(var(--focus-color-rgb),');
+
+        const swissBlock = getBlock('.theme-swiss .epg-channel-row.focused');
+        expect(swissBlock).toContain('rgba(var(--focus-color-rgb),');
+
+        const directvBlock = getBlock('.theme-directv .epg-container.layout-classic .epg-channel-row.focused');
+        expect(directvBlock).toContain('var(--directv-focus-fill)');
+    });
+
+    it('keeps an explicit glass classic row-focus selector so the pill overlay owns the focus fill', () => {
+        const block = getBlock('.theme-glass .epg-container.layout-classic .epg-channel-row.focused');
+        expect(block).toContain('background: transparent');
+    });
+
+    it('keeps an explicit swiss classic row-focus selector so classic swiss does not inherit the generic classic tint', () => {
+        const block = getBlock('.theme-swiss .epg-container.layout-classic .epg-channel-row.focused');
+        expect(block).toContain('rgba(var(--focus-color-rgb), 0.12)');
     });
 
     it('keeps reduced-motion ticker suppression selectors', () => {

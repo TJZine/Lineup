@@ -221,6 +221,65 @@ describe('AppDiagnosticsSurface', () => {
                     studios: [{ libraryId: 'lib-1', libraryName: 'Shows', count: 1 }],
                     actors: [{ libraryId: 'lib-1', libraryName: 'Shows', count: 9 }],
                 },
+                tagCountDiagnosticsByFamily: {
+                    genres: [{
+                        libraryId: 'lib-1',
+                        libraryName: 'Shows',
+                        rawTagCount: 4,
+                        effectiveCandidateCount: 4,
+                        candidatesWithKnownCount: 4,
+                        candidatesWithUnknownCount: 0,
+                        candidatesBelowMinItems: 1,
+                        minKnownCount: 2,
+                        maxKnownCount: 22,
+                        sampleKnownCounts: [{ title: 'Comedy', count: 22 }],
+                        sampleUnknownCountTitles: [],
+                        sampleBelowMinItems: [{ title: 'Mystery', count: 2 }],
+                    }],
+                    directors: [{
+                        libraryId: 'lib-1',
+                        libraryName: 'Shows',
+                        rawTagCount: 2,
+                        effectiveCandidateCount: 2,
+                        candidatesWithKnownCount: 2,
+                        candidatesWithUnknownCount: 0,
+                        candidatesBelowMinItems: 1,
+                        minKnownCount: 4,
+                        maxKnownCount: 14,
+                        sampleKnownCounts: [{ title: 'Jane Doe', count: 14 }],
+                        sampleUnknownCountTitles: [],
+                        sampleBelowMinItems: [{ title: 'John Roe', count: 4 }],
+                    }],
+                    decades: [],
+                    studios: [{
+                        libraryId: 'lib-1',
+                        libraryName: 'Shows',
+                        rawTagCount: 1,
+                        effectiveCandidateCount: 1,
+                        candidatesWithKnownCount: 1,
+                        candidatesWithUnknownCount: 0,
+                        candidatesBelowMinItems: 0,
+                        minKnownCount: 7,
+                        maxKnownCount: 7,
+                        sampleKnownCounts: [{ title: 'Studio A', count: 7 }],
+                        sampleUnknownCountTitles: [],
+                        sampleBelowMinItems: [],
+                    }],
+                    actors: [{
+                        libraryId: 'lib-1',
+                        libraryName: 'Shows',
+                        rawTagCount: 9,
+                        effectiveCandidateCount: 9,
+                        candidatesWithKnownCount: 7,
+                        candidatesWithUnknownCount: 2,
+                        candidatesBelowMinItems: 2,
+                        minKnownCount: 1,
+                        maxKnownCount: 30,
+                        sampleKnownCounts: [{ title: 'Lead Actor', count: 30 }],
+                        sampleUnknownCountTitles: ['Mystery Guest', 'Unknown Star'],
+                        sampleBelowMinItems: [{ title: 'Bit Part', count: 1 }],
+                    }],
+                },
                 candidatesBeforeMinItems: {
                     total: 16,
                     collections: 0,
@@ -354,7 +413,66 @@ describe('AppDiagnosticsSurface', () => {
             result: expect.objectContaining({ reachedMaxChannels: true }),
         }));
         expect(consoleInfo).toHaveBeenCalledWith('Selected server:', 'server-1');
-        expect(consoleTable).toHaveBeenCalledTimes(4);
+        expect(consoleTable).toHaveBeenCalledTimes(5);
+        expect(consoleGroupCollapsed).toHaveBeenCalledWith('[lineup] Channel setup planner diagnostics');
+        expect(consoleGroupEnd).toHaveBeenCalled();
+    });
+
+    it('dumps active channel-setup planner diagnostics through the global helper', async () => {
+        const activeConfig = {
+            serverId: 'server-1',
+            selectedLibraryIds: ['lib-1'],
+            maxChannels: 300,
+            buildMode: 'replace' as const,
+            strategyConfig: {
+                collections: { enabled: false, priority: 1, scope: 'per-library' as const },
+                playlists: { enabled: false, priority: 2, scope: 'per-library' as const },
+                genres: { enabled: false, priority: 3, scope: 'per-library' as const },
+                directors: { enabled: true, priority: 4, scope: 'per-library' as const },
+                decades: { enabled: false, priority: 5, scope: 'per-library' as const },
+                recentlyAdded: { enabled: false, priority: 6, scope: 'per-library' as const },
+                studios: { enabled: false, priority: 7, scope: 'per-library' as const },
+                actors: { enabled: false, priority: 8, scope: 'per-library' as const },
+            },
+            actorStudioCombineMode: 'separate' as const,
+            minItemsPerChannel: 20,
+        };
+        const getSetupPlanDiagnostics = jest.fn().mockResolvedValue({
+            status: 'ready',
+            diagnostics: null,
+            warnings: [],
+            reachedMaxChannels: false,
+        });
+        const workflowPort = createWorkflowPort({
+            getSetupPlanDiagnostics,
+        });
+        const consoleInfo = jest.spyOn(console, 'info').mockImplementation(() => {});
+        const consoleGroupCollapsed = jest.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
+        const consoleGroupEnd = jest.spyOn(console, 'groupEnd').mockImplementation(() => {});
+        const container = createContainer();
+        document.body.appendChild(container);
+
+        surface = new AppDiagnosticsSurface({
+            getOrchestrator: (): DiagnosticsOrchestrator =>
+                createOrchestrator({ getChannelSetupWorkflowPort: jest.fn().mockReturnValue(workflowPort) }),
+            getActiveChannelSetupConfig: (): typeof activeConfig => activeConfig,
+            showToast: jest.fn(),
+            debugOverridesStore: new DebugOverridesStore(),
+        });
+        surface.setContainer(container);
+        surface.initialize();
+
+        const dump = await (window as {
+            lineup?: { dumpActiveChannelSetupPlannerDiagnostics: () => Promise<unknown> };
+        }).lineup?.dumpActiveChannelSetupPlannerDiagnostics();
+
+        expect(getSetupPlanDiagnostics).toHaveBeenCalledWith(activeConfig);
+        expect(dump).toEqual(expect.objectContaining({
+            selectedServerId: 'server-1',
+            recordSource: 'active-screen',
+            config: activeConfig,
+        }));
+        expect(consoleInfo).toHaveBeenCalledWith('Record source:', 'active-screen');
         expect(consoleGroupCollapsed).toHaveBeenCalledWith('[lineup] Channel setup planner diagnostics');
         expect(consoleGroupEnd).toHaveBeenCalled();
     });

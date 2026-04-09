@@ -22,13 +22,12 @@ import {
     subtitleModeIsDirectOnly,
     type SubtitleMode,
 } from '../../shared/subtitle-mode';
-import { IssueDiagnosticsStore } from '../debug/IssueDiagnosticsStore';
+import type { AppendIssueDiagnostic } from '../debug/IssueDiagnosticsStore';
 import { SubtitlePreferencesStore } from '../settings/SubtitlePreferencesStore';
 import { redactSensitiveTokens } from '../../utils/redact';
 import { summarizeErrorForLog } from '../../utils/errors';
 
 const QA_003B_ISSUE_ID = 'QA-003b';
-const issueDiagnosticsStore = new IssueDiagnosticsStore();
 
 export interface PlaybackRecoveryDeps {
     getVideoPlayer: () => IVideoPlayer | null;
@@ -51,6 +50,7 @@ export interface PlaybackRecoveryDeps {
     notifySubtitleUnavailable: () => void;
     notifyToast?: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
     subtitlePreferencesStore?: SubtitlePreferencesStore;
+    appendIssueDiagnostic: AppendIssueDiagnostic;
 
     handleGlobalError: (error: AppError, context: string) => void;
 }
@@ -333,7 +333,7 @@ export class PlaybackRecoveryManager {
         // Single/rare failure: skip as before
         if (scheduler) {
             const schedulerState = scheduler.getState();
-            issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'playbackRecovery.skipToNext', {
+            this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'playbackRecovery.skipToNext', {
                 context: redactSensitiveTokens(context),
                 itemKey: this._getCurrentItemKey(),
                 channelId: schedulerState.channelId ?? null,

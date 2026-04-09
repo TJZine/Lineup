@@ -98,6 +98,7 @@ const makeDeps = (): {
                 shuffleSeed: 1,
                 loopSchedule: true,
             } satisfies ScheduleConfig),
+        appendIssueDiagnostic: jest.fn(),
         epgPreferencesStore: new EpgPreferencesStore(),
         primeEpgChannels: jest.fn(),
     };

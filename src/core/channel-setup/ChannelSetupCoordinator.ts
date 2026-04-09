@@ -31,10 +31,11 @@ export interface ChannelSetupCoordinatorDeps {
     channelManager: IChannelManager;
     navigation: INavigationManager;
 
-    // Server + storage
+    // Server + setup-record ownership
     getSelectedServerId: () => string | null;
-    storageGet: (key: string) => string | null;
-    storageSet: (key: string, value: string) => void;
+    recordStore: Pick<ChannelSetupRecordStore, 'getRecord' | 'markSetupComplete' | 'clearRecord' | 'cleanupStaleBuildKeys'>;
+
+    // Non-record storage callbacks required by build execution temp keys.
     storageRemove: (key: string) => void;
 
     // Orchestrator hooks
@@ -54,7 +55,7 @@ export class ChannelSetupCoordinator {
     private readonly _planningService: ChannelSetupPlanningService;
     private readonly _buildCommitter: ChannelSetupBuildCommitter;
     private readonly _buildExecutor: ChannelSetupBuildExecutor;
-    private readonly _recordStore: ChannelSetupRecordStore;
+    private readonly _recordStore: Pick<ChannelSetupRecordStore, 'getRecord' | 'markSetupComplete' | 'clearRecord' | 'cleanupStaleBuildKeys'>;
     private readonly _rerunController: ChannelSetupRerunController;
 
     constructor(private readonly deps: ChannelSetupCoordinatorDeps) {
@@ -77,12 +78,7 @@ export class ChannelSetupCoordinator {
             planningService: this._planningService,
             buildCommitter: this._buildCommitter,
         });
-        this._recordStore = new ChannelSetupRecordStore({
-            storageGet: (key: string): string | null => this.deps.storageGet(key),
-            storageSet: (key: string, value: string): void => this.deps.storageSet(key, value),
-            storageRemove: (key: string): void => this.deps.storageRemove(key),
-            normalizeConfig: (config: ChannelSetupConfig): ChannelSetupConfig => this._planningService.normalizeConfig(config),
-        });
+        this._recordStore = this.deps.recordStore;
         this._rerunController = new ChannelSetupRerunController({
             navigation: this.deps.navigation,
             getSelectedServerId: (): string | null => this.deps.getSelectedServerId(),

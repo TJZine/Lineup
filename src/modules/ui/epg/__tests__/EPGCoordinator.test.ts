@@ -219,6 +219,7 @@ const makeDeps = (
         onVisibilityChange: jest.fn(),
         reportEpgInitWarning: jest.fn(),
         epgPreferencesStore,
+        appendIssueDiagnostic: jest.fn(),
         ...overrides,
     };
     return { deps, epg, channelManager, scheduler };
@@ -978,7 +979,7 @@ describe('EPGCoordinator', () => {
         expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
     });
 
-    it('primeEpgChannels clears an invalid persisted filter through the normalization helper', () => {
+    it('primeEpgChannels clears an invalid persisted filter through explicit runtime-owner cleanup', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'missing-lib');
 
@@ -994,14 +995,21 @@ describe('EPGCoordinator', () => {
                 getAllChannels: () => allChannels,
             } as IChannelManager),
         });
-        const readAppliedLibraryFilterStateSpy = jest.spyOn(EPGCoordinatorPolicies, 'readAppliedLibraryFilterState');
+        const computeNormalizedLibraryFilterStateSpy = jest.spyOn(EPGCoordinatorPolicies, 'computeNormalizedLibraryFilterState');
         const epgPreferencesStore = deps.epgPreferencesStore as EpgPreferencesStore;
         const writeSelectedLibraryIdSpy = jest.spyOn(epgPreferencesStore, 'writeSelectedLibraryId');
         const coordinator = new EPGCoordinator(deps);
 
         coordinator.primeEpgChannels();
 
-        expect(readAppliedLibraryFilterStateSpy).toHaveBeenCalledWith(allChannels, epgPreferencesStore);
+        expect(computeNormalizedLibraryFilterStateSpy).toHaveBeenCalledWith(
+            allChannels,
+            {
+                pastItemsWindowSetting: 'auto',
+                tabsEnabled: true,
+                selectedLibraryId: 'missing-lib',
+            }
+        );
         expect(writeSelectedLibraryIdSpy).toHaveBeenCalledTimes(1);
         expect(writeSelectedLibraryIdSpy).toHaveBeenCalledWith(null);
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
@@ -1731,7 +1739,6 @@ describe('EPGCoordinator', () => {
     });
 
     it('refreshEpgScheduleForLiveChannel uses scheduler window for current channel', () => {
-        localStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, '1');
         const windowPrograms = [baseProgram('c0', 5)];
         const scheduler: IChannelScheduler = {
             getState: () => ({ isActive: true, channelId: 'c0' }),
@@ -1750,10 +1757,14 @@ describe('EPGCoordinator', () => {
             endTime: 20,
             programs: windowPrograms,
         });
-        const stored = JSON.parse(
-            localStorage.getItem(LINEUP_STORAGE_KEYS.ISSUE_DIAGNOSTICS_LOG) as string
-        ) as Array<{ event: string }>;
-        expect(stored.map((entry) => entry.event)).toContain('epg.liveRowOverwrite');
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.liveRowOverwrite',
+            expect.objectContaining({
+                channelId: 'c0',
+                source: 'live-scheduler',
+            })
+        );
     });
 
     it('uses conservative warm-queue caps only at very-large-guide threshold (260+)', () => {
@@ -1798,7 +1809,6 @@ describe('EPGCoordinator', () => {
     });
 
     it('wireEpgEvents returns unsubscribers, forwards visibility changes, and triggers switch when program eligible', async () => {
-        localStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, '1');
         const hide = jest.fn();
         let epgVisible = false;
         const onVisibilityChange = jest.fn();
@@ -1876,10 +1886,14 @@ describe('EPGCoordinator', () => {
                 }),
             })
         );
-        const stored = JSON.parse(
-            localStorage.getItem(LINEUP_STORAGE_KEYS.ISSUE_DIAGNOSTICS_LOG) as string
-        ) as Array<{ event: string }>;
-        expect(stored.map((entry) => entry.event)).toContain('epg.channelSelected');
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.channelSelected',
+            expect.objectContaining({
+                channelId: 'c1',
+                ratingKey: 'c1-0',
+            })
+        );
 
         unsubChannel!();
         expect(epg.off).toHaveBeenCalledWith('channelSelected', handler);

@@ -7,7 +7,6 @@ import type {
 } from '../../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduleConfig, ScheduleWindow } from '../../../scheduler/scheduler';
 import type { IEPGComponent } from '../interfaces';
-import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,
@@ -47,28 +46,6 @@ const createResolvedContent = (channelId: string): ResolvedChannelContent => {
         totalDurationMs: items.reduce((sum, item) => sum + item.durationMs, 0),
         orderedItems: [...items],
     };
-};
-
-const createLocalStorageMock = (): Storage => {
-    let store: Record<string, string> = {};
-    return {
-        getItem: (key: string): string | null => (
-            Object.prototype.hasOwnProperty.call(store, key) ? (store[key] ?? null) : null
-        ),
-        setItem: (key: string, value: string): void => {
-            store[key] = String(value);
-        },
-        removeItem: (key: string): void => {
-            delete store[key];
-        },
-        clear: (): void => {
-            store = {};
-        },
-        key: (index: number): string | null => Object.keys(store)[index] ?? null,
-        get length(): number {
-            return Object.keys(store).length;
-        },
-    } as Storage;
 };
 
 const createRuntime = (
@@ -152,6 +129,7 @@ const createRuntime = (
         isAggressivePreloadEnabled: () => false,
         isDebugEnabled: () => false,
         appendDebugLog: jest.fn(),
+        appendIssueDiagnostic: jest.fn(),
         ...(overrides as Partial<EPGScheduleRefreshRuntimeDeps>),
     };
 
@@ -167,13 +145,6 @@ const createRuntime = (
 };
 
 describe('EPGScheduleRefreshRuntime', () => {
-    beforeEach(() => {
-        if (!globalThis.localStorage) {
-            (globalThis as { localStorage?: Storage }).localStorage = createLocalStorageMock();
-        }
-        localStorage.clear();
-    });
-
     it('threads server-swap into the aggressive-dependent branches', async () => {
         const computeScheduleCacheLimit = jest.fn(() => 64);
         const getScheduleLoadConcurrency = jest.fn(() => 1);
@@ -199,26 +170,19 @@ describe('EPGScheduleRefreshRuntime', () => {
     });
 
     it('records schedule source diagnostics for immediate UI-applied rows when debug logging is enabled', async () => {
-        localStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, '1');
-        const { runtime } = createRuntime();
+        const { runtime, deps } = createRuntime();
 
         await runtime.refreshForRange(
             { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
-        const stored = JSON.parse(
-            localStorage.getItem(LINEUP_STORAGE_KEYS.ISSUE_DIAGNOSTICS_LOG) as string
-        ) as Array<{ event: string; data: { source?: string } }>;
-        expect(stored).toEqual(
-            expect.arrayContaining([
-                expect.objectContaining({
-                    event: 'epg.scheduleApplied',
-                    data: expect.objectContaining({
-                        source: 'resolved-immediate',
-                    }),
-                }),
-            ])
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleApplied',
+            expect.objectContaining({
+                source: 'resolved-immediate',
+            })
         );
     });
 

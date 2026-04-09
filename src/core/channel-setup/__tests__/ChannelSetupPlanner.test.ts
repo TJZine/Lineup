@@ -752,6 +752,57 @@ describe('ChannelSetupPlanner', () => {
         expect(diagnostics.fetchedTagsByFamily.actors).toEqual([
             { libraryId: 'm1', libraryName: 'Movies', count: 3 },
         ]);
+        expect(diagnostics.tagCountDiagnosticsByFamily.genres).toEqual([
+            expect.objectContaining({
+                libraryId: 'm1',
+                rawTagCount: 3,
+                effectiveCandidateCount: 3,
+                candidatesWithKnownCount: 2,
+                candidatesWithUnknownCount: 1,
+                candidatesBelowMinItems: 1,
+                minKnownCount: 2,
+                maxKnownCount: 8,
+                sampleUnknownCountTitles: ['Mystery'],
+            }),
+        ]);
+        expect(diagnostics.tagCountDiagnosticsByFamily.directors).toEqual([
+            expect.objectContaining({
+                libraryId: 'm1',
+                rawTagCount: 2,
+                effectiveCandidateCount: 2,
+                candidatesWithKnownCount: 2,
+                candidatesWithUnknownCount: 0,
+                candidatesBelowMinItems: 1,
+                minKnownCount: 4,
+                maxKnownCount: 6,
+                sampleBelowMinItems: [{ title: 'John Roe', count: 4 }],
+            }),
+        ]);
+        expect(diagnostics.tagCountDiagnosticsByFamily.studios).toEqual([
+            expect.objectContaining({
+                libraryId: 'm1',
+                rawTagCount: 2,
+                effectiveCandidateCount: 2,
+                candidatesWithKnownCount: 2,
+                candidatesWithUnknownCount: 0,
+                candidatesBelowMinItems: 1,
+                minKnownCount: 3,
+                maxKnownCount: 7,
+            }),
+        ]);
+        expect(diagnostics.tagCountDiagnosticsByFamily.actors).toEqual([
+            expect.objectContaining({
+                libraryId: 'm1',
+                rawTagCount: 3,
+                effectiveCandidateCount: 3,
+                candidatesWithKnownCount: 2,
+                candidatesWithUnknownCount: 1,
+                candidatesBelowMinItems: 1,
+                minKnownCount: 1,
+                maxKnownCount: 10,
+                sampleUnknownCountTitles: ['Casey Star'],
+            }),
+        ]);
 
         expect(diagnostics.candidatesBeforeMinItems).toEqual(expect.objectContaining({
             total: 10,
@@ -775,6 +826,49 @@ describe('ChannelSetupPlanner', () => {
             actors: 2,
         }));
         expect(diagnostics.lostToMaxChannels.total).toBe(0);
+    });
+
+    it('reports aggregated decade count availability diagnostics', () => {
+        const diagnostics = buildChannelSetupPlanDiagnostics({
+            config: createConfig({
+                selectedLibraryIds: ['m1'],
+                minItemsPerChannel: 5,
+                strategyConfig: createStrategyConfig({
+                    decades: { enabled: true },
+                }),
+            }),
+            libraries: [{ id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 }] as PlexLibraryType[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map([['m1', [
+                { key: '1981', title: '1981', count: 2 },
+                { key: '1988', title: '1988', count: 1 },
+                { key: '1994', title: '1994', count: 8 },
+                { key: '1995', title: '1995', count: null },
+            ]]]),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(diagnostics.tagCountDiagnosticsByFamily.decades).toEqual([
+            expect.objectContaining({
+                libraryId: 'm1',
+                rawTagCount: 4,
+                effectiveCandidateCount: 2,
+                candidatesWithKnownCount: 1,
+                candidatesWithUnknownCount: 1,
+                candidatesBelowMinItems: 1,
+                minKnownCount: 3,
+                maxKnownCount: 3,
+                sampleKnownCounts: [{ title: '1980s', count: 3 }],
+                sampleUnknownCountTitles: ['1990s'],
+                sampleBelowMinItems: [{ title: '1980s', count: 3 }],
+            }),
+        ]);
     });
 
     it('reports alternate-lineup cap losses separately from base strategy bucket sizes', () => {

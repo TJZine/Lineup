@@ -13,11 +13,11 @@ import type {
     IChannelScheduler,
     ScheduleConfig,
 } from '../../scheduler/scheduler';
-import { IssueDiagnosticsStore } from '../../debug/IssueDiagnosticsStore';
+import type { AppendIssueDiagnostic } from '../../debug/IssueDiagnosticsStore';
 import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import {
-    readAppliedLibraryFilterState,
+    computeNormalizedLibraryFilterState,
     selectVisibleChannelsForLibraryFilter,
 } from './EPGCoordinatorPolicies';
 import { countLibraryTypeVotes } from './epgLibraryUtils';
@@ -57,13 +57,13 @@ export interface EPGCoordinatorDeps {
     onVisibilityChange?: (visible: boolean) => void;
     reportEpgInitWarning: (error: unknown) => void;
     epgPreferencesStore: EpgPreferencesStore;
+    appendIssueDiagnostic: AppendIssueDiagnostic;
 }
 
 const DEFAULT_GUIDE_DENSITY: EpgGuideDensity = 'detailed';
 const DETAILED_VISIBLE_HOURS = 2;
 const WIDE_VISIBLE_HOURS = 3;
 const QA_003B_ISSUE_ID = 'QA-003b';
-const issueDiagnosticsStore = new IssueDiagnosticsStore();
 
 export class EPGCoordinator {
     private readonly _epgPreferencesStore: EpgPreferencesStore;
@@ -90,6 +90,8 @@ export class EPGCoordinator {
             ): ScheduleConfig => this.deps.buildDailyScheduleConfig(channel, items, referenceTimeMs),
             epgPreferencesStore: this._epgPreferencesStore,
             primeEpgChannels: (): void => this.primeEpgChannels(),
+            appendIssueDiagnostic: (issue: string, event: string, data: unknown): void =>
+                this.deps.appendIssueDiagnostic(issue, event, data),
         });
     }
 
@@ -294,10 +296,13 @@ export class EPGCoordinator {
         if (!epg || !channelManager) return;
         if (this.deps.getEpgUiStatus() !== 'ready') return;
         const all = channelManager.getAllChannels();
-        const { selectedId, tabsEnabled, shouldFilter, libraries } = readAppliedLibraryFilterState(
+        const { selectedId, tabsEnabled, shouldFilter, libraries, shouldClearPersistedSelection } = computeNormalizedLibraryFilterState(
             all,
-            this._epgPreferencesStore
+            this._epgPreferencesStore.readScheduleRangeSnapshot()
         );
+        if (shouldClearPersistedSelection) {
+            this._epgPreferencesStore.writeSelectedLibraryId(null);
+        }
 
         // Category colors
         const categoryColorsEnabled = this._epgPreferencesStore.readGuideCategoryColorsEnabled(true);
@@ -373,7 +378,7 @@ export class EPGCoordinator {
             if (now < scheduledStartTime || now >= scheduledEndTime) {
                 return;
             }
-            issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'epg.channelSelected', {
+            this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'epg.channelSelected', {
                 channelId: payload.channel.id,
                 ratingKey: payload.program.item.ratingKey,
                 scheduledStartTime,
@@ -451,7 +456,13 @@ export class EPGCoordinator {
         const current = channelManager.getCurrentChannel();
         if (!current) return;
         const all = channelManager.getAllChannels();
-        const { selectedId, shouldFilter } = readAppliedLibraryFilterState(all, this._epgPreferencesStore);
+        const { selectedId, shouldFilter, shouldClearPersistedSelection } = computeNormalizedLibraryFilterState(
+            all,
+            this._epgPreferencesStore.readScheduleRangeSnapshot()
+        );
+        if (shouldClearPersistedSelection) {
+            this._epgPreferencesStore.writeSelectedLibraryId(null);
+        }
         const channels = selectVisibleChannelsForLibraryFilter(all, selectedId, shouldFilter);
         const index = channels.findIndex((channel) => channel.id === current.id);
         if (index >= 0) {
@@ -494,7 +505,7 @@ export class EPGCoordinator {
             if (isAbortLikeError(error, controller.signal)) {
                 return;
             }
-            issueDiagnosticsStore.append(QA_003B_ISSUE_ID, 'epg.guideSnapshotBuildFailed', {
+            this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'epg.guideSnapshotBuildFailed', {
                 channelId,
                 ratingKey: program.item.ratingKey,
                 selectedAt,

@@ -492,6 +492,48 @@ describe('EPGVirtualizer', () => {
             expect(visibleRight - titleLeft).toBeGreaterThanOrEqual(12);
         });
 
+        it('marks heavily clipped visible programs as slivers without changing their geometry', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-sliver-clipped';
+            const program: ScheduledProgram = {
+                item: {
+                    ratingKey: 'sliver-clipped-1',
+                    type: 'movie',
+                    title: 'Sliver Clipped Program',
+                    fullTitle: 'Sliver Clipped Program',
+                    durationMs: 240 * 60 * 1000,
+                    thumb: null,
+                    year: 2026,
+                    scheduledIndex: 0,
+                },
+                scheduledStartTime: gridAnchorTime,
+                scheduledEndTime: gridAnchorTime + (240 * 60000),
+                elapsedMs: 0,
+                remainingMs: 0,
+                scheduleIndex: 0,
+                loopNumber: 0,
+                streamDescriptor: null,
+                isCurrent: false,
+            };
+            const schedules = new Map<string, ScheduleWindow>([
+                [channelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + (24 * 60 * 60000),
+                    programs: [program],
+                }],
+            ]);
+
+            const timeOffset = 226;
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset });
+            virtualizer.renderVisibleCells([channelId], schedules, range);
+
+            const key = `${channelId}-${program.scheduledStartTime}`;
+            const cell = container.querySelector(`[data-key="${key}"]`) as HTMLElement;
+            expect(cell).not.toBeNull();
+            expect(cell.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS)).toBe(true);
+            expect(cell.style.width).toBe('960px');
+        });
+
         it('does not shift text when the cell is already clipped to the left edge', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-left-clipped';
@@ -535,6 +577,158 @@ describe('EPGVirtualizer', () => {
             expect(cell).not.toBeNull();
             expect(cell.classList.contains(EPG_CLASSES.CELL_TEXT_SHIFTED)).toBe(false);
             expect(cell.style.getPropertyValue('--epg-cell-text-shift-px')).toBe('');
+        });
+
+        it('marks genuinely short visible program cells as slivers', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-sliver-short';
+            const start = gridAnchorTime;
+            const end = start + (10 * 60000);
+
+            const schedules = new Map<string, ScheduleWindow>([
+                [channelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + (24 * 60 * 60000),
+                    programs: [
+                        {
+                            item: {
+                                ratingKey: 'sliver-short-1',
+                                type: 'movie',
+                                title: 'Short Sliver',
+                                fullTitle: 'Short Sliver',
+                                durationMs: end - start,
+                                thumb: null,
+                                year: 2026,
+                                scheduledIndex: 0,
+                            },
+                            scheduledStartTime: start,
+                            scheduledEndTime: end,
+                            elapsedMs: 0,
+                            remainingMs: end - start,
+                            scheduleIndex: 0,
+                            loopNumber: 0,
+                            streamDescriptor: null,
+                            isCurrent: false,
+                        },
+                    ],
+                }],
+            ]);
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], schedules, range);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            expect(cell).not.toBeNull();
+            expect(cell.style.width).toBe('40px');
+            expect(cell.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS)).toBe(true);
+        });
+
+        it('keeps focused episodes out of sliver suppression so compact subtitle and ticker behavior remain active', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-focused-episode-sliver';
+            const start = gridAnchorTime;
+            const end = start + (10 * 60000); // 40px rendered width
+
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60000),
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'focused-episode-sliver-1',
+                            type: 'episode',
+                            title: 'Episode With A Very Long Focused Subtitle',
+                            fullTitle: 'Prestige Show - S01E07 - Episode With A Very Long Focused Subtitle',
+                            showTitle: 'Prestige Show',
+                            seasonNumber: 1,
+                            episodeNumber: 7,
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+            virtualizer.setFocusedCell(channelId, start);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+            const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
+            const time = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
+
+            Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 180 });
+            Object.defineProperty(title, 'clientWidth', { configurable: true, value: 40 });
+            Object.defineProperty(subtitle, 'scrollWidth', { configurable: true, value: 200 });
+            Object.defineProperty(subtitle, 'clientWidth', { configurable: true, value: 40 });
+
+            virtualizer.setFocusedCell(channelId, start);
+
+            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
+            expect(cell.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS)).toBe(false);
+            expect(subtitle.style.display).toBe('block');
+            expect(subtitle.textContent).toBe('S01E07 - Episode With A Very Long Focused Subtitle');
+            expect(time.style.display).toBe('none');
+            expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_READY)).toBe(true);
+        });
+
+        it('does not duplicate focused episode text in the subtitle lane when no show title or episode tag exists', () => {
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-focused-episode-no-show-title';
+            const start = gridAnchorTime;
+            const end = start + (20 * 60000);
+
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60000),
+                programs: [
+                    {
+                        item: {
+                            ratingKey: 'focused-episode-no-show-title-1',
+                            type: 'episode',
+                            title: 'Standalone Episode Title',
+                            fullTitle: 'Standalone Episode Title',
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    },
+                ],
+            };
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+            virtualizer.setFocusedCell(channelId, start);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const titleText = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE_TEXT}`) as HTMLElement;
+            const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
+            const subtitleText = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE_TEXT}`) as HTMLElement;
+
+            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
+            expect(titleText.textContent).toBe('Standalone Episode Title');
+            expect(subtitle.style.display).toBe('none');
+            expect(subtitleText.textContent).toBe('');
         });
 
         it('shifts text for pre-anchor long programs after scrolling right', () => {
@@ -1719,7 +1913,7 @@ describe('EPGVirtualizer', () => {
             expect(time.style.display).toBe('none');
         });
 
-        it('keeps focused compact mode tied to split-lane episode presentation, even when focused title overflows', () => {
+        it('keeps focused episodes in compact mode even when they do not expose split lanes before focus', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-episode-no-split';
             const start = gridAnchorTime;
@@ -1769,9 +1963,10 @@ describe('EPGVirtualizer', () => {
 
             virtualizer.setFocusedCell(channelId, start);
 
-            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(false);
-            expect(subtitle.style.display).toBe('none');
-            expect(time.style.display).toBe('block');
+            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
+            expect(subtitle.textContent).toBe('S01E02 - Episode Without Split Lanes');
+            expect(subtitle.style.display).toBe('block');
+            expect(time.style.display).toBe('none');
             expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_READY)).toBe(true);
         });
 
@@ -2289,7 +2484,58 @@ describe('EPGVirtualizer', () => {
             expect(liveBadge.textContent).toBe('');
         });
 
-        it('keeps the in-cell time on focused wide episode cells that can stay in the normal layout', () => {
+        it('uses compact LIVE badge for current sliver cells even when they are not narrow or focused-compact', () => {
+            const now = gridAnchorTime + 227 * 60 * 1000;
+            jest.spyOn(Date, 'now').mockReturnValue(now);
+
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-sliver-live';
+            const start = gridAnchorTime;
+            const end = gridAnchorTime + (240 * 60 * 1000);
+
+            const schedules = new Map<string, ScheduleWindow>([
+                [channelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + (24 * 60 * 60000),
+                    programs: [{
+                        item: {
+                            ratingKey: 'sliver-live-1',
+                            type: 'movie',
+                            title: 'Current Sliver Program',
+                            fullTitle: 'Current Sliver Program',
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: now - start,
+                        remainingMs: end - now,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    }],
+                }],
+            ]);
+
+            const timeOffset = 226;
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset });
+            virtualizer.renderVisibleCells([channelId], schedules, range);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const badge = cell.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement;
+
+            expect(cell.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS)).toBe(true);
+            expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_NARROW)).toBe(false);
+            expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_TINY)).toBe(false);
+            expect(badge.hidden).toBe(false);
+            expect(badge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
+            expect(badge.textContent).toBe('');
+        });
+
+        it('keeps focused wide episode cells in compact mode with full-width title and subtitle lanes', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-episode-wide-time-visible';
             const start = gridAnchorTime;
@@ -2330,13 +2576,18 @@ describe('EPGVirtualizer', () => {
             virtualizer.setFocusedCell(channelId, start);
 
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+            const meta = cell.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement;
             expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_WIDE)).toBe(true);
-            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(false);
+            expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
 
             const time = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
             const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
-            expect(time.style.display).toBe('block');
+            expect(title.textContent).toBe('Great Show');
+            expect(subtitle.textContent).toBe('S01E03 - A Day At The Shore');
+            expect(meta.style.display).toBe('none');
             expect(subtitle.style.display).toBe('block');
+            expect(time.style.display).toBe('none');
         });
 
         it('starts ticker when focused title overflow is small but still visible', () => {
@@ -2385,6 +2636,135 @@ describe('EPGVirtualizer', () => {
                 expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(true);
                 jest.advanceTimersByTime(900);
                 expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(true);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('does not arm a focused ticker for focused cells with no visible width', () => {
+            jest.useFakeTimers();
+            try {
+                const channelId = 'ch-zero-width-focused-ticker';
+                const start = gridAnchorTime;
+                const end = start + 20 * 60 * 1000;
+
+                const schedule: ScheduleWindow = {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                    programs: [{
+                        item: {
+                            ratingKey: 'zero-width-focused-ticker-1',
+                            type: 'movie',
+                            title: 'Zero Width Focused Ticker Title',
+                            fullTitle: 'Zero Width Focused Ticker Title',
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    }],
+                };
+
+                virtualizer.setChannelCount(1);
+                const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+                virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+                const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+                const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+
+                Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 300 });
+                Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
+
+                const visibleCells = (virtualizer as unknown as {
+                    visibleCells: Map<string, { visibleWidthPx: number }>;
+                }).visibleCells;
+                const focusedCell = visibleCells.get(`${channelId}-${start}`);
+                if (!focusedCell) {
+                    throw new Error('Expected focused cell to exist in visibleCells');
+                }
+                focusedCell.visibleWidthPx = 0;
+
+                virtualizer.setFocusedCell(channelId, start);
+
+                expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(false);
+                expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
+
+                jest.advanceTimersByTime(900);
+
+                expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(false);
+                expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('arms a focused ticker when right clipping reduces visible width below the title width', () => {
+            jest.useFakeTimers();
+            try {
+                const channelId = 'ch-right-clip-focused-ticker';
+                const start = gridAnchorTime;
+                const end = start + 25 * 60 * 1000;
+
+                const schedule: ScheduleWindow = {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                    programs: [{
+                        item: {
+                            ratingKey: 'right-clip-focused-ticker-1',
+                            type: 'movie',
+                            title: 'Right Clip Ticker Title',
+                            fullTitle: 'Right Clip Ticker Title',
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    }],
+                };
+
+                virtualizer.setChannelCount(1);
+                const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+                virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+                const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+                const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+
+                Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 75 });
+                Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
+
+                const visibleCells = (virtualizer as unknown as {
+                    visibleCells: Map<string, { visibleWidthPx: number }>;
+                }).visibleCells;
+                const focusedCell = visibleCells.get(`${channelId}-${start}`);
+                if (!focusedCell) {
+                    throw new Error('Expected focused cell to exist in visibleCells');
+                }
+                focusedCell.visibleWidthPx = 70;
+
+                virtualizer.setFocusedCell(channelId, start);
+
+                expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_READY)).toBe(true);
+                expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_RUNNING)).toBe(false);
+
+                jest.advanceTimersByTime(900);
+
+                expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_RUNNING)).toBe(true);
             } finally {
                 jest.useRealTimers();
             }

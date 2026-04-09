@@ -43,6 +43,7 @@ import {
     SETUP_STRATEGY_KEYS,
 } from './constants';
 import { isSignalAborted } from './utils';
+import { buildChannelSetupFacetCountFilter } from './ChannelSetupTagFilters';
 
 const SELECTABLE_STRATEGY_KEYS: SetupStrategyKey[] = [...SETUP_STRATEGY_KEYS];
 type ChannelSetupPlanningIntent = 'preview' | 'build';
@@ -134,6 +135,7 @@ type DeferredEmptyTagDirectoryFailure = {
 };
 
 const MAX_FACET_LIBRARY_CONCURRENCY = 2;
+const MAX_FACET_COUNT_RECOVERY_CONCURRENCY = 8;
 
 class ChannelSetupFacetSnapshotLoader {
     private _cachedKey: string | null = null;
@@ -506,6 +508,36 @@ class ChannelSetupFacetSnapshotLoader {
             );
         };
 
+        const buildRequiredTagCountRecoveryFailure = (
+            label: ChannelSetupRequiredTagDirectoryLabel,
+            libraryTitle: string,
+            type: number,
+            error: unknown
+        ): ChannelSetupFacetSnapshot => {
+            const baseLabel = label.toLowerCase();
+            const summary = summarizeErrorForLog(error);
+            const summaryObject = typeof summary === 'object' && summary !== null
+                ? summary as { message?: unknown; code?: unknown }
+                : {};
+            const detail = typeof summaryObject.message === 'string'
+                ? summaryObject.message
+                : summaryObject.code !== undefined
+                    ? String(summaryObject.code)
+                    : 'unknown error';
+            if (summaryObject.code === 'NETWORK_TIMEOUT') {
+                return buildFailureSnapshot(
+                    'slow',
+                    `Required ${baseLabel} item counts (type=${type}) timed out for ${libraryTitle}; try again after Plex responds.`,
+                    'timeout'
+                );
+            }
+            return buildFailureSnapshot(
+                'blocked',
+                `Required ${baseLabel} item counts (type=${type}) failed for ${libraryTitle} (${detail}); stop and re-plan.`,
+                'error'
+            );
+        };
+
         const markFacetEntries = (
             family: ChannelSetupNativeFacetFamily,
             tags: PlexTagDirectoryItem[]
@@ -554,6 +586,60 @@ class ChannelSetupFacetSnapshotLoader {
                 }
             }
             return null;
+        };
+
+        const recoverUnknownTagCounts = async (
+            libraryId: string,
+            mediaType: number,
+            family: 'genre' | 'director' | 'year' | 'actor' | 'studio',
+            tags: PlexTagDirectoryItem[],
+            tagSignal: AbortSignal
+        ): Promise<PlexTagDirectoryItem[]> => {
+            const unknownIndexes = tags
+                .map((tag, index) => (tag.count === null ? index : -1))
+                .filter((index) => index >= 0);
+            if (unknownIndexes.length === 0) {
+                return tags;
+            }
+
+            const hydratedTags = [...tags];
+            const workerCount = Math.min(MAX_FACET_COUNT_RECOVERY_CONCURRENCY, unknownIndexes.length);
+            const queue = [...unknownIndexes];
+            const workers = Array.from({ length: workerCount }, async (): Promise<void> => {
+                while (queue.length > 0) {
+                    if (tagSignal.aborted) {
+                        return;
+                    }
+                    const tagIndex = queue.shift();
+                    if (tagIndex === undefined) {
+                        return;
+                    }
+                    const tag = hydratedTags[tagIndex];
+                    if (!tag || tag.count !== null) {
+                        continue;
+                    }
+                    const countStart = performance.now();
+                    let count: number | null;
+                    try {
+                        count = await this._deps.plexLibrary.getLibraryItemCount(libraryId, {
+                            filter: buildChannelSetupFacetCountFilter(tag, family, mediaType),
+                            signal: tagSignal,
+                        });
+                    } finally {
+                        libraryQueryMs += performance.now() - countStart;
+                    }
+                    if (count === null) {
+                        throw {
+                            name: 'Error',
+                            code: 'COUNT_UNAVAILABLE',
+                            message: `${family} count unavailable for ${tag.title}`,
+                        };
+                    }
+                    hydratedTags[tagIndex] = { ...tag, count };
+                }
+            });
+            await Promise.all(workers);
+            return hydratedTags;
         };
 
         try {
@@ -883,6 +969,49 @@ class ChannelSetupFacetSnapshotLoader {
                                 firstFailure = firstFailure ?? libraryFailure;
                                 abortSiblingRequests();
                                 return libraryFailure;
+                            }
+
+                            const recoverAndStoreFacetCounts = async (
+                                label: ChannelSetupRequiredTagDirectoryLabel,
+                                mediaType: number,
+                                family: 'genre' | 'director' | 'year' | 'actor' | 'studio',
+                                tagsByLibraryId: Map<string, PlexTagDirectoryItem[]>
+                            ): Promise<ChannelSetupFacetSnapshot | null> => {
+                                const tags = tagsByLibraryId.get(library.id) ?? [];
+                                if (tags.length === 0 || tags.every((tag) => tag.count !== null)) {
+                                    return null;
+                                }
+                                try {
+                                    const hydrated = await recoverUnknownTagCounts(
+                                        library.id,
+                                        mediaType,
+                                        family,
+                                        tags,
+                                        librarySignal
+                                    );
+                                    tagsByLibraryId.set(library.id, hydrated);
+                                    return null;
+                                } catch (error) {
+                                    if (callerCanceled()) {
+                                        throw createAbortError(lastTask);
+                                    }
+                                    if (failureStopRequested() || libraryFailureStopRequested()) {
+                                        return null;
+                                    }
+                                    console.warn(`Failed to recover ${family} counts for ${library.title}:`, summarizeErrorForLog(error));
+                                    return buildRequiredTagCountRecoveryFailure(label, library.title, mediaType, error);
+                                }
+                            };
+
+                            const countRecoveryFailure = await recoverAndStoreFacetCounts('Genres', genreType, 'genre', genresByLibraryId)
+                                ?? await recoverAndStoreFacetCounts('Directors', detailType, 'director', directorsByLibraryId)
+                                ?? await recoverAndStoreFacetCounts('Years', detailType, 'year', yearsByLibraryId)
+                                ?? await recoverAndStoreFacetCounts('Studios', detailType, 'studio', studiosByLibraryId)
+                                ?? await recoverAndStoreFacetCounts('Actors', detailType, 'actor', actorsByLibraryId);
+                            if (countRecoveryFailure) {
+                                firstFailure = firstFailure ?? countRecoveryFailure;
+                                abortSiblingRequests();
+                                return countRecoveryFailure;
                             }
                         }
                     } finally {

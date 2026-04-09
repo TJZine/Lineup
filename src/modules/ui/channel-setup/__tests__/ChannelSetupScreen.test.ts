@@ -699,6 +699,31 @@ describe('ChannelSetupScreen', () => {
         expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('1');
     });
 
+    it('returns the active unsaved planner diagnostics config', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-limits');
+        clickButton(container, '#setup-min-items');
+        clickButton(container, '#setup-dropdown-option-3');
+
+        expect(screen.getPlannerDiagnosticsConfig()).toEqual(expect.objectContaining({
+            serverId: 'server-1',
+            selectedLibraryIds: ['movies'],
+            minItemsPerChannel: 20,
+        }));
+    });
+
     describe('Step 2 dropdown menus', () => {
         it('opens a dropdown when a multi-value control is clicked', async () => {
             const container = document.createElement('div');
