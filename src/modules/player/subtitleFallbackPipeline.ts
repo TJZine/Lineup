@@ -39,7 +39,7 @@ export async function fetchSubtitleFallbackVtt({
     isCurrentLoad,
     deriveLanHttpUrl,
     logDebug,
-    createXhr = () => new XMLHttpRequest(),
+    createXhr = (): XMLHttpRequest => new XMLHttpRequest(),
 }: FetchSubtitleFallbackVttArgs): Promise<string | null> {
     let lastAttempt = 'init';
     let lastAttemptUrl = initialUrl.toString();
