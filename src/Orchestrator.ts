@@ -29,7 +29,6 @@ import {
 } from './modules/plex/auth';
 import {
     type IPlexServerDiscovery,
-    type PlexServerSelectionFailureReason,
     type PlexServer,
 } from './modules/plex/discovery';
 import {
@@ -97,6 +96,8 @@ import {
     ProfileSwitchCleanupController,
     PlaybackRuntimeController,
 } from './core';
+import type { OrchestratorServerSelectionResult } from './core/server-selection/ServerSelectionTypes';
+import { ServerSwapCoordinator } from './core/server-selection/ServerSwapCoordinator';
 import type {
     ModuleStatus,
     OrchestratorConfig,
@@ -216,17 +217,7 @@ export interface PlaybackInfoSnapshot {
     | null;
 }
 
-export type OrchestratorServerSelectionResult =
-    | {
-        kind: 'selection_failed';
-        reason: 'server_not_found' | PlexServerSelectionFailureReason;
-    }
-    | {
-        kind: 'selected';
-        readiness: 'ready' | 'startup_pending';
-        persistedSelection: 'updated' | 'skipped_missing_credentials' | 'skipped_corrupted_credentials';
-    };
-
+export type { OrchestratorServerSelectionResult } from './core/server-selection/ServerSelectionTypes';
 export type { ErrorRecoveryAction } from './core/error-recovery/types';
 
 // Re-export AppErrorCode for consumers
@@ -311,6 +302,7 @@ export class AppOrchestrator {
     private _epgDebugRuntime: IEpgDebugRuntime | null = null;
     private readonly _playbackStateAccessors: OrchestratorPlaybackStateAccessors;
     private readonly _channelSetupWorkflowPort: ChannelSetupWorkflowPort;
+    private readonly _serverSwapCoordinator: ServerSwapCoordinator;
 
     private _throwModuleInitPreconditionError(
         message: string,
@@ -360,6 +352,30 @@ export class AppOrchestrator {
         };
         this._channelSetupWorkflowPort = createChannelSetupWorkflowPort({
             getChannelSetupCoordinator: (): ChannelSetupCoordinator | null => this._channelSetup,
+        });
+        this._serverSwapCoordinator = new ServerSwapCoordinator({
+            runStartupPhase3: async (): Promise<void> => {
+                await this._initCoordinator?.runStartup(3);
+            },
+            clearSelectedChannelScheduleSnapshot: (): void => {
+                if (this._epg) {
+                    this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
+                }
+            },
+            clearScheduleCaches: (): void => {
+                if (this._epg) {
+                    this._epgCoordinator?.clearScheduleCaches();
+                }
+            },
+            clearSchedules: (): void => {
+                this._epg?.clearSchedules();
+            },
+            primeEpgChannels: (): void => {
+                this._epgCoordinator?.primeEpgChannels();
+            },
+            refreshEpgSchedules: async (): Promise<void> => {
+                await this._epgCoordinator?.refreshEpgSchedules({ reason: 'server-swap' });
+            },
         });
         this._initializeModuleStatus();
     }
@@ -1271,17 +1287,8 @@ export class AppOrchestrator {
             serverId,
             this._plexDiscovery.getServerUri()
         );
-        // If we're already running (or resuming from the server-select screen),
-        // re-run the channel/player/EPG phases to swap to the selected server.
         if (this._initCoordinator) {
-            await this._initCoordinator.runStartup(3);
-            if (this._epg) {
-                this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
-                this._epgCoordinator?.clearScheduleCaches();
-                this._epg.clearSchedules();
-            }
-            this._epgCoordinator?.primeEpgChannels();
-            await this._epgCoordinator?.refreshEpgSchedules({ reason: 'server-swap' });
+            await this._serverSwapCoordinator.runAfterServerSelection();
         }
 
         return {

@@ -6,7 +6,7 @@
 
 import type { PlexServer } from '../../plex/discovery/types';
 import { PlexApiError } from '../../plex/auth';
-import type { OrchestratorServerSelectionResult } from '../../../Orchestrator';
+import type { OrchestratorServerSelectionResult } from '../../../core/server-selection/ServerSelectionTypes';
 import type {
     FocusableElement,
     ServerSelectScreenNavigationPort,

@@ -11,7 +11,7 @@ import type { ProfileSessionStore } from '../../modules/settings/ProfileSessionS
 import type { ServerSelectScreen, ServerSelectScreenPorts } from '../../modules/ui/server-select/ServerSelectScreen';
 import type { SettingsScreen } from '../../modules/ui/settings/SettingsScreen';
 import type { GuideSettingChange } from '../../modules/ui/settings/types';
-import type { OrchestratorServerSelectionResult } from '../../Orchestrator';
+import type { OrchestratorServerSelectionResult } from '../server-selection/ServerSelectionTypes';
 import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from './constants';
 
 export interface AppLazyScreenRegistryContainers {
