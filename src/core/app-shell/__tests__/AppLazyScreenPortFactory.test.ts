@@ -64,8 +64,10 @@ describe('AppLazyScreenPortFactory', () => {
         expect(factory.getNavigation()).toBeNull();
     });
 
-    it('creates auth/profile/server ports that stay scoped to each screen contract', (): void => {
+    it('creates auth/profile/server ports that stay scoped to each screen contract and delegate to the orchestrator', async (): Promise<void> => {
         const orchestrator = makeOrchestrator();
+        const navigation = { replaceScreen: jest.fn() };
+        orchestrator.getNavigation.mockReturnValue(navigation);
         const factory = new AppLazyScreenPortFactory({
             getOrchestrator: (): MockRuntimeOrchestrator => orchestrator,
         });
@@ -77,6 +79,57 @@ describe('AppLazyScreenPortFactory', () => {
         expect(authPorts).not.toBeNull();
         expect(profilePorts).not.toBeNull();
         expect(serverPorts).not.toBeNull();
+
+        expect(typeof authPorts?.requestAuthPin).toBe('function');
+        expect(typeof authPorts?.pollForPin).toBe('function');
+        expect(typeof authPorts?.cancelPin).toBe('function');
+        expect(typeof authPorts?.getNavigation).toBe('function');
+        expect(typeof profilePorts?.getHomeUsers).toBe('function');
+        expect(typeof profilePorts?.switchHomeUser).toBe('function');
+        expect(typeof profilePorts?.useMainAccountProfile).toBe('function');
+        expect(typeof profilePorts?.signOutPlex).toBe('function');
+        expect(typeof profilePorts?.getNavigation).toBe('function');
+        expect(typeof serverPorts?.discoverServers).toBe('function');
+        expect(typeof serverPorts?.selectServer).toBe('function');
+        expect(typeof serverPorts?.clearSelectedServer).toBe('function');
+        expect(typeof serverPorts?.getSelectedServerStorageKey).toBe('function');
+        expect(typeof serverPorts?.getServerHealthStorageKey).toBe('function');
+        expect(typeof serverPorts?.requestChannelSetupRerun).toBe('function');
+        expect(typeof serverPorts?.getNavigation).toBe('function');
+
+        await authPorts?.requestAuthPin();
+        await authPorts?.pollForPin(123);
+        await authPorts?.cancelPin(123);
+        expect(authPorts?.getNavigation()).toBe(navigation);
+
+        await profilePorts?.getHomeUsers();
+        await profilePorts?.switchHomeUser('user-1', '4321');
+        await profilePorts?.useMainAccountProfile();
+        await profilePorts?.signOutPlex();
+        expect(profilePorts?.getNavigation()).toBe(navigation);
+
+        await serverPorts?.discoverServers(true);
+        await serverPorts?.selectServer('server-1');
+        serverPorts?.clearSelectedServer();
+        expect(serverPorts?.getSelectedServerStorageKey()).toBe('selected-server-id');
+        expect(serverPorts?.getServerHealthStorageKey()).toBe('server-health');
+        serverPorts?.requestChannelSetupRerun();
+        expect(serverPorts?.getNavigation()).toBe(navigation);
+
+        expect(orchestrator.requestAuthPin).toHaveBeenCalledTimes(1);
+        expect(orchestrator.pollForPin).toHaveBeenCalledWith(123);
+        expect(orchestrator.cancelPin).toHaveBeenCalledWith(123);
+        expect(orchestrator.getHomeUsers).toHaveBeenCalledTimes(1);
+        expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('user-1', '4321');
+        expect(orchestrator.useMainAccountProfile).toHaveBeenCalledTimes(1);
+        expect(orchestrator.signOutPlex).toHaveBeenCalledTimes(1);
+        expect(orchestrator.discoverServers).toHaveBeenCalledWith(true);
+        expect(orchestrator.selectServer).toHaveBeenCalledWith('server-1');
+        expect(orchestrator.clearSelectedServer).toHaveBeenCalledTimes(1);
+        expect(orchestrator.getSelectedServerStorageKey).toHaveBeenCalledTimes(1);
+        expect(orchestrator.getServerHealthStorageKey).toHaveBeenCalledTimes(1);
+        expect(orchestrator.requestChannelSetupRerun).toHaveBeenCalledTimes(1);
+        expect(orchestrator.getNavigation).toHaveBeenCalledTimes(3);
 
         expect('selectServer' in (authPorts ?? {})).toBe(false);
         expect('requestAuthPin' in (profilePorts ?? {})).toBe(false);
