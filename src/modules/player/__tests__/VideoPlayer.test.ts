@@ -746,12 +746,14 @@ describe('VideoPlayer', () => {
             // Advance 30 seconds
             jest.advanceTimersByTime(30000);
 
-            expect(dispatchSpy).toHaveBeenCalledWith(expect.any(Event));
+            expect(dispatchSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ type: 'lineup:keepalive' })
+            );
 
             dispatchSpy.mockRestore();
         });
 
-        it('should not touch DOM when paused', () => {
+        it('should not dispatch keep-alive when paused', () => {
             const dispatchSpy = jest.spyOn(document, 'dispatchEvent');
 
             // Player is idle/paused
@@ -760,12 +762,31 @@ describe('VideoPlayer', () => {
             // Advance 30 seconds
             jest.advanceTimersByTime(30000);
 
-            // Should not have dispatched a click (may have other events)
-            const clickEvents = dispatchSpy.mock.calls.filter(
-                (call) => (call[0] as Event).type === 'click'
+            const keepAliveEvents = dispatchSpy.mock.calls.filter(
+                (call) => (call[0] as Event).type === 'lineup:keepalive'
             );
-            expect(clickEvents.length).toBe(0);
+            expect(keepAliveEvents.length).toBe(0);
 
+            dispatchSpy.mockRestore();
+        });
+
+        it('should stop keep-alive dispatches after destroy', async () => {
+            const dispatchSpy = jest.spyOn(document, 'dispatchEvent');
+
+            await player.loadStream(createMockDescriptor());
+            await player.play();
+            container.querySelector('video')?.dispatchEvent(new Event('playing'));
+
+            jest.advanceTimersByTime(30000);
+            expect(dispatchSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ type: 'lineup:keepalive' })
+            );
+
+            dispatchSpy.mockClear();
+            player.destroy();
+            jest.advanceTimersByTime(60000);
+
+            expect(dispatchSpy).not.toHaveBeenCalled();
             dispatchSpy.mockRestore();
         });
     });
