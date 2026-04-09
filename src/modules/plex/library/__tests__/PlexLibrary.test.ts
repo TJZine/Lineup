@@ -433,12 +433,13 @@ describe('PlexLibrary', () => {
             });
         });
 
-        it('throws typed error when section lookup payload is invalid', async () => {
-            mockFetchSequence([{ json: undefined as unknown }]);
+        it('throws typed parse error when section lookup payload is malformed', async () => {
+            mockFetchSequence([{ json: { MediaContainer: { Directory: {} } } as unknown }]);
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.getLibrary('1')).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.SERVER_ERROR,
+                code: PlexLibraryErrorCode.PARSE_ERROR,
+                message: expect.stringContaining('Invalid library section payload'),
             });
         });
     });

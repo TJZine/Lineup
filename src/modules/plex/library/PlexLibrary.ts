@@ -182,11 +182,32 @@ export class PlexLibrary implements IPlexLibrary {
             };
         }
 
-        const directories = response.MediaContainer.Directory || [];
-        return {
-            kind: 'available',
-            libraries: parseLibrarySections(directories),
-        };
+        try {
+            const mediaContainer = response.MediaContainer;
+            if (!mediaContainer || typeof mediaContainer !== 'object') {
+                throw new Error('Missing MediaContainer object');
+            }
+
+            const rawDirectories = (mediaContainer as { Directory?: unknown }).Directory;
+            if (rawDirectories != null && !Array.isArray(rawDirectories)) {
+                throw new Error('Library section Directory must be an array');
+            }
+
+            const directories = (rawDirectories ?? []) as RawLibrarySection[];
+            return {
+                kind: 'available',
+                libraries: parseLibrarySections(directories),
+            };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            return {
+                kind: 'unavailable',
+                error: new PlexLibraryError(
+                    PlexLibraryErrorCode.PARSE_ERROR,
+                    `Invalid library section payload while resolving ${libraryId}: ${message}`
+                ),
+            };
+        }
     }
 
     // ============================================
