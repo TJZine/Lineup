@@ -17,12 +17,8 @@ import type {
     HlsOptions,
 } from './types';
 import { PlexStreamErrorCode } from './types';
-import {
-    DEFAULT_HLS_OPTIONS,
-} from './constants';
-import { getSubtitleDelivery, shouldRequestBurnInSubtitles } from './subtitleDeliveryPolicy';
+import { DEFAULT_HLS_OPTIONS } from './constants';
 import { generateUUID } from './utils';
-import { selectBestMedia, selectBestMediaWithSubtitleStream } from './mediaSelectionPolicy';
 import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
 import { PlaybackSettingsStore } from '../../settings/PlaybackSettingsStore';
 import { DeveloperSettingsStore } from '../../settings/DeveloperSettingsStore';
@@ -30,15 +26,12 @@ import { summarizeErrorForLog } from '../../../utils/errors';
 import { redactSensitiveTokens, redactUrlForLog, safeStringifyForLog } from '../../../utils/redact';
 import {
     getDirectPlayDecision,
-    getHdrCompatibilityDecision,
-    isTrueHdCodec,
-    selectCompatibleAudioTrack,
-    shouldForceTranscodeAudioStreamId,
 } from './playbackCompatibilityPolicy';
 import { fetchWithTimeout } from '../shared/fetchWithTimeout';
 import { detectHdrLabel } from './hdr';
 import type { PlatformIdentityService } from '../../../platform';
 import { webosPlatformServices } from '../../../platform';
+import { resolveStreamPipeline } from './resolveStreamPipeline';
 import {
     applyXPlexQueryParamsFromHeaders,
     applyXPlexTokenQueryParam,
@@ -321,7 +314,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
      * @returns Promise resolving to stream decision
      */
     async resolveStream(request: StreamRequest): Promise<StreamDecision> {
-        // 1. Get item metadata
         const item = await this._config.getItem(request.itemKey);
         if (!item) {
             throw this._createError(
@@ -331,65 +323,49 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             );
         }
 
-        // 2. Select best media version
-        let selectedMedia = request.subtitleStreamId
-            ? selectBestMediaWithSubtitleStream(item.media, request.subtitleStreamId, request.maxBitrate)
-            : selectBestMedia(item.media, request.maxBitrate);
+        const sessionId = generateUUID();
+        const allowDirectPlayAudioFallback = this._audioSettingsStore.readDirectPlayAudioFallbackEnabled();
+        const dtsPassthroughEnabled = this._isDtsPassthroughEnabled();
+        const userAgent = this._getBrowserUserAgent();
+        const hdr10FallbackMode = this._getHdr10FallbackMode();
+        const debugEnabled = this._isDebugLoggingEnabled();
 
-        // Treat an explicit subtitle selection as strict; do not silently fall back to a different media.
-        if (request.subtitleStreamId && !selectedMedia) {
-            throw this._createError(
-                PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND,
-                `Subtitle stream not found: ${request.subtitleStreamId}`,
-                true,
-                undefined,
-                'media_selection'
-            );
-        }
-        if (!selectedMedia) {
-            throw this._createError(
-                PlexStreamErrorCode.PLAYBACK_FORMAT_UNSUPPORTED,
-                'No compatible media version found',
-                false
-            );
-        }
+        const pipeline = resolveStreamPipeline({
+            item,
+            request,
+            sessionId,
+            allowDirectPlayAudioFallback,
+            dtsPassthroughEnabled,
+            userAgent,
+            hdr10FallbackMode,
+            createError: (
+                code,
+                message,
+                recoverable,
+                retryAfterMs,
+                stage
+            ) => this._createError(code, message, recoverable, retryAfterMs, stage),
+            buildDirectPlayUrl: (
+                partKey,
+                pipelineSessionId,
+                directPlayAudioStreamId,
+                applyHdr10Fallback
+            ) => this._buildDirectPlayUrl(
+                partKey,
+                pipelineSessionId,
+                directPlayAudioStreamId,
+                applyHdr10Fallback
+            ),
+            getTranscodeUrl: (itemKey, options) => this.getTranscodeUrl(itemKey, options),
+        });
 
-        const { media, mediaIndex, partIndex } = selectedMedia;
-        const part = media.parts[partIndex];
-        if (!part) {
-            throw this._createError(
-                PlexStreamErrorCode.PLAYBACK_SOURCE_NOT_FOUND,
-                'No media parts available',
-                false
-            );
-        }
-
-        // Track selection (used for UI and optional HLS stream selection)
-        const audioStream = selectCompatibleAudioTrack(
-            part.streams,
-            request.audioStreamId
-        );
-        const videoStream = part.streams.find((s) => s.streamType === 1) ?? null;
-        // Subtitles are not user-selectable in Lineup yet; do not auto-select defaults.
-        // This prevents accidental burn-in which forces video transcoding.
-        const subtitleStream =
-            request.subtitleStreamId
-                ? (part.streams.find(
-                    (s) => s.streamType === 3 && s.id === request.subtitleStreamId
-                ) ?? null)
-                : null;
-        if (request.subtitleMode === 'burn' && request.subtitleStreamId && !subtitleStream) {
-            // Defensive: strict selection should prevent this in normal cases; treat as inconsistent/stale metadata.
-            throw this._createError(
-                PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND,
-                `Subtitle stream not found for burn-in: ${request.subtitleStreamId}`,
-                true,
-                undefined,
-                'burn_in_selected_part'
-            );
-        }
-        const availableSubtitleStreams = part.streams.filter((s) => s.streamType === 3);
-        const availableAudioStreams = part.streams.filter((s) => s.streamType === 2);
+        const {
+            decision,
+            media,
+            videoStream,
+            subtitleStream,
+            availableSubtitleStreams,
+        } = pipeline;
 
         if (this._isSubtitleDebugEnabled()) {
             const isTextCandidate = (s: PlexStream): boolean => {
@@ -463,90 +439,16 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             }
         }
 
-        const shouldForceAudioStreamId = shouldForceTranscodeAudioStreamId(
-            part.streams,
-            request.audioStreamId
-        );
-        const defaultAudio = this._findStream(part.streams, 2);
-        const audioFallbackInfo =
-            defaultAudio &&
-                audioStream &&
-                isTrueHdCodec(defaultAudio.codec) &&
-                !isTrueHdCodec(audioStream.codec)
-                ? {
-                    fromCodec: (defaultAudio.codec || 'unknown').toLowerCase(),
-                    toCodec: (audioStream.codec || 'unknown').toLowerCase(),
-                    reason: 'TrueHD cannot be decoded on webOS',
-                }
-                : null;
-
-        // 3. Start a playback session early so the same sessionId can be used for
-        // transcoding session binding (`session` + `X-Plex-Session-Identifier`).
-        const sessionId = generateUUID();
-
-        // 4. Check direct play compatibility ON THE SELECTED MEDIA VERSION
-        const allowDirectPlayAudioFallback = this._audioSettingsStore.readDirectPlayAudioFallbackEnabled();
-
-        const dtsPassthroughEnabled = this._isDtsPassthroughEnabled();
-        const userAgent = this._getBrowserUserAgent();
-
-        let directDecision = getDirectPlayDecision({
-            media,
-            dtsPassthroughEnabled,
-            userAgent,
-        });
-        let directPlayAudioStreamId: string | undefined;
-        if (
-            allowDirectPlayAudioFallback &&
-            defaultAudio &&
-            isTrueHdCodec(defaultAudio.codec) &&
-            audioStream &&
-            audioStream.id &&
-            !isTrueHdCodec(audioStream.codec)
-        ) {
-            // If the only blocker is TrueHD (or other audio incompatibility), and we found a
-            // compatible fallback track, try allowing Direct Play and hint Plex with audioStreamID.
-            // This is intentionally opt-in since some client stacks may not honor audioStreamID
-            // for direct URLs.
-            const nonAudioReasons = directDecision.reasons.filter(
-                (r) => !r.startsWith('unsupported_audio_codec:') && r !== 'dts_passthrough_disabled'
-            );
-            if (nonAudioReasons.length === 0) {
-                const overridden = getDirectPlayDecision({
-                    media,
-                    audioCodecOverride: audioStream.codec,
-                    dtsPassthroughEnabled,
-                    userAgent,
-                });
-                if (overridden.canDirect) {
-                    directDecision = overridden;
-                    directPlayAudioStreamId = audioStream.id;
-                }
-            }
-        }
-
-        const canDirect = directDecision.canDirect;
-        const hdr10FallbackMode = this._getHdr10FallbackMode();
-        const hdrCompatibilityDecision = getHdrCompatibilityDecision({
-            media,
-            videoStream,
-            hdr10FallbackMode,
-        });
-        const applyHdr10Fallback = hdrCompatibilityDecision.applyHdr10Fallback;
-        const forceTranscodeForHdr10Fallback = hdrCompatibilityDecision.forceTranscodeForHdr10Fallback;
-        const forceHlsForDvNoHdr10BaseLayer = hdrCompatibilityDecision.forceHlsForDvNoHdr10BaseLayer;
-        const debugEnabled = this._isDebugLoggingEnabled();
-
         if (debugEnabled) {
-            if (applyHdr10Fallback) {
+            if (pipeline.hdrFallbackReason) {
                 console.warn('[PlexStreamResolver] HDR10 fallback applied:', {
                     itemKey: request.itemKey,
-                    reason: hdrCompatibilityDecision.fallbackReason,
+                    reason: pipeline.hdrFallbackReason,
                     container: media.container,
-                    isDolbyVision: hdrCompatibilityDecision.isDolbyVision,
+                    isDolbyVision: videoStream?.doviPresent === true,
                 });
             }
-            if (forceHlsForDvNoHdr10BaseLayer) {
+            if (pipeline.forceHlsForDvNoHdr10BaseLayer) {
                 console.warn('[PlexStreamResolver] HDR10 base-layer fallback forced:', {
                     itemKey: request.itemKey,
                     reason: 'dv_profile_no_hdr10_base_layer',
@@ -554,158 +456,9 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 });
             }
         }
-
-        let playbackUrl: string;
-        let protocol: 'hls' | 'http';
-        let isTranscoding = false;
-        let container: string;
-        let videoCodec: string;
-        let audioCodec: string;
-        let transcodeRequestInfo: StreamDecision['transcodeRequest'] | null = null;
-        let burnInEnabled = false;
-
-        const allowDirectPlay = canDirect &&
-            request.directPlay !== false &&
-            !forceTranscodeForHdr10Fallback &&
-            !forceHlsForDvNoHdr10BaseLayer;
-        if (allowDirectPlay) {
-            // Direct play
-            playbackUrl = this._buildDirectPlayUrl(
-                part.key,
-                sessionId,
-                directPlayAudioStreamId,
-                applyHdr10Fallback
-            );
-            protocol = 'http';
-            container = media.container;
-            videoCodec = media.videoCodec;
-            audioCodec = (audioStream?.codec ?? media.audioCodec).toLowerCase();
-        } else {
-            // Transcode to HLS
-            const maxBitrate = typeof request.maxBitrate === 'number'
-                ? request.maxBitrate
-                : DEFAULT_HLS_OPTIONS.maxBitrate;
-            const options: HlsOptions = { maxBitrate, sessionId, mediaIndex, partIndex };
-            if (shouldForceAudioStreamId && audioStream?.id) {
-                options.audioStreamId = audioStream.id;
-            }
-            const shouldBurnIn = shouldRequestBurnInSubtitles({
-                requestSubtitleMode: request.subtitleMode ?? 'none',
-                subtitle: subtitleStream,
-            });
-            if (shouldBurnIn && subtitleStream?.id) {
-                options.subtitleStreamId = subtitleStream.id;
-                options.subtitleMode = 'burn';
-                burnInEnabled = true;
-            }
-            // Smart fallback should not force transcoding by itself. If we are already on
-            // HLS (due to incompatibility/forced transcode), hide DV capabilities to
-            // encourage the HDR10 base-layer path.
-            if (applyHdr10Fallback) {
-                options.hideDolbyVision = true;
-            }
-            playbackUrl = this.getTranscodeUrl(request.itemKey, options);
-            protocol = 'hls';
-            isTranscoding = true;
-            container = 'mpegts';
-            videoCodec = 'h264';
-            audioCodec = 'aac';
-
-            const transcodeRequestBase: {
-                sessionId: string;
-                maxBitrate: number;
-                mediaIndex: number;
-                partIndex: number;
-                audioStreamId?: string;
-                hideDolbyVision?: true;
-            } = {
-                sessionId,
-                maxBitrate,
-                mediaIndex,
-                partIndex,
-            };
-            if (options.hideDolbyVision === true) {
-                transcodeRequestBase.hideDolbyVision = true;
-            }
-            if (typeof options.audioStreamId === 'string') {
-                transcodeRequestBase.audioStreamId = options.audioStreamId;
-            }
-            if (burnInEnabled && typeof options.subtitleStreamId === 'string') {
-                transcodeRequestInfo = {
-                    ...transcodeRequestBase,
-                    subtitleStreamId: options.subtitleStreamId,
-                    subtitleMode: 'burn',
-                };
-            } else {
-                transcodeRequestInfo = transcodeRequestBase;
-            }
-        }
-
-        // 5. Determine subtitle delivery
-        const subtitleDelivery = burnInEnabled && subtitleStream
-            ? 'burn'
-            : getSubtitleDelivery(subtitleStream, isTranscoding);
-
-        const rawHdrLabel = videoStream?.hdr?.trim();
-        const hdrLabel = rawHdrLabel || detectHdrLabel(videoStream);
-        const source: NonNullable<StreamDecision['source']> = {
-            container: media.container,
-            videoCodec: media.videoCodec,
-            audioCodec: media.audioCodec,
-            width: media.width,
-            height: media.height,
-            bitrate: media.bitrate,
-            ...(hdrLabel ? { hdr: hdrLabel } : {}),
-            ...(videoStream?.dynamicRange ? { dynamicRange: videoStream.dynamicRange } : {}),
-            ...(typeof videoStream?.doviPresent === 'boolean' ? { doviPresent: videoStream.doviPresent } : {}),
-            ...(videoStream?.doviProfile ? { doviProfile: videoStream.doviProfile } : {}),
-        };
-
-        const decision: StreamDecision = {
-            playbackUrl,
-            protocol,
-            isDirectPlay: !isTranscoding,
-            isTranscoding,
-            container,
-            videoCodec,
-            audioCodec,
-            subtitleDelivery,
-            sessionId,
-            mediaIndex,
-            partIndex,
-            partKey: part.key,
-            selectedAudioStream: audioStream,
-            selectedSubtitleStream: subtitleStream,
-            availableAudioStreams,
-            availableSubtitleStreams,
-            width: media.width,
-            height: media.height,
-            bitrate: isTranscoding
-                ? (typeof request.maxBitrate === 'number' ? request.maxBitrate : 8000)
-                : media.bitrate,
-            source,
-            directPlay: {
-                allowed: allowDirectPlay,
-                reasons:
-                    allowDirectPlay
-                        ? []
-                        : [
-                            ...(request.directPlay === false
-                                ? ['direct_play_disabled_by_request']
-                                : []),
-                            ...(applyHdr10Fallback && !allowDirectPlay
-                                ? [`hdr10_fallback_${hdrCompatibilityDecision.fallbackReason}`]
-                                : []),
-                            ...(forceHlsForDvNoHdr10BaseLayer ? ['dv_profile_no_hdr10_base_layer'] : []),
-                            ...directDecision.reasons,
-                        ],
-            },
-        };
-        if (audioFallbackInfo) {
-            decision.audioFallback = audioFallbackInfo;
-        }
-        if (transcodeRequestInfo) {
-            decision.transcodeRequest = transcodeRequestInfo;
+        const hdrLabel = decision.source?.hdr || detectHdrLabel(videoStream);
+        if (hdrLabel && decision.source && !decision.source.hdr) {
+            decision.source.hdr = hdrLabel;
         }
 
         if (debugEnabled) {
@@ -720,16 +473,16 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
         // Optional (debug-only): ask PMS why it chose to transcode vs direct-stream.
         // This helps explain cases where HDR10 fallback unexpectedly results in SDR H.264 transcodes.
-        if (debugEnabled && decision.isTranscoding && transcodeRequestInfo) {
+        if (debugEnabled && decision.isTranscoding && decision.transcodeRequest) {
             try {
                 decision.serverDecision = await this.fetchUniversalTranscodeDecision(
                     request.itemKey,
-                    transcodeRequestInfo
+                    decision.transcodeRequest
                 );
             } catch (error) {
                 console.warn('[PlexStreamResolver] PMS universal decision fetch failed:', {
                     itemKey: request.itemKey,
-                    sessionId: transcodeRequestInfo.sessionId,
+                    sessionId: decision.transcodeRequest.sessionId,
                     error: summarizeErrorForLog(error),
                 });
             }
@@ -1348,29 +1101,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     // ========================================
     // Private: Media Selection
     // ========================================
-
-    /**
-     * Find a stream by type and optional ID.
-     */
-    private _findStream(
-        streams: PlexStream[],
-        streamType: 1 | 2 | 3,
-        streamId?: string
-    ): PlexStream | null {
-        if (streamId) {
-            const match = streams.find(
-                (s) => s.id === streamId && s.streamType === streamType
-            );
-            if (match) {
-                return match;
-            }
-        }
-
-        // Return default or first of type
-        const ofType = streams.filter((s) => s.streamType === streamType);
-        const defaultStream = ofType.find((s) => s.default);
-        return defaultStream || ofType[0] || null;
-    }
 
     private _getHdr10FallbackMode(): 'off' | 'smart' | 'force' {
         return this._playbackSettingsStore.readHdr10FallbackMode();

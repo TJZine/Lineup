@@ -1,0 +1,133 @@
+import { resolveStreamPipeline } from '../resolveStreamPipeline';
+import type { StreamResolverError } from '../interfaces';
+import { createMockMediaItem } from './testUtils';
+
+describe('resolveStreamPipeline', () => {
+    const createError = (
+        code: StreamResolverError['code'],
+        message: string,
+        recoverable: boolean,
+        retryAfterMs?: number,
+        stage?: StreamResolverError['stage']
+    ): StreamResolverError => ({
+        code,
+        message,
+        recoverable,
+        ...(retryAfterMs !== undefined ? { retryAfterMs } : {}),
+        ...(stage !== undefined ? { stage } : {}),
+    });
+
+    it('preserves available audio and subtitle streams for direct play decisions', () => {
+        const item = createMockMediaItem(
+            {},
+            {
+                extraStreams: [
+                    {
+                        id: 'audio-2',
+                        streamType: 2,
+                        codec: 'aac',
+                        language: 'Spanish',
+                        languageCode: 'es',
+                        channels: 2,
+                    },
+                    {
+                        id: 'sub-1',
+                        streamType: 3,
+                        codec: 'srt',
+                        format: 'srt',
+                        language: 'English',
+                        languageCode: 'en',
+                    },
+                ],
+            }
+        );
+
+        const result = resolveStreamPipeline({
+            item,
+            request: { itemKey: '12345', subtitleStreamId: 'sub-1' },
+            sessionId: 'session-1',
+            allowDirectPlayAudioFallback: true,
+            dtsPassthroughEnabled: false,
+            userAgent: null,
+            hdr10FallbackMode: 'off',
+            createError,
+            buildDirectPlayUrl: (partKey) => `http://example.com${partKey}`,
+            getTranscodeUrl: () => {
+                throw new Error('transcode path should not be used');
+            },
+        });
+
+        expect(result.decision.isDirectPlay).toBe(true);
+        expect(result.decision.availableAudioStreams?.map((stream) => stream.id)).toEqual(['audio-1', 'audio-2']);
+        expect(result.decision.availableSubtitleStreams?.map((stream) => stream.id)).toEqual(['sub-1']);
+        expect(result.decision.selectedSubtitleStream?.id).toBe('sub-1');
+    });
+
+    it('keeps the burn-in transcode request for explicit subtitle burn mode', () => {
+        const item = createMockMediaItem(
+            {
+                container: 'avi',
+                videoCodec: 'mpeg4',
+                audioCodec: 'mp2',
+            },
+            {
+                extraStreams: [
+                    {
+                        id: 'sub-1',
+                        streamType: 3,
+                        codec: 'srt',
+                        format: 'srt',
+                        language: 'English',
+                        languageCode: 'en',
+                    },
+                ],
+            }
+        );
+
+        const result = resolveStreamPipeline({
+            item,
+            request: { itemKey: '12345', subtitleStreamId: 'sub-1', subtitleMode: 'burn' },
+            sessionId: 'session-1',
+            allowDirectPlayAudioFallback: true,
+            dtsPassthroughEnabled: false,
+            userAgent: null,
+            hdr10FallbackMode: 'off',
+            createError,
+            buildDirectPlayUrl: () => 'http://example.com/direct',
+            getTranscodeUrl: () => 'http://example.com/transcode',
+        });
+
+        expect(result.decision.isTranscoding).toBe(true);
+        expect(result.decision.subtitleDelivery).toBe('burn');
+        expect(result.decision.transcodeRequest).toMatchObject({
+            sessionId: 'session-1',
+            subtitleStreamId: 'sub-1',
+            subtitleMode: 'burn',
+        });
+    });
+
+    it('throws the precise subtitle-stream error when explicit selection is missing', () => {
+        const item = createMockMediaItem();
+
+        try {
+            resolveStreamPipeline({
+                item,
+                request: { itemKey: '12345', subtitleStreamId: 'missing-subtitle' },
+                sessionId: 'session-1',
+                allowDirectPlayAudioFallback: true,
+                dtsPassthroughEnabled: false,
+                userAgent: null,
+                hdr10FallbackMode: 'off',
+                createError,
+                buildDirectPlayUrl: () => 'http://example.com/direct',
+                getTranscodeUrl: () => 'http://example.com/transcode',
+            });
+            throw new Error('Expected resolveStreamPipeline to throw');
+        } catch (error) {
+            expect(error).toMatchObject({
+                code: 'SUBTITLE_STREAM_NOT_FOUND',
+                stage: 'media_selection',
+            });
+        }
+    });
+});
