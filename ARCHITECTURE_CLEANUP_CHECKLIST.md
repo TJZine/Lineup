@@ -958,18 +958,65 @@ These are the required repo-local boundary skills for the new wave. Load them be
 
 ### Work Units
 
-- [ ] `P7-W1` normalize remaining UI private-member style islands once the shared-owner moves are stable
+- [x] `P7-W1` normalize remaining UI private-member style islands once the shared-owner moves are stable
   - Imported review issues: `review::.::holistic::convention_outlier::ui_private_member_style_islands`
   - Primary files: `src/modules/ui/epg/EPGLibraryTabs.ts`, `src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts`, `src/modules/ui/channel-number-overlay/ChannelNumberOverlay.ts`, `src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` command for the mapped id
-- [ ] `P7-W2` add durable coverage for player keep-alive behavior
+  - Execution (2026-04-09): normalized remaining underscore-style private-member naming in `EPGLibraryTabs`, `ChannelNumberOverlay`, and `PlaybackOptionsCoordinator` without behavior changes.
+  - Source-audit note (2026-04-09): `NowPlayingInfoOverlay` had no remaining underscore-style private-member naming drift, so it was intentionally left unchanged.
+  - Verification (2026-04-09):
+    - `npm test -- --runInBand src/modules/ui/channel-number-overlay/__tests__/ChannelNumberOverlay.test.ts src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts` -> pass (`2` suites, `20` tests)
+    - `desloppify show "review::.::holistic::convention_outlier::ui_private_member_style_islands" --status open --no-budget` -> `No open issues matching: review::.::holistic::convention_outlier::ui_private_member_style_islands`
+    - `npm run verify` -> pass
+- [x] `P7-W2` add durable coverage for player keep-alive behavior
   - Imported review issues: `review::.::holistic::test_strategy::keepalive_path_untested`
   - Primary files: `src/modules/player/KeepAliveManager.ts`, `src/modules/player/VideoPlayer.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` command for the mapped id
-- [ ] `P7-EXIT` run the priority-exit review before moving to `P8`
+  - Execution (2026-04-09): added durable keep-alive coverage with a focused collaborator suite (`src/modules/player/__tests__/KeepAliveManager.test.ts`) and tightened integration assertions in `src/modules/player/__tests__/VideoPlayer.test.ts` to prove `lineup:keepalive` dispatch/teardown behavior; no production seam widening required.
+  - Verification (2026-04-09):
+    - `npm test -- --runInBand src/modules/player/__tests__/VideoPlayer.test.ts src/modules/player/__tests__/KeepAliveManager.test.ts` -> pass (`2` suites, `49` tests)
+    - `desloppify show "review::.::holistic::test_strategy::keepalive_path_untested" --status open --no-budget` -> `No open issues matching: review::.::holistic::test_strategy::keepalive_path_untested`
+    - `npm run verify` -> pass
+- [x] `P7-EXIT` run the priority-exit review before moving to `P8`
   - required: record every mapped imported issue with an exact disposition
   - Gate: no `P8` plan, code, or checklist progress starts until every `P7` mapped id has an explicit disposition record
   - Required verification: `desloppify status`; `desloppify plan queue`; `desloppify show security --status open --no-budget --top 50`; all two exact `P7` issue-id checks; `npm run verify`
+  - Priority-exit review status (2026-04-09): `complete` (`P7-W1` and `P7-W2` both resolved on current-code evidence; no follow-up owner required)
+  - Verified commands (2026-04-09):
+    - `npm run verify`
+    - `desloppify status`
+    - `desloppify plan queue`
+    - `desloppify show review --status open --no-budget --top 100`
+    - `desloppify show security --status open --no-budget --top 50`
+    - `desloppify show "review::.::holistic::convention_outlier::ui_private_member_style_islands" --status open --no-budget`
+    - `desloppify show "review::.::holistic::test_strategy::keepalive_path_untested" --status open --no-budget`
+    - `wc -l src/Orchestrator.ts src/modules/ui/epg/view/EPGVirtualizer.ts src/modules/plex/stream/PlexStreamResolver.ts src/modules/plex/library/PlexLibrary.ts src/modules/player/SubtitleManager.ts src/modules/player/PlaybackRecoveryManager.ts src/modules/plex/auth/PlexAuth.ts src/modules/ui/epg/EPGCoordinator.ts src/core/orchestrator/OrchestratorCoordinatorFactory.ts src/App.ts`
+  - Refreshed verification results (2026-04-09):
+    - `desloppify status` -> `Scores: overall 80.9/100 · objective 90.7/100 · strict 79.0/100 · verified 90.7/100`; `Queue: 2 items (7 planned · 50 stale tracked · 1 subjective)`; `Review: 33 issues open, 33 uninvestigated`; `Last scan: 2026-04-08T04:17:13+00:00`
+    - `desloppify plan queue` -> `Queue: 2 items (57 planned · 1 subjective)` with non-`P7` global residue (`subjective_assessment`, `subjective_review`)
+    - `desloppify show review --status open --no-budget --top 100` -> `No open issues matching: review`
+    - `desloppify show security --status open --no-budget --top 50` -> `No open issues for Security`
+    - `wc -l` hotspot refresh:
+      - `src/Orchestrator.ts` -> `2015`
+      - `src/modules/ui/epg/view/EPGVirtualizer.ts` -> `1912`
+      - `src/modules/plex/stream/PlexStreamResolver.ts` -> `1144`
+      - `src/modules/plex/library/PlexLibrary.ts` -> `1236`
+      - `src/modules/player/SubtitleManager.ts` -> `685`
+      - `src/modules/player/PlaybackRecoveryManager.ts` -> `896`
+      - `src/modules/plex/auth/PlexAuth.ts` -> `921`
+      - `src/modules/ui/epg/EPGCoordinator.ts` -> `525`
+      - `src/core/orchestrator/OrchestratorCoordinatorFactory.ts` -> `638`
+      - `src/App.ts` -> `470`
+  - Mapped imported issues (2026-04-09 disposition record):
+    - `review::.::holistic::convention_outlier::ui_private_member_style_islands` -> `resolved`; owner: `P7-W1`; reason: naming-style islands removed in scoped UI owners, exact issue-id command now reports `No open issues matching`, and `NowPlayingInfoOverlay` was confirmed clean on current-code audit.
+    - `review::.::holistic::test_strategy::keepalive_path_untested` -> `resolved`; owner: `P7-W2`; reason: durable collaborator + integration keep-alive tests now cover interval scheduling, dispatch behavior, and teardown stop semantics, and exact issue-id command now reports `No open issues matching`.
+  - Follow-up ownership and residuals (2026-04-09):
+    - Follow-up ownership: none.
+    - Residuals: none in the `P7` issue envelope on current-code proof.
+  - Security triage (2026-04-09 disposition record):
+    - `desloppify show security --status open --no-budget --top 50` confirms no open security findings.
+    - `P0` impact: none; no `P0` defer/split records required for `P7-EXIT`.
+  - Priority gate note: `P7-EXIT` is complete before any `P8` implementation work.
 
 ## Priority 8: Remove Remaining Ceremony Residue And Close The Wave
 
