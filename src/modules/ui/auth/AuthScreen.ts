@@ -475,8 +475,14 @@ export class AuthScreen {
 
     private _renderQr(): void {
         setTrustedInlineSvg(this._qrCardEl, PLEX_LINK_QR_SVG);
-        this._qrCardEl.querySelector('svg')?.classList.add('auth-qr-canvas');
-        this._qrWrapEl.style.display = 'flex';
+        const svg = this._qrCardEl.querySelector('svg');
+        if (svg instanceof SVGSVGElement) {
+            svg.classList.add('auth-qr-canvas');
+            this._qrWrapEl.style.display = 'flex';
+            return;
+        }
+
+        this._qrWrapEl.style.display = 'none';
     }
 
     private _registerFocusables(): void {
