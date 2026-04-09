@@ -3,8 +3,8 @@
  * @module modules/ui/theme/ThemeManager
  */
 
-import { THEME_CLASSES, DEFAULT_THEME } from '../settings/theme';
-import type { ThemeName } from '../settings/theme';
+import { THEME_CLASSES, DEFAULT_THEME } from './themeDefinitions';
+import type { ThemeName } from './themeDefinitions';
 import { ThemePreferencesStore } from '../../settings/ThemePreferencesStore';
 
 /**

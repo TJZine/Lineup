@@ -4,17 +4,18 @@
 
 import { createAppContainers } from '../AppContainerFactory';
 import { EXPECTED_CONTAINER_IDS } from '../../../__tests__/fixtures/appShellContainerIds';
+import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
 
 const SCREEN_CONTAINER_IDS = [
-    'splash-container',
-    'auth-container',
-    'profile-select-container',
-    'server-select-container',
-    'channel-setup-container',
-    'audio-setup-container',
+    APP_SHELL_CONTAINER_IDS.SPLASH,
+    APP_SHELL_CONTAINER_IDS.AUTH,
+    APP_SHELL_CONTAINER_IDS.PROFILE_SELECT,
+    APP_SHELL_CONTAINER_IDS.SERVER_SELECT,
+    APP_SHELL_CONTAINER_IDS.CHANNEL_SETUP,
+    APP_SHELL_CONTAINER_IDS.AUDIO_SETUP,
 ];
 
-const SETTINGS_CONTAINER_ID = 'settings-container';
+const SETTINGS_CONTAINER_ID = APP_SHELL_CONTAINER_IDS.SETTINGS;
 
 describe('createAppContainers', () => {
     beforeEach(() => {
@@ -55,10 +56,10 @@ describe('createAppContainers', () => {
         const root = document.getElementById('app') as HTMLElement;
 
         const refs = createAppContainers(root);
-        const errorOverlay = document.getElementById('error-overlay') as HTMLElement;
-        const toastContainer = document.getElementById('app-toast') as HTMLElement;
+        const errorOverlay = document.getElementById(APP_SHELL_CONTAINER_IDS.ERROR_OVERLAY) as HTMLElement;
+        const toastContainer = document.getElementById(APP_SHELL_CONTAINER_IDS.TOAST) as HTMLElement;
 
-        expect((document.getElementById('video-container') as HTMLElement).className).toBe('video-container');
+        expect((document.getElementById(APP_SHELL_CONTAINER_IDS.VIDEO) as HTMLElement).className).toBe('video-container');
         expect((document.getElementById('epg-container') as HTMLElement).className).toBe('epg-container');
 
         for (const id of SCREEN_CONTAINER_IDS) {
@@ -76,15 +77,15 @@ describe('createAppContainers', () => {
         expect(toastContainer.getAttribute('aria-live')).toBe('polite');
         expect(toastContainer.getAttribute('aria-atomic')).toBe('true');
 
-        expect(refs.splashContainer).toBe(document.getElementById('splash-container'));
-        expect(refs.authContainer).toBe(document.getElementById('auth-container'));
-        expect(refs.profileSelectContainer).toBe(document.getElementById('profile-select-container'));
-        expect(refs.serverSelectContainer).toBe(document.getElementById('server-select-container'));
-        expect(refs.channelSetupContainer).toBe(document.getElementById('channel-setup-container'));
-        expect(refs.audioSetupContainer).toBe(document.getElementById('audio-setup-container'));
-        expect(refs.settingsContainer).toBe(document.getElementById('settings-container'));
+        expect(refs.splashContainer).toBe(document.getElementById(APP_SHELL_CONTAINER_IDS.SPLASH));
+        expect(refs.authContainer).toBe(document.getElementById(APP_SHELL_CONTAINER_IDS.AUTH));
+        expect(refs.profileSelectContainer).toBe(document.getElementById(APP_SHELL_CONTAINER_IDS.PROFILE_SELECT));
+        expect(refs.serverSelectContainer).toBe(document.getElementById(APP_SHELL_CONTAINER_IDS.SERVER_SELECT));
+        expect(refs.channelSetupContainer).toBe(document.getElementById(APP_SHELL_CONTAINER_IDS.CHANNEL_SETUP));
+        expect(refs.audioSetupContainer).toBe(document.getElementById(APP_SHELL_CONTAINER_IDS.AUDIO_SETUP));
+        expect(refs.settingsContainer).toBe(document.getElementById(APP_SHELL_CONTAINER_IDS.SETTINGS));
         expect(refs.errorOverlay).toBe(errorOverlay);
-        expect(refs.devMenuContainer).toBe(document.getElementById('dev-menu'));
+        expect(refs.devMenuContainer).toBe(document.getElementById(APP_SHELL_CONTAINER_IDS.DEV_MENU));
         expect(refs.toastContainer).toBe(toastContainer);
     });
 
@@ -93,8 +94,8 @@ describe('createAppContainers', () => {
 
         createAppContainers(root);
 
-        const devMenu = document.getElementById('dev-menu') as HTMLElement;
-        const toastContainer = document.getElementById('app-toast') as HTMLElement;
+        const devMenu = document.getElementById(APP_SHELL_CONTAINER_IDS.DEV_MENU) as HTMLElement;
+        const toastContainer = document.getElementById(APP_SHELL_CONTAINER_IDS.TOAST) as HTMLElement;
 
         expect(devMenu.style.position).toBe('absolute');
         expect(devMenu.style.top).toBe('50%');
@@ -129,5 +130,53 @@ describe('createAppContainers', () => {
         expect(toastContainer.style.pointerEvents).toBe('none');
         expect(toastContainer.style.display).toBe('none');
         expect(toastContainer.style.zIndex).toBe('9999');
+    });
+
+    it('removes duplicate app-shell containers and keeps the first matching div', () => {
+        const root = document.getElementById('app') as HTMLElement;
+        const first = document.createElement('div');
+        first.id = APP_SHELL_CONTAINER_IDS.TOAST;
+        const duplicate = document.createElement('div');
+        duplicate.id = APP_SHELL_CONTAINER_IDS.TOAST;
+        root.append(first, duplicate);
+
+        const refs = createAppContainers(root);
+        const toastMatches = root.querySelectorAll(`#${APP_SHELL_CONTAINER_IDS.TOAST}`);
+
+        expect(toastMatches).toHaveLength(1);
+        expect(toastMatches[0]).toBe(first);
+        expect(refs.toastContainer).toBe(first);
+    });
+
+    it('replaces non-div app-shell collisions with fresh div containers', () => {
+        const root = document.getElementById('app') as HTMLElement;
+        const wrongTag = document.createElement('section');
+        wrongTag.id = APP_SHELL_CONTAINER_IDS.ERROR_OVERLAY;
+        root.appendChild(wrongTag);
+
+        const refs = createAppContainers(root);
+        const overlay = document.getElementById(APP_SHELL_CONTAINER_IDS.ERROR_OVERLAY);
+
+        expect(overlay).toBeInstanceOf(HTMLDivElement);
+        expect(overlay).not.toBe(wrongTag);
+        expect(root.contains(wrongTag)).toBe(false);
+        expect(refs.errorOverlay).toBe(overlay);
+    });
+
+    it('preserves an existing matching div when a wrong-tag collision appears first', () => {
+        const root = document.getElementById('app') as HTMLElement;
+        const wrongTag = document.createElement('section');
+        wrongTag.id = APP_SHELL_CONTAINER_IDS.TOAST;
+        const validDiv = document.createElement('div');
+        validDiv.id = APP_SHELL_CONTAINER_IDS.TOAST;
+        root.append(wrongTag, validDiv);
+
+        const refs = createAppContainers(root);
+        const toastMatches = root.querySelectorAll(`#${APP_SHELL_CONTAINER_IDS.TOAST}`);
+
+        expect(toastMatches).toHaveLength(1);
+        expect(toastMatches[0]).toBe(validDiv);
+        expect(root.contains(wrongTag)).toBe(false);
+        expect(refs.toastContainer).toBe(validDiv);
     });
 });

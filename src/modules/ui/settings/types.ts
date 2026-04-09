@@ -8,7 +8,7 @@ import type {
     EpgGuideDensity,
     EpgLayoutMode,
 } from '../../settings/EpgPreferencesStore';
-import type { ThemeName } from './theme';
+import type { ThemeName } from '../theme';
 
 /**
  * Audio settings configuration.

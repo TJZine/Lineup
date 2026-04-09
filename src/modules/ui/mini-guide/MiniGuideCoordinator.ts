@@ -14,7 +14,7 @@ import {
 } from '../../scheduler/scheduler';
 import type { IMiniGuideOverlay } from './interfaces';
 import type { MiniGuideChannelViewModel, MiniGuideViewModel } from './types';
-import { getChannelNameForDisplay } from '../channelDisplay';
+import { getChannelNameForDisplay } from '../common/channelDisplay';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { shouldApplyMiniGuideRowUpdate } from './MiniGuideCoordinatorPolicies';
 

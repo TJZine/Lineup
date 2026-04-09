@@ -3,11 +3,12 @@
  */
 
 import type { LifecycleAppError } from '../../../modules/lifecycle/types';
+import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
 import { AppBlockingErrorOverlayPresenter, type BlockingErrorOverlayAction } from '../AppBlockingErrorOverlayPresenter';
 
 const createOverlayContainer = (): HTMLDivElement => {
     const container = document.createElement('div');
-    container.id = 'error-overlay';
+    container.id = APP_SHELL_CONTAINER_IDS.ERROR_OVERLAY;
     container.className = 'error-overlay hidden';
     return container;
 };

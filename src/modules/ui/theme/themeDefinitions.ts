@@ -1,6 +1,6 @@
 /**
  * @fileoverview Theme mapping and options source of truth.
- * @module modules/ui/settings/theme
+ * @module modules/ui/theme/themeDefinitions
  */
 
 export const THEME_CLASSES = {

@@ -1,10 +1,4 @@
 /**
- * @fileoverview Lineup localStorage key constants.
- * @module config/storageKeys
- * @version 1.0.0
- */
-
-/**
  * Canonical localStorage keys used across modules.
  *
  * Keep this file free of UI imports so core/player/plex can depend on it safely.
@@ -45,7 +39,6 @@ export const LINEUP_STORAGE_KEYS = {
     */
     SUBTITLE_MODE: 'lineup_subtitle_mode',
     SUBTITLE_LANGUAGE: 'lineup_subtitle_language',
-    /** Prefer forced subtitles over full subtitles */
     SUBTITLE_PREFER_FORCED: 'lineup_subtitle_prefer_forced',
     // Guide / EPG
     GUIDE_CATEGORY_COLORS: 'lineup_guide_category_colors',
@@ -59,7 +52,6 @@ export const LINEUP_STORAGE_KEYS = {
     EPG_INFO_BACKGROUND_MODE: 'lineup_epg_info_background_mode',
     EPG_NOW_WATCHING_ENABLED: 'lineup_epg_now_watching_enabled',
     EPG_AGGRESSIVE_PRELOAD_ENABLED: 'lineup_epg_aggressive_preload_enabled',
-    /** Show Plex Home profile picker on startup */
     SHOW_PROFILE_PICKER_ON_STARTUP: 'lineup_show_profile_picker_on_startup',
 
     // Developer / Debug
@@ -69,6 +61,5 @@ export const LINEUP_STORAGE_KEYS = {
     SHOW_FPS: 'lineup_show_fps',
 
     // Dev menu overrides (transcode)
-    /** Force Plex transcode profile matching (dev-only; not user-facing). */
     TRANSCODE_PROFILE_NAME: 'lineup_transcode_profile_name',
 } as const;

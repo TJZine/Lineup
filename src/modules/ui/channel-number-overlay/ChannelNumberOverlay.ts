@@ -10,7 +10,7 @@ export class ChannelNumberOverlay {
     private isVisibleFlag = false;
 
     initialize(containerId: string): void {
-        this._clearHideTimer();
+        this.clearHideTimer();
         if (typeof document === 'undefined') {
             this.containerElement = null;
             this.digitsElement = null;
@@ -44,7 +44,7 @@ export class ChannelNumberOverlay {
     }
 
     destroy(): void {
-        this._clearHideTimer();
+        this.clearHideTimer();
         if (this.containerElement) {
             this.containerElement.classList.remove(CHANNEL_NUMBER_CLASSES.VISIBLE, CHANNEL_NUMBER_CLASSES.ERROR);
             this.containerElement.replaceChildren();
@@ -56,7 +56,7 @@ export class ChannelNumberOverlay {
 
     showDigits(digits: string, maxDigits: number): void {
         if (!this.containerElement || !this.digitsElement) return;
-        this._clearHideTimer();
+        this.clearHideTimer();
         const max = sanitizeMaxDigits(maxDigits);
         const normalized = digits.replace(/\D/g, '').slice(0, max);
         const missingCount = Math.max(0, max - normalized.length);
@@ -71,7 +71,7 @@ export class ChannelNumberOverlay {
 
     showError(channelNumber: number): void {
         if (!this.containerElement || !this.digitsElement) return;
-        this._clearHideTimer();
+        this.clearHideTimer();
         this.digitsElement.textContent = `${Math.floor(channelNumber)} NOT FOUND`;
         this.containerElement.classList.add(CHANNEL_NUMBER_CLASSES.VISIBLE, CHANNEL_NUMBER_CLASSES.ERROR);
         this.isVisibleFlag = true;
@@ -80,7 +80,7 @@ export class ChannelNumberOverlay {
 
     scheduleHide(delayMs: number): void {
         if (!this.containerElement) return;
-        this._clearHideTimer();
+        this.clearHideTimer();
         this.hideTimer = globalThis.setTimeout(() => {
             this.hideTimer = null;
             this.hide();
@@ -97,7 +97,7 @@ export class ChannelNumberOverlay {
         return this.isVisibleFlag;
     }
 
-    private _clearHideTimer(): void {
+    private clearHideTimer(): void {
         if (this.hideTimer !== null) {
             globalThis.clearTimeout(this.hideTimer);
             this.hideTimer = null;

@@ -8,7 +8,7 @@ import { CHANNEL_TRANSITION_CONTAINER_ID } from '../../modules/ui/channel-transi
 import { APP_SHELL_CONTAINER_IDS } from '../../modules/ui/common/appShellContainerIds';
 
 export const EXPECTED_CONTAINER_IDS = [
-    'video-container',
+    APP_SHELL_CONTAINER_IDS.VIDEO,
     PLAYER_OSD_CONTAINER_ID,
     CHANNEL_NUMBER_OVERLAY_CONTAINER_ID,
     CHANNEL_BADGE_CONTAINER_ID,
@@ -18,14 +18,14 @@ export const EXPECTED_CONTAINER_IDS = [
     APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO,
     APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS,
     EXIT_CONFIRM_CONTAINER_ID,
-    'splash-container',
-    'auth-container',
-    'profile-select-container',
-    'server-select-container',
-    'channel-setup-container',
-    'audio-setup-container',
-    'settings-container',
-    'error-overlay',
-    'dev-menu',
-    'app-toast',
+    APP_SHELL_CONTAINER_IDS.SPLASH,
+    APP_SHELL_CONTAINER_IDS.AUTH,
+    APP_SHELL_CONTAINER_IDS.PROFILE_SELECT,
+    APP_SHELL_CONTAINER_IDS.SERVER_SELECT,
+    APP_SHELL_CONTAINER_IDS.CHANNEL_SETUP,
+    APP_SHELL_CONTAINER_IDS.AUDIO_SETUP,
+    APP_SHELL_CONTAINER_IDS.SETTINGS,
+    APP_SHELL_CONTAINER_IDS.ERROR_OVERLAY,
+    APP_SHELL_CONTAINER_IDS.DEV_MENU,
+    APP_SHELL_CONTAINER_IDS.TOAST,
 ] as const;

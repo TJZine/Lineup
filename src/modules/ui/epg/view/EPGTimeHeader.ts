@@ -1,19 +1,7 @@
-/**
- * @fileoverview EPG Time Header - Time axis header showing 30-minute slots
- * @module modules/ui/epg/EPGTimeHeader
- * @version 1.0.0
- */
-
 import { EPG_CLASSES } from '../constants';
 import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debugRuntimeGuards';
 import type { EPGConfig, TimeSlot } from '../types';
 
-/**
- * Format time for display.
- *
- * @param timestamp - Unix timestamp in milliseconds
- * @returns Formatted time (e.g., "12:30 PM")
- */
 function formatTimeSlot(timestamp: number): string {
     const date = new Date(timestamp);
     const hours = date.getHours();
@@ -24,10 +12,6 @@ function formatTimeSlot(timestamp: number): string {
     return `${displayHours}:${displayMinutes} ${ampm}`;
 }
 
-/**
- * EPG Time Header class.
- * Displays time axis with 30-minute slot labels.
- */
 export class EPGTimeHeader {
     private containerElement: HTMLElement | null = null;
     private slotsElement: HTMLElement | null = null;
@@ -43,13 +27,6 @@ export class EPGTimeHeader {
         this.slotsElement.style.setProperty('--epg-time-header-sticky-width-px', `${px}px`);
     }
 
-    /**
-     * Initialize the time header.
-     *
-     * @param parentElement - Parent element to append time header to
-     * @param config - EPG configuration
-     * @param gridAnchorTime - Start time of the schedule day (Unix ms)
-     */
     initialize(
         parentElement: HTMLElement,
         config: EPGConfig,
@@ -75,9 +52,6 @@ export class EPGTimeHeader {
         this._syncSlotsOcclusionWidth();
     }
 
-    /**
-     * Destroy the time header and clean up resources.
-     */
     destroy(): void {
         if (this.containerElement) {
             this.containerElement.remove();
@@ -89,9 +63,6 @@ export class EPGTimeHeader {
         this.config = null;
     }
 
-    /**
-     * Render time slot labels.
-     */
     private renderSlots(): void {
         if (!this.slotsElement || !this.config) return;
 
@@ -110,10 +81,6 @@ export class EPGTimeHeader {
         }
     }
 
-    /**
-     * Refresh slot layout after pixelsPerMinute changes.
-     * Avoids DOM rebuild by reapplying left/width styles.
-     */
     refreshLayout(): void {
         if (!this.containerElement || !this.config || this.slotElements.length === 0) return;
 
@@ -132,13 +99,6 @@ export class EPGTimeHeader {
         }
     }
 
-    /**
-     * Create a time slot element.
-     *
-     * @param time - Slot time (Unix ms)
-     * @param minutesFromAnchor - Minutes from grid start
-     * @returns The slot element
-     */
     private createSlotElement(time: number, minutesFromAnchor: number): HTMLElement {
         const slot = document.createElement('div');
         slot.className = EPG_CLASSES.TIME_SLOT;
@@ -153,11 +113,6 @@ export class EPGTimeHeader {
         return slot;
     }
 
-    /**
-     * Update scroll position to sync with grid.
-     *
-     * @param timeOffset - Time offset in minutes from anchor
-     */
     updateScrollPosition(timeOffset: number): void {
         if (!this.slotsElement || !this.config) return;
 
@@ -175,13 +130,6 @@ export class EPGTimeHeader {
         }
     }
 
-    /**
-     * Get generated time slots for testing.
-     *
-     * @param visibleStart - Start of visible range (minutes)
-     * @param visibleEnd - End of visible range (minutes)
-     * @returns Array of time slots in visible range
-     */
     getVisibleTimeSlots(visibleStart: number, visibleEnd: number): TimeSlot[] {
         if (!this.config) return [];
 
@@ -204,11 +152,6 @@ export class EPGTimeHeader {
         return slots;
     }
 
-    /**
-     * Update the grid anchor time and re-render slots.
-     *
-     * @param anchorTime - New anchor time (Unix ms)
-     */
     setGridAnchorTime(anchorTime: number): void {
         this.gridAnchorTime = anchorTime;
         this.renderSlots();

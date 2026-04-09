@@ -4,6 +4,7 @@ import { App } from './App';
 import { LINEUP_EVENT_NAMES } from './config/events';
 import { LINEUP_STORAGE_KEYS } from './config/storageKeys';
 import { DeveloperSettingsStore } from './modules/settings/DeveloperSettingsStore';
+import { APP_SHELL_CONTAINER_IDS } from './modules/ui/common/appShellContainerIds';
 import { redactSensitiveTokens } from './utils/redact';
 import { summarizeErrorForLog } from './utils/errors';
 import {
@@ -138,7 +139,7 @@ function syncWindowDebugApi(currentApp: App | null): void {
         },
         domSnapshot: (): unknown => ({
             app: describeElement(document.getElementById('app')),
-            videoContainer: describeElement(document.getElementById('video-container')),
+            videoContainer: describeElement(document.getElementById(APP_SHELL_CONTAINER_IDS.VIDEO)),
             video: describeElement(document.querySelector('video')),
             epgContainer: describeElement(document.getElementById('epg-container')),
         }),

@@ -6,8 +6,12 @@ import { ProfileSessionStore } from '../../../modules/settings/ProfileSessionSto
 import { SettingsStore } from '../../../modules/ui/settings/SettingsStore';
 import {
     AppLazyScreenRegistry,
-    type AppLazyScreenRegistryRuntimeFacade,
 } from '../AppLazyScreenRegistry';
+import type {
+    AppLazyChannelSetupScreenInput,
+    AppLazyScreenPortFactory,
+    AppLazySettingsRuntimePorts,
+} from '../AppLazyScreenPortFactory';
 import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../constants';
 
 type MockScreen = {
@@ -22,42 +26,45 @@ const makeScreen = (): MockScreen => ({
     destroy: jest.fn(),
 });
 
-const makeRuntimeFacade = (): AppLazyScreenRegistryRuntimeFacade => ({
-    requestAuthPin: jest.fn().mockResolvedValue({} as never),
-    pollForPin: jest.fn().mockResolvedValue({} as never),
-    cancelPin: jest.fn().mockResolvedValue(undefined),
-    getHomeUsers: jest.fn().mockResolvedValue([]),
-    switchHomeUser: jest.fn().mockResolvedValue(undefined),
-    useMainAccountProfile: jest.fn().mockResolvedValue(undefined),
-    signOutPlex: jest.fn().mockResolvedValue(undefined),
-    discoverServers: jest.fn().mockResolvedValue([]),
-    selectServer: jest.fn().mockResolvedValue({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' }),
-    clearSelectedServer: jest.fn(),
-    getSelectedServerStorageKey: jest.fn().mockReturnValue('selected-server-id'),
-    getServerHealthStorageKey: jest.fn().mockReturnValue('server-health'),
-    getNavigation: jest.fn().mockReturnValue(null),
-    getChannelSetupWorkflowPort: jest.fn(() => ({
-        invalidateFacetSnapshot: jest.fn(),
-        getLibrariesForSetup: jest.fn().mockResolvedValue([]),
-        getChannelSetupRecord: jest.fn().mockReturnValue(null),
-        getSetupContextForSelectedServer: jest.fn().mockReturnValue('unknown'),
-        getSetupPreview: jest.fn().mockResolvedValue({
-            estimates: {
-                total: 0,
-                collections: 0,
-                playlists: 0,
-                genres: 0,
-                directors: 0,
-                decades: 0,
-                recentlyAdded: 0,
-                studios: 0,
-                actors: 0,
-            },
-            warnings: [],
-            reachedMaxChannels: false,
-        }),
-        getSetupReview: jest.fn().mockResolvedValue({
-            preview: {
+type PortFactoryLike = Pick<
+    AppLazyScreenPortFactory,
+    | 'createAuthScreenPorts'
+    | 'createProfileSelectScreenPorts'
+    | 'createServerSelectScreenPorts'
+    | 'createChannelSetupScreenInput'
+    | 'createSettingsRuntimePorts'
+    | 'getNavigation'
+>;
+
+const makePortFactory = (): PortFactoryLike => ({
+    createAuthScreenPorts: jest.fn(() => ({
+        requestAuthPin: jest.fn().mockResolvedValue({} as never),
+        pollForPin: jest.fn().mockResolvedValue({} as never),
+        cancelPin: jest.fn().mockResolvedValue(undefined),
+        getNavigation: jest.fn().mockReturnValue(null),
+    })),
+    createProfileSelectScreenPorts: jest.fn(() => ({
+        getHomeUsers: jest.fn().mockResolvedValue([]),
+        switchHomeUser: jest.fn().mockResolvedValue(undefined),
+        useMainAccountProfile: jest.fn().mockResolvedValue(undefined),
+        signOutPlex: jest.fn().mockResolvedValue(undefined),
+        getNavigation: jest.fn().mockReturnValue(null),
+    })),
+    createServerSelectScreenPorts: jest.fn(() => ({
+        discoverServers: jest.fn().mockResolvedValue([]),
+        selectServer: jest.fn().mockResolvedValue({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' }),
+        clearSelectedServer: jest.fn(),
+        getSelectedServerStorageKey: jest.fn().mockReturnValue('selected-server-id'),
+        getServerHealthStorageKey: jest.fn().mockReturnValue('server-health'),
+        requestChannelSetupRerun: jest.fn(),
+        getNavigation: jest.fn().mockReturnValue(null),
+    })),
+    createChannelSetupScreenInput: jest.fn((): AppLazyChannelSetupScreenInput => ({
+        workflowPort: {
+            getLibrariesForSetup: jest.fn().mockResolvedValue([]),
+            getChannelSetupRecord: jest.fn().mockReturnValue(null),
+            getSetupContextForSelectedServer: jest.fn().mockReturnValue('unknown'),
+            getSetupPreview: jest.fn().mockResolvedValue({
                 estimates: {
                     total: 0,
                     collections: 0,
@@ -71,41 +78,71 @@ const makeRuntimeFacade = (): AppLazyScreenRegistryRuntimeFacade => ({
                 },
                 warnings: [],
                 reachedMaxChannels: false,
-            },
-            diff: {
-                summary: { created: 0, removed: 0, unchanged: 0 },
-                samples: { created: [], removed: [], unchanged: [] },
-            },
-        }),
-        getSetupPlanDiagnostics: jest.fn().mockResolvedValue({
-            status: 'ready',
-            diagnostics: null,
-            warnings: [],
-            reachedMaxChannels: false,
-        }),
-        createChannelsFromSetup: jest.fn().mockResolvedValue({
-            created: 0,
-            skipped: 0,
-            reachedMaxChannels: false,
-            errorCount: 0,
-            canceled: false,
-            lastTask: 'done',
-        }),
-        markSetupComplete: jest.fn(),
+            }),
+            getSetupReview: jest.fn().mockResolvedValue({
+                preview: {
+                    estimates: {
+                        total: 0,
+                        collections: 0,
+                        playlists: 0,
+                        genres: 0,
+                        directors: 0,
+                        decades: 0,
+                        recentlyAdded: 0,
+                        studios: 0,
+                        actors: 0,
+                    },
+                    warnings: [],
+                    reachedMaxChannels: false,
+                },
+                diff: {
+                    summary: { created: 0, removed: 0, unchanged: 0 },
+                    samples: { created: [], removed: [], unchanged: [] },
+                },
+            }),
+            getSetupPlanDiagnostics: jest.fn().mockResolvedValue({
+                status: 'ready',
+                diagnostics: null,
+                warnings: [],
+                reachedMaxChannels: false,
+            }),
+            createChannelsFromSetup: jest.fn().mockResolvedValue({
+                created: 0,
+                skipped: 0,
+                reachedMaxChannels: false,
+                errorCount: 0,
+                canceled: false,
+                lastTask: 'done',
+            }),
+            markSetupComplete: jest.fn(),
+            invalidateFacetSnapshot: jest.fn(),
+        },
+        screenPorts: {
+            getNavigation: jest.fn().mockReturnValue(null),
+            getSelectedServerStorageKey: jest.fn().mockReturnValue('selected-server-id'),
+            getServerHealthStorageKey: jest.fn().mockReturnValue('server-health'),
+            getSelectedServerId: jest.fn().mockReturnValue(null),
+            openServerSelect: jest.fn(),
+            switchToChannelByNumber: jest.fn().mockResolvedValue(undefined),
+            openEPG: jest.fn(),
+        },
     })),
-    createChannelSetupScreenPorts: jest.fn(() => ({
+    createSettingsRuntimePorts: jest.fn((): AppLazySettingsRuntimePorts => ({
         getNavigation: jest.fn().mockReturnValue(null),
-        getSelectedServerStorageKey: jest.fn().mockReturnValue('selected-server-id'),
-        getServerHealthStorageKey: jest.fn().mockReturnValue('server-health'),
-        getSelectedServerId: jest.fn().mockReturnValue(null),
-        openServerSelect: jest.fn(),
-        switchToChannelByNumber: jest.fn().mockResolvedValue(undefined),
-        openEPG: jest.fn(),
+        clearSubtitleTrack: jest.fn().mockResolvedValue(undefined),
+        onGuideSettingChange: jest.fn(),
+        getActiveUsername: jest.fn().mockReturnValue('UnitTestUser'),
     })),
-    requestChannelSetupRerun: jest.fn(),
-    setSubtitleTrack: jest.fn(),
-    onGuideSettingChange: jest.fn(),
-    getActiveUsername: jest.fn().mockReturnValue('UnitTestUser'),
+    getNavigation: jest.fn().mockReturnValue(null),
+});
+
+const makeMissingPortFactory = (): PortFactoryLike => ({
+    createAuthScreenPorts: jest.fn(() => null),
+    createProfileSelectScreenPorts: jest.fn(() => null),
+    createServerSelectScreenPorts: jest.fn(() => null),
+    createChannelSetupScreenInput: jest.fn(() => null),
+    createSettingsRuntimePorts: jest.fn(() => null),
+    getNavigation: jest.fn().mockReturnValue(null),
 });
 
 const flushMicrotasks = async (): Promise<void> => {
@@ -124,7 +161,7 @@ describe('AppLazyScreenRegistry', () => {
 
     it('returns null when required dependencies are missing', async () => {
         const registry = new AppLazyScreenRegistry({
-            getRuntimeFacade: (): null => null,
+            portFactory: makeMissingPortFactory() as AppLazyScreenPortFactory,
             profileSessionStore: new ProfileSessionStore(),
             containers: {},
         });
@@ -137,6 +174,58 @@ describe('AppLazyScreenRegistry', () => {
         await expect(registry.ensureSettingsScreen()).resolves.toBeNull();
     });
 
+    it('returns null without constructing deferred screens when screen-specific ports are unavailable', async () => {
+        const AuthScreen = jest.fn();
+        const ProfileSelectScreen = jest.fn();
+        const ServerSelectScreen = jest.fn();
+        const ChannelSetupScreen = jest.fn();
+        const SettingsScreen = jest.fn();
+        const loadAuthScreen = jest.fn().mockResolvedValue({ AuthScreen });
+        const loadProfileSelectScreen = jest.fn().mockResolvedValue({ ProfileSelectScreen });
+        const loadServerSelectScreen = jest.fn().mockResolvedValue({ ServerSelectScreen });
+        const loadChannelSetupScreen = jest.fn().mockResolvedValue({ ChannelSetupScreen });
+        const loadSettingsScreen = jest.fn().mockResolvedValue({ SettingsScreen });
+        const loadSettingsStore = jest.fn().mockResolvedValue({ SettingsStore });
+
+        const registry = new AppLazyScreenRegistry({
+            portFactory: makeMissingPortFactory() as AppLazyScreenPortFactory,
+            profileSessionStore: new ProfileSessionStore(),
+            containers: {
+                authContainer: document.createElement('div'),
+                profileSelectContainer: document.createElement('div'),
+                serverSelectContainer: document.createElement('div'),
+                channelSetupContainer: document.createElement('div'),
+                settingsContainer: document.createElement('div'),
+            },
+            loaders: {
+                loadAuthScreen,
+                loadProfileSelectScreen,
+                loadServerSelectScreen,
+                loadChannelSetupScreen,
+                loadSettingsScreen,
+                loadSettingsStore,
+            },
+        });
+
+        await expect(registry.ensureAuthScreen()).resolves.toBeNull();
+        await expect(registry.ensureProfileSelectScreen()).resolves.toBeNull();
+        await expect(registry.ensureServerSelectScreen()).resolves.toBeNull();
+        await expect(registry.ensureChannelSetupScreen()).resolves.toBeNull();
+        await expect(registry.ensureSettingsScreen()).resolves.toBeNull();
+
+        expect(loadAuthScreen).toHaveBeenCalledTimes(1);
+        expect(loadProfileSelectScreen).toHaveBeenCalledTimes(1);
+        expect(loadServerSelectScreen).toHaveBeenCalledTimes(1);
+        expect(loadChannelSetupScreen).toHaveBeenCalledTimes(1);
+        expect(loadSettingsScreen).toHaveBeenCalledTimes(1);
+        expect(loadSettingsStore).toHaveBeenCalledTimes(1);
+        expect(AuthScreen).not.toHaveBeenCalled();
+        expect(ProfileSelectScreen).not.toHaveBeenCalled();
+        expect(ServerSelectScreen).not.toHaveBeenCalled();
+        expect(ChannelSetupScreen).not.toHaveBeenCalled();
+        expect(SettingsScreen).not.toHaveBeenCalled();
+    });
+
     it('dedupes concurrent auth/profile/server screen loads and caches instances', async () => {
         const authScreen = makeScreen();
         const profileSelectScreen = makeScreen();
@@ -146,8 +235,9 @@ describe('AppLazyScreenRegistry', () => {
         const ServerSelectScreen = jest.fn().mockImplementation(() => serverSelectScreen);
         const profileSessionStore = new ProfileSessionStore();
 
+        const portFactory = makePortFactory();
         const registry = new AppLazyScreenRegistry({
-            getRuntimeFacade: makeRuntimeFacade,
+            portFactory: portFactory as AppLazyScreenPortFactory,
             profileSessionStore,
             containers: {
                 authContainer: document.createElement('div'),
@@ -235,7 +325,7 @@ describe('AppLazyScreenRegistry', () => {
         });
 
         const registry = new AppLazyScreenRegistry({
-            getRuntimeFacade: makeRuntimeFacade,
+            portFactory: makePortFactory() as AppLazyScreenPortFactory,
             profileSessionStore: new ProfileSessionStore(),
             containers: {
                 settingsContainer: document.createElement('div'),
@@ -269,7 +359,7 @@ describe('AppLazyScreenRegistry', () => {
         });
 
         const registry = new AppLazyScreenRegistry({
-            getRuntimeFacade: makeRuntimeFacade,
+            portFactory: makePortFactory() as AppLazyScreenPortFactory,
             profileSessionStore: new ProfileSessionStore(),
             containers: {
                 channelSetupContainer: document.createElement('div'),
@@ -302,7 +392,7 @@ describe('AppLazyScreenRegistry', () => {
         const onAudioSetupComplete = jest.fn();
 
         const registry = new AppLazyScreenRegistry({
-            getRuntimeFacade: makeRuntimeFacade,
+            portFactory: makePortFactory() as AppLazyScreenPortFactory,
             profileSessionStore: new ProfileSessionStore(),
             containers: {
                 audioSetupContainer: document.createElement('div'),
@@ -333,7 +423,7 @@ describe('AppLazyScreenRegistry', () => {
         const loadChannelSetupScreen = jest.fn().mockResolvedValue({ ChannelSetupScreen: jest.fn() });
 
         const registry = new AppLazyScreenRegistry({
-            getRuntimeFacade: makeRuntimeFacade,
+            portFactory: makePortFactory() as AppLazyScreenPortFactory,
             profileSessionStore: new ProfileSessionStore(),
             containers: {
                 settingsContainer: document.createElement('div'),
@@ -364,7 +454,7 @@ describe('AppLazyScreenRegistry', () => {
         const loadChannelSetupScreen = jest.fn().mockResolvedValue({ ChannelSetupScreen: jest.fn() });
 
         const registry = new AppLazyScreenRegistry({
-            getRuntimeFacade: makeRuntimeFacade,
+            portFactory: makePortFactory() as AppLazyScreenPortFactory,
             profileSessionStore: new ProfileSessionStore(),
             containers: {
                 settingsContainer: document.createElement('div'),
@@ -404,7 +494,7 @@ describe('AppLazyScreenRegistry', () => {
         const loadSettingsScreen = jest.fn().mockReturnValue(loadPromise);
 
         const registry = new AppLazyScreenRegistry({
-            getRuntimeFacade: makeRuntimeFacade,
+            portFactory: makePortFactory() as AppLazyScreenPortFactory,
             profileSessionStore: new ProfileSessionStore(),
             containers: {
                 settingsContainer: document.createElement('div'),
@@ -435,7 +525,7 @@ describe('AppLazyScreenRegistry', () => {
         const settingsScreen = makeScreen();
 
         const registry = new AppLazyScreenRegistry({
-            getRuntimeFacade: makeRuntimeFacade,
+            portFactory: makePortFactory() as AppLazyScreenPortFactory,
             profileSessionStore: new ProfileSessionStore(),
             containers: {
                 authContainer: document.createElement('div'),

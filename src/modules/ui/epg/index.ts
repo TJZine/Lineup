@@ -1,9 +1,3 @@
-/**
- * @fileoverview EPG UI module public exports
- * @module modules/ui/epg
- * @version 1.0.0
- */
-
 export { EPGComponent } from './EPGComponent';
 export { EPGDebugRuntime } from './EPGDebugRuntime';
 export { DeferredEpgComponent } from './DeferredEpgComponent';

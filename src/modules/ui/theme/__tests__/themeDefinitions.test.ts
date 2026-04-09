@@ -1,4 +1,4 @@
-import { DEFAULT_THEME, THEME_OPTIONS } from '../theme';
+import { DEFAULT_THEME, THEME_OPTIONS } from '../themeDefinitions';
 
 describe('theme settings source of truth', () => {
     it('sets ember-steel as the default theme', () => {

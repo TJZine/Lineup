@@ -25,6 +25,7 @@ import type { PlatformServices } from '../platform';
 import { webosPlatformServices } from '../platform';
 import type { StreamDecision } from '../modules/plex/stream';
 import { AudioSettingsStore } from '../modules/settings/AudioSettingsStore';
+import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
 import { PlaybackRecoveryManager } from '../modules/player/PlaybackRecoveryManager';
 import * as orchestratorCoordinatorFactory from '../core/orchestrator/OrchestratorCoordinatorFactory';
 
@@ -61,7 +62,7 @@ const mockNavConfig = {
 };
 
 const mockPlayerConfig = {
-    containerId: 'video-container',
+    containerId: APP_SHELL_CONTAINER_IDS.VIDEO,
     defaultVolume: 1.0,
     bufferAheadMs: 30000,
     seekIncrementSec: 10,

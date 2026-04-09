@@ -10,6 +10,7 @@ import { CHANNEL_BADGE_CONTAINER_ID } from '../../modules/ui/channel-badge';
 import { EpgPreferencesStore, type EpgLayoutMode } from '../../modules/settings/EpgPreferencesStore';
 import { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
 import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
+import { APP_SHELL_CONTAINER_IDS } from '../../modules/ui/common/appShellContainerIds';
 
 const createStoredCredentials = (
     activeToken: string,
@@ -892,7 +893,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	            const epg = { initialize: jest.fn() } as unknown as LegacyInitializationDependencies['epg'];
 	            const { coordinator } = makeCoordinator({ epg, plexLibrary: null });
             const videoContainer = document.createElement('div');
-            videoContainer.id = 'video-container';
+            videoContainer.id = APP_SHELL_CONTAINER_IDS.VIDEO;
             document.body.appendChild(videoContainer);
 
 	            try {

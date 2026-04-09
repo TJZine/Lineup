@@ -7,6 +7,7 @@ import { NOW_PLAYING_INFO_CLASSES, NOW_PLAYING_INFO_DEFAULTS } from './constants
 import type { INowPlayingInfoOverlay } from './interfaces';
 import type { NowPlayingInfoConfig, NowPlayingInfoViewModel } from './types';
 import { createOverlayPrimitives } from '../common/OverlayPrimitives';
+import { formatTimecode } from '../common/formatTimecode';
 
 export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
     private containerElement: HTMLElement | null = null;
@@ -563,17 +564,6 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
             }
         }
     }
-}
-
-function formatTimecode(ms: number): string {
-    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    if (hours > 0) {
-        return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    }
-    return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
 function buildSafeBackgroundImage(rawUrl: string | null): string {

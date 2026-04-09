@@ -8,6 +8,7 @@ import { VideoPlayer, mapMediaErrorCodeToPlaybackError } from '../VideoPlayer';
 import { PlayerErrorCode } from '../types';
 import type { VideoPlayerConfig, StreamDescriptor } from '../types';
 import type { PlatformPlaybackService, PlatformSubtitleService } from '../../../platform';
+import { APP_SHELL_CONTAINER_IDS } from '../../ui/common/appShellContainerIds';
 
 // ============================================
 // Test Helpers
@@ -15,7 +16,7 @@ import type { PlatformPlaybackService, PlatformSubtitleService } from '../../../
 
 function createMockConfig(overrides: Partial<VideoPlayerConfig> = {}): VideoPlayerConfig {
     return {
-        containerId: 'video-container',
+        containerId: APP_SHELL_CONTAINER_IDS.VIDEO,
         defaultVolume: 1.0,
         bufferAheadMs: 30000,
         seekIncrementSec: 10,
@@ -192,7 +193,7 @@ describe('VideoPlayer', () => {
 
         // Create container for video using original
         container = originalCreateElement.call(document, 'div') as HTMLDivElement;
-        container.id = 'video-container';
+        container.id = APP_SHELL_CONTAINER_IDS.VIDEO;
         document.body.appendChild(container);
 
         // Mock document.createElement to return mock video
@@ -745,12 +746,14 @@ describe('VideoPlayer', () => {
             // Advance 30 seconds
             jest.advanceTimersByTime(30000);
 
-            expect(dispatchSpy).toHaveBeenCalledWith(expect.any(Event));
+            expect(dispatchSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ type: 'lineup:keepalive' })
+            );
 
             dispatchSpy.mockRestore();
         });
 
-        it('should not touch DOM when paused', () => {
+        it('should not dispatch keep-alive when paused', () => {
             const dispatchSpy = jest.spyOn(document, 'dispatchEvent');
 
             // Player is idle/paused
@@ -759,12 +762,34 @@ describe('VideoPlayer', () => {
             // Advance 30 seconds
             jest.advanceTimersByTime(30000);
 
-            // Should not have dispatched a click (may have other events)
-            const clickEvents = dispatchSpy.mock.calls.filter(
-                (call) => (call[0] as Event).type === 'click'
+            const keepAliveEvents = dispatchSpy.mock.calls.filter(
+                (call) => (call[0] as Event).type === 'lineup:keepalive'
             );
-            expect(clickEvents.length).toBe(0);
+            expect(keepAliveEvents.length).toBe(0);
 
+            dispatchSpy.mockRestore();
+        });
+
+        it('should stop keep-alive dispatches after destroy', async () => {
+            const dispatchSpy = jest.spyOn(document, 'dispatchEvent');
+
+            await player.loadStream(createMockDescriptor());
+            await player.play();
+            container.querySelector('video')?.dispatchEvent(new Event('playing'));
+
+            jest.advanceTimersByTime(30000);
+            expect(dispatchSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ type: 'lineup:keepalive' })
+            );
+
+            dispatchSpy.mockClear();
+            player.destroy();
+            jest.advanceTimersByTime(60000);
+
+            const keepAliveEventsAfterDestroy = dispatchSpy.mock.calls.filter(
+                ([event]) => event instanceof Event && event.type === 'lineup:keepalive'
+            );
+            expect(keepAliveEventsAfterDestroy).toHaveLength(0);
             dispatchSpy.mockRestore();
         });
     });

@@ -293,6 +293,30 @@ describe('PlayerOsdCoordinator', () => {
         expect(viewModel.endsAtText).toContain('Ends');
     });
 
+    it('keeps overlay copy local while using shared timecode formatting', () => {
+        const overlay = makeOverlay();
+        const coordinator = new PlayerOsdCoordinator(
+            makeCoordinatorOptions({
+                getOverlay: (): IPlayerOsdOverlay => overlay,
+                getCurrentProgram: (): ScheduledProgram => ({
+                    ...makeProgram(),
+                    scheduledStartTime: 0,
+                    scheduledEndTime: 4_000_000,
+                }),
+            })
+        );
+
+        coordinator.onTimeUpdate({ currentTimeMs: 3_723_000, durationMs: 4_000_000 });
+        coordinator.poke('play');
+
+        const viewModel = (overlay.setViewModel as jest.Mock).mock.calls[0]?.[0] as {
+            timecode?: string;
+            endsAtText?: string | null;
+        };
+        expect(viewModel.timecode).toBe('1:02:03 / 1:06:40');
+        expect(viewModel.endsAtText).toContain('Ends');
+    });
+
     it('hides ends line when live', () => {
         const overlay = makeOverlay();
         const videoPlayer = {

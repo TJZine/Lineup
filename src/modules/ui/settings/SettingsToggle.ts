@@ -1,16 +1,5 @@
-/**
- * @fileoverview Settings toggle component - focusable toggle button.
- * @module modules/ui/settings/SettingsToggle
- * @version 1.0.0
- */
-
 import type { SettingsToggleConfig } from './types';
 
-/**
- * Creates a settings toggle element.
- * @param config - Toggle configuration
- * @returns Object with element and update method
- */
 export function createSettingsToggle(config: SettingsToggleConfig): {
     element: HTMLButtonElement;
     update: (value: boolean) => void;

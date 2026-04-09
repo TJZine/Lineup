@@ -1,4 +1,4 @@
-import { DEFAULT_THEME, THEME_OPTIONS } from './theme';
+import { DEFAULT_THEME, THEME_OPTIONS } from '../theme';
 import type { GuideSettingChange, SettingsCategoryConfig } from './types';
 import { SettingsStore } from './SettingsStore';
 import { ThemeManager } from '../theme';

@@ -4,6 +4,17 @@
  */
 
 export const APP_SHELL_CONTAINER_IDS = {
+    VIDEO: 'video-container',
     NOW_PLAYING_INFO: 'now-playing-info-container',
     PLAYBACK_OPTIONS: 'playback-options-container',
+    SPLASH: 'splash-container',
+    AUTH: 'auth-container',
+    PROFILE_SELECT: 'profile-select-container',
+    SERVER_SELECT: 'server-select-container',
+    CHANNEL_SETUP: 'channel-setup-container',
+    AUDIO_SETUP: 'audio-setup-container',
+    SETTINGS: 'settings-container',
+    ERROR_OVERLAY: 'error-overlay',
+    DEV_MENU: 'dev-menu',
+    TOAST: 'app-toast',
 } as const;
