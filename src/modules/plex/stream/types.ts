@@ -99,13 +99,15 @@ export const PlexStreamErrorCode = {
 export type PlexStreamErrorCode = typeof PlexStreamErrorCode[keyof typeof PlexStreamErrorCode];
 
 export function mapPlexStreamErrorCodeToAppErrorCode(
-    code: PlexStreamErrorCode | string
+    code: PlexStreamErrorCode
 ): AppErrorCode {
-    if (code === PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND) {
+    const runtimeCode = code as string;
+
+    if (runtimeCode === PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND) {
         // Keep user-facing error mapping consistent while enabling more precise internal branching.
         return AppErrorCode.PLAYBACK_SOURCE_NOT_FOUND;
     }
-    switch (code) {
+    switch (runtimeCode) {
         case PlexStreamErrorCode.AUTH_REQUIRED:
         case PlexStreamErrorCode.AUTH_EXPIRED:
         case PlexStreamErrorCode.AUTH_INVALID:
@@ -120,7 +122,7 @@ export function mapPlexStreamErrorCodeToAppErrorCode(
         case PlexStreamErrorCode.ITEM_NOT_FOUND:
         case PlexStreamErrorCode.SERVER_ERROR:
         case PlexStreamErrorCode.UNKNOWN:
-            return code;
+            return runtimeCode;
     }
 
     return AppErrorCode.UNKNOWN;
