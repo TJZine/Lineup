@@ -14,4 +14,12 @@ describe('plex stream error taxonomy exports', () => {
             mapPlexStreamErrorCodeToAppErrorCode(PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND)
         ).toBe(AppErrorCode.PLAYBACK_SOURCE_NOT_FOUND);
     });
+
+    it('falls back to UNKNOWN for unexpected runtime values', () => {
+        expect(
+            mapPlexStreamErrorCodeToAppErrorCode(
+                'NOT_A_REAL_STREAM_CODE' as unknown as typeof PlexStreamErrorCode[keyof typeof PlexStreamErrorCode]
+            )
+        ).toBe(AppErrorCode.UNKNOWN);
+    });
 });

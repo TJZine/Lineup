@@ -99,7 +99,7 @@ export const PlexStreamErrorCode = {
 export type PlexStreamErrorCode = typeof PlexStreamErrorCode[keyof typeof PlexStreamErrorCode];
 
 export function mapPlexStreamErrorCodeToAppErrorCode(
-    code: PlexStreamErrorCode
+    code: PlexStreamErrorCode | string
 ): AppErrorCode {
     if (code === PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND) {
         // Keep user-facing error mapping consistent while enabling more precise internal branching.
@@ -122,6 +122,8 @@ export function mapPlexStreamErrorCodeToAppErrorCode(
         case PlexStreamErrorCode.UNKNOWN:
             return code;
     }
+
+    return AppErrorCode.UNKNOWN;
 }
 
 // ============================================
