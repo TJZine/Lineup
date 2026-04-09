@@ -27,7 +27,9 @@ The skill layout and workflow in this repo are based on a small set of recurring
 - `.codex/config.toml` plus `.codex/agents/*.toml` are tracked Codex multi-agent role surfaces for this repo.
 - `.agent/skills/` is a generated local mirror for Antigravity and contains actual copies, not symlinks.
 - Global Codex skills that already exist for Codex should not be duplicated into `.codex/skills/`.
+- For Codex, global skills are resolved from `${CODEX_HOME:-$HOME/.codex}/skills/` first; the repo does not expect duplicate tracked copies under `.codex/skills/`.
 - The exact global mirror set is pinned in [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt); `scripts/sync_agent_skills.sh` reads that file directly.
+- A missing `.agent/skills/<skill>/` path means the Antigravity mirror is absent or stale in that checkout/worktree, not that the global skill is missing overall.
 - Repo-specific skills should stay local to this repo unless they become broadly reusable enough to justify promotion to a global skill home.
 - The broader document/control-plane structure is defined in [`docs/agentic/document-map.md`](./document-map.md).
 - Keep the repo-defined role set conservative: read-only evidence/review/docs/monitor roles plus a bounded `worker` role, with explicit fallback roles instead of assumed automatic failover.
@@ -50,7 +52,7 @@ These are the source-of-truth Lineup skills. They are authored in `.codex/skills
 - The exact mirrored set is pinned in [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt) for `superpowers` skills and resolved from `${CODEX_HOME:-$HOME/.codex}/skills/` for global skills.
 - Maintainers should update only `skill-mirror-allowlist.txt` when the pinned mirror set changes.
 
-These are mirrored into `.agent/skills/` because the repo workflow depends on them and the allowlist keeps the Antigravity surface reproducible.
+These are mirrored into `.agent/skills/` because the repo workflow depends on them and the allowlist keeps the Antigravity surface reproducible. The mirror is a convenience/materialization layer for Antigravity, not the canonical Codex source of a global skill.
 
 ## Tracked Vs Local
 
