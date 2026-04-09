@@ -38,6 +38,11 @@ import {
     buildPlexUrlFromKey,
     tryBuildPlexServerUrlFromKey,
 } from '../shared/plexUrl';
+import {
+    applyPlexSessionQueryParams,
+    buildPlexMetadataPath,
+    ensurePlexClientProfileName,
+} from './plexStreamUrlPolicy';
 
 // Re-export types for consumers
 export { PlexStreamErrorCode } from './types';
@@ -589,9 +594,10 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             typeof options.subtitleStreamId === 'string' &&
             options.subtitleStreamId.length > 0;
 
-        const metadataPath = itemKey.startsWith('/library/metadata/')
-            ? itemKey
-            : `/library/metadata/${itemKey}`;
+        const metadataPath = buildPlexMetadataPath(itemKey);
+        if (!metadataPath) {
+            throw new Error('Invalid item key for transcode URL');
+        }
 
         const compatMode = this._playbackSettingsStore.readTranscodeCompatEnabled(false);
         const quality = this._playbackSettingsStore.readTranscodeQualityOption();
@@ -638,8 +644,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         params.set('protocol', 'hls');
         params.set('offset', '0');
         // Bind the transcoder session key to our app sessionId so we can terminate it later
-        params.set('session', sessionId);
-        params.set('X-Plex-Session-Identifier', sessionId);
+        applyPlexSessionQueryParams(params, sessionId);
         if (typeof options.audioStreamId === 'string' && options.audioStreamId.length > 0) {
             params.set('audioStreamID', options.audioStreamId);
         }
@@ -712,13 +717,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
         // Optional: Force the server to use a specific built-in profile name/version (advanced).
         const forcedProfileName = this._config.debugOverridesStore.readTranscodeProfileName();
-        if (forcedProfileName) {
-            params.set('X-Plex-Client-Profile-Name', forcedProfileName);
-        } else {
-            // Default to 'HTML TV App' for better Direct Play support on webOS
-            // 'Generic' forces transcoding for almost everything.
-            params.set('X-Plex-Client-Profile-Name', 'HTML TV App');
-        }
+        ensurePlexClientProfileName(params, forcedProfileName);
 
         // Ensure minimum required ID params are present even if getAuthHeaders is mocked/minimal
         this._applyDefaultIdentityParams(params);

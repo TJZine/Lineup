@@ -56,7 +56,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - focused server-selection collaborators shared between app shell and orchestrator
 - `src/core/server-selection/ServerSelectionTypes.ts` owns `OrchestratorServerSelectionResult`
-- `src/core/server-selection/ServerSwapCoordinator.ts` owns the post-selection startup/EPG refresh workflow previously in `AppOrchestrator.selectServer()`
+- `src/core/server-selection/ServerSelectionCoordinator.ts` owns the app-shell-facing selected-server workflow previously assembled inline in `AppOrchestrator.selectServer()`, including discovery-result translation, persistence handoff, and post-selection runtime swap delegation
 
 ### `src/config/`
 

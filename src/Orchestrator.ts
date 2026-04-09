@@ -29,6 +29,7 @@ import {
 } from './modules/plex/auth';
 import {
     type IPlexServerDiscovery,
+    type PlexServerSelectionResult,
     type PlexServer,
 } from './modules/plex/discovery';
 import {
@@ -96,8 +97,12 @@ import {
     ProfileSwitchCleanupController,
     PlaybackRuntimeController,
 } from './core';
-import type { OrchestratorServerSelectionResult } from './core/server-selection/ServerSelectionTypes';
-import { ServerSwapCoordinator } from './core/server-selection/ServerSwapCoordinator';
+import type {
+    OrchestratorServerSelectionReadiness,
+    OrchestratorServerSelectionResult,
+    SelectedServerPersistenceResult,
+} from './core/server-selection/ServerSelectionTypes';
+import { ServerSelectionCoordinator } from './core/server-selection/ServerSelectionCoordinator';
 import type {
     ModuleStatus,
     OrchestratorConfig,
@@ -302,7 +307,7 @@ export class AppOrchestrator {
     private _epgDebugRuntime: IEpgDebugRuntime | null = null;
     private readonly _playbackStateAccessors: OrchestratorPlaybackStateAccessors;
     private readonly _channelSetupWorkflowPort: ChannelSetupWorkflowPort;
-    private readonly _serverSwapCoordinator: ServerSwapCoordinator;
+    private readonly _serverSelectionCoordinator: ServerSelectionCoordinator;
 
     private _throwModuleInitPreconditionError(
         message: string,
@@ -353,29 +358,34 @@ export class AppOrchestrator {
         this._channelSetupWorkflowPort = createChannelSetupWorkflowPort({
             getChannelSetupCoordinator: (): ChannelSetupCoordinator | null => this._channelSetup,
         });
-        this._serverSwapCoordinator = new ServerSwapCoordinator({
-            runStartupPhase3: async (): Promise<void> => {
-                await this._initCoordinator?.runStartup(3);
+        this._serverSelectionCoordinator = new ServerSelectionCoordinator({
+            selectServer: async (serverId: string): Promise<PlexServerSelectionResult> => {
+                if (!this._plexDiscovery) {
+                    throw new Error('PlexServerDiscovery not initialized');
+                }
+                return this._plexDiscovery.selectServer(serverId);
             },
-            clearSelectedChannelScheduleSnapshot: (): void => {
+            getSelectedServerUri: (): string | null => this._plexDiscovery?.getServerUri() ?? null,
+            persistSelection: async (
+                serverId: string,
+                serverUri: string | null
+            ): Promise<SelectedServerPersistenceResult> =>
+                this._persistSelectedServerForActiveUser(serverId, serverUri),
+            runPostSelectionRuntimeSwap: async (): Promise<void> => {
+                if (!this._initCoordinator) {
+                    return;
+                }
+                await this._initCoordinator.runStartup(3);
                 if (this._epg) {
                     this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
-                }
-            },
-            clearScheduleCaches: (): void => {
-                if (this._epg) {
                     this._epgCoordinator?.clearScheduleCaches();
                 }
-            },
-            clearSchedules: (): void => {
                 this._epg?.clearSchedules();
-            },
-            primeEpgChannels: (): void => {
                 this._epgCoordinator?.primeEpgChannels();
-            },
-            refreshEpgSchedules: async (): Promise<void> => {
                 await this._epgCoordinator?.refreshEpgSchedules({ reason: 'server-swap' });
             },
+            getReadiness: (): OrchestratorServerSelectionReadiness =>
+                (this._ready ? 'ready' : 'startup_pending'),
         });
         this._initializeModuleStatus();
     }
@@ -1272,30 +1282,7 @@ export class AppOrchestrator {
                 dependency: 'PlexServerDiscovery',
             });
         }
-        const selectionResult = await this._plexDiscovery.selectServer(serverId);
-        if (selectionResult.kind !== 'selected') {
-            return {
-                kind: 'selection_failed',
-                reason:
-                    selectionResult.kind === 'server_not_found'
-                        ? 'server_not_found'
-                        : selectionResult.reason,
-            };
-        }
-
-        const persistedSelection = await this._persistSelectedServerForActiveUser(
-            serverId,
-            this._plexDiscovery.getServerUri()
-        );
-        if (this._initCoordinator) {
-            await this._serverSwapCoordinator.runAfterServerSelection();
-        }
-
-        return {
-            kind: 'selected',
-            readiness: this._ready ? 'ready' : 'startup_pending',
-            persistedSelection,
-        };
+        return this._serverSelectionCoordinator.selectServer(serverId);
     }
 
     /**

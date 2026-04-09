@@ -2,6 +2,11 @@ import {
     applyXPlexQueryParamsFromHeaders,
     applyXPlexTokenQueryParam,
 } from '../shared/plexUrl';
+import {
+    applyPlexSessionQueryParams,
+    buildPlexMetadataPath,
+    ensurePlexClientProfileName,
+} from './plexStreamUrlPolicy';
 
 export interface PlexSubtitleFallbackContext {
     serverUri: string | null;
@@ -21,16 +26,6 @@ export interface PlexSubtitleFetchAttempt {
 function getAuthTokenFromHeaders(headers: Record<string, string>): string | null {
     const token = headers['X-Plex-Token'];
     return typeof token === 'string' && token.length > 0 ? token : null;
-}
-
-function normalizeMetadataItemKey(rawItemKey: string | undefined): string | null {
-    const normalizedItemKey = (rawItemKey ?? '')
-        .trim()
-        .replace(/^\/+/, '')
-        .replace(/^library\/metadata\/+/i, '')
-        .trim();
-
-    return normalizedItemKey.length > 0 ? normalizedItemKey : null;
 }
 
 export function buildPlexSubtitleFetchAttempts(
@@ -81,29 +76,23 @@ export function buildPlexSubtitleTranscodeUrl(
 ): URL | null {
     try {
         const baseUri = context.serverUri ?? null;
-        const normalizedItemKey = normalizeMetadataItemKey(context.itemKey);
-        if (!baseUri || !normalizedItemKey) {
+        const metadataPath = buildPlexMetadataPath(context.itemKey);
+        if (!baseUri || !metadataPath) {
             return null;
         }
 
         const url = new URL('/video/:/transcode/universal/subtitles', baseUri);
-        url.searchParams.set('path', `/library/metadata/${normalizedItemKey}`);
+        url.searchParams.set('path', metadataPath);
         url.searchParams.set('mediaIndex', String(context.mediaIndex ?? 0));
         url.searchParams.set('partIndex', String(context.partIndex ?? 0));
         url.searchParams.set('subtitleStreamID', trackId);
         url.searchParams.set('format', format);
         url.searchParams.set('download', '1');
 
-        if (context.sessionId) {
-            url.searchParams.set('X-Plex-Session-Identifier', context.sessionId);
-            url.searchParams.set('session', context.sessionId);
-        }
-
+        applyPlexSessionQueryParams(url.searchParams, context.sessionId);
         applyXPlexTokenQueryParam(url.searchParams, getAuthTokenFromHeaders(context.authHeaders));
         applyXPlexQueryParamsFromHeaders(url.searchParams, context.authHeaders);
-        if (!url.searchParams.has('X-Plex-Client-Profile-Name')) {
-            url.searchParams.set('X-Plex-Client-Profile-Name', 'HTML TV App');
-        }
+        ensurePlexClientProfileName(url.searchParams);
 
         return url;
     } catch {

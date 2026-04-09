@@ -1,5 +1,11 @@
 import type { PlexServerSelectionFailureReason } from '../../modules/plex/discovery';
 
+export type OrchestratorServerSelectionReadiness = 'ready' | 'startup_pending';
+export type SelectedServerPersistenceResult =
+    'updated'
+    | 'skipped_missing_credentials'
+    | 'skipped_corrupted_credentials';
+
 export type OrchestratorServerSelectionResult =
     | {
         kind: 'selection_failed';
@@ -7,6 +13,6 @@ export type OrchestratorServerSelectionResult =
     }
     | {
         kind: 'selected';
-        readiness: 'ready' | 'startup_pending';
-        persistedSelection: 'updated' | 'skipped_missing_credentials' | 'skipped_corrupted_credentials';
+        readiness: OrchestratorServerSelectionReadiness;
+        persistedSelection: SelectedServerPersistenceResult;
     };

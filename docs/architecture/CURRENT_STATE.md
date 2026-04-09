@@ -46,7 +46,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 ### `src/core/server-selection/`
 
 - focused server-selection collaborators shared between app shell and orchestrator
-- owns the app-shell-facing selected-server result contract plus the post-selection runtime swap workflow
+- owns the app-shell-facing selected-server workflow/result contract, including selected-server persistence handoff and post-selection runtime swap delegation
 
 ### `src/Orchestrator.ts`
 
