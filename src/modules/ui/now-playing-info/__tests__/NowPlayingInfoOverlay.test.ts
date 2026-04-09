@@ -259,6 +259,26 @@ describe('NowPlayingInfoOverlay', () => {
         expect(container.querySelector('.now-playing-info-progress-meta')?.textContent).toBe('Live');
     });
 
+    it('uses shared timecode formatting without centralizing live copy policy', () => {
+        overlay.show({
+            ...baseViewModel,
+            elapsedMs: 3_723_000,
+            durationMs: 4_000_000,
+        });
+
+        expect(container.querySelector('.now-playing-info-progress-meta')?.textContent).toBe('1:02:03 / 1:06:40');
+
+        overlay.show({
+            title: baseViewModel.title,
+            subtitle: baseViewModel.subtitle ?? 'PG-13 • 2h 10m',
+            description: baseViewModel.description ?? 'A test description of the movie.',
+            elapsedMs: baseViewModel.elapsedMs ?? 60_000,
+            posterUrl: baseViewModel.posterUrl ?? null,
+        });
+
+        expect(container.querySelector('.now-playing-info-progress-meta')?.textContent).toBe('Live');
+    });
+
     it('should auto-hide after configured timeout', () => {
         jest.useFakeTimers();
         overlay.show(baseViewModel);

@@ -13,7 +13,8 @@ import type { PlayerOsdReason, PlayerOsdViewModel } from './types';
 import type { PlaybackOptionsSectionId } from '../playback-options/types';
 import type { NowPlayingDisplayStore } from '../../settings/NowPlayingDisplayStore';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
-import { getChannelNameForDisplay } from '../channelDisplay';
+import { getChannelNameForDisplay } from '../common/channelDisplay';
+import { formatTimecode } from '../common/formatTimecode';
 
 const RECENT_USER_ACTION_MS = 2000;
 const OSD_THROTTLE_MS = 250;
@@ -540,17 +541,6 @@ function mapStatusLabel(status: PlayerStatus): PlayerOsdViewModel['statusLabel']
         default:
             return 'STOPPED';
     }
-}
-
-function formatTimecode(ms: number): string {
-    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    if (hours > 0) {
-        return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    }
-    return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
 function formatEndsAt(nowMs: number, remainingMs: number): string | null {
