@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { THEME_CLASSES } from '../../modules/ui/settings/theme';
+import { THEME_CLASSES } from '../../modules/ui/theme';
 
 const THEME_CLASS_NAMES = Object.values(THEME_CLASSES) as Array<(typeof THEME_CLASSES)[keyof typeof THEME_CLASSES]>;
 const REQUIRED_TOKENS = [

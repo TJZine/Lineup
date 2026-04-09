@@ -6,8 +6,7 @@
 
 import type { SettingsConfig } from './types';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
-import { DEFAULT_THEME } from './theme';
-export { THEME_CLASSES } from './theme';
+import { DEFAULT_THEME } from '../theme';
 
 /**
  * localStorage keys for persisting settings.
