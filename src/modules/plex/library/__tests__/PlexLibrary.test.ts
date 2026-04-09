@@ -422,6 +422,24 @@ describe('PlexLibrary', () => {
 
             expect(lib).toBeNull();
         });
+
+        it('throws typed error when section lookup is unavailable', async () => {
+            mockFetchJson({ error: 'Not found' }, 404);
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getLibrary('1')).rejects.toMatchObject({
+                code: PlexLibraryErrorCode.SERVER_ERROR,
+            });
+        });
+
+        it('throws typed error when section lookup payload is invalid', async () => {
+            mockFetchSequence([{ json: undefined as unknown }]);
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getLibrary('1')).rejects.toMatchObject({
+                code: PlexLibraryErrorCode.SERVER_ERROR,
+            });
+        });
     });
 
     describe('getLibraryItemCount', () => {

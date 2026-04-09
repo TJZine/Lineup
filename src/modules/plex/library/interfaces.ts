@@ -61,7 +61,7 @@ export interface IPlexLibrary {
     /**
      * Get a specific library by ID.
      * @param libraryId - Library section ID
-     * @returns Promise resolving to library or null if not found
+     * @returns Promise resolving to library or null when the id is not present in a valid section list
      */
     getLibrary(libraryId: string): Promise<PlexLibrary | null>;
 

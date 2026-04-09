@@ -53,6 +53,9 @@ Retrieving content metadata.
 ```typescript
 interface IPlexLibrary {
   getLibraries(): Promise<PlexLibrary[]>;
+  // Returns null only when the id is not present in a valid fetched section list.
+  // Unavailable/malformed section-list fetches throw PlexLibraryError.
+  getLibrary(libraryId: string): Promise<PlexLibrary | null>;
   getLibraryItems(libraryId: string, options?: LibraryQueryOptions): Promise<PlexMediaItem[]>;
   getItem(ratingKey: string): Promise<PlexMediaItem>;
   getImageUrl(imagePath: string, width?: number, height?: number): string;
@@ -101,9 +104,15 @@ interface IPlexServerDiscovery {
 ### Server Selection
 
 ```typescript
+type PlexServerSelectionResult =
+  | { kind: 'selected' }
+  | { kind: 'server_not_found' }
+  | { kind: 'connection_unavailable'; reason: 'unreachable' | 'auth_required' | 'auth_invalid' };
+
 interface IPlexServerDiscovery {
   // Select a server and find its best connection (persists to localStorage)
-  selectServer(serverId: string): Promise<boolean>;
+  // Returns explicit outcome for not-found vs connection/auth failures.
+  selectServer(serverId: string): Promise<PlexServerSelectionResult>;
   
   // Get the currently selected server
   getSelectedServer(): PlexServer | null;
