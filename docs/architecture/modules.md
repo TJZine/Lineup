@@ -226,7 +226,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 ### Shared UI
 
 - `src/modules/ui/common/`
-- shared shells, overlay primitives, and branding helpers
+- shared shells, overlay primitives, branding helpers, and cross-surface presentation helpers such as `appShellContainerIds.ts`, `channelDisplay.ts`, and `formatTimecode.ts`
 
 ### Screens and Overlays
 
@@ -249,6 +249,9 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/modules/ui/splash/`
 - `src/modules/ui/toast/`
 - `src/modules/ui/theme/`
+- `src/modules/ui/theme/` is the public owner of theme runtime behavior and theme metadata (`ThemeName`, `DEFAULT_THEME`, `THEME_CLASSES`, `THEME_OPTIONS`)
+- `src/modules/ui/settings/` consumes theme metadata from `src/modules/ui/theme/` and should not act as a second public owner for those definitions
+- `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/` remain the staged EPG package owners introduced by `P2-W4`
 
 ## Current Hotspot Reference
 
