@@ -726,13 +726,22 @@ These are the required repo-local boundary skills for the new wave. Load them be
 
 ### Work Units
 
-- [ ] `P5-W1` normalize library and server-selection contracts so boolean and null results mean one thing at each boundary
+- [x] `P5-W1` normalize library and server-selection contracts so boolean and null results mean one thing at each boundary
   - Imported review issues: `review::.::holistic::api_surface_coherence::server_selection_boolean_semantics_drift`, `review::.::holistic::contract_coherence::plex_library_null_conflates_not_found_and_invalid_response`
   - Primary files: `src/modules/plex/discovery/PlexServerDiscovery.ts`, `src/Orchestrator.ts`, `src/modules/ui/server-select/ServerSelectScreen.ts`, `src/modules/plex/library/PlexLibrary.ts`, `src/modules/plex/library/interfaces.ts`
-  - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
-  - Closeout note: planning and final verification for `P5-W1` must cover both the mapped `P5-W1` issues above and the inherited `review::.::holistic::error_consistency::orchestrator_precondition_strategy_drift` follow-up below before this work unit can be marked complete.
-  - Inherited follow-ups:
-    - Source `P1-EXIT` disposition `split follow-up`: `review::.::holistic::error_consistency::orchestrator_precondition_strategy_drift`; required verification commands: `desloppify show "review::.::holistic::error_consistency::orchestrator_precondition_strategy_drift" --status open --no-budget`; `npm run verify`
+  - Verification (2026-04-09):
+    - `desloppify show "review::.::holistic::api_surface_coherence::server_selection_boolean_semantics_drift" --status open --no-budget` -> `No open issues matching ...`
+    - `desloppify show "review::.::holistic::contract_coherence::plex_library_null_conflates_not_found_and_invalid_response" --status open --no-budget` -> `No open issues matching ...`
+    - `desloppify show "review::.::holistic::error_consistency::orchestrator_precondition_strategy_drift" --status open --no-budget` -> `No open issues matching ...`
+    - `npm test -- --runInBand src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts src/modules/ui/server-select/__tests__/ServerSelectScreen.test.ts src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts src/__tests__/Orchestrator.test.ts` -> pass
+    - `npm test -- --runInBand src/modules/plex/library/__tests__/PlexLibrary.test.ts` -> pass
+    - `npm test -- --runInBand src/__tests__/orchestrator/orchestrator-preconditions.test.ts src/__tests__/orchestrator/playback-flow.test.ts src/__tests__/Orchestrator.test.ts` -> pass
+    - `npm run verify` -> pass (`typecheck`, `lint`, `lint:css`, `test:all`, `verify:docs`, `build`)
+  - Mapped imported issues (2026-04-09 disposition record):
+    - `review::.::holistic::api_surface_coherence::server_selection_boolean_semantics_drift` -> `resolved`; owner: `P5-W1`; proof: `IPlexServerDiscovery.selectServer(...)` now returns explicit `PlexServerSelectionResult`, and app-level `AppOrchestrator.selectServer(...)` now returns explicit `OrchestratorServerSelectionResult` with truthful `readiness` + `persistedSelection` variants instead of overloaded booleans (`src/modules/plex/discovery/interfaces.ts`, `src/modules/plex/discovery/PlexServerDiscovery.ts`, `src/Orchestrator.ts`, `src/modules/ui/server-select/ServerSelectScreen.ts`).
+    - `review::.::holistic::contract_coherence::plex_library_null_conflates_not_found_and_invalid_response` -> `resolved`; owner: `P5-W1`; proof: `PlexLibrary` now uses a private section-lookup helper so public `getLibrary(...)` keeps `Promise<PlexLibrary | null>` with `null` only for `not_found`, while unavailable/invalid section-list fetches throw typed `PlexLibraryError` (`src/modules/plex/library/PlexLibrary.ts`, `src/modules/plex/library/interfaces.ts`, `src/modules/plex/library/__tests__/PlexLibrary.test.ts`).
+    - Inherited follow-up `review::.::holistic::error_consistency::orchestrator_precondition_strategy_drift` -> `resolved`; owner: `P5-W1`; proof: strict precondition throws remain explicit on setup/capability entrypoints (including `selectServer`) while runtime `switchToChannel*` methods are now explicitly documented + tested as intentional best-effort safe no-op commands before tuning readiness (`src/Orchestrator.ts`, `src/__tests__/orchestrator/orchestrator-preconditions.test.ts`, `src/__tests__/orchestrator/playback-flow.test.ts`).
+  - Source-proof closeout note: exact issue-id detector commands all report `No open issues matching`, but this item was closed on current-code source audit and targeted contract tests above rather than detector silence alone.
 - [ ] `P5-W2` slim auth-path dependencies and reduce recovery narration to intentional diagnostics only
   - Imported review issues: `review::.::holistic::dependency_health::qrcode_cli_transitives_for_browser_render`, `review::.::holistic::ai_generated_debt::playback_recovery_diagnostic_narration`
   - Primary files: `package.json`, `package-lock.json`, `src/modules/ui/auth/AuthScreen.ts`, `src/modules/player/PlaybackRecoveryManager.ts`
