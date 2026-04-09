@@ -17,164 +17,164 @@ type PickerNodes = {
 };
 
 export class EPGLibraryTabs {
-    private static _idCounter = 0;
-    private _el: HTMLElement | null = null;
-    private _gridElement: HTMLElement | null = null;
-    private _pill: HTMLButtonElement | null = null;
-    private _picker: PickerNodes | null = null;
-    private _libraries: LibraryOption[] = [];
-    private _selectedId: string | null = null;
-    private _focusedIndex = 0;
-    private _isPillFocused = false;
-    private readonly _panelId: string;
+    private static idCounter = 0;
+    private element: HTMLElement | null = null;
+    private gridElement: HTMLElement | null = null;
+    private pill: HTMLButtonElement | null = null;
+    private picker: PickerNodes | null = null;
+    private libraries: LibraryOption[] = [];
+    private selectedId: string | null = null;
+    private focusedIndex = 0;
+    private isPillFocused = false;
+    private readonly panelId: string;
 
-    constructor(private readonly _config: EPGLibraryTabsConfig) {
-        this._panelId = `epg-library-picker-panel-${EPGLibraryTabs._idCounter++}`;
+    constructor(private readonly config: EPGLibraryTabsConfig) {
+        this.panelId = `epg-library-picker-panel-${EPGLibraryTabs.idCounter++}`;
     }
 
     initialize(gridElement: HTMLElement): void {
-        if (this._el) return;
+        if (this.element) return;
         const el = document.createElement('div');
         el.className = 'epg-library-tabs';
         gridElement.appendChild(el);
-        this._el = el;
-        this._gridElement = gridElement;
+        this.element = el;
+        this.gridElement = gridElement;
     }
 
     isVisible(): boolean {
-        return Boolean(this._el && this._el.style.display !== 'none');
+        return Boolean(this.element && this.element.style.display !== 'none');
     }
 
     update(libraries: LibraryOption[], selectedId: string | null): void {
-        this._libraries = libraries;
-        this._selectedId = selectedId;
+        this.libraries = libraries;
+        this.selectedId = selectedId;
 
-        if (!this._el) return;
+        if (!this.element) return;
 
         if (libraries.length <= 1) {
-            this._el.style.display = 'none';
-            this._el.replaceChildren();
-            this._pill = null;
-            this._focusedIndex = 0;
-            this._isPillFocused = false;
+            this.element.style.display = 'none';
+            this.element.replaceChildren();
+            this.pill = null;
+            this.focusedIndex = 0;
+            this.isPillFocused = false;
             this.closePicker();
             return;
         }
 
-        this._el.style.display = '';
-        this._renderPill();
+        this.element.style.display = '';
+        this.renderPill();
         if (this.isPickerOpen()) {
-            this._renderPicker();
+            this.renderPicker();
         }
-        this._applyPillClasses();
+        this.applyPillClasses();
     }
 
     setFocusedToSelected(): void {
-        const allTabs = this._getOptionIds();
-        const index = allTabs.findIndex((id) => id === this._selectedId);
-        this._focusedIndex = index >= 0 ? index : 0; // 0 is "All"
-        this._isPillFocused = true;
-        this._applyPillClasses();
-        this._applyPickerClasses();
+        const allTabs = this.getOptionIds();
+        const index = allTabs.findIndex((id) => id === this.selectedId);
+        this.focusedIndex = index >= 0 ? index : 0; // 0 is "All"
+        this.isPillFocused = true;
+        this.applyPillClasses();
+        this.applyPickerClasses();
     }
 
     setPillFocused(focused: boolean): void {
-        this._isPillFocused = focused;
-        this._applyPillClasses();
+        this.isPillFocused = focused;
+        this.applyPillClasses();
     }
 
     moveFocus(delta: -1 | 1): void {
         if (!this.isPickerOpen()) return;
-        const count = this._getOptionIds().length;
+        const count = this.getOptionIds().length;
         if (count <= 0) return;
-        const next = Math.max(0, Math.min(this._focusedIndex + delta, count - 1));
-        this._focusedIndex = next;
-        this._applyPickerClasses();
-        const focusedItem = this._picker?.items[this._focusedIndex] ?? null;
+        const next = Math.max(0, Math.min(this.focusedIndex + delta, count - 1));
+        this.focusedIndex = next;
+        this.applyPickerClasses();
+        const focusedItem = this.picker?.items[this.focusedIndex] ?? null;
         if (focusedItem && typeof focusedItem.scrollIntoView === 'function') {
             focusedItem.scrollIntoView({ block: 'nearest' });
         }
     }
 
     getFocusedLibraryId(): string | null {
-        const ids = this._getOptionIds();
-        return ids[this._focusedIndex] ?? null;
+        const ids = this.getOptionIds();
+        return ids[this.focusedIndex] ?? null;
     }
 
     selectFocused(): void {
         if (!this.isPickerOpen()) {
-            this._openPicker();
+            this.openPicker();
             return;
         }
-        this._config.onSelect(this.getFocusedLibraryId());
+        this.config.onSelect(this.getFocusedLibraryId());
         this.closePicker();
     }
 
     closePicker(): void {
-        this._picker?.overlay.remove();
-        this._picker = null;
-        this._applyPillClasses();
+        this.picker?.overlay.remove();
+        this.picker = null;
+        this.applyPillClasses();
     }
 
     isPickerOpen(): boolean {
-        return Boolean(this._picker);
+        return Boolean(this.picker);
     }
 
     destroy(): void {
         this.closePicker();
-        this._el?.remove();
-        this._el = null;
-        this._gridElement = null;
-        this._pill = null;
-        this._libraries = [];
+        this.element?.remove();
+        this.element = null;
+        this.gridElement = null;
+        this.pill = null;
+        this.libraries = [];
     }
 
-    private _getOptionIds(): Array<string | null> {
-        return [null, ...this._libraries.map((l) => l.id)];
+    private getOptionIds(): Array<string | null> {
+        return [null, ...this.libraries.map((l) => l.id)];
     }
 
-    private _getOptionLabels(): string[] {
-        return ['All', ...this._libraries.map((l) => l.name)];
+    private getOptionLabels(): string[] {
+        return ['All', ...this.libraries.map((l) => l.name)];
     }
 
-    private _renderPill(): void {
-        if (!this._el) return;
-        if (!this._pill) {
+    private renderPill(): void {
+        if (!this.element) return;
+        if (!this.pill) {
             const b = document.createElement('button');
             b.className = 'epg-library-pill';
             b.type = 'button';
             b.setAttribute('aria-label', 'Library filter');
             b.setAttribute('aria-haspopup', 'listbox');
-            b.setAttribute('aria-controls', this._panelId);
+            b.setAttribute('aria-controls', this.panelId);
             b.addEventListener('click', () => this.selectFocused());
-            this._pill = b;
-            this._el.replaceChildren(b);
+            this.pill = b;
+            this.element.replaceChildren(b);
         }
 
-        const labels = this._getOptionLabels();
-        const ids = this._getOptionIds();
-        const selectedIndex = ids.findIndex((id) => id === this._selectedId);
+        const labels = this.getOptionLabels();
+        const ids = this.getOptionIds();
+        const selectedIndex = ids.findIndex((id) => id === this.selectedId);
         const label = labels[selectedIndex >= 0 ? selectedIndex : 0] ?? 'All';
-        this._pill.textContent = `Library: ${label}`;
+        this.pill.textContent = `Library: ${label}`;
     }
 
-    private _openPicker(): void {
-        this._focusedIndex = this._getFocusedIndexForOpen();
-        this._renderPicker();
-        this._applyPickerClasses();
-        this._applyPillClasses();
+    private openPicker(): void {
+        this.focusedIndex = this.getFocusedIndexForOpen();
+        this.renderPicker();
+        this.applyPickerClasses();
+        this.applyPillClasses();
     }
 
-    private _getFocusedIndexForOpen(): number {
-        const ids = this._getOptionIds();
-        const index = ids.findIndex((id) => id === this._selectedId);
+    private getFocusedIndexForOpen(): number {
+        const ids = this.getOptionIds();
+        const index = ids.findIndex((id) => id === this.selectedId);
         return index >= 0 ? index : 0;
     }
 
-    private _renderPicker(): void {
-        if (!this._gridElement) return;
+    private renderPicker(): void {
+        if (!this.gridElement) return;
 
-        if (!this._picker) {
+        if (!this.picker) {
             const overlay = document.createElement('div');
             overlay.className = 'epg-library-picker-overlay';
 
@@ -183,18 +183,18 @@ export class EPGLibraryTabs {
 
             const panel = document.createElement('div');
             panel.className = 'epg-library-picker-panel';
-            panel.id = this._panelId;
+            panel.id = this.panelId;
             panel.setAttribute('aria-label', 'Library filter options');
 
             overlay.appendChild(scrim);
             overlay.appendChild(panel);
-            this._gridElement.appendChild(overlay);
+            this.gridElement.appendChild(overlay);
 
-            this._picker = { overlay, panel, items: [] };
+            this.picker = { overlay, panel, items: [] };
         }
 
-        const labels = this._getOptionLabels();
-        const ids = this._getOptionIds();
+        const labels = this.getOptionLabels();
+        const ids = this.getOptionIds();
         const buttons = ids.map((id, i) => {
             const b = document.createElement('button');
             b.className = 'epg-library-picker-item';
@@ -202,32 +202,32 @@ export class EPGLibraryTabs {
             b.textContent = labels[i] ?? '';
             b.dataset.libraryId = id ?? '';
             b.addEventListener('click', () => {
-                this._focusedIndex = i;
-                this._applyPickerClasses();
+                this.focusedIndex = i;
+                this.applyPickerClasses();
                 this.selectFocused();
             });
             return b;
         });
 
-        this._picker.items = buttons;
-        this._picker.panel.replaceChildren(...buttons);
-        this._applyPickerClasses();
+        this.picker.items = buttons;
+        this.picker.panel.replaceChildren(...buttons);
+        this.applyPickerClasses();
     }
 
-    private _applyPillClasses(): void {
-        if (!this._pill) return;
-        this._pill.classList.toggle('focused', this._isPillFocused);
-        this._pill.setAttribute('aria-expanded', this.isPickerOpen() ? 'true' : 'false');
+    private applyPillClasses(): void {
+        if (!this.pill) return;
+        this.pill.classList.toggle('focused', this.isPillFocused);
+        this.pill.setAttribute('aria-expanded', this.isPickerOpen() ? 'true' : 'false');
     }
 
-    private _applyPickerClasses(): void {
-        if (!this._picker) return;
-        const ids = this._getOptionIds();
-        for (let i = 0; i < this._picker.items.length; i++) {
-            const b = this._picker.items[i]!;
+    private applyPickerClasses(): void {
+        if (!this.picker) return;
+        const ids = this.getOptionIds();
+        for (let i = 0; i < this.picker.items.length; i++) {
+            const b = this.picker.items[i]!;
             const id = ids[i] ?? null;
-            const selected = id === this._selectedId;
-            const focused = i === this._focusedIndex;
+            const selected = id === this.selectedId;
+            const focused = i === this.focusedIndex;
 
             b.classList.toggle('selected', selected);
             b.classList.toggle('focused', focused);

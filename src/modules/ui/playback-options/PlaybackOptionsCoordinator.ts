@@ -45,17 +45,17 @@ interface PlaybackOptionsCoordinatorDeps {
 }
 
 export class PlaybackOptionsCoordinator {
-    private readonly _subtitlePreferencesStore: SubtitlePreferencesStore;
+    private readonly subtitlePreferencesStore: SubtitlePreferencesStore;
     private pendingViewModel: PlaybackOptionsViewModel | null = null;
     private pendingFocusableIds: string[] = [];
     private pendingPreferredFocusId: string | null = null;
     private registeredFocusableIds: string[] = [];
     private preferredSection: PlaybackOptionsSectionId = 'subtitles';
     private readonly subtitleProbeCache: Map<string, 'supported' | 'unsupported'> = new Map();
-    private _subtitleSelectToken = 0;
+    private subtitleSelectToken = 0;
 
     constructor(private readonly deps: PlaybackOptionsCoordinatorDeps) {
-        this._subtitlePreferencesStore = deps.subtitlePreferencesStore ?? new SubtitlePreferencesStore();
+        this.subtitlePreferencesStore = deps.subtitlePreferencesStore ?? new SubtitlePreferencesStore();
     }
 
     prepareModal(
@@ -119,7 +119,7 @@ export class PlaybackOptionsCoordinator {
 
     private buildViewModel(): PlaybackOptionsViewModel {
         const player = this.deps.getVideoPlayer();
-        const subtitleMode = this._subtitlePreferencesStore.readSubtitleMode('full');
+        const subtitleMode = this.subtitlePreferencesStore.readSubtitleMode('full');
         const externalOnly = subtitleModeIsDirectOnly(subtitleMode);
         const allowBurnIn = subtitleModeAllowsBurnIn(subtitleMode);
         const subtitleTracks = player?.getAvailableSubtitles() ?? [];
@@ -282,7 +282,7 @@ export class PlaybackOptionsCoordinator {
     }
 
     private handleSubtitleSelect(trackId: string | null): void {
-        const token = ++this._subtitleSelectToken;
+        const token = ++this.subtitleSelectToken;
         void this.handleSubtitleSelectAsync(trackId, token);
     }
 
@@ -290,10 +290,10 @@ export class PlaybackOptionsCoordinator {
         const player = this.deps.getVideoPlayer();
         if (!player) return;
         if (trackId) {
-            const mode = this._subtitlePreferencesStore.readSubtitleMode('full');
+            const mode = this.subtitlePreferencesStore.readSubtitleMode('full');
             if (mode === 'off') {
                 // Selecting a subtitle should implicitly enable subtitle handling.
-                this._subtitlePreferencesStore.writeSubtitleMode('standard');
+                this.subtitlePreferencesStore.writeSubtitleMode('standard');
             }
         }
         const track = trackId
@@ -321,7 +321,7 @@ export class PlaybackOptionsCoordinator {
         token: number,
         player: IVideoPlayer
     ): Promise<boolean> {
-        const mode = this._subtitlePreferencesStore.readSubtitleMode('full');
+        const mode = this.subtitlePreferencesStore.readSubtitleMode('full');
         const allowBurnIn = subtitleModeAllowsBurnIn(mode);
         if (!allowBurnIn) {
             return true;
@@ -346,7 +346,7 @@ export class PlaybackOptionsCoordinator {
 
         const selectedItemKey = this.getCurrentProgramItemKey();
         const decision = await this.probeTextSubtitleExtractability(track);
-        if (token !== this._subtitleSelectToken) {
+        if (token !== this.subtitleSelectToken) {
             this.refreshIfOpen();
             return false;
         }
