@@ -1,6 +1,10 @@
 /**
  * @jest-environment jsdom
  */
+/**
+ * @fileoverview Unit tests for KeepAliveManager.
+ * @module modules/player/__tests__/KeepAliveManager.test
+ */
 
 import { KeepAliveManager } from '../KeepAliveManager';
 import { KEEP_ALIVE_INTERVAL_MS } from '../constants';
