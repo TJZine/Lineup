@@ -578,6 +578,28 @@ Hello`;
             await (manager as any)._triggerFallback(track, 'test', (manager as any)._loadToken);
             expect(fetchMock).not.toHaveBeenCalled();
         });
+
+        it('keeps abort-controller and blob-url cleanup inside SubtitleManager', () => {
+            const abort = jest.fn();
+            const controller = { abort } as unknown as AbortController;
+            const revokeSpy = jest.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+
+            const state = manager as unknown as {
+                _fallbackControllers: Map<string, AbortController>;
+                _blobUrls: Map<string, string>;
+            };
+            state._fallbackControllers.set('sub-1', controller);
+            state._blobUrls.set('sub-1', 'blob:subtitle-1');
+
+            manager.unloadTracks();
+
+            expect(abort).toHaveBeenCalledTimes(1);
+            expect(revokeSpy).toHaveBeenCalledWith('blob:subtitle-1');
+            expect(state._fallbackControllers.size).toBe(0);
+            expect(state._blobUrls.size).toBe(0);
+
+            revokeSpy.mockRestore();
+        });
     });
 
     // ========================================
