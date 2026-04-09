@@ -33,6 +33,13 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - owner for deferred app-shell screen loading/instances (`auth`, `profile-select`, `server-select`, `audio-setup`, `channel-setup`, `settings`)
 - owns deferred-screen inflight loading state, prefetch timers, and deferred-screen cleanup
+- consumes focused screen-specific ports from `AppLazyScreenPortFactory`; it no longer owns or accepts a broad multi-feature lazy-screen runtime facade
+
+### `src/core/app-shell/AppLazyScreenPortFactory.ts`
+
+- focused owner for lazy-screen port assembly at the app-shell boundary
+- builds screen-specific port contracts for deferred screens while delegating runtime operations to `AppOrchestrator`
+- keeps `src/App.ts` at composition wiring by replacing the previous inline lazy-screen runtime object-literal assembly
 
 ### `src/core/app-shell/AppScreenVisibilityCoordinator.ts`
 

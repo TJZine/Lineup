@@ -20,8 +20,8 @@ import type { PlaybackOptionsConfig } from './modules/ui/playback-options';
 import { createAppContainers, type AppContainerRefs } from './core/app-shell/AppContainerFactory';
 import {
     AppLazyScreenRegistry,
-    type AppLazyScreenRegistryRuntimeFacade,
 } from './core/app-shell/AppLazyScreenRegistry';
+import { AppLazyScreenPortFactory } from './core/app-shell/AppLazyScreenPortFactory';
 import { AppScreenVisibilityCoordinator } from './core/app-shell/AppScreenVisibilityCoordinator';
 import {
     AppBlockingErrorOverlayPresenter,
@@ -34,7 +34,6 @@ import { createDefaultPlexAuthConfig } from './modules/plex/auth';
 import { SplashScreen } from './modules/ui/splash';
 import { ThemeManager } from './modules/ui/theme';
 import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';
-import type { ChannelSetupScreenPorts } from './modules/ui/channel-setup/ChannelSetupScreenPorts';
 import type { ChannelSetupConfig } from './core/channel-setup/types';
 import { summarizeErrorForLog } from './utils/errors';
 
@@ -322,9 +321,12 @@ export class App {
         if (!this._orchestrator) {
             return;
         }
+        const lazyScreenPortFactory = new AppLazyScreenPortFactory({
+            getOrchestrator: (): AppOrchestrator | null => this._orchestrator,
+        });
         this._splashScreen = new SplashScreen(containerRefs.splashContainer);
         this._lazyScreenRegistry = new AppLazyScreenRegistry({
-            getRuntimeFacade: (): AppLazyScreenRegistryRuntimeFacade | null => this._getLazyScreenRuntimeFacade(),
+            portFactory: lazyScreenPortFactory,
             profileSessionStore: this._profileSessionStore,
             containers: {
                 authContainer: containerRefs.authContainer,
@@ -335,7 +337,7 @@ export class App {
                 settingsContainer: containerRefs.settingsContainer,
             },
             onAudioSetupComplete: (): void => {
-                this._getLazyScreenRuntimeFacade()?.getNavigation()?.replaceScreen('channel-setup');
+                lazyScreenPortFactory.getNavigation()?.replaceScreen('channel-setup');
             },
         });
         this._screenVisibilityCoordinator = new AppScreenVisibilityCoordinator({
@@ -372,43 +374,6 @@ export class App {
         if (current) {
             this._screenVisibilityCoordinator?.apply(current);
         }
-    }
-
-    private _getLazyScreenRuntimeFacade(): AppLazyScreenRegistryRuntimeFacade | null {
-        const orchestrator = this._orchestrator;
-        if (!orchestrator) {
-            return null;
-        }
-
-        return {
-            requestAuthPin: () => orchestrator.requestAuthPin(),
-            pollForPin: (pinId: number) => orchestrator.pollForPin(pinId),
-            cancelPin: (pinId: number) => orchestrator.cancelPin(pinId),
-            getHomeUsers: () => orchestrator.getHomeUsers(),
-            switchHomeUser: (userId: string, pin?: string) => orchestrator.switchHomeUser(userId, pin),
-            useMainAccountProfile: () => orchestrator.useMainAccountProfile(),
-            signOutPlex: () => orchestrator.signOutPlex(),
-            discoverServers: (forceRefresh?: boolean) => orchestrator.discoverServers(forceRefresh),
-            selectServer: (serverId: string) => orchestrator.selectServer(serverId),
-            clearSelectedServer: () => orchestrator.clearSelectedServer(),
-            getSelectedServerStorageKey: () => orchestrator.getSelectedServerStorageKey(),
-            getServerHealthStorageKey: () => orchestrator.getServerHealthStorageKey(),
-            getChannelSetupWorkflowPort: () => orchestrator.getChannelSetupWorkflowPort(),
-            createChannelSetupScreenPorts: (): ChannelSetupScreenPorts => ({
-                getNavigation: () => orchestrator.getNavigation(),
-                getSelectedServerStorageKey: () => orchestrator.getSelectedServerStorageKey(),
-                getServerHealthStorageKey: () => orchestrator.getServerHealthStorageKey(),
-                getSelectedServerId: () => orchestrator.getSelectedServerId(),
-                openServerSelect: () => orchestrator.openServerSelect(),
-                switchToChannelByNumber: (number, options) => orchestrator.switchToChannelByNumber(number, options),
-                openEPG: () => orchestrator.openEPG(),
-            }),
-            requestChannelSetupRerun: () => orchestrator.requestChannelSetupRerun(),
-            setSubtitleTrack: (trackId: string | null) => orchestrator.setSubtitleTrack(trackId),
-            onGuideSettingChange: (change) => orchestrator.onGuideSettingChange(change),
-            getActiveUsername: () => orchestrator.getActiveUsername(),
-            getNavigation: () => orchestrator.getNavigation(),
-        };
     }
 
     /**
