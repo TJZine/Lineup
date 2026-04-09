@@ -2,9 +2,9 @@ import type { SubtitleTrack } from './types';
 import { looksLikeHtml, normalizeSubtitleToVtt } from './subtitleConversion';
 import { fetchWithTimeout } from '../plex/shared/fetchWithTimeout';
 import {
-    applyXPlexQueryParamsFromHeaders,
-    applyXPlexTokenQueryParam,
-} from '../plex/shared/plexUrl';
+    buildPlexSubtitleFetchAttempts,
+    buildPlexSubtitleTranscodeUrl,
+} from '../plex/stream/plexSubtitleFallbackPolicy';
 import { redactSensitiveTokens } from '../../utils/redact';
 
 export interface SubtitleFallbackPipelineContext {
@@ -44,39 +44,8 @@ export async function fetchSubtitleFallbackVtt({
     let lastAttempt = 'init';
     let lastAttemptUrl = initialUrl.toString();
 
-    const tokenFromHeaders = getAuthTokenFromHeaders(context.authHeaders);
     const baseAcceptHeader = { Accept: 'text/vtt, text/plain, */*' };
-    const attempts: Array<{
-        name: 'query' | 'header' | 'query_download' | 'header_download';
-        url: URL;
-        headers: Record<string, string>;
-    }> = [{ name: 'query', url: initialUrl, headers: baseAcceptHeader }];
-
-    if (tokenFromHeaders) {
-        const headerUrl = new URL(initialUrl.toString());
-        headerUrl.searchParams.delete('X-Plex-Token');
-        attempts.push({
-            name: 'header',
-            url: headerUrl,
-            headers: { ...baseAcceptHeader, 'X-Plex-Token': tokenFromHeaders },
-        });
-
-        const queryDownloadUrl = new URL(initialUrl.toString());
-        if (!queryDownloadUrl.searchParams.has('download')) {
-            queryDownloadUrl.searchParams.set('download', '1');
-        }
-        attempts.push({ name: 'query_download', url: queryDownloadUrl, headers: baseAcceptHeader });
-
-        const headerDownloadUrl = new URL(headerUrl.toString());
-        if (!headerDownloadUrl.searchParams.has('download')) {
-            headerDownloadUrl.searchParams.set('download', '1');
-        }
-        attempts.push({
-            name: 'header_download',
-            url: headerDownloadUrl,
-            headers: { ...baseAcceptHeader, 'X-Plex-Token': tokenFromHeaders },
-        });
-    }
+    const attempts = buildPlexSubtitleFetchAttempts(initialUrl, context.authHeaders);
 
     let raw: string | null = null;
     for (const attempt of attempts) {
@@ -97,40 +66,36 @@ export async function fetchSubtitleFallbackVtt({
     }
 
     if (!raw) {
-        const paths = getSubtitleTranscodePaths(context);
         const formats: Array<'srt' | 'vtt'> = ['srt', 'vtt'];
-        for (const path of paths) {
-            for (const format of formats) {
-                const transcodeUrl = buildSubtitleTranscodeUrl(track, tokenFromHeaders, context, path, format);
-                if (!transcodeUrl) continue;
-                lastAttempt = `universal_subtitles_${format}`;
-                lastAttemptUrl = transcodeUrl.toString();
-                try {
-                    raw = await fetchSubtitleTextWithFallbacks({
-                        url: transcodeUrl,
-                        headers: baseAcceptHeader,
-                        signal,
-                        trackId: track.id,
-                        isCurrentLoad,
-                        deriveLanHttpUrl,
-                        logDebug,
-                        createXhr,
-                    });
-                    if (raw) {
-                        break;
-                    }
-                } catch (error) {
-                    if (!isCurrentLoad()) return null;
-                    const message = error instanceof Error ? error.message : String(error);
-                    logDebug('subtitle_fetch_error', () => ({
-                        id: track.id,
-                        error: message,
-                        attempt: 'subtitle_text_fetch_exception',
-                        url: redactSensitiveTokens(transcodeUrl.toString()),
-                    }));
+        for (const format of formats) {
+            const transcodeUrl = buildPlexSubtitleTranscodeUrl(track.id, context, format);
+            if (!transcodeUrl) continue;
+            lastAttempt = `universal_subtitles_${format}`;
+            lastAttemptUrl = transcodeUrl.toString();
+            try {
+                raw = await fetchSubtitleTextWithFallbacks({
+                    url: transcodeUrl,
+                    headers: baseAcceptHeader,
+                    signal,
+                    trackId: track.id,
+                    isCurrentLoad,
+                    deriveLanHttpUrl,
+                    logDebug,
+                    createXhr,
+                });
+                if (raw) {
+                    break;
                 }
+            } catch (error) {
+                if (!isCurrentLoad()) return null;
+                const message = error instanceof Error ? error.message : String(error);
+                logDebug('subtitle_fetch_error', () => ({
+                    id: track.id,
+                    error: message,
+                    attempt: 'subtitle_text_fetch_exception',
+                    url: redactSensitiveTokens(transcodeUrl.toString()),
+                }));
             }
-            if (raw) break;
         }
     }
 
@@ -372,51 +337,4 @@ function xhrGetText({
             finish(null);
         }
     });
-}
-
-function buildSubtitleTranscodeUrl(
-    track: SubtitleTrack,
-    token: string | null,
-    context: SubtitleFallbackPipelineContext,
-    path: string,
-    format: 'srt' | 'vtt'
-): URL | null {
-    try {
-        const baseUri = context.serverUri ?? null;
-        if (!baseUri || !path) return null;
-
-        const url = new URL('/video/:/transcode/universal/subtitles', baseUri);
-        url.searchParams.set('path', path);
-        url.searchParams.set('mediaIndex', String(context.mediaIndex ?? 0));
-        url.searchParams.set('partIndex', String(context.partIndex ?? 0));
-        url.searchParams.set('subtitleStreamID', track.id);
-        url.searchParams.set('format', format);
-        url.searchParams.set('download', '1');
-
-        if (context.sessionId) {
-            url.searchParams.set('X-Plex-Session-Identifier', context.sessionId);
-            url.searchParams.set('session', context.sessionId);
-        }
-
-        applyXPlexTokenQueryParam(url.searchParams, token);
-        applyXPlexQueryParamsFromHeaders(url.searchParams, context.authHeaders);
-        if (!url.searchParams.has('X-Plex-Client-Profile-Name')) {
-            url.searchParams.set('X-Plex-Client-Profile-Name', 'HTML TV App');
-        }
-
-        return url;
-    } catch {
-        return null;
-    }
-}
-
-function getSubtitleTranscodePaths(context: SubtitleFallbackPipelineContext): string[] {
-    const itemKey = context.itemKey ?? null;
-    if (!itemKey) return [];
-    return [`/library/metadata/${itemKey}`];
-}
-
-function getAuthTokenFromHeaders(headers: Record<string, string>): string | null {
-    const token = headers['X-Plex-Token'];
-    return typeof token === 'string' && token.length > 0 ? token : null;
 }

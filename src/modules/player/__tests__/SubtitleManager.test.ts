@@ -463,6 +463,48 @@ Hello`,
             expect(u.searchParams.get('X-Plex-Session-Identifier')).toBe('sess-1');
         });
 
+        it('normalizes itemKey when the subtitle transcode fallback receives a metadata path', async () => {
+            const track = createMockSubtitleTrack({
+                id: 'srt-1',
+                codec: 'srt',
+                format: 'srt',
+                key: '/library/streams/1',
+                fetchableViaKey: true,
+            });
+
+            manager.loadTracks([track], {
+                serverUri: 'http://example.com',
+                authHeaders: {
+                    'X-Plex-Token': 'token',
+                    'X-Plex-Client-Identifier': 'client-1',
+                },
+                itemKey: '/library/metadata/999',
+                sessionId: 'sess-1',
+            });
+
+            const fetchMock = globalThis.fetch as unknown as jest.Mock;
+            fetchMock
+                .mockResolvedValueOnce({ ok: false, status: 501 })
+                .mockResolvedValueOnce({ ok: false, status: 501 })
+                .mockResolvedValueOnce({ ok: false, status: 501 })
+                .mockResolvedValueOnce({ ok: false, status: 501 })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    text: async () => `1
+00:00:00,000 --> 00:00:01,000
+Hello`,
+                });
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const blobUrl = await (manager as any)._fetchFallbackBlobUrl(track, (manager as any)._loadToken);
+            expect(blobUrl).toBe('blob:mock');
+
+            const [transcodeUrl] = fetchMock.mock.calls[4] ?? [];
+            const u = new URL(String(transcodeUrl));
+            expect(u.searchParams.get('path')).toBe('/library/metadata/999');
+        });
+
         it('should fall back to XHR when fetch fails for subtitle transcode endpoint', async () => {
             const track = createMockSubtitleTrack({
                 id: 'srt-1',
