@@ -109,6 +109,27 @@ describe('AppLazyScreenPortFactory', () => {
         expect(orchestrator.switchToChannelByNumber).toHaveBeenCalledWith(12, undefined);
     });
 
+    it('looks up channel-setup navigation from the current orchestrator at call time', (): void => {
+        const firstNavigation = { replaceScreen: jest.fn() };
+        const secondNavigation = { replaceScreen: jest.fn() };
+        const firstOrchestrator = makeOrchestrator();
+        const secondOrchestrator = makeOrchestrator();
+        firstOrchestrator.getNavigation.mockReturnValue(firstNavigation);
+        secondOrchestrator.getNavigation.mockReturnValue(secondNavigation);
+
+        let currentOrchestrator: MockRuntimeOrchestrator = firstOrchestrator;
+        const factory = new AppLazyScreenPortFactory({
+            getOrchestrator: (): MockRuntimeOrchestrator => currentOrchestrator,
+        });
+
+        const channelSetupInput = factory.createChannelSetupScreenInput();
+        expect(channelSetupInput?.screenPorts.getNavigation()).toBe(firstNavigation);
+
+        currentOrchestrator = secondOrchestrator;
+
+        expect(channelSetupInput?.screenPorts.getNavigation()).toBe(secondNavigation);
+    });
+
     it('creates settings runtime ports for subtitle reset and guide-setting updates', async (): Promise<void> => {
         const orchestrator = makeOrchestrator();
         const factory = new AppLazyScreenPortFactory({

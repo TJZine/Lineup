@@ -162,4 +162,21 @@ describe('createAppContainers', () => {
         expect(root.contains(wrongTag)).toBe(false);
         expect(refs.errorOverlay).toBe(overlay);
     });
+
+    it('preserves an existing matching div when a wrong-tag collision appears first', () => {
+        const root = document.getElementById('app') as HTMLElement;
+        const wrongTag = document.createElement('section');
+        wrongTag.id = APP_SHELL_CONTAINER_IDS.TOAST;
+        const validDiv = document.createElement('div');
+        validDiv.id = APP_SHELL_CONTAINER_IDS.TOAST;
+        root.append(wrongTag, validDiv);
+
+        const refs = createAppContainers(root);
+        const toastMatches = root.querySelectorAll(`#${APP_SHELL_CONTAINER_IDS.TOAST}`);
+
+        expect(toastMatches).toHaveLength(1);
+        expect(toastMatches[0]).toBe(validDiv);
+        expect(root.contains(wrongTag)).toBe(false);
+        expect(refs.toastContainer).toBe(validDiv);
+    });
 });

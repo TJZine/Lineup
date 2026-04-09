@@ -115,7 +115,7 @@ export class AppLazyScreenPortFactory {
         return {
             workflowPort: orchestrator.getChannelSetupWorkflowPort(),
             screenPorts: {
-                getNavigation: () => orchestrator.getNavigation(),
+                getNavigation: () => this.getNavigation(),
                 getSelectedServerStorageKey: () => orchestrator.getSelectedServerStorageKey(),
                 getServerHealthStorageKey: () => orchestrator.getServerHealthStorageKey(),
                 getSelectedServerId: () => orchestrator.getSelectedServerId(),

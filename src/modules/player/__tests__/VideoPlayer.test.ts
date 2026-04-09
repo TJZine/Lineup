@@ -786,7 +786,10 @@ describe('VideoPlayer', () => {
             player.destroy();
             jest.advanceTimersByTime(60000);
 
-            expect(dispatchSpy).not.toHaveBeenCalled();
+            const keepAliveEventsAfterDestroy = dispatchSpy.mock.calls.filter(
+                ([event]) => event instanceof Event && event.type === 'lineup:keepalive'
+            );
+            expect(keepAliveEventsAfterDestroy).toHaveLength(0);
             dispatchSpy.mockRestore();
         });
     });

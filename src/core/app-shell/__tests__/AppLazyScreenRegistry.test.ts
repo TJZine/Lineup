@@ -174,6 +174,58 @@ describe('AppLazyScreenRegistry', () => {
         await expect(registry.ensureSettingsScreen()).resolves.toBeNull();
     });
 
+    it('returns null without constructing deferred screens when screen-specific ports are unavailable', async () => {
+        const AuthScreen = jest.fn();
+        const ProfileSelectScreen = jest.fn();
+        const ServerSelectScreen = jest.fn();
+        const ChannelSetupScreen = jest.fn();
+        const SettingsScreen = jest.fn();
+        const loadAuthScreen = jest.fn().mockResolvedValue({ AuthScreen });
+        const loadProfileSelectScreen = jest.fn().mockResolvedValue({ ProfileSelectScreen });
+        const loadServerSelectScreen = jest.fn().mockResolvedValue({ ServerSelectScreen });
+        const loadChannelSetupScreen = jest.fn().mockResolvedValue({ ChannelSetupScreen });
+        const loadSettingsScreen = jest.fn().mockResolvedValue({ SettingsScreen });
+        const loadSettingsStore = jest.fn().mockResolvedValue({ SettingsStore });
+
+        const registry = new AppLazyScreenRegistry({
+            portFactory: makeMissingPortFactory() as AppLazyScreenPortFactory,
+            profileSessionStore: new ProfileSessionStore(),
+            containers: {
+                authContainer: document.createElement('div'),
+                profileSelectContainer: document.createElement('div'),
+                serverSelectContainer: document.createElement('div'),
+                channelSetupContainer: document.createElement('div'),
+                settingsContainer: document.createElement('div'),
+            },
+            loaders: {
+                loadAuthScreen,
+                loadProfileSelectScreen,
+                loadServerSelectScreen,
+                loadChannelSetupScreen,
+                loadSettingsScreen,
+                loadSettingsStore,
+            },
+        });
+
+        await expect(registry.ensureAuthScreen()).resolves.toBeNull();
+        await expect(registry.ensureProfileSelectScreen()).resolves.toBeNull();
+        await expect(registry.ensureServerSelectScreen()).resolves.toBeNull();
+        await expect(registry.ensureChannelSetupScreen()).resolves.toBeNull();
+        await expect(registry.ensureSettingsScreen()).resolves.toBeNull();
+
+        expect(loadAuthScreen).toHaveBeenCalledTimes(1);
+        expect(loadProfileSelectScreen).toHaveBeenCalledTimes(1);
+        expect(loadServerSelectScreen).toHaveBeenCalledTimes(1);
+        expect(loadChannelSetupScreen).toHaveBeenCalledTimes(1);
+        expect(loadSettingsScreen).toHaveBeenCalledTimes(1);
+        expect(loadSettingsStore).toHaveBeenCalledTimes(1);
+        expect(AuthScreen).not.toHaveBeenCalled();
+        expect(ProfileSelectScreen).not.toHaveBeenCalled();
+        expect(ServerSelectScreen).not.toHaveBeenCalled();
+        expect(ChannelSetupScreen).not.toHaveBeenCalled();
+        expect(SettingsScreen).not.toHaveBeenCalled();
+    });
+
     it('dedupes concurrent auth/profile/server screen loads and caches instances', async () => {
         const authScreen = makeScreen();
         const profileSelectScreen = makeScreen();

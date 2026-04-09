@@ -63,6 +63,7 @@ export class EPGLibraryTabs {
 
         this.element.style.display = '';
         this.renderPill();
+        this.clampFocusedIndex();
         if (this.isPickerOpen()) {
             this.renderPicker();
         }
@@ -97,6 +98,7 @@ export class EPGLibraryTabs {
     }
 
     getFocusedLibraryId(): string | null {
+        this.clampFocusedIndex();
         const ids = this.getOptionIds();
         return ids[this.focusedIndex] ?? null;
     }
@@ -171,6 +173,11 @@ export class EPGLibraryTabs {
         return index >= 0 ? index : 0;
     }
 
+    private clampFocusedIndex(): void {
+        const count = this.getOptionIds().length;
+        this.focusedIndex = count <= 0 ? 0 : Math.max(0, Math.min(this.focusedIndex, count - 1));
+    }
+
     private renderPicker(): void {
         if (!this.gridElement) return;
 
@@ -195,6 +202,7 @@ export class EPGLibraryTabs {
 
         const labels = this.getOptionLabels();
         const ids = this.getOptionIds();
+        this.clampFocusedIndex();
         const buttons = ids.map((id, i) => {
             const b = document.createElement('button');
             b.className = 'epg-library-picker-item';
@@ -223,6 +231,7 @@ export class EPGLibraryTabs {
     private applyPickerClasses(): void {
         if (!this.picker) return;
         const ids = this.getOptionIds();
+        this.clampFocusedIndex();
         for (let i = 0; i < this.picker.items.length; i++) {
             const b = this.picker.items[i]!;
             const id = ids[i] ?? null;

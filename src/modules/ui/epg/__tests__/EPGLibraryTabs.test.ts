@@ -86,4 +86,36 @@ describe('EPGLibraryTabs', () => {
         expect(gridElement.querySelector('.epg-library-pill')).toBeNull();
         expect(gridElement.querySelector('.epg-library-picker-overlay')).toBeNull();
     });
+
+    it('clamps picker focus when the option list shrinks while open', () => {
+        tabs.update(
+            [
+                { id: 'lib-1', name: 'Movies' },
+                { id: 'lib-2', name: 'Shows' },
+                { id: 'lib-3', name: 'Sports' },
+            ],
+            'lib-1'
+        );
+
+        tabs.selectFocused();
+        tabs.moveFocus(1);
+        tabs.moveFocus(1);
+        tabs.moveFocus(1);
+
+        tabs.update(
+            [
+                { id: 'lib-1', name: 'Movies' },
+                { id: 'lib-2', name: 'Shows' },
+            ],
+            'lib-1'
+        );
+
+        const focusedItem = gridElement.querySelector('.epg-library-picker-item.focused') as HTMLButtonElement | null;
+        expect(focusedItem?.dataset.libraryId).toBe('lib-2');
+
+        tabs.selectFocused();
+
+        expect(onSelect).toHaveBeenCalledWith('lib-2');
+        expect(tabs.isPickerOpen()).toBe(false);
+    });
 });

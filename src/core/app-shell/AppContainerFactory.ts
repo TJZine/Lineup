@@ -22,16 +22,19 @@ export interface AppContainerRefs {
 
 function ensureUniqueContainerDiv(root: HTMLElement, id: string): HTMLDivElement {
     const matches = Array.from(root.querySelectorAll<HTMLElement>(`#${id}`));
-    const first = matches[0] ?? null;
-    for (const extra of matches.slice(1)) {
-        extra.remove();
+    const firstDiv = matches.find((match) => match.tagName.toLowerCase() === 'div') ?? null;
+
+    if (firstDiv) {
+        for (const match of matches) {
+            if (match !== firstDiv) {
+                match.remove();
+            }
+        }
+        return firstDiv as HTMLDivElement;
     }
 
-    if (first) {
-        if (first.tagName.toLowerCase() === 'div') {
-            return first as HTMLDivElement;
-        }
-        first.remove();
+    for (const match of matches) {
+        match.remove();
     }
 
     const el = document.createElement('div');
