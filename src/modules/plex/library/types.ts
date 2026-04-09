@@ -157,49 +157,26 @@ export interface SearchOptions {
 /**
  * Unified error codes
  */
-export enum PlexLibraryErrorCode {
-    AUTH_REQUIRED = 'AUTH_REQUIRED',
-    AUTH_EXPIRED = 'AUTH_EXPIRED',
-    AUTH_INVALID = 'AUTH_INVALID',
-    ACCESS_DENIED = 'ACCESS_DENIED',
-    NETWORK_TIMEOUT = 'NETWORK_TIMEOUT',
-    SERVER_UNREACHABLE = 'SERVER_UNREACHABLE',
-    SERVER_ERROR = 'SERVER_ERROR',
-    ITEM_NOT_FOUND = 'ITEM_NOT_FOUND',
-    RATE_LIMITED = 'RATE_LIMITED',
-    PARSE_ERROR = 'PARSE_ERROR',
-    PAGINATION_LIMIT_EXCEEDED = 'PAGINATION_LIMIT_EXCEEDED',
-}
+export const PlexLibraryErrorCode = {
+    AUTH_REQUIRED: AppErrorCode.AUTH_REQUIRED,
+    AUTH_EXPIRED: AppErrorCode.AUTH_EXPIRED,
+    AUTH_INVALID: AppErrorCode.AUTH_INVALID,
+    ACCESS_DENIED: AppErrorCode.ACCESS_DENIED,
+    NETWORK_TIMEOUT: AppErrorCode.NETWORK_TIMEOUT,
+    SERVER_UNREACHABLE: AppErrorCode.SERVER_UNREACHABLE,
+    SERVER_ERROR: AppErrorCode.SERVER_ERROR,
+    ITEM_NOT_FOUND: AppErrorCode.ITEM_NOT_FOUND,
+    RATE_LIMITED: AppErrorCode.RATE_LIMITED,
+    PARSE_ERROR: AppErrorCode.PARSE_ERROR,
+    PAGINATION_LIMIT_EXCEEDED: AppErrorCode.PAGINATION_LIMIT_EXCEEDED,
+} as const;
+
+export type PlexLibraryErrorCode = typeof PlexLibraryErrorCode[keyof typeof PlexLibraryErrorCode];
 
 export function mapPlexLibraryErrorCodeToAppErrorCode(
     code: PlexLibraryErrorCode
 ): AppErrorCode {
-    switch (code) {
-        case PlexLibraryErrorCode.AUTH_REQUIRED:
-            return AppErrorCode.AUTH_REQUIRED;
-        case PlexLibraryErrorCode.AUTH_EXPIRED:
-            return AppErrorCode.AUTH_EXPIRED;
-        case PlexLibraryErrorCode.AUTH_INVALID:
-            return AppErrorCode.AUTH_INVALID;
-        case PlexLibraryErrorCode.ACCESS_DENIED:
-            return AppErrorCode.ACCESS_DENIED;
-        case PlexLibraryErrorCode.NETWORK_TIMEOUT:
-            return AppErrorCode.NETWORK_TIMEOUT;
-        case PlexLibraryErrorCode.SERVER_UNREACHABLE:
-            return AppErrorCode.SERVER_UNREACHABLE;
-        case PlexLibraryErrorCode.SERVER_ERROR:
-            return AppErrorCode.SERVER_ERROR;
-        case PlexLibraryErrorCode.ITEM_NOT_FOUND:
-            return AppErrorCode.ITEM_NOT_FOUND;
-        case PlexLibraryErrorCode.RATE_LIMITED:
-            return AppErrorCode.RATE_LIMITED;
-        case PlexLibraryErrorCode.PARSE_ERROR:
-            return AppErrorCode.PARSE_ERROR;
-        case PlexLibraryErrorCode.PAGINATION_LIMIT_EXCEEDED:
-            return AppErrorCode.PAGINATION_LIMIT_EXCEEDED;
-        default:
-            return AppErrorCode.UNKNOWN;
-    }
+    return code;
 }
 
 // ============================================

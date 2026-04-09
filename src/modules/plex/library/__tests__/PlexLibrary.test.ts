@@ -1,3 +1,4 @@
+import { AppErrorCode } from '../../../../types/app-errors';
 import { PlexLibrary, PlexLibraryError, PlexLibraryErrorCode } from '../PlexLibrary';
 import type { PlexLibraryConfig, PlexTagDirectoryQueryOptions } from '../interfaces';
 import { mockLocalStorage, installMockLocalStorage } from '../../../../__tests__/mocks/localStorage';
@@ -1091,6 +1092,20 @@ describe('PlexLibrary', () => {
             await expect(request).rejects.toMatchObject({
                 code: PlexLibraryErrorCode.AUTH_EXPIRED,
             });
+        });
+
+        it('surfaces thrown PlexLibraryError codes through the canonical subset export shape', async () => {
+            mockFetchJson({ error: 'Unauthorized' }, 401);
+            const library = new PlexLibrary(mockConfig);
+
+            try {
+                await library.getLibraries();
+                throw new Error('Expected getLibraries() to throw');
+            } catch (error) {
+                expect(error).toBeInstanceOf(PlexLibraryError);
+                expect((error as PlexLibraryError).code).toBe(PlexLibraryErrorCode.AUTH_EXPIRED);
+                expect((error as PlexLibraryError).code).toBe(AppErrorCode.AUTH_EXPIRED);
+            }
         });
 
         it('should throw SERVER_ERROR on 500', async () => {

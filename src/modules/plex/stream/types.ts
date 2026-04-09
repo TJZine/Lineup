@@ -78,59 +78,49 @@ export interface PlexMediaItem {
 /**
  * Unified error codes
  */
-export enum PlexStreamErrorCode {
-    AUTH_REQUIRED = 'AUTH_REQUIRED',
-    AUTH_EXPIRED = 'AUTH_EXPIRED',
-    AUTH_INVALID = 'AUTH_INVALID',
-    NETWORK_TIMEOUT = 'NETWORK_TIMEOUT',
-    NETWORK_OFFLINE = 'NETWORK_OFFLINE',
-    SERVER_UNREACHABLE = 'SERVER_UNREACHABLE',
-    MIXED_CONTENT_BLOCKED = 'MIXED_CONTENT_BLOCKED',
-    PLAYBACK_SOURCE_NOT_FOUND = 'PLAYBACK_SOURCE_NOT_FOUND',
-    SUBTITLE_STREAM_NOT_FOUND = 'SUBTITLE_STREAM_NOT_FOUND',
-    PLAYBACK_FORMAT_UNSUPPORTED = 'PLAYBACK_FORMAT_UNSUPPORTED',
-    TRANSCODE_FAILED = 'TRANSCODE_FAILED',
-    PARSE_ERROR = 'PARSE_ERROR',
-    ITEM_NOT_FOUND = 'ITEM_NOT_FOUND',
-    SERVER_ERROR = 'SERVER_ERROR',
-    UNKNOWN = 'UNKNOWN',
-}
+export const PlexStreamErrorCode = {
+    AUTH_REQUIRED: AppErrorCode.AUTH_REQUIRED,
+    AUTH_EXPIRED: AppErrorCode.AUTH_EXPIRED,
+    AUTH_INVALID: AppErrorCode.AUTH_INVALID,
+    NETWORK_TIMEOUT: AppErrorCode.NETWORK_TIMEOUT,
+    NETWORK_OFFLINE: AppErrorCode.NETWORK_OFFLINE,
+    SERVER_UNREACHABLE: AppErrorCode.SERVER_UNREACHABLE,
+    MIXED_CONTENT_BLOCKED: AppErrorCode.MIXED_CONTENT_BLOCKED,
+    PLAYBACK_SOURCE_NOT_FOUND: AppErrorCode.PLAYBACK_SOURCE_NOT_FOUND,
+    SUBTITLE_STREAM_NOT_FOUND: 'SUBTITLE_STREAM_NOT_FOUND',
+    PLAYBACK_FORMAT_UNSUPPORTED: AppErrorCode.PLAYBACK_FORMAT_UNSUPPORTED,
+    TRANSCODE_FAILED: AppErrorCode.TRANSCODE_FAILED,
+    PARSE_ERROR: AppErrorCode.PARSE_ERROR,
+    ITEM_NOT_FOUND: AppErrorCode.ITEM_NOT_FOUND,
+    SERVER_ERROR: AppErrorCode.SERVER_ERROR,
+    UNKNOWN: AppErrorCode.UNKNOWN,
+} as const;
+
+export type PlexStreamErrorCode = typeof PlexStreamErrorCode[keyof typeof PlexStreamErrorCode];
 
 export function mapPlexStreamErrorCodeToAppErrorCode(
     code: PlexStreamErrorCode
 ): AppErrorCode {
+    if (code === PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND) {
+        // Keep user-facing error mapping consistent while enabling more precise internal branching.
+        return AppErrorCode.PLAYBACK_SOURCE_NOT_FOUND;
+    }
     switch (code) {
         case PlexStreamErrorCode.AUTH_REQUIRED:
-            return AppErrorCode.AUTH_REQUIRED;
         case PlexStreamErrorCode.AUTH_EXPIRED:
-            return AppErrorCode.AUTH_EXPIRED;
         case PlexStreamErrorCode.AUTH_INVALID:
-            return AppErrorCode.AUTH_INVALID;
         case PlexStreamErrorCode.NETWORK_TIMEOUT:
-            return AppErrorCode.NETWORK_TIMEOUT;
         case PlexStreamErrorCode.NETWORK_OFFLINE:
-            return AppErrorCode.NETWORK_OFFLINE;
         case PlexStreamErrorCode.SERVER_UNREACHABLE:
-            return AppErrorCode.SERVER_UNREACHABLE;
         case PlexStreamErrorCode.MIXED_CONTENT_BLOCKED:
-            return AppErrorCode.MIXED_CONTENT_BLOCKED;
         case PlexStreamErrorCode.PLAYBACK_SOURCE_NOT_FOUND:
-            return AppErrorCode.PLAYBACK_SOURCE_NOT_FOUND;
-        case PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND:
-            // Keep user-facing error mapping consistent while enabling more precise internal branching.
-            return AppErrorCode.PLAYBACK_SOURCE_NOT_FOUND;
         case PlexStreamErrorCode.PLAYBACK_FORMAT_UNSUPPORTED:
-            return AppErrorCode.PLAYBACK_FORMAT_UNSUPPORTED;
         case PlexStreamErrorCode.TRANSCODE_FAILED:
-            return AppErrorCode.TRANSCODE_FAILED;
         case PlexStreamErrorCode.PARSE_ERROR:
-            return AppErrorCode.PARSE_ERROR;
         case PlexStreamErrorCode.ITEM_NOT_FOUND:
-            return AppErrorCode.ITEM_NOT_FOUND;
         case PlexStreamErrorCode.SERVER_ERROR:
-            return AppErrorCode.SERVER_ERROR;
-        default:
-            return AppErrorCode.UNKNOWN;
+        case PlexStreamErrorCode.UNKNOWN:
+            return code;
     }
 }
 
