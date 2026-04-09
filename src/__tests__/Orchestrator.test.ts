@@ -367,7 +367,7 @@ const mockPlexDiscovery = {
     isConnected: jest.fn().mockReturnValue(true),
     getSelectedServer: jest.fn().mockReturnValue(null),
     getServerUri: jest.fn().mockReturnValue('http://localhost:32400'),
-    selectServer: jest.fn().mockResolvedValue(true),
+    selectServer: jest.fn().mockResolvedValue({ kind: 'selected' }),
     clearSelection: jest.fn(),
     setStorageKeys: jest.fn(),
     on: jest.fn(() => ({ dispose: jest.fn() })),
@@ -1006,9 +1006,14 @@ describe('AppOrchestrator', () => {
                 .mockResolvedValue(undefined);
 
             try {
-                mockPlexDiscovery.selectServer.mockResolvedValue(true);
+                mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
+                mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
 
-                await orchestrator.selectServer('server-1');
+                await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
+                    kind: 'selected',
+                    readiness: 'startup_pending',
+                    persistedSelection: 'updated',
+                });
 
                 expect(mockPlexDiscovery.selectServer).toHaveBeenCalledWith('server-1');
                 expect(runStartupSpy).toHaveBeenCalledWith(3);
@@ -1030,14 +1035,18 @@ describe('AppOrchestrator', () => {
             const runStartupSpy = jest
                 .spyOn(InitializationCoordinator.prototype, 'runStartup')
                 .mockResolvedValue(undefined);
-            mockPlexDiscovery.selectServer.mockResolvedValue(true);
+            mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
             mockPlexAuth.getStoredCredentials.mockResolvedValue({
                 kind: 'corrupted',
                 reason: 'invalid-json',
             });
 
             try {
-                await expect(orchestrator.selectServer('server-1')).resolves.toBe(false);
+                await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
+                    kind: 'selected',
+                    readiness: 'startup_pending',
+                    persistedSelection: 'skipped_corrupted_credentials',
+                });
                 expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
                 expect(runStartupSpy).toHaveBeenCalledWith(3);
             } finally {

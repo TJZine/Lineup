@@ -31,7 +31,7 @@ const makeRuntimeFacade = (): AppLazyScreenRegistryRuntimeFacade => ({
     useMainAccountProfile: jest.fn().mockResolvedValue(undefined),
     signOutPlex: jest.fn().mockResolvedValue(undefined),
     discoverServers: jest.fn().mockResolvedValue([]),
-    selectServer: jest.fn().mockResolvedValue(true),
+    selectServer: jest.fn().mockResolvedValue({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' }),
     clearSelectedServer: jest.fn(),
     getSelectedServerStorageKey: jest.fn().mockReturnValue('selected-server-id'),
     getServerHealthStorageKey: jest.fn().mockReturnValue('server-health'),

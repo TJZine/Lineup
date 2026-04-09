@@ -938,14 +938,14 @@ describe('PlexServerDiscovery', () => {
             expect(handler).toHaveBeenCalledWith(expect.any(String));
         });
 
-        it('should return false for unknown server ID', async () => {
+        it('returns server_not_found for unknown server ID', async () => {
             mockFetchJson([]);
             const discovery = new PlexServerDiscovery(mockConfig);
             await discovery.discoverServers();
 
             const result = await discovery.selectServer('unknown');
 
-            expect(result).toBe(false);
+            expect(result).toEqual({ kind: 'server_not_found' });
         });
     });
 
@@ -1227,7 +1227,10 @@ describe('PlexServerDiscovery', () => {
 
             const selected = await discovery.selectServer('srv1');
 
-            expect(selected).toBe(false);
+            expect(selected).toEqual({
+                kind: 'connection_unavailable',
+                reason: 'auth_invalid',
+            });
             const rawHealth = mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY);
             expect(rawHealth).toBeTruthy();
             const parsed = rawHealth ? JSON.parse(rawHealth) : {};

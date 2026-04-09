@@ -47,7 +47,7 @@ const createOrchestratorStub = (): ServerSelectScreenHarness => {
         navigation,
         getNavigation: jest.fn(() => navigation),
         discoverServers: jest.fn(),
-        selectServer: jest.fn().mockResolvedValue(false),
+        selectServer: jest.fn().mockResolvedValue({ kind: 'selection_failed', reason: 'unreachable' }),
         requestChannelSetupRerun,
         clearSelectedServer: jest.fn(),
         getSelectedServerStorageKey: jest.fn(() => 'selected-server-id'),
@@ -272,7 +272,7 @@ describe('ServerSelectScreen', () => {
         document.body.appendChild(container);
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
-        orchestrator.selectServer.mockResolvedValue(true);
+        orchestrator.selectServer.mockResolvedValue({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
 
         localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
 
@@ -297,7 +297,7 @@ describe('ServerSelectScreen', () => {
                 resolveDiscovery = resolve;
             })
         );
-        orchestrator.selectServer.mockResolvedValue(false);
+        orchestrator.selectServer.mockResolvedValue({ kind: 'selection_failed', reason: 'unreachable' });
         localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
 
         const screen = new ServerSelectScreen(container, orchestrator);
@@ -321,7 +321,7 @@ describe('ServerSelectScreen', () => {
         document.body.appendChild(container);
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
-        orchestrator.selectServer.mockResolvedValue(false);
+        orchestrator.selectServer.mockResolvedValue({ kind: 'selection_failed', reason: 'unreachable' });
 
         localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
         localStorage.setItem(
@@ -342,6 +342,46 @@ describe('ServerSelectScreen', () => {
         expect(button.textContent).toBe('Reconnect');
         expect(button.disabled).toBe(false);
         expect(status.textContent).toContain('Saved server unavailable.');
+    });
+
+    it('shows explicit auth-required guidance when selection fails with auth_required', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+        orchestrator.selectServer.mockResolvedValue({ kind: 'selection_failed', reason: 'auth_required' });
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        const button = container.querySelector('.server-row button') as HTMLButtonElement;
+        button.click();
+        await flushPromisesAndTimers();
+
+        const error = container.querySelector('.screen-error') as HTMLElement;
+        expect(error.textContent ?? '').toContain('Authentication required');
+    });
+
+    it('shows explicit auth-invalid guidance when selection fails with auth_invalid', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+        orchestrator.selectServer.mockResolvedValue({ kind: 'selection_failed', reason: 'auth_invalid' });
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        const button = container.querySelector('.server-row button') as HTMLButtonElement;
+        button.click();
+        await flushPromisesAndTimers();
+
+        const error = container.querySelector('.screen-error') as HTMLElement;
+        expect(error.textContent ?? '').toContain('credentials are invalid');
     });
 
     it('shows saved server unavailable state when saved server is missing from discovery results', async () => {

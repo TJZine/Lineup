@@ -7,6 +7,8 @@
 export { PlexServerDiscovery, AppErrorCode, PlexApiError } from './PlexServerDiscovery';
 export type {
     IPlexServerDiscovery,
+    PlexServerSelectionFailureReason,
+    PlexServerSelectionResult,
     PlexServerDiscoveryConfig,
 } from './interfaces';
 export type {
