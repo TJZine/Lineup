@@ -170,6 +170,8 @@ export interface StreamRequest {
 export interface StreamDecision {
     /** Final playback URL */
     playbackUrl: string;
+    /** Resolved Plex base origin used to build playback URLs for this decision. */
+    resolvedBaseUrl?: string;
     /** Stream protocol */
     protocol: 'hls' | 'dash' | 'http';
     /** true if playing original file directly */

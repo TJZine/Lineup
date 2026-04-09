@@ -1366,6 +1366,30 @@ describe('PlexStreamResolver', () => {
 
             expect(() => resolver.getTranscodeUrl('12345', {})).toThrow();
         });
+
+        it('throws a typed parse error and emits it when the item key cannot build a metadata path', () => {
+            const resolver = new PlexStreamResolver(createMockConfig());
+            const errorHandler = jest.fn();
+            resolver.on('error', errorHandler);
+
+            try {
+                resolver.getTranscodeUrl('   ', {});
+                throw new Error('Expected getTranscodeUrl() to throw');
+            } catch (error) {
+                expect(error).toMatchObject({
+                    code: 'PARSE_ERROR',
+                    message: expect.stringContaining('Invalid item key for transcode URL'),
+                    recoverable: false,
+                });
+            }
+
+            expect(errorHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: 'PARSE_ERROR',
+                    recoverable: false,
+                })
+            );
+        });
     });
 
     describe('_buildUrlWithToken', () => {

@@ -575,12 +575,20 @@ export class PlaybackRecoveryManager {
             ? this._mapSubtitleTracks(decision.availableSubtitleStreams ?? [])
             : [];
         const itemKey = this._getCurrentItemKey();
+        const resolvedSubtitleBaseUrl = decision.resolvedBaseUrl ?? ((): string | undefined => {
+            try {
+                return new URL(decision.playbackUrl).origin;
+            } catch {
+                return undefined;
+            }
+        })();
         const preferredSubtitleTrackId = subtitleMode !== 'off'
             ? this._resolvePreferredSubtitleId(itemKey, subtitleTracks)
             : null;
         const subtitleContext: StreamDescriptor['subtitleContext'] | undefined = subtitlesEnabled
             ? {
                 serverUri: this.deps.getServerUri(),
+                ...(resolvedSubtitleBaseUrl ? { resolvedBaseUrl: resolvedSubtitleBaseUrl } : {}),
                 authHeaders: this.deps.getAuthHeaders(),
                 itemKey: program.item.ratingKey,
                 mediaIndex: decision.mediaIndex,

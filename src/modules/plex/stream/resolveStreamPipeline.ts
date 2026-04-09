@@ -266,9 +266,17 @@ export function resolveStreamPipeline({
 
     const subtitleDelivery =
         burnInEnabled && subtitleStream ? 'burn' : getSubtitleDelivery(subtitleStream, isTranscoding);
+    const resolvedBaseUrl = ((): string | undefined => {
+        try {
+            return new URL(playbackUrl).origin;
+        } catch {
+            return undefined;
+        }
+    })();
 
     const decision: StreamDecision = {
         playbackUrl,
+        ...(resolvedBaseUrl ? { resolvedBaseUrl } : {}),
         protocol,
         isDirectPlay: !isTranscoding,
         isTranscoding,

@@ -168,6 +168,29 @@ export class PlexLibrary implements IPlexLibrary {
         return redactUrlForLog(url);
     }
 
+    private _extractLibrarySectionDirectories(
+        response: PlexMediaContainer<RawLibrarySection>,
+        context: string
+    ): RawLibrarySection[] {
+        const mediaContainer = response.MediaContainer;
+        if (!mediaContainer || typeof mediaContainer !== 'object') {
+            throw new PlexLibraryError(
+                PlexLibraryErrorCode.PARSE_ERROR,
+                `Invalid library sections payload for ${context}: missing MediaContainer object`
+            );
+        }
+
+        const rawDirectories = (mediaContainer as { Directory?: unknown }).Directory;
+        if (!Array.isArray(rawDirectories)) {
+            throw new PlexLibraryError(
+                PlexLibraryErrorCode.PARSE_ERROR,
+                `Invalid library sections payload for ${context}: Directory must be an array`
+            );
+        }
+
+        return rawDirectories as RawLibrarySection[];
+    }
+
     private async _fetchLibrarySectionsForLookup(libraryId: string): Promise<LibrarySectionsLookupSource> {
         const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTIONS);
         const response = await this._fetchWithRetry<PlexMediaContainer<RawLibrarySection>>(url);
@@ -183,17 +206,10 @@ export class PlexLibrary implements IPlexLibrary {
         }
 
         try {
-            const mediaContainer = response.MediaContainer;
-            if (!mediaContainer || typeof mediaContainer !== 'object') {
-                throw new Error('Missing MediaContainer object');
-            }
-
-            const rawDirectories = (mediaContainer as { Directory?: unknown }).Directory;
-            if (rawDirectories != null && !Array.isArray(rawDirectories)) {
-                throw new Error('Library section Directory must be an array');
-            }
-
-            const directories = (rawDirectories ?? []) as RawLibrarySection[];
+            const directories = this._extractLibrarySectionDirectories(
+                response,
+                `library lookup for ${libraryId}`
+            );
             return {
                 kind: 'available',
                 libraries: parseLibrarySections(directories),
@@ -202,10 +218,12 @@ export class PlexLibrary implements IPlexLibrary {
             const message = error instanceof Error ? error.message : String(error);
             return {
                 kind: 'unavailable',
-                error: new PlexLibraryError(
-                    PlexLibraryErrorCode.PARSE_ERROR,
-                    `Invalid library section payload while resolving ${libraryId}: ${message}`
-                ),
+                error: error instanceof PlexLibraryError
+                    ? error
+                    : new PlexLibraryError(
+                        PlexLibraryErrorCode.PARSE_ERROR,
+                        `Invalid library section payload while resolving ${libraryId}: ${message}`
+                    ),
             };
         }
     }
@@ -231,7 +249,7 @@ export class PlexLibrary implements IPlexLibrary {
             return [];
         }
 
-        const directories = response.MediaContainer.Directory || [];
+        const directories = this._extractLibrarySectionDirectories(response, 'getLibraries');
         const libraries = parseLibrarySections(directories);
 
         if (options?.includeItemCounts) {

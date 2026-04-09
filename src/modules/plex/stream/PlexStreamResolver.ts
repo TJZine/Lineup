@@ -596,7 +596,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
         const metadataPath = buildPlexMetadataPath(itemKey);
         if (!metadataPath) {
-            throw new Error('Invalid item key for transcode URL');
+            throw this._createError(
+                PlexStreamErrorCode.PARSE_ERROR,
+                `Invalid item key for transcode URL: ${itemKey}`,
+                false
+            );
         }
 
         const compatMode = this._playbackSettingsStore.readTranscodeCompatEnabled(false);

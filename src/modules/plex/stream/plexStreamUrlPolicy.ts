@@ -23,8 +23,9 @@ export function ensurePlexClientProfileName(
     params: URLSearchParams,
     profileName: string | null | undefined = null
 ): void {
-    if (typeof profileName === 'string' && profileName.length > 0) {
-        params.set('X-Plex-Client-Profile-Name', profileName);
+    const trimmedProfileName = typeof profileName === 'string' ? profileName.trim() : '';
+    if (trimmedProfileName.length > 0) {
+        params.set('X-Plex-Client-Profile-Name', trimmedProfileName);
         return;
     }
     if (!params.has('X-Plex-Client-Profile-Name')) {

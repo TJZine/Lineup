@@ -35,4 +35,12 @@ describe('plexStreamUrlPolicy', () => {
         ensurePlexClientProfileName(fallback);
         expect(fallback.get('X-Plex-Client-Profile-Name')).toBe('HTML TV App');
     });
+
+    it('treats whitespace-only override names as absent and falls back to HTML TV App', () => {
+        const fallback = new URLSearchParams();
+
+        ensurePlexClientProfileName(fallback, '   ');
+
+        expect(fallback.get('X-Plex-Client-Profile-Name')).toBe('HTML TV App');
+    });
 });

@@ -20,6 +20,7 @@ import { fetchSubtitleFallbackVtt } from './subtitleFallbackPipeline';
 
 interface SubtitleTrackContext {
     serverUri: string | null;
+    resolvedBaseUrl?: string;
     authHeaders: Record<string, string>;
     itemKey?: string;
     mediaIndex?: number;
@@ -353,7 +354,9 @@ export class SubtitleManager {
 
     private _buildDirectTrackUrl(track: SubtitleTrack): string | null {
         try {
-            const baseUri = this._subtitleContext?.serverUri ?? null;
+            const baseUri = this._subtitleContext?.resolvedBaseUrl
+                ?? this._subtitleContext?.serverUri
+                ?? null;
             let url: URL;
             if (track.key) {
                 if (!baseUri) return null;
@@ -535,6 +538,7 @@ export class SubtitleManager {
                 initialUrl: url,
                 context: {
                     serverUri: this._subtitleContext?.serverUri ?? null,
+                    resolvedBaseUrl: this._subtitleContext?.resolvedBaseUrl,
                     authHeaders: this._subtitleContext?.authHeaders ?? {},
                     itemKey: this._subtitleContext?.itemKey,
                     mediaIndex: this._subtitleContext?.mediaIndex,

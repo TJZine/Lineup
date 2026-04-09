@@ -720,6 +720,22 @@ describe('PlaybackRecoveryManager', () => {
         expect(notifyToast).not.toHaveBeenCalled();
     });
 
+    it('propagates the resolved playback base url into subtitle context', async () => {
+        const decision = makeDecision({
+            playbackUrl: 'https://relay.plex.tv/video/:/transcode/universal/start.m3u8?session=sess-1',
+            protocol: 'hls',
+            isDirectPlay: false,
+            isTranscoding: true,
+            availableSubtitleStreams: makeSubtitleStreams(),
+        });
+        const { manager, resolver } = setup();
+        (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(decision);
+
+        const stream = await manager.resolveStreamForProgram(makeProgram());
+
+        expect(stream.subtitleContext?.resolvedBaseUrl).toBe('https://relay.plex.tv');
+    });
+
     it('escalates subtitle deactivation to burn-in in Full mode', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 

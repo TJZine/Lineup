@@ -4,17 +4,11 @@ import { fetchWithTimeout } from '../plex/shared/fetchWithTimeout';
 import {
     buildPlexSubtitleFetchAttempts,
     buildPlexSubtitleTranscodeUrl,
+    type PlexSubtitleFallbackContext,
 } from '../plex/stream/plexSubtitleFallbackPolicy';
 import { redactSensitiveTokens } from '../../utils/redact';
 
-export interface SubtitleFallbackPipelineContext {
-    serverUri: string | null;
-    authHeaders: Record<string, string>;
-    itemKey?: string | undefined;
-    mediaIndex?: number | undefined;
-    partIndex?: number | undefined;
-    sessionId?: string | undefined;
-}
+export type SubtitleFallbackPipelineContext = PlexSubtitleFallbackContext;
 
 interface SubtitleFallbackLogger {
     (event: string, contextFactory: () => Record<string, unknown>): void;

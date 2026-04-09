@@ -128,6 +128,7 @@ export interface StreamDescriptor {
     /** Subtitle fetch context (for fallback) */
     subtitleContext?: {
         serverUri: string | null;
+        resolvedBaseUrl?: string;
         authHeaders: Record<string, string>;
         /** ratingKey for the media item (used for PMS subtitle transcode fallback) */
         itemKey?: string;

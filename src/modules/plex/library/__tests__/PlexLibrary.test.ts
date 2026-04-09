@@ -353,6 +353,26 @@ describe('PlexLibrary', () => {
             expect(libs[3]!.type).toBe('photo');
         });
 
+        it('throws typed parse error when library sections payload omits Directory', async () => {
+            mockFetchJson({ MediaContainer: {} });
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getLibraries()).rejects.toMatchObject({
+                code: PlexLibraryErrorCode.PARSE_ERROR,
+                message: expect.stringContaining('Invalid library sections payload'),
+            });
+        });
+
+        it('throws typed parse error when library sections payload omits MediaContainer', async () => {
+            mockFetchJson({});
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getLibraries()).rejects.toMatchObject({
+                code: PlexLibraryErrorCode.PARSE_ERROR,
+                message: expect.stringContaining('Invalid library sections payload'),
+            });
+        });
+
         it('should cache libraries', async () => {
             mockFetchJson(mockLibrarySectionsResponse);
             const library = new PlexLibrary(mockConfig);
@@ -439,7 +459,7 @@ describe('PlexLibrary', () => {
 
             await expect(library.getLibrary('1')).rejects.toMatchObject({
                 code: PlexLibraryErrorCode.PARSE_ERROR,
-                message: expect.stringContaining('Invalid library section payload'),
+                message: expect.stringContaining('Invalid library sections payload'),
             });
         });
     });

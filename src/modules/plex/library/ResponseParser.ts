@@ -40,7 +40,7 @@ import type {
  * @returns Parsed library array
  */
 export function parseLibrarySections(directories: RawLibrarySection[]): PlexLibrary[] {
-    return (directories || []).map(parseLibrarySection);
+    return directories.map(parseLibrarySection);
 }
 
 /**

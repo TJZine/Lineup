@@ -60,4 +60,23 @@ describe('plexSubtitleFallbackPolicy', () => {
         expect(url?.searchParams.get('session')).toBe('sess-1');
         expect(url?.searchParams.get('X-Plex-Client-Profile-Name')).toBe('HTML TV App');
     });
+
+    it('prefers a resolved playback base url over the raw server uri for subtitle transcode fallback', () => {
+        const url = buildPlexSubtitleTranscodeUrl('sub-1', {
+            serverUri: 'http://192.168.1.20:32400',
+            resolvedBaseUrl: 'https://relay.plex.tv',
+            authHeaders: {
+                'X-Plex-Token': 'token',
+                'X-Plex-Client-Identifier': 'client-1',
+            },
+            itemKey: '/library/metadata/999',
+            mediaIndex: 1,
+            partIndex: 2,
+            sessionId: 'sess-1',
+        }, 'vtt');
+
+        expect(url).not.toBeNull();
+        expect(url?.origin).toBe('https://relay.plex.tv');
+        expect(url?.searchParams.get('path')).toBe('/library/metadata/999');
+    });
 });

@@ -10,6 +10,7 @@ import {
 
 export interface PlexSubtitleFallbackContext {
     serverUri: string | null;
+    resolvedBaseUrl?: string | undefined;
     authHeaders: Record<string, string>;
     itemKey?: string | undefined;
     mediaIndex?: number | undefined;
@@ -75,7 +76,7 @@ export function buildPlexSubtitleTranscodeUrl(
     format: 'srt' | 'vtt'
 ): URL | null {
     try {
-        const baseUri = context.serverUri ?? null;
+        const baseUri = context.resolvedBaseUrl ?? context.serverUri ?? null;
         const metadataPath = buildPlexMetadataPath(context.itemKey);
         if (!baseUri || !metadataPath) {
             return null;
