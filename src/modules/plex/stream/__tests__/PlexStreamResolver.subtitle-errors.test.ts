@@ -33,6 +33,23 @@ describe('PlexStreamResolver subtitle error taxonomy', () => {
         });
     });
 
+    it('throws SUBTITLE_STREAM_NOT_FOUND when burn-in is requested without subtitleStreamId', async () => {
+        const item = createMockMediaItem();
+        const resolver = new PlexStreamResolver(createMockConfig({
+            getItem: jest.fn().mockResolvedValue(item),
+        }));
+
+        await expect(
+            resolver.resolveStream({
+                itemKey: '12345',
+                subtitleMode: 'burn',
+            })
+        ).rejects.toMatchObject({
+            code: 'SUBTITLE_STREAM_NOT_FOUND',
+            stage: 'media_selection',
+        });
+    });
+
     it('throws SUBTITLE_STREAM_NOT_FOUND with burn_in_selected_part stage when subtitle disappears after selection', async () => {
         const subtitleStreamId = 'sub-1';
         const item = createMockMediaItem(

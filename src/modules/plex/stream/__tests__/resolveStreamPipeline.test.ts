@@ -130,4 +130,104 @@ describe('resolveStreamPipeline', () => {
             });
         }
     });
+
+    it('rejects burn mode without subtitleStreamId before media selection', () => {
+        const item = createMockMediaItem();
+
+        try {
+            resolveStreamPipeline({
+                item,
+                request: { itemKey: '12345', subtitleMode: 'burn' },
+                sessionId: 'session-1',
+                allowDirectPlayAudioFallback: true,
+                dtsPassthroughEnabled: false,
+                userAgent: null,
+                hdr10FallbackMode: 'off',
+                createError,
+                buildDirectPlayUrl: () => 'http://example.com/direct',
+                getTranscodeUrl: () => 'http://example.com/transcode',
+            });
+            throw new Error('Expected resolveStreamPipeline to throw');
+        } catch (error) {
+            expect(error).toMatchObject({
+                code: 'SUBTITLE_STREAM_NOT_FOUND',
+                stage: 'media_selection',
+            });
+        }
+    });
+
+    it('uses the resolved default transcode bitrate in the final decision', () => {
+        const item = createMockMediaItem({
+            container: 'avi',
+            videoCodec: 'mpeg4',
+            audioCodec: 'mp2',
+        });
+
+        const result = resolveStreamPipeline({
+            item,
+            request: { itemKey: '12345' },
+            sessionId: 'session-1',
+            allowDirectPlayAudioFallback: true,
+            dtsPassthroughEnabled: false,
+            userAgent: null,
+            hdr10FallbackMode: 'off',
+            createError,
+            buildDirectPlayUrl: () => 'http://example.com/direct',
+            getTranscodeUrl: () => 'http://example.com/transcode',
+        });
+
+        expect(result.decision.isTranscoding).toBe(true);
+        expect(result.decision.bitrate).toBe(20000);
+        expect(result.decision.transcodeRequest).toMatchObject({
+            maxBitrate: 20000,
+        });
+    });
+
+    it('honors explicit audioStreamId for direct-play compatibility and url generation', () => {
+        const item = createMockMediaItem(
+            { audioCodec: 'dts' },
+            {
+                extraStreams: [
+                    {
+                        id: 'audio-2',
+                        streamType: 2,
+                        codec: 'aac',
+                        language: 'Spanish',
+                        languageCode: 'es',
+                        channels: 2,
+                    },
+                ],
+            }
+        );
+
+        const buildDirectPlayUrl = jest.fn(
+            (_partKey: string, _sessionId: string, directPlayAudioStreamId?: string) =>
+                `http://example.com/direct?audioStreamID=${directPlayAudioStreamId ?? 'none'}`
+        );
+
+        const result = resolveStreamPipeline({
+            item,
+            request: { itemKey: '12345', audioStreamId: 'audio-2' },
+            sessionId: 'session-1',
+            allowDirectPlayAudioFallback: true,
+            dtsPassthroughEnabled: false,
+            userAgent: null,
+            hdr10FallbackMode: 'off',
+            createError,
+            buildDirectPlayUrl,
+            getTranscodeUrl: () => {
+                throw new Error('transcode path should not be used');
+            },
+        });
+
+        expect(result.decision.isDirectPlay).toBe(true);
+        expect(result.decision.audioCodec).toBe('aac');
+        expect(buildDirectPlayUrl).toHaveBeenCalledWith(
+            item.media[0]!.parts[0]!.key,
+            'session-1',
+            'audio-2',
+            false
+        );
+        expect(result.decision.playbackUrl).toContain('audioStreamID=audio-2');
+    });
 });

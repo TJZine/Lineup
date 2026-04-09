@@ -68,6 +68,16 @@ export function resolveStreamPipeline({
     buildDirectPlayUrl,
     getTranscodeUrl,
 }: ResolveStreamPipelineArgs): ResolveStreamPipelineResult {
+    if (request.subtitleMode === 'burn' && !request.subtitleStreamId) {
+        throw createError(
+            'SUBTITLE_STREAM_NOT_FOUND' as PlexStreamErrorCode,
+            'Subtitle stream id is required for burn-in',
+            true,
+            undefined,
+            'media_selection'
+        );
+    }
+
     const selectedMedia = request.subtitleStreamId
         ? selectBestMediaWithSubtitleStream(item.media, request.subtitleStreamId, request.maxBitrate)
         : selectBestMedia(item.media, request.maxBitrate);
@@ -99,7 +109,6 @@ export function resolveStreamPipeline({
         );
     }
 
-    const audioStream = selectCompatibleAudioTrack(part.streams, request.audioStreamId);
     const videoStream = part.streams.find((stream) => stream.streamType === 1) ?? null;
     const subtitleStream = request.subtitleStreamId
         ? (part.streams.find(
@@ -119,6 +128,13 @@ export function resolveStreamPipeline({
 
     const availableSubtitleStreams = part.streams.filter((stream) => stream.streamType === 3);
     const availableAudioStreams = part.streams.filter((stream) => stream.streamType === 2);
+    const requestedAudioStream =
+        typeof request.audioStreamId === 'string'
+            ? availableAudioStreams.find((stream) => stream.id === request.audioStreamId) ?? null
+            : null;
+    const resolvedTranscodeBitrate =
+        typeof request.maxBitrate === 'number' ? request.maxBitrate : 20000;
+    const audioStream = selectCompatibleAudioTrack(part.streams, request.audioStreamId);
     const shouldForceAudioStreamId = shouldForceTranscodeAudioStreamId(part.streams, request.audioStreamId);
     const defaultAudio = findDefaultOrFirstStream(part.streams, 2);
     const audioFallbackInfo =
@@ -135,12 +151,14 @@ export function resolveStreamPipeline({
 
     let directDecision = getDirectPlayDecision({
         media,
+        audioCodecOverride: requestedAudioStream?.codec ?? null,
         dtsPassthroughEnabled,
         userAgent,
     });
 
-    let directPlayAudioStreamId: string | undefined;
+    let directPlayAudioStreamId: string | undefined = requestedAudioStream?.id;
     if (
+        !requestedAudioStream &&
         allowDirectPlayAudioFallback &&
         defaultAudio &&
         isTrueHdCodec(defaultAudio.codec) &&
@@ -193,11 +211,9 @@ export function resolveStreamPipeline({
         protocol = 'http';
         container = media.container;
         videoCodec = media.videoCodec;
-        audioCodec = (audioStream?.codec ?? media.audioCodec).toLowerCase();
+        audioCodec = ((requestedAudioStream ?? audioStream)?.codec ?? media.audioCodec).toLowerCase();
     } else {
-        const maxBitrate =
-            typeof request.maxBitrate === 'number' ? request.maxBitrate : 20000;
-        const options: HlsOptions = { maxBitrate, sessionId, mediaIndex, partIndex };
+        const options: HlsOptions = { maxBitrate: resolvedTranscodeBitrate, sessionId, mediaIndex, partIndex };
         if (shouldForceAudioStreamId && audioStream?.id) {
             options.audioStreamId = audioStream.id;
         }
@@ -229,7 +245,7 @@ export function resolveStreamPipeline({
             hideDolbyVision?: true;
         } = {
             sessionId,
-            maxBitrate,
+            maxBitrate: resolvedTranscodeBitrate,
             mediaIndex,
             partIndex,
         };
@@ -270,9 +286,7 @@ export function resolveStreamPipeline({
         availableSubtitleStreams,
         width: media.width,
         height: media.height,
-        bitrate: isTranscoding
-            ? (typeof request.maxBitrate === 'number' ? request.maxBitrate : 8000)
-            : media.bitrate,
+        bitrate: isTranscoding ? resolvedTranscodeBitrate : media.bitrate,
         source: {
             container: media.container,
             videoCodec: media.videoCodec,

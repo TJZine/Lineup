@@ -276,6 +276,38 @@ describe('PlexStreamResolver', () => {
             expect(decision.playbackUrl).toContain('X-Plex-Token=mock-token');
         });
 
+        it('keeps explicit audio selection in the direct-play url when the requested track is compatible', async () => {
+            const mockItem = createMockMediaItem(
+                { audioCodec: 'dts' },
+                {
+                    extraStreams: [
+                        {
+                            id: 'audio-2',
+                            streamType: 2,
+                            codec: 'aac',
+                            language: 'Spanish',
+                            languageCode: 'es',
+                            channels: 2,
+                        },
+                    ],
+                }
+            );
+
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            const decision = await resolver.resolveStream({
+                itemKey: '12345',
+                audioStreamId: 'audio-2',
+            });
+
+            expect(decision.isDirectPlay).toBe(true);
+            expect(decision.audioCodec).toBe('aac');
+            expect(decision.playbackUrl).toContain('audioStreamID=audio-2');
+        });
+
         it('keeps direct play for DV MKV (P8.1) when Smart is enabled and content is already direct-playable', async () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
