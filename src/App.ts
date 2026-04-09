@@ -51,7 +51,7 @@ const DEFAULT_NAV_CONFIG: NavigationConfig = {
 };
 
 const DEFAULT_PLAYER_CONFIG: VideoPlayerConfig = {
-    containerId: 'video-container',
+    containerId: APP_SHELL_CONTAINER_IDS.VIDEO,
     defaultVolume: 1.0,
     bufferAheadMs: 30000,
     seekIncrementSec: 10,

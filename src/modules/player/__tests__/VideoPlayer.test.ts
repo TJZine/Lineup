@@ -8,6 +8,7 @@ import { VideoPlayer, mapMediaErrorCodeToPlaybackError } from '../VideoPlayer';
 import { PlayerErrorCode } from '../types';
 import type { VideoPlayerConfig, StreamDescriptor } from '../types';
 import type { PlatformPlaybackService, PlatformSubtitleService } from '../../../platform';
+import { APP_SHELL_CONTAINER_IDS } from '../../ui/common/appShellContainerIds';
 
 // ============================================
 // Test Helpers
@@ -15,7 +16,7 @@ import type { PlatformPlaybackService, PlatformSubtitleService } from '../../../
 
 function createMockConfig(overrides: Partial<VideoPlayerConfig> = {}): VideoPlayerConfig {
     return {
-        containerId: 'video-container',
+        containerId: APP_SHELL_CONTAINER_IDS.VIDEO,
         defaultVolume: 1.0,
         bufferAheadMs: 30000,
         seekIncrementSec: 10,
@@ -192,7 +193,7 @@ describe('VideoPlayer', () => {
 
         // Create container for video using original
         container = originalCreateElement.call(document, 'div') as HTMLDivElement;
-        container.id = 'video-container';
+        container.id = APP_SHELL_CONTAINER_IDS.VIDEO;
         document.body.appendChild(container);
 
         // Mock document.createElement to return mock video

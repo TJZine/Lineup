@@ -5,12 +5,13 @@
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { flushPromises } from '../../../__tests__/helpers';
 import { DebugOverridesStore } from '../../../modules/debug/DebugOverridesStore';
+import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
 import { AppDiagnosticsSurface, type DiagnosticsOrchestrator } from '../AppDiagnosticsSurface';
 import type { ChannelSetupWorkflowPort } from '../../channel-setup/ChannelSetupWorkflowPort';
 
 const createContainer = (): HTMLDivElement => {
     const el = document.createElement('div');
-    el.id = 'dev-menu';
+    el.id = APP_SHELL_CONTAINER_IDS.DEV_MENU;
     el.style.display = 'none';
     return el;
 };

@@ -10,6 +10,7 @@ import type { IVideoPlayer } from '../../modules/player';
 import type { EpgLayoutMode } from '../../modules/settings/EpgPreferencesStore';
 import { formatTimeRange } from '../../modules/ui/epg';
 import type { IEpgDebugRuntime } from '../../modules/ui/epg';
+import { APP_SHELL_CONTAINER_IDS } from '../../modules/ui/common/appShellContainerIds';
 import { toEpgItemDetails } from '../../modules/ui/epg/model/adapters';
 import type { OrchestratorConfig, ModuleStatus } from '../orchestrator/OrchestratorTypes';
 import { summarizeErrorForLog } from '../../utils/errors';
@@ -356,7 +357,7 @@ export function buildEpgConfigWithStartupPolicy(
             if (previousOnLayoutModeChange) {
                 previousOnLayoutModeChange(mode);
             }
-            const videoContainer = document.getElementById('video-container');
+            const videoContainer = document.getElementById(APP_SHELL_CONTAINER_IDS.VIDEO);
             if (!videoContainer) return;
             if (mode === 'classic') {
                 videoContainer.classList.add(CLASSIC_EPG_PIP_CLASS);

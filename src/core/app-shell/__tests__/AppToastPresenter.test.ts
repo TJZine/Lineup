@@ -3,10 +3,11 @@
  */
 
 import { AppToastPresenter } from '../AppToastPresenter';
+import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
 
 const createToastContainer = (): HTMLDivElement => {
     const container = document.createElement('div');
-    container.id = 'app-toast';
+    container.id = APP_SHELL_CONTAINER_IDS.TOAST;
     container.className = 'app-toast';
     container.style.display = 'none';
     container.style.opacity = '0';

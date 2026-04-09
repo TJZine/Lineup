@@ -825,10 +825,20 @@ These are the required repo-local boundary skills for the new wave. Load them be
 
 ### Work Units
 
-- [ ] `P6-W1` centralize app-shell container ids and make destructive DOM normalization helpers explicit
+- [x] `P6-W1` centralize app-shell container ids and make destructive DOM normalization helpers explicit
   - Imported review issues: `review::.::holistic::convention_outlier::container_id_convention_split`, `review::.::holistic::naming_quality::get_or_create_div_hidden_cleanup`
   - Primary files: `src/core/app-shell/AppContainerFactory.ts`, `src/App.ts`, `src/modules/ui/common/appShellContainerIds.ts`
   - Minimum verification: `npm run verify`; exact `desloppify show` commands for the two mapped ids
+  - Execution (2026-04-09): broadened `src/modules/ui/common/appShellContainerIds.ts` from overlay-only constants to the full app-shell-owned container id set used by `AppContainerFactory`, `App.ts`, bootstrap diagnostics, startup policy, fixtures, and adjacent app-shell/runtime tests; kept `EXIT_CONFIRM_CONTAINER_ID` feature-owned and out of scope; renamed the internal `AppContainerFactory` helper from `getOrCreateDiv(...)` to `ensureUniqueContainerDiv(...)` so duplicate-removal and wrong-tag replacement stay local but explicit.
+  - Verification (2026-04-09):
+    - `npm test -- --runInBand src/core/app-shell/__tests__/AppContainerFactory.test.ts src/__tests__/App.test.ts src/__tests__/bootstrap.test.ts src/core/app-shell/__tests__/AppDiagnosticsSurface.test.ts src/core/app-shell/__tests__/AppToastPresenter.test.ts src/core/app-shell/__tests__/AppBlockingErrorOverlayPresenter.test.ts src/core/__tests__/InitializationCoordinator.test.ts src/modules/player/__tests__/VideoPlayer.test.ts src/__tests__/Orchestrator.test.ts` -> pass (`9` suites, `227` tests)
+    - `desloppify show "review::.::holistic::convention_outlier::container_id_convention_split" --status open --no-budget` -> `No open issues matching: review::.::holistic::convention_outlier::container_id_convention_split`
+    - `desloppify show "review::.::holistic::naming_quality::get_or_create_div_hidden_cleanup" --status open --no-budget` -> `No open issues matching: review::.::holistic::naming_quality::get_or_create_div_hidden_cleanup`
+    - `npm run verify` -> pass (`typecheck`, `lint`, `lint:css`, `test:all`, `verify:docs`, `build`)
+  - Mapped imported issues (2026-04-09 disposition record):
+    - `review::.::holistic::convention_outlier::container_id_convention_split` -> `resolved`; owner: `P6-W1`; proof: app-shell-owned DOM ids now come from the single shared owner in `src/modules/ui/common/appShellContainerIds.ts`, while feature-owned ids remain in their existing modules and `EXIT_CONFIRM_CONTAINER_ID` stays feature-owned (`src/modules/ui/common/appShellContainerIds.ts`, `src/core/app-shell/AppContainerFactory.ts`, `src/App.ts`, `src/bootstrap.ts`, `src/core/initialization/InitializationStartupPolicy.ts`, `src/__tests__/fixtures/appShellContainerIds.ts`).
+    - `review::.::holistic::naming_quality::get_or_create_div_hidden_cleanup` -> `resolved`; owner: `P6-W1`; proof: `AppContainerFactory` now uses `ensureUniqueContainerDiv(...)`, and focused regression coverage proves duplicate removal plus wrong-tag replacement instead of relying on idempotence alone (`src/core/app-shell/AppContainerFactory.ts`, `src/core/app-shell/__tests__/AppContainerFactory.test.ts`).
+  - Source-proof closeout note: this slice closes on current-code source audit plus focused regression coverage and the verification gates above, not on detector silence alone.
 - [ ] `P6-W2` move shared UI metadata and helper code under the packages that actually own them
   - Imported review issues: `review::.::holistic::package_organization::theme_definitions_live_under_settings`, `review::.::holistic::package_organization::ui_root_channel_display_straggler`, `review::.::holistic::design_coherence::player_timecode_formatting_is_copied_between_overlays`
   - Primary files: `src/modules/ui/settings/theme.ts`, `src/modules/ui/theme/ThemeManager.ts`, `src/modules/ui/channelDisplay.ts`, `src/modules/ui/common/`, player overlay surfaces

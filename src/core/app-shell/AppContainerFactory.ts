@@ -20,7 +20,7 @@ export interface AppContainerRefs {
     toastContainer: HTMLElement;
 }
 
-function getOrCreateDiv(root: HTMLElement, id: string): HTMLDivElement {
+function ensureUniqueContainerDiv(root: HTMLElement, id: string): HTMLDivElement {
     const matches = Array.from(root.querySelectorAll<HTMLElement>(`#${id}`));
     const first = matches[0] ?? null;
     for (const extra of matches.slice(1)) {
@@ -42,69 +42,69 @@ function getOrCreateDiv(root: HTMLElement, id: string): HTMLDivElement {
 
 export function createAppContainers(root: HTMLElement): AppContainerRefs {
     // Video container
-    const videoContainer = getOrCreateDiv(root, 'video-container');
+    const videoContainer = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.VIDEO);
     videoContainer.className = 'video-container';
 
-    void getOrCreateDiv(root, PLAYER_OSD_CONTAINER_ID);
+    void ensureUniqueContainerDiv(root, PLAYER_OSD_CONTAINER_ID);
 
-    void getOrCreateDiv(root, CHANNEL_NUMBER_OVERLAY_CONTAINER_ID);
+    void ensureUniqueContainerDiv(root, CHANNEL_NUMBER_OVERLAY_CONTAINER_ID);
 
-    void getOrCreateDiv(root, CHANNEL_BADGE_CONTAINER_ID);
+    void ensureUniqueContainerDiv(root, CHANNEL_BADGE_CONTAINER_ID);
 
-    void getOrCreateDiv(root, MINI_GUIDE_CONTAINER_ID);
+    void ensureUniqueContainerDiv(root, MINI_GUIDE_CONTAINER_ID);
 
-    void getOrCreateDiv(root, CHANNEL_TRANSITION_CONTAINER_ID);
+    void ensureUniqueContainerDiv(root, CHANNEL_TRANSITION_CONTAINER_ID);
 
     // EPG container
-    const epgContainer = getOrCreateDiv(root, EPG_CONTAINER_ID);
+    const epgContainer = ensureUniqueContainerDiv(root, EPG_CONTAINER_ID);
     epgContainer.className = 'epg-container';
 
     // Now Playing Info overlay container
-    void getOrCreateDiv(root, APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO);
+    void ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO);
 
     // Playback Options modal container
-    void getOrCreateDiv(root, APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS);
+    void ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS);
 
     // Exit confirmation modal container
-    void getOrCreateDiv(root, EXIT_CONFIRM_CONTAINER_ID);
+    void ensureUniqueContainerDiv(root, EXIT_CONFIRM_CONTAINER_ID);
 
     // Splash container (startup screen)
-    const splashContainer = getOrCreateDiv(root, 'splash-container');
+    const splashContainer = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.SPLASH);
     splashContainer.className = 'screen';
 
     // Auth container (minimal screen)
-    const authContainer = getOrCreateDiv(root, 'auth-container');
+    const authContainer = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.AUTH);
     authContainer.className = 'screen';
 
     // Profile select container (Plex Home)
-    const profileSelectContainer = getOrCreateDiv(root, 'profile-select-container');
+    const profileSelectContainer = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.PROFILE_SELECT);
     profileSelectContainer.className = 'screen';
 
     // Server select container (minimal screen)
-    const serverSelectContainer = getOrCreateDiv(root, 'server-select-container');
+    const serverSelectContainer = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.SERVER_SELECT);
     serverSelectContainer.className = 'screen';
 
     // Channel setup container
-    const channelSetupContainer = getOrCreateDiv(root, 'channel-setup-container');
+    const channelSetupContainer = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.CHANNEL_SETUP);
     channelSetupContainer.className = 'screen';
 
     // Audio setup container
-    const audioSetupContainer = getOrCreateDiv(root, 'audio-setup-container');
+    const audioSetupContainer = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.AUDIO_SETUP);
     audioSetupContainer.className = 'screen';
 
     // Settings container
-    const settingsContainer = getOrCreateDiv(root, 'settings-container');
+    const settingsContainer = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.SETTINGS);
     settingsContainer.className = 'settings-screen';
 
     // Error overlay container
-    const errorOverlay = getOrCreateDiv(root, 'error-overlay');
+    const errorOverlay = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.ERROR_OVERLAY);
     errorOverlay.className = 'error-overlay hidden';
     errorOverlay.setAttribute('role', 'dialog');
     errorOverlay.setAttribute('aria-modal', 'true');
     errorOverlay.setAttribute('aria-label', 'Error');
 
     // Dev Menu Container
-    const devMenu = getOrCreateDiv(root, 'dev-menu');
+    const devMenu = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.DEV_MENU);
     devMenu.style.position = 'absolute';
     devMenu.style.top = '50%';
     devMenu.style.left = '50%';
@@ -119,7 +119,7 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
     devMenu.style.minWidth = '300px';
 
     // Toast container (non-blocking warnings)
-    const toastContainer = getOrCreateDiv(root, 'app-toast');
+    const toastContainer = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.TOAST);
     toastContainer.className = 'app-toast';
     toastContainer.setAttribute('role', 'status');
     toastContainer.setAttribute('aria-live', 'polite');
