@@ -132,8 +132,6 @@ import { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore'
 import { SubtitlePreferencesStore } from '../../modules/settings/SubtitlePreferencesStore';
 import { AudioSettingsStore } from '../../modules/settings/AudioSettingsStore';
 import type { IDisposable } from '../../utils/interfaces';
-import { createMulberry32 } from '../../modules/scheduler/shared/prng';
-import { fnv1a32Uint } from '../../utils/hash';
 import { getRecoveryActions as getRecoveryActionsHelper } from '../error-recovery/RecoveryActions';
 import { toLifecycleAppError as toLifecycleAppErrorHelper } from '../error-recovery/LifecycleErrorAdapter';
 import type { ErrorRecoveryAction } from '../error-recovery/types';
@@ -146,6 +144,7 @@ import { webosPlatformServices } from '../../platform';
 import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
 import { ScheduleDayRolloverController } from './ScheduleDayRolloverController';
 import { SubtitleTrackRecoveryController } from './SubtitleTrackRecoveryController';
+import { OrchestratorSchedulePolicy } from './OrchestratorSchedulePolicy';
 import { InitializationUiInitializer } from '../initialization/InitializationUiInitializer';
 
 // ============================================
@@ -310,6 +309,7 @@ export class AppOrchestrator {
     private readonly _channelSetupWorkflowPort: ChannelSetupWorkflowPort;
     private readonly _serverSelectionCoordinator: ServerSelectionCoordinator;
     private readonly _selectedServerRuntimeController: SelectedServerRuntimeController;
+    private readonly _schedulePolicy = new OrchestratorSchedulePolicy();
 
     private _throwModuleInitPreconditionError(
         message: string,
@@ -659,13 +659,13 @@ export class AppOrchestrator {
                     this._scheduleDayRolloverController?.setActiveScheduleDayKey(dayKey);
                 },
                 getSelectedServerId: (): string | null => this._getSelectedServerId(),
-                getLocalMidnightMs: (timeMs: number): number => this._getLocalMidnightMs(timeMs),
-                getLocalDayKey: (timeMs: number): number => this._getLocalDayKey(timeMs),
+                getLocalMidnightMs: (timeMs: number): number => this._schedulePolicy.getLocalMidnightMs(timeMs),
+                getLocalDayKey: (timeMs: number): number => this._schedulePolicy.getLocalDayKey(timeMs),
                 buildDailyScheduleConfig: (
                     channel: ChannelConfig,
                     items: ResolvedChannelContent['items'],
                     referenceTimeMs: number
-                ): ScheduleConfig => this._buildDailyScheduleConfig(channel, items, referenceTimeMs),
+                ): ScheduleConfig => this._schedulePolicy.buildDailyScheduleConfig(channel, items, referenceTimeMs),
             },
             actions: {
                 switchToChannel: (
@@ -710,13 +710,13 @@ export class AppOrchestrator {
             getChannelManager: (): IChannelManager | null => this._channelManager,
             getScheduler: (): IChannelScheduler | null => this._scheduler,
             getEpgCoordinator: (): EPGCoordinator | null => this._epgCoordinator,
-            getLocalMidnightMs: (timeMs: number): number => this._getLocalMidnightMs(timeMs),
-            getLocalDayKey: (timeMs: number): number => this._getLocalDayKey(timeMs),
+            getLocalMidnightMs: (timeMs: number): number => this._schedulePolicy.getLocalMidnightMs(timeMs),
+            getLocalDayKey: (timeMs: number): number => this._schedulePolicy.getLocalDayKey(timeMs),
             buildDailyScheduleConfig: (
                 channel: ChannelConfig,
                 items: ResolvedChannelContent['items'],
                 referenceTimeMs: number
-            ): ScheduleConfig => this._buildDailyScheduleConfig(channel, items, referenceTimeMs),
+            ): ScheduleConfig => this._schedulePolicy.buildDailyScheduleConfig(channel, items, referenceTimeMs),
             reportError: (message: string, error: unknown): void => {
                 console.error(message, summarizeErrorForLog(error));
             },
@@ -1697,86 +1697,6 @@ export class AppOrchestrator {
 
     private _shouldRunAudioSetup(): boolean {
         return !this._audioSettingsStore.readAudioSetupComplete(false);
-    }
-
-    private _getLocalMidnightMs(timeMs: number): number {
-        const date = new Date(timeMs);
-        date.setHours(0, 0, 0, 0);
-        return date.getTime();
-    }
-
-    private _getLocalDayKey(timeMs: number): number {
-        const date = new Date(timeMs);
-        return (date.getFullYear() * 10000) + ((date.getMonth() + 1) * 100) + date.getDate();
-    }
-
-    private _calculateLoopDurationMs(items: ResolvedChannelContent['items']): number {
-        let total = 0;
-        for (const item of items) {
-            total += item.durationMs;
-        }
-        return total;
-    }
-
-    private _getPhaseOffsetMs(channel: ChannelConfig, items: ResolvedChannelContent['items']): number {
-        const loopDurationMs = this._calculateLoopDurationMs(items);
-        if (!Number.isFinite(loopDurationMs) || loopDurationMs <= 0) {
-            return 0;
-        }
-        const seed =
-            typeof channel.phaseSeed === 'number' && Number.isFinite(channel.phaseSeed)
-                ? channel.phaseSeed
-                : 0;
-        if (seed === 0) {
-            return 0;
-        }
-        const random = createMulberry32(seed);
-        return Math.floor(random() * loopDurationMs);
-    }
-
-    private _buildDailyScheduleConfig(
-        channel: ChannelConfig,
-        items: ResolvedChannelContent['items'],
-        referenceTimeMs: number
-    ): ScheduleConfig {
-        const dayStart = this._getLocalMidnightMs(referenceTimeMs);
-        const dayKey = this._getLocalDayKey(dayStart);
-        const phaseOffsetMs = this._getPhaseOffsetMs(channel, items);
-
-        const isRandomPlayback = channel.playbackMode === 'random';
-        const playbackMode: ScheduleConfig['playbackMode'] =
-            isRandomPlayback ? 'shuffle' : (channel.playbackMode as ScheduleConfig['playbackMode']);
-        const baseSeed = this._computeSchedulerBaseSeed(channel, dayStart);
-        const isShuffleLike = playbackMode === 'shuffle' || playbackMode === 'block';
-        const effectiveSeed = isShuffleLike ? (baseSeed ^ dayKey) >>> 0 : baseSeed;
-
-        const scheduleConfig: ScheduleConfig = {
-            channelId: channel.id,
-            anchorTime: dayStart - phaseOffsetMs,
-            content: items,
-            playbackMode,
-            shuffleSeed: effectiveSeed,
-            loopSchedule: true,
-        };
-
-        if (typeof channel.blockSize === 'number' && Number.isFinite(channel.blockSize)) {
-            scheduleConfig.blockSize = channel.blockSize;
-        }
-
-        return scheduleConfig;
-    }
-
-    private _computeSchedulerBaseSeed(channel: ChannelConfig, dayStart: number): number {
-        const configuredShuffleSeed =
-            typeof channel.shuffleSeed === 'number' && Number.isFinite(channel.shuffleSeed)
-                ? channel.shuffleSeed
-                : fnv1a32Uint(`${channel.id}:shuffle`);
-
-        if (channel.playbackMode === 'random') {
-            return (configuredShuffleSeed ^ dayStart) >>> 0;
-        }
-
-        return configuredShuffleSeed;
     }
 
     private _handlePlexLibraryAuthExpired(): void {
