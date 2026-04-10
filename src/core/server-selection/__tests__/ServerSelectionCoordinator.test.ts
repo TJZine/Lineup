@@ -35,6 +35,7 @@ describe('ServerSelectionCoordinator', () => {
             persistedSelection: 'updated',
         });
         expect(deps.persistSelection).toHaveBeenCalledWith('server-1', 'http://example.com');
+        expect(deps.persistSelection).toHaveBeenCalledTimes(1);
         expect(deps.runPostSelectionRuntimeSwap).toHaveBeenCalledTimes(1);
     });
 });

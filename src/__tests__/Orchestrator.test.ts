@@ -1121,6 +1121,22 @@ describe('AppOrchestrator', () => {
                 runStartupSpy.mockRestore();
             }
         });
+
+        it('clears discovery selection and persisted selected-server state', async () => {
+            await orchestrator.initialize(mockConfig);
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+
+            orchestrator.clearSelectedServer();
+            await new Promise((resolve) => setImmediate(resolve));
+
+            expect(mockPlexDiscovery.clearSelection).toHaveBeenCalledTimes(1);
+            expect(mockPlexAuth.storeCredentials).toHaveBeenCalledWith(expect.objectContaining({
+                activeUserId: 'user-1',
+                selectedServerByUserId: expect.objectContaining({
+                    'user-1': { serverId: null, serverUri: null },
+                }),
+            }));
+        });
     });
 
     describe('schedule day rollover', () => {
