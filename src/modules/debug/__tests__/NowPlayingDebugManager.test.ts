@@ -269,4 +269,64 @@ describe('NowPlayingDebugManager', () => {
         expect(resolver.fetchUniversalTranscodeDecision).toHaveBeenCalledTimes(1);
         expect(deps.requestNowPlayingOverlayRefresh).toHaveBeenCalled();
     });
+
+    it('logs joined in-flight server decision fetch failures for snapshot callers that request errors', async () => {
+        enableDebug();
+
+        const resolver: IPlexStreamResolver = {
+            fetchUniversalTranscodeDecision: jest.fn(),
+        } as unknown as IPlexStreamResolver;
+
+        let rejectDecision: (reason?: unknown) => void = () => {
+            throw new Error('reject not set');
+        };
+        const fetchPromise = new Promise<StreamDecision['serverDecision']>((_resolve, reject) => {
+            rejectDecision = reject;
+        });
+        (resolver.fetchUniversalTranscodeDecision as jest.Mock).mockReturnValue(fetchPromise);
+
+        const navigationOpen = makeNavigation({
+            isModalOpen: jest.fn().mockReturnValue(true),
+        } as Partial<INavigationManager> as INavigationManager);
+
+        const decision = makeDecision();
+        const deps: NowPlayingDebugManagerDeps = {
+            nowPlayingModalId: modalId,
+            getNavigation: () => navigationOpen,
+            getStreamResolver: () => resolver,
+            getNowPlayingInfo: () => ({} as INowPlayingInfoOverlay),
+            getCurrentProgram: () => makeProgram(),
+            getCurrentStreamDecision: () => decision,
+            debugOverridesStore: new DebugOverridesStore(),
+            requestNowPlayingOverlayRefresh: jest.fn(),
+        };
+        const manager = new NowPlayingDebugManager(deps);
+
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+        try {
+            const debugPromise = manager.maybeFetchNowPlayingStreamDecisionForDebugHud();
+            const snapshotPromise = manager.ensureServerDecisionForPlaybackInfoSnapshot();
+
+            rejectDecision(new Error('decision-failed'));
+
+            await Promise.all([debugPromise, snapshotPromise]);
+
+            expect(resolver.fetchUniversalTranscodeDecision).toHaveBeenCalledTimes(1);
+            expect(errorSpy).toHaveBeenCalledWith(
+                '[NowPlayingDebug] PMS decision fetch failed:',
+                expect.objectContaining({
+                    sessionId: 'REDACTED',
+                    ratingKey: '1',
+                    joinedInFlight: true,
+                    error: expect.objectContaining({
+                        name: 'Error',
+                        message: 'decision-failed',
+                    }),
+                })
+            );
+        } finally {
+            errorSpy.mockRestore();
+        }
+    });
 });

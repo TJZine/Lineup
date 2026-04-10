@@ -92,7 +92,6 @@ import { NowPlayingDisplayStore } from '../../modules/settings/NowPlayingDisplay
 import { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
 import { SubtitlePreferencesStore } from '../../modules/settings/SubtitlePreferencesStore';
 import { safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from '../../utils/storage';
-import { summarizeErrorForLog } from '../../utils/errors';
 import type { ToastInput } from '../../modules/ui/toast/types';
 import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
 import type { ChannelNumberOverlayRuntimePort } from './OverlayPorts';
@@ -275,8 +274,7 @@ export function createOrchestratorCoordinators(
         onVisibilityChange: (visible: boolean): void => {
             deps.onOverlayVisibilityChange(visible);
         },
-        reportEpgInitWarning: (error: unknown): void => {
-            console.warn('[EPG_INIT] Deferred guide initialization failed:', summarizeErrorForLog(error));
+        reportEpgInitWarning: (_error: unknown): void => {
             deps.nowPlayingHandler()?.({
                 message: 'Guide unavailable right now. Try again.',
                 type: 'warning',

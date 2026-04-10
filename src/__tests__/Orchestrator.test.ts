@@ -1705,7 +1705,16 @@ describe('AppOrchestrator', () => {
 
                 await orchestrator.setSubtitleTrack(null);
 
-                expect(warnSpy).toHaveBeenCalled();
+                expect(warnSpy).toHaveBeenCalledWith(
+                    '[Orchestrator] setSubtitleTrack failed:',
+                    expect.objectContaining({
+                        trackId: null,
+                        error: expect.objectContaining({
+                            name: 'Error',
+                            message: 'boom',
+                        }),
+                    })
+                );
                 expect(toastSpy).toHaveBeenCalledWith(
                     expect.objectContaining({ type: 'warning', message: expect.any(String) })
                 );

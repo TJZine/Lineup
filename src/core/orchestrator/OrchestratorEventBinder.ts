@@ -120,6 +120,7 @@ export class OrchestratorEventBinder {
         if ((onCleanupErrorFailed || !onCleanupError) && cleanupFailures.length > 0) {
             console.warn('[Orchestrator] Event wiring rollback failures:', cleanupFailures);
         }
+
     }
 
     private _wireSchedulerEvents(cleanups: Array<() => void>): void {
