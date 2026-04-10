@@ -11,12 +11,13 @@ This is the correct top-level tracked format for this work. Per `docs/agentic/do
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, and `P1-W1` completed on integration-branch evidence
-- Next safe start: `P1-W2`, then `P1-EXIT`
+- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, and `P1-W2` completed on integration-branch evidence
+- Next safe start: `P1-EXIT` (do not begin `P2` work until `P1-EXIT` closes)
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
 - Recent update log:
   - `2026-04-10`: closed `P0-W1`/`P0-W2`/`P0-EXIT`; locked `dist-ts` generated-output exclusion, recorded queue operating rule, ran `desloppify` exit evidence plus `npm run verify:docs`
   - `2026-04-10`: completed `P1-W1` runtime-owner decomposition (root barrel move, selected-server runtime owner extraction, schedule policy owner extraction, app-shell runtime contract narrowing, app config factory extraction), ran full verification + required `desloppify` evidence
+  - `2026-04-10`: completed `P1-W2` runtime seam cleanup (explicit event cleanup reporter seam, grouped priority-one runtime seams, coordinator builder extraction), ran full `verify` plus required `desloppify` evidence refresh
 
 ## Goal
 
@@ -467,7 +468,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
   - `P1-W2` remains the single next owner before `P1-EXIT` for factory/binder callback-bag and cleanup-failure seams (`review::.::holistic::low_level_elegance::orchestrator_factory_wrapper_sprawl`, `review::.::holistic::mid_level_elegance::orchestrator_factory_callback_bag`, `review::.::holistic::error_consistency::orchestrator_cleanup_failures_disappear`)
 - Handoff: `Run P1-W2 implementation/review, then perform P1-EXIT reconciliation with a fresh imported-review evidence pass`
 
-### [ ] `P1-W2` Replace Wrapper Walls And Callback Bags With Focused Runtime Seams
+### [x] `P1-W2` Replace Wrapper Walls And Callback Bags With Focused Runtime Seams
 
 **Mapped imported review issues:**
 
@@ -488,6 +489,31 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify show smells --status open --no-budget --top 250`
 
 **Exit rule:** coordinator assembly no longer depends on ad hoc callback bags and cleanup failures do not disappear silently.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-10-p1-w2-runtime-seams-and-cleanup-reporting.md`
+- Last touched: `2026-04-10`
+- Verification:
+  - `npm test -- --runInBand src/__tests__/orchestrator/event-wiring.test.ts src/__tests__/Orchestrator.test.ts` passed
+  - `npm test -- --runInBand src/core/orchestrator/__tests__/OrchestratorPriorityOneControllerFactory.playbackState.test.ts src/__tests__/orchestrator/event-wiring.test.ts src/__tests__/Orchestrator.test.ts` passed
+  - `npm test -- --runInBand src/core/orchestrator/__tests__/OrchestratorCoordinatorFactory.playbackState.test.ts src/core/orchestrator/__tests__/OrchestratorPriorityOneControllerFactory.playbackState.test.ts src/__tests__/orchestrator/event-wiring.test.ts src/__tests__/Orchestrator.test.ts` passed
+  - `npm run typecheck` passed
+  - `npm run verify` passed
+  - `npm run verify:docs` passed
+  - `desloppify scan --path .` completed on integration branch
+  - `desloppify show src/core/orchestrator/OrchestratorCoordinatorFactory.ts --status open --no-budget --top 50` still reports smells::`monster_function`, `high_cyclomatic_complexity`, and `nested_closure` in `createOrchestratorCoordinators` (current detector residue to reconcile at `P1-EXIT`)
+  - `desloppify show src/core/orchestrator/OrchestratorEventBinder.ts --status open --no-budget --top 50` still reports logs::`[Orchestrator]` plus smells::`console_error_no_throw` (current detector residue to reconcile at `P1-EXIT`)
+  - `desloppify show smells --status open --no-budget --top 250` reports no additional new `P1-W2`-scoped imported review regressions
+  - `desloppify show "review::.::holistic::low_level_elegance::orchestrator_factory_wrapper_sprawl" --status open --no-budget --top 20` returned no open issues
+  - `desloppify show "review::.::holistic::mid_level_elegance::orchestrator_factory_callback_bag" --status open --no-budget --top 20` returned no open issues
+  - `desloppify show "review::.::holistic::error_consistency::orchestrator_cleanup_failures_disappear" --status open --no-budget --top 20` returned no open issues
+  - `desloppify show logs --status open --no-budget --top 50` still shows orchestrator-family tagged logs including `OrchestratorEventBinder.ts` line 121 and `AppOrchestrator.ts` lines 976/1138/1853
+  - `desloppify status` shows `overall 83.2 / strict 83.2 / objective 95.1 / verified 95.1`
+  - `desloppify plan queue` shows 1 live subjective item and 51 planned stale tracked items
+- Follow-ups:
+  - imported review ids owned by `P1-W2` are resolved in detector output (`orchestrator_factory_wrapper_sprawl`, `orchestrator_factory_callback_bag`, `orchestrator_cleanup_failures_disappear`)
+  - remaining orchestrator-family smell/log detector residue should be dispositioned in `P1-EXIT` with current-code proof and single-owner mapping before any `P2` work
+- Handoff: `Run P1-EXIT priority-exit review and evidence reconciliation next; do not open P2 planning or implementation until P1-EXIT is checked`
 
 ## Priority 2: Rebuild Channel Setup Around Explicit Owners And Contracts
 
