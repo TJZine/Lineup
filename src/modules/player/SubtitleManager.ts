@@ -8,7 +8,7 @@
 import type { SubtitleTrack } from './types';
 import { BURN_IN_SUBTITLE_FORMATS } from './constants';
 import { DeveloperSettingsStore } from '../settings/DeveloperSettingsStore';
-import { redactSensitiveTokens, safeStringifyForLog } from '../../utils/redact';
+import { redactSensitiveTokens } from '../../utils/redact';
 import type { PlatformSubtitleService } from '../../platform';
 import { webosPlatformServices } from '../../platform';
 import {
@@ -80,10 +80,9 @@ export class SubtitleManager {
         return this._developerSettingsStore.readSubtitleDebugLoggingEnabled(false);
     }
 
-    private _logSubtitleDebug(event: string, contextFactory: () => Record<string, unknown>): void {
+    private _logSubtitleDebug(_event: string, _contextFactory: () => Record<string, unknown>): void {
         if (!this._isSubtitleDebugEnabled()) return;
         try {
-            console.warn('[SubtitleManager] subtitle-debug:', event, safeStringifyForLog(contextFactory()));
         } catch {
             // Ignore logging failures.
         }

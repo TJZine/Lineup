@@ -1119,8 +1119,8 @@ export class AppOrchestrator {
         if (!this._videoPlayer) return;
         try {
             await this._videoPlayer.setSubtitleTrack(trackId);
-        } catch (error) {
-            console.warn('[Orchestrator] setSubtitleTrack failed:', summarizeErrorForLog(error));
+        } catch {
+            console.warn('[Orchestrator] setSubtitleTrack failed:', { trackId });
             if (this._nowPlayingHandler) {
                 this._nowPlayingHandler({ message: 'Could not update subtitles', type: 'warning' });
             }

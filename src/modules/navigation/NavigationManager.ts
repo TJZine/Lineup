@@ -668,15 +668,6 @@ export class NavigationManager
         if (this._suppressedLogTimestamps.size > 50) {
             this._suppressedLogTimestamps.clear();
         }
-        const modalStackSnapshot = [...this._state.modalStack];
-        // Use warn (not debug) to comply with repo console lint rules while still gating behind DEBUG_LOGGING.
-        console.warn('[Navigation] Input suppressed:', {
-            reason,
-            button: button ?? null,
-            screen: this._state.currentScreen,
-            modals: modalStackSnapshot,
-            state: this._state.isInputBlocked ? 'blocked' : 'open',
-        });
         this._suppressedLogTimestamps.set(key, now);
     }
 
