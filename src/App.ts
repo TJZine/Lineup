@@ -6,17 +6,7 @@ import {
     AppErrorCode,
 } from './Orchestrator';
 import type { LifecycleAppError, AppPhase } from './modules/lifecycle/types';
-import type { INavigationManager, NavigationConfig } from './modules/navigation';
-import type { VideoPlayerConfig } from './modules/player';
-import { EPG_CONTAINER_ID, type EPGConfig } from './modules/ui/epg';
-import type { NowPlayingInfoConfig } from './modules/ui/now-playing-info';
-import { APP_SHELL_CONTAINER_IDS } from './modules/ui/common/appShellContainerIds';
-import { PLAYER_OSD_CONTAINER_ID, type PlayerOsdConfig } from './modules/ui/player-osd';
-import { CHANNEL_NUMBER_OVERLAY_CONTAINER_ID, type ChannelNumberOverlayConfig } from './modules/ui/channel-number-overlay';
-import { CHANNEL_BADGE_CONTAINER_ID, type ChannelBadgeConfig } from './modules/ui/channel-badge';
-import { MINI_GUIDE_CONTAINER_ID, type MiniGuideConfig } from './modules/ui/mini-guide';
-import { CHANNEL_TRANSITION_CONTAINER_ID, type ChannelTransitionConfig } from './modules/ui/channel-transition';
-import type { PlaybackOptionsConfig } from './modules/ui/playback-options';
+import type { INavigationManager } from './modules/navigation';
 import { createAppContainers, type AppContainerRefs } from './core/app-shell/AppContainerFactory';
 import {
     AppLazyScreenRegistry,
@@ -28,71 +18,14 @@ import {
     type BlockingErrorOverlayAction,
 } from './core/app-shell/AppBlockingErrorOverlayPresenter';
 import { AppDiagnosticsSurface } from './core/app-shell/AppDiagnosticsSurface';
+import { createAppOrchestratorConfig } from './core/app-shell/AppOrchestratorConfigFactory';
 import { AppToastPresenter } from './core/app-shell/AppToastPresenter';
 import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
-import { createDefaultPlexAuthConfig } from './modules/plex/auth';
 import { SplashScreen } from './modules/ui/splash';
 import { ThemeManager } from './modules/ui/theme';
 import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';
 import type { ChannelSetupConfig } from './core/channel-setup/types';
 import { summarizeErrorForLog } from './utils/errors';
-
-// ============================================
-// Configuration Defaults
-// ============================================
-
-const DEFAULT_NAV_CONFIG: NavigationConfig = {
-    enablePointerMode: false,
-    keyRepeatDelayMs: 500,
-    keyRepeatIntervalMs: 100,
-    focusMemoryEnabled: true,
-    debugMode: false,
-};
-
-const DEFAULT_PLAYER_CONFIG: VideoPlayerConfig = {
-    containerId: APP_SHELL_CONTAINER_IDS.VIDEO,
-    defaultVolume: 1.0,
-    bufferAheadMs: 30000,
-    seekIncrementSec: 10,
-    hideControlsAfterMs: 3000,
-    retryAttempts: 3,
-    retryDelayMs: 1000,
-};
-
-const DEFAULT_EPG_CONFIG: EPGConfig = {
-    containerId: EPG_CONTAINER_ID,
-    visibleChannels: 5,
-    timeSlotMinutes: 30,
-    visibleHours: 2,
-    totalHours: 24,
-    pixelsPerMinute: 4,
-    rowHeight: 96,
-    showCurrentTimeIndicator: true,
-    autoScrollToNow: true,
-};
-
-const DEFAULT_NOW_PLAYING_INFO_CONFIG: NowPlayingInfoConfig = {
-    containerId: APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO,
-    autoHideMs: 0,
-};
-
-const DEFAULT_PLAYER_OSD_CONFIG: PlayerOsdConfig = {
-    containerId: PLAYER_OSD_CONTAINER_ID,
-};
-
-const DEFAULT_CHANNEL_NUMBER_OVERLAY_CONFIG: ChannelNumberOverlayConfig = {
-    containerId: CHANNEL_NUMBER_OVERLAY_CONTAINER_ID,
-    completeHideDelayMs: 650,
-};
-
-const DEFAULT_CHANNEL_BADGE_CONFIG: ChannelBadgeConfig = {
-    containerId: CHANNEL_BADGE_CONTAINER_ID,
-};
-
-const DEFAULT_MINI_GUIDE_CONFIG: MiniGuideConfig = {
-    containerId: MINI_GUIDE_CONTAINER_ID,
-    autoHideMs: 8_000,
-};
 
 const NON_BLOCKING_TOAST_MESSAGES: Partial<Record<AppErrorCode, string>> = {
     [AppErrorCode.CHANNEL_NOT_FOUND]: 'That channel is unavailable.',
@@ -104,14 +37,6 @@ const NON_BLOCKING_TOAST_MESSAGES: Partial<Record<AppErrorCode, string>> = {
 const NON_BLOCKING_LIFECYCLE_CODES = new Set<AppErrorCode>(
     Object.keys(NON_BLOCKING_TOAST_MESSAGES).map((k) => k as AppErrorCode)
 );
-
-const DEFAULT_CHANNEL_TRANSITION_CONFIG: ChannelTransitionConfig = {
-    containerId: CHANNEL_TRANSITION_CONTAINER_ID,
-};
-
-const DEFAULT_PLAYBACK_OPTIONS_CONFIG: PlaybackOptionsConfig = {
-    containerId: APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS,
-};
 
 const ERROR_OVERLAY_MODAL_ID = 'modal:error-overlay';
 
@@ -385,19 +310,7 @@ export class App {
      * Build orchestrator configuration.
      */
     private _buildConfig(): OrchestratorConfig {
-        return {
-            plexConfig: createDefaultPlexAuthConfig(),
-            navConfig: DEFAULT_NAV_CONFIG,
-            playerConfig: DEFAULT_PLAYER_CONFIG,
-            epgConfig: DEFAULT_EPG_CONFIG,
-            nowPlayingInfoConfig: DEFAULT_NOW_PLAYING_INFO_CONFIG,
-            playerOsdConfig: DEFAULT_PLAYER_OSD_CONFIG,
-            channelNumberOverlayConfig: DEFAULT_CHANNEL_NUMBER_OVERLAY_CONFIG,
-            channelBadgeConfig: DEFAULT_CHANNEL_BADGE_CONFIG,
-            miniGuideConfig: DEFAULT_MINI_GUIDE_CONFIG,
-            channelTransitionConfig: DEFAULT_CHANNEL_TRANSITION_CONFIG,
-            playbackOptionsConfig: DEFAULT_PLAYBACK_OPTIONS_CONFIG,
-        };
+        return createAppOrchestratorConfig();
     }
 
     /**

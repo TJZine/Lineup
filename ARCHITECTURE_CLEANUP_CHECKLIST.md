@@ -11,11 +11,12 @@ This is the correct top-level tracked format for this work. Per `docs/agentic/do
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: `P0-W1`, `P0-W2`, and `P0-EXIT` completed on integration-branch evidence; `P1` not started
-- Next safe start: `P1-W1`, then `P1-W2` only after `P1-EXIT`
+- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, and `P1-W1` completed on integration-branch evidence
+- Next safe start: `P1-W2`, then `P1-EXIT`
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
 - Recent update log:
   - `2026-04-10`: closed `P0-W1`/`P0-W2`/`P0-EXIT`; locked `dist-ts` generated-output exclusion, recorded queue operating rule, ran `desloppify` exit evidence plus `npm run verify:docs`
+  - `2026-04-10`: completed `P1-W1` runtime-owner decomposition (root barrel move, selected-server runtime owner extraction, schedule policy owner extraction, app-shell runtime contract narrowing, app config factory extraction), ran full verification + required `desloppify` evidence
 
 ## Goal
 
@@ -419,7 +420,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 ## Priority 1: Narrow Runtime Composition Roots And Orchestrator Ownership
 
-### [ ] `P1-W1` Break The Orchestrator Monolith Into Narrower Owners
+### [x] `P1-W1` Break The Orchestrator Monolith Into Narrower Owners
 
 **Mapped imported review issues:**
 
@@ -444,6 +445,27 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify show structural --status open --no-budget --top 150`
 
 **Exit rule:** `Orchestrator` is no longer the implicit final owner for runtime wiring, persistence helpers, and feature coordination.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-10-p1-w1-orchestrator-owner-decomposition.md`
+- Last touched: `2026-04-10`
+- Verification:
+  - `npm run verify` passed
+  - `npm run verify:docs` passed
+  - `npm run plans:check` failed on pre-existing unrelated active-plan conformance gaps (no new P1-W1 regression)
+  - `desloppify scan --path .` completed on integration branch
+  - `desloppify show "review::.::holistic::cross_module_architecture::orchestrator_runtime_hub" --status open --no-budget --top 20` still open with stale pre-move evidence text
+  - `desloppify show "review::.::holistic::design_coherence::orchestrator_monolith_boundary" --status open --no-budget --top 20` still open with stale pre-move evidence text
+  - `desloppify show "review::.::holistic::high_level_elegance::composition_root_role_drift" --status open --no-budget --top 20` still open with stale pre-move evidence text
+  - `desloppify show "review::.::holistic::package_organization::root_orchestrator_straggler" --status open --no-budget --top 20` still open with stale pre-move evidence text
+  - `desloppify show src/Orchestrator.ts --status open --no-budget --top 100` reports stale legacy line references while source is now a thin barrel
+  - `desloppify show src/core/orchestrator --status open --no-budget --top 100` shows live orchestrator/factory/binder/log residue aligned with `P1-W2` ownership envelope
+  - `desloppify show logs --status open --no-budget --top 50` shows no new P1-W1-specific log class beyond expected orchestrator-family entries already mapped to P1
+  - `desloppify show structural --status open --no-budget --top 150` returned `No open issues matching: structural`
+- Follow-ups:
+  - imported review-id text for the four `P1-W1` issue ids remains stale after current-code move; treat as stale detector wording, not live ownership reversal
+  - `P1-W2` remains the single next owner before `P1-EXIT` for factory/binder callback-bag and cleanup-failure seams (`review::.::holistic::low_level_elegance::orchestrator_factory_wrapper_sprawl`, `review::.::holistic::mid_level_elegance::orchestrator_factory_callback_bag`, `review::.::holistic::error_consistency::orchestrator_cleanup_failures_disappear`)
+- Handoff: `Run P1-W2 implementation/review, then perform P1-EXIT reconciliation with a fresh imported-review evidence pass`
 
 ### [ ] `P1-W2` Replace Wrapper Walls And Callback Bags With Focused Runtime Seams
 
