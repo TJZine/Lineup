@@ -132,7 +132,7 @@ export class App {
     });
     private readonly _toastPresenter = new AppToastPresenter();
     private readonly _diagnosticsSurface = new AppDiagnosticsSurface({
-        getOrchestrator: (): AppOrchestrator | null => this._orchestrator,
+        getDiagnosticsRuntime: (): AppOrchestrator | null => this._orchestrator,
         getActiveChannelSetupConfig: (): ChannelSetupConfig | null => {
             const channelSetupScreen = this._lazyScreenRegistry?.getChannelSetupScreen() ?? null;
             const activeScreen = this._orchestrator?.getCurrentScreen() ?? null;
@@ -322,7 +322,12 @@ export class App {
             return;
         }
         const lazyScreenPortFactory = new AppLazyScreenPortFactory({
-            getOrchestrator: (): AppOrchestrator | null => this._orchestrator,
+            getNavigationRuntime: (): AppOrchestrator | null => this._orchestrator,
+            getAuthRuntime: (): AppOrchestrator | null => this._orchestrator,
+            getProfileRuntime: (): AppOrchestrator | null => this._orchestrator,
+            getServerSelectionRuntime: (): AppOrchestrator | null => this._orchestrator,
+            getChannelSetupRuntime: (): AppOrchestrator | null => this._orchestrator,
+            getSettingsRuntime: (): AppOrchestrator | null => this._orchestrator,
         });
         this._splashScreen = new SplashScreen(containerRefs.splashContainer);
         this._lazyScreenRegistry = new AppLazyScreenRegistry({

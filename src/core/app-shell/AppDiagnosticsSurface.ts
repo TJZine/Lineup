@@ -1,10 +1,10 @@
-import type { AppOrchestrator } from '../../Orchestrator';
 import type { ChannelSetupPlanDiagnosticsResult } from '../channel-setup/ChannelSetupPlanDiagnostics';
 import type { ChannelSetupConfig, ChannelSetupRecord } from '../channel-setup/types';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import { AudioSettingsStore } from '../../modules/settings/AudioSettingsStore';
 import { DeveloperSettingsStore } from '../../modules/settings/DeveloperSettingsStore';
 import type { ToastInput } from '../../modules/ui/toast/types';
+import type { AppShellDiagnosticsRuntimePort } from './AppShellRuntimeContracts';
 import {
     safeClearLineupStorage,
 } from '../../utils/storage';
@@ -28,22 +28,15 @@ interface ChannelSetupPlannerDiagnosticsDump {
     result: ChannelSetupPlanDiagnosticsResult;
 }
 
-export type DiagnosticsOrchestrator = Pick<
-    AppOrchestrator,
-    'getChannelSetupWorkflowPort' | 'getSelectedServerId' | 'getSelectedServerStorageKey' | 'refreshPlaybackInfoSnapshot'
-> & {
-    toggleServerSelect: () => void;
-};
-
 export interface AppDiagnosticsSurfaceOptions {
-    getOrchestrator: () => DiagnosticsOrchestrator | null;
+    getDiagnosticsRuntime: () => AppShellDiagnosticsRuntimePort | null;
     getActiveChannelSetupConfig?: () => ChannelSetupConfig | null;
     showToast: (input: ToastInput) => void;
     debugOverridesStore: DebugOverridesStore;
 }
 
 export class AppDiagnosticsSurface {
-    private readonly _getOrchestrator: () => DiagnosticsOrchestrator | null;
+    private readonly _getDiagnosticsRuntime: () => AppShellDiagnosticsRuntimePort | null;
     private readonly _getActiveChannelSetupConfig: () => ChannelSetupConfig | null;
     private readonly _showToast: (input: ToastInput) => void;
     private readonly _debugOverridesStore: DebugOverridesStore;
@@ -53,7 +46,7 @@ export class AppDiagnosticsSurface {
     private _globalKeydownHandler: ((event: KeyboardEvent) => void) | null = null;
 
     constructor(options: AppDiagnosticsSurfaceOptions) {
-        this._getOrchestrator = options.getOrchestrator;
+        this._getDiagnosticsRuntime = options.getDiagnosticsRuntime;
         this._getActiveChannelSetupConfig = options.getActiveChannelSetupConfig ?? (() : ChannelSetupConfig | null => null);
         this._showToast = options.showToast;
         this._debugOverridesStore = options.debugOverridesStore;
@@ -69,7 +62,7 @@ export class AppDiagnosticsSurface {
         }
         this._globalKeydownHandler = (event: KeyboardEvent): void => {
             if (this._isDebugSurfaceEnabled() && event.code === 'KeyI') {
-                this._getOrchestrator()?.toggleServerSelect();
+                this._getDiagnosticsRuntime()?.toggleServerSelect();
             }
             if (this._isDebugSurfaceEnabled() && event.code === 'KeyD' && event.ctrlKey && event.shiftKey) {
                 this._toggleDevMenu();
@@ -124,13 +117,12 @@ export class AppDiagnosticsSurface {
     private async _dumpChannelSetupPlannerDiagnostics(
         configOverride?: ChannelSetupConfig
     ): Promise<ChannelSetupPlannerDiagnosticsDump> {
-        const orchestrator = this._getOrchestrator();
-        if (!orchestrator) {
-            throw new Error('Diagnostics orchestrator is unavailable');
+        const runtime = this._getDiagnosticsRuntime();
+        if (!runtime) {
+            throw new Error('Diagnostics runtime is unavailable');
         }
-
-        const workflowPort = orchestrator.getChannelSetupWorkflowPort();
-        const selectedServerId = orchestrator.getSelectedServerId();
+        const workflowPort = runtime.getChannelSetupWorkflowPort();
+        const selectedServerId = runtime.getSelectedServerId();
         if (!selectedServerId) {
             throw new Error('No Plex server is currently selected');
         }
@@ -152,17 +144,16 @@ export class AppDiagnosticsSurface {
             result,
         };
 
-        this._logChannelSetupPlannerDiagnostics(orchestrator.getSelectedServerStorageKey(), dump);
+        this._logChannelSetupPlannerDiagnostics(runtime.getSelectedServerStorageKey(), dump);
         return dump;
     }
 
     private async _dumpActiveChannelSetupPlannerDiagnostics(): Promise<ChannelSetupPlannerDiagnosticsDump> {
-        const orchestrator = this._getOrchestrator();
-        if (!orchestrator) {
-            throw new Error('Diagnostics orchestrator is unavailable');
+        const runtime = this._getDiagnosticsRuntime();
+        if (!runtime) {
+            throw new Error('Diagnostics runtime is unavailable');
         }
-
-        const selectedServerId = orchestrator.getSelectedServerId();
+        const selectedServerId = runtime.getSelectedServerId();
         if (!selectedServerId) {
             throw new Error('No Plex server is currently selected');
         }
@@ -174,7 +165,7 @@ export class AppDiagnosticsSurface {
             );
         }
 
-        const workflowPort = orchestrator.getChannelSetupWorkflowPort();
+        const workflowPort = runtime.getChannelSetupWorkflowPort();
         const savedRecord = workflowPort.getChannelSetupRecord(selectedServerId);
         const result = await workflowPort.getSetupPlanDiagnostics(config);
         const dump: ChannelSetupPlannerDiagnosticsDump = {
@@ -185,7 +176,7 @@ export class AppDiagnosticsSurface {
             result,
         };
 
-        this._logChannelSetupPlannerDiagnostics(orchestrator.getSelectedServerStorageKey(), dump);
+        this._logChannelSetupPlannerDiagnostics(runtime.getSelectedServerStorageKey(), dump);
         return dump;
     }
 
@@ -524,8 +515,8 @@ export class AppDiagnosticsSurface {
     }
 
     private async _refreshDevPlaybackInfo(): Promise<void> {
-        const orchestrator = this._getOrchestrator();
-        if (!this._container || !orchestrator) return;
+        const runtime = this._getDiagnosticsRuntime();
+        if (!this._container || !runtime) return;
         const pre = this._container.querySelector('#dev-playback-info') as HTMLPreElement | null;
         if (!pre) return;
 
@@ -533,7 +524,7 @@ export class AppDiagnosticsSurface {
         pre.dataset.summary = '';
         pre.dataset.raw = '';
         try {
-            const snapshot = await orchestrator.refreshPlaybackInfoSnapshot();
+            const snapshot = await runtime.refreshPlaybackInfoSnapshot();
             const fmtMs = (ms: number): string => {
                 const totalSec = Math.max(0, Math.floor(ms / 1000));
                 const h = Math.floor(totalSec / 3600);

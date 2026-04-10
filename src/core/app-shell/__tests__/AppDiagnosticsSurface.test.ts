@@ -6,7 +6,8 @@ import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { flushPromises } from '../../../__tests__/helpers';
 import { DebugOverridesStore } from '../../../modules/debug/DebugOverridesStore';
 import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
-import { AppDiagnosticsSurface, type DiagnosticsOrchestrator } from '../AppDiagnosticsSurface';
+import { AppDiagnosticsSurface } from '../AppDiagnosticsSurface';
+import type { AppShellDiagnosticsRuntimePort } from '../AppShellRuntimeContracts';
 import type { ChannelSetupWorkflowPort } from '../../channel-setup/ChannelSetupWorkflowPort';
 
 const createContainer = (): HTMLDivElement => {
@@ -84,8 +85,8 @@ const createWorkflowPort = (
 });
 
 const createOrchestrator = (
-    overrides: Partial<DiagnosticsOrchestrator> = {}
-): DiagnosticsOrchestrator => ({
+    overrides: Partial<AppShellDiagnosticsRuntimePort> = {}
+): AppShellDiagnosticsRuntimePort => ({
     toggleServerSelect: jest.fn(),
     refreshPlaybackInfoSnapshot: jest.fn().mockResolvedValue(createSnapshot()),
     getSelectedServerId: jest.fn().mockReturnValue('server-1'),
@@ -128,7 +129,7 @@ describe('AppDiagnosticsSurface', () => {
         document.body.appendChild(container);
 
         surface = new AppDiagnosticsSurface({
-            getOrchestrator: (): DiagnosticsOrchestrator =>
+            getDiagnosticsRuntime: (): AppShellDiagnosticsRuntimePort =>
                 createOrchestrator({ toggleServerSelect, refreshPlaybackInfoSnapshot }),
             showToast,
             debugOverridesStore: new DebugOverridesStore(),
@@ -160,7 +161,7 @@ describe('AppDiagnosticsSurface', () => {
         document.body.appendChild(container);
 
         surface = new AppDiagnosticsSurface({
-            getOrchestrator: (): DiagnosticsOrchestrator =>
+            getDiagnosticsRuntime: (): AppShellDiagnosticsRuntimePort =>
                 createOrchestrator({ toggleServerSelect, refreshPlaybackInfoSnapshot }),
             showToast: jest.fn(),
             debugOverridesStore: new DebugOverridesStore(),
@@ -185,7 +186,7 @@ describe('AppDiagnosticsSurface', () => {
         document.body.appendChild(container);
 
         surface = new AppDiagnosticsSurface({
-            getOrchestrator: (): DiagnosticsOrchestrator =>
+            getDiagnosticsRuntime: (): AppShellDiagnosticsRuntimePort =>
                 createOrchestrator({ toggleServerSelect: jest.fn(), refreshPlaybackInfoSnapshot }),
             showToast: jest.fn(),
             debugOverridesStore: new DebugOverridesStore(),
@@ -393,7 +394,7 @@ describe('AppDiagnosticsSurface', () => {
         document.body.appendChild(container);
 
         surface = new AppDiagnosticsSurface({
-            getOrchestrator: (): DiagnosticsOrchestrator =>
+            getDiagnosticsRuntime: (): AppShellDiagnosticsRuntimePort =>
                 createOrchestrator({ getChannelSetupWorkflowPort: jest.fn().mockReturnValue(workflowPort) }),
             showToast: jest.fn(),
             debugOverridesStore: new DebugOverridesStore(),
@@ -454,7 +455,7 @@ describe('AppDiagnosticsSurface', () => {
         document.body.appendChild(container);
 
         surface = new AppDiagnosticsSurface({
-            getOrchestrator: (): DiagnosticsOrchestrator =>
+            getDiagnosticsRuntime: (): AppShellDiagnosticsRuntimePort =>
                 createOrchestrator({ getChannelSetupWorkflowPort: jest.fn().mockReturnValue(workflowPort) }),
             getActiveChannelSetupConfig: (): typeof activeConfig => activeConfig,
             showToast: jest.fn(),
@@ -485,7 +486,7 @@ describe('AppDiagnosticsSurface', () => {
         document.body.appendChild(container);
 
         surface = new AppDiagnosticsSurface({
-            getOrchestrator: (): DiagnosticsOrchestrator =>
+            getDiagnosticsRuntime: (): AppShellDiagnosticsRuntimePort =>
                 createOrchestrator({ toggleServerSelect, refreshPlaybackInfoSnapshot }),
             showToast: jest.fn(),
             debugOverridesStore: new DebugOverridesStore(),
@@ -511,7 +512,7 @@ describe('AppDiagnosticsSurface', () => {
         document.body.appendChild(container);
 
         surface = new AppDiagnosticsSurface({
-            getOrchestrator: (): DiagnosticsOrchestrator =>
+            getDiagnosticsRuntime: (): AppShellDiagnosticsRuntimePort =>
                 createOrchestrator({ toggleServerSelect: jest.fn(), refreshPlaybackInfoSnapshot }),
             showToast: jest.fn(),
             debugOverridesStore: new DebugOverridesStore(),
@@ -539,7 +540,7 @@ describe('AppDiagnosticsSurface', () => {
         document.body.appendChild(container);
 
         surface = new AppDiagnosticsSurface({
-            getOrchestrator: (): DiagnosticsOrchestrator => createOrchestrator(),
+            getDiagnosticsRuntime: (): AppShellDiagnosticsRuntimePort => createOrchestrator(),
             showToast,
             debugOverridesStore: new DebugOverridesStore(),
         });
