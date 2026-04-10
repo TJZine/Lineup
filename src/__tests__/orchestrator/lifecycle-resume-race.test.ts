@@ -82,6 +82,7 @@ const wireLifecycleResumeHarness = (overrides: {
     });
 
     const binder = new OrchestratorEventBinder({
+        cleanupReporter: (): void => undefined,
         getScheduler: (): IChannelScheduler => overrides.scheduler as unknown as IChannelScheduler,
         getVideoPlayer: (): IVideoPlayer => overrides.videoPlayer as unknown as IVideoPlayer,
         getPlexLibrary: (): null => null,

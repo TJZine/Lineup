@@ -1,4 +1,5 @@
 import type {
+    IVideoPlayer,
     PlaybackError,
     StreamDescriptor,
 } from '../../modules/player';
@@ -83,7 +84,7 @@ export function createPriorityOneControllersAndBinder(
     });
 
     const playbackStartController = new PlaybackStartController({
-        getVideoPlayer: () => modules.videoPlayer,
+        getVideoPlayer: (): IVideoPlayer | null => modules.videoPlayer,
         resolveStreamForProgram: (program): Promise<StreamDescriptor | null> =>
             playback.playbackRecovery.resolveStreamForProgram?.(program).then((stream) => stream ?? null) ?? Promise.resolve(null),
         resetPlaybackFailureGuard: (): void => {
