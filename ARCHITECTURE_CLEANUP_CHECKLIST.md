@@ -282,7 +282,15 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
   - Plan: `docs/plans/2026-04-10-p0-queue-trust-and-scan-contract.md`
   - Last touched: `2026-04-10`
   - Verification: `desloppify status`; `desloppify next`; `desloppify plan queue --sort recent`; `desloppify show stale_exclude --status open --no-budget --top 50`; `desloppify show facade --status open --no-budget --top 50`; `desloppify show security --status open --no-budget --top 50`; `npm run verify:docs`; `npm run plans:check`.
-  - Follow-ups: `desloppify show facade` still reports `facade::dist-ts/**` despite active exclude and post-change scan; treat as tooling-state residue with local decision unchanged (`dist-ts` stays excluded generated output). `npm run plans:check` failed due pre-existing unrelated older plan-conformance gaps in other active plans; no P0 plan-doc edits performed per execution constraints.
+  - Follow-ups:
+    - `followup::p0-exit::dist-ts-facade-residue`
+      owner: `desloppify upstream detector contract (tracked locally by Lineup cleanup owner in P10-W1/P10-EXIT)`
+      reason: `desloppify show facade --status open --no-budget --top 50` still reports `facade::dist-ts/**` after `dist-ts` exclusion and fresh scan; local scan-scope decision remains locked (`dist-ts` excluded generated output).
+      revisit trigger: rerun `desloppify scan --path .` + `desloppify show facade --status open --no-budget --top 50` at `P10-W1` entry and before `P10-EXIT`; if residue persists with exclusion intact, keep as tooling-state residue or escalate with minimal repro.
+    - `followup::p0-exit::plans-check-preexisting-gaps`
+      owner: `tracked-plan maintainers for the listed active plans`
+      reason: `npm run plans:check` failure is caused by pre-existing conformance gaps in unrelated active plans, outside this P0 scope and intentionally not edited in this slice.
+      revisit trigger: next plan-maintenance pass touching those specific plan files, and mandatory rerun before any session claims global serious-plan conformance is green.
   - Handoff: `P1-W1 plan/review may begin`
   - Queue-surface disposition (locked three-bucket rule): repo-side persisted subjective state exists in `.desloppify/plan.json`/`.desloppify/state-typescript.json`; mismatch classified as by-design queue semantics (`next` excludes subjective reminders) rather than unresolved upstream inconsistency for `P0` closeout.
   - Security triage: `desloppify show security --status open --no-budget --top 50` returned `No open issues for Security`.
@@ -400,7 +408,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify plan queue --sort recent`
 - `desloppify show review --status open --no-budget --top 100`
 
-**Exit rule:** either the queue surfaces agree, or the mismatch is documented as an upstream tooling defect with a repro and a clear local operating rule.
+**Exit rule:** either the queue surfaces agree, or the mismatch is explicitly classified as repo-state cleanup, by-design queue semantics, or upstream tooling inconsistency with a clear local operating rule.
 
 - Status: completed
 - Plan: `docs/plans/2026-04-10-p0-queue-trust-and-scan-contract.md`
