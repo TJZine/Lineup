@@ -158,7 +158,15 @@ export class NowPlayingDebugManager {
         ) {
             try {
                 await this._nowPlayingStreamDecisionFetchPromise;
-            } catch {
+            } catch (error) {
+                if (options.logErrors) {
+                    console.error('[NowPlayingDebug] PMS decision fetch failed:', {
+                        sessionId: 'REDACTED',
+                        ratingKey: program.item.ratingKey,
+                        error: summarizeErrorForLog(error),
+                        joinedInFlight: true,
+                    });
+                }
                 return;
             }
             if (this.deps.getCurrentStreamDecision() !== decision) return;

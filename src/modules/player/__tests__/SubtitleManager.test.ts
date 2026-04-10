@@ -8,6 +8,7 @@ import { SubtitleManager } from '../SubtitleManager';
 import type { SubtitleTrack } from '../types';
 import type { PlatformSubtitleService } from '../../../platform';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import { DeveloperSettingsStore } from '../../settings/DeveloperSettingsStore';
 
 // ============================================
 // Test Helpers
@@ -101,6 +102,20 @@ function installFetchAndBlobMocks(): { fetchMock: jest.Mock; restore: () => void
     return { fetchMock, restore };
 }
 
+const developerSettingsStore = new DeveloperSettingsStore();
+
+function enableSubtitleDebugLogging(): void {
+    developerSettingsStore.writeSubtitleDebugLoggingEnabled(true);
+}
+
+function disableSubtitleDebugLogging(): void {
+    developerSettingsStore.writeSubtitleDebugLoggingEnabled(false);
+}
+
+function clearSubtitleDebugLogging(): void {
+    localStorage.removeItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING);
+}
+
 // ============================================
 // SubtitleManager Tests
 // ============================================
@@ -110,14 +125,15 @@ describe('SubtitleManager', () => {
     let videoElement: HTMLVideoElement;
 
     beforeEach(() => {
-        localStorage.removeItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING);
+        disableSubtitleDebugLogging();
+        clearSubtitleDebugLogging();
         manager = new SubtitleManager();
         videoElement = createMockVideoElement();
         manager.initialize(videoElement);
     });
 
     afterEach(() => {
-        localStorage.removeItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING);
+        clearSubtitleDebugLogging();
         manager.destroy();
     });
 
@@ -125,9 +141,9 @@ describe('SubtitleManager', () => {
     // loadTracks
     // ========================================
 
-    describe('loadTracks', () => {
+        describe('loadTracks', () => {
         it('emits redacted subtitle debug output when subtitle debug logging is enabled', () => {
-            localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING, '1');
+            enableSubtitleDebugLogging();
             const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
             const tracks: SubtitleTrack[] = [
                 createMockSubtitleTrack({ id: 'en', format: 'vtt', codec: 'vtt' }),
@@ -843,7 +859,7 @@ Hello`;
         afterEach(() => {
             jest.useRealTimers();
             jest.restoreAllMocks();
-            localStorage.removeItem('lineup_subtitle_debug_logging');
+            clearSubtitleDebugLogging();
             if (originalFetch) {
                 global.fetch = originalFetch;
             } else {
@@ -889,45 +905,47 @@ Hello`;
                 timeoutCalls.push({ cb: cb as () => void, delay: Number(delay) });
                 return 1 as unknown as ReturnType<typeof window.setTimeout>;
             });
-            const tracks: SubtitleTrack[] = [
-                createMockSubtitleTrack({
-                    id: 'en',
-                    codec: 'webvtt',
-                    format: 'webvtt',
-                    fetchableViaKey: true,
-                    key: '/library/streams/1',
-                }),
-            ];
+            try {
+                const tracks: SubtitleTrack[] = [
+                    createMockSubtitleTrack({
+                        id: 'en',
+                        codec: 'webvtt',
+                        format: 'webvtt',
+                        fetchableViaKey: true,
+                        key: '/library/streams/1',
+                    }),
+                ];
 
-            manager.loadTracks(tracks, {
-                serverUri: 'http://example.com',
-                authHeaders: { 'X-Plex-Token': 'token' },
-            });
+                manager.loadTracks(tracks, {
+                    serverUri: 'http://example.com',
+                    authHeaders: { 'X-Plex-Token': 'token' },
+                });
 
-            const trackElement = (manager as unknown as { _trackElements: Map<string, HTMLTrackElement> })
-                ._trackElements.get('en');
-            expect(trackElement).toBeTruthy();
-            if (!trackElement) {
+                const trackElement = (manager as unknown as { _trackElements: Map<string, HTMLTrackElement> })
+                    ._trackElements.get('en');
+                expect(trackElement).toBeTruthy();
+                if (!trackElement) {
+                    throw new Error('Expected track element to exist');
+                }
+
+                Object.defineProperty(trackElement, 'track', {
+                    value: { cues: [{}], mode: 'hidden' },
+                    configurable: true,
+                });
+
+                const cueTimeout = timeoutCalls.find((call) => call.delay === 3000);
+                expect(cueTimeout).toBeTruthy();
+                cueTimeout?.cb();
+
+                const readyTracks = (manager as unknown as { _readyTracks: Set<string> })._readyTracks;
+                expect(readyTracks.has('en')).toBe(true);
+            } finally {
                 setTimeoutSpy.mockRestore();
-                throw new Error('Expected track element to exist');
             }
-
-            Object.defineProperty(trackElement, 'track', {
-                value: { cues: [{}], mode: 'hidden' },
-                configurable: true,
-            });
-
-            const cueTimeout = timeoutCalls.find((call) => call.delay === 3000);
-            expect(cueTimeout).toBeTruthy();
-            cueTimeout?.cb();
-
-            const readyTracks = (manager as unknown as { _readyTracks: Set<string> })._readyTracks;
-            expect(readyTracks.has('en')).toBe(true);
-            setTimeoutSpy.mockRestore();
         });
 
         it('redacts tokenized URLs in debug logs', () => {
-            localStorage.setItem('lineup_subtitle_debug_logging', '1');
+            enableSubtitleDebugLogging();
             const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
             const tracks: SubtitleTrack[] = [
