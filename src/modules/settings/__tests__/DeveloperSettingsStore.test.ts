@@ -32,6 +32,15 @@ describe('DeveloperSettingsStore', () => {
         expect(mockLocalStorage.getItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING)).toBe('0');
     });
 
+    it('clears persisted debug logging value', () => {
+        const store = new DeveloperSettingsStore();
+        mockLocalStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, '1');
+
+        store.clearDebugLoggingEnabled();
+
+        expect(mockLocalStorage.getItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING)).toBe(null);
+    });
+
     it('normalizes invalid debug logging values', () => {
         const store = new DeveloperSettingsStore();
         mockLocalStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, 'true');
@@ -76,11 +85,34 @@ describe('DeveloperSettingsStore', () => {
         expect(mockLocalStorage.getItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING)).toBe('0');
     });
 
+    it('clears persisted subtitle debug logging value', () => {
+        const store = new DeveloperSettingsStore();
+        mockLocalStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING, '1');
+
+        store.clearSubtitleDebugLoggingEnabled();
+
+        expect(mockLocalStorage.getItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING)).toBe(null);
+    });
+
     it('normalizes invalid subtitle debug logging values', () => {
         const store = new DeveloperSettingsStore();
         mockLocalStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING, 'yes');
         expect(store.readSubtitleDebugLoggingEnabled(false)).toBe(false);
         expect(mockLocalStorage.getItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING)).toBe(null);
+    });
+
+    it('keeps debug toggle clear operations non-fatal when storage is blocked', () => {
+        const store = new DeveloperSettingsStore();
+        const removeSpy = jest.spyOn(mockLocalStorage, 'removeItem').mockImplementation(() => {
+            throw new DOMException('Blocked', 'SecurityError');
+        });
+
+        try {
+            expect(() => store.clearDebugLoggingEnabled()).not.toThrow();
+            expect(() => store.clearSubtitleDebugLoggingEnabled()).not.toThrow();
+        } finally {
+            removeSpy.mockRestore();
+        }
     });
 
     it('keeps debug toggle reads/writes non-fatal when storage is blocked', () => {
