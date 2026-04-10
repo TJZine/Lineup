@@ -78,6 +78,7 @@ const makeDeps = (
     handlePlexStreamError: jest.fn(),
     handleScreenChange: jest.fn(),
     reportPersistenceWarning: jest.fn(),
+    cleanupReporter: jest.fn(),
     nowPlayingModalId: 'now-playing-modal',
 });
 

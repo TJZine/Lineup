@@ -111,6 +111,7 @@ import type {
 import { createOrchestratorModules } from './OrchestratorModuleFactory';
 import { createOrchestratorCoordinators } from './OrchestratorCoordinatorFactory';
 import { createPriorityOneControllersAndBinder } from './OrchestratorPriorityOneControllerFactory';
+import type { OrchestratorEventCleanupFailure } from './OrchestratorEventCleanupReporter';
 import type {
     ChannelBadgeOverlayInitPort,
     ChannelNumberOverlayInitPort,
@@ -1833,6 +1834,13 @@ export class AppOrchestrator {
                 handleScreenChange: (payload): void => this._handleScreenChange(payload),
                 reportPersistenceWarning: (message): void => {
                     this._nowPlayingHandler?.({ message, type: 'warning' });
+                },
+                cleanupReporter: (failures: OrchestratorEventCleanupFailure[]): void => {
+                    try {
+                        console.warn('[Orchestrator] Event wiring rollback failures:', failures);
+                    } catch {
+                        // Cleanup reporting must never throw during event binder teardown.
+                    }
                 },
                 nowPlayingModalId: NOW_PLAYING_INFO_MODAL_ID,
             });

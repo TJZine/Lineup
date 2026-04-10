@@ -21,6 +21,7 @@ import {
     OrchestratorEventBinder,
     type OrchestratorEventBinderDeps,
 } from './OrchestratorEventBinder';
+import type { OrchestratorEventCleanupReporter } from './OrchestratorEventCleanupReporter';
 import {
     OverlayRuntimePolicyController,
 } from './OverlayRuntimePolicyController';
@@ -81,6 +82,7 @@ export interface OrchestratorPriorityOneControllerFactoryDeps {
     handlePlexStreamError: (error: StreamResolverError) => void;
     handleScreenChange: (payload: { from: Screen; to: Screen }) => void;
     reportPersistenceWarning: (message: string) => void;
+    cleanupReporter: OrchestratorEventCleanupReporter;
 
     nowPlayingModalId: string;
 }
@@ -263,6 +265,7 @@ export function createPriorityOneControllersAndBinder(
     });
 
     const binderDeps: OrchestratorEventBinderDeps = {
+        cleanupReporter: deps.cleanupReporter,
         getScheduler: (): IChannelScheduler | null => deps.scheduler,
         getVideoPlayer: (): IVideoPlayer | null => deps.videoPlayer,
         getPlexLibrary: (): IPlexLibrary | null => deps.plexLibrary,

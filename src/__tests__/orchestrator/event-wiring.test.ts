@@ -75,6 +75,7 @@ const makeBinder = (overrides: Partial<OrchestratorEventBinderDeps> = {}): Binde
     } as unknown as IChannelManager;
 
     const deps: OrchestratorEventBinderDeps = {
+        cleanupReporter: jest.fn(),
         getScheduler: () => scheduler,
         getVideoPlayer: () => videoPlayer,
         getPlexLibrary: () => plexLibrary,
@@ -334,63 +335,55 @@ describe('AppOrchestrator event wiring', () => {
         expect(scheduler.on).toHaveBeenCalledTimes(4);
     });
 
-    it('dispose reports cleanup failures when no sink is supplied', () => {
-        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-        try {
-            const throwingCleanup = jest.fn(() => {
-                throw new Error('cleanup-failed');
-            });
+    it('dispose reports cleanup failures through the injected cleanup reporter when no sink is supplied', () => {
+        const cleanupReporter = jest.fn();
+        const throwingCleanup = jest.fn(() => {
+            throw new Error('cleanup-failed');
+        });
 
-            const { binder } = makeBinder({
-                wireNavigationCoordinatorEvents: () => [throwingCleanup],
-                getNavigation: () => null,
-            });
+        const { binder } = makeBinder({
+            cleanupReporter,
+            wireNavigationCoordinatorEvents: () => [throwingCleanup],
+            getNavigation: () => null,
+        });
 
-            binder.bind();
-            binder.dispose();
+        binder.bind();
+        binder.dispose();
 
-            expect(warnSpy).toHaveBeenCalledWith(
-                '[Orchestrator] Event wiring rollback failures:',
-                expect.arrayContaining([
-                    expect.objectContaining({
-                        step: 'event-wiring.cleanup',
-                    }),
-                ])
-            );
-        } finally {
-            warnSpy.mockRestore();
-        }
+        expect(cleanupReporter).toHaveBeenCalledWith(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    step: 'event-wiring.cleanup',
+                }),
+            ])
+        );
     });
 
-    it('dispose reports cleanup failures when the cleanup sink throws', () => {
-        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-        try {
-            const onCleanupError = jest.fn(() => {
-                throw new Error('sink-failed');
-            });
-            const throwingCleanup = jest.fn(() => {
-                throw new Error('cleanup-failed');
-            });
+    it('dispose reports cleanup sink failures through the injected cleanup reporter', () => {
+        const cleanupReporter = jest.fn();
+        const onCleanupError = jest.fn(() => {
+            throw new Error('sink-failed');
+        });
+        const throwingCleanup = jest.fn(() => {
+            throw new Error('cleanup-failed');
+        });
 
-            const { binder } = makeBinder({
-                wireNavigationCoordinatorEvents: () => [throwingCleanup],
-                getNavigation: () => null,
-            });
+        const { binder } = makeBinder({
+            cleanupReporter,
+            wireNavigationCoordinatorEvents: () => [throwingCleanup],
+            getNavigation: () => null,
+        });
 
-            binder.bind();
-            expect(() => binder.dispose(onCleanupError)).not.toThrow();
+        binder.bind();
+        expect(() => binder.dispose(onCleanupError)).not.toThrow();
 
-            expect(onCleanupError).toHaveBeenCalledTimes(1);
-            expect(warnSpy).toHaveBeenCalledWith(
-                '[Orchestrator] Event wiring rollback failures:',
-                expect.arrayContaining([
-                    expect.objectContaining({
-                        step: 'event-wiring.onCleanupError',
-                    }),
-                ])
-            );
-        } finally {
-            warnSpy.mockRestore();
-        }
+        expect(onCleanupError).toHaveBeenCalledTimes(1);
+        expect(cleanupReporter).toHaveBeenCalledWith(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    step: 'event-wiring.onCleanupError',
+                }),
+            ])
+        );
     });
 });
