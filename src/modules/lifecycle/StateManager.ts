@@ -14,7 +14,6 @@ import {
     MIGRATIONS,
     DEFAULT_USER_PREFERENCES,
 } from './constants';
-import { summarizeErrorForLog } from '../../utils/errors';
 import { safeLocalStorageRemove } from '../../utils/storage';
 
 /**
@@ -94,14 +93,8 @@ export class StateManager implements IStateManager {
             }
 
             return this._repairState(migrated);
-        } catch (error) {
+        } catch {
             // Parse errors are non-fatal; state will be treated as absent.
-            const isDev =
-                typeof process !== 'undefined' &&
-                (process as { env?: { NODE_ENV?: string } }).env?.NODE_ENV === 'development';
-            if (isDev) {
-                console.warn('[StateManager] Failed to parse persisted state:', summarizeErrorForLog(error));
-            }
             return null;
         }
     }

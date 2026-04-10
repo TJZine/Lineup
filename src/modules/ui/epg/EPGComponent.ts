@@ -276,7 +276,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             if (this._isDebugEnabled()) {
                 this._appendDebugLog('EPG.degradedMode', data);
             }
-            console.warn('[EPG] Degraded mode');
         });
     }
 
