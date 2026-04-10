@@ -14,6 +14,7 @@ This is the correct top-level tracked format for this work. Per `docs/agentic/do
 - Current execution state: baseline refreshed; this V4 body does not yet record any completed `P#-W#` or `P#-EXIT` items
 - Next safe start: `P0-W1`, then `P0-W2`, unless newer checked records below were added on the integration branch after this refresh
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
+- When `P0-EXIT` closes, refresh this Fresh-Session Handoff block in the same pass so the next safe start, execution state, and update log point at `P1` instead of stale Priority 0 guidance.
 - Recent update log: none recorded yet after the V4 refresh
 
 ## Goal
@@ -272,9 +273,11 @@ Suggested naming:
 Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until the current priority-exit review is complete and the `P#-EXIT` record is complete.
 
 - [ ] `P0-EXIT`
-  - required: record the final `dist-ts/` scope decision and the queue-surface consistency disposition before moving to `P1`
-  - rerun `desloppify status`, `desloppify next`, `desloppify plan queue --sort recent`, `desloppify show stale_exclude --status open --no-budget --top 50`, and `desloppify show facade --status open --no-budget --top 50`
-  - confirm the local operating rule for any surviving tooling mismatch and whether `dist-ts/` stays in scope or moves to approved generated output
+  - required: record the final `dist-ts/` scope decision, the queue-surface consistency disposition, explicit `security triage`, and docs-verification result before moving to `P1`
+  - rerun `desloppify status`, `desloppify next`, `desloppify plan queue --sort recent`, `desloppify show stale_exclude --status open --no-budget --top 50`, `desloppify show facade --status open --no-budget --top 50`, `desloppify show security --status open --no-budget --top 50`, and `npm run verify:docs`
+  - classify any surviving queue mismatch as one of: repo-side persisted subjective state, by-design queue semantics, or upstream tooling inconsistency; do not collapse these into one bucket
+  - confirm the local operating rule for any surviving queue mismatch and whether `dist-ts/` stays in scope or moves to approved generated output
+  - refresh the top-level `Fresh-Session Handoff` block in the same pass so `P1-W1` becomes the next safe start only after `P0-EXIT` is actually closed
 
 - [ ] `P1-EXIT`
   - required: record every mapped imported issue with an exact disposition
@@ -332,7 +335,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 ## Priority 0: Restore Queue Trust Before Chasing Score
 
-### [ ] `P0-W1` Scan Scope And Generated-Output Policy
+### [x] `P0-W1` Scan Scope And Generated-Output Policy
 
 **Goal:** lock the scan contract so later score movement is meaningful.
 
@@ -362,6 +365,13 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 **Exit rule:** no ambiguity remains about whether `dist-ts/` belongs in the cleanup backlog.
 
+- Status: completed
+- Plan: `docs/plans/2026-04-10-p0-queue-trust-and-scan-contract.md`
+- Last touched: `2026-04-10`
+- Verification: `rg -n "outDir|dist-ts" tsconfig.json tsconfig.eslint.json .gitignore eslint.config.js stylelint.config.cjs package.json` confirmed `dist-ts` as compiler/tool-generated output; `git ls-files dist-ts` returned no tracked files; `desloppify scan --path .` reran with `dist-ts` in exclude list; `desloppify show stale_exclude --status open --no-budget --top 50` reported expected local-state excludes.
+- Follow-ups: `desloppify show facade --status open --no-budget --top 50` still reports `facade::dist-ts/**` residue despite exclusion; classify and carry in `P0-EXIT`.
+- Handoff: `P0-W2 queue-surface repro and operating rule`
+
 ### [ ] `P0-W2` Queue-Surface Consistency And Tooling Trust
 
 **Goal:** resolve or explicitly record the mismatch between `status`, `plan queue`, and `next`.
@@ -370,6 +380,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 - Reproduce the mismatch on current state.
 - Determine whether the stray subjective queue item is real, stale state, or a tool bug.
+- Determine whether the stray subjective queue item reflects repo-side persisted subjective state, by-design queue semantics, or a true tool bug.
 - If it is repo-state driven, fix the repo-side cause.
 - If it is a `desloppify` bug, capture a minimal repro and keep this checklist honest about the remaining tool inconsistency.
 
