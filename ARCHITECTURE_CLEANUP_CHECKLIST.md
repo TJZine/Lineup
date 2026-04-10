@@ -372,7 +372,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - Follow-ups: `desloppify show facade --status open --no-budget --top 50` still reports `facade::dist-ts/**` residue despite exclusion; classify and carry in `P0-EXIT`.
 - Handoff: `P0-W2 queue-surface repro and operating rule`
 
-### [ ] `P0-W2` Queue-Surface Consistency And Tooling Trust
+### [x] `P0-W2` Queue-Surface Consistency And Tooling Trust
 
 **Goal:** resolve or explicitly record the mismatch between `status`, `plan queue`, and `next`.
 
@@ -392,6 +392,13 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify show review --status open --no-budget --top 100`
 
 **Exit rule:** either the queue surfaces agree, or the mismatch is documented as an upstream tooling defect with a repro and a clear local operating rule.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-10-p0-queue-trust-and-scan-contract.md`
+- Last touched: `2026-04-10`
+- Verification: `desloppify status` reported `Queue: 1 item (51 stale tracked · 1 subjective)`; `desloppify next` reported `Queue: 0 items`; `desloppify plan queue --sort recent` reported `Queue: 1 item (51 planned · 1 subjective)`; `desloppify show review --status open --no-budget --top 100` confirmed review backlog context; `rg -n "subjective|queue|active_cluster|queue_order" .desloppify/plan.json .desloppify/state-typescript.json .desloppify/query.json` plus direct reads confirmed persisted subjective state (`queue_order`, `subjective::unscored`, `sync_subjective`, `subjective_assessments`, `dependency_health: 94.0`, `subjective_integrity.status: "disabled"`).
+- Follow-ups: documented by-design queue semantics; operating rule is `desloppify next` as implementation-start surface, while `desloppify status`/`desloppify plan queue` are broader awareness surfaces that include subjective reminders.
+- Handoff: `P0-EXIT closeout rerun`
 
 ## Priority 1: Narrow Runtime Composition Roots And Orchestrator Ownership
 
