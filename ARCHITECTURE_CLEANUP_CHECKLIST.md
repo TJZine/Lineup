@@ -11,11 +11,11 @@ This is the correct top-level tracked format for this work. Per `docs/agentic/do
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: baseline refreshed; this V4 body does not yet record any completed `P#-W#` or `P#-EXIT` items
-- Next safe start: `P0-W1`, then `P0-W2`, unless newer checked records below were added on the integration branch after this refresh
+- Current execution state: `P0-W1`, `P0-W2`, and `P0-EXIT` completed on integration-branch evidence; `P1` not started
+- Next safe start: `P1-W1`, then `P1-W2` only after `P1-EXIT`
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
-- When `P0-EXIT` closes, refresh this Fresh-Session Handoff block in the same pass so the next safe start, execution state, and update log point at `P1` instead of stale Priority 0 guidance.
-- Recent update log: none recorded yet after the V4 refresh
+- Recent update log:
+  - `2026-04-10`: closed `P0-W1`/`P0-W2`/`P0-EXIT`; locked `dist-ts` generated-output exclusion, recorded queue operating rule, ran `desloppify` exit evidence plus `npm run verify:docs`
 
 ## Goal
 
@@ -272,12 +272,21 @@ Suggested naming:
 
 Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until the current priority-exit review is complete and the `P#-EXIT` record is complete.
 
-- [ ] `P0-EXIT`
+- [x] `P0-EXIT`
   - required: record the final `dist-ts/` scope decision, the queue-surface consistency disposition, explicit `security triage`, and docs-verification result before moving to `P1`
   - rerun `desloppify status`, `desloppify next`, `desloppify plan queue --sort recent`, `desloppify show stale_exclude --status open --no-budget --top 50`, `desloppify show facade --status open --no-budget --top 50`, `desloppify show security --status open --no-budget --top 50`, and `npm run verify:docs`
   - classify any surviving queue mismatch as one of: repo-side persisted subjective state, by-design queue semantics, or upstream tooling inconsistency; do not collapse these into one bucket
   - confirm the local operating rule for any surviving queue mismatch and whether `dist-ts/` stays in scope or moves to approved generated output
   - refresh the top-level `Fresh-Session Handoff` block in the same pass so `P1-W1` becomes the next safe start only after `P0-EXIT` is actually closed
+  - Status: completed
+  - Plan: `docs/plans/2026-04-10-p0-queue-trust-and-scan-contract.md`
+  - Last touched: `2026-04-10`
+  - Verification: `desloppify status`; `desloppify next`; `desloppify plan queue --sort recent`; `desloppify show stale_exclude --status open --no-budget --top 50`; `desloppify show facade --status open --no-budget --top 50`; `desloppify show security --status open --no-budget --top 50`; `npm run verify:docs`; `npm run plans:check`.
+  - Follow-ups: `desloppify show facade` still reports `facade::dist-ts/**` despite active exclude and post-change scan; treat as tooling-state residue with local decision unchanged (`dist-ts` stays excluded generated output). `npm run plans:check` failed due pre-existing unrelated older plan-conformance gaps in other active plans; no P0 plan-doc edits performed per execution constraints.
+  - Handoff: `P1-W1 plan/review may begin`
+  - Queue-surface disposition (locked three-bucket rule): repo-side persisted subjective state exists in `.desloppify/plan.json`/`.desloppify/state-typescript.json`; mismatch classified as by-design queue semantics (`next` excludes subjective reminders) rather than unresolved upstream inconsistency for `P0` closeout.
+  - Security triage: `desloppify show security --status open --no-budget --top 50` returned `No open issues for Security`.
+  - Docs verification: `npm run verify:docs` passed.
 
 - [ ] `P1-EXIT`
   - required: record every mapped imported issue with an exact disposition
