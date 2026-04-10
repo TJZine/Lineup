@@ -333,4 +333,60 @@ describe('AppOrchestrator event wiring', () => {
 
         expect(scheduler.on).toHaveBeenCalledTimes(4);
     });
+
+    it('dispose reports cleanup failures when no sink is supplied', () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const throwingCleanup = jest.fn(() => {
+            throw new Error('cleanup-failed');
+        });
+
+        const { binder } = makeBinder({
+            wireNavigationCoordinatorEvents: () => [throwingCleanup],
+            getNavigation: () => null,
+        });
+
+        binder.bind();
+        binder.dispose();
+
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[Orchestrator] Event wiring rollback failures:',
+            expect.arrayContaining([
+                expect.objectContaining({
+                    step: 'event-wiring.cleanup',
+                }),
+            ])
+        );
+
+        warnSpy.mockRestore();
+    });
+
+    it('dispose reports cleanup failures when the cleanup sink throws', () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const onCleanupError = jest.fn(() => {
+            throw new Error('sink-failed');
+        });
+        const throwingCleanup = jest.fn(() => {
+            throw new Error('cleanup-failed');
+        });
+
+        const { binder } = makeBinder({
+            wireNavigationCoordinatorEvents: () => [throwingCleanup],
+            getNavigation: () => null,
+        });
+
+        binder.bind();
+        expect(() => binder.dispose(onCleanupError)).not.toThrow();
+
+        expect(onCleanupError).toHaveBeenCalledTimes(1);
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[Orchestrator] Event wiring rollback failures:',
+            expect.arrayContaining([
+                expect.objectContaining({
+                    step: 'event-wiring.onCleanupError',
+                }),
+            ])
+        );
+
+        warnSpy.mockRestore();
+    });
 });

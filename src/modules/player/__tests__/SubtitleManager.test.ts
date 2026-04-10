@@ -7,6 +7,7 @@
 import { SubtitleManager } from '../SubtitleManager';
 import type { SubtitleTrack } from '../types';
 import type { PlatformSubtitleService } from '../../../platform';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 
 // ============================================
 // Test Helpers
@@ -109,12 +110,14 @@ describe('SubtitleManager', () => {
     let videoElement: HTMLVideoElement;
 
     beforeEach(() => {
+        localStorage.removeItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING);
         manager = new SubtitleManager();
         videoElement = createMockVideoElement();
         manager.initialize(videoElement);
     });
 
     afterEach(() => {
+        localStorage.removeItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING);
         manager.destroy();
     });
 
@@ -123,6 +126,33 @@ describe('SubtitleManager', () => {
     // ========================================
 
     describe('loadTracks', () => {
+        it('emits redacted subtitle debug output when subtitle debug logging is enabled', () => {
+            localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING, '1');
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const tracks: SubtitleTrack[] = [
+                createMockSubtitleTrack({ id: 'en', format: 'vtt', codec: 'vtt' }),
+            ];
+
+            try {
+                manager.loadTracks(tracks, {
+                    serverUri: 'http://example.com',
+                    authHeaders: { 'X-Plex-Token': 'sensitive-token' },
+                    resolvedBaseUrl: 'http://example.com',
+                });
+
+                expect(warnSpy).toHaveBeenCalledWith(
+                    '[SubtitleManager] subtitle-debug:',
+                    'subtitle_tracks_discovered',
+                    expect.stringContaining('"count":1')
+                );
+                expect(
+                    warnSpy.mock.calls.some((call) => call.some((arg) => String(arg).includes('sensitive-token')))
+                ).toBe(false);
+            } finally {
+                warnSpy.mockRestore();
+            }
+        });
+
         it('should create track elements for text-based formats', () => {
             const tracks: SubtitleTrack[] = [
                 createMockSubtitleTrack({ id: 'en', format: 'srt' }),

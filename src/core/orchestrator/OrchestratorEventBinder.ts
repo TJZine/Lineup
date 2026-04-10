@@ -113,6 +113,14 @@ export class OrchestratorEventBinder {
             }
         }
 
+        const onCleanupErrorFailed = cleanupFailures.some(
+            (failure) => failure.step === 'event-wiring.onCleanupError'
+        );
+
+        if ((onCleanupErrorFailed || !onCleanupError) && cleanupFailures.length > 0) {
+            console.warn('[Orchestrator] Event wiring rollback failures:', cleanupFailures);
+        }
+
     }
 
     private _wireSchedulerEvents(cleanups: Array<() => void>): void {
