@@ -418,21 +418,11 @@ export class AppOrchestrator {
      * @param config - Configuration for all modules
      */
     async initialize(config: OrchestratorConfig): Promise<void> {
-        this._config = config;
-        if (this._config.nowPlayingInfoConfig) {
-            const previousOnAutoHide = this._config.nowPlayingInfoConfig.onAutoHide ?? null;
-            this._config.nowPlayingInfoConfig.onAutoHide = (): void => {
-                if (previousOnAutoHide) {
-                    previousOnAutoHide();
-                }
-                if (this._navigation?.isModalOpen(NOW_PLAYING_INFO_MODAL_ID)) {
-                    this._navigation.closeModal(NOW_PLAYING_INFO_MODAL_ID);
-                }
-            };
-        }
+        const orchestratorConfig = this._prepareConfig(config);
+        this._config = orchestratorConfig;
 
         const modules = createOrchestratorModules({
-            config,
+            config: orchestratorConfig,
             platformServices: this._platformServices,
             debugOverridesStore: this._debugOverridesStore,
             onSleepTimerTick: (): void => {
@@ -465,7 +455,7 @@ export class AppOrchestrator {
         this._configureDiscoveryStorageKeysForActiveUser();
 
         const initializationUiInitializer = new InitializationUiInitializer(
-            config,
+            orchestratorConfig,
             {
                 nowPlayingInfo: this._nowPlayingInfo,
                 playbackOptions: this._playbackOptionsModal,
@@ -480,7 +470,7 @@ export class AppOrchestrator {
 
         // Create InitializationCoordinator with dependencies and callbacks
         this._initCoordinator = new InitializationCoordinator(
-            config,
+            orchestratorConfig,
             {
                 modules: {
                     lifecycle: this._lifecycle,
@@ -570,6 +560,24 @@ export class AppOrchestrator {
 
         // Update status for all modules
         this._updateModuleStatus('event-emitter', 'ready');
+    }
+
+    private _prepareConfig(config: OrchestratorConfig): OrchestratorConfig {
+        const nowPlayingInfoConfig = { ...config.nowPlayingInfoConfig };
+        const previousOnAutoHide = nowPlayingInfoConfig.onAutoHide ?? null;
+
+        nowPlayingInfoConfig.onAutoHide = (): void => {
+            previousOnAutoHide?.();
+
+            if (this._navigation?.isModalOpen(NOW_PLAYING_INFO_MODAL_ID)) {
+                this._navigation.closeModal(NOW_PLAYING_INFO_MODAL_ID);
+            }
+        };
+
+        return {
+            ...config,
+            nowPlayingInfoConfig,
+        };
     }
 
     private _createCoordinators(): void {

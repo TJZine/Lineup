@@ -826,23 +826,41 @@ describe('AppOrchestrator', () => {
             });
         });
 
-        it('should preserve caller-supplied nowPlayingInfoConfig.onAutoHide', async () => {
-            const prev = jest.fn();
+        it('wraps nowPlayingInfoConfig.onAutoHide without mutating caller config', async () => {
+            const previousOnAutoHide = jest.fn();
             const configWithHandler: OrchestratorConfig = {
                 ...mockConfig,
                 nowPlayingInfoConfig: {
                     ...mockConfig.nowPlayingInfoConfig,
-                    onAutoHide: prev,
+                    onAutoHide: previousOnAutoHide,
                 },
             };
+            const originalNowPlayingInfoConfig = configWithHandler.nowPlayingInfoConfig;
+            const originalOnAutoHide = configWithHandler.nowPlayingInfoConfig.onAutoHide;
 
             mockNavigation.isModalOpen.mockReturnValue(true);
+
             await orchestrator.initialize(configWithHandler);
 
-            // Orchestrator wraps the handler on initialize; invoke it to validate chaining + close behavior.
-            configWithHandler.nowPlayingInfoConfig.onAutoHide?.();
+            expect(configWithHandler.nowPlayingInfoConfig).toBe(originalNowPlayingInfoConfig);
+            expect(configWithHandler.nowPlayingInfoConfig.onAutoHide).toBe(originalOnAutoHide);
 
-            expect(prev).toHaveBeenCalledTimes(1);
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.validateToken.mockResolvedValue(true);
+            mockPlexDiscovery.isConnected.mockReturnValue(true);
+
+            await orchestrator.start();
+
+            const nowPlayingModule = require('../modules/ui/now-playing-info');
+            const instance = (nowPlayingModule.NowPlayingInfoOverlay as jest.Mock).mock.results[0]?.value;
+            const initializedConfig = (instance.initialize as jest.Mock).mock.calls[0]?.[0] as NowPlayingInfoConfig;
+
+            expect(initializedConfig).not.toBe(configWithHandler.nowPlayingInfoConfig);
+            expect(initializedConfig.onAutoHide).not.toBe(originalOnAutoHide);
+
+            initializedConfig.onAutoHide?.();
+
+            expect(previousOnAutoHide).toHaveBeenCalledTimes(1);
             expect(mockNavigation.closeModal).toHaveBeenCalledWith('now-playing-info');
         });
 
