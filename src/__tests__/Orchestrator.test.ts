@@ -2629,6 +2629,67 @@ describe('AppOrchestrator', () => {
             expect(mockNavigation.destroy).toHaveBeenCalledTimes(1);
         });
 
+        it('clears owned runtime collaborator references after shutdown and remains non-reusable', async () => {
+            await orchestrator.shutdown();
+
+            const clearedFields = [
+                '_scheduleDayRolloverController',
+                '_eventBinder',
+                '_channelManager',
+                '_lifecycle',
+                '_videoPlayer',
+                '_scheduler',
+                '_epg',
+                '_epgDebugRuntime',
+                '_nowPlayingInfoCoordinator',
+                '_nowPlayingInfo',
+                '_playerOsdCoordinator',
+                '_playerOsd',
+                '_channelNumberOverlay',
+                '_channelBadgeOverlay',
+                '_miniGuideCoordinator',
+                '_miniGuide',
+                '_channelTransitionCoordinator',
+                '_channelTransitionOverlay',
+                '_playbackOptionsCoordinator',
+                '_playbackOptionsModal',
+                '_exitConfirmCoordinator',
+                '_exitConfirmModal',
+                '_sleepTimer',
+                '_navigationCoordinator',
+                '_navigation',
+                '_playbackRecovery',
+                '_channelTuning',
+                '_subtitleTrackRecoveryController',
+                '_playbackRuntimeController',
+                '_overlayRuntimePolicyController',
+                '_profileSwitchCleanupController',
+                '_channelSetup',
+                '_plexAuth',
+                '_plexDiscovery',
+                '_plexLibrary',
+                '_plexStreamResolver',
+            ];
+
+            for (const field of clearedFields) {
+                expect(Reflect.get(orchestrator as object, field)).toBeNull();
+            }
+
+            expect(Reflect.get(orchestrator as object, '_config')).not.toBeNull();
+            expect(Reflect.get(orchestrator as object, '_moduleStatus')).toBeInstanceOf(Map);
+            expect(Reflect.get(orchestrator as object, '_errorHandlers')).toBeInstanceOf(Map);
+
+            await expect(orchestrator.start()).rejects.toMatchObject({
+                code: AppErrorCode.MODULE_INIT_FAILED,
+                recoverable: true,
+                message: expect.stringContaining('Orchestrator must be initialized before starting'),
+                context: expect.objectContaining({
+                    method: 'start',
+                    dependency: 'InitializationCoordinator',
+                }),
+            });
+        });
+
         it('continues teardown and logs aggregated warnings when shutdown steps fail', async () => {
             const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
             try {

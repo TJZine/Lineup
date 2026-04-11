@@ -798,11 +798,13 @@ export class AppOrchestrator {
             } catch (error) {
                 recordTeardownFailure('scheduleDayRolloverController.dispose', error);
             }
+            this._scheduleDayRolloverController = null;
         }
 
         this._eventBinder?.dispose((error: unknown): void => {
             recordTeardownFailure('events.unsubscribe', error);
         });
+        this._eventBinder = null;
 
         if (this._channelManager?.flushSaves) {
             try {
@@ -818,6 +820,7 @@ export class AppOrchestrator {
                 recordTeardownFailure('channelManager.dispose', error);
             }
         }
+        this._channelManager = null;
 
         // Shutdown lifecycle (flushes state and removes global listeners)
         if (this._lifecycle) {
@@ -850,6 +853,7 @@ export class AppOrchestrator {
             } catch (error) {
                 recordTeardownFailure('scheduler.unloadChannel', error);
             }
+            this._scheduler = null;
         }
 
         // Destroy modules
@@ -860,6 +864,7 @@ export class AppOrchestrator {
                 recordTeardownFailure('epg.destroy', error);
             }
         }
+        this._epg = null;
         if (this._epgDebugRuntime) {
             try {
                 this._epgDebugRuntime.destroy();
@@ -873,24 +878,28 @@ export class AppOrchestrator {
         } catch (error) {
             recordTeardownFailure('nowPlayingInfoCoordinator.dispose', error);
         }
+        this._nowPlayingInfoCoordinator = null;
         if (this._nowPlayingInfo) {
             try {
                 this._nowPlayingInfo.destroy();
             } catch (error) {
                 recordTeardownFailure('nowPlayingInfo.destroy', error);
             }
+            this._nowPlayingInfo = null;
         }
         try {
             this._playerOsdCoordinator?.hide();
         } catch (error) {
             recordTeardownFailure('playerOsdCoordinator.hide', error);
         }
+        this._playerOsdCoordinator = null;
         if (this._playerOsd) {
             try {
                 this._playerOsd.destroy();
             } catch (error) {
                 recordTeardownFailure('playerOsd.destroy', error);
             }
+            this._playerOsd = null;
         }
         if (this._channelNumberOverlay) {
             try {
@@ -913,36 +922,42 @@ export class AppOrchestrator {
         } catch (error) {
             recordTeardownFailure('miniGuideCoordinator.hide', error);
         }
+        this._miniGuideCoordinator = null;
         if (this._miniGuide) {
             try {
                 this._miniGuide.destroy();
             } catch (error) {
                 recordTeardownFailure('miniGuide.destroy', error);
             }
+            this._miniGuide = null;
         }
         try {
             this._channelTransitionCoordinator?.hide();
         } catch (error) {
             recordTeardownFailure('channelTransitionCoordinator.hide', error);
         }
+        this._channelTransitionCoordinator = null;
         if (this._channelTransitionOverlay) {
             try {
                 this._channelTransitionOverlay.destroy();
             } catch (error) {
                 recordTeardownFailure('channelTransitionOverlay.destroy', error);
             }
+            this._channelTransitionOverlay = null;
         }
         try {
             this._playbackOptionsCoordinator?.dispose();
         } catch (error) {
             recordTeardownFailure('playbackOptionsCoordinator.dispose', error);
         }
+        this._playbackOptionsCoordinator = null;
         if (this._playbackOptionsModal) {
             try {
                 this._playbackOptionsModal.destroy();
             } catch (error) {
                 recordTeardownFailure('playbackOptionsModal.destroy', error);
             }
+            this._playbackOptionsModal = null;
         }
         if (this._exitConfirmModal) {
             if (this._navigation?.isModalOpen(EXIT_CONFIRM_MODAL_ID)) {
@@ -963,6 +978,7 @@ export class AppOrchestrator {
                 recordTeardownFailure('exitConfirmModal.destroy', error);
             }
             this._exitConfirmModal = null;
+            this._exitConfirmCoordinator = null;
         }
         if (this._videoPlayer) {
             try {
@@ -970,6 +986,7 @@ export class AppOrchestrator {
             } catch (error) {
                 recordTeardownFailure('videoPlayer.destroy', error);
             }
+            this._videoPlayer = null;
         }
         if (this._sleepTimer) {
             try {
@@ -985,6 +1002,7 @@ export class AppOrchestrator {
             } catch (error) {
                 recordTeardownFailure('navigation.destroy', error);
             }
+            this._navigation = null;
         }
 
         if (teardownFailures.length > 0) {
@@ -992,8 +1010,18 @@ export class AppOrchestrator {
         }
 
         this._initCoordinator = null;
-        this._scheduleDayRolloverController = null;
+        this._navigationCoordinator = null;
+        this._playbackRecovery = null;
+        this._channelTuning = null;
         this._subtitleTrackRecoveryController = null;
+        this._playbackRuntimeController = null;
+        this._overlayRuntimePolicyController = null;
+        this._profileSwitchCleanupController = null;
+        this._channelSetup = null;
+        this._plexAuth = null;
+        this._plexDiscovery = null;
+        this._plexLibrary = null;
+        this._plexStreamResolver = null;
         this._ready = false;
     }
 
