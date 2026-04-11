@@ -1913,11 +1913,18 @@ export class AppOrchestrator {
     }
 
     private _buildPlexResourceUrl(pathOrUrl: string): string | null {
+        let baseUri: string | null = null;
+
         try {
-            const baseUri = this._plexDiscovery?.getServerUri() ?? null;
+            baseUri = this._plexDiscovery?.getServerUri() ?? null;
             const headers = this._plexAuth?.getAuthHeaders() ?? {};
             return buildPlexResourceUrlWithAuth(baseUri, pathOrUrl, headers);
-        } catch {
+        } catch (error) {
+            console.warn('[Orchestrator] buildPlexResourceUrlWithAuth failed:', {
+                pathOrUrl: summarizeErrorForLog(pathOrUrl),
+                baseUri: summarizeErrorForLog(baseUri),
+                error: summarizeErrorForLog(error),
+            });
             return null;
         }
     }
