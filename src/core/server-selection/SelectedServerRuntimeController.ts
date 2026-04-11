@@ -24,7 +24,8 @@ export class SelectedServerRuntimeController {
     }
 
     async clearSelection(): Promise<SelectedServerPersistenceResult> {
+        const result = await this._deps.persistSelection(null, null);
         this._deps.clearDiscoverySelection();
-        return this._deps.persistSelection(null, null);
+        return result;
     }
 }

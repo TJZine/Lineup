@@ -49,7 +49,7 @@ const createOrchestratorStub = (): ServerSelectScreenHarness => {
         discoverServers: jest.fn(),
         selectServer: jest.fn().mockResolvedValue({ kind: 'selection_failed', reason: 'unreachable' }),
         requestChannelSetupRerun,
-        clearSelectedServer: jest.fn(),
+        clearSelectedServer: jest.fn().mockResolvedValue(undefined),
         getSelectedServerStorageKey: jest.fn(() => 'selected-server-id'),
         getServerHealthStorageKey: jest.fn(() => 'server-health'),
     } as ServerSelectScreenHarness;
@@ -499,6 +499,7 @@ describe('ServerSelectScreen', () => {
         const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
         expect(clearBtn).not.toBeNull();
         clearBtn?.click();
+        await flushPromisesAndTimers();
 
         expect(container.querySelectorAll('.server-row')).toHaveLength(1);
         expect(container.querySelector('.server-empty-state')).toBeNull();
@@ -509,6 +510,49 @@ describe('ServerSelectScreen', () => {
 
         jest.advanceTimersByTime(60);
         expect(nav.setFocus).toHaveBeenCalledWith('btn-server-refresh');
+    });
+
+    it('shows an error and keeps the server list when clearing saved server fails', async () => {
+        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+        try {
+            const orchestrator = createOrchestratorStub();
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+            orchestrator.clearSelectedServer.mockRejectedValueOnce(new Error('store failed'));
+
+            const screen = new ServerSelectScreen(container, orchestrator);
+            screen.show({ allowAutoConnect: false });
+            await flushPromisesAndTimers();
+
+            const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
+            expect(clearBtn).not.toBeNull();
+
+            clearBtn?.click();
+            await flushPromisesAndTimers();
+
+            expect(orchestrator.clearSelectedServer).toHaveBeenCalledTimes(1);
+            expect(container.querySelectorAll('.server-row')).toHaveLength(1);
+
+            const status = container.querySelector('.screen-status') as HTMLElement | null;
+            const detail = container.querySelector('.screen-detail') as HTMLElement | null;
+            const error = container.querySelector('.screen-error') as HTMLElement | null;
+
+            expect(status?.textContent).toBe('Selection not cleared.');
+            expect(detail?.textContent).toBe('Try again.');
+            expect(error?.textContent).toBe('store failed');
+            expect(consoleErrorSpy).toHaveBeenCalledWith(
+                '[ServerSelect] Clear saved server failed:',
+                expect.objectContaining({
+                    name: 'Error',
+                    message: 'store failed',
+                })
+            );
+        } finally {
+            consoleErrorSpy.mockRestore();
+        }
     });
 
     it('uses navigation restore entrypoint before refresh-button fallback', async () => {

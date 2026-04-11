@@ -10,7 +10,7 @@ type MockRuntimeOrchestrator = {
     signOutPlex: jest.Mock;
     discoverServers: jest.Mock;
     selectServer: jest.Mock;
-    clearSelectedServer: jest.Mock;
+    clearSelectedServer: jest.Mock<Promise<void>, []>;
     getSelectedServerStorageKey: jest.Mock;
     getServerHealthStorageKey: jest.Mock;
     getChannelSetupWorkflowPort: jest.Mock;
@@ -35,7 +35,7 @@ const makeOrchestrator = (): MockRuntimeOrchestrator => ({
     signOutPlex: jest.fn().mockResolvedValue(undefined),
     discoverServers: jest.fn().mockResolvedValue([]),
     selectServer: jest.fn().mockResolvedValue({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' }),
-    clearSelectedServer: jest.fn(),
+    clearSelectedServer: jest.fn().mockResolvedValue(undefined),
     getSelectedServerStorageKey: jest.fn().mockReturnValue('selected-server-id'),
     getServerHealthStorageKey: jest.fn().mockReturnValue('server-health'),
     getChannelSetupWorkflowPort: jest.fn().mockReturnValue({ id: 'workflow-port' }),
@@ -116,7 +116,7 @@ describe('AppLazyScreenPortFactory', () => {
 
         await serverPorts?.discoverServers(true);
         await serverPorts?.selectServer('server-1');
-        serverPorts?.clearSelectedServer();
+        await serverPorts?.clearSelectedServer();
         expect(serverPorts?.getSelectedServerStorageKey()).toBe('selected-server-id');
         expect(serverPorts?.getServerHealthStorageKey()).toBe('server-health');
         serverPorts?.requestChannelSetupRerun();

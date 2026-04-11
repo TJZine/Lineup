@@ -26,7 +26,7 @@ export interface AppShellProfileRuntimePort {
 export interface AppShellServerSelectionRuntimePort {
     discoverServers(forceRefresh?: boolean): Promise<PlexServer[]>;
     selectServer(serverId: string): Promise<OrchestratorServerSelectionResult>;
-    clearSelectedServer(): void;
+    clearSelectedServer(): Promise<void>;
     getSelectedServerStorageKey(): string;
     getServerHealthStorageKey(): string;
     requestChannelSetupRerun(): void;

@@ -1144,8 +1144,7 @@ describe('AppOrchestrator', () => {
             await orchestrator.initialize(mockConfig);
             mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
 
-            orchestrator.clearSelectedServer();
-            await new Promise((resolve) => setImmediate(resolve));
+            await orchestrator.clearSelectedServer();
 
             expect(mockPlexDiscovery.clearSelection).toHaveBeenCalledTimes(1);
             expect(mockPlexAuth.storeCredentials).toHaveBeenCalledWith(expect.objectContaining({
@@ -1154,6 +1153,18 @@ describe('AppOrchestrator', () => {
                     'user-1': { serverId: null, serverUri: null },
                 }),
             }));
+        });
+
+        it('propagates selected-server clear persistence failures without clearing discovery selection', async () => {
+            const persistenceError = new Error('store failed');
+            await orchestrator.initialize(mockConfig);
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.storeCredentials.mockRejectedValueOnce(persistenceError);
+
+            await expect(orchestrator.clearSelectedServer()).rejects.toBe(persistenceError);
+
+            expect(mockPlexAuth.storeCredentials).toHaveBeenCalledTimes(1);
+            expect(mockPlexDiscovery.clearSelection).not.toHaveBeenCalled();
         });
     });
 
@@ -2633,45 +2644,10 @@ describe('AppOrchestrator', () => {
             await orchestrator.shutdown();
 
             const clearedFields = [
-                '_epgCoordinator',
-                '_nowPlayingDebugManager',
-                '_scheduleDayRolloverController',
-                '_eventBinder',
-                '_channelManager',
                 '_lifecycle',
                 '_videoPlayer',
                 '_scheduler',
-                '_epg',
-                '_epgDebugRuntime',
-                '_nowPlayingInfoCoordinator',
-                '_nowPlayingInfo',
-                '_playerOsdCoordinator',
-                '_playerOsd',
-                '_channelNumberOverlay',
-                '_channelBadgeOverlay',
-                '_miniGuideCoordinator',
-                '_miniGuide',
-                '_channelTransitionCoordinator',
-                '_channelTransitionOverlay',
-                '_playbackOptionsCoordinator',
-                '_playbackOptionsModal',
-                '_exitConfirmCoordinator',
-                '_exitConfirmModal',
-                '_sleepTimer',
-                '_navigationCoordinator',
-                '_navigation',
-                '_playbackRecovery',
-                '_channelTuning',
-                '_subtitleTrackRecoveryController',
-                '_playbackRuntimeController',
-                '_overlayRuntimePolicyController',
-                '_profileSwitchCleanupController',
-                '_channelSetup',
-                '_plexAuth',
-                '_plexDiscovery',
-                '_plexLibrary',
-                '_plexStreamResolver',
-            ];
+            ] as const;
 
             for (const field of clearedFields) {
                 expect(Reflect.get(orchestrator as object, field)).toBeNull();
@@ -2705,6 +2681,56 @@ describe('AppOrchestrator', () => {
                     method: 'start',
                     dependency: 'InitializationCoordinator',
                 }),
+            });
+        });
+
+        it('clears playback snapshot state on shutdown', async () => {
+            Reflect.set(orchestrator as object, '_currentProgramForPlayback', {
+                item: {
+                    ratingKey: 'rk1',
+                    title: 'Test Movie',
+                    fullTitle: 'Test Movie',
+                    type: 'movie',
+                },
+                scheduledStartTime: 1,
+                scheduledEndTime: 2,
+                elapsedMs: 0,
+                remainingMs: 120_000,
+            } as never);
+
+            Reflect.set(orchestrator as object, '_currentStreamDecision', {
+                isDirectPlay: true,
+                isTranscoding: false,
+                container: 'mp4',
+                videoCodec: 'h264',
+                audioCodec: 'aac',
+                subtitleDelivery: 'none',
+                bitrate: 1000,
+                width: 1920,
+                height: 1080,
+                sessionId: 'session-1',
+                selectedAudioStream: null,
+                selectedSubtitleStream: null,
+                directPlay: true,
+                audioFallback: false,
+                source: 'test',
+                transcodeRequest: null,
+                serverDecision: null,
+            } as never);
+
+            Reflect.set(orchestrator as object, '_currentStreamDescriptor', {
+                protocol: 'hls',
+                mimeType: 'application/x-mpegURL',
+            } as never);
+
+            expect(orchestrator.getPlaybackInfoSnapshot().program).not.toBeNull();
+
+            await orchestrator.shutdown();
+
+            expect(orchestrator.getPlaybackInfoSnapshot()).toEqual({
+                channel: null,
+                program: null,
+                stream: null,
             });
         });
 
@@ -2775,27 +2801,56 @@ describe('AppOrchestrator', () => {
             const pauseDispose = jest.fn(() => {
                 throw new Error('pause cleanup failed');
             });
-            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
-            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
 
-            (mockLifecycle.onPause as jest.Mock).mockImplementationOnce(
-                (handler: () => void | Promise<void>) => {
-                    pauseHandler = handler;
-                    return { dispose: pauseDispose };
-                }
-            );
+            try {
+                mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+                mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
 
-            await orchestrator.start();
-            await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+                (mockLifecycle.onPause as jest.Mock).mockImplementationOnce(
+                    (handler: () => void | Promise<void>) => {
+                        pauseHandler = handler;
+                        return { dispose: pauseDispose };
+                    }
+                );
 
-            expect(pauseDispose).toHaveBeenCalledTimes(1);
-            expect(mockNavigation.destroy).toHaveBeenCalled();
-            expect(warnSpy).toHaveBeenCalledWith(
-                '[Orchestrator] Shutdown teardown failures:',
-                expect.arrayContaining([
-                    expect.objectContaining({ step: 'events.unsubscribe' }),
-                ])
-            );
+                await orchestrator.start();
+                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+
+                expect(pauseDispose).toHaveBeenCalledTimes(1);
+                expect(mockNavigation.destroy).toHaveBeenCalled();
+                expect(warnSpy).toHaveBeenCalledWith(
+                    '[Orchestrator] Shutdown teardown failures:',
+                    expect.arrayContaining([
+                        expect.objectContaining({ step: 'events.unsubscribe' }),
+                    ])
+                );
+            } finally {
+                warnSpy.mockRestore();
+            }
+        });
+
+        it('records event binder dispose failures and continues shutdown', async () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const dispose = jest.fn(() => {
+                throw new Error('event binder dispose failed');
+            });
+
+            Reflect.set(orchestrator as object, '_eventBinder', { dispose });
+
+            try {
+                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+
+                expect(dispose).toHaveBeenCalledTimes(1);
+                expect(mockNavigation.destroy).toHaveBeenCalled();
+                expect(warnSpy).toHaveBeenCalledWith(
+                    '[Orchestrator] Shutdown teardown failures:',
+                    expect.arrayContaining([
+                        expect.objectContaining({ step: 'events.unsubscribe' }),
+                    ])
+                );
+            } finally {
+                warnSpy.mockRestore();
+            }
         });
 
         it('records schedule day rollover disposal failures and continues shutdown', async () => {

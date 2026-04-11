@@ -23,7 +23,7 @@ const FOCUS_RESTORE_DELAY_MS = 50;
 export interface ServerSelectScreenPorts {
     discoverServers(forceRefresh?: boolean): Promise<PlexServer[]>;
     selectServer(serverId: string): Promise<OrchestratorServerSelectionResult>;
-    clearSelectedServer(): void;
+    clearSelectedServer(): Promise<void>;
     getSelectedServerStorageKey(): string;
     getServerHealthStorageKey(): string;
     requestChannelSetupRerun(): void;
@@ -304,12 +304,22 @@ export class ServerSelectScreen {
     }
 
     private _handleClearSelection(): void {
+        void this._handleClearSelectionAsync();
+    }
+
+    private async _handleClearSelectionAsync(): Promise<void> {
         this._clearError();
-        this._ports.clearSelectedServer();
-        this._setAutoConnectHintVisible(false);
-        this._setStatus('Selection cleared.', 'Pick a server to continue.');
-        this._renderServers(this._lastDiscoveredServers, null, { emptyStateReason: 'no_servers' });
-        this._restoreFocus();
+        try {
+            await this._ports.clearSelectedServer();
+            this._setAutoConnectHintVisible(false);
+            this._setStatus('Selection cleared.', 'Pick a server to continue.', 'success');
+            this._renderServers(this._lastDiscoveredServers, null, { emptyStateReason: 'no_servers' });
+            this._restoreFocus();
+        } catch (error) {
+            this._handleError(error, 'Could not clear saved server.');
+            this._setStatus('Selection not cleared.', 'Try again.', 'error');
+            console.error('[ServerSelect] Clear saved server failed:', summarizeErrorForLog(error));
+        }
     }
 
     private _setAutoConnectHintVisible(visible: boolean): void {

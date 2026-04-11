@@ -801,9 +801,13 @@ export class AppOrchestrator {
             this._scheduleDayRolloverController = null;
         }
 
-        this._eventBinder?.dispose((error: unknown): void => {
+        try {
+            this._eventBinder?.dispose((error: unknown): void => {
+                recordTeardownFailure('events.unsubscribe', error);
+            });
+        } catch (error) {
             recordTeardownFailure('events.unsubscribe', error);
-        });
+        }
         this._eventBinder = null;
 
         if (this._channelManager?.flushSaves) {
@@ -1038,6 +1042,13 @@ export class AppOrchestrator {
         this._plexDiscovery = null;
         this._plexLibrary = null;
         this._plexStreamResolver = null;
+        this._currentProgramForPlayback = null;
+        this._currentStreamDescriptor = null;
+        this._currentStreamDecision = null;
+        this._nowPlayingHandler = null;
+        this._pendingNowPlayingChannelId = null;
+        this._shouldAutoShowInfoBannerOnNextPlay = false;
+        this._lastChannelChangeSource = null;
         this._ready = false;
     }
 
@@ -1375,14 +1386,15 @@ export class AppOrchestrator {
     /**
      * Clear saved server selection.
      */
-    clearSelectedServer(): void {
+    async clearSelectedServer(): Promise<void> {
         if (!this._plexDiscovery) {
             this._throwModuleInitPreconditionError('PlexServerDiscovery not initialized', {
                 method: 'clearSelectedServer',
                 dependency: 'PlexServerDiscovery',
             });
         }
-        void this._selectedServerRuntimeController.clearSelection();
+
+        await this._selectedServerRuntimeController.clearSelection();
     }
 
     private async _resumeStartupAfterProfileSwitch(): Promise<void> {
