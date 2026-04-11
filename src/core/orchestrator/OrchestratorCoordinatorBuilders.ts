@@ -74,11 +74,9 @@ import { ChannelSetupPlanningService } from '../channel-setup/ChannelSetupPlanni
 import { ChannelSetupRecordStore } from '../channel-setup/ChannelSetupRecordStore';
 import { ChannelTuningCoordinator } from '../channel-tuning';
 import type { GuideSelectionSnapshot } from '../channel-tuning';
-import type { OrchestratorCoordinatorFactoryDeps } from './OrchestratorCoordinatorFactory';
+import type { OrchestratorCoordinatorBuilderInput } from './OrchestratorCoordinatorContracts';
 import { NowPlayingDebugManager } from '../../modules/debug/NowPlayingDebugManager';
 import { safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from '../../utils/storage';
-
-export type OrchestratorCoordinatorBuilderInput = OrchestratorCoordinatorFactoryDeps;
 
 export function buildEpgCoordinator(input: OrchestratorCoordinatorBuilderInput): EPGCoordinator {
     return new EPGCoordinator({
