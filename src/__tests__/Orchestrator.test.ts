@@ -2633,6 +2633,8 @@ describe('AppOrchestrator', () => {
             await orchestrator.shutdown();
 
             const clearedFields = [
+                '_epgCoordinator',
+                '_nowPlayingDebugManager',
                 '_scheduleDayRolloverController',
                 '_eventBinder',
                 '_channelManager',
@@ -2678,6 +2680,22 @@ describe('AppOrchestrator', () => {
             expect(Reflect.get(orchestrator as object, '_config')).not.toBeNull();
             expect(Reflect.get(orchestrator as object, '_moduleStatus')).toBeInstanceOf(Map);
             expect(Reflect.get(orchestrator as object, '_errorHandlers')).toBeInstanceOf(Map);
+
+            mockEpg.show.mockClear();
+            mockEpg.hide.mockClear();
+            mockEpg.setLayoutMode.mockClear();
+            mockEpg.setNowWatchingBannerEnabled.mockClear();
+
+            orchestrator.openEPG();
+            orchestrator.closeEPG();
+            orchestrator.toggleEPG();
+            orchestrator.onGuideSettingChange({ key: 'layoutMode', mode: 'classic' });
+            orchestrator.onGuideSettingChange({ key: 'nowWatchingBanner', enabled: false });
+
+            expect(mockEpg.show).not.toHaveBeenCalled();
+            expect(mockEpg.hide).not.toHaveBeenCalled();
+            expect(mockEpg.setLayoutMode).not.toHaveBeenCalled();
+            expect(mockEpg.setNowWatchingBannerEnabled).not.toHaveBeenCalled();
 
             await expect(orchestrator.start()).rejects.toMatchObject({
                 code: AppErrorCode.MODULE_INIT_FAILED,

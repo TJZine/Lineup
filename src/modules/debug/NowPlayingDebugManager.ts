@@ -138,6 +138,13 @@ export class NowPlayingDebugManager {
         await this._ensureServerDecision(program, decision, { logErrors: true });
     }
 
+    dispose(): void {
+        this._nowPlayingStreamDecisionFetchToken += 1;
+        this._nowPlayingStreamDecisionFetchedForSessionId = null;
+        this._nowPlayingStreamDecisionFetchPromise = null;
+        this._nowPlayingStreamDecisionFetchSessionId = null;
+    }
+
     private async _ensureServerDecision(
         program: ScheduledProgram,
         decision: StreamDecision,

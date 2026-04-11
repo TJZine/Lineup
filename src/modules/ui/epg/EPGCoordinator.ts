@@ -125,6 +125,13 @@ export class EPGCoordinator {
         this._refreshController.clearSelectedChannelScheduleSnapshot();
     }
 
+    dispose(reason = 'shutdown'): void {
+        this._openRequestId += 1;
+        this._invalidateGuideSelection(reason);
+        this._refreshController.cancelScheduledRefreshWork(reason);
+        this._lastReportedVisibility = null;
+    }
+
     handleVisibleRangeChange(range: EpgVisibleRange): void {
         const epg = this.deps.getEpg();
         if (!epg || !epg.isVisible()) {

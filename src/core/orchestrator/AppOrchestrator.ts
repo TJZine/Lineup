@@ -857,6 +857,12 @@ export class AppOrchestrator {
         }
 
         // Destroy modules
+        try {
+            this._epgCoordinator?.dispose('shutdown');
+        } catch (error) {
+            recordTeardownFailure('epgCoordinator.dispose', error);
+        }
+        this._epgCoordinator = null;
         if (this._epg) {
             try {
                 this._epg.destroy();
@@ -872,6 +878,14 @@ export class AppOrchestrator {
                 recordTeardownFailure('epgDebugRuntime.destroy', error);
             }
             this._epgDebugRuntime = null;
+        }
+        if (this._nowPlayingDebugManager) {
+            try {
+                this._nowPlayingDebugManager.dispose();
+            } catch (error) {
+                recordTeardownFailure('nowPlayingDebugManager.dispose', error);
+            }
+            this._nowPlayingDebugManager = null;
         }
         try {
             this._nowPlayingInfoCoordinator?.dispose();
@@ -1010,6 +1024,8 @@ export class AppOrchestrator {
         }
 
         this._initCoordinator = null;
+        this._epgCoordinator = null;
+        this._nowPlayingDebugManager = null;
         this._navigationCoordinator = null;
         this._playbackRecovery = null;
         this._channelTuning = null;
