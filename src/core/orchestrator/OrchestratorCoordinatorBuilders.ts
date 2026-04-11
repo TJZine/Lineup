@@ -2,7 +2,10 @@ import {
     CHANNEL_INPUT_CONFIG,
     type INavigationManager,
 } from '../../modules/navigation';
-import { NavigationCoordinator } from '../../modules/navigation/NavigationCoordinator';
+import {
+    NavigationCoordinator,
+    type NavigationCoordinatorDeps,
+} from '../../modules/navigation/NavigationCoordinator';
 import type { PlaybackOptionsSectionId } from '../../modules/ui/playback-options/types';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import type { AppError } from '../../modules/lifecycle';
@@ -355,6 +358,145 @@ export function buildExitConfirmCoordinator(
     });
 }
 
+type NavigationCoordinatorBuilderDeps = {
+    epgCoordinator: EPGCoordinator;
+    channelSetup: ChannelSetupCoordinator;
+    nowPlayingInfoCoordinator: NowPlayingInfoCoordinator;
+    playerOsdCoordinator: PlayerOsdCoordinator;
+    miniGuideCoordinator: MiniGuideCoordinator;
+    channelTransitionCoordinator: ChannelTransitionCoordinator;
+    playbackOptionsCoordinator: PlaybackOptionsCoordinator;
+    exitConfirmCoordinator: ExitConfirmCoordinator;
+};
+
+function buildNavigationPlaybackConfig(
+    input: OrchestratorCoordinatorBuilderInput,
+    deps: NavigationCoordinatorBuilderDeps
+): NavigationCoordinatorDeps['playback'] {
+    return {
+        videoPlayer: input.modules.videoPlayer,
+        plexAuth: input.modules.plexAuth,
+        stopPlayback: (): void => input.playback.stopPlayback(),
+        getSeekIncrementMs: (): number => (input.config?.playerConfig.seekIncrementSec ?? 10) * 1000,
+        playerOsd: {
+            overlay: input.overlays.playerOsd,
+            coordinator: deps.playerOsdCoordinator,
+        },
+    };
+}
+
+function buildNavigationMiniGuideConfig(
+    input: OrchestratorCoordinatorBuilderInput,
+    deps: NavigationCoordinatorBuilderDeps
+): NavigationCoordinatorDeps['miniGuide'] {
+    return {
+        overlay: input.overlays.miniGuide,
+        coordinator: {
+            show: (): void => deps.miniGuideCoordinator.show(),
+            hide: (): void => deps.miniGuideCoordinator.hide(),
+            handleNavigation: (direction: 'up' | 'down'): boolean =>
+                deps.miniGuideCoordinator.handleNavigation(direction),
+            handlePage: (direction: 'up' | 'down'): boolean =>
+                deps.miniGuideCoordinator.handlePage(direction),
+            handleSelect: (): void => {
+                input.schedule.setLastChannelChangeSource('remote');
+                deps.miniGuideCoordinator.handleSelect();
+            },
+        },
+    };
+}
+
+function buildNavigationNowPlayingInfoConfig(
+    input: OrchestratorCoordinatorBuilderInput,
+    deps: NavigationCoordinatorBuilderDeps
+): NavigationCoordinatorDeps['nowPlayingInfo'] {
+    return {
+        isModalOpen: (): boolean => {
+            const isOpen = input.modules.navigation.isModalOpen(NOW_PLAYING_INFO_MODAL_ID);
+            if (isOpen) {
+                input.overlays.nowPlayingInfo.resetAutoHideTimer();
+            }
+            return isOpen;
+        },
+        toggleOverlay: (): void => input.actions.toggleNowPlayingInfoOverlay(),
+        showOverlay: (): void => deps.nowPlayingInfoCoordinator.handleModalOpen(NOW_PLAYING_INFO_MODAL_ID),
+        hideOverlay: (): void => deps.nowPlayingInfoCoordinator.handleModalClose(NOW_PLAYING_INFO_MODAL_ID),
+    };
+}
+
+function buildNavigationModalsConfig(
+    deps: NavigationCoordinatorBuilderDeps
+): NavigationCoordinatorDeps['modals'] {
+    return {
+        playbackOptions: {
+            modalId: PLAYBACK_OPTIONS_MODAL_ID,
+            prepare: (
+                preferredSection?: PlaybackOptionsSectionId
+            ): { focusableIds: string[]; preferredFocusId: string | null } =>
+                deps.playbackOptionsCoordinator.prepareModal(preferredSection) ??
+                { focusableIds: [], preferredFocusId: null },
+            show: (): void => deps.playbackOptionsCoordinator.handleModalOpen(PLAYBACK_OPTIONS_MODAL_ID),
+            hide: (): void => deps.playbackOptionsCoordinator.handleModalClose(PLAYBACK_OPTIONS_MODAL_ID),
+        },
+        exitConfirm: {
+            modalId: EXIT_CONFIRM_MODAL_ID,
+            prepare: (): { focusableIds: string[] } => ({
+                focusableIds: [...EXIT_CONFIRM_FOCUSABLE_IDS],
+            }),
+            show: (): void => deps.exitConfirmCoordinator.handleModalOpen(EXIT_CONFIRM_MODAL_ID),
+            hide: (): void => deps.exitConfirmCoordinator.handleModalClose(EXIT_CONFIRM_MODAL_ID),
+        },
+    };
+}
+
+function buildNavigationChannelSwitchingConfig(
+    input: OrchestratorCoordinatorBuilderInput,
+    deps: NavigationCoordinatorBuilderDeps
+): NavigationCoordinatorDeps['channelSwitching'] {
+    return {
+        setLastChannelChangeSourceRemote: (): void => {
+            input.schedule.setLastChannelChangeSource('remote');
+        },
+        setLastChannelChangeSourceNumber: (): void => {
+            input.schedule.setLastChannelChangeSource('number');
+        },
+        switchToNextChannel: (): void => input.actions.switchToNextChannel(),
+        switchToPreviousChannel: (): void => input.actions.switchToPreviousChannel(),
+        switchToChannelByNumber: (n: number): Promise<ChannelSwitchOutcome> =>
+            input.actions.switchToChannelByNumberWithOutcome(n),
+        focusEpgOnCurrentChannel: (): void => {
+            deps.epgCoordinator.focusEpgOnCurrentChannel();
+        },
+        toggleEpg: (): void => input.actions.toggleEPG(),
+        onChannelInputUpdate: (payload: { digits: string; isComplete: boolean }): void => {
+            if (payload.digits) {
+                input.overlays.channelNumberOverlay.showDigits(payload.digits, CHANNEL_INPUT_CONFIG.MAX_DIGITS);
+            }
+            if (payload.isComplete) {
+                const configuredDelay = input.config?.channelNumberOverlayConfig?.completeHideDelayMs;
+                const delayMs =
+                    typeof configuredDelay === 'number' &&
+                        Number.isFinite(configuredDelay) &&
+                        configuredDelay >= 0
+                        ? Math.floor(configuredDelay)
+                        : 650;
+                input.overlays.channelNumberOverlay.scheduleHide(delayMs);
+            }
+        },
+    };
+}
+
+function buildNavigationUiGuardsConfig(
+    deps: NavigationCoordinatorBuilderDeps
+): NavigationCoordinatorDeps['uiGuards'] {
+    return {
+        shouldRunChannelSetup: (): boolean => deps.channelSetup.shouldRunChannelSetup(),
+        hideChannelTransition: (): void => {
+            deps.channelTransitionCoordinator.hide();
+        },
+    };
+}
+
 export function buildChannelTuningCoordinator(
     input: OrchestratorCoordinatorBuilderInput,
     playbackRecovery: PlaybackRecoveryManager,
@@ -397,114 +539,17 @@ export function buildChannelTuningCoordinator(
 
 export function buildNavigationCoordinator(
     input: OrchestratorCoordinatorBuilderInput,
-    deps: {
-        epgCoordinator: EPGCoordinator;
-        channelSetup: ChannelSetupCoordinator;
-        nowPlayingInfoCoordinator: NowPlayingInfoCoordinator;
-        playerOsdCoordinator: PlayerOsdCoordinator;
-        miniGuideCoordinator: MiniGuideCoordinator;
-        channelTransitionCoordinator: ChannelTransitionCoordinator;
-        playbackOptionsCoordinator: PlaybackOptionsCoordinator;
-        exitConfirmCoordinator: ExitConfirmCoordinator;
-    }
+    deps: NavigationCoordinatorBuilderDeps
 ): NavigationCoordinator {
     return new NavigationCoordinator({
         navigation: input.modules.navigation,
         epg: input.modules.epg,
-        playback: {
-            videoPlayer: input.modules.videoPlayer,
-            plexAuth: input.modules.plexAuth,
-            stopPlayback: (): void => input.playback.stopPlayback(),
-            getSeekIncrementMs: (): number => (input.config?.playerConfig.seekIncrementSec ?? 10) * 1000,
-            playerOsd: {
-                overlay: input.overlays.playerOsd,
-                coordinator: deps.playerOsdCoordinator,
-            },
-        },
-        miniGuide: {
-            overlay: input.overlays.miniGuide,
-            coordinator: {
-                show: (): void => deps.miniGuideCoordinator.show(),
-                hide: (): void => deps.miniGuideCoordinator.hide(),
-                handleNavigation: (direction: 'up' | 'down'): boolean =>
-                    deps.miniGuideCoordinator.handleNavigation(direction),
-                handlePage: (direction: 'up' | 'down'): boolean =>
-                    deps.miniGuideCoordinator.handlePage(direction),
-                handleSelect: (): void => {
-                    input.schedule.setLastChannelChangeSource('remote');
-                    deps.miniGuideCoordinator.handleSelect();
-                },
-            },
-        },
-        nowPlayingInfo: {
-            isModalOpen: (): boolean => {
-                const isOpen = input.modules.navigation.isModalOpen(NOW_PLAYING_INFO_MODAL_ID);
-                if (isOpen) {
-                    input.overlays.nowPlayingInfo.resetAutoHideTimer();
-                }
-                return isOpen;
-            },
-            toggleOverlay: (): void => input.actions.toggleNowPlayingInfoOverlay(),
-            showOverlay: (): void => deps.nowPlayingInfoCoordinator.handleModalOpen(NOW_PLAYING_INFO_MODAL_ID),
-            hideOverlay: (): void => deps.nowPlayingInfoCoordinator.handleModalClose(NOW_PLAYING_INFO_MODAL_ID),
-        },
-        modals: {
-            playbackOptions: {
-                modalId: PLAYBACK_OPTIONS_MODAL_ID,
-                prepare: (
-                    preferredSection?: PlaybackOptionsSectionId
-                ): { focusableIds: string[]; preferredFocusId: string | null } =>
-                    deps.playbackOptionsCoordinator.prepareModal(preferredSection) ??
-                    { focusableIds: [], preferredFocusId: null },
-                show: (): void => deps.playbackOptionsCoordinator.handleModalOpen(PLAYBACK_OPTIONS_MODAL_ID),
-                hide: (): void => deps.playbackOptionsCoordinator.handleModalClose(PLAYBACK_OPTIONS_MODAL_ID),
-            },
-            exitConfirm: {
-                modalId: EXIT_CONFIRM_MODAL_ID,
-                prepare: (): { focusableIds: string[] } => ({
-                    focusableIds: [...EXIT_CONFIRM_FOCUSABLE_IDS],
-                }),
-                show: (): void => deps.exitConfirmCoordinator.handleModalOpen(EXIT_CONFIRM_MODAL_ID),
-                hide: (): void => deps.exitConfirmCoordinator.handleModalClose(EXIT_CONFIRM_MODAL_ID),
-            },
-        },
-        channelSwitching: {
-            setLastChannelChangeSourceRemote: (): void => {
-                input.schedule.setLastChannelChangeSource('remote');
-            },
-            setLastChannelChangeSourceNumber: (): void => {
-                input.schedule.setLastChannelChangeSource('number');
-            },
-            switchToNextChannel: (): void => input.actions.switchToNextChannel(),
-            switchToPreviousChannel: (): void => input.actions.switchToPreviousChannel(),
-            switchToChannelByNumber: (n: number): Promise<ChannelSwitchOutcome> =>
-                input.actions.switchToChannelByNumberWithOutcome(n),
-            focusEpgOnCurrentChannel: (): void => {
-                deps.epgCoordinator.focusEpgOnCurrentChannel();
-            },
-            toggleEpg: (): void => input.actions.toggleEPG(),
-            onChannelInputUpdate: (payload: { digits: string; isComplete: boolean }): void => {
-                if (payload.digits) {
-                    input.overlays.channelNumberOverlay.showDigits(payload.digits, CHANNEL_INPUT_CONFIG.MAX_DIGITS);
-                }
-                if (payload.isComplete) {
-                    const configuredDelay = input.config?.channelNumberOverlayConfig?.completeHideDelayMs;
-                    const delayMs =
-                        typeof configuredDelay === 'number' &&
-                            Number.isFinite(configuredDelay) &&
-                            configuredDelay >= 0
-                            ? Math.floor(configuredDelay)
-                            : 650;
-                    input.overlays.channelNumberOverlay.scheduleHide(delayMs);
-                }
-            },
-        },
-        uiGuards: {
-            shouldRunChannelSetup: (): boolean => deps.channelSetup.shouldRunChannelSetup(),
-            hideChannelTransition: (): void => {
-                deps.channelTransitionCoordinator.hide();
-            },
-        },
+        playback: buildNavigationPlaybackConfig(input, deps),
+        miniGuide: buildNavigationMiniGuideConfig(input, deps),
+        nowPlayingInfo: buildNavigationNowPlayingInfoConfig(input, deps),
+        modals: buildNavigationModalsConfig(deps),
+        channelSwitching: buildNavigationChannelSwitchingConfig(input, deps),
+        uiGuards: buildNavigationUiGuardsConfig(deps),
         reportToast: (toast: { message: string; type: 'warning' | 'error' | 'info' | 'success' }): void => {
             input.nowPlaying.handler()?.(toast);
         },
