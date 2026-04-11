@@ -5,6 +5,15 @@ import {
     type OrchestratorConfig,
     AppErrorCode,
 } from './Orchestrator';
+import type {
+    AppShellAuthRuntimePort,
+    AppShellChannelSetupRuntimePort,
+    AppShellDiagnosticsRuntimePort,
+    AppShellNavigationRuntimePort,
+    AppShellProfileRuntimePort,
+    AppShellServerSelectionRuntimePort,
+    AppShellSettingsRuntimePort,
+} from './core/app-shell/AppShellRuntimeContracts';
 import type { LifecycleAppError, AppPhase } from './modules/lifecycle/types';
 import type { INavigationManager } from './modules/navigation';
 import { createAppContainers, type AppContainerRefs } from './core/app-shell/AppContainerFactory';
@@ -57,7 +66,7 @@ export class App {
     });
     private readonly _toastPresenter = new AppToastPresenter();
     private readonly _diagnosticsSurface = new AppDiagnosticsSurface({
-        getDiagnosticsRuntime: (): AppOrchestrator | null => this._orchestrator,
+        getDiagnosticsRuntime: (): AppShellDiagnosticsRuntimePort | null => this._orchestrator,
         getActiveChannelSetupConfig: (): ChannelSetupConfig | null => {
             const channelSetupScreen = this._lazyScreenRegistry?.getChannelSetupScreen() ?? null;
             const activeScreen = this._orchestrator?.getCurrentScreen() ?? null;
@@ -247,12 +256,12 @@ export class App {
             return;
         }
         const lazyScreenPortFactory = new AppLazyScreenPortFactory({
-            getNavigationRuntime: (): AppOrchestrator | null => this._orchestrator,
-            getAuthRuntime: (): AppOrchestrator | null => this._orchestrator,
-            getProfileRuntime: (): AppOrchestrator | null => this._orchestrator,
-            getServerSelectionRuntime: (): AppOrchestrator | null => this._orchestrator,
-            getChannelSetupRuntime: (): AppOrchestrator | null => this._orchestrator,
-            getSettingsRuntime: (): AppOrchestrator | null => this._orchestrator,
+            getNavigationRuntime: (): AppShellNavigationRuntimePort | null => this._orchestrator,
+            getAuthRuntime: (): AppShellAuthRuntimePort | null => this._orchestrator,
+            getProfileRuntime: (): AppShellProfileRuntimePort | null => this._orchestrator,
+            getServerSelectionRuntime: (): AppShellServerSelectionRuntimePort | null => this._orchestrator,
+            getChannelSetupRuntime: (): AppShellChannelSetupRuntimePort | null => this._orchestrator,
+            getSettingsRuntime: (): AppShellSettingsRuntimePort | null => this._orchestrator,
         });
         this._splashScreen = new SplashScreen(containerRefs.splashContainer);
         this._lazyScreenRegistry = new AppLazyScreenRegistry({
