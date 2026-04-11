@@ -2466,6 +2466,60 @@ describe('AppOrchestrator', () => {
 
             consoleSpy.mockRestore();
         });
+
+        it('defers reentrant global errors until the active handling pass completes', () => {
+            const firstError = {
+                code: AppErrorCode.NETWORK_TIMEOUT,
+                message: 'first error',
+                recoverable: true,
+            };
+            const nestedError = {
+                code: AppErrorCode.UNKNOWN,
+                message: 'nested error',
+                recoverable: true,
+            };
+            const handledOrder: string[] = [];
+
+            const moduleHandler = jest.fn((error) => {
+                handledOrder.push(error.message);
+
+                if (error === firstError) {
+                    orchestrator.handleGlobalError(nestedError, 'nested-context');
+                }
+
+                return false;
+            });
+
+            orchestrator.registerErrorHandler('recursive-module', moduleHandler);
+
+            orchestrator.handleGlobalError(firstError, 'outer-context');
+
+            expect(handledOrder).toEqual(['first error', 'nested error']);
+            expect(moduleHandler).toHaveBeenCalledTimes(2);
+            expect(moduleHandler).toHaveBeenNthCalledWith(1, firstError);
+            expect(moduleHandler).toHaveBeenNthCalledWith(2, nestedError);
+            expect(mockLifecycle.reportError).toHaveBeenNthCalledWith(1, firstError);
+            expect(mockLifecycle.reportError).toHaveBeenNthCalledWith(2, nestedError);
+        });
+
+        it('clears the global error reentrancy guard after a handling pass', () => {
+            const firstError = {
+                code: AppErrorCode.NETWORK_TIMEOUT,
+                message: 'first error',
+                recoverable: true,
+            };
+            const secondError = {
+                code: AppErrorCode.UNKNOWN,
+                message: 'second error',
+                recoverable: true,
+            };
+
+            orchestrator.handleGlobalError(firstError, 'first-context');
+            orchestrator.handleGlobalError(secondError, 'second-context');
+
+            expect(mockLifecycle.reportError).toHaveBeenNthCalledWith(1, firstError);
+            expect(mockLifecycle.reportError).toHaveBeenNthCalledWith(2, secondError);
+        });
     });
 
     describe('getRecoveryActions', () => {

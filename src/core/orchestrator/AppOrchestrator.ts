@@ -244,6 +244,7 @@ export { AppErrorCode };
  * - Channel switching and EPG management
  */
 export class AppOrchestrator {
+    private static readonly MAX_PENDING_GLOBAL_ERRORS = 5;
     private _lifecycle: IAppLifecycle | null = null;
     private _navigation: INavigationManager | null = null;
     private _plexAuth: IPlexAuth | null = null;
@@ -289,6 +290,8 @@ export class AppOrchestrator {
     private _config: OrchestratorConfig | null = null;
     private _moduleStatus: Map<string, ModuleStatus> = new Map();
     private _errorHandlers: Map<string, (error: AppError) => boolean> = new Map();
+    private _isHandlingGlobalError = false;
+    private _pendingGlobalErrors: Array<{ error: AppError; context: string }> = [];
     private _eventBinder: OrchestratorEventBinder | null = null;
     private _ready: boolean = false;
     private _initCoordinator: InitializationCoordinator | null = null;
@@ -1461,24 +1464,35 @@ export class AppOrchestrator {
      * @param context - Module or operation context
      */
     handleGlobalError(error: AppError, context: string): void {
-        console.error(`[${context}] Error:`, summarizeErrorForLog(error));
-
-        // Try module-specific handlers first
-        for (const [moduleId, handler] of this._errorHandlers) {
-            try {
-                const handled = handler(error);
-                if (handled) {
-                    console.warn(`Error handled by ${moduleId}`);
-                    return;
-                }
-            } catch (handlerError) {
-                console.error(`Error in handler for ${moduleId}:`, summarizeErrorForLog(handlerError));
-            }
+        if (this._isHandlingGlobalError) {
+            this._queueReentrantGlobalError(error, context);
+            return;
         }
 
-        // Report via lifecycle for UI display
-        if (this._lifecycle) {
-            this._lifecycle.reportError(error);
+        this._isHandlingGlobalError = true;
+
+        try {
+            this._handleGlobalErrorOnce(error, context);
+
+            let processedPendingErrors = 0;
+            while (
+                this._pendingGlobalErrors.length > 0 &&
+                processedPendingErrors < AppOrchestrator.MAX_PENDING_GLOBAL_ERRORS
+            ) {
+                processedPendingErrors += 1;
+                const pending = this._pendingGlobalErrors.shift()!;
+                this._handleGlobalErrorOnce(pending.error, pending.context);
+            }
+
+            if (this._pendingGlobalErrors.length > 0) {
+                console.warn('[Orchestrator] Dropping queued global errors after reentrancy limit:', {
+                    droppedCount: this._pendingGlobalErrors.length,
+                });
+                this._pendingGlobalErrors = [];
+            }
+        } finally {
+            this._pendingGlobalErrors = [];
+            this._isHandlingGlobalError = false;
         }
     }
 
@@ -1727,6 +1741,36 @@ export class AppOrchestrator {
                 'plex-stream'
             );
         }
+    }
+
+    private _queueReentrantGlobalError(error: AppError, context: string): void {
+        if (this._pendingGlobalErrors.length >= AppOrchestrator.MAX_PENDING_GLOBAL_ERRORS) {
+            console.warn('[Orchestrator] Dropping reentrant global error after queue limit:', {
+                context,
+                error: summarizeErrorForLog(error),
+            });
+            return;
+        }
+
+        this._pendingGlobalErrors.push({ error, context });
+    }
+
+    private _handleGlobalErrorOnce(error: AppError, context: string): void {
+        console.error(`[${context}] Error:`, summarizeErrorForLog(error));
+
+        for (const [moduleId, handler] of this._errorHandlers) {
+            try {
+                const handled = handler(error);
+                if (handled) {
+                    console.warn(`Error handled by ${moduleId}`);
+                    return;
+                }
+            } catch (handlerError) {
+                console.error(`Error in handler for ${moduleId}:`, summarizeErrorForLog(handlerError));
+            }
+        }
+
+        this._lifecycle?.reportError(error);
     }
 
     private _initializePriorityOneControllers(): void {
