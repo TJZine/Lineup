@@ -73,18 +73,58 @@ const DEFAULT_PLAYBACK_OPTIONS_CONFIG: PlaybackOptionsConfig = {
     containerId: APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS,
 };
 
+const createNavigationConfig = (): NavigationConfig => ({
+    ...DEFAULT_NAV_CONFIG,
+});
+
+const createPlayerConfig = (): VideoPlayerConfig => ({
+    ...DEFAULT_PLAYER_CONFIG,
+});
+
+const createEpgConfig = (): EPGConfig => ({
+    ...DEFAULT_EPG_CONFIG,
+});
+
+const createNowPlayingInfoConfig = (): NowPlayingInfoConfig => ({
+    ...DEFAULT_NOW_PLAYING_INFO_CONFIG,
+});
+
+const createPlayerOsdConfig = (): PlayerOsdConfig => ({
+    ...DEFAULT_PLAYER_OSD_CONFIG,
+});
+
+const createChannelNumberOverlayConfig = (): ChannelNumberOverlayConfig => ({
+    ...DEFAULT_CHANNEL_NUMBER_OVERLAY_CONFIG,
+});
+
+const createChannelBadgeConfig = (): ChannelBadgeConfig => ({
+    ...DEFAULT_CHANNEL_BADGE_CONFIG,
+});
+
+const createMiniGuideConfig = (): MiniGuideConfig => ({
+    ...DEFAULT_MINI_GUIDE_CONFIG,
+});
+
+const createChannelTransitionConfig = (): ChannelTransitionConfig => ({
+    ...DEFAULT_CHANNEL_TRANSITION_CONFIG,
+});
+
+const createPlaybackOptionsConfig = (): PlaybackOptionsConfig => ({
+    ...DEFAULT_PLAYBACK_OPTIONS_CONFIG,
+});
+
 export function createAppOrchestratorConfig(): OrchestratorConfig {
     return {
         plexConfig: createDefaultPlexAuthConfig(),
-        navConfig: DEFAULT_NAV_CONFIG,
-        playerConfig: DEFAULT_PLAYER_CONFIG,
-        epgConfig: DEFAULT_EPG_CONFIG,
-        nowPlayingInfoConfig: DEFAULT_NOW_PLAYING_INFO_CONFIG,
-        playerOsdConfig: DEFAULT_PLAYER_OSD_CONFIG,
-        channelNumberOverlayConfig: DEFAULT_CHANNEL_NUMBER_OVERLAY_CONFIG,
-        channelBadgeConfig: DEFAULT_CHANNEL_BADGE_CONFIG,
-        miniGuideConfig: DEFAULT_MINI_GUIDE_CONFIG,
-        channelTransitionConfig: DEFAULT_CHANNEL_TRANSITION_CONFIG,
-        playbackOptionsConfig: DEFAULT_PLAYBACK_OPTIONS_CONFIG,
+        navConfig: createNavigationConfig(),
+        playerConfig: createPlayerConfig(),
+        epgConfig: createEpgConfig(),
+        nowPlayingInfoConfig: createNowPlayingInfoConfig(),
+        playerOsdConfig: createPlayerOsdConfig(),
+        channelNumberOverlayConfig: createChannelNumberOverlayConfig(),
+        channelBadgeConfig: createChannelBadgeConfig(),
+        miniGuideConfig: createMiniGuideConfig(),
+        channelTransitionConfig: createChannelTransitionConfig(),
+        playbackOptionsConfig: createPlaybackOptionsConfig(),
     };
 }
