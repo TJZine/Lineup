@@ -381,9 +381,14 @@ describe('AppOrchestrator event wiring', () => {
         expect(cleanupReporter).toHaveBeenCalledWith(
             expect.arrayContaining([
                 expect.objectContaining({
+                    step: 'event-wiring.cleanup',
+                }),
+                expect.objectContaining({
                     step: 'event-wiring.onCleanupError',
                 }),
             ])
         );
+        const reportedFailures = cleanupReporter.mock.calls[0]?.[0] ?? [];
+        expect(reportedFailures).toHaveLength(2);
     });
 });

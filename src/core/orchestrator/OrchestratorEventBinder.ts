@@ -105,6 +105,7 @@ export class OrchestratorEventBinder {
                         onCleanupError(cleanupError);
                     } catch (onCleanupErrorFailure) {
                         cleanupFailures.push(
+                            summarizeEventCleanupFailure('event-wiring.cleanup', cleanupError),
                             summarizeEventCleanupFailure('event-wiring.onCleanupError', onCleanupErrorFailure)
                         );
                     }
