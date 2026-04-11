@@ -333,7 +333,23 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
     - `desloppify status` shows `overall 83.2 / strict 83.2 / objective 95.1 / verified 95.1`
     - `desloppify plan queue` shows `Queue: 1 item (51 planned · 1 subjective)`
     - `npm run verify` passed
+  - Security triage:
+    - `desloppify scan --path .` reported `security: clean` on the fresh integration-branch scan.
+    - `desloppify show security --status open --no-budget --top 50` currently returns the same T3 cycle issue id (`cycles::src/core/orchestrator/OrchestratorCoordinatorBuilders.ts::src/core/orchestrator/OrchestratorCoordinatorBuilders.ts::src/core/orchestrator/OrchestratorCoordinatorFactory.ts`), not a P0 security blocker.
+    - that cycle issue is owned by `followup::p1-exit::orchestrator-cycle-detector-residue` below.
   - Follow-ups:
+    - `followup::p1-exit::root-orchestrator-detector-residue`
+      owner: `P10-W1 detector-contract cleanup owner`
+      reason: `desloppify show src/Orchestrator.ts --status open --no-budget --top 100` still reports detector residue, but current `src/Orchestrator.ts` is a thin barrel and the reported legacy line refs are stale detector evidence.
+      revisit trigger: rerun `desloppify scan --path .` + `desloppify show src/Orchestrator.ts --status open --no-budget --top 100` at `P10-W1` entry and before `P10-EXIT`; if residue persists with the same barrel source shape, keep as tooling-state residue or escalate upstream with minimal repro.
+    - `followup::p1-exit::factory-smell-detector-residue`
+      owner: `P10-W1 detector-contract cleanup owner`
+      reason: `desloppify show src/core/orchestrator/OrchestratorCoordinatorFactory.ts --status open --no-budget --top 50` still reports `monster_function`/`high_cyclomatic_complexity`/`nested_closure`, but current `OrchestratorCoordinatorFactory.ts` is a 6-line barrel and reported line 195 evidence is stale detector output.
+      revisit trigger: rerun `desloppify scan --path .` + `desloppify show src/core/orchestrator/OrchestratorCoordinatorFactory.ts --status open --no-budget --top 50` at `P10-W1` entry and before `P10-EXIT`; if residue persists with the same barrel source shape, keep as tooling-state residue or escalate upstream with minimal repro.
+    - `followup::p1-exit::orchestrator-live-log-error-policy-residue`
+      owner: `P10-W1 residual mechanical detector owner`
+      reason: `desloppify show logs --status open --no-budget --top 50`, `desloppify show src/core/orchestrator --status open --no-budget --top 100`, and `desloppify show src/core/orchestrator/OrchestratorEventBinder.ts --status open --no-budget --top 50` still show live orchestrator log/smell mechanical backlog (`AppOrchestrator` and `OrchestratorEventBinder`) that is not unresolved P1 imported-review ownership.
+      revisit trigger: rerun `desloppify scan --path .` + `desloppify show logs --status open --no-budget --top 50` + `desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 100` + `desloppify show src/core/orchestrator/OrchestratorEventBinder.ts --status open --no-budget --top 50` at `P10-W1` entry and before `P10-EXIT`, and disposition as one owned residual mechanical envelope.
     - `followup::p1-exit::orchestrator-cycle-detector-residue`
       owner: `P10-W1 detector-contract cleanup owner`
       reason: cycle detector still reports `cycles::...OrchestratorCoordinatorBuilders.ts...OrchestratorCoordinatorFactory.ts` after source-audit proof removed explicit factory↔builder import edges; treat as detector/graph residue, not a live runtime seam in current source.
@@ -985,6 +1001,17 @@ This pass is intentionally last. Earlier architectural work should retire a larg
 - `desloppify show boilerplate_duplication --status open --no-budget --top 50`
 
 **Exit rule:** any residual detector debt is explicit, intentionally owned, and backed by current-code proof rather than stale scan residue.
+
+**Inherited follow-ups from `P1-EXIT` (must be explicitly dispositioned in this work item):**
+
+- `followup::p1-exit::root-orchestrator-detector-residue`
+  - required commands: `desloppify scan --path .`; `desloppify show src/Orchestrator.ts --status open --no-budget --top 100`
+- `followup::p1-exit::factory-smell-detector-residue`
+  - required commands: `desloppify scan --path .`; `desloppify show src/core/orchestrator/OrchestratorCoordinatorFactory.ts --status open --no-budget --top 50`
+- `followup::p1-exit::orchestrator-live-log-error-policy-residue`
+  - required commands: `desloppify scan --path .`; `desloppify show logs --status open --no-budget --top 50`; `desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 100`; `desloppify show src/core/orchestrator/OrchestratorEventBinder.ts --status open --no-budget --top 50`
+- `followup::p1-exit::orchestrator-cycle-detector-residue`
+  - required commands: `desloppify scan --path .`; `desloppify show cycles --status open --no-budget --top 50`
 
 ### [ ] `P10-EXIT` Overall Closeout Gate
 
