@@ -175,7 +175,12 @@ export class EPGRefreshController {
 
     cancelScheduledRefreshWork(reason: string): void {
         this._visibleRangeRefreshQueue.cancelPendingRefresh();
-        this._scheduleRefreshRuntime.abortAllInFlightSchedules(reason);
+        this._scheduleRefreshRuntime.dispose(reason);
+    }
+
+    dispose(reason = 'shutdown'): void {
+        this._visibleRangeRefreshQueue.cancelPendingRefresh();
+        this._scheduleRefreshRuntime.dispose(reason);
     }
 
     async refreshEpgSchedules(options?: { reason?: string; debounceMs?: number }): Promise<void> {

@@ -128,7 +128,7 @@ export class EPGCoordinator {
     dispose(reason = 'shutdown'): void {
         this._openRequestId += 1;
         this._invalidateGuideSelection(reason);
-        this._refreshController.cancelScheduledRefreshWork(reason);
+        this._refreshController.dispose(reason);
         this._lastReportedVisibility = null;
     }
 
