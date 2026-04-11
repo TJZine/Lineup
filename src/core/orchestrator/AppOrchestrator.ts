@@ -223,6 +223,10 @@ export interface PlaybackInfoSnapshot {
     | null;
 }
 
+type PlaybackInfoStreamSnapshot = NonNullable<PlaybackInfoSnapshot['stream']>;
+type SelectedAudioSnapshot = PlaybackInfoStreamSnapshot['selectedAudio'];
+type SelectedSubtitleSnapshot = PlaybackInfoStreamSnapshot['selectedSubtitle'];
+
 export type { OrchestratorServerSelectionResult } from '../server-selection/ServerSelectionTypes';
 export type { ErrorRecoveryAction } from '../error-recovery/types';
 
@@ -1063,54 +1067,8 @@ export class AppOrchestrator {
                         width: decision.width,
                         height: decision.height,
                         sessionId: decision.sessionId,
-                        selectedAudio: ((): {
-                            id: string;
-                            codec: string | null | undefined;
-                            channels?: number;
-                            language?: string;
-                            title?: string;
-                            default?: boolean;
-                        } | null => {
-                            const a = decision.selectedAudioStream;
-                            if (!a) return null;
-                            const out: {
-                                id: string;
-                                codec: string | null | undefined;
-                                channels?: number;
-                                language?: string;
-                                title?: string;
-                                default?: boolean;
-                            } = { id: a.id, codec: a.codec };
-                            if (typeof a.channels === 'number') out.channels = a.channels;
-                            if (typeof a.language === 'string') out.language = a.language;
-                            if (typeof a.title === 'string') out.title = a.title;
-                            if (typeof a.default === 'boolean') out.default = a.default;
-                            return out;
-                        })(),
-                        selectedSubtitle: ((): {
-                            id: string;
-                            codec: string | null | undefined;
-                            language?: string;
-                            title?: string;
-                            format?: string;
-                            default?: boolean;
-                        } | null => {
-                            const s = decision.selectedSubtitleStream;
-                            if (!s) return null;
-                            const out: {
-                                id: string;
-                                codec: string | null | undefined;
-                                language?: string;
-                                title?: string;
-                                format?: string;
-                                default?: boolean;
-                            } = { id: s.id, codec: s.codec };
-                            if (typeof s.language === 'string') out.language = s.language;
-                            if (typeof s.title === 'string') out.title = s.title;
-                            if (typeof s.format === 'string') out.format = s.format;
-                            if (typeof s.default === 'boolean') out.default = s.default;
-                            return out;
-                        })(),
+                        selectedAudio: this._mapSelectedAudioStream(decision.selectedAudioStream),
+                        selectedSubtitle: this._mapSelectedSubtitleStream(decision.selectedSubtitleStream),
                         directPlay: decision.directPlay,
                         audioFallback: decision.audioFallback,
                         source: decision.source,
@@ -1119,6 +1077,62 @@ export class AppOrchestrator {
                     }
                     : null,
         };
+    }
+
+    private _mapSelectedAudioStream(
+        stream: StreamDecision['selectedAudioStream']
+    ): SelectedAudioSnapshot {
+        if (!stream) {
+            return null;
+        }
+
+        const selectedAudio: NonNullable<SelectedAudioSnapshot> = {
+            id: stream.id,
+            codec: stream.codec,
+        };
+
+        if (typeof stream.channels === 'number') {
+            selectedAudio.channels = stream.channels;
+        }
+        if (typeof stream.language === 'string') {
+            selectedAudio.language = stream.language;
+        }
+        if (typeof stream.title === 'string') {
+            selectedAudio.title = stream.title;
+        }
+        if (typeof stream.default === 'boolean') {
+            selectedAudio.default = stream.default;
+        }
+
+        return selectedAudio;
+    }
+
+    private _mapSelectedSubtitleStream(
+        stream: StreamDecision['selectedSubtitleStream']
+    ): SelectedSubtitleSnapshot {
+        if (!stream) {
+            return null;
+        }
+
+        const selectedSubtitle: NonNullable<SelectedSubtitleSnapshot> = {
+            id: stream.id,
+            codec: stream.codec,
+        };
+
+        if (typeof stream.language === 'string') {
+            selectedSubtitle.language = stream.language;
+        }
+        if (typeof stream.title === 'string') {
+            selectedSubtitle.title = stream.title;
+        }
+        if (typeof stream.format === 'string') {
+            selectedSubtitle.format = stream.format;
+        }
+        if (typeof stream.default === 'boolean') {
+            selectedSubtitle.default = stream.default;
+        }
+
+        return selectedSubtitle;
     }
 
     async refreshPlaybackInfoSnapshot(): Promise<PlaybackInfoSnapshot> {
