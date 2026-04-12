@@ -11,7 +11,7 @@ Start here if you are installing Lineup for the first time on an LG webOS TV.
 | --- | --- | --- |
 | 1 | [Installation](installation.md) | Sideloading and device setup |
 | 2 | [Quick Start](quick-start.md) | First launch through first working lineup |
-| 3 | [Your First Channel](first-channel.md) | Building channels with more intent |
+| 3 | [Your First Lineup](first-channel.md) | Understanding the auto-generated channel lineup |
 | 4 | [Troubleshooting](../user-guide/troubleshooting.md) | Recovery if setup does not go smoothly |
 
 ## Prerequisites

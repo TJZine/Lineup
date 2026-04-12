@@ -61,9 +61,6 @@ ares-install --device my-tv com.lineup.app_<VERSION>_all.ipk
 2. Scroll to the end of your app list to find **Lineup**.
 3. Launch the app.
 
-> [!TIP]
-> **Developer Mode Expiration**: Developer Mode sessions last for 50 hours. To extend this, simply open the Developer Mode app on your TV and click "Extend Session" before it expires.
-
 ## Next Steps
 
 Now that Lineup is installed, let's set it up.

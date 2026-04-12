@@ -1,46 +1,67 @@
 # Electronic Program Guide (EPG)
 
-The EPG is your main interface for seeing what's on and what's coming up.
+The EPG is your main interface for browsing what's playing across all channels, seeing what's coming up, and tuning to content.
 
 ## Opening the Guide
 
-- **Remote**: Press the **Guide** button (if available) or navigate to the "Guide" button in the on-screen menu.
-- **Keyboard**: Press **'G'**.
+| Method | Action |
+|--------|--------|
+| **Remote** | Press the **Guide** button, or press **OK/Back** while watching to open the overlay, then select "Guide" |
+| **Keyboard** | Press **G** |
+| **Color Button** | Press the **Green** button (F2 on keyboard) as a fallback |
+
+## Grid Layout
+
+The EPG uses a familiar cable TV-style grid:
+
+- **Rows**: Each row represents a channel, sorted by channel number.
+- **Columns**: Time slots in 30-minute intervals, scrolling horizontally.
+- **"Now" Line**: A vertical marker showing the current time. Programs to the left have already aired; programs under the line are live.
+
+### Focused Cell
+
+When you highlight a program in the grid, the focused cell expands to show:
+
+- **Program title**
+- **Time range** (start – end)
+- **Currently airing indicator** (for live programs)
+
+### Channel Column
+
+The left column shows channel names. The currently tuned channel is highlighted.
 
 ## Navigation
 
-The EPG uses a familiar grid layout:
-
-- **Rows**: Represent channels.
-- **Columns**: Represent time slots (30-minute intervals).
-- **Current Time**: Marked by a vertical line.
-
-### Controls
+### D-Pad Controls
 
 | Action | Remote Button | Description |
 |--------|---------------|-------------|
-| **Move** | Arrow Keys | Move selection highlight |
-| **Tune** | OK / Select | Tune to the selected program (if currently airing) |
-| **Info** | Info / Blue | Show detailed info for selected program |
-| **Page Up/Down** | CH +/- | Scroll up/down by a page of channels |
-| **Close** | Back / Exit | Return to current video |
+| **Move** | Arrow Keys | Move the selection highlight between programs and channels |
+| **Tune** | OK / Select | Tune to the highlighted program's channel (if currently airing) |
+| **Page Up/Down** | CH +/- | Scroll up/down by a full page of channels |
+| **Close** | Back / Exit | Return to the current video playback |
 
-## Features
+### Magic Remote Pointer
 
-### "Now" Line
+The EPG fully supports the LG Magic Remote pointer. You can click directly on any program cell to select it, or click on a currently-airing program to tune to that channel.
 
-A vertical line acts as the "Now" indicator. Programs to the left are in the past, programs under the line are currently airing.
+### Time Scrolling
 
-### Time Travel
+Press **Right** on the D-pad to see what's scheduled later. The EPG generates schedules deterministically, so you can browse the full day's programming.
 
-You can scroll forward in time to see what's playing later today.
-*Note: You cannot currently set reminders or record future programs.*
+> [!NOTE]
+> You cannot set reminders or record future programs. Selecting a future program shows its details but does not tune to it.
 
-### Tuning
+## Library Filters
 
-- If you select a **future** program, you will see its details but cannot tune to it yet.
+When you have channels from multiple Plex libraries, the EPG provides filter tabs at the top of the guide:
+
+- **All**: Shows all channels
+- **Per-library**: Filter to channels from a specific library (e.g., "Movies", "TV Shows")
+
+Filter selection is persisted between sessions.
 
 ## See Also
 
 - [Remote Control Reference](remote-keys.md) — Full button mapping
-- [Channel Management](channels.md) — Creating and editing channels
+- [Channel Management](channels.md) — Understanding your channel lineup

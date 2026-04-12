@@ -22,10 +22,10 @@ Yes, as long as your Plex server is configured for "Remote Access"[^3].
 
 ### Why can't I fast forward?
 
-Lineup simulates linear TV. Just like broadcast television, you can't skip ahead of the "live" broadcast time. You **can** pause and resume playback using the Play/Pause button on your remote.
+Lineup simulates linear TV. Just like broadcast television, you can't skip ahead of the "live" broadcast time.
 
 > [!NOTE]
-> Seeking and fast-forward are intentionally disabled to preserve the live TV experience.
+> Seeking, fast-forward, and rewind are intentionally disabled to preserve the live TV experience.
 
 ### The channel says "Off Air". Why?
 
@@ -47,16 +47,13 @@ Go to **Settings → Audio & Subtitles → Subtitle Mode** and choose a mode. Se
 
 ### How do I create many channels at once?
 
-Use the **Channel Setup Builder** (accessible during initial setup or from Channels settings). It can auto-generate hundreds of channels from your libraries based on genres, collections, and more. See [Channel Management](docs/user-guide/channels.md#channel-setup-builder-step-2) for details.
+Use the **Channel Setup Builder** during initial setup. It can auto-generate hundreds of channels from your libraries based on genres, collections, and more. See [Channel Management](docs/user-guide/channels.md#channel-setup-builder-step-2) for details.
 
 ## Technical
 
 ### Why is the installation so complicated?
 
 LG requires "Developer Mode" for sideloading apps that aren't on the official LG Content Store. We hope to publish to the store in the future!
-
-> [!IMPORTANT]
-> Developer Mode sessions expire after 50 hours. Remember to extend your session in the Developer Mode app before it expires.
 
 ### Does it support Dolby Vision?
 

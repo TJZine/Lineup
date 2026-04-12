@@ -6,10 +6,7 @@ Common issues and how to fix them.
 
 ### "Developer Mode" expires
 
-> [!WARNING]
-> LG Developer Mode sessions are limited to **50 hours**.
-
-**Issue**: The app stops working after a few days.
+**Issue**: The app stops working after Developer Mode expires.
 
 **Fix**: Open the **Developer Mode** app on your TV and click **"Extend Session"**. You do not need to reinstall Lineup.
 

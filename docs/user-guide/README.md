@@ -9,8 +9,9 @@ Detailed documentation for using and configuring Lineup.
 
 | Topic | Description |
 |-------|-------------|
-| [📺 Channels](channels.md) | Creating, editing, and managing your virtual channels |
+| [📺 Channels](channels.md) | Understanding your virtual channel lineup |
 | [📝 EPG Guide](epg.md) | Using the Electronic Program Guide grid |
+| [⚙ Settings](settings.md) | Audio, subtitles, HDR, themes, and account options |
 | [💬 Subtitles](subtitles.md) | Subtitle modes, selection, and troubleshooting |
 | [🎮 Remote Control](remote-keys.md) | Full button mapping reference |
 | [❓ Troubleshooting](troubleshooting.md) | Solutions for common problems |
@@ -21,11 +22,11 @@ Detailed documentation for using and configuring Lineup.
 
 ### How do I refresh content?
 
-If you've added new movies to Plex, Lineup will pick them up automatically the next time the channel schedule regenerates (typically when a new day begins or when you edit/save the channel). You can force a refresh by editing the channel and saving it again.
+If you've added new movies to Plex, Lineup will pick them up automatically the next time the channel schedule regenerates (typically when a new day begins).
 
 ### Can I use multiple Plex servers?
 
-Yes! You can mix content from different servers on different channels. Lineup will automatically connect to the correct server when you tune in.
+Lineup currently connects to one Plex server at a time. All channels use the selected server. You can switch servers from Settings, but doing so will change the server for your entire lineup.
 
 ### Does it support 4K / HDR?
 
