@@ -344,6 +344,7 @@ export class ServerSelectScreen {
             clearTimeout(this._restoreFocusTimeoutId);
             this._restoreFocusTimeoutId = null;
         }
+        this._setServerConnectButtonsDisabled(true);
         this._container.style.display = 'none';
         this._container.classList.remove('visible');
     }
@@ -535,6 +536,7 @@ export class ServerSelectScreen {
             selectButton.id = buttonIds[i] ?? 'btn-server-select-unknown';
             selectButton.className = 'screen-button secondary';
             selectButton.textContent = 'Connect';
+            selectButton.disabled = this._isSelecting;
             selectButton.addEventListener('click', () => {
                 this._selectServer(server).catch((error: unknown) => {
                     console.error('[ServerSelect] Select server failed:', summarizeErrorForLog(error));
@@ -694,13 +696,20 @@ export class ServerSelectScreen {
                 this._activeSelectGeneration = null;
             }
 
+            const currentGeneration = this._visibilityGeneration;
             if (
-                this._canUpdateUi(generation)
+                this._canUpdateUi(currentGeneration)
                 && !this._isSelecting
-                && !this._isLoadingCurrentGeneration(generation)
+                && !this._isLoadingCurrentGeneration(currentGeneration)
                 && !this._isClearing
             ) {
-                this._setServerConnectButtonsDisabled(false);
+                if (currentGeneration === generation) {
+                    this._setServerConnectButtonsDisabled(false);
+                } else {
+                    const savedId = this._serverSelectionStore.readSelectedServerId();
+                    this._renderServers(this._lastDiscoveredServers, savedId, { emptyStateReason: 'no_servers' });
+                    this._restoreFocus(currentGeneration);
+                }
             }
         }
     }

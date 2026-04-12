@@ -467,6 +467,50 @@ describe('ServerSelectScreen', () => {
         expect(container.querySelector('.screen-status')?.textContent).toBe('Connecting to Server One…');
     });
 
+    it('keeps re-shown server buttons disabled while a previous manual selection is pending and re-enables after it settles', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const server = makeServer('srv-1', 'Server One');
+        const selectDeferred = createDeferred<Awaited<ReturnType<ServerSelectScreenPorts['selectServer']>>>();
+
+        orchestrator.discoverServers.mockResolvedValue([server]);
+        orchestrator.selectServer.mockReturnValue(selectDeferred.promise);
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        const firstButton = container.querySelector('.server-row button') as HTMLButtonElement;
+        expect(firstButton.disabled).toBe(false);
+
+        firstButton.click();
+
+        expect(orchestrator.selectServer).toHaveBeenCalledTimes(1);
+        expect(firstButton.disabled).toBe(true);
+        expect(container.querySelector('.screen-status')?.textContent).toBe('Connecting to Server One…');
+
+        screen.hide();
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        const reShownButton = container.querySelector('.server-row button') as HTMLButtonElement;
+        expect(reShownButton.disabled).toBe(true);
+
+        reShownButton.click();
+        expect(orchestrator.selectServer).toHaveBeenCalledTimes(1);
+
+        selectDeferred.resolve({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
+        await flushPromisesAndTimers();
+
+        const enabledButton = container.querySelector('.server-row button') as HTMLButtonElement;
+        expect(enabledButton.disabled).toBe(false);
+
+        enabledButton.click();
+        expect(orchestrator.selectServer).toHaveBeenCalledTimes(2);
+    });
+
     it('logs manual selection failures after hide without updating hidden UI', async () => {
         const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
