@@ -50,28 +50,86 @@ Stored-credentials reads distinguish `missing`, `available`, and `corrupted`. Co
 Retrieving content metadata. Supports libraries, collections, playlists, TV show hierarchy, tag directories, and search.
 
 ```typescript
+type PlexTagDirectoryUnsupportedReason = 'unavailable' | 'empty';
+
+type PlexLibraryRequestIntent = 'preview' | 'background';
+
+interface PlexTagDirectoryQueryOptions {
+  type: number;
+  signal?: AbortSignal | null;
+  onUnsupported?: (reason: PlexTagDirectoryUnsupportedReason) => void;
+  requireEntries?: boolean;
+  requestIntent?: PlexLibraryRequestIntent;
+}
+
+interface PlexLibraryEvents {
+  authExpired: undefined;
+  libraryRefreshed: { libraryId: string };
+  [key: string]: unknown;
+}
+
 interface IPlexLibrary {
-  getLibraries(options?: { signal?: AbortSignal | null; includeItemCounts?: boolean }): Promise<PlexLibrary[]>;
+  getLibraries(options?: {
+    signal?: AbortSignal | null;
+    includeItemCounts?: boolean;
+    itemCountConcurrency?: number;
+  }): Promise<PlexLibrary[]>;
+
   getLibrary(libraryId: string): Promise<PlexLibrary | null>;
+
   getLibraryItems(libraryId: string, options?: LibraryQueryOptions): Promise<PlexMediaItem[]>;
+
   getLibraryItemCount(libraryId: string, options?: LibraryQueryOptions): Promise<number | null>;
+
   getItem(ratingKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem | null>;
+
   getShows(libraryId: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]>;
+
   getShowSeasons(showKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexSeason[]>;
+
   getSeasonEpisodes(seasonKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]>;
+
   getShowEpisodes(showKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]>;
+
   search(query: string, options?: SearchOptions): Promise<PlexMediaItem[]>;
-  getCollections(libraryId: string, options?: { signal?: AbortSignal | null }): Promise<PlexCollection[]>;
+
+  getCollections(libraryId: string, options?: {
+    signal?: AbortSignal | null;
+    requestIntent?: PlexLibraryRequestIntent;
+  }): Promise<PlexCollection[]>;
+
   getCollectionItems(collectionKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]>;
-  getPlaylists(options?: { signal?: AbortSignal | null }): Promise<PlexPlaylist[]>;
+
+  getPlaylists(options?: {
+    signal?: AbortSignal | null;
+    requestIntent?: PlexLibraryRequestIntent;
+  }): Promise<PlexPlaylist[]>;
+
   getPlaylistItems(playlistKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]>;
-  getGenres(libraryId: string, options: PlexTagDirectoryQueryOptions): Promise<PlexTagDirectoryItem[]>;
-  getDirectors(libraryId: string, options: PlexTagDirectoryQueryOptions): Promise<PlexTagDirectoryItem[]>;
+
   getActors(libraryId: string, options: PlexTagDirectoryQueryOptions): Promise<PlexTagDirectoryItem[]>;
+
   getStudios(libraryId: string, options: PlexTagDirectoryQueryOptions): Promise<PlexTagDirectoryItem[]>;
+
+  getGenres(libraryId: string, options: PlexTagDirectoryQueryOptions): Promise<PlexTagDirectoryItem[]>;
+
+  getDirectors(libraryId: string, options: PlexTagDirectoryQueryOptions): Promise<PlexTagDirectoryItem[]>;
+
   getYears(libraryId: string, options: PlexTagDirectoryQueryOptions): Promise<PlexTagDirectoryItem[]>;
+
   getImageUrl(imagePath: string, width?: number, height?: number): string;
+
   refreshLibrary(libraryId: string): Promise<void>;
+
+  on<K extends keyof PlexLibraryEvents>(
+    event: K,
+    handler: (payload: PlexLibraryEvents[K]) => void
+  ): void;
+
+  off<K extends keyof PlexLibraryEvents>(
+    event: K,
+    handler: (payload: PlexLibraryEvents[K]) => void
+  ): void;
 }
 ```
 
@@ -125,12 +183,46 @@ interface IPlexServerDiscovery {
 Converting metadata into a playable URL with codec analysis, direct-play eligibility, and transcode session management.
 
 ```typescript
+type StreamResolverErrorStage =
+  | 'media_selection'
+  | 'burn_in_selected_part';
+
+interface StreamResolverError {
+  code: PlexStreamErrorCode;
+  message: string;
+  recoverable: boolean;
+  retryAfterMs?: number;
+  stage?: StreamResolverErrorStage;
+}
+
+interface StreamResolverEventMap {
+  error: StreamResolverError;
+  [key: string]: StreamResolverError;
+}
+
 interface IPlexStreamResolver {
   resolveStream(request: StreamRequest): Promise<StreamDecision>;
+
   stopTranscodeSession(sessionId: string): Promise<void>;
+
   canDirectPlay(item: PlexMediaItem): boolean;
+
   getTranscodeUrl(itemKey: string, options: HlsOptions): string;
-  fetchUniversalTranscodeDecision(itemKey: string, request: TranscodeRequest): Promise<ServerDecision>;
+
+  fetchUniversalTranscodeDecision(
+    itemKey: string,
+    request: NonNullable<StreamDecision['transcodeRequest']>
+  ): Promise<NonNullable<StreamDecision['serverDecision']>>;
+
+  on<K extends keyof StreamResolverEventMap>(
+    event: K,
+    handler: (payload: StreamResolverEventMap[K]) => void
+  ): void;
+
+  off<K extends keyof StreamResolverEventMap>(
+    event: K,
+    handler: (payload: StreamResolverEventMap[K]) => void
+  ): void;
 }
 ```
 
@@ -167,17 +259,5 @@ interface StreamDecision {
   audioFallback?: { fromCodec: string; toCodec: string; reason: string };
   transcodeRequest?: StreamDecisionTranscodeRequest;
   serverDecision?: { fetchedAt: number; videoDecision?: string; audioDecision?: string; subtitleDecision?: string; decisionCode?: string; decisionText?: string };
-}
-```
-
-### `StreamResolverError`
-
-```typescript
-interface StreamResolverError {
-  code: PlexStreamErrorCode;
-  message: string;
-  recoverable: boolean;
-  retryAfterMs?: number;
-  stage?: 'media_selection' | 'burn_in_selected_part';
 }
 ```
