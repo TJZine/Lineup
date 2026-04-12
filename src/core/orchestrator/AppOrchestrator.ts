@@ -378,14 +378,35 @@ export class AppOrchestrator {
                 if (!this._initCoordinator) {
                     return;
                 }
-                await this._initCoordinator.runStartup(3);
-                if (this._epg) {
-                    this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
-                    this._epgCoordinator?.clearScheduleCaches();
+
+                let step = 'runStartup';
+
+                try {
+                    await this._initCoordinator.runStartup(3);
+
+                    if (this._epg) {
+                        step = 'clearSelectedChannelScheduleSnapshot';
+                        this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
+
+                        step = 'clearScheduleCaches';
+                        this._epgCoordinator?.clearScheduleCaches();
+                    }
+
+                    step = 'clearSchedules';
+                    this._epg?.clearSchedules();
+
+                    step = 'primeEpgChannels';
+                    this._epgCoordinator?.primeEpgChannels();
+
+                    step = 'refreshEpgSchedules';
+                    await this._epgCoordinator?.refreshEpgSchedules({ reason: 'server-swap' });
+                } catch (error) {
+                    console.error('[Orchestrator] Post-selection runtime swap failed:', {
+                        step,
+                        error: summarizeErrorForLog(error),
+                    });
+                    throw error;
                 }
-                this._epg?.clearSchedules();
-                this._epgCoordinator?.primeEpgChannels();
-                await this._epgCoordinator?.refreshEpgSchedules({ reason: 'server-swap' });
             },
             clearDiscoverySelection: (): void => {
                 this._plexDiscovery?.clearSelection();
@@ -1315,6 +1336,8 @@ export class AppOrchestrator {
         // queued startup runs from a stale profile-resume listener.
         this._initCoordinator?.clearProfileResume();
         await this._plexAuth.switchHomeUser(userId, { pin: pin ?? null });
+        // Finalize only after the profile mutation succeeds. Failed profile switches
+        // keep the previous active profile, so channel/stream identity should remain intact.
         cleanupController.finalizeProfileSwitch();
         this._configureDiscoveryStorageKeysForActiveUser();
         await this._resumeStartupAfterProfileSwitch();
@@ -1335,6 +1358,8 @@ export class AppOrchestrator {
         // profile-resume listener is still registered.
         this._initCoordinator?.clearProfileResume();
         await this._plexAuth.logoutActiveUser();
+        // Finalize only after logout succeeds. Failed logout leaves the active profile
+        // unchanged, so channel/stream identity should remain intact.
         cleanupController.finalizeProfileSwitch();
         this._configureDiscoveryStorageKeysForActiveUser();
         await this._resumeStartupAfterProfileSwitch();
@@ -1422,6 +1447,23 @@ export class AppOrchestrator {
     // Runtime channel-switch commands are intentionally best-effort: remote input can
     // arrive before tuning modules are assembled, so these methods no-op safely.
     // Setup/capability entrypoints still enforce strict precondition throws.
+    private _logMissingChannelTuningDependencies(context: string): void {
+        const missingModules = [
+            !this._channelManager ? '_channelManager' : null,
+            !this._scheduler ? '_scheduler' : null,
+            !this._videoPlayer ? '_videoPlayer' : null,
+        ].filter((module): module is string => module !== null);
+
+        if (missingModules.length === 0) {
+            console.error(`[Orchestrator] ${context}: channel tuning unavailable.`);
+            return;
+        }
+
+        console.error(
+            `[Orchestrator] ${context}: channel tuning unavailable. Missing modules: ${missingModules.join(', ')}`
+        );
+    }
+
     /**
      * Switch to a channel by ID.
      * Stops current playback, resolves content, configures scheduler, and syncs.
@@ -1435,9 +1477,7 @@ export class AppOrchestrator {
         }
     ): Promise<void> {
         if (!this._channelTuning) {
-            if (!this._channelManager || !this._scheduler || !this._videoPlayer) {
-                console.error('Modules not initialized');
-            }
+            this._logMissingChannelTuningDependencies('switchToChannel');
             return;
         }
 
@@ -1450,9 +1490,7 @@ export class AppOrchestrator {
      */
     async switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void> {
         if (!this._channelTuning) {
-            if (!this._channelManager || !this._scheduler || !this._videoPlayer) {
-                console.error('Modules not initialized');
-            }
+            this._logMissingChannelTuningDependencies('switchToChannelByNumber');
             return;
         }
 
@@ -1464,9 +1502,7 @@ export class AppOrchestrator {
         options?: { signal?: AbortSignal }
     ): Promise<ChannelSwitchOutcome> {
         if (!this._channelTuning) {
-            if (!this._channelManager || !this._scheduler || !this._videoPlayer) {
-                console.error('Modules not initialized');
-            }
+            this._logMissingChannelTuningDependencies('switchToChannelByNumberWithOutcome');
             return 'failed';
         }
 
