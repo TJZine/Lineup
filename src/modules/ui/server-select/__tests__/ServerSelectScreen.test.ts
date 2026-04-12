@@ -5,7 +5,7 @@
 import { ServerSelectScreen, type ServerSelectScreenPorts } from '../ServerSelectScreen';
 import type { ServerSelectScreenNavigationPort } from '../../../navigation';
 import type { PlexServer } from '../../../plex/discovery/types';
-import { flushPromisesAndTimers } from '../../../../__tests__/helpers';
+import { createDeferred, flushPromisesAndTimers } from '../../../../__tests__/helpers';
 
 type NavigationStub = ServerSelectScreenNavigationPort & {
     registerFocusable: jest.Mock;
@@ -548,6 +548,163 @@ describe('ServerSelectScreen', () => {
                 expect.objectContaining({
                     name: 'Error',
                     message: 'store failed',
+                })
+            );
+        } finally {
+            consoleErrorSpy.mockRestore();
+        }
+    });
+
+    it('ignores concurrent clear saved server requests while one is in flight', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const deferred = createDeferred<void>();
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+        orchestrator.clearSelectedServer.mockReturnValue(deferred.promise);
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
+        expect(clearBtn).not.toBeNull();
+
+        clearBtn?.click();
+        clearBtn?.click();
+
+        expect(orchestrator.clearSelectedServer).toHaveBeenCalledTimes(1);
+
+        deferred.resolve();
+        await flushPromisesAndTimers();
+
+        expect(container.querySelector('.screen-status')?.textContent).toBe('Selection cleared.');
+    });
+
+    it('does not update hidden UI or re-register focusables when clear completes after hide', async () => {
+        const orchestrator = createOrchestratorStub();
+        const nav = orchestrator.navigation;
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const deferred = createDeferred<void>();
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+        orchestrator.clearSelectedServer.mockReturnValue(deferred.promise);
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
+        expect(clearBtn).not.toBeNull();
+
+        nav.registerFocusable.mockClear();
+        nav.setFocus.mockClear();
+
+        clearBtn?.click();
+        screen.hide();
+
+        deferred.resolve();
+        await flushPromisesAndTimers();
+        jest.advanceTimersByTime(60);
+
+        expect(container.querySelector('.screen-status')?.textContent).not.toBe('Selection cleared.');
+        expect(nav.registerFocusable).not.toHaveBeenCalled();
+        expect(nav.setFocus).not.toHaveBeenCalled();
+    });
+
+    it('logs clear failures after hide without updating hidden UI', async () => {
+        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+        try {
+            const orchestrator = createOrchestratorStub();
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            const deferred = createDeferred<void>();
+            orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+            orchestrator.clearSelectedServer.mockReturnValue(deferred.promise);
+
+            const screen = new ServerSelectScreen(container, orchestrator);
+            screen.show({ allowAutoConnect: false });
+            await flushPromisesAndTimers();
+
+            const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
+            expect(clearBtn).not.toBeNull();
+
+            clearBtn?.click();
+            screen.hide();
+
+            deferred.reject(new Error('store failed'));
+            await flushPromisesAndTimers();
+
+            expect(container.querySelector('.screen-status')?.textContent).not.toBe('Selection not cleared.');
+            expect(consoleErrorSpy).toHaveBeenCalledWith(
+                '[ServerSelect] Clear saved server failed:',
+                expect.objectContaining({
+                    name: 'Error',
+                    message: 'store failed',
+                })
+            );
+        } finally {
+            consoleErrorSpy.mockRestore();
+        }
+    });
+
+    it('does not update hidden UI or restore focus when discovery resolves after hide', async () => {
+        const orchestrator = createOrchestratorStub();
+        const nav = orchestrator.navigation;
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const deferred = createDeferred<PlexServer[]>();
+        orchestrator.discoverServers.mockReturnValue(deferred.promise);
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        nav.registerFocusable.mockClear();
+        nav.setFocus.mockClear();
+
+        screen.hide();
+
+        deferred.resolve([makeServer('srv-1', 'Server One')]);
+        await flushPromisesAndTimers();
+        jest.advanceTimersByTime(60);
+
+        expect(container.querySelectorAll('.server-row')).toHaveLength(0);
+        expect(nav.registerFocusable).not.toHaveBeenCalled();
+        expect(nav.setFocus).not.toHaveBeenCalled();
+    });
+
+    it('logs discovery failures after hide without updating hidden UI', async () => {
+        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+        try {
+            const orchestrator = createOrchestratorStub();
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            const deferred = createDeferred<PlexServer[]>();
+            orchestrator.discoverServers.mockReturnValue(deferred.promise);
+
+            const screen = new ServerSelectScreen(container, orchestrator);
+            screen.show({ allowAutoConnect: false });
+            await flushPromisesAndTimers();
+
+            screen.hide();
+
+            deferred.reject(new Error('discovery failed'));
+            await flushPromisesAndTimers();
+
+            expect(container.querySelector('.screen-status')?.textContent).not.toBe('Discovery failed.');
+            expect(consoleErrorSpy).toHaveBeenCalledWith(
+                '[ServerSelect] Discovery failed after screen was hidden:',
+                expect.objectContaining({
+                    name: 'Error',
+                    message: 'discovery failed',
                 })
             );
         } finally {

@@ -1056,7 +1056,9 @@ export class AppOrchestrator {
      * Get the status of all modules.
      */
     getModuleStatus(): Map<string, ModuleStatus> {
-        return new Map(this._moduleStatus);
+        return new Map(
+            Array.from(this._moduleStatus, ([id, status]) => [id, this._cloneModuleStatus(status)])
+        );
     }
 
     /**
@@ -1656,6 +1658,22 @@ export class AppOrchestrator {
     // Private Methods - Initialization Phases
     // ============================================
 
+    private _cloneModuleStatus(status: ModuleStatus): ModuleStatus {
+        return {
+            ...status,
+            ...(status.error
+                ? {
+                    error: {
+                        ...status.error,
+                        ...(status.error.context
+                            ? { context: { ...status.error.context } }
+                            : {}),
+                    },
+                }
+                : {}),
+        };
+    }
+
     private _initializeModuleStatus(): void {
         const modules = [
             'event-emitter',
@@ -2030,7 +2048,13 @@ export class AppOrchestrator {
     }
 
     private _stopPlayback(): void {
-        this._playbackRuntimeController?.stopActiveTranscodeSession();
+        try {
+            this._playbackRuntimeController?.stopActiveTranscodeSession();
+        } catch (error) {
+            console.warn('[Orchestrator] stopActiveTranscodeSession failed during playback stop:', {
+                error: summarizeErrorForLog(error),
+            });
+        }
         this._videoPlayer?.stop();
     }
 

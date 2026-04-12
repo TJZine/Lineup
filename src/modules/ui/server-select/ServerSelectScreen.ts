@@ -45,6 +45,9 @@ export class ServerSelectScreen {
     private _switchProfileButton: HTMLButtonElement;
     private _clearButton: HTMLButtonElement;
     private _isLoading: boolean = false;
+    private _isClearing: boolean = false;
+    private _isVisible: boolean = false;
+    private _isDestroyed: boolean = false;
     private _restoreFocusTimeoutId: ReturnType<typeof setTimeout> | null = null;
     private _registeredServerButtonIds: string[] = [];
     private _lastDiscoveredServers: PlexServer[] = [];
@@ -168,6 +171,7 @@ export class ServerSelectScreen {
     }
 
     destroy(): void {
+        this._isDestroyed = true;
         this.hide();
         if (this._restoreFocusTimeoutId !== null) {
             clearTimeout(this._restoreFocusTimeoutId);
@@ -178,6 +182,11 @@ export class ServerSelectScreen {
     }
 
     show(options?: { allowAutoConnect?: boolean }): void {
+        if (this._isDestroyed) {
+            return;
+        }
+
+        this._isVisible = true;
         this._container.style.display = 'flex';
         this._container.classList.add('visible');
         this._clearError();
@@ -191,7 +200,7 @@ export class ServerSelectScreen {
     }
 
     private async _loadServers(options: { autoSelect: boolean; forceRefresh: boolean }): Promise<void> {
-        if (this._isLoading) return;
+        if (this._isLoading || !this._canUpdateUi()) return;
         this._isLoading = true;
         this._unregisterServerListFocusables();
         this._listEl.replaceChildren();
@@ -214,6 +223,11 @@ export class ServerSelectScreen {
         try {
             const servers = await this._ports.discoverServers(options.forceRefresh);
             this._lastDiscoveredServers = servers.slice();
+
+            if (!this._canUpdateUi()) {
+                return;
+            }
+
             this._statusEl.classList.remove('panel-spinner');
             let autoSelectError: unknown | null = null;
             let savedServerUnavailable = false;
@@ -222,6 +236,11 @@ export class ServerSelectScreen {
                 if (savedId && servers.some(s => s.id === savedId)) {
                     try {
                         const result = await this._ports.selectServer(savedId);
+
+                        if (!this._canUpdateUi()) {
+                            return;
+                        }
+
                         if (result.kind === 'selected') {
                             this._setStatus('Connected…', 'Continuing startup…', 'success');
                             return;
@@ -238,6 +257,10 @@ export class ServerSelectScreen {
                 }
             }
 
+            if (!this._canUpdateUi()) {
+                return;
+            }
+
             // Fallback to rendering list
             this._renderServers(servers, savedId, { savedServerUnavailable, emptyStateReason: 'no_servers' });
             if (servers.length === 0) {
@@ -251,6 +274,12 @@ export class ServerSelectScreen {
             this._setAutoConnectHintVisible(false);
         } catch (error) {
             this._lastDiscoveredServers = [];
+
+            if (!this._canUpdateUi()) {
+                console.error('[ServerSelect] Discovery failed after screen was hidden:', summarizeErrorForLog(error));
+                return;
+            }
+
             this._statusEl.classList.remove('panel-spinner');
             this._handleError(error, 'Failed to discover servers.');
             this._setStatus('Discovery failed.', '', 'error');
@@ -258,6 +287,11 @@ export class ServerSelectScreen {
             this._setAutoConnectHintVisible(false);
         } finally {
             this._isLoading = false;
+
+            if (!this._canUpdateUi()) {
+                return;
+            }
+
             this._statusEl.classList.remove('panel-spinner');
             this._refreshButton.disabled = false;
             this._setupButton.disabled = false;
@@ -286,6 +320,7 @@ export class ServerSelectScreen {
     }
 
     hide(): void {
+        this._isVisible = false;
         this._unregisterFocusables();
         if (this._restoreFocusTimeoutId !== null) {
             clearTimeout(this._restoreFocusTimeoutId);
@@ -303,22 +338,49 @@ export class ServerSelectScreen {
         await this._loadServers({ autoSelect: false, forceRefresh: true });
     }
 
+    private _canUpdateUi(): boolean {
+        return this._isVisible
+            && !this._isDestroyed
+            && this._container.classList.contains('visible');
+    }
+
     private _handleClearSelection(): void {
+        if (this._isClearing || !this._canUpdateUi()) {
+            return;
+        }
+
         void this._handleClearSelectionAsync();
     }
 
     private async _handleClearSelectionAsync(): Promise<void> {
+        if (this._isClearing || !this._canUpdateUi()) {
+            return;
+        }
+
+        this._isClearing = true;
         this._clearError();
+
         try {
             await this._ports.clearSelectedServer();
+
+            if (!this._canUpdateUi()) {
+                return;
+            }
+
             this._setAutoConnectHintVisible(false);
             this._setStatus('Selection cleared.', 'Pick a server to continue.', 'success');
             this._renderServers(this._lastDiscoveredServers, null, { emptyStateReason: 'no_servers' });
             this._restoreFocus();
         } catch (error) {
+            console.error('[ServerSelect] Clear saved server failed:', summarizeErrorForLog(error));
+            if (!this._canUpdateUi()) {
+                return;
+            }
+
             this._handleError(error, 'Could not clear saved server.');
             this._setStatus('Selection not cleared.', 'Try again.', 'error');
-            console.error('[ServerSelect] Clear saved server failed:', summarizeErrorForLog(error));
+        } finally {
+            this._isClearing = false;
         }
     }
 

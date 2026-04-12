@@ -2768,6 +2768,35 @@ describe('AppOrchestrator', () => {
             }
         });
 
+        it('stops the video player during shutdown when active transcode cleanup fails', async () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const stopActiveTranscodeSession = jest.fn(() => {
+                throw new Error('transcode cleanup failed');
+            });
+
+            try {
+                Reflect.set(orchestrator as object, '_playbackRuntimeController', {
+                    stopActiveTranscodeSession,
+                });
+
+                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+
+                expect(stopActiveTranscodeSession).toHaveBeenCalledTimes(1);
+                expect(mockVideoPlayer.stop).toHaveBeenCalledTimes(1);
+                expect(warnSpy).toHaveBeenCalledWith(
+                    '[Orchestrator] stopActiveTranscodeSession failed during playback stop:',
+                    expect.objectContaining({
+                        error: expect.objectContaining({
+                            name: 'Error',
+                            message: 'transcode cleanup failed',
+                        }),
+                    })
+                );
+            } finally {
+                warnSpy.mockRestore();
+            }
+        });
+
         it('records channel overlay teardown failures and continues shutdown', async () => {
             const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
@@ -2933,6 +2962,58 @@ describe('AppOrchestrator', () => {
 
             expect(emitterStatus).toBeDefined();
             expect(emitterStatus && emitterStatus.status).toBe('ready');
+        });
+
+        it('returns defensive copies of module status values', () => {
+            const status = orchestrator.getModuleStatus();
+            const authStatus = status.get('plex-auth');
+
+            expect(authStatus).toBeDefined();
+            if (!authStatus) return;
+
+            authStatus.status = 'error';
+
+            expect(orchestrator.getModuleStatus().get('plex-auth')?.status).not.toBe('error');
+        });
+
+        it('returns defensive copies of module status error context', () => {
+            Reflect.set(orchestrator as object, '_moduleStatus', new Map([
+                [
+                    'plex-auth',
+                    {
+                        id: 'plex-auth',
+                        name: 'plex-auth',
+                        status: 'error',
+                        error: {
+                            code: AppErrorCode.AUTH_INVALID,
+                            message: 'bad auth',
+                            recoverable: true,
+                            context: { source: 'test' },
+                        },
+                    },
+                ],
+            ]));
+
+            const returned = orchestrator.getModuleStatus().get('plex-auth');
+
+            expect(returned?.error).toEqual({
+                code: AppErrorCode.AUTH_INVALID,
+                message: 'bad auth',
+                recoverable: true,
+                context: { source: 'test' },
+            });
+            expect(returned?.error).not.toBe(
+                Reflect.get(orchestrator as object, '_moduleStatus').get('plex-auth').error
+            );
+            expect(returned?.error?.context).not.toBe(
+                Reflect.get(orchestrator as object, '_moduleStatus').get('plex-auth').error.context
+            );
+
+            if (returned?.error?.context) {
+                returned.error.context.source = 'mutated';
+            }
+
+            expect(orchestrator.getModuleStatus().get('plex-auth')?.error?.context?.source).toBe('test');
         });
     });
 
