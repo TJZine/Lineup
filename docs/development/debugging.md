@@ -33,11 +33,13 @@ Plex servers may reject requests from localhost. Recommended solutions:
 
 1. **Local Proxy** (Recommended): Configure your dev server to proxy Plex requests:
 
-   ```javascript
-   // vite.config.js example
-   server: {
-     proxy: { '/plex': { target: 'https://your-plex-server:32400', changeOrigin: true } }
-   }
+   ```typescript
+   // vite.config.ts
+   export default defineConfig({
+     server: {
+       proxy: { '/plex': { target: 'https://your-plex-server:32400', changeOrigin: true } }
+     }
+   });
    ```
 
 2. **Reverse Proxy**: Use nginx or Caddy locally to forward `/api` to your Plex server.
