@@ -45,16 +45,16 @@ See the dedicated guide: [Subtitles](subtitles.md).
 
 ### Dolby Vision MKV shows dark letterbox bars
 
-- Enable **Smart HDR10 Fallback** (Settings → HDR / Dolby Vision) to switch DV MKV to HDR10 for cinematic aspect ratios.
+- Enable **HDR Fallback** (Settings → Playback & HDR → HDR Fallback → Smart) to switch DV MKV to HDR10 for cinematic aspect ratios.
 - The setting only affects MKV; MP4/TS Dolby Vision behavior is unchanged.
-- If the issue persists, enable **Force HDR10 Fallback** to apply HDR10 whenever the base layer is available.
+- If the issue persists, set **HDR Fallback** to **Force** to apply HDR10 whenever the base layer is available.
 
 ## EPG & Channel Issues
 
 ### Guide data is empty
 
 - Wait a moment; schedule generation happens in the background.
-- If persistent, go to specific Channel settings and click **Save** to regenerate the schedule.
+- If persistent, try running the setup wizard again to regenerate the schedule.
 
 ### Wrong poster art
 

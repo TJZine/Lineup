@@ -35,7 +35,7 @@ This means there is no content scheduled for the current time. This happens if:
 - The channel filters resulted in zero matching items.
 
 > [!TIP]
-> Edit the channel and click **Save** to regenerate the schedule, which often resolves this issue.
+> Running the setup wizard again can regenerate channels and often resolves this.
 
 ### Can I use my friend's server?
 
@@ -57,7 +57,7 @@ LG requires "Developer Mode" for sideloading apps that aren't on the official LG
 
 ### Does it support Dolby Vision?
 
-It depends on your TV model. Lineup hands the stream directly to the TV's native player. If the file is direct-playable and the TV supports it, yes. For Dolby Vision MKV files that show dark letterbox bars, enable **Smart HDR10 Fallback** in Settings → HDR / Dolby Vision. See [Troubleshooting](docs/user-guide/troubleshooting.md#dolby-vision-mkv-shows-dark-letterbox-bars) for details.
+It depends on your TV model. Lineup hands the stream directly to the TV's native player. If the file is direct-playable and the TV supports it, yes. For Dolby Vision MKV files that show dark letterbox bars, set **HDR Fallback** to **Smart** in Settings → Playback & HDR. See [Troubleshooting](docs/user-guide/troubleshooting.md#dolby-vision-mkv-shows-dark-letterbox-bars) for details.
 
 ---
 
