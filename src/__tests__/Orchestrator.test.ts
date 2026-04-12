@@ -2988,7 +2988,12 @@ describe('AppOrchestrator', () => {
                             code: AppErrorCode.AUTH_INVALID,
                             message: 'bad auth',
                             recoverable: true,
-                            context: { source: 'test' },
+                            context: {
+                                source: 'test',
+                                nested: {
+                                    value: 'original',
+                                },
+                            },
                         },
                     },
                 ],
@@ -3000,7 +3005,12 @@ describe('AppOrchestrator', () => {
                 code: AppErrorCode.AUTH_INVALID,
                 message: 'bad auth',
                 recoverable: true,
-                context: { source: 'test' },
+                context: {
+                    source: 'test',
+                    nested: {
+                        value: 'original',
+                    },
+                },
             });
             expect(returned?.error).not.toBe(
                 Reflect.get(orchestrator as object, '_moduleStatus').get('plex-auth').error
@@ -3011,9 +3021,14 @@ describe('AppOrchestrator', () => {
 
             if (returned?.error?.context) {
                 returned.error.context.source = 'mutated';
+                (returned.error.context.nested as { value: string }).value = 'mutated';
             }
 
             expect(orchestrator.getModuleStatus().get('plex-auth')?.error?.context?.source).toBe('test');
+            const nestedContext = orchestrator.getModuleStatus().get('plex-auth')?.error?.context?.nested as
+                | { value: string }
+                | undefined;
+            expect(nestedContext?.value).toBe('original');
         });
     });
 

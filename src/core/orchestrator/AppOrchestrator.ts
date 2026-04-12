@@ -1666,12 +1666,76 @@ export class AppOrchestrator {
                     error: {
                         ...status.error,
                         ...(status.error.context
-                            ? { context: { ...status.error.context } }
+                            ? { context: this._cloneModuleStatusErrorContext(status.error.context) }
                             : {}),
                     },
                 }
                 : {}),
         };
+    }
+
+    private _cloneModuleStatusErrorContext(context: Record<string, unknown>): Record<string, unknown> {
+        if (typeof globalThis.structuredClone === 'function') {
+            try {
+                return globalThis.structuredClone(context) as Record<string, unknown>;
+            } catch {
+                // Fall through to a best-effort clone for non-structured-cloneable diagnostic values.
+            }
+        }
+
+        return this._cloneDiagnosticValue(context, new WeakMap<object, unknown>()) as Record<string, unknown>;
+    }
+
+    private _cloneDiagnosticValue(value: unknown, seen: WeakMap<object, unknown>): unknown {
+        if (value === null || typeof value !== 'object') {
+            return value;
+        }
+
+        const existingClone = seen.get(value);
+        if (existingClone !== undefined) {
+            return existingClone;
+        }
+
+        if (Array.isArray(value)) {
+            const clone: unknown[] = [];
+            seen.set(value, clone);
+            for (const item of value) {
+                clone.push(this._cloneDiagnosticValue(item, seen));
+            }
+            return clone;
+        }
+
+        if (value instanceof Date) {
+            return new Date(value.getTime());
+        }
+
+        if (value instanceof Map) {
+            const clone = new Map<unknown, unknown>();
+            seen.set(value, clone);
+            for (const [entryKey, entryValue] of value) {
+                clone.set(
+                    this._cloneDiagnosticValue(entryKey, seen),
+                    this._cloneDiagnosticValue(entryValue, seen)
+                );
+            }
+            return clone;
+        }
+
+        if (value instanceof Set) {
+            const clone = new Set<unknown>();
+            seen.set(value, clone);
+            for (const entry of value) {
+                clone.add(this._cloneDiagnosticValue(entry, seen));
+            }
+            return clone;
+        }
+
+        const clone: Record<string, unknown> = {};
+        seen.set(value, clone);
+        for (const [entryKey, entryValue] of Object.entries(value)) {
+            clone[entryKey] = this._cloneDiagnosticValue(entryValue, seen);
+        }
+        return clone;
     }
 
     private _initializeModuleStatus(): void {

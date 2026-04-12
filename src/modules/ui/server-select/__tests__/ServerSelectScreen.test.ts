@@ -679,6 +679,39 @@ describe('ServerSelectScreen', () => {
         expect(nav.setFocus).not.toHaveBeenCalled();
     });
 
+    it('ignores stale discovery results from a previous visibility session after hide and show', async () => {
+        const orchestrator = createOrchestratorStub();
+        const nav = orchestrator.navigation;
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const firstDiscovery = createDeferred<PlexServer[]>();
+        const secondServer = makeServer('srv-2', 'Second Server');
+        orchestrator.discoverServers
+            .mockReturnValueOnce(firstDiscovery.promise)
+            .mockResolvedValueOnce([secondServer]);
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        screen.hide();
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        expect(orchestrator.discoverServers).toHaveBeenCalledTimes(2);
+
+        firstDiscovery.resolve([makeServer('srv-1', 'Stale Server')]);
+        await flushPromisesAndTimers();
+        jest.advanceTimersByTime(60);
+
+        const serverRows = Array.from(container.querySelectorAll('.server-row'));
+        expect(serverRows).toHaveLength(1);
+        expect(serverRows[0]?.textContent).toContain('Second Server');
+        expect(serverRows[0]?.textContent).not.toContain('Stale Server');
+        expect(nav.setFocus).toHaveBeenCalledWith('btn-server-refresh');
+    });
+
     it('logs discovery failures after hide without updating hidden UI', async () => {
         const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
@@ -710,6 +743,37 @@ describe('ServerSelectScreen', () => {
         } finally {
             consoleErrorSpy.mockRestore();
         }
+    });
+
+    it('ignores stale clear results from a previous visibility session after hide and show', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const clearDeferred = createDeferred<void>();
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+        orchestrator.clearSelectedServer.mockReturnValue(clearDeferred.promise);
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
+        expect(clearBtn).not.toBeNull();
+
+        clearBtn?.click();
+        screen.hide();
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        expect(container.querySelector('.screen-status')?.textContent).toBe('Select a server from the list.');
+
+        clearDeferred.resolve();
+        await flushPromisesAndTimers();
+        jest.advanceTimersByTime(60);
+
+        expect(container.querySelector('.screen-status')?.textContent).toBe('Select a server from the list.');
+        expect(container.querySelectorAll('.server-row')).toHaveLength(1);
     });
 
     it('uses navigation restore entrypoint before refresh-button fallback', async () => {
