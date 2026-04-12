@@ -5,32 +5,91 @@ function readRepoFile(relativePath: string): string {
     return readFileSync(path.resolve(process.cwd(), relativePath), 'utf8');
 }
 
+function stripTsComments(source: string): string {
+    return source
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+}
+
+function compactTypeScript(source: string): string {
+    return stripTsComments(source)
+        .replace(/\bexport\s+/g, '')
+        .replace(/\s+/g, '');
+}
+
+function findBalancedBlockEnd(source: string, openBraceIndex: number): number {
+    let depth = 0;
+
+    for (let index = openBraceIndex; index < source.length; index += 1) {
+        const char = source[index];
+
+        if (char === '{') {
+            depth += 1;
+        } else if (char === '}') {
+            depth -= 1;
+
+            if (depth === 0) {
+                return index + 1;
+            }
+        }
+    }
+
+    throw new Error(`Unable to find matching brace after index ${openBraceIndex}`);
+}
+
+function extractInterface(source: string, interfaceName: string): string {
+    const declarationIndex = source.indexOf(`export interface ${interfaceName}`);
+    if (declarationIndex === -1) {
+        throw new Error(`Unable to find interface ${interfaceName}`);
+    }
+
+    const openBraceIndex = source.indexOf('{', declarationIndex);
+    if (openBraceIndex === -1) {
+        throw new Error(`Unable to find opening brace for interface ${interfaceName}`);
+    }
+
+    return source.slice(declarationIndex, findBalancedBlockEnd(source, openBraceIndex));
+}
+
+function extractTypeAlias(source: string, typeName: string): string {
+    const declarationIndex = source.indexOf(`export type ${typeName}`);
+    if (declarationIndex === -1) {
+        throw new Error(`Unable to find type alias ${typeName}`);
+    }
+
+    const terminatorIndex = source.indexOf(';', declarationIndex);
+    if (terminatorIndex === -1) {
+        throw new Error(`Unable to find terminator for type alias ${typeName}`);
+    }
+
+    return source.slice(declarationIndex, terminatorIndex + 1);
+}
+
+function expectDocsToMatchSourceType(docs: string, sourceBlock: string): void {
+    expect(compactTypeScript(docs)).toContain(compactTypeScript(sourceBlock));
+}
+
 describe('Plex integration API docs', () => {
     const docs = readRepoFile('docs/api/plex-integration.md');
+    const libraryInterfaces = readRepoFile('src/modules/plex/library/interfaces.ts');
+    const libraryTypes = readRepoFile('src/modules/plex/library/types.ts');
+    const streamInterfaces = readRepoFile('src/modules/plex/stream/interfaces.ts');
 
-    it('documents IPlexLibrary options and event methods that have drifted before', () => {
-        expect(docs).toContain('itemCountConcurrency?: number;');
-        expect(docs).toContain("type PlexLibraryRequestIntent = 'preview' | 'background';");
-        expect(docs).toContain('requestIntent?: PlexLibraryRequestIntent;');
-        expect(docs).toContain("type PlexTagDirectoryUnsupportedReason = 'unavailable' | 'empty';");
-        expect(docs).toContain('onUnsupported?: (reason: PlexTagDirectoryUnsupportedReason) => void;');
-        expect(docs).toContain('requireEntries?: boolean;');
-        expect(docs).toContain('interface PlexLibraryEvents');
-        expect(docs).toContain('authExpired: undefined;');
-        expect(docs).toContain('libraryRefreshed: { libraryId: string };');
-        expect(docs).toContain('on<K extends keyof PlexLibraryEvents>(');
-        expect(docs).toContain('off<K extends keyof PlexLibraryEvents>(');
-        expect(docs).toContain('refreshLibrary(libraryId: string): Promise<void>;');
-        expect(docs).not.toContain('refreshLibrary(libraryId: string, options');
+    it('documents IPlexLibrary from the exported source contract', () => {
+        expectDocsToMatchSourceType(
+            docs,
+            extractTypeAlias(libraryInterfaces, 'PlexTagDirectoryUnsupportedReason')
+        );
+        expectDocsToMatchSourceType(docs, extractTypeAlias(libraryInterfaces, 'PlexLibraryRequestIntent'));
+        expectDocsToMatchSourceType(docs, extractInterface(libraryInterfaces, 'PlexTagDirectoryQueryOptions'));
+        expectDocsToMatchSourceType(docs, extractInterface(libraryTypes, 'PlexLibraryEvents'));
+        expectDocsToMatchSourceType(docs, extractInterface(libraryInterfaces, 'IPlexLibrary'));
     });
 
-    it('documents IPlexStreamResolver diagnostic event methods', () => {
-        expect(docs).toContain('interface StreamResolverEventMap');
-        expect(docs).toContain('error: StreamResolverError;');
-        expect(docs).toContain('fetchUniversalTranscodeDecision(');
-        expect(docs).toContain("request: NonNullable<StreamDecision['transcodeRequest']>");
-        expect(docs).toContain("Promise<NonNullable<StreamDecision['serverDecision']>>");
-        expect(docs).toContain('on<K extends keyof StreamResolverEventMap>(');
-        expect(docs).toContain('off<K extends keyof StreamResolverEventMap>(');
+    it('documents IPlexStreamResolver from the exported source contract', () => {
+        expectDocsToMatchSourceType(docs, extractTypeAlias(streamInterfaces, 'StreamResolverErrorStage'));
+        expectDocsToMatchSourceType(docs, extractInterface(streamInterfaces, 'StreamResolverError'));
+        expectDocsToMatchSourceType(docs, extractInterface(streamInterfaces, 'StreamResolverEventMap'));
+        expectDocsToMatchSourceType(docs, extractInterface(streamInterfaces, 'IPlexStreamResolver'));
     });
 });

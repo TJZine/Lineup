@@ -245,6 +245,17 @@ export class ServerSelectScreen {
             let autoSelectError: unknown | null = null;
             let savedServerUnavailable = false;
 
+            if (isAutoConnectAttempt && this._isSelecting) {
+                this._renderServers(servers, savedId, { emptyStateReason: 'no_servers' });
+                this._setStatus(
+                    'Selection in progress.',
+                    'Wait for the current server connection attempt to finish.',
+                    'loading'
+                );
+                this._setAutoConnectHintVisible(false);
+                return;
+            }
+
             if (options.autoSelect) {
                 if (savedId && servers.some(s => s.id === savedId)) {
                     try {

@@ -511,6 +511,45 @@ describe('ServerSelectScreen', () => {
         expect(orchestrator.selectServer).toHaveBeenCalledTimes(2);
     });
 
+    it('does not auto-connect a saved server while a previous manual selection is pending', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const server = makeServer('srv-1', 'Server One');
+        const selectDeferred = createDeferred<Awaited<ReturnType<ServerSelectScreenPorts['selectServer']>>>();
+
+        orchestrator.discoverServers.mockResolvedValue([server]);
+        orchestrator.selectServer.mockReturnValue(selectDeferred.promise);
+        localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        const firstButton = container.querySelector('.server-row button') as HTMLButtonElement;
+        firstButton.click();
+
+        expect(orchestrator.selectServer).toHaveBeenCalledTimes(1);
+        expect(container.querySelector('.screen-status')?.textContent).toBe('Connecting to Server One…');
+
+        screen.hide();
+        screen.show({ allowAutoConnect: true });
+        await flushPromisesAndTimers();
+
+        expect(orchestrator.selectServer).toHaveBeenCalledTimes(1);
+        expect(container.querySelector('.screen-status')?.textContent).toContain('Selection in progress');
+
+        const reShownButton = container.querySelector('.server-row button') as HTMLButtonElement;
+        expect(reShownButton.disabled).toBe(true);
+
+        selectDeferred.resolve({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
+        await flushPromisesAndTimers();
+
+        const enabledButton = container.querySelector('.server-row button') as HTMLButtonElement;
+        expect(enabledButton.disabled).toBe(false);
+    });
+
     it('logs manual selection failures after hide without updating hidden UI', async () => {
         const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
