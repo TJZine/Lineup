@@ -23,7 +23,7 @@ const FOCUS_RESTORE_DELAY_MS = 50;
 export interface ServerSelectScreenPorts {
     discoverServers(forceRefresh?: boolean): Promise<PlexServer[]>;
     selectServer(serverId: string): Promise<OrchestratorServerSelectionResult>;
-    clearSelectedServer(): void;
+    clearSelectedServer(): Promise<void>;
     getSelectedServerStorageKey(): string;
     getServerHealthStorageKey(): string;
     requestChannelSetupRerun(): void;
@@ -45,6 +45,12 @@ export class ServerSelectScreen {
     private _switchProfileButton: HTMLButtonElement;
     private _clearButton: HTMLButtonElement;
     private _isLoading: boolean = false;
+    private _isClearing: boolean = false;
+    private _isVisible: boolean = false;
+    private _isDestroyed: boolean = false;
+    private _visibilityGeneration: number = 0;
+    private _activeLoadGeneration: number | null = null;
+    private _activeClearGeneration: number | null = null;
     private _restoreFocusTimeoutId: ReturnType<typeof setTimeout> | null = null;
     private _registeredServerButtonIds: string[] = [];
     private _lastDiscoveredServers: PlexServer[] = [];
@@ -168,6 +174,7 @@ export class ServerSelectScreen {
     }
 
     destroy(): void {
+        this._isDestroyed = true;
         this.hide();
         if (this._restoreFocusTimeoutId !== null) {
             clearTimeout(this._restoreFocusTimeoutId);
@@ -178,6 +185,13 @@ export class ServerSelectScreen {
     }
 
     show(options?: { allowAutoConnect?: boolean }): void {
+        if (this._isDestroyed) {
+            return;
+        }
+
+        this._isVisible = true;
+        this._visibilityGeneration += 1;
+        const generation = this._visibilityGeneration;
         this._container.style.display = 'flex';
         this._container.classList.add('visible');
         this._clearError();
@@ -185,14 +199,20 @@ export class ServerSelectScreen {
         this._registerFocusables();
         // Manual server-select entry should not reconnect implicitly unless explicitly requested.
         const allowAutoConnect = options?.allowAutoConnect === true;
-        this._loadServers({ autoSelect: allowAutoConnect, forceRefresh: false }).catch((error: unknown) => {
+        this._loadServers({ autoSelect: allowAutoConnect, forceRefresh: false }, generation).catch((error: unknown) => {
             console.error('[ServerSelect] Load servers failed:', summarizeErrorForLog(error));
         });
     }
 
-    private async _loadServers(options: { autoSelect: boolean; forceRefresh: boolean }): Promise<void> {
-        if (this._isLoading) return;
+    private async _loadServers(
+        options: { autoSelect: boolean; forceRefresh: boolean },
+        generation = this._visibilityGeneration
+    ): Promise<void> {
+        if ((this._isLoading && this._activeLoadGeneration === generation) || !this._canUpdateUi(generation)) {
+            return;
+        }
         this._isLoading = true;
+        this._activeLoadGeneration = generation;
         this._unregisterServerListFocusables();
         this._listEl.replaceChildren();
         const savedId = this._serverSelectionStore.readSelectedServerId();
@@ -213,6 +233,11 @@ export class ServerSelectScreen {
 
         try {
             const servers = await this._ports.discoverServers(options.forceRefresh);
+
+            if (!this._canUpdateUi(generation)) {
+                return;
+            }
+
             this._lastDiscoveredServers = servers.slice();
             this._statusEl.classList.remove('panel-spinner');
             let autoSelectError: unknown | null = null;
@@ -222,6 +247,11 @@ export class ServerSelectScreen {
                 if (savedId && servers.some(s => s.id === savedId)) {
                     try {
                         const result = await this._ports.selectServer(savedId);
+
+                        if (!this._canUpdateUi(generation)) {
+                            return;
+                        }
+
                         if (result.kind === 'selected') {
                             this._setStatus('Connected…', 'Continuing startup…', 'success');
                             return;
@@ -238,6 +268,10 @@ export class ServerSelectScreen {
                 }
             }
 
+            if (!this._canUpdateUi(generation)) {
+                return;
+            }
+
             // Fallback to rendering list
             this._renderServers(servers, savedId, { savedServerUnavailable, emptyStateReason: 'no_servers' });
             if (servers.length === 0) {
@@ -250,6 +284,11 @@ export class ServerSelectScreen {
             }
             this._setAutoConnectHintVisible(false);
         } catch (error) {
+            if (!this._canUpdateUi(generation)) {
+                console.error('[ServerSelect] Discovery failed after screen was hidden:', summarizeErrorForLog(error));
+                return;
+            }
+
             this._lastDiscoveredServers = [];
             this._statusEl.classList.remove('panel-spinner');
             this._handleError(error, 'Failed to discover servers.');
@@ -257,17 +296,25 @@ export class ServerSelectScreen {
             this._renderServers([], null, { emptyStateReason: 'discovery_failed' });
             this._setAutoConnectHintVisible(false);
         } finally {
-            this._isLoading = false;
+            if (this._activeLoadGeneration === generation) {
+                this._isLoading = false;
+                this._activeLoadGeneration = null;
+            }
+
+            if (!this._canUpdateUi(generation)) {
+                return;
+            }
+
             this._statusEl.classList.remove('panel-spinner');
             this._refreshButton.disabled = false;
             this._setupButton.disabled = false;
             this._switchProfileButton.disabled = false;
-            this._clearButton.disabled = false;
-            this._restoreFocus();
+            this._clearButton.disabled = this._isClearing;
+            this._restoreFocus(generation);
         }
     }
 
-    private _restoreFocus(): void {
+    private _restoreFocus(generation = this._visibilityGeneration): void {
         const nav = this._ports.getNavigation();
         if (nav) {
             if (this._restoreFocusTimeoutId !== null) {
@@ -276,7 +323,7 @@ export class ServerSelectScreen {
             }
             this._restoreFocusTimeoutId = setTimeout(() => {
                 this._restoreFocusTimeoutId = null;
-                if (!this._container.classList.contains('visible')) return;
+                if (!this._canUpdateUi(generation)) return;
                 if (nav.restoreFocusForCurrentScreen()) {
                     return;
                 }
@@ -286,6 +333,8 @@ export class ServerSelectScreen {
     }
 
     hide(): void {
+        this._isVisible = false;
+        this._visibilityGeneration += 1;
         this._unregisterFocusables();
         if (this._restoreFocusTimeoutId !== null) {
             clearTimeout(this._restoreFocusTimeoutId);
@@ -296,20 +345,86 @@ export class ServerSelectScreen {
     }
 
     async refresh(): Promise<void> {
-        if (this._isLoading) {
+        const generation = this._visibilityGeneration;
+        if (this._isLoading && this._activeLoadGeneration === generation) {
             return;
         }
         this._clearError();
-        await this._loadServers({ autoSelect: false, forceRefresh: true });
+        await this._loadServers({ autoSelect: false, forceRefresh: true }, generation);
+    }
+
+    private _canUpdateUi(generation = this._visibilityGeneration): boolean {
+        return generation === this._visibilityGeneration
+            && this._isVisible
+            && !this._isDestroyed
+            && this._container.classList.contains('visible');
+    }
+
+    private _isLoadingCurrentGeneration(generation: number): boolean {
+        return this._isLoading && this._activeLoadGeneration === generation;
+    }
+
+    private _setClearButtonDisabled(disabled: boolean, generation = this._visibilityGeneration): void {
+        if (!this._canUpdateUi(generation)) {
+            return;
+        }
+
+        this._clearButton.disabled = disabled;
     }
 
     private _handleClearSelection(): void {
+        const generation = this._visibilityGeneration;
+        if (this._isClearing || !this._canUpdateUi(generation)) {
+            return;
+        }
+
+        void this._handleClearSelectionAsync(generation);
+    }
+
+    private async _handleClearSelectionAsync(generation: number): Promise<void> {
+        if (this._isClearing || !this._canUpdateUi(generation)) {
+            return;
+        }
+
+        this._isClearing = true;
+        this._activeClearGeneration = generation;
         this._clearError();
-        this._ports.clearSelectedServer();
-        this._setAutoConnectHintVisible(false);
-        this._setStatus('Selection cleared.', 'Pick a server to continue.');
-        this._renderServers(this._lastDiscoveredServers, null, { emptyStateReason: 'no_servers' });
-        this._restoreFocus();
+        this._setClearButtonDisabled(true, generation);
+
+        try {
+            await this._ports.clearSelectedServer();
+
+            if (!this._canUpdateUi(generation)) {
+                return;
+            }
+
+            this._setAutoConnectHintVisible(false);
+            this._setStatus('Selection cleared.', 'Pick a server to continue.', 'success');
+            this._renderServers(this._lastDiscoveredServers, null, { emptyStateReason: 'no_servers' });
+            this._restoreFocus(generation);
+        } catch (error) {
+            console.error('[ServerSelect] Clear saved server failed:', summarizeErrorForLog(error));
+            if (!this._canUpdateUi(generation)) {
+                return;
+            }
+
+            this._handleError(error, 'Could not clear saved server.');
+            this._setStatus('Selection not cleared.', 'Try again.', 'error');
+        } finally {
+            if (this._activeClearGeneration === generation) {
+                this._isClearing = false;
+                this._activeClearGeneration = null;
+            }
+
+            const currentGeneration = this._visibilityGeneration;
+            if (
+                !this._isClearing
+                && this._canUpdateUi(currentGeneration)
+                && !this._isLoadingCurrentGeneration(currentGeneration)
+            ) {
+                this._setClearButtonDisabled(false, currentGeneration);
+            }
+        }
     }
 
     private _setAutoConnectHintVisible(visible: boolean): void {

@@ -329,4 +329,47 @@ describe('NowPlayingDebugManager', () => {
             errorSpy.mockRestore();
         }
     });
+
+    it('does not log late server decision fetch failures after disposal', async () => {
+        const resolver: IPlexStreamResolver = {
+            fetchUniversalTranscodeDecision: jest.fn(),
+        } as unknown as IPlexStreamResolver;
+
+        let rejectDecision: (reason?: unknown) => void = () => {
+            throw new Error('reject not set');
+        };
+        const fetchPromise = new Promise<StreamDecision['serverDecision']>((_resolve, reject) => {
+            rejectDecision = reject;
+        });
+        (resolver.fetchUniversalTranscodeDecision as jest.Mock).mockReturnValue(fetchPromise);
+
+        const decision = makeDecision();
+        const deps: NowPlayingDebugManagerDeps = {
+            nowPlayingModalId: modalId,
+            getNavigation: () => makeNavigation(),
+            getStreamResolver: () => resolver,
+            getNowPlayingInfo: () => ({} as INowPlayingInfoOverlay),
+            getCurrentProgram: () => makeProgram(),
+            getCurrentStreamDecision: () => decision,
+            debugOverridesStore: new DebugOverridesStore(),
+            requestNowPlayingOverlayRefresh: jest.fn(),
+        };
+        const manager = new NowPlayingDebugManager(deps);
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+        try {
+            const snapshotPromise = manager.ensureServerDecisionForPlaybackInfoSnapshot();
+            manager.dispose();
+            rejectDecision(new Error('late-failure'));
+
+            await snapshotPromise;
+
+            expect(errorSpy).not.toHaveBeenCalledWith(
+                '[NowPlayingDebug] PMS decision fetch failed:',
+                expect.anything()
+            );
+        } finally {
+            errorSpy.mockRestore();
+        }
+    });
 });

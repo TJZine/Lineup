@@ -38,7 +38,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 ### `src/core/app-shell/AppLazyScreenPortFactory.ts`
 
 - focused owner for lazy-screen port assembly at the app-shell boundary
-- builds screen-specific port contracts for deferred screens while delegating runtime operations to `AppOrchestrator`
+- builds screen-specific port contracts for deferred screens while delegating runtime operations through app-shell-owned runtime port contracts (`AppShellRuntimeContracts`)
 - keeps `src/App.ts` at composition wiring by replacing the previous inline lazy-screen runtime object-literal assembly
 
 ### `src/core/app-shell/AppScreenVisibilityCoordinator.ts`
@@ -54,13 +54,22 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - focused server-selection collaborators shared between app shell and orchestrator
 - owns the app-shell-facing selected-server workflow/result contract, including selected-server persistence handoff and post-selection runtime swap delegation
+- `SelectedServerRuntimeController` owns selected-server persistence writes and runtime-swap side effects invoked by the orchestrator server-selection flow
 
 ### `src/Orchestrator.ts`
 
-- central runtime coordinator
-- should remain focused on wiring, lifecycle orchestration, and top-level runtime delegation rather than absorbing more feature logic
+- thin public runtime entry barrel
+- re-exports `AppOrchestrator` and runtime-facing types for app/test import stability
+
+### `src/core/orchestrator/AppOrchestrator.ts`
+
+- central runtime coordinator implementation owner
 - owns composition-root diagnostics append wiring (`AppendIssueDiagnostic`) for runtime collaborators while `IssueDiagnosticsStore` remains the storage/debug owner
 - constructs `InitializationCoordinator` before coordinator assembly so `ensureEpgInitialized` callbacks always bind the real startup owner (no fake no-op readiness path)
+
+### `src/core/orchestrator/OrchestratorSchedulePolicy.ts`
+
+- focused owner for local-day-key/midnight math and deterministic daily schedule seed policy used by channel-tuning and schedule-day rollover flows
 
 ## Module Boundaries
 
@@ -142,7 +151,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 The main structural hotspots still called out by the cleanup backlog are:
 
-- `src/Orchestrator.ts`
+- `src/core/orchestrator/AppOrchestrator.ts`
 - `src/App.ts`
 - `src/modules/ui/epg/EPGComponent.ts`
 - `src/modules/ui/settings/SettingsScreen.ts`

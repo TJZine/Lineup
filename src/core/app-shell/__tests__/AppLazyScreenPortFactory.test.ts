@@ -10,7 +10,7 @@ type MockRuntimeOrchestrator = {
     signOutPlex: jest.Mock;
     discoverServers: jest.Mock;
     selectServer: jest.Mock;
-    clearSelectedServer: jest.Mock;
+    clearSelectedServer: jest.Mock<Promise<void>, []>;
     getSelectedServerStorageKey: jest.Mock;
     getServerHealthStorageKey: jest.Mock;
     getChannelSetupWorkflowPort: jest.Mock;
@@ -35,7 +35,7 @@ const makeOrchestrator = (): MockRuntimeOrchestrator => ({
     signOutPlex: jest.fn().mockResolvedValue(undefined),
     discoverServers: jest.fn().mockResolvedValue([]),
     selectServer: jest.fn().mockResolvedValue({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' }),
-    clearSelectedServer: jest.fn(),
+    clearSelectedServer: jest.fn().mockResolvedValue(undefined),
     getSelectedServerStorageKey: jest.fn().mockReturnValue('selected-server-id'),
     getServerHealthStorageKey: jest.fn().mockReturnValue('server-health'),
     getChannelSetupWorkflowPort: jest.fn().mockReturnValue({ id: 'workflow-port' }),
@@ -50,11 +50,19 @@ const makeOrchestrator = (): MockRuntimeOrchestrator => ({
     getNavigation: jest.fn().mockReturnValue({ replaceScreen: jest.fn() }),
 });
 
+const createFactory = (runtime: MockRuntimeOrchestrator | null): AppLazyScreenPortFactory =>
+    new AppLazyScreenPortFactory({
+        getNavigationRuntime: (): MockRuntimeOrchestrator | null => runtime,
+        getAuthRuntime: (): MockRuntimeOrchestrator | null => runtime,
+        getProfileRuntime: (): MockRuntimeOrchestrator | null => runtime,
+        getServerSelectionRuntime: (): MockRuntimeOrchestrator | null => runtime,
+        getChannelSetupRuntime: (): MockRuntimeOrchestrator | null => runtime,
+        getSettingsRuntime: (): MockRuntimeOrchestrator | null => runtime,
+    });
+
 describe('AppLazyScreenPortFactory', () => {
     it('returns null for all screen port creators without an orchestrator', (): void => {
-        const factory = new AppLazyScreenPortFactory({
-            getOrchestrator: (): MockRuntimeOrchestrator | null => null,
-        });
+        const factory = createFactory(null);
 
         expect(factory.createAuthScreenPorts()).toBeNull();
         expect(factory.createProfileSelectScreenPorts()).toBeNull();
@@ -68,9 +76,7 @@ describe('AppLazyScreenPortFactory', () => {
         const orchestrator = makeOrchestrator();
         const navigation = { replaceScreen: jest.fn() };
         orchestrator.getNavigation.mockReturnValue(navigation);
-        const factory = new AppLazyScreenPortFactory({
-            getOrchestrator: (): MockRuntimeOrchestrator => orchestrator,
-        });
+        const factory = createFactory(orchestrator);
 
         const authPorts = factory.createAuthScreenPorts();
         const profilePorts = factory.createProfileSelectScreenPorts();
@@ -110,7 +116,7 @@ describe('AppLazyScreenPortFactory', () => {
 
         await serverPorts?.discoverServers(true);
         await serverPorts?.selectServer('server-1');
-        serverPorts?.clearSelectedServer();
+        await serverPorts?.clearSelectedServer();
         expect(serverPorts?.getSelectedServerStorageKey()).toBe('selected-server-id');
         expect(serverPorts?.getServerHealthStorageKey()).toBe('server-health');
         serverPorts?.requestChannelSetupRerun();
@@ -141,9 +147,7 @@ describe('AppLazyScreenPortFactory', () => {
         const workflowPort = { id: 'workflow-port' };
         orchestrator.getChannelSetupWorkflowPort.mockReturnValue(workflowPort);
 
-        const factory = new AppLazyScreenPortFactory({
-            getOrchestrator: (): MockRuntimeOrchestrator => orchestrator,
-        });
+        const factory = createFactory(orchestrator);
 
         const channelSetupInput = factory.createChannelSetupScreenInput();
 
@@ -172,7 +176,12 @@ describe('AppLazyScreenPortFactory', () => {
 
         let currentOrchestrator: MockRuntimeOrchestrator = firstOrchestrator;
         const factory = new AppLazyScreenPortFactory({
-            getOrchestrator: (): MockRuntimeOrchestrator => currentOrchestrator,
+            getNavigationRuntime: (): MockRuntimeOrchestrator => currentOrchestrator,
+            getAuthRuntime: (): MockRuntimeOrchestrator => currentOrchestrator,
+            getProfileRuntime: (): MockRuntimeOrchestrator => currentOrchestrator,
+            getServerSelectionRuntime: (): MockRuntimeOrchestrator => currentOrchestrator,
+            getChannelSetupRuntime: (): MockRuntimeOrchestrator => currentOrchestrator,
+            getSettingsRuntime: (): MockRuntimeOrchestrator => currentOrchestrator,
         });
 
         const channelSetupInput = factory.createChannelSetupScreenInput();
@@ -185,9 +194,7 @@ describe('AppLazyScreenPortFactory', () => {
 
     it('creates settings runtime ports for subtitle reset and guide-setting updates', async (): Promise<void> => {
         const orchestrator = makeOrchestrator();
-        const factory = new AppLazyScreenPortFactory({
-            getOrchestrator: (): MockRuntimeOrchestrator => orchestrator,
-        });
+        const factory = createFactory(orchestrator);
 
         const settingsRuntimePorts = factory.createSettingsRuntimePorts();
         expect(settingsRuntimePorts).not.toBeNull();

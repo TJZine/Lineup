@@ -30,6 +30,7 @@ export class NowPlayingDebugManager {
     private _nowPlayingStreamDecisionFetchedForSessionId: string | null = null;
     private _nowPlayingStreamDecisionFetchPromise: Promise<StreamDecision['serverDecision']> | null = null;
     private _nowPlayingStreamDecisionFetchSessionId: string | null = null;
+    private _disposed = false;
 
     constructor(private readonly deps: NowPlayingDebugManagerDeps) { }
 
@@ -138,11 +139,20 @@ export class NowPlayingDebugManager {
         await this._ensureServerDecision(program, decision, { logErrors: true });
     }
 
+    dispose(): void {
+        this._disposed = true;
+        this._nowPlayingStreamDecisionFetchToken += 1;
+        this._nowPlayingStreamDecisionFetchedForSessionId = null;
+        this._nowPlayingStreamDecisionFetchPromise = null;
+        this._nowPlayingStreamDecisionFetchSessionId = null;
+    }
+
     private async _ensureServerDecision(
         program: ScheduledProgram,
         decision: StreamDecision,
         options: { logErrors: boolean; onApplied?: () => void }
     ): Promise<void> {
+        if (this._disposed) return;
         const resolver = this.deps.getStreamResolver();
         if (!resolver) return;
         if (!decision.isTranscoding || !decision.transcodeRequest) return;
@@ -159,7 +169,7 @@ export class NowPlayingDebugManager {
             try {
                 await this._nowPlayingStreamDecisionFetchPromise;
             } catch (error) {
-                if (options.logErrors) {
+                if (!this._disposed && options.logErrors) {
                     console.error('[NowPlayingDebug] PMS decision fetch failed:', {
                         sessionId: 'REDACTED',
                         ratingKey: program.item.ratingKey,
@@ -169,6 +179,7 @@ export class NowPlayingDebugManager {
                 }
                 return;
             }
+            if (this._disposed) return;
             if (this.deps.getCurrentStreamDecision() !== decision) return;
             if (decision.serverDecision && this._nowPlayingStreamDecisionFetchedForSessionId === sessionId) {
                 options.onApplied?.();
@@ -184,6 +195,7 @@ export class NowPlayingDebugManager {
 
         try {
             const serverDecision = await fetchPromise;
+            if (this._disposed) return;
             if (token !== this._nowPlayingStreamDecisionFetchToken) return;
             if (this.deps.getCurrentStreamDecision() !== decision) return;
 
@@ -191,7 +203,7 @@ export class NowPlayingDebugManager {
             this._nowPlayingStreamDecisionFetchedForSessionId = sessionId;
             options.onApplied?.();
         } catch (error) {
-            if (options.logErrors) {
+            if (!this._disposed && token === this._nowPlayingStreamDecisionFetchToken && options.logErrors) {
                 console.error('[NowPlayingDebug] PMS decision fetch failed:', {
                     sessionId: 'REDACTED',
                     ratingKey: program.item.ratingKey,
@@ -201,6 +213,7 @@ export class NowPlayingDebugManager {
             }
         } finally {
             if (
+                !this._disposed &&
                 token === this._nowPlayingStreamDecisionFetchToken &&
                 this._nowPlayingStreamDecisionFetchPromise === fetchPromise
             ) {

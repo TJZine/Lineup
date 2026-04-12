@@ -17,8 +17,14 @@ import type {
     ScheduledProgram,
 } from '../../modules/scheduler/scheduler';
 import { summarizeErrorForLog } from '../../utils/errors';
+import {
+    summarizeEventCleanupFailure,
+    type OrchestratorEventCleanupFailure,
+    type OrchestratorEventCleanupReporter,
+} from './OrchestratorEventCleanupReporter';
 
 export interface OrchestratorEventBinderDeps {
+    cleanupReporter: OrchestratorEventCleanupReporter;
     getScheduler: () => IChannelScheduler | null;
     getVideoPlayer: () => IVideoPlayer | null;
     getPlexLibrary: () => IPlexLibrary | null;
@@ -87,7 +93,7 @@ export class OrchestratorEventBinder {
         cleanups: Array<() => void>,
         onCleanupError?: (error: unknown) => void
     ): void {
-        const cleanupFailures: Array<{ step: string; error: unknown }> = [];
+        const cleanupFailures: OrchestratorEventCleanupFailure[] = [];
 
         for (let i = cleanups.length - 1; i >= 0; i--) {
             const cleanup = cleanups[i]!;
@@ -98,29 +104,27 @@ export class OrchestratorEventBinder {
                     try {
                         onCleanupError(cleanupError);
                     } catch (onCleanupErrorFailure) {
-                        cleanupFailures.push({
-                            step: 'event-wiring.onCleanupError',
-                            error: summarizeErrorForLog(onCleanupErrorFailure),
-                        });
+                        cleanupFailures.push(
+                            summarizeEventCleanupFailure('event-wiring.cleanup', cleanupError),
+                            summarizeEventCleanupFailure('event-wiring.onCleanupError', onCleanupErrorFailure)
+                        );
                     }
                     continue;
                 }
 
-                cleanupFailures.push({
-                    step: 'event-wiring.cleanup',
-                    error: summarizeErrorForLog(cleanupError),
-                });
+                cleanupFailures.push(
+                    summarizeEventCleanupFailure('event-wiring.cleanup', cleanupError)
+                );
             }
         }
 
-        const onCleanupErrorFailed = cleanupFailures.some(
-            (failure) => failure.step === 'event-wiring.onCleanupError'
-        );
-
-        if ((onCleanupErrorFailed || !onCleanupError) && cleanupFailures.length > 0) {
-            console.warn('[Orchestrator] Event wiring rollback failures:', cleanupFailures);
+        if (cleanupFailures.length > 0) {
+            try {
+                this._deps.cleanupReporter(cleanupFailures);
+            } catch {
+                // Runtime cleanup reporting must never crash binder teardown paths.
+            }
         }
-
     }
 
     private _wireSchedulerEvents(cleanups: Array<() => void>): void {

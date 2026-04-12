@@ -7,7 +7,6 @@
 import { SubtitleManager } from '../SubtitleManager';
 import type { SubtitleTrack } from '../types';
 import type { PlatformSubtitleService } from '../../../platform';
-import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { DeveloperSettingsStore } from '../../settings/DeveloperSettingsStore';
 
 // ============================================
@@ -108,12 +107,8 @@ function enableSubtitleDebugLogging(): void {
     developerSettingsStore.writeSubtitleDebugLoggingEnabled(true);
 }
 
-function disableSubtitleDebugLogging(): void {
-    developerSettingsStore.writeSubtitleDebugLoggingEnabled(false);
-}
-
 function clearSubtitleDebugLogging(): void {
-    localStorage.removeItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING);
+    developerSettingsStore.clearSubtitleDebugLoggingEnabled();
 }
 
 // ============================================
@@ -125,7 +120,6 @@ describe('SubtitleManager', () => {
     let videoElement: HTMLVideoElement;
 
     beforeEach(() => {
-        disableSubtitleDebugLogging();
         clearSubtitleDebugLogging();
         manager = new SubtitleManager();
         videoElement = createMockVideoElement();

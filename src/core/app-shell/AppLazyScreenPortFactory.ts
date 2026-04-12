@@ -1,4 +1,3 @@
-import type { AppOrchestrator } from '../../Orchestrator';
 import type { ChannelSetupWorkflowPort } from '../channel-setup/ChannelSetupWorkflowPort';
 import type { ChannelSetupScreenPorts } from '../../modules/ui/channel-setup/ChannelSetupScreenPorts';
 import type { AuthScreenPorts } from '../../modules/ui/auth/AuthScreen';
@@ -6,35 +5,22 @@ import type { ProfileSelectScreenPorts } from '../../modules/ui/profile-select/P
 import type { ServerSelectScreenPorts } from '../../modules/ui/server-select/ServerSelectScreen';
 import type { INavigationManager } from '../../modules/navigation';
 import type { GuideSettingChange } from '../../modules/ui/settings/types';
-
-type AppLazyScreenRuntimeOrchestrator = Pick<
-    AppOrchestrator,
-    | 'requestAuthPin'
-    | 'pollForPin'
-    | 'cancelPin'
-    | 'getHomeUsers'
-    | 'switchHomeUser'
-    | 'useMainAccountProfile'
-    | 'signOutPlex'
-    | 'discoverServers'
-    | 'selectServer'
-    | 'clearSelectedServer'
-    | 'getSelectedServerStorageKey'
-    | 'getServerHealthStorageKey'
-    | 'getChannelSetupWorkflowPort'
-    | 'getSelectedServerId'
-    | 'openServerSelect'
-    | 'switchToChannelByNumber'
-    | 'openEPG'
-    | 'requestChannelSetupRerun'
-    | 'setSubtitleTrack'
-    | 'onGuideSettingChange'
-    | 'getActiveUsername'
-    | 'getNavigation'
->;
+import type {
+    AppShellAuthRuntimePort,
+    AppShellChannelSetupRuntimePort,
+    AppShellNavigationRuntimePort,
+    AppShellProfileRuntimePort,
+    AppShellServerSelectionRuntimePort,
+    AppShellSettingsRuntimePort,
+} from './AppShellRuntimeContracts';
 
 export interface AppLazyScreenPortFactoryOptions {
-    getOrchestrator: () => AppLazyScreenRuntimeOrchestrator | null;
+    getNavigationRuntime: () => AppShellNavigationRuntimePort | null;
+    getAuthRuntime: () => AppShellAuthRuntimePort | null;
+    getProfileRuntime: () => AppShellProfileRuntimePort | null;
+    getServerSelectionRuntime: () => AppShellServerSelectionRuntimePort | null;
+    getChannelSetupRuntime: () => AppShellChannelSetupRuntimePort | null;
+    getSettingsRuntime: () => AppShellSettingsRuntimePort | null;
 }
 
 export interface AppLazyChannelSetupScreenInput {
@@ -50,93 +36,103 @@ export interface AppLazySettingsRuntimePorts {
 }
 
 export class AppLazyScreenPortFactory {
-    private readonly _getOrchestrator: () => AppLazyScreenRuntimeOrchestrator | null;
+    private readonly _getNavigationRuntime: () => AppShellNavigationRuntimePort | null;
+    private readonly _getAuthRuntime: () => AppShellAuthRuntimePort | null;
+    private readonly _getProfileRuntime: () => AppShellProfileRuntimePort | null;
+    private readonly _getServerSelectionRuntime: () => AppShellServerSelectionRuntimePort | null;
+    private readonly _getChannelSetupRuntime: () => AppShellChannelSetupRuntimePort | null;
+    private readonly _getSettingsRuntime: () => AppShellSettingsRuntimePort | null;
 
     constructor(options: AppLazyScreenPortFactoryOptions) {
-        this._getOrchestrator = options.getOrchestrator;
+        this._getNavigationRuntime = options.getNavigationRuntime;
+        this._getAuthRuntime = options.getAuthRuntime;
+        this._getProfileRuntime = options.getProfileRuntime;
+        this._getServerSelectionRuntime = options.getServerSelectionRuntime;
+        this._getChannelSetupRuntime = options.getChannelSetupRuntime;
+        this._getSettingsRuntime = options.getSettingsRuntime;
     }
 
     getNavigation(): INavigationManager | null {
-        return this._getOrchestrator()?.getNavigation() ?? null;
+        return this._getNavigationRuntime()?.getNavigation() ?? null;
     }
 
     createAuthScreenPorts(): AuthScreenPorts | null {
-        const orchestrator = this._getOrchestrator();
-        if (!orchestrator) {
+        const runtime = this._getAuthRuntime();
+        if (!runtime) {
             return null;
         }
 
         return {
-            requestAuthPin: () => orchestrator.requestAuthPin(),
-            pollForPin: (pinId: number) => orchestrator.pollForPin(pinId),
-            cancelPin: (pinId: number) => orchestrator.cancelPin(pinId),
+            requestAuthPin: () => runtime.requestAuthPin(),
+            pollForPin: (pinId: number) => runtime.pollForPin(pinId),
+            cancelPin: (pinId: number) => runtime.cancelPin(pinId),
             getNavigation: () => this.getNavigation(),
         };
     }
 
     createProfileSelectScreenPorts(): ProfileSelectScreenPorts | null {
-        const orchestrator = this._getOrchestrator();
-        if (!orchestrator) {
+        const runtime = this._getProfileRuntime();
+        if (!runtime) {
             return null;
         }
 
         return {
-            getHomeUsers: () => orchestrator.getHomeUsers(),
-            switchHomeUser: (userId: string, pin?: string) => orchestrator.switchHomeUser(userId, pin),
-            useMainAccountProfile: () => orchestrator.useMainAccountProfile(),
-            signOutPlex: () => orchestrator.signOutPlex(),
+            getHomeUsers: () => runtime.getHomeUsers(),
+            switchHomeUser: (userId: string, pin?: string) => runtime.switchHomeUser(userId, pin),
+            useMainAccountProfile: () => runtime.useMainAccountProfile(),
+            signOutPlex: () => runtime.signOutPlex(),
             getNavigation: () => this.getNavigation(),
         };
     }
 
     createServerSelectScreenPorts(): ServerSelectScreenPorts | null {
-        const orchestrator = this._getOrchestrator();
-        if (!orchestrator) {
+        const runtime = this._getServerSelectionRuntime();
+        if (!runtime) {
             return null;
         }
 
         return {
-            discoverServers: (forceRefresh?: boolean) => orchestrator.discoverServers(forceRefresh),
-            selectServer: (serverId: string) => orchestrator.selectServer(serverId),
-            clearSelectedServer: () => orchestrator.clearSelectedServer(),
-            getSelectedServerStorageKey: () => orchestrator.getSelectedServerStorageKey(),
-            getServerHealthStorageKey: () => orchestrator.getServerHealthStorageKey(),
-            requestChannelSetupRerun: () => orchestrator.requestChannelSetupRerun(),
+            discoverServers: (forceRefresh?: boolean) => runtime.discoverServers(forceRefresh),
+            selectServer: (serverId: string) => runtime.selectServer(serverId),
+            clearSelectedServer: () => runtime.clearSelectedServer(),
+            getSelectedServerStorageKey: () => runtime.getSelectedServerStorageKey(),
+            getServerHealthStorageKey: () => runtime.getServerHealthStorageKey(),
+            requestChannelSetupRerun: () => runtime.requestChannelSetupRerun(),
             getNavigation: () => this.getNavigation(),
         };
     }
 
     createChannelSetupScreenInput(): AppLazyChannelSetupScreenInput | null {
-        const orchestrator = this._getOrchestrator();
-        if (!orchestrator) {
+        const runtime = this._getChannelSetupRuntime();
+        if (!runtime) {
             return null;
         }
 
         return {
-            workflowPort: orchestrator.getChannelSetupWorkflowPort(),
+            workflowPort: runtime.getChannelSetupWorkflowPort(),
             screenPorts: {
                 getNavigation: () => this.getNavigation(),
-                getSelectedServerStorageKey: () => orchestrator.getSelectedServerStorageKey(),
-                getServerHealthStorageKey: () => orchestrator.getServerHealthStorageKey(),
-                getSelectedServerId: () => orchestrator.getSelectedServerId(),
-                openServerSelect: () => orchestrator.openServerSelect(),
-                switchToChannelByNumber: (number, options) => orchestrator.switchToChannelByNumber(number, options),
-                openEPG: () => orchestrator.openEPG(),
+                getSelectedServerStorageKey: () => runtime.getSelectedServerStorageKey(),
+                getServerHealthStorageKey: () => runtime.getServerHealthStorageKey(),
+                getSelectedServerId: () => runtime.getSelectedServerId(),
+                openServerSelect: () => runtime.openServerSelect(),
+                switchToChannelByNumber: (number, options) => runtime.switchToChannelByNumber(number, options),
+                openEPG: () => runtime.openEPG(),
             },
         };
     }
 
     createSettingsRuntimePorts(): AppLazySettingsRuntimePorts | null {
-        const orchestrator = this._getOrchestrator();
-        if (!orchestrator) {
+        const runtime = this._getSettingsRuntime();
+        if (!runtime) {
             return null;
         }
 
         return {
             getNavigation: () => this.getNavigation(),
-            clearSubtitleTrack: () => orchestrator.setSubtitleTrack(null),
-            onGuideSettingChange: (change: GuideSettingChange) => orchestrator.onGuideSettingChange(change),
-            getActiveUsername: () => orchestrator.getActiveUsername(),
+            clearSubtitleTrack: () => runtime.setSubtitleTrack(null),
+            onGuideSettingChange: (change: GuideSettingChange) => runtime.onGuideSettingChange(change),
+            getActiveUsername: () => runtime.getActiveUsername(),
         };
     }
 }

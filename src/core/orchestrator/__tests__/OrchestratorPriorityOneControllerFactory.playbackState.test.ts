@@ -27,57 +27,72 @@ const makeProgram = (): ScheduledProgram =>
 const makeDeps = (
     playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors>
 ): OrchestratorPriorityOneControllerFactoryDeps => ({
-    scheduler: {} as OrchestratorPriorityOneControllerFactoryDeps['scheduler'],
-    videoPlayer: {
-        loadStream: jest.fn().mockResolvedValue(undefined),
-        play: jest.fn().mockResolvedValue(undefined),
-    } as unknown as OrchestratorPriorityOneControllerFactoryDeps['videoPlayer'],
-    lifecycle: {
-        saveState: jest.fn().mockResolvedValue(undefined),
-    } as unknown as OrchestratorPriorityOneControllerFactoryDeps['lifecycle'],
-    playbackRecovery: {
-        resolveStreamForProgram: jest.fn().mockResolvedValue(null as StreamDescriptor | null),
-        resetPlaybackFailureGuard: jest.fn(),
-        tryHandleStreamResolverAuthError: jest.fn().mockReturnValue(false),
-        tryHandleStreamResolverPermissionError: jest.fn().mockReturnValue(false),
-        handlePlaybackFailure: jest.fn(),
-        isStreamRecoveryInProgress: jest.fn().mockReturnValue(false),
+    modules: {
+        scheduler: {} as OrchestratorPriorityOneControllerFactoryDeps['modules']['scheduler'],
+        videoPlayer: {
+            loadStream: jest.fn().mockResolvedValue(undefined),
+            play: jest.fn().mockResolvedValue(undefined),
+        } as unknown as OrchestratorPriorityOneControllerFactoryDeps['modules']['videoPlayer'],
+        lifecycle: {
+            saveState: jest.fn().mockResolvedValue(undefined),
+        } as unknown as OrchestratorPriorityOneControllerFactoryDeps['modules']['lifecycle'],
     },
-    channelBadgeOverlay: null,
-    playerOsd: null,
-    nowPlayingInfo: null,
-    epg: null,
-    channelManager: null,
-    navigation: null,
-    playbackState,
-    cancelPendingDayRollover: jest.fn(),
-    stopPlayback: jest.fn(),
-    unloadCurrentChannel: jest.fn(),
-    stopTranscodeSessionById: jest.fn(),
-    skipToNextProgram: jest.fn(),
-    pausePlayer: jest.fn(),
-    playPlayer: jest.fn().mockResolvedValue(undefined),
-    pauseSchedulerSync: jest.fn(),
-    resumeSchedulerSync: jest.fn(),
-    syncSchedulerToCurrentTime: jest.fn(),
-    handleGlobalError: jest.fn(),
-    onPlayerStateChange: jest.fn(),
-    showInfoBanner: jest.fn(),
-    onPlayerTimeUpdate: jest.fn(),
-    onPlayerBufferUpdate: jest.fn(),
-    onProgramStartUiSideEffects: jest.fn(),
-    onStreamResolved: jest.fn(),
-    onPlaybackStartFailure: jest.fn(),
-    plexLibrary: null,
-    plexStreamResolver: null,
-    wireNavigationCoordinatorEvents: jest.fn().mockReturnValue([]),
-    wireEpgCoordinatorEvents: jest.fn().mockReturnValue([]),
-    handleScheduleDayRollover: jest.fn().mockResolvedValue(undefined),
-    handlePlayerTrackChange: jest.fn(),
-    handlePlexLibraryAuthExpired: jest.fn(),
-    handlePlexStreamError: jest.fn(),
-    handleScreenChange: jest.fn(),
-    reportPersistenceWarning: jest.fn(),
+    surfaces: {
+        channelBadgeOverlay: null,
+        playerOsd: null,
+        nowPlayingInfo: null,
+        epg: null,
+        channelManager: null,
+        navigation: null,
+        plexLibrary: null,
+        plexStreamResolver: null,
+    },
+    playback: {
+        playbackState,
+        playbackRecovery: {
+            resolveStreamForProgram: jest.fn().mockResolvedValue(null as StreamDescriptor | null),
+            resetPlaybackFailureGuard: jest.fn(),
+            tryHandleStreamResolverAuthError: jest.fn().mockReturnValue(false),
+            tryHandleStreamResolverPermissionError: jest.fn().mockReturnValue(false),
+            handlePlaybackFailure: jest.fn(),
+            isStreamRecoveryInProgress: jest.fn().mockReturnValue(false),
+        },
+        stopPlayback: jest.fn(),
+        unloadCurrentChannel: jest.fn(),
+        stopTranscodeSessionById: jest.fn(),
+        skipToNextProgram: jest.fn(),
+        pausePlayer: jest.fn(),
+        playPlayer: jest.fn().mockResolvedValue(undefined),
+    },
+    schedulerRuntime: {
+        cancelPendingDayRollover: jest.fn(),
+        pauseSchedulerSync: jest.fn(),
+        resumeSchedulerSync: jest.fn(),
+        syncSchedulerToCurrentTime: jest.fn(),
+    },
+    playerEvents: {
+        onPlayerStateChange: jest.fn(),
+        onPlayerTimeUpdate: jest.fn(),
+        onPlayerBufferUpdate: jest.fn(),
+    },
+    uiRuntime: {
+        handleGlobalError: jest.fn(),
+        showInfoBanner: jest.fn(),
+        onProgramStartUiSideEffects: jest.fn(),
+        onStreamResolved: jest.fn(),
+        onPlaybackStartFailure: jest.fn(),
+    },
+    events: {
+        wireNavigationCoordinatorEvents: jest.fn().mockReturnValue([]),
+        wireEpgCoordinatorEvents: jest.fn().mockReturnValue([]),
+        handleScheduleDayRollover: jest.fn().mockResolvedValue(undefined),
+        handlePlayerTrackChange: jest.fn(),
+        handlePlexLibraryAuthExpired: jest.fn(),
+        handlePlexStreamError: jest.fn(),
+        handleScreenChange: jest.fn(),
+        reportPersistenceWarning: jest.fn(),
+        cleanupReporter: jest.fn(),
+    },
     nowPlayingModalId: 'now-playing-modal',
 });
 
@@ -122,14 +137,14 @@ describe('createPriorityOneControllersAndBinder playbackState wiring', () => {
         };
 
         const deps = makeDeps(playbackState);
-        (deps.playbackRecovery as unknown as { resolveStreamForProgram?: unknown }).resolveStreamForProgram = undefined;
+        (deps.playback.playbackRecovery as unknown as { resolveStreamForProgram?: unknown }).resolveStreamForProgram = undefined;
 
         const priorityOne = createPriorityOneControllersAndBinder(deps);
 
         await priorityOne.playbackStartController.handleProgramStart(program);
 
-        expect((deps.videoPlayer as unknown as { loadStream: jest.Mock }).loadStream).not.toHaveBeenCalled();
-        expect(deps.playbackRecovery.handlePlaybackFailure).not.toHaveBeenCalled();
-        expect(deps.onPlaybackStartFailure).not.toHaveBeenCalled();
+        expect((deps.modules.videoPlayer as unknown as { loadStream: jest.Mock }).loadStream).not.toHaveBeenCalled();
+        expect(deps.playback.playbackRecovery.handlePlaybackFailure).not.toHaveBeenCalled();
+        expect(deps.uiRuntime.onPlaybackStartFailure).not.toHaveBeenCalled();
     });
 });

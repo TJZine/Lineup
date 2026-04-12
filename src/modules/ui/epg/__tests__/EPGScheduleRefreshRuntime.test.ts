@@ -248,6 +248,35 @@ describe('EPGScheduleRefreshRuntime', () => {
         expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(1);
     });
 
+    it('does not apply schedules or refocus after aborting an active refresh', async () => {
+        let runtimeUnderTest: EPGScheduleRefreshRuntime | null = null;
+        const { runtime, epg } = createRuntime({
+            buildDailyScheduleConfig: (
+                selectedChannel: ChannelConfig,
+                items: ResolvedChannelContent['items']
+            ): ScheduleConfig => {
+                runtimeUnderTest?.abortAllInFlightSchedules('shutdown');
+                return {
+                    channelId: selectedChannel.id,
+                    anchorTime: 0,
+                    content: items,
+                    playbackMode: 'sequential',
+                    shuffleSeed: 1,
+                    loopSchedule: true,
+                };
+            },
+        });
+        runtimeUnderTest = runtime;
+
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
+        expect(epg.focusNow).not.toHaveBeenCalled();
+    });
+
     it('uses resolved-immediate selected-row seed as a one-shot handoff', async () => {
         const now = new Date('2026-03-20T12:00:00-04:00').getTime();
         const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);

@@ -248,12 +248,19 @@ export class EPGScheduleRefreshRuntime {
         this._warmQueue.cancel(reason);
     }
 
-    abortAllInFlightSchedules(reason = 'abort-all-inflight'): void {
+    dispose(reason = 'shutdown'): void {
+        this._scheduleLoadToken += 1;
         this._warmQueue.cancel(reason);
         for (const entry of this._inFlightByChannel.values()) {
             entry.controller.abort(reason);
         }
         this._inFlightByChannel.clear();
+        this._backgroundDebugState = null;
+        this._selectedRowSnapshotSeed = null;
+    }
+
+    abortAllInFlightSchedules(reason = 'abort-all-inflight'): void {
+        this.dispose(reason);
     }
 
     cacheScheduleForRange(
@@ -495,7 +502,11 @@ export class EPGScheduleRefreshRuntime {
                 const schedulerState = scheduler.getState();
                 if (schedulerState.isActive && schedulerState.channelId === channel.id) {
                     const liveWindow = scheduler.getScheduleWindow(startTime, endTime);
-                    applySchedule(channel.id, this._deps.cloneScheduleWindow(liveWindow), {
+                    const liveSchedule = this._deps.cloneScheduleWindow(liveWindow);
+                    if (refreshId !== this._scheduleLoadToken) {
+                        return;
+                    }
+                    applySchedule(channel.id, liveSchedule, {
                         phase,
                         source: 'live-scheduler',
                     });
@@ -507,6 +518,9 @@ export class EPGScheduleRefreshRuntime {
             const cached = forceRefresh ? null : this._cacheStore.getCachedSchedule(channel.id, rangeKey);
             if (cached) {
                 const cachedSchedule = this._deps.cloneScheduleWindow(cached.schedule);
+                if (refreshId !== this._scheduleLoadToken) {
+                    return;
+                }
                 if (cached.isStale) {
                     applySchedule(channel.id, cachedSchedule, {
                         updateCache: false,
@@ -556,6 +570,9 @@ export class EPGScheduleRefreshRuntime {
                 }
 
                 const scheduleConfig = this._deps.buildDailyScheduleConfig(channel, items, startTime);
+                if (refreshId !== this._scheduleLoadToken) {
+                    return;
+                }
                 const index = buildScheduleIndex(scheduleConfig, shuffler);
                 const programs = generateScheduleWindow(
                     startTime,
@@ -563,6 +580,9 @@ export class EPGScheduleRefreshRuntime {
                     index,
                     scheduleConfig.anchorTime
                 );
+                if (refreshId !== this._scheduleLoadToken) {
+                    return;
+                }
                 applySchedule(channel.id, { startTime, endTime, programs }, {
                     phase,
                     source: phase === 'background' ? 'resolved-background' : 'resolved-immediate',

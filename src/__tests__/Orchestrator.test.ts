@@ -826,23 +826,41 @@ describe('AppOrchestrator', () => {
             });
         });
 
-        it('should preserve caller-supplied nowPlayingInfoConfig.onAutoHide', async () => {
-            const prev = jest.fn();
+        it('wraps nowPlayingInfoConfig.onAutoHide without mutating caller config', async () => {
+            const previousOnAutoHide = jest.fn();
             const configWithHandler: OrchestratorConfig = {
                 ...mockConfig,
                 nowPlayingInfoConfig: {
                     ...mockConfig.nowPlayingInfoConfig,
-                    onAutoHide: prev,
+                    onAutoHide: previousOnAutoHide,
                 },
             };
+            const originalNowPlayingInfoConfig = configWithHandler.nowPlayingInfoConfig;
+            const originalOnAutoHide = configWithHandler.nowPlayingInfoConfig.onAutoHide;
 
             mockNavigation.isModalOpen.mockReturnValue(true);
+
             await orchestrator.initialize(configWithHandler);
 
-            // Orchestrator wraps the handler on initialize; invoke it to validate chaining + close behavior.
-            configWithHandler.nowPlayingInfoConfig.onAutoHide?.();
+            expect(configWithHandler.nowPlayingInfoConfig).toBe(originalNowPlayingInfoConfig);
+            expect(configWithHandler.nowPlayingInfoConfig.onAutoHide).toBe(originalOnAutoHide);
 
-            expect(prev).toHaveBeenCalledTimes(1);
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.validateToken.mockResolvedValue(true);
+            mockPlexDiscovery.isConnected.mockReturnValue(true);
+
+            await orchestrator.start();
+
+            const nowPlayingModule = require('../modules/ui/now-playing-info');
+            const instance = (nowPlayingModule.NowPlayingInfoOverlay as jest.Mock).mock.results[0]?.value;
+            const initializedConfig = (instance.initialize as jest.Mock).mock.calls[0]?.[0] as NowPlayingInfoConfig;
+
+            expect(initializedConfig).not.toBe(configWithHandler.nowPlayingInfoConfig);
+            expect(initializedConfig.onAutoHide).not.toBe(originalOnAutoHide);
+
+            initializedConfig.onAutoHide?.();
+
+            expect(previousOnAutoHide).toHaveBeenCalledTimes(1);
             expect(mockNavigation.closeModal).toHaveBeenCalledWith('now-playing-info');
         });
 
@@ -1120,6 +1138,33 @@ describe('AppOrchestrator', () => {
             } finally {
                 runStartupSpy.mockRestore();
             }
+        });
+
+        it('clears discovery selection and persisted selected-server state', async () => {
+            await orchestrator.initialize(mockConfig);
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+
+            await orchestrator.clearSelectedServer();
+
+            expect(mockPlexDiscovery.clearSelection).toHaveBeenCalledTimes(1);
+            expect(mockPlexAuth.storeCredentials).toHaveBeenCalledWith(expect.objectContaining({
+                activeUserId: 'user-1',
+                selectedServerByUserId: expect.objectContaining({
+                    'user-1': { serverId: null, serverUri: null },
+                }),
+            }));
+        });
+
+        it('propagates selected-server clear persistence failures without clearing discovery selection', async () => {
+            const persistenceError = new Error('store failed');
+            await orchestrator.initialize(mockConfig);
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.storeCredentials.mockRejectedValueOnce(persistenceError);
+
+            await expect(orchestrator.clearSelectedServer()).rejects.toBe(persistenceError);
+
+            expect(mockPlexAuth.storeCredentials).toHaveBeenCalledTimes(1);
+            expect(mockPlexDiscovery.clearSelection).not.toHaveBeenCalled();
         });
     });
 
@@ -2450,6 +2495,60 @@ describe('AppOrchestrator', () => {
 
             consoleSpy.mockRestore();
         });
+
+        it('defers reentrant global errors until the active handling pass completes', () => {
+            const firstError = {
+                code: AppErrorCode.NETWORK_TIMEOUT,
+                message: 'first error',
+                recoverable: true,
+            };
+            const nestedError = {
+                code: AppErrorCode.UNKNOWN,
+                message: 'nested error',
+                recoverable: true,
+            };
+            const handledOrder: string[] = [];
+
+            const moduleHandler = jest.fn((error) => {
+                handledOrder.push(error.message);
+
+                if (error === firstError) {
+                    orchestrator.handleGlobalError(nestedError, 'nested-context');
+                }
+
+                return false;
+            });
+
+            orchestrator.registerErrorHandler('recursive-module', moduleHandler);
+
+            orchestrator.handleGlobalError(firstError, 'outer-context');
+
+            expect(handledOrder).toEqual(['first error', 'nested error']);
+            expect(moduleHandler).toHaveBeenCalledTimes(2);
+            expect(moduleHandler).toHaveBeenNthCalledWith(1, firstError);
+            expect(moduleHandler).toHaveBeenNthCalledWith(2, nestedError);
+            expect(mockLifecycle.reportError).toHaveBeenNthCalledWith(1, firstError);
+            expect(mockLifecycle.reportError).toHaveBeenNthCalledWith(2, nestedError);
+        });
+
+        it('clears the global error reentrancy guard after a handling pass', () => {
+            const firstError = {
+                code: AppErrorCode.NETWORK_TIMEOUT,
+                message: 'first error',
+                recoverable: true,
+            };
+            const secondError = {
+                code: AppErrorCode.UNKNOWN,
+                message: 'second error',
+                recoverable: true,
+            };
+
+            orchestrator.handleGlobalError(firstError, 'first-context');
+            orchestrator.handleGlobalError(secondError, 'second-context');
+
+            expect(mockLifecycle.reportError).toHaveBeenNthCalledWith(1, firstError);
+            expect(mockLifecycle.reportError).toHaveBeenNthCalledWith(2, secondError);
+        });
     });
 
     describe('getRecoveryActions', () => {
@@ -2541,6 +2640,100 @@ describe('AppOrchestrator', () => {
             expect(mockNavigation.destroy).toHaveBeenCalledTimes(1);
         });
 
+        it('clears owned runtime collaborator references after shutdown and remains non-reusable', async () => {
+            await orchestrator.shutdown();
+
+            const clearedFields = [
+                '_lifecycle',
+                '_videoPlayer',
+                '_scheduler',
+            ] as const;
+
+            for (const field of clearedFields) {
+                expect(Reflect.get(orchestrator as object, field)).toBeNull();
+            }
+
+            expect(Reflect.get(orchestrator as object, '_config')).not.toBeNull();
+            expect(Reflect.get(orchestrator as object, '_moduleStatus')).toBeInstanceOf(Map);
+            expect(Reflect.get(orchestrator as object, '_errorHandlers')).toBeInstanceOf(Map);
+
+            mockEpg.show.mockClear();
+            mockEpg.hide.mockClear();
+            mockEpg.setLayoutMode.mockClear();
+            mockEpg.setNowWatchingBannerEnabled.mockClear();
+
+            orchestrator.openEPG();
+            orchestrator.closeEPG();
+            orchestrator.toggleEPG();
+            orchestrator.onGuideSettingChange({ key: 'layoutMode', mode: 'classic' });
+            orchestrator.onGuideSettingChange({ key: 'nowWatchingBanner', enabled: false });
+
+            expect(mockEpg.show).not.toHaveBeenCalled();
+            expect(mockEpg.hide).not.toHaveBeenCalled();
+            expect(mockEpg.setLayoutMode).not.toHaveBeenCalled();
+            expect(mockEpg.setNowWatchingBannerEnabled).not.toHaveBeenCalled();
+
+            await expect(orchestrator.start()).rejects.toMatchObject({
+                code: AppErrorCode.MODULE_INIT_FAILED,
+                recoverable: true,
+                message: expect.stringContaining('Orchestrator must be initialized before starting'),
+                context: expect.objectContaining({
+                    method: 'start',
+                    dependency: 'InitializationCoordinator',
+                }),
+            });
+        });
+
+        it('clears playback snapshot state on shutdown', async () => {
+            Reflect.set(orchestrator as object, '_currentProgramForPlayback', {
+                item: {
+                    ratingKey: 'rk1',
+                    title: 'Test Movie',
+                    fullTitle: 'Test Movie',
+                    type: 'movie',
+                },
+                scheduledStartTime: 1,
+                scheduledEndTime: 2,
+                elapsedMs: 0,
+                remainingMs: 120_000,
+            } as never);
+
+            Reflect.set(orchestrator as object, '_currentStreamDecision', {
+                isDirectPlay: true,
+                isTranscoding: false,
+                container: 'mp4',
+                videoCodec: 'h264',
+                audioCodec: 'aac',
+                subtitleDelivery: 'none',
+                bitrate: 1000,
+                width: 1920,
+                height: 1080,
+                sessionId: 'session-1',
+                selectedAudioStream: null,
+                selectedSubtitleStream: null,
+                directPlay: true,
+                audioFallback: false,
+                source: 'test',
+                transcodeRequest: null,
+                serverDecision: null,
+            } as never);
+
+            Reflect.set(orchestrator as object, '_currentStreamDescriptor', {
+                protocol: 'hls',
+                mimeType: 'application/x-mpegURL',
+            } as never);
+
+            expect(orchestrator.getPlaybackInfoSnapshot().program).not.toBeNull();
+
+            await orchestrator.shutdown();
+
+            expect(orchestrator.getPlaybackInfoSnapshot()).toEqual({
+                channel: null,
+                program: null,
+                stream: null,
+            });
+        });
+
         it('continues teardown and logs aggregated warnings when shutdown steps fail', async () => {
             const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
             try {
@@ -2572,6 +2765,35 @@ describe('AppOrchestrator', () => {
                 (mockVideoPlayer.stop as jest.Mock).mockImplementation(() => undefined);
                 (mockScheduler.pauseSyncTimer as jest.Mock).mockImplementation(() => undefined);
                 (mockEpg.destroy as jest.Mock).mockImplementation(() => undefined);
+            }
+        });
+
+        it('stops the video player during shutdown when active transcode cleanup fails', async () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const stopActiveTranscodeSession = jest.fn(() => {
+                throw new Error('transcode cleanup failed');
+            });
+
+            try {
+                Reflect.set(orchestrator as object, '_playbackRuntimeController', {
+                    stopActiveTranscodeSession,
+                });
+
+                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+
+                expect(stopActiveTranscodeSession).toHaveBeenCalledTimes(1);
+                expect(mockVideoPlayer.stop).toHaveBeenCalledTimes(1);
+                expect(warnSpy).toHaveBeenCalledWith(
+                    '[Orchestrator] stopActiveTranscodeSession failed during playback stop:',
+                    expect.objectContaining({
+                        error: expect.objectContaining({
+                            name: 'Error',
+                            message: 'transcode cleanup failed',
+                        }),
+                    })
+                );
+            } finally {
+                warnSpy.mockRestore();
             }
         });
 
@@ -2608,27 +2830,56 @@ describe('AppOrchestrator', () => {
             const pauseDispose = jest.fn(() => {
                 throw new Error('pause cleanup failed');
             });
-            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
-            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
 
-            (mockLifecycle.onPause as jest.Mock).mockImplementationOnce(
-                (handler: () => void | Promise<void>) => {
-                    pauseHandler = handler;
-                    return { dispose: pauseDispose };
-                }
-            );
+            try {
+                mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+                mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
 
-            await orchestrator.start();
-            await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+                (mockLifecycle.onPause as jest.Mock).mockImplementationOnce(
+                    (handler: () => void | Promise<void>) => {
+                        pauseHandler = handler;
+                        return { dispose: pauseDispose };
+                    }
+                );
 
-            expect(pauseDispose).toHaveBeenCalledTimes(1);
-            expect(mockNavigation.destroy).toHaveBeenCalled();
-            expect(warnSpy).toHaveBeenCalledWith(
-                '[Orchestrator] Shutdown teardown failures:',
-                expect.arrayContaining([
-                    expect.objectContaining({ step: 'events.unsubscribe' }),
-                ])
-            );
+                await orchestrator.start();
+                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+
+                expect(pauseDispose).toHaveBeenCalledTimes(1);
+                expect(mockNavigation.destroy).toHaveBeenCalled();
+                expect(warnSpy).toHaveBeenCalledWith(
+                    '[Orchestrator] Shutdown teardown failures:',
+                    expect.arrayContaining([
+                        expect.objectContaining({ step: 'events.unsubscribe' }),
+                    ])
+                );
+            } finally {
+                warnSpy.mockRestore();
+            }
+        });
+
+        it('records event binder dispose failures and continues shutdown', async () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const dispose = jest.fn(() => {
+                throw new Error('event binder dispose failed');
+            });
+
+            Reflect.set(orchestrator as object, '_eventBinder', { dispose });
+
+            try {
+                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+
+                expect(dispose).toHaveBeenCalledTimes(1);
+                expect(mockNavigation.destroy).toHaveBeenCalled();
+                expect(warnSpy).toHaveBeenCalledWith(
+                    '[Orchestrator] Shutdown teardown failures:',
+                    expect.arrayContaining([
+                        expect.objectContaining({ step: 'events.unsubscribe' }),
+                    ])
+                );
+            } finally {
+                warnSpy.mockRestore();
+            }
         });
 
         it('records schedule day rollover disposal failures and continues shutdown', async () => {
@@ -2711,6 +2962,73 @@ describe('AppOrchestrator', () => {
 
             expect(emitterStatus).toBeDefined();
             expect(emitterStatus && emitterStatus.status).toBe('ready');
+        });
+
+        it('returns defensive copies of module status values', () => {
+            const status = orchestrator.getModuleStatus();
+            const authStatus = status.get('plex-auth');
+
+            expect(authStatus).toBeDefined();
+            if (!authStatus) return;
+
+            authStatus.status = 'error';
+
+            expect(orchestrator.getModuleStatus().get('plex-auth')?.status).not.toBe('error');
+        });
+
+        it('returns defensive copies of module status error context', () => {
+            Reflect.set(orchestrator as object, '_moduleStatus', new Map([
+                [
+                    'plex-auth',
+                    {
+                        id: 'plex-auth',
+                        name: 'plex-auth',
+                        status: 'error',
+                        error: {
+                            code: AppErrorCode.AUTH_INVALID,
+                            message: 'bad auth',
+                            recoverable: true,
+                            context: {
+                                source: 'test',
+                                nested: {
+                                    value: 'original',
+                                },
+                            },
+                        },
+                    },
+                ],
+            ]));
+
+            const returned = orchestrator.getModuleStatus().get('plex-auth');
+
+            expect(returned?.error).toEqual({
+                code: AppErrorCode.AUTH_INVALID,
+                message: 'bad auth',
+                recoverable: true,
+                context: {
+                    source: 'test',
+                    nested: {
+                        value: 'original',
+                    },
+                },
+            });
+            expect(returned?.error).not.toBe(
+                Reflect.get(orchestrator as object, '_moduleStatus').get('plex-auth').error
+            );
+            expect(returned?.error?.context).not.toBe(
+                Reflect.get(orchestrator as object, '_moduleStatus').get('plex-auth').error.context
+            );
+
+            if (returned?.error?.context) {
+                returned.error.context.source = 'mutated';
+                (returned.error.context.nested as { value: string }).value = 'mutated';
+            }
+
+            expect(orchestrator.getModuleStatus().get('plex-auth')?.error?.context?.source).toBe('test');
+            const nestedContext = orchestrator.getModuleStatus().get('plex-auth')?.error?.context?.nested as
+                | { value: string }
+                | undefined;
+            expect(nestedContext?.value).toBe('original');
         });
     });
 
