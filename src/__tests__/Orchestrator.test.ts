@@ -1048,11 +1048,11 @@ describe('AppOrchestrator', () => {
             }
         });
 
-        it('logs the failing post-selection runtime swap step and rethrows the error', async () => {
+        it('logs post-selection EPG refresh failures without failing server selection', async () => {
             await orchestrator.initialize(mockConfig);
 
             const refreshError = new Error('refresh failed');
-            const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
             const refreshSpy = jest
                 .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
                 .mockRejectedValue(refreshError);
@@ -1064,12 +1064,16 @@ describe('AppOrchestrator', () => {
                 mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
                 mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
 
-                await expect(orchestrator.selectServer('server-1')).rejects.toBe(refreshError);
+                await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
+                    kind: 'selected',
+                    readiness: 'startup_pending',
+                    persistedSelection: 'updated',
+                });
 
                 expect(runStartupSpy).toHaveBeenCalledWith(3);
                 expect(refreshSpy).toHaveBeenCalledWith({ reason: 'server-swap' });
-                expect(consoleSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] Post-selection runtime swap failed:',
+                expect(consoleWarnSpy).toHaveBeenCalledWith(
+                    '[Orchestrator] Post-selection EPG refresh failed:',
                     {
                         step: 'refreshEpgSchedules',
                         error: {
@@ -1079,7 +1083,7 @@ describe('AppOrchestrator', () => {
                     }
                 );
             } finally {
-                consoleSpy.mockRestore();
+                consoleWarnSpy.mockRestore();
                 refreshSpy.mockRestore();
                 runStartupSpy.mockRestore();
             }

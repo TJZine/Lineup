@@ -399,7 +399,14 @@ export class AppOrchestrator {
                     this._epgCoordinator?.primeEpgChannels();
 
                     step = 'refreshEpgSchedules';
-                    await this._epgCoordinator?.refreshEpgSchedules({ reason: 'server-swap' });
+                    try {
+                        await this._epgCoordinator?.refreshEpgSchedules({ reason: 'server-swap' });
+                    } catch (error) {
+                        console.warn('[Orchestrator] Post-selection EPG refresh failed:', {
+                            step,
+                            error: summarizeErrorForLog(error),
+                        });
+                    }
                 } catch (error) {
                     console.error('[Orchestrator] Post-selection runtime swap failed:', {
                         step,
