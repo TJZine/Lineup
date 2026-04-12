@@ -315,6 +315,33 @@ describe('ServerSelectScreen', () => {
         expect(hint?.classList.contains('visible')).toBe(false);
     });
 
+    it('hides auto-connect hint before showing connected state after saved-server auto-select succeeds', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+        orchestrator.selectServer.mockResolvedValue({
+            kind: 'selected',
+            readiness: 'ready',
+            persistedSelection: 'updated',
+        });
+
+        localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: true });
+        await flushPromisesAndTimers();
+
+        const hint = container.querySelector('.server-autoconnect-hint') as HTMLElement | null;
+        const status = container.querySelector('.screen-status') as HTMLElement | null;
+
+        expect(orchestrator.selectServer).toHaveBeenCalledWith('srv-1');
+        expect(hint?.classList.contains('visible')).toBe(false);
+        expect(hint?.hasAttribute('hidden')).toBe(true);
+        expect(status?.textContent).toContain('Connected…');
+    });
+
     it('keeps reconnect enabled when saved server auto-select fails', async () => {
         const orchestrator = createOrchestratorStub();
         const container = document.createElement('div');
@@ -382,6 +409,99 @@ describe('ServerSelectScreen', () => {
 
         const error = container.querySelector('.screen-error') as HTMLElement;
         expect(error.textContent ?? '').toContain('credentials are invalid');
+    });
+
+    it('ignores concurrent manual server selection requests while one is in flight', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const selectDeferred = createDeferred<Awaited<ReturnType<ServerSelectScreenPorts['selectServer']>>>();
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+        orchestrator.selectServer.mockReturnValue(selectDeferred.promise);
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        const button = container.querySelector('.server-row button') as HTMLButtonElement;
+        expect(button.disabled).toBe(false);
+
+        button.click();
+        button.click();
+
+        expect(orchestrator.selectServer).toHaveBeenCalledTimes(1);
+        expect(button.disabled).toBe(true);
+        expect(container.querySelector('.screen-status')?.textContent).toBe('Connecting to Server One…');
+
+        selectDeferred.resolve({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
+        await flushPromisesAndTimers();
+
+        expect(button.disabled).toBe(false);
+        expect(container.querySelector('.screen-status')?.textContent).toBe('Connected to Server One.');
+    });
+
+    it('does not update hidden UI when manual server selection completes after hide', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const selectDeferred = createDeferred<Awaited<ReturnType<ServerSelectScreenPorts['selectServer']>>>();
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+        orchestrator.selectServer.mockReturnValue(selectDeferred.promise);
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        const button = container.querySelector('.server-row button') as HTMLButtonElement;
+        button.click();
+
+        expect(container.querySelector('.screen-status')?.textContent).toBe('Connecting to Server One…');
+
+        screen.hide();
+        selectDeferred.resolve({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
+        await flushPromisesAndTimers();
+
+        expect(orchestrator.selectServer).toHaveBeenCalledTimes(1);
+        expect(container.querySelector('.screen-status')?.textContent).toBe('Connecting to Server One…');
+    });
+
+    it('logs manual selection failures after hide without updating hidden UI', async () => {
+        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+        try {
+            const orchestrator = createOrchestratorStub();
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            const selectDeferred = createDeferred<Awaited<ReturnType<ServerSelectScreenPorts['selectServer']>>>();
+            orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+            orchestrator.selectServer.mockReturnValue(selectDeferred.promise);
+
+            const screen = new ServerSelectScreen(container, orchestrator);
+            screen.show({ allowAutoConnect: false });
+            await flushPromisesAndTimers();
+
+            const button = container.querySelector('.server-row button') as HTMLButtonElement;
+            button.click();
+            screen.hide();
+
+            selectDeferred.reject(new Error('select failed'));
+            await flushPromisesAndTimers();
+
+            expect(consoleErrorSpy).toHaveBeenCalledWith(
+                '[ServerSelect] Failed to select server:',
+                expect.objectContaining({
+                    name: 'Error',
+                    message: 'select failed',
+                })
+            );
+            expect(container.querySelector('.screen-status')?.textContent).toBe('Connecting to Server One…');
+            expect(container.querySelector('.screen-error')?.textContent).toBe('');
+        } finally {
+            consoleErrorSpy.mockRestore();
+        }
     });
 
     it('shows saved server unavailable state when saved server is missing from discovery results', async () => {

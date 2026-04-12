@@ -51,6 +51,8 @@ export class ServerSelectScreen {
     private _visibilityGeneration: number = 0;
     private _activeLoadGeneration: number | null = null;
     private _activeClearGeneration: number | null = null;
+    private _isSelecting: boolean = false;
+    private _activeSelectGeneration: number | null = null;
     private _restoreFocusTimeoutId: ReturnType<typeof setTimeout> | null = null;
     private _registeredServerButtonIds: string[] = [];
     private _lastDiscoveredServers: PlexServer[] = [];
@@ -252,6 +254,8 @@ export class ServerSelectScreen {
                             return;
                         }
 
+                        this._setAutoConnectHintVisible(false);
+
                         if (result.kind === 'selected') {
                             this._setStatus('Connected…', 'Continuing startup…', 'success');
                             return;
@@ -370,6 +374,13 @@ export class ServerSelectScreen {
         }
 
         this._clearButton.disabled = disabled;
+    }
+
+    private _setServerConnectButtonsDisabled(disabled: boolean): void {
+        const buttons = this._listEl.querySelectorAll<HTMLButtonElement>('.server-actions button');
+        buttons.forEach((button) => {
+            button.disabled = disabled;
+        });
     }
 
     private _handleClearSelection(): void {
@@ -639,12 +650,26 @@ export class ServerSelectScreen {
     }
 
     private async _selectServer(server: PlexServer): Promise<void> {
+        const generation = this._visibilityGeneration;
+
+        if (this._isSelecting || !this._canUpdateUi(generation)) {
+            return;
+        }
+
+        this._isSelecting = true;
+        this._activeSelectGeneration = generation;
+        this._setServerConnectButtonsDisabled(true);
         this._clearError();
         this._setStatus(`Connecting to ${server.name}…`, '', 'loading');
         this._detailEl.textContent = '';
 
         try {
             const result = await this._ports.selectServer(server.id);
+
+            if (!this._canUpdateUi(generation) || this._activeSelectGeneration !== generation) {
+                return;
+            }
+
             if (result.kind === 'selected') {
                 this._setStatus(`Connected to ${server.name}.`, 'Continuing startup…', 'success');
                 return;
@@ -653,11 +678,30 @@ export class ServerSelectScreen {
             this._detailEl.textContent = '';
             this._errorEl.textContent = this._selectionFailureMessage(result.reason);
         } catch (error) {
+            console.error('[ServerSelect] Failed to select server:', summarizeErrorForLog(error));
+
+            if (!this._canUpdateUi(generation) || this._activeSelectGeneration !== generation) {
+                return;
+            }
+
             this._clearError();
             this._setStatus('Connection failed.', '', 'error');
             this._detailEl.textContent = '';
             this._handleError(error, 'Unable to use the selected server.');
-            console.error('[ServerSelect] Failed to select server:', summarizeErrorForLog(error));
+        } finally {
+            if (this._activeSelectGeneration === generation) {
+                this._isSelecting = false;
+                this._activeSelectGeneration = null;
+            }
+
+            if (
+                this._canUpdateUi(generation)
+                && !this._isSelecting
+                && !this._isLoadingCurrentGeneration(generation)
+                && !this._isClearing
+            ) {
+                this._setServerConnectButtonsDisabled(false);
+            }
         }
     }
 
