@@ -582,6 +582,165 @@ describe('ServerSelectScreen', () => {
         expect(container.querySelector('.screen-status')?.textContent).toBe('Selection cleared.');
     });
 
+    it('disables the clear saved server button while clear is in flight and reenables it after success', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const clearDeferred = createDeferred<void>();
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+        orchestrator.clearSelectedServer.mockReturnValue(clearDeferred.promise);
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
+        expect(clearBtn).not.toBeNull();
+        expect(clearBtn?.disabled).toBe(false);
+
+        clearBtn?.click();
+
+        expect(orchestrator.clearSelectedServer).toHaveBeenCalledTimes(1);
+        expect(clearBtn?.disabled).toBe(true);
+
+        clearDeferred.resolve();
+        await flushPromisesAndTimers();
+
+        expect(clearBtn?.disabled).toBe(false);
+        expect(container.querySelector('.screen-status')?.textContent).toBe('Selection cleared.');
+    });
+
+    it('reenables the clear saved server button after a visible clear failure', async () => {
+        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+        try {
+            const orchestrator = createOrchestratorStub();
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            const clearDeferred = createDeferred<void>();
+            orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+            orchestrator.clearSelectedServer.mockReturnValue(clearDeferred.promise);
+
+            const screen = new ServerSelectScreen(container, orchestrator);
+            screen.show({ allowAutoConnect: false });
+            await flushPromisesAndTimers();
+
+            const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
+            expect(clearBtn).not.toBeNull();
+            expect(clearBtn?.disabled).toBe(false);
+
+            clearBtn?.click();
+
+            expect(orchestrator.clearSelectedServer).toHaveBeenCalledTimes(1);
+            expect(clearBtn?.disabled).toBe(true);
+
+            clearDeferred.reject(new Error('store failed'));
+            await flushPromisesAndTimers();
+
+            expect(clearBtn?.disabled).toBe(false);
+            expect(container.querySelector('.screen-status')?.textContent).toBe('Selection not cleared.');
+            expect(container.querySelector('.screen-detail')?.textContent).toBe('Try again.');
+            expect(container.querySelector('.screen-error')?.textContent).toBe('store failed');
+        } finally {
+            consoleErrorSpy.mockRestore();
+        }
+    });
+
+    it('does not let a stale clear completion reenable clear while the current visibility generation is loading', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const clearDeferred = createDeferred<void>();
+        const secondDiscovery = createDeferred<PlexServer[]>();
+
+        orchestrator.discoverServers
+            .mockResolvedValueOnce([makeServer('srv-1', 'Server One')])
+            .mockReturnValueOnce(secondDiscovery.promise);
+        orchestrator.clearSelectedServer.mockReturnValue(clearDeferred.promise);
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
+        expect(clearBtn).not.toBeNull();
+        expect(clearBtn?.disabled).toBe(false);
+
+        clearBtn?.click();
+
+        expect(clearBtn?.disabled).toBe(true);
+
+        screen.hide();
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        expect(orchestrator.discoverServers).toHaveBeenCalledTimes(2);
+        expect(clearBtn?.disabled).toBe(true);
+
+        clearDeferred.resolve();
+        await flushPromisesAndTimers();
+
+        expect(clearBtn?.disabled).toBe(true);
+
+        secondDiscovery.resolve([makeServer('srv-2', 'Second Server')]);
+        await flushPromisesAndTimers();
+
+        expect(clearBtn?.disabled).toBe(false);
+
+        const serverRows = Array.from(container.querySelectorAll('.server-row'));
+        expect(serverRows).toHaveLength(1);
+        expect(serverRows[0]?.textContent).toContain('Second Server');
+    });
+
+    it('keeps clear disabled when current discovery finishes before a stale clear settles', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const clearDeferred = createDeferred<void>();
+        const secondDiscovery = createDeferred<PlexServer[]>();
+
+        orchestrator.discoverServers
+            .mockResolvedValueOnce([makeServer('srv-1', 'Server One')])
+            .mockReturnValueOnce(secondDiscovery.promise);
+        orchestrator.clearSelectedServer.mockReturnValue(clearDeferred.promise);
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
+        expect(clearBtn).not.toBeNull();
+        expect(clearBtn?.disabled).toBe(false);
+
+        clearBtn?.click();
+
+        expect(orchestrator.clearSelectedServer).toHaveBeenCalledTimes(1);
+        expect(clearBtn?.disabled).toBe(true);
+
+        screen.hide();
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        expect(orchestrator.discoverServers).toHaveBeenCalledTimes(2);
+
+        secondDiscovery.resolve([makeServer('srv-2', 'Second Server')]);
+        await flushPromisesAndTimers();
+
+        expect(clearBtn?.disabled).toBe(true);
+
+        clearBtn?.click();
+        expect(orchestrator.clearSelectedServer).toHaveBeenCalledTimes(1);
+
+        clearDeferred.resolve();
+        await flushPromisesAndTimers();
+
+        expect(clearBtn?.disabled).toBe(false);
+    });
+
     it('does not update hidden UI or re-register focusables when clear completes after hide', async () => {
         const orchestrator = createOrchestratorStub();
         const nav = orchestrator.navigation;

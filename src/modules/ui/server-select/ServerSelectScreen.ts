@@ -309,7 +309,7 @@ export class ServerSelectScreen {
             this._refreshButton.disabled = false;
             this._setupButton.disabled = false;
             this._switchProfileButton.disabled = false;
-            this._clearButton.disabled = false;
+            this._clearButton.disabled = this._isClearing;
             this._restoreFocus(generation);
         }
     }
@@ -360,9 +360,21 @@ export class ServerSelectScreen {
             && this._container.classList.contains('visible');
     }
 
+    private _isLoadingCurrentGeneration(generation: number): boolean {
+        return this._isLoading && this._activeLoadGeneration === generation;
+    }
+
+    private _setClearButtonDisabled(disabled: boolean, generation = this._visibilityGeneration): void {
+        if (!this._canUpdateUi(generation)) {
+            return;
+        }
+
+        this._clearButton.disabled = disabled;
+    }
+
     private _handleClearSelection(): void {
         const generation = this._visibilityGeneration;
-        if ((this._isClearing && this._activeClearGeneration === generation) || !this._canUpdateUi(generation)) {
+        if (this._isClearing || !this._canUpdateUi(generation)) {
             return;
         }
 
@@ -370,13 +382,14 @@ export class ServerSelectScreen {
     }
 
     private async _handleClearSelectionAsync(generation: number): Promise<void> {
-        if ((this._isClearing && this._activeClearGeneration === generation) || !this._canUpdateUi(generation)) {
+        if (this._isClearing || !this._canUpdateUi(generation)) {
             return;
         }
 
         this._isClearing = true;
         this._activeClearGeneration = generation;
         this._clearError();
+        this._setClearButtonDisabled(true, generation);
 
         try {
             await this._ports.clearSelectedServer();
@@ -401,6 +414,15 @@ export class ServerSelectScreen {
             if (this._activeClearGeneration === generation) {
                 this._isClearing = false;
                 this._activeClearGeneration = null;
+            }
+
+            const currentGeneration = this._visibilityGeneration;
+            if (
+                !this._isClearing
+                && this._canUpdateUi(currentGeneration)
+                && !this._isLoadingCurrentGeneration(currentGeneration)
+            ) {
+                this._setClearButtonDisabled(false, currentGeneration);
             }
         }
     }
