@@ -1,107 +1,85 @@
 # Plex Integration API
 
 > [!CAUTION]
-> Never log or expose Plex tokens or URLs containing `X-Plex-Token`. See [Security Logging Rules](../SECURITY_LOGGING_RULES.md).
+> Never log or expose Plex tokens or URLs containing `X-Plex-Token`. Use the redaction utilities in `src/utils/` when logging URLs.
 
-## Interface Contract
+## Architecture
 
-```typescript
-interface IPlexAPI extends 
-  IPlexAuth, 
-  IPlexServerDiscovery, 
-  IPlexLibrary, 
-  IPlexStreamResolver {
-  
-  // Initialization
-  initialize(config: PlexAuthConfig): Promise<void>;
-  
-  // Health check
-  healthCheck(): Promise<{ 
-    authenticated: boolean; 
-    serverReachable: boolean; 
-    latencyMs: number;
-  }>;
-  
-  // Events
-  on(event: 'authChange', handler: (isAuthenticated: boolean) => void): void;
-  on(event: 'serverChange', handler: (server: PlexServer | null) => void): void;
-  on(event: 'connectionChange', handler: (uri: string | null) => void): void;
-  on(event: 'error', handler: (error: PlexApiError) => void): void;
-}
-```
+Lineup does not have a single unified Plex API class. Each Plex concern is owned by a separate module with its own interface:
+
+| Interface | Source | Concern |
+|-----------|--------|---------|
+| `IPlexAuth` | `src/modules/plex/auth/interfaces.ts` | OAuth PIN flow, token management |
+| `IPlexServerDiscovery` | `src/modules/plex/discovery/interfaces.ts` | Server discovery, connection testing, selection |
+| `IPlexLibrary` | `src/modules/plex/library/interfaces.ts` | Library browsing, metadata, search |
+| `IPlexStreamResolver` | `src/modules/plex/stream/interfaces.ts` | Stream URL resolution, transcode sessions |
+
+These are composed at the application composition root, not through interface inheritance.
 
 ## Authentication (`IPlexAuth`)
 
-Pin-based OAuth flow for TV devices.
+Pin-based OAuth flow for TV devices. Supports Plex Home user switching.
 
 ```typescript
 interface IPlexAuth {
   requestPin(): Promise<PlexPinRequest>;
   checkPinStatus(pinId: number): Promise<PlexPinRequest>;
-  getStoredCredentials(): Promise<PlexStoredCredentialsReadResult>;
-  // Throws PlexApiError for malformed success payloads and non-abort network failures.
+  cancelPin(pinId: number): Promise<void>;
+  pollForPin(pinId: number): Promise<PlexPinRequest>;
   validateToken(token: string): Promise<boolean>;
+  getHomeUsers(options?: { signal?: AbortSignal | null }): Promise<PlexHomeUser[]>;
+  switchHomeUser(userId: string, options?: { pin?: string | null; signal?: AbortSignal | null }): Promise<void>;
+  getActiveUserId(): string | null;
+  getAccountUserId(): string | null;
+  logoutActiveUser(): Promise<void>;
+  getStoredCredentials(): Promise<PlexStoredCredentialsReadResult>;
+  storeCredentials(auth: PlexAuthData): Promise<void>;
+  clearCredentials(): Promise<void>;
+  isAuthenticated(): boolean;
+  getCurrentUser(): PlexAuthToken | null;
+  getAuthHeaders(): Record<string, string>;
+  on(event: 'authChange', handler: (isAuthenticated: boolean) => void): IDisposable;
+  on(event: 'profileChange', handler: (payload: { fromUserId: string | null; toUserId: string }) => void): IDisposable;
 }
 ```
 
-Stored-credentials reads now distinguish `missing`, `available`, and `corrupted`. Corrupted payloads are cleared by `PlexAuth` and surfaced distinctly from first-run missing state.
+Stored-credentials reads distinguish `missing`, `available`, and `corrupted`. Corrupted payloads are cleared by `PlexAuth` and surfaced distinctly from first-run missing state.
 
 ## Library Access (`IPlexLibrary`)
 
-Retrieving content metadata.
+Retrieving content metadata. Supports libraries, collections, playlists, TV show hierarchy, tag directories, and search.
 
 ```typescript
 interface IPlexLibrary {
-  getLibraries(): Promise<PlexLibrary[]>;
-  // Returns null only when the id is not present in a valid fetched section list.
-  // Unavailable/malformed section-list fetches throw PlexLibraryError.
+  getLibraries(options?: { signal?: AbortSignal | null; includeItemCounts?: boolean }): Promise<PlexLibrary[]>;
   getLibrary(libraryId: string): Promise<PlexLibrary | null>;
   getLibraryItems(libraryId: string, options?: LibraryQueryOptions): Promise<PlexMediaItem[]>;
-  getItem(ratingKey: string): Promise<PlexMediaItem>;
+  getLibraryItemCount(libraryId: string, options?: LibraryQueryOptions): Promise<number | null>;
+  getItem(ratingKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem | null>;
+  getShows(libraryId: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]>;
+  getShowSeasons(showKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexSeason[]>;
+  getSeasonEpisodes(seasonKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]>;
+  getShowEpisodes(showKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]>;
+  search(query: string, options?: SearchOptions): Promise<PlexMediaItem[]>;
+  getCollections(libraryId: string, options?: { signal?: AbortSignal | null }): Promise<PlexCollection[]>;
+  getCollectionItems(collectionKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]>;
+  getPlaylists(options?: { signal?: AbortSignal | null }): Promise<PlexPlaylist[]>;
+  getPlaylistItems(playlistKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]>;
+  getGenres(libraryId: string, options: PlexTagDirectoryQueryOptions): Promise<PlexTagDirectoryItem[]>;
+  getDirectors(libraryId: string, options: PlexTagDirectoryQueryOptions): Promise<PlexTagDirectoryItem[]>;
+  getActors(libraryId: string, options: PlexTagDirectoryQueryOptions): Promise<PlexTagDirectoryItem[]>;
+  getStudios(libraryId: string, options: PlexTagDirectoryQueryOptions): Promise<PlexTagDirectoryItem[]>;
+  getYears(libraryId: string, options: PlexTagDirectoryQueryOptions): Promise<PlexTagDirectoryItem[]>;
   getImageUrl(imagePath: string, width?: number, height?: number): string;
+  refreshLibrary(libraryId: string): Promise<void>;
 }
 ```
+
+`getLibrary()` returns `null` only when the id is not present in a valid fetched section list. Unavailable or malformed section-list fetches throw `PlexLibraryError`.
 
 ## Server Discovery (`IPlexServerDiscovery`)
 
 Manages server discovery, connection testing, and selection.
-
-### Discovery Methods
-
-```typescript
-interface IPlexServerDiscovery {
-  // Discover available Plex servers for the authenticated user
-  discoverServers(): Promise<PlexServer[]>;
-  
-  // Refresh the server list from plex.tv
-  refreshServers(): Promise<PlexServer[]>;
-  
-  // Get all cached servers
-  getServers(): PlexServer[];
-}
-```
-
-### Connection Testing
-
-```typescript
-interface IPlexServerDiscovery {
-  // Test a specific connection endpoint
-  // Returns latency in ms, an auth state for 401/403, or null if failed.
-  testConnection(
-    server: PlexServer,
-    connection: PlexConnection
-  ): Promise<number | 'auth_required' | 'auth_invalid' | null>;
-  
-  // Find the fastest working connection (priority: local > remote > relay).
-  findFastestConnection(server: PlexServer): Promise<{
-    connection: PlexConnection | null;
-    authRequired: boolean;
-    authState: 'auth_required' | 'auth_invalid' | null;
-  }>;
-}
-```
-
-### Server Selection
 
 ```typescript
 type PlexServerSelectionResult =
@@ -110,46 +88,33 @@ type PlexServerSelectionResult =
   | { kind: 'connection_unavailable'; reason: 'unreachable' | 'auth_required' | 'auth_invalid' };
 
 interface IPlexServerDiscovery {
-  // Select a server and find its best connection (persists to localStorage)
-  // Returns explicit outcome for not-found vs connection/auth failures.
+  // Discovery
+  discoverServers(): Promise<PlexServer[]>;
+  refreshServers(): Promise<PlexServer[]>;
+  initialize(): Promise<void>;
+  setStorageKeys(selectedServerKey: string, serverHealthKey: string): void;
+
+  // Connection testing
+  testConnection(server: PlexServer, connection: PlexConnection): Promise<number | 'auth_required' | 'auth_invalid' | null>;
+  findFastestConnection(server: PlexServer): Promise<{ connection: PlexConnection | null; authRequired: boolean; authState: 'auth_required' | 'auth_invalid' | null }>;
+
+  // Server selection
   selectServer(serverId: string): Promise<PlexServerSelectionResult>;
-  
-  // Get the currently selected server
   getSelectedServer(): PlexServer | null;
-  
-  // Get the connection for the selected server
   getSelectedConnection(): PlexConnection | null;
-  
-  // Get the URI for the selected server connection
   getServerUri(): string | null;
-}
-```
+  clearSelection(): void;
 
-### Connection Fallbacks
-
-Used for mixed-content scenarios (HTTPS page loading HTTP resources).
-
-```typescript
-interface IPlexServerDiscovery {
-  // Get an HTTPS connection for the selected server, if available
+  // Mixed content fallback
   getHttpsConnection(): PlexConnection | null;
-  
-  // Get a relay connection for the selected server, if available
   getRelayConnection(): PlexConnection | null;
-  
-  // Alias for getServerUri()
   getActiveConnectionUri(): string | null;
-}
-```
 
-### State & Events
-
-```typescript
-interface IPlexServerDiscovery {
-  // Check if connected to a server
+  // State
+  getServers(): PlexServer[];
   isConnected(): boolean;
-  
-  // Event handlers
+
+  // Events
   on(event: 'serverChange', handler: (server: PlexServer | null) => void): IDisposable;
   on(event: 'connectionChange', handler: (uri: string | null) => void): IDisposable;
 }
@@ -157,25 +122,62 @@ interface IPlexServerDiscovery {
 
 ## Stream Resolution (`IPlexStreamResolver`)
 
-Converting metadata into a playable URL.
+Converting metadata into a playable URL with codec analysis, direct-play eligibility, and transcode session management.
 
 ```typescript
 interface IPlexStreamResolver {
   resolveStream(request: StreamRequest): Promise<StreamDecision>;
+  stopTranscodeSession(sessionId: string): Promise<void>;
+  canDirectPlay(item: PlexMediaItem): boolean;
+  getTranscodeUrl(itemKey: string, options: HlsOptions): string;
+  fetchUniversalTranscodeDecision(itemKey: string, request: TranscodeRequest): Promise<ServerDecision>;
 }
+```
 
+### `StreamDecision`
+
+The resolved stream decision includes playback URL, codec details, subtitle delivery, diagnostics, and available track lists:
+
+```typescript
 interface StreamDecision {
   playbackUrl: string;
+  resolvedBaseUrl?: string;
+  protocol: 'hls' | 'dash' | 'http';
   isDirectPlay: boolean;
   isTranscoding: boolean;
-}
+  container: string;
+  videoCodec: string;
+  audioCodec: string;
+  subtitleDelivery: 'embed' | 'sidecar' | 'burn' | 'none';
+  sessionId: string;
+  mediaIndex: number;
+  partIndex: number;
+  partKey: string;
+  selectedAudioStream: PlexStream | null;
+  selectedSubtitleStream: PlexStream | null;
+  availableAudioStreams?: PlexStream[];
+  availableSubtitleStreams?: PlexStream[];
+  width: number;
+  height: number;
+  bitrate: number;
 
+  // Diagnostics (best-effort)
+  source?: { container: string; videoCodec: string; audioCodec: string; width: number; height: number; bitrate: number; hdr?: string; dynamicRange?: string; doviPresent?: boolean; doviProfile?: string };
+  directPlay?: { allowed: boolean; reasons: string[] };
+  audioFallback?: { fromCodec: string; toCodec: string; reason: string };
+  transcodeRequest?: StreamDecisionTranscodeRequest;
+  serverDecision?: { fetchedAt: number; videoDecision?: string; audioDecision?: string; subtitleDecision?: string; decisionCode?: string; decisionText?: string };
+}
+```
+
+### `StreamResolverError`
+
+```typescript
 interface StreamResolverError {
   code: PlexStreamErrorCode;
   message: string;
   recoverable: boolean;
   retryAfterMs?: number;
-  // Optional: indicates which stage of resolveStream failed (diagnostics only).
   stage?: 'media_selection' | 'burn_in_selected_part';
 }
 ```
