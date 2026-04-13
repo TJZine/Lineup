@@ -57,12 +57,21 @@ function extractTypeAlias(source: string, typeName: string): string {
         throw new Error(`Unable to find type alias ${typeName}`);
     }
 
-    const terminatorIndex = source.indexOf(';', declarationIndex);
-    if (terminatorIndex === -1) {
-        throw new Error(`Unable to find terminator for type alias ${typeName}`);
+    let depth = 0;
+
+    for (let index = declarationIndex; index < source.length; index += 1) {
+        const char = source[index];
+
+        if (char === '{' || char === '(' || char === '[') {
+            depth += 1;
+        } else if (char === '}' || char === ')' || char === ']') {
+            depth -= 1;
+        } else if (char === ';' && depth === 0) {
+            return source.slice(declarationIndex, index + 1);
+        }
     }
 
-    return source.slice(declarationIndex, terminatorIndex + 1);
+    throw new Error(`Unable to find terminator for type alias ${typeName}`);
 }
 
 function expectDocsToMatchSourceType(docs: string, sourceBlock: string): void {
@@ -71,9 +80,25 @@ function expectDocsToMatchSourceType(docs: string, sourceBlock: string): void {
 
 describe('Plex integration API docs', () => {
     const docs = readRepoFile('docs/api/plex-integration.md');
+    const authInterfaces = readRepoFile('src/modules/plex/auth/interfaces.ts');
+    const discoveryInterfaces = readRepoFile('src/modules/plex/discovery/interfaces.ts');
     const libraryInterfaces = readRepoFile('src/modules/plex/library/interfaces.ts');
     const libraryTypes = readRepoFile('src/modules/plex/library/types.ts');
     const streamInterfaces = readRepoFile('src/modules/plex/stream/interfaces.ts');
+    const streamTypes = readRepoFile('src/modules/plex/stream/types.ts');
+
+    it('documents IPlexAuth from the exported source contract', () => {
+        expectDocsToMatchSourceType(docs, extractInterface(authInterfaces, 'IPlexAuth'));
+    });
+
+    it('documents IPlexServerDiscovery from the exported source contract', () => {
+        expectDocsToMatchSourceType(
+            docs,
+            extractTypeAlias(discoveryInterfaces, 'PlexServerSelectionFailureReason')
+        );
+        expectDocsToMatchSourceType(docs, extractTypeAlias(discoveryInterfaces, 'PlexServerSelectionResult'));
+        expectDocsToMatchSourceType(docs, extractInterface(discoveryInterfaces, 'IPlexServerDiscovery'));
+    });
 
     it('documents IPlexLibrary from the exported source contract', () => {
         expectDocsToMatchSourceType(
@@ -91,5 +116,10 @@ describe('Plex integration API docs', () => {
         expectDocsToMatchSourceType(docs, extractInterface(streamInterfaces, 'StreamResolverError'));
         expectDocsToMatchSourceType(docs, extractInterface(streamInterfaces, 'StreamResolverEventMap'));
         expectDocsToMatchSourceType(docs, extractInterface(streamInterfaces, 'IPlexStreamResolver'));
+    });
+
+    it('documents StreamDecision and transcode request diagnostics from the exported source contract', () => {
+        expectDocsToMatchSourceType(docs, extractInterface(streamTypes, 'StreamDecision'));
+        expectDocsToMatchSourceType(docs, extractTypeAlias(streamTypes, 'StreamDecisionTranscodeRequest'));
     });
 });

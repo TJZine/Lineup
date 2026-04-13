@@ -39,7 +39,13 @@ Plex servers may reject requests from localhost. Recommended solutions:
 
    export default defineConfig({
      server: {
-       proxy: { '/plex': { target: 'https://your-plex-server:32400', changeOrigin: true } }
+       proxy: {
+         '/api': {
+           target: 'https://your-plex-server:32400',
+           changeOrigin: true,
+           rewrite: (path) => path.replace(/^\/api/, '')
+         }
+       }
      }
    });
    ```

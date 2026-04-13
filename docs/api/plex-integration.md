@@ -140,40 +140,55 @@ interface IPlexLibrary {
 Manages server discovery, connection testing, and selection.
 
 ```typescript
+type PlexServerSelectionFailureReason = 'unreachable' | 'auth_required' | 'auth_invalid';
+
 type PlexServerSelectionResult =
   | { kind: 'selected' }
   | { kind: 'server_not_found' }
-  | { kind: 'connection_unavailable'; reason: 'unreachable' | 'auth_required' | 'auth_invalid' };
+  | { kind: 'connection_unavailable'; reason: PlexServerSelectionFailureReason };
 
 interface IPlexServerDiscovery {
-  // Discovery
   discoverServers(): Promise<PlexServer[]>;
+
   refreshServers(): Promise<PlexServer[]>;
+
   initialize(): Promise<void>;
+
   setStorageKeys(selectedServerKey: string, serverHealthKey: string): void;
 
-  // Connection testing
-  testConnection(server: PlexServer, connection: PlexConnection): Promise<number | 'auth_required' | 'auth_invalid' | null>;
-  findFastestConnection(server: PlexServer): Promise<{ connection: PlexConnection | null; authRequired: boolean; authState: 'auth_required' | 'auth_invalid' | null }>;
+  testConnection(
+    server: PlexServer,
+    connection: PlexConnection
+  ): Promise<number | 'auth_required' | 'auth_invalid' | null>;
 
-  // Server selection
+  findFastestConnection(server: PlexServer): Promise<{
+    connection: PlexConnection | null;
+    authRequired: boolean;
+    authState: 'auth_required' | 'auth_invalid' | null;
+  }>;
+
   selectServer(serverId: string): Promise<PlexServerSelectionResult>;
-  getSelectedServer(): PlexServer | null;
-  getSelectedConnection(): PlexConnection | null;
-  getServerUri(): string | null;
-  clearSelection(): void;
 
-  // Mixed content fallback
+  getSelectedServer(): PlexServer | null;
+
+  getSelectedConnection(): PlexConnection | null;
+
+  getServerUri(): string | null;
+
   getHttpsConnection(): PlexConnection | null;
+
   getRelayConnection(): PlexConnection | null;
+
   getActiveConnectionUri(): string | null;
 
-  // State
+  clearSelection(): void;
+
   getServers(): PlexServer[];
+
   isConnected(): boolean;
 
-  // Events
   on(event: 'serverChange', handler: (server: PlexServer | null) => void): IDisposable;
+
   on(event: 'connectionChange', handler: (uri: string | null) => void): IDisposable;
 }
 ```
@@ -233,31 +248,96 @@ The resolved stream decision includes playback URL, codec details, subtitle deli
 ```typescript
 interface StreamDecision {
   playbackUrl: string;
+
   resolvedBaseUrl?: string;
+
   protocol: 'hls' | 'dash' | 'http';
+
   isDirectPlay: boolean;
+
   isTranscoding: boolean;
+
   container: string;
+
   videoCodec: string;
+
   audioCodec: string;
+
   subtitleDelivery: 'embed' | 'sidecar' | 'burn' | 'none';
+
   sessionId: string;
+
   mediaIndex: number;
+
   partIndex: number;
+
   partKey: string;
+
   selectedAudioStream: PlexStream | null;
+
   selectedSubtitleStream: PlexStream | null;
+
   availableAudioStreams?: PlexStream[];
+
   availableSubtitleStreams?: PlexStream[];
+
   width: number;
+
   height: number;
+
   bitrate: number;
 
-  // Diagnostics (best-effort)
-  source?: { container: string; videoCodec: string; audioCodec: string; width: number; height: number; bitrate: number; hdr?: string; dynamicRange?: string; doviPresent?: boolean; doviProfile?: string };
-  directPlay?: { allowed: boolean; reasons: string[] };
-  audioFallback?: { fromCodec: string; toCodec: string; reason: string };
+  source?: {
+    container: string;
+    videoCodec: string;
+    audioCodec: string;
+    width: number;
+    height: number;
+    bitrate: number;
+    hdr?: string;
+    dynamicRange?: string;
+    doviPresent?: boolean;
+    doviProfile?: string;
+  };
+
+  directPlay?: {
+    allowed: boolean;
+    reasons: string[];
+  };
+
+  audioFallback?: {
+    fromCodec: string;
+    toCodec: string;
+    reason: string;
+  };
+
   transcodeRequest?: StreamDecisionTranscodeRequest;
-  serverDecision?: { fetchedAt: number; videoDecision?: string; audioDecision?: string; subtitleDecision?: string; decisionCode?: string; decisionText?: string };
+
+  serverDecision?: {
+    fetchedAt: number;
+    videoDecision?: string;
+    audioDecision?: string;
+    subtitleDecision?: string;
+    decisionCode?: string;
+    decisionText?: string;
+  };
 }
+
+type StreamDecisionTranscodeRequest = {
+  sessionId: string;
+  maxBitrate: number;
+  mediaIndex?: number;
+  partIndex?: number;
+  audioStreamId?: string;
+  hideDolbyVision?: true;
+} & (
+  | {
+      subtitleStreamId?: undefined;
+      subtitleMode?: undefined;
+    }
+  | {
+      subtitleStreamId: string;
+      subtitleMode: 'burn';
+    }
+);
 ```

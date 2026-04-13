@@ -2001,7 +2001,7 @@ describe('AppOrchestrator', () => {
                 await expect(orchestrator.switchToChannel('ch1')).resolves.toBeUndefined();
 
                 expect(consoleSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] switchToChannel: channel tuning unavailable. Missing modules: _channelManager, _scheduler'
+                    '[Orchestrator] switchToChannel: channel tuning unavailable. Missing modules: _channelTuning, _channelManager, _scheduler'
                 );
                 expect(mockVideoPlayer.stop).not.toHaveBeenCalled();
             } finally {
@@ -2158,7 +2158,7 @@ describe('AppOrchestrator', () => {
                 await expect(orchestrator.switchToChannelByNumber(5)).resolves.toBeUndefined();
 
                 expect(consoleSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] switchToChannelByNumber: channel tuning unavailable. Missing modules: _videoPlayer'
+                    '[Orchestrator] switchToChannelByNumber: channel tuning unavailable. Missing modules: _channelTuning, _videoPlayer'
                 );
             } finally {
                 consoleSpy.mockRestore();

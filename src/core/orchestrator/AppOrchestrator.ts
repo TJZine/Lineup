@@ -1456,6 +1456,7 @@ export class AppOrchestrator {
     // Setup/capability entrypoints still enforce strict precondition throws.
     private _logMissingChannelTuningDependencies(context: string): void {
         const missingModules = [
+            !this._channelTuning ? '_channelTuning' : null,
             !this._channelManager ? '_channelManager' : null,
             !this._scheduler ? '_scheduler' : null,
             !this._videoPlayer ? '_videoPlayer' : null,

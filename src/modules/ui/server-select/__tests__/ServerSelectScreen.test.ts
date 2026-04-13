@@ -497,6 +497,7 @@ describe('ServerSelectScreen', () => {
 
         const reShownButton = container.querySelector('.server-row button') as HTMLButtonElement;
         expect(reShownButton.disabled).toBe(true);
+        expect(container.querySelector('.screen-status')?.textContent).toContain('Selection in progress');
 
         reShownButton.click();
         expect(orchestrator.selectServer).toHaveBeenCalledTimes(1);
@@ -506,6 +507,7 @@ describe('ServerSelectScreen', () => {
 
         const enabledButton = container.querySelector('.server-row button') as HTMLButtonElement;
         expect(enabledButton.disabled).toBe(false);
+        expect(container.querySelector('.screen-status')?.textContent).toBe('Select a server from the list.');
 
         enabledButton.click();
         expect(orchestrator.selectServer).toHaveBeenCalledTimes(2);
@@ -548,6 +550,82 @@ describe('ServerSelectScreen', () => {
 
         const enabledButton = container.querySelector('.server-row button') as HTMLButtonElement;
         expect(enabledButton.disabled).toBe(false);
+        expect(container.querySelector('.screen-status')?.textContent).toBe('Select a server from the list.');
+    });
+
+    it('does not clear the saved server while server selection is in flight', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const server = makeServer('srv-1', 'Server One');
+        const selectDeferred = createDeferred<Awaited<ReturnType<ServerSelectScreenPorts['selectServer']>>>();
+
+        orchestrator.discoverServers.mockResolvedValue([server]);
+        orchestrator.selectServer.mockReturnValue(selectDeferred.promise);
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        const connectButton = container.querySelector('.server-row button') as HTMLButtonElement;
+        const clearButton = container.querySelector('#btn-server-forget') as HTMLButtonElement;
+
+        connectButton.click();
+
+        expect(orchestrator.selectServer).toHaveBeenCalledTimes(1);
+        expect(clearButton.disabled).toBe(true);
+
+        clearButton.click();
+
+        expect(orchestrator.clearSelectedServer).not.toHaveBeenCalled();
+
+        selectDeferred.resolve({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
+        await flushPromisesAndTimers();
+
+        expect(clearButton.disabled).toBe(false);
+    });
+
+    it('removes disabled connect buttons from the navigation focus graph during selection', async () => {
+        const orchestrator = createOrchestratorStub();
+        const nav = orchestrator.navigation;
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const server = makeServer('srv-1', 'Server One');
+        const selectDeferred = createDeferred<Awaited<ReturnType<ServerSelectScreenPorts['selectServer']>>>();
+
+        orchestrator.discoverServers.mockResolvedValue([server]);
+        orchestrator.selectServer.mockReturnValue(selectDeferred.promise);
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+
+        const connectButton = container.querySelector('.server-row button') as HTMLButtonElement;
+
+        nav.unregisterFocusable.mockClear();
+        nav.registerFocusable.mockClear();
+
+        connectButton.click();
+
+        expect(nav.unregisterFocusable).toHaveBeenCalledWith('btn-server-select-srv-1');
+
+        const latestRefreshRegistration = [...nav.registerFocusable.mock.calls]
+            .reverse()
+            .find((call) => call[0]?.id === 'btn-server-refresh');
+
+        expect(latestRefreshRegistration?.[0].neighbors.down).toBeUndefined();
+
+        selectDeferred.resolve({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
+        await flushPromisesAndTimers();
+
+        expect(nav.registerFocusable).toHaveBeenCalledWith(
+            expect.objectContaining({
+                id: 'btn-server-select-srv-1',
+                restoreGroup: 'server-select-list',
+            })
+        );
     });
 
     it('logs manual selection failures after hide without updating hidden UI', async () => {

@@ -247,11 +247,7 @@ export class ServerSelectScreen {
 
             if (isAutoConnectAttempt && this._isSelecting) {
                 this._renderServers(servers, savedId, { emptyStateReason: 'no_servers' });
-                this._setStatus(
-                    'Selection in progress.',
-                    'Wait for the current server connection attempt to finish.',
-                    'loading'
-                );
+                this._setServerListStatus(servers);
                 this._setAutoConnectHintVisible(false);
                 return;
             }
@@ -289,14 +285,7 @@ export class ServerSelectScreen {
 
             // Fallback to rendering list
             this._renderServers(servers, savedId, { savedServerUnavailable, emptyStateReason: 'no_servers' });
-            if (servers.length === 0) {
-                this._setStatus('No servers found.', 'Ensure your Plex server is reachable.', 'warning');
-            } else if (savedServerUnavailable) {
-                this._handleError(autoSelectError, 'Unable to use the saved server.');
-                this._setStatus('Saved server unavailable.', 'Select a server from the list.', 'warning');
-            } else {
-                this._setStatus('Select a server from the list.', '', 'neutral');
-            }
+            this._setServerListStatus(servers, { savedServerUnavailable, autoSelectError });
             this._setAutoConnectHintVisible(false);
         } catch (error) {
             if (!this._canUpdateUi(generation)) {
@@ -324,9 +313,36 @@ export class ServerSelectScreen {
             this._refreshButton.disabled = false;
             this._setupButton.disabled = false;
             this._switchProfileButton.disabled = false;
-            this._clearButton.disabled = this._isClearing;
+            this._clearButton.disabled = this._isClearing || this._isSelecting;
             this._restoreFocus(generation);
         }
+    }
+
+    private _setServerListStatus(
+        servers: PlexServer[],
+        options?: { savedServerUnavailable?: boolean; autoSelectError?: unknown | null }
+    ): void {
+        if (this._isSelecting) {
+            this._setStatus(
+                'Selection in progress.',
+                'Wait for the current server connection attempt to finish.',
+                'loading'
+            );
+            return;
+        }
+
+        if (servers.length === 0) {
+            this._setStatus('No servers found.', 'Ensure your Plex server is reachable.', 'warning');
+            return;
+        }
+
+        if (options?.savedServerUnavailable === true) {
+            this._handleError(options.autoSelectError, 'Unable to use the saved server.');
+            this._setStatus('Saved server unavailable.', 'Select a server from the list.', 'warning');
+            return;
+        }
+
+        this._setStatus('Select a server from the list.', '', 'neutral');
     }
 
     private _restoreFocus(generation = this._visibilityGeneration): void {
@@ -389,15 +405,29 @@ export class ServerSelectScreen {
     }
 
     private _setServerConnectButtonsDisabled(disabled: boolean): void {
-        const buttons = this._listEl.querySelectorAll<HTMLButtonElement>('.server-actions button');
-        buttons.forEach((button) => {
+        const buttons = Array.from(this._listEl.querySelectorAll<HTMLButtonElement>('.server-actions button'));
+        for (const button of buttons) {
             button.disabled = disabled;
-        });
+        }
+
+        if (disabled) {
+            this._unregisterServerListFocusables();
+            if (this._canUpdateUi()) {
+                this._updateStaticButtonNeighbors(null);
+            }
+            return;
+        }
+
+        if (!this._canUpdateUi()) {
+            return;
+        }
+
+        this._registerServerButtonFocusables(buttons);
     }
 
     private _handleClearSelection(): void {
         const generation = this._visibilityGeneration;
-        if (this._isClearing || !this._canUpdateUi(generation)) {
+        if (this._isSelecting || this._isClearing || !this._canUpdateUi(generation)) {
             return;
         }
 
@@ -405,7 +435,7 @@ export class ServerSelectScreen {
     }
 
     private async _handleClearSelectionAsync(generation: number): Promise<void> {
-        if (this._isClearing || !this._canUpdateUi(generation)) {
+        if (this._isSelecting || this._isClearing || !this._canUpdateUi(generation)) {
             return;
         }
 
@@ -441,7 +471,8 @@ export class ServerSelectScreen {
 
             const currentGeneration = this._visibilityGeneration;
             if (
-                !this._isClearing
+                !this._isSelecting
+                && !this._isClearing
                 && this._canUpdateUi(currentGeneration)
                 && !this._isLoadingCurrentGeneration(currentGeneration)
             ) {
@@ -612,6 +643,26 @@ export class ServerSelectScreen {
             }
         }
 
+        this._registerServerButtonFocusables(enabledServerButtons);
+    }
+
+    private _unregisterServerListFocusables(): void {
+        if (this._registeredServerButtonIds.length === 0) {
+            return;
+        }
+        const nav = this._ports.getNavigation();
+        if (nav) {
+            for (const id of this._registeredServerButtonIds) {
+                nav.unregisterFocusable(id);
+            }
+        }
+        this._registeredServerButtonIds = [];
+    }
+
+    private _registerServerButtonFocusables(buttons: HTMLButtonElement[]): void {
+        this._unregisterServerListFocusables();
+
+        const enabledServerButtons = buttons.filter((button) => !button.disabled);
         const navForButtons = this._ports.getNavigation();
         if (navForButtons) {
             for (let i = 0; i < enabledServerButtons.length; i++) {
@@ -644,22 +695,7 @@ export class ServerSelectScreen {
         }
         this._registeredServerButtonIds = enabledServerButtons.map((button) => button.id);
 
-        // Update neighbors for static buttons now that list is populated.
         this._updateStaticButtonNeighbors(enabledServerButtons[0]?.id ?? null);
-
-    }
-
-    private _unregisterServerListFocusables(): void {
-        if (this._registeredServerButtonIds.length === 0) {
-            return;
-        }
-        const nav = this._ports.getNavigation();
-        if (nav) {
-            for (const id of this._registeredServerButtonIds) {
-                nav.unregisterFocusable(id);
-            }
-        }
-        this._registeredServerButtonIds = [];
     }
 
     private async _selectServer(server: PlexServer): Promise<void> {
@@ -672,6 +708,7 @@ export class ServerSelectScreen {
         this._isSelecting = true;
         this._activeSelectGeneration = generation;
         this._setServerConnectButtonsDisabled(true);
+        this._setClearButtonDisabled(true, generation);
         this._clearError();
         this._setStatus(`Connecting to ${server.name}…`, '', 'loading');
         this._detailEl.textContent = '';
@@ -714,11 +751,13 @@ export class ServerSelectScreen {
                 && !this._isLoadingCurrentGeneration(currentGeneration)
                 && !this._isClearing
             ) {
+                this._setClearButtonDisabled(false, currentGeneration);
                 if (currentGeneration === generation) {
                     this._setServerConnectButtonsDisabled(false);
                 } else {
                     const savedId = this._serverSelectionStore.readSelectedServerId();
                     this._renderServers(this._lastDiscoveredServers, savedId, { emptyStateReason: 'no_servers' });
+                    this._setServerListStatus(this._lastDiscoveredServers);
                     this._restoreFocus(currentGeneration);
                 }
             }
