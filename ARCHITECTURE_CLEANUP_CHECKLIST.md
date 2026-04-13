@@ -358,11 +358,44 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
       revisit trigger: rerun `desloppify scan --path .` + `desloppify show cycles --status open --no-budget --top 50` at `P10-W1` entry and before `P10-EXIT`; if still open with same source-audit proof, classify as tooling-state residue or escalate upstream with minimal repro.
   - Handoff: `P2-W1 planning/implementation may begin`
 
-- [ ] `P2-EXIT`
+- [x] `P2-EXIT`
   - required: record every mapped imported issue with an exact disposition
   - run the priority-exit review before moving to `P3`
   - refresh every `P2` issue id, the `P2` detector envelopes, `desloppify status`, `desloppify plan queue`, and `npm run verify`
   - confirm one single final owner for any `P2` issue that still needs a follow-up
+  - Status: completed
+  - Plan: `none (priority-exit reconciliation recorded directly in this checklist)`
+  - Last touched: `2026-04-13`
+  - Mapped imported issues:
+    - `review::.::holistic::abstraction_fitness::channel_setup_wrapper_chain` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues)
+    - `review::.::holistic::abstraction_fitness::planning_service_used_as_normalizer` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues)
+    - `review::.::holistic::mid_level_elegance::channel_setup_port_mixed_absence_contract` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues)
+    - `review::.::holistic::cross_module_architecture::channel_setup_raw_storage_seam` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues)
+    - `review::.::holistic::design_coherence::channel_setup_session_controller_mixed_state_and_io` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues)
+    - `review::.::holistic::design_coherence::channel_setup_snapshot_loader_overloaded` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues)
+    - `review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues)
+    - `review::.::holistic::error_consistency::channel_setup_plain_object_throw` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues)
+    - `review::.::holistic::incomplete_migration::playback_variant_rename_still_leaks_legacy_key` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues)
+    - `review::.::holistic::test_strategy::fastkey_filter_parser_untested` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues; detector `test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only` remains open but is stale wording resolved on current-code proof via direct `ChannelSetupTagFilters.test.ts`)
+  - Verification:
+    - `npm test -- --runInBand src/modules/scheduler/channel-manager/__tests__/StoredChannelDataCodec.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelRepository.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts` passed
+    - `npm test -- --runInBand src/core/channel-setup/__tests__/ChannelSetupTagFilters.test.ts src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoader.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanner.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelRepository.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts` passed
+    - `desloppify show review --status open --no-budget --top 100` returned no open review issues
+    - reran all ten mapped `P2` imported issue-id commands above with `--status open --no-budget --top 20`; each returned no open issues
+    - `desloppify show test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only --status open --no-budget --top 20` still reports transitive-only wording, but current source has direct coverage (`src/core/channel-setup/__tests__/ChannelSetupTagFilters.test.ts`) for parser/fallback/malformed behavior
+    - `desloppify show smells::src/core/channel-setup/ChannelSetupTagFilters.ts::hardcoded_url --status open --no-budget --top 20` reports one open smell at line 38 (`new URL(fastKey, 'http://localhost')`)
+    - `desloppify status` refreshed (`overall 83.2 / strict 83.2 / objective 94.9 / verified 94.9`)
+    - `desloppify plan queue --sort recent` refreshed (`Queue: 1 item (51 planned · 1 subjective)`)
+    - `npm run verify` passed
+  - Follow-ups:
+    - `followup::p2-exit::channel-setup-tagfilters-transitive-only-detector-residue`
+      owner: `P10-W1 detector-contract cleanup owner`
+      reason: detector issue `test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only` is stale wording after direct source-proof tests; imported review issue `review::.::holistic::test_strategy::fastkey_filter_parser_untested` is resolved on current code.
+      revisit trigger: rerun `desloppify scan --path .` + `desloppify show test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only --status open --no-budget --top 20` at `P10-W1` entry and before `P10-EXIT`; if unchanged with the same direct test file coverage, keep as detector-contract residue or escalate upstream with minimal repro.
+    - `followup::p2-exit::channel-setup-tagfilters-hardcoded-url-residue`
+      owner: `P10-W1 residual mechanical detector owner`
+      reason: `desloppify show smells::src/core/channel-setup/ChannelSetupTagFilters.ts::hardcoded_url --status open --no-budget --top 20` reports one remaining non-imported mechanical smell (`hardcoded_url`) in `ChannelSetupTagFilters.ts`.
+      revisit trigger: rerun `desloppify scan --path .` + `desloppify show smells::src/core/channel-setup/ChannelSetupTagFilters.ts::hardcoded_url --status open --no-budget --top 20` at `P10-W1` entry and before `P10-EXIT`, then disposition as detector-contract residue vs intentional local parse-base URL usage with explicit evidence.
 
 - [ ] `P3-EXIT`
   - required: record every mapped imported issue with an exact disposition
