@@ -11,8 +11,8 @@ This is the correct top-level tracked format for this work. Per `docs/agentic/do
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, and `P2-W2` completed on integration-branch evidence
-- Next safe start: `P2-W3`
+- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, and `P2-W3` completed on integration-branch evidence
+- Next safe start: `P2-EXIT`
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
 - Recent update log:
   - `2026-04-10`: closed `P0-W1`/`P0-W2`/`P0-EXIT`; locked `dist-ts` generated-output exclusion, recorded queue operating rule, ran `desloppify` exit evidence plus `npm run verify:docs`
@@ -20,6 +20,7 @@ This is the correct top-level tracked format for this work. Per `docs/agentic/do
   - `2026-04-10`: completed `P1-W2` runtime seam cleanup (explicit event cleanup reporter seam, grouped priority-one runtime seams, coordinator builder extraction), ran full `verify` plus required `desloppify` evidence refresh
   - `2026-04-11`: completed `P1-EXIT` reconciliation (all mapped imported review ids closed, cycle detector residue dispositioned with source-audit proof and final owner, `npm run verify` rerun)
   - `2026-04-13`: completed `P2-W2` owner-boundary split (state/runtime session owners, facet snapshot loader extraction, typed build scratch owner), ran targeted channel-setup/orchestrator regressions plus `npm run verify`
+  - `2026-04-13`: completed `P2-W3` error/migration/test closure (typed `ChannelSetupPlanningError` boundary proof, canonical playback variant key cleanup, direct tag-filter tests), ran targeted P2-W3 suites + `npm run verify` + source-audit and detector reconciliation commands
 
 ## Goal
 
@@ -656,7 +657,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
   - no residual `P2-W2` owner-boundary debt was carried forward because current code did not prove a different final owner
 - Handoff: `P2-W2 complete; continue with P2-W3 for error/migration/test cleanup`
 
-### [ ] `P2-W3` Normalize Channel Setup Errors, Migration Residue, And Tests
+### [x] `P2-W3` Normalize Channel Setup Errors, Migration Residue, And Tests
 
 **Mapped imported review issues:**
 
@@ -678,6 +679,25 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify show test_coverage --status open --no-budget --top 100`
 
 **Exit rule:** channel setup throws typed errors, the playback-variant rename is truly canonical, and fastKey filtering is directly covered by tests.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-13-p2-w3-channel-setup-error-canonicalization-and-test-closure.md`
+- Last touched: `2026-04-13`
+- Verification:
+  - `npm test -- --runInBand src/core/channel-setup/__tests__/ChannelSetupTagFilters.test.ts src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoader.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanner.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelRepository.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts` passed
+  - `npm run verify` passed
+  - `rg -n "isSequentialVariant|throw \\{" src/core/channel-setup src/modules/scheduler/channel-manager --glob '!dist-ts'` returned test-only matches; no implementation-code `isSequentialVariant` references and no implementation raw `throw {` residue
+  - `desloppify scan --profile ci --skip-slow` reran integration-branch detector state before reconciliation
+  - `desloppify show review --status open --no-budget --top 100` returned `No open issues matching: review`; detector review-id silence treated as supporting-only evidence
+  - `desloppify show src/core/channel-setup/ChannelSetupTagFilters.ts --status open --no-budget --top 50` and `desloppify show test_coverage --status open --no-budget --top 100` still report `test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only` despite the new direct test file; recorded as detector/source mismatch to reconcile in `P2-EXIT`
+- Issue dispositions:
+  - `review::.::holistic::error_consistency::channel_setup_plain_object_throw` -> `resolved` -> owner `P2-W3`; proof: `ChannelSetupFacetSnapshotLoader` now throws `ChannelSetupPlanningError` via `assertRecoveredTagCount`, boundary-local `ChannelSetupFacetSnapshotLoader.test.ts` asserts typed discriminator, and raw object throw source-audit is clear
+  - `review::.::holistic::incomplete_migration::playback_variant_rename_still_leaks_legacy_key` -> `resolved` -> owner `P2-W3`; proof: `createChannelIdentityKey()` now serializes `isPlaybackModeVariant`, and compatibility migration branches were removed from `ChannelRepository.loadNormalized()` and `ChannelManager.importChannels()`
+  - `review::.::holistic::test_strategy::fastkey_filter_parser_untested` -> `resolved on current-code proof` -> owner `P2-W3`; proof: direct `ChannelSetupTagFilters.test.ts` covers parser/fallback/malformed behavior; detector still labels transitive-only after rescan, so `P2-EXIT` must treat this as stale detector wording unless a new live owner is proven
+- Follow-ups:
+  - `P2-EXIT` is now the only remaining Priority 2 gate before any `P3` work
+  - `P2-EXIT` must reconcile the stale `test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only` detector output against the direct test source proof and carry one final owner decision
+- Handoff: `P2-W3 complete; run P2-EXIT reconciliation with current-code proof + detector mismatch audit before opening any P3 plan`
 
 ## Priority 3: Rebound EPG And UI Package Surfaces
 
