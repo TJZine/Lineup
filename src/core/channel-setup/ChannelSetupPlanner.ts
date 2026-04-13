@@ -937,7 +937,7 @@ export function createChannelIdentityKey(candidate: ChannelIdentityCandidate): s
         filters: normalizeFilters(candidate.contentFilters),
         sortOrder: candidate.sortOrder ?? null,
         lineupReplicaIndex: candidate.lineupReplicaIndex ?? 0,
-        isSequentialVariant: candidate.isPlaybackModeVariant === true,
+        isPlaybackModeVariant: candidate.isPlaybackModeVariant === true,
         variantPlaybackMode: candidate.isPlaybackModeVariant === true ? candidate.playbackMode : null,
     };
     return stableStringify(normalized);

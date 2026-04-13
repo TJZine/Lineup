@@ -1053,7 +1053,7 @@ describe('ChannelManager', () => {
             expect(manager.getAllChannels()).toHaveLength(1);
         });
 
-        it('preserves playback variant metadata when importing legacy exports that use isSequentialVariant', async () => {
+        it('ignores legacy isSequentialVariant when importing channels without canonical playback variant metadata', async () => {
             const importData = JSON.stringify([
                 {
                     name: 'Imported Variant',
@@ -1072,8 +1072,7 @@ describe('ChannelManager', () => {
 
             const channels = manager.getAllChannels();
             expect(channels).toHaveLength(1);
-            expect(channels[0]?.isPlaybackModeVariant).toBe(true);
-            expect(((channels[0] as unknown) as Record<string, unknown>)['isSequentialVariant']).toBeUndefined();
+            expect(channels[0]?.isPlaybackModeVariant).toBeUndefined();
         });
 
         it('should handle invalid import data', async () => {

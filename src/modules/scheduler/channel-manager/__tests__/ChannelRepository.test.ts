@@ -149,7 +149,7 @@ describe('ChannelRepository', () => {
         expect(normalized.didMutate).toBe(true);
     });
 
-    it('migrates isSequentialVariant to isPlaybackModeVariant once during normalized load', () => {
+    it('does not migrate legacy isSequentialVariant to isPlaybackModeVariant during normalized load', () => {
         const repo = new ChannelRepository();
         const payload = {
             channels: [
@@ -167,12 +167,11 @@ describe('ChannelRepository', () => {
         const normalized = loadNormalized(repo);
         const channel = normalized.data.channels[0] as unknown as Record<string, unknown>;
 
-        expect(channel.isPlaybackModeVariant).toBe(true);
-        expect(channel).not.toHaveProperty('isSequentialVariant');
-        expect(normalized.didMutate).toBe(true);
+        expect(channel.isPlaybackModeVariant).toBeUndefined();
+        expect(normalized.didMutate).toBe(false);
     });
 
-    it('does not let legacy isSequentialVariant overwrite an existing boolean isPlaybackModeVariant value', () => {
+    it('preserves canonical isPlaybackModeVariant without legacy-field migration logic', () => {
         const repo = new ChannelRepository();
         const payload = {
             channels: [
@@ -192,8 +191,7 @@ describe('ChannelRepository', () => {
         const channel = normalized.data.channels[0] as unknown as Record<string, unknown>;
 
         expect(channel.isPlaybackModeVariant).toBe(false);
-        expect(channel).not.toHaveProperty('isSequentialVariant');
-        expect(normalized.didMutate).toBe(true);
+        expect(normalized.didMutate).toBe(false);
     });
 
     it('prunes invalid content sources during normalized load', () => {

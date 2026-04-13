@@ -800,10 +800,6 @@ export class ChannelManager implements IChannelManager {
             return result;
         }
 
-        type LegacyImportedChannel = Partial<ChannelConfig> & {
-            isSequentialVariant?: boolean;
-        };
-
         for (const item of parsed) {
             if (!this._isValidChannelImport(item)) {
                 result.skippedCount++;
@@ -812,15 +808,8 @@ export class ChannelManager implements IChannelManager {
 
             try {
                 // Generate new ID for imported channel
-                const channelData = item as LegacyImportedChannel;
-                if (
-                    typeof channelData.isPlaybackModeVariant !== 'boolean'
-                    && typeof channelData.isSequentialVariant === 'boolean'
-                ) {
-                    channelData.isPlaybackModeVariant = channelData.isSequentialVariant;
-                }
+                const channelData = item as Partial<ChannelConfig>;
                 delete (channelData as Record<string, unknown>)['id'];
-                delete (channelData as Record<string, unknown>)['isSequentialVariant'];
 
                 // Find available number if number conflicts
                 if (
