@@ -1463,11 +1463,11 @@ export class AppOrchestrator {
         ].filter((module): module is string => module !== null);
 
         if (missingModules.length === 0) {
-            console.error(`[Orchestrator] ${context}: channel tuning unavailable.`);
+            console.warn(`[Orchestrator] ${context}: channel tuning unavailable.`);
             return;
         }
 
-        console.error(
+        console.warn(
             `[Orchestrator] ${context}: channel tuning unavailable. Missing modules: ${missingModules.join(', ')}`
         );
     }

@@ -1991,7 +1991,7 @@ describe('AppOrchestrator', () => {
         });
 
         it('logs the specific missing modules when channel tuning is unavailable', async () => {
-            const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
             try {
                 Reflect.set(orchestrator as object, '_channelTuning', null);
@@ -2149,7 +2149,7 @@ describe('AppOrchestrator', () => {
         });
 
         it('logs the specific missing modules when numeric channel tuning is unavailable', async () => {
-            const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
             try {
                 Reflect.set(orchestrator as object, '_channelTuning', null);
