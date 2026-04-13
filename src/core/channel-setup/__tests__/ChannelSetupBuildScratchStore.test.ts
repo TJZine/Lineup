@@ -39,6 +39,30 @@ describe('ChannelSetupBuildScratchStore', () => {
         ]);
     });
 
+    it('cleanupKeys still attempts current-channel key removal when channels-key removal fails', () => {
+        const attempted: string[] = [];
+        const store = new ChannelSetupBuildScratchStore({
+            storageRemove: (key: string): void => {
+                attempted.push(key);
+                if (key === 'lineup_channels_build_tmp_v1:abc') {
+                    throw new Error('channels key remove failed');
+                }
+            },
+        });
+
+        expect(() => {
+            store.cleanupKeys({
+                channelsKey: 'lineup_channels_build_tmp_v1:abc',
+                currentChannelKey: 'lineup_current_channel_build_tmp_v1:def',
+            });
+        }).toThrow('channels key remove failed');
+
+        expect(attempted).toEqual([
+            'lineup_channels_build_tmp_v1:abc',
+            'lineup_current_channel_build_tmp_v1:def',
+        ]);
+    });
+
     it('cleanupStaleBuildKeys removes stale build keys without touching setup records', () => {
         const store = new ChannelSetupBuildScratchStore({
             storageRemove: (_key: string): void => undefined,

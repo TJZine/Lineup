@@ -24,8 +24,26 @@ export class ChannelSetupBuildScratchStore {
     }
 
     cleanupKeys(keys: ChannelSetupBuildScratchKeys): void {
-        this._deps.storageRemove(keys.channelsKey);
-        this._deps.storageRemove(keys.currentChannelKey);
+        let firstError: unknown = null;
+        try {
+            this._deps.storageRemove(keys.channelsKey);
+        } catch (error: unknown) {
+            firstError = error;
+        }
+
+        let secondError: unknown = null;
+        try {
+            this._deps.storageRemove(keys.currentChannelKey);
+        } catch (error: unknown) {
+            secondError = error;
+        }
+
+        if (firstError !== null) {
+            throw firstError;
+        }
+        if (secondError !== null) {
+            throw secondError;
+        }
     }
 
     cleanupStaleBuildKeys(): void {
