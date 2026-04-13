@@ -3,6 +3,7 @@
  */
 
 import { ChannelSetupBuildCommitter } from '../ChannelSetupBuildCommitter';
+import type { ChannelSetupBuildScratchStore } from '../ChannelSetupBuildScratchStore';
 import type { PendingChannel, ChannelDiffResult } from '../ChannelSetupPlanner';
 import type { ChannelBuildProgress } from '../types';
 import type { IChannelManager, ChannelConfig } from '../../../modules/scheduler/channel-manager';
@@ -30,7 +31,7 @@ type ProgressEvent = {
 type Harness = {
     committer: ChannelSetupBuildCommitter;
     channelManager: jest.Mocked<IChannelManager>;
-    storageRemove: jest.Mock<void, [string]>;
+    scratchStoreCleanupKeys: jest.Mock<void, [ReturnType<ChannelSetupBuildScratchStore['createTempKeys']>]>;
     clearSelectedChannelScheduleSnapshot: jest.Mock<void, []>;
     ensureEpgInitialized: jest.Mock<Promise<void>, []>;
     primeEpgChannels: jest.Mock<void, []>;
@@ -43,7 +44,15 @@ const createHarness = (): Harness => {
         replaceAllChannels: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<IChannelManager>;
 
-    const storageRemove = jest.fn<void, [string]>();
+    const tempKeys = {
+        channelsKey: 'lineup_channels_build_tmp_v1:test',
+        currentChannelKey: 'lineup_current_channel_build_tmp_v1:test',
+    };
+    const scratchStoreCleanupKeys = jest.fn<void, [typeof tempKeys]>();
+    const scratchStore = {
+        createTempKeys: jest.fn(() => tempKeys),
+        cleanupKeys: scratchStoreCleanupKeys,
+    };
     const clearSelectedChannelScheduleSnapshot = jest.fn<void, []>();
     const ensureEpgInitialized = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
     const primeEpgChannels = jest.fn<void, []>();
@@ -52,7 +61,7 @@ const createHarness = (): Harness => {
     const committer = new ChannelSetupBuildCommitter({
         plexLibrary: {} as IPlexLibrary,
         channelManager,
-        storageRemove,
+        scratchStore,
         clearSelectedChannelScheduleSnapshot,
         ensureEpgInitialized,
         primeEpgChannels,
@@ -62,7 +71,7 @@ const createHarness = (): Harness => {
     return {
         committer,
         channelManager,
-        storageRemove,
+        scratchStoreCleanupKeys,
         clearSelectedChannelScheduleSnapshot,
         ensureEpgInitialized,
         primeEpgChannels,
@@ -198,7 +207,7 @@ describe('ChannelSetupBuildCommitter', () => {
     });
 
     it('disposes the builder before removing temporary storage keys', async () => {
-        const { committer, storageRemove } = createHarness();
+        const { committer, scratchStoreCleanupKeys } = createHarness();
 
         await committer.commitBuild({
             buildMode: 'replace',
@@ -213,7 +222,7 @@ describe('ChannelSetupBuildCommitter', () => {
         });
 
         const disposeOrder = mockBuilder.dispose.mock.invocationCallOrder[0];
-        const removeOrder = storageRemove.mock.invocationCallOrder[0];
+        const removeOrder = scratchStoreCleanupKeys.mock.invocationCallOrder[0];
         expect(disposeOrder).toBeDefined();
         expect(removeOrder).toBeDefined();
         expect(disposeOrder as number).toBeLessThan(removeOrder as number);

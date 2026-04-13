@@ -5,22 +5,26 @@
  */
 
 import type { INavigationManager } from '../../modules/navigation';
+import type { ChannelSetupBuildScratchStore } from './ChannelSetupBuildScratchStore';
 import { ChannelSetupRecordStore } from './ChannelSetupRecordStore';
 import { ChannelSetupRerunController } from './ChannelSetupRerunController';
 
 export interface ChannelSetupCoordinatorDeps {
     navigation: INavigationManager;
     getSelectedServerId: () => string | null;
-    recordStore: Pick<ChannelSetupRecordStore, 'getRecord' | 'clearRecord' | 'cleanupStaleBuildKeys'>;
+    recordStore: Pick<ChannelSetupRecordStore, 'getRecord' | 'clearRecord'>;
+    scratchStore: Pick<ChannelSetupBuildScratchStore, 'cleanupStaleBuildKeys'>;
     getExistingChannelCount: () => number;
 }
 
 export class ChannelSetupCoordinator {
-    private readonly _recordStore: Pick<ChannelSetupRecordStore, 'getRecord' | 'clearRecord' | 'cleanupStaleBuildKeys'>;
+    private readonly _recordStore: Pick<ChannelSetupRecordStore, 'getRecord' | 'clearRecord'>;
+    private readonly _scratchStore: Pick<ChannelSetupBuildScratchStore, 'cleanupStaleBuildKeys'>;
     private readonly _rerunController: ChannelSetupRerunController;
 
     constructor(private readonly deps: ChannelSetupCoordinatorDeps) {
         this._recordStore = this.deps.recordStore;
+        this._scratchStore = this.deps.scratchStore;
         this._rerunController = new ChannelSetupRerunController({
             navigation: this.deps.navigation,
             getSelectedServerId: (): string | null => this.deps.getSelectedServerId(),
@@ -45,6 +49,6 @@ export class ChannelSetupCoordinator {
 
     // --- Called during initialize to clean up crash leftovers ---
     cleanupStaleChannelBuildKeys(): void {
-        this._recordStore.cleanupStaleBuildKeys();
+        this._scratchStore.cleanupStaleBuildKeys();
     }
 }

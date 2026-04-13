@@ -100,21 +100,4 @@ describe('ChannelSetupRecordStore', () => {
         expect(storage.has('lineup_channel_setup_v2:server-2')).toBe(false);
     });
 
-    it('cleanupStaleBuildKeys removes temp build keys only', () => {
-        const store = new ChannelSetupRecordStore({
-            storageGet: (): string | null => null,
-            storageSet: (_key: string, _value: string): void => undefined,
-            storageRemove: (_key: string): void => undefined,
-        });
-        localStorage.clear();
-        localStorage.setItem('lineup_channels_build_tmp_v1:abc', '1');
-        localStorage.setItem('lineup_current_channel_build_tmp_v1:def', '2');
-        localStorage.setItem('lineup_channel_setup_v2:server-1', 'keep');
-
-        store.cleanupStaleBuildKeys();
-
-        expect(localStorage.getItem('lineup_channels_build_tmp_v1:abc')).toBeNull();
-        expect(localStorage.getItem('lineup_current_channel_build_tmp_v1:def')).toBeNull();
-        expect(localStorage.getItem('lineup_channel_setup_v2:server-1')).toBe('keep');
-    });
 });

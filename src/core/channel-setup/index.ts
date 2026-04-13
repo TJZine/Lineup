@@ -1,6 +1,7 @@
 export { ChannelSetupCoordinator } from './ChannelSetupCoordinator';
 export { ChannelSetupPlanningService } from './ChannelSetupPlanningService';
 export { ChannelSetupBuildCommitter } from './ChannelSetupBuildCommitter';
+export { ChannelSetupBuildScratchStore } from './ChannelSetupBuildScratchStore';
 export { ChannelSetupBuildExecutor } from './ChannelSetupBuildExecutor';
 export { ChannelSetupCompletionTracker } from './ChannelSetupCompletionTracker';
 export { ChannelSetupRecordStore } from './ChannelSetupRecordStore';

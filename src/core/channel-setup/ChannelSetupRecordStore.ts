@@ -1,5 +1,4 @@
 import { DEFAULT_CHANNEL_SETUP_MAX } from '../../modules/scheduler/channel-manager/constants';
-import { safeLocalStorageRemoveByPrefixes } from '../../utils/storage';
 import { DEFAULT_CHANNEL_EXPANSION, DEFAULT_MIN_ITEMS_PER_CHANNEL, DEFAULT_SERIES_ORDERING, SETUP_STRATEGY_KEYS } from './constants';
 import { normalizeChannelSetupConfig } from './normalizeChannelSetupConfig';
 import type {
@@ -135,13 +134,6 @@ export class ChannelSetupRecordStore {
 
     clearRecord(serverId: string): void {
         this._deps.storageRemove(this._getStorageKey(serverId));
-    }
-
-    cleanupStaleBuildKeys(): void {
-        safeLocalStorageRemoveByPrefixes([
-            'lineup_channels_build_tmp_v1:',
-            'lineup_current_channel_build_tmp_v1:',
-        ]);
     }
 
     private _getStorageKey(serverId: string): string {

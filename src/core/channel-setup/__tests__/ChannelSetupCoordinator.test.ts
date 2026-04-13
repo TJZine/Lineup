@@ -2,6 +2,7 @@
  * @jest-environment jsdom
  */
 
+import { ChannelSetupBuildScratchStore } from '../ChannelSetupBuildScratchStore';
 import { ChannelSetupCoordinator } from '../ChannelSetupCoordinator';
 import { ChannelSetupRecordStore } from '../ChannelSetupRecordStore';
 
@@ -24,6 +25,9 @@ const createCoordinator = (overrides?: {
         storageRemove: (key: string): void => void storage.delete(key),
     });
     const navigationGoTo = jest.fn();
+    const scratchStore = new ChannelSetupBuildScratchStore({
+        storageRemove: (key: string): void => localStorage.removeItem(key),
+    });
     const getSelectedServerId = jest.fn().mockReturnValue(
         overrides && 'selectedServerId' in overrides ? overrides.selectedServerId : 'server-1'
     );
@@ -34,6 +38,7 @@ const createCoordinator = (overrides?: {
         navigation: { goTo: navigationGoTo } as never,
         getSelectedServerId,
         recordStore,
+        scratchStore,
         getExistingChannelCount,
     });
 

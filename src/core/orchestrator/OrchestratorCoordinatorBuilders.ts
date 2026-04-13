@@ -73,6 +73,7 @@ import {
 } from '../../modules/ui/exit-confirm';
 import {
     ChannelSetupBuildCommitter,
+    ChannelSetupBuildScratchStore,
     ChannelSetupBuildExecutor,
     ChannelSetupCompletionTracker,
     ChannelSetupCoordinator,
@@ -155,6 +156,11 @@ export function buildChannelSetupOwners(
             safeLocalStorageRemove(key);
         },
     });
+    const buildScratchStore = new ChannelSetupBuildScratchStore({
+        storageRemove: (key: string): void => {
+            safeLocalStorageRemove(key);
+        },
+    });
     const planningService = new ChannelSetupPlanningService({
         plexLibrary: input.modules.plexLibrary,
         channelManager: input.modules.channelManager,
@@ -162,9 +168,7 @@ export function buildChannelSetupOwners(
     const buildCommitter = new ChannelSetupBuildCommitter({
         plexLibrary: input.modules.plexLibrary,
         channelManager: input.modules.channelManager,
-        storageRemove: (key: string): void => {
-            safeLocalStorageRemove(key);
-        },
+        scratchStore: buildScratchStore,
         ensureEpgInitialized: (): Promise<void> => input.init.ensureEpgInitialized(),
         clearSelectedChannelScheduleSnapshot: (): void => epgCoordinator.clearSelectedChannelScheduleSnapshot(),
         primeEpgChannels: (): void => epgCoordinator.primeEpgChannels(),
@@ -178,6 +182,7 @@ export function buildChannelSetupOwners(
     });
     const coordinator = new ChannelSetupCoordinator({
         recordStore,
+        scratchStore: buildScratchStore,
         navigation: input.modules.navigation,
         getSelectedServerId: (): string | null => input.schedule.getSelectedServerId(),
         getExistingChannelCount: (): number => input.modules.channelManager.getAllChannels().length,
