@@ -672,6 +672,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `src/core/channel-setup/ChannelSetupPlanner.ts`
 - `src/modules/scheduler/channel-manager/ChannelRepository.ts`
 - `src/modules/scheduler/channel-manager/ChannelManager.ts`
+- `src/modules/scheduler/channel-manager/StoredChannelDataCodec.ts`
 
 **Mechanical envelopes to refresh at entry and exit:**
 
@@ -684,20 +685,21 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - Plan: `docs/plans/2026-04-13-p2-w3-channel-setup-error-canonicalization-and-test-closure.md`
 - Last touched: `2026-04-13`
 - Verification:
+  - `npm test -- --runInBand src/modules/scheduler/channel-manager/__tests__/StoredChannelDataCodec.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelRepository.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts` passed
   - `npm test -- --runInBand src/core/channel-setup/__tests__/ChannelSetupTagFilters.test.ts src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoader.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanner.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelRepository.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts` passed
   - `npm run verify` passed
-  - `rg -n "isSequentialVariant|throw \\{" src/core/channel-setup src/modules/scheduler/channel-manager --glob '!dist-ts'` returned test-only matches; no implementation-code `isSequentialVariant` references and no implementation raw `throw {` residue
+  - `rg -n "isSequentialVariant|throw \\{" src/core/channel-setup src/modules/scheduler/channel-manager --glob '!dist-ts'` now shows `isSequentialVariant` only in explicit legacy-strip helpers (`ChannelRepository`, `ChannelManager`, `StoredChannelDataCodec`) plus tests; no compatibility migration/rewrite branch remains and no implementation raw `throw {` residue
   - `desloppify scan --profile ci --skip-slow` reran integration-branch detector state before reconciliation
   - `desloppify show review --status open --no-budget --top 100` returned `No open issues matching: review`; detector review-id silence treated as supporting-only evidence
   - `desloppify show src/core/channel-setup/ChannelSetupTagFilters.ts --status open --no-budget --top 50` and `desloppify show test_coverage --status open --no-budget --top 100` still report `test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only` despite the new direct test file; recorded as detector/source mismatch to reconcile in `P2-EXIT`
 - Issue dispositions:
   - `review::.::holistic::error_consistency::channel_setup_plain_object_throw` -> `resolved` -> owner `P2-W3`; proof: `ChannelSetupFacetSnapshotLoader` now throws `ChannelSetupPlanningError` via `assertRecoveredTagCount`, boundary-local `ChannelSetupFacetSnapshotLoader.test.ts` asserts typed discriminator, and raw object throw source-audit is clear
-  - `review::.::holistic::incomplete_migration::playback_variant_rename_still_leaks_legacy_key` -> `resolved` -> owner `P2-W3`; proof: `createChannelIdentityKey()` now serializes `isPlaybackModeVariant`, and compatibility migration branches were removed from `ChannelRepository.loadNormalized()` and `ChannelManager.importChannels()`
+  - `review::.::holistic::incomplete_migration::playback_variant_rename_still_leaks_legacy_key` -> `resolved` -> owner `P2-W3`; proof: `createChannelIdentityKey()` serializes `isPlaybackModeVariant`, import rewrite compatibility was removed, load boundary strips legacy `isSequentialVariant`, save codec strips legacy fields on encode, and `ChannelManager` load/export/save tests prove legacy fields do not survive runtime/exported/persisted channel objects
   - `review::.::holistic::test_strategy::fastkey_filter_parser_untested` -> `resolved on current-code proof` -> owner `P2-W3`; proof: direct `ChannelSetupTagFilters.test.ts` covers parser/fallback/malformed behavior; detector still labels transitive-only after rescan, so `P2-EXIT` must treat this as stale detector wording unless a new live owner is proven
 - Follow-ups:
   - `P2-EXIT` is now the only remaining Priority 2 gate before any `P3` work
   - `P2-EXIT` must reconcile the stale `test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only` detector output against the direct test source proof and carry one final owner decision
-- Handoff: `P2-W3 complete; run P2-EXIT reconciliation with current-code proof + detector mismatch audit before opening any P3 plan`
+- Handoff: `P2-W3 evidence refreshed; run P2-EXIT reconciliation with current-code proof for legacy-strip boundaries + detector mismatch audit before opening any P3 plan`
 
 ## Priority 3: Rebound EPG And UI Package Surfaces
 
