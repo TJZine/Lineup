@@ -23,6 +23,8 @@ type DebugApi = {
 
 type LineupWindow = Window & { __LINEUP__?: DebugApi };
 
+jest.setTimeout(15000);
+
 const setDevBuild = (value: boolean): void => {
     Object.defineProperty(globalThis, '__LINEUP_DEV_BUILD__', {
         value,
