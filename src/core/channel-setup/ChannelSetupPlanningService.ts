@@ -11,7 +11,6 @@ import {
     getPlexRequestIntentForChannelSetup,
     getTagDirectoryMediaTypesForLibraryType,
 } from '../../modules/plex/library';
-import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../modules/scheduler/channel-manager/constants';
 import { summarizeErrorForLog } from '../../utils/errors';
 import type {
     ChannelSetupConfig,
@@ -20,10 +19,6 @@ import type {
     ChannelSetupPreviewFailureReason,
     ChannelSetupPreviewStatus,
     ChannelSetupReview,
-    SetupStrategyKey,
-    SetupStrategyConfig,
-    ChannelExpansionConfig,
-    SeriesOrderingConfig,
 } from './types';
 import {
     buildChannelSetupPlan,
@@ -34,18 +29,10 @@ import {
     type ChannelDiffResult,
 } from './ChannelSetupPlanner';
 import type { ChannelSetupPlanDiagnosticsResult } from './ChannelSetupPlanDiagnostics';
-import {
-    DEFAULT_CHANNEL_EXPANSION,
-    DEFAULT_MIN_ITEMS_PER_CHANNEL,
-    DEFAULT_SERIES_ORDERING,
-    DEFAULT_STRATEGY_PRIORITIES,
-    MIXED_SCOPE_STRATEGY_KEYS,
-    SETUP_STRATEGY_KEYS,
-} from './constants';
 import { isSignalAborted } from './utils';
 import { buildChannelSetupFacetCountFilter } from './ChannelSetupTagFilters';
+import { normalizeChannelSetupConfig } from './normalizeChannelSetupConfig';
 
-const SELECTABLE_STRATEGY_KEYS: SetupStrategyKey[] = [...SETUP_STRATEGY_KEYS];
 type ChannelSetupPlanningIntent = 'preview' | 'build';
 type ChannelSetupPlexRequestIntent = ReturnType<typeof getPlexRequestIntentForChannelSetup>;
 
@@ -1061,38 +1048,7 @@ export class ChannelSetupPlanningService {
     }
 
     normalizeConfig(config: ChannelSetupConfig): ChannelSetupConfig {
-        const maxChannels = Number.isFinite(config.maxChannels)
-            ? Math.min(Math.max(Math.floor(config.maxChannels), 1), MAX_CHANNELS)
-            : DEFAULT_CHANNEL_SETUP_MAX;
-        const minItemsPerChannel = Number.isFinite(config.minItemsPerChannel)
-            ? Math.max(1, Math.floor(config.minItemsPerChannel))
-            : DEFAULT_MIN_ITEMS_PER_CHANNEL;
-        const buildMode = config.buildMode ?? 'replace';
-        const actorStudioCombineMode = config.actorStudioCombineMode ?? 'separate';
-        const strategyConfig = SELECTABLE_STRATEGY_KEYS.reduce<Record<SetupStrategyKey, SetupStrategyConfig>>((acc, key) => {
-            const candidate = config.strategyConfig[key];
-            const enabled = typeof candidate?.enabled === 'boolean' ? candidate.enabled : true;
-            const priority = Number.isFinite(candidate?.priority)
-                ? Math.max(1, Math.floor(Number(candidate.priority)))
-                : DEFAULT_STRATEGY_PRIORITIES[key];
-            const scope = MIXED_SCOPE_STRATEGY_KEYS.has(key) && candidate?.scope === 'cross-library'
-                ? 'cross-library'
-                : 'per-library';
-            acc[key] = { enabled, priority, scope };
-            return acc;
-        }, {} as Record<SetupStrategyKey, SetupStrategyConfig>);
-        const channelExpansion = this._normalizeChannelExpansion(config.channelExpansion);
-        const seriesOrdering = this._normalizeSeriesOrdering(config.seriesOrdering);
-        return {
-            ...config,
-            maxChannels,
-            minItemsPerChannel,
-            buildMode,
-            actorStudioCombineMode,
-            strategyConfig,
-            channelExpansion,
-            seriesOrdering,
-        };
+        return normalizeChannelSetupConfig(config);
     }
 
     async getSetupPreview(
@@ -1346,40 +1302,6 @@ export class ChannelSetupPlanningService {
             result.push(p);
         }
         return result;
-    }
-
-    private _normalizeChannelExpansion(expansion: ChannelExpansionConfig | undefined): ChannelExpansionConfig {
-        const addAlternateLineups = expansion?.addAlternateLineups === true;
-        const alternateLineupCopies = Number.isFinite(expansion?.alternateLineupCopies)
-            ? Math.min(3, Math.max(1, Math.floor(Number(expansion?.alternateLineupCopies))))
-            : DEFAULT_CHANNEL_EXPANSION.alternateLineupCopies;
-        const variantType =
-            expansion?.variantType === 'sequential' || expansion?.variantType === 'block'
-                ? expansion.variantType
-                : 'none';
-        const variantBlockSize = Number.isFinite(expansion?.variantBlockSize)
-            ? Math.min(5, Math.max(2, Math.floor(Number(expansion?.variantBlockSize))))
-            : DEFAULT_CHANNEL_EXPANSION.variantBlockSize;
-        return {
-            addAlternateLineups,
-            alternateLineupCopies,
-            variantType,
-            variantBlockSize,
-        };
-    }
-
-    private _normalizeSeriesOrdering(value: SeriesOrderingConfig | undefined): SeriesOrderingConfig {
-        const basePlaybackMode =
-            value?.basePlaybackMode === 'sequential' || value?.basePlaybackMode === 'block'
-                ? value.basePlaybackMode
-                : 'shuffle';
-        const baseBlockSize = Number.isFinite(value?.baseBlockSize)
-            ? Math.min(5, Math.max(2, Math.floor(Number(value?.baseBlockSize))))
-            : DEFAULT_SERIES_ORDERING.baseBlockSize;
-        return {
-            basePlaybackMode,
-            baseBlockSize,
-        };
     }
 
     private _emptyEstimates(): ChannelSetupPreview['estimates'] {

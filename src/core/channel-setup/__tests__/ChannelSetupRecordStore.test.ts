@@ -4,6 +4,7 @@
 
 import { ChannelSetupRecordStore } from '../ChannelSetupRecordStore';
 import { DEFAULT_STRATEGY_PRIORITIES, MIXED_SCOPE_STRATEGY_KEYS, SETUP_STRATEGY_KEYS } from '../constants';
+import { DEFAULT_CHANNEL_SETUP_MAX } from '../../../modules/scheduler/channel-manager/constants';
 import type { ChannelSetupConfig, SetupStrategyConfig, SetupStrategyKey } from '../types';
 
 const createStrategyConfig = (): Record<SetupStrategyKey, SetupStrategyConfig> => (
@@ -35,7 +36,6 @@ describe('ChannelSetupRecordStore', () => {
             storageGet: (key: string): string | null => storage.get(key) ?? null,
             storageSet: (key: string, value: string): void => void storage.set(key, value),
             storageRemove: (key: string): void => void storage.delete(key),
-            normalizeConfig: (config: ChannelSetupConfig): ChannelSetupConfig => config,
         });
 
         expect(store.getRecord('server-1')).toBeNull();
@@ -54,35 +54,28 @@ describe('ChannelSetupRecordStore', () => {
             storageGet: (key: string): string | null => storage.get(key) ?? null,
             storageSet: (key: string, value: string): void => void storage.set(key, value),
             storageRemove: (key: string): void => void storage.delete(key),
-            normalizeConfig: (config: ChannelSetupConfig): ChannelSetupConfig => config,
         });
 
         expect(store.getRecord('server-1')).toBeNull();
     });
 
-    it('reads valid stored record and normalizes via callback', () => {
+    it('reads valid stored record and normalizes config', () => {
         const storage = new Map<string, string>();
         storage.set('lineup_channel_setup_v2:server-1', JSON.stringify({
-            ...createConfig(),
+            ...createConfig({ maxChannels: Number.POSITIVE_INFINITY }),
             createdAt: 11,
             updatedAt: 22,
-        }));
-        const normalizeConfig = jest.fn((config: ChannelSetupConfig): ChannelSetupConfig => ({
-            ...config,
-            maxChannels: 200,
         }));
         const store = new ChannelSetupRecordStore({
             storageGet: (key: string): string | null => storage.get(key) ?? null,
             storageSet: (key: string, value: string): void => void storage.set(key, value),
             storageRemove: (key: string): void => void storage.delete(key),
-            normalizeConfig,
         });
 
         const record = store.getRecord('server-1');
         expect(record).not.toBeNull();
-        expect(record?.maxChannels).toBe(200);
+        expect(record?.maxChannels).toBe(DEFAULT_CHANNEL_SETUP_MAX);
         expect(record?.createdAt).toBe(11);
-        expect(normalizeConfig).toHaveBeenCalled();
     });
 
     it('markSetupComplete writes expected key and preserves createdAt', () => {
@@ -96,7 +89,6 @@ describe('ChannelSetupRecordStore', () => {
             storageGet: (key: string): string | null => storage.get(key) ?? null,
             storageSet: (key: string, value: string): void => void storage.set(key, value),
             storageRemove: (key: string): void => void storage.delete(key),
-            normalizeConfig: (config: ChannelSetupConfig): ChannelSetupConfig => config,
         });
 
         const record = store.markSetupComplete('server-1', createConfig({ minItemsPerChannel: 7 }));
@@ -113,7 +105,6 @@ describe('ChannelSetupRecordStore', () => {
             storageGet: (): string | null => null,
             storageSet: (_key: string, _value: string): void => undefined,
             storageRemove: (_key: string): void => undefined,
-            normalizeConfig: (config: ChannelSetupConfig): ChannelSetupConfig => config,
         });
         localStorage.clear();
         localStorage.setItem('lineup_channels_build_tmp_v1:abc', '1');

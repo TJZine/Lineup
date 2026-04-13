@@ -10,6 +10,7 @@ import { diffChannelPlans } from './ChannelSetupPlanner';
 import type { ChannelSetupPlanBuildResult, ChannelSetupPlanningService } from './ChannelSetupPlanningService';
 import type { ChannelSetupBuildCommitter } from './ChannelSetupBuildCommitter';
 import { isSignalAborted } from './utils';
+import { normalizeChannelSetupConfig } from './normalizeChannelSetupConfig';
 
 export interface ChannelSetupBuildExecutorDeps {
     channelManager: IChannelManager;
@@ -60,7 +61,7 @@ export class ChannelSetupBuildExecutor {
             throw e;
         }
 
-        const normalizedConfig = this._deps.planningService.normalizeConfig(config);
+        const normalizedConfig = normalizeChannelSetupConfig(config);
         let planResult: ChannelSetupPlanBuildResult;
         try {
             planResult = await this._deps.planningService.buildSetupPlan(
