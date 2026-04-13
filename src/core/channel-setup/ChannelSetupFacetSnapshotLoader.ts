@@ -91,6 +91,27 @@ type DeferredEmptyTagDirectoryFailure = {
 const MAX_FACET_LIBRARY_CONCURRENCY = 2;
 const MAX_FACET_COUNT_RECOVERY_CONCURRENCY = 8;
 
+export class ChannelSetupPlanningError extends Error {
+    public readonly code: 'COUNT_UNAVAILABLE';
+
+    constructor(message: string) {
+        super(message);
+        this.name = 'ChannelSetupPlanningError';
+        this.code = 'COUNT_UNAVAILABLE';
+    }
+}
+
+export function assertRecoveredTagCount(
+    count: number | null,
+    family: 'genre' | 'director' | 'year' | 'actor' | 'studio',
+    tagTitle: string
+): number {
+    if (count === null) {
+        throw new ChannelSetupPlanningError(`${family} count unavailable for ${tagTitle}`);
+    }
+    return count;
+}
+
 export class ChannelSetupFacetSnapshotLoader {
     private _cachedKey: string | null = null;
     private _cachedSnapshot: ChannelSetupFacetSnapshot | null = null;
@@ -582,14 +603,10 @@ export class ChannelSetupFacetSnapshotLoader {
                     } finally {
                         libraryQueryMs += performance.now() - countStart;
                     }
-                    if (count === null) {
-                        throw {
-                            name: 'Error',
-                            code: 'COUNT_UNAVAILABLE',
-                            message: `${family} count unavailable for ${tag.title}`,
-                        };
-                    }
-                    hydratedTags[tagIndex] = { ...tag, count };
+                    hydratedTags[tagIndex] = {
+                        ...tag,
+                        count: assertRecoveredTagCount(count, family, tag.title),
+                    };
                 }
             });
             await Promise.all(workers);
