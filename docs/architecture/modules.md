@@ -187,7 +187,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 ### `src/modules/ui/epg/`
 
 - bounded exception for the EPG debug-log cache helper
-- `src/modules/ui/epg/utils.ts` owns only the bounded `lineup_debug_epg_log` cache/helper fan-out and is not precedent for new UI-layer storage owners
+- `src/modules/ui/epg/debugRuntimeGuards.ts` owns safe helper fan-out through `appendDebugRuntimeLog(...)`; `src/modules/ui/epg/EPGDebugRuntime.ts` owns bounded `lineup_debug_epg_log` buffering/flush behavior through runtime `append(...)`; this remains a bounded exception and is not precedent for new UI-layer storage owners
 
 ### `src/modules/plex/auth/`
 
@@ -215,7 +215,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 ### Direct-storage Exception Wraps (`P3-W3`, completed 2026-03-11)
 
-- `src/modules/debug/DebugOverridesStore.ts` owns the `lineup_debug_epg` flag; `src/modules/ui/epg/utils.ts` (`appendEpgDebugLog`) owns the bounded `lineup_debug_epg_log` cache and helper fan-out
+- `src/modules/debug/DebugOverridesStore.ts` owns the `lineup_debug_epg` flag; `src/modules/ui/epg/debugRuntimeGuards.ts` (`appendDebugRuntimeLog`) owns safe helper fan-out to `EPGDebugRuntime.append(...)`; `src/modules/ui/epg/EPGDebugRuntime.ts` owns bounded `lineup_debug_epg_log` buffering and flush scheduling
 - `src/core/channel-setup/ChannelSetupRecordStore.ts` (`cleanupStaleBuildKeys`) now routes stale temp-key cleanup through `src/utils/storage.ts` prefix-based helper; `ChannelSetupCoordinator.ts` just delegates
 - `src/bootstrap.ts` still contains the one-off `lineup_debug_transcode` -> `lineup_debug_logging` migration helper
 - `src/modules/ui/audio-setup/AudioSetupScreen.ts` and `src/Orchestrator.ts` now consume `AudioSettingsStore` for `lineup_audio_setup_complete`; `src/Orchestrator.ts` now uses `SubtitlePreferencesStore` subtitle mode policy instead of the retired `lineup_subtitle_allow_burn_in` key

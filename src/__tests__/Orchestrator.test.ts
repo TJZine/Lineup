@@ -1048,6 +1048,47 @@ describe('AppOrchestrator', () => {
             }
         });
 
+        it('logs post-selection EPG refresh failures without failing server selection', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            const refreshError = new Error('refresh failed');
+            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const refreshSpy = jest
+                .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
+                .mockRejectedValue(refreshError);
+            const runStartupSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'runStartup')
+                .mockResolvedValue(undefined);
+
+            try {
+                mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
+                mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+
+                await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
+                    kind: 'selected',
+                    readiness: 'startup_pending',
+                    persistedSelection: 'updated',
+                });
+
+                expect(runStartupSpy).toHaveBeenCalledWith(3);
+                expect(refreshSpy).toHaveBeenCalledWith({ reason: 'server-swap' });
+                expect(consoleWarnSpy).toHaveBeenCalledWith(
+                    '[Orchestrator] Post-selection EPG refresh failed:',
+                    {
+                        step: 'refreshEpgSchedules',
+                        error: {
+                            name: 'Error',
+                            message: 'refresh failed',
+                        },
+                    }
+                );
+            } finally {
+                consoleWarnSpy.mockRestore();
+                refreshSpy.mockRestore();
+                runStartupSpy.mockRestore();
+            }
+        });
+
         it('returns selection_failed when discovery reports server_not_found', async () => {
             await orchestrator.initialize(mockConfig);
 
@@ -1142,7 +1183,15 @@ describe('AppOrchestrator', () => {
 
         it('clears discovery selection and persisted selected-server state', async () => {
             await orchestrator.initialize(mockConfig);
-            mockPlexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('valid-token'));
+            const storedCredentials = createStoredCredentials('valid-token');
+            if (storedCredentials.kind !== 'available') {
+                throw new Error('Expected available stored credentials in test setup');
+            }
+            storedCredentials.credentials.selectedServerByUserId['user-1'] = {
+                serverId: 'server-123',
+                serverUri: 'http://example',
+            };
+            mockPlexAuth.getStoredCredentials.mockResolvedValue(storedCredentials);
 
             await orchestrator.clearSelectedServer();
 
@@ -1941,6 +1990,25 @@ describe('AppOrchestrator', () => {
             await orchestrator.initialize(mockConfig);
         });
 
+        it('logs the specific missing modules when channel tuning is unavailable', async () => {
+            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+            try {
+                Reflect.set(orchestrator as object, '_channelTuning', null);
+                Reflect.set(orchestrator as object, '_channelManager', null);
+                Reflect.set(orchestrator as object, '_scheduler', null);
+
+                await expect(orchestrator.switchToChannel('ch1')).resolves.toBeUndefined();
+
+                expect(consoleSpy).toHaveBeenCalledWith(
+                    '[Orchestrator] switchToChannel: channel tuning unavailable. Missing modules: _channelTuning, _channelManager, _scheduler'
+                );
+                expect(mockVideoPlayer.stop).not.toHaveBeenCalled();
+            } finally {
+                consoleSpy.mockRestore();
+            }
+        });
+
         it('should stop current playback', async () => {
             await orchestrator.switchToChannel('ch1');
 
@@ -2078,6 +2146,23 @@ describe('AppOrchestrator', () => {
     describe('switchToChannelByNumber', () => {
         beforeEach(async () => {
             await orchestrator.initialize(mockConfig);
+        });
+
+        it('logs the specific missing modules when numeric channel tuning is unavailable', async () => {
+            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+            try {
+                Reflect.set(orchestrator as object, '_channelTuning', null);
+                Reflect.set(orchestrator as object, '_videoPlayer', null);
+
+                await expect(orchestrator.switchToChannelByNumber(5)).resolves.toBeUndefined();
+
+                expect(consoleSpy).toHaveBeenCalledWith(
+                    '[Orchestrator] switchToChannelByNumber: channel tuning unavailable. Missing modules: _channelTuning, _videoPlayer'
+                );
+            } finally {
+                consoleSpy.mockRestore();
+            }
         });
 
         it('should find channel by number and switch', async () => {

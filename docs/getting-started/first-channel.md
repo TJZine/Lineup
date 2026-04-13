@@ -1,72 +1,34 @@
-# Your First Custom Channel
+# Your First Lineup
 
-The magic of Lineup is creating channels that feel like broadcast TV but play **your** content. Let's create a "Cinema 24/7" channel.
+The magic of Lineup is that it creates channels that feel like broadcast TV but play **your** content. Here's how to get started with your first lineup.
 
-## 1. Open the Channel Editor
+## Automatic Setup (Recommended)
 
-1. Press **Back** to bring up the menu overlay.
-2. Select **"Channels"** (or the gear icon).
-3. Select **"New Channel"**.
+Lineup's setup wizard builds a full lineup of channels from your Plex libraries automatically:
 
-## 2. Basic Configuration
+1. Complete the onboarding flow (authentication + server selection).
+2. The setup wizard runs automatically on first launch.
+3. Review the generated channels in the EPG.
 
-- **Number**: `10` (or any available number)
-- **Name**: `Cinema 24/7`
-- **Icon**: Select the `Movie Projector` icon.
+The wizard analyzes your libraries and creates channels based on collections, genres, playlists, and more. See the [Channel Management](../user-guide/channels.md) guide for details on the setup builder options.
 
-## 3. Select Content
+## Understanding Your Lineup
 
-1. Choose **"Content Source"**.
-2. Select **"Library"**.
-3. Choose your **Movies** library.
-4. (Optional) **Filter**:
-   - Select **"Genre"** -> **"Action"**
-   - Click **Add Filter**
-   - Result: Only Action movies will play on this channel.
+Once setup completes, you'll have channels organized by your Plex content:
 
-## 4. Set Playback Mode
+- **Collection-based channels**: e.g., "Star Wars Universe", "Marvel MCU"
+- **Genre-based channels**: e.g., "Action", "Comedy", "Drama"
+- **Playlist-based channels**: Any Plex playlists you've created
+- **Show channels**: Individual TV shows get their own channels
 
-Choose how the content plays:
+## Tuning In
 
-- **Shuffle** (Recommended): Plays movies in random order. The order is determined daily, so everyone sees the same "random" schedule.
-- **Sequential**: Plays movies alphabetically (A-Z).
-- **Random**: Daily shuffle (stable for the current local day, changes the next day).
-
-## 5. Save and Tune
-
-1. Select **"Save Channel"**.
-2. Press **Back** to return to play.
-3. Type `10` and `OK` (or use CH keys) to tune to your new channel.
-
-## Pro Tip: Collections
-
-You can also create channels from **Plex Collections**.
-
-1. In Plex, create a Collection named "Star Wars Universe".
-2. In Lineup, New Channel -> Content Source -> **Collection**.
-3. Select "Star Wars Universe".
-4. Set Playback Mode to **Sequential**.
-
-Now you have a channel that plays Star Wars content in chronological order, appearing like a marathon!
+1. Use the **Channel Up/Down** buttons on your remote to flip channels.
+2. Press **OK** to view the EPG (Electronic Program Guide).
+3. Navigate the EPG to see what's on across all channels.
 
 ## What's Next?
 
 Explore the full user guide to master the Electronic Program Guide and more.
 
 👉 **[Go to User Guide](../user-guide/README.md)**
-
-## Optional: Build Many Channels At Once
-
-Instead of creating channels one by one, you can use the setup wizard to auto-build a lineup:
-
-1. Open **Channel Setup**.
-2. In Step 2, keep defaults or tune:
-   - Strategy priorities
-   - Per-library vs mixed scope (experimental, available for some category strategies)
-   - Optional alternate lineups and sequential variants (both default Off)
-3. Use **Expand Lineup** if you want maximum channel volume quickly.
-
-Current setup defaults:
-
-- Max channels: `200`
-- Min items per channel: `5`
