@@ -294,6 +294,8 @@ describe('ChannelSetupPlanningService', () => {
 
     it('counts failed fallback tag recovery time in libraryQueryMs', async () => {
         const performanceNowSpy = jest.spyOn(performance, 'now')
+            .mockReturnValueOnce(10)
+            .mockReturnValueOnce(11)
             .mockReturnValueOnce(100)
             .mockReturnValueOnce(117);
         const plexLibrary = {
@@ -338,7 +340,7 @@ describe('ChannelSetupPlanningService', () => {
         expect(result.plan).toBeNull();
         expect(result.failureReason).toBe('error');
         expect(result.blockedMessage).toContain('count endpoint failed');
-        expect(result.libraryQueryMs).toBe(17);
+        expect(result.libraryQueryMs).toBe(18);
 
         performanceNowSpy.mockRestore();
     });

@@ -142,24 +142,16 @@ export class ChannelSetupPlanningService {
         const normalizedConfig = this.normalizeConfig(config);
         const libraries = await this.getLibrariesForSetup(options?.signal ?? null);
 
-        let snapshot: ChannelSetupFacetSnapshot;
-        try {
-            snapshot = await this._facetSnapshotLoader.loadSnapshot(
-                normalizedConfig,
-                libraries,
-                'build',
-                {
-                    signal: options?.signal ?? null,
-                    requestIntent: getPlexRequestIntentForChannelSetup('build'),
-                    detachFromSignal: true,
-                }
-            );
-        } catch (error) {
-            if (options?.signal?.aborted) {
-                throw error;
+        const snapshot = await this._facetSnapshotLoader.loadSnapshot(
+            normalizedConfig,
+            libraries,
+            'build',
+            {
+                signal: options?.signal ?? null,
+                requestIntent: getPlexRequestIntentForChannelSetup('build'),
+                detachFromSignal: true,
             }
-            throw error;
-        }
+        );
 
         if (snapshot.status !== 'ready') {
             return {

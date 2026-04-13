@@ -92,12 +92,11 @@ const MAX_FACET_LIBRARY_CONCURRENCY = 2;
 const MAX_FACET_COUNT_RECOVERY_CONCURRENCY = 8;
 
 export class ChannelSetupPlanningError extends Error {
-    public readonly code: 'COUNT_UNAVAILABLE';
+    public readonly code: 'COUNT_UNAVAILABLE' = 'COUNT_UNAVAILABLE';
 
     constructor(message: string) {
         super(message);
         this.name = 'ChannelSetupPlanningError';
-        this.code = 'COUNT_UNAVAILABLE';
     }
 }
 
@@ -617,12 +616,12 @@ export class ChannelSetupFacetSnapshotLoader {
             if (config.strategyConfig.playlists.enabled) {
                 reportSnapshotProgress('fetch_playlists', 'Fetching playlists...', 'Scanning server', 0, null);
                 try {
-                    const playlistsStart = Date.now();
+                    const playlistsStart = performance.now();
                     const fetched = await this._deps.plexLibrary.getPlaylists({
                         signal: requestSignal,
                         requestIntent,
                     });
-                    playlistMs += Date.now() - playlistsStart;
+                    playlistMs += performance.now() - playlistsStart;
                     playlists.push(...fetched);
                 } catch (error) {
                     if (callerCanceled()) {
@@ -664,12 +663,12 @@ export class ChannelSetupFacetSnapshotLoader {
                     if (config.strategyConfig.collections.enabled) {
                         reportSnapshotProgress('fetch_collections', 'Fetching collections...', library.title, libIndex, selectedLibraries.length);
                         try {
-                            const collectionsStart = Date.now();
+                            const collectionsStart = performance.now();
                             const collections = await this._deps.plexLibrary.getCollections(library.id, {
                                 signal: requestSignal,
                                 requestIntent,
                             });
-                            collectionsMs += Date.now() - collectionsStart;
+                            collectionsMs += performance.now() - collectionsStart;
                             collectionsByLibraryId.set(library.id, collections);
                         } catch (error) {
                             if (callerCanceled()) {
@@ -719,7 +718,7 @@ export class ChannelSetupFacetSnapshotLoader {
                         if (config.strategyConfig.genres.enabled) {
                             nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
                                 try {
-                                    const tagStart = Date.now();
+                                    const tagStart = performance.now();
                                     let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
                                     const genres = await this._deps.plexLibrary.getGenres(library.id, {
                                         type: genreType,
@@ -730,7 +729,7 @@ export class ChannelSetupFacetSnapshotLoader {
                                             unsupportedReason = reason;
                                         },
                                     });
-                                    libraryQueryMs += Date.now() - tagStart;
+                                    libraryQueryMs += performance.now() - tagStart;
                                     if (unsupportedReason === 'empty') {
                                         genresByLibraryId.set(library.id, genres);
                                         deferEmptyTagDirectoryFailure('genres', 'Genres', library.title, genreType);
@@ -758,7 +757,7 @@ export class ChannelSetupFacetSnapshotLoader {
                         if (config.strategyConfig.directors.enabled) {
                             nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
                                 try {
-                                    const tagStart = Date.now();
+                                    const tagStart = performance.now();
                                     let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
                                     const directors = await this._deps.plexLibrary.getDirectors(library.id, {
                                         type: detailType,
@@ -769,7 +768,7 @@ export class ChannelSetupFacetSnapshotLoader {
                                             unsupportedReason = reason;
                                         },
                                     });
-                                    libraryQueryMs += Date.now() - tagStart;
+                                    libraryQueryMs += performance.now() - tagStart;
                                     if (unsupportedReason === 'empty') {
                                         directorsByLibraryId.set(library.id, directors);
                                         deferEmptyTagDirectoryFailure('directors', 'Directors', library.title, detailType);
@@ -797,7 +796,7 @@ export class ChannelSetupFacetSnapshotLoader {
                         if (config.strategyConfig.decades.enabled) {
                             nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
                                 try {
-                                    const tagStart = Date.now();
+                                    const tagStart = performance.now();
                                     let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
                                     const years = await this._deps.plexLibrary.getYears(library.id, {
                                         type: detailType,
@@ -808,7 +807,7 @@ export class ChannelSetupFacetSnapshotLoader {
                                             unsupportedReason = reason;
                                         },
                                     });
-                                    libraryQueryMs += Date.now() - tagStart;
+                                    libraryQueryMs += performance.now() - tagStart;
                                     if (unsupportedReason === 'empty') {
                                         yearsByLibraryId.set(library.id, years);
                                         deferEmptyTagDirectoryFailure('decades', 'Years', library.title, detailType);
@@ -836,7 +835,7 @@ export class ChannelSetupFacetSnapshotLoader {
                         if (config.strategyConfig.studios.enabled) {
                             nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
                                 try {
-                                    const studiosStart = Date.now();
+                                    const studiosStart = performance.now();
                                     let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
                                     const studios = await this._deps.plexLibrary.getStudios(library.id, {
                                         type: detailType,
@@ -847,7 +846,7 @@ export class ChannelSetupFacetSnapshotLoader {
                                             unsupportedReason = reason;
                                         },
                                     });
-                                    libraryQueryMs += Date.now() - studiosStart;
+                                    libraryQueryMs += performance.now() - studiosStart;
                                     if (unsupportedReason === 'empty') {
                                         studiosByLibraryId.set(library.id, studios);
                                         deferEmptyTagDirectoryFailure('studios', 'Studios', library.title, detailType);
@@ -875,7 +874,7 @@ export class ChannelSetupFacetSnapshotLoader {
                         if (config.strategyConfig.actors.enabled) {
                             nativeFacetTasks.push((async (): Promise<ChannelSetupFacetSnapshot | null> => {
                                 try {
-                                    const actorsStart = Date.now();
+                                    const actorsStart = performance.now();
                                     let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
                                     const actors = await this._deps.plexLibrary.getActors(library.id, {
                                         type: detailType,
@@ -886,7 +885,7 @@ export class ChannelSetupFacetSnapshotLoader {
                                             unsupportedReason = reason;
                                         },
                                     });
-                                    libraryQueryMs += Date.now() - actorsStart;
+                                    libraryQueryMs += performance.now() - actorsStart;
                                     if (unsupportedReason === 'empty') {
                                         actorsByLibraryId.set(library.id, actors);
                                         deferEmptyTagDirectoryFailure('actors', 'Actors', library.title, detailType);
