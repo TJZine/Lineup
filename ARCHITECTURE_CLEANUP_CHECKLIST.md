@@ -11,14 +11,15 @@ This is the correct top-level tracked format for this work. Per `docs/agentic/do
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, and `P1-EXIT` completed on integration-branch evidence
-- Next safe start: `P2-W1`
+- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, and `P2-W2` completed on integration-branch evidence
+- Next safe start: `P2-W3`
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
 - Recent update log:
   - `2026-04-10`: closed `P0-W1`/`P0-W2`/`P0-EXIT`; locked `dist-ts` generated-output exclusion, recorded queue operating rule, ran `desloppify` exit evidence plus `npm run verify:docs`
   - `2026-04-10`: completed `P1-W1` runtime-owner decomposition (root barrel move, selected-server runtime owner extraction, schedule policy owner extraction, app-shell runtime contract narrowing, app config factory extraction), ran full verification + required `desloppify` evidence
   - `2026-04-10`: completed `P1-W2` runtime seam cleanup (explicit event cleanup reporter seam, grouped priority-one runtime seams, coordinator builder extraction), ran full `verify` plus required `desloppify` evidence refresh
   - `2026-04-11`: completed `P1-EXIT` reconciliation (all mapped imported review ids closed, cycle detector residue dispositioned with source-audit proof and final owner, `npm run verify` rerun)
+  - `2026-04-13`: completed `P2-W2` owner-boundary split (state/runtime session owners, facet snapshot loader extraction, typed build scratch owner), ran targeted channel-setup/orchestrator regressions plus `npm run verify`
 
 ## Goal
 
@@ -117,10 +118,10 @@ This is the correct top-level tracked format for this work. Per `docs/agentic/do
 - `src/Orchestrator.ts` at `2,015` lines
 - `src/modules/ui/epg/view/EPGVirtualizer.ts` at `1,912` lines
 - `src/modules/ui/epg/EPGComponent.ts` at `1,796` lines
-- `src/core/channel-setup/ChannelSetupPlanningService.ts` at `1,447` lines
+- `src/core/channel-setup/ChannelSetupPlanningService.ts` at `364` lines
 - `src/modules/plex/library/PlexLibrary.ts` at `1,236` lines
 - `src/modules/plex/stream/PlexStreamResolver.ts` at `1,144` lines
-- `src/modules/ui/channel-setup/ChannelSetupSessionController.ts` at `977` lines
+- `src/modules/ui/channel-setup/ChannelSetupSessionController.ts` at `172` lines
 - `src/modules/plex/auth/PlexAuth.ts` at `921` lines
 - `src/modules/player/PlaybackRecoveryManager.ts` at `896` lines
 - `src/modules/player/SubtitleManager.ts` at `684` lines
@@ -614,7 +615,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
   - `P2-W3` remains the next explicit owner for the remaining error/test/migration cleanup in this area (`review::.::holistic::error_consistency::channel_setup_plain_object_throw`, `review::.::holistic::incomplete_migration::playback_variant_rename_still_leaks_legacy_key`, `review::.::holistic::test_strategy::fastkey_filter_parser_untested`)
 - Handoff: `P2-W1 complete; continue with P2-W2 for owner-boundary and snapshot-loading cleanup`
 
-### [ ] `P2-W2` Split Channel Setup Owner Boundaries And Snapshot Loading
+### [x] `P2-W2` Split Channel Setup Owner Boundaries And Snapshot Loading
 
 **Mapped imported review issues:**
 
@@ -638,6 +639,22 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify show responsibility_cohesion --status open --no-budget --top 50`
 
 **Exit rule:** UI session control, persistence, planning, and build execution have explicit seams and no raw-storage leakage across owners.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-13-p2-w2-channel-setup-owner-boundaries-and-snapshot-loading.md`
+- Last touched: `2026-04-13`
+- Verification:
+  - `npm test -- --runInBand src/core/channel-setup/__tests__/ChannelSetupBuildScratchStore.test.ts src/core/channel-setup/__tests__/ChannelSetupBuildCommitter.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts src/core/channel-setup/__tests__/ChannelSetupRecordStore.test.ts src/core/channel-setup/__tests__/ChannelSetupCoordinator.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/__tests__/Orchestrator.test.ts` passed
+  - `npm run verify` passed
+- Issue dispositions:
+  - `review::.::holistic::cross_module_architecture::channel_setup_raw_storage_seam` -> `resolved` -> owner `P2-W2`; proof: temp build-key lifecycle moved to `ChannelSetupBuildScratchStore`, `ChannelSetupBuildCommitter` consumes typed scratch-store APIs, and `ChannelSetupRecordStore` no longer owns build-scratch cleanup
+  - `review::.::holistic::design_coherence::channel_setup_session_controller_mixed_state_and_io` -> `resolved` -> owner `P2-W2`; proof: `ChannelSetupSessionController` is now a façade over `ChannelSetupSessionState` and `ChannelSetupSessionRuntime`
+  - `review::.::holistic::design_coherence::channel_setup_snapshot_loader_overloaded` -> `resolved` -> owner `P2-W2`; proof: facet snapshot loading moved into `ChannelSetupFacetSnapshotLoader.ts` and remains an internal `ChannelSetupPlanningService` collaborator
+  - `review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur` -> `resolved` -> owner `P2-W2`; proof: storage/planning/ui-session responsibilities now map to explicit owners (`ChannelSetupRecordStore`, `ChannelSetupBuildScratchStore`, `ChannelSetupPlanningService` + internal loader, `ChannelSetupSessionState`, `ChannelSetupSessionRuntime`) with `ChannelSetupWorkflowPort` unchanged
+- Follow-ups:
+  - `P2-W3` remains the next owner for error-consistency/migration/test cleanup only (`channel_setup_plain_object_throw`, `playback_variant_rename_still_leaks_legacy_key`, `fastkey_filter_parser_untested`)
+  - no residual `P2-W2` owner-boundary debt was carried forward because current code did not prove a different final owner
+- Handoff: `P2-W2 complete; continue with P2-W3 for error/migration/test cleanup`
 
 ### [ ] `P2-W3` Normalize Channel Setup Errors, Migration Residue, And Tests
 
