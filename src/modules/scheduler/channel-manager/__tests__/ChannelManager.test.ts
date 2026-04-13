@@ -753,6 +753,40 @@ describe('ChannelManager', () => {
             loadSpy.mockRestore();
         });
 
+        it('strips legacy isSequentialVariant from loaded channels and from exported JSON', async () => {
+            const persistedLegacy = {
+                ...createBaseChannel({
+                    id: 'persisted-legacy',
+                    number: 88,
+                    name: 'Persisted Legacy',
+                }),
+                isSequentialVariant: true,
+            };
+
+            mockStorage[STORAGE_KEY] = JSON.stringify({
+                channels: [persistedLegacy],
+                channelOrder: [persistedLegacy.id],
+                currentChannelId: persistedLegacy.id,
+                savedAt: Date.now(),
+            });
+            mockStorage[CURRENT_CHANNEL_KEY] = persistedLegacy.id;
+
+            await manager.loadChannels();
+            await manager.flushSaves();
+
+            const loaded = manager.getAllChannels();
+            expect(loaded).toHaveLength(1);
+            expect((loaded[0] as unknown as Record<string, unknown>).isSequentialVariant).toBeUndefined();
+
+            const exported = JSON.parse(manager.exportChannels()) as Array<Record<string, unknown>>;
+            expect(exported[0]?.isSequentialVariant).toBeUndefined();
+
+            const persisted = JSON.parse(mockStorage[STORAGE_KEY] ?? '{}') as {
+                channels?: Array<Record<string, unknown>>;
+            };
+            expect(persisted.channels?.[0]?.isSequentialVariant).toBeUndefined();
+        });
+
         it('does not persist when saved current-channel key only changes current', async () => {
             const persistedChannel = createBaseChannel({
                 id: 'persisted-1',

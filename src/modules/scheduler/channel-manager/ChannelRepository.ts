@@ -46,7 +46,12 @@ export class ChannelRepository {
                 didMutate = true;
                 continue;
             }
-            const channel = raw as ChannelConfig;
+            const record = raw as unknown as Record<string, unknown>;
+            if (Object.prototype.hasOwnProperty.call(record, 'isSequentialVariant')) {
+                delete record.isSequentialVariant;
+                didMutate = true;
+            }
+            const channel = record as unknown as ChannelConfig;
             if (typeof channel.id !== 'string' || channel.id.length === 0) {
                 didMutate = true;
                 continue;
