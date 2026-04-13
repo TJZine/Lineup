@@ -12,7 +12,8 @@ This is the correct top-level tracked format for this work. Per `docs/agentic/do
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
 - Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, and `P2-W3` completed on integration-branch evidence
-- Next safe start: `P2-EXIT`
+- Next safe start: `P3-W1`
+- Legacy note: `docs/plans/2026-04-02-p3-w1-channel-setup-workflow-owner.md` predates the `2026-04-10` checklist refresh and is historical planning context, not the active `P3-W1` gate token
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
 - Recent update log:
   - `2026-04-10`: closed `P0-W1`/`P0-W2`/`P0-EXIT`; locked `dist-ts` generated-output exclusion, recorded queue operating rule, ran `desloppify` exit evidence plus `npm run verify:docs`
@@ -682,7 +683,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
   - `npm run verify` passed
 - Issue dispositions:
   - `review::.::holistic::cross_module_architecture::channel_setup_raw_storage_seam` -> `resolved` -> owner `P2-W2`; proof: temp build-key lifecycle moved to `ChannelSetupBuildScratchStore`, `ChannelSetupBuildCommitter` consumes typed scratch-store APIs, and `ChannelSetupRecordStore` no longer owns build-scratch cleanup
-  - `review::.::holistic::design_coherence::channel_setup_session_controller_mixed_state_and_io` -> `resolved` -> owner `P2-W2`; proof: `ChannelSetupSessionController` is now a façade over `ChannelSetupSessionState` and `ChannelSetupSessionRuntime`
+  - `review::.::holistic::design_coherence::channel_setup_session_controller_mixed_state_and_io` -> `resolved` -> owner `P2-W2`; proof: `ChannelSetupSessionController` is now a facade over `ChannelSetupSessionState` and `ChannelSetupSessionRuntime`
   - `review::.::holistic::design_coherence::channel_setup_snapshot_loader_overloaded` -> `resolved` -> owner `P2-W2`; proof: facet snapshot loading moved into `ChannelSetupFacetSnapshotLoader.ts` and remains an internal `ChannelSetupPlanningService` collaborator
   - `review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur` -> `resolved` -> owner `P2-W2`; proof: storage/planning/ui-session responsibilities now map to explicit owners (`ChannelSetupRecordStore`, `ChannelSetupBuildScratchStore`, `ChannelSetupPlanningService` + internal loader, `ChannelSetupSessionState`, `ChannelSetupSessionRuntime`) with `ChannelSetupWorkflowPort` unchanged
 - Follow-ups:
@@ -730,9 +731,9 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
   - `review::.::holistic::incomplete_migration::playback_variant_rename_still_leaks_legacy_key` -> `resolved` -> owner `P2-W3`; proof: `createChannelIdentityKey()` serializes `isPlaybackModeVariant`, import rewrite compatibility was removed, load boundary strips legacy `isSequentialVariant`, save codec strips legacy fields on encode, and `ChannelManager` load/export/save tests prove legacy fields do not survive runtime/exported/persisted channel objects
   - `review::.::holistic::test_strategy::fastkey_filter_parser_untested` -> `resolved on current-code proof` -> owner `P2-W3`; proof: direct `ChannelSetupTagFilters.test.ts` covers parser/fallback/malformed behavior; detector still labels transitive-only after rescan, so `P2-EXIT` must treat this as stale detector wording unless a new live owner is proven
 - Follow-ups:
-  - `P2-EXIT` is now the only remaining Priority 2 gate before any `P3` work
-  - `P2-EXIT` must reconcile the stale `test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only` detector output against the direct test source proof and carry one final owner decision
-- Handoff: `P2-W3 evidence refreshed; run P2-EXIT reconciliation with current-code proof for legacy-strip boundaries + detector mismatch audit before opening any P3 plan`
+  - `P3-W1` is now the next planned Priority 3 gate after the completed Priority 2 exit review
+  - carry the stale `test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only` detector wording into `P3` planning only if a fresh rerun still contradicts the direct test source proof
+- Handoff: `P2 complete on current integration-branch evidence; write the active P3-W1 execution plan before implementation begins`
 
 ## Priority 3: Rebound EPG And UI Package Surfaces
 
