@@ -71,10 +71,15 @@ import {
     EXIT_CONFIRM_FOCUSABLE_IDS,
     EXIT_CONFIRM_MODAL_ID,
 } from '../../modules/ui/exit-confirm';
-import { ChannelSetupCoordinator } from '../channel-setup';
-import type { ChannelSetupConfig } from '../channel-setup';
-import { ChannelSetupPlanningService } from '../channel-setup/ChannelSetupPlanningService';
-import { ChannelSetupRecordStore } from '../channel-setup/ChannelSetupRecordStore';
+import {
+    ChannelSetupBuildCommitter,
+    ChannelSetupBuildExecutor,
+    ChannelSetupCompletionTracker,
+    ChannelSetupCoordinator,
+    ChannelSetupPlanningService,
+    ChannelSetupRecordStore,
+    ChannelSetupWorkflow,
+} from '../channel-setup';
 import { ChannelTuningCoordinator } from '../channel-tuning';
 import type { GuideSelectionSnapshot } from '../channel-tuning';
 import type { OrchestratorCoordinatorBuilderInput } from './OrchestratorCoordinatorContracts';
@@ -132,40 +137,68 @@ export function bindEpgVisibleRangeChange(
         ) ?? input.config.epgConfig;
 }
 
-export function buildChannelSetupCoordinator(
+export interface ChannelSetupOwners {
+    coordinator: ChannelSetupCoordinator;
+    workflow: ChannelSetupWorkflow;
+}
+
+export function buildChannelSetupOwners(
     input: OrchestratorCoordinatorBuilderInput,
     epgCoordinator: EPGCoordinator
-): ChannelSetupCoordinator {
-    const channelSetupPlanningService = new ChannelSetupPlanningService({
-        plexLibrary: input.modules.plexLibrary,
-        channelManager: input.modules.channelManager,
-    });
-
-    return new ChannelSetupCoordinator({
-        recordStore: new ChannelSetupRecordStore({
-            storageGet: (key: string): string | null => safeLocalStorageGet(key),
-            storageSet: (key: string, value: string): void => {
-                safeLocalStorageSet(key, value);
-            },
-            storageRemove: (key: string): void => {
-                safeLocalStorageRemove(key);
-            },
-            normalizeConfig: (config: ChannelSetupConfig): ChannelSetupConfig => channelSetupPlanningService.normalizeConfig(config),
-        }),
-        plexLibrary: input.modules.plexLibrary,
-        channelManager: input.modules.channelManager,
-        navigation: input.modules.navigation,
-        getSelectedServerId: (): string | null => input.schedule.getSelectedServerId(),
+): ChannelSetupOwners {
+    const recordStore = new ChannelSetupRecordStore({
+        storageGet: (key: string): string | null => safeLocalStorageGet(key),
+        storageSet: (key: string, value: string): void => {
+            safeLocalStorageSet(key, value);
+        },
         storageRemove: (key: string): void => {
             safeLocalStorageRemove(key);
         },
-        handleGlobalError: (error: AppError, context: string): void => input.errors.handleGlobalError(error, context),
+    });
+    const planningService = new ChannelSetupPlanningService({
+        plexLibrary: input.modules.plexLibrary,
+        channelManager: input.modules.channelManager,
+    });
+    const buildCommitter = new ChannelSetupBuildCommitter({
+        plexLibrary: input.modules.plexLibrary,
+        channelManager: input.modules.channelManager,
+        storageRemove: (key: string): void => {
+            safeLocalStorageRemove(key);
+        },
         ensureEpgInitialized: (): Promise<void> => input.init.ensureEpgInitialized(),
         clearSelectedChannelScheduleSnapshot: (): void => epgCoordinator.clearSelectedChannelScheduleSnapshot(),
         primeEpgChannels: (): void => epgCoordinator.primeEpgChannels(),
         refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }): Promise<void> =>
             epgCoordinator.refreshEpgSchedules(options),
     });
+    const buildExecutor = new ChannelSetupBuildExecutor({
+        channelManager: input.modules.channelManager,
+        planningService,
+        buildCommitter,
+    });
+    const coordinator = new ChannelSetupCoordinator({
+        recordStore,
+        navigation: input.modules.navigation,
+        getSelectedServerId: (): string | null => input.schedule.getSelectedServerId(),
+        getExistingChannelCount: (): number => input.modules.channelManager.getAllChannels().length,
+    });
+    const completionTracker = new ChannelSetupCompletionTracker({
+        recordStore,
+        clearRerunRequest: (): void => coordinator.clearRerunRequest(),
+    });
+    const workflow = new ChannelSetupWorkflow({
+        planningService,
+        buildExecutor,
+        recordStore,
+        completionTracker,
+        getSelectedServerId: (): string | null => input.schedule.getSelectedServerId(),
+        getExistingChannelCount: (): number => input.modules.channelManager.getAllChannels().length,
+    });
+
+    return {
+        coordinator,
+        workflow,
+    };
 }
 
 export function buildNowPlayingDebugManager(

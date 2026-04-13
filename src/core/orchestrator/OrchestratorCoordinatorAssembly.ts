@@ -5,7 +5,7 @@ import type {
     OrchestratorCoordinators,
 } from './OrchestratorCoordinatorContracts';
 import {
-    buildChannelSetupCoordinator,
+    buildChannelSetupOwners,
     buildChannelTransitionCoordinator,
     buildChannelTuningCoordinator,
     buildEpgCoordinator,
@@ -26,7 +26,7 @@ export function createOrchestratorCoordinators(
     const epgCoordinator = buildEpgCoordinator(input);
     bindEpgVisibleRangeChange(input, epgCoordinator);
 
-    const channelSetup = buildChannelSetupCoordinator(input, epgCoordinator);
+    const channelSetupOwners = buildChannelSetupOwners(input, epgCoordinator);
 
     let nowPlayingInfoCoordinator: NowPlayingInfoCoordinator | null = null;
     const nowPlayingDebugManager = buildNowPlayingDebugManager(
@@ -56,7 +56,7 @@ export function createOrchestratorCoordinators(
     );
     const navigationCoordinator = buildNavigationCoordinator(input, {
         epgCoordinator,
-        channelSetup,
+        channelSetup: channelSetupOwners.coordinator,
         nowPlayingInfoCoordinator,
         playerOsdCoordinator,
         miniGuideCoordinator,
@@ -67,7 +67,8 @@ export function createOrchestratorCoordinators(
 
     return {
         epgCoordinator,
-        channelSetup,
+        channelSetup: channelSetupOwners.coordinator,
+        channelSetupWorkflow: channelSetupOwners.workflow,
         nowPlayingDebugManager,
         nowPlayingInfoCoordinator,
         playerOsdCoordinator,

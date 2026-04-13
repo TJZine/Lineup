@@ -62,7 +62,7 @@ import type { SubtitlePreferencesStore } from '../../modules/settings/SubtitlePr
 import type { ToastInput } from '../../modules/ui/toast/types';
 import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
 import type { ChannelNumberOverlayRuntimePort } from './OverlayPorts';
-import type { ChannelSetupCoordinator } from '../channel-setup';
+import type { ChannelSetupCoordinator, ChannelSetupWorkflow } from '../channel-setup';
 import type { EPGCoordinator } from '../../modules/ui/epg/EPGCoordinator';
 import type { NowPlayingInfoCoordinator } from '../../modules/ui/now-playing-info/NowPlayingInfoCoordinator';
 import type { PlayerOsdCoordinator } from '../../modules/ui/player-osd/PlayerOsdCoordinator';
@@ -159,6 +159,7 @@ export type OrchestratorCoordinatorBuilderInput = OrchestratorCoordinatorFactory
 export interface OrchestratorCoordinators {
     epgCoordinator: EPGCoordinator;
     channelSetup: ChannelSetupCoordinator;
+    channelSetupWorkflow: ChannelSetupWorkflow;
     nowPlayingDebugManager: NowPlayingDebugManager;
     nowPlayingInfoCoordinator: NowPlayingInfoCoordinator;
     playerOsdCoordinator: PlayerOsdCoordinator;
