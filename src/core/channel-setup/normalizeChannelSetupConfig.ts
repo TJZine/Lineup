@@ -56,13 +56,21 @@ export const normalizeChannelSetupConfig = (config: ChannelSetupConfig): Channel
     const minItemsPerChannel = Number.isFinite(config.minItemsPerChannel)
         ? Math.max(1, Math.floor(config.minItemsPerChannel))
         : DEFAULT_MIN_ITEMS_PER_CHANNEL;
-    const buildMode = config.buildMode ?? 'replace';
-    const actorStudioCombineMode = config.actorStudioCombineMode ?? 'separate';
+    const buildMode =
+        config.buildMode === 'append' || config.buildMode === 'merge' || config.buildMode === 'replace'
+            ? config.buildMode
+            : 'replace';
+    const actorStudioCombineMode =
+        config.actorStudioCombineMode === 'combined' || config.actorStudioCombineMode === 'separate'
+            ? config.actorStudioCombineMode
+            : 'separate';
+    const strategySource = (config.strategyConfig ?? {}) as Partial<Record<SetupStrategyKey, SetupStrategyConfig>>;
     const strategyConfig = SETUP_STRATEGY_KEYS.reduce<Record<SetupStrategyKey, SetupStrategyConfig>>((acc, key) => {
-        const candidate = config.strategyConfig[key];
+        const candidate = strategySource[key];
         const enabled = typeof candidate?.enabled === 'boolean' ? candidate.enabled : true;
-        const priority = Number.isFinite(candidate?.priority)
-            ? Math.max(1, Math.floor(Number(candidate.priority)))
+        const rawPriority = candidate?.priority;
+        const priority = Number.isFinite(rawPriority)
+            ? Math.max(1, Math.floor(Number(rawPriority)))
             : DEFAULT_STRATEGY_PRIORITIES[key];
         const scope = MIXED_SCOPE_STRATEGY_KEYS.has(key) && candidate?.scope === 'cross-library'
             ? 'cross-library'

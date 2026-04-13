@@ -10,7 +10,6 @@ import type {
 } from '../../../core/channel-setup/types';
 import {
     DEFAULT_CHANNEL_SETUP_MAX,
-    MAX_CHANNELS,
 } from '../../scheduler/channel-manager/constants';
 import {
     DEFAULT_MIN_ITEMS_PER_CHANNEL,
@@ -18,6 +17,7 @@ import {
     MIXED_SCOPE_STRATEGY_KEYS,
     SETUP_STRATEGY_KEYS,
 } from '../../../core/channel-setup/constants';
+import { normalizeChannelSetupConfig } from '../../../core/channel-setup/normalizeChannelSetupConfig';
 import type { PlexLibraryType } from '../../plex/library';
 import {
     SERIES_BLOCK_PRESETS,
@@ -360,13 +360,14 @@ export class ChannelSetupSessionState {
     }
 
     applySetupRecord(record: ChannelSetupRecord): void {
+        const normalized = normalizeChannelSetupConfig(record);
         const availableIds = new Set(this.libraries.map((lib) => lib.id));
-        const selected = record.selectedLibraryIds.filter((id) => availableIds.has(id));
+        const selected = normalized.selectedLibraryIds.filter((id) => availableIds.has(id));
         this.selectedLibraryIds = new Set(selected.length > 0 ? selected : this.libraries.map((lib) => lib.id));
 
         const defaults = createDefaultStrategyState();
         this.strategies = SETUP_STRATEGY_KEYS.reduce<SetupStrategyState>((acc, key) => {
-            const configured = record.strategyConfig[key];
+            const configured = normalized.strategyConfig[key];
             acc[key] = {
                 enabled: configured?.enabled ?? defaults[key].enabled,
                 scope: strategySupportsMixedScope(key) && configured?.scope === 'cross-library' ? 'cross-library' : 'per-library',
@@ -375,11 +376,11 @@ export class ChannelSetupSessionState {
         }, createDefaultStrategyState());
 
         const sortedByPriority = [...SETUP_STRATEGY_KEYS].sort((a, b) => {
-            const aPriority = Number.isFinite(record.strategyConfig[a]?.priority)
-                ? Math.max(1, Math.floor(Number(record.strategyConfig[a]?.priority)))
+            const aPriority = Number.isFinite(normalized.strategyConfig[a]?.priority)
+                ? Math.max(1, Math.floor(Number(normalized.strategyConfig[a]?.priority)))
                 : DEFAULT_STRATEGY_PRIORITIES[a];
-            const bPriority = Number.isFinite(record.strategyConfig[b]?.priority)
-                ? Math.max(1, Math.floor(Number(record.strategyConfig[b]?.priority)))
+            const bPriority = Number.isFinite(normalized.strategyConfig[b]?.priority)
+                ? Math.max(1, Math.floor(Number(normalized.strategyConfig[b]?.priority)))
                 : DEFAULT_STRATEGY_PRIORITIES[b];
             const diff = aPriority - bPriority;
             if (diff !== 0) {
@@ -390,41 +391,21 @@ export class ChannelSetupSessionState {
         this.strategyOrder = sortedByPriority;
 
         this.channelExpansion = {
-            addAlternateLineups: record.channelExpansion?.addAlternateLineups === true,
-            alternateLineupCopies: Number.isFinite(record.channelExpansion?.alternateLineupCopies)
-                ? Math.min(3, Math.max(1, Math.floor(Number(record.channelExpansion?.alternateLineupCopies))))
-                : 1,
-            variantType:
-                record.channelExpansion?.variantType === 'sequential' || record.channelExpansion?.variantType === 'block'
-                    ? record.channelExpansion.variantType
-                    : 'none',
-            variantBlockSize: clampSeriesBlockPreset(record.channelExpansion?.variantBlockSize),
+            addAlternateLineups: normalized.channelExpansion?.addAlternateLineups === true,
+            alternateLineupCopies: normalized.channelExpansion?.alternateLineupCopies ?? 1,
+            variantType: normalized.channelExpansion?.variantType ?? 'none',
+            variantBlockSize: clampSeriesBlockPreset(normalized.channelExpansion?.variantBlockSize),
         };
 
         this.seriesOrdering = {
-            basePlaybackMode:
-                record.seriesOrdering?.basePlaybackMode === 'sequential' || record.seriesOrdering?.basePlaybackMode === 'block'
-                    ? record.seriesOrdering.basePlaybackMode
-                    : 'shuffle',
-            baseBlockSize: clampSeriesBlockPreset(record.seriesOrdering?.baseBlockSize),
+            basePlaybackMode: normalized.seriesOrdering?.basePlaybackMode ?? 'shuffle',
+            baseBlockSize: clampSeriesBlockPreset(normalized.seriesOrdering?.baseBlockSize),
         };
 
-        const maxChannels = Number(record.maxChannels);
-        this.maxChannels = Number.isFinite(maxChannels)
-            ? Math.min(MAX_CHANNELS, Math.max(1, Math.floor(maxChannels)))
-            : DEFAULT_CHANNEL_SETUP_MAX;
-        const minItems = Number(record.minItemsPerChannel);
-        this.minItems = Number.isFinite(minItems)
-            ? Math.max(1, Math.floor(minItems))
-            : DEFAULT_MIN_ITEMS_PER_CHANNEL;
-        this.buildMode =
-            record.buildMode === 'append' || record.buildMode === 'merge' || record.buildMode === 'replace'
-                ? record.buildMode
-                : 'replace';
-        this.actorStudioCombineMode =
-            record.actorStudioCombineMode === 'combined' || record.actorStudioCombineMode === 'separate'
-                ? record.actorStudioCombineMode
-                : 'separate';
+        this.maxChannels = normalized.maxChannels;
+        this.minItems = normalized.minItemsPerChannel;
+        this.buildMode = normalized.buildMode;
+        this.actorStudioCombineMode = normalized.actorStudioCombineMode;
         this.preview = null;
         this.previewError = null;
         this.lastPreviewKey = null;
