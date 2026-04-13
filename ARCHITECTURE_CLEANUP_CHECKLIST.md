@@ -570,7 +570,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 ## Priority 2: Rebuild Channel Setup Around Explicit Owners And Contracts
 
-### [ ] `P2-W1` Remove Wrapper Duplication And Planning-Service Misuse
+### [x] `P2-W1` Remove Wrapper Duplication And Planning-Service Misuse
 
 **Mapped imported review issues:**
 
@@ -591,6 +591,28 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify show src/core/orchestrator --status open --no-budget --top 100`
 
 **Exit rule:** channel setup no longer uses duplicate forwarders or heavyweight services where narrow pure helpers are enough.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-13-p2-w1-channel-setup-workflow-contract-and-normalization.md`
+- Last touched: `2026-04-13`
+- Verification:
+  - `npm test -- --runInBand src/core/channel-setup/__tests__/ChannelSetupWorkflow.test.ts src/core/channel-setup/__tests__/ChannelSetupCompletionTracker.test.ts src/core/channel-setup/__tests__/ChannelSetupCoordinator.test.ts src/core/channel-setup/__tests__/ChannelSetupRecordStore.test.ts src/core/channel-setup/__tests__/createChannelSetupWorkflowPort.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts src/__tests__/Orchestrator.test.ts` passed
+  - `npm run verify` passed
+  - `desloppify scan --path .` completed on integration branch; scan reported `security: clean`, `overall 83.2 / strict 83.2 / objective 95.2 / verified 95.2`, and `+2 new / -20 resolved`
+  - `desloppify show "review::.::holistic::abstraction_fitness::channel_setup_wrapper_chain" --status open --no-budget --top 20` returned no open issues
+  - `desloppify show "review::.::holistic::abstraction_fitness::planning_service_used_as_normalizer" --status open --no-budget --top 20` returned no open issues
+  - `desloppify show "review::.::holistic::mid_level_elegance::channel_setup_port_mixed_absence_contract" --status open --no-budget --top 20` returned no open issues
+  - `desloppify show src/core/channel-setup --status open --no-budget --top 150` still reports live non-`P2-W1` residue in `ChannelSetupBuildCommitter.ts`, `ChannelSetupBuildExecutor.ts`, `ChannelSetupTagFilters.ts`, `ChannelSetupPlanningService.ts`, and `ChannelSetupPlanner.ts`
+  - `desloppify show src/core/orchestrator --status open --no-budget --top 100` still reports broader orchestrator-family residue, including legacy/stale cycle and factory smell detector output unrelated to the resolved `P2-W1` contract slice
+- Issue dispositions:
+  - `review::.::holistic::abstraction_fitness::channel_setup_wrapper_chain` -> `resolved` -> owner `P2-W1`; proof: `createChannelSetupWorkflowPort` now forwards workflow operations through `ChannelSetupWorkflow`, `ChannelSetupWorkflow.createChannelsFromSetup()` stays build-only, `markSetupComplete()` stays explicit, and `ChannelSetupCoordinator` is narrowed to rerun / should-run / cleanup duties
+  - `review::.::holistic::abstraction_fitness::planning_service_used_as_normalizer` -> `resolved` -> owner `P2-W1`; proof: config normalization now lives in `src/core/channel-setup/normalizeChannelSetupConfig.ts` and is reused by `ChannelSetupBuildExecutor`, `ChannelSetupPlanningService`, and `ChannelSetupRecordStore`
+  - `review::.::holistic::mid_level_elegance::channel_setup_port_mixed_absence_contract` -> `resolved` -> owner `P2-W1`; proof: `createChannelSetupWorkflowPort` now throws one consistent initialization error for operational methods while preserving total query reads for diagnostics/UI callers
+- Follow-ups:
+  - current-code correction for the stale primary-file note: the former `src/core/orchestrator/OrchestratorCoordinatorFactory.ts` assembly reference is no longer the active seam for this cleanup; the shared channel-setup assembly now lives across `src/core/orchestrator/OrchestratorCoordinatorBuilders.ts`, `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts`, `src/core/orchestrator/OrchestratorCoordinatorContracts.ts`, and `src/core/orchestrator/AppOrchestrator.ts`
+  - `P2-W2` remains the next explicit owner for the remaining owner-boundary/runtime seams in this area (`review::.::holistic::cross_module_architecture::channel_setup_raw_storage_seam`, `review::.::holistic::design_coherence::channel_setup_session_controller_mixed_state_and_io`, `review::.::holistic::design_coherence::channel_setup_snapshot_loader_overloaded`, `review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur`)
+  - `P2-W3` remains the next explicit owner for the remaining error/test/migration cleanup in this area (`review::.::holistic::error_consistency::channel_setup_plain_object_throw`, `review::.::holistic::incomplete_migration::playback_variant_rename_still_leaks_legacy_key`, `review::.::holistic::test_strategy::fastkey_filter_parser_untested`)
+- Handoff: `P2-W1 complete; continue with P2-W2 for owner-boundary and snapshot-loading cleanup`
 
 ### [ ] `P2-W2` Split Channel Setup Owner Boundaries And Snapshot Loading
 
