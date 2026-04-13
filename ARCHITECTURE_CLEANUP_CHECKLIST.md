@@ -11,7 +11,7 @@ This is the correct top-level tracked format for this work. Per `docs/agentic/do
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, and `P2-W3` completed on integration-branch evidence
+- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, and `P2-EXIT` completed on integration-branch evidence
 - Next safe start: `P3-W1`
 - Legacy note: `docs/plans/2026-04-02-p3-w1-channel-setup-workflow-owner.md` predates the `2026-04-10` checklist refresh and is historical planning context, not the active `P3-W1` gate token
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
@@ -725,7 +725,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
   - `rg -n "isSequentialVariant|throw \\{" src/core/channel-setup src/modules/scheduler/channel-manager --glob '!dist-ts'` now shows `isSequentialVariant` only in explicit legacy-strip helpers (`ChannelRepository`, `ChannelManager`, `StoredChannelDataCodec`) plus tests; no compatibility migration/rewrite branch remains and no implementation raw `throw {` residue
   - `desloppify scan --profile ci --skip-slow` reran integration-branch detector state before reconciliation
   - `desloppify show review --status open --no-budget --top 100` returned `No open issues matching: review`; detector review-id silence treated as supporting-only evidence
-  - `desloppify show src/core/channel-setup/ChannelSetupTagFilters.ts --status open --no-budget --top 50` and `desloppify show test_coverage --status open --no-budget --top 100` still report `test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only` despite the new direct test file; recorded as detector/source mismatch to reconcile in `P2-EXIT`
+- `desloppify show src/core/channel-setup/ChannelSetupTagFilters.ts --status open --no-budget --top 50` and `desloppify show test_coverage --status open --no-budget --top 100` still report `test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only` despite the new direct test file; that detector/source mismatch was reconciled in `P2-EXIT` and should only be carried forward if a fresh rerun still contradicts the direct source proof
 - Issue dispositions:
   - `review::.::holistic::error_consistency::channel_setup_plain_object_throw` -> `resolved` -> owner `P2-W3`; proof: `ChannelSetupFacetSnapshotLoader` now throws `ChannelSetupPlanningError` via `assertRecoveredTagCount`, boundary-local `ChannelSetupFacetSnapshotLoader.test.ts` asserts typed discriminator, and raw object throw source-audit is clear
   - `review::.::holistic::incomplete_migration::playback_variant_rename_still_leaks_legacy_key` -> `resolved` -> owner `P2-W3`; proof: `createChannelIdentityKey()` serializes `isPlaybackModeVariant`, import rewrite compatibility was removed, load boundary strips legacy `isSequentialVariant`, save codec strips legacy fields on encode, and `ChannelManager` load/export/save tests prove legacy fields do not survive runtime/exported/persisted channel objects
