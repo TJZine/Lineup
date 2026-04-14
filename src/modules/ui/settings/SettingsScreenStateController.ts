@@ -1,7 +1,7 @@
 import { DEFAULT_THEME, THEME_OPTIONS } from '../theme';
 import type { GuideSettingChange, SettingsCategoryConfig } from './types';
 import { SettingsStore } from './SettingsStore';
-import { ThemeManager } from '../theme';
+import type { ThemeName } from '../theme';
 import type { SubtitleMode } from '../../../shared/subtitle-mode';
 import { dispatchDebugLoggingChanged } from '../../../config/events';
 import { TRANSCODE_QUALITY_OPTIONS } from '../../../config/transcodeQuality';
@@ -45,6 +45,8 @@ export interface SettingsScreenStateControllerOptions {
     onSubtitleModeChange?: (mode: SubtitleMode) => void;
     onGuideSettingChange?: (change: GuideSettingChange) => void;
     onStateInvalidated?: () => void;
+    getTheme?: () => ThemeName;
+    setTheme?: (theme: ThemeName) => void;
 }
 
 export class SettingsScreenStateController {
@@ -52,12 +54,16 @@ export class SettingsScreenStateController {
     private readonly _onSubtitleModeChange: ((mode: SubtitleMode) => void) | null;
     private readonly _onGuideSettingChange: ((change: GuideSettingChange) => void) | null;
     private readonly _onStateInvalidated: (() => void) | null;
+    private readonly _getTheme: () => ThemeName;
+    private readonly _setTheme: (theme: ThemeName) => void;
 
     public constructor(options: SettingsScreenStateControllerOptions = {}) {
         this._settingsStore = options.settingsStore ?? new SettingsStore();
         this._onSubtitleModeChange = options.onSubtitleModeChange ?? null;
         this._onGuideSettingChange = options.onGuideSettingChange ?? null;
         this._onStateInvalidated = options.onStateInvalidated ?? null;
+        this._getTheme = options.getTheme ?? ((): ThemeName => DEFAULT_THEME);
+        this._setTheme = options.setTheme ?? ((_: ThemeName): void => undefined);
     }
 
     public getCategories(): SettingsCategoryConfig[] {
@@ -283,13 +289,13 @@ export class SettingsScreenStateController {
                     id: 'settings-theme',
                     label: 'Theme',
                     description: 'Visual style of the application',
-                    value: this._getThemeIndex(ThemeManager.getInstance().getTheme()),
+                    value: this._getThemeIndex(this._getTheme()),
                     options: THEME_OPTIONS.map((option, index) => ({
                         label: option.label,
                         value: index,
                     })),
                     onChange: (value: number): void => {
-                        ThemeManager.getInstance().setTheme(THEME_OPTIONS[value]?.theme ?? DEFAULT_THEME);
+                        this._setTheme(THEME_OPTIONS[value]?.theme ?? DEFAULT_THEME);
                     },
                 },
                 {

@@ -29,9 +29,9 @@ import {
 import { AppDiagnosticsSurface } from './core/app-shell/AppDiagnosticsSurface';
 import { createAppOrchestratorConfig } from './core/app-shell/AppOrchestratorConfigFactory';
 import { AppToastPresenter } from './core/app-shell/AppToastPresenter';
+import { AppThemeController } from './core/app-shell/AppThemeController';
 import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
 import { SplashScreen } from './modules/ui/splash';
-import { ThemeManager } from './modules/ui/theme';
 import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';
 import type { ChannelSetupConfig } from './core/channel-setup/types';
 import { summarizeErrorForLog } from './utils/errors';
@@ -83,6 +83,7 @@ export class App {
     private _lazyScreenRegistry: AppLazyScreenRegistry | null = null;
     private _screenVisibilityCoordinator: AppScreenVisibilityCoordinator | null = null;
     private _splashScreen: SplashScreen | null = null;
+    private _themeController: AppThemeController | null = null;
     private _screenUnsubscribe: (() => void) | null = null;
     private _phaseUnsubscribe: (() => void) | null = null;
 
@@ -91,7 +92,8 @@ export class App {
      */
     async start(): Promise<void> {
         try {
-            ThemeManager.getInstance();
+            this._themeController = new AppThemeController();
+            this._themeController.initialize();
 
             // Create root containers
             const containerRefs = this._createContainers();
@@ -212,6 +214,7 @@ export class App {
         this._lazyScreenRegistry?.destroy();
         this._lazyScreenRegistry = null;
         this._screenVisibilityCoordinator = null;
+        this._themeController = null;
         this._diagnosticsSurface.dispose();
         const orchestrator = this._orchestrator;
         if (orchestrator) {
@@ -255,13 +258,29 @@ export class App {
         if (!this._orchestrator) {
             return;
         }
+        const themeController = this._themeController;
+        if (!themeController) {
+            return;
+        }
         const lazyScreenPortFactory = new AppLazyScreenPortFactory({
             getNavigationRuntime: (): AppShellNavigationRuntimePort | null => this._orchestrator,
             getAuthRuntime: (): AppShellAuthRuntimePort | null => this._orchestrator,
             getProfileRuntime: (): AppShellProfileRuntimePort | null => this._orchestrator,
             getServerSelectionRuntime: (): AppShellServerSelectionRuntimePort | null => this._orchestrator,
             getChannelSetupRuntime: (): AppShellChannelSetupRuntimePort | null => this._orchestrator,
-            getSettingsRuntime: (): AppShellSettingsRuntimePort | null => this._orchestrator,
+            getSettingsRuntime: (): AppShellSettingsRuntimePort | null => {
+                const runtime = this._orchestrator;
+                if (!runtime) {
+                    return null;
+                }
+                return {
+                    setSubtitleTrack: (trackId) => runtime.setSubtitleTrack(trackId),
+                    onGuideSettingChange: (change) => runtime.onGuideSettingChange(change),
+                    getActiveUsername: () => runtime.getActiveUsername(),
+                    getTheme: () => themeController.getTheme(),
+                    setTheme: (theme) => themeController.setTheme(theme),
+                };
+            },
         });
         this._splashScreen = new SplashScreen(containerRefs.splashContainer);
         this._lazyScreenRegistry = new AppLazyScreenRegistry({
