@@ -11,8 +11,8 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, and `P4-W1` completed on integration-branch evidence
-- Next safe start: `P4-W2`
+- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, and `P4-W2` completed on integration-branch evidence
+- Next safe start: `P4-EXIT`
 - Legacy note: `docs/plans/2026-04-02-p3-w1-channel-setup-workflow-owner.md` predates the `2026-04-10` checklist refresh and is historical planning context, not the active `P3-W1` gate token
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
 - Recent update log:
@@ -24,6 +24,7 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
   - `2026-04-13`: completed `P2-W3` error/migration/test closure (typed `ChannelSetupPlanningError` boundary proof, canonical playback variant key cleanup, direct tag-filter tests), ran targeted P2-W3 suites + `npm run verify` + source-audit and detector reconciliation commands
   - `2026-04-14`: completed `P3-W2`/`P3-EXIT` EPG package-shape closeout (canonical public `EPG` naming, `EPGRefreshController` routed through `./runtime`, root-vs-runtime owner audit preserved), ran focused EPG regressions, `npm run verify`, `npm run verify:docs`, and refreshed `desloppify` scan evidence
   - `2026-04-14`: completed `P4-W1` lifecycle/navigation contract ceremony closeout (`IAppLifecycle` narrowed to runtime seam, lifecycle-only collaborator ceremony removed, navigation hidden store reads removed, server-select param seam narrowed with explicit no-param reset semantics), ran targeted lifecycle/navigation regressions, `npm run verify`, source-audit `rg` proofs, and refreshed `desloppify` evidence
+  - `2026-04-14`: completed `P4-W2` startup/theme seam closeout (`AppThemeController` now owns runtime theme state and app-shell settings theme callbacks, startup UI initializer moved to `src/core/app-shell/AppStartupUiInitializer.ts`, `InitializationCoordinator` now depends on a narrow startup-UI port, and core barrel imports no longer route `InitializationCoordinator`), ran targeted startup/theme suites, `npm run verify`, `npm run verify:docs`, and refreshed `desloppify` scan evidence
 
 ## Goal
 
@@ -927,7 +928,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
   - non-mapped residual smells remain for later mechanical burn-down under `P10-W1`: `smells::src/modules/lifecycle/AppLifecycle.ts::hardcoded_url`, `smells::src/modules/navigation/NavigationCoordinator.ts::console_error_no_throw`, and `smells::src/modules/navigation/NavigationCoordinator.ts::async_no_await`
 - Handoff: `P4-W2` is now the next safe start for startup/theme seam cleanup
 
-### [ ] `P4-W2` Move Startup And Theme State Into App-Owned Seams
+### [x] `P4-W2` Move Startup And Theme State Into App-Owned Seams
 
 **Mapped imported review issues:**
 
@@ -950,6 +951,24 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify show test_coverage --status open --no-budget --top 100`
 
 **Exit rule:** startup UI initialization and theme state are app-owned and directly testable, not hidden behind global singletons or catch-all `core` buckets.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-14-p4-w2-startup-theme-app-owned-seams.md`
+- Last touched: `2026-04-14`
+- Verification:
+  - `npm test -- src/core/app-shell/__tests__/AppThemeController.test.ts src/modules/ui/settings/__tests__/SettingsScreenStateController.test.ts src/modules/ui/settings/__tests__/SettingsScreen.test.ts src/__tests__/App.test.ts` passed
+  - `npm test -- src/core/app-shell/__tests__/AppStartupUiInitializer.test.ts src/core/__tests__/InitializationCoordinator.test.ts src/__tests__/Orchestrator.test.ts` passed
+  - `rg -n "from '../core'|from '..'" src/__tests__/Orchestrator.test.ts src/__tests__/orchestrator src/core/orchestrator/AppOrchestrator.ts` returned no matches
+  - `rg -n "ThemeManager|getInstance\(" src/App.ts src/core src/modules/ui/settings src/__tests__` returned no matches
+  - `desloppify show src/core/initialization --status open --no-budget --top 100` now reports only non-slice `InitializationStartupPolicy` smells; `InitializationUiInitializer` residue is gone after `desloppify scan --path .`
+  - `desloppify show src/core --status open --no-budget --top 100` reports broader non-slice residual core debt only
+  - `desloppify show test_coverage --status open --no-budget --top 100` no longer reports `test_coverage::src/core/initialization/InitializationUiInitializer.ts::transitive_only`
+  - `npm run verify` passed
+  - `npm run verify:docs` passed
+- Follow-ups:
+  - mapped imported issue ids were silent on refresh before/after implementation; closure is based on current-source proof plus direct tests and refreshed detector evidence for the moved seams
+  - no new `P4-W2` split follow-up ids; remaining core/test-coverage detector issues are outside this slice and remain owned by later checklist priorities (`P4-EXIT`/`P10-W1`)
+- Handoff: run `P4-EXIT` priority-exit reconciliation before any `P5` planning or implementation
 
 ## Priority 5: Unify Storage And Settings Contracts
 

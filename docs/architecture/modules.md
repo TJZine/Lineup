@@ -25,6 +25,19 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - startup sequencing collaborator between app shell and orchestrator
 
+### `src/core/app-shell/AppThemeController.ts`
+
+- app-shell runtime owner for active theme state
+- owns startup theme initialization and runtime theme updates
+- composes Settings theme callbacks into app-shell runtime screen ports
+- delegates persistence reads/writes to `src/modules/settings/ThemePreferencesStore.ts`
+
+### `src/core/app-shell/AppStartupUiInitializer.ts`
+
+- app-shell startup UI initializer owner
+- initializes now-playing-info, playback-options, and exit-confirm overlays during startup
+- consumed through a narrow startup-UI port by `src/core/InitializationCoordinator.ts`
+
 ### `src/core/`
 
 - core collaborators layer used by orchestration and startup paths
@@ -250,8 +263,9 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/modules/ui/splash/`
 - `src/modules/ui/toast/`
 - `src/modules/ui/theme/`
-- `src/modules/ui/theme/` is the public owner of theme runtime behavior and theme metadata (`ThemeName`, `DEFAULT_THEME`, `THEME_CLASSES`, `THEME_OPTIONS`)
-- `src/modules/ui/settings/` consumes theme metadata from `src/modules/ui/theme/` and should not act as a second public owner for those definitions
+- `src/modules/ui/theme/` is the public owner of theme metadata (`ThemeName`, `DEFAULT_THEME`, `THEME_CLASSES`, `THEME_OPTIONS`)
+- runtime theme state/control is app-shell-owned by `src/core/app-shell/AppThemeController.ts`
+- `src/modules/ui/settings/` consumes theme metadata plus app-composed runtime callbacks and should not act as a second public owner for those definitions
 - `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/` remain the staged EPG package owners introduced by `P2-W4`
 
 ## Current Hotspot Reference
