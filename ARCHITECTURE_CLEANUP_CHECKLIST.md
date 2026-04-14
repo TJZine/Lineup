@@ -11,8 +11,8 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, and `P3-EXIT` completed on integration-branch evidence
-- Next safe start: `P4-W1`
+- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, and `P4-W1` completed on integration-branch evidence
+- Next safe start: `P4-W2`
 - Legacy note: `docs/plans/2026-04-02-p3-w1-channel-setup-workflow-owner.md` predates the `2026-04-10` checklist refresh and is historical planning context, not the active `P3-W1` gate token
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
 - Recent update log:
@@ -23,6 +23,7 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
   - `2026-04-13`: completed `P2-W2` owner-boundary split (state/runtime session owners, facet snapshot loader extraction, typed build scratch owner), ran targeted channel-setup/orchestrator regressions plus `npm run verify`
   - `2026-04-13`: completed `P2-W3` error/migration/test closure (typed `ChannelSetupPlanningError` boundary proof, canonical playback variant key cleanup, direct tag-filter tests), ran targeted P2-W3 suites + `npm run verify` + source-audit and detector reconciliation commands
   - `2026-04-14`: completed `P3-W2`/`P3-EXIT` EPG package-shape closeout (canonical public `EPG` naming, `EPGRefreshController` routed through `./runtime`, root-vs-runtime owner audit preserved), ran focused EPG regressions, `npm run verify`, `npm run verify:docs`, and refreshed `desloppify` scan evidence
+  - `2026-04-14`: completed `P4-W1` lifecycle/navigation contract ceremony closeout (`IAppLifecycle` narrowed to runtime seam, lifecycle-only collaborator ceremony removed, navigation hidden store reads removed, server-select param seam narrowed with explicit no-param reset semantics), ran targeted lifecycle/navigation regressions, `npm run verify`, source-audit `rg` proofs, and refreshed `desloppify` evidence
 
 ## Goal
 
@@ -870,7 +871,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 ## Priority 4: Simplify Lifecycle, Navigation, Initialization, And App-Owned Startup Seams
 
-### [ ] `P4-W1` Collapse Ceremony Around Lifecycle And Navigation Contracts
+### [x] `P4-W1` Collapse Ceremony Around Lifecycle And Navigation Contracts
 
 **Mapped imported review issues:**
 
@@ -897,6 +898,34 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify show responsibility_cohesion --status open --no-budget --top 50`
 
 **Exit rule:** lifecycle and navigation surfaces only keep abstractions that buy real polymorphism or ownership clarity.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-14-p4-w1-lifecycle-navigation-contract-ceremony.md`
+- Last touched: `2026-04-14`
+- Verification:
+  - `npm test -- src/modules/lifecycle/__tests__/StateManager.test.ts src/modules/lifecycle/__tests__/ErrorRecovery.test.ts src/modules/lifecycle/__tests__/AppLifecycle.test.ts src/__tests__/Orchestrator.test.ts` passed
+  - `npm test -- src/modules/navigation/__tests__/NavigationManager.test.ts src/modules/navigation/__tests__/NavigationCoordinator.test.ts src/core/app-shell/__tests__/AppScreenVisibilityCoordinator.test.ts src/core/initialization/__tests__/InitializationStartupPolicy.test.ts src/__tests__/App.test.ts src/__tests__/Orchestrator.test.ts` passed
+  - `npm run verify` passed
+  - `rg -n "new (DeveloperSettingsStore|ProfileSessionStore)" src/modules/navigation` returned no matches
+  - `rg -n "getScreenParams\(" src/App.ts src/core/app-shell/AppScreenVisibilityCoordinator.ts src/modules/navigation` returned no matches
+  - `rg -n "Record<string, unknown>" src/modules/navigation/interfaces.ts src/modules/navigation/NavigationManager.ts src/core/app-shell/AppScreenVisibilityCoordinator.ts` returned one interfaces-only comment match and no live generic runtime seam usage
+  - `rg -n "goTo\('server-select', \{ allowAutoConnect:" src/core/orchestrator/AppOrchestrator.ts src/modules/navigation/NavigationCoordinator.ts` returned explicit typed server-select route usage only
+  - `rg -n "goTo\('server-select'\)" src/core/orchestrator/AppOrchestrator.ts src/core/initialization/InitializationStartupPolicy.ts` returned intentional no-param recovery/startup reset routes only
+  - `rg -n "getServerSelectParams\(" src/App.ts src/core/app-shell/AppScreenVisibilityCoordinator.ts src/modules/navigation` returned the focused server-select seam only
+  - `rg -n "IStateManager|IErrorRecovery|getErrorRecovery\(" src/modules/lifecycle src/core/orchestrator/AppOrchestrator.ts` returned no production matches
+  - `desloppify scan --path .` completed successfully
+  - `desloppify show "review::.::holistic::abstraction_fitness::lifecycle_single_impl_interfaces" --status open --no-budget` returned no open issues
+  - `desloppify show "review::.::holistic::logic_clarity::redundant_async_forwarders" --status open --no-budget` returned no open issues
+  - `desloppify show "review::.::holistic::logic_clarity::predicate_ladders_obscure_intent" --status open --no-budget` returned no open issues
+  - `desloppify show "review::.::holistic::mid_level_elegance::navigation_hidden_store_reads" --status open --no-budget` returned no open issues
+  - `desloppify show "review::.::holistic::type_safety::generic_navigation_param_bag" --status open --no-budget` returned no open issues
+  - `desloppify show src/modules/lifecycle --status open --no-budget --top 100` shows only non-slice `smells::src/modules/lifecycle/AppLifecycle.ts::hardcoded_url`
+  - `desloppify show src/modules/navigation --status open --no-budget --top 150` shows only non-slice `smells::src/modules/navigation/NavigationCoordinator.ts::console_error_no_throw` and `smells::src/modules/navigation/NavigationCoordinator.ts::async_no_await`
+  - `desloppify show responsibility_cohesion --status open --no-budget --top 50` returned no open issues
+- Follow-ups:
+  - mapped imported issue ids were already silent before implementation; closeout is based on current-source proof plus refreshed detector evidence, and all mapped `P4-W1` ids are resolved
+  - non-mapped residual smells remain for later mechanical burn-down under `P10-W1`: `smells::src/modules/lifecycle/AppLifecycle.ts::hardcoded_url`, `smells::src/modules/navigation/NavigationCoordinator.ts::console_error_no_throw`, and `smells::src/modules/navigation/NavigationCoordinator.ts::async_no_await`
+- Handoff: `P4-W2` is now the next safe start for startup/theme seam cleanup
 
 ### [ ] `P4-W2` Move Startup And Theme State Into App-Owned Seams
 
