@@ -6,7 +6,7 @@
 
 This document is the active cleanup queue for the current repo-wide `desloppify` backlog.
 
-This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles`](./docs/AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles), `ARCHITECTURE_CLEANUP_CHECKLIST.md` is the authoritative active backlog and live-status surface, while `docs/plans/*` remains task-scoped execution memory. Every `P#-W#` below must still get its own execution-grade plan file before code changes begin.
+This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles`](./docs/AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles), `ARCHITECTURE_CLEANUP_CHECKLIST.md` is the authoritative active backlog and live-status surface, while `docs/plans/*` remains task-scoped execution memory. Every `P#-W#` below must still have an execution-grade plan before code changes begin, but that plan is local by default and should only be tracked when durable handoff memory is explicitly needed.
 
 ## Fresh-Session Handoff
 
@@ -39,7 +39,7 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
 ## How To Use This
 
 - Treat this file as the repo-level cleanup control plane for the current run.
-- Before implementation begins for any `P#-W#`, write a companion tracked plan in `docs/plans/YYYY-MM-DD-<topic>.md` using the plan-authoring standard.
+- Before implementation begins for any `P#-W#`, create an execution-grade plan using the plan-authoring standard. Keep it local by default, and only promote it into `docs/plans/YYYY-MM-DD-<topic>.md` when the slice needs durable tracked handoff memory.
 - Work top-down unless a `P0` trust issue blocks the rest of the queue.
 - Keep one explicit final owner per imported review issue envelope.
 - For imported review issues, use the exact issue ids mapped below.

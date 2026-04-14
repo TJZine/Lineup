@@ -33,7 +33,8 @@ The skill layout and workflow in this repo are based on a small set of recurring
 - Repo-specific skills should stay local to this repo unless they become broadly reusable enough to justify promotion to a global skill home.
 - The broader document/control-plane structure is defined in [`docs/AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles`](../AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles).
 - Keep the repo-defined role set conservative: read-only evidence/review/docs/monitor roles plus a bounded `worker` role, with explicit fallback roles instead of assumed automatic failover.
-- Stable policy doc: `agents.md`
+- Stable entrypoint doc: `AGENTS.md`
+- Stable workflow doc: `docs/AGENTIC_DEV_WORKFLOW.md`
 
 ## Current Skill Inventory
 

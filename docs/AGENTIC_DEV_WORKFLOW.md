@@ -2,10 +2,12 @@
 
 This is the operating runbook for agent-driven development in Lineup.
 
-## Read Order
+## Launcher Load Order
 
-1. [`agents.md`](../agents.md)
-2. this file
+Read these in this order when bootstrapping a fresh session. This is the bootstrap/load sequence, not a second precedence ladder.
+
+1. this file
+2. [`agents.md`](../agents.md)
 3. [`docs/agentic/codanna-playbook.md`](./agentic/codanna-playbook.md) when you need Codanna query shaping or fallback rules
 4. [`docs/agentic/session-prompts/README.md`](./agentic/session-prompts/README.md) when you need tracked launcher routing or invocation rules
 5. [`docs/architecture/CURRENT_STATE.md`](./architecture/CURRENT_STATE.md) for current architecture claims

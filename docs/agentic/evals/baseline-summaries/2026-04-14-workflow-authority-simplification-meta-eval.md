@@ -40,24 +40,22 @@
 - the eval agent chose `Tier 1`, which matches the lightest valid tier for a small bounded docs/workflow slice
 - the eval agent did not treat `docs/agentic/document-map.md` as a primary authority surface
 - the eval agent preserved tracked-vs-local absorption discipline by keeping raw `docs/runs/*` / eval artifacts local-only and promoting only durable lessons into tracked docs or tracked eval summaries
-- the eval agent also surfaced one additional live tracked consumer that the current implementation plan had missed: one older retained `P2-W4` cleanup plan still required `document-map.md` in its read order
 
 ## Recurring Misses
 
-- plan-side consumer inventories can still miss older active tracked plans even when the top-level control-plane surfaces and launcher docs are already aligned
+- authority simplification work can still miss draft or local plan surfaces even when the top-level tracked control-plane docs are already aligned
 
 ## Workflow / Docs / Skills Changed In Response
 
 - updated remaining stale authority consumers to point at `docs/AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles`:
   - `ARCHITECTURE_CLEANUP_CHECKLIST.md`
   - `docs/agentic/skill-strategy.md`
-  - the older retained `P2-W4` cleanup plan that still routed through `document-map.md`
 - recorded this eval summary:
   - `docs/agentic/evals/baseline-summaries/2026-04-14-workflow-authority-simplification-meta-eval.md`
 
 ## Durable Lessons Absorbed
 
-- for authority-simplification work, do not stop after top-level docs and launcher surfaces; sweep active tracked plans for stale `document-map.md` authority hops too
+- for authority-simplification work, do not stop after top-level docs and launcher surfaces; also sweep any in-flight plan surfaces that may still route through `document-map.md`
 - prompt `13` is useful as a routing/meta-discipline gate for control-plane simplification because it catches both over-tiering and missed tracked-vs-local promotion rules
 
 ## Intentionally Local-Only Artifacts
