@@ -40,6 +40,14 @@ describe('ServerSelectionStore', () => {
         expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY)).toBeNull();
     });
 
+    it('returns empty map and clears blank persisted health values', () => {
+        mockLocalStorage.setItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY, '   ');
+        const store = new ServerSelectionStore();
+
+        expect(store.readServerHealthMapAndClean()).toEqual({});
+        expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY)).toBeNull();
+    });
+
     it('filters invalid health entries and rewrites normalized map', () => {
         mockLocalStorage.setItem(
             PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY,

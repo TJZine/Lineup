@@ -11,7 +11,7 @@ import type {
     IPlexStreamResolver,
     StreamResolverError,
 } from '../../modules/plex/stream';
-import type { IChannelManager } from '../../modules/scheduler/channel-manager';
+import type { ChannelManagerEventMap, IChannelManager } from '../../modules/scheduler/channel-manager';
 import type {
     IChannelScheduler,
     ScheduledProgram,
@@ -47,7 +47,7 @@ export interface OrchestratorEventBinderDeps {
     handleScreenChange: (payload: { from: Screen; to: Screen }) => void;
     handleLifecyclePause: () => Promise<void>;
     handleLifecycleResume: () => Promise<void>;
-    reportPersistenceWarning: (message: string) => void;
+    reportPersistenceWarning: (warning: ChannelManagerEventMap['persistenceWarning']) => void;
 }
 
 export class OrchestratorEventBinder {
@@ -250,8 +250,8 @@ export class OrchestratorEventBinder {
         if (!channelManager) {
             return;
         }
-        const sub = channelManager.on('persistenceWarning', ({ message }) => {
-            this._deps.reportPersistenceWarning(message);
+        const sub = channelManager.on('persistenceWarning', (warning) => {
+            this._deps.reportPersistenceWarning(warning);
         });
         cleanups.push(() => {
             if (sub && typeof (sub as { dispose?: unknown }).dispose === 'function') {

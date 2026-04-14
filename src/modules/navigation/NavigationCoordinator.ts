@@ -82,8 +82,8 @@ export interface NavigationCoordinatorDeps {
         hideChannelTransition: () => void;
     };
     reportToast?: (toast: { message: string; type: 'warning' | 'error' | 'info' | 'success' }) => void;
-    readKeepPlayingInSettings?: () => boolean;
-    readDebugLoggingEnabled?: () => boolean;
+    readKeepPlayingInSettings: () => boolean;
+    readDebugLoggingEnabled: () => boolean;
 }
 
 export class NavigationCoordinator {
@@ -739,11 +739,11 @@ export class NavigationCoordinator {
     }
 
     private _shouldKeepPlayingInSettings(): boolean {
-        return this.deps.readKeepPlayingInSettings?.() ?? false;
+        return this.deps.readKeepPlayingInSettings();
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        return this.deps.readDebugLoggingEnabled?.() ?? false;
+        return this.deps.readDebugLoggingEnabled();
     }
 
     private _logInputNotHandled(

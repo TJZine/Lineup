@@ -77,11 +77,17 @@ export class ServerSelectionStore {
     readServerHealthMapAndClean(): ServerHealthMap {
         const { serverHealthKey } = this._keys();
         const raw = safeLocalStorageGet(serverHealthKey);
-        if (!raw) return {};
+        if (raw == null) return {};
+
+        const normalizedRaw = raw.trim();
+        if (!normalizedRaw) {
+            safeLocalStorageRemove(serverHealthKey);
+            return {};
+        }
 
         let parsed: unknown;
         try {
-            parsed = JSON.parse(raw);
+            parsed = JSON.parse(normalizedRaw);
         } catch {
             safeLocalStorageRemove(serverHealthKey);
             return {};

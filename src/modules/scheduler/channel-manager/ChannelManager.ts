@@ -347,6 +347,7 @@ export class ChannelManager implements IChannelManager {
                     }
                     throw new Error('Failed to persist current channel');
                 }
+                this._onPersistenceSuccess();
             } catch (e) {
                 this._logger.warn('Failed to persist current channel', summarizeErrorForLog(e));
                 this._emitPersistenceWarning(e);
@@ -731,6 +732,7 @@ export class ChannelManager implements IChannelManager {
                 }
                 throw new Error('Failed to persist current channel');
             }
+            this._onPersistenceSuccess();
         } catch (e) {
             this._logger.warn('Failed to persist current channel', summarizeErrorForLog(e));
             this._emitPersistenceWarning(e);

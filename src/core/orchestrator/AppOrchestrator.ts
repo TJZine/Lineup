@@ -2099,8 +2099,8 @@ export class AppOrchestrator {
                     handlePlexLibraryAuthExpired: (): void => this._handlePlexLibraryAuthExpired(),
                     handlePlexStreamError: (error): void => this._handlePlexStreamError(error),
                     handleScreenChange: (payload): void => this._handleScreenChange(payload),
-                    reportPersistenceWarning: (message): void => {
-                        this._nowPlayingHandler?.({ message, type: 'warning' });
+                    reportPersistenceWarning: (warning): void => {
+                        this._nowPlayingHandler?.({ message: warning.message, type: 'warning' });
                     },
                     cleanupReporter: (failures: OrchestratorEventCleanupFailure[]): void => {
                         try {

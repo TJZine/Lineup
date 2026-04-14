@@ -251,8 +251,8 @@ export function createPriorityOneControllersAndBinder(
         handleScreenChange: (payload): void => events.handleScreenChange(payload),
         handleLifecyclePause: (): Promise<void> => playbackRuntimeController.handleLifecyclePause(),
         handleLifecycleResume: (): Promise<void> => playbackRuntimeController.handleLifecycleResume(),
-        reportPersistenceWarning: (message): void => {
-            events.reportPersistenceWarning(message);
+        reportPersistenceWarning: (warning): void => {
+            events.reportPersistenceWarning(warning);
         },
     };
     const eventBinder = new OrchestratorEventBinder(binderDeps);
