@@ -129,11 +129,11 @@ When tracked docs conflict, use this order:
 9. Review before closeout.
    - AI review is the baseline pass
    - humans still own architecture, product intent, and merge decisions
-   - if the work claims to finish a cleanup priority, run a priority-exit review before starting or planning the next priority
-   - priority-exit review must enforce the cleanup-review contract plus the closeout requirements owned by [`docs/agentic/plan-authoring-standard.md#cleanup-overlay`](./agentic/plan-authoring-standard.md#cleanup-overlay) before any `P(n+1)` checklist item, plan, or implementation work is opened
+   - if the work claims to finish a cleanup priority, run a [`priority-exit review`](./agentic/session-prompts/cleanup-review.md) before starting or planning the next priority
+   - a priority-exit review must enforce the blocking review checks in [`docs/agentic/session-prompts/cleanup-review.md`](./agentic/session-prompts/cleanup-review.md) together with the closeout requirements owned by [`docs/agentic/plan-authoring-standard.md#cleanup-overlay`](./agentic/plan-authoring-standard.md#cleanup-overlay) before any `P(n+1)` checklist item, plan, or implementation work is opened
 10. Update the right memory surface in the same pass.
    - update [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md) when a `checklist-linked` cleanup work unit is completed
-   - when a `P#-W#` slice implementation is done, rerun the slice verification and then check that work-unit box in the same pass once the cleanup-review contract and cleanup-overlay disposition rules have been satisfied for every mapped issue
+   - when a `P#-W#` slice implementation is done, rerun the slice verification and then check that work-unit box in the same pass once the applicable cleanup review checks and cleanup-overlay disposition rules have been satisfied for every mapped issue
    - when current-code proof clears the slice-owned rationale but detector wording still lags, record the slice as resolved plus the already-established final owner for any truly remaining residual; do not create a new follow-up solely because the same issue id stayed open
    - do not leave a finished `P#-W#` unchecked merely because its remaining mapped debt now belongs to `P#-EXIT`; the unchecked state is for unfinished slice work or missing disposition data, not for already-reassigned debt
    - a checked `P#-W#` means the slice is complete; it does not authorize `P(n+1)` work while `P#-EXIT` is still open
