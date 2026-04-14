@@ -1073,14 +1073,13 @@ describe('AppOrchestrator', () => {
                 expect(runStartupSpy).toHaveBeenCalledWith(3);
                 expect(refreshSpy).toHaveBeenCalledWith({ reason: 'server-swap' });
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] Post-selection EPG refresh failed:',
-                    {
+                    expect.stringContaining('[Orchestrator] Post-selection EPG refresh failed:'),
+                    expect.objectContaining({
                         step: 'refreshEpgSchedules',
-                        error: {
-                            name: 'Error',
+                        error: expect.objectContaining({
                             message: 'refresh failed',
-                        },
-                    }
+                        }),
+                    })
                 );
             } finally {
                 consoleWarnSpy.mockRestore();

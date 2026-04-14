@@ -1,6 +1,6 @@
 import { DEFAULT_CHANNEL_SETUP_MAX } from '../../modules/scheduler/channel-manager/constants';
-import { safeLocalStorageRemoveByPrefixes } from '../../utils/storage';
 import { DEFAULT_CHANNEL_EXPANSION, DEFAULT_MIN_ITEMS_PER_CHANNEL, DEFAULT_SERIES_ORDERING, SETUP_STRATEGY_KEYS } from './constants';
+import { normalizeChannelSetupConfig } from './normalizeChannelSetupConfig';
 import type {
     ChannelExpansionConfig,
     ChannelSetupConfig,
@@ -14,7 +14,6 @@ export interface ChannelSetupRecordStoreDeps {
     storageGet: (key: string) => string | null;
     storageSet: (key: string, value: string) => void;
     storageRemove: (key: string) => void;
-    normalizeConfig: (config: ChannelSetupConfig) => ChannelSetupConfig;
 }
 
 export class ChannelSetupRecordStore {
@@ -100,7 +99,7 @@ export class ChannelSetupRecordStore {
             if (seriesOrdering) {
                 baseConfig.seriesOrdering = seriesOrdering;
             }
-            const normalizedConfig = this._deps.normalizeConfig(baseConfig);
+            const normalizedConfig = normalizeChannelSetupConfig(baseConfig);
 
             return {
                 ...normalizedConfig,
@@ -115,7 +114,7 @@ export class ChannelSetupRecordStore {
     markSetupComplete(serverId: string, setupConfig: ChannelSetupConfig): ChannelSetupRecord {
         const existing = this.getRecord(serverId);
         const createdAt = existing?.createdAt ?? Date.now();
-        const normalizedConfig = this._deps.normalizeConfig(setupConfig);
+        const normalizedConfig = normalizeChannelSetupConfig(setupConfig);
         const record: ChannelSetupRecord = {
             serverId,
             selectedLibraryIds: [...normalizedConfig.selectedLibraryIds],
@@ -135,13 +134,6 @@ export class ChannelSetupRecordStore {
 
     clearRecord(serverId: string): void {
         this._deps.storageRemove(this._getStorageKey(serverId));
-    }
-
-    cleanupStaleBuildKeys(): void {
-        safeLocalStorageRemoveByPrefixes([
-            'lineup_channels_build_tmp_v1:',
-            'lineup_current_channel_build_tmp_v1:',
-        ]);
     }
 
     private _getStorageKey(serverId: string): string {

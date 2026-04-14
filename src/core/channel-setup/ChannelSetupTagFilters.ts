@@ -32,7 +32,7 @@ export function buildChannelSetupFacetCountFilter(
     };
 }
 
-function parseChannelSetupTagFastKeyFilters(fastKey: string): Record<string, string | number> {
+export function parseChannelSetupTagFastKeyFilters(fastKey: string): Record<string, string | number> {
     try {
         const result: Record<string, string | number> = {};
         const url = new URL(fastKey, 'http://localhost');

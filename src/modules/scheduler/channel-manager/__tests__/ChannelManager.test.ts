@@ -753,6 +753,40 @@ describe('ChannelManager', () => {
             loadSpy.mockRestore();
         });
 
+        it('strips legacy isSequentialVariant from loaded channels and from exported JSON', async () => {
+            const persistedLegacy = {
+                ...createBaseChannel({
+                    id: 'persisted-legacy',
+                    number: 88,
+                    name: 'Persisted Legacy',
+                }),
+                isSequentialVariant: true,
+            };
+
+            mockStorage[STORAGE_KEY] = JSON.stringify({
+                channels: [persistedLegacy],
+                channelOrder: [persistedLegacy.id],
+                currentChannelId: persistedLegacy.id,
+                savedAt: Date.now(),
+            });
+            mockStorage[CURRENT_CHANNEL_KEY] = persistedLegacy.id;
+
+            await manager.loadChannels();
+            await manager.flushSaves();
+
+            const loaded = manager.getAllChannels();
+            expect(loaded).toHaveLength(1);
+            expect((loaded[0] as unknown as Record<string, unknown>).isSequentialVariant).toBeUndefined();
+
+            const exported = JSON.parse(manager.exportChannels()) as Array<Record<string, unknown>>;
+            expect(exported[0]?.isSequentialVariant).toBeUndefined();
+
+            const persisted = JSON.parse(mockStorage[STORAGE_KEY] ?? '{}') as {
+                channels?: Array<Record<string, unknown>>;
+            };
+            expect(persisted.channels?.[0]?.isSequentialVariant).toBeUndefined();
+        });
+
         it('does not persist when saved current-channel key only changes current', async () => {
             const persistedChannel = createBaseChannel({
                 id: 'persisted-1',
@@ -1053,7 +1087,7 @@ describe('ChannelManager', () => {
             expect(manager.getAllChannels()).toHaveLength(1);
         });
 
-        it('preserves playback variant metadata when importing legacy exports that use isSequentialVariant', async () => {
+        it('ignores legacy isSequentialVariant when importing channels without canonical playback variant metadata', async () => {
             const importData = JSON.stringify([
                 {
                     name: 'Imported Variant',
@@ -1072,8 +1106,7 @@ describe('ChannelManager', () => {
 
             const channels = manager.getAllChannels();
             expect(channels).toHaveLength(1);
-            expect(channels[0]?.isPlaybackModeVariant).toBe(true);
-            expect(((channels[0] as unknown) as Record<string, unknown>)['isSequentialVariant']).toBeUndefined();
+            expect(channels[0]?.isPlaybackModeVariant).toBeUndefined();
         });
 
         it('should handle invalid import data', async () => {

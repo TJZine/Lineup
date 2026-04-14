@@ -11,14 +11,17 @@ This is the correct top-level tracked format for this work. Per `docs/agentic/do
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, and `P1-EXIT` completed on integration-branch evidence
-- Next safe start: `P2-W1`
+- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, and `P2-EXIT` completed on integration-branch evidence
+- Next safe start: `P3-W1`
+- Legacy note: `docs/plans/2026-04-02-p3-w1-channel-setup-workflow-owner.md` predates the `2026-04-10` checklist refresh and is historical planning context, not the active `P3-W1` gate token
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
 - Recent update log:
   - `2026-04-10`: closed `P0-W1`/`P0-W2`/`P0-EXIT`; locked `dist-ts` generated-output exclusion, recorded queue operating rule, ran `desloppify` exit evidence plus `npm run verify:docs`
   - `2026-04-10`: completed `P1-W1` runtime-owner decomposition (root barrel move, selected-server runtime owner extraction, schedule policy owner extraction, app-shell runtime contract narrowing, app config factory extraction), ran full verification + required `desloppify` evidence
   - `2026-04-10`: completed `P1-W2` runtime seam cleanup (explicit event cleanup reporter seam, grouped priority-one runtime seams, coordinator builder extraction), ran full `verify` plus required `desloppify` evidence refresh
   - `2026-04-11`: completed `P1-EXIT` reconciliation (all mapped imported review ids closed, cycle detector residue dispositioned with source-audit proof and final owner, `npm run verify` rerun)
+  - `2026-04-13`: completed `P2-W2` owner-boundary split (state/runtime session owners, facet snapshot loader extraction, typed build scratch owner), ran targeted channel-setup/orchestrator regressions plus `npm run verify`
+  - `2026-04-13`: completed `P2-W3` error/migration/test closure (typed `ChannelSetupPlanningError` boundary proof, canonical playback variant key cleanup, direct tag-filter tests), ran targeted P2-W3 suites + `npm run verify` + source-audit and detector reconciliation commands
 
 ## Goal
 
@@ -117,10 +120,10 @@ This is the correct top-level tracked format for this work. Per `docs/agentic/do
 - `src/Orchestrator.ts` at `2,015` lines
 - `src/modules/ui/epg/view/EPGVirtualizer.ts` at `1,912` lines
 - `src/modules/ui/epg/EPGComponent.ts` at `1,796` lines
-- `src/core/channel-setup/ChannelSetupPlanningService.ts` at `1,447` lines
+- `src/core/channel-setup/ChannelSetupPlanningService.ts` at `364` lines
 - `src/modules/plex/library/PlexLibrary.ts` at `1,236` lines
 - `src/modules/plex/stream/PlexStreamResolver.ts` at `1,144` lines
-- `src/modules/ui/channel-setup/ChannelSetupSessionController.ts` at `977` lines
+- `src/modules/ui/channel-setup/ChannelSetupSessionController.ts` at `172` lines
 - `src/modules/plex/auth/PlexAuth.ts` at `921` lines
 - `src/modules/player/PlaybackRecoveryManager.ts` at `896` lines
 - `src/modules/player/SubtitleManager.ts` at `684` lines
@@ -356,11 +359,44 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
       revisit trigger: rerun `desloppify scan --path .` + `desloppify show cycles --status open --no-budget --top 50` at `P10-W1` entry and before `P10-EXIT`; if still open with same source-audit proof, classify as tooling-state residue or escalate upstream with minimal repro.
   - Handoff: `P2-W1 planning/implementation may begin`
 
-- [ ] `P2-EXIT`
+- [x] `P2-EXIT`
   - required: record every mapped imported issue with an exact disposition
   - run the priority-exit review before moving to `P3`
   - refresh every `P2` issue id, the `P2` detector envelopes, `desloppify status`, `desloppify plan queue`, and `npm run verify`
   - confirm one single final owner for any `P2` issue that still needs a follow-up
+  - Status: completed
+  - Plan: `none (priority-exit reconciliation recorded directly in this checklist)`
+  - Last touched: `2026-04-13`
+  - Mapped imported issues:
+    - `review::.::holistic::abstraction_fitness::channel_setup_wrapper_chain` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues)
+    - `review::.::holistic::abstraction_fitness::planning_service_used_as_normalizer` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues)
+    - `review::.::holistic::mid_level_elegance::channel_setup_port_mixed_absence_contract` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues)
+    - `review::.::holistic::cross_module_architecture::channel_setup_raw_storage_seam` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues)
+    - `review::.::holistic::design_coherence::channel_setup_session_controller_mixed_state_and_io` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues)
+    - `review::.::holistic::design_coherence::channel_setup_snapshot_loader_overloaded` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues)
+    - `review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues)
+    - `review::.::holistic::error_consistency::channel_setup_plain_object_throw` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues)
+    - `review::.::holistic::incomplete_migration::playback_variant_rename_still_leaks_legacy_key` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues)
+    - `review::.::holistic::test_strategy::fastkey_filter_parser_untested` -> `resolved` (`desloppify show ... --status open --no-budget --top 20` returned no open issues; detector `test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only` remains open but is stale wording resolved on current-code proof via direct `ChannelSetupTagFilters.test.ts`)
+  - Verification:
+    - `npm test -- --runInBand src/modules/scheduler/channel-manager/__tests__/StoredChannelDataCodec.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelRepository.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts` passed
+    - `npm test -- --runInBand src/core/channel-setup/__tests__/ChannelSetupTagFilters.test.ts src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoader.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanner.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelRepository.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts` passed
+    - `desloppify show review --status open --no-budget --top 100` returned no open review issues
+    - reran all ten mapped `P2` imported issue-id commands above with `--status open --no-budget --top 20`; each returned no open issues
+    - `desloppify show test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only --status open --no-budget --top 20` still reports transitive-only wording, but current source has direct coverage (`src/core/channel-setup/__tests__/ChannelSetupTagFilters.test.ts`) for parser/fallback/malformed behavior
+    - `desloppify show smells::src/core/channel-setup/ChannelSetupTagFilters.ts::hardcoded_url --status open --no-budget --top 20` reports one open smell at line 38 (`new URL(fastKey, 'http://localhost')`)
+    - `desloppify status` refreshed (`overall 83.2 / strict 83.2 / objective 94.9 / verified 94.9`)
+    - `desloppify plan queue --sort recent` refreshed (`Queue: 1 item (51 planned · 1 subjective)`)
+    - `npm run verify` passed
+  - Follow-ups:
+    - `followup::p2-exit::channel-setup-tagfilters-transitive-only-detector-residue`
+      owner: `P10-W1 detector-contract cleanup owner`
+      reason: detector issue `test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only` is stale wording after direct source-proof tests; imported review issue `review::.::holistic::test_strategy::fastkey_filter_parser_untested` is resolved on current code.
+      revisit trigger: rerun `desloppify scan --path .` + `desloppify show test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only --status open --no-budget --top 20` at `P10-W1` entry and before `P10-EXIT`; if unchanged with the same direct test file coverage, keep as detector-contract residue or escalate upstream with minimal repro.
+    - `followup::p2-exit::channel-setup-tagfilters-hardcoded-url-residue`
+      owner: `P10-W1 residual mechanical detector owner`
+      reason: `desloppify show smells::src/core/channel-setup/ChannelSetupTagFilters.ts::hardcoded_url --status open --no-budget --top 20` reports one remaining non-imported mechanical smell (`hardcoded_url`) in `ChannelSetupTagFilters.ts`.
+      revisit trigger: rerun `desloppify scan --path .` + `desloppify show smells::src/core/channel-setup/ChannelSetupTagFilters.ts::hardcoded_url --status open --no-budget --top 20` at `P10-W1` entry and before `P10-EXIT`, then disposition as detector-contract residue vs intentional local parse-base URL usage with explicit evidence.
 
 - [ ] `P3-EXIT`
   - required: record every mapped imported issue with an exact disposition
@@ -570,7 +606,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 ## Priority 2: Rebuild Channel Setup Around Explicit Owners And Contracts
 
-### [ ] `P2-W1` Remove Wrapper Duplication And Planning-Service Misuse
+### [x] `P2-W1` Remove Wrapper Duplication And Planning-Service Misuse
 
 **Mapped imported review issues:**
 
@@ -592,7 +628,29 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 **Exit rule:** channel setup no longer uses duplicate forwarders or heavyweight services where narrow pure helpers are enough.
 
-### [ ] `P2-W2` Split Channel Setup Owner Boundaries And Snapshot Loading
+- Status: completed
+- Plan: `docs/plans/2026-04-13-p2-w1-channel-setup-workflow-contract-and-normalization.md`
+- Last touched: `2026-04-13`
+- Verification:
+  - `npm test -- --runInBand src/core/channel-setup/__tests__/ChannelSetupWorkflow.test.ts src/core/channel-setup/__tests__/ChannelSetupCompletionTracker.test.ts src/core/channel-setup/__tests__/ChannelSetupCoordinator.test.ts src/core/channel-setup/__tests__/ChannelSetupRecordStore.test.ts src/core/channel-setup/__tests__/createChannelSetupWorkflowPort.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts src/__tests__/Orchestrator.test.ts` passed
+  - `npm run verify` passed
+  - `desloppify scan --path .` completed on integration branch; scan reported `security: clean`, `overall 83.2 / strict 83.2 / objective 95.2 / verified 95.2`, and `+2 new / -20 resolved`
+  - `desloppify show "review::.::holistic::abstraction_fitness::channel_setup_wrapper_chain" --status open --no-budget --top 20` returned no open issues
+  - `desloppify show "review::.::holistic::abstraction_fitness::planning_service_used_as_normalizer" --status open --no-budget --top 20` returned no open issues
+  - `desloppify show "review::.::holistic::mid_level_elegance::channel_setup_port_mixed_absence_contract" --status open --no-budget --top 20` returned no open issues
+  - `desloppify show src/core/channel-setup --status open --no-budget --top 150` still reports live non-`P2-W1` residue in `ChannelSetupBuildCommitter.ts`, `ChannelSetupBuildExecutor.ts`, `ChannelSetupTagFilters.ts`, `ChannelSetupPlanningService.ts`, and `ChannelSetupPlanner.ts`
+  - `desloppify show src/core/orchestrator --status open --no-budget --top 100` still reports broader orchestrator-family residue, including legacy/stale cycle and factory smell detector output unrelated to the resolved `P2-W1` contract slice
+- Issue dispositions:
+  - `review::.::holistic::abstraction_fitness::channel_setup_wrapper_chain` -> `resolved` -> owner `P2-W1`; proof: `createChannelSetupWorkflowPort` now forwards workflow operations through `ChannelSetupWorkflow`, `ChannelSetupWorkflow.createChannelsFromSetup()` stays build-only, `markSetupComplete()` stays explicit, and `ChannelSetupCoordinator` is narrowed to rerun / should-run / cleanup duties
+  - `review::.::holistic::abstraction_fitness::planning_service_used_as_normalizer` -> `resolved` -> owner `P2-W1`; proof: config normalization now lives in `src/core/channel-setup/normalizeChannelSetupConfig.ts` and is reused by `ChannelSetupBuildExecutor`, `ChannelSetupPlanningService`, and `ChannelSetupRecordStore`
+  - `review::.::holistic::mid_level_elegance::channel_setup_port_mixed_absence_contract` -> `resolved` -> owner `P2-W1`; proof: `createChannelSetupWorkflowPort` now throws one consistent initialization error for operational methods while preserving total query reads for diagnostics/UI callers
+- Follow-ups:
+  - current-code correction for the stale primary-file note: the former `src/core/orchestrator/OrchestratorCoordinatorFactory.ts` assembly reference is no longer the active seam for this cleanup; the shared channel-setup assembly now lives across `src/core/orchestrator/OrchestratorCoordinatorBuilders.ts`, `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts`, `src/core/orchestrator/OrchestratorCoordinatorContracts.ts`, and `src/core/orchestrator/AppOrchestrator.ts`
+  - `P2-W2` remains the next explicit owner for the remaining owner-boundary/runtime seams in this area (`review::.::holistic::cross_module_architecture::channel_setup_raw_storage_seam`, `review::.::holistic::design_coherence::channel_setup_session_controller_mixed_state_and_io`, `review::.::holistic::design_coherence::channel_setup_snapshot_loader_overloaded`, `review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur`)
+  - `P2-W3` remains the next explicit owner for the remaining error/test/migration cleanup in this area (`review::.::holistic::error_consistency::channel_setup_plain_object_throw`, `review::.::holistic::incomplete_migration::playback_variant_rename_still_leaks_legacy_key`, `review::.::holistic::test_strategy::fastkey_filter_parser_untested`)
+- Handoff: `P2-W1 complete; continue with P2-W2 for owner-boundary and snapshot-loading cleanup`
+
+### [x] `P2-W2` Split Channel Setup Owner Boundaries And Snapshot Loading
 
 **Mapped imported review issues:**
 
@@ -617,7 +675,23 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 **Exit rule:** UI session control, persistence, planning, and build execution have explicit seams and no raw-storage leakage across owners.
 
-### [ ] `P2-W3` Normalize Channel Setup Errors, Migration Residue, And Tests
+- Status: completed
+- Plan: `docs/plans/2026-04-13-p2-w2-channel-setup-owner-boundaries-and-snapshot-loading.md`
+- Last touched: `2026-04-13`
+- Verification:
+  - `npm test -- --runInBand src/core/channel-setup/__tests__/ChannelSetupBuildScratchStore.test.ts src/core/channel-setup/__tests__/ChannelSetupBuildCommitter.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts src/core/channel-setup/__tests__/ChannelSetupRecordStore.test.ts src/core/channel-setup/__tests__/ChannelSetupCoordinator.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/__tests__/Orchestrator.test.ts` passed
+  - `npm run verify` passed
+- Issue dispositions:
+  - `review::.::holistic::cross_module_architecture::channel_setup_raw_storage_seam` -> `resolved` -> owner `P2-W2`; proof: temp build-key lifecycle moved to `ChannelSetupBuildScratchStore`, `ChannelSetupBuildCommitter` consumes typed scratch-store APIs, and `ChannelSetupRecordStore` no longer owns build-scratch cleanup
+  - `review::.::holistic::design_coherence::channel_setup_session_controller_mixed_state_and_io` -> `resolved` -> owner `P2-W2`; proof: `ChannelSetupSessionController` is now a facade over `ChannelSetupSessionState` and `ChannelSetupSessionRuntime`
+  - `review::.::holistic::design_coherence::channel_setup_snapshot_loader_overloaded` -> `resolved` -> owner `P2-W2`; proof: facet snapshot loading moved into `ChannelSetupFacetSnapshotLoader.ts` and remains an internal `ChannelSetupPlanningService` collaborator
+  - `review::.::holistic::high_level_elegance::channel_setup_domain_placement_blur` -> `resolved` -> owner `P2-W2`; proof: storage/planning/ui-session responsibilities now map to explicit owners (`ChannelSetupRecordStore`, `ChannelSetupBuildScratchStore`, `ChannelSetupPlanningService` + internal loader, `ChannelSetupSessionState`, `ChannelSetupSessionRuntime`) with `ChannelSetupWorkflowPort` unchanged
+- Follow-ups:
+  - `P2-W3` remains the next owner for error-consistency/migration/test cleanup only (`channel_setup_plain_object_throw`, `playback_variant_rename_still_leaks_legacy_key`, `fastkey_filter_parser_untested`)
+  - no residual `P2-W2` owner-boundary debt was carried forward because current code did not prove a different final owner
+- Handoff: `P2-W2 complete; continue with P2-W3 for error/migration/test cleanup`
+
+### [x] `P2-W3` Normalize Channel Setup Errors, Migration Residue, And Tests
 
 **Mapped imported review issues:**
 
@@ -632,6 +706,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `src/core/channel-setup/ChannelSetupPlanner.ts`
 - `src/modules/scheduler/channel-manager/ChannelRepository.ts`
 - `src/modules/scheduler/channel-manager/ChannelManager.ts`
+- `src/modules/scheduler/channel-manager/StoredChannelDataCodec.ts`
 
 **Mechanical envelopes to refresh at entry and exit:**
 
@@ -639,6 +714,26 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify show test_coverage --status open --no-budget --top 100`
 
 **Exit rule:** channel setup throws typed errors, the playback-variant rename is truly canonical, and fastKey filtering is directly covered by tests.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-13-p2-w3-channel-setup-error-canonicalization-and-test-closure.md`
+- Last touched: `2026-04-13`
+- Verification:
+  - `npm test -- --runInBand src/modules/scheduler/channel-manager/__tests__/StoredChannelDataCodec.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelRepository.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts` passed
+  - `npm test -- --runInBand src/core/channel-setup/__tests__/ChannelSetupTagFilters.test.ts src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoader.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanner.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelRepository.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts` passed
+  - `npm run verify` passed
+  - `rg -n "isSequentialVariant|throw \\{" src/core/channel-setup src/modules/scheduler/channel-manager --glob '!dist-ts'` now shows `isSequentialVariant` only in explicit legacy-strip helpers (`ChannelRepository`, `ChannelManager`, `StoredChannelDataCodec`) plus tests; no compatibility migration/rewrite branch remains and no implementation raw `throw {` residue
+  - `desloppify scan --profile ci --skip-slow` reran integration-branch detector state before reconciliation
+  - `desloppify show review --status open --no-budget --top 100` returned `No open issues matching: review`; detector review-id silence treated as supporting-only evidence
+- `desloppify show src/core/channel-setup/ChannelSetupTagFilters.ts --status open --no-budget --top 50` and `desloppify show test_coverage --status open --no-budget --top 100` still report `test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only` despite the new direct test file; that detector/source mismatch was reconciled in `P2-EXIT` and should only be carried forward if a fresh rerun still contradicts the direct source proof
+- Issue dispositions:
+  - `review::.::holistic::error_consistency::channel_setup_plain_object_throw` -> `resolved` -> owner `P2-W3`; proof: `ChannelSetupFacetSnapshotLoader` now throws `ChannelSetupPlanningError` via `assertRecoveredTagCount`, boundary-local `ChannelSetupFacetSnapshotLoader.test.ts` asserts typed discriminator, and raw object throw source-audit is clear
+  - `review::.::holistic::incomplete_migration::playback_variant_rename_still_leaks_legacy_key` -> `resolved` -> owner `P2-W3`; proof: `createChannelIdentityKey()` serializes `isPlaybackModeVariant`, import rewrite compatibility was removed, load boundary strips legacy `isSequentialVariant`, save codec strips legacy fields on encode, and `ChannelManager` load/export/save tests prove legacy fields do not survive runtime/exported/persisted channel objects
+  - `review::.::holistic::test_strategy::fastkey_filter_parser_untested` -> `resolved on current-code proof` -> owner `P2-W3`; proof: direct `ChannelSetupTagFilters.test.ts` covers parser/fallback/malformed behavior; detector still labels transitive-only after rescan, so `P2-EXIT` must treat this as stale detector wording unless a new live owner is proven
+- Follow-ups:
+  - `P3-W1` is now the next planned Priority 3 gate after the completed Priority 2 exit review
+  - carry the stale `test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only` detector wording into `P3` planning only if a fresh rerun still contradicts the direct test source proof
+- Handoff: `P2 complete on current integration-branch evidence; write the active P3-W1 execution plan before implementation begins`
 
 ## Priority 3: Rebound EPG And UI Package Surfaces
 

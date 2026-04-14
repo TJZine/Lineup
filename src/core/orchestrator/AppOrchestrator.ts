@@ -119,6 +119,7 @@ import type {
 import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
 import {
     ChannelSetupCoordinator,
+    ChannelSetupWorkflow,
     createChannelSetupWorkflowPort,
     type ChannelSetupWorkflowPort,
 } from '../channel-setup';
@@ -300,6 +301,7 @@ export class AppOrchestrator {
     private _ready: boolean = false;
     private _initCoordinator: InitializationCoordinator | null = null;
     private _channelSetup: ChannelSetupCoordinator | null = null;
+    private _channelSetupWorkflow: ChannelSetupWorkflow | null = null;
     private _playbackRuntimeController: PlaybackRuntimeController | null = null;
     private _overlayRuntimePolicyController: OverlayRuntimePolicyController | null = null;
     private _profileSwitchCleanupController: ProfileSwitchCleanupController | null = null;
@@ -366,7 +368,7 @@ export class AppOrchestrator {
             },
         };
         this._channelSetupWorkflowPort = createChannelSetupWorkflowPort({
-            getChannelSetupCoordinator: (): ChannelSetupCoordinator | null => this._channelSetup,
+            getChannelSetupWorkflow: (): ChannelSetupWorkflow | null => this._channelSetupWorkflow,
         });
         this._selectedServerRuntimeController = new SelectedServerRuntimeController({
             persistSelection: (
@@ -739,6 +741,7 @@ export class AppOrchestrator {
 
         this._epgCoordinator = coordinators.epgCoordinator;
         this._channelSetup = coordinators.channelSetup;
+        this._channelSetupWorkflow = coordinators.channelSetupWorkflow;
         this._nowPlayingDebugManager = coordinators.nowPlayingDebugManager;
         this._nowPlayingInfoCoordinator = coordinators.nowPlayingInfoCoordinator;
         this._playerOsdCoordinator = coordinators.playerOsdCoordinator;
@@ -1066,6 +1069,7 @@ export class AppOrchestrator {
         this._overlayRuntimePolicyController = null;
         this._profileSwitchCleanupController = null;
         this._channelSetup = null;
+        this._channelSetupWorkflow = null;
         this._plexAuth = null;
         this._plexDiscovery = null;
         this._plexLibrary = null;

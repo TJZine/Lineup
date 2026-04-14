@@ -47,15 +47,11 @@ export class ChannelRepository {
                 continue;
             }
             const record = raw as unknown as Record<string, unknown>;
-            if (typeof record.isSequentialVariant === 'boolean') {
-                if (typeof record.isPlaybackModeVariant !== 'boolean') {
-                    record.isPlaybackModeVariant = record.isSequentialVariant;
-                    didMutate = true;
-                }
+            if (Object.prototype.hasOwnProperty.call(record, 'isSequentialVariant')) {
                 delete record.isSequentialVariant;
                 didMutate = true;
             }
-            const channel = raw as ChannelConfig;
+            const channel = record as unknown as ChannelConfig;
             if (typeof channel.id !== 'string' || channel.id.length === 0) {
                 didMutate = true;
                 continue;

@@ -5,6 +5,7 @@ import type { IPlexLibrary } from '../../modules/plex/library';
 import { summarizeErrorForLog } from '../../utils/errors';
 import type { ChannelBuildProgress, ChannelBuildSummary, ChannelSetupConfig } from './types';
 import type { PendingChannel, ChannelDiffResult } from './ChannelSetupPlanner';
+import type { ChannelSetupBuildScratchStore } from './ChannelSetupBuildScratchStore';
 import { isSignalAborted } from './utils';
 
 type BuildProgressReporter = (
@@ -18,7 +19,7 @@ type BuildProgressReporter = (
 export interface ChannelSetupBuildCommitterDeps {
     plexLibrary: IPlexLibrary;
     channelManager: IChannelManager;
-    storageRemove: (key: string) => void;
+    scratchStore: Pick<ChannelSetupBuildScratchStore, 'createTempKeys' | 'cleanupKeys'>;
     ensureEpgInitialized: () => Promise<void>;
     clearSelectedChannelScheduleSnapshot: () => void;
     primeEpgChannels: () => void;
@@ -59,13 +60,11 @@ export class ChannelSetupBuildCommitter {
         } = request;
 
         const checkCanceled = (): boolean => signal?.aborted ?? false;
-        const tempKeyId = `${Date.now()}-${generateUUID()}`;
-        const tempKey = `lineup_channels_build_tmp_v1:${tempKeyId}`;
-        const tempCurrentKey = `lineup_current_channel_build_tmp_v1:${tempKeyId}`;
+        const tempKeys = this._deps.scratchStore.createTempKeys();
         const builder = new ChannelManager({
             plexLibrary: this._deps.plexLibrary,
-            storageKey: tempKey,
-            currentChannelKey: tempCurrentKey,
+            storageKey: tempKeys.channelsKey,
+            currentChannelKey: tempKeys.currentChannelKey,
             logger: {
                 warn: (msg, ...args): void => console.warn(msg, ...args.map(summarizeErrorForLog)),
                 error: (msg, ...args): void => console.error(msg, ...args.map(summarizeErrorForLog)),
@@ -221,8 +220,7 @@ export class ChannelSetupBuildCommitter {
             throw error;
         } finally {
             safeCleanup('builder.dispose', () => builder.dispose());
-            safeCleanup(`storageRemove(${tempKey})`, () => this._deps.storageRemove(tempKey));
-            safeCleanup(`storageRemove(${tempCurrentKey})`, () => this._deps.storageRemove(tempCurrentKey));
+            safeCleanup('scratchStore.cleanupKeys', () => this._deps.scratchStore.cleanupKeys(tempKeys));
         }
 
         const finalDetail = epgRefreshFailed
@@ -328,22 +326,6 @@ export class ChannelSetupBuildCommitter {
         }
         return updated;
     }
-}
-
-function generateUUID(): string {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-        try {
-            return crypto.randomUUID();
-        } catch {
-            // Fall back to Math.random implementation.
-        }
-    }
-
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        const v = c === 'x' ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-    });
 }
 
 function compareChannelsByNumber(left: ChannelConfig, right: ChannelConfig): number {

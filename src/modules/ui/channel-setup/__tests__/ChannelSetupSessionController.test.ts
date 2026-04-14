@@ -321,6 +321,152 @@ describe('ChannelSetupSessionController', () => {
         expect(snapshot.actorStudioCombineMode).toBe('separate');
     });
 
+    it('loadLibraries() clears derived preview and review state when applying a saved record', async (): Promise<void> => {
+        const libraries: PlexLibraryModel[] = [makeLibrary({ id: 'movies' }), makeLibrary({ id: 'shows' })];
+        const record: ChannelSetupRecord = {
+            serverId: 'server-1',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            selectedLibraryIds: ['shows'],
+            maxChannels: 250,
+            buildMode: 'replace',
+            actorStudioCombineMode: 'combined',
+            minItemsPerChannel: 3,
+            strategyConfig: {
+                collections: { enabled: true, priority: 2, scope: 'per-library' },
+                playlists: { enabled: false, priority: 1, scope: 'per-library' },
+                genres: { enabled: true, priority: 3, scope: 'cross-library' },
+                directors: { enabled: true, priority: 4, scope: 'cross-library' },
+                decades: { enabled: true, priority: 5, scope: 'per-library' },
+                recentlyAdded: { enabled: true, priority: 6, scope: 'per-library' },
+                studios: { enabled: true, priority: 7, scope: 'cross-library' },
+                actors: { enabled: true, priority: 8, scope: 'cross-library' },
+            },
+            channelExpansion: {
+                addAlternateLineups: true,
+                alternateLineupCopies: 2,
+                variantType: 'block',
+                variantBlockSize: 4,
+            },
+            seriesOrdering: {
+                basePlaybackMode: 'block',
+                baseBlockSize: 4,
+            },
+        };
+        const workflowPort = createWorkflowPort({
+            getLibrariesForSetup: jest.fn().mockResolvedValue(libraries),
+            getChannelSetupRecord: jest.fn((_serverId: string) => record),
+            getSetupPreview: jest.fn().mockResolvedValue({
+                ...DEFAULT_PREVIEW,
+                status: 'slow',
+                message: 'Preview timed out',
+                failureReason: 'timeout',
+            }),
+        });
+        const controller = new ChannelSetupSessionController({
+            workflowPort,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        await controller.loadLibraries();
+        controller.setStep(2);
+        controller.schedulePreview(jest.fn());
+        await jest.advanceTimersByTimeAsync(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
+        await flushPromises();
+        expect(controller.getSnapshot().previewStatus).toBe('slow');
+
+        controller.setStep(3);
+        await controller.ensureReviewLoaded(jest.fn());
+        controller.toggleReplaceConfirm();
+
+        expect(controller.getSnapshot().review).toEqual(DEFAULT_REVIEW);
+        expect(controller.getSnapshot().replaceConfirm).toBe(true);
+
+        await controller.loadLibraries();
+
+        const snapshot = controller.getSnapshot();
+        expect(snapshot.preview).toBeNull();
+        expect(snapshot.previewError).toBeNull();
+        expect(snapshot.previewStatus).toBe('idle');
+        expect(snapshot.review).toBeNull();
+        expect(snapshot.reviewError).toBeNull();
+        expect(snapshot.replaceConfirm).toBe(false);
+    });
+
+    it('loadLibraries() aborts in-flight review work before reapplying saved record state', async (): Promise<void> => {
+        const libraries: PlexLibraryModel[] = [makeLibrary({ id: 'movies' }), makeLibrary({ id: 'shows' })];
+        const record: ChannelSetupRecord = {
+            serverId: 'server-1',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            selectedLibraryIds: ['shows'],
+            maxChannels: 250,
+            buildMode: 'replace',
+            actorStudioCombineMode: 'combined',
+            minItemsPerChannel: 3,
+            strategyConfig: {
+                collections: { enabled: true, priority: 2, scope: 'per-library' },
+                playlists: { enabled: false, priority: 1, scope: 'per-library' },
+                genres: { enabled: true, priority: 3, scope: 'cross-library' },
+                directors: { enabled: true, priority: 4, scope: 'cross-library' },
+                decades: { enabled: true, priority: 5, scope: 'per-library' },
+                recentlyAdded: { enabled: true, priority: 6, scope: 'per-library' },
+                studios: { enabled: true, priority: 7, scope: 'cross-library' },
+                actors: { enabled: true, priority: 8, scope: 'cross-library' },
+            },
+            channelExpansion: {
+                addAlternateLineups: true,
+                alternateLineupCopies: 2,
+                variantType: 'block',
+                variantBlockSize: 4,
+            },
+            seriesOrdering: {
+                basePlaybackMode: 'block',
+                baseBlockSize: 4,
+            },
+        };
+        const reviewLoad = createDeferred<typeof DEFAULT_REVIEW>();
+        const workflowPort = createWorkflowPort({
+            getLibrariesForSetup: jest.fn().mockResolvedValue(libraries),
+            getChannelSetupRecord: jest.fn((_serverId: string) => record),
+            getSetupReview: jest.fn().mockImplementation((_config, options) => {
+                const signal = options?.signal;
+                if (!signal) {
+                    return reviewLoad.promise;
+                }
+                return new Promise((resolve, reject) => {
+                    signal.addEventListener('abort', () => {
+                        reject(new DOMException('Aborted', 'AbortError'));
+                    }, { once: true });
+                    void reviewLoad.promise.then(resolve, reject);
+                });
+            }),
+        });
+        const controller = new ChannelSetupSessionController({
+            workflowPort,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        await controller.loadLibraries();
+        controller.setStep(3);
+
+        const reviewPromise = controller.ensureReviewLoaded(jest.fn());
+        expect(controller.getSnapshot().isReviewLoading).toBe(true);
+
+        await controller.loadLibraries();
+        await reviewPromise;
+
+        reviewLoad.resolve(DEFAULT_REVIEW);
+        await flushPromises();
+
+        const snapshot = controller.getSnapshot();
+        expect(snapshot.isReviewLoading).toBe(false);
+        expect(snapshot.review).toBeNull();
+        expect(snapshot.reviewError).toBeNull();
+    });
+
     it('loadLibraries() handles failure by clearing loading state and exposing load error', async (): Promise<void> => {
         const workflowPort = createWorkflowPort({
             getLibrariesForSetup: jest.fn().mockRejectedValue(new Error('library load failed')),

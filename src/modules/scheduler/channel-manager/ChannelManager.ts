@@ -584,7 +584,8 @@ export class ChannelManager implements IChannelManager {
     getAllChannels(): ChannelConfig[] {
         return this._state.channelOrder
             .map((id) => this._state.channels.get(id))
-            .filter((ch): ch is ChannelConfig => ch !== undefined);
+            .filter((ch): ch is ChannelConfig => ch !== undefined)
+            .map((channel) => this._stripLegacySequentialVariant(channel).channel);
     }
 
     /**
@@ -800,10 +801,6 @@ export class ChannelManager implements IChannelManager {
             return result;
         }
 
-        type LegacyImportedChannel = Partial<ChannelConfig> & {
-            isSequentialVariant?: boolean;
-        };
-
         for (const item of parsed) {
             if (!this._isValidChannelImport(item)) {
                 result.skippedCount++;
@@ -812,15 +809,8 @@ export class ChannelManager implements IChannelManager {
 
             try {
                 // Generate new ID for imported channel
-                const channelData = item as LegacyImportedChannel;
-                if (
-                    typeof channelData.isPlaybackModeVariant !== 'boolean'
-                    && typeof channelData.isSequentialVariant === 'boolean'
-                ) {
-                    channelData.isPlaybackModeVariant = channelData.isSequentialVariant;
-                }
+                const channelData = item as Partial<ChannelConfig>;
                 delete (channelData as Record<string, unknown>)['id'];
-                delete (channelData as Record<string, unknown>)['isSequentialVariant'];
 
                 // Find available number if number conflicts
                 if (
@@ -1077,8 +1067,17 @@ export class ChannelManager implements IChannelManager {
     }
 
     private _performSaveSync(): void {
+        const sanitizedChannels: ChannelConfig[] = [];
+        for (const [id, channel] of this._state.channels.entries()) {
+            const sanitized = this._stripLegacySequentialVariant(channel);
+            if (sanitized.didMutate) {
+                this._state.channels.set(id, sanitized.channel);
+            }
+            sanitizedChannels.push(sanitized.channel);
+        }
+
         const data: StoredChannelData = {
-            channels: Array.from(this._state.channels.values()),
+            channels: sanitizedChannels,
             channelOrder: this._state.channelOrder,
             currentChannelId: this._state.currentChannelId,
             savedAt: Date.now(),
@@ -1109,18 +1108,23 @@ export class ChannelManager implements IChannelManager {
             }
 
             const { data, didMutate: didMutateFromNormalization } = normalized;
+            let didMutateFromRuntimeCleanup = false;
 
             // Restore state
             this._state.channels.clear();
             for (const channel of data.channels) {
-                this._state.channels.set(channel.id, channel);
+                const sanitized = this._stripLegacySequentialVariant(channel);
+                if (sanitized.didMutate) {
+                    didMutateFromRuntimeCleanup = true;
+                }
+                this._state.channels.set(sanitized.channel.id, sanitized.channel);
             }
 
             this._state.channelOrder = data.channelOrder;
             this._state.currentChannelId = data.currentChannelId;
 
             // Persist normalized/migrated channel records once.
-            if (didMutateFromNormalization) {
+            if (didMutateFromNormalization || didMutateFromRuntimeCleanup) {
                 this._queueSave();
             }
         } catch (e) {
@@ -1162,6 +1166,18 @@ export class ChannelManager implements IChannelManager {
 
     private _cloneResolvedItems(items: ResolvedContentItem[]): ResolvedContentItem[] {
         return items.map((item) => this._cloneResolvedItem(item));
+    }
+
+    private _stripLegacySequentialVariant(
+        channel: ChannelConfig
+    ): { channel: ChannelConfig; didMutate: boolean } {
+        const record = channel as ChannelConfig & { isSequentialVariant?: unknown };
+        if (!Object.prototype.hasOwnProperty.call(record, 'isSequentialVariant')) {
+            return { channel, didMutate: false };
+        }
+        const { isSequentialVariant, ...rest } = record as ChannelConfig & Record<string, unknown>;
+        void isSequentialVariant;
+        return { channel: rest as ChannelConfig, didMutate: true };
     }
 
     private _cloneResolvedContent(

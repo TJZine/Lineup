@@ -1,35 +1,35 @@
-import type { ChannelSetupCoordinator } from './ChannelSetupCoordinator';
+import type { ChannelSetupWorkflow } from './ChannelSetupWorkflow';
 import type { ChannelSetupWorkflowPort } from './ChannelSetupWorkflowPort';
 
 export interface CreateChannelSetupWorkflowPortDeps {
-    getChannelSetupCoordinator: () => ChannelSetupCoordinator | null;
+    getChannelSetupWorkflow: () => ChannelSetupWorkflow | null;
 }
 
 export const createChannelSetupWorkflowPort = (
     deps: CreateChannelSetupWorkflowPortDeps
 ): ChannelSetupWorkflowPort => {
-    const requireChannelSetupCoordinator = (): ChannelSetupCoordinator => {
-        const coordinator = deps.getChannelSetupCoordinator();
-        if (!coordinator) {
+    const requireChannelSetupWorkflow = (): ChannelSetupWorkflow => {
+        const workflow = deps.getChannelSetupWorkflow();
+        if (!workflow) {
             throw new Error('Channel setup not initialized');
         }
-        return coordinator;
+        return workflow;
     };
 
     return {
-        invalidateFacetSnapshot: (): void => requireChannelSetupCoordinator().invalidateFacetSnapshot(),
+        invalidateFacetSnapshot: (): void => requireChannelSetupWorkflow().invalidateFacetSnapshot(),
         getLibrariesForSetup: async (signal?: AbortSignal | null) =>
-            requireChannelSetupCoordinator().getLibrariesForSetup(signal ?? null),
-        getChannelSetupRecord: (serverId: string) => deps.getChannelSetupCoordinator()?.getSetupRecord(serverId) ?? null,
+            requireChannelSetupWorkflow().getLibrariesForSetup(signal ?? null),
+        getChannelSetupRecord: (serverId: string) => deps.getChannelSetupWorkflow()?.getSetupRecord(serverId) ?? null,
         getSetupContextForSelectedServer: () =>
-            deps.getChannelSetupCoordinator()?.getSetupContextForSelectedServer() ?? 'unknown',
-        getSetupPreview: async (config, options) => requireChannelSetupCoordinator().getSetupPreview(config, options),
-        getSetupReview: async (config, options) => requireChannelSetupCoordinator().getSetupReview(config, options),
+            deps.getChannelSetupWorkflow()?.getSetupContextForSelectedServer() ?? 'unknown',
+        getSetupPreview: async (config, options) => requireChannelSetupWorkflow().getSetupPreview(config, options),
+        getSetupReview: async (config, options) => requireChannelSetupWorkflow().getSetupReview(config, options),
         getSetupPlanDiagnostics: async (config, options) =>
-            requireChannelSetupCoordinator().getSetupPlanDiagnostics(config, options),
+            requireChannelSetupWorkflow().getSetupPlanDiagnostics(config, options),
         createChannelsFromSetup: async (config, options) =>
-            requireChannelSetupCoordinator().createChannelsFromSetup(config, options),
+            requireChannelSetupWorkflow().createChannelsFromSetup(config, options),
         markSetupComplete: (serverId, setupConfig) =>
-            requireChannelSetupCoordinator().markSetupComplete(serverId, setupConfig),
+            requireChannelSetupWorkflow().markSetupComplete(serverId, setupConfig),
     };
 };
