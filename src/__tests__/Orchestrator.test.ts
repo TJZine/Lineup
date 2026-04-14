@@ -592,7 +592,6 @@ jest.mock('../modules/ui/epg', () => {
     const actual = jest.requireActual('../modules/ui/epg');
     return {
         ...actual,
-        EPGComponent: jest.fn(() => mockEpg),
         DeferredEPGComponent: jest.fn(() => mockEpg),
         EPGDebugRuntime: jest.fn(() => createMockEpgDebugRuntime()),
     };

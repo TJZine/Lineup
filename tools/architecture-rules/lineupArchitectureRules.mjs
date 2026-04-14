@@ -1,3 +1,5 @@
+const restrictedAppModuleRoots = ['plex', 'player', 'scheduler'];
+
 /**
  * First-pass architecture boundary contract for Lineup.
  *
@@ -5,20 +7,17 @@
  * validators later) should map these sections into enforcement rules.
  */
 export const lineupArchitectureRules = {
-    version: '2026-04-13-first-pass',
+    version: '2026-04-14-first-pass',
     compositionRoots: {
         files: ['src/App.ts', 'src/Orchestrator.ts'],
-        appRestrictedImportPatterns: [
-            './modules/plex/**',
-            './modules/player/**',
-            './modules/scheduler/**',
-            '@modules/plex/**',
-            '@modules/player/**',
-            '@modules/scheduler/**',
-            'src/modules/plex/**',
-            'src/modules/player/**',
-            'src/modules/scheduler/**',
-        ],
+        appRestrictedImportPatterns: restrictedAppModuleRoots.flatMap((moduleRoot) => [
+            `./modules/${moduleRoot}`,
+            `./modules/${moduleRoot}/**`,
+            `@modules/${moduleRoot}`,
+            `@modules/${moduleRoot}/**`,
+            `src/modules/${moduleRoot}`,
+            `src/modules/${moduleRoot}/**`,
+        ]),
     },
     storageOwnership: {
         restrictedGlobals: ['localStorage', 'sessionStorage'],
@@ -26,7 +25,7 @@ export const lineupArchitectureRules = {
             'src/utils/storage.ts',
             'src/modules/lifecycle/StateManager.ts',
             'src/modules/plex/auth/PlexAuth.ts',
-            'src/modules/scheduler/channel-manager/ChannelManager.ts',
+            'src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts',
         ],
     },
     runtimeUiBoundary: {
