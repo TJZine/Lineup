@@ -36,9 +36,23 @@ Do not use it for:
 - local-only run logs
 - scratch notes
 
-## Required Structure
+## Plan Classification
 
-Every serious tracked implementation plan must include these sections.
+Every serious tracked implementation plan must declare its task family explicitly:
+
+- `**Task family:** feature/design`
+- `**Task family:** cleanup/refactor`
+
+When `**Task family:** cleanup/refactor` applies, the plan must also declare the cleanup subtype explicitly:
+
+- `**Cleanup subtype:** checklist-linked`
+- `**Cleanup subtype:** standalone remediation`
+
+Mixed work must split the cleanup slice into a separate cleanup plan instead of using one ambiguous mixed-plan overlay trigger.
+
+## Universal Plan Core
+
+Every serious tracked implementation plan must satisfy the universal core.
 
 For new active plans, prefer the exact `##` headings below so the human-facing doc and the validator stay aligned. Older accepted variants may still pass in some cases, but they should not be the default pattern for new active plans.
 
@@ -56,11 +70,10 @@ For new active plans, prefer the exact `##` headings below so the human-facing d
 12. `## Verification Commands`
 13. `## Rollback Notes`
 14. `## Commit Checkpoints`
-15. `## Priority-Exit Readiness` when the plan is intended to close the last `P#-W#` item in a cleanup priority
 
 When `**Plan Status:** active` appears before the first `##` heading, `npm run verify:docs` and the harness require the plan to satisfy the full serious-plan structure above. In practice, active plans should carry the exact headings listed here instead of relying on implied structure or house-style memory.
 
-## Fresh-Session Rules
+### Fresh-Session Rules
 
 - Assume the implementing session starts with no task memory beyond tracked docs.
 - Include the minimum reading order needed to execute safely.
@@ -68,7 +81,7 @@ When `**Plan Status:** active` appears before the first `##` heading, `npm run v
   - if referenced files, ownership, or doc surfaces changed materially since the plan was written, update the plan first
 - Do not continue through contradicted assumptions because the “intent is obvious.”
 
-## Planner Self-Check
+### Planner Self-Check
 
 Before finalizing any serious tracked plan, explicitly self-check the plan against these questions:
 
@@ -82,14 +95,14 @@ Before finalizing any serious tracked plan, explicitly self-check the plan again
 
 If any answer shows a live architectural or scope ambiguity, stop and resolve that ambiguity before treating the plan as decision-point-free.
 
-## Architecture Seam Decision Gate
+### Architecture Seam Decision Gate
 
 - Do not force a zero-decision execution plan across an architecture seam that is still undecided.
 - If the task depends on changing adjacent contracts, ownership boundaries, or collaborator responsibilities, name the chosen seam explicitly before locking the implementation steps.
 - If that seam is not chosen yet, stop and resolve the decision first instead of hiding it inside the task list.
-- For cleanup/refactor work, a “decision-point-free” plan is valid only after the extraction boundary is explicit enough that a fresh session does not have to invent adapters or contract changes mid-task.
+- A “decision-point-free” plan is valid only after the extraction boundary is explicit enough that a fresh session does not have to invent adapters or contract changes mid-task.
 
-## Discovery And Evidence Rules
+### Discovery And Evidence Rules
 
 - Start with Codanna where practical:
   - `semantic_search_with_context` for code and docs
@@ -116,7 +129,7 @@ When a tracked plan is mainly reconciling detector output with checklist/doc clo
 
 The goal is not to maximize tool usage for its own sake. The goal is to leave a clear evidence trail that explains why the chosen plan shape is the repo-best-practice choice for this task.
 
-## Invariants And Scope Rules
+### Invariants And Scope Rules
 
 - Name exact files in scope.
 - Name exact files out of scope.
@@ -136,7 +149,7 @@ The goal is not to maximize tool usage for its own sake. The goal is to leave a 
   - append order
   - startup/shutdown ordering
 
-## Verification And Rollback Rules
+### Verification And Rollback Rules
 
 - List exact verification commands.
 - State the expected result for each command.
@@ -146,6 +159,39 @@ The goal is not to maximize tool usage for its own sake. The goal is to leave a 
   - at least `npm run typecheck` plus `npm test` for logic-only TypeScript changes unless the task needs broader coverage
 - Add rollback notes for high-risk work so a fresh session can unwind safely if parity breaks.
 
+### Anti-Patterns To Avoid
+
+- hiding an unresolved architecture seam behind a “decisionless” plan
+- contradictory scope or “mechanical wiring” claims that still depend on adjacent out-of-scope seams
+- weak or missing Codanna evidence and fallback logging
+- weak verification expectations or missing expected results
+- local-only dependency leakage into tracked plan instructions
+- stale repo names or stale workflow names
+- absolute local filesystem paths in tracked plan body text when relative tracked references are enough
+- brittle line-number anchoring without a freshness guard
+- vague scope such as “touch whatever is needed”
+- plans that commit local-only artifacts
+- plans that require raw local-only source material when a tracked curated reference should exist instead
+
+Keep the universal anti-pattern list short and always-on. Longer cleanup-era examples belong in optional historical references rather than in the core authoring surface.
+
+## Cleanup Overlay
+
+The cleanup overlay applies only when `**Task family:** cleanup/refactor`.
+
+Cleanup plans must satisfy `Universal Plan Core + Cleanup Overlay`.
+Feature/design plans satisfy `Universal Plan Core` only and must not rely on cleanup-overlay-only sections.
+
+### Cleanup-Only Required Content
+
+- declare `**Cleanup subtype:** checklist-linked` or `**Cleanup subtype:** standalone remediation`
+- describe imported-issue disposition and detector-vs-source-audit reconciliation when detector-backed cleanup evidence is in scope
+- keep `checklist-linked` versus `standalone remediation` explicit throughout the plan
+- add `## Priority-Exit Readiness` only when the cleanup plan is intended to close the last `P#-W#` item in a cleanup priority or is itself `P#-EXIT`
+- for `standalone remediation`, say explicitly that no checklist update is expected unless the task is intentionally promoted later
+
+### Cleanup Closeout Rules
+
 For a final `P#-W#` plan in a cleanup priority, the verification section must also name the priority-exit evidence that will be rerun before moving on:
 
 - `desloppify status`
@@ -154,7 +200,11 @@ For a final `P#-W#` plan in a cleanup priority, the verification section must al
 - the strongest task-specific verification already required by the plan
 - the exact `P#-EXIT` checklist update and evidence refresh the implementer must complete before any `P(n+1)` work starts
 
-The priority-exit readiness section must explicitly record:
+### Priority-Exit Readiness
+
+`## Priority-Exit Readiness` is required only for final-slice cleanup closeout work.
+
+When present, the section must explicitly record:
 
 - every imported review issue mapped to the priority, with its exact issue id, and whether this plan retires it, defers it, or splits it into a follow-up owner
 - for every deferred or split item, the exact current or follow-up owner, the reason it remains open, and the revisit trigger; if one issue spans multiple `P#-W#` items, nominate one single final owner
@@ -162,18 +212,8 @@ The priority-exit readiness section must explicitly record:
 - the expected `P0` security-gate disposition before the next priority begins, including exact issue ids and revisit triggers for anything not cleared
 - any residual debt in the priority area that is intentionally left behind, with its new owner
 
-## Anti-Patterns To Avoid
+### Cleanup Overlay Anti-Patterns
 
-- hiding an unresolved architecture seam behind a “decisionless” plan
-- stale repo names or stale workflow names
-- absolute local filesystem paths in tracked plan body text when relative tracked references are enough
-- brittle line-number anchoring without a freshness guard
-- vague scope such as “touch whatever is needed”
-- contradictory scope rules for adjacent contract files
-- plans that omit verification expectations
-- plans that record only partial Codanna evidence without the required fallback notes
-- plans that commit local-only artifacts
-- plans that require raw local-only source material when a tracked curated reference should exist instead
 - plans that claim priority closeout while leaving the final owner of a mapped imported issue implicit
 - plans that cite local run-bundle artifacts under `docs/plans/...` instead of their real `docs/runs/...` path
 - plans that treat `No open issues matching` as sufficient closeout proof for ownership/coupling findings without a current-code source audit

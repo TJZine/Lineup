@@ -162,6 +162,8 @@ export const HARNESS_INGESTION_TRIAGE_ACTIONS = [
     'harness-update-loop',
 ];
 export const ACTIVE_PLAN_MARKER = '**Plan Status:** active';
+const VALID_TASK_FAMILIES = new Set(['feature/design', 'cleanup/refactor']);
+const VALID_CLEANUP_SUBTYPES = new Set(['checklist-linked', 'standalone remediation']);
 
 const PLAN_SECTION_RULES = [
     { label: 'goal', patterns: [/^\*\*Goal:\*\*/im, /^## Goal$/im] },
@@ -189,6 +191,23 @@ const PLAN_SECTION_RULES = [
     { label: 'rollback notes', patterns: [/^## Rollback Notes$/im] },
     { label: 'commit checkpoints', patterns: [/^## Commit Checkpoints$/im] },
 ];
+const PLAN_SECTION_CONTENT_RULES = [
+    {
+        label: 'planner self-check',
+        headings: ['Planner Self-Check'],
+        error: 'planner self-check section must contain substantive content',
+    },
+    {
+        label: 'architecture seam decision gate',
+        headings: ['Architecture Seam Decision Gate'],
+        error: 'architecture seam decision gate section must contain substantive content',
+    },
+    {
+        label: 'verification commands',
+        headings: ['Verification Commands'],
+        error: 'verification commands section must contain substantive content',
+    },
+];
 
 function escapeRegExp(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
@@ -207,6 +226,17 @@ function extractMarkdownSection(content, heading) {
     const sectionContent = nextHeadingIndex === -1 ? remaining : remaining.slice(0, nextHeadingIndex);
 
     return sectionContent.trim();
+}
+
+function extractFirstMatchingMarkdownSection(content, headings) {
+    for (const heading of headings) {
+        const section = extractMarkdownSection(content, heading);
+        if (section !== null) {
+            return section;
+        }
+    }
+
+    return null;
 }
 
 function parseInlineField(section, label) {
@@ -518,6 +548,7 @@ export function checkPlanConformance({ filePath, content }) {
             filePath,
             isSerious: false,
             missingSections: [],
+            errors: [],
         };
     }
 
@@ -525,10 +556,70 @@ export function checkPlanConformance({ filePath, content }) {
         ({ patterns }) => !patterns.some((pattern) => pattern.test(content))
     ).map(({ label }) => label);
 
+    const errors = [];
+    const taskFamilyMatch = content.match(/^\*\*Task family:\*\*\s*(.+?)\s*$/imu);
+    const taskFamily = taskFamilyMatch?.[1]?.trim() ?? null;
+    if (taskFamily === null) {
+        errors.push('missing required plan classification field: **Task family:**');
+    } else if (!VALID_TASK_FAMILIES.has(taskFamily)) {
+        errors.push(
+            `invalid task family classification: ${taskFamily} (expected one of: ${Array.from(VALID_TASK_FAMILIES).join(', ')})`
+        );
+    }
+
+    const cleanupSubtypeMatch = content.match(/^\*\*Cleanup subtype:\*\*\s*(.+?)\s*$/imu);
+    const cleanupSubtype = cleanupSubtypeMatch?.[1]?.trim() ?? null;
+    if (taskFamily === 'cleanup/refactor') {
+        if (cleanupSubtype === null) {
+            errors.push('cleanup/refactor plans must declare **Cleanup subtype:**');
+        } else if (!VALID_CLEANUP_SUBTYPES.has(cleanupSubtype)) {
+            errors.push(
+                `invalid cleanup subtype classification: ${cleanupSubtype} (expected one of: ${Array.from(VALID_CLEANUP_SUBTYPES).join(', ')})`
+            );
+        }
+    } else if (cleanupSubtype !== null) {
+        errors.push('feature/design plans must not declare **Cleanup subtype:**');
+    }
+
+    for (const rule of PLAN_SECTION_CONTENT_RULES) {
+        const section = extractFirstMatchingMarkdownSection(content, rule.headings);
+        if (section !== null && section.trim().length === 0) {
+            errors.push(rule.error);
+        }
+    }
+
+    const filesInScope = extractFirstMatchingMarkdownSection(content, ['Files In Scope', 'Allowed File Changes']);
+    if (filesInScope !== null && !/^\s*[-*]\s+\S+/mu.test(filesInScope)) {
+        errors.push('files in scope section must contain at least one concrete entry');
+    }
+
+    const filesOutOfScope = extractFirstMatchingMarkdownSection(content, ['Files Out Of Scope']);
+    if (filesOutOfScope !== null && !/^\s*[-*]\s+\S+/mu.test(filesOutOfScope)) {
+        errors.push('files out of scope section must contain at least one concrete entry');
+    }
+
+    const verificationCommands = extractFirstMatchingMarkdownSection(content, ['Verification Commands']);
+    if (verificationCommands !== null) {
+        if (!/^\s*-\s*Run:\s*`[^`]+`/imu.test(verificationCommands)) {
+            errors.push('verification commands section must contain at least one command-looking `Run:` line');
+        }
+        if (!/^\s*-\s*Expected:\s*.+$/imu.test(verificationCommands)) {
+            errors.push('verification commands section must contain at least one expected-result `Expected:` line');
+        }
+    }
+
+    const priorityExitReadiness = extractFirstMatchingMarkdownSection(content, ['Priority-Exit Readiness']);
+    if (priorityExitReadiness !== null && priorityExitReadiness.trim().length === 0) {
+        errors.push('priority-exit readiness section must contain substantive content when present');
+    }
+
     return {
         filePath,
         isSerious: true,
         missingSections,
+        errors,
+        taskFamily,
+        cleanupSubtype,
     };
 }
 

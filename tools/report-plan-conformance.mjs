@@ -54,6 +54,12 @@ for (const relativePath of trackedPlanPaths) {
 
     const result = checkPlanConformance({ filePath: relativePath, content });
 
+    if (result.isSerious && result.errors.length > 0) {
+        for (const error of result.errors) {
+            markerIssues.push(`${relativePath} ${error}`);
+        }
+    }
+
     if (result.isSerious && result.missingSections.length > 0) {
         issues.push(result);
     }

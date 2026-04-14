@@ -242,6 +242,12 @@ test('checkPlanConformance reports missing required sections for serious active 
         'rollback notes',
         'commit checkpoints',
     ]);
+    assert.deepEqual(result.errors, [
+        'missing required plan classification field: **Task family:**',
+        'verification commands section must contain substantive content',
+        'verification commands section must contain at least one command-looking `Run:` line',
+        'verification commands section must contain at least one expected-result `Expected:` line',
+    ]);
 });
 
 test('checkPlanConformance accepts the tracked section variants used by older and newer plans', () => {
@@ -283,6 +289,168 @@ test('checkPlanConformance accepts the tracked section variants used by older an
 
     assert.equal(result.isSerious, true);
     assert.deepEqual(result.missingSections, []);
+    assert.deepEqual(result.errors, [
+        'missing required plan classification field: **Task family:**',
+        'planner self-check section must contain substantive content',
+        'architecture seam decision gate section must contain substantive content',
+        'verification commands section must contain substantive content',
+        'files in scope section must contain at least one concrete entry',
+        'files out of scope section must contain at least one concrete entry',
+        'verification commands section must contain at least one command-looking `Run:` line',
+        'verification commands section must contain at least one expected-result `Expected:` line',
+    ]);
+});
+
+test('checkPlanConformance accepts valid feature-plan classification and substantive sections', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-feature-example.md',
+        content: `# Feature Example
+
+**Plan Status:** active
+**Task family:** feature/design
+
+## Goal
+
+Ship a narrow feature workflow improvement.
+
+## Non-Goals
+
+- No cleanup routing changes.
+
+## Parent Architecture Alignment
+
+- Keep one authority doc.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- \`search_documents\`: confirmed the workflow surfaces.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`ARCHITECTURE_CLEANUP_CHECKLIST.md\`
+
+## Planner Self-Check
+
+- No hidden seam remains.
+
+## Architecture Seam Decision Gate
+
+- Chosen seam: scoped doc-anchor realignment only.
+
+## Verification Commands
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- Revert the scoped anchor split if feature launchers become ambiguous.
+
+## Commit Checkpoints
+
+- \`docs(workflow): realign feature plan references\`
+`,
+    });
+
+    assert.equal(result.isSerious, true);
+    assert.deepEqual(result.missingSections, []);
+    assert.deepEqual(result.errors, []);
+    assert.equal(result.taskFamily, 'feature/design');
+    assert.equal(result.cleanupSubtype, null);
+});
+
+test('checkPlanConformance enforces cleanup subtype, verification shape, and non-empty priority-exit readiness', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+        content: `# Cleanup Example
+
+**Plan Status:** active
+**Task family:** cleanup/refactor
+
+## Goal
+
+Do the cleanup.
+
+## Non-Goals
+
+- No runtime changes.
+
+## Parent Architecture Alignment
+
+- Keep the control plane small.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- fallback: direct reads only.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`src/App.ts\`
+
+## Planner Self-Check
+
+- resolved.
+
+## Architecture Seam Decision Gate
+
+- explicit.
+
+## Verification Commands
+
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- revert.
+
+## Commit Checkpoints
+
+- \`docs: update plan rules\`
+
+## Priority-Exit Readiness
+`,
+    });
+
+    assert.equal(result.isSerious, true);
+    assert.deepEqual(result.missingSections, []);
+    assert.deepEqual(result.errors, [
+        'cleanup/refactor plans must declare **Cleanup subtype:**',
+        'verification commands section must contain at least one command-looking `Run:` line',
+        'priority-exit readiness section must contain substantive content when present',
+    ]);
+    assert.equal(result.taskFamily, 'cleanup/refactor');
 });
 
 test('checkPlanConformance skips non-plan artifacts such as risk registers', () => {
