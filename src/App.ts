@@ -282,8 +282,8 @@ export class App {
         this._screenVisibilityCoordinator = new AppScreenVisibilityCoordinator({
             getIsReady: (): boolean => this._orchestrator?.isReady() ?? false,
             getCurrentScreen: (): string | null => this._orchestrator?.getCurrentScreen() ?? null,
-            getScreenParams: (): Record<string, unknown> => (
-                this._orchestrator?.getNavigation()?.getScreenParams() ?? {}
+            getServerSelectParams: () => (
+                this._orchestrator?.getNavigation()?.getServerSelectParams() ?? null
             ),
             getSplashScreen: (): SplashScreen | null => this._splashScreen,
             getLazyScreenRegistry: (): AppLazyScreenRegistry | null => this._lazyScreenRegistry,

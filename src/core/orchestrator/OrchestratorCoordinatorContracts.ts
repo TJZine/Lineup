@@ -59,6 +59,7 @@ import type { EpgPreferencesStore } from '../../modules/settings/EpgPreferencesS
 import type { NowPlayingDisplayStore } from '../../modules/settings/NowPlayingDisplayStore';
 import type { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
 import type { SubtitlePreferencesStore } from '../../modules/settings/SubtitlePreferencesStore';
+import type { DeveloperSettingsStore } from '../../modules/settings/DeveloperSettingsStore';
 import type { ToastInput } from '../../modules/ui/toast/types';
 import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
 import type { ChannelNumberOverlayRuntimePort } from './OverlayPorts';
@@ -103,6 +104,7 @@ export interface OrchestratorCoordinatorFactoryDeps {
         sleepTimer: SleepTimerManager;
     };
     stores: {
+        developerSettingsStore: DeveloperSettingsStore;
         debugOverridesStore: DebugOverridesStore;
         subtitlePreferencesStore: SubtitlePreferencesStore;
         epgPreferencesStore: EpgPreferencesStore;

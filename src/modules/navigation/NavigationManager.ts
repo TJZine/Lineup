@@ -13,6 +13,7 @@ import {
     NavigationState,
     NavigationEventMap,
     Screen,
+    ServerSelectNavigationParams,
     FocusableElement,
     FocusGroup,
     RemoteButton,
@@ -30,7 +31,6 @@ import {
     CURSOR_HIDE_DELAY_MS,
     CHANNEL_INPUT_CONFIG,
 } from './constants';
-import { DeveloperSettingsStore } from '../settings/DeveloperSettingsStore';
 import type { PlatformInputService } from '../../platform';
 
 /**
@@ -40,11 +40,15 @@ interface NavigationInternalState {
     config: NavigationConfig;
     currentScreen: Screen;
     screenStack: Screen[];
-    screenParams: Map<Screen, Record<string, unknown>>;
+    serverSelectParams: ServerSelectNavigationParams | null;
     modalStack: string[];
     modalFocusableIds: Map<string, string[]>;
     isPointerActive: boolean;
     isInputBlocked: boolean;
+}
+
+export interface NavigationManagerOptions {
+    readDebugLoggingEnabled?: () => boolean;
 }
 
 /**
@@ -65,7 +69,7 @@ interface NavigationInternalState {
 export class NavigationManager
     extends EventEmitter<NavigationEventMap>
     implements INavigationManager {
-    private readonly _developerSettingsStore = new DeveloperSettingsStore();
+    private readonly _readDebugLoggingEnabled: () => boolean;
     private _state: NavigationInternalState;
     private _focusManager: FocusManager;
     private _remoteHandler: RemoteHandler;
@@ -81,7 +85,7 @@ export class NavigationManager
     private readonly _channelNumberInputController: NavigationChannelNumberInputController;
     private _suppressedLogTimestamps: Map<string, number> = new Map();
 
-    constructor(inputService?: PlatformInputService) {
+    constructor(inputService?: PlatformInputService, options?: NavigationManagerOptions) {
         super();
         this._focusManager = new FocusManager();
         this._focusPolicy = new NavigationFocusPolicy();
@@ -116,12 +120,13 @@ export class NavigationManager
             emitSettings: (): void => this.emit('settings', undefined),
         });
         this._remoteHandler = new RemoteHandler(inputService);
+        this._readDebugLoggingEnabled = options?.readDebugLoggingEnabled ?? (() => false);
         this._boundFocusInHandler = this._handleFocusIn.bind(this);
         this._state = {
             config: DEFAULT_NAVIGATION_CONFIG,
             currentScreen: INITIAL_SCREEN,
             screenStack: [],
-            screenParams: new Map(),
+            serverSelectParams: null,
             modalStack: [],
             modalFocusableIds: new Map(),
             isPointerActive: false,
@@ -217,7 +222,10 @@ export class NavigationManager
      * @param screen - Target screen
      * @param params - Optional parameters for the screen
      */
-    public goTo(screen: Screen, params?: Record<string, unknown>): void {
+    public goTo(screen: 'server-select', params: ServerSelectNavigationParams): void;
+    public goTo(screen: 'server-select'): void;
+    public goTo(screen: Exclude<Screen, 'server-select'>): void;
+    public goTo(screen: Screen, params?: ServerSelectNavigationParams): void {
         if (this._state.isInputBlocked) {
             return;
         }
@@ -234,8 +242,8 @@ export class NavigationManager
 
         // Set new screen
         this._state.currentScreen = screen;
-        if (params !== undefined) {
-            this._state.screenParams.set(screen, params);
+        if (screen === 'server-select') {
+            this._state.serverSelectParams = params !== undefined ? { ...params } : null;
         }
 
         // Emit screen change event
@@ -309,18 +317,19 @@ export class NavigationManager
 
         const from = this._state.currentScreen;
         this._state.currentScreen = screen;
+        if (screen === 'server-select') {
+            this._state.serverSelectParams = null;
+        }
 
         this.emit('screenChange', { from, to: screen });
 
     }
 
     /**
-     * Get parameters for the current screen.
-     * @returns The screen parameters or empty object
+     * Get typed server-select params for the active server-select route.
      */
-    public getScreenParams(): Record<string, unknown> {
-        const params = this._state.screenParams.get(this._state.currentScreen);
-        return params !== undefined ? params : {};
+    public getServerSelectParams(): ServerSelectNavigationParams | null {
+        return this._state.serverSelectParams;
     }
 
     /**
@@ -648,7 +657,7 @@ export class NavigationManager
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        return this._developerSettingsStore.readDebugLoggingEnabled(false);
+        return this._readDebugLoggingEnabled();
     }
 
     private _logInputSuppressed(reason: string, button?: RemoteButton): void {

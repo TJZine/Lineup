@@ -133,6 +133,7 @@ import { NowPlayingDisplayStore } from '../../modules/settings/NowPlayingDisplay
 import { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
 import { SubtitlePreferencesStore } from '../../modules/settings/SubtitlePreferencesStore';
 import { AudioSettingsStore } from '../../modules/settings/AudioSettingsStore';
+import { DeveloperSettingsStore } from '../../modules/settings/DeveloperSettingsStore';
 import type { IDisposable } from '../../utils/interfaces';
 import { getRecoveryActions as getRecoveryActionsHelper } from '../error-recovery/RecoveryActions';
 import { toLifecycleAppError as toLifecycleAppErrorHelper } from '../error-recovery/LifecycleErrorAdapter';
@@ -277,6 +278,7 @@ export class AppOrchestrator {
     private _exitConfirmCoordinator: ExitConfirmCoordinator | null = null;
     private _sleepTimer: SleepTimerManager | null = null;
     private readonly _audioSettingsStore = new AudioSettingsStore();
+    private readonly _developerSettingsStore = new DeveloperSettingsStore();
     private readonly _subtitlePreferencesStore = new SubtitlePreferencesStore();
     private readonly _epgPreferencesStore = new EpgPreferencesStore();
     private readonly _nowPlayingDisplayStore = new NowPlayingDisplayStore();
@@ -455,6 +457,7 @@ export class AppOrchestrator {
             config: orchestratorConfig,
             platformServices: this._platformServices,
             debugOverridesStore: this._debugOverridesStore,
+            developerSettingsStore: this._developerSettingsStore,
             onSleepTimerTick: (): void => {
                 // Sleep timer countdown is independent of playback time updates; only refresh OSD if visible.
                 this._playerOsdCoordinator?.refreshIfVisible();
@@ -676,6 +679,7 @@ export class AppOrchestrator {
                 sleepTimer: this._sleepTimer,
             },
             stores: {
+                developerSettingsStore: this._developerSettingsStore,
                 debugOverridesStore: this._debugOverridesStore,
                 subtitlePreferencesStore: this._subtitlePreferencesStore,
                 epgPreferencesStore: this._epgPreferencesStore,

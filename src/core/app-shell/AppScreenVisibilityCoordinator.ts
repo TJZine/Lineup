@@ -1,3 +1,5 @@
+import type { ServerSelectNavigationParams } from '../../modules/navigation';
+
 interface VisibilityScreen {
     show: () => void;
     hide: () => void;
@@ -38,7 +40,7 @@ export interface ServerSelectShowOptions {
 export interface AppScreenVisibilityCoordinatorOptions {
     getIsReady: () => boolean;
     getCurrentScreen: () => string | null;
-    getScreenParams: () => Record<string, unknown>;
+    getServerSelectParams: () => ServerSelectNavigationParams | null;
     getSplashScreen: () => VisibilityScreen | null;
     getLazyScreenRegistry: () => ScreenVisibilityLazyRegistry | null;
     onLazyScreenError?: (error: unknown) => void;
@@ -47,7 +49,7 @@ export interface AppScreenVisibilityCoordinatorOptions {
 export class AppScreenVisibilityCoordinator {
     private readonly _getIsReady: () => boolean;
     private readonly _getCurrentScreen: () => string | null;
-    private readonly _getScreenParams: () => Record<string, unknown>;
+    private readonly _getServerSelectParams: () => ServerSelectNavigationParams | null;
     private readonly _getSplashScreen: () => VisibilityScreen | null;
     private readonly _getLazyScreenRegistry: () => ScreenVisibilityLazyRegistry | null;
     private readonly _onLazyScreenError: (error: unknown) => void;
@@ -55,7 +57,7 @@ export class AppScreenVisibilityCoordinator {
     constructor(options: AppScreenVisibilityCoordinatorOptions) {
         this._getIsReady = options.getIsReady;
         this._getCurrentScreen = options.getCurrentScreen;
-        this._getScreenParams = options.getScreenParams;
+        this._getServerSelectParams = options.getServerSelectParams;
         this._getSplashScreen = options.getSplashScreen;
         this._getLazyScreenRegistry = options.getLazyScreenRegistry;
         this._onLazyScreenError = options.onLazyScreenError ?? (() : void => undefined);
@@ -120,10 +122,7 @@ export class AppScreenVisibilityCoordinator {
         }
 
         if (isServerSelectScreen && lazyRegistry) {
-            const params = this._getScreenParams();
-            const allowAutoConnect = params.allowAutoConnect;
-            const showOptions: ServerSelectShowOptions | undefined =
-                typeof allowAutoConnect === 'boolean' ? { allowAutoConnect } : undefined;
+            const showOptions = this._getServerSelectParams() ?? undefined;
 
             this._showDeferredStartupScreen(
                 () => lazyRegistry.getServerSelectScreen(),

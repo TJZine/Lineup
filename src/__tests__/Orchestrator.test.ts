@@ -822,7 +822,10 @@ describe('AppOrchestrator', () => {
                 platformServices.lifecycle
             );
             expect(require('../modules/navigation').NavigationManager).toHaveBeenCalledWith(
-                platformServices.input
+                platformServices.input,
+                expect.objectContaining({
+                    readDebugLoggingEnabled: expect.any(Function),
+                })
             );
             const streamResolverConfig =
                 (require('../modules/plex/stream').PlexStreamResolver as jest.Mock).mock.calls[0]?.[0];
@@ -842,7 +845,10 @@ describe('AppOrchestrator', () => {
                 webosPlatformServices.lifecycle
             );
             expect(require('../modules/navigation').NavigationManager).toHaveBeenCalledWith(
-                webosPlatformServices.input
+                webosPlatformServices.input,
+                expect.objectContaining({
+                    readDebugLoggingEnabled: expect.any(Function),
+                })
             );
             const streamResolverConfig =
                 (require('../modules/plex/stream').PlexStreamResolver as jest.Mock).mock.calls[0]?.[0];

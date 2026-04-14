@@ -63,7 +63,7 @@ const createRegistry = (): MockRegistry => ({
 describe('AppScreenVisibilityCoordinator', () => {
     let isReady = false;
     let currentScreen = 'player';
-    let screenParams: Record<string, unknown> = {};
+    let serverSelectParams: { allowAutoConnect: boolean } | null = null;
 
     let splashScreen: Screen;
     let authScreen: Screen;
@@ -75,7 +75,7 @@ describe('AppScreenVisibilityCoordinator', () => {
     const createCoordinator = (): AppScreenVisibilityCoordinator => new AppScreenVisibilityCoordinator({
         getIsReady: () => isReady,
         getCurrentScreen: () => currentScreen,
-        getScreenParams: () => screenParams,
+        getServerSelectParams: () => serverSelectParams,
         getSplashScreen: () => splashScreen,
         getLazyScreenRegistry: () => registry as never,
         onLazyScreenError: lazyScreenErrorHandler,
@@ -84,7 +84,7 @@ describe('AppScreenVisibilityCoordinator', () => {
     beforeEach(() => {
         isReady = false;
         currentScreen = 'player';
-        screenParams = {};
+        serverSelectParams = null;
 
         splashScreen = createScreen();
         authScreen = createScreen();
@@ -122,7 +122,7 @@ describe('AppScreenVisibilityCoordinator', () => {
 
     it('shows existing server-select without re-showing splash and preserves allowAutoConnect forwarding', () => {
         currentScreen = 'server-select';
-        screenParams = { allowAutoConnect: true };
+        serverSelectParams = { allowAutoConnect: true };
         registry.ensureServerSelectScreen.mockResolvedValue(serverSelectScreen);
 
         const coordinator = createCoordinator();
@@ -222,15 +222,11 @@ describe('AppScreenVisibilityCoordinator', () => {
         expect(registry.cancelChannelSetupPrefetch).toHaveBeenCalledTimes(1);
     });
 
-    it('forwards undefined server-select options when allowAutoConnect is missing or non-boolean', () => {
+    it('forwards undefined server-select options when no typed server-select params are present', () => {
         currentScreen = 'server-select';
         const coordinator = createCoordinator();
 
-        screenParams = {};
-        coordinator.apply('server-select');
-        expect(serverSelectScreen.show).toHaveBeenLastCalledWith(undefined);
-
-        screenParams = { allowAutoConnect: 'yes' };
+        serverSelectParams = null;
         coordinator.apply('server-select');
         expect(serverSelectScreen.show).toHaveBeenLastCalledWith(undefined);
     });

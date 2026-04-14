@@ -11,7 +11,6 @@ import {
 import { advanceTimersUntil } from '../../../__tests__/helpers';
 import { NOW_PLAYING_INFO_MODAL_ID } from '../../ui/now-playing-info';
 import { PLAYBACK_OPTIONS_MODAL_ID } from '../../ui/playback-options/constants';
-import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 
 type HandlerMap = Partial<{
     [K in keyof NavigationEventMap]: (payload: NavigationEventMap[K]) => void;
@@ -38,6 +37,7 @@ const makeNavigation = (): {
         closeModal: jest.fn(),
         goTo: jest.fn(),
         replaceScreen: jest.fn(),
+        getServerSelectParams: jest.fn().mockReturnValue(null),
         setFocus: jest.fn(),
         handleLongPress: jest.fn(),
         on: jest.fn(<K extends keyof NavigationEventMap>(
@@ -100,6 +100,8 @@ type LegacyNavigationCoordinatorDeps = {
     shouldRunChannelSetup: jest.Mock;
     hidePlayerOsd: jest.Mock;
     hideChannelTransition: jest.Mock;
+    readKeepPlayingInSettings: jest.Mock;
+    readDebugLoggingEnabled: jest.Mock;
 };
 
 const setup = (
@@ -174,6 +176,8 @@ const setup = (
         shouldRunChannelSetup: jest.fn().mockReturnValue(false),
         hidePlayerOsd: jest.fn(),
         hideChannelTransition: jest.fn(),
+        readKeepPlayingInSettings: jest.fn().mockReturnValue(false),
+        readDebugLoggingEnabled: jest.fn().mockReturnValue(false),
     };
     Object.assign(legacy, overrides);
 
@@ -240,6 +244,8 @@ const setup = (
             shouldRunChannelSetup: legacy.shouldRunChannelSetup,
             hideChannelTransition: legacy.hideChannelTransition,
         },
+        readKeepPlayingInSettings: legacy.readKeepPlayingInSettings,
+        readDebugLoggingEnabled: legacy.readDebugLoggingEnabled,
         ...overrides,
     };
 
@@ -871,27 +877,12 @@ describe('NavigationCoordinator', () => {
     });
 
     it('does not pause when keep-playing-in-settings is enabled', () => {
-        const originalLocalStorage = globalThis.localStorage;
-        Object.defineProperty(globalThis, 'localStorage', {
-            value: {
-                getItem: jest.fn((key: string) =>
-                    key === LINEUP_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS ? '1' : null
-                ),
-            },
-            configurable: true,
+        const { handlers, videoPlayer, deps } = setup({
+            readKeepPlayingInSettings: jest.fn().mockReturnValue(true),
         });
-
-        try {
-            const { handlers, videoPlayer } = setup();
-            handlers.screenChange?.({ from: 'player', to: 'settings' });
-            expect(videoPlayer.pause).not.toHaveBeenCalled();
-        } finally {
-            Object.defineProperty(globalThis, 'localStorage', {
-                value: originalLocalStorage,
-                configurable: true,
-                writable: true,
-            });
-        }
+        handlers.screenChange?.({ from: 'player', to: 'settings' });
+        expect(deps.readKeepPlayingInSettings).toHaveBeenCalled();
+        expect(videoPlayer.pause).not.toHaveBeenCalled();
     });
 
     it('channel setup gate replaces player screen', () => {

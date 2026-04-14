@@ -1,5 +1,6 @@
 import { createDefaultPlexAuthConfig } from '../../modules/plex/auth';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
+import { DeveloperSettingsStore } from '../../modules/settings/DeveloperSettingsStore';
 import { webosPlatformServices } from '../../platform';
 import { createOrchestratorModules } from '../../core/orchestrator/OrchestratorModuleFactory';
 import type { OrchestratorConfig } from '../../core/orchestrator/OrchestratorTypes';
@@ -20,6 +21,7 @@ describe('createOrchestratorModules wiring', () => {
             } as unknown as OrchestratorConfig,
             platformServices: webosPlatformServices,
             debugOverridesStore: new DebugOverridesStore(),
+            developerSettingsStore: new DeveloperSettingsStore(),
             onSleepTimerTick,
         });
 

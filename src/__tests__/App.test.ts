@@ -969,13 +969,13 @@ describe('App bootstrap smoke', () => {
         let currentScreen: string | null = 'splash';
         (AppOrchestrator.prototype.getCurrentScreen as unknown as jest.Mock).mockImplementation(() => currentScreen);
 
-        const getScreenParams = jest
+        const getServerSelectParams = jest
             .fn()
             .mockReturnValueOnce({ allowAutoConnect: true })
-            .mockReturnValueOnce({})
-            .mockReturnValueOnce({ allowAutoConnect: 'yes' });
+            .mockReturnValueOnce(null)
+            .mockReturnValueOnce(null);
         jest.spyOn(AppOrchestrator.prototype, 'getNavigation').mockReturnValue({
-            getScreenParams,
+            getServerSelectParams,
             openModal: jest.fn(),
             closeModal: jest.fn(),
             isModalOpen: jest.fn().mockReturnValue(false),
@@ -1000,7 +1000,7 @@ describe('App bootstrap smoke', () => {
         await flushPromises(6);
         expect(serverSelectHide).toHaveBeenCalled();
 
-        // Validate non-boolean/missing screen params pass undefined options through App flow.
+        // Validate missing server-select params pass undefined options through App flow.
         currentScreen = 'server-select';
         screenChangeHandler?.('auth', 'server-select');
         await flushPromises(6);
@@ -1086,7 +1086,7 @@ describe('App bootstrap smoke', () => {
         const replaceScreen = jest.fn();
         jest.spyOn(AppOrchestrator.prototype, 'getNavigation').mockReturnValue({
             replaceScreen,
-            getScreenParams: jest.fn().mockReturnValue({}),
+            getServerSelectParams: jest.fn().mockReturnValue(null),
             openModal: jest.fn(),
             closeModal: jest.fn(),
             isModalOpen: jest.fn().mockReturnValue(false),

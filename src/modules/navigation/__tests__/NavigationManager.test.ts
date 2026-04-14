@@ -138,10 +138,26 @@ describe('NavigationManager', () => {
             });
         });
 
-        it('should store and retrieve screen params', () => {
-            nav.goTo('player', { channelId: 'ch-123' });
+        it('stores server-select params for typed server-select routes', () => {
+            nav.goTo('server-select', { allowAutoConnect: true });
 
-            expect(nav.getScreenParams()).toEqual({ channelId: 'ch-123' });
+            expect(nav.getServerSelectParams()).toEqual({ allowAutoConnect: true });
+        });
+
+        it('clears stale server-select params on no-param server-select route', () => {
+            nav.goTo('server-select', { allowAutoConnect: true });
+            nav.goTo('auth');
+            nav.goTo('server-select');
+
+            expect(nav.getServerSelectParams()).toBeNull();
+        });
+
+        it('treats replaceScreen(server-select) as a reset path', () => {
+            nav.goTo('server-select', { allowAutoConnect: true });
+            nav.replaceScreen('auth');
+            nav.replaceScreen('server-select');
+
+            expect(nav.getServerSelectParams()).toBeNull();
         });
     });
 

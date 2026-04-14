@@ -53,11 +53,13 @@ import type {
 } from './OverlayPorts';
 import type { PlatformServices } from '../../platform';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
+import type { DeveloperSettingsStore } from '../../modules/settings/DeveloperSettingsStore';
 
 export interface OrchestratorModuleFactoryDeps {
     config: OrchestratorConfig;
     platformServices: PlatformServices;
     debugOverridesStore: DebugOverridesStore;
+    developerSettingsStore: DeveloperSettingsStore;
     onSleepTimerTick: () => void;
 }
 
@@ -86,7 +88,10 @@ export interface OrchestratorModules {
 
 export function createOrchestratorModules(deps: OrchestratorModuleFactoryDeps): OrchestratorModules {
     const lifecycle = new AppLifecycle(undefined, undefined, deps.platformServices.lifecycle);
-    const navigation = new NavigationManager(deps.platformServices.input);
+    const navigation = new NavigationManager(deps.platformServices.input, {
+        readDebugLoggingEnabled: (): boolean =>
+            deps.developerSettingsStore.readDebugLoggingEnabled(false),
+    });
     const plexAuth = new PlexAuth(deps.config.plexConfig);
     const plexDiscovery = new PlexServerDiscovery({
         getAuthHeaders: (): Record<string, string> => plexAuth.getAuthHeaders(),

@@ -10,8 +10,6 @@ import type { IVideoPlayer } from '../player';
 import type { IPlexAuth } from '../plex/auth';
 import { NOW_PLAYING_INFO_MODAL_ID } from '../ui/now-playing-info';
 import type { PlaybackOptionsSectionId } from '../ui/playback-options/types';
-import { DeveloperSettingsStore } from '../settings/DeveloperSettingsStore';
-import { ProfileSessionStore } from '../settings/ProfileSessionStore';
 import {
     computeAcceleratedRepeatIntervalMs,
     EPG_REPEAT_TIMING,
@@ -85,11 +83,10 @@ export interface NavigationCoordinatorDeps {
     };
     reportToast?: (toast: { message: string; type: 'warning' | 'error' | 'info' | 'success' }) => void;
     readKeepPlayingInSettings?: () => boolean;
+    readDebugLoggingEnabled?: () => boolean;
 }
 
 export class NavigationCoordinator {
-    private readonly _developerSettingsStore = new DeveloperSettingsStore();
-    private readonly _profileSessionStore = new ProfileSessionStore();
     private _epgRepeatTimer: ReturnType<typeof setTimeout> | null = null;
     private _epgRepeatButton: 'up' | 'down' | 'left' | 'right' | null = null;
     private _epgRepeatStartMs = 0;
@@ -742,12 +739,11 @@ export class NavigationCoordinator {
     }
 
     private _shouldKeepPlayingInSettings(): boolean {
-        return this.deps.readKeepPlayingInSettings?.() ??
-            this._profileSessionStore.readKeepPlayingInSettings(false);
+        return this.deps.readKeepPlayingInSettings?.() ?? false;
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        return this._developerSettingsStore.readDebugLoggingEnabled(false);
+        return this.deps.readDebugLoggingEnabled?.() ?? false;
     }
 
     private _logInputNotHandled(

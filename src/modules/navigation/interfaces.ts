@@ -18,14 +18,16 @@ export interface INavigationManager {
     destroy(): void;
 
     // Screen Navigation
-    goTo(screen: Screen, params?: Record<string, unknown>): void;
+    goTo(screen: 'server-select', params: ServerSelectNavigationParams): void;
+    goTo(screen: 'server-select'): void;
+    goTo(screen: Exclude<Screen, 'server-select'>): void;
     /**
      * Navigate back to the previous screen.
      * @returns true if navigation occurred, false if already at root screen
      */
     goBack(): boolean;
     replaceScreen(screen: Screen): void;
-    getScreenParams(): Record<string, unknown>;
+    getServerSelectParams(): ServerSelectNavigationParams | null;
 
     // Focus Management
     setFocus(elementId: string, options?: SetFocusOptions): void;
@@ -156,6 +158,10 @@ export type Screen =
     | 'channel-edit'
     | 'settings'
     | 'error';
+
+export interface ServerSelectNavigationParams {
+    allowAutoConnect: boolean;
+}
 
 /**
  * Navigation manager configuration

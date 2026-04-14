@@ -106,7 +106,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             getCurrentScreen: jest.fn().mockReturnValue('splash'),
             goTo: jest.fn(),
             replaceScreen: jest.fn(),
-            getScreenParams: jest.fn().mockReturnValue({}),
+            getServerSelectParams: jest.fn().mockReturnValue(null),
             getState: jest.fn().mockReturnValue({ screenStack: [] }),
         } as unknown as LegacyInitializationDependencies['navigation'];
 

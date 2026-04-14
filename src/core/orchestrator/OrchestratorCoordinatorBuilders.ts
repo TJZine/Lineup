@@ -589,5 +589,7 @@ export function buildNavigationCoordinator(
         },
         readKeepPlayingInSettings: (): boolean =>
             input.stores.profileSessionStore.readKeepPlayingInSettings(false),
+        readDebugLoggingEnabled: (): boolean =>
+            input.stores.developerSettingsStore.readDebugLoggingEnabled(false),
     });
 }
