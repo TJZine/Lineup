@@ -240,13 +240,6 @@ jest.mock('../modules/ui/now-playing-info', () => {
             resetAutoHideTimer: jest.fn(),
             setOnAutoHide: jest.fn(),
         })),
-        NOW_PLAYING_INFO_MODAL_ID: 'now-playing-info',
-        NOW_PLAYING_INFO_DEFAULTS: {
-            autoHideMs: 0,
-            posterWidth: 320,
-            posterHeight: 480,
-        },
-        NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS: [0, 5_000, 10_000, 15_000, 30_000, 60_000, 120_000],
     };
 });
 
@@ -400,6 +393,7 @@ const mockPlexLibrary = {
     getImageUrl: jest.fn().mockReturnValue('http://test/resized.jpg'),
     getItem: jest.fn().mockResolvedValue(null),
     on: jest.fn(() => jest.fn()),
+    off: jest.fn(),
 };
 
 jest.mock('../modules/plex/library', () => ({
@@ -415,6 +409,7 @@ const mockPlexStreamResolver = {
     }),
     stopTranscodeSession: jest.fn().mockResolvedValue(undefined),
     on: jest.fn(() => jest.fn()),
+    off: jest.fn(),
 };
 
 jest.mock('../modules/plex/stream', () => ({
@@ -603,6 +598,7 @@ jest.mock('../modules/ui/epg', () => {
 
 describe('AppOrchestrator', () => {
     let orchestrator: AppOrchestrator;
+    const ownedOrchestrators = new Set<AppOrchestrator>();
     let schedulerHandlers: {
         programStart?: (program: unknown) => void;
         scheduleSync?: () => void;
@@ -627,6 +623,11 @@ describe('AppOrchestrator', () => {
     };
     let pauseHandler: (() => void | Promise<void>) | null;
     let resumeHandler: (() => void | Promise<void>) | null;
+    const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrator => {
+        const instance = new AppOrchestrator(platformServices);
+        ownedOrchestrators.add(instance);
+        return instance;
+    };
 
     beforeEach(() => {
         jest.clearAllMocks();
@@ -751,7 +752,21 @@ describe('AppOrchestrator', () => {
                 resumeHandler = handler;
                 return { dispose: jest.fn() };
             });
-        orchestrator = new AppOrchestrator();
+        orchestrator = createOrchestrator();
+    });
+
+    afterEach(async () => {
+        jest.useRealTimers();
+
+        for (const orchestratorInstance of ownedOrchestrators) {
+            try {
+                await orchestratorInstance.shutdown();
+            } catch {
+                // Cleanup failures are asserted in explicit shutdown tests.
+            }
+        }
+
+        ownedOrchestrators.clear();
     });
 
     describe('initialize', () => {
@@ -800,7 +815,7 @@ describe('AppOrchestrator', () => {
                     deriveLanHttpSubtitleUrl: jest.fn(() => null),
                 },
             };
-            const orchestratorWithPlatform = new AppOrchestrator(platformServices);
+            const orchestratorWithPlatform = createOrchestrator(platformServices);
 
             await orchestratorWithPlatform.initialize(mockConfig);
 
