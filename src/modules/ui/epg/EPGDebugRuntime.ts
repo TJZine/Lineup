@@ -10,13 +10,13 @@ const EPG_DEBUG_LOG_MAX_ENTRIES = 200;
 const EPG_DEBUG_LOG_FLUSH_DELAY_MS = 250;
 const EPG_DEBUG_FLAG_REFRESH_MS = 500;
 
-export interface IEpgDebugRuntime {
+export interface IEPGDebugRuntime {
     isEnabled(): boolean;
     append(event: string, data: unknown): void;
     destroy(): void;
 }
 
-export class EPGDebugRuntime implements IEpgDebugRuntime {
+export class EPGDebugRuntime implements IEPGDebugRuntime {
     private readonly _debugOverridesStore: DebugOverridesStore;
     private _entries: EpgDebugEntry[] | null = null;
     private _flushTimer: ReturnType<typeof setTimeout> | null = null;

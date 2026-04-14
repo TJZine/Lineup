@@ -60,7 +60,7 @@ import { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryMa
 import {
     EPGCoordinator,
     EPGDebugRuntime,
-    type IEpgDebugRuntime,
+    type IEPGDebugRuntime,
     type IEPGComponent,
 } from '../../modules/ui/epg';
 import {
@@ -314,7 +314,7 @@ export class AppOrchestrator {
     private readonly _storageContext: OrchestratorStorageContext;
     private readonly _debugOverridesStore = new DebugOverridesStore();
     private readonly _issueDiagnosticsStore = new IssueDiagnosticsStore();
-    private _epgDebugRuntime: IEpgDebugRuntime | null = null;
+    private _epgDebugRuntime: IEPGDebugRuntime | null = null;
     private readonly _playbackStateAccessors: OrchestratorPlaybackStateAccessors;
     private readonly _channelSetupWorkflowPort: ChannelSetupWorkflowPort;
     private readonly _serverSelectionCoordinator: ServerSelectionCoordinator;

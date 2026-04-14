@@ -593,7 +593,7 @@ jest.mock('../modules/ui/epg', () => {
     return {
         ...actual,
         EPGComponent: jest.fn(() => mockEpg),
-        DeferredEpgComponent: jest.fn(() => mockEpg),
+        DeferredEPGComponent: jest.fn(() => mockEpg),
         EPGDebugRuntime: jest.fn(() => createMockEpgDebugRuntime()),
     };
 });
@@ -769,7 +769,7 @@ describe('AppOrchestrator', () => {
             expect(require('../modules/scheduler/channel-manager').ChannelManager).toHaveBeenCalled();
             expect(require('../modules/scheduler/scheduler').ChannelScheduler).toHaveBeenCalled();
             expect(require('../modules/player').VideoPlayer).toHaveBeenCalled();
-            expect(require('../modules/ui/epg').DeferredEpgComponent).toHaveBeenCalled();
+            expect(require('../modules/ui/epg').DeferredEPGComponent).toHaveBeenCalled();
         });
 
         it('wires injected platform services into lifecycle/navigation/stream/player seams', async () => {

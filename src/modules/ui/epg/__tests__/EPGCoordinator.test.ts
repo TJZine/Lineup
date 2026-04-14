@@ -1,5 +1,5 @@
 import { EPGCoordinator, type EPGCoordinatorDeps } from '../EPGCoordinator';
-import type { EpgUiStatus } from '../types';
+import type { EPGUiStatus } from '../types';
 import type { IEPGComponent } from '../interfaces';
 import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
 import {
@@ -1087,7 +1087,7 @@ describe('EPGCoordinator', () => {
     });
 
     it('openEPG shows immediately when not ready then initializes and shows again', async () => {
-        let status: EpgUiStatus = 'initializing';
+        let status: EPGUiStatus = 'initializing';
         const ensure = jest.fn().mockImplementation(async () => {
             status = 'ready';
         });
@@ -1109,7 +1109,7 @@ describe('EPGCoordinator', () => {
     });
 
     it('openEPG deferred follow-up preserves focus semantics when preserveFocus is true', async () => {
-        let status: EpgUiStatus = 'initializing';
+        let status: EPGUiStatus = 'initializing';
         const ensure = jest.fn().mockImplementation(async () => {
             status = 'ready';
         });

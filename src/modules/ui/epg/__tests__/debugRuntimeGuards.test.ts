@@ -1,9 +1,9 @@
 import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debugRuntimeGuards';
-import type { IEpgDebugRuntime } from '../EPGDebugRuntime';
+import type { IEPGDebugRuntime } from '../EPGDebugRuntime';
 
 describe('debugRuntimeGuards', () => {
     it('returns false when isEnabled throws', () => {
-        const debugRuntime: IEpgDebugRuntime = {
+        const debugRuntime: IEPGDebugRuntime = {
             isEnabled: () => {
                 throw new Error('boom');
             },
@@ -15,7 +15,7 @@ describe('debugRuntimeGuards', () => {
     });
 
     it('returns underlying enabled state when isEnabled succeeds', () => {
-        const debugRuntime: IEpgDebugRuntime = {
+        const debugRuntime: IEPGDebugRuntime = {
             isEnabled: () => true,
             append: jest.fn(),
             destroy: jest.fn(),
@@ -25,7 +25,7 @@ describe('debugRuntimeGuards', () => {
     });
 
     it('swallows append failures', () => {
-        const debugRuntime: IEpgDebugRuntime = {
+        const debugRuntime: IEPGDebugRuntime = {
             isEnabled: () => true,
             append: () => {
                 throw new Error('append failed');
@@ -40,7 +40,7 @@ describe('debugRuntimeGuards', () => {
 
     it('forwards append payloads when append succeeds', () => {
         const append = jest.fn();
-        const debugRuntime: IEpgDebugRuntime = {
+        const debugRuntime: IEPGDebugRuntime = {
             isEnabled: () => true,
             append,
             destroy: jest.fn(),

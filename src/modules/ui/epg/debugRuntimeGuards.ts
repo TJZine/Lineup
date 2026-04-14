@@ -1,7 +1,7 @@
-import type { IEpgDebugRuntime } from './EPGDebugRuntime';
+import type { IEPGDebugRuntime } from './EPGDebugRuntime';
 
 export const isDebugRuntimeEnabled = (
-    debugRuntime: IEpgDebugRuntime | null | undefined
+    debugRuntime: IEPGDebugRuntime | null | undefined
 ): boolean => {
     try {
         return debugRuntime?.isEnabled() ?? false;
@@ -11,7 +11,7 @@ export const isDebugRuntimeEnabled = (
 };
 
 export const appendDebugRuntimeLog = (
-    debugRuntime: IEpgDebugRuntime | null | undefined,
+    debugRuntime: IEPGDebugRuntime | null | undefined,
     event: string,
     payload: Record<string, unknown>
 ): void => {

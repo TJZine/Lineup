@@ -5,9 +5,9 @@
 import { APP_SHELL_CONTAINER_IDS } from '../../common/appShellContainerIds';
 import { formatTimeRange } from '../utils';
 import {
-    buildEpgStartupConfig,
+    buildEPGStartupConfig,
     CLASSIC_EPG_PIP_CLASS,
-    type EpgStartupConfigInputs,
+    type EPGStartupConfigInputs,
 } from '../buildEpgStartupConfig';
 import type { EPGConfig } from '../types';
 
@@ -23,35 +23,35 @@ const createBaseConfig = (): EPGConfig => ({
     autoScrollToNow: true,
 });
 
-const createInputs = (): EpgStartupConfigInputs => ({
+const createInputs = (): EPGStartupConfigInputs => ({
     epgConfig: createBaseConfig(),
     plexLibrary: {
         getItem: jest.fn(),
         getImageUrl: jest.fn().mockReturnValue('https://resized.test/thumb.jpg'),
-    } as unknown as EpgStartupConfigInputs['plexLibrary'],
+    } as unknown as EPGStartupConfigInputs['plexLibrary'],
     videoPlayer: {
         isPlaying: jest.fn().mockReturnValue(true),
-    } as unknown as EpgStartupConfigInputs['videoPlayer'],
+    } as unknown as EPGStartupConfigInputs['videoPlayer'],
     channelManager: {
         getCurrentChannel: jest.fn().mockReturnValue({
             number: 7,
             name: 'Action',
         }),
-    } as unknown as EpgStartupConfigInputs['channelManager'],
+    } as unknown as EPGStartupConfigInputs['channelManager'],
     scheduler: {
         getCurrentProgram: jest.fn().mockReturnValue({
             item: { title: 'Movie Night' },
             scheduledStartTime: Date.UTC(2026, 3, 13, 19, 0, 0, 0),
             scheduledEndTime: Date.UTC(2026, 3, 13, 21, 0, 0, 0),
         }),
-    } as unknown as EpgStartupConfigInputs['scheduler'],
+    } as unknown as EPGStartupConfigInputs['scheduler'],
     buildPlexResourceUrl: jest.fn((path: string | null) => path ? `https://fallback.test${path}` : null),
     readEpgLayoutMode: jest.fn(() => 'classic'),
     readShowNowWatchingBanner: jest.fn(() => true),
     debugRuntime: null,
 });
 
-describe('buildEpgStartupConfig', () => {
+describe('buildEPGStartupConfig', () => {
     afterEach(() => {
         document.body.innerHTML = '';
         jest.clearAllMocks();
@@ -66,7 +66,7 @@ describe('buildEpgStartupConfig', () => {
         };
         (inputs.plexLibrary!.getItem as jest.Mock).mockResolvedValue(source);
 
-        const config = buildEpgStartupConfig(inputs);
+        const config = buildEPGStartupConfig(inputs);
         const details = await config.fetchItemDetails?.('rk-1');
 
         expect(details).toEqual(source);
@@ -79,7 +79,7 @@ describe('buildEpgStartupConfig', () => {
 
     it('preserves current-channel time label formatting', () => {
         const inputs = createInputs();
-        const config = buildEpgStartupConfig(inputs);
+        const config = buildEPGStartupConfig(inputs);
         const info = config.getCurrentChannelInfo?.();
         const expected = formatTimeRange(
             Date.UTC(2026, 3, 13, 19, 0, 0, 0),
@@ -96,7 +96,7 @@ describe('buildEpgStartupConfig', () => {
 
     it('toggles the classic PiP class on layout mode changes', () => {
         const inputs = createInputs();
-        const config = buildEpgStartupConfig(inputs);
+        const config = buildEPGStartupConfig(inputs);
         const videoContainer = document.createElement('div');
         videoContainer.id = APP_SHELL_CONTAINER_IDS.VIDEO;
         document.body.appendChild(videoContainer);
@@ -114,7 +114,7 @@ describe('buildEpgStartupConfig', () => {
         inputs.channelManager = null;
         inputs.scheduler = null;
         inputs.videoPlayer = null;
-        const config = buildEpgStartupConfig(inputs);
+        const config = buildEPGStartupConfig(inputs);
 
         await expect(config.fetchItemDetails?.('rk-2')).resolves.toBeNull();
         expect(config.getCurrentChannelInfo?.()).toBeNull();
@@ -129,7 +129,7 @@ describe('buildEpgStartupConfig', () => {
             ...inputs.epgConfig,
             onLayoutModeChange: previousOnLayoutModeChange,
         };
-        const config = buildEpgStartupConfig(inputs);
+        const config = buildEPGStartupConfig(inputs);
 
         config.onLayoutModeChange?.('classic');
 

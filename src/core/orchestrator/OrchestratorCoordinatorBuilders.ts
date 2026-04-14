@@ -33,7 +33,7 @@ import {
     EPGCoordinator,
     IEPGComponent,
     EPGConfig,
-    EpgUiStatus,
+    EPGUiStatus,
     withEpgVisibleRangeChangeBinding,
 } from '../../modules/ui/epg';
 import {
@@ -88,7 +88,7 @@ export function buildEpgCoordinator(input: OrchestratorCoordinatorBuilderInput):
         getEpg: (): IEPGComponent | null => input.modules.epg,
         getChannelManager: (): IChannelManager | null => input.modules.channelManager,
         getScheduler: (): IChannelScheduler | null => input.modules.scheduler,
-        getEpgUiStatus: (): EpgUiStatus => input.moduleStatus.get('epg-ui')?.status,
+        getEpgUiStatus: (): EPGUiStatus => input.moduleStatus.get('epg-ui')?.status,
         ensureEpgInitialized: (): Promise<void> => input.init.ensureEpgInitialized(),
         getEpgConfig: (): EPGConfig | null => input.config?.epgConfig ?? null,
         getLocalMidnightMs: (t: number): number => input.schedule.getLocalMidnightMs(t),

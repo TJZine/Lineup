@@ -4,14 +4,14 @@ import type { IChannelScheduler } from '../../scheduler/scheduler';
 import type { IVideoPlayer } from '../../player';
 import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
 import { APP_SHELL_CONTAINER_IDS } from '../common/appShellContainerIds';
-import type { IEpgDebugRuntime } from './EPGDebugRuntime';
+import type { IEPGDebugRuntime } from './EPGDebugRuntime';
 import { toEpgItemDetails } from './model/adapters';
 import type { EPGConfig } from './types';
 import { formatTimeRange } from './utils';
 
 export const CLASSIC_EPG_PIP_CLASS = 'epg-pip-active';
 
-export interface EpgStartupConfigInputs {
+export interface EPGStartupConfigInputs {
     epgConfig: EPGConfig;
     plexLibrary: IPlexLibrary | null;
     videoPlayer: IVideoPlayer | null;
@@ -20,10 +20,10 @@ export interface EpgStartupConfigInputs {
     buildPlexResourceUrl: (pathOrUrl: string | null) => string | null;
     readEpgLayoutMode: () => EpgLayoutMode;
     readShowNowWatchingBanner: () => boolean;
-    debugRuntime: IEpgDebugRuntime | null;
+    debugRuntime: IEPGDebugRuntime | null;
 }
 
-export function buildEpgStartupConfig(inputs: EpgStartupConfigInputs): EPGConfig {
+export function buildEPGStartupConfig(inputs: EPGStartupConfigInputs): EPGConfig {
     const layoutMode = inputs.readEpgLayoutMode();
     const showNowWatchingBanner = inputs.readShowNowWatchingBanner();
     const previousOnLayoutModeChange = inputs.epgConfig.onLayoutModeChange ?? null;

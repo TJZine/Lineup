@@ -28,7 +28,7 @@ import type {
 } from '../../modules/player';
 import type {
     IEPGComponent,
-    IEpgDebugRuntime,
+    IEPGDebugRuntime,
 } from '../../modules/ui/epg';
 import type {
     INowPlayingInfoOverlay,
@@ -74,7 +74,7 @@ import type { ChannelTuningCoordinator } from '../channel-tuning';
 import type { NavigationCoordinator } from '../../modules/navigation/NavigationCoordinator';
 
 export interface OrchestratorCoordinatorFactoryDeps {
-    epgDebugRuntime: IEpgDebugRuntime | null;
+    epgDebugRuntime: IEPGDebugRuntime | null;
     config: OrchestratorConfig | null;
     moduleStatus: Map<string, ModuleStatus>;
     init: {
