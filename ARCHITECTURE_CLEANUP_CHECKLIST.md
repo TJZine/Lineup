@@ -1019,7 +1019,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 ## Priority 5: Unify Storage And Settings Contracts
 
-### [ ] `P5-W1` Normalize Storage Write Contracts
+### [x] `P5-W1` Normalize Storage Write Contracts
 
 **Mapped imported review issues:**
 
@@ -1037,6 +1037,22 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify show src/modules/settings --status open --no-budget --top 100`
 
 **Exit rule:** all public storage writes use one consistent failure contract per boundary.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-14-p5-w1-storage-write-contract-normalization.md`
+- Last touched: `2026-04-14`
+- Verification:
+  - `npm test -- --runInBand src/utils/__tests__/storage.test.ts src/modules/settings/__tests__/EpgPreferencesStore.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelPersistenceStore.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelRepository.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts` passed
+  - `npm run verify` passed
+  - `desloppify show src/utils/storage.ts --status open --no-budget --top 50` returned no open matches
+  - `desloppify show src/modules/settings --status open --no-budget --top 100` returned no open matches
+  - `rg -n "write[A-Za-z0-9]+\\(.*\\): void" src/modules/settings/EpgPreferencesStore.ts` returned no matches
+  - `rg -n "StoredChannelWriteResult|CurrentChannelWriteResult" src/modules/scheduler/channel-manager` returned no matches
+  - `rg -n "safeLocalStorageSetWithResult|safeLocalStorageRemoveWithResult|writeTrimmedStringOrRemoveWithResult" src/utils/storage.ts src/modules/settings/EpgPreferencesStore.ts src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts` confirmed one shared write-result helper surface across the slice
+- Follow-ups:
+  - imported `review::.::holistic::api_surface_coherence::storage_write_contract_fragmentation` was stale in the live queue; closure is based on current-source proof and targeted verification, not queue silence
+  - `P5-W2` remains the planned owner for read-side cleanup naming/semantics
+- Handoff: run `P5-W2` planning/review next; keep read-side cleanup separate from this write-contract slice
 
 ### [ ] `P5-W2` Separate Read Semantics From Cleanup Writes
 

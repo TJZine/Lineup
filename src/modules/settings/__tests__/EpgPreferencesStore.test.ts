@@ -18,8 +18,8 @@ describe('EpgPreferencesStore', () => {
         expect(store.readLayoutMode()).toBe('classic');
         expect(store.readNowWatchingEnabled(true)).toBe(true);
 
-        store.writeLayoutMode('overlay');
-        store.writeNowWatchingEnabled(false);
+        expect(store.writeLayoutMode('overlay')).toEqual({ ok: true });
+        expect(store.writeNowWatchingEnabled(false)).toEqual({ ok: true });
 
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('overlay');
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED)).toBe('0');
@@ -28,10 +28,10 @@ describe('EpgPreferencesStore', () => {
     });
 
     it('reads/writes library filter with trim/remove normalization', () => {
-        store.writeSelectedLibraryId('  lib-1 ');
+        expect(store.writeSelectedLibraryId('  lib-1 ')).toEqual({ ok: true });
         expect(store.readSelectedLibraryId()).toBe('lib-1');
 
-        store.writeSelectedLibraryId(' ');
+        expect(store.writeSelectedLibraryId(' ')).toEqual({ ok: true });
         expect(store.readSelectedLibraryId()).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
     });
@@ -74,5 +74,37 @@ describe('EpgPreferencesStore', () => {
         });
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW)).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
+    });
+
+    it('returns unavailable when storage writes are blocked', () => {
+        const setSpy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new DOMException('blocked', 'SecurityError');
+        });
+        try {
+            expect(store.writeGuideDensity('wide')).toEqual({
+                ok: false,
+                reason: 'unavailable',
+            });
+            expect(store.writeSelectedLibraryId('lib-2')).toEqual({
+                ok: false,
+                reason: 'unavailable',
+            });
+        } finally {
+            setSpy.mockRestore();
+        }
+    });
+
+    it('returns quota-exceeded when setItem throws QuotaExceededError', () => {
+        const setSpy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new DOMException('quota', 'QuotaExceededError');
+        });
+        try {
+            expect(store.writeInfoBackgroundMode(1)).toEqual({
+                ok: false,
+                reason: 'quota-exceeded',
+            });
+        } finally {
+            setSpy.mockRestore();
+        }
     });
 });
