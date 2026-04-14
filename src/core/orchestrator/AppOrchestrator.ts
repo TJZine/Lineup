@@ -89,15 +89,13 @@ import {
     ExitConfirmModal,
     EXIT_CONFIRM_MODAL_ID,
 } from '../../modules/ui/exit-confirm';
-import {
-    InitializationCoordinator,
-    ChannelTuningCoordinator,
-    OrchestratorStorageContext,
-    OrchestratorEventBinder,
-    OverlayRuntimePolicyController,
-    ProfileSwitchCleanupController,
-    PlaybackRuntimeController,
-} from '..';
+import { InitializationCoordinator } from '../InitializationCoordinator';
+import { ChannelTuningCoordinator } from '../channel-tuning';
+import { OrchestratorStorageContext } from './OrchestratorStorageContext';
+import { OrchestratorEventBinder } from './OrchestratorEventBinder';
+import { OverlayRuntimePolicyController } from './OverlayRuntimePolicyController';
+import { ProfileSwitchCleanupController } from './ProfileSwitchCleanupController';
+import { PlaybackRuntimeController } from '../PlaybackRuntimeController';
 import type {
     OrchestratorServerSelectionReadiness,
     OrchestratorServerSelectionResult,
@@ -148,7 +146,7 @@ import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
 import { ScheduleDayRolloverController } from './ScheduleDayRolloverController';
 import { SubtitleTrackRecoveryController } from './SubtitleTrackRecoveryController';
 import { OrchestratorSchedulePolicy } from './OrchestratorSchedulePolicy';
-import { InitializationUiInitializer } from '../initialization/InitializationUiInitializer';
+import { AppStartupUiInitializer } from '../app-shell/AppStartupUiInitializer';
 
 // ============================================
 // Types
@@ -487,7 +485,7 @@ export class AppOrchestrator {
 
         this._configureDiscoveryStorageKeysForActiveUser();
 
-        const initializationUiInitializer = new InitializationUiInitializer(
+        const startupUiInitializer = new AppStartupUiInitializer(
             orchestratorConfig,
             {
                 nowPlayingInfo: this._nowPlayingInfo,
@@ -527,7 +525,7 @@ export class AppOrchestrator {
                     miniGuide: this._miniGuide,
                     channelTransition: this._channelTransitionOverlay,
                 },
-                uiInitializer: initializationUiInitializer,
+                startupUiInitializer,
                 epgDebugRuntime: this._epgDebugRuntime,
                 stores: {
                     epgPreferencesStore: this._epgPreferencesStore,
