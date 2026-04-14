@@ -199,6 +199,28 @@ Expected:
 
 - PASS
 
+## Planner Self-Check
+
+- Scope check: this slice is limited to architecture-contract and verification surfaces (`tools/architecture-rules/*`, `eslint.config.js`, `package.json`, and minimal docs notes only if required). It does not include runtime feature refactors.
+- Invariant check: rules chosen for first pass are stable target-architecture constraints (thin composition roots, owned storage access, non-UI runtime isolation), not transient cleanup-era structure.
+- Risk check: temporary exceptions must stay explicit and narrowly scoped by `from` -> `to` with a stated reason; no broad wildcard bypasses.
+- Verification check: `npm run lint`, `npm run verify:architecture`, `npm run typecheck`, and `npm run verify:docs` are sufficient proportional gates for this config/policy slice.
+- Drift check: contract facts should live in the contract file and be consumed by ESLint, not duplicated as ad hoc rule literals in multiple locations.
+
+## Architecture Seam Decision Gate
+
+- Decision: enforce only seams that are already stable in `CURRENT_STATE.md` and avoid freezing still-moving cleanup seams in this pass.
+- Stable seams approved now:
+  - composition-root restrictions for `src/App.ts` and `src/Orchestrator.ts`
+  - raw storage ownership allowlist restrictions
+  - non-UI runtime modules forbidden from importing `src/modules/ui/**`
+  - non-composition-root modules forbidden from importing composition roots (with explicit temporary exceptions)
+- Deferred seam tightening:
+  - deeper EPG/package public-surface rules (targeted for `P3`)
+  - broader persistence-owner tightening beyond first-pass allowlist (`P5`)
+  - Plex/player public-surface tightening (`P6/P7`)
+- Gate rule: if implementing a rule requires broad wildcard exceptions or blocks active cleanup routes, defer that seam to its priority pass rather than weakening first-pass invariants.
+
 ## Rollback Notes
 
 - If the first-pass rules create noisy false positives, roll back by relaxing only the specific offending rule or by adding a narrowly named temporary exception. Do not delete the contract file entirely.

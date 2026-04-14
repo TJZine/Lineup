@@ -6,7 +6,7 @@
 
 This document is the active cleanup queue for the current repo-wide `desloppify` backlog.
 
-This is the correct top-level tracked format for this work. Per `docs/agentic/document-map.md`, `ARCHITECTURE_CLEANUP_CHECKLIST.md` is the authoritative active backlog and live-status surface, while `docs/plans/*` remains task-scoped execution memory. Every `P#-W#` below must still get its own execution-grade plan file before code changes begin.
+This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles`](./docs/AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles), `ARCHITECTURE_CLEANUP_CHECKLIST.md` is the authoritative active backlog and live-status surface, while `docs/plans/*` remains task-scoped execution memory. Every `P#-W#` below must still get its own execution-grade plan file before code changes begin.
 
 ## Fresh-Session Handoff
 
