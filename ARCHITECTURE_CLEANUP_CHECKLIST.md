@@ -1054,7 +1054,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
   - `P5-W2` remains the planned owner for read-side cleanup naming/semantics
 - Handoff: run `P5-W2` planning/review next; keep read-side cleanup separate from this write-contract slice
 
-### [ ] `P5-W2` Separate Read Semantics From Cleanup Writes
+### [x] `P5-W2` Separate Read Semantics From Cleanup Writes
 
 **Mapped imported review issues:**
 
@@ -1075,6 +1075,19 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify show src/modules/plex/auth --status open --no-budget --top 100`
 
 **Exit rule:** read APIs do not hide cleanup writes behind plain accessor names.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-14-p5-w2-read-api-cleanup-semantics.md`
+- Last touched: `2026-04-14`
+- Verification:
+  - `npm test -- --runInBand src/modules/plex/discovery/__tests__/ServerSelectionStore.test.ts src/modules/settings/__tests__/EpgPreferencesStore.test.ts src/modules/settings/__tests__/PlaybackSettingsStore.test.ts src/modules/ui/settings/__tests__/SettingsStore.test.ts src/modules/ui/settings/__tests__/SettingsScreenStateController.test.ts src/modules/ui/epg/__tests__/EPGCoordinator.test.ts src/core/initialization/__tests__/InitializationStartupPolicy.test.ts src/core/__tests__/InitializationCoordinator.test.ts src/modules/plex/auth/__tests__/PlexAuth.test.ts src/__tests__/Orchestrator.test.ts` passed
+  - `npm run verify` passed
+  - `rg -n "readSelectedServerId\\(|readServerHealthMap\\(|readLibraryTabsEnabled\\(|readAggressivePreloadEnabled\\(|readSelectedLibraryId\\(|readGuideDensity\\(|readLayoutMode\\(|readNowWatchingEnabled\\(|readGuideCategoryColorsEnabled\\(|readPastItemsWindow\\(|readScheduleRangeSnapshot\\(|readInfoBackgroundMode\\(|readTranscodeCompatEnabled\\(|readSmartHdr10FallbackEnabled\\(|readForceHdr10FallbackEnabled\\(|readHdr10FallbackMode\\(|readTranscodeQualityOption\\(|readTranscodeQualityValue\\(|readToggleSetting\\(|readHdr10FallbackModeValue\\(|readEpgLayoutModeValue\\(|readEpgGuideDensityValue\\(|readEpgPastItemsWindowValue\\(|readEpgInfoBackgroundModeValue\\(|readSubtitleLanguageValue\\(|readClampedNowPlayingAutoHideValue\\(|getStoredCredentials\\(" src/modules/plex/discovery src/modules/settings src/modules/ui/settings src/modules/plex/auth src/modules/ui/server-select src/modules/ui/channel-setup src/modules/ui/epg src/core src/__tests__ docs/api/plex-integration.md` returned only out-of-scope residual store reads plus private helper names in `SettingsScreenStateController`
+- Follow-ups:
+  - slice-owned discovery/auth/settings-facade seams now use explicit side-effecting read names and preserve the existing cleanup-on-read behavior
+  - imported `review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes` remains broader than this slice; current-source residual out-of-scope plain reads stay owned by `P10-W1 residual mechanical detector owner`
+  - `P5-EXIT` must reconcile the exact residual inventory before any `P6` planning or implementation begins
+- Handoff: run `P5-EXIT` priority-exit review/reconciliation next; do not open `P6` while `review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes` residual ownership is still unreconciled
 
 ## Priority 6: Normalize Plex Auth, Discovery, Library, And Shared Type Surfaces
 
