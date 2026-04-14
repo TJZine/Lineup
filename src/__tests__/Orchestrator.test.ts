@@ -9,7 +9,7 @@
 import { AppOrchestrator, type OrchestratorConfig, AppErrorCode } from '../Orchestrator';
 import {
     NowPlayingInfoCoordinator,
-} from '../modules/ui/now-playing-info/NowPlayingInfoCoordinator';
+} from '../modules/ui/now-playing-info';
 import { EPGCoordinator } from '../modules/ui/epg';
 import type { INavigationManager } from '../modules/navigation';
 import type { PlexAuthDataV2, PlexStoredCredentialsReadResult } from '../modules/plex/auth';
@@ -225,37 +225,45 @@ jest.mock('../modules/navigation', () => ({
     NavigationManager: jest.fn(() => mockNavigation),
 }));
 
-jest.mock('../modules/ui/now-playing-info', () => ({
-    NowPlayingInfoOverlay: jest.fn(() => ({
-        initialize: jest.fn(),
-        show: jest.fn(),
-        update: jest.fn(),
-        hide: jest.fn(),
-        isVisible: jest.fn(() => false),
-        destroy: jest.fn(),
-        setAutoHideMs: jest.fn(),
-        resetAutoHideTimer: jest.fn(),
-        setOnAutoHide: jest.fn(),
-    })),
-    NOW_PLAYING_INFO_MODAL_ID: 'now-playing-info',
-    NOW_PLAYING_INFO_DEFAULTS: {
-        autoHideMs: 0,
-        posterWidth: 320,
-        posterHeight: 480,
-    },
-    NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS: [0, 5_000, 10_000, 15_000, 30_000, 60_000, 120_000],
-}));
+jest.mock('../modules/ui/now-playing-info', () => {
+    const actual = jest.requireActual('../modules/ui/now-playing-info');
+    return {
+        ...actual,
+        NowPlayingInfoOverlay: jest.fn(() => ({
+            initialize: jest.fn(),
+            show: jest.fn(),
+            update: jest.fn(),
+            hide: jest.fn(),
+            isVisible: jest.fn(() => false),
+            destroy: jest.fn(),
+            setAutoHideMs: jest.fn(),
+            resetAutoHideTimer: jest.fn(),
+            setOnAutoHide: jest.fn(),
+        })),
+        NOW_PLAYING_INFO_MODAL_ID: 'now-playing-info',
+        NOW_PLAYING_INFO_DEFAULTS: {
+            autoHideMs: 0,
+            posterWidth: 320,
+            posterHeight: 480,
+        },
+        NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS: [0, 5_000, 10_000, 15_000, 30_000, 60_000, 120_000],
+    };
+});
 
-jest.mock('../modules/ui/player-osd', () => ({
-    PlayerOsdOverlay: jest.fn(() => ({
-        initialize: jest.fn(),
-        show: jest.fn(),
-        hide: jest.fn(),
-        isVisible: jest.fn(() => false),
-        destroy: jest.fn(),
-        setViewModel: jest.fn(),
-    })),
-}));
+jest.mock('../modules/ui/player-osd', () => {
+    const actual = jest.requireActual('../modules/ui/player-osd');
+    return {
+        ...actual,
+        PlayerOsdOverlay: jest.fn(() => ({
+            initialize: jest.fn(),
+            show: jest.fn(),
+            hide: jest.fn(),
+            isVisible: jest.fn(() => false),
+            destroy: jest.fn(),
+            setViewModel: jest.fn(),
+        })),
+    };
+});
 
 jest.mock('../modules/ui/channel-number-overlay', () => ({
     ChannelNumberOverlay: jest.fn(() => mockChannelNumberOverlay),
@@ -266,28 +274,36 @@ jest.mock('../modules/ui/channel-badge', () => ({
     CHANNEL_BADGE_CONTAINER_ID: 'channel-badge-overlay-container',
 }));
 
-jest.mock('../modules/ui/mini-guide', () => ({
-    MiniGuideOverlay: jest.fn(() => ({
-        initialize: jest.fn(),
-        show: jest.fn(),
-        hide: jest.fn(),
-        isVisible: jest.fn(() => false),
-        destroy: jest.fn(),
-        setViewModel: jest.fn(),
-        setFocusedIndex: jest.fn(),
-    })),
-}));
+jest.mock('../modules/ui/mini-guide', () => {
+    const actual = jest.requireActual('../modules/ui/mini-guide');
+    return {
+        ...actual,
+        MiniGuideOverlay: jest.fn(() => ({
+            initialize: jest.fn(),
+            show: jest.fn(),
+            hide: jest.fn(),
+            isVisible: jest.fn(() => false),
+            destroy: jest.fn(),
+            setViewModel: jest.fn(),
+            setFocusedIndex: jest.fn(),
+        })),
+    };
+});
 
-jest.mock('../modules/ui/channel-transition', () => ({
-    ChannelTransitionOverlay: jest.fn(() => ({
-        initialize: jest.fn(),
-        show: jest.fn(),
-        hide: jest.fn(),
-        isVisible: jest.fn(() => false),
-        destroy: jest.fn(),
-        setViewModel: jest.fn(),
-    })),
-}));
+jest.mock('../modules/ui/channel-transition', () => {
+    const actual = jest.requireActual('../modules/ui/channel-transition');
+    return {
+        ...actual,
+        ChannelTransitionOverlay: jest.fn(() => ({
+            initialize: jest.fn(),
+            show: jest.fn(),
+            hide: jest.fn(),
+            isVisible: jest.fn(() => false),
+            destroy: jest.fn(),
+            setViewModel: jest.fn(),
+        })),
+    };
+});
 
 // Mock PlexAuth
 const mockPlexAuth = {

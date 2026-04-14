@@ -4,6 +4,7 @@
  */
 
 export { ChannelTransitionOverlay } from './ChannelTransitionOverlay';
+export { ChannelTransitionCoordinator } from './ChannelTransitionCoordinator';
 export {
     CHANNEL_TRANSITION_CLASSES,
     CHANNEL_TRANSITION_SHOW_DELAY_MS,

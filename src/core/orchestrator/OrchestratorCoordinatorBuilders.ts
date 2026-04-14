@@ -37,27 +37,25 @@ import {
     withEpgVisibleRangeChangeBinding,
 } from '../../modules/ui/epg';
 import {
+    NowPlayingInfoCoordinator,
+    getNowPlayingInfoAutoHideMs,
     NOW_PLAYING_INFO_MODAL_ID,
     type INowPlayingInfoOverlay,
     type NowPlayingInfoConfig,
 } from '../../modules/ui/now-playing-info';
-import {
-    NowPlayingInfoCoordinator,
-    getNowPlayingInfoAutoHideMs,
-} from '../../modules/ui/now-playing-info/NowPlayingInfoCoordinator';
 import type { PlaybackInfoSnapshotLike } from '../../utils/playbackSummary';
 import type {
     IPlayerOsdOverlay,
 } from '../../modules/ui/player-osd';
-import { PlayerOsdCoordinator } from '../../modules/ui/player-osd/PlayerOsdCoordinator';
+import { PlayerOsdCoordinator } from '../../modules/ui/player-osd';
 import type {
     IMiniGuideOverlay,
 } from '../../modules/ui/mini-guide';
-import { MiniGuideCoordinator } from '../../modules/ui/mini-guide/MiniGuideCoordinator';
+import { MiniGuideCoordinator } from '../../modules/ui/mini-guide';
 import type {
     IChannelTransitionOverlay,
 } from '../../modules/ui/channel-transition';
-import { ChannelTransitionCoordinator } from '../../modules/ui/channel-transition/ChannelTransitionCoordinator';
+import { ChannelTransitionCoordinator } from '../../modules/ui/channel-transition';
 import {
     PLAYBACK_OPTIONS_MODAL_ID,
     type IPlaybackOptionsModal,

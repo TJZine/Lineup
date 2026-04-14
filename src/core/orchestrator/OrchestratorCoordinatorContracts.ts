@@ -64,10 +64,10 @@ import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackS
 import type { ChannelNumberOverlayRuntimePort } from './OverlayPorts';
 import type { ChannelSetupCoordinator, ChannelSetupWorkflow } from '../channel-setup';
 import type { EPGCoordinator } from '../../modules/ui/epg';
-import type { NowPlayingInfoCoordinator } from '../../modules/ui/now-playing-info/NowPlayingInfoCoordinator';
-import type { PlayerOsdCoordinator } from '../../modules/ui/player-osd/PlayerOsdCoordinator';
-import type { MiniGuideCoordinator } from '../../modules/ui/mini-guide/MiniGuideCoordinator';
-import type { ChannelTransitionCoordinator } from '../../modules/ui/channel-transition/ChannelTransitionCoordinator';
+import type { NowPlayingInfoCoordinator } from '../../modules/ui/now-playing-info';
+import type { PlayerOsdCoordinator } from '../../modules/ui/player-osd';
+import type { MiniGuideCoordinator } from '../../modules/ui/mini-guide';
+import type { ChannelTransitionCoordinator } from '../../modules/ui/channel-transition';
 import type { PlaybackOptionsCoordinator } from '../../modules/ui/playback-options/PlaybackOptionsCoordinator';
 import type { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryManager';
 import type { ChannelTuningCoordinator } from '../channel-tuning';
