@@ -1053,6 +1053,83 @@ describe('verify-docs', () => {
         expect(result.stderr).not.toContain('Checklist references untracked plan path');
     });
 
+    it('fails when a checklist-linked tracked plan omits the exact active marker', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRepoFile(repoRoot, 'docs/plans/example-active.md', '# Example Implementation Plan\n\n**Goal:** Do the thing.\n');
+        writeRepoFile(
+            repoRoot,
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md',
+            readFileSync(path.join(repoRoot, 'ARCHITECTURE_CLEANUP_CHECKLIST.md'), 'utf8') +
+                '\n- [ ] Active item (plan: docs/plans/example-active.md)\n'
+        );
+        runGit(['add', '.'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('docs/plans/example-active.md');
+        expect(result.stderr).toContain('must include exact active plan marker');
+        expect(result.stderr).not.toContain('missing required serious-plan sections');
+    });
+
+    it('passes when a checklist-linked tracked plan uses the exact active marker and full serious-plan structure', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRepoFile(
+            repoRoot,
+            'docs/plans/example-active.md',
+            [
+                '# Example Implementation Plan',
+                '',
+                '**Plan Status:** active',
+                '',
+                '**Goal:** Do the thing.',
+                '',
+                '**Architecture:** Keep the boundary explicit.',
+                '',
+                '## Non-Goals',
+                '',
+                '## Required Reading',
+                '',
+                '## Required Skills',
+                '',
+                '## Codanna Discovery',
+                '',
+                '## Evidence To Preserve',
+                '',
+                '## Allowed File Changes',
+                '',
+                '## Files Out Of Scope',
+                '',
+                '## Planner Self-Check',
+                '',
+                '## Architecture Seam Decision Gate',
+                '',
+                '## Verification Commands',
+                '',
+                '## Rollback Notes',
+                '',
+                '## Commit Checkpoints',
+                '',
+            ].join('\n')
+        );
+        writeRepoFile(
+            repoRoot,
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md',
+            readFileSync(path.join(repoRoot, 'ARCHITECTURE_CLEANUP_CHECKLIST.md'), 'utf8') +
+                '\n- [ ] Active item (plan: docs/plans/example-active.md)\n'
+        );
+        runGit(['add', '.'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('Documentation verification passed.');
+    });
+
     it('deduplicates repeated checklist diagnostics when multiple items share one plan path', () => {
         const repoRoot = createRepoFixture({
             'ARCHITECTURE_CLEANUP_CHECKLIST.md': [

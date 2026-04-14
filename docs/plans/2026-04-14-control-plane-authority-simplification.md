@@ -2,6 +2,8 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
+**Plan Status:** active
+
 **Goal:** Simplify the Lineup control plane by making `docs/AGENTIC_DEV_WORKFLOW.md` the only operating authority surface, shrinking `agents.md` into a true entrypoint map, and reducing `docs/agentic/document-map.md` to compatibility-only status without weakening workflow quality protections.
 
 **Architecture:** Preserve the durable harness shape: one short entrypoint map, one operating runbook, one current architecture truth surface, one active cleanup/live-status surface, explicit tracked-vs-local rules, explicit risk-tiered routing, and mechanical verification/eval gates. Apply OpenAI guidance as hard constraints (`AGENTS.md` is a map, repo docs are the system of record, progressive disclosure beats duplicate manuals, mechanical validation matters) and Anthropic guidance as hard constraints (use the simplest composable workflow that works, keep routing transparent, add complexity only when it materially improves outcomes).
