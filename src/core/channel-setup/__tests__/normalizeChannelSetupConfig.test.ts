@@ -26,6 +26,24 @@ const createConfig = (overrides?: Partial<ChannelSetupConfig>): ChannelSetupConf
 });
 
 describe('normalizeChannelSetupConfig', () => {
+    it('normalizes non-array selectedLibraryIds to an empty array', () => {
+        const normalized = normalizeChannelSetupConfig({
+            ...createConfig(),
+            selectedLibraryIds: null,
+        } as unknown as ChannelSetupConfig);
+
+        expect(normalized.selectedLibraryIds).toEqual([]);
+    });
+
+    it('filters non-string selectedLibraryIds while preserving valid order', () => {
+        const normalized = normalizeChannelSetupConfig({
+            ...createConfig(),
+            selectedLibraryIds: ['lib-1', 42, 'lib-2', null],
+        } as unknown as ChannelSetupConfig);
+
+        expect(normalized.selectedLibraryIds).toEqual(['lib-1', 'lib-2']);
+    });
+
     it('falls back to default strategy entries when strategyConfig is missing', () => {
         const normalized = normalizeChannelSetupConfig({
             ...createConfig(),

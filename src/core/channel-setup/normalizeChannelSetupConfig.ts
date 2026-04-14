@@ -50,6 +50,9 @@ const normalizeSeriesOrdering = (value: SeriesOrderingConfig | undefined): Serie
 };
 
 export const normalizeChannelSetupConfig = (config: ChannelSetupConfig): ChannelSetupConfig => {
+    const selectedLibraryIds = Array.isArray(config.selectedLibraryIds)
+        ? config.selectedLibraryIds.filter((id): id is string => typeof id === 'string')
+        : [];
     const maxChannels = Number.isFinite(config.maxChannels)
         ? Math.min(Math.max(Math.floor(config.maxChannels), 1), MAX_CHANNELS)
         : DEFAULT_CHANNEL_SETUP_MAX;
@@ -81,6 +84,7 @@ export const normalizeChannelSetupConfig = (config: ChannelSetupConfig): Channel
 
     return {
         ...config,
+        selectedLibraryIds,
         maxChannels,
         minItemsPerChannel,
         buildMode,

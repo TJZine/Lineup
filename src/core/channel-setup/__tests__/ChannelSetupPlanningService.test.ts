@@ -1038,6 +1038,86 @@ describe('ChannelSetupPlanningService', () => {
         expect(getPlaylists).toHaveBeenCalledTimes(1);
     });
 
+    it('rejects an already-aborted caller instead of returning a cached snapshot', async () => {
+        const getPlaylists = jest.fn().mockResolvedValue([
+            {
+                ratingKey: 'pl1',
+                key: '/playlists/pl1',
+                title: 'Favorites',
+                thumb: null,
+                leafCount: 10,
+            },
+        ]);
+        const plexLibrary = {
+            getPlaylists,
+            getCollections: jest.fn(),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn(),
+            getDirectors: jest.fn(),
+            getYears: jest.fn(),
+            getActors: jest.fn(),
+            getStudios: jest.fn(),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            strategyConfig: {
+                playlists: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        }));
+
+        const first = await service.buildSetupPlan(config, [], null, 'preview');
+        expect(first.plan?.estimates.playlists).toBe(1);
+
+        const abortController = new AbortController();
+        abortController.abort();
+
+        await expect(
+            service.buildSetupPlan(config, [], abortController.signal, 'preview')
+        ).rejects.toMatchObject({ name: 'AbortError' });
+        expect(getPlaylists).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects an already-aborted detached caller before starting uncached snapshot work', async () => {
+        const getPlaylists = jest.fn().mockResolvedValue([
+            {
+                ratingKey: 'pl1',
+                key: '/playlists/pl1',
+                title: 'Favorites',
+                thumb: null,
+                leafCount: 10,
+            },
+        ]);
+        const plexLibrary = {
+            getPlaylists,
+            getCollections: jest.fn(),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn(),
+            getDirectors: jest.fn(),
+            getYears: jest.fn(),
+            getActors: jest.fn(),
+            getStudios: jest.fn(),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            strategyConfig: {
+                playlists: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        }));
+        const abortController = new AbortController();
+        abortController.abort();
+
+        await expect(
+            service.buildSetupPlan(config, [], abortController.signal, 'preview')
+        ).rejects.toMatchObject({ name: 'AbortError' });
+        expect(getPlaylists).not.toHaveBeenCalled();
+    });
+
     it('lets build cancellation stop waiting on an inflight snapshot started by preview', async () => {
         const libraries = [
             makeLibrary({

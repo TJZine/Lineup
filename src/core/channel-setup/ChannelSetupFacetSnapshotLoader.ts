@@ -144,6 +144,12 @@ export class ChannelSetupFacetSnapshotLoader {
         return snapshot.failureReason === 'unsupported' || snapshot.failureReason === 'empty';
     }
 
+    private _throwIfSignalAborted(signal: AbortSignal | null | undefined): void {
+        if (signal?.aborted) {
+            throw createAbortError(this._inflightLastTask);
+        }
+    }
+
     async loadSnapshot(
         config: ChannelSetupConfig,
         libraries: PlexLibraryType[],
@@ -151,6 +157,7 @@ export class ChannelSetupFacetSnapshotLoader {
         options: ChannelSetupFacetSnapshotWaitOptions
     ): Promise<ChannelSetupFacetSnapshot> {
         const key = this._buildSnapshotKey(config, intent);
+        this._throwIfSignalAborted(options.signal);
         if (this._cachedKey === key && this._cachedSnapshot) {
             return this._cachedSnapshot;
         }
@@ -159,6 +166,7 @@ export class ChannelSetupFacetSnapshotLoader {
         }
 
         this.invalidate();
+        this._throwIfSignalAborted(options.signal);
         const loadToken: ChannelSetupFacetSnapshotLoadToken = {};
         const snapshotAbortController = new AbortController();
         this._inflightKey = key;
