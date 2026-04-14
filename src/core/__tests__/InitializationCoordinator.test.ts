@@ -67,7 +67,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         channelBadgeOverlay: InitializationDependencies['overlays']['channelBadgeOverlay'];
         miniGuide: InitializationDependencies['overlays']['miniGuide'];
         channelTransition: InitializationDependencies['overlays']['channelTransition'];
-        uiInitializer: InitializationDependencies['uiInitializer'];
+        startupUiInitializer: InitializationDependencies['startupUiInitializer'];
         epgPreferencesStore: InitializationDependencies['stores']['epgPreferencesStore'];
         profileSessionStore: InitializationDependencies['stores']['profileSessionStore'];
     };
@@ -142,9 +142,9 @@ describe('InitializationCoordinator (Plex Home)', () => {
             channelBadgeOverlay: null,
             miniGuide: null,
             channelTransition: null,
-            uiInitializer: {
+            startupUiInitializer: {
                 ensureCorePlayerUiInitialized: jest.fn().mockResolvedValue(undefined),
-            } as unknown as LegacyInitializationDependencies['uiInitializer'],
+            } as unknown as LegacyInitializationDependencies['startupUiInitializer'],
             epgPreferencesStore: new EpgPreferencesStore(),
             profileSessionStore: new ProfileSessionStore(),
         };
@@ -173,7 +173,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
                 miniGuide: legacyDeps.miniGuide,
                 channelTransition: legacyDeps.channelTransition,
             },
-            uiInitializer: legacyDeps.uiInitializer,
+            startupUiInitializer: legacyDeps.startupUiInitializer,
             epgDebugRuntime: null,
             stores: {
                 epgPreferencesStore: legacyDeps.epgPreferencesStore,
@@ -485,13 +485,13 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
     it('initializes core player UI before marking startup ready after phase 4', async () => {
         const callOrder: string[] = [];
-        const uiInitializer = {
+        const startupUiInitializer = {
             ensureCorePlayerUiInitialized: jest.fn().mockImplementation(async () => {
                 callOrder.push('core-player-ui');
             }),
-        } as unknown as LegacyInitializationDependencies['uiInitializer'];
+        } as unknown as LegacyInitializationDependencies['startupUiInitializer'];
         const { coordinator, callbacks } = makeCoordinator({
-            uiInitializer,
+            startupUiInitializer,
         });
 
         (callbacks.setReady as jest.Mock).mockImplementation((ready: boolean) => {

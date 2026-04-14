@@ -6,8 +6,7 @@ import { SettingsScreen } from '../SettingsScreen';
 import { SettingsStore } from '../SettingsStore';
 import { SETTINGS_STORAGE_KEYS } from '../constants';
 import type { GuideSettingChange } from '../types';
-import { ThemeManager } from '../../theme';
-import { THEME_OPTIONS, THEME_CLASSES } from '../../theme';
+import { THEME_OPTIONS, THEME_CLASSES, type ThemeName } from '../../theme';
 
 type StubFocusable = {
     id: string;
@@ -82,7 +81,8 @@ const createNavigationStub = (): {
 const createScreen = (
     onGuideSettingChange: (change: GuideSettingChange) => void,
     getActiveUsername?: () => string | null,
-    settingsStore?: SettingsStore
+    settingsStore?: SettingsStore,
+    initialTheme: ThemeName = 'ember-steel'
 ): {
     container: HTMLElement;
     nav: ReturnType<typeof createNavigationStub>;
@@ -92,12 +92,23 @@ const createScreen = (
     document.body.appendChild(container);
     CREATED_CONTAINERS.push(container);
     const nav = createNavigationStub();
+    let currentTheme = initialTheme;
     const screen = new SettingsScreen(
         container,
         () => nav as unknown as never,
         undefined,
         onGuideSettingChange,
         getActiveUsername,
+        () => currentTheme,
+        (theme): void => {
+            currentTheme = theme;
+            document.body.classList.remove(...ALL_THEME_CLASSES);
+            const themeClass = THEME_CLASSES[theme];
+            if (themeClass) {
+                document.body.classList.add(themeClass);
+            }
+            localStorage.setItem(SETTINGS_STORAGE_KEYS.THEME, theme);
+        },
         settingsStore
     );
     return { container, nav, screen };
@@ -987,14 +998,12 @@ describe('SettingsScreen (Transcode controls)', () => {
 describe('SettingsScreen (Theme selection)', () => {
     beforeEach(() => {
         localStorage.removeItem(SETTINGS_STORAGE_KEYS.THEME);
-        ThemeManager.__resetForTests();
         document.body.classList.remove(...ALL_THEME_CLASSES);
     });
 
     afterEach(() => {
         document.body.innerHTML = '';
         document.body.classList.remove(...ALL_THEME_CLASSES);
-        ThemeManager.__resetForTests();
     });
 
     it('cycles to DirecTV and applies the theme class', () => {
@@ -1004,7 +1013,7 @@ describe('SettingsScreen (Theme selection)', () => {
         activateCategory(container, 'appearance');
 
         const directvIndex = THEME_OPTIONS.findIndex((option) => option.theme === 'directv');
-        const currentIndex = THEME_OPTIONS.findIndex((option) => option.theme === ThemeManager.getInstance().getTheme());
+        const currentIndex = THEME_OPTIONS.findIndex((option) => option.theme === 'ember-steel');
         expect(directvIndex).toBeGreaterThanOrEqual(0);
         expect(currentIndex).toBeGreaterThanOrEqual(0);
 

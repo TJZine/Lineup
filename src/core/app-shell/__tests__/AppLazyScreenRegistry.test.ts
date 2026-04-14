@@ -132,6 +132,8 @@ const makePortFactory = (): PortFactoryLike => ({
         clearSubtitleTrack: jest.fn().mockResolvedValue(undefined),
         onGuideSettingChange: jest.fn(),
         getActiveUsername: jest.fn().mockReturnValue('UnitTestUser'),
+        getTheme: jest.fn().mockReturnValue('ember-steel'),
+        setTheme: jest.fn(),
     })),
     getNavigation: jest.fn().mockReturnValue(null),
 });

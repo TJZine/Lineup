@@ -6,14 +6,34 @@ import { SettingsScreenStateController } from '../SettingsScreenStateController'
 import { SettingsStore } from '../SettingsStore';
 import { SETTINGS_STORAGE_KEYS } from '../constants';
 import type { SettingsSelectConfig, SettingsToggleConfig } from '../types';
-import { ThemeManager } from '../../theme';
 import * as ConfigEvents from '../../../../config/events';
 import { SubtitlePreferencesStore } from '../../../settings/SubtitlePreferencesStore';
 
 beforeEach(() => {
     localStorage.clear();
-    ThemeManager.__resetForTests();
     jest.restoreAllMocks();
+});
+
+it('reads current theme from injected runtime callback and writes via injected setter', () => {
+    const setTheme = jest.fn();
+    const controller = new SettingsScreenStateController({
+        settingsStore: new SettingsStore(),
+        getTheme: (): 'glass' => 'glass',
+        setTheme,
+    });
+
+    const categories = controller.getCategories();
+    const appearanceCategory = categories.find((category) => category.id === 'appearance');
+    const themeSelect = appearanceCategory?.items.find((item) => item.id === 'settings-theme');
+
+    if (!themeSelect || !('options' in themeSelect)) {
+        throw new Error('Theme item not found');
+    }
+
+    expect(themeSelect.value).toBeGreaterThanOrEqual(0);
+
+    (themeSelect as SettingsSelectConfig).onChange(0);
+    expect(setTheme).toHaveBeenCalledWith('ember-steel');
 });
 
 it('builds the current settings categories from persisted state', () => {
