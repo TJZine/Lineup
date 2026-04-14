@@ -5,13 +5,12 @@ Use this prompt for Tier 2 or Tier 3 work when you need a serious implementation
 ## Read Order
 
 1. [`agents.md`](../../../agents.md)
-2. [`docs/agentic/document-map.md`](../document-map.md)
-3. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
-4. [`docs/agentic/codanna-playbook.md`](../codanna-playbook.md)
-5. [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md)
-6. [`docs/agentic/historical-plan-corpus-review.md`](../historical-plan-corpus-review.md)
-7. [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md)
-8. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
+2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+3. [`docs/agentic/codanna-playbook.md`](../codanna-playbook.md)
+4. [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md)
+5. [`docs/agentic/historical-plan-corpus-review.md`](../historical-plan-corpus-review.md)
+6. [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md)
+7. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 
 ## Invocation Inputs
 

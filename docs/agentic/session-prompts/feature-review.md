@@ -10,10 +10,9 @@ This launcher supports review of either:
 ## Read Order
 
 1. [`agents.md`](../../../agents.md)
-2. [`docs/agentic/document-map.md`](../document-map.md)
-3. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
-4. the artifact being reviewed
-5. supporting standards that apply:
+2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+3. the artifact being reviewed
+4. supporting standards that apply:
    - [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md) for plan review
    - [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) for UI-heavy reviews
    - [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md) plus domain docs for architecture/boundary checks

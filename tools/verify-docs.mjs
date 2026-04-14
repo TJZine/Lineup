@@ -485,6 +485,97 @@ function checkEvalPromptReadme(errors) {
     }
 }
 
+function checkControlPlaneAuthorityModel(errors) {
+    const agents = readRepoFile('agents.md', errors);
+    if (agents !== null) {
+        if (!agents.includes('docs/AGENTIC_DEV_WORKFLOW.md')) {
+            errors.push('agents.md must point to docs/AGENTIC_DEV_WORKFLOW.md as the operating runbook.');
+        }
+
+        if (agents.includes('docs/agentic/document-map.md')) {
+            errors.push('agents.md must not send readers to docs/agentic/document-map.md as an authority surface.');
+        }
+    }
+
+    const workflow = readRepoFile('docs/AGENTIC_DEV_WORKFLOW.md', errors);
+    if (workflow !== null) {
+        const requiredWorkflowMarkers = [
+            '## Authority And Document Roles',
+            '## Document Precedence',
+            'docs/agentic/codanna-playbook.md',
+            'docs/agentic/session-prompts/README.md',
+            'docs/architecture/CURRENT_STATE.md',
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md',
+            'docs/plans/',
+            'docs/archive/plans/',
+            'docs/runs/',
+            'docs/agentic/skill-strategy.md',
+            'docs/agentic/evals/README.md',
+            'docs/agentic/evals-roadmap.md',
+            'docs/agentic/evals/baseline-summaries/',
+            'docs/agentic/historical-plan-corpus-review.md',
+            'docs/agentic/plan-authoring-standard.md',
+            'docs/agentic/doc-gardening-checklist.md',
+            'docs/agentic/phase-2-steady-state-plan.md',
+        ];
+
+        for (const marker of requiredWorkflowMarkers) {
+            if (!workflow.includes(marker)) {
+                errors.push(`Workflow doc is missing required control-plane authority marker: ${marker}`);
+            }
+        }
+    }
+
+    const documentMap = readRepoFile('docs/agentic/document-map.md', errors);
+    if (documentMap !== null) {
+        const requiredDocumentMapMarkers = [
+            'Compatibility stub',
+            'AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles',
+            'Do not treat it as a second authority surface.',
+        ];
+
+        for (const marker of requiredDocumentMapMarkers) {
+            if (!documentMap.includes(marker)) {
+                errors.push(`document-map.md is missing required compatibility-stub marker: ${marker}`);
+            }
+        }
+    }
+
+    const sessionReadme = readRepoFile('docs/agentic/session-prompts/README.md', errors);
+    if (sessionReadme !== null) {
+        const requiredReadmeMarkers = [
+            'Authority, read order, and document precedence now live in [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md).',
+            'load [`agents.md`](../../../agents.md) and [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)',
+        ];
+
+        for (const marker of requiredReadmeMarkers) {
+            if (!sessionReadme.includes(marker)) {
+                errors.push(`Session prompt README is missing required authority-routing marker: ${marker}`);
+            }
+        }
+
+        if (
+            sessionReadme.includes(
+                'load [`agents.md`](../../../agents.md), [`docs/agentic/document-map.md`](../document-map.md), and [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)'
+            )
+        ) {
+            errors.push('Session prompt README must not require docs/agentic/document-map.md in launcher read order.');
+        }
+    }
+
+    for (const fileName of expectedSessionPromptFiles) {
+        const relativePath = `docs/agentic/session-prompts/${fileName}`;
+        const content = readRepoFile(relativePath, errors);
+        if (content === null) {
+            continue;
+        }
+
+        if (content.includes('docs/agentic/document-map.md')) {
+            errors.push(`${relativePath} must not require docs/agentic/document-map.md in its launcher read order.`);
+        }
+    }
+}
+
 function checkWorkflowRoutingSplit(errors) {
     const readme = readRepoFile('docs/agentic/session-prompts/README.md', errors);
     if (readme !== null) {
@@ -1197,6 +1288,7 @@ function main() {
     checkInventory(errors, 'docs/agentic/session-prompts', expectedSessionPromptFiles, 'session prompt');
     checkSessionPromptReadme(errors);
     checkEvalPromptReadme(errors);
+    checkControlPlaneAuthorityModel(errors);
     checkWorkflowRoutingSplit(errors);
     checkFeatureRemediationPromptContracts(errors);
     checkCleanupPriorityExitContracts(errors);

@@ -5,10 +5,48 @@ This is the operating runbook for agent-driven development in Lineup.
 ## Read Order
 
 1. [`agents.md`](../agents.md)
-2. [`docs/agentic/document-map.md`](./agentic/document-map.md)
-3. [`docs/agentic/codanna-playbook.md`](./agentic/codanna-playbook.md)
-4. [`docs/architecture/CURRENT_STATE.md`](./architecture/CURRENT_STATE.md)
-5. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md) when the task is architecture-affecting
+2. this file
+3. [`docs/agentic/codanna-playbook.md`](./agentic/codanna-playbook.md) when you need Codanna query shaping or fallback rules
+4. [`docs/agentic/session-prompts/README.md`](./agentic/session-prompts/README.md) when you need tracked launcher routing or invocation rules
+5. [`docs/architecture/CURRENT_STATE.md`](./architecture/CURRENT_STATE.md) for current architecture claims
+6. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md) for active cleanup status or checklist-linked work
+
+## Authority And Document Roles
+
+This doc is the single operating runbook for Lineup's control plane.
+
+- [`agents.md`](../agents.md) is the short entrypoint map and always-on defaults surface. It should not become a second runbook.
+- [`docs/agentic/document-map.md`](./agentic/document-map.md) is a compatibility stub only. Do not use it as a second authority surface for precedence, read order, or workflow policy.
+
+## Document Precedence
+
+When tracked docs conflict, use this order:
+
+1. [`agents.md`](../agents.md) for entrypoint defaults
+2. this file for operating workflow, precedence, and where-to-look-next
+3. [`docs/agentic/codanna-playbook.md`](./agentic/codanna-playbook.md) for Codanna query shaping and fallback rules
+4. [`docs/agentic/skill-strategy.md`](./agentic/skill-strategy.md) for skill topology and mirror policy
+5. [`docs/architecture/CURRENT_STATE.md`](./architecture/CURRENT_STATE.md) for current architecture claims
+6. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md) for active cleanup and live status
+7. domain-specific current docs such as [`docs/design/ui-design-language.md`](./design/ui-design-language.md) and [`docs/api/plex-integration.md`](./api/plex-integration.md)
+8. active task plans in [`docs/plans/`](./plans/README.md) when working that task
+9. historical and reference docs such as [`docs/archive/plans/`](./archive/plans/README.md) and [`docs/decisions/README.md`](./decisions/README.md)
+
+## Where To Look Next
+
+- **Tool playbook**: [`docs/agentic/codanna-playbook.md`](./agentic/codanna-playbook.md)
+- **Tracked launcher routing and invocation**: [`docs/agentic/session-prompts/README.md`](./agentic/session-prompts/README.md)
+- **Current architecture truth**: [`docs/architecture/CURRENT_STATE.md`](./architecture/CURRENT_STATE.md)
+- **Active cleanup / live status**: [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md)
+- **Task-level plans**: [`docs/plans/`](./plans/README.md) for active tracked implementation memory
+- **Archived plans**: [`docs/archive/plans/`](./archive/plans/README.md) for completed or superseded tracked plans
+- **Local execution artifacts**: [`docs/runs/`](./runs/README.md) and raw eval outputs under `docs/agentic/evals/baselines/` stay local-only by default; promote durable lessons into tracked docs or tracked eval summaries in the same pass
+- **Skill topology**: [`docs/agentic/skill-strategy.md`](./agentic/skill-strategy.md)
+- **Evaluation roadmap and tracked summaries**: [`docs/agentic/evals/README.md`](./agentic/evals/README.md), [`docs/agentic/evals-roadmap.md`](./agentic/evals-roadmap.md), and [`docs/agentic/evals/baseline-summaries/`](./agentic/evals/baseline-summaries/README.md)
+- **Historical corpus review**: [`docs/agentic/historical-plan-corpus-review.md`](./agentic/historical-plan-corpus-review.md)
+- **Plan and launcher standards**: [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md) and [`docs/agentic/session-prompts/README.md`](./agentic/session-prompts/README.md)
+- **Steady-state transition**: [`docs/agentic/phase-2-steady-state-plan.md`](./agentic/phase-2-steady-state-plan.md)
+- **Recurring maintenance**: [`docs/agentic/doc-gardening-checklist.md`](./agentic/doc-gardening-checklist.md)
 
 ## Goals
 

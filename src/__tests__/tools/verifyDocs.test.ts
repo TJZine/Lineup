@@ -128,9 +128,35 @@ function writeValidSkillMirrorFixture(repoRoot: string): void {
 function writeValidSessionPromptFixture(repoRoot: string): void {
     writeRepoFile(
         repoRoot,
+        'agents.md',
+        [
+            '# Agents',
+            '',
+            'Use [`docs/AGENTIC_DEV_WORKFLOW.md`](./docs/AGENTIC_DEV_WORKFLOW.md) for the operating runbook.',
+            '',
+        ].join('\n')
+    );
+
+    writeRepoFile(
+        repoRoot,
+        'docs/agentic/document-map.md',
+        [
+            '# Agent Control Plane Document Map',
+            '',
+            '> Compatibility stub. The authoritative control-plane map now lives in [`docs/AGENTIC_DEV_WORKFLOW.md`](../AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles).',
+            '',
+            'Keep this file only for inbound compatibility from older plans, prompts, or tracked links. Do not treat it as a second authority surface.',
+            '',
+        ].join('\n')
+    );
+
+    writeRepoFile(
+        repoRoot,
         'docs/agentic/session-prompts/README.md',
         [
             '# Session Prompt Launchers',
+            '',
+            'Authority, read order, and document precedence now live in [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md). [`docs/agentic/document-map.md`](../document-map.md) remains only as a compatibility stub for older inbound links.',
             '',
             '## Prompt Set',
             '',
@@ -146,6 +172,14 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '| feature/design | net-new capability | `feature-plan` + `feature-implement` + `feature-review` | Tier 2 feature flow uses tracked launchers. |',
             '| mixed | split slices explicitly | route by primary intent | Keep cleanup scoped to cleanup work. |',
             '',
+            '## Invocation',
+            '',
+            'Each launcher should:',
+            '',
+            '1. confirm the current repo is Lineup',
+            '2. load [`agents.md`](../../../agents.md) and [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)',
+            '3. load the matching file in this directory',
+            '',
         ].join('\n')
     );
 
@@ -154,6 +188,28 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
         'docs/AGENTIC_DEV_WORKFLOW.md',
         [
             '# Workflow',
+            '',
+            '## Authority And Document Roles',
+            '',
+            'Use this file as the single operating runbook.',
+            '',
+            '## Document Precedence',
+            '',
+            '- [`docs/agentic/codanna-playbook.md`](./agentic/codanna-playbook.md)',
+            '- [`docs/agentic/session-prompts/README.md`](./agentic/session-prompts/README.md)',
+            '- [`docs/architecture/CURRENT_STATE.md`](./architecture/CURRENT_STATE.md)',
+            '- [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md)',
+            '- [`docs/plans/`](./plans/README.md)',
+            '- [`docs/archive/plans/`](./archive/plans/README.md)',
+            '- [`docs/runs/`](./runs/README.md)',
+            '- [`docs/agentic/skill-strategy.md`](./agentic/skill-strategy.md)',
+            '- [`docs/agentic/evals/README.md`](./agentic/evals/README.md)',
+            '- [`docs/agentic/evals-roadmap.md`](./agentic/evals-roadmap.md)',
+            '- [`docs/agentic/evals/baseline-summaries/`](./agentic/evals/baseline-summaries/README.md)',
+            '- [`docs/agentic/historical-plan-corpus-review.md`](./agentic/historical-plan-corpus-review.md)',
+            '- [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md)',
+            '- [`docs/agentic/doc-gardening-checklist.md`](./agentic/doc-gardening-checklist.md)',
+            '- [`docs/agentic/phase-2-steady-state-plan.md`](./agentic/phase-2-steady-state-plan.md)',
             '',
             'Route task family before choosing a tier.',
             '',
@@ -540,6 +596,68 @@ describe('verify-docs', () => {
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('Eval README managed prompt-inventory section is out of sync');
+    });
+
+    it('fails when agents.md routes authority back through document-map.md', () => {
+        const repoRoot = createRepoFixture({
+            'agents.md': [
+                '# Agents',
+                '',
+                'Use [`docs/agentic/document-map.md`](./docs/agentic/document-map.md) for document precedence.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('agents.md must point to docs/AGENTIC_DEV_WORKFLOW.md');
+        expect(result.stderr).toContain('agents.md must not send readers to docs/agentic/document-map.md');
+    });
+
+    it('fails when document-map.md is not reduced to a compatibility stub', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/document-map.md': [
+                '# Agent Control Plane Document Map',
+                '',
+                'This file defines precedence directly.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('document-map.md is missing required compatibility-stub marker');
+    });
+
+    it('fails when a launcher prompt still requires document-map.md in its read order', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/cleanup-plan.md': [
+                '# Cleanup Plan',
+                '',
+                '## Read Order',
+                '',
+                '1. [`agents.md`](../../../agents.md)',
+                '2. [`docs/agentic/document-map.md`](../document-map.md)',
+                '3. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)',
+                '',
+                '- Include `Priority-exit readiness` when the plan claims priority closeout.',
+                '- Assign a single final owner to every deferred or split follow-up item.',
+                '- Record exact `P0` security issue ids and the `P#-EXIT` checklist update.',
+                '- Mark cleanup work as `checklist-linked` or `standalone remediation` before freezing the plan.',
+                '- Only `checklist-linked` work should claim priority closeout.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('docs/agentic/session-prompts/cleanup-plan.md must not require docs/agentic/document-map.md');
     });
 
     it('fails when a tracked doc links to a local-only run artifact', () => {
