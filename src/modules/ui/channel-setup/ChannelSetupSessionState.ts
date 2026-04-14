@@ -282,6 +282,16 @@ export class ChannelSetupSessionState {
         this.previewDeltaExpiresAtMs = 0;
     }
 
+    clearDerivedPlanningState(): void {
+        this.clearReviewForEdits();
+        this.preview = null;
+        this.previewError = null;
+        this.previewStatus = 'idle';
+        this.lastPreviewKey = null;
+        this.pendingPreviewKey = null;
+        this.clearPreviewDeltas();
+    }
+
     buildConfig(serverId: string): ChannelSetupConfig {
         const strategyConfig = SETUP_STRATEGY_KEYS.reduce<ChannelSetupConfig['strategyConfig']>((acc, key) => {
             const priorityIndex = this.strategyOrder.indexOf(key);
@@ -330,7 +340,6 @@ export class ChannelSetupSessionState {
     }
 
     resetForNewSession(): void {
-        this.clearPreviewDeltas();
         this.step = 1;
         this.isLoading = false;
         this.isBuilding = false;
@@ -348,13 +357,7 @@ export class ChannelSetupSessionState {
         this.seriesOrdering = defaultSeriesOrderingState();
         this.buildMode = 'replace';
         this.actorStudioCombineMode = 'separate';
-        this.preview = null;
-        this.previewError = null;
-        this.previewStatus = 'idle';
-        this.review = null;
-        this.reviewError = null;
-        this.lastPreviewKey = null;
-        this.pendingPreviewKey = null;
+        this.clearDerivedPlanningState();
         this.recordApplied = false;
         this.setupContext = 'unknown';
     }
@@ -406,10 +409,6 @@ export class ChannelSetupSessionState {
         this.minItems = normalized.minItemsPerChannel;
         this.buildMode = normalized.buildMode;
         this.actorStudioCombineMode = normalized.actorStudioCombineMode;
-        this.preview = null;
-        this.previewError = null;
-        this.lastPreviewKey = null;
-        this.pendingPreviewKey = null;
-        this.clearPreviewDeltas();
+        this.clearDerivedPlanningState();
     }
 }

@@ -36,7 +36,7 @@ export class ChannelSetupSessionRuntime {
 
     endSession(): void {
         this._deps.state.sessionToken += 1;
-        this._cleanupStep2AsyncState();
+        this._cleanupPlanningAsyncState();
         this._loadAbortController?.abort();
         this._loadAbortController = null;
         this._buildAbortController?.abort();
@@ -64,6 +64,8 @@ export class ChannelSetupSessionRuntime {
             }
 
             state.libraries = libraries;
+            this._cleanupPlanningAsyncState();
+            state.clearDerivedPlanningState();
             this._deps.workflowPort.invalidateFacetSnapshot();
             const serverId = this._deps.getSelectedServerId();
             const record = serverId ? this._deps.workflowPort.getChannelSetupRecord(serverId) : null;
@@ -112,7 +114,7 @@ export class ChannelSetupSessionRuntime {
         const state = this._deps.state;
         state.step = step;
         if (step !== 2) {
-            this._cleanupStep2AsyncState();
+            this._cleanupPlanningAsyncState();
         }
         if (step === 3) {
             state.isBuilding = state.setupContext === 'first-time';
@@ -442,7 +444,7 @@ export class ChannelSetupSessionRuntime {
         state.resetForNewSession();
     }
 
-    private _cleanupStep2AsyncState(): void {
+    private _cleanupPlanningAsyncState(): void {
         const state = this._deps.state;
         this._previewAbortController?.abort();
         this._reviewAbortController?.abort();
