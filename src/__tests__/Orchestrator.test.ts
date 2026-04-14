@@ -176,31 +176,13 @@ const mockLifecycle = {
     on: jest.fn(() => ({ dispose: jest.fn() })),
 };
 
-jest.mock('../modules/lifecycle', () => ({
-    AppLifecycle: jest.fn(() => mockLifecycle),
-    AppErrorCode: {
-        AUTH_REQUIRED: 'AUTH_REQUIRED',
-        AUTH_EXPIRED: 'AUTH_EXPIRED',
-        AUTH_INVALID: 'AUTH_INVALID',
-        AUTH_RATE_LIMITED: 'AUTH_RATE_LIMITED',
-        NETWORK_TIMEOUT: 'NETWORK_TIMEOUT',
-        NETWORK_OFFLINE: 'NETWORK_OFFLINE',
-        SERVER_UNREACHABLE: 'SERVER_UNREACHABLE',
-        PLAYBACK_FAILED: 'PLAYBACK_FAILED',
-        PLAYBACK_DECODE_ERROR: 'PLAYBACK_DECODE_ERROR',
-        PLAYBACK_FORMAT_UNSUPPORTED: 'PLAYBACK_FORMAT_UNSUPPORTED',
-        CHANNEL_NOT_FOUND: 'CHANNEL_NOT_FOUND',
-        SCHEDULER_EMPTY_CHANNEL: 'SCHEDULER_EMPTY_CHANNEL',
-        INITIALIZATION_FAILED: 'INITIALIZATION_FAILED',
-        MODULE_INIT_FAILED: 'MODULE_INIT_FAILED',
-        UNRECOVERABLE: 'UNRECOVERABLE',
-        TRACK_NOT_FOUND: 'TRACK_NOT_FOUND',
-        TRACK_SWITCH_FAILED: 'TRACK_SWITCH_FAILED',
-        TRACK_SWITCH_TIMEOUT: 'TRACK_SWITCH_TIMEOUT',
-        CODEC_UNSUPPORTED: 'CODEC_UNSUPPORTED',
-        UNKNOWN: 'UNKNOWN',
-    },
-}));
+jest.mock('../modules/lifecycle', () => {
+    const actual = jest.requireActual('../modules/lifecycle');
+    return {
+        ...actual,
+        AppLifecycle: jest.fn(() => mockLifecycle),
+    };
+});
 
 // Mock NavigationManager
 const mockNavigation = {

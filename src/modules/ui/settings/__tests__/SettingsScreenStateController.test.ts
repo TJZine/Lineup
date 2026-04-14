@@ -8,6 +8,7 @@ import { SETTINGS_STORAGE_KEYS } from '../constants';
 import type { SettingsSelectConfig, SettingsToggleConfig } from '../types';
 import * as ConfigEvents from '../../../../config/events';
 import { SubtitlePreferencesStore } from '../../../settings/SubtitlePreferencesStore';
+import { THEME_OPTIONS } from '../../theme';
 
 beforeEach(() => {
     localStorage.clear();
@@ -16,9 +17,10 @@ beforeEach(() => {
 
 it('reads current theme from injected runtime callback and writes via injected setter', () => {
     const setTheme = jest.fn();
+    const getTheme = jest.fn((): 'glass' => 'glass');
     const controller = new SettingsScreenStateController({
         settingsStore: new SettingsStore(),
-        getTheme: (): 'glass' => 'glass',
+        getTheme,
         setTheme,
     });
 
@@ -30,7 +32,8 @@ it('reads current theme from injected runtime callback and writes via injected s
         throw new Error('Theme item not found');
     }
 
-    expect(themeSelect.value).toBeGreaterThanOrEqual(0);
+    expect(themeSelect.value).toBe(THEME_OPTIONS.findIndex((option) => option.theme === 'glass'));
+    expect(getTheme).toHaveBeenCalledTimes(1);
 
     (themeSelect as SettingsSelectConfig).onChange(0);
     expect(setTheme).toHaveBeenCalledWith('ember-steel');
