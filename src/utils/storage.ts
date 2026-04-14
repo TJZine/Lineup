@@ -16,17 +16,12 @@ export function safeLocalStorageGet(key: string): string | null {
 }
 
 export function safeLocalStorageSet(key: string, value: string): boolean {
-    try {
-        localStorage.setItem(key, value);
-        return true;
-    } catch {
-        return false;
-    }
+    return safeLocalStorageSetWithResult(key, value).ok;
 }
 
-export type SafeLocalStorageSetResult = { ok: true } | { ok: false; reason: 'quota-exceeded' | 'unavailable' };
+export type SafeLocalStorageWriteResult = { ok: true } | { ok: false; reason: 'quota-exceeded' | 'unavailable' };
 
-export function safeLocalStorageSetWithResult(key: string, value: string): SafeLocalStorageSetResult {
+export function safeLocalStorageSetWithResult(key: string, value: string): SafeLocalStorageWriteResult {
     try {
         localStorage.setItem(key, value);
         return { ok: true };
@@ -36,11 +31,15 @@ export function safeLocalStorageSetWithResult(key: string, value: string): SafeL
 }
 
 export function safeLocalStorageRemove(key: string): boolean {
+    return safeLocalStorageRemoveWithResult(key).ok;
+}
+
+export function safeLocalStorageRemoveWithResult(key: string): SafeLocalStorageWriteResult {
     try {
         localStorage.removeItem(key);
-        return true;
-    } catch {
-        return false;
+        return { ok: true };
+    } catch (error: unknown) {
+        return { ok: false, reason: isQuotaExceededError(error) ? 'quota-exceeded' : 'unavailable' };
     }
 }
 
@@ -66,18 +65,23 @@ export function readTrimmedStringAndClean(key: string): string | null {
  * Storage failures remain non-fatal through the safe helper layer.
  */
 export function writeTrimmedStringOrRemove(key: string, value: string | null): void {
+    void writeTrimmedStringOrRemoveWithResult(key, value);
+}
+
+export function writeTrimmedStringOrRemoveWithResult(
+    key: string,
+    value: string | null
+): SafeLocalStorageWriteResult {
     if (typeof value !== 'string') {
-        safeLocalStorageRemove(key);
-        return;
+        return safeLocalStorageRemoveWithResult(key);
     }
 
     const trimmed = value.trim();
     if (!trimmed) {
-        safeLocalStorageRemove(key);
-        return;
+        return safeLocalStorageRemoveWithResult(key);
     }
 
-    safeLocalStorageSet(key, trimmed);
+    return safeLocalStorageSetWithResult(key, trimmed);
 }
 
 /**

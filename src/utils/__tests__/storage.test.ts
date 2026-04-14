@@ -7,8 +7,11 @@ import {
     readStoredBoolean,
     readStoredBooleanAndClean,
     readStoredBooleanMaybeAndClean,
+    safeLocalStorageRemoveWithResult,
+    safeLocalStorageSetWithResult,
     safeLocalStorageRemoveByPrefixes,
     writeTrimmedStringOrRemove,
+    writeTrimmedStringOrRemoveWithResult,
 } from '../storage';
 
 describe('storage helpers', () => {
@@ -75,6 +78,47 @@ describe('storage helpers', () => {
         expect(localStorage.getItem('profile')).toBeNull();
 
         writeTrimmedStringOrRemove('profile', null);
+        expect(localStorage.getItem('profile')).toBeNull();
+    });
+
+    it('safeLocalStorageSetWithResult returns ok on success and quota-exceeded for quota errors', () => {
+        expect(safeLocalStorageSetWithResult('k', 'v')).toEqual({ ok: true });
+
+        const setSpy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new DOMException('quota', 'QuotaExceededError');
+        });
+        try {
+            expect(safeLocalStorageSetWithResult('k', 'v')).toEqual({
+                ok: false,
+                reason: 'quota-exceeded',
+            });
+        } finally {
+            setSpy.mockRestore();
+        }
+    });
+
+    it('safeLocalStorageRemoveWithResult returns unavailable when storage is blocked', () => {
+        const removeSpy = jest.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+            throw new DOMException('blocked', 'SecurityError');
+        });
+        try {
+            expect(safeLocalStorageRemoveWithResult('k')).toEqual({
+                ok: false,
+                reason: 'unavailable',
+            });
+        } finally {
+            removeSpy.mockRestore();
+        }
+    });
+
+    it('writeTrimmedStringOrRemoveWithResult returns result for set/remove paths', () => {
+        expect(writeTrimmedStringOrRemoveWithResult('profile', '  user-3  ')).toEqual({ ok: true });
+        expect(localStorage.getItem('profile')).toBe('user-3');
+
+        expect(writeTrimmedStringOrRemoveWithResult('profile', '   ')).toEqual({ ok: true });
+        expect(localStorage.getItem('profile')).toBeNull();
+
+        expect(writeTrimmedStringOrRemoveWithResult('profile', null)).toEqual({ ok: true });
         expect(localStorage.getItem('profile')).toBeNull();
     });
 
