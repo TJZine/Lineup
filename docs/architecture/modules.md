@@ -50,7 +50,8 @@ This document is directory-oriented and lists file-level owners where the canoni
 ### `src/core/initialization/`
 
 - startup policy collaborators extracted from `InitializationCoordinator`
-- `src/core/initialization/InitializationStartupPolicy.ts` owns startup routing policy (auth/profile/server-select/post-ready) plus EPG startup config shaping
+- `src/core/initialization/InitializationStartupPolicy.ts` owns startup routing policy (auth/profile/server-select/post-ready)
+- `src/modules/ui/epg/buildEpgStartupConfig.ts` owns EPG startup config shaping
 
 ### `src/core/server-selection/`
 
