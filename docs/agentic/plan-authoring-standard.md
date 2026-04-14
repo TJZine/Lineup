@@ -6,7 +6,12 @@ It is derived from:
 
 - the repo workflow in [`agents.md`](../../agents.md)
 - the Codanna workflow in [`docs/agentic/codanna-playbook.md`](./codanna-playbook.md)
-- the strongest historical plan patterns captured in [`docs/agentic/historical-plan-corpus-review.md`](./historical-plan-corpus-review.md)
+
+Historical provenance:
+
+- earlier revisions of this standard also incorporated lessons curated in [`docs/agentic/historical-plan-corpus-review.md`](./historical-plan-corpus-review.md)
+
+That corpus remains a useful optional reference for review calibration, eval shaping, and archive-ingestion follow-up, but it is not default required reading for normal plan authoring.
 
 ## When This Applies
 

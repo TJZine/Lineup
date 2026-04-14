@@ -45,7 +45,7 @@ When tracked docs conflict, use this order:
 - **Local execution artifacts**: [`docs/runs/`](./runs/README.md) and raw eval outputs under `docs/agentic/evals/baselines/` stay local-only by default; promote durable lessons into tracked docs or tracked eval summaries in the same pass
 - **Skill topology**: [`docs/agentic/skill-strategy.md`](./agentic/skill-strategy.md)
 - **Evaluation roadmap and tracked summaries**: [`docs/agentic/evals/README.md`](./agentic/evals/README.md), [`docs/agentic/evals-roadmap.md`](./agentic/evals-roadmap.md), and [`docs/agentic/evals/baseline-summaries/`](./agentic/evals/baseline-summaries/README.md)
-- **Historical corpus review**: [`docs/agentic/historical-plan-corpus-review.md`](./agentic/historical-plan-corpus-review.md)
+- **Historical corpus review**: optional calibration for plan review, harness review, eval seeding, and archive-ingestion follow-up
 - **Plan and launcher standards**: [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md) and [`docs/agentic/session-prompts/README.md`](./agentic/session-prompts/README.md)
 - **Steady-state transition**: [`docs/agentic/phase-2-steady-state-plan.md`](./agentic/phase-2-steady-state-plan.md)
 - **Recurring maintenance**: [`docs/agentic/doc-gardening-checklist.md`](./agentic/doc-gardening-checklist.md)
@@ -111,7 +111,7 @@ When tracked docs conflict, use this order:
    - move completed or superseded tracked plans to `docs/archive/plans/` once they stop being the active handoff surface
    - use `docs/runs/` for local-only major-task execution bundles and run logs
    - keep path surfaces truthful across memory tiers: local run-bundle artifacts should continue to reference `docs/runs/...` until their durable lessons are promoted into tracked docs; do not relabel local artifacts as `docs/plans/...` in handoffs or required-reading sections
-   - when drafting or reviewing serious tracked plans, use `docs/agentic/historical-plan-corpus-review.md` alongside `docs/agentic/plan-authoring-standard.md` as calibration for strong plan shape and eval seeding
+   - treat `docs/agentic/historical-plan-corpus-review.md` as optional calibration, not default required reading, when a serious tracked plan needs extra example-driven review context or when you are updating eval seeds
    - for serious tracked plans, record the full Codanna evidence trail: `semantic_search_with_context`, `search_documents` when repo-doc context matters, `analyze_impact`, and any explicit fallback reads
    - record the Codanna impact snapshot for risky/shared-symbol edits
 7. Implement narrowly.
