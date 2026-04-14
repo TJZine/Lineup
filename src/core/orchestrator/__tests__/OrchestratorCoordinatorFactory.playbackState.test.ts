@@ -4,6 +4,7 @@ import { EpgPreferencesStore } from '../../../modules/settings/EpgPreferencesSto
 import { NowPlayingDisplayStore } from '../../../modules/settings/NowPlayingDisplayStore';
 import { ProfileSessionStore } from '../../../modules/settings/ProfileSessionStore';
 import { SubtitlePreferencesStore } from '../../../modules/settings/SubtitlePreferencesStore';
+import { DeveloperSettingsStore } from '../../../modules/settings/DeveloperSettingsStore';
 import type { EPGConfig } from '../../../modules/ui/epg';
 import { EPGCoordinator } from '../../../modules/ui/epg';
 import type { StreamDecision } from '../../../modules/plex/stream';
@@ -85,6 +86,7 @@ const makeDeps = (
     playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors>
 ): OrchestratorCoordinatorFactoryDeps => {
     const debugOverridesStore = new DebugOverridesStore();
+    const developerSettingsStore = new DeveloperSettingsStore();
     const subtitlePreferencesStore = new SubtitlePreferencesStore();
     const epgPreferencesStore = new EpgPreferencesStore();
     const nowPlayingDisplayStore = new NowPlayingDisplayStore();
@@ -147,6 +149,7 @@ const makeDeps = (
             } as unknown as OrchestratorCoordinatorFactoryDeps['overlays']['sleepTimer'],
         },
         stores: {
+            developerSettingsStore,
             debugOverridesStore,
             subtitlePreferencesStore,
             epgPreferencesStore,

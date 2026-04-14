@@ -120,7 +120,7 @@ export class NavigationManager
             emitSettings: (): void => this.emit('settings', undefined),
         });
         this._remoteHandler = new RemoteHandler(inputService);
-        this._readDebugLoggingEnabled = options?.readDebugLoggingEnabled ?? (() => false);
+        this._readDebugLoggingEnabled = options?.readDebugLoggingEnabled ?? (() : boolean => false);
         this._boundFocusInHandler = this._handleFocusIn.bind(this);
         this._state = {
             config: DEFAULT_NAVIGATION_CONFIG,
