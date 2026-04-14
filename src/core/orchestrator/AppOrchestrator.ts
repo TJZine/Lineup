@@ -1894,7 +1894,7 @@ export class AppOrchestrator {
         if (!this._plexAuth) {
             return 'skipped_missing_credentials';
         }
-        const stored = await this._plexAuth.getStoredCredentials();
+        const stored = await this._plexAuth.readStoredCredentialsAndClearCorruption();
         if (stored.kind === 'missing') {
             return 'skipped_missing_credentials';
         }

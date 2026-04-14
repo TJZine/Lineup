@@ -12,7 +12,7 @@ describe('ServerSelectionStore', () => {
 
     it('reads null selected server when key is missing', () => {
         const store = new ServerSelectionStore();
-        expect(store.readSelectedServerId()).toBeNull();
+        expect(store.readSelectedServerIdAndClean()).toBeNull();
     });
 
     it('writes and reads selected server id', () => {
@@ -21,14 +21,14 @@ describe('ServerSelectionStore', () => {
         store.writeSelectedServerId('srv-1');
 
         expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srv-1');
-        expect(store.readSelectedServerId()).toBe('srv-1');
+        expect(store.readSelectedServerIdAndClean()).toBe('srv-1');
     });
 
     it('normalizes invalid selected server ids by clearing persisted value', () => {
         mockLocalStorage.setItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY, '   ');
         const store = new ServerSelectionStore();
 
-        expect(store.readSelectedServerId()).toBeNull();
+        expect(store.readSelectedServerIdAndClean()).toBeNull();
         expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBeNull();
     });
 
@@ -36,7 +36,7 @@ describe('ServerSelectionStore', () => {
         mockLocalStorage.setItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY, '{bad-json');
         const store = new ServerSelectionStore();
 
-        expect(store.readServerHealthMap()).toEqual({});
+        expect(store.readServerHealthMapAndClean()).toEqual({});
         expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY)).toBeNull();
     });
 
@@ -50,7 +50,7 @@ describe('ServerSelectionStore', () => {
         );
 
         const store = new ServerSelectionStore();
-        const healthMap = store.readServerHealthMap();
+        const healthMap = store.readServerHealthMapAndClean();
 
         expect(healthMap).toEqual({
             'srv-valid': { status: 'ok', type: 'local', latencyMs: 13, testedAt: 123 },
@@ -78,7 +78,7 @@ describe('ServerSelectionStore', () => {
 
         const store = new ServerSelectionStore();
 
-        expect(store.readServerHealthMap()).toEqual({
+        expect(store.readServerHealthMapAndClean()).toEqual({
             'srv-1': { status: 'ok', type: 'local', latencyMs: 15, testedAt: 123 },
         });
         expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY)).toBe(
@@ -107,7 +107,7 @@ describe('ServerSelectionStore', () => {
             testedAt: 600,
         });
 
-        expect(store.readServerHealthMap()).toEqual({
+        expect(store.readServerHealthMapAndClean()).toEqual({
             'srv-1': {
                 status: 'unreachable',
                 type: 'local',
@@ -128,7 +128,7 @@ describe('ServerSelectionStore', () => {
         selectedServerKey = 'selected-b';
         serverHealthKey = 'health-b';
 
-        expect(store.readSelectedServerId()).toBeNull();
+        expect(store.readSelectedServerIdAndClean()).toBeNull();
         store.writeSelectedServerId('srv-b');
         expect(mockLocalStorage.getItem('selected-b')).toBe('srv-b');
     });
@@ -146,8 +146,8 @@ describe('ServerSelectionStore', () => {
             throw new Error('blocked');
         });
 
-        expect(() => store.readSelectedServerId()).not.toThrow();
-        expect(() => store.readServerHealthMap()).not.toThrow();
+        expect(() => store.readSelectedServerIdAndClean()).not.toThrow();
+        expect(() => store.readServerHealthMapAndClean()).not.toThrow();
         expect(() => store.writeSelectedServerId('srv-1')).not.toThrow();
         expect(() => store.writeServerHealthRecord({ serverId: 'srv-1', status: 'ok' })).not.toThrow();
         expect(() => store.clearSelectedServerId()).not.toThrow();

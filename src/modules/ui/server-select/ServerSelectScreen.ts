@@ -217,7 +217,7 @@ export class ServerSelectScreen {
         this._activeLoadGeneration = generation;
         this._unregisterServerListFocusables();
         this._listEl.replaceChildren();
-        const savedId = this._serverSelectionStore.readSelectedServerId();
+        const savedId = this._serverSelectionStore.readSelectedServerIdAndClean();
         const isAutoConnectAttempt = options.autoSelect && Boolean(savedId);
         this._setAutoConnectHintVisible(isAutoConnectAttempt);
         this._setStatus(
@@ -498,7 +498,7 @@ export class ServerSelectScreen {
     ): void {
         const savedServerUnavailable = options?.savedServerUnavailable === true;
         const emptyStateReason = options?.emptyStateReason ?? 'no_servers';
-        const healthMap: ServerHealthMap = this._serverSelectionStore.readServerHealthMap();
+        const healthMap: ServerHealthMap = this._serverSelectionStore.readServerHealthMapAndClean();
 
         this._unregisterServerListFocusables();
         this._listEl.replaceChildren();
@@ -755,7 +755,7 @@ export class ServerSelectScreen {
                 if (currentGeneration === generation) {
                     this._setServerConnectButtonsDisabled(false);
                 } else {
-                    const savedId = this._serverSelectionStore.readSelectedServerId();
+                    const savedId = this._serverSelectionStore.readSelectedServerIdAndClean();
                     this._renderServers(this._lastDiscoveredServers, savedId, { emptyStateReason: 'no_servers' });
                     this._setServerListStatus(this._lastDiscoveredServers);
                     this._restoreFocus(currentGeneration);

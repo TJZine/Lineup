@@ -79,14 +79,14 @@ export class SettingsScreenStateController {
                     id: 'settings-dts-passthrough',
                     label: 'DTS Passthrough',
                     description: 'Enable if you have an eARC receiver',
-                    value: this._settingsStore.readToggleSetting('dtsPassthrough'),
+                    value: this._settingsStore.readToggleSettingAndClean('dtsPassthrough'),
                     onChange: (value: boolean) => this._settingsStore.writeToggleSetting('dtsPassthrough', value),
                 },
                 {
                     id: 'settings-direct-play-audio-fallback',
                     label: 'Direct Play Audio Fallback',
                     description: 'Allow Direct Play using a compatible fallback audio track',
-                    value: this._settingsStore.readToggleSetting('directPlayAudioFallback'),
+                    value: this._settingsStore.readToggleSettingAndClean('directPlayAudioFallback'),
                     onChange: (value: boolean) =>
                         this._settingsStore.writeToggleSetting('directPlayAudioFallback', value),
                 },
@@ -125,7 +125,7 @@ export class SettingsScreenStateController {
                     id: 'settings-subtitles-prefer-forced',
                     label: 'Prefer Forced Subtitles',
                     description: 'Auto-select forced (partial) subtitles over full subtitles',
-                    value: this._settingsStore.readToggleSetting('subtitlePreferForced'),
+                    value: this._settingsStore.readToggleSettingAndClean('subtitlePreferForced'),
                     disabled: !subtitlesEnabled,
                     disabledReason: 'Enable Subtitle Mode first',
                     onChange: (value: boolean): void => {
@@ -143,7 +143,7 @@ export class SettingsScreenStateController {
                     id: 'settings-keep-playing',
                     label: 'Keep Playback Running in Settings',
                     description: 'Avoid pausing video when opening Settings (uses more CPU/GPU)',
-                    value: this._settingsStore.readToggleSetting('keepPlayingInSettings'),
+                    value: this._settingsStore.readToggleSettingAndClean('keepPlayingInSettings'),
                     onChange: (value: boolean) => this._settingsStore.writeToggleSetting('keepPlayingInSettings', value),
                 },
                 {
@@ -151,7 +151,7 @@ export class SettingsScreenStateController {
                     label: 'HDR Fallback',
                     description:
                         'For Dolby Vision MKV only. Does not affect MP4/TS. Only applies when an HDR10 base layer exists (DV profile 7 or 8.1).',
-                    value: this._settingsStore.readHdr10FallbackModeValue(),
+                    value: this._settingsStore.readHdr10FallbackModeValueAndClean(),
                     options: [
                         { label: 'Off', value: 0 },
                         { label: 'Smart (Recommended)', value: 1 },
@@ -176,7 +176,7 @@ export class SettingsScreenStateController {
                     id: 'settings-transcode-compat',
                     label: 'Transcode Compat Mode',
                     description: 'Advanced: only use if transcoding fails; sends a minimal parameter set to Plex',
-                    value: this._settingsStore.readToggleSetting('transcodeCompat'),
+                    value: this._settingsStore.readToggleSettingAndClean('transcodeCompat'),
                     onChange: (value: boolean): void => {
                         this._settingsStore.writeToggleSetting('transcodeCompat', value);
                     },
@@ -192,7 +192,7 @@ export class SettingsScreenStateController {
                     id: 'settings-guide-category-colors',
                     label: 'Category Colors',
                     description: 'Show colored left border for auto-setup channel types',
-                    value: this._settingsStore.readToggleSetting('guideCategoryColors'),
+                    value: this._settingsStore.readToggleSettingAndClean('guideCategoryColors'),
                     onChange: (value: boolean): void => {
                         this._settingsStore.writeToggleSetting('guideCategoryColors', value);
                         this._onGuideSettingChange?.({ key: 'categoryColors', enabled: value });
@@ -202,7 +202,7 @@ export class SettingsScreenStateController {
                     id: 'settings-guide-library-tabs',
                     label: 'Library Tabs',
                     description: 'Filter the guide by source library',
-                    value: this._settingsStore.readToggleSetting('epgLibraryTabsEnabled'),
+                    value: this._settingsStore.readToggleSettingAndClean('epgLibraryTabsEnabled'),
                     onChange: (value: boolean): void => {
                         this._settingsStore.writeToggleSetting('epgLibraryTabsEnabled', value);
                         this._onGuideSettingChange?.({ key: 'libraryTabs', enabled: value });
@@ -212,7 +212,7 @@ export class SettingsScreenStateController {
                     id: 'settings-epg-now-watching',
                     label: 'Now Watching Banner',
                     description: 'Show current channel/program above the guide',
-                    value: this._settingsStore.readToggleSetting('epgNowWatchingEnabled'),
+                    value: this._settingsStore.readToggleSettingAndClean('epgNowWatchingEnabled'),
                     onChange: (value: boolean): void => {
                         this._settingsStore.writeToggleSetting('epgNowWatchingEnabled', value);
                         this._onGuideSettingChange?.({ key: 'nowWatchingBanner', enabled: value });
@@ -222,7 +222,7 @@ export class SettingsScreenStateController {
                     id: 'settings-epg-aggressive-preload',
                     label: 'Aggressive Guide Preload (Experimental)',
                     description: 'Uses more memory to reduce loading in very large guides',
-                    value: this._settingsStore.readToggleSetting('epgAggressivePreloadEnabled'),
+                    value: this._settingsStore.readToggleSettingAndClean('epgAggressivePreloadEnabled'),
                     onChange: (value: boolean): void => {
                         this._settingsStore.writeToggleSetting('epgAggressivePreloadEnabled', value);
                         this._onGuideSettingChange?.({ key: 'aggressivePreload', enabled: value });
@@ -302,7 +302,7 @@ export class SettingsScreenStateController {
                     id: 'settings-cinematic-now-playing',
                     label: 'Cinematic Now Playing',
                     description: 'Full-screen layout with blurred backdrop and large poster',
-                    value: this._settingsStore.readToggleSetting('cinematicNowPlaying'),
+                    value: this._settingsStore.readToggleSettingAndClean('cinematicNowPlaying'),
                     onChange: (value: boolean): void => {
                         this._settingsStore.writeToggleSetting('cinematicNowPlaying', value);
                     },
@@ -311,7 +311,7 @@ export class SettingsScreenStateController {
                     id: 'settings-prefer-clear-logos',
                     label: 'Use Clear Logos',
                     description: 'Show clear logos instead of text titles when available',
-                    value: this._settingsStore.readToggleSetting('preferClearLogos'),
+                    value: this._settingsStore.readToggleSettingAndClean('preferClearLogos'),
                     onChange: (value: boolean): void => {
                         this._settingsStore.writeToggleSetting('preferClearLogos', value);
                     },
@@ -340,7 +340,7 @@ export class SettingsScreenStateController {
                     id: 'settings-profile-picker-startup',
                     label: 'Show Profile Picker on Startup',
                     description: 'When enabled, prompt for a Plex Home profile on launch',
-                    value: this._settingsStore.readToggleSetting('showProfilePickerOnStartup'),
+                    value: this._settingsStore.readToggleSettingAndClean('showProfilePickerOnStartup'),
                     onChange: (value: boolean): void => {
                         this._settingsStore.writeToggleSetting('showProfilePickerOnStartup', value);
                     },
@@ -356,7 +356,7 @@ export class SettingsScreenStateController {
                     id: 'settings-debug-logging',
                     label: 'Debug Logging',
                     description: 'Enable verbose console output (applies immediately)',
-                    value: this._settingsStore.readToggleSetting('debugLogging'),
+                    value: this._settingsStore.readToggleSettingAndClean('debugLogging'),
                     onChange: (value: boolean): void => {
                         this._settingsStore.writeToggleSetting('debugLogging', value);
                         dispatchDebugLoggingChanged(value);
@@ -366,7 +366,7 @@ export class SettingsScreenStateController {
                     id: 'settings-subtitle-debug-logging',
                     label: 'Subtitle Debug Logging',
                     description: 'Log subtitle tracks and native textTracks state (tokens redacted)',
-                    value: this._settingsStore.readToggleSetting('subtitleDebugLogging'),
+                    value: this._settingsStore.readToggleSettingAndClean('subtitleDebugLogging'),
                     onChange: (value: boolean): void => {
                         this._settingsStore.writeToggleSetting('subtitleDebugLogging', value);
                     },
@@ -400,11 +400,11 @@ export class SettingsScreenStateController {
     }
 
     private _readSubtitleModeValue(): number {
-        return this._subtitleModeToValue(this._settingsStore.readSubtitleMode());
+        return this._subtitleModeToValue(this._settingsStore.readSubtitleModeAndClean());
     }
 
     private _readSubtitleLanguageValue(): number {
-        return this._settingsStore.readSubtitleLanguageValue(SUBTITLE_LANGUAGE_OPTIONS);
+        return this._settingsStore.readSubtitleLanguageValueAndClean(SUBTITLE_LANGUAGE_OPTIONS);
     }
 
     private _writeSubtitleLanguageValue(value: number): void {
@@ -412,7 +412,7 @@ export class SettingsScreenStateController {
     }
 
     private _readTranscodeQualityValue(): number {
-        return this._settingsStore.readTranscodeQualityValue(TRANSCODE_QUALITY_OPTIONS);
+        return this._settingsStore.readTranscodeQualityValueAndClean(TRANSCODE_QUALITY_OPTIONS);
     }
 
     private _writeTranscodeQualityValue(value: number): void {
@@ -420,7 +420,7 @@ export class SettingsScreenStateController {
     }
 
     private _readEpgLayoutModeValue(): 0 | 1 {
-        return this._settingsStore.readEpgLayoutModeValue();
+        return this._settingsStore.readEpgLayoutModeValueAndClean();
     }
 
     private _writeEpgLayoutModeValue(value: number): void {
@@ -428,7 +428,7 @@ export class SettingsScreenStateController {
     }
 
     private _readEpgGuideDensityValue(): 0 | 1 {
-        return this._settingsStore.readEpgGuideDensityValue();
+        return this._settingsStore.readEpgGuideDensityValueAndClean();
     }
 
     private _writeEpgGuideDensityValue(value: number): void {
@@ -436,7 +436,7 @@ export class SettingsScreenStateController {
     }
 
     private _readEpgPastItemsWindowValue(): number {
-        return this._settingsStore.readEpgPastItemsWindowValue();
+        return this._settingsStore.readEpgPastItemsWindowValueAndClean();
     }
 
     private _writeEpgPastItemsWindowValue(value: number): 'auto' | '0' | '15' | '30' {
@@ -444,7 +444,7 @@ export class SettingsScreenStateController {
     }
 
     private _readEpgInfoBackgroundModeValue(): 0 | 1 | 2 {
-        return this._settingsStore.readEpgInfoBackgroundModeValue();
+        return this._settingsStore.readEpgInfoBackgroundModeValueAndClean();
     }
 
     private _writeEpgInfoBackgroundModeValue(value: number): 0 | 1 | 2 {
@@ -452,7 +452,7 @@ export class SettingsScreenStateController {
     }
 
     private _readClampedNowPlayingAutoHide(): number {
-        return this._settingsStore.readClampedNowPlayingAutoHideValue(
+        return this._settingsStore.readClampedNowPlayingAutoHideValueAndClean(
             NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS,
             NOW_PLAYING_INFO_DEFAULTS.autoHideMs
         );

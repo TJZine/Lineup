@@ -22,7 +22,7 @@ export type EpgScheduleRangeSnapshot = {
 const EPG_PAST_ITEMS_WINDOWS: readonly EpgPastItemsWindow[] = ['auto', '0', '15', '30'];
 
 export class EpgPreferencesStore {
-    readLibraryTabsEnabled(fallback: boolean = true): boolean {
+    readLibraryTabsEnabledAndClean(fallback: boolean = true): boolean {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, fallback);
     }
 
@@ -30,7 +30,7 @@ export class EpgPreferencesStore {
         return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, enabled ? '1' : '0');
     }
 
-    readAggressivePreloadEnabled(fallback: boolean = false): boolean {
+    readAggressivePreloadEnabledAndClean(fallback: boolean = false): boolean {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, fallback);
     }
 
@@ -38,7 +38,7 @@ export class EpgPreferencesStore {
         return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, enabled ? '1' : '0');
     }
 
-    readSelectedLibraryId(): string | null {
+    readSelectedLibraryIdAndClean(): string | null {
         return readTrimmedStringAndClean(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
     }
 
@@ -46,7 +46,7 @@ export class EpgPreferencesStore {
         return writeTrimmedStringOrRemoveWithResult(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, libraryId);
     }
 
-    readGuideDensity(fallback: EpgGuideDensity = 'detailed'): EpgGuideDensity {
+    readGuideDensityAndClean(fallback: EpgGuideDensity = 'detailed'): EpgGuideDensity {
         const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY);
         if (raw === 'wide' || raw === 'detailed') {
             return raw;
@@ -61,7 +61,7 @@ export class EpgPreferencesStore {
         return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, density);
     }
 
-    readLayoutMode(fallback: EpgLayoutMode = 'classic'): EpgLayoutMode {
+    readLayoutModeAndClean(fallback: EpgLayoutMode = 'classic'): EpgLayoutMode {
         const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
         if (raw === 'overlay' || raw === 'classic') {
             return raw;
@@ -76,7 +76,7 @@ export class EpgPreferencesStore {
         return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, mode);
     }
 
-    readNowWatchingEnabled(fallback: boolean = true): boolean {
+    readNowWatchingEnabledAndClean(fallback: boolean = true): boolean {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, fallback);
     }
 
@@ -84,7 +84,7 @@ export class EpgPreferencesStore {
         return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, enabled ? '1' : '0');
     }
 
-    readGuideCategoryColorsEnabled(fallback: boolean = true): boolean {
+    readGuideCategoryColorsEnabledAndClean(fallback: boolean = true): boolean {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.GUIDE_CATEGORY_COLORS, fallback);
     }
 
@@ -92,7 +92,7 @@ export class EpgPreferencesStore {
         return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.GUIDE_CATEGORY_COLORS, enabled ? '1' : '0');
     }
 
-    readPastItemsWindow(fallback: EpgPastItemsWindow = 'auto'): EpgPastItemsWindow {
+    readPastItemsWindowAndClean(fallback: EpgPastItemsWindow = 'auto'): EpgPastItemsWindow {
         const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW);
         if (raw && EPG_PAST_ITEMS_WINDOWS.includes(raw as EpgPastItemsWindow)) {
             return raw as EpgPastItemsWindow;
@@ -107,15 +107,15 @@ export class EpgPreferencesStore {
         return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, window);
     }
 
-    readScheduleRangeSnapshot(): EpgScheduleRangeSnapshot {
+    readScheduleRangeSnapshotAndClean(): EpgScheduleRangeSnapshot {
         return {
-            pastItemsWindowSetting: this.readPastItemsWindow('auto'),
-            tabsEnabled: this.readLibraryTabsEnabled(true),
-            selectedLibraryId: this.readSelectedLibraryId(),
+            pastItemsWindowSetting: this.readPastItemsWindowAndClean('auto'),
+            tabsEnabled: this.readLibraryTabsEnabledAndClean(true),
+            selectedLibraryId: this.readSelectedLibraryIdAndClean(),
         };
     }
 
-    readInfoBackgroundMode(fallback: 0 | 1 | 2 = 0): 0 | 1 | 2 {
+    readInfoBackgroundModeAndClean(fallback: 0 | 1 | 2 = 0): 0 | 1 | 2 {
         const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
         const parsed = parseStoredEpgInfoBackgroundMode(raw);
         if (parsed !== null) {

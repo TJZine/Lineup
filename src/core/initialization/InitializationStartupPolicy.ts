@@ -17,7 +17,7 @@ type UpdateModuleStatus = (
 
 type Phase2AuthPlexAuth = Pick<
     IPlexAuth,
-    'getStoredCredentials' | 'validateToken' | 'getCurrentUser' | 'storeCredentials' | 'getHomeUsers'
+    'readStoredCredentialsAndClearCorruption' | 'validateToken' | 'getCurrentUser' | 'storeCredentials' | 'getHomeUsers'
 >;
 
 type Phase2AuthNavigation = Pick<INavigationManager, 'getCurrentScreen' | 'goTo'>;
@@ -101,7 +101,7 @@ export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs
 }
 
 export async function applyPhase2AuthGatePolicy(inputs: Phase2AuthGateInputs): Promise<boolean> {
-    const storedReadResult = await inputs.plexAuth.getStoredCredentials();
+    const storedReadResult = await inputs.plexAuth.readStoredCredentialsAndClearCorruption();
     if (storedReadResult.kind === 'corrupted') {
         inputs.updateModuleStatus('plex-auth', 'pending', {
             code: AppErrorCode.STORAGE_CORRUPTED,

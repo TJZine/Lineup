@@ -274,7 +274,7 @@ export interface IPlexAuth {
      * Get stored credentials from localStorage.
      * @returns Explicit stored-read classification
      */
-    getStoredCredentials(): Promise<PlexStoredCredentialsReadResult>;
+    readStoredCredentialsAndClearCorruption(): Promise<PlexStoredCredentialsReadResult>;
 
     /**
      * Store credentials to localStorage.

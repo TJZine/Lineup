@@ -583,9 +583,9 @@ export class InitializationCoordinator {
                 scheduler: this._deps.modules.scheduler,
                 buildPlexResourceUrl: this._callbacks.resources.buildPlexResourceUrl,
                 readEpgLayoutMode: (): EpgLayoutMode =>
-                    this._deps.stores.epgPreferencesStore.readLayoutMode('classic'),
+                    this._deps.stores.epgPreferencesStore.readLayoutModeAndClean('classic'),
                 readShowNowWatchingBanner: (): boolean =>
-                    this._deps.stores.epgPreferencesStore.readNowWatchingEnabled(true),
+                    this._deps.stores.epgPreferencesStore.readNowWatchingEnabledAndClean(true),
                 debugRuntime: this._deps.epgDebugRuntime,
             });
             this._deps.modules.epg!.initialize(epgConfigWithResolver);

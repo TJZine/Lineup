@@ -10,9 +10,9 @@ import { applyPhase2AuthGatePolicy, type Phase2AuthGateInputs } from '../Initial
 
 type PlexAuthGateMock = Pick<
     IPlexAuth,
-    'getStoredCredentials' | 'validateToken' | 'getCurrentUser' | 'storeCredentials' | 'getHomeUsers'
+    'readStoredCredentialsAndClearCorruption' | 'validateToken' | 'getCurrentUser' | 'storeCredentials' | 'getHomeUsers'
 > & {
-    getStoredCredentials: jest.MockedFunction<IPlexAuth['getStoredCredentials']>;
+    readStoredCredentialsAndClearCorruption: jest.MockedFunction<IPlexAuth['readStoredCredentialsAndClearCorruption']>;
     validateToken: jest.MockedFunction<IPlexAuth['validateToken']>;
     getCurrentUser: jest.MockedFunction<IPlexAuth['getCurrentUser']>;
     storeCredentials: jest.MockedFunction<IPlexAuth['storeCredentials']>;
@@ -79,7 +79,7 @@ function createPlexAuthMock(
     return {
         validateToken: jest.fn().mockResolvedValue(true),
         getHomeUsers: jest.fn().mockResolvedValue([]),
-        getStoredCredentials: jest.fn().mockResolvedValue(storedReadResult),
+        readStoredCredentialsAndClearCorruption: jest.fn().mockResolvedValue(storedReadResult),
         storeCredentials: jest.fn().mockResolvedValue(undefined),
         getCurrentUser: jest.fn().mockReturnValue(storedCredentials.activeToken),
         ...overrides,
@@ -196,7 +196,7 @@ describe('applyPhase2AuthGatePolicy', () => {
 
     it('routes corrupted stored credentials to auth with STORAGE_CORRUPTED status', async () => {
         const inputs = createInputs({
-            getStoredCredentials: jest.fn().mockResolvedValue({
+            readStoredCredentialsAndClearCorruption: jest.fn().mockResolvedValue({
                 kind: 'corrupted',
                 reason: 'invalid-json',
             }),
@@ -216,7 +216,7 @@ describe('applyPhase2AuthGatePolicy', () => {
 
     it('treats missing stored credentials as normal pending-auth startup', async () => {
         const inputs = createInputs({
-            getStoredCredentials: jest.fn().mockResolvedValue({ kind: 'missing' }),
+            readStoredCredentialsAndClearCorruption: jest.fn().mockResolvedValue({ kind: 'missing' }),
         });
 
         await expect(applyPolicy(inputs)).resolves.toBe(false);

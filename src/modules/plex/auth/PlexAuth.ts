@@ -283,7 +283,7 @@ export class PlexAuth implements IPlexAuth {
      * Get stored credentials from localStorage.
      * @returns Explicit stored-read classification
      */
-    public async getStoredCredentials(): Promise<PlexStoredCredentialsReadResult> {
+    public async readStoredCredentialsAndClearCorruption(): Promise<PlexStoredCredentialsReadResult> {
         const result = this._readStoredCredentials();
         if (result.kind === 'available') {
             this._bootStoredCredentialsCorruption = null;
@@ -622,7 +622,7 @@ export class PlexAuth implements IPlexAuth {
         this._state.activeUserId = scopedUserId;
         this._state.isValidated = true;
 
-        const stored = await this.getStoredCredentials();
+        const stored = await this.readStoredCredentialsAndClearCorruption();
         const persisted = stored.kind === 'available' ? stored.credentials : null;
         const selectedServerByUserId = {
             ...(persisted?.selectedServerByUserId ?? {}),
@@ -658,7 +658,7 @@ export class PlexAuth implements IPlexAuth {
         }
         const fromUserId = this._state.activeUserId ?? this._state.activeToken?.userId ?? null;
         const toUserId = this._state.accountToken.userId;
-        const stored = await this.getStoredCredentials();
+        const stored = await this.readStoredCredentialsAndClearCorruption();
         const persisted = stored.kind === 'available' ? stored.credentials : null;
         const selectedServerByUserId = {
             ...(persisted?.selectedServerByUserId ?? {}),

@@ -104,7 +104,7 @@ export class EPGRefreshController {
                 getLocalMidnightMs: (timeMs: number): number => this._deps.getLocalMidnightMs(timeMs),
             },
             Date.now(),
-            this._deps.epgPreferencesStore.readScheduleRangeSnapshot()
+            this._deps.epgPreferencesStore.readScheduleRangeSnapshotAndClean()
         );
     }
 
@@ -114,7 +114,7 @@ export class EPGRefreshController {
     } {
         const { selectedId, shouldFilter, shouldClearPersistedSelection } = computeNormalizedLibraryFilterState(
             allChannels,
-            this._deps.epgPreferencesStore.readScheduleRangeSnapshot()
+            this._deps.epgPreferencesStore.readScheduleRangeSnapshotAndClean()
         );
         if (shouldClearPersistedSelection) {
             this._deps.epgPreferencesStore.writeSelectedLibraryId(null);
@@ -149,7 +149,7 @@ export class EPGRefreshController {
     }
 
     private _isAggressivePreloadEnabled(): boolean {
-        return this._deps.epgPreferencesStore.readAggressivePreloadEnabled(false);
+        return this._deps.epgPreferencesStore.readAggressivePreloadEnabledAndClean(false);
     }
 
     private _isDebugEnabled(): boolean {

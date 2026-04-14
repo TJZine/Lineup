@@ -80,7 +80,7 @@ const readScheduleRange = (deps: EPGCoordinatorDeps): { startTime: number; endTi
     computeEpgScheduleRangeMs(
         deps,
         Date.now(),
-        deps.epgPreferencesStore.readScheduleRangeSnapshot()
+        deps.epgPreferencesStore.readScheduleRangeSnapshotAndClean()
     );
 
 const FIXED_FAKE_NOW = new Date('2026-01-01T12:00:00.000Z');

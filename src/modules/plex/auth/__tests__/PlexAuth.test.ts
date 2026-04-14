@@ -474,11 +474,11 @@ describe('PlexAuth', () => {
         });
     });
 
-    describe('getStoredCredentials', () => {
+    describe('readStoredCredentialsAndClearCorruption', () => {
         it('should return missing when no credentials stored', async () => {
             const auth = new PlexAuth(mockConfig);
 
-            const result = await auth.getStoredCredentials();
+            const result = await auth.readStoredCredentialsAndClearCorruption();
 
             expect(result).toEqual({ kind: 'missing' });
         });
@@ -521,7 +521,7 @@ describe('PlexAuth', () => {
             );
 
             const auth = new PlexAuth(mockConfig);
-            const result = await auth.getStoredCredentials();
+            const result = await auth.readStoredCredentialsAndClearCorruption();
 
             expect(result.kind).toBe('available');
             if (result.kind !== 'available') return;
@@ -547,7 +547,7 @@ describe('PlexAuth', () => {
                 })
             );
 
-            await expect(auth.getStoredCredentials()).resolves.toEqual({
+            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({
                 kind: 'available',
                 credentials: expect.objectContaining({
                     activeUserId: 'user-1',
@@ -584,7 +584,7 @@ describe('PlexAuth', () => {
                 })
             );
 
-            await expect(auth.getStoredCredentials()).resolves.toEqual({
+            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({
                 kind: 'available',
                 credentials: expect.objectContaining({
                     activeUserId: 'user-1',
@@ -630,7 +630,7 @@ describe('PlexAuth', () => {
                 })
             );
 
-            await expect(auth.getStoredCredentials()).resolves.toEqual({
+            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({
                 kind: 'available',
                 credentials: expect.objectContaining({
                     activeUserId: 'user-1',
@@ -645,18 +645,18 @@ describe('PlexAuth', () => {
             });
             const auth = new PlexAuth(mockConfig);
 
-            await expect(auth.getStoredCredentials()).resolves.toEqual({ kind: 'missing' });
+            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({ kind: 'missing' });
         });
 
         it('returns corrupted invalid-json and clears stored key', async () => {
             mockLocalStorage.setItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY, '{not-json');
             const auth = new PlexAuth(mockConfig);
 
-            const result = await auth.getStoredCredentials();
+            const result = await auth.readStoredCredentialsAndClearCorruption();
 
             expect(result).toEqual({ kind: 'corrupted', reason: 'invalid-json' });
             expect(mockLocalStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBeNull();
-            await expect(auth.getStoredCredentials()).resolves.toEqual({ kind: 'missing' });
+            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({ kind: 'missing' });
         });
 
         it('returns corrupted invalid-shape for malformed payloads', async () => {
@@ -671,7 +671,7 @@ describe('PlexAuth', () => {
             );
             const auth = new PlexAuth(mockConfig);
 
-            const result = await auth.getStoredCredentials();
+            const result = await auth.readStoredCredentialsAndClearCorruption();
 
             expect(result).toEqual({ kind: 'corrupted', reason: 'invalid-shape' });
             expect(mockLocalStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBeNull();
@@ -711,7 +711,7 @@ describe('PlexAuth', () => {
             );
             const auth = new PlexAuth(mockConfig);
 
-            const result = await auth.getStoredCredentials();
+            const result = await auth.readStoredCredentialsAndClearCorruption();
 
             expect(result).toEqual({ kind: 'corrupted', reason: 'unsupported-version' });
             expect(mockLocalStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBeNull();
@@ -721,11 +721,11 @@ describe('PlexAuth', () => {
             mockLocalStorage.setItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY, '{not-json');
             const auth = new PlexAuth(mockConfig);
 
-            await expect(auth.getStoredCredentials()).resolves.toEqual({
+            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({
                 kind: 'corrupted',
                 reason: 'invalid-json',
             });
-            await expect(auth.getStoredCredentials()).resolves.toEqual({ kind: 'missing' });
+            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({ kind: 'missing' });
         });
     });
 
@@ -741,7 +741,7 @@ describe('PlexAuth', () => {
 
             expect(auth.isAuthenticated()).toBe(true);
             expect(auth.getCurrentUser()?.token).toBe('blocked-storage-token');
-            await expect(auth.getStoredCredentials()).resolves.toEqual({ kind: 'missing' });
+            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({ kind: 'missing' });
         });
     });
 

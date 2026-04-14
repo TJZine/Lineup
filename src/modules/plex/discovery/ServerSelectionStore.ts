@@ -41,7 +41,7 @@ export class ServerSelectionStore {
         })
     ) {}
 
-    readSelectedServerId(): string | null {
+    readSelectedServerIdAndClean(): string | null {
         const { selectedServerKey } = this._keys();
         const raw = safeLocalStorageGet(selectedServerKey);
         if (raw === null) return null;
@@ -74,7 +74,7 @@ export class ServerSelectionStore {
         safeLocalStorageRemove(selectedServerKey);
     }
 
-    readServerHealthMap(): ServerHealthMap {
+    readServerHealthMapAndClean(): ServerHealthMap {
         const { serverHealthKey } = this._keys();
         const raw = safeLocalStorageGet(serverHealthKey);
         if (!raw) return {};
@@ -143,7 +143,7 @@ export class ServerSelectionStore {
         const serverId = input.serverId.trim();
         if (serverId.length === 0) return;
 
-        const healthMap = this.readServerHealthMap();
+        const healthMap = this.readServerHealthMapAndClean();
         const previous = healthMap[serverId];
 
         const type: ServerHealthType = input.details?.connection

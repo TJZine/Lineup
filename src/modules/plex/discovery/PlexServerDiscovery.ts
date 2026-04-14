@@ -817,7 +817,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         }
 
         // Storage at initialize-time is the source of truth.
-        const savedServerId = this._serverSelectionStore.readSelectedServerId();
+        const savedServerId = this._serverSelectionStore.readSelectedServerIdAndClean();
 
         if (!savedServerId) {
             return;

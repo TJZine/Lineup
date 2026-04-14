@@ -172,7 +172,7 @@ export class EPGCoordinator {
     }
 
     private _readGuideDensity(): EpgGuideDensity {
-        return this._epgPreferencesStore.readGuideDensity(DEFAULT_GUIDE_DENSITY);
+        return this._epgPreferencesStore.readGuideDensityAndClean(DEFAULT_GUIDE_DENSITY);
     }
 
     private _getBaseVisibleHours(): number {
@@ -305,14 +305,14 @@ export class EPGCoordinator {
         const all = channelManager.getAllChannels();
         const { selectedId, tabsEnabled, shouldFilter, libraries, shouldClearPersistedSelection } = computeNormalizedLibraryFilterState(
             all,
-            this._epgPreferencesStore.readScheduleRangeSnapshot()
+            this._epgPreferencesStore.readScheduleRangeSnapshotAndClean()
         );
         if (shouldClearPersistedSelection) {
             this._epgPreferencesStore.writeSelectedLibraryId(null);
         }
 
         // Category colors
-        const categoryColorsEnabled = this._epgPreferencesStore.readGuideCategoryColorsEnabled(true);
+        const categoryColorsEnabled = this._epgPreferencesStore.readGuideCategoryColorsEnabledAndClean(true);
         epg.setCategoryColorsEnabled(categoryColorsEnabled);
 
         // Tabs (only show if enabled; EPGComponent will hide if <=1 library)
@@ -322,8 +322,8 @@ export class EPGCoordinator {
             epg.setLibraryTabs([], null);
         }
 
-        const layoutMode = this._epgPreferencesStore.readLayoutMode('classic');
-        const nowWatchingEnabled = this._epgPreferencesStore.readNowWatchingEnabled(true);
+        const layoutMode = this._epgPreferencesStore.readLayoutModeAndClean('classic');
+        const nowWatchingEnabled = this._epgPreferencesStore.readNowWatchingEnabledAndClean(true);
         epg.setLayoutMode(layoutMode);
         epg.setNowWatchingBannerEnabled(nowWatchingEnabled);
         epg.setVisibleHours(this._getVisibleHoursForCurrentFilter(all, selectedId, shouldFilter));
@@ -465,7 +465,7 @@ export class EPGCoordinator {
         const all = channelManager.getAllChannels();
         const { selectedId, shouldFilter, shouldClearPersistedSelection } = computeNormalizedLibraryFilterState(
             all,
-            this._epgPreferencesStore.readScheduleRangeSnapshot()
+            this._epgPreferencesStore.readScheduleRangeSnapshotAndClean()
         );
         if (shouldClearPersistedSelection) {
             this._epgPreferencesStore.writeSelectedLibraryId(null);
