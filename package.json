@@ -32,6 +32,7 @@
         "typecheck": "tsc --noEmit",
         "test:harness-docs": "node --test tools/__tests__/*.test.mjs",
         "test:verify-docs-contracts": "jest --config jest.config.js --runInBand src/__tests__/tools/verifyDocs.test.ts",
+        "verify:architecture": "eslint src",
         "verify:docs": "node tools/verify-docs.mjs && npm run test:harness-docs && npm run test:verify-docs-contracts",
         "verify:docs:workspace": "node tools/verify-docs.mjs --workspace && npm run test:harness-docs && npm run test:verify-docs-contracts",
         "verify:bundle": "node tools/verify-bundle.mjs",
@@ -39,7 +40,7 @@
         "harness:ingestion": "node tools/report-harness-ingestion.mjs",
         "plans:stale": "node tools/report-stale-plans.mjs",
         "plans:check": "node tools/report-plan-conformance.mjs",
-        "verify": "npm run typecheck && npm run lint && npm run lint:css && npm run test:coverage && npm run test:contracts && npm run verify:docs && npm run build",
+        "verify": "npm run typecheck && npm run verify:architecture && npm run lint:css && npm run test:coverage && npm run test:contracts && npm run verify:docs && npm run build",
         "verify:quick": "npm run typecheck && npm run test:all",
         "package:webos": "npm run build:lean && ares-package dist/"
     },
