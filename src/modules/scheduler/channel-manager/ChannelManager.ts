@@ -338,6 +338,13 @@ export class ChannelManager implements IChannelManager {
             try {
                 const result = this._channelRepository.saveCurrentChannelId(this._state.currentChannelId);
                 if (!result.ok) {
+                    if (result.reason === 'quota-exceeded') {
+                        throw new ChannelError(
+                            AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+                            STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                            true
+                        );
+                    }
                     throw new Error('Failed to persist current channel');
                 }
             } catch (e) {
@@ -715,6 +722,13 @@ export class ChannelManager implements IChannelManager {
         try {
             const result = this._channelRepository.saveCurrentChannelId(channelId);
             if (!result.ok) {
+                if (result.reason === 'quota-exceeded') {
+                    throw new ChannelError(
+                        AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+                        STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                        true
+                    );
+                }
                 throw new Error('Failed to persist current channel');
             }
         } catch (e) {
