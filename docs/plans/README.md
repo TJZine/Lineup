@@ -79,17 +79,17 @@ git mv docs/plans/<file>.md docs/archive/plans/<file>.md
 
 ## Commit Policy
 
-Commit plans in this directory when they are part of the repo's durable memory, especially for:
+Do not automatically commit or track plans in this directory.
 
-- architecture cleanup work
-- multi-session refactors
-- plans explicitly referenced by tracked backlog or architecture docs
+Only commit or otherwise track a plan when the user explicitly asks to commit, track, or organize it.
+
+The agent may suggest promoting a plan into tracked repo memory, but it must not do that on its own.
 
 If the artifact is only useful for one local execution run, keep it out of `docs/plans/` and use `docs/runs/` instead.
 
 Do not keep `**Plan Status:** active` on plans that have become reference-only noise. Either remove the marker once the plan is no longer the active handoff surface or archive/delete the plan according to the normal rules.
 
-Checklist references may temporarily point at an existing local `docs/plans/*` draft while harness evals, summaries, or follow-up cleanup are still in progress. `npm run verify:docs` warns for those local-untracked plan refs; before the local draft is removed, either promote it into tracked plan memory or update the checklist/reference note to a tracked summary or archived-plan path.
+Checklist references may temporarily point at an existing local `docs/plans/*` draft while harness evals, summaries, or follow-up cleanup are still in progress. `npm run verify:docs` warns for those local-untracked plan refs; before the local draft is removed, ask the user whether to promote it into tracked plan memory or update the checklist/reference note to a tracked summary or archived-plan path instead.
 
 ## Corpus Review Trigger
 

@@ -6,6 +6,7 @@ This file is the entrypoint map for Lineup's control plane. Keep it short. Use [
 
 - **Planning = Codex plan**: Keep the authoritative plan in Codex `update_plan` and, when durable tracked memory is needed, in `docs/plans/*`. Move completed or superseded tracked plans to `docs/archive/plans/*` once they stop being the active handoff surface.
 - **Plan authoring = tracked standard**: When asked to write an implementation plan, use the `writing-plans` skill format. Serious tracked plans follow [`docs/agentic/plan-authoring-standard.md`](./docs/agentic/plan-authoring-standard.md).
+- **Plan commit policy = local by default**: Do not automatically commit or track implementation plan files. Treat plan files as local working material unless the user explicitly asks to commit, track, or organize them.
 - **Operating runbook = workflow doc**: [`docs/AGENTIC_DEV_WORKFLOW.md`](./docs/AGENTIC_DEV_WORKFLOW.md) is the single operating runbook for read order, document precedence, workflow routing, tracked-vs-local hygiene, and launcher usage.
 - **Docs lookup = Context7**: Pull short, dated snippets from official docs for external claims. If unavailable, log the fallback.
 - **Search / discovery = Codanna first**: Prefer Codanna MCP discovery tools for repo-doc and code evidence sweeps. Fall back to `rg` only when Codanna is unavailable or insufficient, and record the fallback.
