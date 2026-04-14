@@ -1195,6 +1195,13 @@ This pass is intentionally last. Earlier architectural work should retire a larg
 - `followup::p1-exit::orchestrator-cycle-detector-residue`
   - required commands: `desloppify scan --path .`; `desloppify show cycles --status open --no-budget --top 50`
 
+**Inherited follow-ups from `P3-EXIT` (must be explicitly dispositioned in this work item):**
+
+- `followup::p3-exit::epg-model-index-facade-residue`
+  - source exit: `P3-EXIT`
+  - exact issue id: `facade::src/modules/ui/epg/model/index.ts`
+  - required commands: `desloppify scan --path .`; `desloppify show facade --status open --no-budget --top 50`
+
 ### [ ] `P10-EXIT` Overall Closeout Gate
 
 Do not treat the cleanup wave as complete until all of the following are true on the target integration branch:
