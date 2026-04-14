@@ -761,6 +761,21 @@ function isPositiveDocumentMapAuthorityLine(line) {
         return false;
     }
 
+    if (
+        includesAnyMarker(line, [
+            'do not',
+            "don't",
+            'never load',
+            'never read',
+            'never include',
+            'must not load',
+            'must not read',
+            'must not include',
+        ])
+    ) {
+        return false;
+    }
+
     return (
         /^\d+\./u.test(line) ||
         includesAnyMarker(line, ['load ', 'read order', 'document precedence', 'authority surface'])

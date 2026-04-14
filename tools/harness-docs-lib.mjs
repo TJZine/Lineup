@@ -534,25 +534,32 @@ export function checkPlanConformance({ filePath, content }) {
 
 export function hasActivePlanMarker(content) {
     const lines = content.split(/\r?\n/u);
-    let insideFence = false;
+    let fenceChar = null;
 
     for (const line of lines) {
-        const trimmed = line.trim();
+        const trimmedEnd = line.trimEnd();
+        const trimmedStart = trimmedEnd.trimStart();
 
-        if (/^```/u.test(trimmed)) {
-            insideFence = !insideFence;
+        if (/^(?: {4}|\t)/u.test(line)) {
             continue;
         }
 
-        if (insideFence) {
+        const fenceMatch = /^(?<fence>`{3,}|~{3,})/u.exec(trimmedStart);
+        if (fenceMatch !== null) {
+            const nextFenceChar = fenceMatch.groups?.fence?.[0] ?? null;
+            fenceChar = fenceChar === nextFenceChar ? null : nextFenceChar;
             continue;
         }
 
-        if (/^##\s+/u.test(trimmed)) {
+        if (fenceChar !== null) {
+            continue;
+        }
+
+        if (/^##\s+/u.test(trimmedStart)) {
             break;
         }
 
-        if (trimmed === ACTIVE_PLAN_MARKER) {
+        if (trimmedEnd === ACTIVE_PLAN_MARKER) {
             return true;
         }
     }

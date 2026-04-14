@@ -709,6 +709,30 @@ describe('verify-docs', () => {
         expect(result.stdout).toContain('Documentation verification passed.');
     });
 
+    it('allows launcher docs to explicitly forbid loading document-map.md in read order', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/cleanup-plan.md': [
+                '# Cleanup Plan',
+                '',
+                'Read [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) first.',
+                'Do not load [`docs/agentic/document-map.md`](../document-map.md) in launcher read order; keep legacy links pointed there but use the workflow doc instead.',
+                '',
+                '- Include `Priority-exit readiness` when the plan claims priority closeout.',
+                '- Assign a single final owner to every deferred or split follow-up item.',
+                '- Record exact `P0` security issue ids and the `P#-EXIT` checklist update.',
+                '- Mark cleanup work as `checklist-linked` or `standalone remediation` before freezing the plan.',
+                '- Only `checklist-linked` work should claim priority closeout.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('Documentation verification passed.');
+    });
+
     it('fails when workflow precedence still puts agents.md ahead of the runbook', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);

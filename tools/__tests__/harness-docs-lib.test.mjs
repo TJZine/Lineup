@@ -362,6 +362,38 @@ test('checkPlanConformance only accepts the exact active marker before the first
 
     assert.equal(fencedMarker.isSerious, false);
     assert.deepEqual(fencedMarker.missingSections, []);
+
+    const tildeFencedMarker = checkPlanConformance({
+        filePath: 'docs/plans/2026-03-06-example-implementation.md',
+        content: [
+            '# Example Implementation Plan',
+            '',
+            '~~~md',
+            ACTIVE_PLAN_MARKER,
+            '~~~',
+            '',
+            '**Goal:** Do the thing.',
+            '',
+        ].join('\n'),
+    });
+
+    assert.equal(tildeFencedMarker.isSerious, false);
+    assert.deepEqual(tildeFencedMarker.missingSections, []);
+
+    const indentedMarker = checkPlanConformance({
+        filePath: 'docs/plans/2026-03-06-example-implementation.md',
+        content: [
+            '# Example Implementation Plan',
+            '',
+            `    ${ACTIVE_PLAN_MARKER}`,
+            '',
+            '**Goal:** Do the thing.',
+            '',
+        ].join('\n'),
+    });
+
+    assert.equal(indentedMarker.isSerious, false);
+    assert.deepEqual(indentedMarker.missingSections, []);
 });
 
 test('extractHarnessIngestionTriage reads a valid deferred triage block', () => {
