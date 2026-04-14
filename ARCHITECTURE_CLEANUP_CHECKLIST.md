@@ -11,8 +11,8 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, and `P4-EXIT` completed on integration-branch evidence
-- Next safe start: `P5-W1`
+- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, `P4-EXIT`, `P5-W1`, `P5-W2`, and `P5-EXIT` completed on integration-branch evidence
+- Next safe start: `P6-W1`
 - Legacy note: `docs/plans/2026-04-02-p3-w1-channel-setup-workflow-owner.md` predates the `2026-04-10` checklist refresh and is historical planning context, not the active `P3-W1` gate token
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
 - Recent update log:
@@ -26,6 +26,7 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
   - `2026-04-14`: completed `P4-W1` lifecycle/navigation contract ceremony closeout (`IAppLifecycle` narrowed to runtime seam, lifecycle-only collaborator ceremony removed, navigation hidden store reads removed, server-select param seam narrowed with explicit no-param reset semantics), ran targeted lifecycle/navigation regressions, `npm run verify`, source-audit `rg` proofs, and refreshed `desloppify` evidence
   - `2026-04-14`: completed `P4-W2` startup/theme seam closeout (`AppThemeController` now owns runtime theme state and app-shell settings theme callbacks, startup UI initializer moved to `src/core/app-shell/AppStartupUiInitializer.ts`, `InitializationCoordinator` now depends on a narrow startup-UI port, and core barrel imports no longer route `InitializationCoordinator`), ran targeted startup/theme suites, `npm run verify`, `npm run verify:docs`, and refreshed `desloppify` scan evidence
   - `2026-04-14`: completed `P4-EXIT` priority-exit reconciliation (all eight mapped imported `P4` issue ids remained resolved on current-source proof, no exact `P4` test-only residue remained for `P9-W2`, exact non-test `P4` mechanical residue was assigned to `P10-W1`, and security triage stayed outside Priority 4 scope), reran the full `P4` source-audit matrix, refreshed detector/status/queue evidence, and reran `npm run verify` plus `npm run verify:docs`
+  - `2026-04-14`: completed `P5-EXIT` priority-exit reconciliation (`storage_write_contract_fragmentation` stayed resolved on current-source proof, `read-apis-hide-cleanup-writes` stayed split to one residual `P10-W1` owner based on current-source audit despite live detector silence, and security triage remained outside Priority 5 scope), reran the exact `P5` issue-id commands, refreshed queue/status evidence, reran the residual read audit, and reran `npm run verify` plus `npm run verify:docs`
 
 ## Goal
 
@@ -490,11 +491,37 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
       revisit trigger: rerun `desloppify scan --path .` + `desloppify show src/modules/lifecycle --status open --no-budget --top 100` + `desloppify show src/modules/navigation --status open --no-budget --top 150` + `desloppify show src/core/app-shell --status open --no-budget --top 100` + `desloppify show src/core/InitializationCoordinator.ts --status open --no-budget --top 50` at `P10-W1` entry and before `P10-EXIT`; do not widen this inheritance to neighboring `src/App.ts`, `AppScreenVisibilityCoordinator.ts`, or app-shell/test-coverage residue unless current source proves a still-live mapped `P4` rationale.
   - Handoff: `P4 complete on current integration-branch evidence; run the required priority-exit review handoff before starting P5-W1`
 
-- [ ] `P5-EXIT`
+- [x] `P5-EXIT`
   - required: record every mapped imported issue with an exact disposition
   - run the priority-exit review before moving to `P6`
   - refresh every `P5` issue id, the `P5` detector envelopes, `desloppify status`, `desloppify plan queue`, and `npm run verify`
   - confirm one single final owner for any `P5` issue that still needs a follow-up
+  - Status: completed
+  - Plan: `none (priority-exit reconciliation recorded directly in this checklist)`
+  - Last touched: `2026-04-14`
+  - Mapped imported issues:
+    - `review::.::holistic::api_surface_coherence::storage_write_contract_fragmentation` -> `resolved` (`desloppify show ... --status open --no-budget` returned no open issues; retained the `P5-W1` current-source disposition that the in-scope storage write boundaries now share one explicit failure contract)
+    - `review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes` -> `split follow-up` (the exact `desloppify show ... --status open --no-budget` command returned no open issues, but current-source audit still found lower-priority plain read names hiding cleanup behavior in `AudioSettingsStore`, `DeveloperSettingsStore`, `NowPlayingDisplayStore`, `ProfileSessionStore`, `SubtitlePreferencesStore`, `ThemePreferencesStore`, and `DebugOverridesStore`; no second successor owner was proven, so the only remaining owner stays `P10-W1 residual mechanical detector owner`)
+  - Verification:
+    - `desloppify status` refreshed (`overall 83.1 / strict 83.1 / objective 94.8 / verified 94.8`; last scan `2026-04-14T17:27:25+00:00`; queue note remained `1 item (51 stale tracked · 1 subjective)`)
+    - `desloppify plan queue --sort recent` refreshed (`Queue: 1 item (51 planned · 1 subjective)`)
+    - `desloppify show "review::.::holistic::api_surface_coherence::storage_write_contract_fragmentation" --status open --no-budget` returned no open issues
+    - `desloppify show "review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes" --status open --no-budget` returned no open issues; detector silence treated as supporting-only evidence because the current-source residual audit below still found lower-priority plain reads
+    - `rg -n "readDtsPassthroughEnabled\\(|readDirectPlayAudioFallbackEnabled\\(|readAudioSetupComplete\\(|readDebugLoggingEnabled\\(|readSubtitleDebugLoggingEnabled\\(|readCinematicNowPlayingEnabled\\(|readPreferClearLogosEnabled\\(|readClampedAutoHideMs\\(|readShowProfilePickerOnStartup\\(|readKeepPlayingInSettings\\(|readLastProfileId\\(|readSubtitleMode\\(|readSubtitlePreferForced\\(|readSubtitleLanguage\\(|readTheme\\(|readNowPlayingStreamDebugEnabled\\(|readNowPlayingStreamDebugAutoShowEnabled\\(|readEpgDebugEnabled\\(|readTranscodeProfileName\\(" src/modules/settings/AudioSettingsStore.ts src/modules/settings/DeveloperSettingsStore.ts src/modules/settings/NowPlayingDisplayStore.ts src/modules/settings/ProfileSessionStore.ts src/modules/settings/SubtitlePreferencesStore.ts src/modules/settings/ThemePreferencesStore.ts src/modules/debug/DebugOverridesStore.ts src/bootstrap.ts src/modules/player src/modules/ui src/core src/__tests__` returned only the residual lower-priority settings/debug store reads and their current callers; no new `P5`-owned discovery/auth/settings-facade plain read surfaces were reintroduced
+    - `desloppify show src/modules/settings --status open --no-budget --top 100` returned no open issues
+    - `desloppify show src/modules/debug --status open --no-budget --top 100` reported only `smells::src/modules/debug/NowPlayingDebugManager.ts::console_error_no_throw`
+    - `desloppify show src/modules/plex/discovery --status open --no-budget --top 100` reported only `logs::src/modules/plex/discovery/PlexServerDiscovery.ts::Discovery`
+    - `desloppify show src/modules/plex/auth --status open --no-budget --top 100` reported only `smells::src/modules/plex/auth/helpers.ts::high_cyclomatic_complexity` and `smells::src/modules/plex/auth/helpers.ts::async_no_await`
+    - `desloppify show security --status open --no-budget --top 50` reported three non-`P5` T3 import-cycle issues (`OrchestratorCoordinatorBuilders.ts`, `ChannelSetupSessionController.ts`, `NowPlayingInfoCoordinator.ts`)
+    - `npm run verify` passed
+    - `npm run verify:docs` passed
+  - Security triage: `no open P0 security findings`; refreshed security output reported only the three non-`P5` T3 import-cycle issues above
+  - Follow-ups:
+    - `followup::p5-exit::read-api-cleanup-write-residual`
+      owner: `P10-W1 residual mechanical detector owner`
+      reason: the exact `P5` discovery/auth/settings-facade rename slice remains resolved on current source, but lower-priority settings/debug owners still expose plain reads with cleanup side effects (`AudioSettingsStore`, `DeveloperSettingsStore`, `NowPlayingDisplayStore`, `ProfileSessionStore`, `SubtitlePreferencesStore`, `ThemePreferencesStore`, and `DebugOverridesStore`), so the remaining read-side residual is one owned `P10-W1` cleanup envelope rather than a new `P6+` owner.
+      revisit trigger: rerun `desloppify show "review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes" --status open --no-budget` + `rg -n "readDtsPassthroughEnabled\\(|readDirectPlayAudioFallbackEnabled\\(|readAudioSetupComplete\\(|readDebugLoggingEnabled\\(|readSubtitleDebugLoggingEnabled\\(|readCinematicNowPlayingEnabled\\(|readPreferClearLogosEnabled\\(|readClampedAutoHideMs\\(|readShowProfilePickerOnStartup\\(|readKeepPlayingInSettings\\(|readLastProfileId\\(|readSubtitleMode\\(|readSubtitlePreferForced\\(|readSubtitleLanguage\\(|readTheme\\(|readNowPlayingStreamDebugEnabled\\(|readNowPlayingStreamDebugAutoShowEnabled\\(|readEpgDebugEnabled\\(|readTranscodeProfileName\\(" src/modules/settings/AudioSettingsStore.ts src/modules/settings/DeveloperSettingsStore.ts src/modules/settings/NowPlayingDisplayStore.ts src/modules/settings/ProfileSessionStore.ts src/modules/settings/SubtitlePreferencesStore.ts src/modules/settings/ThemePreferencesStore.ts src/modules/debug/DebugOverridesStore.ts src/bootstrap.ts src/modules/player src/modules/ui src/core src/__tests__` + `desloppify show src/modules/settings --status open --no-budget --top 100` + `desloppify show src/modules/debug --status open --no-budget --top 100` at `P10-W1` entry and before `P10-EXIT`; keep `P6` through `P9` free of this residual unless current source proves a narrower earlier owner.
+  - Handoff: `P5 complete on current integration-branch evidence; P6-W1 may begin after the required review handoff for this slice`
 
 - [ ] `P6-EXIT`
   - required: record every mapped imported issue with an exact disposition
@@ -1335,6 +1362,13 @@ This pass is intentionally last. Earlier architectural work should retire a larg
   - source exit: `P3-EXIT`
   - exact issue id: `facade::src/modules/ui/epg/model/index.ts`
   - required commands: `desloppify scan --path .`; `desloppify show facade --status open --no-budget --top 50`
+
+**Inherited follow-ups from `P5-EXIT` (must be explicitly dispositioned in this work item):**
+
+- `followup::p5-exit::read-api-cleanup-write-residual`
+  - source exit: `P5-EXIT`
+  - exact issue id: `review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes`
+  - required commands: `desloppify show "review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes" --status open --no-budget`; `rg -n "readDtsPassthroughEnabled\\(|readDirectPlayAudioFallbackEnabled\\(|readAudioSetupComplete\\(|readDebugLoggingEnabled\\(|readSubtitleDebugLoggingEnabled\\(|readCinematicNowPlayingEnabled\\(|readPreferClearLogosEnabled\\(|readClampedAutoHideMs\\(|readShowProfilePickerOnStartup\\(|readKeepPlayingInSettings\\(|readLastProfileId\\(|readSubtitleMode\\(|readSubtitlePreferForced\\(|readSubtitleLanguage\\(|readTheme\\(|readNowPlayingStreamDebugEnabled\\(|readNowPlayingStreamDebugAutoShowEnabled\\(|readEpgDebugEnabled\\(|readTranscodeProfileName\\(" src/modules/settings/AudioSettingsStore.ts src/modules/settings/DeveloperSettingsStore.ts src/modules/settings/NowPlayingDisplayStore.ts src/modules/settings/ProfileSessionStore.ts src/modules/settings/SubtitlePreferencesStore.ts src/modules/settings/ThemePreferencesStore.ts src/modules/debug/DebugOverridesStore.ts src/bootstrap.ts src/modules/player src/modules/ui src/core src/__tests__`; `desloppify show src/modules/settings --status open --no-budget --top 100`; `desloppify show src/modules/debug --status open --no-budget --top 100`
 
 ### [ ] `P10-EXIT` Overall Closeout Gate
 
