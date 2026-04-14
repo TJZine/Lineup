@@ -2,6 +2,7 @@ export { EPGComponent } from './EPGComponent';
 export { EPGDebugRuntime } from './EPGDebugRuntime';
 export { DeferredEpgComponent } from './DeferredEpgComponent';
 export { EPGInfoPanel } from './EPGInfoPanel';
+export { buildEpgStartupConfig } from './buildEpgStartupConfig';
 export { withEpgVisibleRangeChangeBinding } from './EPGConfigBindings';
 export { EPGVirtualizer, positionCell } from './view';
 export { EPGTimeHeader, EPGChannelList } from './view';

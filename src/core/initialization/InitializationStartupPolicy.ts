@@ -5,14 +5,7 @@ import type { IPlexServerDiscovery } from '../../modules/plex/discovery';
 import type { IPlexLibrary } from '../../modules/plex/library';
 import type { IPlexStreamResolver } from '../../modules/plex/stream';
 import type { IChannelManager } from '../../modules/scheduler/channel-manager';
-import type { IChannelScheduler } from '../../modules/scheduler/scheduler';
-import type { IVideoPlayer } from '../../modules/player';
-import type { EpgLayoutMode } from '../../modules/settings/EpgPreferencesStore';
-import { formatTimeRange } from '../../modules/ui/epg';
-import type { IEpgDebugRuntime } from '../../modules/ui/epg';
-import { APP_SHELL_CONTAINER_IDS } from '../../modules/ui/common/appShellContainerIds';
-import { toEpgItemDetails } from '../../modules/ui/epg/model/adapters';
-import type { OrchestratorConfig, ModuleStatus } from '../orchestrator/OrchestratorTypes';
+import type { ModuleStatus } from '../orchestrator/OrchestratorTypes';
 import { summarizeErrorForLog } from '../../utils/errors';
 
 type UpdateModuleStatus = (
@@ -21,8 +14,6 @@ type UpdateModuleStatus = (
     error?: AppError,
     loadTimeMs?: number
 ) => void;
-
-export const CLASSIC_EPG_PIP_CLASS = 'epg-pip-active';
 
 type Phase2AuthPlexAuth = Pick<
     IPlexAuth,
@@ -68,18 +59,6 @@ export interface PostReadyRoutingInputs {
     shouldRunChannelSetup: () => boolean;
     switchToChannel: (id: string) => Promise<void>;
     openServerSelect: () => void;
-}
-
-export interface EpgStartupConfigInputs {
-    epgConfig: OrchestratorConfig['epgConfig'];
-    plexLibrary: IPlexLibrary | null;
-    videoPlayer: IVideoPlayer | null;
-    channelManager: IChannelManager | null;
-    scheduler: IChannelScheduler | null;
-    buildPlexResourceUrl: (pathOrUrl: string | null) => string | null;
-    readEpgLayoutMode: () => EpgLayoutMode;
-    readShowNowWatchingBanner: () => boolean;
-    debugRuntime: IEpgDebugRuntime | null;
 }
 
 export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs): Promise<void> {
@@ -283,87 +262,4 @@ export async function applyPhase3ServerGatePolicy(inputs: Phase3ServerGateInputs
     inputs.updateModuleStatus('plex-library', 'ready', undefined, elapsedMs);
     inputs.updateModuleStatus('plex-stream-resolver', 'ready', undefined, elapsedMs);
     return true;
-}
-
-export function buildEpgConfigWithStartupPolicy(
-    inputs: EpgStartupConfigInputs
-): OrchestratorConfig['epgConfig'] {
-    const layoutMode = inputs.readEpgLayoutMode();
-    const showNowWatchingBanner = inputs.readShowNowWatchingBanner();
-    const previousOnLayoutModeChange = inputs.epgConfig.onLayoutModeChange ?? null;
-
-    return {
-        ...inputs.epgConfig,
-        layoutMode,
-        showNowWatchingBanner,
-        debugRuntime: inputs.debugRuntime,
-        fetchItemDetails: async (
-            ratingKey: string,
-            options?: { signal?: AbortSignal | null }
-        ) =>
-            toEpgItemDetails(await (inputs.plexLibrary?.getItem(
-                ratingKey,
-                { signal: options?.signal ?? null }
-            ) ?? Promise.resolve(null))),
-        resolveThumbUrl: (
-            pathOrUrl: string | null,
-            width?: number,
-            height?: number
-        ): string | null => {
-            if (!pathOrUrl) return null;
-            if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
-                return pathOrUrl;
-            }
-            const plexLibrary = inputs.plexLibrary;
-            if (plexLibrary) {
-                const resized = plexLibrary.getImageUrl(pathOrUrl, width, height);
-                if (resized) return resized;
-            }
-            return inputs.buildPlexResourceUrl(pathOrUrl);
-        },
-        isVideoPlaying: (): boolean => inputs.videoPlayer?.isPlaying?.() ?? false,
-        getCurrentChannelInfo: (): {
-            channelNumber: number;
-            channelName: string;
-            programTitle: string;
-            timeLabel: string;
-        } | null => {
-            const channel = inputs.channelManager?.getCurrentChannel();
-            const scheduler = inputs.scheduler;
-            if (!channel || !scheduler) return null;
-            let program;
-            try {
-                program = scheduler.getCurrentProgram();
-            } catch {
-                return null;
-            }
-            if (!program) return null;
-            const programTitle =
-                program.item?.title ?? program.item?.fullTitle ?? 'Unknown';
-            const startTime = program.scheduledStartTime;
-            const endTime = program.scheduledEndTime;
-            const hasValidTimes =
-                Number.isFinite(startTime) &&
-                Number.isFinite(endTime) &&
-                endTime >= startTime;
-            return {
-                channelNumber: channel.number,
-                channelName: channel.name,
-                programTitle,
-                timeLabel: hasValidTimes ? formatTimeRange(startTime, endTime) : '',
-            };
-        },
-        onLayoutModeChange: (mode: EpgLayoutMode): void => {
-            if (previousOnLayoutModeChange) {
-                previousOnLayoutModeChange(mode);
-            }
-            const videoContainer = document.getElementById(APP_SHELL_CONTAINER_IDS.VIDEO);
-            if (!videoContainer) return;
-            if (mode === 'classic') {
-                videoContainer.classList.add(CLASSIC_EPG_PIP_CLASS);
-            } else {
-                videoContainer.classList.remove(CLASSIC_EPG_PIP_CLASS);
-            }
-        },
-    };
 }

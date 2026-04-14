@@ -22,6 +22,7 @@ import type { IChannelManager } from '../modules/scheduler/channel-manager';
 import type { IChannelScheduler } from '../modules/scheduler/scheduler';
 import type { IVideoPlayer } from '../modules/player';
 import type { IEPGComponent, IEpgReadinessPort, IEpgDebugRuntime } from '../modules/ui/epg';
+import { buildEpgStartupConfig } from '../modules/ui/epg';
 import type { IPlayerOsdOverlay } from '../modules/ui/player-osd';
 import type { IMiniGuideOverlay } from '../modules/ui/mini-guide';
 import type { IChannelTransitionOverlay } from '../modules/ui/channel-transition';
@@ -39,7 +40,6 @@ import {
     applyPhase2AuthGatePolicy,
     applyPhase3ServerGatePolicy,
     applyPostReadyRoutingPolicy,
-    buildEpgConfigWithStartupPolicy,
 } from './initialization/InitializationStartupPolicy';
 
 // ============================================
@@ -572,7 +572,7 @@ export class InitializationCoordinator {
         const startTime = Date.now();
         this._callbacks.status.updateModuleStatus('epg-ui', 'initializing');
         const init = async (): Promise<void> => {
-            const epgConfigWithResolver = buildEpgConfigWithStartupPolicy({
+            const epgConfigWithResolver = buildEpgStartupConfig({
                 epgConfig: this._config.epgConfig,
                 plexLibrary: this._deps.modules.plexLibrary,
                 videoPlayer: this._deps.modules.videoPlayer,
