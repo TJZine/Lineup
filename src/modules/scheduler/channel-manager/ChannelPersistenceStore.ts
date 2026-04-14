@@ -1,15 +1,13 @@
 import {
+    type SafeLocalStorageWriteResult,
     safeLocalStorageGet,
     safeLocalStorageRemove,
-    safeLocalStorageSet,
+    safeLocalStorageRemoveWithResult,
     safeLocalStorageSetWithResult,
 } from '../../../utils/storage';
 import { CURRENT_CHANNEL_KEY, STORAGE_KEY } from './constants';
 import type { StoredChannelData } from './types';
 import { decodeStoredChannelData, encodeStoredChannelData } from './StoredChannelDataCodec';
-
-export type StoredChannelWriteResult = 'ok' | 'quota-exceeded' | 'unavailable';
-export type CurrentChannelWriteResult = 'ok' | 'unavailable';
 
 export class ChannelPersistenceStore {
     private _storageKey: string;
@@ -50,13 +48,9 @@ export class ChannelPersistenceStore {
         return parsed as Partial<StoredChannelData>;
     }
 
-    writeStoredChannelData(data: StoredChannelData): StoredChannelWriteResult {
+    writeStoredChannelData(data: StoredChannelData): SafeLocalStorageWriteResult {
         const encoded = encodeStoredChannelData(data);
-        const result = safeLocalStorageSetWithResult(this._storageKey, encoded);
-        if (result.ok) {
-            return 'ok';
-        }
-        return result.reason;
+        return safeLocalStorageSetWithResult(this._storageKey, encoded);
     }
 
     clearStoredChannelData(): void {
@@ -71,23 +65,23 @@ export class ChannelPersistenceStore {
 
         const normalized = raw.trim();
         if (normalized.length === 0) {
-            safeLocalStorageRemove(this._currentChannelKey);
+            safeLocalStorageRemoveWithResult(this._currentChannelKey);
             return null;
         }
 
         if (normalized !== raw) {
-            safeLocalStorageSet(this._currentChannelKey, normalized);
+            safeLocalStorageSetWithResult(this._currentChannelKey, normalized);
         }
 
         return normalized;
     }
 
-    writeCurrentChannelId(channelId: string): CurrentChannelWriteResult {
+    writeCurrentChannelId(channelId: string): SafeLocalStorageWriteResult {
         const normalized = channelId.trim();
         if (normalized.length === 0) {
-            return safeLocalStorageRemove(this._currentChannelKey) ? 'ok' : 'unavailable';
+            return safeLocalStorageRemoveWithResult(this._currentChannelKey);
         }
 
-        return safeLocalStorageSet(this._currentChannelKey, normalized) ? 'ok' : 'unavailable';
+        return safeLocalStorageSetWithResult(this._currentChannelKey, normalized);
     }
 }

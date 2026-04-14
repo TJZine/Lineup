@@ -341,7 +341,9 @@ describe('ChannelRepository', () => {
 
     it('saveStoredChannelData delegates to store writer', () => {
         const repo = new ChannelRepository();
-        const delegate = jest.spyOn(ChannelPersistenceStore.prototype, 'writeStoredChannelData').mockReturnValue('ok');
+        const delegate = jest
+            .spyOn(ChannelPersistenceStore.prototype, 'writeStoredChannelData')
+            .mockReturnValue({ ok: true });
         const data = {
             channels: [],
             channelOrder: [],
@@ -349,15 +351,17 @@ describe('ChannelRepository', () => {
             savedAt: Date.now(),
         } as StoredChannelData;
 
-        expect(repo.saveStoredChannelData(data)).toBe('ok');
+        expect(repo.saveStoredChannelData(data)).toEqual({ ok: true });
         expect(delegate).toHaveBeenCalledWith(data);
     });
 
     it('saveCurrentChannelId delegates to store writer', () => {
         const repo = new ChannelRepository();
-        const delegate = jest.spyOn(ChannelPersistenceStore.prototype, 'writeCurrentChannelId').mockReturnValue('ok');
+        const delegate = jest
+            .spyOn(ChannelPersistenceStore.prototype, 'writeCurrentChannelId')
+            .mockReturnValue({ ok: true });
 
-        expect(repo.saveCurrentChannelId('channel-1')).toBe('ok');
+        expect(repo.saveCurrentChannelId('channel-1')).toEqual({ ok: true });
         expect(delegate).toHaveBeenCalledWith('channel-1');
     });
 

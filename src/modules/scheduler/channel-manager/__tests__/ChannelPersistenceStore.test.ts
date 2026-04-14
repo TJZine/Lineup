@@ -102,7 +102,7 @@ describe('ChannelPersistenceStore', () => {
             savedAt: Date.now(),
         });
 
-        expect(result).toBe('quota-exceeded');
+        expect(result).toEqual({ ok: false, reason: 'quota-exceeded' });
         setSpy.mockRestore();
     });
 
@@ -122,7 +122,7 @@ describe('ChannelPersistenceStore', () => {
             savedAt: Date.now(),
         });
 
-        expect(result).toBe('quota-exceeded');
+        expect(result).toEqual({ ok: false, reason: 'quota-exceeded' });
         setSpy.mockRestore();
     });
 

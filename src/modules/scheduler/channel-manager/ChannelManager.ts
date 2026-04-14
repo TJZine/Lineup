@@ -337,7 +337,7 @@ export class ChannelManager implements IChannelManager {
         if (this._state.currentChannelId) {
             try {
                 const result = this._channelRepository.saveCurrentChannelId(this._state.currentChannelId);
-                if (result === 'unavailable') {
+                if (!result.ok) {
                     throw new Error('Failed to persist current channel');
                 }
             } catch (e) {
@@ -714,7 +714,7 @@ export class ChannelManager implements IChannelManager {
         // Persist current channel separately (namespaced to the active store)
         try {
             const result = this._channelRepository.saveCurrentChannelId(channelId);
-            if (result === 'unavailable') {
+            if (!result.ok) {
                 throw new Error('Failed to persist current channel');
             }
         } catch (e) {
@@ -1085,14 +1085,14 @@ export class ChannelManager implements IChannelManager {
 
         const writeResult = this._channelRepository.saveStoredChannelData(data);
 
-        if (writeResult === 'quota-exceeded') {
+        if (!writeResult.ok && writeResult.reason === 'quota-exceeded') {
             throw new ChannelError(
                 AppErrorCode.STORAGE_QUOTA_EXCEEDED,
                 STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
                 true
             );
         }
-        if (writeResult === 'unavailable') {
+        if (!writeResult.ok && writeResult.reason === 'unavailable') {
             throw new Error('Failed to persist channels to storage');
         }
     }

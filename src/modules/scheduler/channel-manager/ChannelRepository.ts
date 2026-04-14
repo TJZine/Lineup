@@ -1,6 +1,7 @@
 import { fnv1a32Uint } from '../../../utils/hash';
+import type { SafeLocalStorageWriteResult } from '../../../utils/storage';
 import { isValidContentSource } from './ChannelContentSourceValidator';
-import { ChannelPersistenceStore, type CurrentChannelWriteResult, type StoredChannelWriteResult } from './ChannelPersistenceStore';
+import { ChannelPersistenceStore } from './ChannelPersistenceStore';
 import { CURRENT_CHANNEL_KEY, STORAGE_KEY } from './constants';
 import type { ChannelConfig, StoredChannelData } from './types';
 
@@ -115,11 +116,11 @@ export class ChannelRepository {
         };
     }
 
-    saveStoredChannelData(data: StoredChannelData): StoredChannelWriteResult {
+    saveStoredChannelData(data: StoredChannelData): SafeLocalStorageWriteResult {
         return this._store.writeStoredChannelData(data);
     }
 
-    saveCurrentChannelId(channelId: string): CurrentChannelWriteResult {
+    saveCurrentChannelId(channelId: string): SafeLocalStorageWriteResult {
         return this._store.writeCurrentChannelId(channelId);
     }
 }
