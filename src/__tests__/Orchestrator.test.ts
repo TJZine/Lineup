@@ -166,10 +166,7 @@ const mockLifecycle = {
     shutdown: jest.fn().mockResolvedValue(undefined),
     setPhase: jest.fn(),
     getPhase: jest.fn().mockReturnValue('ready'),
-    getErrorRecovery: jest.fn(() => ({
-        getUserMessage: jest.fn().mockReturnValue('Test message'),
-        handleError: jest.fn().mockReturnValue([]),
-    })),
+    getErrorUserMessage: jest.fn().mockReturnValue('Test message'),
     restoreState: jest.fn().mockResolvedValue(null),
     saveState: jest.fn().mockResolvedValue(undefined),
     reportError: jest.fn(),

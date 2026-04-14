@@ -1,10 +1,8 @@
 import {
     AppPhase,
     AppError,
-    PersistentState,
     AppLifecycleState,
     MemoryUsage,
-    ErrorAction,
     LifecycleCallback,
     LifecycleEventMap,
     AppErrorCode,
@@ -17,10 +15,6 @@ export interface IAppLifecycle {
     shutdown(): Promise<void>;
 
     saveState(): Promise<void>;
-
-    restoreState(): Promise<PersistentState | null>;
-
-    clearState(): Promise<void>;
 
     onPause(callback: LifecycleCallback): IDisposable;
 
@@ -53,34 +47,5 @@ export interface IAppLifecycle {
         handler: (payload: LifecycleEventMap[K]) => void
     ): IDisposable;
 
-    getErrorRecovery(): IErrorRecovery;
-}
-
-export interface IErrorRecovery {
-    handleError(error: AppError): ErrorAction[];
-
-    executeRecovery(action: ErrorAction): Promise<boolean>;
-
-    createError(
-        code: AppErrorCode,
-        message: string,
-        context?: Record<string, unknown>
-    ): AppError;
-
-    getUserMessage(code: AppErrorCode): string;
-}
-
-/** Handles lifecycle-only localStorage persistence with versioning and migrations. */
-export interface IStateManager {
-    save(state: PersistentState): Promise<void>;
-
-    /** Applies migrations when needed during async load. */
-    load(): Promise<PersistentState | null>;
-
-    /** Sync load path for contexts where async restore is unavailable. */
-    loadSync(): PersistentState | null;
-
-    clear(): Promise<void>;
-
-    createDefaultState(): PersistentState;
+    getErrorUserMessage(code: AppErrorCode): string;
 }

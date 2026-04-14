@@ -1685,7 +1685,7 @@ export class AppOrchestrator {
         return toLifecycleAppErrorHelper(error, {
             getPhase: (): AppPhase => (this._lifecycle ? this._lifecycle.getPhase() : 'error'),
             getUserMessage: (code: AppErrorCode): string =>
-                this._lifecycle ? this._lifecycle.getErrorRecovery().getUserMessage(code) : error.message,
+                this._lifecycle ? this._lifecycle.getErrorUserMessage(code) : error.message,
             getRecoveryActions: (code: AppErrorCode): ErrorRecoveryAction[] =>
                 this.getRecoveryActions(code),
             nowMs: (): number => Date.now(),

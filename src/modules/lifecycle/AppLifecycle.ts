@@ -14,6 +14,7 @@ import {
     LifecycleEventMap,
     LifecycleCallback,
     LifecycleAppError,
+    AppErrorCode,
 } from './types';
 import { StateManager } from './StateManager';
 import { ErrorRecovery } from './ErrorRecovery';
@@ -116,7 +117,7 @@ export class AppLifecycle implements IAppLifecycle {
         this._isNetworkAvailable = navigator.onLine;
 
         // Restore state
-        const savedState = await this.restoreState();
+        const savedState = this._stateManager.load();
 
         if (savedState !== null) {
             this._emitter.emit('stateRestored', savedState);
@@ -185,21 +186,6 @@ export class AppLifecycle implements IAppLifecycle {
         this._saveDebounceTimer = window.setTimeout(() => {
             this._fireAndForget(this._flushPendingSave(), 'saveState');
         }, TIMING_CONFIG.SAVE_DEBOUNCE_MS) as unknown as number;
-    }
-
-    /**
-     * Restore state from localStorage.
-     * @returns Restored state, or null if not available
-     */
-    public async restoreState(): Promise<PersistentState | null> {
-        return this._stateManager.load();
-    }
-
-    /**
-     * Clear all persisted state.
-     */
-    public async clearState(): Promise<void> {
-        await this._stateManager.clear();
     }
 
     // ========== Lifecycle Callbacks ==========
@@ -405,7 +391,7 @@ export class AppLifecycle implements IAppLifecycle {
             ...error,
             phase: this._phase,
             timestamp: Date.now(),
-            userMessage: this._errorRecovery.getUserMessage(error.code),
+            userMessage: this.getErrorUserMessage(error.code),
             actions: [],
         };
 
@@ -424,11 +410,8 @@ export class AppLifecycle implements IAppLifecycle {
         return this._lastError;
     }
 
-    /**
-     * Get the error recovery handler.
-     */
-    public getErrorRecovery(): ErrorRecovery {
-        return this._errorRecovery;
+    public getErrorUserMessage(code: AppErrorCode): string {
+        return this._errorRecovery.getUserMessage(code);
     }
 
     // ========== Event Handling ==========
@@ -688,7 +671,7 @@ export class AppLifecycle implements IAppLifecycle {
 
         if (this._pendingState !== null) {
             try {
-                await this._stateManager.save(this._pendingState);
+                this._stateManager.save(this._pendingState);
                 this._pendingState = null;
                 this._persistenceWarningBackoffMs =
                     TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
@@ -778,7 +761,7 @@ export class AppLifecycle implements IAppLifecycle {
     private _buildCurrentState(): PersistentState {
         // Load existing persisted state as baseline, or create default if none exists
         const existingState =
-            this._stateManager.loadSync() ?? this._stateManager.createDefaultState();
+            this._stateManager.load() ?? this._stateManager.createDefaultState();
 
         // Return lifecycle-owned state with updated timestamp.
         // Other modules own their own persistence boundaries and keys.
