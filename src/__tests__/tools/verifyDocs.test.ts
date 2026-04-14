@@ -195,6 +195,8 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '',
             '## Document Precedence',
             '',
+            '- this file for operating workflow, precedence, and where-to-look-next',
+            '- [`agents.md`](../agents.md) for entrypoint defaults only',
             '- [`docs/agentic/codanna-playbook.md`](./agentic/codanna-playbook.md)',
             '- [`docs/agentic/session-prompts/README.md`](./agentic/session-prompts/README.md)',
             '- [`docs/architecture/CURRENT_STATE.md`](./architecture/CURRENT_STATE.md)',
@@ -633,6 +635,29 @@ describe('verify-docs', () => {
         expect(result.stderr).toContain('document-map.md is missing required compatibility-stub marker');
     });
 
+    it('fails when document-map.md grows guidance beyond the compatibility stub', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/document-map.md': [
+                '# Agent Control Plane Document Map',
+                '',
+                '> Compatibility stub. The authoritative control-plane map now lives in [`docs/AGENTIC_DEV_WORKFLOW.md`](../AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles).',
+                '',
+                'Current truth reminders:',
+                '',
+                '- [`docs/architecture/CURRENT_STATE.md`](../architecture/CURRENT_STATE.md) is the current architecture truth surface.',
+                '',
+                'Keep this file only for inbound compatibility from older plans, prompts, or tracked links. Do not treat it as a second authority surface.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('document-map.md must remain a minimal compatibility stub');
+    });
+
     it('fails when a launcher prompt still requires document-map.md in its read order', () => {
         const repoRoot = createRepoFixture({
             'docs/agentic/session-prompts/cleanup-plan.md': [
@@ -658,6 +683,57 @@ describe('verify-docs', () => {
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('docs/agentic/session-prompts/cleanup-plan.md must not require docs/agentic/document-map.md');
+    });
+
+    it('allows launcher docs to mention document-map.md only as a compatibility stub', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/cleanup-plan.md': [
+                '# Cleanup Plan',
+                '',
+                'Read [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) first.',
+                'If an older inbound link mentions [`docs/agentic/document-map.md`](../document-map.md), treat it as a compatibility stub only.',
+                '',
+                '- Include `Priority-exit readiness` when the plan claims priority closeout.',
+                '- Assign a single final owner to every deferred or split follow-up item.',
+                '- Record exact `P0` security issue ids and the `P#-EXIT` checklist update.',
+                '- Mark cleanup work as `checklist-linked` or `standalone remediation` before freezing the plan.',
+                '- Only `checklist-linked` work should claim priority closeout.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('Documentation verification passed.');
+    });
+
+    it('fails when workflow precedence still puts agents.md ahead of the runbook', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        const workflowPath = path.join(repoRoot, 'docs/AGENTIC_DEV_WORKFLOW.md');
+        const workflow = readFileSync(workflowPath, 'utf8').replace(
+            [
+                '## Document Precedence',
+                '',
+                '- this file for operating workflow, precedence, and where-to-look-next',
+                '- [`agents.md`](../agents.md) for entrypoint defaults only',
+            ].join('\n'),
+            [
+                '## Document Precedence',
+                '',
+                '- [`agents.md`](../agents.md) for entrypoint defaults only',
+                '- this file for operating workflow, precedence, and where-to-look-next',
+            ].join('\n')
+        );
+        writeFileSync(workflowPath, workflow, 'utf8');
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Workflow doc must give docs/AGENTIC_DEV_WORKFLOW.md higher precedence than agents.md');
     });
 
     it('fails when a tracked doc links to a local-only run artifact', () => {

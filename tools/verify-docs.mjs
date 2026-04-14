@@ -490,11 +490,18 @@ function checkEvalPromptReadme(errors) {
 function checkControlPlaneAuthorityModel(errors) {
     const agents = readRepoFile('agents.md', errors);
     if (agents !== null) {
-        if (!agents.includes('docs/AGENTIC_DEV_WORKFLOW.md')) {
+        const normalizedLines = normalizeDocLines(agents);
+        if (
+            !normalizedLines.some(
+                (line) =>
+                    line.includes('docs/agentic dev workflow.md') &&
+                    line.includes('operating runbook')
+            )
+        ) {
             errors.push('agents.md must point to docs/AGENTIC_DEV_WORKFLOW.md as the operating runbook.');
         }
 
-        if (agents.includes('docs/agentic/document-map.md')) {
+        if (hasPositiveDocumentMapAuthorityReference(agents)) {
             errors.push('agents.md must not send readers to docs/agentic/document-map.md as an authority surface.');
         }
     }
@@ -526,6 +533,23 @@ function checkControlPlaneAuthorityModel(errors) {
                 errors.push(`Workflow doc is missing required control-plane authority marker: ${marker}`);
             }
         }
+
+        const precedenceSection = extractMarkdownSection(workflow, 'Document Precedence');
+        if (precedenceSection === null) {
+            errors.push('Workflow doc is missing the Document Precedence section content.');
+        } else {
+            const precedenceLines = normalizeDocLines(precedenceSection);
+            const workflowIndex = precedenceLines.findIndex((line) =>
+                line.includes('this file for operating workflow, precedence, and where-to-look-next')
+            );
+            const agentsIndex = precedenceLines.findIndex((line) =>
+                line.includes('agents.md') && line.includes('entrypoint defaults')
+            );
+
+            if (workflowIndex === -1 || agentsIndex === -1 || workflowIndex > agentsIndex) {
+                errors.push('Workflow doc must give docs/AGENTIC_DEV_WORKFLOW.md higher precedence than agents.md.');
+            }
+        }
     }
 
     const documentMap = readRepoFile('docs/agentic/document-map.md', errors);
@@ -541,26 +565,49 @@ function checkControlPlaneAuthorityModel(errors) {
                 errors.push(`document-map.md is missing required compatibility-stub marker: ${marker}`);
             }
         }
+
+        const normalizedDocumentMap = normalizeDocText(documentMap);
+        if (
+            includesAnyMarker(normalizedDocumentMap, [
+                'use the workflow doc for',
+                'current truth reminders',
+                'current architecture truth surface',
+                'active cleanup and live-status surface',
+            ])
+        ) {
+            errors.push('document-map.md must remain a minimal compatibility stub without extra guidance sections.');
+        }
     }
 
     const sessionReadme = readRepoFile('docs/agentic/session-prompts/README.md', errors);
     if (sessionReadme !== null) {
-        const requiredReadmeMarkers = [
-            'Authority, read order, and document precedence now live in [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md).',
-            'load [`agents.md`](../../../agents.md) and [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)',
-        ];
-
-        for (const marker of requiredReadmeMarkers) {
-            if (!sessionReadme.includes(marker)) {
-                errors.push(`Session prompt README is missing required authority-routing marker: ${marker}`);
-            }
+        const normalizedReadmeLines = normalizeDocLines(sessionReadme);
+        if (
+            !normalizedReadmeLines.some(
+                (line) =>
+                    line.includes('authority, read order, and document precedence now live in') &&
+                    line.includes('docs/agentic dev workflow.md')
+            )
+        ) {
+            errors.push(
+                'Session prompt README must state that authority, read order, and document precedence now live in docs/AGENTIC_DEV_WORKFLOW.md.'
+            );
         }
 
         if (
-            sessionReadme.includes(
-                'load [`agents.md`](../../../agents.md), [`docs/agentic/document-map.md`](../document-map.md), and [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)'
+            !normalizedReadmeLines.some(
+                (line) =>
+                    line.includes('load') &&
+                    line.includes('agents.md') &&
+                    line.includes('docs/agentic dev workflow.md')
             )
         ) {
+            errors.push(
+                'Session prompt README must require launcher read order to load agents.md and docs/AGENTIC_DEV_WORKFLOW.md.'
+            );
+        }
+
+        if (hasPositiveDocumentMapAuthorityReference(sessionReadme)) {
             errors.push('Session prompt README must not require docs/agentic/document-map.md in launcher read order.');
         }
     }
@@ -572,7 +619,7 @@ function checkControlPlaneAuthorityModel(errors) {
             continue;
         }
 
-        if (content.includes('docs/agentic/document-map.md')) {
+        if (hasPositiveDocumentMapAuthorityReference(content)) {
             errors.push(`${relativePath} must not require docs/agentic/document-map.md in its launcher read order.`);
         }
     }
@@ -676,6 +723,52 @@ function includesMarkersInOrder(content, markers) {
     }
 
     return true;
+}
+
+function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+function extractMarkdownSection(content, heading) {
+    const headingPattern = new RegExp(`^## ${escapeRegExp(heading)}\\s*$`, 'mu');
+    const match = headingPattern.exec(content);
+    if (match === null) {
+        return null;
+    }
+
+    const sectionStart = match.index + match[0].length;
+    const remaining = content.slice(sectionStart);
+    const nextHeadingIndex = remaining.search(/^##\s+/mu);
+    const sectionContent = nextHeadingIndex === -1 ? remaining : remaining.slice(0, nextHeadingIndex);
+    return sectionContent.trim();
+}
+
+function isCompatibilityStubReferenceLine(line) {
+    return includesAnyMarker(line, [
+        'compatibility stub',
+        'older inbound',
+        'do not treat',
+        'do not use it as a second authority surface',
+    ]);
+}
+
+function isPositiveDocumentMapAuthorityLine(line) {
+    if (!line.includes('docs/agentic/document-map.md')) {
+        return false;
+    }
+
+    if (isCompatibilityStubReferenceLine(line)) {
+        return false;
+    }
+
+    return (
+        /^\d+\./u.test(line) ||
+        includesAnyMarker(line, ['load ', 'read order', 'document precedence', 'authority surface'])
+    );
+}
+
+function hasPositiveDocumentMapAuthorityReference(content) {
+    return normalizeDocLines(content).some((line) => isPositiveDocumentMapAuthorityLine(line));
 }
 
 function checkFeatureRemediationPromptContracts(errors) {

@@ -22,8 +22,8 @@ This doc is the single operating runbook for Lineup's control plane.
 
 When tracked docs conflict, use this order:
 
-1. [`agents.md`](../agents.md) for entrypoint defaults
-2. this file for operating workflow, precedence, and where-to-look-next
+1. this file for operating workflow, precedence, and where-to-look-next
+2. [`agents.md`](../agents.md) for entrypoint defaults only; it is not a second runbook
 3. [`docs/agentic/codanna-playbook.md`](./agentic/codanna-playbook.md) for Codanna query shaping and fallback rules
 4. [`docs/agentic/skill-strategy.md`](./agentic/skill-strategy.md) for skill topology and mirror policy
 5. [`docs/architecture/CURRENT_STATE.md`](./architecture/CURRENT_STATE.md) for current architecture claims
