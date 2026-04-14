@@ -48,6 +48,23 @@ describe('ServerSelectionStore', () => {
         expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY)).toBeNull();
     });
 
+    it('normalizes valid persisted health JSON with surrounding whitespace', () => {
+        mockLocalStorage.setItem(
+            PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY,
+            '  {"srv-1":{"status":"ok","type":"local"}}  '
+        );
+        const store = new ServerSelectionStore();
+
+        expect(store.readServerHealthMapAndClean()).toEqual({
+            'srv-1': { status: 'ok', type: 'local' },
+        });
+        expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY)).toBe(
+            JSON.stringify({
+                'srv-1': { status: 'ok', type: 'local' },
+            })
+        );
+    });
+
     it('filters invalid health entries and rewrites normalized map', () => {
         mockLocalStorage.setItem(
             PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY,

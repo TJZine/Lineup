@@ -99,7 +99,7 @@ export class ServerSelectionStore {
         }
 
         const normalized: ServerHealthMap = {};
-        let changed = false;
+        let changed = normalizedRaw !== raw;
 
         for (const [serverId, value] of Object.entries(parsed as Record<string, unknown>)) {
             const normalizedServerId = serverId.trim();
