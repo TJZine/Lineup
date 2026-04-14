@@ -10,7 +10,7 @@ import { AppOrchestrator, type OrchestratorConfig, AppErrorCode } from '../Orche
 import {
     NowPlayingInfoCoordinator,
 } from '../modules/ui/now-playing-info/NowPlayingInfoCoordinator';
-import { EPGCoordinator } from '../modules/ui/epg/EPGCoordinator';
+import { EPGCoordinator } from '../modules/ui/epg';
 import type { INavigationManager } from '../modules/navigation';
 import type { PlexAuthDataV2, PlexStoredCredentialsReadResult } from '../modules/plex/auth';
 import type { IPlexLibrary } from '../modules/plex/library';
@@ -572,15 +572,15 @@ const createMockEpgDebugRuntime = (): {
     destroy: jest.fn(),
 });
 
-jest.mock('../modules/ui/epg', () => ({
-    EPGComponent: jest.fn(() => mockEpg),
-    DeferredEpgComponent: jest.fn(() => mockEpg),
-    EPGDebugRuntime: jest.fn(() => createMockEpgDebugRuntime()),
-}));
-
-jest.mock('../modules/ui/epg/DeferredEpgComponent', () => ({
-    DeferredEpgComponent: jest.fn(() => mockEpg),
-}));
+jest.mock('../modules/ui/epg', () => {
+    const actual = jest.requireActual('../modules/ui/epg');
+    return {
+        ...actual,
+        EPGComponent: jest.fn(() => mockEpg),
+        DeferredEpgComponent: jest.fn(() => mockEpg),
+        EPGDebugRuntime: jest.fn(() => createMockEpgDebugRuntime()),
+    };
+});
 
 // ============================================
 // Tests
@@ -753,7 +753,7 @@ describe('AppOrchestrator', () => {
             expect(require('../modules/scheduler/channel-manager').ChannelManager).toHaveBeenCalled();
             expect(require('../modules/scheduler/scheduler').ChannelScheduler).toHaveBeenCalled();
             expect(require('../modules/player').VideoPlayer).toHaveBeenCalled();
-            expect(require('../modules/ui/epg/DeferredEpgComponent').DeferredEpgComponent).toHaveBeenCalled();
+            expect(require('../modules/ui/epg').DeferredEpgComponent).toHaveBeenCalled();
         });
 
         it('wires injected platform services into lifecycle/navigation/stream/player seams', async () => {

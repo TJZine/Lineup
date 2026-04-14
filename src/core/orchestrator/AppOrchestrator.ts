@@ -58,11 +58,11 @@ import {
 } from '../../modules/player';
 import { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryManager';
 import {
+    EPGCoordinator,
     EPGDebugRuntime,
     type IEpgDebugRuntime,
     type IEPGComponent,
 } from '../../modules/ui/epg';
-import { EPGCoordinator } from '../../modules/ui/epg/EPGCoordinator';
 import {
     type INowPlayingInfoOverlay,
     NOW_PLAYING_INFO_MODAL_ID,

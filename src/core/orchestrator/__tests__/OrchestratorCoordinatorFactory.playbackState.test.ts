@@ -5,7 +5,7 @@ import { NowPlayingDisplayStore } from '../../../modules/settings/NowPlayingDisp
 import { ProfileSessionStore } from '../../../modules/settings/ProfileSessionStore';
 import { SubtitlePreferencesStore } from '../../../modules/settings/SubtitlePreferencesStore';
 import type { EPGConfig } from '../../../modules/ui/epg';
-import { EPGCoordinator } from '../../../modules/ui/epg/EPGCoordinator';
+import { EPGCoordinator } from '../../../modules/ui/epg';
 import type { StreamDecision } from '../../../modules/plex/stream';
 import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
 import {

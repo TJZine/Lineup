@@ -31,13 +31,11 @@ import type {
 import { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryManager';
 import {
     EPGCoordinator,
-} from '../../modules/ui/epg/EPGCoordinator';
-import { withEpgVisibleRangeChangeBinding } from '../../modules/ui/epg/EPGConfigBindings';
-import type {
     IEPGComponent,
     EPGConfig,
+    EpgUiStatus,
+    withEpgVisibleRangeChangeBinding,
 } from '../../modules/ui/epg';
-import type { EpgUiStatus } from '../../modules/ui/epg/types';
 import {
     NOW_PLAYING_INFO_MODAL_ID,
     type INowPlayingInfoOverlay,
