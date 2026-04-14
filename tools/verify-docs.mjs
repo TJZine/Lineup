@@ -4,6 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import {
+    ACTIVE_PLAN_MARKER,
     buildChecklistPlanPathMessages,
     checkArchiveSectionSummaryConformance,
     checkPlanConformance,
@@ -13,6 +14,7 @@ import {
     EXPECTED_EVAL_PROMPT_FILES,
     EXPECTED_SESSION_PROMPT_FILES,
     extractChecklistPlanPaths,
+    hasActivePlanMarker,
     parseSkillMirrorManifest,
     renderEvalPromptInventory,
     renderSessionPromptSet,
@@ -995,6 +997,22 @@ function checkChecklistPlanPaths(errors, warnings) {
     warnings.push(...messages.warnings);
 }
 
+function getChecklistLinkedTrackedPlanPaths(errors) {
+    const checklist = readRepoFile('ARCHITECTURE_CLEANUP_CHECKLIST.md', errors);
+    if (checklist === null) {
+        return new Set();
+    }
+
+    const trackedPlanPaths = getTrackedPlanPaths(errors);
+    if (trackedPlanPaths === FAILED_GIT) {
+        return FAILED_GIT;
+    }
+
+    return new Set(
+        extractChecklistPlanPaths(checklist).filter((relativePath) => trackedPlanPaths.has(relativePath))
+    );
+}
+
 function checkPlanArchiveCoherence(errors) {
     const trackedPlanPaths = getTrackedPlanPaths(errors);
     if (trackedPlanPaths === FAILED_GIT) {
@@ -1255,17 +1273,26 @@ function checkSeriousPlanConformance(errors) {
     if (trackedPlanPaths === FAILED_GIT) {
         return;
     }
+    const checklistLinkedTrackedPlanPaths = getChecklistLinkedTrackedPlanPaths(errors);
+    if (checklistLinkedTrackedPlanPaths === FAILED_GIT) {
+        return;
+    }
     const planFiles = Array.from(trackedPlanPaths)
         .filter((relativePath) => relativePath.startsWith('docs/plans/'))
-        .map((relativePath) => path.basename(relativePath))
-        .filter((name) => name.endsWith('.md') && name !== 'README.md')
+        .filter((relativePath) => relativePath.endsWith('.md'))
+        .filter((relativePath) => path.basename(relativePath) !== 'README.md')
         .sort();
 
-    for (const fileName of planFiles) {
-        const relativePath = `docs/plans/${fileName}`;
+    for (const relativePath of planFiles) {
         const content = readRepoFile(relativePath, errors);
         if (content === null) {
             continue;
+        }
+
+        if (checklistLinkedTrackedPlanPaths.has(relativePath) && !hasActivePlanMarker(content)) {
+            errors.push(
+                `${relativePath} is referenced by ARCHITECTURE_CLEANUP_CHECKLIST.md and must include exact active plan marker near the top of the file: ${ACTIVE_PLAN_MARKER}`
+            );
         }
 
         const result = checkPlanConformance({ filePath: relativePath, content });

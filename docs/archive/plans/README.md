@@ -10,6 +10,8 @@ Archived plans are still valuable because they preserve:
 
 Archived plans are not current policy and are not the default handoff surface for active work.
 
+Archived plans are historical memory only. The active-plan marker from `docs/plans/README.md` does not make archived plans part of the serious active-plan conformance gate.
+
 ## Section Summary Triage
 
 When archiving a completed priority or section summary (`*section-summary.md`), add a `## Harness Ingestion Triage` block so the repo records whether that completed block should affect the harness.

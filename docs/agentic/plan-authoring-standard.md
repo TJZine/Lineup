@@ -17,6 +17,14 @@ Use this standard for:
 - high-risk changes touching shared/public symbols
 - tracked plans that are meant to survive fresh-session handoff
 
+When a tracked plan in `docs/plans/` is the current durable handoff surface, mark it explicitly before the first `##` section heading with this exact line:
+
+```md
+**Plan Status:** active
+```
+
+`npm run verify:docs` uses that marker, not directory placement alone, to decide whether the file must satisfy the full serious-plan structure. If an active backlog surface such as `ARCHITECTURE_CLEANUP_CHECKLIST.md` points at the plan as the live execution handoff, the plan must carry that exact marker while it remains active. Other active tracked plans still rely on the author/maintainer to keep the marker accurate when the file is serving as the live fresh-session handoff.
+
 Do not use it for:
 
 - tiny one-file edits that do not need durable task memory

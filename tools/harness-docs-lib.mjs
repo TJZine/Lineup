@@ -161,6 +161,7 @@ export const HARNESS_INGESTION_TRIAGE_ACTIONS = [
     'workflow-docs',
     'harness-update-loop',
 ];
+export const ACTIVE_PLAN_MARKER = '**Plan Status:** active';
 
 const PLAN_SECTION_RULES = [
     { label: 'goal', patterns: [/^\*\*Goal:\*\*/im, /^## Goal$/im] },
@@ -505,7 +506,12 @@ export function buildHarnessIngestionReport(entries) {
 
 export function checkPlanConformance({ filePath, content }) {
     const fileName = filePath.split('/').pop() ?? filePath;
-    const isSerious = fileName !== 'README.md' && !fileName.includes('risk-register');
+    const hasActiveMarker = hasActivePlanMarker(content);
+    const isSerious =
+        fileName !== 'README.md' &&
+        !fileName.includes('risk-register') &&
+        filePath.startsWith('docs/plans/') &&
+        hasActiveMarker;
 
     if (!isSerious) {
         return {
@@ -524,4 +530,32 @@ export function checkPlanConformance({ filePath, content }) {
         isSerious: true,
         missingSections,
     };
+}
+
+export function hasActivePlanMarker(content) {
+    const lines = content.split(/\r?\n/u);
+    let insideFence = false;
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+
+        if (/^```/u.test(trimmed)) {
+            insideFence = !insideFence;
+            continue;
+        }
+
+        if (insideFence) {
+            continue;
+        }
+
+        if (/^##\s+/u.test(trimmed)) {
+            break;
+        }
+
+        if (trimmed === ACTIVE_PLAN_MARKER) {
+            return true;
+        }
+    }
+
+    return false;
 }
