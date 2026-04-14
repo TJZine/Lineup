@@ -58,8 +58,7 @@ Lineup stable policy file: `agents.md`
 For a light harness review (aim: ~15-25 minutes total), read these and then jump to the Required Review Axes:
 
 - [`agents.md`](../../../agents.md) (skim, ~3-5m): stable policy map and defaults
-- [`docs/agentic/document-map.md`](../document-map.md) (skim, ~3-5m): doc roles, precedence, conflict resolution
-- [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) (deep, ~8-12m): operating runbook and verification gates
+- [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) (deep, ~8-12m): operating runbook, precedence, and verification gates
 - [`tools/verify-docs.mjs`](../../../tools/verify-docs.mjs) (skim, ~3-5m): mechanical enforcement surface (what is actually checked)
 
 ## Required Read Order
@@ -69,15 +68,15 @@ For a light harness review (aim: ~15-25 minutes total), read these and then jump
 Rationale: these define the authority surfaces, how work is routed, and what is mechanically enforced.
 
 1. [`agents.md`](../../../agents.md) (deep, ~8-12m): stable policy and global defaults
-2. [`docs/agentic/document-map.md`](../document-map.md) (deep, ~8-12m): precedence and doc authority
-3. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) (deep, ~12-18m): workflow, routing, and verification expectations
-4. [`docs/agentic/codanna-playbook.md`](../codanna-playbook.md) (deep, ~8-12m): Codanna-first discovery and fallback rules
-5. [`docs/agentic/skill-strategy.md`](../skill-strategy.md) (skim, ~5-8m): skill topology and mirror policy
-6. [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md) (deep, ~10-15m): tracked plan requirements and handoff quality bar
-7. [`docs/agentic/historical-plan-corpus-review.md`](../historical-plan-corpus-review.md) (skim, ~5-8m): common failure modes and what to avoid repeating
-8. [`docs/agentic/evals/README.md`](../evals/README.md) (deep, ~10-15m): eval protocol, ownership, and what is measured
-9. [`docs/agentic/evals/rubric.md`](../evals/rubric.md) (deep, ~8-12m): scoring criteria and definitions
-10. [`docs/agentic/evals-roadmap.md`](../evals-roadmap.md) (skim, ~5-8m): planned eval surfaces and prioritization
+2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) (deep, ~12-18m): workflow, precedence, routing, and verification expectations
+3. [`docs/agentic/codanna-playbook.md`](../codanna-playbook.md) (deep, ~8-12m): Codanna-first discovery and fallback rules
+4. [`docs/agentic/skill-strategy.md`](../skill-strategy.md) (skim, ~5-8m): skill topology and mirror policy
+5. [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md) (deep, ~10-15m): tracked plan requirements and handoff quality bar
+6. [`docs/agentic/historical-plan-corpus-review.md`](../historical-plan-corpus-review.md) (skim, ~5-8m): common failure modes and what to avoid repeating
+7. [`docs/agentic/evals/README.md`](../evals/README.md) (deep, ~10-15m): eval protocol, ownership, and what is measured
+8. [`docs/agentic/evals/rubric.md`](../evals/rubric.md) (deep, ~8-12m): scoring criteria and definitions
+9. [`docs/agentic/evals-roadmap.md`](../evals-roadmap.md) (skim, ~5-8m): planned eval surfaces and prioritization
+10. [`tools/verify-docs.mjs`](../../../tools/verify-docs.mjs) (deep, ~8-12m): exact checks and failure modes
 
 ### Supporting context (read as needed)
 
@@ -90,7 +89,6 @@ Rationale: these validate the core workflow against steady-state plans, architec
 15. [`docs/plans/README.md`](../../plans/README.md) (skim, ~3-5m): how active tracked plans are organized
 16. [`docs/archive/plans/README.md`](../../archive/plans/README.md) (skim, ~3-5m): how completed/superseded plans are archived
 17. [`docs/runs/README.md`](../../runs/README.md) (skim, ~3-5m): local-only run bundles and promotion rules
-18. [`tools/verify-docs.mjs`](../../../tools/verify-docs.mjs) (deep, ~8-12m): exact checks and failure modes
 
 Also inspect the tracked session launchers in this directory and the repo-local tracked skill surfaces under [`.codex/skills/`](../../../.codex/skills/) (`.agent/skills/` is a generated local-only mirror and must remain untracked).
 

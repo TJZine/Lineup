@@ -13,9 +13,8 @@ import type { GuideSettingChange } from '../settings/types';
 import type { AppendIssueDiagnostic } from '../../debug/IssueDiagnosticsStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import type { IEPGComponent } from './interfaces';
-import type { EpgUiStatus, EpgVisibleRange } from './types';
-import { EPGVisibleRangeRefreshQueue } from './runtime/EPGVisibleRangeRefreshQueue';
-import { EPGScheduleRefreshRuntime } from './runtime/EPGScheduleRefreshRuntime';
+import type { EPGUiStatus, EpgVisibleRange } from './types';
+import { EPGScheduleRefreshRuntime, EPGVisibleRangeRefreshQueue } from './runtime';
 import {
     computeNormalizedLibraryFilterState,
     computeEpgScheduleRangeMs,
@@ -25,7 +24,7 @@ import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from './debugRuntimeGuar
 import { toEpgScheduleWindow } from './model/adapters';
 import type { GuideSelectionSnapshot } from '../../../core/channel-tuning';
 import type { EPGConfig } from './types';
-import type { IEpgDebugRuntime } from './EPGDebugRuntime';
+import type { IEPGDebugRuntime } from './EPGDebugRuntime';
 
 const EPG_SCHEDULE_CACHE_MIN_ENTRIES = 60;
 const EPG_SCHEDULE_CACHE_MAX_ENTRIES = 240;
@@ -38,10 +37,10 @@ export interface EPGRefreshControllerDeps {
     getEpg: () => IEPGComponent | null;
     getChannelManager: () => IChannelManager | null;
     getScheduler: () => IChannelScheduler | null;
-    getEpgUiStatus: () => EpgUiStatus;
+    getEpgUiStatus: () => EPGUiStatus;
     getEpgConfig: () => EPGConfig | null;
     getLocalMidnightMs: (timeMs: number) => number;
-    debugRuntime?: IEpgDebugRuntime | null;
+    debugRuntime?: IEPGDebugRuntime | null;
     buildDailyScheduleConfig: (
         channel: SchedulerChannelConfig,
         items: ResolvedChannelContent['items'],
@@ -61,7 +60,7 @@ export class EPGRefreshController {
             getEpg: (): IEPGComponent | null => this._deps.getEpg(),
             getChannelManager: (): IChannelManager | null => this._deps.getChannelManager(),
             getScheduler: (): IChannelScheduler | null => this._deps.getScheduler(),
-            getEpgUiStatus: (): EpgUiStatus => this._deps.getEpgUiStatus(),
+            getEpgUiStatus: (): EPGUiStatus => this._deps.getEpgUiStatus(),
             getEpgScheduleRangeMs: (): { startTime: number; endTime: number } | null => this._getEpgScheduleRangeMs(),
             getLibraryFilterState: (allChannels: SchedulerChannelConfig[]): { selectedId: string | null; shouldFilter: boolean } =>
                 this._readAppliedLibraryFilterState(allChannels),

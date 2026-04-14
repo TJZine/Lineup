@@ -866,7 +866,7 @@ export class ChannelManager implements IChannelManager {
     }
 
     /**
-     * Queues a debounced save to localStorage.
+     * Queues a debounced persistence write through the channel repository/store boundary.
      */
     saveChannels(): Promise<void> {
         const pendingSave = this._ensurePendingSavePromise();
@@ -1098,7 +1098,7 @@ export class ChannelManager implements IChannelManager {
     }
 
     /**
-     * Load channels from localStorage.
+     * Load channels through the channel repository/store boundary.
      */
     async loadChannels(): Promise<void> {
         try {

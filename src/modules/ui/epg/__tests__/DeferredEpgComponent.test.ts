@@ -1,4 +1,4 @@
-import { DeferredEpgComponent } from '../index';
+import { DeferredEPGComponent } from '../index';
 import type { IEPGComponent } from '../interfaces';
 import type { EPGConfig, ChannelConfig, ScheduleWindow, ScheduledProgram, EPGState } from '../types';
 import type { EpgLayoutMode } from '../../../settings/EpgPreferencesStore';
@@ -168,7 +168,7 @@ const createLoader = (overrides: FakeRuntimeOverrides = {}): jest.Mock => jest.f
     EPGComponent: createFakeRuntime(overrides),
 }));
 
-describe('DeferredEpgComponent', () => {
+describe('DeferredEPGComponent', () => {
     it('does not load the runtime during initialize()', async () => {
         const calls: RuntimeCall[] = [];
         const loader = createLoader({
@@ -250,7 +250,7 @@ describe('DeferredEpgComponent', () => {
             },
         });
 
-        const component = new DeferredEpgComponent(loader as never);
+        const component = new DeferredEPGComponent(loader as never);
 
         component.initialize(makeConfig());
 
@@ -261,7 +261,7 @@ describe('DeferredEpgComponent', () => {
     it('loads the runtime once when ensureReady() is called', async () => {
         const loader = createLoader();
 
-        const component = new DeferredEpgComponent(loader as never);
+        const component = new DeferredEPGComponent(loader as never);
         await component.ensureReady();
         await component.ensureReady();
 
@@ -315,7 +315,7 @@ describe('DeferredEpgComponent', () => {
             },
         });
 
-        const component = new DeferredEpgComponent(loader as never);
+        const component = new DeferredEPGComponent(loader as never);
         const config = { ...makeConfig(), debugRuntime };
         const channels = [makeChannel('ch-1'), makeChannel('ch-2')];
         const libraries = [{ id: 'lib-1', name: 'Library 1' }];
@@ -363,7 +363,7 @@ describe('DeferredEpgComponent', () => {
             },
         });
 
-        const component = new DeferredEpgComponent(loader as never);
+        const component = new DeferredEPGComponent(loader as never);
         component.initialize(makeConfig());
         component.show();
 
@@ -399,7 +399,7 @@ describe('DeferredEpgComponent', () => {
             },
         });
 
-        const component = new DeferredEpgComponent(loader as never);
+        const component = new DeferredEPGComponent(loader as never);
         component.initialize(makeConfig());
         await component.ensureReady();
 
@@ -436,7 +436,7 @@ describe('DeferredEpgComponent', () => {
             },
         });
 
-        const component = new DeferredEpgComponent(loader as never);
+        const component = new DeferredEPGComponent(loader as never);
         component.initialize(makeConfig());
         component.loadChannels([makeChannel('ch-1')]);
 
@@ -463,7 +463,7 @@ describe('DeferredEpgComponent', () => {
         const loader = jest.fn(async () => {
             throw new Error('chunk load failed');
         });
-        const component = new DeferredEpgComponent(loader as never);
+        const component = new DeferredEPGComponent(loader as never);
         component.initialize(makeConfig());
 
         component.show({ preserveFocus: true });

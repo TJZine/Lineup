@@ -7,12 +7,11 @@ Do not use this launcher for cleanup-only refactors; use [`cleanup-plan.md`](./c
 ## Read Order
 
 1. [`agents.md`](../../../agents.md)
-2. [`docs/agentic/document-map.md`](../document-map.md)
-3. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
-4. [`docs/agentic/codanna-playbook.md`](../codanna-playbook.md)
-5. [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md)
-6. [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) when UI creation or redesign is in scope
-7. domain current-state docs that match the feature boundary
+2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+3. [`docs/agentic/codanna-playbook.md`](../codanna-playbook.md)
+4. [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md)
+5. [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) when UI creation or redesign is in scope
+6. domain current-state docs that match the feature boundary
 
 ## Invocation Inputs
 

@@ -4,7 +4,7 @@ import type {
     ResolvedChannelContent,
 } from '../../modules/scheduler/channel-manager';
 import type { IChannelScheduler, ScheduleConfig } from '../../modules/scheduler/scheduler';
-import type { EPGCoordinator } from '../../modules/ui/epg/EPGCoordinator';
+import type { EPGCoordinator } from '../../modules/ui/epg';
 
 export interface ScheduleDayRolloverControllerDeps {
     now: () => number;

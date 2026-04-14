@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+    ACTIVE_PLAN_MARKER,
     buildHarnessIngestionReport,
     buildChecklistPlanPathMessages,
     checkArchiveSectionSummaryConformance,
@@ -216,6 +217,8 @@ test('checkPlanConformance reports missing required sections for serious active 
         filePath: 'docs/plans/2026-03-06-example-implementation.md',
         content: `# Example Implementation Plan
 
+**Plan Status:** active
+
 **Goal:** Do the thing.
 
 ## Non-Goals
@@ -245,6 +248,8 @@ test('checkPlanConformance accepts the tracked section variants used by older an
     const result = checkPlanConformance({
         filePath: 'docs/plans/2026-03-06-example-implementation.md',
         content: `# Example Implementation Plan
+
+**Plan Status:** active
 
 **Goal:** Do the thing.
 
@@ -290,7 +295,15 @@ test('checkPlanConformance skips non-plan artifacts such as risk registers', () 
     assert.deepEqual(result.missingSections, []);
 });
 
-test('checkPlanConformance skips archive readmes and other non-serious artifacts', () => {
+test('checkPlanConformance skips unmarked tracked plans and archive readmes', () => {
+    const unmarkedPlan = checkPlanConformance({
+        filePath: 'docs/plans/2026-03-06-example-implementation.md',
+        content: '# Example Implementation Plan\n\n**Goal:** Do the thing.\n',
+    });
+
+    assert.equal(unmarkedPlan.isSerious, false);
+    assert.deepEqual(unmarkedPlan.missingSections, []);
+
     const result = checkPlanConformance({
         filePath: 'docs/archive/plans/README.md',
         content: '# Archived Plans',
@@ -298,6 +311,89 @@ test('checkPlanConformance skips archive readmes and other non-serious artifacts
 
     assert.equal(result.isSerious, false);
     assert.deepEqual(result.missingSections, []);
+});
+
+test('checkPlanConformance only accepts the exact active marker before the first section heading', () => {
+    const blockQuotedMarker = checkPlanConformance({
+        filePath: 'docs/plans/2026-03-06-example-implementation.md',
+        content: [
+            '# Example Implementation Plan',
+            '',
+            `> ${ACTIVE_PLAN_MARKER}`,
+            '',
+            '**Goal:** Do the thing.',
+            '',
+        ].join('\n'),
+    });
+
+    assert.equal(blockQuotedMarker.isSerious, false);
+    assert.deepEqual(blockQuotedMarker.missingSections, []);
+
+    const postSectionMarker = checkPlanConformance({
+        filePath: 'docs/plans/2026-03-06-example-implementation.md',
+        content: [
+            '# Example Implementation Plan',
+            '',
+            '## Non-Goals',
+            '',
+            ACTIVE_PLAN_MARKER,
+            '',
+            '**Goal:** Do the thing.',
+            '',
+        ].join('\n'),
+    });
+
+    assert.equal(postSectionMarker.isSerious, false);
+    assert.deepEqual(postSectionMarker.missingSections, []);
+
+    const fencedMarker = checkPlanConformance({
+        filePath: 'docs/plans/2026-03-06-example-implementation.md',
+        content: [
+            '# Example Implementation Plan',
+            '',
+            '```md',
+            ACTIVE_PLAN_MARKER,
+            '```',
+            '',
+            '**Goal:** Do the thing.',
+            '',
+        ].join('\n'),
+    });
+
+    assert.equal(fencedMarker.isSerious, false);
+    assert.deepEqual(fencedMarker.missingSections, []);
+
+    const tildeFencedMarker = checkPlanConformance({
+        filePath: 'docs/plans/2026-03-06-example-implementation.md',
+        content: [
+            '# Example Implementation Plan',
+            '',
+            '~~~md',
+            ACTIVE_PLAN_MARKER,
+            '~~~',
+            '',
+            '**Goal:** Do the thing.',
+            '',
+        ].join('\n'),
+    });
+
+    assert.equal(tildeFencedMarker.isSerious, false);
+    assert.deepEqual(tildeFencedMarker.missingSections, []);
+
+    const indentedMarker = checkPlanConformance({
+        filePath: 'docs/plans/2026-03-06-example-implementation.md',
+        content: [
+            '# Example Implementation Plan',
+            '',
+            `    ${ACTIVE_PLAN_MARKER}`,
+            '',
+            '**Goal:** Do the thing.',
+            '',
+        ].join('\n'),
+    });
+
+    assert.equal(indentedMarker.isSerious, false);
+    assert.deepEqual(indentedMarker.missingSections, []);
 });
 
 test('extractHarnessIngestionTriage reads a valid deferred triage block', () => {

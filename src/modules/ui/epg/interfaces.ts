@@ -207,7 +207,7 @@ export interface IEPGComponent {
     ): void;
 }
 
-export interface IEpgReadinessPort {
+export interface IEPGReadinessPort {
     ensureReady(): Promise<void>;
 }
 

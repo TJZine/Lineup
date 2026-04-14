@@ -6,13 +6,13 @@
 
 This document is the active cleanup queue for the current repo-wide `desloppify` backlog.
 
-This is the correct top-level tracked format for this work. Per `docs/agentic/document-map.md`, `ARCHITECTURE_CLEANUP_CHECKLIST.md` is the authoritative active backlog and live-status surface, while `docs/plans/*` remains task-scoped execution memory. Every `P#-W#` below must still get its own execution-grade plan file before code changes begin.
+This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles`](./docs/AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles), `ARCHITECTURE_CLEANUP_CHECKLIST.md` is the authoritative active backlog and live-status surface, while `docs/plans/*` remains task-scoped execution memory. Every `P#-W#` below must still have an execution-grade plan before code changes begin, but that plan is local by default and should only be tracked when durable handoff memory is explicitly needed.
 
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, and `P2-EXIT` completed on integration-branch evidence
-- Next safe start: `P3-W1`
+- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, and `P3-EXIT` completed on integration-branch evidence
+- Next safe start: `P4-W1`
 - Legacy note: `docs/plans/2026-04-02-p3-w1-channel-setup-workflow-owner.md` predates the `2026-04-10` checklist refresh and is historical planning context, not the active `P3-W1` gate token
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
 - Recent update log:
@@ -22,6 +22,7 @@ This is the correct top-level tracked format for this work. Per `docs/agentic/do
   - `2026-04-11`: completed `P1-EXIT` reconciliation (all mapped imported review ids closed, cycle detector residue dispositioned with source-audit proof and final owner, `npm run verify` rerun)
   - `2026-04-13`: completed `P2-W2` owner-boundary split (state/runtime session owners, facet snapshot loader extraction, typed build scratch owner), ran targeted channel-setup/orchestrator regressions plus `npm run verify`
   - `2026-04-13`: completed `P2-W3` error/migration/test closure (typed `ChannelSetupPlanningError` boundary proof, canonical playback variant key cleanup, direct tag-filter tests), ran targeted P2-W3 suites + `npm run verify` + source-audit and detector reconciliation commands
+  - `2026-04-14`: completed `P3-W2`/`P3-EXIT` EPG package-shape closeout (canonical public `EPG` naming, `EPGRefreshController` routed through `./runtime`, root-vs-runtime owner audit preserved), ran focused EPG regressions, `npm run verify`, `npm run verify:docs`, and refreshed `desloppify` scan evidence
 
 ## Goal
 
@@ -38,7 +39,7 @@ This is the correct top-level tracked format for this work. Per `docs/agentic/do
 ## How To Use This
 
 - Treat this file as the repo-level cleanup control plane for the current run.
-- Before implementation begins for any `P#-W#`, write a companion tracked plan in `docs/plans/YYYY-MM-DD-<topic>.md` using the plan-authoring standard.
+- Before implementation begins for any `P#-W#`, create an execution-grade plan using the plan-authoring standard. Keep it local by default, and only promote it into `docs/plans/YYYY-MM-DD-<topic>.md` when the slice needs durable tracked handoff memory.
 - Work top-down unless a `P0` trust issue blocks the rest of the queue.
 - Keep one explicit final owner per imported review issue envelope.
 - For imported review issues, use the exact issue ids mapped below.
@@ -398,11 +399,41 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
       reason: `desloppify show smells::src/core/channel-setup/ChannelSetupTagFilters.ts::hardcoded_url --status open --no-budget --top 20` reports one remaining non-imported mechanical smell (`hardcoded_url`) in `ChannelSetupTagFilters.ts`.
       revisit trigger: rerun `desloppify scan --path .` + `desloppify show smells::src/core/channel-setup/ChannelSetupTagFilters.ts::hardcoded_url --status open --no-budget --top 20` at `P10-W1` entry and before `P10-EXIT`, then disposition as detector-contract residue vs intentional local parse-base URL usage with explicit evidence.
 
-- [ ] `P3-EXIT`
+- [x] `P3-EXIT`
   - required: record every mapped imported issue with an exact disposition
   - run the priority-exit review before moving to `P4`
   - refresh every `P3` issue id, the `P3` detector envelopes, `desloppify status`, `desloppify plan queue`, and `npm run verify`
   - confirm one single final owner for any `P3` issue that still needs a follow-up
+  - Status: completed
+  - Plan: `none (priority-exit reconciliation recorded directly in this checklist)`
+  - Last touched: `2026-04-14`
+  - Mapped imported issues:
+    - `review::.::holistic::cross_module_architecture::core_depends_on_ui_helpers` -> `resolved` (`desloppify show ... --status open --no-budget` returned no open issues; retained `P3-W1` disposition on current source)
+    - `review::.::holistic::high_level_elegance::epg_public_surface_blur` -> `resolved` (`desloppify show ... --status open --no-budget` returned no open issues; retained `P3-W1` disposition on current source)
+    - `review::.::holistic::convention_outlier::overlay-barrel-policy-inconsistent` -> `resolved` (`desloppify show ... --status open --no-budget` returned no open issues; retained `P3-W1` disposition on current source)
+    - `review::.::holistic::naming_quality::epg_acronym_casing_drift` -> `resolved` (`desloppify show ... --status open --no-budget` returned no open issues after canonical public `EPG` renames)
+    - `review::.::holistic::package_organization::epg_root_flat_overload` -> `resolved` (`desloppify show ... --status open --no-budget` returned no open issues; current-source owner audit kept shared helpers at the package root and retired the runtime-barrel residue)
+  - Verification:
+    - `npm test -- src/modules/ui/epg/__tests__/index.test.ts src/modules/ui/epg/__tests__/DeferredEpgComponent.test.ts src/modules/ui/epg/__tests__/buildEpgStartupConfig.test.ts src/modules/ui/epg/__tests__/debugRuntimeGuards.test.ts src/modules/ui/epg/__tests__/EPGCoordinator.test.ts src/core/__tests__/InitializationCoordinator.test.ts src/__tests__/Orchestrator.test.ts src/modules/ui/epg/runtime/__tests__/index.test.ts src/modules/ui/epg/__tests__/EPGRefreshController.test.ts` passed
+    - `rg -n "from './runtime'" src/modules/ui/epg/EPGRefreshController.ts` returned one package-local barrel import
+    - `rg -n "runtime/(EPGScheduleRefreshRuntime|EPGVisibleRangeRefreshQueue)" src/modules/ui/epg/EPGRefreshController.ts` returned no matches
+    - `npm run verify` passed
+    - `npm run verify:docs` passed
+    - `desloppify scan --path .` refreshed the detector state on current branch code (`+6 new · -20 resolved`; last scan `2026-04-14T05:04:05+00:00`)
+    - `desloppify status` refreshed (`overall 83.1 / strict 83.1 / objective 94.8 / verified 94.8`)
+    - `desloppify plan queue` refreshed (`Queue: 1 item (51 planned · 1 subjective)`)
+    - reran all five mapped `P3` imported issue-id commands above with `--status open --no-budget`; each returned no open issues
+    - `desloppify show src/modules/ui/epg --status open --no-budget --top 250` no longer reports `facade::src/modules/ui/epg/runtime/index.ts`; remaining EPG residue is non-mapped (`buildEpgStartupConfig.ts` smells, `model/*` direct-test gaps, `facade::src/modules/ui/epg/model/index.ts`, `EPGCoordinator.ts` console-error smell, `EPGVisibleRangeRefreshQueue.ts` voided symbol, `styles.css` css monolith)
+    - `desloppify show flat_dirs --status open --no-budget --top 50` returned no open issues
+    - `desloppify show naming --status open --no-budget --top 50` returned no open issues
+    - `desloppify show facade --status open --no-budget --top 50` no longer reports `src/modules/ui/epg/runtime/index.ts`; the remaining in-scope EPG facade residue is `facade::src/modules/ui/epg/model/index.ts`
+    - `desloppify show security --status open --no-budget --top 50` reports three import-cycle issues outside Priority 3 scope (`OrchestratorCoordinatorBuilders.ts`, `ChannelSetupSessionController.ts`, `NowPlayingInfoCoordinator.ts`)
+  - Follow-ups:
+    - `followup::p3-exit::epg-model-index-facade-residue`
+      owner: `P10-W1 residual mechanical detector owner`
+      reason: `desloppify show facade --status open --no-budget --top 50` now reports `facade::src/modules/ui/epg/model/index.ts`, while the slice-owned `runtime/index.ts` residue is retired on current source.
+      revisit trigger: rerun `desloppify scan --path .` + `desloppify show facade --status open --no-budget --top 50` at `P10-W1` entry and before `P10-EXIT`; only promote it earlier if a new tracked plan intentionally takes EPG model-surface cleanup.
+  - Handoff: `P3 complete on current integration-branch evidence; P4-W1 may begin after the required review handoff for this slice`
 
 - [ ] `P4-EXIT`
   - required: record every mapped imported issue with an exact disposition
@@ -731,13 +762,13 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
   - `review::.::holistic::incomplete_migration::playback_variant_rename_still_leaks_legacy_key` -> `resolved` -> owner `P2-W3`; proof: `createChannelIdentityKey()` serializes `isPlaybackModeVariant`, import rewrite compatibility was removed, load boundary strips legacy `isSequentialVariant`, save codec strips legacy fields on encode, and `ChannelManager` load/export/save tests prove legacy fields do not survive runtime/exported/persisted channel objects
   - `review::.::holistic::test_strategy::fastkey_filter_parser_untested` -> `resolved on current-code proof` -> owner `P2-W3`; proof: direct `ChannelSetupTagFilters.test.ts` covers parser/fallback/malformed behavior; detector still labels transitive-only after rescan, so `P2-EXIT` must treat this as stale detector wording unless a new live owner is proven
 - Follow-ups:
-  - `P3-W1` is now the next planned Priority 3 gate after the completed Priority 2 exit review
+  - `P3-W1` completed; `P3-W2` is now the next planned Priority 3 gate after the completed Priority 2 exit review
   - carry the stale `test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only` detector wording into `P3` planning only if a fresh rerun still contradicts the direct test source proof
-- Handoff: `P2 complete on current integration-branch evidence; write the active P3-W1 execution plan before implementation begins`
+- Handoff: `P2 complete on current integration-branch evidence; execute P3-W2 planning/implementation next`
 
 ## Priority 3: Rebound EPG And UI Package Surfaces
 
-### [ ] `P3-W1` Stop Core From Depending On UI-Owned EPG Internals
+### [x] `P3-W1` Stop Core From Depending On UI-Owned EPG Internals
 
 **Mapped imported review issues:**
 
@@ -760,7 +791,44 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 **Exit rule:** core consumes bounded feature seams, not UI-private helpers or accidental barrels.
 
-### [ ] `P3-W2` Reshape The EPG Package And Naming Surface
+- Status: completed
+- Plan: `docs/plans/2026-04-13-p3-w1-epg-core-boundary-and-package-surfaces.md`
+- Last touched: `2026-04-13`
+- Verification:
+  - `npm test -- src/modules/ui/epg/__tests__/buildEpgStartupConfig.test.ts src/core/__tests__/InitializationCoordinator.test.ts` passed
+  - `npm test -- src/modules/ui/epg/__tests__/index.test.ts src/modules/ui/epg/view/__tests__/index.test.ts src/core/orchestrator/__tests__/ScheduleDayRolloverController.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorFactory.playbackState.test.ts src/__tests__/Orchestrator.test.ts` passed
+  - `npm test -- src/modules/ui/__tests__/overlay-package-surfaces.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorFactory.playbackState.test.ts src/__tests__/Orchestrator.test.ts` passed
+  - `npm run verify` passed
+  - `npm run verify:docs` passed
+  - `desloppify show "review::.::holistic::cross_module_architecture::core_depends_on_ui_helpers" --status open --no-budget` returned `No open issues matching`
+  - `desloppify show "review::.::holistic::high_level_elegance::epg_public_surface_blur" --status open --no-budget` returned `No open issues matching`
+  - `desloppify show "review::.::holistic::convention_outlier::overlay-barrel-policy-inconsistent" --status open --no-budget` returned `No open issues matching`
+  - `desloppify show facade --status open --no-budget --top 50` still reports one non-mapped residual (`facade::src/modules/ui/epg/runtime/index.ts`)
+  - `desloppify show src/modules/ui --status open --no-budget --top 200` reports open UI debt outside the three mapped `P3-W1` imported ids
+- Proof matrix:
+  - `review::.::holistic::cross_module_architecture::core_depends_on_ui_helpers`
+    - slice-owned rationale retired on current source: yes
+    - live residual debt remains: no (for this imported id)
+    - detector wording stale: no
+    - final owner: `P3-W1` (resolved)
+    - revisit trigger: none
+  - `review::.::holistic::high_level_elegance::epg_public_surface_blur`
+    - slice-owned rationale retired on current source: yes
+    - live residual debt remains: no (for this imported id)
+    - detector wording stale: no
+    - final owner: `P3-W1` (resolved)
+    - revisit trigger: none
+  - `review::.::holistic::convention_outlier::overlay-barrel-policy-inconsistent`
+    - slice-owned rationale retired on current source: yes
+    - live residual debt remains: no (for this imported id)
+    - detector wording stale: no
+    - final owner: `P3-W1` (resolved)
+    - revisit trigger: none
+- Follow-ups:
+  - non-mapped residual `facade::src/modules/ui/epg/runtime/index.ts` remains under Priority 3 cleanup scope and should be handled in `P3-W2`/`P3-EXIT` evidence reconciliation
+- Handoff: `P3-W2` is now the next safe start for Priority 3 package-shape/naming closeout
+
+### [x] `P3-W2` Reshape The EPG Package And Naming Surface
 
 **Mapped imported review issues:**
 
@@ -780,6 +848,25 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify show naming --status open --no-budget --top 50`
 
 **Exit rule:** EPG code is grouped by real ownership and the acronym casing is canonical across the public surface.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-13-p3-w2-epg-package-shape-and-naming-surface.md`
+- Last touched: `2026-04-14`
+- Verification:
+  - `npm test -- src/modules/ui/epg/__tests__/index.test.ts src/modules/ui/epg/__tests__/DeferredEpgComponent.test.ts src/modules/ui/epg/__tests__/buildEpgStartupConfig.test.ts src/modules/ui/epg/__tests__/debugRuntimeGuards.test.ts src/modules/ui/epg/__tests__/EPGCoordinator.test.ts src/core/__tests__/InitializationCoordinator.test.ts src/__tests__/Orchestrator.test.ts src/modules/ui/epg/runtime/__tests__/index.test.ts src/modules/ui/epg/__tests__/EPGRefreshController.test.ts` passed
+  - `rg -n "from './runtime'" src/modules/ui/epg/EPGRefreshController.ts` returned one package-local barrel import
+  - `rg -n "runtime/(EPGScheduleRefreshRuntime|EPGVisibleRangeRefreshQueue)" src/modules/ui/epg/EPGRefreshController.ts` returned no matches
+  - `npm run verify` passed
+  - `npm run verify:docs` passed
+  - `desloppify scan --path .` refreshed detector evidence on current branch code
+  - `desloppify show "review::.::holistic::naming_quality::epg_acronym_casing_drift" --status open --no-budget` returned no open issues
+  - `desloppify show "review::.::holistic::package_organization::epg_root_flat_overload" --status open --no-budget` returned no open issues
+  - `desloppify show src/modules/ui/epg --status open --no-budget --top 250` no longer reports `facade::src/modules/ui/epg/runtime/index.ts`
+  - `desloppify show flat_dirs --status open --no-budget --top 50` returned no open issues
+  - `desloppify show naming --status open --no-budget --top 50` returned no open issues
+- Follow-ups:
+  - none for the mapped `P3-W2` issue set; non-mapped `facade::src/modules/ui/epg/model/index.ts` is carried in `P3-EXIT` as `followup::p3-exit::epg-model-index-facade-residue`
+- Handoff: `P3-EXIT reconciliation and review handoff`
 
 ## Priority 4: Simplify Lifecycle, Navigation, Initialization, And App-Owned Startup Seams
 
@@ -1107,6 +1194,13 @@ This pass is intentionally last. Earlier architectural work should retire a larg
   - required commands: `desloppify scan --path .`; `desloppify show logs --status open --no-budget --top 50`; `desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 100`; `desloppify show src/core/orchestrator/OrchestratorEventBinder.ts --status open --no-budget --top 50`
 - `followup::p1-exit::orchestrator-cycle-detector-residue`
   - required commands: `desloppify scan --path .`; `desloppify show cycles --status open --no-budget --top 50`
+
+**Inherited follow-ups from `P3-EXIT` (must be explicitly dispositioned in this work item):**
+
+- `followup::p3-exit::epg-model-index-facade-residue`
+  - source exit: `P3-EXIT`
+  - exact issue id: `facade::src/modules/ui/epg/model/index.ts`
+  - required commands: `desloppify scan --path .`; `desloppify show facade --status open --no-budget --top 50`
 
 ### [ ] `P10-EXIT` Overall Closeout Gate
 

@@ -31,35 +31,31 @@ import type {
 import { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryManager';
 import {
     EPGCoordinator,
-} from '../../modules/ui/epg/EPGCoordinator';
-import { withEpgVisibleRangeChangeBinding } from '../../modules/ui/epg/EPGConfigBindings';
-import type {
     IEPGComponent,
     EPGConfig,
+    EPGUiStatus,
+    withEpgVisibleRangeChangeBinding,
 } from '../../modules/ui/epg';
-import type { EpgUiStatus } from '../../modules/ui/epg/types';
 import {
+    NowPlayingInfoCoordinator,
+    getNowPlayingInfoAutoHideMs,
     NOW_PLAYING_INFO_MODAL_ID,
     type INowPlayingInfoOverlay,
     type NowPlayingInfoConfig,
 } from '../../modules/ui/now-playing-info';
-import {
-    NowPlayingInfoCoordinator,
-    getNowPlayingInfoAutoHideMs,
-} from '../../modules/ui/now-playing-info/NowPlayingInfoCoordinator';
 import type { PlaybackInfoSnapshotLike } from '../../utils/playbackSummary';
 import type {
     IPlayerOsdOverlay,
 } from '../../modules/ui/player-osd';
-import { PlayerOsdCoordinator } from '../../modules/ui/player-osd/PlayerOsdCoordinator';
+import { PlayerOsdCoordinator } from '../../modules/ui/player-osd';
 import type {
     IMiniGuideOverlay,
 } from '../../modules/ui/mini-guide';
-import { MiniGuideCoordinator } from '../../modules/ui/mini-guide/MiniGuideCoordinator';
+import { MiniGuideCoordinator } from '../../modules/ui/mini-guide';
 import type {
     IChannelTransitionOverlay,
 } from '../../modules/ui/channel-transition';
-import { ChannelTransitionCoordinator } from '../../modules/ui/channel-transition/ChannelTransitionCoordinator';
+import { ChannelTransitionCoordinator } from '../../modules/ui/channel-transition';
 import {
     PLAYBACK_OPTIONS_MODAL_ID,
     type IPlaybackOptionsModal,
@@ -92,7 +88,7 @@ export function buildEpgCoordinator(input: OrchestratorCoordinatorBuilderInput):
         getEpg: (): IEPGComponent | null => input.modules.epg,
         getChannelManager: (): IChannelManager | null => input.modules.channelManager,
         getScheduler: (): IChannelScheduler | null => input.modules.scheduler,
-        getEpgUiStatus: (): EpgUiStatus => input.moduleStatus.get('epg-ui')?.status,
+        getEpgUiStatus: (): EPGUiStatus => input.moduleStatus.get('epg-ui')?.status,
         ensureEpgInitialized: (): Promise<void> => input.init.ensureEpgInitialized(),
         getEpgConfig: (): EPGConfig | null => input.config?.epgConfig ?? null,
         getLocalMidnightMs: (t: number): number => input.schedule.getLocalMidnightMs(t),

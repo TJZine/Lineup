@@ -19,8 +19,8 @@ import {
 } from '../../modules/scheduler/channel-manager';
 import { ChannelScheduler, type IChannelScheduler } from '../../modules/scheduler/scheduler';
 import { VideoPlayer, type IVideoPlayer } from '../../modules/player';
-import { DeferredEpgComponent } from '../../modules/ui/epg/DeferredEpgComponent';
-import type { IEPGComponent, IEpgReadinessPort } from '../../modules/ui/epg/interfaces';
+import { DeferredEPGComponent } from '../../modules/ui/epg';
+import type { IEPGComponent, IEPGReadinessPort } from '../../modules/ui/epg';
 import {
     NowPlayingInfoOverlay,
     type INowPlayingInfoOverlay,
@@ -72,7 +72,7 @@ export interface OrchestratorModules {
     scheduler: IChannelScheduler;
     videoPlayer: IVideoPlayer;
     epg: IEPGComponent;
-    epgReadinessPort: IEpgReadinessPort | null;
+    epgReadinessPort: IEPGReadinessPort | null;
     nowPlayingInfo: INowPlayingInfoOverlay;
     playerOsd: PlayerOsdOverlay;
     channelNumberOverlay: ChannelNumberOverlayInitPort;
@@ -139,9 +139,9 @@ export function createOrchestratorModules(deps: OrchestratorModuleFactoryDeps): 
         playbackService: deps.platformServices.playback,
         subtitleService: deps.platformServices.subtitle,
     });
-    const deferredEpg = new DeferredEpgComponent();
+    const deferredEpg = new DeferredEPGComponent();
     const epg: IEPGComponent = deferredEpg;
-    const epgReadinessPort: IEpgReadinessPort = deferredEpg;
+    const epgReadinessPort: IEPGReadinessPort = deferredEpg;
     const nowPlayingInfo = new NowPlayingInfoOverlay();
     const playerOsd = new PlayerOsdOverlay();
     const channelNumberOverlay = new ChannelNumberOverlay();

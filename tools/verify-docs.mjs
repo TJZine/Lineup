@@ -4,6 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import {
+    ACTIVE_PLAN_MARKER,
     buildChecklistPlanPathMessages,
     checkArchiveSectionSummaryConformance,
     checkPlanConformance,
@@ -13,6 +14,7 @@ import {
     EXPECTED_EVAL_PROMPT_FILES,
     EXPECTED_SESSION_PROMPT_FILES,
     extractChecklistPlanPaths,
+    hasActivePlanMarker,
     parseSkillMirrorManifest,
     renderEvalPromptInventory,
     renderSessionPromptSet,
@@ -485,6 +487,144 @@ function checkEvalPromptReadme(errors) {
     }
 }
 
+function checkControlPlaneAuthorityModel(errors) {
+    const agents = readRepoFile('agents.md', errors);
+    if (agents !== null) {
+        const normalizedLines = normalizeDocLines(agents);
+        if (
+            !normalizedLines.some(
+                (line) =>
+                    line.includes('docs/agentic dev workflow.md') &&
+                    line.includes('operating runbook')
+            )
+        ) {
+            errors.push('agents.md must point to docs/AGENTIC_DEV_WORKFLOW.md as the operating runbook.');
+        }
+
+        if (hasPositiveDocumentMapAuthorityReference(agents)) {
+            errors.push('agents.md must not send readers to docs/agentic/document-map.md as an authority surface.');
+        }
+    }
+
+    const workflow = readRepoFile('docs/AGENTIC_DEV_WORKFLOW.md', errors);
+    if (workflow !== null) {
+        const requiredWorkflowMarkers = [
+            '## Authority And Document Roles',
+            '## Document Precedence',
+            'docs/agentic/codanna-playbook.md',
+            'docs/agentic/session-prompts/README.md',
+            'docs/architecture/CURRENT_STATE.md',
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md',
+            'docs/plans/',
+            'docs/archive/plans/',
+            'docs/runs/',
+            'docs/agentic/skill-strategy.md',
+            'docs/agentic/evals/README.md',
+            'docs/agentic/evals-roadmap.md',
+            'docs/agentic/evals/baseline-summaries/',
+            'docs/agentic/historical-plan-corpus-review.md',
+            'docs/agentic/plan-authoring-standard.md',
+            'docs/agentic/doc-gardening-checklist.md',
+            'docs/agentic/phase-2-steady-state-plan.md',
+        ];
+
+        for (const marker of requiredWorkflowMarkers) {
+            if (!workflow.includes(marker)) {
+                errors.push(`Workflow doc is missing required control-plane authority marker: ${marker}`);
+            }
+        }
+
+        const precedenceSection = extractMarkdownSection(workflow, 'Document Precedence');
+        if (precedenceSection === null) {
+            errors.push('Workflow doc is missing the Document Precedence section content.');
+        } else {
+            const precedenceLines = normalizeDocLines(precedenceSection);
+            const workflowIndex = precedenceLines.findIndex((line) =>
+                line.includes('this file for operating workflow, precedence, and where-to-look-next')
+            );
+            const agentsIndex = precedenceLines.findIndex((line) =>
+                line.includes('agents.md') && line.includes('entrypoint defaults')
+            );
+
+            if (workflowIndex === -1 || agentsIndex === -1 || workflowIndex > agentsIndex) {
+                errors.push('Workflow doc must give docs/AGENTIC_DEV_WORKFLOW.md higher precedence than agents.md.');
+            }
+        }
+    }
+
+    const documentMap = readRepoFile('docs/agentic/document-map.md', errors);
+    if (documentMap !== null) {
+        const requiredDocumentMapMarkers = [
+            'Compatibility stub',
+            'AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles',
+            'Do not treat it as a second authority surface.',
+        ];
+
+        for (const marker of requiredDocumentMapMarkers) {
+            if (!documentMap.includes(marker)) {
+                errors.push(`document-map.md is missing required compatibility-stub marker: ${marker}`);
+            }
+        }
+
+        const normalizedDocumentMap = normalizeDocText(documentMap);
+        if (
+            includesAnyMarker(normalizedDocumentMap, [
+                'use the workflow doc for',
+                'current truth reminders',
+                'current architecture truth surface',
+                'active cleanup and live-status surface',
+            ])
+        ) {
+            errors.push('document-map.md must remain a minimal compatibility stub without extra guidance sections.');
+        }
+    }
+
+    const sessionReadme = readRepoFile('docs/agentic/session-prompts/README.md', errors);
+    if (sessionReadme !== null) {
+        const normalizedReadmeLines = normalizeDocLines(sessionReadme);
+        if (
+            !normalizedReadmeLines.some(
+                (line) =>
+                    line.includes('authority, read order, and document precedence now live in') &&
+                    line.includes('docs/agentic dev workflow.md')
+            )
+        ) {
+            errors.push(
+                'Session prompt README must state that authority, read order, and document precedence now live in docs/AGENTIC_DEV_WORKFLOW.md.'
+            );
+        }
+
+        if (
+            !normalizedReadmeLines.some(
+                (line) =>
+                    line.includes('load') &&
+                    line.includes('agents.md') &&
+                    line.includes('docs/agentic dev workflow.md')
+            )
+        ) {
+            errors.push(
+                'Session prompt README must require launcher read order to load agents.md and docs/AGENTIC_DEV_WORKFLOW.md.'
+            );
+        }
+
+        if (hasPositiveDocumentMapAuthorityReference(sessionReadme)) {
+            errors.push('Session prompt README must not require docs/agentic/document-map.md in launcher read order.');
+        }
+    }
+
+    for (const fileName of expectedSessionPromptFiles) {
+        const relativePath = `docs/agentic/session-prompts/${fileName}`;
+        const content = readRepoFile(relativePath, errors);
+        if (content === null) {
+            continue;
+        }
+
+        if (hasPositiveDocumentMapAuthorityReference(content)) {
+            errors.push(`${relativePath} must not require docs/agentic/document-map.md in its launcher read order.`);
+        }
+    }
+}
+
 function checkWorkflowRoutingSplit(errors) {
     const readme = readRepoFile('docs/agentic/session-prompts/README.md', errors);
     if (readme !== null) {
@@ -583,6 +723,67 @@ function includesMarkersInOrder(content, markers) {
     }
 
     return true;
+}
+
+function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+function extractMarkdownSection(content, heading) {
+    const headingPattern = new RegExp(`^## ${escapeRegExp(heading)}\\s*$`, 'mu');
+    const match = headingPattern.exec(content);
+    if (match === null) {
+        return null;
+    }
+
+    const sectionStart = match.index + match[0].length;
+    const remaining = content.slice(sectionStart);
+    const nextHeadingIndex = remaining.search(/^##\s+/mu);
+    const sectionContent = nextHeadingIndex === -1 ? remaining : remaining.slice(0, nextHeadingIndex);
+    return sectionContent.trim();
+}
+
+function isCompatibilityStubReferenceLine(line) {
+    return includesAnyMarker(line, [
+        'compatibility stub',
+        'older inbound',
+        'do not treat',
+        'do not use it as a second authority surface',
+    ]);
+}
+
+function isPositiveDocumentMapAuthorityLine(line) {
+    if (!line.includes('docs/agentic/document-map.md')) {
+        return false;
+    }
+
+    if (isCompatibilityStubReferenceLine(line)) {
+        return false;
+    }
+
+    if (
+        includesAnyMarker(line, [
+            'do not',
+            "don't",
+            'never load',
+            'never read',
+            'never include',
+            'must not load',
+            'must not read',
+            'must not include',
+        ])
+    ) {
+        return false;
+    }
+
+    return (
+        /^\d+\./u.test(line) ||
+        includesAnyMarker(line, ['load ', 'read order', 'document precedence', 'authority surface'])
+    );
+}
+
+function hasPositiveDocumentMapAuthorityReference(content) {
+    return normalizeDocLines(content).some((line) => isPositiveDocumentMapAuthorityLine(line));
 }
 
 function checkFeatureRemediationPromptContracts(errors) {
@@ -904,6 +1105,22 @@ function checkChecklistPlanPaths(errors, warnings) {
     warnings.push(...messages.warnings);
 }
 
+function getChecklistLinkedTrackedPlanPaths(errors) {
+    const checklist = readRepoFile('ARCHITECTURE_CLEANUP_CHECKLIST.md', errors);
+    if (checklist === null) {
+        return new Set();
+    }
+
+    const trackedPlanPaths = getTrackedPlanPaths(errors);
+    if (trackedPlanPaths === FAILED_GIT) {
+        return FAILED_GIT;
+    }
+
+    return new Set(
+        extractChecklistPlanPaths(checklist).filter((relativePath) => trackedPlanPaths.has(relativePath))
+    );
+}
+
 function checkPlanArchiveCoherence(errors) {
     const trackedPlanPaths = getTrackedPlanPaths(errors);
     if (trackedPlanPaths === FAILED_GIT) {
@@ -1164,17 +1381,26 @@ function checkSeriousPlanConformance(errors) {
     if (trackedPlanPaths === FAILED_GIT) {
         return;
     }
+    const checklistLinkedTrackedPlanPaths = getChecklistLinkedTrackedPlanPaths(errors);
+    if (checklistLinkedTrackedPlanPaths === FAILED_GIT) {
+        return;
+    }
     const planFiles = Array.from(trackedPlanPaths)
         .filter((relativePath) => relativePath.startsWith('docs/plans/'))
-        .map((relativePath) => path.basename(relativePath))
-        .filter((name) => name.endsWith('.md') && name !== 'README.md')
+        .filter((relativePath) => relativePath.endsWith('.md'))
+        .filter((relativePath) => path.basename(relativePath) !== 'README.md')
         .sort();
 
-    for (const fileName of planFiles) {
-        const relativePath = `docs/plans/${fileName}`;
+    for (const relativePath of planFiles) {
         const content = readRepoFile(relativePath, errors);
         if (content === null) {
             continue;
+        }
+
+        if (checklistLinkedTrackedPlanPaths.has(relativePath) && !hasActivePlanMarker(content)) {
+            errors.push(
+                `${relativePath} is referenced by ARCHITECTURE_CLEANUP_CHECKLIST.md and must include exact active plan marker near the top of the file: ${ACTIVE_PLAN_MARKER}`
+            );
         }
 
         const result = checkPlanConformance({ filePath: relativePath, content });
@@ -1197,6 +1423,7 @@ function main() {
     checkInventory(errors, 'docs/agentic/session-prompts', expectedSessionPromptFiles, 'session prompt');
     checkSessionPromptReadme(errors);
     checkEvalPromptReadme(errors);
+    checkControlPlaneAuthorityModel(errors);
     checkWorkflowRoutingSplit(errors);
     checkFeatureRemediationPromptContracts(errors);
     checkCleanupPriorityExitContracts(errors);

@@ -1,7 +1,7 @@
 import { EventEmitter } from '../../../utils/EventEmitter';
 import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
 import type { ChannelConfig, EPGConfig, EPGEventMap, EPGState, ScheduleWindow, ScheduledProgram } from './types';
-import type { IEPGComponent, IEpgReadinessPort } from './interfaces';
+import type { IEPGComponent, IEPGReadinessPort } from './interfaces';
 
 type EpgRuntimeModule = typeof import('./EPGComponent');
 type EpgRuntimeLoader = () => Promise<EpgRuntimeModule>;
@@ -18,7 +18,7 @@ type PendingLibraryTabs = {
     selectedId: string | null;
 };
 
-export class DeferredEpgComponent extends EventEmitter<EPGEventMap> implements IEPGComponent, IEpgReadinessPort {
+export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements IEPGComponent, IEPGReadinessPort {
     private readonly _loader: EpgRuntimeLoader;
     private _runtime: IEPGComponent | null = null;
     private _runtimeLoadPromise: Promise<void> | null = null;

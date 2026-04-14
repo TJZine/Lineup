@@ -17,6 +17,14 @@ Use this standard for:
 - high-risk changes touching shared/public symbols
 - tracked plans that are meant to survive fresh-session handoff
 
+When a tracked plan in `docs/plans/` is the current durable handoff surface, mark it explicitly before the first `##` section heading with this exact line:
+
+```md
+**Plan Status:** active
+```
+
+`npm run verify:docs` uses that marker, not directory placement alone, to decide whether the file must satisfy the full serious-plan structure. If an active backlog surface such as `ARCHITECTURE_CLEANUP_CHECKLIST.md` points at the plan as the live execution handoff, the plan must carry that exact marker while it remains active. Other active tracked plans still rely on the author/maintainer to keep the marker accurate when the file is serving as the live fresh-session handoff.
+
 Do not use it for:
 
 - tiny one-file edits that do not need durable task memory
@@ -25,26 +33,27 @@ Do not use it for:
 
 ## Required Structure
 
-Every serious tracked implementation plan must include:
+Every serious tracked implementation plan must include these sections.
 
-1. Goal
-2. Non-goals
-3. Parent-priority or parent-architecture alignment
-4. Required reading
-5. Required skills
-6. Codanna discovery
-7. Impact snapshot
-8. Files in scope
-9. Files out of scope
-10. Invariants or preservation contracts when relevant
-11. Verification commands
-12. Rollback notes for high-risk work
-13. Commit checkpoints for tracked work
-14. Priority-exit readiness
+For new active plans, prefer the exact `##` headings below so the human-facing doc and the validator stay aligned. Older accepted variants may still pass in some cases, but they should not be the default pattern for new active plans.
 
-    If the plan is intended to close the last `P#-W#` item in a cleanup priority, it must also include this section.
+1. `## Goal`
+2. `## Non-Goals`
+3. `## Parent Priority Alignment` or `## Parent Architecture Alignment`
+4. `## Required Reading`
+5. `## Required Skills`
+6. `## Codanna Discovery`
+7. `## Impact Snapshot`
+8. `## Files In Scope`
+9. `## Files Out Of Scope`
+10. `## Planner Self-Check`
+11. `## Architecture Seam Decision Gate`
+12. `## Verification Commands`
+13. `## Rollback Notes`
+14. `## Commit Checkpoints`
+15. `## Priority-Exit Readiness` when the plan is intended to close the last `P#-W#` item in a cleanup priority
 
-Use section titles that make those requirements obvious to a fresh session. Do not rely on implied structure or house style memory.
+When `**Plan Status:** active` appears before the first `##` heading, `npm run verify:docs` and the harness require the plan to satisfy the full serious-plan structure above. In practice, active plans should carry the exact headings listed here instead of relying on implied structure or house-style memory.
 
 ## Fresh-Session Rules
 

@@ -4,6 +4,7 @@
  */
 
 export { NowPlayingInfoOverlay } from './NowPlayingInfoOverlay';
+export { NowPlayingInfoCoordinator, getNowPlayingInfoAutoHideMs } from './NowPlayingInfoCoordinator';
 export {
     NOW_PLAYING_INFO_CLASSES,
     NOW_PLAYING_INFO_DEFAULTS,

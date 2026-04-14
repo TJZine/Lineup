@@ -10,14 +10,13 @@ Tier 2 uses this as the default implementer launcher. Tier 3 feature or mixed wo
 ## Read Order
 
 1. [`agents.md`](../../../agents.md)
-2. [`docs/agentic/document-map.md`](../document-map.md)
-3. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
-4. task-specific context from exactly one input mode:
+2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+3. task-specific context from exactly one input mode:
    - handoff mode: the `NEXT_SESSION_HANDOFF` block that routed work here (from [`feature-review.md`](./feature-review.md)); then read its `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE`
    - short-follow-up mode: one short follow-up message naming the approved plan path or active run bundle plus target feature scope; then read the named plan or run bundle as the execution surface and do not wait for a handoff block
-5. [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) when UI creation or redesign is in scope
-6. [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md) plus any domain docs named by the plan or run bundle
-7. any repo-local boundary skills named by the plan or run bundle
+4. [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) when UI creation or redesign is in scope
+5. [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md) plus any domain docs named by the plan or run bundle
+6. any repo-local boundary skills named by the plan or run bundle
 
 ## Invocation Inputs
 

@@ -9,8 +9,8 @@
 import { AppOrchestrator, type OrchestratorConfig, AppErrorCode } from '../Orchestrator';
 import {
     NowPlayingInfoCoordinator,
-} from '../modules/ui/now-playing-info/NowPlayingInfoCoordinator';
-import { EPGCoordinator } from '../modules/ui/epg/EPGCoordinator';
+} from '../modules/ui/now-playing-info';
+import { EPGCoordinator } from '../modules/ui/epg';
 import type { INavigationManager } from '../modules/navigation';
 import type { PlexAuthDataV2, PlexStoredCredentialsReadResult } from '../modules/plex/auth';
 import type { IPlexLibrary } from '../modules/plex/library';
@@ -225,37 +225,38 @@ jest.mock('../modules/navigation', () => ({
     NavigationManager: jest.fn(() => mockNavigation),
 }));
 
-jest.mock('../modules/ui/now-playing-info', () => ({
-    NowPlayingInfoOverlay: jest.fn(() => ({
-        initialize: jest.fn(),
-        show: jest.fn(),
-        update: jest.fn(),
-        hide: jest.fn(),
-        isVisible: jest.fn(() => false),
-        destroy: jest.fn(),
-        setAutoHideMs: jest.fn(),
-        resetAutoHideTimer: jest.fn(),
-        setOnAutoHide: jest.fn(),
-    })),
-    NOW_PLAYING_INFO_MODAL_ID: 'now-playing-info',
-    NOW_PLAYING_INFO_DEFAULTS: {
-        autoHideMs: 0,
-        posterWidth: 320,
-        posterHeight: 480,
-    },
-    NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS: [0, 5_000, 10_000, 15_000, 30_000, 60_000, 120_000],
-}));
+jest.mock('../modules/ui/now-playing-info', () => {
+    const actual = jest.requireActual('../modules/ui/now-playing-info');
+    return {
+        ...actual,
+        NowPlayingInfoOverlay: jest.fn(() => ({
+            initialize: jest.fn(),
+            show: jest.fn(),
+            update: jest.fn(),
+            hide: jest.fn(),
+            isVisible: jest.fn(() => false),
+            destroy: jest.fn(),
+            setAutoHideMs: jest.fn(),
+            resetAutoHideTimer: jest.fn(),
+            setOnAutoHide: jest.fn(),
+        })),
+    };
+});
 
-jest.mock('../modules/ui/player-osd', () => ({
-    PlayerOsdOverlay: jest.fn(() => ({
-        initialize: jest.fn(),
-        show: jest.fn(),
-        hide: jest.fn(),
-        isVisible: jest.fn(() => false),
-        destroy: jest.fn(),
-        setViewModel: jest.fn(),
-    })),
-}));
+jest.mock('../modules/ui/player-osd', () => {
+    const actual = jest.requireActual('../modules/ui/player-osd');
+    return {
+        ...actual,
+        PlayerOsdOverlay: jest.fn(() => ({
+            initialize: jest.fn(),
+            show: jest.fn(),
+            hide: jest.fn(),
+            isVisible: jest.fn(() => false),
+            destroy: jest.fn(),
+            setViewModel: jest.fn(),
+        })),
+    };
+});
 
 jest.mock('../modules/ui/channel-number-overlay', () => ({
     ChannelNumberOverlay: jest.fn(() => mockChannelNumberOverlay),
@@ -266,28 +267,36 @@ jest.mock('../modules/ui/channel-badge', () => ({
     CHANNEL_BADGE_CONTAINER_ID: 'channel-badge-overlay-container',
 }));
 
-jest.mock('../modules/ui/mini-guide', () => ({
-    MiniGuideOverlay: jest.fn(() => ({
-        initialize: jest.fn(),
-        show: jest.fn(),
-        hide: jest.fn(),
-        isVisible: jest.fn(() => false),
-        destroy: jest.fn(),
-        setViewModel: jest.fn(),
-        setFocusedIndex: jest.fn(),
-    })),
-}));
+jest.mock('../modules/ui/mini-guide', () => {
+    const actual = jest.requireActual('../modules/ui/mini-guide');
+    return {
+        ...actual,
+        MiniGuideOverlay: jest.fn(() => ({
+            initialize: jest.fn(),
+            show: jest.fn(),
+            hide: jest.fn(),
+            isVisible: jest.fn(() => false),
+            destroy: jest.fn(),
+            setViewModel: jest.fn(),
+            setFocusedIndex: jest.fn(),
+        })),
+    };
+});
 
-jest.mock('../modules/ui/channel-transition', () => ({
-    ChannelTransitionOverlay: jest.fn(() => ({
-        initialize: jest.fn(),
-        show: jest.fn(),
-        hide: jest.fn(),
-        isVisible: jest.fn(() => false),
-        destroy: jest.fn(),
-        setViewModel: jest.fn(),
-    })),
-}));
+jest.mock('../modules/ui/channel-transition', () => {
+    const actual = jest.requireActual('../modules/ui/channel-transition');
+    return {
+        ...actual,
+        ChannelTransitionOverlay: jest.fn(() => ({
+            initialize: jest.fn(),
+            show: jest.fn(),
+            hide: jest.fn(),
+            isVisible: jest.fn(() => false),
+            destroy: jest.fn(),
+            setViewModel: jest.fn(),
+        })),
+    };
+});
 
 // Mock PlexAuth
 const mockPlexAuth = {
@@ -384,6 +393,7 @@ const mockPlexLibrary = {
     getImageUrl: jest.fn().mockReturnValue('http://test/resized.jpg'),
     getItem: jest.fn().mockResolvedValue(null),
     on: jest.fn(() => jest.fn()),
+    off: jest.fn(),
 };
 
 jest.mock('../modules/plex/library', () => ({
@@ -399,6 +409,7 @@ const mockPlexStreamResolver = {
     }),
     stopTranscodeSession: jest.fn().mockResolvedValue(undefined),
     on: jest.fn(() => jest.fn()),
+    off: jest.fn(),
 };
 
 jest.mock('../modules/plex/stream', () => ({
@@ -572,15 +583,14 @@ const createMockEpgDebugRuntime = (): {
     destroy: jest.fn(),
 });
 
-jest.mock('../modules/ui/epg', () => ({
-    EPGComponent: jest.fn(() => mockEpg),
-    DeferredEpgComponent: jest.fn(() => mockEpg),
-    EPGDebugRuntime: jest.fn(() => createMockEpgDebugRuntime()),
-}));
-
-jest.mock('../modules/ui/epg/DeferredEpgComponent', () => ({
-    DeferredEpgComponent: jest.fn(() => mockEpg),
-}));
+jest.mock('../modules/ui/epg', () => {
+    const actual = jest.requireActual('../modules/ui/epg');
+    return {
+        ...actual,
+        DeferredEPGComponent: jest.fn(() => mockEpg),
+        EPGDebugRuntime: jest.fn(() => createMockEpgDebugRuntime()),
+    };
+});
 
 // ============================================
 // Tests
@@ -588,6 +598,7 @@ jest.mock('../modules/ui/epg/DeferredEpgComponent', () => ({
 
 describe('AppOrchestrator', () => {
     let orchestrator: AppOrchestrator;
+    const ownedOrchestrators = new Set<AppOrchestrator>();
     let schedulerHandlers: {
         programStart?: (program: unknown) => void;
         scheduleSync?: () => void;
@@ -612,6 +623,11 @@ describe('AppOrchestrator', () => {
     };
     let pauseHandler: (() => void | Promise<void>) | null;
     let resumeHandler: (() => void | Promise<void>) | null;
+    const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrator => {
+        const instance = new AppOrchestrator(platformServices);
+        ownedOrchestrators.add(instance);
+        return instance;
+    };
 
     beforeEach(() => {
         jest.clearAllMocks();
@@ -736,7 +752,21 @@ describe('AppOrchestrator', () => {
                 resumeHandler = handler;
                 return { dispose: jest.fn() };
             });
-        orchestrator = new AppOrchestrator();
+        orchestrator = createOrchestrator();
+    });
+
+    afterEach(async () => {
+        jest.useRealTimers();
+
+        for (const orchestratorInstance of ownedOrchestrators) {
+            try {
+                await orchestratorInstance.shutdown();
+            } catch {
+                // Cleanup failures are asserted in explicit shutdown tests.
+            }
+        }
+
+        ownedOrchestrators.clear();
     });
 
     describe('initialize', () => {
@@ -753,7 +783,7 @@ describe('AppOrchestrator', () => {
             expect(require('../modules/scheduler/channel-manager').ChannelManager).toHaveBeenCalled();
             expect(require('../modules/scheduler/scheduler').ChannelScheduler).toHaveBeenCalled();
             expect(require('../modules/player').VideoPlayer).toHaveBeenCalled();
-            expect(require('../modules/ui/epg/DeferredEpgComponent').DeferredEpgComponent).toHaveBeenCalled();
+            expect(require('../modules/ui/epg').DeferredEPGComponent).toHaveBeenCalled();
         });
 
         it('wires injected platform services into lifecycle/navigation/stream/player seams', async () => {
@@ -785,7 +815,7 @@ describe('AppOrchestrator', () => {
                     deriveLanHttpSubtitleUrl: jest.fn(() => null),
                 },
             };
-            const orchestratorWithPlatform = new AppOrchestrator(platformServices);
+            const orchestratorWithPlatform = createOrchestrator(platformServices);
 
             await orchestratorWithPlatform.initialize(mockConfig);
 

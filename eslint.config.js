@@ -1,5 +1,7 @@
 import eslintPlugin from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
+import { lineupArchitectureRules } from './tools/architecture-rules/lineupArchitectureRules.mjs';
+import { buildEslintArchitectureRules } from './tools/architecture-rules/buildEslintArchitectureRules.mjs';
 
 export default [
     {
@@ -22,6 +24,7 @@ export default [
             'no-console': ['warn', { allow: ['error', 'warn'] }],
         },
     },
+    ...buildEslintArchitectureRules(lineupArchitectureRules),
     {
         ignores: ['dist/**', 'dist-ts/**', 'node_modules/**', '*.config.js'],
     },

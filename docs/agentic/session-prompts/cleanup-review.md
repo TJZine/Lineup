@@ -5,10 +5,9 @@ Use this prompt for adversarial review of a cleanup artifact from any orchestrat
 ## Read Order
 
 1. [`agents.md`](../../../agents.md)
-2. [`docs/agentic/document-map.md`](../document-map.md)
-3. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
-4. the artifact being reviewed
-5. supporting standards that apply:
+2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+3. the artifact being reviewed
+4. supporting standards that apply:
    - [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md) for plan review
    - [`docs/agentic/historical-plan-corpus-review.md`](../historical-plan-corpus-review.md) for plan-shape calibration
    - [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md) and any relevant domain doc for implementation review

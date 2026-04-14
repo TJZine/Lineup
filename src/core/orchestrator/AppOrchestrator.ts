@@ -58,28 +58,29 @@ import {
 } from '../../modules/player';
 import { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryManager';
 import {
+    EPGCoordinator,
     EPGDebugRuntime,
-    type IEpgDebugRuntime,
+    type IEPGDebugRuntime,
     type IEPGComponent,
 } from '../../modules/ui/epg';
-import { EPGCoordinator } from '../../modules/ui/epg/EPGCoordinator';
 import {
     type INowPlayingInfoOverlay,
+    NowPlayingInfoCoordinator,
     NOW_PLAYING_INFO_MODAL_ID,
 } from '../../modules/ui/now-playing-info';
 import {
+    PlayerOsdCoordinator,
     PlayerOsdOverlay,
 } from '../../modules/ui/player-osd';
-import { PlayerOsdCoordinator } from '../../modules/ui/player-osd/PlayerOsdCoordinator';
 import { SleepTimerManager } from '../../modules/ui/sleep-timer';
 import {
+    MiniGuideCoordinator,
     type IMiniGuideOverlay,
 } from '../../modules/ui/mini-guide';
-import { MiniGuideCoordinator } from '../../modules/ui/mini-guide/MiniGuideCoordinator';
 import {
+    ChannelTransitionCoordinator,
     ChannelTransitionOverlay,
 } from '../../modules/ui/channel-transition';
-import { ChannelTransitionCoordinator } from '../../modules/ui/channel-transition/ChannelTransitionCoordinator';
 import {
     type IPlaybackOptionsModal,
 } from '../../modules/ui/playback-options';
@@ -126,7 +127,6 @@ import {
 import { NowPlayingDebugManager } from '../../modules/debug/NowPlayingDebugManager';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import { IssueDiagnosticsStore, type AppendIssueDiagnostic } from '../../modules/debug/IssueDiagnosticsStore';
-import { NowPlayingInfoCoordinator } from '../../modules/ui/now-playing-info/NowPlayingInfoCoordinator';
 import { PlaybackOptionsCoordinator } from '../../modules/ui/playback-options';
 import { EpgPreferencesStore } from '../../modules/settings/EpgPreferencesStore';
 import { NowPlayingDisplayStore } from '../../modules/settings/NowPlayingDisplayStore';
@@ -314,7 +314,7 @@ export class AppOrchestrator {
     private readonly _storageContext: OrchestratorStorageContext;
     private readonly _debugOverridesStore = new DebugOverridesStore();
     private readonly _issueDiagnosticsStore = new IssueDiagnosticsStore();
-    private _epgDebugRuntime: IEpgDebugRuntime | null = null;
+    private _epgDebugRuntime: IEPGDebugRuntime | null = null;
     private readonly _playbackStateAccessors: OrchestratorPlaybackStateAccessors;
     private readonly _channelSetupWorkflowPort: ChannelSetupWorkflowPort;
     private readonly _serverSelectionCoordinator: ServerSelectionCoordinator;

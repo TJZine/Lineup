@@ -11,13 +11,13 @@ import type {
     EpgScheduleWindow,
     EpgScheduledProgram,
 } from './model/domainTypes';
-import type { IEpgDebugRuntime } from './EPGDebugRuntime';
+import type { IEPGDebugRuntime } from './EPGDebugRuntime';
 
 // Re-export EPG-owned aliases for UI contracts.
 export type ScheduledProgram = EpgScheduledProgram;
 export type ScheduleWindow = EpgScheduleWindow;
 export type ChannelConfig = EpgChannel;
-export type EpgUiStatus = ModuleRuntimeStatus | undefined;
+export type EPGUiStatus = ModuleRuntimeStatus | undefined;
 
 // ============================================
 // EPG Configuration & State
@@ -76,7 +76,7 @@ export interface EPGConfig {
     /** Optional callback when layout mode changes */
     onLayoutModeChange?: (mode: EpgLayoutMode) => void;
     /** Optional explicit debug runtime shared by EPG UI and runtime collaborators. */
-    debugRuntime?: IEpgDebugRuntime | null;
+    debugRuntime?: IEPGDebugRuntime | null;
     /**
      * Debug render log rate limit (ms). When debug is enabled we avoid writing to storage on every RAF.
      * Set to 0 to log every render (not recommended).

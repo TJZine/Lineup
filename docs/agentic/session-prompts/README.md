@@ -4,6 +4,8 @@ This directory contains the tracked Lineup-specific launcher templates for clean
 
 Use them to avoid copying large prompt blocks into fresh sessions. The tracked files here are the source of truth. Optional local launcher skills may point back to these files, but those thin wrappers are convenience only and should not become a second tracked control plane.
 
+Authority, read order, and document precedence now live in [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md). [`docs/agentic/document-map.md`](../document-map.md) remains only as a compatibility stub for older inbound links.
+
 ## Launcher Template Set
 
 <!-- BEGIN MANAGED SESSION PROMPT SET -->
@@ -71,7 +73,7 @@ Recommended optional local launcher skill names:
 Each launcher should:
 
 1. confirm the current repo is Lineup
-2. load [`agents.md`](../../../agents.md), [`docs/agentic/document-map.md`](../document-map.md), and [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+2. load [`agents.md`](../../../agents.md) and [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
 3. load the matching file in this directory
 4. if the user message includes a `NEXT_SESSION_HANDOFF` block, treat its `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE` fields as required task-specific context after the launcher read order
 5. if no `NEXT_SESSION_HANDOFF` block is supplied, accept one short follow-up message that names the exact checklist item, plan path, or artifact under review and treat that message as the active scope selector for the session
