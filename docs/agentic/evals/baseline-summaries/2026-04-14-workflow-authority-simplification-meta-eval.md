@@ -18,7 +18,7 @@
 ## Prompts Run
 
 - `13-risk-tiered-orchestration-and-local-only-absorption`
-- scenario adaptation from `docs/plans/2026-04-14-control-plane-authority-simplification.md`:
+- scenario adaptation from the then-active authority-simplification execution plan:
   - real task: cleanup-only control-plane authority simplification with no runtime code changes
   - distractors: one feature/design task and one mixed docs-plus-runtime task
   - local-only artifact absorption note included explicitly
@@ -40,7 +40,7 @@
 - the eval agent chose `Tier 1`, which matches the lightest valid tier for a small bounded docs/workflow slice
 - the eval agent did not treat `docs/agentic/document-map.md` as a primary authority surface
 - the eval agent preserved tracked-vs-local absorption discipline by keeping raw `docs/runs/*` / eval artifacts local-only and promoting only durable lessons into tracked docs or tracked eval summaries
-- the eval agent also surfaced one additional live tracked consumer that the current implementation plan had missed: `docs/plans/2026-03-11-p2-w4-app-shell-transitional-cleanup.md` still required `document-map.md` in its read order
+- the eval agent also surfaced one additional live tracked consumer that the current implementation plan had missed: one older retained `P2-W4` cleanup plan still required `document-map.md` in its read order
 
 ## Recurring Misses
 
@@ -51,9 +51,7 @@
 - updated remaining stale authority consumers to point at `docs/AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles`:
   - `ARCHITECTURE_CLEANUP_CHECKLIST.md`
   - `docs/agentic/skill-strategy.md`
-  - `docs/plans/2026-03-11-p2-w4-app-shell-transitional-cleanup.md`
-- added the tracked slice plan to the branch:
-  - `docs/plans/2026-04-14-control-plane-authority-simplification.md`
+  - the older retained `P2-W4` cleanup plan that still routed through `document-map.md`
 - recorded this eval summary:
   - `docs/agentic/evals/baseline-summaries/2026-04-14-workflow-authority-simplification-meta-eval.md`
 
