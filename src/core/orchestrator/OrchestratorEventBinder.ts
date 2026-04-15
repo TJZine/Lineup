@@ -16,7 +16,6 @@ import type {
     IChannelScheduler,
     ScheduledProgram,
 } from '../../modules/scheduler/scheduler';
-import { summarizeErrorForLog } from '../../utils/errors';
 import {
     summarizeEventCleanupFailure,
     type OrchestratorEventCleanupFailure,
@@ -48,6 +47,7 @@ export interface OrchestratorEventBinderDeps {
     handleLifecyclePause: () => Promise<void>;
     handleLifecycleResume: () => Promise<void>;
     reportPersistenceWarning: (warning: ChannelManagerEventMap['persistenceWarning']) => void;
+    reportRecoverableAsyncFailure: (event: string, message: string, error: unknown) => void;
 }
 
 export class OrchestratorEventBinder {
@@ -133,7 +133,11 @@ export class OrchestratorEventBinder {
 
         const programStartHandler = (program: ScheduledProgram): void => {
             this._deps.handleProgramStartTracked(program).catch((error) => {
-                console.error('[Orchestrator] Unhandled error in program start:', summarizeErrorForLog(error));
+                this._deps.reportRecoverableAsyncFailure(
+                    'orchestratorEventBinder.programStart',
+                    'Unhandled program-start failure',
+                    error
+                );
             });
         };
         scheduler.on('programStart', programStartHandler);
@@ -143,7 +147,11 @@ export class OrchestratorEventBinder {
 
         const scheduleSyncHandler = (): void => {
             this._deps.handleScheduleDayRollover().catch((error) => {
-                console.error('[Orchestrator] Unhandled error in scheduleSync handler:', summarizeErrorForLog(error));
+                this._deps.reportRecoverableAsyncFailure(
+                    'orchestratorEventBinder.scheduleSync',
+                    'Unhandled schedule-sync failure',
+                    error
+                );
             });
         };
         scheduler.on('scheduleSync', scheduleSyncHandler);
@@ -266,14 +274,22 @@ export class OrchestratorEventBinder {
 
         const pauseSub = lifecycle.onPause(() => {
             return this._deps.handleLifecyclePause().catch((error) => {
-                console.error('[Orchestrator] Unhandled error in lifecycle pause handler:', summarizeErrorForLog(error));
+                this._deps.reportRecoverableAsyncFailure(
+                    'orchestratorEventBinder.lifecyclePause',
+                    'Unhandled lifecycle pause failure',
+                    error
+                );
             });
         });
         cleanups.push(() => pauseSub.dispose());
 
         const resumeSub = lifecycle.onResume(() => {
             return this._deps.handleLifecycleResume().catch((error) => {
-                console.error('[Orchestrator] Unhandled error in lifecycle resume handler:', summarizeErrorForLog(error));
+                this._deps.reportRecoverableAsyncFailure(
+                    'orchestratorEventBinder.lifecycleResume',
+                    'Unhandled lifecycle resume failure',
+                    error
+                );
             });
         });
         cleanups.push(() => resumeSub.dispose());

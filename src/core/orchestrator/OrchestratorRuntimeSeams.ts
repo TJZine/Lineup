@@ -87,4 +87,5 @@ export interface PriorityOneEventRuntimePort {
     handleScreenChange: (payload: { from: Screen; to: Screen }) => void;
     reportPersistenceWarning: (warning: ChannelManagerEventMap['persistenceWarning']) => void;
     cleanupReporter: OrchestratorEventCleanupReporter;
+    reportRecoverableAsyncFailure: (event: string, message: string, error: unknown) => void;
 }

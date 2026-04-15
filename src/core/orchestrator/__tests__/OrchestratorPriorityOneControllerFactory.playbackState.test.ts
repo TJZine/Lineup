@@ -92,6 +92,7 @@ const makeDeps = (
         handleScreenChange: jest.fn(),
         reportPersistenceWarning: jest.fn(),
         cleanupReporter: jest.fn(),
+        reportRecoverableAsyncFailure: jest.fn(),
     },
     nowPlayingModalId: 'now-playing-modal',
 });

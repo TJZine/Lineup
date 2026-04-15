@@ -1088,10 +1088,10 @@ describe('AppOrchestrator', () => {
                 expect(runStartupSpy).toHaveBeenCalledWith(3);
                 expect(refreshSpy).toHaveBeenCalledWith({ reason: 'server-swap' });
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    expect.stringContaining('[Orchestrator] Post-selection EPG refresh failed:'),
+                    'Post-selection EPG refresh failed',
                     expect.objectContaining({
                         step: 'refreshEpgSchedules',
-                        error: expect.objectContaining({
+                        safeError: expect.objectContaining({
                             message: 'refresh failed',
                         }),
                     })
@@ -1816,10 +1816,10 @@ describe('AppOrchestrator', () => {
                 await orchestrator.setSubtitleTrack(null);
 
                 expect(warnSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] setSubtitleTrack failed:',
+                    'setSubtitleTrack failed',
                     expect.objectContaining({
                         trackId: null,
-                        error: expect.objectContaining({
+                        safeError: expect.objectContaining({
                             name: 'Error',
                             message: 'boom',
                         }),
@@ -2017,7 +2017,10 @@ describe('AppOrchestrator', () => {
                 await expect(orchestrator.switchToChannel('ch1')).resolves.toBeUndefined();
 
                 expect(consoleSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] switchToChannel: channel tuning unavailable. Missing modules: _channelTuning, _channelManager, _scheduler'
+                    'switchToChannel: channel tuning unavailable',
+                    expect.objectContaining({
+                        missingModules: ['_channelTuning', '_channelManager', '_scheduler'],
+                    })
                 );
                 expect(mockVideoPlayer.stop).not.toHaveBeenCalled();
             } finally {
@@ -2174,7 +2177,10 @@ describe('AppOrchestrator', () => {
                 await expect(orchestrator.switchToChannelByNumber(5)).resolves.toBeUndefined();
 
                 expect(consoleSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] switchToChannelByNumber: channel tuning unavailable. Missing modules: _channelTuning, _videoPlayer'
+                    'switchToChannelByNumber: channel tuning unavailable',
+                    expect.objectContaining({
+                        missingModules: ['_channelTuning', '_videoPlayer'],
+                    })
                 );
             } finally {
                 consoleSpy.mockRestore();
@@ -2576,7 +2582,7 @@ describe('AppOrchestrator', () => {
         });
 
         it('redacts tokenized message values in global error logs', () => {
-            const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
             const secret = 'secret-token';
             const error = {
                 code: AppErrorCode.NETWORK_TIMEOUT,
@@ -2587,7 +2593,7 @@ describe('AppOrchestrator', () => {
             orchestrator.handleGlobalError(error, 'test-context');
 
             const globalErrorCall = consoleSpy.mock.calls.find((call) =>
-                typeof call[0] === 'string' && call[0].includes('[test-context] Error:')
+                typeof call[0] === 'string' && call[0].includes('Global error in test-context')
             );
             expect(globalErrorCall).toBeDefined();
             const logged = JSON.stringify(globalErrorCall);
@@ -2853,13 +2859,15 @@ describe('AppOrchestrator', () => {
 
                 expect(mockNavigation.destroy).toHaveBeenCalled();
                 expect(warnSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] Shutdown teardown failures:',
-                    expect.arrayContaining([
-                        expect.objectContaining({ step: 'lifecycle.shutdown' }),
-                        expect.objectContaining({ step: 'videoPlayer.stop' }),
-                        expect.objectContaining({ step: 'scheduler.pauseSyncTimer' }),
-                        expect.objectContaining({ step: 'epg.destroy' }),
-                    ])
+                    'Shutdown teardown failures',
+                    expect.objectContaining({
+                        teardownFailures: expect.arrayContaining([
+                            expect.objectContaining({ step: 'lifecycle.shutdown' }),
+                            expect.objectContaining({ step: 'videoPlayer.stop' }),
+                            expect.objectContaining({ step: 'scheduler.pauseSyncTimer' }),
+                            expect.objectContaining({ step: 'epg.destroy' }),
+                        ]),
+                    })
                 );
             } finally {
                 (mockLifecycle.shutdown as jest.Mock).mockResolvedValue(undefined);
@@ -2885,9 +2893,9 @@ describe('AppOrchestrator', () => {
                 expect(stopActiveTranscodeSession).toHaveBeenCalledTimes(1);
                 expect(mockVideoPlayer.stop).toHaveBeenCalledTimes(1);
                 expect(warnSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] stopActiveTranscodeSession failed during playback stop:',
+                    'stopActiveTranscodeSession failed during playback stop',
                     expect.objectContaining({
-                        error: expect.objectContaining({
+                        safeError: expect.objectContaining({
                             name: 'Error',
                             message: 'transcode cleanup failed',
                         }),
@@ -2913,11 +2921,13 @@ describe('AppOrchestrator', () => {
 
                 expect(mockNavigation.destroy).toHaveBeenCalled();
                 expect(warnSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] Shutdown teardown failures:',
-                    expect.arrayContaining([
-                        expect.objectContaining({ step: 'channelNumberOverlay.destroy' }),
-                        expect.objectContaining({ step: 'channelBadgeOverlay.destroy' }),
-                    ])
+                    'Shutdown teardown failures',
+                    expect.objectContaining({
+                        teardownFailures: expect.arrayContaining([
+                            expect.objectContaining({ step: 'channelNumberOverlay.destroy' }),
+                            expect.objectContaining({ step: 'channelBadgeOverlay.destroy' }),
+                        ]),
+                    })
                 );
             } finally {
                 (mockChannelNumberOverlay.destroy as jest.Mock).mockImplementation(() => undefined);
@@ -2949,10 +2959,12 @@ describe('AppOrchestrator', () => {
                 expect(pauseDispose).toHaveBeenCalledTimes(1);
                 expect(mockNavigation.destroy).toHaveBeenCalled();
                 expect(warnSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] Shutdown teardown failures:',
-                    expect.arrayContaining([
-                        expect.objectContaining({ step: 'events.unsubscribe' }),
-                    ])
+                    'Shutdown teardown failures',
+                    expect.objectContaining({
+                        teardownFailures: expect.arrayContaining([
+                            expect.objectContaining({ step: 'events.unsubscribe' }),
+                        ]),
+                    })
                 );
             } finally {
                 warnSpy.mockRestore();
@@ -2973,10 +2985,12 @@ describe('AppOrchestrator', () => {
                 expect(dispose).toHaveBeenCalledTimes(1);
                 expect(mockNavigation.destroy).toHaveBeenCalled();
                 expect(warnSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] Shutdown teardown failures:',
-                    expect.arrayContaining([
-                        expect.objectContaining({ step: 'events.unsubscribe' }),
-                    ])
+                    'Shutdown teardown failures',
+                    expect.objectContaining({
+                        teardownFailures: expect.arrayContaining([
+                            expect.objectContaining({ step: 'events.unsubscribe' }),
+                        ]),
+                    })
                 );
             } finally {
                 warnSpy.mockRestore();
@@ -2997,10 +3011,12 @@ describe('AppOrchestrator', () => {
 
                 expect(mockNavigation.destroy).toHaveBeenCalled();
                 expect(warnSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] Shutdown teardown failures:',
-                    expect.arrayContaining([
-                        expect.objectContaining({ step: 'scheduleDayRolloverController.dispose' }),
-                    ])
+                    'Shutdown teardown failures',
+                    expect.objectContaining({
+                        teardownFailures: expect.arrayContaining([
+                            expect.objectContaining({ step: 'scheduleDayRolloverController.dispose' }),
+                        ]),
+                    })
                 );
             } finally {
                 warnSpy.mockRestore();

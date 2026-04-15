@@ -109,6 +109,7 @@ const wireLifecycleResumeHarness = (overrides: {
         handleLifecyclePause: (): Promise<void> => playbackRuntimeController.handleLifecyclePause(),
         handleLifecycleResume: (): Promise<void> => playbackRuntimeController.handleLifecycleResume(),
         reportPersistenceWarning: (): void => undefined,
+        reportRecoverableAsyncFailure: (): void => undefined,
     });
 
     binder.bind();

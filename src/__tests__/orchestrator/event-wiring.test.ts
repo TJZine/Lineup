@@ -122,6 +122,7 @@ const makeBinder = (overrides: Partial<OrchestratorEventBinderDeps> = {}): Binde
         handleLifecyclePause: jest.fn(async () => undefined),
         handleLifecycleResume: jest.fn(async () => undefined),
         reportPersistenceWarning: jest.fn(),
+        reportRecoverableAsyncFailure: jest.fn(),
         ...overrides,
     };
 
