@@ -154,6 +154,16 @@
     border: 1px solid rgba(76, 153, 255, 0.4);
 }
 
+.profile-restricted {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(255, 136, 87, 0.16);
+    color: #ffd0ba;
+    border: 1px solid rgba(255, 136, 87, 0.45);
+}
+
 .profile-last-used {
     font-size: 12px;
     color: rgba(255, 255, 255, 0.5);
