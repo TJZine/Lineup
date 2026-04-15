@@ -30,6 +30,10 @@ interface SubtitleTrackContext {
     burnedInSubtitleTrackId?: string | null;
     onUnavailable?: () => void;
     onDeactivate?: (args: { trackId: string; reason: string }) => boolean;
+    onDeactivateRecovery?: (args: {
+        trackId: string;
+        reason: string;
+    }) => Promise<'handled' | 'failed'>;
 }
 
 /**
@@ -619,7 +623,9 @@ export class SubtitleManager {
         const handled = this._notifySubtitleDeactivated(track.id, reason);
         if (!handled) {
             this._notifySubtitleUnavailable();
+            return;
         }
+        this._recoverHandledSubtitleDeactivation(track.id, reason);
     }
 
     private _notifySubtitleDeactivated(trackId: string, reason: string): boolean {
@@ -630,6 +636,22 @@ export class SubtitleManager {
         } catch {
             return false;
         }
+    }
+
+    private _recoverHandledSubtitleDeactivation(trackId: string, reason: string): void {
+        const handler = this._subtitleContext?.onDeactivateRecovery;
+        if (!handler) {
+            return;
+        }
+        void Promise.resolve(handler({ trackId, reason }))
+            .then((result) => {
+                if (result === 'failed') {
+                    this._notifySubtitleUnavailable();
+                }
+            })
+            .catch(() => {
+                this._notifySubtitleUnavailable();
+            });
     }
 
     private _applyTrackModeShowing(trackId: string): void {

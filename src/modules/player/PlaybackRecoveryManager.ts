@@ -85,6 +85,11 @@ type RecoveryDescriptorContext = RecoveryReloadContext & {
     decision: StreamDecision;
 };
 
+type PreparedBurnInSubtitleRecovery = {
+    context: RecoveryReloadContext;
+    attemptKey: string;
+};
+
 export type AudioTrackReloadResult = RecoveryAttemptResult<'reloaded', RecoveryReloadIgnoredReason>;
 
 export type BurnInSubtitleRecoveryResult = RecoveryAttemptResult<
@@ -695,27 +700,9 @@ export class PlaybackRecoveryManager {
                         ? (decision.transcodeRequest.subtitleStreamId ?? null)
                         : null,
                 onUnavailable: this.deps.notifySubtitleUnavailable,
-                onDeactivate: ({ trackId, reason }): boolean => {
-                    const allowBurnIn = subtitleModeAllowsBurnIn(this._readSubtitleMode());
-                    if (!allowBurnIn) {
-                        return false;
-                    }
-                    // Best-effort: try burn-in subtitles when extraction fails.
-                    this.deps.notifyToast?.(
-                        'Subtitles failed to load. Trying burn-in…',
-                        'info'
-                    );
-                    void this.attemptBurnInSubtitleForCurrentProgram(trackId, `subtitle_extract_failed:${reason}`)
-                        .then((result) => {
-                            if (result.outcome === 'failed') {
-                                this.deps.notifySubtitleUnavailable();
-                            }
-                        })
-                        .catch(() => {
-                            this.deps.notifySubtitleUnavailable();
-                        });
-                    return true;
-                },
+                onDeactivate: (): boolean => this._shouldHandleSubtitleDeactivation(),
+                onDeactivateRecovery: ({ trackId, reason }): Promise<'handled' | 'failed'> =>
+                    this._recoverSubtitleDeactivation(trackId, reason),
             }
             : undefined;
 
@@ -777,55 +764,12 @@ export class PlaybackRecoveryManager {
         trackId: string,
         reason: string
     ): Promise<BurnInSubtitleRecoveryResult> {
-        const context = this._prepareRecoveryReload(reason);
-        if ('outcome' in context) {
-            return context;
+        const prepared = this._prepareBurnInSubtitleRecovery(trackId, reason);
+        if ('outcome' in prepared) {
+            return prepared;
         }
 
-        const attemptKey = `${context.itemKey}::${trackId}`;
-        if (this._burnInAttemptedForItemKey.has(attemptKey)) {
-            return { outcome: 'ignored', reason: 'already_attempted' };
-        }
-
-        const currentDescriptor = this.deps.getCurrentStreamDescriptor();
-        if (
-            currentDescriptor?.protocol === 'hls' &&
-            context.currentDecision?.transcodeRequest?.subtitleMode === 'burn' &&
-            context.currentDecision.transcodeRequest.subtitleStreamId === trackId
-        ) {
-            return { outcome: 'ignored', reason: 'already_burned_in' };
-        }
-
-        return this._executeRecoveryReload({
-            context,
-            successOutcome: 'burned_in',
-            startEvent: 'burnInReload.start',
-            abortedEvent: 'burnInReload.aborted',
-            failedEvent: 'burnInReload.failed',
-            startData: ({ itemKey }) => ({
-                trackId,
-                itemKey,
-            }),
-            buildRequest: ({ itemKey, clampedOffset, player }) => {
-                const activeAudioId = this._readPlayerState(player)?.activeAudioId ?? null;
-                return {
-                    itemKey,
-                    startOffsetMs: clampedOffset,
-                    directPlay: false,
-                    subtitleStreamId: trackId,
-                    subtitleMode: 'burn',
-                    ...(activeAudioId ? { audioStreamId: activeAudioId } : {}),
-                };
-            },
-            customizeDescriptor: (descriptor) => ({
-                ...descriptor,
-                preferredSubtitleTrackId: trackId,
-            }),
-            shouldResumeAfterReload: true,
-            onSuccess: () => {
-                this._burnInAttemptedForItemKey.add(attemptKey);
-            },
-        });
+        return this._executeBurnInSubtitleRecovery(trackId, prepared);
     }
 
     async attemptDisableBurnInSubtitlesForCurrentProgram(
@@ -883,5 +827,91 @@ export class PlaybackRecoveryManager {
                 }
             },
         });
+    }
+
+    private _prepareBurnInSubtitleRecovery(
+        trackId: string,
+        reason: string
+    ): PreparedBurnInSubtitleRecovery | BurnInSubtitleRecoveryResult {
+        const context = this._prepareRecoveryReload(reason);
+        if ('outcome' in context) {
+            return context;
+        }
+
+        const attemptKey = `${context.itemKey}::${trackId}`;
+        if (this._burnInAttemptedForItemKey.has(attemptKey)) {
+            return { outcome: 'ignored', reason: 'already_attempted' };
+        }
+
+        const currentDescriptor = this.deps.getCurrentStreamDescriptor();
+        if (
+            currentDescriptor?.protocol === 'hls' &&
+            context.currentDecision?.transcodeRequest?.subtitleMode === 'burn' &&
+            context.currentDecision.transcodeRequest.subtitleStreamId === trackId
+        ) {
+            return { outcome: 'ignored', reason: 'already_burned_in' };
+        }
+
+        return {
+            context,
+            attemptKey,
+        };
+    }
+
+    private _executeBurnInSubtitleRecovery(
+        trackId: string,
+        prepared: PreparedBurnInSubtitleRecovery
+    ): Promise<BurnInSubtitleRecoveryResult> {
+        return this._executeRecoveryReload({
+            context: prepared.context,
+            successOutcome: 'burned_in',
+            startEvent: 'burnInReload.start',
+            abortedEvent: 'burnInReload.aborted',
+            failedEvent: 'burnInReload.failed',
+            startData: ({ itemKey }) => ({
+                trackId,
+                itemKey,
+            }),
+            buildRequest: ({ itemKey, clampedOffset, player }) => {
+                const activeAudioId = this._readPlayerState(player)?.activeAudioId ?? null;
+                return {
+                    itemKey,
+                    startOffsetMs: clampedOffset,
+                    directPlay: false,
+                    subtitleStreamId: trackId,
+                    subtitleMode: 'burn',
+                    ...(activeAudioId ? { audioStreamId: activeAudioId } : {}),
+                };
+            },
+            customizeDescriptor: (descriptor) => ({
+                ...descriptor,
+                preferredSubtitleTrackId: trackId,
+            }),
+            shouldResumeAfterReload: true,
+            onSuccess: () => {
+                this._burnInAttemptedForItemKey.add(prepared.attemptKey);
+            },
+        });
+    }
+
+    private _shouldHandleSubtitleDeactivation(): boolean {
+        return subtitleModeAllowsBurnIn(this._readSubtitleMode());
+    }
+
+    private async _recoverSubtitleDeactivation(
+        trackId: string,
+        reason: string
+    ): Promise<'handled' | 'failed'> {
+        const prepared = this._prepareBurnInSubtitleRecovery(
+            trackId,
+            `subtitle_extract_failed:${reason}`
+        );
+        if ('outcome' in prepared) {
+            return prepared.outcome === 'failed' ? 'failed' : 'handled';
+        }
+
+        this.deps.notifyToast?.('Subtitles failed to load. Trying burn-in…', 'info');
+        const result = await this._executeBurnInSubtitleRecovery(trackId, prepared);
+        return result.outcome === 'failed' ? 'failed' : 'handled';
     }
 }

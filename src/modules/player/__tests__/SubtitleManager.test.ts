@@ -101,6 +101,13 @@ function installFetchAndBlobMocks(): { fetchMock: jest.Mock; restore: () => void
     return { fetchMock, restore };
 }
 
+async function flushAsync(rounds: number = 5): Promise<void> {
+    for (let i = 0; i < rounds; i += 1) {
+        await Promise.resolve();
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 const developerSettingsStore = new DeveloperSettingsStore();
 
 function enableSubtitleDebugLogging(): void {
@@ -343,6 +350,94 @@ Hello`,
 
                 await new Promise((resolve) => setTimeout(resolve, 0));
                 expect(fetchMock).toHaveBeenCalled();
+            } finally {
+                restore();
+            }
+        });
+
+        it('does not surface unavailable when handled subtitle deactivation recovery succeeds', async () => {
+            const { fetchMock, restore } = installFetchAndBlobMocks();
+
+            try {
+                const onDeactivate = jest.fn(() => true);
+                const onDeactivateRecovery = jest.fn().mockResolvedValue('handled');
+                const onUnavailable = jest.fn();
+                const embeddedTrack = createMockSubtitleTrack({
+                    id: 'embedded-srt',
+                    codec: 'srt',
+                    format: 'srt',
+                    fetchableViaKey: false,
+                });
+                delete (embeddedTrack as { key?: string }).key;
+                fetchMock.mockResolvedValue({
+                    ok: false,
+                    status: 404,
+                    headers: { get: (): null => null },
+                    text: async (): Promise<string> => 'Not found',
+                });
+
+                manager.loadTracks([embeddedTrack], {
+                    serverUri: 'http://example.com',
+                    authHeaders: { 'X-Plex-Token': 'token' },
+                    onDeactivate,
+                    onDeactivateRecovery,
+                    onUnavailable,
+                });
+
+                manager.setActiveTrack('embedded-srt');
+                await flushAsync();
+
+                expect(onDeactivate).toHaveBeenCalledWith({
+                    trackId: 'embedded-srt',
+                    reason: 'selected',
+                });
+                expect(onDeactivateRecovery).toHaveBeenCalledWith({
+                    trackId: 'embedded-srt',
+                    reason: 'selected',
+                });
+                expect(onUnavailable).not.toHaveBeenCalled();
+            } finally {
+                restore();
+            }
+        });
+
+        it('surfaces unavailable when handled subtitle deactivation recovery fails', async () => {
+            const { fetchMock, restore } = installFetchAndBlobMocks();
+
+            try {
+                const onDeactivate = jest.fn(() => true);
+                const onDeactivateRecovery = jest.fn().mockResolvedValue('failed');
+                const onUnavailable = jest.fn();
+                const embeddedTrack = createMockSubtitleTrack({
+                    id: 'embedded-srt',
+                    codec: 'srt',
+                    format: 'srt',
+                    fetchableViaKey: false,
+                });
+                delete (embeddedTrack as { key?: string }).key;
+                fetchMock.mockResolvedValue({
+                    ok: false,
+                    status: 404,
+                    headers: { get: (): null => null },
+                    text: async (): Promise<string> => 'Not found',
+                });
+
+                manager.loadTracks([embeddedTrack], {
+                    serverUri: 'http://example.com',
+                    authHeaders: { 'X-Plex-Token': 'token' },
+                    onDeactivate,
+                    onDeactivateRecovery,
+                    onUnavailable,
+                });
+
+                manager.setActiveTrack('embedded-srt');
+                await flushAsync();
+
+                expect(onDeactivateRecovery).toHaveBeenCalledWith({
+                    trackId: 'embedded-srt',
+                    reason: 'selected',
+                });
+                expect(onUnavailable).toHaveBeenCalled();
             } finally {
                 restore();
             }
