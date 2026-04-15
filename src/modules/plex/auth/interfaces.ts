@@ -1,14 +1,4 @@
-/**
- * @fileoverview Interface definitions for Plex Authentication module.
- * @module modules/plex/auth/interfaces
- * @version 1.0.0
- */
-
 import { IDisposable } from '../../../utils/interfaces';
-
-// ============================================
-// Configuration Types
-// ============================================
 
 /**
  * Public JWK used for JWT-based Plex auth (Ed25519).
@@ -37,28 +27,13 @@ export interface PlexDeviceKey {
 export interface PlexAuthConfig {
     /** Unique app instance ID resolved/persisted at config assembly (constructor does not re-resolve) */
     clientIdentifier: string;
-    /** App name shown in Plex dashboard (e.g., "Lineup") */
     product: string;
-    /** App version string (e.g., "1.0.0") */
     version: string;
-    /** Platform identifier - always "webOS" */
     platform: string;
-    /** webOS version (e.g., "6.0", "23") */
     platformVersion: string;
-    /** Device type (e.g., "LG Smart TV") */
     device: string;
-    /** User-friendly device name (e.g., "Living Room TV") */
     deviceName: string;
 }
-
-// ============================================
-// PIN Flow Types
-// ============================================
-
-/**
- * Represents a PIN request for OAuth flow.
- * User navigates to the Plex auth app (plex.tv/link or app.plex.tv/auth).
- */
 export interface PlexPinRequest {
     /** Plex-assigned PIN ID for polling */
     id: number;
@@ -72,13 +47,6 @@ export interface PlexPinRequest {
     clientIdentifier: string;
 }
 
-// ============================================
-// Token & User Types
-// ============================================
-
-/**
- * Plex Home user profile.
- */
 export interface PlexHomeUser {
     id: string;
     title: string;
@@ -88,36 +56,22 @@ export interface PlexHomeUser {
     restricted?: boolean;
 }
 
-/**
- * Authenticated Plex user token and profile.
- * Stored in localStorage for session persistence.
- */
 export interface PlexAuthToken {
-    /** OAuth token for API requests - include in X-Plex-Token header */
     token: string;
-    /** Plex user ID */
     userId: string;
-    /** Plex username */
     username: string;
-    /** User email address */
     email: string;
-    /** Avatar URL */
     thumb: string;
     /**
      * Token expiration time (if known).
      * Plex tokens may be short-lived (e.g., JWTs); treat `null` as "unknown".
      */
     expiresAt: Date | null;
-    /** When token was issued */
     issuedAt: Date;
     /** Preferred subtitle language (if provided by Plex user profile) */
     preferredSubtitleLanguage?: string | null;
 }
 
-/**
- * Authentication data v2 (Plex Home support).
- * This is the root object persisted for auth state.
- */
 export interface PlexAuthDataV2 {
     /** Token used for plex.tv Home endpoints (account/admin) */
     accountToken: PlexAuthToken;
@@ -131,9 +85,6 @@ export interface PlexAuthDataV2 {
     deviceKey?: PlexDeviceKey | null;
 }
 
-/**
- * Current authentication data shape.
- */
 export type PlexAuthData = PlexAuthDataV2;
 
 export type PlexStoredCredentialsReadCorruptionReason =
@@ -146,93 +97,32 @@ export type PlexStoredCredentialsReadResult =
     | { kind: 'available'; credentials: PlexAuthData }
     | { kind: 'corrupted'; reason: PlexStoredCredentialsReadCorruptionReason };
 
-// ============================================
-// Internal State Types
-// ============================================
-
-/**
- * Internal state managed by PlexAuth class.
- */
 export interface PlexAuthState {
-    /** Configuration passed to constructor */
     config: PlexAuthConfig;
-    /** Account token (null if not authenticated) */
     accountToken: PlexAuthToken | null;
-    /** Active profile token (null if not authenticated) */
     activeToken: PlexAuthToken | null;
     /** Active profile identity key used for per-profile storage scoping */
     activeUserId: string | null;
-    /** Whether token has been validated with server */
     isValidated: boolean;
-    /** PIN currently being polled (null if none) */
     pendingPin: PlexPinRequest | null;
 }
 
-/**
- * Stored data format with version for migrations.
- */
 export interface StoredAuthData {
-    /** Storage format version */
     version: number;
-    /** Auth data payload */
     data: PlexAuthData;
 }
-
-// ============================================
-// Event Types
-// ============================================
-
-/**
- * Events emitted by PlexAuth.
- */
 export interface PlexAuthEvents extends Record<string, unknown> {
-    /** Emitted when authentication state changes */
     authChange: boolean;
-    /** Emitted when active profile changes */
     profileChange: { fromUserId: string | null; toUserId: string };
 }
-
-// ============================================
-// Main Interface
-// ============================================
-
-/**
- * Plex Authentication Interface.
- * Handles OAuth flow and token management.
- */
 export interface IPlexAuth {
-    // PIN-based OAuth flow
-
-    /**
-     * Initiate Plex OAuth flow by requesting a PIN code.
-     * @returns PIN request containing code for user display (length varies)
-     * @throws PlexApiError on connection failure or rate limiting
-     */
     requestPin(): Promise<PlexPinRequest>;
 
-    /**
-     * Check if user has claimed the PIN via the Plex auth app.
-     * @param pinId - PIN ID from requestPin()
-     * @returns Updated PIN request with authToken if claimed
-     * @throws PlexApiError if PIN doesn't exist or on connection failure
-     */
     checkPinStatus(pinId: number): Promise<PlexPinRequest>;
 
-    /**
-     * Cancel an active PIN request.
-     * @param pinId - PIN ID to cancel
-     */
     cancelPin(pinId: number): Promise<void>;
 
-    /**
-     * Poll for PIN status until claimed or timeout (5 minutes).
-     * @param pinId - PIN ID from requestPin()
-     * @returns Updated PIN request with authToken when claimed
-     * @throws PlexApiError if PIN expires or on connection failure
-     */
     pollForPin(pinId: number): Promise<PlexPinRequest>;
-
-    // Token management
 
     /**
      * Verify a token is still valid by calling Plex API.
@@ -242,32 +132,14 @@ export interface IPlexAuth {
      */
     validateToken(token: string): Promise<boolean>;
 
-    /**
-     * Get Plex Home users (fast user switching).
-     * @param options - Optional AbortSignal
-     */
     getHomeUsers(options?: { signal?: AbortSignal | null }): Promise<PlexHomeUser[]>;
 
-    /**
-     * Switch to a Plex Home user (PIN optional unless protected).
-     * @param userId - Plex user id
-     * @param options - Optional PIN and AbortSignal
-     */
     switchHomeUser(userId: string, options?: { pin?: string | null; signal?: AbortSignal | null }): Promise<void>;
 
-    /**
-     * Get active user id (active token).
-     */
     getActiveUserId(): string | null;
 
-    /**
-     * Get account user id (account token).
-     */
     getAccountUserId(): string | null;
 
-    /**
-     * Reset active profile to main account token.
-     */
     logoutActiveUser(): Promise<void>;
 
     /**
@@ -276,45 +148,15 @@ export interface IPlexAuth {
      */
     readStoredCredentialsAndClearCorruption(): Promise<PlexStoredCredentialsReadResult>;
 
-    /**
-     * Store credentials to localStorage.
-     * @param auth - Auth data to store
-     */
     storeCredentials(auth: PlexAuthData): Promise<void>;
 
-    /**
-     * Clear credentials from localStorage.
-     */
     clearCredentials(): Promise<void>;
 
-    // Convenience methods
-
-    /**
-     * Check if currently authenticated (synchronous).
-     * @returns true if authenticated
-     */
     isAuthenticated(): boolean;
 
-    /**
-     * Get current user token (synchronous).
-     * @returns Current token or null
-     */
     getCurrentUser(): PlexAuthToken | null;
 
-    /**
-     * Generate headers required for all Plex API requests.
-     * @returns Object containing all required Plex headers
-     */
     getAuthHeaders(): Record<string, string>;
-
-    // Event handling
-
-    /**
-     * Register handler for auth change events.
-     * @param event - Event name ('authChange')
-     * @param handler - Handler function
-     * @returns Disposable to remove handler
-     */
     on(event: 'authChange', handler: (isAuthenticated: boolean) => void): IDisposable;
     on(
         event: 'profileChange',

@@ -1,10 +1,3 @@
-/**
- * @fileoverview Video Player implementation for webOS.
- * Provides unified playback abstraction with native HLS support.
- * @module modules/player/VideoPlayer
- * @version 1.0.0
- */
-
 import { EventEmitter } from '../../utils/EventEmitter';
 import { SubtitleManager } from './SubtitleManager';
 import { AudioTrackManager } from './AudioTrackManager';
@@ -36,14 +29,8 @@ import { summarizeErrorForLog } from '../../utils/errors';
 import type { PlatformPlaybackService, PlatformSubtitleService } from '../../platform';
 import { webosPlatformServices } from '../../platform';
 
-// ============================================
-// Media Session Types (local "like" types for feature detection)
-// ============================================
-
-/** Playback state for Media Session API */
 type MediaSessionPlaybackStateLike = 'none' | 'paused' | 'playing';
 
-/** Actions supported by Media Session API */
 type MediaSessionActionLike =
     | 'play'
     | 'pause'
@@ -52,10 +39,8 @@ type MediaSessionActionLike =
     | 'seekbackward'
     | 'seekforward';
 
-/** Handler function for Media Session actions */
 type MediaSessionActionHandlerLike = (details: unknown) => void;
 
-/** Minimal interface matching browser MediaSession shape */
 interface MediaSessionLike {
     metadata: unknown;
     playbackState: MediaSessionPlaybackStateLike;
@@ -63,7 +48,6 @@ interface MediaSessionLike {
     setPositionState?: (state: { duration: number; position: number; playbackRate: number }) => void;
 }
 
-/** List of actions we install handlers for */
 const MEDIA_SESSION_ACTIONS: MediaSessionActionLike[] = [
     'play',
     'pause',
@@ -73,65 +57,23 @@ const MEDIA_SESSION_ACTIONS: MediaSessionActionLike[] = [
     'seekforward',
 ];
 
-// ============================================
-// VideoPlayer Class
-// ============================================
-
-/**
- * Video Player implementation for webOS platform.
- *
- * Key features:
- * - Native HLS support (no HLS.js per ADR-002)
- * - Keep-alive mechanism to prevent webOS suspension
- * - Error retry with exponential backoff
- * - Subtitle track management
- *
- * @example
- * ```typescript
- * const player = new VideoPlayer();
- * await player.initialize({ containerId: 'video-container', defaultVolume: 0.8 });
- * await player.loadStream(descriptor);
- * await player.play();
- * ```
- */
 export class VideoPlayer implements IVideoPlayer {
     private readonly _developerSettingsStore = new DeveloperSettingsStore();
-    /** Event emitter for player events */
     private _emitter: EventEmitter<PlayerEventMap> = new EventEmitter();
-
-    /** The video element */
     private _videoElement: HTMLVideoElement | null = null;
-
-    /** Subtitle manager */
     private _subtitleManager: SubtitleManager;
-
-    /** Audio track manager */
     private readonly _audioSettingsStore = new AudioSettingsStore();
     private _audioTrackManager: AudioTrackManager = new AudioTrackManager({
         audioSettingsStore: this._audioSettingsStore,
     });
-
-    /** Event handler manager */
     private _eventManager: VideoPlayerEvents = new VideoPlayerEvents();
-
-    /** Retry manager */
     private _retryManager: RetryManager = new RetryManager();
-
-    /** Keep-alive manager */
     private _keepAliveManager: KeepAliveManager = new KeepAliveManager();
     private readonly _playbackService: PlatformPlaybackService;
-
-    /** Player configuration */
     private _config: VideoPlayerConfig | null = null;
-
-    /** Whether Media Session is enabled */
     private _mediaSessionEnabled: boolean = false;
-
-    /** State change handler for Media Session updates */
     private _mediaSessionStateChangeHandler: ((state: PlaybackState) => void) | null = null;
     private _mediaSessionFailureTimestamps: Map<string, number> = new Map();
-
-    /** Internal state */
     private _state: VideoPlayerInternalState = this._createInitialState();
 
     constructor(services?: {
@@ -202,15 +144,6 @@ export class VideoPlayer implements IVideoPlayer {
         return result;
     }
 
-    // ========================================
-    // Lifecycle
-    // ========================================
-
-    /**
-     * Initialize the video player.
-     * @param config - Player configuration
-     * @throws Error if container element not found
-     */
     public async initialize(config: VideoPlayerConfig): Promise<void> {
         // Guard: Prevent creating multiple video elements (spec requirement)
         if (this._videoElement) {
@@ -272,9 +205,6 @@ export class VideoPlayer implements IVideoPlayer {
         this._keepAliveManager.start();
     }
 
-    /**
-     * Destroy the video player.
-     */
     public destroy(): void {
         // Release media session before tearing down event emitters
         this.releaseMediaSession();
@@ -302,14 +232,6 @@ export class VideoPlayer implements IVideoPlayer {
         this._config = null;
     }
 
-    // ========================================
-    // Stream Management
-    // ========================================
-
-    /**
-     * Load a media stream for playback.
-     * @param descriptor - Stream to load
-     */
     public async loadStream(descriptor: StreamDescriptor): Promise<void> {
         if (!this._videoElement) {
             throw new Error('VideoPlayer not initialized');
