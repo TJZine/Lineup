@@ -15,43 +15,29 @@ export async function readPlexResponse(response: Response): Promise<PlexResponse
         response.headers && typeof response.headers.get === 'function'
             ? response.headers.get('Content-Type') || ''
             : '';
-    try {
-        // Prefer JSON parsing when server indicates JSON.
-        if (contentType.includes('json') && typeof response.json === 'function') {
-            try {
-                return { kind: 'json', data: await response.json() };
-            } catch {
-                // Fall through to text parsing.
-            }
-        }
 
-        const text = await response.text();
-        const trimmed = text.trim();
+    const text = await response.text();
+    const trimmed = text.trim();
 
-        // Robustness: plex.tv sometimes returns JSON with a non-JSON content-type.
-        if ((trimmed.startsWith('{') || trimmed.startsWith('[')) && trimmed.length > 0) {
-            try {
-                return { kind: 'json', data: JSON.parse(trimmed) };
-            } catch {
-                throw new PlexApiError(
-                    AppErrorCode.PARSE_ERROR,
-                    'Unable to parse Plex response JSON payload',
-                    undefined,
-                    false
-                );
-            }
-        }
-
-        if (trimmed.length === 0) {
-            return { kind: 'empty' };
-        }
-        return { kind: 'text', data: text };
-    } catch (error) {
-        if (error instanceof PlexApiError) {
-            throw error;
-        }
+    if (trimmed.length === 0) {
         return { kind: 'empty' };
     }
+
+    // plex.tv occasionally returns JSON payloads with a mismatched content-type.
+    if (contentType.includes('json') || trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try {
+            return { kind: 'json', data: JSON.parse(trimmed) };
+        } catch {
+            throw new PlexApiError(
+                AppErrorCode.PARSE_ERROR,
+                'Unable to parse Plex response JSON payload',
+                undefined,
+                false
+            );
+        }
+    }
+
+    return { kind: 'text', data: text };
 }
 
 /**

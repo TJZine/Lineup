@@ -854,6 +854,98 @@ describe('PlaybackRecoveryManager', () => {
         );
     });
 
+    it('falls back to the program elapsed offset when the live position is not finite', async () => {
+        const { manager, resolver, player } = setup({
+            getCurrentStreamDecision: () => makeDecision({ isDirectPlay: true, isTranscoding: false }),
+        });
+        (player.getCurrentTimeMs as jest.Mock).mockReturnValue(NaN);
+
+        await manager.attemptAudioTrackReloadForCurrentProgram('audio-alt', 'audio_track_change');
+
+        expect(resolver.resolveStream).toHaveBeenCalledWith(
+            expect.objectContaining({
+                startOffsetMs: 5000,
+            })
+        );
+    });
+
+    it('waits for the transcode stop request before resolving the disable-burn-in reload', async () => {
+        let releaseStop!: () => void;
+        const stopPromise = new Promise<void>((resolve) => {
+            releaseStop = resolve;
+        });
+        const { manager, resolver } = setup({
+            getCurrentStreamDecision: () =>
+                makeDecision({
+                    protocol: 'hls',
+                    isDirectPlay: false,
+                    isTranscoding: true,
+                    sessionId: 'sess-burn',
+                    transcodeRequest: {
+                        sessionId: 'sess-burn',
+                        maxBitrate: 2000,
+                        subtitleStreamId: 'burn-1',
+                        subtitleMode: 'burn',
+                    },
+                } as Partial<StreamDecision>),
+        });
+        (resolver.stopTranscodeSession as jest.Mock).mockReturnValue(stopPromise);
+        (resolver.resolveStream as jest.Mock).mockResolvedValue(
+            makeDecision({
+                protocol: 'http',
+                isDirectPlay: true,
+                isTranscoding: false,
+            })
+        );
+
+        const pending = manager.attemptDisableBurnInSubtitlesForCurrentProgram('test');
+        await Promise.resolve();
+
+        expect(resolver.stopTranscodeSession).toHaveBeenCalledWith('sess-burn');
+        expect(resolver.resolveStream).not.toHaveBeenCalled();
+
+        releaseStop();
+        await pending;
+
+        expect(resolver.resolveStream).toHaveBeenCalledTimes(1);
+    });
+
+    it('suppresses repeated automatic burn-in recovery attempts after the first failure', async () => {
+        const { manager, resolver } = setup();
+        (resolver.resolveStream as jest.Mock).mockRejectedValue(new Error('burn-in failed'));
+
+        const first = await manager.attemptBurnInSubtitleForCurrentProgram(
+            'sub-keyless',
+            'subtitle_extract_failed:test'
+        );
+        const second = await manager.attemptBurnInSubtitleForCurrentProgram(
+            'sub-keyless',
+            'subtitle_extract_failed:test'
+        );
+
+        expect(first).toEqual({ outcome: 'failed' });
+        expect(second).toEqual({ outcome: 'ignored', reason: 'already_attempted' });
+        expect(resolver.resolveStream).toHaveBeenCalledTimes(1);
+    });
+
+    it('allows explicit user retries after a failed burn-in attempt', async () => {
+        const { manager, resolver } = setup();
+        (resolver.resolveStream as jest.Mock).mockRejectedValue(new Error('burn-in failed'));
+
+        const first = await manager.attemptBurnInSubtitleForCurrentProgram(
+            'sub-keyless',
+            'user_selected_burn_in_format'
+        );
+        const second = await manager.attemptBurnInSubtitleForCurrentProgram(
+            'sub-keyless',
+            'user_selected_burn_in_format'
+        );
+
+        expect(first).toEqual({ outcome: 'failed' });
+        expect(second).toEqual({ outcome: 'failed' });
+        expect(resolver.resolveStream).toHaveBeenCalledTimes(2);
+    });
+
     it('shows the unavailable warning when subtitle deactivation burn-in recovery fails', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 

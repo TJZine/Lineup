@@ -885,22 +885,23 @@ describe('PlexAuth', () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
             await auth.storeCredentials(createAuthData(testToken));
+            const payload = {
+                MediaContainer: {
+                    homeUsers: {
+                        HomeUser: [
+                            { id: '1', username: 'Admin', admin: true, hasPassword: true },
+                            { id: '2', title: 'Kid', admin: false, protected: false, restricted: true },
+                        ],
+                    },
+                },
+            };
 
             (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
                 ok: true,
                 status: 200,
                 headers: { get: () => 'application/json' },
-                json: async () => ({
-                    MediaContainer: {
-                        homeUsers: {
-                            HomeUser: [
-                                { id: '1', username: 'Admin', admin: true, hasPassword: true },
-                                { id: '2', title: 'Kid', admin: false, protected: false, restricted: true },
-                            ],
-                        },
-                    },
-                }),
-                text: async () => '{}',
+                json: async () => payload,
+                text: async () => JSON.stringify(payload),
             });
 
             const users = await auth.getHomeUsers();

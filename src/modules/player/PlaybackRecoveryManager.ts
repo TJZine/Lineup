@@ -88,6 +88,7 @@ type RecoveryDescriptorContext = RecoveryReloadContext & {
 type PreparedBurnInSubtitleRecovery = {
     context: RecoveryReloadContext;
     attemptKey: string;
+    recordAttemptBeforeReload: boolean;
 };
 
 export type AudioTrackReloadResult = RecoveryAttemptResult<'reloaded', RecoveryReloadIgnoredReason>;
@@ -180,7 +181,11 @@ export class PlaybackRecoveryManager {
 
     private _getRecoveryReloadOffset(program: ScheduledProgram, player: IVideoPlayer): number {
         const livePosition = player.getCurrentTimeMs();
-        const baseOffset = typeof livePosition === 'number' ? livePosition : program.elapsedMs;
+        const baseOffset = Number.isFinite(livePosition)
+            ? livePosition
+            : Number.isFinite(program.elapsedMs)
+                ? program.elapsedMs
+                : 0;
         return Math.max(0, Math.min(baseOffset, program.item.durationMs));
     }
 
@@ -804,8 +809,9 @@ export class PlaybackRecoveryManager {
             }),
             beforeResolve: () => {
                 if (currentDecision.isTranscoding && currentDecision.sessionId) {
-                    void context.resolver.stopTranscodeSession(currentDecision.sessionId);
+                    return context.resolver.stopTranscodeSession(currentDecision.sessionId);
                 }
+                return undefined;
             },
             buildRequest: ({ itemKey, clampedOffset, player }) => {
                 const activeAudioId = this._readPlayerState(player)?.activeAudioId ?? null;
@@ -855,13 +861,22 @@ export class PlaybackRecoveryManager {
         return {
             context,
             attemptKey,
+            recordAttemptBeforeReload: this._shouldRecordAutomaticBurnInAttempt(reason),
         };
+    }
+
+    private _shouldRecordAutomaticBurnInAttempt(reason: string): boolean {
+        return reason.startsWith('subtitle_extract_failed:');
     }
 
     private _executeBurnInSubtitleRecovery(
         trackId: string,
         prepared: PreparedBurnInSubtitleRecovery
     ): Promise<BurnInSubtitleRecoveryResult> {
+        if (prepared.recordAttemptBeforeReload) {
+            this._burnInAttemptedForItemKey.add(prepared.attemptKey);
+        }
+
         return this._executeRecoveryReload({
             context: prepared.context,
             successOutcome: 'burned_in',
