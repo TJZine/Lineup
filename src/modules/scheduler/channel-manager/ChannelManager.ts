@@ -1191,9 +1191,9 @@ export class ChannelManager implements IChannelManager {
         if (!Object.prototype.hasOwnProperty.call(record, 'isSequentialVariant')) {
             return { channel, didMutate: false };
         }
-        const { isSequentialVariant, ...rest } = record as ChannelConfig & Record<string, unknown>;
-        void isSequentialVariant;
-        return { channel: rest as ChannelConfig, didMutate: true };
+        const sanitized = { ...(record as ChannelConfig & Record<string, unknown>) };
+        delete sanitized.isSequentialVariant;
+        return { channel: sanitized as ChannelConfig, didMutate: true };
     }
 
     private _cloneResolvedContent(

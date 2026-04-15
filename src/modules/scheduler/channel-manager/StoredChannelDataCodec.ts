@@ -21,9 +21,9 @@ function stripLegacySequentialVariant(
         return { channel, didMutate: false };
     }
 
-    const { isSequentialVariant, ...rest } = record;
-    void isSequentialVariant;
-    return { channel: rest, didMutate: true };
+    const sanitized = { ...record };
+    delete sanitized.isSequentialVariant;
+    return { channel: sanitized, didMutate: true };
 }
 
 function sanitizeStoredChannels(channels: unknown): { channels: unknown[]; didMutate: boolean } {
