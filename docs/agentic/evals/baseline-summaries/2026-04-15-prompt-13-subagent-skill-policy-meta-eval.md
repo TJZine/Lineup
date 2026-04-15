@@ -22,7 +22,7 @@
 ## Codanna Fallback Log
 
 - fallback used: `no`
-- if yes: exact invocation, condition, and evidence captured
+- evidence for no-fallback:
   - Codanna-first discovery was sufficient for prompt `13`, local-only run-bundle rules, tracked durable-summary placement, and orchestration-tier guidance
 
 ## Fresh-Session Deviations

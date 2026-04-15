@@ -22,7 +22,7 @@
 ## Codanna Fallback Log
 
 - fallback used: `no`
-- if yes: exact invocation, condition, and evidence captured
+- evidence for no-fallback:
   - Codanna-first discovery was sufficient via focused repo-doc queries on prompt `19`, multi-agent delegation, role config, and repo-local subagent skills
   - targeted file reads and one scoped verifier search were inspection steps after discovery, not fallback
 

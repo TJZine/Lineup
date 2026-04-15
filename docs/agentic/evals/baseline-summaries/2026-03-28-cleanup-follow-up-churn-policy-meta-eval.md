@@ -23,6 +23,8 @@
 ## Codanna Fallback Log
 
 - fallback used: `no`
+- evidence for no-fallback:
+  - The workflow/control-plane update was completed from tracked repo evidence without any Codanna fallback invocation
 
 ## Fresh-Session Deviations
 
