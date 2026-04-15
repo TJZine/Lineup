@@ -11,8 +11,8 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, `P4-EXIT`, `P5-W1`, `P5-W2`, `P5-EXIT`, `P6-W1`, `P6-W2`, `P6-EXIT`, `P7-W1`, `P7-W2`, `P7-EXIT`, `P8-W1`, and `P8-W2` completed on integration-branch evidence
-- Next safe start: `P8-EXIT`
+- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, `P4-EXIT`, `P5-W1`, `P5-W2`, `P5-EXIT`, `P6-W1`, `P6-W2`, `P6-EXIT`, `P7-W1`, `P7-W2`, `P7-EXIT`, `P8-W1`, `P8-W2`, and `P8-EXIT` completed on integration-branch evidence
+- Next safe start: `P9-W1`
 - Legacy note: `docs/plans/2026-04-02-p3-w1-channel-setup-workflow-owner.md` predates the `2026-04-10` checklist refresh and is historical planning context, not the active `P3-W1` gate token
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
 - Recent update log:
@@ -33,6 +33,7 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
   - `2026-04-14`: completed `P7-W1` playback recovery/error propagation cleanup (runtime `AppErrorCode` validation now has canonical helpers in `src/types/app-errors.ts`, `PlaybackRecoveryManager` routes audio/direct-to-transcode/burn-in/disable-burn-in reloads through one private executor with explicit result contracts, bounded orchestrator/UI callers distinguish `ignored` from `failed`, and Media Session `play()` failures now surface through the throttled warning path), reran focused player/orchestrator/playback-options suites, `npm run verify`, source-audit `rg` checks, and refreshed `desloppify` evidence with stale-detector reconciliation notes
   - `2026-04-15`: completed `P7-EXIT` priority-exit reconciliation (all seven mapped imported `P7` issue ids remained resolved on current-source proof, the subtitle-deactivation seam is now source-audit clean with `_buildStreamDescriptor()` wiring callbacks only, `SubtitleManager` owning handled-deactivation dispatch plus unavailable fallback, and `PlaybackRecoveryManager` retaining the player-owned burn-in recovery helpers, and no `P7` follow-up owner remains), reran the exact `P7` issue-id commands, refreshed scan/status evidence, reran the player/lifecycle verification commands, and ran `npm run verify` plus `npm run verify:docs`
   - `2026-04-15`: completed `P8-W2` bounded template-docblock and architecture-reference refresh (removed template header/signature-restating commentary from the scoped live auth/player files, updated `modules.md` to match `CURRENT_STATE.md` plus current source for `src/Orchestrator.ts` and the server-selection split, and recorded the remaining repo-wide template-ceremony/detector-lag closeout path under `P8-EXIT`), reran `npm run typecheck` plus `npm run verify:docs`
+  - `2026-04-15`: completed `P8-EXIT` priority-exit reconciliation (`diagnostic_payload_dump_logging` and `architecture_reference_drift` stayed resolved on current-source proof despite stale imported wording, the scoped `templated_docblock_ceremony` anchors remained resolved while broader repo-wide header residue was handed to one exact `P10-W1` owner, and security triage stayed outside Priority 8 scope), reran the exact `P8` issue-id commands, refreshed scan/status/queue evidence, reran the scoped detector/source audits, and reran `npm run verify` plus `npm run verify:docs`
 
 ## Goal
 
@@ -607,11 +608,42 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
     - none; stale detector wording remains detector lag only and no live `P7` residual owner was proven on current source
   - Handoff: `P7 complete on current integration-branch evidence; P8-W1 may begin`
 
-- [ ] `P8-EXIT`
+- [x] `P8-EXIT`
   - required: record every mapped imported issue with an exact disposition
   - run the priority-exit review before moving to `P9`
   - refresh every `P8` issue id, the `P8` detector envelopes, `desloppify status`, `desloppify plan queue`, `npm run verify`, and `npm run verify:docs`
   - confirm one single final owner for any `P8` issue that still needs a follow-up
+  - Status: completed
+  - Plan: `none (priority-exit reconciliation recorded directly in this checklist)`
+  - Last touched: `2026-04-15`
+  - Mapped imported issues:
+    - `review::.::holistic::ai_generated_debt::diagnostic_payload_dump_logging` -> `resolved` (`desloppify show ... --status all` still reports stale `2026-04-10` evidence against removed `Diagnostics payload:` / `console.table(...)` output, but current `AppDiagnosticsSurface` now emits bounded summary fields only and the focused `P8-W1` tests plus full `npm run verify` stayed green)
+    - `review::.::holistic::ai_generated_debt::templated_docblock_ceremony` -> `split follow-up` (`desloppify show ... --status all` still points at a deleted auth helper anchor plus scoped player files already cleaned in `P8-W2`, but a fresh repo-wide `@fileoverview|@module|@version` census still finds live production header residue outside this bounded Priority 8 slice; no narrower `P9` owner was proven, so the one remaining owner is `P10-W1 residual mechanical detector owner`)
+    - `review::.::holistic::high_level_elegance::architecture_reference_drift` -> `resolved` (`desloppify show ... --status all` still reports stale pre-refresh EPG-specific evidence, but current `modules.md`, `CURRENT_STATE.md`, `src/Orchestrator.ts`, and the server-selection owners now agree on the runtime barrel and `SelectedServerRuntimeController` side-effect split)
+  - Verification:
+    - `desloppify scan --path .` refreshed (`overall 83.1 / strict 83.1 / objective 94.8 / verified 94.8`; open global `398`; `security: clean (333 files scanned)`; duplication detection warned that `jscpd` exited with errors, so duplication-specific output remains non-blocking supporting context rather than `P8` closeout proof)
+    - `desloppify status` refreshed (`overall 83.1 / strict 83.1 / objective 94.8 / verified 94.8`; queue note remained `1 item (51 stale tracked · 1 subjective)`)
+    - `desloppify show review --status open` returned `No open issues matching: review`
+    - `desloppify plan queue` refreshed (`Queue: 1 item (51 planned · 1 subjective)`)
+    - `desloppify show "review::.::holistic::ai_generated_debt::diagnostic_payload_dump_logging" --status all` still reports the imported row, but its evidence remains stale `2026-04-10` line references rather than any live `AppDiagnosticsSurface` spam
+    - `desloppify show "review::.::holistic::ai_generated_debt::templated_docblock_ceremony" --status all` still reports the imported row, but it now cites deleted/scoped anchors while the fresh repo-wide header census below is the only live residual proof
+    - `desloppify show "review::.::holistic::high_level_elegance::architecture_reference_drift" --status all` still reports the imported row, but it remains stale against current docs/source alignment
+    - `desloppify show src/core/app-shell --status open --no-budget --top 100` shows only non-slice residual issues in `AppOrchestratorConfigFactory.ts`, `AppContainerFactory.ts`, `AppStartupUiInitializer.ts`, and `AppScreenVisibilityCoordinator.ts`
+    - `desloppify show logs --status open --no-budget --top 50` shows only unrelated tagged-log findings outside `AppDiagnosticsSurface.ts`
+    - `desloppify show README.md --status open --no-budget --top 50` returned `No open issues matching: README.md`
+    - `rg -n "console\\.table|Diagnostics payload:" src/core/app-shell/AppDiagnosticsSurface.ts` returned no matches
+    - `rg -n "@fileoverview|@module|@version" src --glob '!**/__tests__/**'` still finds broader repo-wide production header residue outside the scoped `P8-W2` auth/player files
+    - `rg -n "thin public runtime entry barrel|SelectedServerRuntimeController|result shaping" docs/architecture/CURRENT_STATE.md docs/architecture/modules.md` returned the refreshed ownership text for `src/Orchestrator.ts` and the server-selection split
+    - `rg -n "lineup_debug_epg_log|EPGDebugRuntime|debugRuntimeGuards" docs/architecture/modules.md docs/architecture/CURRENT_STATE.md src/modules/ui/epg/EPGDebugRuntime.ts src/modules/ui/epg/debugRuntimeGuards.ts` confirmed the prior EPG-specific imported evidence is stale on current docs/source
+    - `npm run verify` passed
+    - `npm run verify:docs` passed
+  - Security triage: `no open P0 security findings`; the fresh scan reported `security: clean (333 files scanned)`, and the refreshed `desloppify show security --status open --no-budget --top 50` output listed only three non-`P8` T3 import-cycle issues (`OrchestratorCoordinatorBuilders.ts`, `ChannelSetupSessionController.ts`, `NowPlayingInfoCoordinator.ts`)
+  - Follow-ups:
+    - `followup::p8-exit::template-docblock-residual`
+      owner: `P10-W1 residual mechanical detector owner`
+      reason: the exact `P8` auth/player/doc-drift slice is resolved on current source, but the repo-wide production-header census still shows live template comment residue outside the scoped `P8-W2` files, so the remaining debt is one owned later cleanup envelope rather than a new `P9` or second `P8` successor.
+      revisit trigger: rerun `desloppify show "review::.::holistic::ai_generated_debt::templated_docblock_ceremony" --status open --no-budget` + `rg -n "@fileoverview|@module|@version" src --glob '!**/__tests__/**'` + `desloppify show src/modules/player --status open --no-budget --top 150` + `desloppify show src/modules/plex --status open --no-budget --top 150` at `P10-W1` entry and before `P10-EXIT`; keep `P9` free of this residual unless current source proves a narrower earlier owner.
+  - Handoff: `P8 complete on current integration-branch evidence; P9-W1 may begin after the normal cleanup plan/review workflow`
 
 - [ ] `P9-EXIT`
   - required: record every mapped imported issue with an exact disposition and the final detector-only test debt that remains, if any
@@ -1534,6 +1566,13 @@ This pass is intentionally last. Earlier architectural work should retire a larg
   - source exit: `P5-EXIT`
   - exact issue id: `review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes`
   - required commands: `desloppify show "review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes" --status open --no-budget`; `rg -n "readDtsPassthroughEnabled\\(|readDirectPlayAudioFallbackEnabled\\(|readAudioSetupComplete\\(|readDebugLoggingEnabled\\(|readSubtitleDebugLoggingEnabled\\(|readCinematicNowPlayingEnabled\\(|readPreferClearLogosEnabled\\(|readClampedAutoHideMs\\(|readShowProfilePickerOnStartup\\(|readKeepPlayingInSettings\\(|readLastProfileId\\(|readSubtitleMode\\(|readSubtitlePreferForced\\(|readSubtitleLanguage\\(|readTheme\\(|readNowPlayingStreamDebugEnabled\\(|readNowPlayingStreamDebugAutoShowEnabled\\(|readEpgDebugEnabled\\(|readTranscodeProfileName\\(" src/modules/settings/AudioSettingsStore.ts src/modules/settings/DeveloperSettingsStore.ts src/modules/settings/NowPlayingDisplayStore.ts src/modules/settings/ProfileSessionStore.ts src/modules/settings/SubtitlePreferencesStore.ts src/modules/settings/ThemePreferencesStore.ts src/modules/debug/DebugOverridesStore.ts src/bootstrap.ts src/modules/player src/modules/ui src/core src/__tests__`; `desloppify show src/modules/settings --status open --no-budget --top 100`; `desloppify show src/modules/debug --status open --no-budget --top 100`
+
+**Inherited follow-ups from `P8-EXIT` (must be explicitly dispositioned in this work item):**
+
+- `followup::p8-exit::template-docblock-residual`
+  - source exit: `P8-EXIT`
+  - exact issue id: `review::.::holistic::ai_generated_debt::templated_docblock_ceremony`
+  - required commands: `desloppify show "review::.::holistic::ai_generated_debt::templated_docblock_ceremony" --status open --no-budget`; `rg -n "@fileoverview|@module|@version" src --glob '!**/__tests__/**'`; `desloppify show src/modules/player --status open --no-budget --top 150`; `desloppify show src/modules/plex --status open --no-budget --top 150`
 
 ### [ ] `P10-EXIT` Overall Closeout Gate
 
