@@ -1,6 +1,10 @@
 import { BURN_IN_SUBTITLE_FORMATS } from '../../modules/player/constants';
 import type { IVideoPlayer, StreamDescriptor } from '../../modules/player';
-import type { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryManager';
+import type {
+    AudioTrackReloadResult,
+    BurnInSubtitleRecoveryResult,
+    PlaybackRecoveryManager,
+} from '../../modules/player/PlaybackRecoveryManager';
 import type { StreamDecision } from '../../modules/plex/stream';
 import { subtitleModeAllowsBurnIn, type SubtitleMode } from '../../shared/subtitle-mode';
 
@@ -45,8 +49,8 @@ export class SubtitleTrackRecoveryController {
         }
 
         void reloadPromise
-            .then((ok) => {
-                if (!ok) {
+            .then((result: AudioTrackReloadResult) => {
+                if (result.outcome === 'failed') {
                     warnAudioReloadFailed();
                 }
             })
@@ -132,8 +136,8 @@ export class SubtitleTrackRecoveryController {
 
         if (burnInAttempt) {
             void burnInAttempt
-                .then((ok) => {
-                    if (!ok) {
+                .then((result: BurnInSubtitleRecoveryResult) => {
+                    if (result.outcome === 'failed') {
                         this._deps.appendIssueDiagnostic({
                             key: 'orchestrator.subtitleTrackChange.burnInFailure',
                             data: {

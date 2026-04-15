@@ -1197,6 +1197,30 @@ describe('VideoPlayer', () => {
                 );
             });
 
+            it('logs a warning when the Media Session play handler rejects', async () => {
+                const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+                await player.loadStream(createMockDescriptor());
+
+                const videoElement = container.querySelector('video')!;
+                (videoElement.play as jest.Mock).mockRejectedValueOnce(new Error('play failed'));
+
+                player.requestMediaSession();
+
+                const playHandler = mockMediaSession.handlers.get('play');
+                if (!playHandler) {
+                    throw new Error('play handler not installed');
+                }
+
+                playHandler({});
+                await Promise.resolve();
+                await Promise.resolve();
+
+                expect(warnSpy).toHaveBeenCalledWith(
+                    '[VideoPlayer] MediaSession action failed:',
+                    expect.objectContaining({ action: 'play' })
+                );
+            });
+
             it('should clear handlers and metadata on releaseMediaSession', async () => {
                 await player.loadStream(createMockDescriptor({
                     mediaMetadata: { title: 'Test', durationMs: 1000 },

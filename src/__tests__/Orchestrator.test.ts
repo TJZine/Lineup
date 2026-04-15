@@ -1847,7 +1847,7 @@ describe('AppOrchestrator', () => {
             const setSubtitleTrackSpy = jest.spyOn(orchestrator, 'setSubtitleTrack').mockResolvedValue(undefined);
             const burnInSpy = jest
                 .spyOn(PlaybackRecoveryManager.prototype, 'attemptBurnInSubtitleForCurrentProgram')
-                .mockResolvedValue(true);
+                .mockResolvedValue({ outcome: 'burned_in' });
             try {
                 mockVideoPlayer.getAvailableSubtitles.mockReturnValue([{ id: 'sub-1', format: 'ass' }]);
 
@@ -1877,7 +1877,7 @@ describe('AppOrchestrator', () => {
             const setSubtitleTrackSpy = jest.spyOn(orchestrator, 'setSubtitleTrack').mockResolvedValue(undefined);
             const burnInSpy = jest
                 .spyOn(PlaybackRecoveryManager.prototype, 'attemptBurnInSubtitleForCurrentProgram')
-                .mockResolvedValue(true);
+                .mockResolvedValue({ outcome: 'burned_in' });
             try {
                 mockVideoPlayer.getAvailableSubtitles.mockReturnValue([{ id: 'sub-1', format: 'ass' }]);
 

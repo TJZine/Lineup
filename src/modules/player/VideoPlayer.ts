@@ -996,7 +996,9 @@ export class VideoPlayer implements IVideoPlayer {
 
             switch (action) {
                 case 'play':
-                    void this.play().catch(() => { /* swallow */ });
+                    void this.play().catch((error: unknown) => {
+                        this._warnMediaSessionActionFailure('play', error);
+                    });
                     break;
 
                 case 'pause':

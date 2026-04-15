@@ -11,6 +11,7 @@ import type {
     PlaybackOptionsSectionId,
 } from './types';
 import type { IVideoPlayer } from '../../player';
+import type { BurnInSubtitleRecoveryResult } from '../../player/PlaybackRecoveryManager';
 import type { ScheduledProgram } from '../../scheduler/scheduler';
 import type { SubtitleTrack } from '../../player/types';
 import { BURN_IN_SUBTITLE_FORMATS } from '../../player/constants';
@@ -39,7 +40,10 @@ interface PlaybackOptionsCoordinatorDeps {
     getVideoPlayer: () => IVideoPlayer | null;
     getCurrentStreamDescriptor?: () => StreamDescriptor | null;
     getCurrentProgram: () => ScheduledProgram | null;
-    requestBurnInSubtitle?: (trackId: string, reason: string) => boolean | Promise<boolean>;
+    requestBurnInSubtitle?: (
+        trackId: string,
+        reason: string
+    ) => BurnInSubtitleRecoveryResult | Promise<BurnInSubtitleRecoveryResult>;
     notifyToast?: (message: string, type?: ToastType) => void;
     subtitlePreferencesStore?: SubtitlePreferencesStore;
 }
@@ -378,8 +382,8 @@ export class PlaybackOptionsCoordinator {
         this.deps.notifyToast?.('Loading burn-in subtitles…', 'info');
         try {
             void Promise.resolve(request(trackId, reason))
-                .then((ok) => {
-                    if (ok === false) {
+                .then((result) => {
+                    if (result.outcome === 'failed') {
                         this.deps.notifyToast?.('Failed to load burn-in subtitles', 'warning');
                     }
                 })
