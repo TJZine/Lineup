@@ -1500,7 +1500,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
   - `P9-W2` is the single final owner for broader remaining prototype-spy and detector-lag cleanup outside this bounded slice, including residual review evidence that still references repo-wide test debt such as `src/__tests__/Orchestrator.test.ts`
 - Handoff: run `lineup-cleanup-review` for `P9-W1` implementation evidence; `P9-W2` remains the next checklist owner for broader test-only detector debt
 
-### [ ] `P9-W2` Burn Down Remaining Test-Only Detector Debt
+### [x] `P9-W2` Burn Down Remaining Test-Only Detector Debt
 
 **Mapped imported review issues:**
 
@@ -1521,6 +1521,29 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify show src/modules --status open --no-budget --top 250`
 
 **Exit rule:** test debt no longer blocks clean refactors or leaves startup/channel-setup/player seams unprotected.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-15-p9-w2-test-detector-burndown.md`
+- Last touched: `2026-04-15`
+- Verification:
+  - `npm test -- --runInBand src/core/orchestrator/__tests__/OrchestratorCoordinatorAssembly.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorBuilders.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorFactory.playbackState.test.ts src/__tests__/Orchestrator.test.ts` passed
+  - `npm test -- --runInBand src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupSessionState.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupSessionRuntime.test.ts src/modules/ui/channel-setup/steps/__tests__/BuildProgressStepController.test.ts src/modules/ui/channel-setup/steps/__tests__/BuildReviewStepController.test.ts src/modules/ui/channel-setup/steps/__tests__/LibraryStepController.test.ts src/modules/ui/channel-setup/steps/__tests__/StrategyStepController.test.ts` passed
+  - `npm test -- --runInBand src/__tests__/index.test.ts src/config/__tests__/timing.test.ts src/modules/ui/settings/__tests__/SettingsToggle.test.ts src/modules/ui/epg/model/__tests__/adapters.test.ts src/shared/__tests__/subtitle-formats.test.ts src/shared/__tests__/subtitle-mode.test.ts src/utils/__tests__/formatAudioLabel.test.ts src/utils/__tests__/mediaFormat.test.ts` passed
+  - `desloppify scan --path .` completed; `desloppify status` reported `Last scan: 2026-04-15T16:14:52+00:00`, `Scores: overall 83.1 / objective 94.8 / strict 83.1 / verified 94.8`, and `Security 99.6%`
+  - `desloppify show signature --status open --no-budget --top 50` reported no open issues
+  - `desloppify show test_coverage --status open --no-budget --top 100` still reported `27` open `transitive_only` / `untested_module` rows even after the current-source direct-suite refresh
+  - `desloppify show src/__tests__ --status open --no-budget --top 200` reported no open issues under `src/__tests__`
+  - `desloppify show src/core --status open --no-budget --top 200` and `desloppify show src/modules/ui/channel-setup --status open --no-budget --top 200` still reported the detector-lag `test_coverage` rows plus non-test smell/cycle residue outside this slice
+  - `desloppify show security --status open --no-budget --top 50` reported only the known T3 import-cycle rows (`OrchestratorCoordinatorBuilders.ts`, `ChannelSetupSessionController.ts`, `NowPlayingInfoCoordinator.ts`); no open `P0` security findings were reported
+  - `npm run typecheck` passed
+  - `npm run verify` passed
+- Follow-ups:
+  - resolved by direct P9-W2 suites on current-source proof: `src/index.ts`, `src/config/timing.ts`, `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts`, `src/core/orchestrator/OrchestratorCoordinatorBuilders.ts`, `src/modules/ui/channel-setup/ChannelSetupSessionState.ts`, `src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts`, `src/modules/ui/channel-setup/steps/BuildReviewStepController.ts`, `src/modules/ui/channel-setup/steps/LibraryStepController.ts`, `src/modules/ui/channel-setup/steps/StrategyStepController.ts`, `src/modules/ui/epg/model/adapters.ts`, `src/modules/ui/settings/SettingsToggle.ts`, `src/shared/subtitle-formats.ts`, `src/shared/subtitle-mode.ts`, `src/utils/formatAudioLabel.ts`, and `src/utils/mediaFormat.ts`
+  - current-source detector mismatch with existing direct tests remains explicit for `src/core/app-shell/AppOrchestratorConfigFactory.ts`, `src/core/channel-setup/ChannelSetupTagFilters.ts`, `src/core/server-selection/SelectedServerRuntimeController.ts`, `src/modules/player/ErrorHandler.ts`, and `src/modules/player/subtitleFallbackPipeline.ts`
+  - type-only / detector-limitation residue remains explicit for `src/core/orchestrator/OverlayPorts.ts`, `src/core/server-selection/ServerSelectionTypes.ts`, and `src/modules/ui/epg/model/domainTypes.ts`
+  - lower-priority residual `test_coverage` rows still open after the slice refresh: `src/core/orchestrator/OrchestratorEventCleanupReporter.ts`, `src/modules/plex/auth/plexAuthPayloadParsers.ts`, `src/modules/plex/shared/fetchWithTimeoutCore.ts`, `src/modules/plex/stream/hdr.ts`, and `src/modules/plex/stream/plexSessionId.ts`
+  - `P9-EXIT` remains the single final owner for any remaining Priority 9 detector-mismatch or type-only residue; do not hand these rows to `P10` without fresh source proof that the remaining live seam is no longer Priority 9-owned
+- Handoff: run `lineup-cleanup-review` on the P9-W2 implementation evidence, then use `P9-EXIT` to disposition the remaining detector-lag/type-only matrix before any `P10` planning starts
 
 ## Priority 10: Residual Detector Burn-Down And Overall Exit
 
