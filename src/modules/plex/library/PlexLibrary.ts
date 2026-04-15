@@ -18,7 +18,7 @@ import type {
     PlexTagDirectoryUnsupportedReason,
 } from './interfaces';
 import type {
-    PlexLibrary as PlexLibraryType,
+    PlexLibrarySection,
     PlexMediaItem,
     PlexSeason,
     PlexCollection,
@@ -83,7 +83,7 @@ const INTERACTIVE_REQUEST_POLICY = {
 type PrivateRequestProfile = 'default' | 'interactive';
 
 type LibrarySectionsLookupSource =
-    | { kind: 'available'; libraries: PlexLibraryType[] }
+    | { kind: 'available'; libraries: PlexLibrarySection[] }
     | { kind: 'unavailable'; error: PlexLibraryError };
 
 const resolveRequestProfileForIntent = (
@@ -240,7 +240,7 @@ export class PlexLibrary implements IPlexLibrary {
         signal?: AbortSignal | null;
         includeItemCounts?: boolean;
         itemCountConcurrency?: number;
-    }): Promise<PlexLibraryType[]> {
+    }): Promise<PlexLibrarySection[]> {
         this._ensureCacheScope();
         const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTIONS);
         const response = await this._fetchWithRetry<PlexMediaContainer<RawLibrarySection>>(url, { signal: options?.signal ?? null });
@@ -334,7 +334,7 @@ export class PlexLibrary implements IPlexLibrary {
      * @param libraryId - Library section ID
      * @returns Promise resolving to library or null when not found in a valid section list
      */
-    async getLibrary(libraryId: string): Promise<PlexLibraryType | null> {
+    async getLibrary(libraryId: string): Promise<PlexLibrarySection | null> {
         this._ensureCacheScope();
         // Check cache first
         const cached = this._state.libraryCache.get(libraryId);

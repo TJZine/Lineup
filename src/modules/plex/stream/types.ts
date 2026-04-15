@@ -5,19 +5,14 @@
  */
 
 import { AppErrorCode } from '../../../types/app-errors';
-import type { PlexStream, PlexMediaPart, PlexMediaFile } from '../shared/types';
+import type { PlexStream, PlexMediaPart, PlexMediaFile, PlexMediaType } from '../shared/types';
 
 // ============================================
 // Shared Types (repo-local)
 // These types are maintained in-repo for runtime use.
 // ============================================
 
-/**
- * Plex media item types
- */
-export type PlexMediaType = 'movie' | 'show' | 'episode' | 'track' | 'clip';
-
-export type { PlexStream, PlexMediaPart, PlexMediaFile };
+export type { PlexStream, PlexMediaPart, PlexMediaFile, PlexMediaType };
 
 /**
  * A media item from Plex (movie, episode, etc.)

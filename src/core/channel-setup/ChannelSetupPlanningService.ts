@@ -1,7 +1,7 @@
 import type { IChannelManager } from '../../modules/scheduler/channel-manager';
 import type {
     IPlexLibrary,
-    PlexLibraryType,
+    PlexLibrarySection,
 } from '../../modules/plex/library';
 import { getPlexRequestIntentForChannelSetup } from '../../modules/plex/library';
 import type {
@@ -54,7 +54,7 @@ export class ChannelSetupPlanningService {
         this._facetSnapshotLoader = new ChannelSetupFacetSnapshotLoader(this._deps);
     }
 
-    async getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibraryType[]> {
+    async getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibrarySection[]> {
         const libraries = await this._deps.plexLibrary.getLibraries({
             signal: signal ?? null,
             includeItemCounts: true,
@@ -188,7 +188,7 @@ export class ChannelSetupPlanningService {
 
     async buildSetupPlan(
         config: ChannelSetupConfig,
-        libraries: PlexLibraryType[],
+        libraries: PlexLibrarySection[],
         signal: AbortSignal | null,
         intent: ChannelSetupPlanningIntent,
         reportProgress?: (

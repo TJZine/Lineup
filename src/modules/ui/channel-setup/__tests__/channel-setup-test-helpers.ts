@@ -1,4 +1,4 @@
-import type { PlexLibrary as PlexLibraryModel } from '../../../plex/library/types';
+import type { PlexLibrarySection as PlexLibraryModel } from '../../../plex/library/types';
 import type { FocusableElement, KeyEvent } from '../../../navigation/interfaces';
 import { PLEX_DISCOVERY_CONSTANTS } from '../../../plex/discovery/constants';
 import type { ChannelSetupWorkflowPort } from '../../../../core/channel-setup/ChannelSetupWorkflowPort';

@@ -4,7 +4,7 @@
 
 import { ChannelSetupScreen } from '../ChannelSetupScreen';
 import type { StrategyStepMutableState } from '../ChannelSetupSessionController';
-import type { PlexLibrary } from '../../../plex/library/types';
+import type { PlexLibrarySection } from '../../../plex/library/types';
 import type { INavigationManager } from '../../../navigation/interfaces';
 import { MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
 import { DEFAULT_MIN_ITEMS_PER_CHANNEL, SETUP_STRATEGY_KEYS } from '../../../../core/channel-setup/constants';
@@ -45,8 +45,8 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        let resolveLibraries: (libraries: PlexLibrary[]) => void = () => undefined;
-        const librariesPromise = new Promise<PlexLibrary[]>((resolve) => {
+        let resolveLibraries: (libraries: PlexLibrarySection[]) => void = () => undefined;
+        const librariesPromise = new Promise<PlexLibrarySection[]>((resolve) => {
             resolveLibraries = resolve;
         });
 
@@ -252,8 +252,8 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        let resolveLibraries: ((libraries: PlexLibrary[]) => void) | undefined;
-        const librariesPromise = new Promise<PlexLibrary[]>((resolve) => {
+        let resolveLibraries: ((libraries: PlexLibrarySection[]) => void) | undefined;
+        const librariesPromise = new Promise<PlexLibrarySection[]>((resolve) => {
             resolveLibraries = resolve;
         });
 
@@ -281,8 +281,8 @@ describe('ChannelSetupScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
-        let resolveLibraries: ((libraries: PlexLibrary[]) => void) | undefined;
-        const librariesPromise = new Promise<PlexLibrary[]>((resolve) => {
+        let resolveLibraries: ((libraries: PlexLibrarySection[]) => void) | undefined;
+        const librariesPromise = new Promise<PlexLibrarySection[]>((resolve) => {
             resolveLibraries = resolve;
         });
 

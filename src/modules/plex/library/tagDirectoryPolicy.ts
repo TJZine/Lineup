@@ -1,5 +1,5 @@
 import { PLEX_MEDIA_TYPES } from './constants';
-import type { PlexLibrary as PlexLibraryType } from './types';
+import type { PlexLibrarySection } from './types';
 
 export type PlexTagDirectoryMediaTypes = {
     genreType: number;
@@ -7,7 +7,7 @@ export type PlexTagDirectoryMediaTypes = {
 };
 
 export function getTagDirectoryMediaTypesForLibraryType(
-    libraryType: PlexLibraryType['type']
+    libraryType: PlexLibrarySection['type']
 ): PlexTagDirectoryMediaTypes {
     if (libraryType === 'show') {
         return {

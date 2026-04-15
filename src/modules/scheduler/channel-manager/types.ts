@@ -5,6 +5,7 @@
  */
 
 import type { AppErrorCode } from '../../lifecycle/types';
+import type { PlexMediaType } from '../../plex/shared/types';
 
 // ============================================
 // Playback & Filter Types
@@ -65,10 +66,7 @@ export type SortOrder =
     | 'duration_asc' | 'duration_desc'
     | 'episode_order';
 
-/**
- * Plex media item types
- */
-export type PlexMediaType = 'movie' | 'show' | 'episode' | 'track' | 'clip';
+export type { PlexMediaType };
 
 // ============================================
 // Content Filter

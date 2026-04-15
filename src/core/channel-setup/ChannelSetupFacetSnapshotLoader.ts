@@ -1,6 +1,6 @@
 import type {
     IPlexLibrary,
-    PlexLibraryType,
+    PlexLibrarySection,
     PlexTagDirectoryItem,
     PlexPlaylist,
     PlexCollection,
@@ -152,7 +152,7 @@ export class ChannelSetupFacetSnapshotLoader {
 
     async loadSnapshot(
         config: ChannelSetupConfig,
-        libraries: PlexLibraryType[],
+        libraries: PlexLibrarySection[],
         intent: ChannelSetupPlanningIntent,
         options: ChannelSetupFacetSnapshotWaitOptions
     ): Promise<ChannelSetupFacetSnapshot> {
@@ -330,7 +330,7 @@ export class ChannelSetupFacetSnapshotLoader {
 
     private async _loadSnapshotUncached(
         config: ChannelSetupConfig,
-        libraries: PlexLibraryType[],
+        libraries: PlexLibrarySection[],
         signal: AbortSignal | null,
         requestIntent: ChannelSetupPlexRequestIntent,
         snapshotAbortController: AbortController,
@@ -649,7 +649,7 @@ export class ChannelSetupFacetSnapshotLoader {
 
             const selectedLibraryQueue = selectedLibraries
                 .map((library, index) => ({ library, index }))
-                .filter((entry): entry is { library: PlexLibraryType; index: number } => entry.library !== undefined);
+                .filter((entry): entry is { library: PlexLibrarySection; index: number } => entry.library !== undefined);
             const workerCount = Math.min(MAX_FACET_LIBRARY_CONCURRENCY, selectedLibraryQueue.length);
             const libraryWorkers = Array.from({ length: workerCount }, async (): Promise<ChannelSetupFacetSnapshot | null> => {
                 while (selectedLibraryQueue.length > 0) {

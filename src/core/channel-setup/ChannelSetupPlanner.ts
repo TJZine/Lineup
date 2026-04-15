@@ -12,7 +12,7 @@ import type {
 import { DEFAULT_MIN_ITEMS_PER_CHANNEL, DEFAULT_STRATEGY_PRIORITIES } from './constants';
 import { DEFAULT_CHANNEL_SETUP_MAX } from '../../modules/scheduler/channel-manager/constants';
 import type {
-    PlexLibraryType,
+    PlexLibrarySection,
     PlexCollection,
     PlexPlaylist,
     PlexTagDirectoryItem,
@@ -43,7 +43,7 @@ export type PendingChannel = {
 
 interface ChannelSetupPlanInput {
     config: ChannelSetupConfig;
-    libraries: PlexLibraryType[];
+    libraries: PlexLibrarySection[];
     playlists: PlexPlaylist[];
     collectionsByLibraryId: Map<string, PlexCollection[]>;
     genresByLibraryId: Map<string, PlexTagDirectoryItem[]>;
@@ -1027,7 +1027,7 @@ function buildTagFilter(tag: PlexTagDirectoryItem, type: 'actor' | 'studio'): Re
 }
 
 function combineTagSources(
-    libraries: PlexLibraryType[],
+    libraries: PlexLibrarySection[],
     tagsByLibraryId: Map<string, PlexTagDirectoryItem[]>,
     type: 'actor' | 'studio'
 ): Array<{ key: string; title: string; totalCount: number; hasUnknownCount: boolean; sources: ChannelConfig['contentSource'][] }> {
@@ -1074,7 +1074,7 @@ function combineTagSources(
 }
 
 function buildFacetCountDiagnostics(
-    library: PlexLibraryType,
+    library: PlexLibrarySection,
     tags: PlexTagDirectoryItem[],
     minItems: number
 ): ChannelSetupPlannerFacetCountDiagnostics {
@@ -1107,7 +1107,7 @@ function buildFacetCountDiagnostics(
 }
 
 function buildDecadeFacetCountDiagnostics(
-    library: PlexLibraryType,
+    library: PlexLibrarySection,
     yearTags: PlexTagDirectoryItem[],
     minItems: number
 ): ChannelSetupPlannerFacetCountDiagnostics {
@@ -1156,7 +1156,7 @@ function buildDecadeFacetCountDiagnostics(
 }
 
 function createPlannerDiagnostics(
-    selectedLibraries: PlexLibraryType[],
+    selectedLibraries: PlexLibrarySection[],
     genresByLibraryId: Map<string, PlexTagDirectoryItem[]>,
     directorsByLibraryId: Map<string, PlexTagDirectoryItem[]>,
     yearsByLibraryId: Map<string, PlexTagDirectoryItem[]>,

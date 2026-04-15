@@ -5,6 +5,11 @@
  */
 
 /**
+ * Plex media item types shared across library, stream, and scheduler boundaries.
+ */
+export type PlexMediaType = 'movie' | 'show' | 'episode' | 'track' | 'clip';
+
+/**
  * A stream within a media file.
  */
 export interface PlexStream {

@@ -5,31 +5,23 @@
  */
 
 import { AppErrorCode } from '../../../types/app-errors';
-import type { PlexMediaFile } from '../shared/types';
+import type { PlexMediaFile, PlexMediaType } from '../shared/types';
 
 // ============================================
 // Shared Types (repo-local)
 // These types are maintained in-repo for runtime use.
 // ============================================
 
-/**
- * Plex library section types
- */
-export type PlexLibraryType = 'movie' | 'show' | 'artist' | 'photo';
-
-/**
- * Plex media item types
- */
-export type PlexMediaType = 'movie' | 'show' | 'episode' | 'track' | 'clip';
+export type PlexLibrarySectionType = 'movie' | 'show' | 'artist' | 'photo';
 
 /**
  * A library section in Plex
  */
-export interface PlexLibrary {
+export interface PlexLibrarySection {
     id: string;
     uuid: string;
     title: string;
-    type: PlexLibraryType;
+    type: PlexLibrarySectionType;
     agent: string;
     scanner: string;
     contentCount: number | null;
@@ -84,7 +76,7 @@ export interface PlexMediaItem {
 /**
  * Shared media file/part/stream types.
  */
-export type { PlexMediaFile, PlexMediaPart, PlexStream } from '../shared/types';
+export type { PlexMediaFile, PlexMediaPart, PlexStream, PlexMediaType } from '../shared/types';
 
 /**
  * A TV show season
@@ -200,7 +192,7 @@ export interface PlexLibraryState {
  * Cache entry for a library.
  */
 interface LibraryCacheEntry {
-    library: PlexLibrary;
+    library: PlexLibrarySection;
     cachedAt: number;
 }
 
