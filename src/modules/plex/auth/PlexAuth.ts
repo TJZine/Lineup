@@ -46,6 +46,22 @@ import { fetchWithTimeout } from '../shared/fetchWithTimeout';
 export { PlexApiError } from './plexAuthTransport';
 export { AppErrorCode } from '../../lifecycle/types';
 
+function isAbortError(error: unknown): error is Error {
+    return (
+        typeof error === 'object' &&
+        error !== null &&
+        'name' in error &&
+        (error as { name?: unknown }).name === 'AbortError'
+    );
+}
+
+function throwIfAborted(signal: AbortSignal | null | undefined): void {
+    if (!signal?.aborted) {
+        return;
+    }
+    throw signal.reason ?? new DOMException('Aborted', 'AbortError');
+}
+
 /**
  * Plex Authentication implementation.
  * Handles PIN-based OAuth flow, token storage, and credential lifecycle.
@@ -205,7 +221,7 @@ export class PlexAuth implements IPlexAuth {
 
     /**
      * Verify a token is still valid by calling Plex API.
-     * Returns false only for explicit auth-invalid responses and timeout.
+     * Returns false only for explicit auth-invalid responses.
      * @param token - Plex auth token to validate
      * @returns true if token is valid, false otherwise
      */
@@ -283,9 +299,13 @@ export class PlexAuth implements IPlexAuth {
                 false
             );
         } catch (error) {
-            // Return false only on timeout (AbortError); throw on network errors
-            if (error instanceof Error && error.name === 'AbortError') {
-                return false;
+            if (isAbortError(error)) {
+                throw new PlexApiError(
+                    AppErrorCode.NETWORK_TIMEOUT,
+                    'Token validation timed out',
+                    undefined,
+                    true
+                );
             }
             if (error instanceof PlexApiError) {
                 throw error;
@@ -410,6 +430,7 @@ export class PlexAuth implements IPlexAuth {
                 continue;
             }
             try {
+                throwIfAborted(options?.signal);
                 const init: RequestInit = {
                     method: 'GET',
                     headers: headers,
@@ -420,6 +441,7 @@ export class PlexAuth implements IPlexAuth {
                     timeoutMs: PLEX_AUTH_CONSTANTS.REQUEST_TIMEOUT_MS,
                     upstreamSignal: options?.signal ?? null,
                 });
+                throwIfAborted(options?.signal);
 
                 if (response.status === 401) {
                     throw new PlexApiError(
@@ -464,6 +486,9 @@ export class PlexAuth implements IPlexAuth {
                 }
                 return [];
             } catch (error) {
+                if (isAbortError(error) || options?.signal?.aborted) {
+                    throw error;
+                }
                 if (error instanceof PlexApiError) {
                     // For auth errors, bail immediately.
                     if (error.code === AppErrorCode.AUTH_REQUIRED || error.code === AppErrorCode.AUTH_INVALID) {
@@ -482,6 +507,9 @@ export class PlexAuth implements IPlexAuth {
         }
 
         if (lastError) {
+            if (isAbortError(lastError) || options?.signal?.aborted) {
+                throw lastError;
+            }
             if (lastError instanceof PlexApiError) {
                 throw lastError;
             }
@@ -534,6 +562,7 @@ export class PlexAuth implements IPlexAuth {
         for (const url of endpoints) {
             let pinValidationFailure: unknown = null;
             try {
+                throwIfAborted(options?.signal);
                 const init: RequestInit = {
                     method: 'POST',
                     headers: headers,
@@ -544,6 +573,7 @@ export class PlexAuth implements IPlexAuth {
                     timeoutMs: PLEX_AUTH_CONSTANTS.REQUEST_TIMEOUT_MS,
                     upstreamSignal: options?.signal ?? null,
                 });
+                throwIfAborted(options?.signal);
 
                 if (response.status === 401) {
                     if (pinValue) {
@@ -611,6 +641,9 @@ export class PlexAuth implements IPlexAuth {
 
                 break;
             } catch (error) {
+                if (isAbortError(error) || options?.signal?.aborted) {
+                    throw error;
+                }
                 if (error === pinValidationFailure) {
                     throw error;
                 }
@@ -630,6 +663,9 @@ export class PlexAuth implements IPlexAuth {
         }
 
         if (!response) {
+            if (isAbortError(lastError) || options?.signal?.aborted) {
+                throw lastError;
+            }
             if (lastError instanceof PlexApiError) {
                 throw lastError;
             }
@@ -643,7 +679,7 @@ export class PlexAuth implements IPlexAuth {
 
         const payload = await readPlexResponse(response);
         const parsed = parseSwitchResponsePayload(payload);
-        const userToken = await this._fetchUserProfile(parsed.authToken);
+        const userToken = await this._fetchUserProfile(parsed.authToken, options?.signal ?? null);
 
         if (
             this._credentialsEpoch !== epoch ||
@@ -749,10 +785,19 @@ export class PlexAuth implements IPlexAuth {
     // Private helpers
     // ========================================
 
-    private async _fetchUserProfile(token: string): Promise<PlexAuthToken> {
+    private async _fetchUserProfile(
+        token: string,
+        signal: AbortSignal | null = null
+    ): Promise<PlexAuthToken> {
+        throwIfAborted(signal);
         const url = PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL + PLEX_AUTH_CONSTANTS.USER_ENDPOINT;
         const headers = buildRequestHeaders(this._state.config, token);
-        const response = await fetchWithRetry(url, { method: 'GET', headers: headers });
+        const response = await fetchWithRetry(url, {
+            method: 'GET',
+            headers: headers,
+            ...(signal ? { signal } : {}),
+        });
+        throwIfAborted(signal);
         const data = await response.json();
         return parseUserResponse(data, token);
     }

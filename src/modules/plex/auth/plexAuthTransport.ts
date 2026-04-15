@@ -124,6 +124,15 @@ function createNetworkError(): PlexApiError {
     );
 }
 
+function isAbortError(error: unknown): error is Error {
+    return (
+        typeof error === 'object' &&
+        error !== null &&
+        'name' in error &&
+        (error as { name?: unknown }).name === 'AbortError'
+    );
+}
+
 /**
  * Fetch with retry logic and exponential backoff.
  * @param url - URL to fetch
@@ -137,11 +146,11 @@ export async function fetchWithRetry(
 ): Promise<Response> {
     let lastError: Error = new Error('Unknown error');
     let delay = PLEX_AUTH_CONSTANTS.RETRY_DELAY_MS;
+    const externalSignal = options.signal ?? null;
 
     for (let attempt = 0; attempt < PLEX_AUTH_CONSTANTS.RETRY_ATTEMPTS; attempt++) {
         try {
             const controller = new AbortController();
-            const externalSignal = options.signal ?? null;
             const onAbort = (): void => {
                 try {
                     controller.abort();
@@ -176,6 +185,9 @@ export async function fetchWithRetry(
             handleResponseStatus(response);
             return response;
         } catch (error) {
+            if (externalSignal?.aborted && isAbortError(error)) {
+                throw error;
+            }
             if (error instanceof PlexApiError && !error.retryable) {
                 throw error;
             }

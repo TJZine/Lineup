@@ -307,7 +307,7 @@ describe('PlexAuth', () => {
             }
         });
 
-        it('should return false when token validation times out', async () => {
+        it('should throw NETWORK_TIMEOUT when token validation times out', async () => {
             jest.useFakeTimers();
             try {
                 const auth = new PlexAuth(mockConfig);
@@ -329,8 +329,11 @@ describe('PlexAuth', () => {
                 );
 
                 const promise = auth.validateToken('slow-token');
+                const rejection = expect(promise).rejects.toMatchObject({
+                    code: 'NETWORK_TIMEOUT',
+                });
                 await jest.advanceTimersByTimeAsync(PLEX_AUTH_CONSTANTS.TOKEN_VALIDATION_TIMEOUT_MS + 50);
-                await expect(promise).resolves.toBe(false);
+                await rejection;
             } finally {
                 jest.useRealTimers();
             }
@@ -966,6 +969,31 @@ describe('PlexAuth', () => {
             expect(String(fetchMock.mock.calls[1][0])).toBe('https://plex.tv/api/home/users');
         });
 
+        it('propagates AbortError when getHomeUsers is cancelled by the caller', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const controller = new AbortController();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                (_url: string, options?: RequestInit) =>
+                    new Promise((_resolve, reject) => {
+                        const signal = options?.signal as AbortSignal | undefined;
+                        if (!signal) {
+                            return;
+                        }
+                        signal.addEventListener('abort', () => {
+                            reject(new DOMException('Aborted', 'AbortError'));
+                        }, { once: true });
+                    })
+            );
+
+            const request = auth.getHomeUsers({ signal: controller.signal });
+            controller.abort();
+
+            await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+        });
+
         it('should build switch URL with pin query param', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
@@ -1151,6 +1179,71 @@ describe('PlexAuth', () => {
             await expect(auth.switchHomeUser('2', { pin: '1234' })).rejects.toMatchObject({
                 code: 'SERVER_UNREACHABLE',
             });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it('propagates AbortError when switchHomeUser is cancelled before the switch request completes', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const controller = new AbortController();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                (_url: string, options?: RequestInit) =>
+                    new Promise((_resolve, reject) => {
+                        const signal = options?.signal as AbortSignal | undefined;
+                        if (!signal) {
+                            return;
+                        }
+                        signal.addEventListener('abort', () => {
+                            reject(new DOMException('Aborted', 'AbortError'));
+                        }, { once: true });
+                    })
+            );
+
+            const request = auth.switchHomeUser('2', { signal: controller.signal });
+            controller.abort();
+
+            await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+        });
+
+        it('propagates AbortError when switchHomeUser is cancelled during profile fetch', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const controller = new AbortController();
+            let notifySecondFetchStarted: (() => void) | null = null;
+            const secondFetchStarted = new Promise<void>((resolve) => {
+                notifySecondFetchStarted = resolve;
+            });
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ authToken: 'switched-token' }),
+                    text: async () => JSON.stringify({ authToken: 'switched-token' }),
+                })
+                .mockImplementationOnce((_url: string, options?: RequestInit) =>
+                    new Promise((_resolve, reject) => {
+                        notifySecondFetchStarted?.();
+                        const signal = options?.signal as AbortSignal | undefined;
+                        if (!signal) {
+                            return;
+                        }
+                        signal.addEventListener('abort', () => {
+                            reject(new DOMException('Aborted', 'AbortError'));
+                        }, { once: true });
+                    })
+                );
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            const request = auth.switchHomeUser('2', { signal: controller.signal });
+            await secondFetchStarted;
+            controller.abort();
+
+            await expect(request).rejects.toMatchObject({ name: 'AbortError' });
             expect(fetchMock).toHaveBeenCalledTimes(2);
         });
 
