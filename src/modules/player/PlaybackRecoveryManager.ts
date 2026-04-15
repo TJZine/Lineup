@@ -913,6 +913,12 @@ export class PlaybackRecoveryManager {
         return subtitleModeAllowsBurnIn(this._readSubtitleMode());
     }
 
+    private _isHandledIgnoredSubtitleRecovery(
+        result: BurnInSubtitleRecoveryResult
+    ): boolean {
+        return result.outcome === 'ignored' && result.reason === 'already_burned_in';
+    }
+
     private async _recoverSubtitleDeactivation(
         trackId: string,
         reason: string
@@ -922,7 +928,7 @@ export class PlaybackRecoveryManager {
             `subtitle_extract_failed:${reason}`
         );
         if ('outcome' in prepared) {
-            return prepared.outcome === 'failed' ? 'failed' : 'handled';
+            return this._isHandledIgnoredSubtitleRecovery(prepared) ? 'handled' : 'failed';
         }
 
         this.deps.notifyToast?.('Subtitles failed to load. Trying burn-in…', 'info');

@@ -946,7 +946,7 @@ describe('PlaybackRecoveryManager', () => {
         expect(resolver.resolveStream).toHaveBeenCalledTimes(2);
     });
 
-    it('shows the unavailable warning when subtitle deactivation burn-in recovery fails', async () => {
+    it('does not notify subtitle unavailable when subtitle deactivation burn-in recovery fails', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
         const keylessText: PlexStream = {
@@ -988,6 +988,52 @@ describe('PlaybackRecoveryManager', () => {
 
         expect(notifyToast).toHaveBeenCalledWith('Subtitles failed to load. Trying burn-in…', 'info');
         expect(recoveryResult).toBe('failed');
+        expect(notifySubtitleUnavailable).not.toHaveBeenCalled();
+    });
+
+    it('returns failed when automatic subtitle deactivation recovery is ignored after a prior attempt', async () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const keylessText: PlexStream = {
+            id: 'sub-keyless',
+            streamType: 3,
+            language: 'English',
+            languageCode: 'en',
+            codec: 'srt',
+            format: 'srt',
+            forced: false,
+            default: true,
+            title: 'Keyless',
+        };
+        const directDecision = makeDecision({
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+            availableSubtitleStreams: [keylessText],
+        });
+
+        const notifyToast = jest.fn();
+        const notifySubtitleUnavailable = jest.fn();
+        const { manager, resolver } = setup({ notifyToast, notifySubtitleUnavailable });
+        (resolver.resolveStream as jest.Mock)
+            .mockResolvedValueOnce(directDecision)
+            .mockRejectedValueOnce(new Error('burn-in failed'));
+
+        const stream = await manager.resolveStreamForProgram(makeProgram());
+
+        const firstRecoveryResult = await stream.subtitleContext?.onDeactivateRecovery?.({
+            trackId: 'sub-keyless',
+            reason: 'subtitle_text_fetch_failed',
+        });
+        const secondRecoveryResult = await stream.subtitleContext?.onDeactivateRecovery?.({
+            trackId: 'sub-keyless',
+            reason: 'subtitle_text_fetch_failed',
+        });
+
+        expect(firstRecoveryResult).toBe('failed');
+        expect(secondRecoveryResult).toBe('failed');
+        expect(notifyToast).toHaveBeenCalledTimes(1);
+        expect(resolver.resolveStream).toHaveBeenCalledTimes(2);
         expect(notifySubtitleUnavailable).not.toHaveBeenCalled();
     });
 

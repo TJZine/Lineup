@@ -608,7 +608,11 @@ export class SubtitleManager {
     }
 
     private _notifySubtitleUnavailable(): void {
-        const handler = this._subtitleContext?.onUnavailable;
+        this._notifySubtitleUnavailableForContext(this._subtitleContext);
+    }
+
+    private _notifySubtitleUnavailableForContext(context: SubtitleTrackContext | null): void {
+        const handler = context?.onUnavailable;
         if (handler) {
             handler();
         }
@@ -639,18 +643,19 @@ export class SubtitleManager {
     }
 
     private _recoverHandledSubtitleDeactivation(trackId: string, reason: string): void {
-        const handler = this._subtitleContext?.onDeactivateRecovery;
+        const capturedContext = this._subtitleContext;
+        const handler = capturedContext?.onDeactivateRecovery;
         if (!handler) {
             return;
         }
         void Promise.resolve(handler({ trackId, reason }))
             .then((result) => {
                 if (result === 'failed') {
-                    this._notifySubtitleUnavailable();
+                    this._notifySubtitleUnavailableForContext(capturedContext);
                 }
             })
             .catch(() => {
-                this._notifySubtitleUnavailable();
+                this._notifySubtitleUnavailableForContext(capturedContext);
             });
     }
 
