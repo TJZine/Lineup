@@ -157,10 +157,14 @@ When tracked docs conflict, use this order:
 
 ## Multi-Agent Usage (Optional)
 
-Use Codex multi-agent support only when it improves reliability for non-critical-path sidecars; do not replace the default Tier 1/Tier 2/Tier 3 workflow with “always multi-agent”.
+Use Codex multi-agent support only when it materially improves reliability, throughput, or both. The allowed patterns are optional sidecars that stay off the immediate critical path and explicitly bounded worker slices governed by `bounded-worker-execution`; do not replace the default Tier 1/Tier 2/Tier 3 workflow with “always multi-agent”.
 
 - Keep immediate critical-path work local when the very next action depends on it.
-- Delegate independent sidecars such as targeted exploration, adversarial review, docs verification, bounded disjoint implementation slices, or long waits/polling.
+- Delegate independent sidecars such as targeted exploration, adversarial review, docs verification, or long waits/polling.
+- Delegate bounded disjoint implementation slices only when `bounded-worker-execution` applies and the main session still owns integration plus final verification.
+- Use repo-local skills to keep delegation rules explicit:
+  - use `parallel-sidecars` for optional read-only or monitoring sidecars
+  - use `bounded-worker-execution` only for approved, disjoint worker slices with explicit write ownership
 - Treat the tracked role config as canonical for the role catalog and defaults:
   - `.codex/config.toml`
   - `.codex/agents/*.toml`
@@ -179,6 +183,10 @@ Use Codex multi-agent support only when it improves reliability for non-critical
   - local storage, settings, selected server state, channel persistence
 - `plex-integration-boundaries`
   - Plex auth, discovery, library, stream, subtitle, playback-URL work
+- `parallel-sidecars`
+  - optional sidecars such as exploration, adversarial review, docs checks, and waits that should not take over the critical path
+- `bounded-worker-execution`
+  - approved-plan worker slices with disjoint write scopes and controller-owned integration
 - `model-selection`
   - explicit "which model should I use?" requests and high-risk handoffs that need a model recommendation for the next session
 
