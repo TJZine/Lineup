@@ -845,7 +845,8 @@ export class PlaybackRecoveryManager {
         }
 
         const attemptKey = `${context.itemKey}::${trackId}`;
-        if (this._burnInAttemptedForItemKey.has(attemptKey)) {
+        const recordAttemptBeforeReload = this._shouldRecordAutomaticBurnInAttempt(reason);
+        if (recordAttemptBeforeReload && this._burnInAttemptedForItemKey.has(attemptKey)) {
             return { outcome: 'ignored', reason: 'already_attempted' };
         }
 
@@ -861,7 +862,7 @@ export class PlaybackRecoveryManager {
         return {
             context,
             attemptKey,
-            recordAttemptBeforeReload: this._shouldRecordAutomaticBurnInAttempt(reason),
+            recordAttemptBeforeReload,
         };
     }
 

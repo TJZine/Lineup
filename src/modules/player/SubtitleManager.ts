@@ -648,7 +648,8 @@ export class SubtitleManager {
         if (!handler) {
             return;
         }
-        void Promise.resolve(handler({ trackId, reason }))
+        void Promise.resolve()
+            .then(() => handler({ trackId, reason }))
             .then((result) => {
                 if (result === 'failed') {
                     this._notifySubtitleUnavailableForContext(capturedContext);

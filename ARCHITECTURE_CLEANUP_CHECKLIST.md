@@ -11,8 +11,8 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, `P4-EXIT`, `P5-W1`, `P5-W2`, `P5-EXIT`, `P6-W1`, `P6-W2`, `P6-EXIT`, `P7-W1`, `P7-W2`, and `P7-EXIT` completed on integration-branch evidence
-- Next safe start: `P8-W1`
+- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, `P4-EXIT`, `P5-W1`, `P5-W2`, `P5-EXIT`, `P6-W1`, `P6-W2`, `P6-EXIT`, `P7-W1`, `P7-W2`, `P7-EXIT`, `P8-W1`, `P8-W2`, `P8-EXIT`, `P9-W1`, `P9-W2`, and `P9-EXIT` completed on integration-branch evidence
+- Next safe start: `P10-W1`
 - Legacy note: `docs/plans/2026-04-02-p3-w1-channel-setup-workflow-owner.md` predates the `2026-04-10` checklist refresh and is historical planning context, not the active `P3-W1` gate token
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
 - Recent update log:
@@ -32,6 +32,9 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
   - `2026-04-14`: completed `P6-EXIT` priority-exit reconciliation (all eight mapped imported `P6` issue ids remained resolved on current-source proof, `P6-W1` stayed closed, the `P6-W2` seam closures held with no compatibility aliases or constructor re-resolution, stale deleted-file auth detector residue was assigned to `P10-W1`, exact live P6 mechanical residue was assigned to `P10-W1`, and security triage stayed outside Priority 6 scope), reran the exact `P6` issue-id commands, refreshed package/status/queue/security evidence, and reran `npm run verify` plus `npm run verify:docs`
   - `2026-04-14`: completed `P7-W1` playback recovery/error propagation cleanup (runtime `AppErrorCode` validation now has canonical helpers in `src/types/app-errors.ts`, `PlaybackRecoveryManager` routes audio/direct-to-transcode/burn-in/disable-burn-in reloads through one private executor with explicit result contracts, bounded orchestrator/UI callers distinguish `ignored` from `failed`, and Media Session `play()` failures now surface through the throttled warning path), reran focused player/orchestrator/playback-options suites, `npm run verify`, source-audit `rg` checks, and refreshed `desloppify` evidence with stale-detector reconciliation notes
   - `2026-04-15`: completed `P7-EXIT` priority-exit reconciliation (all seven mapped imported `P7` issue ids remained resolved on current-source proof, the subtitle-deactivation seam is now source-audit clean with `_buildStreamDescriptor()` wiring callbacks only, `SubtitleManager` owning handled-deactivation dispatch plus unavailable fallback, and `PlaybackRecoveryManager` retaining the player-owned burn-in recovery helpers, and no `P7` follow-up owner remains), reran the exact `P7` issue-id commands, refreshed scan/status evidence, reran the player/lifecycle verification commands, and ran `npm run verify` plus `npm run verify:docs`
+  - `2026-04-15`: completed `P8-W2` bounded template-docblock and architecture-reference refresh (removed template header/signature-restating commentary from the scoped live auth/player files, updated `modules.md` to match `CURRENT_STATE.md` plus current source for `src/Orchestrator.ts` and the server-selection split, and recorded the remaining repo-wide template-ceremony/detector-lag closeout path under `P8-EXIT`), reran `npm run typecheck` plus `npm run verify:docs`
+  - `2026-04-15`: completed `P8-EXIT` priority-exit reconciliation (`diagnostic_payload_dump_logging` and `architecture_reference_drift` stayed resolved on current-source proof despite stale imported wording, the scoped `templated_docblock_ceremony` anchors remained resolved while broader repo-wide header residue was handed to one exact `P10-W1` owner, and security triage stayed outside Priority 8 scope), reran the exact `P8` issue-id commands, refreshed scan/status/queue evidence, reran the scoped detector/source audits, and reran `npm run verify` plus `npm run verify:docs`
+  - `2026-04-15`: completed `P9-EXIT` priority-exit reconciliation (`private_api_test_coupling` is now retired on current source, `Orchestrator.test.ts` retains only the AppOrchestrator-owned `ensureEPGInitialized()` callback-path proof while focused coordinator owner suites cover builder/assembly seams, all remaining Priority 9 detector rows were dispositioned in-place as detector mismatch, orchestrator-helper residue, or type-only limitation, and only lower-priority Plex helper coverage rows were handed to one exact `P10-W1` owner), reran the exact `P9` evidence matrix, refreshed scan/status/queue/security evidence, reran the targeted P9 suites, and reran `npm run verify` plus `npm run verify:docs`
 
 ## Goal
 
@@ -606,17 +609,83 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
     - none; stale detector wording remains detector lag only and no live `P7` residual owner was proven on current source
   - Handoff: `P7 complete on current integration-branch evidence; P8-W1 may begin`
 
-- [ ] `P8-EXIT`
+- [x] `P8-EXIT`
   - required: record every mapped imported issue with an exact disposition
   - run the priority-exit review before moving to `P9`
   - refresh every `P8` issue id, the `P8` detector envelopes, `desloppify status`, `desloppify plan queue`, `npm run verify`, and `npm run verify:docs`
   - confirm one single final owner for any `P8` issue that still needs a follow-up
+  - Status: completed
+  - Plan: `none (priority-exit reconciliation recorded directly in this checklist)`
+  - Last touched: `2026-04-15`
+  - Mapped imported issues:
+    - `review::.::holistic::ai_generated_debt::diagnostic_payload_dump_logging` -> `resolved` (`desloppify show ... --status all` still reports stale `2026-04-10` evidence against removed `Diagnostics payload:` / `console.table(...)` output, but current `AppDiagnosticsSurface` now emits bounded summary fields only and the focused `P8-W1` tests plus full `npm run verify` stayed green)
+    - `review::.::holistic::ai_generated_debt::templated_docblock_ceremony` -> `split follow-up` (`desloppify show ... --status all` still points at a deleted auth helper anchor plus scoped player files already cleaned in `P8-W2`, but a fresh repo-wide `@fileoverview|@module|@version` census still finds live production header residue outside this bounded Priority 8 slice; no narrower `P9` owner was proven, so the one remaining owner is `P10-W1 residual mechanical detector owner`)
+    - `review::.::holistic::high_level_elegance::architecture_reference_drift` -> `resolved` (`desloppify show ... --status all` still reports stale pre-refresh EPG-specific evidence, but current `modules.md`, `CURRENT_STATE.md`, `src/Orchestrator.ts`, and the server-selection owners now agree on the runtime barrel and `SelectedServerRuntimeController` side-effect split)
+  - Verification:
+    - `desloppify scan --path .` refreshed (`overall 83.1 / strict 83.1 / objective 94.8 / verified 94.8`; open global `398`; `security: clean (333 files scanned)`; duplication detection warned that `jscpd` exited with errors, so duplication-specific output remains non-blocking supporting context rather than `P8` closeout proof)
+    - `desloppify status` refreshed (`overall 83.1 / strict 83.1 / objective 94.8 / verified 94.8`; queue note remained `1 item (51 stale tracked · 1 subjective)`)
+    - `desloppify show review --status open` returned `No open issues matching: review`
+    - `desloppify plan queue` refreshed (`Queue: 1 item (51 planned · 1 subjective)`)
+    - `desloppify show "review::.::holistic::ai_generated_debt::diagnostic_payload_dump_logging" --status all` still reports the imported row, but its evidence remains stale `2026-04-10` line references rather than any live `AppDiagnosticsSurface` spam
+    - `desloppify show "review::.::holistic::ai_generated_debt::templated_docblock_ceremony" --status all` still reports the imported row, but it now cites deleted/scoped anchors while the fresh repo-wide header census below is the only live residual proof
+    - `desloppify show "review::.::holistic::high_level_elegance::architecture_reference_drift" --status all` still reports the imported row, but it remains stale against current docs/source alignment
+    - `desloppify show src/core/app-shell --status open --no-budget --top 100` shows only non-slice residual issues in `AppOrchestratorConfigFactory.ts`, `AppContainerFactory.ts`, `AppStartupUiInitializer.ts`, and `AppScreenVisibilityCoordinator.ts`
+    - `desloppify show logs --status open --no-budget --top 50` shows only unrelated tagged-log findings outside `AppDiagnosticsSurface.ts`
+    - `desloppify show README.md --status open --no-budget --top 50` returned `No open issues matching: README.md`
+    - `rg -n "console\\.table|Diagnostics payload:" src/core/app-shell/AppDiagnosticsSurface.ts` returned no matches
+    - `rg -n "@fileoverview|@module|@version" src --glob '!**/__tests__/**'` still finds broader repo-wide production header residue outside the scoped `P8-W2` auth/player files
+    - `rg -n "thin public runtime entry barrel|SelectedServerRuntimeController|result shaping" docs/architecture/CURRENT_STATE.md docs/architecture/modules.md` returned the refreshed ownership text for `src/Orchestrator.ts` and the server-selection split
+    - `rg -n "lineup_debug_epg_log|EPGDebugRuntime|debugRuntimeGuards" docs/architecture/modules.md docs/architecture/CURRENT_STATE.md src/modules/ui/epg/EPGDebugRuntime.ts src/modules/ui/epg/debugRuntimeGuards.ts` confirmed the prior EPG-specific imported evidence is stale on current docs/source
+    - `npm run verify` passed
+    - `npm run verify:docs` passed
+  - Security triage: `no open P0 security findings`; the fresh scan reported `security: clean (333 files scanned)`, and the refreshed `desloppify show security --status open --no-budget --top 50` output listed only three non-`P8` T3 import-cycle issues (`OrchestratorCoordinatorBuilders.ts`, `ChannelSetupSessionController.ts`, `NowPlayingInfoCoordinator.ts`)
+  - Follow-ups:
+    - `followup::p8-exit::template-docblock-residual`
+      owner: `P10-W1 residual mechanical detector owner`
+      reason: the exact `P8` auth/player/doc-drift slice is resolved on current source, but the repo-wide production-header census still shows live template comment residue outside the scoped `P8-W2` files, so the remaining debt is one owned later cleanup envelope rather than a new `P9` or second `P8` successor.
+      revisit trigger: rerun `desloppify show "review::.::holistic::ai_generated_debt::templated_docblock_ceremony" --status open --no-budget` + `rg -n "@fileoverview|@module|@version" src --glob '!**/__tests__/**'` + `desloppify show src/modules/player --status open --no-budget --top 150` + `desloppify show src/modules/plex --status open --no-budget --top 150` at `P10-W1` entry and before `P10-EXIT`; keep `P9` free of this residual unless current source proves a narrower earlier owner.
+  - Handoff: `P8 complete on current integration-branch evidence; P9-W1 may begin after the normal cleanup plan/review workflow`
 
-- [ ] `P9-EXIT`
+- [x] `P9-EXIT`
   - required: record every mapped imported issue with an exact disposition and the final detector-only test debt that remains, if any
   - run the priority-exit review before moving to `P10`
   - refresh every `P9` issue id, the `P9` detector envelopes, `desloppify status`, `desloppify plan queue`, and the strongest test verification used by the closing slice
   - confirm one single final owner for any `P9` issue or residual detector debt that still needs a follow-up
+  - Status: completed
+  - Plan: `none (priority-exit reconciliation recorded directly in this checklist)`
+  - Last touched: `2026-04-15`
+  - Mapped imported issues:
+    - `review::.::holistic::test_strategy::private_api_test_coupling` -> `resolved` (`desloppify show ... --status all` still reports stale legacy evidence against `playback-flow.test.ts` and umbrella prototype spying, but current source no longer contains the private helper access retired in `P9-W1`, `App.test.ts` remains on the public-port allowlist only, and `Orchestrator.test.ts` now limits assembly interception to the AppOrchestrator-owned `ensureEPGInitialized()` callback path while focused coordinator owner suites cover the builder/assembly seams)
+  - Verification:
+    - `desloppify scan --path .` refreshed (`Last scan: 2026-04-15T17:12:23+00:00`; `overall 83.1 / objective 94.8 / strict 83.1 / verified 94.8`; `Security 99.6%`; duplication detection warned that `jscpd` exited with errors, so duplication-specific output remains supporting context rather than `P9` closeout proof)
+    - `desloppify status` refreshed (`Queue: 1 item (51 stale tracked · 1 subjective)`; `open (global): 401`)
+    - `desloppify plan queue` refreshed (`Queue: 1 item (51 planned · 1 subjective)`)
+    - `desloppify show signature --status open --no-budget --top 50` returned `No open issues matching: signature`
+    - `desloppify show test_coverage --status open --no-budget --top 100` still reported `27` open rows, including the explicit `P9` residual matrix and the lower-priority Plex helper rows below
+    - `desloppify show security --status open --no-budget --top 50` reported only the known T3 import-cycle rows (`OrchestratorCoordinatorBuilders.ts`, `ChannelSetupSessionController.ts`, `NowPlayingInfoCoordinator.ts`); no open `P0` security findings were reported
+    - `desloppify show "review::.::holistic::test_strategy::private_api_test_coupling" --status all` still reports the imported review id, but its evidence is stale against current source
+    - `desloppify show src/__tests__ --status open --no-budget --top 200` returned `No open issues matching: src/__tests__`
+    - `desloppify show src/core --status open --no-budget --top 200` and `desloppify show src/modules/ui/channel-setup --status open --no-budget --top 200` still reported the explicit detector-lag rows plus non-test smell/cycle residue outside this exit
+    - `npm test -- --runInBand src/core/orchestrator/__tests__/OrchestratorCoordinatorAssembly.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorBuilders.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorFactory.playbackState.test.ts src/__tests__/Orchestrator.test.ts` passed
+    - `npm test -- --runInBand src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupSessionState.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupSessionRuntime.test.ts src/modules/ui/channel-setup/steps/__tests__/BuildProgressStepController.test.ts src/modules/ui/channel-setup/steps/__tests__/BuildReviewStepController.test.ts src/modules/ui/channel-setup/steps/__tests__/LibraryStepController.test.ts src/modules/ui/channel-setup/steps/__tests__/StrategyStepController.test.ts` passed
+    - `npm test -- --runInBand src/__tests__/index.test.ts src/config/__tests__/timing.test.ts src/modules/ui/settings/__tests__/SettingsToggle.test.ts src/modules/ui/epg/model/__tests__/adapters.test.ts src/shared/__tests__/subtitle-formats.test.ts src/shared/__tests__/subtitle-mode.test.ts src/utils/__tests__/formatAudioLabel.test.ts src/utils/__tests__/mediaFormat.test.ts` passed
+    - `npm test -- --runInBand src/core/app-shell/__tests__/AppOrchestratorConfigFactory.test.ts src/core/channel-setup/__tests__/ChannelSetupTagFilters.test.ts src/core/server-selection/__tests__/SelectedServerRuntimeController.test.ts src/modules/player/__tests__/ErrorHandler.test.ts src/modules/player/__tests__/subtitleFallbackPipeline.test.ts` passed
+    - `rg -nP "spyOn\\(AppOrchestrator\\.prototype, '(?!(initialize|start|shutdown|registerErrorHandler|setNowPlayingHandler|onScreenChange|onLifecycleEvent|getNavigation|getCurrentScreen|isReady|refreshPlaybackInfoSnapshot|getRecoveryActions)')" src/__tests__/App.test.ts` returned no matches
+    - `rg -n "_buildDailyScheduleConfig|as unknown as AppOrchestrator|private|spyOn\\(AppOrchestrator\\.prototype" src/__tests__/orchestrator/playback-flow.test.ts` returned no matches
+    - `npm run verify` passed
+    - `npm run verify:docs` passed
+  - Residuals:
+    - `test_coverage::src/core/app-shell/AppOrchestratorConfigFactory.ts::transitive_only`, `test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only`, `test_coverage::src/core/server-selection/SelectedServerRuntimeController.ts::transitive_only`, `test_coverage::src/modules/player/ErrorHandler.ts::transitive_only`, and `test_coverage::src/modules/player/subtitleFallbackPipeline.ts::transitive_only` -> `resolved on current-source proof in P9-EXIT`; direct owner tests already exist, passed on the refreshed branch evidence, and no fresh source audit justifies duplicating behavior coverage solely to satisfy stale detector wording
+    - `test_coverage::src/core/orchestrator/OrchestratorEventCleanupReporter.ts::transitive_only` -> `resolved in P9-EXIT as orchestrator-helper detector residue`; current source shows a tiny orchestrator-only type/summarizer seam imported by `OrchestratorEventBinder.ts`, `OrchestratorRuntimeSeams.ts`, and `AppOrchestrator.ts`, and no fresh source audit justifies inventing a new public or direct-test seam
+    - `test_coverage::src/core/orchestrator/OverlayPorts.ts::transitive_only`, `test_coverage::src/core/server-selection/ServerSelectionTypes.ts::transitive_only`, and `test_coverage::src/modules/ui/epg/model/domainTypes.ts::transitive_only` -> `resolved in P9-EXIT as type-only detector limitation`; these files are type-only contracts / picks / interfaces rather than live runtime seams needing new Priority 9 tests
+  - Security triage: `no open P0 security findings`; the refreshed security output reported only the three non-`P9` T3 import-cycle issues above
+  - Follow-ups:
+    - `followup::p9-exit::outside-priority-test-coverage-residual`
+      owner: `P10-W1 residual mechanical detector owner`
+      exact issue ids: `test_coverage::src/modules/plex/auth/plexAuthPayloadParsers.ts::transitive_only`, `test_coverage::src/modules/plex/shared/fetchWithTimeoutCore.ts::transitive_only`, `test_coverage::src/modules/plex/stream/hdr.ts::transitive_only`, `test_coverage::src/modules/plex/stream/plexSessionId.ts::transitive_only`
+      reason: these rows stayed open in the refreshed scan but remain outside Priority 9 startup/channel-setup/player/helper scope; `plexAuthPayloadParsers.ts` already has direct owner tests while `fetchWithTimeoutCore.ts`, `hdr.ts`, and `plexSessionId.ts` are lower-priority Plex helper coverage residue. No Priority 9-owned detector mismatch or type-only row is being transferred to `P10`.
+      revisit trigger: rerun `desloppify scan --path .` + `desloppify show test_coverage --status open --no-budget --top 100` + `desloppify show src/modules/plex/auth --status open --no-budget --top 150` + `desloppify show src/modules/plex/shared --status open --no-budget --top 100` + `desloppify show src/modules/plex/stream --status open --no-budget --top 150` at `P10-W1` entry and before `P10-EXIT`; keep the Priority 9 matrix closed unless fresh source proof shows a still-live earlier owner was missed.
+  - Handoff: `P9 complete on current integration-branch evidence; P10-W1 may begin for residual mechanical detector envelopes and inherited non-P9 follow-ups`
 
 ## Priority 0: Restore Queue Trust Before Chasing Score
 
@@ -1355,7 +1424,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 ## Priority 8: Remove Diagnostic Noise, Template Ceremony, And Doc Drift
 
-### [ ] `P8-W1` Replace Diagnostic Spam With Bounded Summaries
+### [x] `P8-W1` Replace Diagnostic Spam With Bounded Summaries
 
 **Mapped imported review issues:**
 
@@ -1372,7 +1441,22 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 **Exit rule:** diagnostics emit targeted summaries instead of object dumps and table spam.
 
-### [ ] `P8-W2` Remove Template Docblocks And Refresh Architecture Docs
+- Status: completed
+- Plan: `docs/plans/2026-04-15-p8-w1-diagnostic-summary-surface.md`
+- Last touched: `2026-04-15`
+- Verification:
+  - `npm test -- --runInBand src/core/app-shell/__tests__/AppDiagnosticsChannelSetupSummary.test.ts src/core/app-shell/__tests__/AppDiagnosticsSurface.test.ts` passed
+  - `npm run verify` passed
+  - `rg -n "console\\.table|Diagnostics payload:" src/core/app-shell/AppDiagnosticsSurface.ts` returned no matches
+  - `rg -n "dumpChannelSetupPlannerDiagnostics|dumpActiveChannelSetupPlannerDiagnostics" src/core/app-shell/AppDiagnosticsSurface.ts src/core/app-shell/__tests__/AppDiagnosticsSurface.test.ts` returned the expected helper entry points plus their contract coverage
+  - `desloppify show src/core/app-shell --status open --no-budget --top 100` shows only non-slice residual issues in `AppOrchestratorConfigFactory.ts`, `AppContainerFactory.ts`, `AppStartupUiInitializer.ts`, and `AppScreenVisibilityCoordinator.ts`
+  - `desloppify show logs --status open --no-budget --top 50` shows only unrelated tagged-log findings outside `AppDiagnosticsSurface.ts`
+  - `desloppify show "review::.::holistic::ai_generated_debt::diagnostic_payload_dump_logging" --status all` still reports the imported review id, but its evidence cites removed `Diagnostics payload:` / `console.table(...)` output at stale `AppDiagnosticsSurface.ts:197-209` line ranges rather than any live current-source spam
+- Follow-ups:
+  - `review::.::holistic::ai_generated_debt::diagnostic_payload_dump_logging` is resolved on current-source proof plus passing tests; the current `desloppify` row is stale detector wording and should stay detector-lag only unless a later refresh finds a new live owner
+- Handoff: `P8-W2` is now the next safe start for docblock and architecture-doc cleanup
+
+### [x] `P8-W2` Remove Template Docblocks And Refresh Architecture Docs
 
 **Mapped imported review issues:**
 
@@ -1381,7 +1465,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 **Primary files:**
 
-- `src/modules/plex/auth/helpers.ts`
+- `src/modules/plex/auth/interfaces.ts`
 - `src/modules/player/interfaces.ts`
 - `src/modules/player/VideoPlayer.ts`
 - `docs/architecture/CURRENT_STATE.md`
@@ -1394,9 +1478,23 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 **Exit rule:** architecture docs match runtime ownership and code comments keep only non-obvious contract detail.
 
+- Status: completed
+- Plan: `docs/plans/2026-04-15-p8-w2-template-docblock-and-architecture-doc-refresh.md`
+- Last touched: `2026-04-15`
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run verify:docs` passed
+  - `rg -n "@fileoverview|@module|@version|Video Player Interface|Plex Authentication Interface|Key features:" src/modules/plex/auth/interfaces.ts src/modules/player/interfaces.ts src/modules/player/VideoPlayer.ts` returned no matches
+  - `rg -n "thin public runtime entry barrel|SelectedServerRuntimeController|result shaping" docs/architecture/CURRENT_STATE.md docs/architecture/modules.md` returned the refreshed ownership text for `src/Orchestrator.ts` and the server-selection split
+  - `rg -n "EPGDebugRuntime|debugRuntimeGuards" docs/architecture/modules.md docs/architecture/CURRENT_STATE.md` continued to show the existing EPG debug-runtime ownership wording, confirming the prior detector evidence was stale rather than a live drift in current docs
+- Follow-ups:
+  - `review::.::holistic::ai_generated_debt::templated_docblock_ceremony` is resolved for this slice's live auth/player anchors; `P8-EXIT` owns the integration-branch detector refresh plus any broader residual template-header debt outside the scoped files
+  - `review::.::holistic::high_level_elegance::architecture_reference_drift` is resolved on current-source proof for `src/Orchestrator.ts` and the server-selection split; `P8-EXIT` owns final stale-detector reconciliation if the imported row still cites old wording
+- Handoff: run `lineup-cleanup-review` for `P8-W2` implementation evidence, then execute `P8-EXIT` before opening `P9-W1`
+
 ## Priority 9: Rebuild Test Seams Instead Of Fighting Them
 
-### [ ] `P9-W1` Remove Private-API Test Coupling
+### [x] `P9-W1` Remove Private-API Test Coupling
 
 **Mapped imported review issues:**
 
@@ -1416,7 +1514,29 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 **Exit rule:** tests assert stable public seams instead of private helpers, prototype spying, or brittle internal structure.
 
-### [ ] `P9-W2` Burn Down Remaining Test-Only Detector Debt
+- Status: completed
+- Plan: `docs/plans/2026-04-15-p9-w1-private-api-test-seams.md`
+- Last touched: `2026-04-15`
+- Verification:
+  - `npm test -- --runInBand src/modules/player/__tests__/SubtitleManager.test.ts src/modules/player/__tests__/subtitleFallbackPipeline.test.ts` passed
+  - `npm test -- --runInBand src/__tests__/App.test.ts src/core/app-shell/__tests__/AppDiagnosticsSurface.test.ts src/core/app-shell/__tests__/AppContainerFactory.test.ts src/core/app-shell/__tests__/AppOrchestratorConfigFactory.test.ts src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts` passed
+  - `npm test -- --runInBand src/__tests__/orchestrator/playback-flow.test.ts src/modules/player/__tests__/SubtitleManager.test.ts src/modules/player/__tests__/subtitleFallbackPipeline.test.ts src/__tests__/App.test.ts` passed
+  - `npm run typecheck` passed
+  - `npm run verify` passed
+  - `rg -n "spyOn\\(AppOrchestrator\\.prototype" src/__tests__/App.test.ts` returned only the allowlisted App-owned public-port spies: `initialize`, `start`, `shutdown`, `registerErrorHandler`, `setNowPlayingHandler`, `onScreenChange`, `onLifecycleEvent`, `getNavigation`, `getCurrentScreen`, `isReady`, `refreshPlaybackInfoSnapshot`, and `getRecoveryActions`
+  - `rg -nP "spyOn\\(AppOrchestrator\\.prototype, '(?!(initialize|start|shutdown|registerErrorHandler|setNowPlayingHandler|onScreenChange|onLifecycleEvent|getNavigation|getCurrentScreen|isReady|refreshPlaybackInfoSnapshot|getRecoveryActions)')" src/__tests__/App.test.ts` returned no matches
+  - `rg -n "_buildDirectTrackUrl|_fetchFallbackBlobUrl|_deriveLanHttpUrl|_triggerFallback|_trackElements|_readyTracks|spyOn\\(appUnderTest as never|_lazyScreenRegistry" src/modules/player/__tests__/SubtitleManager.test.ts src/__tests__/App.test.ts` returned no matches
+  - `rg -n "_buildDailyScheduleConfig|as any\\)|as unknown as .*_buildDailyScheduleConfig|private" src/__tests__/orchestrator/playback-flow.test.ts` returned no matches, confirming the imported playback-flow private-call evidence was already stale on current source
+  - `desloppify show signature --status open --no-budget --top 50` reported no open `signature` issues
+  - `desloppify show test_coverage --status open --no-budget --top 100` reported only broader `transitive_only` coverage residue; the bounded slice now includes direct `subtitleFallbackPipeline.test.ts` coverage for query/header auth fallback, LAN retry, HTML response rejection, stale-load short-circuit, transcode fallback, and XHR fallback, with no new private-coupling rationale
+  - `desloppify show src/__tests__ --status open --no-budget --top 150` reported no open issues under `src/__tests__`
+  - `desloppify show "review::.::holistic::test_strategy::private_api_test_coupling" --status all` still reports the imported review id, but its evidence cites stale `playback-flow.test.ts` wording plus broader prototype-spy debt outside this bounded slice
+- Follow-ups:
+  - `review::.::holistic::test_strategy::private_api_test_coupling` is resolved for the `P9-W1` bounded files on current-source proof: `SubtitleManager.test.ts` now covers observable subtitle behavior, while `subtitleFallbackPipeline.test.ts` covers the deterministic `fetchSubtitleFallbackVtt` helper paths including HTML response rejection and stale-load short-circuiting; `App.test.ts` no longer depends on private `App` seams or non-allowlisted `AppOrchestrator.prototype` spies, and `playback-flow.test.ts` was already compliant
+  - `P9-W2` is the single final owner for broader remaining prototype-spy and detector-lag cleanup outside this bounded slice, including residual review evidence that still references repo-wide test debt such as `src/__tests__/Orchestrator.test.ts`
+- Handoff: run `lineup-cleanup-review` for `P9-W1` implementation evidence; `P9-W2` remains the next checklist owner for broader test-only detector debt
+
+### [x] `P9-W2` Burn Down Remaining Test-Only Detector Debt
 
 **Mapped imported review issues:**
 
@@ -1437,6 +1557,31 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify show src/modules --status open --no-budget --top 250`
 
 **Exit rule:** test debt no longer blocks clean refactors or leaves startup/channel-setup/player seams unprotected.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-15-p9-w2-test-detector-burndown.md`
+- Last touched: `2026-04-15`
+- Verification:
+  - `npm test -- --runInBand src/core/orchestrator/__tests__/OrchestratorCoordinatorAssembly.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorBuilders.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorFactory.playbackState.test.ts src/__tests__/Orchestrator.test.ts` passed
+  - `npm test -- --runInBand src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupSessionState.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupSessionRuntime.test.ts src/modules/ui/channel-setup/steps/__tests__/BuildProgressStepController.test.ts src/modules/ui/channel-setup/steps/__tests__/BuildReviewStepController.test.ts src/modules/ui/channel-setup/steps/__tests__/LibraryStepController.test.ts src/modules/ui/channel-setup/steps/__tests__/StrategyStepController.test.ts` passed
+  - `npm test -- --runInBand src/__tests__/index.test.ts src/config/__tests__/timing.test.ts src/modules/ui/settings/__tests__/SettingsToggle.test.ts src/modules/ui/epg/model/__tests__/adapters.test.ts src/shared/__tests__/subtitle-formats.test.ts src/shared/__tests__/subtitle-mode.test.ts src/utils/__tests__/formatAudioLabel.test.ts src/utils/__tests__/mediaFormat.test.ts` passed
+  - `desloppify scan --path .` completed; `desloppify status` reported `Last scan: 2026-04-15T16:14:52+00:00`, `Scores: overall 83.1 / objective 94.8 / strict 83.1 / verified 94.8`, and `Security 99.6%`
+  - `desloppify show signature --status open --no-budget --top 50` reported no open issues
+  - `desloppify show test_coverage --status open --no-budget --top 100` still reported `27` open `transitive_only` / `untested_module` rows even after the current-source direct-suite refresh
+  - `desloppify show src/__tests__ --status open --no-budget --top 200` reported no open issues under `src/__tests__`
+  - `desloppify show src/core --status open --no-budget --top 200` and `desloppify show src/modules/ui/channel-setup --status open --no-budget --top 200` still reported the detector-lag `test_coverage` rows plus non-test smell/cycle residue outside this slice
+  - `desloppify show security --status open --no-budget --top 50` reported only the known T3 import-cycle rows (`OrchestratorCoordinatorBuilders.ts`, `ChannelSetupSessionController.ts`, `NowPlayingInfoCoordinator.ts`); no open `P0` security findings were reported
+  - `npm run typecheck` passed
+  - `npm run verify` passed
+  - `npm run verify:docs` passed
+- Follow-ups:
+  - resolved by direct P9-W2 suites on current-source proof: `src/index.ts`, `src/config/timing.ts`, `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts`, `src/core/orchestrator/OrchestratorCoordinatorBuilders.ts`, `src/modules/ui/channel-setup/ChannelSetupSessionState.ts`, `src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts`, `src/modules/ui/channel-setup/steps/BuildReviewStepController.ts`, `src/modules/ui/channel-setup/steps/LibraryStepController.ts`, `src/modules/ui/channel-setup/steps/StrategyStepController.ts`, `src/modules/ui/epg/model/adapters.ts`, `src/modules/ui/settings/SettingsToggle.ts`, `src/shared/subtitle-formats.ts`, `src/shared/subtitle-mode.ts`, `src/utils/formatAudioLabel.ts`, and `src/utils/mediaFormat.ts`
+  - current-source detector mismatch with existing direct tests remains explicit for `src/core/app-shell/AppOrchestratorConfigFactory.ts`, `src/core/channel-setup/ChannelSetupTagFilters.ts`, `src/core/server-selection/SelectedServerRuntimeController.ts`, `src/modules/player/ErrorHandler.ts`, and `src/modules/player/subtitleFallbackPipeline.ts`
+  - remaining Priority 9 orchestrator/helper residual stays explicit for `src/core/orchestrator/OrchestratorEventCleanupReporter.ts`; fresh source audit shows it is still imported by `OrchestratorEventBinder.ts`, `OrchestratorRuntimeSeams.ts`, and `AppOrchestrator.ts`, so `P9-EXIT` remains its single final owner unless new direct source proof shows it is no longer part of the startup/orchestrator/helper seam
+  - type-only / detector-limitation residue remains explicit for `src/core/orchestrator/OverlayPorts.ts`, `src/core/server-selection/ServerSelectionTypes.ts`, and `src/modules/ui/epg/model/domainTypes.ts`
+  - lower-priority residual `test_coverage` rows still open after the slice refresh: `src/modules/plex/auth/plexAuthPayloadParsers.ts`, `src/modules/plex/shared/fetchWithTimeoutCore.ts`, `src/modules/plex/stream/hdr.ts`, and `src/modules/plex/stream/plexSessionId.ts`
+  - `P9-EXIT` remains the single final owner for any remaining Priority 9 detector-mismatch or type-only residue; do not hand these rows to `P10` without fresh source proof that the remaining live seam is no longer Priority 9-owned
+- Handoff: run `lineup-cleanup-review` on the P9-W2 implementation evidence, then use `P9-EXIT` to disposition the remaining detector-lag/type-only matrix before any `P10` planning starts
 
 ## Priority 10: Residual Detector Burn-Down And Overall Exit
 
@@ -1504,6 +1649,13 @@ This pass is intentionally last. Earlier architectural work should retire a larg
   - source exit: `P5-EXIT`
   - exact issue id: `review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes`
   - required commands: `desloppify show "review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes" --status open --no-budget`; `rg -n "readDtsPassthroughEnabled\\(|readDirectPlayAudioFallbackEnabled\\(|readAudioSetupComplete\\(|readDebugLoggingEnabled\\(|readSubtitleDebugLoggingEnabled\\(|readCinematicNowPlayingEnabled\\(|readPreferClearLogosEnabled\\(|readClampedAutoHideMs\\(|readShowProfilePickerOnStartup\\(|readKeepPlayingInSettings\\(|readLastProfileId\\(|readSubtitleMode\\(|readSubtitlePreferForced\\(|readSubtitleLanguage\\(|readTheme\\(|readNowPlayingStreamDebugEnabled\\(|readNowPlayingStreamDebugAutoShowEnabled\\(|readEpgDebugEnabled\\(|readTranscodeProfileName\\(" src/modules/settings/AudioSettingsStore.ts src/modules/settings/DeveloperSettingsStore.ts src/modules/settings/NowPlayingDisplayStore.ts src/modules/settings/ProfileSessionStore.ts src/modules/settings/SubtitlePreferencesStore.ts src/modules/settings/ThemePreferencesStore.ts src/modules/debug/DebugOverridesStore.ts src/bootstrap.ts src/modules/player src/modules/ui src/core src/__tests__`; `desloppify show src/modules/settings --status open --no-budget --top 100`; `desloppify show src/modules/debug --status open --no-budget --top 100`
+
+**Inherited follow-ups from `P8-EXIT` (must be explicitly dispositioned in this work item):**
+
+- `followup::p8-exit::template-docblock-residual`
+  - source exit: `P8-EXIT`
+  - exact issue id: `review::.::holistic::ai_generated_debt::templated_docblock_ceremony`
+  - required commands: `desloppify show "review::.::holistic::ai_generated_debt::templated_docblock_ceremony" --status open --no-budget`; `rg -n "@fileoverview|@module|@version" src --glob '!**/__tests__/**'`; `desloppify show src/modules/player --status open --no-budget --top 150`; `desloppify show src/modules/plex --status open --no-budget --top 150`
 
 ### [ ] `P10-EXIT` Overall Closeout Gate
 

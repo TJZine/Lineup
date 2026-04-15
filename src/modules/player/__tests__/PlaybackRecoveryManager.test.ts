@@ -946,6 +946,24 @@ describe('PlaybackRecoveryManager', () => {
         expect(resolver.resolveStream).toHaveBeenCalledTimes(2);
     });
 
+    it('allows an explicit user retry after an automatic burn-in recovery failure', async () => {
+        const { manager, resolver } = setup();
+        (resolver.resolveStream as jest.Mock).mockRejectedValue(new Error('burn-in failed'));
+
+        const automaticFailure = await manager.attemptBurnInSubtitleForCurrentProgram(
+            'sub-keyless',
+            'subtitle_extract_failed:test'
+        );
+        const manualRetry = await manager.attemptBurnInSubtitleForCurrentProgram(
+            'sub-keyless',
+            'user_selected_burn_in_format'
+        );
+
+        expect(automaticFailure).toEqual({ outcome: 'failed' });
+        expect(manualRetry).toEqual({ outcome: 'failed' });
+        expect(resolver.resolveStream).toHaveBeenCalledTimes(2);
+    });
+
     it('does not notify subtitle unavailable when subtitle deactivation burn-in recovery fails', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 

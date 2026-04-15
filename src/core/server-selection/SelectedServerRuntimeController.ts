@@ -19,7 +19,7 @@ export class SelectedServerRuntimeController {
         return this._deps.persistSelection(serverId, serverUri);
     }
 
-    async applySelectionRuntimeSwap(): Promise<void> {
+    async runPostSelectionRuntimeSwap(): Promise<void> {
         await this._deps.runPostSelectionRuntimeSwap();
     }
 

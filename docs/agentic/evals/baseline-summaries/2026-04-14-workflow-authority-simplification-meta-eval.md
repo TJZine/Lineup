@@ -26,7 +26,8 @@
 ## Codanna Fallback Log
 
 - fallback used: `no`
-- if yes: exact invocation, condition, and evidence captured
+- evidence for no-fallback:
+  - Codanna-first discovery and direct tracked-doc inspection were sufficient; no fallback invocation was needed
 
 ## Fresh-Session Deviations
 
