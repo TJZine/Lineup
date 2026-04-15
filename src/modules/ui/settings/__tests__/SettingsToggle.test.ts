@@ -49,4 +49,28 @@ describe('createSettingsToggle', () => {
         expect(toggle.isDisabled()).toBe(false);
         expect(toggle.element.querySelector('.setup-toggle-meta')?.textContent).toBe('Enable the theme.');
     });
+
+    it('ignores disabled clicks and restores callback behavior after re-enable', () => {
+        const onChange = jest.fn();
+        const toggle = createSettingsToggle({
+            id: 'theme-toggle',
+            label: 'Theme',
+            description: 'Enable the theme.',
+            value: false,
+            disabled: false,
+            onChange,
+        });
+
+        toggle.setDisabled(true);
+        expect(toggle.isDisabled()).toBe(true);
+        toggle.element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        expect(onChange).not.toHaveBeenCalled();
+
+        toggle.setDisabled(false);
+        expect(toggle.isDisabled()).toBe(false);
+        toggle.element.click();
+
+        expect(onChange).toHaveBeenCalledTimes(1);
+        expect(onChange).toHaveBeenCalledWith(true);
+    });
 });
