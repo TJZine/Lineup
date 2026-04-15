@@ -11,8 +11,8 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, `P4-EXIT`, `P5-W1`, `P5-W2`, `P5-EXIT`, `P6-W1`, `P6-W2`, `P6-EXIT`, `P7-W1`, `P7-W2`, and `P7-EXIT` completed on integration-branch evidence
-- Next safe start: `P8-W1`
+- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, `P4-EXIT`, `P5-W1`, `P5-W2`, `P5-EXIT`, `P6-W1`, `P6-W2`, `P6-EXIT`, `P7-W1`, `P7-W2`, `P7-EXIT`, `P8-W1`, and `P8-W2` completed on integration-branch evidence
+- Next safe start: `P8-EXIT`
 - Legacy note: `docs/plans/2026-04-02-p3-w1-channel-setup-workflow-owner.md` predates the `2026-04-10` checklist refresh and is historical planning context, not the active `P3-W1` gate token
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
 - Recent update log:
@@ -32,6 +32,7 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
   - `2026-04-14`: completed `P6-EXIT` priority-exit reconciliation (all eight mapped imported `P6` issue ids remained resolved on current-source proof, `P6-W1` stayed closed, the `P6-W2` seam closures held with no compatibility aliases or constructor re-resolution, stale deleted-file auth detector residue was assigned to `P10-W1`, exact live P6 mechanical residue was assigned to `P10-W1`, and security triage stayed outside Priority 6 scope), reran the exact `P6` issue-id commands, refreshed package/status/queue/security evidence, and reran `npm run verify` plus `npm run verify:docs`
   - `2026-04-14`: completed `P7-W1` playback recovery/error propagation cleanup (runtime `AppErrorCode` validation now has canonical helpers in `src/types/app-errors.ts`, `PlaybackRecoveryManager` routes audio/direct-to-transcode/burn-in/disable-burn-in reloads through one private executor with explicit result contracts, bounded orchestrator/UI callers distinguish `ignored` from `failed`, and Media Session `play()` failures now surface through the throttled warning path), reran focused player/orchestrator/playback-options suites, `npm run verify`, source-audit `rg` checks, and refreshed `desloppify` evidence with stale-detector reconciliation notes
   - `2026-04-15`: completed `P7-EXIT` priority-exit reconciliation (all seven mapped imported `P7` issue ids remained resolved on current-source proof, the subtitle-deactivation seam is now source-audit clean with `_buildStreamDescriptor()` wiring callbacks only, `SubtitleManager` owning handled-deactivation dispatch plus unavailable fallback, and `PlaybackRecoveryManager` retaining the player-owned burn-in recovery helpers, and no `P7` follow-up owner remains), reran the exact `P7` issue-id commands, refreshed scan/status evidence, reran the player/lifecycle verification commands, and ran `npm run verify` plus `npm run verify:docs`
+  - `2026-04-15`: completed `P8-W2` bounded template-docblock and architecture-reference refresh (removed template header/signature-restating commentary from the scoped live auth/player files, updated `modules.md` to match `CURRENT_STATE.md` plus current source for `src/Orchestrator.ts` and the server-selection split, and recorded the remaining repo-wide template-ceremony/detector-lag closeout path under `P8-EXIT`), reran `npm run typecheck` plus `npm run verify:docs`
 
 ## Goal
 
@@ -1387,7 +1388,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
   - `review::.::holistic::ai_generated_debt::diagnostic_payload_dump_logging` is resolved on current-source proof plus passing tests; the current `desloppify` row is stale detector wording and should stay detector-lag only unless a later refresh finds a new live owner
 - Handoff: `P8-W2` is now the next safe start for docblock and architecture-doc cleanup
 
-### [ ] `P8-W2` Remove Template Docblocks And Refresh Architecture Docs
+### [x] `P8-W2` Remove Template Docblocks And Refresh Architecture Docs
 
 **Mapped imported review issues:**
 
@@ -1396,7 +1397,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 **Primary files:**
 
-- `src/modules/plex/auth/helpers.ts`
+- `src/modules/plex/auth/interfaces.ts`
 - `src/modules/player/interfaces.ts`
 - `src/modules/player/VideoPlayer.ts`
 - `docs/architecture/CURRENT_STATE.md`
@@ -1408,6 +1409,20 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `npm run verify:docs`
 
 **Exit rule:** architecture docs match runtime ownership and code comments keep only non-obvious contract detail.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-15-p8-w2-template-docblock-and-architecture-doc-refresh.md`
+- Last touched: `2026-04-15`
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run verify:docs` passed
+  - `rg -n "@fileoverview|@module|@version|Video Player Interface|Plex Authentication Interface|Key features:" src/modules/plex/auth/interfaces.ts src/modules/player/interfaces.ts src/modules/player/VideoPlayer.ts` returned no matches
+  - `rg -n "thin public runtime entry barrel|SelectedServerRuntimeController|result shaping" docs/architecture/CURRENT_STATE.md docs/architecture/modules.md` returned the refreshed ownership text for `src/Orchestrator.ts` and the server-selection split
+  - `rg -n "EPGDebugRuntime|debugRuntimeGuards" docs/architecture/modules.md docs/architecture/CURRENT_STATE.md` continued to show the existing EPG debug-runtime ownership wording, confirming the prior detector evidence was stale rather than a live drift in current docs
+- Follow-ups:
+  - `review::.::holistic::ai_generated_debt::templated_docblock_ceremony` is resolved for this slice's live auth/player anchors; `P8-EXIT` owns the integration-branch detector refresh plus any broader residual template-header debt outside the scoped files
+  - `review::.::holistic::high_level_elegance::architecture_reference_drift` is resolved on current-source proof for `src/Orchestrator.ts` and the server-selection split; `P8-EXIT` owns final stale-detector reconciliation if the imported row still cites old wording
+- Handoff: run `lineup-cleanup-review` for `P8-W2` implementation evidence, then execute `P8-EXIT` before opening `P9-W1`
 
 ## Priority 9: Rebuild Test Seams Instead Of Fighting Them
 

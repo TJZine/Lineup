@@ -19,7 +19,8 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 ### `src/Orchestrator.ts`
 
-- runtime coordination and top-level feature delegation
+- thin public runtime entry barrel
+- re-exports `AppOrchestrator` and runtime-facing types for app/test import stability
 
 ### `src/core/InitializationCoordinator.ts`
 
@@ -70,7 +71,8 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - focused server-selection collaborators shared between app shell and orchestrator
 - `src/core/server-selection/ServerSelectionTypes.ts` owns `OrchestratorServerSelectionResult`
-- `src/core/server-selection/ServerSelectionCoordinator.ts` owns the app-shell-facing selected-server workflow previously assembled inline in `AppOrchestrator.selectServer()`, including discovery-result translation, persistence handoff, and post-selection runtime swap delegation
+- `src/core/server-selection/ServerSelectionCoordinator.ts` owns the app-shell-facing selected-server workflow previously assembled inline in `AppOrchestrator.selectServer()`, including discovery-result translation and result shaping
+- `src/core/server-selection/SelectedServerRuntimeController.ts` owns selected-server persistence writes, clear-selection cleanup, and post-selection runtime swap side effects consumed by the server-selection flow
 
 ### `src/config/`
 
