@@ -192,9 +192,9 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         })();
 
         try {
-            const response = await fetchWithTimeout(
-                baseUrl.toString(),
-                {
+            const response = await fetchWithTimeout({
+                url: baseUrl.toString(),
+                init: {
                     method: 'GET',
                     headers,
                     cache: 'no-store',
@@ -202,8 +202,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                     mode: 'cors',
                     credentials: 'omit',
                 },
-                8000
-            );
+                timeoutMs: 8000,
+            });
 
             const contentType = response.headers.get('content-type');
             const contentLength = response.headers.get('content-length');
@@ -513,11 +513,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         try {
             const baseUri = this._selectBaseUriForMixedContent(serverUri);
             const stopUrl = new URL(`/transcode/sessions/${encodeURIComponent(trimmedSessionId)}`, baseUri);
-            const response = await fetchWithTimeout(
-                stopUrl.toString(),
-                { method: 'DELETE', headers: this._config.getAuthHeaders() },
-                5000
-            );
+            const response = await fetchWithTimeout({
+                url: stopUrl.toString(),
+                init: { method: 'DELETE', headers: this._config.getAuthHeaders() },
+                timeoutMs: 5000,
+            });
             this._throwIfAuthFailure(response);
         } catch (error) {
             console.warn('[PlexStreamResolver] stopTranscodeSession failed:', {
@@ -783,11 +783,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             return url.toString();
         })();
 
-        const response = await fetchWithTimeout(
-            decisionUrl,
-            { method: 'GET', headers: this._config.getAuthHeaders() },
-            4000
-        );
+        const response = await fetchWithTimeout({
+            url: decisionUrl,
+            init: { method: 'GET', headers: this._config.getAuthHeaders() },
+            timeoutMs: 4000,
+        });
         this._throwIfAuthFailure(response);
         if (!response.ok) {
             throw new Error(`PMS decision request failed: ${response.status}`);

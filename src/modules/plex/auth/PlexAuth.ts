@@ -33,8 +33,8 @@ import {
     readPlexResponse,
     parsePinResponse,
     parseUserResponse,
-    parseHomeUsers,
-    parseSwitchResponse,
+    parseHomeUsersPayload,
+    parseSwitchResponsePayload,
     fetchWithRetry,
 } from './helpers';
 import { AppErrorCode } from '../../lifecycle/types';
@@ -209,7 +209,7 @@ export class PlexAuth implements IPlexAuth {
 
     /**
      * Verify a token is still valid by calling Plex API.
-     * Returns false on timeout (per spec performance budget).
+     * Returns false only for explicit auth-invalid responses and timeout.
      * @param token - Plex auth token to validate
      * @returns true if token is valid, false otherwise
      */
@@ -218,11 +218,11 @@ export class PlexAuth implements IPlexAuth {
         const headers = buildRequestHeaders(this._state.config, token);
 
         try {
-            const response = await fetchWithTimeout(
+            const response = await fetchWithTimeout({
                 url,
-                { method: 'GET', headers: headers },
-                PLEX_AUTH_CONSTANTS.TOKEN_VALIDATION_TIMEOUT_MS
-            );
+                init: { method: 'GET', headers: headers },
+                timeoutMs: PLEX_AUTH_CONSTANTS.TOKEN_VALIDATION_TIMEOUT_MS,
+            });
 
             if (response.status === 200) {
                 let data: unknown;
@@ -261,7 +261,31 @@ export class PlexAuth implements IPlexAuth {
                 this._state.isValidated = true;
                 return true;
             }
-            return false;
+            if (response.status === 401 || response.status === 403) {
+                return false;
+            }
+            if (response.status === 429) {
+                throw new PlexApiError(
+                    AppErrorCode.RATE_LIMITED,
+                    'Rate limited during token validation',
+                    429,
+                    true
+                );
+            }
+            if (response.status >= 500) {
+                throw new PlexApiError(
+                    AppErrorCode.SERVER_UNREACHABLE,
+                    `Token validation service failure (${response.status})`,
+                    response.status,
+                    true
+                );
+            }
+            throw new PlexApiError(
+                AppErrorCode.SERVER_UNREACHABLE,
+                `Token validation failed (${response.status})`,
+                response.status,
+                false
+            );
         } catch (error) {
             // Return false only on timeout (AbortError); throw on network errors
             if (error instanceof Error && error.name === 'AbortError') {
@@ -394,12 +418,12 @@ export class PlexAuth implements IPlexAuth {
                     method: 'GET',
                     headers: headers,
                 };
-                const response = await fetchWithTimeout(
+                const response = await fetchWithTimeout({
                     url,
                     init,
-                    PLEX_AUTH_CONSTANTS.REQUEST_TIMEOUT_MS,
-                    options?.signal ?? null
-                );
+                    timeoutMs: PLEX_AUTH_CONSTANTS.REQUEST_TIMEOUT_MS,
+                    upstreamSignal: options?.signal ?? null,
+                });
 
                 if (response.status === 401) {
                     throw new PlexApiError(
@@ -431,7 +455,7 @@ export class PlexAuth implements IPlexAuth {
                 }
 
                 const payload = await readPlexResponse(response);
-                const users = parseHomeUsers(payload.json ?? payload.text ?? null);
+                const users = parseHomeUsersPayload(payload);
                 sawSuccessfulResponse = true;
                 if (users.length > 0) {
                     return users;
@@ -517,12 +541,12 @@ export class PlexAuth implements IPlexAuth {
                     method: 'POST',
                     headers: headers,
                 };
-                response = await fetchWithTimeout(
+                response = await fetchWithTimeout({
                     url,
                     init,
-                    PLEX_AUTH_CONSTANTS.REQUEST_TIMEOUT_MS,
-                    options?.signal ?? null
-                );
+                    timeoutMs: PLEX_AUTH_CONSTANTS.REQUEST_TIMEOUT_MS,
+                    upstreamSignal: options?.signal ?? null,
+                });
 
                 if (response.status === 401) {
                     if (pinValue) {
@@ -538,7 +562,7 @@ export class PlexAuth implements IPlexAuth {
                     }
                     throw new PlexApiError(
                         AppErrorCode.AUTH_REQUIRED,
-                        'Unauthorized: account authentication required',
+                        'Unauthorized: account token is not valid for profile switching',
                         401,
                         false
                     );
@@ -557,7 +581,7 @@ export class PlexAuth implements IPlexAuth {
                     }
                     throw new PlexApiError(
                         AppErrorCode.AUTH_INVALID,
-                        'Forbidden: account access denied',
+                        'Forbidden: account token is not valid for profile switching',
                         403,
                         false
                     );
@@ -579,7 +603,16 @@ export class PlexAuth implements IPlexAuth {
                 break;
             } catch (error) {
                 if (error instanceof PlexApiError) {
-                    if (error.code === AppErrorCode.AUTH_REQUIRED || error.code === AppErrorCode.AUTH_INVALID) {
+                    if (
+                        error.code === AppErrorCode.AUTH_REQUIRED ||
+                        error.code === AppErrorCode.AUTH_INVALID ||
+                        error.code === AppErrorCode.AUTH_FAILED ||
+                        error.code === AppErrorCode.PARSE_ERROR ||
+                        error.code === AppErrorCode.RATE_LIMITED
+                    ) {
+                        throw error;
+                    }
+                    if (pinValue && error.code === AppErrorCode.SERVER_UNREACHABLE) {
                         throw error;
                     }
                 }
@@ -600,7 +633,7 @@ export class PlexAuth implements IPlexAuth {
         }
 
         const payload = await readPlexResponse(response);
-        const parsed = parseSwitchResponse(payload.json ?? payload.text ?? null);
+        const parsed = parseSwitchResponsePayload(payload);
         const userToken = await this._fetchUserProfile(parsed.authToken);
 
         if (

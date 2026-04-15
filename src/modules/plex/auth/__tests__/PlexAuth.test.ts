@@ -259,6 +259,25 @@ describe('PlexAuth', () => {
             expect(result).toBe(false);
         });
 
+        it('should throw RATE_LIMITED for 429 responses', async () => {
+            const auth = new PlexAuth(mockConfig);
+            mockFetchJson({ error: 'rate_limited' }, 429);
+
+            await expect(auth.validateToken('busy-token')).rejects.toMatchObject({
+                code: 'RATE_LIMITED',
+            });
+        });
+
+        it('should throw SERVER_UNREACHABLE for 5xx responses', async () => {
+            const auth = new PlexAuth(mockConfig);
+            mockFetchJson({ error: 'server_error' }, 503);
+
+            await expect(auth.validateToken('server-token')).rejects.toMatchObject({
+                code: 'SERVER_UNREACHABLE',
+                httpStatus: 503,
+            });
+        });
+
         it('should update currentUser on successful validation', async () => {
             const auth = new PlexAuth(mockConfig);
             mockFetchJson({
@@ -968,6 +987,119 @@ describe('PlexAuth', () => {
 
             const firstUrl = String(fetchMock.mock.calls[0][0]);
             expect(firstUrl).toBe('https://plex.tv/api/v2/home/users/2/switch?pin=1234');
+        });
+
+        it('treats 401 + valid account token as wrong PIN', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 401,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ error: 'unauthorized' }),
+                    text: async () => '{}',
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({
+                        id: 'admin',
+                        username: 'admin',
+                        email: 'admin@example.com',
+                    }),
+                    text: async () => '{}',
+                });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await expect(auth.switchHomeUser('2', { pin: '1234' })).rejects.toMatchObject({
+                code: 'AUTH_FAILED',
+                httpStatus: 401,
+            });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it('treats 401 + invalid account token as auth required', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 401,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ error: 'unauthorized' }),
+                    text: async () => '{}',
+                })
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 401,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ error: 'unauthorized' }),
+                    text: async () => '{}',
+                });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await expect(auth.switchHomeUser('2', { pin: '1234' })).rejects.toMatchObject({
+                code: 'AUTH_REQUIRED',
+                httpStatus: 401,
+            });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it('treats 403 + invalid account token as auth invalid', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 403,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ error: 'forbidden' }),
+                    text: async () => '{}',
+                })
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 403,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ error: 'forbidden' }),
+                    text: async () => '{}',
+                });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await expect(auth.switchHomeUser('2', { pin: '1234' })).rejects.toMatchObject({
+                code: 'AUTH_INVALID',
+                httpStatus: 403,
+            });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it('propagates service/network failures from validateToken during PIN disambiguation', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 401,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ error: 'unauthorized' }),
+                    text: async () => '{}',
+                })
+                .mockRejectedValueOnce(new TypeError('Network error'));
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await expect(auth.switchHomeUser('2', { pin: '1234' })).rejects.toMatchObject({
+                code: 'SERVER_UNREACHABLE',
+            });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
         });
 
         it('should throw not-supported when both home switch endpoints return 404', async () => {

@@ -464,14 +464,14 @@ export class PlaybackOptionsCoordinator {
         const startMs = Date.now();
         try {
             let response: Response;
-            response = await fetchWithTimeout(
-                url.toString(),
-                {
-                method: 'HEAD',
-                headers: { Accept: 'text/vtt, text/plain, */*' },
+            response = await fetchWithTimeout({
+                url: url.toString(),
+                init: {
+                    method: 'HEAD',
+                    headers: { Accept: 'text/vtt, text/plain, */*' },
                 },
-                SUBTITLE_PROBE_TOTAL_TIMEOUT_MS
-            );
+                timeoutMs: SUBTITLE_PROBE_TOTAL_TIMEOUT_MS,
+            });
             if (!response.ok && (response.status === 405 || response.status === 501)) {
                 // Some Plex endpoints/proxies may not support HEAD reliably; fall back to GET.
                 const elapsedMs = Date.now() - startMs;
@@ -479,14 +479,14 @@ export class PlaybackOptionsCoordinator {
                 // Keep the total probe time bounded; don't double the worst-case latency.
                 const fallbackTimeoutMs = Math.max(50, remainingMs);
 
-                response = await fetchWithTimeout(
-                    url.toString(),
-                    {
+                response = await fetchWithTimeout({
+                    url: url.toString(),
+                    init: {
                         method: 'GET',
                         headers: { Accept: 'text/vtt, text/plain, */*' },
                     },
-                    fallbackTimeoutMs
-                );
+                    timeoutMs: fallbackTimeoutMs,
+                });
             }
             if (response.ok) {
                 this.subtitleProbeCache.set(cacheKey, 'supported');

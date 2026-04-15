@@ -194,6 +194,18 @@ describe('applyPhase2AuthGatePolicy', () => {
         expect(inputs.navigation.goTo).toHaveBeenCalledWith('auth');
     });
 
+    it('rethrows non-auth validation failures instead of forcing auth resume', async () => {
+        const error = { code: AppErrorCode.SERVER_UNREACHABLE };
+        const inputs = createInputs({
+            validateToken: jest.fn().mockRejectedValue(error),
+        });
+
+        await expect(applyPolicy(inputs)).rejects.toEqual(error);
+
+        expect(inputs.handlers.registerAuthResume).not.toHaveBeenCalled();
+        expect(inputs.navigation.goTo).not.toHaveBeenCalledWith('auth');
+    });
+
     it('routes corrupted stored credentials to auth with STORAGE_CORRUPTED status', async () => {
         const inputs = createInputs({
             readStoredCredentialsAndClearCorruption: jest.fn().mockResolvedValue({

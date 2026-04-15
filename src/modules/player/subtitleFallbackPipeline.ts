@@ -148,12 +148,12 @@ async function fetchSubtitleTextWithFallbacks({
     for (const entry of urlsToTry) {
         const suffix = entry.variant === 'lan_http' ? '_lan_http' : '';
         try {
-            const response = await fetchWithTimeout(
-                entry.url.toString(),
-                { headers },
-                10_000,
-                signal
-            );
+            const response = await fetchWithTimeout({
+                url: entry.url.toString(),
+                init: { headers },
+                timeoutMs: 10_000,
+                upstreamSignal: signal,
+            });
             if (!isCurrentLoad()) return null;
             if (!response.ok) {
                 let bodySample: string | null = null;

@@ -72,12 +72,15 @@ export function buildRequestHeaders(
 // Response Parsing
 // ============================================
 
+export type PlexResponsePayload =
+    | { kind: 'json'; data: unknown }
+    | { kind: 'text'; data: string }
+    | { kind: 'empty' };
+
 /**
  * Read plex.tv response as JSON when possible, otherwise text.
  */
-export async function readPlexResponse(
-    response: Response
-): Promise<{ json?: unknown; text?: string }> {
+export async function readPlexResponse(response: Response): Promise<PlexResponsePayload> {
     const contentType =
         response.headers && typeof response.headers.get === 'function'
             ? response.headers.get('Content-Type') || ''
@@ -86,7 +89,7 @@ export async function readPlexResponse(
         // Prefer JSON parsing when server indicates JSON.
         if (contentType.includes('json') && typeof response.json === 'function') {
             try {
-                return { json: await response.json() };
+                return { kind: 'json', data: await response.json() };
             } catch {
                 // Fall through to text parsing.
             }
@@ -98,15 +101,26 @@ export async function readPlexResponse(
         // Robustness: plex.tv sometimes returns JSON with a non-JSON content-type.
         if ((trimmed.startsWith('{') || trimmed.startsWith('[')) && trimmed.length > 0) {
             try {
-                return { json: JSON.parse(trimmed) };
+                return { kind: 'json', data: JSON.parse(trimmed) };
             } catch {
-                // Keep as text.
+                throw new PlexApiError(
+                    AppErrorCode.PARSE_ERROR,
+                    'Unable to parse Plex response JSON payload',
+                    undefined,
+                    false
+                );
             }
         }
 
-        return { text };
-    } catch {
-        return {};
+        if (trimmed.length === 0) {
+            return { kind: 'empty' };
+        }
+        return { kind: 'text', data: text };
+    } catch (error) {
+        if (error instanceof PlexApiError) {
+            throw error;
+        }
+        return { kind: 'empty' };
     }
 }
 
@@ -178,10 +192,7 @@ function coerceBoolean(value: unknown): boolean {
     return false;
 }
 
-/**
- * Parse Plex Home users payload (JSON or XML) into PlexHomeUser list.
- */
-export function parseHomeUsers(payload: unknown): PlexHomeUser[] {
+function parseHomeUsersFromUnknown(payload: unknown): PlexHomeUser[] {
     if (!payload) return [];
 
     if (typeof payload === 'string') {
@@ -189,7 +200,7 @@ export function parseHomeUsers(payload: unknown): PlexHomeUser[] {
         if (!text) return [];
         if (text.startsWith('{') || text.startsWith('[')) {
             try {
-                return parseHomeUsers(JSON.parse(text));
+                return parseHomeUsersFromUnknown(JSON.parse(text));
             } catch {
                 throw new PlexApiError(
                     AppErrorCode.PARSE_ERROR,
@@ -235,6 +246,16 @@ export function parseHomeUsers(payload: unknown): PlexHomeUser[] {
     return [];
 }
 
+/**
+ * Parse Plex Home users payload (JSON or XML) into PlexHomeUser list.
+ */
+export function parseHomeUsersPayload(payload: PlexResponsePayload): PlexHomeUser[] {
+    if (payload.kind === 'empty') {
+        return [];
+    }
+    return parseHomeUsersFromUnknown(payload.data);
+}
+
 function isStructurallyValidXml(payload: string): boolean {
     if (typeof DOMParser !== 'undefined') {
         const parser = new DOMParser();
@@ -245,10 +266,7 @@ function isStructurallyValidXml(payload: string): boolean {
     return /^<[\w:-]+(?:\s[^>]*)?>[\s\S]*<\/[\w:-]+>\s*$/.test(trimmed);
 }
 
-/**
- * Parse home switch response to extract auth token.
- */
-export function parseSwitchResponse(payload: unknown): { authToken: string } {
+function parseSwitchResponseFromUnknown(payload: unknown): { authToken: string } {
     if (!payload) {
         throw new PlexApiError(
             AppErrorCode.SERVER_UNREACHABLE,
@@ -282,6 +300,21 @@ export function parseSwitchResponse(payload: unknown): { authToken: string } {
         undefined,
         false
     );
+}
+
+/**
+ * Parse home switch response to extract auth token.
+ */
+export function parseSwitchResponsePayload(payload: PlexResponsePayload): { authToken: string } {
+    if (payload.kind === 'empty') {
+        throw new PlexApiError(
+            AppErrorCode.SERVER_UNREACHABLE,
+            'Empty response from Plex Home switch',
+            undefined,
+            false
+        );
+    }
+    return parseSwitchResponseFromUnknown(payload.data);
 }
 
 function parseHomeUsersXml(payload: string): PlexHomeUser[] {

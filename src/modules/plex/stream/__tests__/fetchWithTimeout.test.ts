@@ -29,7 +29,11 @@ describe('fetchWithTimeout', () => {
             });
         });
 
-        const request = fetchWithTimeout('http://example.test/slow', { method: 'GET' }, 50);
+        const request = fetchWithTimeout({
+            url: 'http://example.test/slow',
+            init: { method: 'GET' },
+            timeoutMs: 50,
+        });
         const rejectedRequest = expect(request).rejects.toMatchObject({ name: 'AbortError' });
         await jest.advanceTimersByTimeAsync(51);
         await rejectedRequest;
@@ -48,7 +52,11 @@ describe('fetchWithTimeout', () => {
         mockFetch.mockResolvedValue(response);
 
         await expect(
-            fetchWithTimeout('http://example.test/fast', { method: 'GET' }, 200)
+            fetchWithTimeout({
+                url: 'http://example.test/fast',
+                init: { method: 'GET' },
+                timeoutMs: 200,
+            })
         ).resolves.toBe(response);
 
         expect(jest.getTimerCount()).toBe(0);
@@ -76,11 +84,11 @@ describe('fetchWithTimeout', () => {
             });
         });
 
-        const request = fetchWithTimeout(
-            'http://example.test/upstream-abort',
-            { method: 'GET', signal: upstreamController.signal },
-            100_000
-        );
+        const request = fetchWithTimeout({
+            url: 'http://example.test/upstream-abort',
+            init: { method: 'GET', signal: upstreamController.signal },
+            timeoutMs: 100_000,
+        });
         const requestRejection = request.catch((error) => error);
 
         const passedSignal = (mockFetch.mock.calls[0]?.[1] as RequestInit | undefined)?.signal as AbortSignal | undefined;
@@ -118,11 +126,11 @@ describe('fetchWithTimeout', () => {
             });
         });
 
-        const request = fetchWithTimeout(
-            'http://example.test/pre-aborted',
-            { method: 'GET', signal: upstreamController.signal },
-            100_000
-        );
+        const request = fetchWithTimeout({
+            url: 'http://example.test/pre-aborted',
+            init: { method: 'GET', signal: upstreamController.signal },
+            timeoutMs: 100_000,
+        });
 
         await expect(request).rejects.toMatchObject({ name: 'AbortError' });
 
@@ -147,12 +155,12 @@ describe('fetchWithTimeout', () => {
             });
         });
 
-        const request = fetchWithTimeout(
-            'http://example.test/upstream-only',
-            { method: 'GET' },
-            100_000,
-            upstreamController.signal
-        );
+        const request = fetchWithTimeout({
+            url: 'http://example.test/upstream-only',
+            init: { method: 'GET' },
+            timeoutMs: 100_000,
+            upstreamSignal: upstreamController.signal,
+        });
         const requestRejection = request.catch((error) => error);
 
         const passedSignal = (mockFetch.mock.calls[0]?.[1] as RequestInit | undefined)?.signal as AbortSignal | undefined;
@@ -182,12 +190,12 @@ describe('fetchWithTimeout', () => {
             });
         });
 
-        const request = fetchWithTimeout(
-            'http://example.test/dual-signal',
-            { method: 'GET', signal: optionsController.signal },
-            100_000,
-            upstreamController.signal
-        );
+        const request = fetchWithTimeout({
+            url: 'http://example.test/dual-signal',
+            init: { method: 'GET', signal: optionsController.signal },
+            timeoutMs: 100_000,
+            upstreamSignal: upstreamController.signal,
+        });
         const requestRejection = request.catch((error) => error);
 
         const passedSignal = (mockFetch.mock.calls[0]?.[1] as RequestInit | undefined)?.signal as AbortSignal | undefined;
@@ -215,12 +223,12 @@ describe('fetchWithTimeout', () => {
         mockFetch.mockResolvedValue(response);
 
         await expect(
-            fetchWithTimeout(
-                'http://example.test/cleanup',
-                { method: 'GET', signal: optionsController.signal },
-                200,
-                upstreamController.signal
-            )
+            fetchWithTimeout({
+                url: 'http://example.test/cleanup',
+                init: { method: 'GET', signal: optionsController.signal },
+                timeoutMs: 200,
+                upstreamSignal: upstreamController.signal,
+            })
         ).resolves.toBe(response);
 
         expect(optionsRemoveSpy).toHaveBeenCalledWith('abort', expect.any(Function));
