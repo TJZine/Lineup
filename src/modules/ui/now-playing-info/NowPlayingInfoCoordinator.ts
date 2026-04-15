@@ -95,9 +95,18 @@ export class NowPlayingInfoCoordinator {
         overlay.show(viewModel);
         this.deps.onVisibilityChange?.(true);
         this.startLiveUpdates();
-        void this.fetchNowPlayingInfoDetails(program);
-        void this.refreshPlaybackSummary(program);
-        void this.deps.maybeFetchStreamDecisionForDebugHud();
+        this.runBackgroundTask(
+            'Failed to refresh Now Playing details',
+            () => this.fetchNowPlayingInfoDetails(program)
+        );
+        this.runBackgroundTask(
+            'Failed to refresh playback summary',
+            () => this.refreshPlaybackSummary(program)
+        );
+        this.runBackgroundTask(
+            'Failed to refresh stream debug HUD',
+            () => this.deps.maybeFetchStreamDecisionForDebugHud()
+        );
     }
 
     handleModalClose(modalId: string): void {
@@ -120,8 +129,14 @@ export class NowPlayingInfoCoordinator {
         const viewModel = this.buildNowPlayingInfoViewModel(program, null);
         overlay.setAutoHideMs(this.deps.getAutoHideMs());
         overlay.update(viewModel);
-        void this.fetchNowPlayingInfoDetails(program);
-        void this.refreshPlaybackSummary(program);
+        this.runBackgroundTask(
+            'Failed to refresh Now Playing details',
+            () => this.fetchNowPlayingInfoDetails(program)
+        );
+        this.runBackgroundTask(
+            'Failed to refresh playback summary',
+            () => this.refreshPlaybackSummary(program)
+        );
     }
 
     refreshIfOpen(): void {
@@ -147,6 +162,22 @@ export class NowPlayingInfoCoordinator {
         this.stopLiveUpdates();
         this.nowPlayingInfoFetchToken += 1;
         this.clearNowPlayingInfoDetails();
+    }
+
+    private runBackgroundTask(taskLabel: string, task: () => Promise<void>): void {
+        try {
+            task().catch((error) => {
+                console.warn(
+                    `[NowPlayingInfoCoordinator] ${taskLabel}:`,
+                    summarizeErrorForLog(error)
+                );
+            });
+        } catch (error) {
+            console.warn(
+                `[NowPlayingInfoCoordinator] ${taskLabel}:`,
+                summarizeErrorForLog(error)
+            );
+        }
     }
 
     private startLiveUpdates(): void {

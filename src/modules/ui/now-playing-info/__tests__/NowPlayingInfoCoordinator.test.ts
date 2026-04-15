@@ -555,6 +555,29 @@ describe('NowPlayingInfoCoordinator', () => {
         coordinator.handleModalClose(modalId);
     });
 
+    it('logs and suppresses debug hud refresh failures during modal open', async () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        try {
+            const { coordinator } = setup({
+                maybeFetchStreamDecisionForDebugHud: jest.fn().mockRejectedValue(new Error('debug boom')),
+            });
+
+            coordinator.handleModalOpen(modalId);
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(warnSpy).toHaveBeenCalledWith(
+                '[NowPlayingInfoCoordinator] Failed to refresh stream debug HUD:',
+                expect.objectContaining({
+                    name: 'Error',
+                    message: 'debug boom',
+                })
+            );
+        } finally {
+            warnSpy.mockRestore();
+        }
+    });
+
     it('omits clearLogoUrl when prefer clear logos is disabled', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, '0');
         try {
