@@ -435,7 +435,7 @@ export class AppOrchestrator {
             ): Promise<SelectedServerPersistenceResult> =>
                 this._selectedServerRuntimeController.persistSelection(serverId, serverUri),
             runPostSelectionRuntimeSwap: (): Promise<void> =>
-                this._selectedServerRuntimeController.applySelectionRuntimeSwap(),
+                this._selectedServerRuntimeController.runPostSelectionRuntimeSwap(),
             getReadiness: (): OrchestratorServerSelectionReadiness =>
                 (this._ready ? 'ready' : 'startup_pending'),
         });

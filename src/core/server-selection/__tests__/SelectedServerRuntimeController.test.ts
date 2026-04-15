@@ -63,7 +63,7 @@ describe('SelectedServerRuntimeController', () => {
         const deps = createDeps();
         const controller = new SelectedServerRuntimeController(deps);
 
-        await expect(controller.applySelectionRuntimeSwap()).resolves.toBeUndefined();
+        await expect(controller.runPostSelectionRuntimeSwap()).resolves.toBeUndefined();
 
         expect(deps.runPostSelectionRuntimeSwap).toHaveBeenCalledTimes(1);
         expect(deps.persistSelection).not.toHaveBeenCalled();
