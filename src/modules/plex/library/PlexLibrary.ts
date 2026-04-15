@@ -130,7 +130,7 @@ export class PlexLibrary implements IPlexLibrary {
      */
     constructor(config: PlexLibraryConfig) {
         this._config = config;
-        this._logger = config.logger ?? { warn: console.warn, error: console.error };
+        this._logger = config.logger ?? { warn: console.warn, error: console.warn };
         this._emitter = new EventEmitter<PlexLibraryEvents>();
         this._state = {
             libraryCache: new Map(),

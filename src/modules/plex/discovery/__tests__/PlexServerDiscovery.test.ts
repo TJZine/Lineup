@@ -682,14 +682,14 @@ describe('PlexServerDiscovery', () => {
 	
 	                const result = await discovery.findFastestConnection(mockServer);
 	
-	                expect(result.connection).toBeNull();
-	                expect(warnSpy).toHaveBeenCalledTimes(1);
-	                expect(warnSpy).toHaveBeenCalledWith(
-	                    '[Discovery] No working connections found',
-	                    expect.objectContaining({
-	                        serverId: 'srv1',
-	                        authRequired: false,
-	                        httpsCount: 1,
+                expect(result.connection).toBeNull();
+                expect(warnSpy).toHaveBeenCalledTimes(1);
+                expect(warnSpy).toHaveBeenCalledWith(
+                    'No working connections found',
+                    expect.objectContaining({
+                        serverId: 'srv1',
+                        authRequired: false,
+                        httpsCount: 1,
 	                        httpCount: 1,
 	                    })
 	                );
@@ -727,15 +727,15 @@ describe('PlexServerDiscovery', () => {
 	
 	                const result = await discovery.findFastestConnection(mockServer);
 	
-	                expect(result.connection).not.toBeNull();
-	                expect(result.connection!.protocol).toBe('http');
-	                expect(warnSpy).toHaveBeenCalledTimes(1);
-	                expect(warnSpy).toHaveBeenCalledWith(
-	                    '[Discovery] Selected HTTP connection (last resort)',
-	                    expect.objectContaining({
-	                        local: true,
-	                        relay: false,
-	                    })
+                expect(result.connection).not.toBeNull();
+                expect(result.connection!.protocol).toBe('http');
+                expect(warnSpy).toHaveBeenCalledTimes(1);
+                expect(warnSpy).toHaveBeenCalledWith(
+                    'Selected HTTP connection (last resort)',
+                    expect.objectContaining({
+                        local: true,
+                        relay: false,
+                    })
 	                );
 	            } finally {
 	                warnSpy.mockRestore();

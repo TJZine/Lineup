@@ -124,7 +124,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     private _logSubtitleDebug(event: string, context: Record<string, unknown>): void {
         if (!this._isSubtitleDebugEnabled()) return;
         try {
-            console.warn('[PlexStreamResolver] subtitle-debug:', event, safeStringifyForLog(context));
+            console.warn('subtitle-debug:', event, safeStringifyForLog(context));
         } catch {
             // Ignore logging failures.
         }

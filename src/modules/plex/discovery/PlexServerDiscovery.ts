@@ -392,7 +392,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                     noteAuthState('auth_invalid');
                 } else if (latency !== null) {
                     if (config.logWarnings) {
-                        console.warn('[Discovery] Selected HTTP connection (last resort)', {
+                        console.warn('Selected HTTP connection (last resort)', {
                             local: conn.local,
                             relay: conn.relay,
                         });
@@ -407,7 +407,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         }
 
         if (config.logWarnings) {
-            console.warn('[Discovery] No working connections found', {
+            console.warn('No working connections found', {
                 serverId: server.id,
                 authRequired,
                 httpsCount: httpsConns.length,
