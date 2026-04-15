@@ -167,19 +167,21 @@ const VALID_CLEANUP_SUBTYPES = new Set(['checklist-linked', 'standalone remediat
 const PLAN_LIST_ENTRY_RE = /^\s*(?:[-*]|\d+\.)\s+\S+/mu;
 const PLAN_RUN_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Run:\s*`[^`]+`/imu;
 const PLAN_EXPECTED_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Expected:\s*.+$/imu;
+const PRIORITY_EXIT_ISSUE_HEADER_RE =
+    /^\s*(?:[-*]|\d+\.)\s+`?([A-Za-z0-9/._:-]*[._:-][A-Za-z0-9/._:-]*)`?\s*$/iu;
 const PRIORITY_EXIT_DISPOSITION_RE =
-    /(?:expected|planned)?\s*disposition:\s*`?(?:resolved|deferred|split follow-up)`?/iu;
+    /(?:expected|planned)?\s*disposition(?:\s+(?:after\s+this\s+plan|at\s+[^:]+))?\s*:\s*`?(?:resolved(?:\s+(?:on|by)\s+[^`\n]+)?|deferred|split follow-up|owned follow-up|retired)`?/iu;
 const PRIORITY_EXIT_DEFERRED_RE =
-    /(?:expected|planned)?\s*disposition:\s*`?(?:deferred|split follow-up)`?/iu;
+    /(?:expected|planned)?\s*disposition(?:\s+(?:after\s+this\s+plan|at\s+[^:]+))?\s*:\s*`?(?:deferred|split follow-up|owned follow-up)`?/iu;
 const PRIORITY_EXIT_FINAL_OWNER_RE =
-    /(?:final owner|residual final owner):\s*`[^`]+`/giu;
+    /(?:exact\s+)?(?:current\s+or\s+follow-up\s+owner|current\s+owner|final\s+owner|residual\s+final\s+owner|exact\s+final\s+owner|owned\s+follow-up)(?:\s+if\s+[^:]+)?\s*:\s*`?[^`\n]+`?/giu;
 const PRIORITY_EXIT_REVISIT_TRIGGER_RE = /revisit trigger:\s*.+/iu;
 const PRIORITY_EXIT_SECURITY_RE =
-    /(security triage expectation|security gate|security output)/iu;
+    /\b(?:security triage(?: expectation)?|security gate|security output)\b/iu;
 const PRIORITY_EXIT_SECURITY_DISPOSITION_RE =
-    /(?:no open P0 security findings|exact issue ids|`P0`|security issue ids|list the exact issue ids)/iu;
+    /(?:no\s+open\s+`?P0`?\s+security\s+findings|none\s+open|exact(?:\s+open\/deferred)?\s+(?:`?P0`?\s+)?security\s+issue\s+ids|list\s+the\s+exact(?:\s+open\/deferred)?\s+(?:`?P0`?\s+)?security\s+issue\s+ids|`?P0`?\s+security\s+issue\s+ids|no\s+`?P0`?\s+security\s+issue\s+id\s+is\s+currently\s+mapped)/iu;
 const PRIORITY_EXIT_NEXT_PRIORITY_GATE_RE =
-    /(?:P#-EXIT|P\(n\+1\)|before\s+`?P\d+`?.*?\b(?:begins|starts)\b|no\s+`?P\d+`?.*?\b(?:starts|begins)\b)/iu;
+    /(?:priority-exit\s+review|P#-EXIT|P\(n\+1\)|(?:before|no)\s+`?P\d+(?:-EXIT)?`?.*?\b(?:(?:should\s+)?(?:begin|begins|start|starts))\b|until\s+`?P\d+(?:-EXIT)?`?.*?\b(?:is\s+)?unresolved\b)/iu;
 
 const PLAN_SECTION_RULES = [
     { label: 'goal', patterns: [/^\*\*Goal:\*\*/im, /^## Goal$/im] },
@@ -271,12 +273,21 @@ function getPriorityExitIssueBlocks(section) {
     let currentBlock = [];
 
     for (const line of lines) {
-        if (/^\s*-\s*`review::/u.test(line)) {
+        const isIssueHeader = PRIORITY_EXIT_ISSUE_HEADER_RE.test(line);
+        const isTopLevelListItem = /^\s*(?:[-*]|\d+\.)\s+\S/u.test(line);
+        const isNestedListItem = /^\s{2,}(?:[-*]|\d+\.)\s+\S/u.test(line);
+
+        if (isIssueHeader) {
             if (currentBlock.length > 0) {
                 blocks.push(currentBlock.join('\n'));
             }
             currentBlock = [line];
             continue;
+        }
+
+        if (currentBlock.length > 0 && isTopLevelListItem && !isNestedListItem) {
+            blocks.push(currentBlock.join('\n'));
+            currentBlock = [];
         }
 
         if (currentBlock.length > 0) {
