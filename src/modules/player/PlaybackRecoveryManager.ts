@@ -4,7 +4,12 @@
  * @version 1.0.0
  */
 
-import { AppErrorCode, type AppError } from '../lifecycle';
+import {
+    AppErrorCode,
+    getAppErrorCode,
+    getMappedAppErrorCode,
+    type AppError,
+} from '../../types/app-errors';
 import {
     mapPlexStreamErrorCodeToAppErrorCode,
     type IPlexStreamResolver,
@@ -55,18 +60,42 @@ export interface PlaybackRecoveryDeps {
     handleGlobalError: (error: AppError, context: string) => void;
 }
 
-type DisableBurnInSubtitlesResult =
-    | { outcome: 'disabled' }
-    | {
-        outcome: 'ignored';
-        reason:
-        | 'recovery_in_progress'
-        | 'missing_deps'
-        | 'not_burn_in'
-        | 'program_changed'
-        | 'no_program';
-    }
+type RecoveryReloadIgnoredReason =
+    | 'recovery_in_progress'
+    | 'missing_deps'
+    | 'no_program'
+    | 'program_changed';
+
+type RecoveryAttemptResult<Success extends string, IgnoredReason extends string> =
+    | { outcome: Success }
+    | { outcome: 'ignored'; reason: IgnoredReason }
     | { outcome: 'failed' };
+
+type RecoveryReloadContext = {
+    program: ScheduledProgram;
+    player: IVideoPlayer;
+    resolver: IPlexStreamResolver;
+    itemKey: string;
+    safeReason: string;
+    clampedOffset: number;
+    currentDecision: StreamDecision | null;
+};
+
+type RecoveryDescriptorContext = RecoveryReloadContext & {
+    decision: StreamDecision;
+};
+
+export type AudioTrackReloadResult = RecoveryAttemptResult<'reloaded', RecoveryReloadIgnoredReason>;
+
+export type BurnInSubtitleRecoveryResult = RecoveryAttemptResult<
+    'burned_in',
+    RecoveryReloadIgnoredReason | 'already_attempted' | 'already_burned_in'
+>;
+
+export type DisableBurnInSubtitlesResult = RecoveryAttemptResult<
+    'disabled',
+    RecoveryReloadIgnoredReason | 'not_burn_in'
+>;
 
 export class PlaybackRecoveryManager {
     private readonly _subtitlePreferencesStore: SubtitlePreferencesStore;
@@ -106,27 +135,19 @@ export class PlaybackRecoveryManager {
     }
 
     private _getPreferredSubtitleLanguage(): string | null {
-        try {
-            const value = this.deps.getPreferredSubtitleLanguage();
-            if (typeof value !== 'string') return null;
-            const trimmed = value.trim();
-            return trimmed.length > 0 ? trimmed : null;
-        } catch {
-            return null;
-        }
+        const value = this.deps.getPreferredSubtitleLanguage();
+        if (typeof value !== 'string') return null;
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : null;
     }
 
     private _getPlexPreferredSubtitleLanguage(): string | null {
-        try {
-            const getter = this.deps.getPlexPreferredSubtitleLanguage;
-            if (!getter) return null;
-            const value = getter();
-            if (typeof value !== 'string') return null;
-            const trimmed = value.trim();
-            return trimmed.length > 0 ? trimmed : null;
-        } catch {
-            return null;
-        }
+        const getter = this.deps.getPlexPreferredSubtitleLanguage;
+        if (!getter) return null;
+        const value = getter();
+        if (typeof value !== 'string') return null;
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : null;
     }
 
     private _logRecoveryWarn(event: string, data: Record<string, unknown>): void {
@@ -146,6 +167,122 @@ export class PlaybackRecoveryManager {
             channelId: schedulerState?.channelId ?? null,
             safeError: summarizeErrorForLog(error),
         };
+    }
+
+    private _readPlayerState(player: IVideoPlayer): ReturnType<IVideoPlayer['getState']> | null {
+        return player.getState();
+    }
+
+    private _getRecoveryReloadOffset(program: ScheduledProgram, player: IVideoPlayer): number {
+        const livePosition = player.getCurrentTimeMs();
+        const baseOffset = typeof livePosition === 'number' ? livePosition : program.elapsedMs;
+        return Math.max(0, Math.min(baseOffset, program.item.durationMs));
+    }
+
+    private _prepareRecoveryReload(
+        reason: string
+    ): RecoveryReloadContext | { outcome: 'ignored'; reason: RecoveryReloadIgnoredReason } {
+        if (this._streamRecoveryInProgress) {
+            return { outcome: 'ignored', reason: 'recovery_in_progress' };
+        }
+
+        const program = this.deps.getCurrentProgramForPlayback();
+        if (!program) {
+            return { outcome: 'ignored', reason: 'no_program' };
+        }
+
+        const player = this.deps.getVideoPlayer();
+        const resolver = this.deps.getStreamResolver();
+        if (!player || !resolver) {
+            return { outcome: 'ignored', reason: 'missing_deps' };
+        }
+
+        return {
+            program,
+            player,
+            resolver,
+            itemKey: program.item.ratingKey,
+            safeReason: redactSensitiveTokens(reason),
+            clampedOffset: this._getRecoveryReloadOffset(program, player),
+            currentDecision: this.deps.getCurrentStreamDecision?.() ?? null,
+        };
+    }
+
+    private async _executeRecoveryReload<TSuccess extends string>(config: {
+        context: RecoveryReloadContext;
+        successOutcome: TSuccess;
+        startEvent: string;
+        abortedEvent: string;
+        failedEvent: string;
+        startData?: (context: RecoveryReloadContext) => Record<string, unknown>;
+        failureData?: (context: RecoveryReloadContext) => Record<string, unknown>;
+        beforeResolve?: (context: RecoveryReloadContext) => void | Promise<void>;
+        buildRequest: (context: RecoveryReloadContext) => StreamRequest;
+        customizeDescriptor?: (
+            descriptor: StreamDescriptor,
+            context: RecoveryDescriptorContext
+        ) => StreamDescriptor;
+        afterLoad?: (
+            descriptor: StreamDescriptor,
+            context: RecoveryDescriptorContext
+        ) => void | Promise<void>;
+        shouldResumeAfterReload?: boolean;
+        onSuccess?: (context: RecoveryDescriptorContext) => void;
+    }): Promise<RecoveryAttemptResult<TSuccess, 'program_changed'>> {
+        const { context } = config;
+        this._logRecoveryWarn(config.startEvent, {
+            reason: context.safeReason,
+            ...(config.startData?.(context) ?? {}),
+        });
+        this._streamRecoveryInProgress = true;
+
+        try {
+            await config.beforeResolve?.(context);
+
+            const decision = await context.resolver.resolveStream(config.buildRequest(context));
+            if (this.deps.getCurrentProgramForPlayback() !== context.program) {
+                this._logRecoveryWarn(config.abortedEvent, {
+                    reason: context.safeReason,
+                    outcome: 'program_changed',
+                    ...(config.startData?.(context) ?? {}),
+                });
+                return { outcome: 'ignored', reason: 'program_changed' };
+            }
+
+            this.deps.setCurrentStreamDecision(decision);
+
+            let descriptor = this._buildStreamDescriptor(
+                context.program,
+                decision,
+                context.clampedOffset
+            );
+            const descriptorContext: RecoveryDescriptorContext = {
+                ...context,
+                decision,
+            };
+            if (config.customizeDescriptor) {
+                descriptor = config.customizeDescriptor(descriptor, descriptorContext);
+            }
+            this.deps.setCurrentStreamDescriptor(descriptor);
+
+            await context.player.loadStream(descriptor);
+            await config.afterLoad?.(descriptor, descriptorContext);
+            if (config.shouldResumeAfterReload) {
+                await context.player.play();
+            }
+            this.resetPlaybackFailureGuard();
+            config.onSuccess?.(descriptorContext);
+            return { outcome: config.successOutcome };
+        } catch (error) {
+            this._logRecoveryError(config.failedEvent, {
+                reason: context.safeReason,
+                ...(config.failureData?.(context) ?? config.startData?.(context) ?? {}),
+                safeError: summarizeErrorForLog(error),
+            });
+            return { outcome: 'failed' };
+        } finally {
+            this._streamRecoveryInProgress = false;
+        }
     }
 
     private _resolvePreferredSubtitleId(
@@ -361,10 +498,10 @@ export class PlaybackRecoveryManager {
             return false;
         }
         const maybe = error as Partial<StreamResolverError>;
-        if (typeof maybe.code !== 'string' || typeof maybe.message !== 'string') {
+        if (typeof maybe.message !== 'string') {
             return false;
         }
-        const mapped = mapPlexStreamErrorCodeToAppErrorCode(maybe.code as StreamResolverError['code']);
+        const mapped = getMappedAppErrorCode(maybe.code, mapPlexStreamErrorCodeToAppErrorCode);
         if (
             mapped === AppErrorCode.AUTH_REQUIRED ||
             mapped === AppErrorCode.AUTH_EXPIRED ||
@@ -402,28 +539,19 @@ export class PlaybackRecoveryManager {
         return this._buildStreamDescriptor(program, decision, clampedOffset);
     }
 
-    async attemptAudioTrackReloadForCurrentProgram(trackId: string, reason: string): Promise<boolean> {
-        if (this._streamRecoveryInProgress) {
-            return false;
+    async attemptAudioTrackReloadForCurrentProgram(
+        trackId: string,
+        reason: string
+    ): Promise<AudioTrackReloadResult> {
+        const context = this._prepareRecoveryReload(reason);
+        if ('outcome' in context) {
+            return context;
         }
 
-        const program = this.deps.getCurrentProgramForPlayback();
-        const player = this.deps.getVideoPlayer();
-        const resolver = this.deps.getStreamResolver();
-        if (!program || !player || !resolver) {
-            return false;
-        }
-
-        const itemKey = program.item.ratingKey;
-        const currentDecision = this.deps.getCurrentStreamDecision?.() ?? null;
-        const preserveDirectPlayPreference = currentDecision ? currentDecision.isDirectPlay : true;
-        const preReloadState = ((): ReturnType<IVideoPlayer['getState']> | null => {
-            try {
-                return player.getState();
-            } catch {
-                return null;
-            }
-        })();
+        const preserveDirectPlayPreference = context.currentDecision
+            ? context.currentDecision.isDirectPlay
+            : true;
+        const preReloadState = this._readPlayerState(context.player);
         const shouldResumeAfterReload =
             preReloadState?.status === 'playing' || preReloadState?.status === 'buffering';
         const activeSubtitleId =
@@ -431,83 +559,49 @@ export class PlaybackRecoveryManager {
                 ? preReloadState.activeSubtitleId
                 : null;
 
-        const safeReason = redactSensitiveTokens(reason);
-        this._logRecoveryWarn('audioReload.start', {
-            reason: safeReason,
-            trackId,
-            itemKey,
-            preserveDirectPlayPreference,
-        });
-        this._streamRecoveryInProgress = true;
-
-        try {
-            const livePosition = ((): number | null => {
-                try {
-                    const value = player.getCurrentTimeMs();
-                    return Number.isFinite(value) ? value : null;
-                } catch {
-                    return null;
-                }
-            })();
-            const baseOffset = typeof livePosition === 'number' ? livePosition : program.elapsedMs;
-            const clampedOffset = Math.max(0, Math.min(baseOffset, program.item.durationMs));
-
-            const request: StreamRequest = {
-                itemKey,
-                startOffsetMs: clampedOffset,
-                directPlay: preserveDirectPlayPreference,
-                audioStreamId: trackId,
-            };
-            const burnInSubtitleId = currentDecision?.transcodeRequest?.subtitleMode === 'burn'
-                ? currentDecision.transcodeRequest.subtitleStreamId
-                : null;
-            if (typeof burnInSubtitleId === 'string' && burnInSubtitleId.length > 0) {
-                request.subtitleStreamId = burnInSubtitleId;
-                request.subtitleMode = 'burn';
-            } else if (activeSubtitleId) {
-                request.subtitleStreamId = activeSubtitleId;
-            }
-
-            const decision: StreamDecision = await resolver.resolveStream(request);
-            if (this.deps.getCurrentProgramForPlayback() !== program) {
-                this._logRecoveryWarn('audioReload.aborted', {
-                    reason: safeReason,
-                    outcome: 'program_changed',
-                    trackId,
-                    itemKey,
-                });
-                return false;
-            }
-            this.deps.setCurrentStreamDecision(decision);
-
-            let descriptor = this._buildStreamDescriptor(program, decision, clampedOffset);
-            if (preReloadState?.activeSubtitleId === null) {
-                descriptor = { ...descriptor, preferredSubtitleTrackId: null };
-            } else if (
-                activeSubtitleId &&
-                descriptor.subtitleTracks.some((t) => t.id === activeSubtitleId)
-            ) {
-                descriptor = { ...descriptor, preferredSubtitleTrackId: activeSubtitleId };
-            }
-            this.deps.setCurrentStreamDescriptor(descriptor);
-
-            await player.loadStream(descriptor);
-            if (shouldResumeAfterReload) {
-                await player.play();
-            }
-            this.resetPlaybackFailureGuard();
-            return true;
-        } catch (error) {
-            this._logRecoveryError('audioReload.failed', {
-                reason: safeReason,
+        return this._executeRecoveryReload({
+            context,
+            successOutcome: 'reloaded',
+            startEvent: 'audioReload.start',
+            abortedEvent: 'audioReload.aborted',
+            failedEvent: 'audioReload.failed',
+            startData: ({ itemKey }) => ({
                 trackId,
                 itemKey,
-                safeError: summarizeErrorForLog(error),
-            });
-            return false;
-        } finally {
-            this._streamRecoveryInProgress = false;
-        }
+                preserveDirectPlayPreference,
+            }),
+            buildRequest: ({ itemKey, clampedOffset, currentDecision }) => {
+                const request: StreamRequest = {
+                    itemKey,
+                    startOffsetMs: clampedOffset,
+                    directPlay: preserveDirectPlayPreference,
+                    audioStreamId: trackId,
+                };
+                const burnInSubtitleId = currentDecision?.transcodeRequest?.subtitleMode === 'burn'
+                    ? currentDecision.transcodeRequest.subtitleStreamId
+                    : null;
+                if (typeof burnInSubtitleId === 'string' && burnInSubtitleId.length > 0) {
+                    request.subtitleStreamId = burnInSubtitleId;
+                    request.subtitleMode = 'burn';
+                } else if (activeSubtitleId) {
+                    request.subtitleStreamId = activeSubtitleId;
+                }
+                return request;
+            },
+            customizeDescriptor: (descriptor) => {
+                if (preReloadState?.activeSubtitleId === null) {
+                    return { ...descriptor, preferredSubtitleTrackId: null };
+                }
+                if (
+                    activeSubtitleId &&
+                    descriptor.subtitleTracks.some((track) => track.id === activeSubtitleId)
+                ) {
+                    return { ...descriptor, preferredSubtitleTrackId: activeSubtitleId };
+                }
+                return descriptor;
+            },
+            shouldResumeAfterReload,
+        });
     }
 
     tryHandleStreamResolverPermissionError(error: unknown): boolean {
@@ -515,10 +609,11 @@ export class PlaybackRecoveryManager {
             return false;
         }
         const maybe = error as { code?: unknown; message?: unknown };
-        if (typeof maybe.code !== 'string' || typeof maybe.message !== 'string') {
+        if (typeof maybe.message !== 'string') {
             return false;
         }
-        if (maybe.code !== AppErrorCode.ACCESS_DENIED) {
+        const code = getAppErrorCode(maybe.code);
+        if (code !== AppErrorCode.ACCESS_DENIED) {
             return false;
         }
         this.deps.handleGlobalError(
@@ -611,13 +706,13 @@ export class PlaybackRecoveryManager {
                         'info'
                     );
                     void this.attemptBurnInSubtitleForCurrentProgram(trackId, `subtitle_extract_failed:${reason}`)
-                        .then((ok) => {
-                            if (!ok) {
-                                this.deps.notifyToast?.('Subtitles unavailable for this item', 'warning');
+                        .then((result) => {
+                            if (result.outcome === 'failed') {
+                                this.deps.notifySubtitleUnavailable();
                             }
                         })
                         .catch(() => {
-                            this.deps.notifyToast?.('Subtitles unavailable for this item', 'warning');
+                            this.deps.notifySubtitleUnavailable();
                         });
                     return true;
                 },
@@ -640,178 +735,109 @@ export class PlaybackRecoveryManager {
     }
 
     async attemptTranscodeFallbackForCurrentProgram(reason: string): Promise<boolean> {
-        if (this._streamRecoveryInProgress) {
+        const context = this._prepareRecoveryReload(reason);
+        if ('outcome' in context) {
             return false;
         }
-        const program = this.deps.getCurrentProgramForPlayback();
-        const player = this.deps.getVideoPlayer();
-        const resolver = this.deps.getStreamResolver();
-        if (!program || !player || !resolver) {
-            return false;
-        }
-        const programAtStart = program;
+
         const currentProtocol = this.deps.getCurrentStreamDescriptor()?.protocol ?? null;
         if (currentProtocol !== 'direct') {
             return false;
         }
-        const itemKey = program.item.ratingKey;
-        if (this._directFallbackAttemptedForItemKey.has(itemKey)) {
+        if (this._directFallbackAttemptedForItemKey.has(context.itemKey)) {
             return false;
         }
 
-        this._directFallbackAttemptedForItemKey.add(itemKey);
-        const safeReason = redactSensitiveTokens(reason);
-        this._logRecoveryWarn('transcodeFallback.start', {
-            reason: safeReason,
-            itemKey,
-        });
-        this._streamRecoveryInProgress = true;
+        this._directFallbackAttemptedForItemKey.add(context.itemKey);
 
-        try {
-
-            const clampedOffset = Math.max(0, Math.min(program.elapsedMs, program.item.durationMs));
-            const decision: StreamDecision = await resolver.resolveStream({
-                itemKey: itemKey,
+        const result = await this._executeRecoveryReload({
+            context,
+            successOutcome: 'reloaded',
+            startEvent: 'transcodeFallback.start',
+            abortedEvent: 'transcodeFallback.aborted',
+            failedEvent: 'transcodeFallback.failed',
+            startData: ({ itemKey }) => ({ itemKey }),
+            buildRequest: ({ itemKey, clampedOffset }) => ({
+                itemKey,
                 startOffsetMs: clampedOffset,
                 directPlay: false,
-            });
-            if (this.deps.getCurrentProgramForPlayback() !== programAtStart) {
-                this._logRecoveryWarn('transcodeFallback.aborted', {
-                    reason: safeReason,
-                    outcome: 'program_changed',
-                    itemKey,
-                });
-                return false;
-            }
-            this.deps.setCurrentStreamDecision(decision);
+            }),
+            afterLoad: async (descriptor) => {
+                if (descriptor.preferredSubtitleTrackId) {
+                    await context.player.setSubtitleTrack(descriptor.preferredSubtitleTrackId);
+                }
+            },
+            shouldResumeAfterReload: true,
+        });
 
-            const descriptor = this._buildStreamDescriptor(program, decision, clampedOffset);
-            const preferredSubtitleTrackId = descriptor.preferredSubtitleTrackId;
-
-            this.deps.setCurrentStreamDescriptor(descriptor);
-            await player.loadStream(descriptor);
-            if (preferredSubtitleTrackId) {
-                await player.setSubtitleTrack(preferredSubtitleTrackId);
-            }
-            await player.play();
-            this.resetPlaybackFailureGuard();
-            return true;
-        } catch (error) {
-            this._logRecoveryError('transcodeFallback.failed', {
-                reason: safeReason,
-                itemKey,
-                safeError: summarizeErrorForLog(error),
-            });
-            return false;
-        } finally {
-            this._streamRecoveryInProgress = false;
-        }
+        return result.outcome === 'reloaded';
     }
 
-    async attemptBurnInSubtitleForCurrentProgram(trackId: string, reason: string): Promise<boolean> {
-        if (this._streamRecoveryInProgress) {
-            return false;
-        }
-        const program = this.deps.getCurrentProgramForPlayback();
-        const player = this.deps.getVideoPlayer();
-        const resolver = this.deps.getStreamResolver();
-        if (!program || !player || !resolver) {
-            return false;
+    async attemptBurnInSubtitleForCurrentProgram(
+        trackId: string,
+        reason: string
+    ): Promise<BurnInSubtitleRecoveryResult> {
+        const context = this._prepareRecoveryReload(reason);
+        if ('outcome' in context) {
+            return context;
         }
 
-        const itemKey = program.item.ratingKey;
-        const attemptKey = `${itemKey}::${trackId}`;
+        const attemptKey = `${context.itemKey}::${trackId}`;
         if (this._burnInAttemptedForItemKey.has(attemptKey)) {
-            return false;
+            return { outcome: 'ignored', reason: 'already_attempted' };
         }
 
         const currentDescriptor = this.deps.getCurrentStreamDescriptor();
-        const currentDecision = this.deps.getCurrentStreamDecision?.() ?? null;
         if (
             currentDescriptor?.protocol === 'hls' &&
-            currentDecision?.transcodeRequest?.subtitleMode === 'burn' &&
-            currentDecision.transcodeRequest.subtitleStreamId === trackId
+            context.currentDecision?.transcodeRequest?.subtitleMode === 'burn' &&
+            context.currentDecision.transcodeRequest.subtitleStreamId === trackId
         ) {
-            return false;
+            return { outcome: 'ignored', reason: 'already_burned_in' };
         }
 
-        const safeReason = redactSensitiveTokens(reason);
-        this._logRecoveryWarn('burnInReload.start', {
-            reason: safeReason,
-            trackId,
-            itemKey,
-        });
-        this._streamRecoveryInProgress = true;
-
-        try {
-
-            const livePosition = ((): number | null => {
-                try {
-                    const value = player.getCurrentTimeMs();
-                    return Number.isFinite(value) ? value : null;
-                } catch {
-                    return null;
-                }
-            })();
-            const baseOffset = typeof livePosition === 'number' ? livePosition : program.elapsedMs;
-            const clampedOffset = Math.max(0, Math.min(baseOffset, program.item.durationMs));
-            const activeAudioId = player.getState()?.activeAudioId ?? null;
-            const decision: StreamDecision = await resolver.resolveStream({
-                itemKey,
-                startOffsetMs: clampedOffset,
-                directPlay: false,
-                subtitleStreamId: trackId,
-                subtitleMode: 'burn',
-                ...(activeAudioId ? { audioStreamId: activeAudioId } : {}),
-            });
-            if (this.deps.getCurrentProgramForPlayback() !== program) {
-                this._logRecoveryWarn('burnInReload.aborted', {
-                    reason: safeReason,
-                    outcome: 'program_changed',
-                    trackId,
-                    itemKey,
-                });
-                return false;
-            }
-            this.deps.setCurrentStreamDecision(decision);
-
-            const descriptor = this._buildStreamDescriptor(program, decision, clampedOffset);
-            // Override preferred subtitle to the burn-in track that triggered this reload.
-            const descriptorWithBurnIn = { ...descriptor, preferredSubtitleTrackId: trackId };
-            this.deps.setCurrentStreamDescriptor(descriptorWithBurnIn);
-
-            await player.loadStream(descriptorWithBurnIn);
-            await player.play();
-            this.resetPlaybackFailureGuard();
-            this._burnInAttemptedForItemKey.add(attemptKey);
-            return true;
-        } catch (error) {
-            this._logRecoveryError('burnInReload.failed', {
-                reason: safeReason,
+        return this._executeRecoveryReload({
+            context,
+            successOutcome: 'burned_in',
+            startEvent: 'burnInReload.start',
+            abortedEvent: 'burnInReload.aborted',
+            failedEvent: 'burnInReload.failed',
+            startData: ({ itemKey }) => ({
                 trackId,
                 itemKey,
-                safeError: summarizeErrorForLog(error),
-            });
-            return false;
-        } finally {
-            this._streamRecoveryInProgress = false;
-        }
+            }),
+            buildRequest: ({ itemKey, clampedOffset, player }) => {
+                const activeAudioId = this._readPlayerState(player)?.activeAudioId ?? null;
+                return {
+                    itemKey,
+                    startOffsetMs: clampedOffset,
+                    directPlay: false,
+                    subtitleStreamId: trackId,
+                    subtitleMode: 'burn',
+                    ...(activeAudioId ? { audioStreamId: activeAudioId } : {}),
+                };
+            },
+            customizeDescriptor: (descriptor) => ({
+                ...descriptor,
+                preferredSubtitleTrackId: trackId,
+            }),
+            shouldResumeAfterReload: true,
+            onSuccess: () => {
+                this._burnInAttemptedForItemKey.add(attemptKey);
+            },
+        });
     }
 
     async attemptDisableBurnInSubtitlesForCurrentProgram(
         reason: string
     ): Promise<DisableBurnInSubtitlesResult> {
-        if (this._streamRecoveryInProgress) {
-            return { outcome: 'ignored', reason: 'recovery_in_progress' };
+        const context = this._prepareRecoveryReload(reason);
+        if ('outcome' in context) {
+            return context;
         }
-        const program = this.deps.getCurrentProgramForPlayback();
-        const player = this.deps.getVideoPlayer();
-        const resolver = this.deps.getStreamResolver();
-        const currentDecision = this.deps.getCurrentStreamDecision?.() ?? null;
-        if (!program) {
-            return { outcome: 'ignored', reason: 'no_program' };
-        }
-        if (!player || !resolver || !currentDecision) {
+
+        const currentDecision = context.currentDecision;
+        if (!currentDecision) {
             return { outcome: 'ignored', reason: 'missing_deps' };
         }
 
@@ -821,76 +847,41 @@ export class PlaybackRecoveryManager {
             return { outcome: 'ignored', reason: 'not_burn_in' };
         }
 
-        const itemKey = program.item.ratingKey;
         const burnedInTrackId = transcodeRequest?.subtitleStreamId ?? null;
-        const safeReason = redactSensitiveTokens(reason);
-        this._logRecoveryWarn('disableBurnIn.start', {
-            reason: safeReason,
-            itemKey,
-            burnedInTrackId,
-        });
-
-        this._streamRecoveryInProgress = true;
-
-        try {
-
-            // Best-effort: stop the current transcode session before switching back to direct play.
-            if (currentDecision.isTranscoding && currentDecision.sessionId) {
-                void resolver.stopTranscodeSession(currentDecision.sessionId);
-            }
-
-            const livePosition = ((): number | null => {
-                try {
-                    const value = player.getCurrentTimeMs();
-                    return Number.isFinite(value) ? value : null;
-                } catch {
-                    return null;
-                }
-            })();
-            const baseOffset = typeof livePosition === 'number' ? livePosition : program.elapsedMs;
-            const clampedOffset = Math.max(0, Math.min(baseOffset, program.item.durationMs));
-            const activeAudioId = player.getState()?.activeAudioId ?? null;
-
-            const decision: StreamDecision = await resolver.resolveStream({
-                itemKey,
-                startOffsetMs: clampedOffset,
-                directPlay: true,
-                ...(activeAudioId ? { audioStreamId: activeAudioId } : {}),
-            });
-            if (this.deps.getCurrentProgramForPlayback() !== program) {
-                this._logRecoveryWarn('disableBurnIn.aborted', {
-                    reason: safeReason,
-                    outcome: 'program_changed',
-                    itemKey,
-                });
-                return { outcome: 'ignored', reason: 'program_changed' };
-            }
-            this.deps.setCurrentStreamDecision(decision);
-
-            const descriptor = this._buildStreamDescriptor(program, decision, clampedOffset);
-            // Ensure subtitles are off after returning to direct play.
-            const descriptorWithSubtitlesOff = { ...descriptor, preferredSubtitleTrackId: null };
-            this.deps.setCurrentStreamDescriptor(descriptorWithSubtitlesOff);
-
-            await player.loadStream(descriptorWithSubtitlesOff);
-            await player.play();
-            this.resetPlaybackFailureGuard();
-
-            if (typeof burnedInTrackId === 'string' && burnedInTrackId.length > 0) {
-                this._burnInAttemptedForItemKey.delete(`${itemKey}::${burnedInTrackId}`);
-            }
-
-            return { outcome: 'disabled' };
-        } catch (error) {
-            this._logRecoveryError('disableBurnIn.failed', {
-                reason: safeReason,
+        return this._executeRecoveryReload({
+            context,
+            successOutcome: 'disabled',
+            startEvent: 'disableBurnIn.start',
+            abortedEvent: 'disableBurnIn.aborted',
+            failedEvent: 'disableBurnIn.failed',
+            startData: ({ itemKey }) => ({
                 itemKey,
                 burnedInTrackId,
-                safeError: summarizeErrorForLog(error),
-            });
-            return { outcome: 'failed' };
-        } finally {
-            this._streamRecoveryInProgress = false;
-        }
+            }),
+            beforeResolve: () => {
+                if (currentDecision.isTranscoding && currentDecision.sessionId) {
+                    void context.resolver.stopTranscodeSession(currentDecision.sessionId);
+                }
+            },
+            buildRequest: ({ itemKey, clampedOffset, player }) => {
+                const activeAudioId = this._readPlayerState(player)?.activeAudioId ?? null;
+                return {
+                    itemKey,
+                    startOffsetMs: clampedOffset,
+                    directPlay: true,
+                    ...(activeAudioId ? { audioStreamId: activeAudioId } : {}),
+                };
+            },
+            customizeDescriptor: (descriptor) => ({
+                ...descriptor,
+                preferredSubtitleTrackId: null,
+            }),
+            shouldResumeAfterReload: true,
+            onSuccess: ({ itemKey }) => {
+                if (typeof burnedInTrackId === 'string' && burnedInTrackId.length > 0) {
+                    this._burnInAttemptedForItemKey.delete(`${itemKey}::${burnedInTrackId}`);
+                }
+            },
+        });
     }
 }
