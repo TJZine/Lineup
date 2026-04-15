@@ -22,13 +22,16 @@ describe('formatAudioLabel', () => {
         }))).toBe('English (AAC 2ch)');
     });
 
-    it('falls back through title and unknown placeholders when fields are missing', () => {
+    it('falls back to title when language is empty', () => {
         expect(formatAudioLabel(makeAudioTrack({
             language: '',
             title: 'Commentary',
             codec: '',
             channels: 0,
         }))).toBe('Commentary (Unknown)');
+    });
+
+    it('falls back to Unknown when both language and title are empty', () => {
         expect(formatAudioLabel(makeAudioTrack({
             language: '',
             title: '',

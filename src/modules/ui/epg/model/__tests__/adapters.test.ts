@@ -218,6 +218,11 @@ describe('EPG model adapters', () => {
         }
         expect(epgStreams).toEqual(originalStreams);
         expect(epgStreams).not.toBe(originalStreams);
+        expect(epgStreams).toHaveLength(originalStreams.length);
+        epgStreams.forEach((stream, index) => {
+            expect(stream).toEqual(originalStreams[index]);
+            expect(stream).not.toBe(originalStreams[index]);
+        });
         expect(toEpgItemDetails(null)).toBeNull();
     });
 });
