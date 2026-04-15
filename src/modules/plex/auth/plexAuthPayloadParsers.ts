@@ -7,6 +7,8 @@ export type PlexResponsePayload =
     | { kind: 'text'; data: string }
     | { kind: 'empty' };
 
+const SWITCH_TOKEN_KEYS = ['authToken', 'authenticationToken', 'token'] as const;
+
 /**
  * Read plex.tv response as JSON when possible, otherwise text.
  */
@@ -140,9 +142,11 @@ function parseHomeUsersFromUnknown(payload: unknown): PlexHomeUser[] {
     }
 
     if (typeof payload === 'object') {
-        return collectHomeUserCandidates(payload)
-            .map(parseHomeUserRecord)
-            .filter((user): user is PlexHomeUser => user !== null);
+        return dedupeHomeUsersById(
+            collectHomeUserCandidates(payload)
+                .map(parseHomeUserRecord)
+                .filter((user): user is PlexHomeUser => user !== null)
+        );
     }
 
     return [];
@@ -170,8 +174,8 @@ function isStructurallyValidXml(payload: string): boolean {
 function parseSwitchResponseFromUnknown(payload: unknown): { authToken: string } {
     if (payload && typeof payload === 'object') {
         const obj = payload as Record<string, unknown>;
-        const direct = obj['authToken'] ?? obj['authenticationToken'];
-        if (typeof direct === 'string' && direct.length > 0) {
+        const direct = getRecordStringValue(obj, SWITCH_TOKEN_KEYS);
+        if (direct) {
             return { authToken: direct };
         }
     }
@@ -223,17 +227,13 @@ function parseHomeUsersXml(payload: string): PlexHomeUser[] {
         const parser = new DOMParser();
         const doc = parser.parseFromString(payload, 'application/xml');
         if (doc.getElementsByTagName('parsererror').length === 0) {
-            const users = getXmlUserNodes(doc)
-                .map((node) => parseHomeUserAttributes(getXmlNodeAttributes(node)))
-                .filter((user): user is PlexHomeUser => user !== null);
+            const users = dedupeHomeUsersById(
+                getXmlUserNodes(doc)
+                    .map((node) => parseHomeUserAttributes(getXmlNodeAttributes(node)))
+                    .filter((user): user is PlexHomeUser => user !== null)
+            );
             if (users.length > 0) {
-                const deduped = new Map<string, PlexHomeUser>();
-                for (const user of users) {
-                    if (!deduped.has(user.id)) {
-                        deduped.set(user.id, user);
-                    }
-                }
-                return Array.from(deduped.values());
+                return users;
             }
         }
     }
@@ -259,7 +259,7 @@ function parseHomeUsersXmlFallback(payload: string): PlexHomeUser[] {
         if (parsed) users.push(parsed);
     }
 
-    return users;
+    return dedupeHomeUsersById(users);
 }
 
 function collectHomeUserCandidates(payload: unknown): Record<string, unknown>[] {
@@ -418,26 +418,21 @@ function parseSwitchTokenXml(payload: string): string | null {
         const parser = new DOMParser();
         const doc = parser.parseFromString(payload, 'application/xml');
         if (doc.getElementsByTagName('parsererror').length === 0) {
-            const root = doc.documentElement;
-            const attrToken = root?.getAttribute?.('authenticationToken');
-            if (attrToken) return attrToken;
-            const userNode = doc.getElementsByTagName('User')[0];
-            if (userNode) {
-                const userToken = userNode.getAttribute('authenticationToken');
-                if (userToken) return userToken;
+            const candidates = [
+                doc.documentElement,
+                doc.getElementsByTagName('User')[0],
+                doc.getElementsByTagName('HomeUser')[0],
+            ];
+            for (const candidate of candidates) {
+                const token = getXmlTokenValue(candidate);
+                if (token) {
+                    return token;
+                }
             }
         }
     }
 
-    const attrMatch = payload.match(/authenticationToken="([^"]+)"/);
-    if (attrMatch && attrMatch[1]) {
-        return attrMatch[1];
-    }
-    const nodeMatch = payload.match(/<authenticationToken>([^<]+)<\/authenticationToken>/i);
-    if (nodeMatch && nodeMatch[1]) {
-        return nodeMatch[1];
-    }
-    return null;
+    return getTokenFromXmlText(payload);
 }
 
 function extractPreferredSubtitleLanguage(data: Record<string, unknown>): string | null {
@@ -463,4 +458,65 @@ function coerceLanguageValue(value: unknown): string | null {
     if (typeof value !== 'string') return null;
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : null;
+}
+
+function dedupeHomeUsersById(users: PlexHomeUser[]): PlexHomeUser[] {
+    const deduped = new Map<string, PlexHomeUser>();
+    for (const user of users) {
+        if (!deduped.has(user.id)) {
+            deduped.set(user.id, user);
+        }
+    }
+    return Array.from(deduped.values());
+}
+
+function getRecordStringValue(record: Record<string, unknown>, keys: readonly string[]): string | null {
+    const value = getRecordValue(record, Array.from(keys));
+    if (typeof value !== 'string') {
+        return null;
+    }
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+}
+
+function getXmlTokenValue(node: Element | null | undefined): string | null {
+    if (!node) {
+        return null;
+    }
+
+    const attrToken = getRecordStringValue(getXmlNodeAttributes(node), SWITCH_TOKEN_KEYS);
+    if (attrToken) {
+        return attrToken;
+    }
+
+    for (const key of SWITCH_TOKEN_KEYS) {
+        const child = node.getElementsByTagName(key)[0];
+        const value = child?.textContent?.trim();
+        if (value) {
+            return value;
+        }
+    }
+
+    return null;
+}
+
+function getTokenFromXmlText(payload: string): string | null {
+    for (const key of SWITCH_TOKEN_KEYS) {
+        const escapedKey = escapeRegExp(key);
+        const attrMatch = payload.match(new RegExp(`${escapedKey}=["']([^"']+)["']`, 'i'));
+        if (attrMatch?.[1]) {
+            return attrMatch[1];
+        }
+
+        const nodeMatch = payload.match(new RegExp(`<${escapedKey}>([^<]+)</${escapedKey}>`, 'i'));
+        if (nodeMatch?.[1]) {
+            return nodeMatch[1];
+        }
+    }
+
+    return null;
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
