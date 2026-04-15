@@ -71,7 +71,7 @@ export class BuildProgressStepController {
             backButton.disabled = false;
             backButton.textContent = 'Back';
             doneButton.disabled = true;
-            console.error('[ChannelSetup] Build failed:', summary);
+            console.warn('Build failed:', summary);
         });
     }
 }

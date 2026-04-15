@@ -24,6 +24,12 @@ describe('ChannelSetupTagFilters', () => {
         ).toEqual({ type: 4, actor: 'Alex Star' });
     });
 
+    it('parses query-only fastKey values and ignores trailing fragments', () => {
+        expect(
+            parseChannelSetupTagFastKeyFilters('?type=4&actor=Alex%20Star#ignored-fragment')
+        ).toEqual({ type: 4, actor: 'Alex Star' });
+    });
+
     it('falls back to tag.key when fastKey does not contain the requested family', () => {
         expect(
             buildChannelSetupTagFilter(
@@ -39,6 +45,10 @@ describe('ChannelSetupTagFilters', () => {
 
     it('returns an empty object for malformed fastKey values', () => {
         expect(parseChannelSetupTagFastKeyFilters('%%%%')).toEqual({});
+    });
+
+    it('returns an empty object when fastKey does not include a query string', () => {
+        expect(parseChannelSetupTagFastKeyFilters('/library/sections/1/actor')).toEqual({});
     });
 
     it('ignores unsupported and empty query values', () => {

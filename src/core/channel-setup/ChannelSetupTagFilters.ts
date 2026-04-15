@@ -35,9 +35,14 @@ export function buildChannelSetupFacetCountFilter(
 export function parseChannelSetupTagFastKeyFilters(fastKey: string): Record<string, string | number> {
     try {
         const result: Record<string, string | number> = {};
-        const url = new URL(fastKey, 'http://localhost');
         const allowList = new Set(['actor', 'studio', 'type']);
-        for (const [rawKey, value] of url.searchParams.entries()) {
+        const queryStart = fastKey.indexOf('?');
+        if (queryStart === -1) {
+            return result;
+        }
+        const query = fastKey.slice(queryStart + 1).split('#', 1)[0] ?? '';
+        const params = new URLSearchParams(query);
+        for (const [rawKey, value] of params.entries()) {
             if (!rawKey || value === '') continue;
             const key = rawKey.trim();
             const lowerKey = key.toLowerCase();

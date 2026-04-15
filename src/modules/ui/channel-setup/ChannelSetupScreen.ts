@@ -423,7 +423,7 @@ export class ChannelSetupScreen {
                 return;
             }
             if (isAbortLikeError(error)) return;
-            console.error('[ChannelSetup] Load libraries failed:', summarizeErrorForLog(error));
+            console.warn('Load libraries failed:', summarizeErrorForLog(error));
         });
     }
 
@@ -1296,7 +1296,7 @@ export class ChannelSetupScreen {
             })
             .catch((error: unknown) => {
                 if (isAbortLikeError(error)) return;
-                console.error('[ChannelSetup] Load review failed:', summarizeErrorForLog(error));
+                console.warn('Load review failed:', summarizeErrorForLog(error));
             });
     }
 
@@ -1334,7 +1334,7 @@ export class ChannelSetupScreen {
                     .then(() => this._screenPorts.openEPG())
                     .catch((error: unknown) => {
                         if (isAbortLikeError(error)) return;
-                        console.error('[ChannelSetup] Switch to channel 1 failed:', summarizeErrorForLog(error));
+                        console.warn('Switch to channel 1 failed:', summarizeErrorForLog(error));
                     });
             },
             startBuild: async (ui) => {

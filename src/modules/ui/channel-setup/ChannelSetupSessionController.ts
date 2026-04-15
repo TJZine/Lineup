@@ -1,8 +1,9 @@
-import type { ChannelBuildProgress, ChannelSetupConfig } from '../../../core/channel-setup/types';
 import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/ChannelSetupWorkflowPort';
+import type { ChannelSetupConfig } from '../../../core/channel-setup/types';
 import {
     ChannelSetupSessionRuntime,
 } from './ChannelSetupSessionRuntime';
+import type { ChannelSetupBuildHandlers, ChannelSetupBuildOutcome } from './ChannelSetupSessionTypes';
 import {
     ChannelSetupSessionState,
     clampSeriesBlockPreset,
@@ -41,18 +42,7 @@ export type {
     ChannelSetupSessionSnapshot,
 };
 
-export type ChannelSetupBuildOutcome =
-    | { kind: 'missing-server' }
-    | { kind: 'canceled' }
-    | { kind: 'blocked'; message: string }
-    | { kind: 'error'; message: string }
-    | {
-        kind: 'success';
-        serverId: string;
-        config: ChannelSetupConfig;
-        result: Awaited<ReturnType<ChannelSetupWorkflowPort['createChannelsFromSetup']>>;
-        bookkeepingError?: string;
-    };
+export type { ChannelSetupBuildOutcome } from './ChannelSetupSessionTypes';
 
 export class ChannelSetupSessionController {
     private readonly _state: ChannelSetupSessionState;
@@ -158,10 +148,7 @@ export class ChannelSetupSessionController {
     }
 
     async beginBuild(
-        options: {
-            onProgress: (progress: ChannelBuildProgress) => void;
-            onStateChange: () => void;
-        }
+        options: ChannelSetupBuildHandlers
     ): Promise<ChannelSetupBuildOutcome> {
         return this._runtime.beginBuild(options);
     }
