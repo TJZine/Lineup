@@ -1355,7 +1355,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 ## Priority 8: Remove Diagnostic Noise, Template Ceremony, And Doc Drift
 
-### [ ] `P8-W1` Replace Diagnostic Spam With Bounded Summaries
+### [x] `P8-W1` Replace Diagnostic Spam With Bounded Summaries
 
 **Mapped imported review issues:**
 
@@ -1371,6 +1371,21 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify show logs --status open --no-budget --top 50`
 
 **Exit rule:** diagnostics emit targeted summaries instead of object dumps and table spam.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-15-p8-w1-diagnostic-summary-surface.md`
+- Last touched: `2026-04-15`
+- Verification:
+  - `npm test -- --runInBand src/core/app-shell/__tests__/AppDiagnosticsChannelSetupSummary.test.ts src/core/app-shell/__tests__/AppDiagnosticsSurface.test.ts` passed
+  - `npm run verify` passed
+  - `rg -n "console\\.table|Diagnostics payload:" src/core/app-shell/AppDiagnosticsSurface.ts` returned no matches
+  - `rg -n "dumpChannelSetupPlannerDiagnostics|dumpActiveChannelSetupPlannerDiagnostics" src/core/app-shell/AppDiagnosticsSurface.ts src/core/app-shell/__tests__/AppDiagnosticsSurface.test.ts` returned the expected helper entry points plus their contract coverage
+  - `desloppify show src/core/app-shell --status open --no-budget --top 100` shows only non-slice residual issues in `AppOrchestratorConfigFactory.ts`, `AppContainerFactory.ts`, `AppStartupUiInitializer.ts`, and `AppScreenVisibilityCoordinator.ts`
+  - `desloppify show logs --status open --no-budget --top 50` shows only unrelated tagged-log findings outside `AppDiagnosticsSurface.ts`
+  - `desloppify show "review::.::holistic::ai_generated_debt::diagnostic_payload_dump_logging" --status all` still reports the imported review id, but its evidence cites removed `Diagnostics payload:` / `console.table(...)` output at stale `AppDiagnosticsSurface.ts:197-209` line ranges rather than any live current-source spam
+- Follow-ups:
+  - `review::.::holistic::ai_generated_debt::diagnostic_payload_dump_logging` is resolved on current-source proof plus passing tests; the current `desloppify` row is stale detector wording and should stay detector-lag only unless a later refresh finds a new live owner
+- Handoff: `P8-W2` is now the next safe start for docblock and architecture-doc cleanup
 
 ### [ ] `P8-W2` Remove Template Docblocks And Refresh Architecture Docs
 
