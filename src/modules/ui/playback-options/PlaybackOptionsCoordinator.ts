@@ -14,7 +14,7 @@ import type { IVideoPlayer } from '../../player';
 import type { BurnInSubtitleRecoveryResult } from '../../player/PlaybackRecoveryManager';
 import type { ScheduledProgram } from '../../scheduler/scheduler';
 import type { SubtitleTrack } from '../../player/types';
-import { BURN_IN_SUBTITLE_FORMATS } from '../../player/constants';
+import { BURN_IN_SUBTITLE_FORMATS } from '../../../shared/subtitle-formats';
 import {
     subtitleModeAllowsBurnIn,
     subtitleModeIsDirectOnly,

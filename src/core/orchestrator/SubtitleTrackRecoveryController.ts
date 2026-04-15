@@ -1,4 +1,4 @@
-import { BURN_IN_SUBTITLE_FORMATS } from '../../modules/player/constants';
+import { BURN_IN_SUBTITLE_FORMATS } from '../../shared/subtitle-formats';
 import type { IVideoPlayer, StreamDescriptor } from '../../modules/player';
 import type {
     AudioTrackReloadResult,

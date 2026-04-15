@@ -6,7 +6,7 @@
  */
 
 import type { SubtitleTrack } from './types';
-import { BURN_IN_SUBTITLE_FORMATS } from './constants';
+import { BURN_IN_SUBTITLE_FORMATS } from '../../shared/subtitle-formats';
 import { DeveloperSettingsStore } from '../settings/DeveloperSettingsStore';
 import { redactSensitiveTokens, safeStringifyForLog } from '../../utils/redact';
 import type { PlatformSubtitleService } from '../../platform';

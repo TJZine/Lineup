@@ -21,7 +21,7 @@ import {
 import type { IChannelScheduler, ScheduledProgram } from '../scheduler/scheduler';
 import type { IVideoPlayer, StreamDescriptor } from './index';
 import type { AudioTrack, SubtitleTrack } from './types';
-import { TEXT_SUBTITLE_FORMATS } from './constants';
+import { TEXT_SUBTITLE_FORMATS } from '../../shared/subtitle-formats';
 import {
     subtitleModeAllowsBurnIn,
     subtitleModeIsDirectOnly,

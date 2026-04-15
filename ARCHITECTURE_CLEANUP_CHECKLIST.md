@@ -1286,7 +1286,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - Follow-ups: `P7-W2` remains the next planned player cleanup slice; no additional `P7-W1` split follow-up is required from current-source evidence
 - Handoff: run `lineup-cleanup-review` for `P7-W1` implementation evidence before opening `P7-W2`
 
-### [ ] `P7-W2` Normalize Player Public Surface And Migration Residue
+### [x] `P7-W2` Normalize Player Public Surface And Migration Residue
 
 **Mapped imported review issues:**
 
@@ -1309,6 +1309,22 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify show test_coverage --status open --no-budget --top 100`
 
 **Exit rule:** player public contracts match real behavior and internal callers no longer depend on backward-compat aliasing.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-14-p7-w2-player-public-surface-and-migration-residue.md`
+- Last touched: `2026-04-14`
+- Verification:
+  - `npm test -- src/modules/player/__tests__/VideoPlayer.test.ts` passed
+  - `npm test -- src/modules/player/__tests__/ErrorHandler.test.ts` passed
+  - `npm test -- src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts` passed
+  - `npm test -- src/__tests__/orchestrator/subtitle-track-recovery-warning-contract.test.ts` passed
+  - `rg -n "from '../../player/constants'|from '../../modules/player/constants'" src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts src/core/orchestrator/SubtitleTrackRecoveryController.ts` returned no matches
+  - `rg -n "from './constants'" src/modules/player/PlaybackRecoveryManager.ts src/modules/player/SubtitleManager.ts` returned no matches
+  - `rg -n "backward compatibility|export \{ VideoPlayer, mapMediaErrorCodeToPlaybackError \} from './VideoPlayer'|mapMediaErrorCodeToPlaybackError" src/modules/player` returned only the canonical `ErrorHandler.ts` implementation, the player barrel export, and focused helper tests
+  - `npm run typecheck` passed
+  - `npm run verify` passed
+- Follow-ups: `P7-EXIT` owns final evidence refresh and any detector-lag reconciliation; `P8-W1` must not begin until `P7-EXIT` records the priority-exit outcome
+- Handoff: run `lineup-cleanup-review` for `P7-W2` implementation evidence, then execute `P7-EXIT` before opening `P8-W1`
 
 ## Priority 8: Remove Diagnostic Noise, Template Ceremony, And Doc Drift
 

@@ -75,10 +75,3 @@ export const DEFAULT_CONFIG = {
     retryAttempts: MAX_RETRY_ATTEMPTS,
     retryDelayMs: RETRY_BASE_DELAY_MS,
 } as const;
-
-// ============================================
-// Subtitle Formats
-// ============================================
-
-// Re-export from shared module for backward compatibility
-export { BURN_IN_SUBTITLE_FORMATS, TEXT_SUBTITLE_FORMATS } from '../../shared/subtitle-formats';
