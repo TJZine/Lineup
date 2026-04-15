@@ -1458,7 +1458,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 ## Priority 9: Rebuild Test Seams Instead Of Fighting Them
 
-### [ ] `P9-W1` Remove Private-API Test Coupling
+### [x] `P9-W1` Remove Private-API Test Coupling
 
 **Mapped imported review issues:**
 
@@ -1477,6 +1477,28 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify show src/__tests__ --status open --no-budget --top 150`
 
 **Exit rule:** tests assert stable public seams instead of private helpers, prototype spying, or brittle internal structure.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-15-p9-w1-private-api-test-seams.md`
+- Last touched: `2026-04-15`
+- Verification:
+  - `npm test -- --runInBand src/modules/player/__tests__/SubtitleManager.test.ts src/modules/player/__tests__/subtitleFallbackPipeline.test.ts` passed
+  - `npm test -- --runInBand src/__tests__/App.test.ts src/core/app-shell/__tests__/AppDiagnosticsSurface.test.ts src/core/app-shell/__tests__/AppContainerFactory.test.ts src/core/app-shell/__tests__/AppOrchestratorConfigFactory.test.ts src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts` passed
+  - `npm test -- --runInBand src/__tests__/orchestrator/playback-flow.test.ts src/modules/player/__tests__/SubtitleManager.test.ts src/modules/player/__tests__/subtitleFallbackPipeline.test.ts src/__tests__/App.test.ts` passed
+  - `npm run typecheck` passed
+  - `npm run verify` passed
+  - `rg -n "spyOn\\(AppOrchestrator\\.prototype" src/__tests__/App.test.ts` returned only the allowlisted App-owned public-port spies: `initialize`, `start`, `shutdown`, `registerErrorHandler`, `setNowPlayingHandler`, `onScreenChange`, `onLifecycleEvent`, `getNavigation`, `getCurrentScreen`, `isReady`, `refreshPlaybackInfoSnapshot`, and `getRecoveryActions`
+  - `rg -nP "spyOn\\(AppOrchestrator\\.prototype, '(?!(initialize|start|shutdown|registerErrorHandler|setNowPlayingHandler|onScreenChange|onLifecycleEvent|getNavigation|getCurrentScreen|isReady|refreshPlaybackInfoSnapshot|getRecoveryActions)')" src/__tests__/App.test.ts` returned no matches
+  - `rg -n "_buildDirectTrackUrl|_fetchFallbackBlobUrl|_deriveLanHttpUrl|_triggerFallback|_trackElements|_readyTracks|spyOn\\(appUnderTest as never|_lazyScreenRegistry" src/modules/player/__tests__/SubtitleManager.test.ts src/__tests__/App.test.ts` returned no matches
+  - `rg -n "_buildDailyScheduleConfig|as any\\)|as unknown as .*_buildDailyScheduleConfig|private" src/__tests__/orchestrator/playback-flow.test.ts` returned no matches, confirming the imported playback-flow private-call evidence was already stale on current source
+  - `desloppify show signature --status open --no-budget --top 50` reported no open `signature` issues
+  - `desloppify show test_coverage --status open --no-budget --top 100` reported only broader `transitive_only` coverage residue; the bounded slice now includes direct `subtitleFallbackPipeline.test.ts` coverage and no new private-coupling rationale
+  - `desloppify show src/__tests__ --status open --no-budget --top 150` reported no open issues under `src/__tests__`
+  - `desloppify show "review::.::holistic::test_strategy::private_api_test_coupling" --status all` still reports the imported review id, but its evidence cites stale `playback-flow.test.ts` wording plus broader prototype-spy debt outside this bounded slice
+- Follow-ups:
+  - `review::.::holistic::test_strategy::private_api_test_coupling` is resolved for the `P9-W1` bounded files on current-source proof: `SubtitleManager.test.ts` now covers observable subtitle behavior and `fetchSubtitleFallbackVtt`, `App.test.ts` no longer depends on private `App` seams or non-allowlisted `AppOrchestrator.prototype` spies, and `playback-flow.test.ts` was already compliant
+  - `P9-W2` is the single final owner for broader remaining prototype-spy and detector-lag cleanup outside this bounded slice, including residual review evidence that still references repo-wide test debt such as `src/__tests__/Orchestrator.test.ts`
+- Handoff: run `lineup-cleanup-review` for `P9-W1` implementation evidence; `P9-W2` remains the next checklist owner for broader test-only detector debt
 
 ### [ ] `P9-W2` Burn Down Remaining Test-Only Detector Debt
 
