@@ -6,9 +6,10 @@
 
 import type { INavigationManager } from '../../navigation';
 import type { IChannelScheduler, ScheduledProgram } from '../../scheduler/scheduler';
-import type { IChannelManager, ChannelConfig } from '../../scheduler/channel-manager';
+import type { IChannelManager } from '../../scheduler/channel-manager';
 import type { IPlexLibrary, PlexMediaItem } from '../../plex/library';
-import type { INowPlayingInfoOverlay, NowPlayingInfoViewModel } from './index';
+import type { INowPlayingInfoOverlay } from './interfaces';
+import type { NowPlayingInfoViewModel } from './types';
 import type { NowPlayingInfoConfig } from './types';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from './constants';
 import { NowPlayingDisplayStore } from '../../settings/NowPlayingDisplayStore';
@@ -89,14 +90,13 @@ export class NowPlayingInfoCoordinator {
             this.deps.getNavigation()?.closeModal(this.deps.nowPlayingModalId);
             return;
         }
-        const channel = channelManager.getCurrentChannel();
-        const viewModel = this.buildNowPlayingInfoViewModel(program, channel, null);
+        const viewModel = this.buildNowPlayingInfoViewModel(program, null);
         overlay.setAutoHideMs(this.deps.getAutoHideMs());
         overlay.show(viewModel);
         this.deps.onVisibilityChange?.(true);
         this.startLiveUpdates();
-        void this.fetchNowPlayingInfoDetails(program, channel);
-        void this.refreshPlaybackSummary(program, channel);
+        void this.fetchNowPlayingInfoDetails(program);
+        void this.refreshPlaybackSummary(program);
         void this.deps.maybeFetchStreamDecisionForDebugHud();
     }
 
@@ -117,12 +117,11 @@ export class NowPlayingInfoCoordinator {
         if (!overlay || !navigation?.isModalOpen(this.deps.nowPlayingModalId)) {
             return;
         }
-        const channel = this.deps.getChannelManager()?.getCurrentChannel() ?? null;
-        const viewModel = this.buildNowPlayingInfoViewModel(program, channel, null);
+        const viewModel = this.buildNowPlayingInfoViewModel(program, null);
         overlay.setAutoHideMs(this.deps.getAutoHideMs());
         overlay.update(viewModel);
-        void this.fetchNowPlayingInfoDetails(program, channel);
-        void this.refreshPlaybackSummary(program, channel);
+        void this.fetchNowPlayingInfoDetails(program);
+        void this.refreshPlaybackSummary(program);
     }
 
     refreshIfOpen(): void {
@@ -135,9 +134,8 @@ export class NowPlayingInfoCoordinator {
             const freshProgram =
                 this.deps.getScheduler()?.getCurrentProgram() ??
                 this.deps.getCurrentProgramForPlayback();
-            const channel = this.deps.getChannelManager()?.getCurrentChannel() ?? null;
             if (freshProgram) {
-                const viewModel = this.buildNowPlayingInfoViewModel(freshProgram, channel, null);
+                const viewModel = this.buildNowPlayingInfoViewModel(freshProgram, null);
                 overlay.update(viewModel);
             }
         } catch {
@@ -169,9 +167,8 @@ export class NowPlayingInfoCoordinator {
             try {
                 const program = scheduler.getCurrentProgram();
                 if (!program) return;
-                const channel = this.deps.getChannelManager()?.getCurrentChannel() ?? null;
                 const details = this.getCachedDetailsForProgram(program);
-                const viewModel = this.buildNowPlayingInfoViewModel(program, channel, details);
+                const viewModel = this.buildNowPlayingInfoViewModel(program, details);
                 overlay.update(viewModel);
             } catch {
                 // Best-effort; never throw from a UI refresh timer.
@@ -187,10 +184,7 @@ export class NowPlayingInfoCoordinator {
         this.nowPlayingInfoLiveUpdateTimer = null;
     }
 
-    private async fetchNowPlayingInfoDetails(
-        program: ScheduledProgram,
-        channel: ChannelConfig | null
-    ): Promise<void> {
+    private async fetchNowPlayingInfoDetails(program: ScheduledProgram): Promise<void> {
         const plexLibrary = this.deps.getPlexLibrary();
         const overlay = this.deps.getNowPlayingInfo();
         if (!plexLibrary || !overlay) {
@@ -207,7 +201,7 @@ export class NowPlayingInfoCoordinator {
             }
             this.nowPlayingInfoDetails = item;
             this.nowPlayingInfoDetailsRatingKey = program.item.ratingKey;
-            const viewModel = this.buildNowPlayingInfoViewModel(program, channel, item);
+            const viewModel = this.buildNowPlayingInfoViewModel(program, item);
             overlay.update(viewModel);
         } catch (error) {
             console.warn(
@@ -219,11 +213,9 @@ export class NowPlayingInfoCoordinator {
 
     private buildNowPlayingInfoViewModel(
         program: ScheduledProgram,
-        channel: ChannelConfig | null,
         details: PlexMediaItem | null
     ): NowPlayingInfoViewModel {
         const item = program.item;
-        void channel;
         const cinematic = this.cinematicNowPlaying;
 
         let title = item.title;
@@ -310,10 +302,7 @@ export class NowPlayingInfoCoordinator {
         return baseViewModel;
     }
 
-    private async refreshPlaybackSummary(
-        program: ScheduledProgram,
-        channel: ChannelConfig | null
-    ): Promise<void> {
+    private async refreshPlaybackSummary(program: ScheduledProgram): Promise<void> {
         try {
             await this.deps.refreshPlaybackInfoSnapshot();
         } catch {
@@ -326,7 +315,7 @@ export class NowPlayingInfoCoordinator {
             return;
         }
         const details = this.getCachedDetailsForProgram(program);
-        const viewModel = this.buildNowPlayingInfoViewModel(program, channel, details);
+        const viewModel = this.buildNowPlayingInfoViewModel(program, details);
         overlay.update(viewModel);
     }
 
