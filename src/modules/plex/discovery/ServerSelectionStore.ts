@@ -32,6 +32,7 @@ export type WriteServerHealthRecordInput = {
 type ServerSelectionStorageKeys = { selectedServerKey: string; serverHealthKey: string };
 
 const SERVER_HEALTH_RECORD_KEYS = new Set(['status', 'type', 'latencyMs', 'testedAt']);
+const RESERVED_SERVER_HEALTH_IDS = new Set(['__proto__', 'prototype', 'constructor']);
 
 export class ServerSelectionStore {
     constructor(
@@ -98,12 +99,15 @@ export class ServerSelectionStore {
             return {};
         }
 
-        const normalized: ServerHealthMap = {};
+        const normalized = Object.create(null) as ServerHealthMap;
         let changed = normalizedRaw !== raw;
 
         for (const [serverId, value] of Object.entries(parsed as Record<string, unknown>)) {
             const normalizedServerId = serverId.trim();
-            if (normalizedServerId.length === 0) {
+            if (
+                normalizedServerId.length === 0
+                || RESERVED_SERVER_HEALTH_IDS.has(normalizedServerId)
+            ) {
                 changed = true;
                 continue;
             }

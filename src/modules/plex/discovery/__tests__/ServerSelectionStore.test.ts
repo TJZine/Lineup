@@ -113,6 +113,38 @@ describe('ServerSelectionStore', () => {
         );
     });
 
+    it('rejects reserved server ids during normalization and rewrites persisted health state', () => {
+        mockLocalStorage.setItem(
+            PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY,
+            '{"__proto__":{"status":"ok","type":"local"},"constructor":{"status":"ok","type":"remote"},"srv-1":{"status":"ok","type":"local"}}'
+        );
+
+        const store = new ServerSelectionStore();
+
+        expect(store.readServerHealthMapAndClean()).toEqual({
+            'srv-1': { status: 'ok', type: 'local' },
+        });
+        expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY)).toBe(
+            JSON.stringify({
+                'srv-1': { status: 'ok', type: 'local' },
+            })
+        );
+    });
+
+    it('does not allow __proto__ payloads to mutate the normalized health map prototype', () => {
+        mockLocalStorage.setItem(
+            PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY,
+            '{"__proto__":{"status":"ok","type":"local"}}'
+        );
+
+        const store = new ServerSelectionStore();
+        const healthMap = store.readServerHealthMapAndClean();
+
+        expect(healthMap).toEqual({});
+        expect(Object.getPrototypeOf(healthMap)).toBeNull();
+        expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY)).toBeNull();
+    });
+
     it('writes health records and preserves previous type/latency when details are missing', () => {
         const store = new ServerSelectionStore();
 
