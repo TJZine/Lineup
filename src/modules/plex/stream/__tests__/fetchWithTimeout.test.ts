@@ -1,4 +1,5 @@
 import { fetchWithTimeout } from '../../shared/fetchWithTimeout';
+import { fetchWithTimeoutCore } from '../../shared/fetchWithTimeoutCore';
 
 describe('fetchWithTimeout', () => {
     let mockFetch: jest.Mock;
@@ -166,6 +167,40 @@ describe('fetchWithTimeout', () => {
         const passedSignal = (mockFetch.mock.calls[0]?.[1] as RequestInit | undefined)?.signal as AbortSignal | undefined;
         if (!passedSignal) {
             throw new Error('Expected fetch to be called with a RequestInit.signal');
+        }
+
+        upstreamController.abort();
+        expect(passedSignal.aborted).toBe(true);
+
+        await jest.advanceTimersByTimeAsync(100_001);
+        await requestRejection;
+    });
+
+    it('aborts the core request when the upstream signal aborts', async () => {
+        jest.useFakeTimers();
+        const upstreamController = new AbortController();
+        mockFetch.mockImplementation((_url: string, options?: RequestInit) => {
+            return new Promise((_resolve, reject) => {
+                const signal = options?.signal as AbortSignal | undefined;
+                signal?.addEventListener(
+                    'abort',
+                    () => reject(new DOMException('The operation was aborted.', 'AbortError')),
+                    { once: true }
+                );
+            });
+        });
+
+        const request = fetchWithTimeoutCore(
+            'http://example.test/core-upstream-abort',
+            { method: 'GET' },
+            100_000,
+            upstreamController.signal
+        );
+        const requestRejection = request.catch((error) => error);
+
+        const passedSignal = (mockFetch.mock.calls[0]?.[1] as RequestInit | undefined)?.signal as AbortSignal | undefined;
+        if (!passedSignal) {
+            throw new Error('Expected fetchWithTimeoutCore to pass a RequestInit.signal');
         }
 
         upstreamController.abort();

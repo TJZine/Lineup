@@ -4,6 +4,10 @@
 
 import type { PlexMediaFile, PlexStream } from '../types';
 import {
+    detectHdrLabel,
+    extractHdrLabelFromPlexMedia,
+} from '../hdr';
+import {
     getDirectPlayDecision,
     getHdrCompatibilityDecision,
     isTrueHdCodec,
@@ -268,6 +272,39 @@ describe('playbackCompatibilityPolicy', () => {
             expect(isTrueHdCodec('TrueHD')).toBe(true);
             expect(isTrueHdCodec('mlp')).toBe(true);
             expect(isTrueHdCodec('ac3')).toBe(false);
+        });
+    });
+
+    describe('hdr helpers', () => {
+        it('prefers explicit hdr labels before fallback detection', () => {
+            expect(
+                extractHdrLabelFromPlexMedia({
+                    media: [
+                        {
+                            parts: [
+                                {
+                                    streams: [
+                                        {
+                                            streamType: 1,
+                                            hdr: 'HDR10+',
+                                            title: 'Dolby Vision',
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                })
+            ).toBe('HDR10+');
+        });
+
+        it('detects Dolby Vision from dovi metadata', () => {
+            expect(
+                detectHdrLabel({
+                    displayTitle: '4K Remux',
+                    doviPresent: true,
+                })
+            ).toBe('Dolby Vision');
         });
     });
 
