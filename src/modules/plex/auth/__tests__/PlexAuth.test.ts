@@ -999,6 +999,48 @@ describe('PlexAuth', () => {
             expect(firstUrl).toBe('https://plex.tv/api/v2/home/users/2/switch?pin=1234');
         });
 
+        it('falls back to the v1 switch endpoint when the v2 PIN-protected switch returns 500', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 500,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ error: 'server failure' }),
+                    text: async () => '{}',
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ authToken: 'child-token' }),
+                    text: async () => JSON.stringify({ authToken: 'child-token' }),
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({
+                        id: 'kid',
+                        username: 'kid',
+                        email: 'kid@example.com',
+                        thumb: '',
+                    }),
+                    text: async () => JSON.stringify({ id: 'kid' }),
+                });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await auth.switchHomeUser('kid', { pin: '1234' });
+
+            expect(fetchMock).toHaveBeenCalledTimes(3);
+            expect(String(fetchMock.mock.calls[0][0])).toBe('https://plex.tv/api/v2/home/users/kid/switch?pin=1234');
+            expect(String(fetchMock.mock.calls[1][0])).toBe('https://plex.tv/api/home/users/kid/switch?pin=1234');
+            expect(auth.getCurrentUser()?.token).toBe('child-token');
+        });
+
         it('treats 401 + valid account token as wrong PIN', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');

@@ -532,6 +532,7 @@ export class PlexAuth implements IPlexAuth {
         let lastError: unknown = null;
         let response: Response | null = null;
         for (const url of endpoints) {
+            let pinValidationFailure: unknown = null;
             try {
                 const init: RequestInit = {
                     method: 'POST',
@@ -546,7 +547,13 @@ export class PlexAuth implements IPlexAuth {
 
                 if (response.status === 401) {
                     if (pinValue) {
-                        const stillValid = await this.validateToken(accountToken.token);
+                        let stillValid = false;
+                        try {
+                            stillValid = await this.validateToken(accountToken.token);
+                        } catch (error) {
+                            pinValidationFailure = error;
+                            throw error;
+                        }
                         if (stillValid) {
                             throw new PlexApiError(
                                 AppErrorCode.AUTH_FAILED,
@@ -565,7 +572,13 @@ export class PlexAuth implements IPlexAuth {
                 }
                 if (response.status === 403) {
                     if (pinValue) {
-                        const stillValid = await this.validateToken(accountToken.token);
+                        let stillValid = false;
+                        try {
+                            stillValid = await this.validateToken(accountToken.token);
+                        } catch (error) {
+                            pinValidationFailure = error;
+                            throw error;
+                        }
                         if (stillValid) {
                             throw new PlexApiError(
                                 AppErrorCode.AUTH_FAILED,
@@ -598,6 +611,9 @@ export class PlexAuth implements IPlexAuth {
 
                 break;
             } catch (error) {
+                if (error === pinValidationFailure) {
+                    throw error;
+                }
                 if (error instanceof PlexApiError) {
                     if (
                         error.code === AppErrorCode.AUTH_REQUIRED ||
@@ -606,9 +622,6 @@ export class PlexAuth implements IPlexAuth {
                         error.code === AppErrorCode.PARSE_ERROR ||
                         error.code === AppErrorCode.RATE_LIMITED
                     ) {
-                        throw error;
-                    }
-                    if (pinValue && error.code === AppErrorCode.SERVER_UNREACHABLE) {
                         throw error;
                     }
                 }
