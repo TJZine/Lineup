@@ -1,9 +1,4 @@
-const MIME_TYPES: Record<string, string> = {
-    hls: 'application/x-mpegURL',
-    dash: 'application/dash+xml',
-    direct: 'video/mp4',
-    http: 'video/mp4',
-};
+import { MIME_TYPES } from './constants';
 
 /**
  * Get MIME type for a stream protocol.

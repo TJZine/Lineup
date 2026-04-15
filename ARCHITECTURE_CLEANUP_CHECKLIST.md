@@ -998,7 +998,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 - Status: completed
 - Plan: `docs/plans/2026-04-13-p3-w2-epg-package-shape-and-naming-surface.md`
-- Last touched: `2026-04-14`
+- Last touched: `2026-04-15`
 - Verification:
   - `npm test -- src/modules/ui/epg/__tests__/index.test.ts src/modules/ui/epg/__tests__/DeferredEpgComponent.test.ts src/modules/ui/epg/__tests__/buildEpgStartupConfig.test.ts src/modules/ui/epg/__tests__/debugRuntimeGuards.test.ts src/modules/ui/epg/__tests__/EPGCoordinator.test.ts src/core/__tests__/InitializationCoordinator.test.ts src/__tests__/Orchestrator.test.ts src/modules/ui/epg/runtime/__tests__/index.test.ts src/modules/ui/epg/__tests__/EPGRefreshController.test.ts` passed
   - `rg -n "from './runtime'" src/modules/ui/epg/EPGRefreshController.ts` returned one package-local barrel import
@@ -1047,7 +1047,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 - Status: completed
 - Plan: `docs/plans/2026-04-14-p4-w1-lifecycle-navigation-contract-ceremony.md`
-- Last touched: `2026-04-14`
+- Last touched: `2026-04-15`
 - Verification:
   - `npm test -- src/modules/lifecycle/__tests__/StateManager.test.ts src/modules/lifecycle/__tests__/ErrorRecovery.test.ts src/modules/lifecycle/__tests__/AppLifecycle.test.ts src/__tests__/Orchestrator.test.ts` passed
   - `npm test -- src/modules/navigation/__tests__/NavigationManager.test.ts src/modules/navigation/__tests__/NavigationCoordinator.test.ts src/core/app-shell/__tests__/AppScreenVisibilityCoordinator.test.ts src/core/initialization/__tests__/InitializationStartupPolicy.test.ts src/__tests__/App.test.ts src/__tests__/Orchestrator.test.ts` passed
@@ -1299,7 +1299,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - Verification:
   - `npm test -- --runInBand src/types/__tests__/app-errors.test.ts src/modules/player/__tests__/PlaybackRecoveryManager.test.ts src/modules/player/__tests__/VideoPlayer.test.ts src/modules/player/__tests__/error-taxonomy.test.ts src/__tests__/orchestrator/subtitle-track-recovery-warning-contract.test.ts src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts` passed
   - `npm run verify` passed
-  - `rg -n 'typeof maybe\.code === "string"|typeof maybe\.code === ''string''|as StreamResolverError\[' src/modules/player/PlaybackRecoveryManager.ts` returned no matches
+  - `rg -n "typeof maybe\\.code === \"string\"|typeof maybe\\.code === 'string'|as StreamResolverError\\[" src/modules/player/PlaybackRecoveryManager.ts` returned no matches
   - `rg -n 'const livePosition = \(\(\): number \| null =>|const clampedOffset = Math\.max\(0, Math\.min\(|this\._streamRecoveryInProgress = true;' src/modules/player/PlaybackRecoveryManager.ts` returned only the shared reload-executor guard and the normal `resolveStreamForProgram(...)` clamp site
   - `rg -n 'if \(!ok\)|ok === false|Subtitles unavailable for this item' src/modules/player/PlaybackRecoveryManager.ts src/core/orchestrator/SubtitleTrackRecoveryController.ts src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts` returned no matches
   - `desloppify show src/modules/player --status open --no-budget --top 200` refreshed; no new `P7-W1`-specific player issues were introduced
@@ -1338,7 +1338,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 - Status: completed
 - Plan: `docs/plans/2026-04-14-p7-w2-player-public-surface-and-migration-residue.md`
-- Last touched: `2026-04-14`
+- Last touched: `2026-04-15`
 - Verification:
   - `npm test -- src/modules/player/__tests__/VideoPlayer.test.ts` passed
   - `npm test -- src/modules/player/__tests__/ErrorHandler.test.ts` passed
@@ -1346,7 +1346,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
   - `npm test -- src/__tests__/orchestrator/subtitle-track-recovery-warning-contract.test.ts` passed
   - `rg -n "from '../../player/constants'|from '../../modules/player/constants'" src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts src/core/orchestrator/SubtitleTrackRecoveryController.ts` returned no matches
   - `rg -n "from './constants'" src/modules/player/PlaybackRecoveryManager.ts src/modules/player/SubtitleManager.ts` returned no matches
-  - `rg -n "backward compatibility|export \{ VideoPlayer, mapMediaErrorCodeToPlaybackError \} from './VideoPlayer'|mapMediaErrorCodeToPlaybackError" src/modules/player` returned only the canonical `ErrorHandler.ts` implementation, the player barrel export, and focused helper tests
+  - `rg -n "backward compatibility|export \{ VideoPlayer, mapMediaErrorCodeToPlaybackError \} from './VideoPlayer'|mapMediaErrorCodeToPlaybackError" src/modules/player` returned the canonical `ErrorHandler.ts` implementation, the player barrel export, the internal `RetryManager.ts` import/usage, and focused helper tests
   - `npm run typecheck` passed
   - `npm run verify` passed
 - Follow-ups: `P7-EXIT` owns final evidence refresh and any detector-lag reconciliation; `P8-W1` must not begin until `P7-EXIT` records the priority-exit outcome

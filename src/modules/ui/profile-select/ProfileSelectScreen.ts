@@ -134,7 +134,7 @@ export class ProfileSelectScreen {
 
         const tip = document.createElement('div');
         tip.className = 'profile-tip';
-        tip.textContent = 'Tip: Set a PIN on the admin profile to prevent unwanted access.';
+        tip.textContent = PROFILE_TIP_DEFAULT;
         shell.contentEl.appendChild(tip);
         this._tipEl = tip;
 

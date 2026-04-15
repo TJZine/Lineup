@@ -145,7 +145,7 @@ describe('SubtitleTrackRecoveryController warn contract', () => {
         expect(nowPlayingWarn).not.toHaveBeenCalled();
     });
 
-    it('records a diagnostic when burn-in reload resolves to false', async () => {
+    it('records a diagnostic when burn-in reload reports a failed outcome', async () => {
         const appendIssueDiagnostic = jest.fn();
         const playbackRecovery = {
             attemptBurnInSubtitleForCurrentProgram: jest.fn(async () => ({ outcome: 'failed' })),

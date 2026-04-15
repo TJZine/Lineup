@@ -19,4 +19,17 @@ describe('app error runtime helpers', () => {
         expect(getAppErrorCode('NOT_REAL')).toBeNull();
         expect(getAppErrorCode({ code: AppErrorCode.UNKNOWN })).toBeNull();
     });
+
+    it('maps string candidates through options.mapString when direct lookup fails', () => {
+        expect(
+            getAppErrorCode('auth_required', {
+                mapString: (candidate) => candidate.toUpperCase(),
+            })
+        ).toBe(AppErrorCode.AUTH_REQUIRED);
+        expect(
+            getAppErrorCode('not_real', {
+                mapString: (candidate) => candidate.toUpperCase(),
+            })
+        ).toBeNull();
+    });
 });

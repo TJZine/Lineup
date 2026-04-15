@@ -61,7 +61,8 @@ describe('resolveClientIdentifier', () => {
 
         const resolved = resolveClientIdentifier();
 
-        expect(resolved.startsWith('lineup-')).toBe(true);
+        expect(resolved).toMatch(/^lineup-[a-z0-9-]+$/);
+        expect(resolved).not.toBe('lineup-');
         expect(getItemSpy).toHaveBeenCalledWith(PLEX_AUTH_CONSTANTS.CLIENT_ID_KEY);
     });
 
@@ -76,7 +77,9 @@ describe('resolveClientIdentifier', () => {
         const first = resolveClientIdentifier();
         const second = resolveClientIdentifier();
 
-        expect(first).toMatch(/^lineup-/);
-        expect(second).toMatch(/^lineup-/);
+        expect(first).toMatch(/^lineup-[a-z0-9-]+$/);
+        expect(first).not.toBe('lineup-');
+        expect(second).toMatch(/^lineup-[a-z0-9-]+$/);
+        expect(second).not.toBe('lineup-');
     });
 });

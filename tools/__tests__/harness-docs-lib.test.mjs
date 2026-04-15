@@ -857,6 +857,87 @@ Do the cleanup.
     assert.deepEqual(result.errors, []);
 });
 
+test('checkPlanConformance accepts priority-exit readiness sections with tab-indented nested bullets', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+        content: `# Cleanup Example
+
+**Plan Status:** active
+**Task family:** cleanup/refactor
+**Cleanup subtype:** checklist-linked
+
+## Goal
+
+Do the cleanup.
+
+## Non-Goals
+
+- No runtime changes.
+
+## Parent Architecture Alignment
+
+- Keep the control plane small.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- fallback: direct reads only.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`src/App.ts\`
+
+## Planner Self-Check
+
+- resolved.
+
+## Architecture Seam Decision Gate
+
+- explicit.
+
+## Verification Commands
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- revert.
+
+## Commit Checkpoints
+
+- \`docs: update plan rules\`
+
+## Priority-Exit Readiness
+
+- \`review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes\`
+\t- expected disposition: split follow-up
+\t- final owner: \`P6-W1\`
+\t- revisit trigger: rerun \`npm run verify:docs\`
+- Security gate:
+\t- none open
+- no \`P6\` work starts while \`P5-EXIT\` is unresolved
+`,
+    });
+
+    assert.deepEqual(result.errors, []);
+});
+
 test('checkPlanConformance accepts approved priority-exit wording variants and plain issue ids', () => {
     const result = checkPlanConformance({
         filePath: 'docs/plans/2026-04-14-cleanup-example.md',

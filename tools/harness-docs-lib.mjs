@@ -274,8 +274,8 @@ function getPriorityExitIssueBlocks(section) {
 
     for (const line of lines) {
         const isIssueHeader = PRIORITY_EXIT_ISSUE_HEADER_RE.test(line);
-        const isTopLevelListItem = /^\s*(?:[-*]|\d+\.)\s+\S/u.test(line);
-        const isNestedListItem = /^\s{2,}(?:[-*]|\d+\.)\s+\S/u.test(line);
+        const isTopLevelListItem = /^[ \t]*(?:[-*]|\d+\.)[ \t]+\S/u.test(line);
+        const isNestedListItem = /^(?: {2,}|\t+)(?:[-*]|\d+\.)[ \t]+\S/u.test(line);
 
         if (isIssueHeader) {
             if (currentBlock.length > 0) {
