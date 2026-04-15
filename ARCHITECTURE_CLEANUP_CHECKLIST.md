@@ -11,8 +11,8 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, `P4-EXIT`, `P5-W1`, `P5-W2`, `P5-EXIT`, `P6-W1`, `P6-W2`, and `P6-EXIT` completed on integration-branch evidence
-- Next safe start: `P7-W1`
+- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, `P4-EXIT`, `P5-W1`, `P5-W2`, `P5-EXIT`, `P6-W1`, `P6-W2`, `P6-EXIT`, and `P7-W1` completed on integration-branch evidence
+- Next safe start: `P7-W2`
 - Legacy note: `docs/plans/2026-04-02-p3-w1-channel-setup-workflow-owner.md` predates the `2026-04-10` checklist refresh and is historical planning context, not the active `P3-W1` gate token
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
 - Recent update log:
@@ -30,6 +30,7 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
   - `2026-04-14`: completed `P6-W1` auth/fetch/profile contract normalization (`fetchWithTimeout` now uses one args-object signature across auth/stream/player/UI callsites, auth parsing seams now consume explicit response payload types, `validateToken` now returns `false` only for auth-invalid/timeout and throws typed failures for service/network/parse outcomes, and profile-select now surfaces `restricted` as informational-only UI metadata), reran focused Plex/auth/profile/startup/docs suites plus `npm run typecheck` and `npm run verify`
   - `2026-04-14`: completed `P6-W2` Plex state/type surface normalization (client identifier now resolves once at config assembly with no hidden module cache or constructor re-resolution, library data types renamed to `PlexLibrarySection`/`PlexLibrarySectionType` with no compatibility aliases, `PlexMediaType` now has one canonical owner in `plex/shared`, generic `auth/helpers.ts` and `stream/utils.ts` buckets were replaced by purpose-specific owners, and discovery now imports `PlexApiError` from `plexAuthTransport`), reran focused Plex/auth/library/discovery/stream/scheduler/channel-setup/docs suites plus `npm run typecheck`, `npm run verify`, and `npm run verify:docs`
   - `2026-04-14`: completed `P6-EXIT` priority-exit reconciliation (all eight mapped imported `P6` issue ids remained resolved on current-source proof, `P6-W1` stayed closed, the `P6-W2` seam closures held with no compatibility aliases or constructor re-resolution, stale deleted-file auth detector residue was assigned to `P10-W1`, exact live P6 mechanical residue was assigned to `P10-W1`, and security triage stayed outside Priority 6 scope), reran the exact `P6` issue-id commands, refreshed package/status/queue/security evidence, and reran `npm run verify` plus `npm run verify:docs`
+  - `2026-04-14`: completed `P7-W1` playback recovery/error propagation cleanup (runtime `AppErrorCode` validation now has canonical helpers in `src/types/app-errors.ts`, `PlaybackRecoveryManager` routes audio/direct-to-transcode/burn-in/disable-burn-in reloads through one private executor with explicit result contracts, bounded orchestrator/UI callers distinguish `ignored` from `failed`, and Media Session `play()` failures now surface through the throttled warning path), reran focused player/orchestrator/playback-options suites, `npm run verify`, source-audit `rg` checks, and refreshed `desloppify` evidence with stale-detector reconciliation notes
 
 ## Goal
 
@@ -1243,7 +1244,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 ## Priority 7: Repair Player And Playback Recovery Contracts
 
-### [ ] `P7-W1` Simplify Playback Recovery And Error Propagation
+### [x] `P7-W1` Simplify Playback Recovery And Error Propagation
 
 **Mapped imported review issues:**
 
@@ -1265,6 +1266,25 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify show smells --status open --no-budget --top 250`
 
 **Exit rule:** playback recovery stops swallowing collaborator failures and uses canonical app error typing instead of raw string branching.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-14-p7-w1-playback-recovery-and-error-propagation.md`
+- Last touched: `2026-04-14`
+- Verification:
+  - `npm test -- --runInBand src/types/__tests__/app-errors.test.ts src/modules/player/__tests__/PlaybackRecoveryManager.test.ts src/modules/player/__tests__/VideoPlayer.test.ts src/modules/player/__tests__/error-taxonomy.test.ts src/__tests__/orchestrator/subtitle-track-recovery-warning-contract.test.ts src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts` passed
+  - `npm run verify` passed
+  - `rg -n 'typeof maybe\.code === "string"|typeof maybe\.code === ''string''|as StreamResolverError\[' src/modules/player/PlaybackRecoveryManager.ts` returned no matches
+  - `rg -n 'const livePosition = \(\(\): number \| null =>|const clampedOffset = Math\.max\(0, Math\.min\(|this\._streamRecoveryInProgress = true;' src/modules/player/PlaybackRecoveryManager.ts` returned only the shared reload-executor guard and the normal `resolveStreamForProgram(...)` clamp site
+  - `rg -n 'if \(!ok\)|ok === false|Subtitles unavailable for this item' src/modules/player/PlaybackRecoveryManager.ts src/core/orchestrator/SubtitleTrackRecoveryController.ts src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts` returned no matches
+  - `desloppify show src/modules/player --status open --no-budget --top 200` refreshed; no new `P7-W1`-specific player issues were introduced
+  - `desloppify show logs --status open --no-budget --top 50` refreshed; no new log-only regressions were introduced by the Media Session warning change
+  - `desloppify show smells --status open --no-budget --top 250` refreshed; no new recovery-helper smell was introduced by the shared reload executor
+  - `desloppify show "review::.::holistic::ai_generated_debt::nested_defensive_catch_defaults" --status all` still reports stale pre-fix evidence against `PlaybackRecoveryManager`; current source no longer contains those blanket getter/live-position catch wrappers
+  - `desloppify show "review::.::holistic::error_consistency::media_session_play_swallow" --status all` still reports stale pre-fix evidence; current `VideoPlayer` now routes Media Session `play()` failures through `_warnMediaSessionActionFailure('play', error)`
+  - `desloppify show "review::.::holistic::low_level_elegance::playback_recovery_repeated_reload_choreography" --status all` still reports stale pre-extraction evidence; current source routes all four reload paths through `_executeRecoveryReload(...)`
+  - `desloppify show "review::.::holistic::type_safety::raw_error_code_string_branching" --status all` now points at `src/core/channel-setup/ChannelSetupPlanningService.ts`, not the player recovery slice
+- Follow-ups: `P7-W2` remains the next planned player cleanup slice; no additional `P7-W1` split follow-up is required from current-source evidence
+- Handoff: run `lineup-cleanup-review` for `P7-W1` implementation evidence before opening `P7-W2`
 
 ### [ ] `P7-W2` Normalize Player Public Surface And Migration Residue
 
