@@ -213,7 +213,7 @@ export class AppScreenVisibilityCoordinator {
         const pendingScreen = ensureScreen();
         if (!pendingScreen) return;
 
-        void pendingScreen
+        pendingScreen
             .then((startupScreen) => {
                 if (!startupScreen) return;
                 if (this._getCurrentScreen() !== expectedScreen) return;
@@ -239,7 +239,7 @@ export class AppScreenVisibilityCoordinator {
             return;
         }
 
-        void pendingScreen
+        pendingScreen
             .then((screenInstance) => {
                 if (!screenInstance) return;
                 if (this._getCurrentScreen() !== expectedScreen) return;

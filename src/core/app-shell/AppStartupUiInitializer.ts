@@ -35,117 +35,90 @@ export class AppStartupUiInitializer {
         await this._initExitConfirmUI();
     }
 
-    private async _initNowPlayingInfoUI(): Promise<void> {
-        if (this._status.getModuleStatus('now-playing-info-ui') === 'ready') {
-            return;
-        }
-        if (this._nowPlayingInfoInitPromise) {
-            await this._nowPlayingInfoInitPromise;
-            return;
-        }
-        if (!this._overlays.nowPlayingInfo) {
-            return;
-        }
-
-        const startTime = Date.now();
-        this._status.updateModuleStatus('now-playing-info-ui', 'initializing');
-        const init = (): void => {
-            this._overlays.nowPlayingInfo!.initialize(this._config.nowPlayingInfoConfig);
-            this._status.updateModuleStatus(
-                'now-playing-info-ui',
-                'ready',
-                undefined,
-                Date.now() - startTime
-            );
-        };
-        this._nowPlayingInfoInitPromise = new Promise<void>((resolve) => {
-            init();
-            resolve();
-        })
-            .catch((e) => {
-                this._status.updateModuleStatus('now-playing-info-ui', 'error');
-                throw e;
-            })
-            .finally(() => {
-                this._nowPlayingInfoInitPromise = null;
-            });
-
-        await this._nowPlayingInfoInitPromise;
+    private _initNowPlayingInfoUI(): Promise<void> {
+        return this._initializeOverlay({
+            moduleId: 'now-playing-info-ui',
+            getPromise: () => this._nowPlayingInfoInitPromise,
+            setPromise: (promise) => {
+                this._nowPlayingInfoInitPromise = promise;
+            },
+            isAvailable: () => this._overlays.nowPlayingInfo !== null,
+            initialize: () => this._overlays.nowPlayingInfo?.initialize(this._config.nowPlayingInfoConfig),
+        });
     }
 
-    private async _initPlaybackOptionsUI(): Promise<void> {
-        if (this._status.getModuleStatus('playback-options-ui') === 'ready') {
-            return;
-        }
-        if (this._playbackOptionsInitPromise) {
-            await this._playbackOptionsInitPromise;
-            return;
-        }
-        if (!this._overlays.playbackOptions) {
-            return;
-        }
-
-        const startTime = Date.now();
-        this._status.updateModuleStatus('playback-options-ui', 'initializing');
-        const init = (): void => {
-            this._overlays.playbackOptions!.initialize(this._config.playbackOptionsConfig);
-            this._status.updateModuleStatus(
-                'playback-options-ui',
-                'ready',
-                undefined,
-                Date.now() - startTime
-            );
-        };
-        this._playbackOptionsInitPromise = new Promise<void>((resolve) => {
-            init();
-            resolve();
-        })
-            .catch((e) => {
-                this._status.updateModuleStatus('playback-options-ui', 'error');
-                throw e;
-            })
-            .finally(() => {
-                this._playbackOptionsInitPromise = null;
-            });
-
-        await this._playbackOptionsInitPromise;
+    private _initPlaybackOptionsUI(): Promise<void> {
+        return this._initializeOverlay({
+            moduleId: 'playback-options-ui',
+            getPromise: () => this._playbackOptionsInitPromise,
+            setPromise: (promise) => {
+                this._playbackOptionsInitPromise = promise;
+            },
+            isAvailable: () => this._overlays.playbackOptions !== null,
+            initialize: () => this._overlays.playbackOptions?.initialize(this._config.playbackOptionsConfig),
+        });
     }
 
-    private async _initExitConfirmUI(): Promise<void> {
-        if (this._status.getModuleStatus('exit-confirm-ui') === 'ready') {
-            return;
+    private _initExitConfirmUI(): Promise<void> {
+        return this._initializeOverlay({
+            moduleId: 'exit-confirm-ui',
+            getPromise: () => this._exitConfirmInitPromise,
+            setPromise: (promise) => {
+                this._exitConfirmInitPromise = promise;
+            },
+            isAvailable: () => this._overlays.exitConfirm !== null,
+            initialize: () => this._overlays.exitConfirm?.initialize({ containerId: EXIT_CONFIRM_CONTAINER_ID }),
+        });
+    }
+
+    private _initializeOverlay(options: {
+        moduleId: string;
+        getPromise: () => Promise<void> | null;
+        setPromise: (promise: Promise<void> | null) => void;
+        isAvailable: () => boolean;
+        initialize: () => void | Promise<void> | undefined;
+    }): Promise<void> {
+        if (this._status.getModuleStatus(options.moduleId) === 'ready') {
+            return Promise.resolve();
         }
-        if (this._exitConfirmInitPromise) {
-            await this._exitConfirmInitPromise;
-            return;
+
+        if (!options.isAvailable()) {
+            return Promise.resolve();
         }
-        if (!this._overlays.exitConfirm) {
-            return;
+
+        const inFlightPromise = options.getPromise();
+        if (inFlightPromise) {
+            return inFlightPromise;
         }
 
         const startTime = Date.now();
-        this._status.updateModuleStatus('exit-confirm-ui', 'initializing');
-        const init = (): void => {
-            this._overlays.exitConfirm!.initialize({ containerId: EXIT_CONFIRM_CONTAINER_ID });
-            this._status.updateModuleStatus(
-                'exit-confirm-ui',
-                'ready',
-                undefined,
-                Date.now() - startTime
-            );
-        };
-        this._exitConfirmInitPromise = new Promise<void>((resolve) => {
-            init();
-            resolve();
-        })
-            .catch((e) => {
-                this._status.updateModuleStatus('exit-confirm-ui', 'error');
-                throw e;
+        this._status.updateModuleStatus(options.moduleId, 'initializing');
+        let initResult: void | Promise<void> | undefined;
+        try {
+            initResult = options.initialize();
+        } catch (error) {
+            this._status.updateModuleStatus(options.moduleId, 'error');
+            return Promise.reject(error);
+        }
+
+        const initPromise = Promise.resolve(initResult)
+            .then(() => {
+                this._status.updateModuleStatus(
+                    options.moduleId,
+                    'ready',
+                    undefined,
+                    Date.now() - startTime
+                );
+            })
+            .catch((error) => {
+                this._status.updateModuleStatus(options.moduleId, 'error');
+                throw error;
             })
             .finally(() => {
-                this._exitConfirmInitPromise = null;
+                options.setPromise(null);
             });
 
-        await this._exitConfirmInitPromise;
+        options.setPromise(initPromise);
+        return initPromise;
     }
 }

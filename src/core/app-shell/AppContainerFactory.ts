@@ -20,6 +20,12 @@ export interface AppContainerRefs {
     toastContainer: HTMLElement;
 }
 
+const APP_SHELL_COLORS = {
+    devMenuBackground: '#222',
+    toastBackground: 'rgba(0, 0, 0, 0.8)',
+    foreground: '#fff',
+} as const;
+
 function ensureUniqueContainerDiv(root: HTMLElement, id: string): HTMLDivElement {
     const matches = Array.from(root.querySelectorAll<HTMLElement>(`#${id}`));
     const firstDiv = matches.find((match) => match.tagName.toLowerCase() === 'div') ?? null;
@@ -112,8 +118,8 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
     devMenu.style.top = '50%';
     devMenu.style.left = '50%';
     devMenu.style.transform = 'translate(-50%, -50%)';
-    devMenu.style.background = '#222';
-    devMenu.style.color = '#fff';
+    devMenu.style.background = APP_SHELL_COLORS.devMenuBackground;
+    devMenu.style.color = APP_SHELL_COLORS.foreground;
     devMenu.style.padding = '20px';
     devMenu.style.borderRadius = '8px';
     devMenu.style.zIndex = '10000';
@@ -132,8 +138,8 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
     toastContainer.style.bottom = '64px';
     toastContainer.style.transform = 'translateX(-50%)';
     toastContainer.style.maxWidth = '70%';
-    toastContainer.style.background = 'rgba(0, 0, 0, 0.8)';
-    toastContainer.style.color = '#fff';
+    toastContainer.style.background = APP_SHELL_COLORS.toastBackground;
+    toastContainer.style.color = APP_SHELL_COLORS.foreground;
     toastContainer.style.padding = '12px 20px';
     toastContainer.style.borderLeft = '4px solid transparent';
     toastContainer.style.boxSizing = 'border-box';
