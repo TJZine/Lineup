@@ -304,9 +304,10 @@ describe('NavigationCoordinator', () => {
 
         handlers.channelNumberEntered?.({ channelNumber: 7 });
         await Promise.resolve();
+        await Promise.resolve();
 
         expect(consoleWarn).toHaveBeenCalledWith(
-            '[Navigation] switchToChannelByNumber failed:',
+            '[Navigation] channel-number failed:',
             expect.anything()
         );
     });

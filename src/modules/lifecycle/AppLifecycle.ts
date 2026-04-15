@@ -25,6 +25,7 @@ import {
     TIMING_CONFIG,
     VALID_PHASE_TRANSITIONS,
 } from './constants';
+import { PLEX_CLOUD_TRUSTED_ORIGINS } from '../plex/shared/plexUrl';
 import type { PlatformLifecycleService } from '../../platform';
 import { webosPlatformServices } from '../../platform';
 
@@ -238,7 +239,7 @@ export class AppLifecycle implements IAppLifecycle {
                 TIMING_CONFIG.NETWORK_CHECK_TIMEOUT_MS
             ) as unknown as number;
 
-            const response = await fetch('https://plex.tv', {
+            const response = await fetch(PLEX_CLOUD_TRUSTED_ORIGINS[0], {
                 method: 'HEAD',
                 signal: controller.signal,
                 mode: 'no-cors' // Use no-cors to avoid CORS errors on opaque network check

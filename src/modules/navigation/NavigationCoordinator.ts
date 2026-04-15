@@ -158,7 +158,11 @@ export class NavigationCoordinator {
             if (!Number.isFinite(payload.channelNumber)) {
                 return;
             }
-            void this._handleChannelNumberEntered(payload.channelNumber);
+            this._fireAndReport(
+                'channel-number',
+                this._handleChannelNumberEntered(payload.channelNumber),
+                'Could not switch to that channel'
+            );
         };
         navigation.on('channelNumberEntered', channelNumberHandler);
         unsubs.push(() => {
@@ -736,7 +740,7 @@ export class NavigationCoordinator {
             if (isAbortLikeError(error)) {
                 return;
             }
-            this._warnNonBlockingFailure('channel-number', '[Navigation] switchToChannelByNumber failed:', error);
+            throw error;
         }
     }
 
