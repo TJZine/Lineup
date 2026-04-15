@@ -389,7 +389,6 @@ describe('AppDiagnosticsSurface', () => {
         const consoleInfo = jest.spyOn(console, 'info').mockImplementation(() => {});
         const consoleGroupCollapsed = jest.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
         const consoleGroupEnd = jest.spyOn(console, 'groupEnd').mockImplementation(() => {});
-        const consoleTable = jest.spyOn(console, 'table').mockImplementation(() => {});
         const container = createContainer();
         document.body.appendChild(container);
 
@@ -415,7 +414,32 @@ describe('AppDiagnosticsSurface', () => {
             result: expect.objectContaining({ reachedMaxChannels: true }),
         }));
         expect(consoleInfo).toHaveBeenCalledWith('Selected server:', 'server-1');
-        expect(consoleTable).toHaveBeenCalledTimes(5);
+        expect(consoleInfo).toHaveBeenCalledWith('Planner summary:', expect.objectContaining({
+            status: 'ready',
+            reachedMaxChannels: true,
+            warningCount: 0,
+            effectiveMaxChannels: 500,
+            minItems: 5,
+            candidatesBeforeMinItems: 16,
+            candidatesAfterMinItems: 12,
+            afterMaxChannels: 10,
+            lostToMaxChannels: 2,
+        }));
+        expect(consoleInfo).toHaveBeenCalledWith('Planner facet families:', expect.arrayContaining([
+            expect.objectContaining({
+                family: 'actors',
+                fetchedLibraryCount: 1,
+                diagnosticLibraryCount: 1,
+                sampleKnownCounts: ['Lead Actor (30)'],
+            }),
+            expect.objectContaining({
+                family: 'genres',
+                fetchedLibraryCount: 1,
+                diagnosticLibraryCount: 1,
+                sampleBelowMinItems: ['Mystery (2)'],
+            }),
+        ]));
+        expect(consoleInfo).not.toHaveBeenCalledWith('Diagnostics payload:', expect.anything());
         expect(consoleGroupCollapsed).toHaveBeenCalledWith('[lineup] Channel setup planner diagnostics');
         expect(consoleGroupEnd).toHaveBeenCalled();
     });
@@ -475,6 +499,12 @@ describe('AppDiagnosticsSurface', () => {
             config: activeConfig,
         }));
         expect(consoleInfo).toHaveBeenCalledWith('Record source:', 'active-screen');
+        expect(consoleInfo).toHaveBeenCalledWith('Planner summary:', expect.objectContaining({
+            status: 'ready',
+            reachedMaxChannels: false,
+            warningCount: 0,
+        }));
+        expect(consoleInfo).not.toHaveBeenCalledWith('Planner facet families:', expect.anything());
         expect(consoleGroupCollapsed).toHaveBeenCalledWith('[lineup] Channel setup planner diagnostics');
         expect(consoleGroupEnd).toHaveBeenCalled();
     });

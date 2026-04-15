@@ -9,6 +9,7 @@ import {
     safeClearLineupStorage,
 } from '../../utils/storage';
 import { STORAGE_KEYS } from '../../types';
+import { summarizeChannelSetupPlannerDiagnostics } from './AppDiagnosticsChannelSetupSummary';
 
 type DiagnosticsWindow = Window & {
     lineup?: {
@@ -185,17 +186,21 @@ export class AppDiagnosticsSurface {
         selectedServerStorageKey: string,
         dump: ChannelSetupPlannerDiagnosticsDump
     ): void {
+        const summary = summarizeChannelSetupPlannerDiagnostics(dump.result);
+
         console.groupCollapsed('[lineup] Channel setup planner diagnostics');
         console.info('Selected server:', dump.selectedServerId);
         console.info('Selected server storage key:', selectedServerStorageKey);
         console.info('Record source:', dump.recordSource);
-        console.info('Diagnostics payload:', dump);
-        if (dump.result.diagnostics) {
-            console.table(dump.result.diagnostics.tagCountDiagnosticsByFamily.genres);
-            console.table(dump.result.diagnostics.tagCountDiagnosticsByFamily.directors);
-            console.table(dump.result.diagnostics.tagCountDiagnosticsByFamily.decades);
-            console.table(dump.result.diagnostics.tagCountDiagnosticsByFamily.studios);
-            console.table(dump.result.diagnostics.tagCountDiagnosticsByFamily.actors);
+        console.info('Planner summary:', summary.overview);
+        if (summary.familySummaries.length > 0) {
+            console.info('Planner facet families:', summary.familySummaries);
+        }
+        if (summary.warnings.length > 0) {
+            console.info('Planner warnings:', summary.warnings);
+        }
+        if (summary.notes.length > 0) {
+            console.info('Planner notes:', summary.notes);
         }
         console.groupEnd();
     }
