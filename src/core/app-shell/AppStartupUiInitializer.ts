@@ -49,7 +49,7 @@ export class AppStartupUiInitializer {
 
         const startTime = Date.now();
         this._status.updateModuleStatus('now-playing-info-ui', 'initializing');
-        const init = async (): Promise<void> => {
+        const init = (): void => {
             this._overlays.nowPlayingInfo!.initialize(this._config.nowPlayingInfoConfig);
             this._status.updateModuleStatus(
                 'now-playing-info-ui',
@@ -58,7 +58,10 @@ export class AppStartupUiInitializer {
                 Date.now() - startTime
             );
         };
-        this._nowPlayingInfoInitPromise = init()
+        this._nowPlayingInfoInitPromise = new Promise<void>((resolve) => {
+            init();
+            resolve();
+        })
             .catch((e) => {
                 this._status.updateModuleStatus('now-playing-info-ui', 'error');
                 throw e;
@@ -84,7 +87,7 @@ export class AppStartupUiInitializer {
 
         const startTime = Date.now();
         this._status.updateModuleStatus('playback-options-ui', 'initializing');
-        const init = async (): Promise<void> => {
+        const init = (): void => {
             this._overlays.playbackOptions!.initialize(this._config.playbackOptionsConfig);
             this._status.updateModuleStatus(
                 'playback-options-ui',
@@ -93,7 +96,10 @@ export class AppStartupUiInitializer {
                 Date.now() - startTime
             );
         };
-        this._playbackOptionsInitPromise = init()
+        this._playbackOptionsInitPromise = new Promise<void>((resolve) => {
+            init();
+            resolve();
+        })
             .catch((e) => {
                 this._status.updateModuleStatus('playback-options-ui', 'error');
                 throw e;
@@ -119,7 +125,7 @@ export class AppStartupUiInitializer {
 
         const startTime = Date.now();
         this._status.updateModuleStatus('exit-confirm-ui', 'initializing');
-        const init = async (): Promise<void> => {
+        const init = (): void => {
             this._overlays.exitConfirm!.initialize({ containerId: EXIT_CONFIRM_CONTAINER_ID });
             this._status.updateModuleStatus(
                 'exit-confirm-ui',
@@ -128,7 +134,10 @@ export class AppStartupUiInitializer {
                 Date.now() - startTime
             );
         };
-        this._exitConfirmInitPromise = init()
+        this._exitConfirmInitPromise = new Promise<void>((resolve) => {
+            init();
+            resolve();
+        })
             .catch((e) => {
                 this._status.updateModuleStatus('exit-confirm-ui', 'error');
                 throw e;

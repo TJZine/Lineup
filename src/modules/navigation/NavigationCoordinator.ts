@@ -154,23 +154,11 @@ export class NavigationCoordinator {
             navigation.off('keyUp', keyUpHandler);
         });
 
-        const channelNumberHandler = async (payload: { channelNumber: number }): Promise<void> => {
+        const channelNumberHandler = (payload: { channelNumber: number }): void => {
             if (!Number.isFinite(payload.channelNumber)) {
                 return;
             }
-            this.deps.channelSwitching.setLastChannelChangeSourceNumber();
-            try {
-                const outcome = await this.deps.channelSwitching.switchToChannelByNumber(payload.channelNumber);
-                if (outcome !== 'switched') {
-                    return;
-                }
-                if (this.deps.epg?.isVisible()) {
-                    this.deps.channelSwitching.focusEpgOnCurrentChannel();
-                }
-            } catch (error: unknown) {
-                if (isAbortLikeError(error)) return;
-                console.error('[Navigation] switchToChannelByNumber failed:', summarizeErrorForLog(error));
-            }
+            void this._handleChannelNumberEntered(payload.channelNumber);
         };
         navigation.on('channelNumberEntered', channelNumberHandler);
         unsubs.push(() => {
@@ -603,9 +591,7 @@ export class NavigationCoordinator {
                     break;
                 }
                 const deltaMs = -this.deps.playback.getSeekIncrementMs();
-                player.seekRelative(deltaMs).catch((error: unknown) => {
-                    console.error('[Navigation] seek failed:', summarizeErrorForLog(error));
-                });
+                void this._observeNonBlockingPromise('seek', player.seekRelative(deltaMs), '[Navigation] seek failed:');
                 this.deps.playback.playerOsd.coordinator?.poke('seek');
                 break;
             }
@@ -615,9 +601,7 @@ export class NavigationCoordinator {
                     break;
                 }
                 const deltaMs = this.deps.playback.getSeekIncrementMs();
-                player.seekRelative(deltaMs).catch((error: unknown) => {
-                    console.error('[Navigation] seek failed:', summarizeErrorForLog(error));
-                });
+                void this._observeNonBlockingPromise('seek', player.seekRelative(deltaMs), '[Navigation] seek failed:');
                 this.deps.playback.playerOsd.coordinator?.poke('seek');
                 break;
             }
@@ -736,6 +720,36 @@ export class NavigationCoordinator {
             () => this._scheduleNextMiniGuideRepeatTick(),
             MINI_GUIDE_REPEAT_TIMING.INITIAL_DELAY_MS
         );
+    }
+
+    private async _handleChannelNumberEntered(channelNumber: number): Promise<void> {
+        this.deps.channelSwitching.setLastChannelChangeSourceNumber();
+        try {
+            const outcome = await this.deps.channelSwitching.switchToChannelByNumber(channelNumber);
+            if (outcome !== 'switched') {
+                return;
+            }
+            if (this.deps.epg?.isVisible()) {
+                this.deps.channelSwitching.focusEpgOnCurrentChannel();
+            }
+        } catch (error: unknown) {
+            if (isAbortLikeError(error)) {
+                return;
+            }
+            this._warnNonBlockingFailure('channel-number', '[Navigation] switchToChannelByNumber failed:', error);
+        }
+    }
+
+    private async _observeNonBlockingPromise(
+        key: string,
+        promise: Promise<void>,
+        message: string
+    ): Promise<void> {
+        try {
+            await promise;
+        } catch (error: unknown) {
+            this._warnNonBlockingFailure(key, message, error);
+        }
     }
 
     private _shouldKeepPlayingInSettings(): boolean {
