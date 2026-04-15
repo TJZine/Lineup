@@ -48,6 +48,8 @@ When `**Task family:** cleanup/refactor` applies, the plan must also declare the
 - `**Cleanup subtype:** checklist-linked`
 - `**Cleanup subtype:** standalone remediation`
 
+When `**Task family:** feature/design` applies, the plan must not declare `**Cleanup subtype:**`. Split any cleanup slice into a separate `cleanup/refactor` plan instead of mixing cleanup classification into a feature/design plan.
+
 Mixed work must split the cleanup slice into a separate cleanup plan instead of using one ambiguous mixed-plan overlay trigger.
 
 ## Universal Plan Core

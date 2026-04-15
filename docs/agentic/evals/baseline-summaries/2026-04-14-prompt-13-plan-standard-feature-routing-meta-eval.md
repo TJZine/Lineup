@@ -68,8 +68,8 @@
 
 ## Durable Lessons Absorbed
 
-- feature-side launcher docs must point at the universal core explicitly once cleanup-only doctrine is split inside the standard
-- cleanup rigor stays reliable only when the cleanup overlay remains an explicit required read/use surface for cleanup planning, review, and implementation
+- feature-side launcher docs must point explicitly to the universal core once cleanup-only doctrine moves into the cleanup overlay
+- cleanup planning, review, and implementation must explicitly read and use the cleanup overlay so cleanup rigor stays durable
 
 ## Intentionally Local-Only Artifacts
 

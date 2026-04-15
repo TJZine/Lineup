@@ -44,6 +44,7 @@ Mechanical enforcement is intentionally narrow:
 - those checks also validate the active-plan classification fields:
   - every active serious tracked plan must declare `**Task family:** feature/design` or `**Task family:** cleanup/refactor`
   - every active serious tracked cleanup plan must also declare `**Cleanup subtype:** checklist-linked` or `**Cleanup subtype:** standalone remediation`
+  - active `feature/design` plans must not declare `**Cleanup subtype:**`; split cleanup work into a separate cleanup/refactor plan instead
   - checklist-linked tracked plans referenced by [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md) must classify themselves as `cleanup/refactor` + `checklist-linked`
 - those same checks also fail checklist-linked tracked plans that are still active but forgot to carry the marker
 - other tracked plans still rely on the author/maintainer to keep the marker accurate when the file is the live handoff surface
