@@ -11,8 +11,8 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, `P4-EXIT`, `P5-W1`, `P5-W2`, `P5-EXIT`, `P6-W1`, `P6-W2`, `P6-EXIT`, and `P7-W1` completed on integration-branch evidence
-- Next safe start: `P7-W2`
+- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, `P4-EXIT`, `P5-W1`, `P5-W2`, `P5-EXIT`, `P6-W1`, `P6-W2`, `P6-EXIT`, `P7-W1`, `P7-W2`, and `P7-EXIT` completed on integration-branch evidence
+- Next safe start: `P8-W1`
 - Legacy note: `docs/plans/2026-04-02-p3-w1-channel-setup-workflow-owner.md` predates the `2026-04-10` checklist refresh and is historical planning context, not the active `P3-W1` gate token
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
 - Recent update log:
@@ -31,6 +31,7 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
   - `2026-04-14`: completed `P6-W2` Plex state/type surface normalization (client identifier now resolves once at config assembly with no hidden module cache or constructor re-resolution, library data types renamed to `PlexLibrarySection`/`PlexLibrarySectionType` with no compatibility aliases, `PlexMediaType` now has one canonical owner in `plex/shared`, generic `auth/helpers.ts` and `stream/utils.ts` buckets were replaced by purpose-specific owners, and discovery now imports `PlexApiError` from `plexAuthTransport`), reran focused Plex/auth/library/discovery/stream/scheduler/channel-setup/docs suites plus `npm run typecheck`, `npm run verify`, and `npm run verify:docs`
   - `2026-04-14`: completed `P6-EXIT` priority-exit reconciliation (all eight mapped imported `P6` issue ids remained resolved on current-source proof, `P6-W1` stayed closed, the `P6-W2` seam closures held with no compatibility aliases or constructor re-resolution, stale deleted-file auth detector residue was assigned to `P10-W1`, exact live P6 mechanical residue was assigned to `P10-W1`, and security triage stayed outside Priority 6 scope), reran the exact `P6` issue-id commands, refreshed package/status/queue/security evidence, and reran `npm run verify` plus `npm run verify:docs`
   - `2026-04-14`: completed `P7-W1` playback recovery/error propagation cleanup (runtime `AppErrorCode` validation now has canonical helpers in `src/types/app-errors.ts`, `PlaybackRecoveryManager` routes audio/direct-to-transcode/burn-in/disable-burn-in reloads through one private executor with explicit result contracts, bounded orchestrator/UI callers distinguish `ignored` from `failed`, and Media Session `play()` failures now surface through the throttled warning path), reran focused player/orchestrator/playback-options suites, `npm run verify`, source-audit `rg` checks, and refreshed `desloppify` evidence with stale-detector reconciliation notes
+  - `2026-04-15`: completed `P7-EXIT` priority-exit reconciliation (all seven mapped imported `P7` issue ids remained resolved on current-source proof, the subtitle-deactivation seam is now source-audit clean with `_buildStreamDescriptor()` wiring callbacks only, `SubtitleManager` owning handled-deactivation dispatch plus unavailable fallback, and `PlaybackRecoveryManager` retaining the player-owned burn-in recovery helpers, and no `P7` follow-up owner remains), reran the exact `P7` issue-id commands, refreshed scan/status evidence, reran the player/lifecycle verification commands, and ran `npm run verify` plus `npm run verify:docs`
 
 ## Goal
 
@@ -574,11 +575,36 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
       revisit trigger: rerun `desloppify scan --path .` + `desloppify show src/modules/plex/library --status open --no-budget --top 150` + `desloppify show src/modules/plex/stream --status open --no-budget --top 150` + `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150` at `P10-W1` entry and before `P10-EXIT`; do not widen this inheritance to `P7` through `P9` unless current source proves a narrower earlier owner.
   - Handoff: `P6 complete on current integration-branch evidence; P7-W1 may begin`
 
-- [ ] `P7-EXIT`
+- [x] `P7-EXIT`
   - required: record every mapped imported issue with an exact disposition
   - run the priority-exit review before moving to `P8`
-  - refresh every `P7` issue id, the `P7` detector envelopes, `desloppify status`, `desloppify plan queue`, and `npm run verify`
+  - refresh every `P7` issue id, the `P7` detector envelopes, `desloppify status`, and `npm run verify`
   - confirm one single final owner for any `P7` issue that still needs a follow-up
+  - Status: completed
+  - Plan: `none (priority-exit reconciliation recorded directly in this checklist)`
+  - Last touched: `2026-04-15`
+  - Mapped imported issues:
+    - `review::.::holistic::ai_generated_debt::nested_defensive_catch_defaults` -> `resolved` (`desloppify show ... --status all` still reports stale pre-fix evidence against `PlaybackRecoveryManager`, but current source no longer contains the old blanket getter/live-position catch wrappers and the focused player/orchestrator verification remained green)
+    - `review::.::holistic::error_consistency::media_session_play_swallow` -> `resolved` (`desloppify show ... --status all` still reports stale pre-fix evidence, but current `VideoPlayer` routes Media Session `play()` failures through `_warnMediaSessionActionFailure('play', error)` and the full verification pass stayed green)
+    - `review::.::holistic::low_level_elegance::playback_recovery_repeated_reload_choreography` -> `resolved` (`desloppify show ... --status all` still reports stale pre-extraction evidence, but current source audit proves `_buildStreamDescriptor()` only wires `onDeactivate` / `onDeactivateRecovery`, `SubtitleManager` owns handled-deactivation dispatch plus generic unavailable fallback, and `PlaybackRecoveryManager` retains the player-owned burn-in recovery helpers and shared reload executor)
+    - `review::.::holistic::type_safety::raw_error_code_string_branching` -> `resolved` (`desloppify show ... --status all` now points at `src/core/channel-setup/ChannelSetupPlanningService.ts`, not the player recovery slice)
+    - `review::.::holistic::contract_coherence::videoplayer-setaudiotrack-throw-surface-drift` -> `resolved` (`desloppify show ... --status all` still carries pre-fix player-surface evidence, but the current `P7-W2` source and focused tests keep the `setAudioTrack()` contract aligned)
+    - `review::.::holistic::convention_outlier::player-helper-exported-through-class-file` -> `resolved` (`desloppify show ... --status all` still carries pre-fix export-path evidence, but the current player barrel now points at the canonical helper owner and the focused player verification stayed green)
+    - `review::.::holistic::incomplete_migration::player_backward_compat_aliases_keep_multiple_canonical_paths_alive` -> `resolved` (`desloppify show ... --status all` still carries pre-fix alias residue wording, but current source and the `P7-W2` source-audit checks confirm internal callers now use the canonical owners)
+  - Verification:
+    - `npm test -- --runInBand src/types/__tests__/app-errors.test.ts src/modules/player/__tests__/PlaybackRecoveryManager.test.ts src/modules/player/__tests__/VideoPlayer.test.ts src/modules/player/__tests__/error-taxonomy.test.ts src/__tests__/orchestrator/subtitle-track-recovery-warning-contract.test.ts src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts src/modules/player/__tests__/SubtitleManager.test.ts` passed
+    - `npm test -- --runInBand src/core/__tests__/PlaybackStartController.test.ts src/__tests__/orchestrator/lifecycle-resume-race.test.ts` passed
+    - `desloppify scan --path .` refreshed the detector state on current branch code (`overall 83.1 / strict 83.1 / objective 94.8 / verified 94.8`; last scan `2026-04-15T04:48:37+00:00`; scan emitted `WARNING: Boilerplate duplication detection skipped: jscpd exited with errors`; security reported `clean (332 files scanned)`)
+    - `desloppify status` refreshed (`overall 83.1 / strict 83.1 / objective 94.8 / verified 94.8`; queue note `1 item (51 stale tracked · 1 subjective)`)
+    - reran all seven mapped `P7` imported issue-id commands above with `desloppify show ... --status all`; the three `P7-W1` rows remained stale pre-fix / pre-extraction evidence, `raw_error_code_string_branching` now points at `src/core/channel-setup/ChannelSetupPlanningService.ts`, and the three `P7-W2` rows still describe pre-fix player-surface evidence rather than a live `P7` seam
+    - `rg -n "_buildStreamDescriptor\\(|onDeactivate: \\(\\): boolean =>|onDeactivateRecovery|_recoverSubtitleDeactivation|_prepareBurnInSubtitleRecovery|_executeBurnInSubtitleRecovery" src/modules/player/PlaybackRecoveryManager.ts src/modules/player/SubtitleManager.ts src/modules/player/types.ts` confirmed that `_buildStreamDescriptor()` wires the deactivation callbacks only, while `PlaybackRecoveryManager` retains the player-owned burn-in recovery helpers
+    - `rg -n "_recoverHandledSubtitleDeactivation|_notifySubtitleUnavailable\\(|_notifySubtitleDeactivated\\(" src/modules/player/SubtitleManager.ts` confirmed that `SubtitleManager` owns handled-deactivation dispatch and the generic unavailable fallback path
+    - `npm run verify` passed
+    - `npm run verify:docs` passed
+  - Security triage: `no open P0 security findings`; the fresh `desloppify scan --path .` run reported `security: clean (332 files scanned)`
+  - Follow-ups:
+    - none; stale detector wording remains detector lag only and no live `P7` residual owner was proven on current source
+  - Handoff: `P7 complete on current integration-branch evidence; P8-W1 may begin`
 
 - [ ] `P8-EXIT`
   - required: record every mapped imported issue with an exact disposition
