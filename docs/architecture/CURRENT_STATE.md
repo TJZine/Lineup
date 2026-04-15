@@ -107,7 +107,8 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - `src/modules/plex/stream/`
 - owns Plex-facing auth, discovery, library metadata, and stream/subtitle policy
 - `src/modules/plex/auth/PlexAuth.ts` owns the auth credential storage key `lineup_plex_auth`
-- `src/modules/plex/auth/clientIdentifier.ts` is the explicit owner for `lineup_client_id` resolution and persistence (`resolveClientIdentifier(preferred?: string): string`)
+- `src/modules/plex/auth/clientIdentifier.ts` owns `lineup_client_id` resolution/persistence (`resolveClientIdentifier(preferred?: string): string`) and the value is resolved once at config assembly (`createDefaultPlexAuthConfig`) before `PlexAuth` construction
+- `src/modules/plex/auth/plexAuthTransport.ts` owns shared Plex auth transport concerns (`PlexApiError`, request headers, retry transport policy) consumed by auth and discovery
 
 ### Scheduler And Channel Management
 

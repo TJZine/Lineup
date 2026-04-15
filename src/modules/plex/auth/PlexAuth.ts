@@ -30,18 +30,20 @@ import {
 import {
     PlexApiError,
     buildRequestHeaders,
+    fetchWithRetry,
+} from './plexAuthTransport';
+import {
     readPlexResponse,
     parsePinResponse,
     parseUserResponse,
     parseHomeUsersPayload,
     parseSwitchResponsePayload,
-    fetchWithRetry,
-} from './helpers';
+} from './plexAuthPayloadParsers';
 import { AppErrorCode } from '../../lifecycle/types';
 import { fetchWithTimeout } from '../shared/fetchWithTimeout';
 
 // Re-export for consumers
-export { PlexApiError } from './helpers';
+export { PlexApiError } from './plexAuthTransport';
 export { AppErrorCode } from '../../lifecycle/types';
 
 /**

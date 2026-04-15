@@ -11,8 +11,8 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, `P4-EXIT`, `P5-W1`, `P5-W2`, `P5-EXIT`, and `P6-W1` completed on integration-branch evidence
-- Next safe start: `P6-W2`
+- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, `P4-EXIT`, `P5-W1`, `P5-W2`, `P5-EXIT`, `P6-W1`, and `P6-W2` completed on integration-branch evidence
+- Next safe start: `P6-EXIT`
 - Legacy note: `docs/plans/2026-04-02-p3-w1-channel-setup-workflow-owner.md` predates the `2026-04-10` checklist refresh and is historical planning context, not the active `P3-W1` gate token
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
 - Recent update log:
@@ -28,6 +28,7 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
   - `2026-04-14`: completed `P4-EXIT` priority-exit reconciliation (all eight mapped imported `P4` issue ids remained resolved on current-source proof, no exact `P4` test-only residue remained for `P9-W2`, exact non-test `P4` mechanical residue was assigned to `P10-W1`, and security triage stayed outside Priority 4 scope), reran the full `P4` source-audit matrix, refreshed detector/status/queue evidence, and reran `npm run verify` plus `npm run verify:docs`
   - `2026-04-14`: completed `P5-EXIT` priority-exit reconciliation (`storage_write_contract_fragmentation` stayed resolved on current-source proof, `read-apis-hide-cleanup-writes` stayed split to one residual `P10-W1` owner based on current-source audit despite live detector silence, and security triage remained outside Priority 5 scope), reran the exact `P5` issue-id commands, refreshed queue/status evidence, reran the residual read audit, and reran `npm run verify` plus `npm run verify:docs`
   - `2026-04-14`: completed `P6-W1` auth/fetch/profile contract normalization (`fetchWithTimeout` now uses one args-object signature across auth/stream/player/UI callsites, auth parsing seams now consume explicit response payload types, `validateToken` now returns `false` only for auth-invalid/timeout and throws typed failures for service/network/parse outcomes, and profile-select now surfaces `restricted` as informational-only UI metadata), reran focused Plex/auth/profile/startup/docs suites plus `npm run typecheck` and `npm run verify`
+  - `2026-04-14`: completed `P6-W2` Plex state/type surface normalization (client identifier now resolves once at config assembly with no hidden module cache or constructor re-resolution, library data types renamed to `PlexLibrarySection`/`PlexLibrarySectionType` with no compatibility aliases, `PlexMediaType` now has one canonical owner in `plex/shared`, generic `auth/helpers.ts` and `stream/utils.ts` buckets were replaced by purpose-specific owners, and discovery now imports `PlexApiError` from `plexAuthTransport`), reran focused Plex/auth/library/discovery/stream/scheduler/channel-setup/docs suites plus `npm run typecheck`, `npm run verify`, and `npm run verify:docs`
 
 ## Goal
 
@@ -1158,7 +1159,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - Follow-ups: none
 - Handoff: run `lineup-cleanup-review` for `P6-W1` implementation evidence before opening `P6-W2`
 
-### [ ] `P6-W2` Remove Hidden Plex State And Duplicate Library/Type Surfaces
+### [x] `P6-W2` Remove Hidden Plex State And Duplicate Library/Type Surfaces
 
 **Mapped imported review issues:**
 
@@ -1183,6 +1184,20 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 - `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150`
 
 **Exit rule:** Plex shared state and media types are canonicalized across auth, library, stream, and scheduler boundaries.
+
+- Status: completed
+- Plan: `docs/plans/2026-04-14-p6-w2-plex-state-and-type-surface-normalization.md`
+- Last touched: `2026-04-14`
+- Verification:
+  - `npm test -- --runInBand src/modules/plex/auth/__tests__/clientIdentifier.test.ts src/modules/plex/auth/__tests__/config.test.ts src/modules/plex/auth/__tests__/PlexAuth.test.ts` passed
+  - `npm test -- --runInBand src/modules/plex/library/__tests__/PlexLibrary.test.ts src/modules/plex/library/__tests__/ResponseParser.test.ts src/modules/plex/library/__tests__/types.test.ts` passed (`types.test.ts` is filtered by jest config and remained covered by `npm run verify` contract suite)
+  - `npm test -- --runInBand src/modules/scheduler/channel-manager/__tests__/ContentResolver.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanner.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts` passed
+  - `npm test -- --runInBand src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts src/__tests__/tools/plexIntegrationDocs.test.ts` passed
+  - `npm run typecheck` passed
+  - `npm run verify` passed
+  - `npm run verify:docs` passed
+- Follow-ups: none
+- Handoff: run `lineup-cleanup-review` for `P6-W2` implementation evidence, then execute `P6-EXIT` reconciliation before opening `P7`
 
 ## Priority 7: Repair Player And Playback Recovery Contracts
 

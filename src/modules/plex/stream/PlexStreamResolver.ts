@@ -18,7 +18,7 @@ import type {
 } from './types';
 import { PlexStreamErrorCode } from './types';
 import { DEFAULT_HLS_OPTIONS } from './constants';
-import { generateUUID } from './utils';
+import { generatePlexSessionId } from './plexSessionId';
 import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
 import { PlaybackSettingsStore } from '../../settings/PlaybackSettingsStore';
 import { DeveloperSettingsStore } from '../../settings/DeveloperSettingsStore';
@@ -328,7 +328,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             );
         }
 
-        const sessionId = generateUUID();
+        const sessionId = generatePlexSessionId();
         const allowDirectPlayAudioFallback = this._audioSettingsStore.readDirectPlayAudioFallbackEnabled();
         const dtsPassthroughEnabled = this._isDtsPassthroughEnabled();
         const userAgent = this._getBrowserUserAgent();
@@ -577,7 +577,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
         const baseUri = this._selectBaseUriForMixedContent(serverUri);
 
-        const sessionId = options.sessionId ?? generateUUID();
+        const sessionId = options.sessionId ?? generatePlexSessionId();
         const maxBitrate = typeof options.maxBitrate === 'number'
             ? options.maxBitrate
             : DEFAULT_HLS_OPTIONS.maxBitrate;
