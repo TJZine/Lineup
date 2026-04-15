@@ -696,7 +696,15 @@ export class InitializationCoordinator {
 
     private _resumeStartupPhase(phase: 2 | 3, message: string): void {
         void this.runStartup(phase).catch((error) => {
-            console.warn(message, summarizeErrorForLog(error));
+            const safeError = summarizeErrorForLog(error);
+            this._callbacks.errors.handleGlobalError(
+                {
+                    code: AppErrorCode.INITIALIZATION_FAILED,
+                    message: `${message} ${JSON.stringify(safeError)}`,
+                    recoverable: true,
+                },
+                'initialization-resume'
+            );
         });
     }
 }
