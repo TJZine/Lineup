@@ -1585,7 +1585,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 ## Priority 10: Residual Detector Burn-Down And Overall Exit
 
-### [ ] `P10-W1` Burn Down Residual Mechanical Detector Envelopes
+### [x] `P10-W1` Burn Down Residual Mechanical Detector Envelopes
 
 This pass is intentionally last. Earlier architectural work should retire a large fraction of the current detector backlog automatically.
 
@@ -1612,16 +1612,27 @@ This pass is intentionally last. Earlier architectural work should retire a larg
 - `desloppify show single_use --status open --no-budget --top 50`
 - `desloppify show naming --status open --no-budget --top 50`
 - `desloppify show boilerplate_duplication --status open --no-budget --top 50`
-- Status: planned
-- Plan: `none yet`
-- Last touched: `2026-04-14`
-- Verification: `none yet (inherited P4 exact-mechanical follow-up recorded from current integration-branch evidence)`
+- Status: completed
+- Plan: `docs/plans/2026-04-15-p10-w1-residual-detector-envelope-burndown.md`
+- Last touched: `2026-04-15`
+- Verification:
+  - `npm run typecheck` passed
+  - `npm test -- --runInBand src/modules/settings/__tests__/AudioSettingsStore.test.ts src/modules/settings/__tests__/DeveloperSettingsStore.test.ts src/modules/settings/__tests__/NowPlayingDisplayStore.test.ts src/modules/settings/__tests__/ProfileSessionStore.test.ts src/modules/settings/__tests__/SubtitlePreferencesStore.test.ts src/modules/settings/__tests__/ThemePreferencesStore.test.ts src/modules/debug/__tests__/DebugOverridesStore.test.ts src/modules/ui/settings/__tests__/SettingsStore.test.ts src/modules/ui/settings/__tests__/SettingsScreenStateController.test.ts src/core/app-shell/__tests__/AppThemeController.test.ts src/core/app-shell/__tests__/AppDiagnosticsSurface.test.ts src/modules/ui/audio-setup/__tests__/AudioSetupScreen.test.ts src/modules/ui/now-playing-info/__tests__/NowPlayingInfoCoordinator.test.ts src/modules/ui/player-osd/__tests__/PlayerOsdCoordinator.test.ts src/modules/ui/profile-select/__tests__/ProfileSelectScreen.test.ts src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts src/modules/ui/epg/__tests__/EPGDebugRuntime.test.ts src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts src/modules/debug/__tests__/IssueDiagnosticsStore.test.ts src/modules/debug/__tests__/NowPlayingDebugManager.test.ts src/modules/player/__tests__/AudioTrackManager.test.ts src/modules/player/__tests__/SubtitleManager.test.ts src/modules/player/__tests__/VideoPlayer.test.ts src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts src/modules/plex/stream/__tests__/PlexStreamResolver.subtitle-errors.test.ts` passed
+  - `npm test -- --runInBand src/modules/lifecycle/__tests__/AppLifecycle.test.ts src/modules/navigation/__tests__/NavigationCoordinator.test.ts src/core/app-shell/__tests__/AppStartupUiInitializer.test.ts src/core/channel-setup/__tests__/ChannelSetupTagFilters.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorBuilders.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorAssembly.test.ts` passed
+  - `npm test -- --runInBand src/modules/plex/auth/__tests__/plexAuthPayloadParsers.test.ts src/modules/plex/library/__tests__/PlexLibrary.test.ts src/modules/plex/library/__tests__/ResponseParser.test.ts src/modules/plex/stream/__tests__/fetchWithTimeout.test.ts src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts src/modules/plex/stream/__tests__/playbackCompatibilityPolicy.test.ts src/modules/plex/stream/__tests__/dvHdr10Fallback.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelContentSourceValidator.test.ts src/modules/scheduler/channel-manager/__tests__/StoredChannelDataCodec.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts` passed
+  - `desloppify scan --path .` completed; `desloppify status` reported `overall 83.1 / objective 94.7 / strict 83.1 / verified 94.7` on `2026-04-15T20:35:39+00:00`
+  - `desloppify show "review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes" --status open --no-budget` returned no open issues; the exact `rg -n "readDtsPassthroughEnabled\\(|readDirectPlayAudioFallbackEnabled\\(|readAudioSetupComplete\\(|readDebugLoggingEnabled\\(|readSubtitleDebugLoggingEnabled\\(|readCinematicNowPlayingEnabled\\(|readPreferClearLogosEnabled\\(|readClampedAutoHideMs\\(|readShowProfilePickerOnStartup\\(|readKeepPlayingInSettings\\(|readLastProfileId\\(|readSubtitleMode\\(|readSubtitlePreferForced\\(|readSubtitleLanguage\\(|readTheme\\(|readNowPlayingStreamDebugEnabled\\(|readNowPlayingStreamDebugAutoShowEnabled\\(|readEpgDebugEnabled\\(|readTranscodeProfileName\\(" src/modules/settings/AudioSettingsStore.ts src/modules/settings/DeveloperSettingsStore.ts src/modules/settings/NowPlayingDisplayStore.ts src/modules/settings/ProfileSessionStore.ts src/modules/settings/SubtitlePreferencesStore.ts src/modules/settings/ThemePreferencesStore.ts src/modules/debug/DebugOverridesStore.ts src/bootstrap.ts src/modules/player src/modules/ui src/core src/__tests__` proof returned only callback/helper names (`PlaybackRecoveryManager._readSubtitleMode`, `InitializationStartupPolicy.readShowProfilePickerOnStartup`, `SubtitleTrackRecoveryController.readSubtitleMode`), not remaining cleanup-on-read store contracts
+  - `desloppify show "review::.::holistic::ai_generated_debt::templated_docblock_ceremony" --status open --no-budget` returned no open issues
+  - `desloppify show facade --status open --no-budget --top 50` reported only `dist-ts/**` facade rows after deleting `src/modules/ui/epg/model/index.ts`
+  - `desloppify show src/modules/plex/auth --status open --no-budget --top 150` reported only `plexAuthPayloadParsers.ts` (`transitive_only`, complexity); no deleted `helpers.ts` residue remained
+  - `desloppify show src/Orchestrator.ts --status open --no-budget --top 100` and `desloppify show src/core/orchestrator/OrchestratorCoordinatorFactory.ts --status open --no-budget --top 50` still reported stale rows even though the current source remains a `14`-line root barrel and a `6`-line coordinator barrel
+  - `desloppify show test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only --status open --no-budget --top 20` stayed open despite `src/core/channel-setup/__tests__/ChannelSetupTagFilters.test.ts`
+  - `desloppify show src/modules/plex/stream --status open --no-budget --top 150` still reported `transitive_only` for `hdr.ts` and `plexSessionId.ts` after the direct-helper coverage additions in `fetchWithTimeout.test.ts`, `playbackCompatibilityPolicy.test.ts`, and `PlexStreamResolver.test.ts`
 - Follow-ups:
-  - `followup::p4-exit::exact-p4-mechanical-residue`
-    source: `P4-EXIT`
-    exact issue ids: `smells::src/modules/lifecycle/AppLifecycle.ts::hardcoded_url`, `smells::src/modules/navigation/NavigationCoordinator.ts::console_error_no_throw`, `smells::src/modules/navigation/NavigationCoordinator.ts::async_no_await`, `smells::src/core/app-shell/AppStartupUiInitializer.ts::async_no_await`, `smells::src/core/InitializationCoordinator.ts::console_error_no_throw`
-    required verification: `desloppify scan --path .` + `desloppify show src/modules/lifecycle --status open --no-budget --top 100` + `desloppify show src/modules/navigation --status open --no-budget --top 150` + `desloppify show src/core/app-shell --status open --no-budget --top 100` + `desloppify show src/core/InitializationCoordinator.ts --status open --no-budget --top 50`
-- Handoff: `carry the exact P4 mechanical residue above into the first P10-W1 execution plan before P10-EXIT`
+  - resolved on current-source / integration-branch proof: `followup::p5-exit::read-api-cleanup-write-residual`, `followup::p3-exit::epg-model-index-facade-residue`, `followup::p6-exit::deleted-plex-auth-helper-detector-residue`, `followup::p8-exit::template-docblock-residual`
+  - `P10-EXIT` is the single final owner for the remaining tooling-state matrix exactly as frozen in `Priority-Exit Readiness`: `followup::p1-exit::root-orchestrator-detector-residue`, `followup::p1-exit::factory-smell-detector-residue`, `followup::p1-exit::orchestrator-cycle-detector-residue`, `followup::p2-exit::channel-setup-tagfilters-transitive-only-detector-residue`, `followup::p0-exit::dist-ts-facade-residue`, `followup::p9-exit::outside-priority-test-coverage-residual`
+  - `P10-EXIT` is the single final owner for the remaining live/low-ROI residual matrix exactly as frozen in `Priority-Exit Readiness`: `followup::p1-exit::orchestrator-live-log-error-policy-residue`, `followup::p4-exit::exact-p4-mechanical-residue`, `followup::p2-exit::channel-setup-tagfilters-hardcoded-url-residue`, `followup::p6-exit::exact-p6-mechanical-residue`
+- Handoff: `run lineup-cleanup-review as a priority-exit review for P10-W1, then let P10-EXIT close the final owner/reason/revisit-trigger matrix and score snapshot before any post-P10 planning starts`
 
 **Exit rule:** any residual detector debt is explicit, intentionally owned, and backed by current-code proof rather than stale scan residue.
 
