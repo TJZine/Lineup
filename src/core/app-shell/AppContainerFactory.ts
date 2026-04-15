@@ -24,6 +24,8 @@ const APP_SHELL_COLORS = {
     devMenuBackground: '#222',
     toastBackground: 'rgba(0, 0, 0, 0.8)',
     foreground: '#fff',
+    centerAnchor: '50%',
+    devMenuShadow: '0 0 20px rgba(0,0,0,0.5)',
 } as const;
 
 function ensureUniqueContainerDiv(root: HTMLElement, id: string): HTMLDivElement {
@@ -115,8 +117,8 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
     // Dev Menu Container
     const devMenu = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.DEV_MENU);
     devMenu.style.position = 'absolute';
-    devMenu.style.top = '50%';
-    devMenu.style.left = '50%';
+    devMenu.style.top = APP_SHELL_COLORS.centerAnchor;
+    devMenu.style.left = APP_SHELL_COLORS.centerAnchor;
     devMenu.style.transform = 'translate(-50%, -50%)';
     devMenu.style.background = APP_SHELL_COLORS.devMenuBackground;
     devMenu.style.color = APP_SHELL_COLORS.foreground;
@@ -124,7 +126,7 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
     devMenu.style.borderRadius = '8px';
     devMenu.style.zIndex = '10000';
     devMenu.style.display = 'none';
-    devMenu.style.boxShadow = '0 0 20px rgba(0,0,0,0.5)';
+    devMenu.style.boxShadow = APP_SHELL_COLORS.devMenuShadow;
     devMenu.style.minWidth = '300px';
 
     // Toast container (non-blocking warnings)
