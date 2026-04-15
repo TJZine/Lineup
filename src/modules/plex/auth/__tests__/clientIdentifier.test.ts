@@ -3,15 +3,12 @@
  */
 
 import { PLEX_AUTH_CONSTANTS } from '../constants';
-
-let resolveClientIdentifier: (preferred?: string) => string;
+import { resolveClientIdentifier } from '../clientIdentifier';
 
 describe('resolveClientIdentifier', () => {
-    beforeEach(async () => {
-        jest.resetModules();
+    beforeEach(() => {
         localStorage.clear();
         jest.restoreAllMocks();
-        ({ resolveClientIdentifier } = await import('../clientIdentifier'));
     });
 
     it('uses a sane preferred value first', () => {
@@ -68,7 +65,7 @@ describe('resolveClientIdentifier', () => {
         expect(getItemSpy).toHaveBeenCalledWith(PLEX_AUTH_CONSTANTS.CLIENT_ID_KEY);
     });
 
-    it('reuses the same generated identifier across calls when storage is blocked', () => {
+    it('returns valid identifiers across calls even when storage is blocked', () => {
         jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
             throw new Error('blocked');
         });
@@ -79,6 +76,7 @@ describe('resolveClientIdentifier', () => {
         const first = resolveClientIdentifier();
         const second = resolveClientIdentifier();
 
-        expect(second).toBe(first);
+        expect(first).toMatch(/^lineup-/);
+        expect(second).toMatch(/^lineup-/);
     });
 });

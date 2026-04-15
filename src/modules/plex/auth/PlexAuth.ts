@@ -39,7 +39,6 @@ import {
 } from './helpers';
 import { AppErrorCode } from '../../lifecycle/types';
 import { fetchWithTimeout } from '../shared/fetchWithTimeout';
-import { resolveClientIdentifier } from './clientIdentifier';
 
 // Re-export for consumers
 export { PlexApiError } from './helpers';
@@ -74,14 +73,9 @@ export class PlexAuth implements IPlexAuth {
      * @param config - Plex API client identification config
      */
     constructor(config: PlexAuthConfig) {
-        const configWithClientId: PlexAuthConfig = {
-            ...config,
-            clientIdentifier: resolveClientIdentifier(config.clientIdentifier),
-        };
-
         this._emitter = new EventEmitter<PlexAuthEvents>();
         this._state = {
-            config: configWithClientId,
+            config,
             accountToken: null,
             activeToken: null,
             activeUserId: null,

@@ -101,6 +101,15 @@ describe('PlexAuth', () => {
         jest.restoreAllMocks();
     });
 
+    describe('constructor', () => {
+        it('uses the provided resolved client identifier without re-resolution', () => {
+            const config = { ...mockConfig, clientIdentifier: 'resolved-client-from-config' };
+            const auth = new PlexAuth(config);
+
+            expect(auth.getAuthHeaders()['X-Plex-Client-Identifier']).toBe('resolved-client-from-config');
+        });
+    });
+
     describe('requestPin', () => {
         it('should return a PlexPinRequest with a valid PIN code', async () => {
             const auth = new PlexAuth(mockConfig);

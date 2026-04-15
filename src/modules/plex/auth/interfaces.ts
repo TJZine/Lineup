@@ -35,7 +35,7 @@ export interface PlexDeviceKey {
 }
 
 export interface PlexAuthConfig {
-    /** Unique app instance ID (UUID v4) - persisted across sessions */
+    /** Unique app instance ID resolved/persisted at config assembly (constructor does not re-resolve) */
     clientIdentifier: string;
     /** App name shown in Plex dashboard (e.g., "Lineup") */
     product: string;
