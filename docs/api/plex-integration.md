@@ -45,6 +45,10 @@ interface IPlexAuth {
 
 Stored-credentials reads distinguish `missing`, `available`, and `corrupted`. Corrupted payloads are cleared by `PlexAuth` and surfaced distinctly from first-run missing state.
 
+`PlexAuthConfig.clientIdentifier` is resolved once at config assembly (`createDefaultPlexAuthConfig`) and treated as already-resolved input by `PlexAuth`.
+`validateToken()` returns `false` only for explicit auth-invalid (`401`/`403`) outcomes. Timeout, cancellation, service/network failures, and malformed success payloads throw typed `PlexApiError` failures.
+`PlexHomeUser.restricted` is informational-only metadata in profile select UI and does not enforce startup or playback gating.
+
 ## Library Access (`IPlexLibrary`)
 
 Retrieving content metadata. Supports libraries, collections, playlists, TV show hierarchy, tag directories, and search.
@@ -73,9 +77,9 @@ interface IPlexLibrary {
     signal?: AbortSignal | null;
     includeItemCounts?: boolean;
     itemCountConcurrency?: number;
-  }): Promise<PlexLibrary[]>;
+  }): Promise<PlexLibrarySection[]>;
 
-  getLibrary(libraryId: string): Promise<PlexLibrary | null>;
+  getLibrary(libraryId: string): Promise<PlexLibrarySection | null>;
 
   getLibraryItems(libraryId: string, options?: LibraryQueryOptions): Promise<PlexMediaItem[]>;
 

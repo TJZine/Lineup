@@ -7,7 +7,7 @@ import type {
     SeriesOrderingConfig,
     SetupStrategyConfig,
 } from '../../../../core/channel-setup/types';
-import type { PlexLibraryType } from '../../../plex/library';
+import type { PlexLibrarySection } from '../../../plex/library';
 import type { SetupStrategyKey, StrategyCategoryKey } from './constants';
 
 export type { SetupStrategyKey, StrategyCategoryKey } from './constants';
@@ -40,7 +40,7 @@ export interface SeriesOrderingState {
 }
 
 export interface LibraryStepDeps {
-    libraries: PlexLibraryType[];
+    libraries: PlexLibrarySection[];
     selectedLibraryIds: Set<string>;
     formatCount: (value: number) => string;
     movieSvg: string;

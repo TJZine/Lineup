@@ -16,6 +16,8 @@ import type { ProfileSessionStore } from '../../settings/ProfileSessionStore';
 
 const PIN_LENGTH = 4;
 const PIN_MODAL_ID = 'profile-pin';
+const PROFILE_TIP_DEFAULT = 'Tip: Set a PIN on the admin profile to prevent unwanted access.';
+const PROFILE_TIP_WITH_RESTRICTED = `${PROFILE_TIP_DEFAULT} "Restricted" labels are informational only.`;
 
 export interface ProfileSelectScreenPorts {
     getHomeUsers(): Promise<PlexHomeUser[]>;
@@ -132,7 +134,7 @@ export class ProfileSelectScreen {
 
         const tip = document.createElement('div');
         tip.className = 'profile-tip';
-        tip.textContent = 'Tip: Set a PIN on the admin profile to prevent unwanted access.';
+        tip.textContent = PROFILE_TIP_DEFAULT;
         shell.contentEl.appendChild(tip);
         this._tipEl = tip;
 
@@ -278,10 +280,12 @@ export class ProfileSelectScreen {
         this._showMain = false;
         this._mainButton.style.display = 'none';
         this._setStatus('Loading profiles...', { tone: 'loading' });
-        this._setTip('Tip: Set a PIN on the admin profile to prevent unwanted access.');
+        this._setTip(PROFILE_TIP_DEFAULT);
 
         try {
             const users = await this._ports.getHomeUsers();
+            const hasRestrictedProfiles = users.some((user) => user.restricted === true);
+            const tipText = hasRestrictedProfiles ? PROFILE_TIP_WITH_RESTRICTED : PROFILE_TIP_DEFAULT;
             this._showMain = users.length <= 1;
             this._mainButton.style.display = this._showMain ? '' : 'none';
             if (users.length <= 1) {
@@ -297,7 +301,7 @@ export class ProfileSelectScreen {
             }
             this._renderUsers(users);
             this._setStatus('Select a profile to continue.');
-            this._setTip('Tip: Set a PIN on the admin profile to prevent unwanted access.');
+            this._setTip(tipText);
         } catch (error) {
             this._handleError(error, 'Unable to load profiles.');
             this._setStatus('Profile list unavailable.');
@@ -363,6 +367,14 @@ export class ProfileSelectScreen {
                 admin.className = 'profile-admin';
                 admin.textContent = 'Admin';
                 badges.appendChild(admin);
+            }
+
+            if (user.restricted === true) {
+                const restricted = document.createElement('span');
+                restricted.className = 'profile-restricted';
+                restricted.textContent = 'Restricted';
+                restricted.setAttribute('aria-label', 'Restricted profile');
+                badges.appendChild(restricted);
             }
 
             button.appendChild(avatar);

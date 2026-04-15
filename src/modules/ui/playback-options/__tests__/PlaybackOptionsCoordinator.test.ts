@@ -594,11 +594,11 @@ describe('PlaybackOptionsCoordinator', () => {
         }
     });
 
-    it('shows a failure toast when burn-in subtitle request returns false', async () => {
+    it('shows a failure toast when burn-in subtitle request reports a failed outcome', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
         const player = createPlayer([makeBurnInTrack({ id: 'burn' })]);
-        const requestBurnInSubtitle = jest.fn().mockResolvedValue(false);
+        const requestBurnInSubtitle = jest.fn().mockResolvedValue({ outcome: 'failed' });
         const notifyToast = jest.fn();
 
         const coordinator = new PlaybackOptionsCoordinator({
@@ -619,6 +619,36 @@ describe('PlaybackOptionsCoordinator', () => {
 
         expect(notifyToast).toHaveBeenCalledWith('Loading burn-in subtitles…', 'info');
         expect(notifyToast).toHaveBeenCalledWith('Failed to load burn-in subtitles', 'warning');
+    });
+
+    it('does not show a failure toast when burn-in subtitle request is ignored', async () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const player = createPlayer([makeBurnInTrack({ id: 'burn' })]);
+        const requestBurnInSubtitle = jest.fn().mockResolvedValue({
+            outcome: 'ignored',
+            reason: 'already_burned_in',
+        });
+        const notifyToast = jest.fn();
+
+        const coordinator = new PlaybackOptionsCoordinator({
+            playbackOptionsModalId: 'playback-options',
+            getNavigation: (): null => null,
+            getPlaybackOptionsModal: (): null => null,
+            getVideoPlayer: (): IVideoPlayer => player,
+            getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+            requestBurnInSubtitle,
+            notifyToast,
+        });
+
+        const viewModel = getViewModel(coordinator);
+        const burn = viewModel.subtitles.options.find((option) => option.id === 'playback-subtitle-burn');
+
+        burn?.onSelect?.();
+        await flushPromises();
+
+        expect(notifyToast).toHaveBeenCalledWith('Loading burn-in subtitles…', 'info');
+        expect(notifyToast).not.toHaveBeenCalledWith('Failed to load burn-in subtitles', 'warning');
     });
 
     it('shows a failure toast when burn-in subtitle request rejects', async () => {

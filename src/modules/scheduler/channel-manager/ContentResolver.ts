@@ -18,7 +18,6 @@ import type {
     ContentFilter,
     SortOrder,
     PlaybackMode,
-    PlexMediaType,
 } from './types';
 import { shuffleWithSeed } from '../shared/prng';
 import { applyBlockPlaybackMode } from '../shared/blockPlayback';
@@ -817,7 +816,7 @@ export class ContentResolver {
 
         const resolved: ResolvedContentItem = {
             ratingKey: item.ratingKey,
-            type: item.type as PlexMediaType,
+            type: item.type,
             title: item.title,
             fullTitle,
             durationMs: item.durationMs,

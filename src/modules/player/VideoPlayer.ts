@@ -21,7 +21,9 @@ import type {
     PlayerEventMap,
     PlayerStatus,
     VideoPlayerInternalState,
+    PlaybackError,
 } from './types';
+import { PlayerErrorCode } from './types';
 import {
     VIDEO_ELEMENT_ID,
     VIDEO_ELEMENT_STYLES,
@@ -33,10 +35,6 @@ import { redactSensitiveTokens, safeStringifyForLog } from '../../utils/redact';
 import { summarizeErrorForLog } from '../../utils/errors';
 import type { PlatformPlaybackService, PlatformSubtitleService } from '../../platform';
 import { webosPlatformServices } from '../../platform';
-
-// Import and re-export from ErrorHandler for backward compatibility
-import { mapMediaErrorCodeToPlaybackError } from './ErrorHandler';
-export { mapMediaErrorCodeToPlaybackError };
 
 // ============================================
 // Media Session Types (local "like" types for feature detection)
@@ -706,11 +704,18 @@ export class VideoPlayer implements IVideoPlayer {
     /**
      * Set the active audio track with retry-on-failure.
      * @param trackId - Audio track ID to activate
-     * @throws PlaybackError if track not found or switch fails after retry
+     * @throws PlaybackError when the player is not initialized, the track is unknown,
+     * or native switching fails
      */
     public async setAudioTrack(trackId: string): Promise<void> {
         if (!this._videoElement) {
-            throw new Error('VideoPlayer not initialized');
+            const error: PlaybackError = {
+                code: PlayerErrorCode.TRACK_NOT_FOUND,
+                message: 'Video player not initialized',
+                recoverable: false,
+                retryCount: 0,
+            };
+            throw error;
         }
 
         // Delegate to AudioTrackManager (handles retry and error mapping)
@@ -996,7 +1001,9 @@ export class VideoPlayer implements IVideoPlayer {
 
             switch (action) {
                 case 'play':
-                    void this.play().catch(() => { /* swallow */ });
+                    void this.play().catch((error: unknown) => {
+                        this._warnMediaSessionActionFailure('play', error);
+                    });
                     break;
 
                 case 'pause':

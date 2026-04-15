@@ -8,13 +8,13 @@ import { DEFAULT_STRATEGY_PRIORITIES, MIXED_SCOPE_STRATEGY_KEYS, SETUP_STRATEGY_
 import { PLEX_MEDIA_TYPES } from '../../../modules/plex/library';
 import type {
     IPlexLibrary,
-    PlexLibraryType,
+    PlexLibrarySection,
     PlexTagDirectoryItem,
     PlexTagDirectoryUnsupportedReason,
 } from '../../../modules/plex/library';
 import type { IChannelManager } from '../../../modules/scheduler/channel-manager';
 
-const makeLibrary = (overrides: Partial<PlexLibraryType>): PlexLibraryType => ({
+const makeLibrary = (overrides: Partial<PlexLibrarySection>): PlexLibrarySection => ({
     id: 'lib1',
     uuid: 'uuid-1',
     title: 'Shows',

@@ -86,6 +86,44 @@ export enum AppErrorCode {
     UNKNOWN = 'UNKNOWN',
 }
 
+const APP_ERROR_CODE_VALUES = new Set<string>(Object.values(AppErrorCode));
+
+export function isAppErrorCode(value: unknown): value is AppErrorCode {
+    return typeof value === 'string' && APP_ERROR_CODE_VALUES.has(value);
+}
+
+export function getAppErrorCode(
+    value: unknown,
+    options?: { mapString?: (candidate: string) => unknown }
+): AppErrorCode | null {
+    if (isAppErrorCode(value)) {
+        return value;
+    }
+
+    if (typeof value === 'string' && options?.mapString) {
+        const mapped = options.mapString(value);
+        return isAppErrorCode(mapped) ? mapped : null;
+    }
+
+    return null;
+}
+
+export function getMappedAppErrorCode<TCode extends string>(
+    value: unknown,
+    mapString: (candidate: TCode) => unknown
+): AppErrorCode | null {
+    if (isAppErrorCode(value)) {
+        return value;
+    }
+
+    if (typeof value !== 'string') {
+        return null;
+    }
+
+    const mapped = mapString(value as TCode);
+    return isAppErrorCode(mapped) ? mapped : null;
+}
+
 /**
  * Base application error structure.
  */

@@ -1,4 +1,4 @@
-import type { PlexLibraryType } from '../../modules/plex/library';
+import type { PlexLibrarySection } from '../../modules/plex/library';
 import type { ChannelSetupPlanDiagnosticsResult } from './ChannelSetupPlanDiagnostics';
 import type {
     ChannelBuildProgress,
@@ -12,7 +12,7 @@ import type {
 
 export interface ChannelSetupWorkflowPort {
     invalidateFacetSnapshot(): void;
-    getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibraryType[]>;
+    getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibrarySection[]>;
     getChannelSetupRecord(serverId: string): ChannelSetupRecord | null;
     getSetupContextForSelectedServer(): ChannelSetupContext;
     getSetupPreview(config: ChannelSetupConfig, options?: { signal?: AbortSignal }): Promise<ChannelSetupPreview>;

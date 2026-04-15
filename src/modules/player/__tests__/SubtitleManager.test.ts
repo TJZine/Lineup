@@ -101,6 +101,13 @@ function installFetchAndBlobMocks(): { fetchMock: jest.Mock; restore: () => void
     return { fetchMock, restore };
 }
 
+async function flushAsync(rounds: number = 5): Promise<void> {
+    for (let i = 0; i < rounds; i += 1) {
+        await Promise.resolve();
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 const developerSettingsStore = new DeveloperSettingsStore();
 
 function enableSubtitleDebugLogging(): void {
@@ -343,6 +350,161 @@ Hello`,
 
                 await new Promise((resolve) => setTimeout(resolve, 0));
                 expect(fetchMock).toHaveBeenCalled();
+            } finally {
+                restore();
+            }
+        });
+
+        it('does not surface unavailable when handled subtitle deactivation recovery succeeds', async () => {
+            const { fetchMock, restore } = installFetchAndBlobMocks();
+
+            try {
+                const onDeactivate = jest.fn(() => true);
+                const onDeactivateRecovery = jest.fn().mockResolvedValue('handled');
+                const onUnavailable = jest.fn();
+                const embeddedTrack = createMockSubtitleTrack({
+                    id: 'embedded-srt',
+                    codec: 'srt',
+                    format: 'srt',
+                    fetchableViaKey: false,
+                });
+                delete (embeddedTrack as { key?: string }).key;
+                fetchMock.mockResolvedValue({
+                    ok: false,
+                    status: 404,
+                    headers: { get: (): null => null },
+                    text: async (): Promise<string> => 'Not found',
+                });
+
+                manager.loadTracks([embeddedTrack], {
+                    serverUri: 'http://example.com',
+                    authHeaders: { 'X-Plex-Token': 'token' },
+                    onDeactivate,
+                    onDeactivateRecovery,
+                    onUnavailable,
+                });
+
+                manager.setActiveTrack('embedded-srt');
+                await flushAsync();
+
+                expect(onDeactivate).toHaveBeenCalledWith({
+                    trackId: 'embedded-srt',
+                    reason: 'selected',
+                });
+                expect(onDeactivateRecovery).toHaveBeenCalledWith({
+                    trackId: 'embedded-srt',
+                    reason: 'selected',
+                });
+                expect(onUnavailable).not.toHaveBeenCalled();
+            } finally {
+                restore();
+            }
+        });
+
+        it('surfaces unavailable when handled subtitle deactivation recovery fails', async () => {
+            const { fetchMock, restore } = installFetchAndBlobMocks();
+
+            try {
+                const onDeactivate = jest.fn(() => true);
+                const onDeactivateRecovery = jest.fn().mockResolvedValue('failed');
+                const onUnavailable = jest.fn();
+                const embeddedTrack = createMockSubtitleTrack({
+                    id: 'embedded-srt',
+                    codec: 'srt',
+                    format: 'srt',
+                    fetchableViaKey: false,
+                });
+                delete (embeddedTrack as { key?: string }).key;
+                fetchMock.mockResolvedValue({
+                    ok: false,
+                    status: 404,
+                    headers: { get: (): null => null },
+                    text: async (): Promise<string> => 'Not found',
+                });
+
+                manager.loadTracks([embeddedTrack], {
+                    serverUri: 'http://example.com',
+                    authHeaders: { 'X-Plex-Token': 'token' },
+                    onDeactivate,
+                    onDeactivateRecovery,
+                    onUnavailable,
+                });
+
+                manager.setActiveTrack('embedded-srt');
+                await flushAsync();
+
+                expect(onDeactivateRecovery).toHaveBeenCalledWith({
+                    trackId: 'embedded-srt',
+                    reason: 'selected',
+                });
+                expect(onUnavailable).toHaveBeenCalled();
+            } finally {
+                restore();
+            }
+        });
+
+        it('notifies the initiating subtitle context when recovery settles after tracks reload', async () => {
+            const { fetchMock, restore } = installFetchAndBlobMocks();
+
+            try {
+                const onDeactivate = jest.fn(() => true);
+                const recoveryDeferred: {
+                    resolve: (result: 'handled' | 'failed') => void;
+                } = {
+                    resolve: () => {
+                        throw new Error('Recovery promise was not initialized');
+                    },
+                };
+                const onDeactivateRecovery = jest.fn().mockImplementation(
+                    () => new Promise<'handled' | 'failed'>((resolve) => {
+                        recoveryDeferred.resolve = resolve;
+                    })
+                );
+                const originalUnavailable = jest.fn();
+                const replacementUnavailable = jest.fn();
+                const originalTrack = createMockSubtitleTrack({
+                    id: 'embedded-srt',
+                    codec: 'srt',
+                    format: 'srt',
+                    fetchableViaKey: false,
+                });
+                const replacementTrack = createMockSubtitleTrack({
+                    id: 'replacement-srt',
+                    codec: 'vtt',
+                    format: 'vtt',
+                    fetchableViaKey: true,
+                    key: '/library/streams/2',
+                });
+                delete (originalTrack as { key?: string }).key;
+                fetchMock.mockResolvedValue({
+                    ok: false,
+                    status: 404,
+                    headers: { get: (): null => null },
+                    text: async (): Promise<string> => 'Not found',
+                });
+
+                manager.loadTracks([originalTrack], {
+                    serverUri: 'http://example.com',
+                    authHeaders: { 'X-Plex-Token': 'token' },
+                    onDeactivate,
+                    onDeactivateRecovery,
+                    onUnavailable: originalUnavailable,
+                });
+
+                manager.setActiveTrack('embedded-srt');
+                await flushAsync();
+
+                manager.loadTracks([replacementTrack], {
+                    serverUri: 'http://example.com',
+                    authHeaders: { 'X-Plex-Token': 'token' },
+                    onUnavailable: replacementUnavailable,
+                });
+
+                recoveryDeferred.resolve('failed');
+                await flushAsync();
+
+                expect(originalUnavailable).toHaveBeenCalledTimes(1);
+                expect(replacementUnavailable).not.toHaveBeenCalled();
             } finally {
                 restore();
             }

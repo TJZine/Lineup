@@ -15,7 +15,7 @@ import {
     MixedContentConfig,
 } from './types';
 import { AppErrorCode } from '../../lifecycle/types';
-import { PlexApiError } from '../auth/helpers';
+import { PlexApiError } from '../auth/plexAuthTransport';
 import { redactSensitiveTokens, redactUrlForLog } from '../../../utils/redact';
 import { ServerSelectionStore } from './ServerSelectionStore';
 import {

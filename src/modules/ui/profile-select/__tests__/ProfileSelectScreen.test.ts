@@ -148,6 +148,30 @@ describe('ProfileSelectScreen', () => {
         expect(container.textContent).toContain('Kid');
     });
 
+    it('renders restricted badge and informational tip text for restricted profiles', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kids', thumb: null, admin: false, protected: false, restricted: true },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(
+            container,
+            orchestrator as unknown as ProfileSelectScreenPorts,
+            profileSessionStore
+        );
+        screen.show();
+
+        await flushPromisesAndTimers();
+
+        const restrictedBadge = container.querySelector('#btn-profile-2 .profile-restricted');
+        expect(restrictedBadge).not.toBeNull();
+        expect(restrictedBadge?.textContent).toBe('Restricted');
+        expect(container.textContent).toContain('"Restricted" labels are informational only.');
+    });
+
     it('hides main account action and skips focus registration when multiple users exist', async () => {
         const users = [
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
@@ -286,6 +310,32 @@ describe('ProfileSelectScreen', () => {
 
         const modal = container.querySelector('.profile-pin-modal') as HTMLElement;
         expect(modal.style.display).toBe('flex');
+    });
+
+    it('allows restricted but non-protected profiles to switch without PIN modal', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kids', thumb: null, admin: false, protected: false, restricted: true },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(
+            container,
+            orchestrator as unknown as ProfileSelectScreenPorts,
+            profileSessionStore
+        );
+        screen.show();
+
+        await flushPromisesAndTimers();
+
+        (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
+        await flushPromisesAndTimers();
+
+        const modal = container.querySelector('.profile-pin-modal') as HTMLElement;
+        expect(modal.style.display).toBe('none');
+        expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', undefined);
     });
 
     it('opens PIN modal with full focusable list', async () => {

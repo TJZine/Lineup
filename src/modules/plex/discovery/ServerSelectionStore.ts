@@ -78,7 +78,7 @@ export class ServerSelectionStore {
     readServerHealthMapAndClean(): ServerHealthMap {
         const { serverHealthKey } = this._keys();
         const raw = safeLocalStorageGet(serverHealthKey);
-        if (raw == null) return {};
+        if (raw === null) return {};
 
         const normalizedRaw = raw.trim();
         if (!normalizedRaw) {

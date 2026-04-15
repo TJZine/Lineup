@@ -1,5 +1,12 @@
 import { fetchWithTimeoutCore } from './fetchWithTimeoutCore';
 
+export interface FetchWithTimeoutArgs {
+    url: string;
+    init: RequestInit;
+    timeoutMs: number;
+    upstreamSignal?: AbortSignal | null;
+}
+
 type MergedAbortSignal = {
     signal: AbortSignal | null;
     cleanup: () => void;
@@ -60,14 +67,11 @@ function mergeAbortSignals(
 }
 
 export async function fetchWithTimeout(
-    url: string,
-    options: RequestInit,
-    timeoutMs: number,
-    upstreamSignal: AbortSignal | null = null
+    args: FetchWithTimeoutArgs
 ): Promise<Response> {
-    const merged = mergeAbortSignals(options.signal ?? null, upstreamSignal);
+    const merged = mergeAbortSignals(args.init.signal ?? null, args.upstreamSignal ?? null);
     try {
-        return await fetchWithTimeoutCore(url, options, timeoutMs, merged.signal);
+        return await fetchWithTimeoutCore(args.url, args.init, args.timeoutMs, merged.signal);
     } finally {
         merged.cleanup();
     }

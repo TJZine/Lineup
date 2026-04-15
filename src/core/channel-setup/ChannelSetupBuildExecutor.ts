@@ -1,5 +1,5 @@
 import type { IChannelManager } from '../../modules/scheduler/channel-manager';
-import type { PlexLibraryType } from '../../modules/plex/library';
+import type { PlexLibrarySection } from '../../modules/plex/library';
 import { summarizeErrorForLog } from '../../utils/errors';
 import type {
     ChannelBuildProgress,
@@ -50,7 +50,7 @@ export class ChannelSetupBuildExecutor {
 
         reportProgress('fetch_playlists', 'Preparing...', 'Loading libraries', 0, null);
 
-        let libraries: PlexLibraryType[];
+        let libraries: PlexLibrarySection[];
         try {
             libraries = await this._deps.planningService.getLibrariesForSetup(signal ?? null);
         } catch (e) {

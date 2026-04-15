@@ -5,8 +5,8 @@
  */
 
 import type {
-    PlexLibrary,
-    PlexLibraryType,
+    PlexLibrarySection,
+    PlexLibrarySectionType,
     PlexMediaItem,
     PlexMediaType,
     PlexMediaFile,
@@ -39,7 +39,7 @@ import type {
  * @param directories - Raw directory entries from Plex API
  * @returns Parsed library array
  */
-export function parseLibrarySections(directories: RawLibrarySection[]): PlexLibrary[] {
+export function parseLibrarySections(directories: RawLibrarySection[]): PlexLibrarySection[] {
     return directories.map(parseLibrarySection);
 }
 
@@ -48,7 +48,7 @@ export function parseLibrarySections(directories: RawLibrarySection[]): PlexLibr
  * @param data - Raw library section from Plex API
  * @returns Parsed library
  */
-function parseLibrarySection(data: RawLibrarySection): PlexLibrary {
+function parseLibrarySection(data: RawLibrarySection): PlexLibrarySection {
     return {
         id: data.key,
         uuid: data.uuid,
@@ -68,7 +68,7 @@ function parseLibrarySection(data: RawLibrarySection): PlexLibrary {
  * @param type - Raw type string from Plex API
  * @returns Mapped library type
  */
-export function mapLibraryType(type: string): PlexLibraryType {
+export function mapLibraryType(type: string): PlexLibrarySectionType {
     switch (type) {
         case 'movie':
             return 'movie';

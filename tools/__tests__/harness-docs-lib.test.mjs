@@ -760,6 +760,7 @@ Do the cleanup.
     assert.deepEqual(result.errors, [
         'priority-exit readiness must assign exactly one final owner to each deferred or split imported issue',
         'priority-exit readiness must include a revisit trigger for each deferred or split imported issue',
+        'priority-exit readiness section must record a P0/security-gate disposition before the next priority advances',
     ]);
 });
 
@@ -849,6 +850,171 @@ Do the cleanup.
 ### Next-priority gate
 
 - no \`P6\` plan or implementation starts while \`P5-EXIT\` is unresolved
+`,
+    });
+
+    assert.equal(result.isSerious, true);
+    assert.deepEqual(result.errors, []);
+});
+
+test('checkPlanConformance accepts priority-exit readiness sections with tab-indented nested bullets', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+        content: `# Cleanup Example
+
+**Plan Status:** active
+**Task family:** cleanup/refactor
+**Cleanup subtype:** checklist-linked
+
+## Goal
+
+Do the cleanup.
+
+## Non-Goals
+
+- No runtime changes.
+
+## Parent Architecture Alignment
+
+- Keep the control plane small.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- fallback: direct reads only.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`src/App.ts\`
+
+## Planner Self-Check
+
+- resolved.
+
+## Architecture Seam Decision Gate
+
+- explicit.
+
+## Verification Commands
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- revert.
+
+## Commit Checkpoints
+
+- \`docs: update plan rules\`
+
+## Priority-Exit Readiness
+
+- \`review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes\`
+\t- expected disposition: split follow-up
+\t- final owner: \`P6-W1\`
+\t- revisit trigger: rerun \`npm run verify:docs\`
+- Security gate:
+\t- none open
+- no \`P6\` work starts while \`P5-EXIT\` is unresolved
+`,
+    });
+
+    assert.deepEqual(result.errors, []);
+});
+
+test('checkPlanConformance accepts approved priority-exit wording variants and plain issue ids', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+        content: `# Cleanup Example
+
+**Plan Status:** active
+**Task family:** cleanup/refactor
+**Cleanup subtype:** checklist-linked
+
+## Goal
+
+Do the cleanup.
+
+## Non-Goals
+
+- No runtime changes.
+
+## Parent Architecture Alignment
+
+- Keep the control plane small.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- fallback: direct reads only.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`src/App.ts\`
+
+## Planner Self-Check
+
+- resolved.
+
+## Architecture Seam Decision Gate
+
+- explicit.
+
+## Verification Commands
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- revert.
+
+## Commit Checkpoints
+
+- \`docs: update plan rules\`
+
+## Priority-Exit Readiness
+
+1. review::.::holistic::api_surface_coherence::plex_fetch_helper_shape_drift
+   - expected disposition at P6-EXIT: resolved by P6-W1
+2. smells::src/modules/plex/library/PlexLibrary.ts::hardcoded_url
+   - planned disposition: owned follow-up
+   - owned follow-up: P10-W1 residual mechanical detector owner
+   - revisit trigger: rerun the residual audit before P10-EXIT
+
+* security triage: none open, or list the exact open/deferred P0 security issue ids
+* priority-exit review blocks P7 while P6-EXIT is unresolved
 `,
     });
 

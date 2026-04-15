@@ -131,6 +131,7 @@ const setup = (overrides: Partial<PlaybackRecoveryDeps> = {}): {
         loadStream: jest.fn().mockResolvedValue(undefined),
         play: jest.fn().mockResolvedValue(undefined),
         getState: jest.fn().mockReturnValue(makePlayerState()),
+        getCurrentTimeMs: jest.fn().mockReturnValue(5000),
     } as unknown as IVideoPlayer;
     const deps: PlaybackRecoveryDeps = {
         getVideoPlayer: () => player,
@@ -289,9 +290,9 @@ describe('PlaybackRecoveryManager', () => {
         const setDecision = deps.setCurrentStreamDecision as jest.Mock;
         (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(nextDecision);
 
-        const ok = await manager.attemptAudioTrackReloadForCurrentProgram('audio-truehd', 'audio_track_change');
+        const result = await manager.attemptAudioTrackReloadForCurrentProgram('audio-truehd', 'audio_track_change');
 
-        expect(ok).toBe(true);
+        expect(result).toEqual({ outcome: 'reloaded' });
         expect(resolver.resolveStream).toHaveBeenCalledWith(
             expect.objectContaining({
                 itemKey: 'item-1',
@@ -325,9 +326,9 @@ describe('PlaybackRecoveryManager', () => {
         (player.getState as jest.Mock).mockReturnValue(makePlayerState({ activeSubtitleId: 'sub-full' }));
         (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(nextDecision);
 
-        const ok = await manager.attemptAudioTrackReloadForCurrentProgram('audio-alt', 'audio_track_change');
+        const result = await manager.attemptAudioTrackReloadForCurrentProgram('audio-alt', 'audio_track_change');
 
-        expect(ok).toBe(true);
+        expect(result).toEqual({ outcome: 'reloaded' });
         expect(resolver.resolveStream).toHaveBeenCalledWith(
             expect.objectContaining({
                 audioStreamId: 'audio-alt',
@@ -359,9 +360,9 @@ describe('PlaybackRecoveryManager', () => {
         (player.getState as jest.Mock).mockReturnValue(makePlayerState({ activeSubtitleId: null }));
         (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(nextDecision);
 
-        const ok = await manager.attemptAudioTrackReloadForCurrentProgram('audio-alt', 'audio_track_change');
+        const result = await manager.attemptAudioTrackReloadForCurrentProgram('audio-alt', 'audio_track_change');
 
-        expect(ok).toBe(true);
+        expect(result).toEqual({ outcome: 'reloaded' });
         expect(resolver.resolveStream).toHaveBeenCalledWith(
             expect.not.objectContaining({ subtitleStreamId: expect.any(String) })
         );
@@ -387,9 +388,9 @@ describe('PlaybackRecoveryManager', () => {
         (player.getState as jest.Mock).mockReturnValue(makePlayerState({ status: 'paused' }));
         (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(nextDecision);
 
-        const ok = await manager.attemptAudioTrackReloadForCurrentProgram('audio-alt', 'audio_track_change');
+        const result = await manager.attemptAudioTrackReloadForCurrentProgram('audio-alt', 'audio_track_change');
 
-        expect(ok).toBe(true);
+        expect(result).toEqual({ outcome: 'reloaded' });
         expect(player.loadStream).toHaveBeenCalled();
         expect(player.play).not.toHaveBeenCalled();
     });
@@ -430,9 +431,9 @@ describe('PlaybackRecoveryManager', () => {
         const { manager, resolver } = setup();
         (resolver.resolveStream as jest.Mock).mockRejectedValueOnce(new Error('audio reload failed'));
 
-        const ok = await manager.attemptAudioTrackReloadForCurrentProgram('audio-alt', 'audio_track_change');
+        const result = await manager.attemptAudioTrackReloadForCurrentProgram('audio-alt', 'audio_track_change');
 
-        expect(ok).toBe(false);
+        expect(result).toEqual({ outcome: 'failed' });
         expect(warnSpy).toHaveBeenCalledWith(
             '[PlaybackRecovery] audioReload.start',
             expect.objectContaining({
@@ -704,7 +705,8 @@ describe('PlaybackRecoveryManager', () => {
         });
 
         const notifyToast = jest.fn();
-        const { manager, resolver } = setup({ notifyToast });
+        const notifySubtitleUnavailable = jest.fn();
+        const { manager, resolver } = setup({ notifyToast, notifySubtitleUnavailable });
         (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(directDecision);
 
         const stream = await manager.resolveStreamForProgram(makeProgram());
@@ -773,7 +775,8 @@ describe('PlaybackRecoveryManager', () => {
         });
 
         const notifyToast = jest.fn();
-        const { manager, resolver } = setup({ notifyToast });
+        const notifySubtitleUnavailable = jest.fn();
+        const { manager, resolver } = setup({ notifyToast, notifySubtitleUnavailable });
         (resolver.resolveStream as jest.Mock)
             .mockResolvedValueOnce(directDecision)
             .mockResolvedValueOnce(burnInDecision);
@@ -785,7 +788,10 @@ describe('PlaybackRecoveryManager', () => {
         });
 
         expect(handled).toBe(true);
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await stream.subtitleContext?.onDeactivateRecovery?.({
+            trackId: 'sub-keyless',
+            reason: 'subtitle_text_fetch_failed',
+        });
 
         expect(resolver.resolveStream).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -814,9 +820,9 @@ describe('PlaybackRecoveryManager', () => {
             } as StreamDecision),
         });
 
-        const ok = await manager.attemptBurnInSubtitleForCurrentProgram('burn-1', 'test');
+        const result = await manager.attemptBurnInSubtitleForCurrentProgram('burn-1', 'test');
 
-        expect(ok).toBe(false);
+        expect(result).toEqual({ outcome: 'ignored', reason: 'already_burned_in' });
         expect(resolver.resolveStream).not.toHaveBeenCalled();
     });
 
@@ -826,9 +832,9 @@ describe('PlaybackRecoveryManager', () => {
         const { manager, resolver } = setup();
         (resolver.resolveStream as jest.Mock).mockRejectedValueOnce(new Error('burn-in failed'));
 
-        const ok = await manager.attemptBurnInSubtitleForCurrentProgram('sub-keyless', 'subtitle_extract_failed:test');
+        const result = await manager.attemptBurnInSubtitleForCurrentProgram('sub-keyless', 'subtitle_extract_failed:test');
 
-        expect(ok).toBe(false);
+        expect(result).toEqual({ outcome: 'failed' });
         expect(warnSpy).toHaveBeenCalledWith(
             '[PlaybackRecovery] burnInReload.start',
             expect.objectContaining({
@@ -846,6 +852,247 @@ describe('PlaybackRecoveryManager', () => {
                 safeError: expect.any(Object),
             })
         );
+    });
+
+    it('falls back to the program elapsed offset when the live position is not finite', async () => {
+        const { manager, resolver, player } = setup({
+            getCurrentStreamDecision: () => makeDecision({ isDirectPlay: true, isTranscoding: false }),
+        });
+        (player.getCurrentTimeMs as jest.Mock).mockReturnValue(NaN);
+
+        await manager.attemptAudioTrackReloadForCurrentProgram('audio-alt', 'audio_track_change');
+
+        expect(resolver.resolveStream).toHaveBeenCalledWith(
+            expect.objectContaining({
+                startOffsetMs: 5000,
+            })
+        );
+    });
+
+    it('waits for the transcode stop request before resolving the disable-burn-in reload', async () => {
+        let releaseStop!: () => void;
+        const stopPromise = new Promise<void>((resolve) => {
+            releaseStop = resolve;
+        });
+        const { manager, resolver } = setup({
+            getCurrentStreamDecision: () =>
+                makeDecision({
+                    protocol: 'hls',
+                    isDirectPlay: false,
+                    isTranscoding: true,
+                    sessionId: 'sess-burn',
+                    transcodeRequest: {
+                        sessionId: 'sess-burn',
+                        maxBitrate: 2000,
+                        subtitleStreamId: 'burn-1',
+                        subtitleMode: 'burn',
+                    },
+                } as Partial<StreamDecision>),
+        });
+        (resolver.stopTranscodeSession as jest.Mock).mockReturnValue(stopPromise);
+        (resolver.resolveStream as jest.Mock).mockResolvedValue(
+            makeDecision({
+                protocol: 'http',
+                isDirectPlay: true,
+                isTranscoding: false,
+            })
+        );
+
+        const pending = manager.attemptDisableBurnInSubtitlesForCurrentProgram('test');
+        await Promise.resolve();
+
+        expect(resolver.stopTranscodeSession).toHaveBeenCalledWith('sess-burn');
+        expect(resolver.resolveStream).not.toHaveBeenCalled();
+
+        releaseStop();
+        await pending;
+
+        expect(resolver.resolveStream).toHaveBeenCalledTimes(1);
+    });
+
+    it('suppresses repeated automatic burn-in recovery attempts after the first failure', async () => {
+        const { manager, resolver } = setup();
+        (resolver.resolveStream as jest.Mock).mockRejectedValue(new Error('burn-in failed'));
+
+        const first = await manager.attemptBurnInSubtitleForCurrentProgram(
+            'sub-keyless',
+            'subtitle_extract_failed:test'
+        );
+        const second = await manager.attemptBurnInSubtitleForCurrentProgram(
+            'sub-keyless',
+            'subtitle_extract_failed:test'
+        );
+
+        expect(first).toEqual({ outcome: 'failed' });
+        expect(second).toEqual({ outcome: 'ignored', reason: 'already_attempted' });
+        expect(resolver.resolveStream).toHaveBeenCalledTimes(1);
+    });
+
+    it('allows explicit user retries after a failed burn-in attempt', async () => {
+        const { manager, resolver } = setup();
+        (resolver.resolveStream as jest.Mock).mockRejectedValue(new Error('burn-in failed'));
+
+        const first = await manager.attemptBurnInSubtitleForCurrentProgram(
+            'sub-keyless',
+            'user_selected_burn_in_format'
+        );
+        const second = await manager.attemptBurnInSubtitleForCurrentProgram(
+            'sub-keyless',
+            'user_selected_burn_in_format'
+        );
+
+        expect(first).toEqual({ outcome: 'failed' });
+        expect(second).toEqual({ outcome: 'failed' });
+        expect(resolver.resolveStream).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not notify subtitle unavailable when subtitle deactivation burn-in recovery fails', async () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const keylessText: PlexStream = {
+            id: 'sub-keyless',
+            streamType: 3,
+            language: 'English',
+            languageCode: 'en',
+            codec: 'srt',
+            format: 'srt',
+            forced: false,
+            default: true,
+            title: 'Keyless',
+        };
+        const directDecision = makeDecision({
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+            availableSubtitleStreams: [keylessText],
+        });
+
+        const notifyToast = jest.fn();
+        const notifySubtitleUnavailable = jest.fn();
+        const { manager, resolver } = setup({ notifyToast, notifySubtitleUnavailable });
+        (resolver.resolveStream as jest.Mock)
+            .mockResolvedValueOnce(directDecision)
+            .mockRejectedValueOnce(new Error('burn-in failed'));
+
+        const stream = await manager.resolveStreamForProgram(makeProgram());
+        const handled = stream.subtitleContext?.onDeactivate?.({
+            trackId: 'sub-keyless',
+            reason: 'subtitle_text_fetch_failed',
+        });
+
+        expect(handled).toBe(true);
+        const recoveryResult = await stream.subtitleContext?.onDeactivateRecovery?.({
+            trackId: 'sub-keyless',
+            reason: 'subtitle_text_fetch_failed',
+        });
+
+        expect(notifyToast).toHaveBeenCalledWith('Subtitles failed to load. Trying burn-in…', 'info');
+        expect(recoveryResult).toBe('failed');
+        expect(notifySubtitleUnavailable).not.toHaveBeenCalled();
+    });
+
+    it('returns failed when automatic subtitle deactivation recovery is ignored after a prior attempt', async () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const keylessText: PlexStream = {
+            id: 'sub-keyless',
+            streamType: 3,
+            language: 'English',
+            languageCode: 'en',
+            codec: 'srt',
+            format: 'srt',
+            forced: false,
+            default: true,
+            title: 'Keyless',
+        };
+        const directDecision = makeDecision({
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+            availableSubtitleStreams: [keylessText],
+        });
+
+        const notifyToast = jest.fn();
+        const notifySubtitleUnavailable = jest.fn();
+        const { manager, resolver } = setup({ notifyToast, notifySubtitleUnavailable });
+        (resolver.resolveStream as jest.Mock)
+            .mockResolvedValueOnce(directDecision)
+            .mockRejectedValueOnce(new Error('burn-in failed'));
+
+        const stream = await manager.resolveStreamForProgram(makeProgram());
+
+        const firstRecoveryResult = await stream.subtitleContext?.onDeactivateRecovery?.({
+            trackId: 'sub-keyless',
+            reason: 'subtitle_text_fetch_failed',
+        });
+        const secondRecoveryResult = await stream.subtitleContext?.onDeactivateRecovery?.({
+            trackId: 'sub-keyless',
+            reason: 'subtitle_text_fetch_failed',
+        });
+
+        expect(firstRecoveryResult).toBe('failed');
+        expect(secondRecoveryResult).toBe('failed');
+        expect(notifyToast).toHaveBeenCalledTimes(1);
+        expect(resolver.resolveStream).toHaveBeenCalledTimes(2);
+        expect(notifySubtitleUnavailable).not.toHaveBeenCalled();
+    });
+
+    it('does not show the burn-in retry toast when subtitle deactivation recovery is ignored', async () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const keylessText: PlexStream = {
+            id: 'sub-keyless',
+            streamType: 3,
+            language: 'English',
+            languageCode: 'en',
+            codec: 'srt',
+            format: 'srt',
+            forced: false,
+            default: true,
+            title: 'Keyless',
+        };
+        const directDecision = makeDecision({
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+            availableSubtitleStreams: [keylessText],
+        });
+
+        const notifyToast = jest.fn();
+        const notifySubtitleUnavailable = jest.fn();
+        const { manager, resolver } = setup({
+            notifyToast,
+            notifySubtitleUnavailable,
+            getCurrentStreamDescriptor: () => ({ protocol: 'hls' } as StreamDescriptor),
+            getCurrentStreamDecision: () =>
+                ({
+                    transcodeRequest: {
+                        sessionId: 'sess-burn',
+                        maxBitrate: 2000,
+                        subtitleStreamId: 'sub-keyless',
+                        subtitleMode: 'burn',
+                    },
+                } as StreamDecision),
+        });
+        (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(directDecision);
+
+        const stream = await manager.resolveStreamForProgram(makeProgram());
+        const handled = stream.subtitleContext?.onDeactivate?.({
+            trackId: 'sub-keyless',
+            reason: 'subtitle_text_fetch_failed',
+        });
+
+        expect(handled).toBe(true);
+        await stream.subtitleContext?.onDeactivateRecovery?.({
+            trackId: 'sub-keyless',
+            reason: 'subtitle_text_fetch_failed',
+        });
+
+        expect(notifyToast).not.toHaveBeenCalledWith(
+            'Subtitles failed to load. Trying burn-in…',
+            'info'
+        );
+        expect(notifySubtitleUnavailable).not.toHaveBeenCalled();
     });
 
     it('reloads direct play when disabling burn-in subtitles', async () => {

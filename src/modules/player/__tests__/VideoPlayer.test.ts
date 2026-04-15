@@ -4,7 +4,7 @@
  * @jest-environment jsdom
  */
 
-import { VideoPlayer, mapMediaErrorCodeToPlaybackError } from '../VideoPlayer';
+import { VideoPlayer } from '../VideoPlayer';
 import { PlayerErrorCode } from '../types';
 import type { VideoPlayerConfig, StreamDescriptor } from '../types';
 import type { PlatformPlaybackService, PlatformSubtitleService } from '../../../platform';
@@ -89,60 +89,6 @@ function createFakeSubtitleManager(
         destroy: (): void => undefined,
     };
 }
-
-// ============================================
-// mapMediaErrorCodeToPlaybackError Tests
-// ============================================
-
-describe('mapMediaErrorCodeToPlaybackError', () => {
-    it('maps MEDIA_ERR_NETWORK (2) to NETWORK_TIMEOUT and is recoverable until retries exhausted', () => {
-        const e0 = mapMediaErrorCodeToPlaybackError(2, 0, 3);
-        const e2 = mapMediaErrorCodeToPlaybackError(2, 2, 3);
-        const e3 = mapMediaErrorCodeToPlaybackError(2, 3, 3);
-
-        expect(e0.code).toBe(PlayerErrorCode.NETWORK_TIMEOUT);
-        expect(e0.recoverable).toBe(true);
-        expect(e0.retryAfterMs).toBe(1000); // 1s base delay
-
-        expect(e2.code).toBe(PlayerErrorCode.NETWORK_TIMEOUT);
-        expect(e2.recoverable).toBe(true);
-        expect(e2.retryAfterMs).toBe(4000); // 1s * 2^2 = 4s
-
-        expect(e3.code).toBe(PlayerErrorCode.NETWORK_TIMEOUT);
-        expect(e3.recoverable).toBe(false);
-        expect(e3.retryCount).toBe(3);
-    });
-
-    it('caps retryAfterMs to a reasonable maximum', () => {
-        // attemptNumber=10 => 1s * 2^10 = 1024s; should be capped.
-        const retryCount = 10;
-        const e = mapMediaErrorCodeToPlaybackError(2, retryCount, retryCount + 1);
-        expect(e.recoverable).toBe(true);
-        expect(e.retryAfterMs).toBe(30000);
-    });
-
-    it('maps MEDIA_ERR_DECODE (3) to PLAYBACK_DECODE_ERROR and recoverable=false', () => {
-        const e = mapMediaErrorCodeToPlaybackError(3, 0, 3);
-        expect(e.code).toBe(PlayerErrorCode.PLAYBACK_DECODE_ERROR);
-        expect(e.recoverable).toBe(false);
-    });
-
-    it('maps MEDIA_ERR_SRC_NOT_SUPPORTED (4) to PLAYBACK_FORMAT_UNSUPPORTED', () => {
-        const e = mapMediaErrorCodeToPlaybackError(4, 0, 3);
-        expect(e.code).toBe(PlayerErrorCode.PLAYBACK_FORMAT_UNSUPPORTED);
-        expect(e.recoverable).toBe(false);
-    });
-
-    it('maps unknown codes to UNKNOWN', () => {
-        const e = mapMediaErrorCodeToPlaybackError(999, 0, 3);
-        expect(e.code).toBe(PlayerErrorCode.UNKNOWN);
-        expect(e.recoverable).toBe(false);
-    });
-});
-
-// ============================================
-// VideoPlayer Tests
-// ============================================
 
 describe('VideoPlayer', () => {
     let container: HTMLDivElement;
@@ -548,6 +494,64 @@ describe('VideoPlayer', () => {
 
             expect(player.getState().activeSubtitleId).toBeNull();
             expect(trackChanges).toEqual([null]);
+
+            player.destroy();
+        });
+    });
+
+    describe('setAudioTrack', () => {
+        it('rejects with TRACK_NOT_FOUND when the player is not initialized', async () => {
+            const player = new VideoPlayer();
+
+            await expect(player.setAudioTrack('track-1')).rejects.toMatchObject({
+                code: PlayerErrorCode.TRACK_NOT_FOUND,
+                message: expect.stringContaining('not initialized'),
+            });
+        });
+
+        it('rejects with TRACK_NOT_FOUND for an unknown audio track id', async () => {
+            const player = new VideoPlayer();
+            await player.initialize(createMockConfig());
+
+            await expect(player.setAudioTrack('missing-track')).rejects.toMatchObject({
+                code: PlayerErrorCode.TRACK_NOT_FOUND,
+                message: expect.stringContaining('missing-track'),
+            });
+
+            player.destroy();
+        });
+
+        it.each([
+            PlayerErrorCode.CODEC_UNSUPPORTED,
+            PlayerErrorCode.TRACK_SWITCH_TIMEOUT,
+            PlayerErrorCode.TRACK_SWITCH_FAILED,
+        ])('preserves delegated %s playback errors', async (code) => {
+            const player = new VideoPlayer();
+            await player.initialize(createMockConfig());
+
+            const switchTrack = jest.fn().mockRejectedValue({
+                code,
+                message: `audio failure: ${code}`,
+                recoverable: false,
+                retryCount: 1,
+            });
+            (
+                player as unknown as {
+                    _audioTrackManager: {
+                        switchTrack: (trackId: string) => Promise<void>;
+                        destroy: () => void;
+                    };
+                }
+            )._audioTrackManager = {
+                switchTrack,
+                destroy: jest.fn(),
+            };
+
+            await expect(player.setAudioTrack('track-1')).rejects.toMatchObject({
+                code,
+                message: expect.stringContaining(String(code)),
+            });
+            expect(switchTrack).toHaveBeenCalledWith('track-1');
 
             player.destroy();
         });
@@ -1194,6 +1198,30 @@ describe('VideoPlayer', () => {
                 expect(warnSpy).toHaveBeenCalledWith(
                     '[VideoPlayer] MediaSession action failed:',
                     expect.objectContaining({ action: 'seekto' })
+                );
+            });
+
+            it('logs a warning when the Media Session play handler rejects', async () => {
+                const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+                await player.loadStream(createMockDescriptor());
+
+                const videoElement = container.querySelector('video')!;
+                (videoElement.play as jest.Mock).mockRejectedValueOnce(new Error('play failed'));
+
+                player.requestMediaSession();
+
+                const playHandler = mockMediaSession.handlers.get('play');
+                if (!playHandler) {
+                    throw new Error('play handler not installed');
+                }
+
+                playHandler({});
+                await Promise.resolve();
+                await Promise.resolve();
+
+                expect(warnSpy).toHaveBeenCalledWith(
+                    '[VideoPlayer] MediaSession action failed:',
+                    expect.objectContaining({ action: 'play' })
                 );
             });
 

@@ -6,6 +6,7 @@
 
 import { AppErrorCode, PlexApiError, type PlexPinRequest } from '../../plex/auth';
 import type { AuthScreenNavigationPort } from '../../navigation';
+import { getAppErrorCode } from '../../../types/app-errors';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { setTrustedInlineSvg } from '../../../utils/inlineSvg';
 import { createScreenShell } from '../common/ScreenShell';
@@ -459,16 +460,10 @@ export class AuthScreen {
 
     private _getAppErrorCode(error: unknown): AppErrorCode | null {
         if (error instanceof PlexApiError) {
-            const plexCode = error.code;
-            if (Object.values(AppErrorCode).includes(plexCode as AppErrorCode)) {
-                return plexCode as AppErrorCode;
-            }
+            return getAppErrorCode(error.code);
         }
         if (error && typeof error === 'object' && 'code' in error) {
-            const code = (error as { code?: unknown }).code;
-            if (typeof code === 'string' && Object.values(AppErrorCode).includes(code as AppErrorCode)) {
-                return code as AppErrorCode;
-            }
+            return getAppErrorCode((error as { code?: unknown }).code);
         }
         return null;
     }

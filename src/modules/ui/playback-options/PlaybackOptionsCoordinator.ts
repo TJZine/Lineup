@@ -11,9 +11,10 @@ import type {
     PlaybackOptionsSectionId,
 } from './types';
 import type { IVideoPlayer } from '../../player';
+import type { BurnInSubtitleRecoveryResult } from '../../player/PlaybackRecoveryManager';
 import type { ScheduledProgram } from '../../scheduler/scheduler';
 import type { SubtitleTrack } from '../../player/types';
-import { BURN_IN_SUBTITLE_FORMATS } from '../../player/constants';
+import { BURN_IN_SUBTITLE_FORMATS } from '../../../shared/subtitle-formats';
 import {
     subtitleModeAllowsBurnIn,
     subtitleModeIsDirectOnly,
@@ -39,7 +40,10 @@ interface PlaybackOptionsCoordinatorDeps {
     getVideoPlayer: () => IVideoPlayer | null;
     getCurrentStreamDescriptor?: () => StreamDescriptor | null;
     getCurrentProgram: () => ScheduledProgram | null;
-    requestBurnInSubtitle?: (trackId: string, reason: string) => boolean | Promise<boolean>;
+    requestBurnInSubtitle?: (
+        trackId: string,
+        reason: string
+    ) => BurnInSubtitleRecoveryResult | Promise<BurnInSubtitleRecoveryResult>;
     notifyToast?: (message: string, type?: ToastType) => void;
     subtitlePreferencesStore?: SubtitlePreferencesStore;
 }
@@ -378,8 +382,8 @@ export class PlaybackOptionsCoordinator {
         this.deps.notifyToast?.('Loading burn-in subtitles…', 'info');
         try {
             void Promise.resolve(request(trackId, reason))
-                .then((ok) => {
-                    if (ok === false) {
+                .then((result) => {
+                    if (result.outcome === 'failed') {
                         this.deps.notifyToast?.('Failed to load burn-in subtitles', 'warning');
                     }
                 })
@@ -464,14 +468,14 @@ export class PlaybackOptionsCoordinator {
         const startMs = Date.now();
         try {
             let response: Response;
-            response = await fetchWithTimeout(
-                url.toString(),
-                {
-                method: 'HEAD',
-                headers: { Accept: 'text/vtt, text/plain, */*' },
+            response = await fetchWithTimeout({
+                url: url.toString(),
+                init: {
+                    method: 'HEAD',
+                    headers: { Accept: 'text/vtt, text/plain, */*' },
                 },
-                SUBTITLE_PROBE_TOTAL_TIMEOUT_MS
-            );
+                timeoutMs: SUBTITLE_PROBE_TOTAL_TIMEOUT_MS,
+            });
             if (!response.ok && (response.status === 405 || response.status === 501)) {
                 // Some Plex endpoints/proxies may not support HEAD reliably; fall back to GET.
                 const elapsedMs = Date.now() - startMs;
@@ -479,14 +483,14 @@ export class PlaybackOptionsCoordinator {
                 // Keep the total probe time bounded; don't double the worst-case latency.
                 const fallbackTimeoutMs = Math.max(50, remainingMs);
 
-                response = await fetchWithTimeout(
-                    url.toString(),
-                    {
+                response = await fetchWithTimeout({
+                    url: url.toString(),
+                    init: {
                         method: 'GET',
                         headers: { Accept: 'text/vtt, text/plain, */*' },
                     },
-                    fallbackTimeoutMs
-                );
+                    timeoutMs: fallbackTimeoutMs,
+                });
             }
             if (response.ok) {
                 this.subtitleProbeCache.set(cacheKey, 'supported');

@@ -35,7 +35,7 @@ export interface PlexDeviceKey {
 }
 
 export interface PlexAuthConfig {
-    /** Unique app instance ID (UUID v4) - persisted across sessions */
+    /** Unique app instance ID resolved/persisted at config assembly (constructor does not re-resolve) */
     clientIdentifier: string;
     /** App name shown in Plex dashboard (e.g., "Lineup") */
     product: string;
@@ -237,8 +237,8 @@ export interface IPlexAuth {
     /**
      * Verify a token is still valid by calling Plex API.
      * @param token - Plex auth token to validate
-     * @returns true if token is valid, false otherwise
-     * @throws PlexApiError for non-abort network failures and malformed success payloads
+     * @returns true for valid token; false only for explicit auth-invalid (401/403) outcomes
+     * @throws PlexApiError for timeout, service/network failures, and malformed success payloads
      */
     validateToken(token: string): Promise<boolean>;
 

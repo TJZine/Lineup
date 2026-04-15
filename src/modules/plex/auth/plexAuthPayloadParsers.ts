@@ -1,113 +1,45 @@
-/**
- * @fileoverview Helper functions for Plex Authentication module.
- * Pure functions for HTTP requests, parsing, and client ID management.
- * @module modules/plex/auth/helpers
- * @version 1.0.0
- */
-
-import { PLEX_AUTH_CONSTANTS } from './constants';
-import { PlexAuthConfig, PlexAuthToken, PlexPinRequest, PlexHomeUser } from './interfaces';
+import type { PlexAuthToken, PlexPinRequest, PlexHomeUser } from './interfaces';
 import { AppErrorCode } from '../../lifecycle/types';
+import { PlexApiError } from './plexAuthTransport';
 
-/**
- * Error class for Plex API errors.
- */
-export class PlexApiError extends Error {
-    public readonly code: AppErrorCode;
-    public readonly httpStatus: number | undefined;
-    public readonly retryable: boolean;
+export type PlexResponsePayload =
+    | { kind: 'json'; data: unknown }
+    | { kind: 'text'; data: string }
+    | { kind: 'empty' };
 
-    constructor(
-        code: AppErrorCode,
-        message: string,
-        httpStatus?: number,
-        retryable: boolean = false
-    ) {
-        super(message);
-        this.name = 'PlexApiError';
-        this.code = code;
-        this.httpStatus = httpStatus;
-        this.retryable = retryable;
-    }
-}
-
-// ============================================
-// Header Building
-// ============================================
-
-/**
- * Build request headers for Plex API calls.
- * @param config - Plex auth configuration
- * @param token - Optional auth token
- * @param options - Optional additional headers
- * @returns Headers object
- */
-export function buildRequestHeaders(
-    config: PlexAuthConfig,
-    token?: string,
-    options?: { platformVersion?: string; deviceName?: string }
-): Record<string, string> {
-    const headers: Record<string, string> = {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'X-Plex-Client-Identifier': config.clientIdentifier,
-        'X-Plex-Product': config.product,
-        'X-Plex-Version': config.version,
-        'X-Plex-Platform': config.platform,
-        'X-Plex-Device': config.device,
-    };
-    if (token) {
-        headers['X-Plex-Token'] = token;
-    }
-    if (options?.platformVersion) {
-        headers['X-Plex-Platform-Version'] = options.platformVersion;
-    }
-    if (options?.deviceName) {
-        headers['X-Plex-Device-Name'] = options.deviceName;
-    }
-    return headers;
-}
-
-// ============================================
-// Response Parsing
-// ============================================
+const SWITCH_TOKEN_KEYS = ['authToken', 'authenticationToken', 'token'] as const;
 
 /**
  * Read plex.tv response as JSON when possible, otherwise text.
  */
-export async function readPlexResponse(
-    response: Response
-): Promise<{ json?: unknown; text?: string }> {
+export async function readPlexResponse(response: Response): Promise<PlexResponsePayload> {
     const contentType =
         response.headers && typeof response.headers.get === 'function'
             ? response.headers.get('Content-Type') || ''
             : '';
-    try {
-        // Prefer JSON parsing when server indicates JSON.
-        if (contentType.includes('json') && typeof response.json === 'function') {
-            try {
-                return { json: await response.json() };
-            } catch {
-                // Fall through to text parsing.
-            }
-        }
 
-        const text = await response.text();
-        const trimmed = text.trim();
+    const text = await response.text();
+    const trimmed = text.trim();
 
-        // Robustness: plex.tv sometimes returns JSON with a non-JSON content-type.
-        if ((trimmed.startsWith('{') || trimmed.startsWith('[')) && trimmed.length > 0) {
-            try {
-                return { json: JSON.parse(trimmed) };
-            } catch {
-                // Keep as text.
-            }
-        }
-
-        return { text };
-    } catch {
-        return {};
+    if (trimmed.length === 0) {
+        return { kind: 'empty' };
     }
+
+    // plex.tv occasionally returns JSON payloads with a mismatched content-type.
+    if (contentType.includes('json') || trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try {
+            return { kind: 'json', data: JSON.parse(trimmed) };
+        } catch {
+            throw new PlexApiError(
+                AppErrorCode.PARSE_ERROR,
+                'Unable to parse Plex response JSON payload',
+                undefined,
+                false
+            );
+        }
+    }
+
+    return { kind: 'text', data: text };
 }
 
 /**
@@ -178,10 +110,7 @@ function coerceBoolean(value: unknown): boolean {
     return false;
 }
 
-/**
- * Parse Plex Home users payload (JSON or XML) into PlexHomeUser list.
- */
-export function parseHomeUsers(payload: unknown): PlexHomeUser[] {
+function parseHomeUsersFromUnknown(payload: unknown): PlexHomeUser[] {
     if (!payload) return [];
 
     if (typeof payload === 'string') {
@@ -189,7 +118,7 @@ export function parseHomeUsers(payload: unknown): PlexHomeUser[] {
         if (!text) return [];
         if (text.startsWith('{') || text.startsWith('[')) {
             try {
-                return parseHomeUsers(JSON.parse(text));
+                return parseHomeUsersFromUnknown(JSON.parse(text));
             } catch {
                 throw new PlexApiError(
                     AppErrorCode.PARSE_ERROR,
@@ -207,81 +136,90 @@ export function parseHomeUsers(payload: unknown): PlexHomeUser[] {
             if (isStructurallyValidXml(text)) {
                 return [];
             }
-            throw new PlexApiError(
-                AppErrorCode.PARSE_ERROR,
-                'Unable to parse Plex Home users XML payload',
-                undefined,
-                false
-            );
+            return parseHomeUsersXmlFallback(text);
         }
+        return [];
     }
 
     if (typeof payload === 'object') {
-        const candidates = collectHomeUserCandidates(payload);
-        if (candidates.length > 0) {
-            const users = candidates
-                .map((record) => parseHomeUserRecord(record))
-                .filter((user): user is PlexHomeUser => user !== null);
-            const deduped = new Map<string, PlexHomeUser>();
-            for (const user of users) {
-                if (!deduped.has(user.id)) {
-                    deduped.set(user.id, user);
-                }
-            }
-            return Array.from(deduped.values());
-        }
+        return dedupeHomeUsersById(
+            collectHomeUserCandidates(payload)
+                .map(parseHomeUserRecord)
+                .filter((user): user is PlexHomeUser => user !== null)
+        );
     }
 
     return [];
 }
 
+export function parseHomeUsersPayload(payload: PlexResponsePayload): PlexHomeUser[] {
+    if (payload.kind === 'empty') return [];
+    if (payload.kind === 'json') {
+        return parseHomeUsersFromUnknown(payload.data);
+    }
+    return parseHomeUsersFromUnknown(payload.data);
+}
+
 function isStructurallyValidXml(payload: string): boolean {
-    if (typeof DOMParser !== 'undefined') {
+    if (typeof DOMParser !== 'function') return false;
+    try {
         const parser = new DOMParser();
         const doc = parser.parseFromString(payload, 'application/xml');
         return doc.getElementsByTagName('parsererror').length === 0;
+    } catch {
+        return false;
     }
-    const trimmed = payload.trim();
-    return /^<[\w:-]+(?:\s[^>]*)?>[\s\S]*<\/[\w:-]+>\s*$/.test(trimmed);
 }
 
-/**
- * Parse home switch response to extract auth token.
- */
-export function parseSwitchResponse(payload: unknown): { authToken: string } {
-    if (!payload) {
-        throw new PlexApiError(
-            AppErrorCode.SERVER_UNREACHABLE,
-            'Empty response from Plex Home switch',
-            undefined,
-            false
-        );
-    }
-
-    if (typeof payload === 'string') {
-        const token = parseSwitchTokenXml(payload);
-        if (token) {
-            return { authToken: token };
+function parseSwitchResponseFromUnknown(payload: unknown): { authToken: string } {
+    if (payload && typeof payload === 'object') {
+        const obj = payload as Record<string, unknown>;
+        const direct = getRecordStringValue(obj, SWITCH_TOKEN_KEYS);
+        if (direct) {
+            return { authToken: direct };
         }
     }
 
-    if (typeof payload === 'object') {
-        const data = payload as Record<string, unknown>;
-        const authToken =
-            (typeof data['authToken'] === 'string' ? data['authToken'] : null) ??
-            (typeof data['authenticationToken'] === 'string' ? data['authenticationToken'] : null) ??
-            (typeof data['token'] === 'string' ? data['token'] : null);
-        if (authToken) {
-            return { authToken };
+    if (typeof payload === 'string') {
+        const text = payload.trim();
+        if (text.startsWith('{') || text.startsWith('[')) {
+            try {
+                return parseSwitchResponseFromUnknown(JSON.parse(text));
+            } catch {
+                throw new PlexApiError(
+                    AppErrorCode.PARSE_ERROR,
+                    'Unable to parse Plex Home switch JSON payload',
+                    undefined,
+                    false
+                );
+            }
+        }
+        if (text.startsWith('<')) {
+            const token = parseSwitchTokenXml(text);
+            if (token) {
+                return { authToken: token };
+            }
         }
     }
 
     throw new PlexApiError(
-        AppErrorCode.SERVER_UNREACHABLE,
-        'Unable to parse Plex Home switch response',
+        AppErrorCode.PARSE_ERROR,
+        'Plex Home switch response did not include auth token',
         undefined,
         false
     );
+}
+
+export function parseSwitchResponsePayload(payload: PlexResponsePayload): { authToken: string } {
+    if (payload.kind === 'empty') {
+        throw new PlexApiError(
+            AppErrorCode.PARSE_ERROR,
+            'Plex Home switch response was empty',
+            undefined,
+            false
+        );
+    }
+    return parseSwitchResponseFromUnknown(payload.data);
 }
 
 function parseHomeUsersXml(payload: string): PlexHomeUser[] {
@@ -289,17 +227,13 @@ function parseHomeUsersXml(payload: string): PlexHomeUser[] {
         const parser = new DOMParser();
         const doc = parser.parseFromString(payload, 'application/xml');
         if (doc.getElementsByTagName('parsererror').length === 0) {
-            const users = getXmlUserNodes(doc)
-                .map((node) => parseHomeUserAttributes(getXmlNodeAttributes(node)))
-                .filter((user): user is PlexHomeUser => user !== null);
+            const users = dedupeHomeUsersById(
+                getXmlUserNodes(doc)
+                    .map((node) => parseHomeUserAttributes(getXmlNodeAttributes(node)))
+                    .filter((user): user is PlexHomeUser => user !== null)
+            );
             if (users.length > 0) {
-                const deduped = new Map<string, PlexHomeUser>();
-                for (const user of users) {
-                    if (!deduped.has(user.id)) {
-                        deduped.set(user.id, user);
-                    }
-                }
-                return Array.from(deduped.values());
+                return users;
             }
         }
     }
@@ -325,7 +259,7 @@ function parseHomeUsersXmlFallback(payload: string): PlexHomeUser[] {
         if (parsed) users.push(parsed);
     }
 
-    return users;
+    return dedupeHomeUsersById(users);
 }
 
 function collectHomeUserCandidates(payload: unknown): Record<string, unknown>[] {
@@ -484,26 +418,21 @@ function parseSwitchTokenXml(payload: string): string | null {
         const parser = new DOMParser();
         const doc = parser.parseFromString(payload, 'application/xml');
         if (doc.getElementsByTagName('parsererror').length === 0) {
-            const root = doc.documentElement;
-            const attrToken = root?.getAttribute?.('authenticationToken');
-            if (attrToken) return attrToken;
-            const userNode = doc.getElementsByTagName('User')[0];
-            if (userNode) {
-                const userToken = userNode.getAttribute('authenticationToken');
-                if (userToken) return userToken;
+            const candidates = [
+                doc.documentElement,
+                doc.getElementsByTagName('User')[0],
+                doc.getElementsByTagName('HomeUser')[0],
+            ];
+            for (const candidate of candidates) {
+                const token = getXmlTokenValue(candidate);
+                if (token) {
+                    return token;
+                }
             }
         }
     }
 
-    const attrMatch = payload.match(/authenticationToken="([^"]+)"/);
-    if (attrMatch && attrMatch[1]) {
-        return attrMatch[1];
-    }
-    const nodeMatch = payload.match(/<authenticationToken>([^<]+)<\/authenticationToken>/i);
-    if (nodeMatch && nodeMatch[1]) {
-        return nodeMatch[1];
-    }
-    return null;
+    return getTokenFromXmlText(payload);
 }
 
 function extractPreferredSubtitleLanguage(data: Record<string, unknown>): string | null {
@@ -531,147 +460,63 @@ function coerceLanguageValue(value: unknown): string | null {
     return trimmed.length > 0 ? trimmed : null;
 }
 
-// ============================================
-// HTTP Helpers
-// ============================================
-
-/**
- * Sleep helper for delays.
- * @param ms - Milliseconds to sleep
- */
-export function sleep(ms: number): Promise<void> {
-    return new Promise(function (resolve) {
-        setTimeout(resolve, ms);
-    });
-}
-
-/**
- * Handle HTTP response status and throw appropriate errors.
- * @param response - Fetch response
- * @throws PlexApiError for error statuses
- */
-function handleResponseStatus(response: Response): void {
-    // Authentication errors - not retryable
-    if (response.status === 401) {
-        throw new PlexApiError(
-            AppErrorCode.AUTH_REQUIRED,
-            'Unauthorized: authentication required',
-            401,
-            false
-        );
-    }
-    if (response.status === 403) {
-        throw new PlexApiError(
-            AppErrorCode.AUTH_INVALID,
-            'Forbidden: access denied',
-            403,
-            false
-        );
-    }
-    // Rate limiting - retryable
-    if (response.status === 429) {
-        throw new PlexApiError(
-            AppErrorCode.RATE_LIMITED,
-            'Rate limited by Plex API',
-            429,
-            true
-        );
-    }
-    // Not found - not retryable
-    if (response.status === 404) {
-        throw new PlexApiError(
-            AppErrorCode.RESOURCE_NOT_FOUND,
-            'Resource not found',
-            404,
-            false
-        );
-    }
-    // Server errors - retryable
-    if (response.status >= 500) {
-        throw new PlexApiError(
-            AppErrorCode.SERVER_UNREACHABLE,
-            'Server error: ' + String(response.status),
-            response.status,
-            true
-        );
-    }
-}
-
-/**
- * Create a network error.
- * @returns PlexApiError for network failures
- */
-function createNetworkError(): PlexApiError {
-    return new PlexApiError(
-        AppErrorCode.SERVER_UNREACHABLE,
-        'Network error',
-        undefined,
-        true
-    );
-}
-
-/**
- * Fetch with retry logic and exponential backoff.
- * @param url - URL to fetch
- * @param options - Fetch options
- * @returns Response object
- * @throws PlexApiError on exhausted retries
- */
-export async function fetchWithRetry(
-    url: string,
-    options: RequestInit
-): Promise<Response> {
-    let lastError: Error = new Error('Unknown error');
-    let delay = PLEX_AUTH_CONSTANTS.RETRY_DELAY_MS;
-
-    for (let attempt = 0; attempt < PLEX_AUTH_CONSTANTS.RETRY_ATTEMPTS; attempt++) {
-        try {
-            const controller = new AbortController();
-            const externalSignal = options.signal ?? null;
-            const onAbort = (): void => {
-                try {
-                    controller.abort();
-                } catch {
-                    // ignore
-                }
-            };
-
-            if (externalSignal) {
-                if (externalSignal.aborted) {
-                    onAbort();
-                } else {
-                    externalSignal.addEventListener('abort', onAbort, { once: true });
-                }
-            }
-
-            const timeoutId = setTimeout(() => onAbort(), PLEX_AUTH_CONSTANTS.REQUEST_TIMEOUT_MS);
-
-            let response: Response;
-            try {
-                response = await fetch(url, { ...options, signal: controller.signal });
-            } finally {
-                clearTimeout(timeoutId);
-                if (externalSignal) {
-                    try {
-                        externalSignal.removeEventListener('abort', onAbort);
-                    } catch {
-                        // ignore
-                    }
-                }
-            }
-            handleResponseStatus(response);
-            return response;
-        } catch (error) {
-            if (error instanceof PlexApiError && !error.retryable) {
-                throw error;
-            }
-            lastError = error instanceof PlexApiError ? error : createNetworkError();
-
-            if (attempt < PLEX_AUTH_CONSTANTS.RETRY_ATTEMPTS - 1) {
-                await sleep(delay);
-                delay = delay * 2;
-            }
+function dedupeHomeUsersById(users: PlexHomeUser[]): PlexHomeUser[] {
+    const deduped = new Map<string, PlexHomeUser>();
+    for (const user of users) {
+        if (!deduped.has(user.id)) {
+            deduped.set(user.id, user);
         }
     }
-    throw lastError;
+    return Array.from(deduped.values());
+}
+
+function getRecordStringValue(record: Record<string, unknown>, keys: readonly string[]): string | null {
+    const value = getRecordValue(record, Array.from(keys));
+    if (typeof value !== 'string') {
+        return null;
+    }
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+}
+
+function getXmlTokenValue(node: Element | null | undefined): string | null {
+    if (!node) {
+        return null;
+    }
+
+    const attrToken = getRecordStringValue(getXmlNodeAttributes(node), SWITCH_TOKEN_KEYS);
+    if (attrToken) {
+        return attrToken;
+    }
+
+    for (const key of SWITCH_TOKEN_KEYS) {
+        const child = node.getElementsByTagName(key)[0];
+        const value = child?.textContent?.trim();
+        if (value) {
+            return value;
+        }
+    }
+
+    return null;
+}
+
+function getTokenFromXmlText(payload: string): string | null {
+    for (const key of SWITCH_TOKEN_KEYS) {
+        const escapedKey = escapeRegExp(key);
+        const attrMatch = payload.match(new RegExp(`${escapedKey}=["']([^"']+)["']`, 'i'));
+        if (attrMatch?.[1]) {
+            return attrMatch[1];
+        }
+
+        const nodeMatch = payload.match(new RegExp(`<${escapedKey}>([^<]+)</${escapedKey}>`, 'i'));
+        if (nodeMatch?.[1]) {
+            return nodeMatch[1];
+        }
+    }
+
+    return null;
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

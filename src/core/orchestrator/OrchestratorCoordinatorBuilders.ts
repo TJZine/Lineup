@@ -372,7 +372,7 @@ export function buildPlaybackOptionsCoordinator(
             input.playback.state.getCurrentStreamDescriptor(),
         getCurrentProgram: (): ScheduledProgram | null =>
             input.modules.scheduler.getCurrentProgram() ?? input.playback.state.getCurrentProgramForPlayback(),
-        requestBurnInSubtitle: (trackId: string, reason: string): Promise<boolean> =>
+        requestBurnInSubtitle: (trackId: string, reason: string) =>
             playbackRecovery.attemptBurnInSubtitleForCurrentProgram(trackId, reason),
         notifyToast: (message, type): void => {
             const handler = input.nowPlaying.handler();

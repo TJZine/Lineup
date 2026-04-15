@@ -101,6 +101,15 @@ describe('PlexAuth', () => {
         jest.restoreAllMocks();
     });
 
+    describe('constructor', () => {
+        it('uses the provided resolved client identifier without re-resolution', () => {
+            const config = { ...mockConfig, clientIdentifier: 'resolved-client-from-config' };
+            const auth = new PlexAuth(config);
+
+            expect(auth.getAuthHeaders()['X-Plex-Client-Identifier']).toBe('resolved-client-from-config');
+        });
+    });
+
     describe('requestPin', () => {
         it('should return a PlexPinRequest with a valid PIN code', async () => {
             const auth = new PlexAuth(mockConfig);
@@ -259,6 +268,25 @@ describe('PlexAuth', () => {
             expect(result).toBe(false);
         });
 
+        it('should throw RATE_LIMITED for 429 responses', async () => {
+            const auth = new PlexAuth(mockConfig);
+            mockFetchJson({ error: 'rate_limited' }, 429);
+
+            await expect(auth.validateToken('busy-token')).rejects.toMatchObject({
+                code: 'RATE_LIMITED',
+            });
+        });
+
+        it('should throw SERVER_UNREACHABLE for 5xx responses', async () => {
+            const auth = new PlexAuth(mockConfig);
+            mockFetchJson({ error: 'server_error' }, 503);
+
+            await expect(auth.validateToken('server-token')).rejects.toMatchObject({
+                code: 'SERVER_UNREACHABLE',
+                httpStatus: 503,
+            });
+        });
+
         it('should update currentUser on successful validation', async () => {
             const auth = new PlexAuth(mockConfig);
             mockFetchJson({
@@ -279,7 +307,7 @@ describe('PlexAuth', () => {
             }
         });
 
-        it('should return false when token validation times out', async () => {
+        it('should throw NETWORK_TIMEOUT when token validation times out', async () => {
             jest.useFakeTimers();
             try {
                 const auth = new PlexAuth(mockConfig);
@@ -301,8 +329,11 @@ describe('PlexAuth', () => {
                 );
 
                 const promise = auth.validateToken('slow-token');
+                const rejection = expect(promise).rejects.toMatchObject({
+                    code: 'NETWORK_TIMEOUT',
+                });
                 await jest.advanceTimersByTimeAsync(PLEX_AUTH_CONSTANTS.TOKEN_VALIDATION_TIMEOUT_MS + 50);
-                await expect(promise).resolves.toBe(false);
+                await rejection;
             } finally {
                 jest.useRealTimers();
             }
@@ -857,22 +888,23 @@ describe('PlexAuth', () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
             await auth.storeCredentials(createAuthData(testToken));
+            const payload = {
+                MediaContainer: {
+                    homeUsers: {
+                        HomeUser: [
+                            { id: '1', username: 'Admin', admin: true, hasPassword: true },
+                            { id: '2', title: 'Kid', admin: false, protected: false, restricted: true },
+                        ],
+                    },
+                },
+            };
 
             (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
                 ok: true,
                 status: 200,
                 headers: { get: () => 'application/json' },
-                json: async () => ({
-                    MediaContainer: {
-                        homeUsers: {
-                            HomeUser: [
-                                { id: '1', username: 'Admin', admin: true, hasPassword: true },
-                                { id: '2', title: 'Kid', admin: false, protected: false, restricted: true },
-                            ],
-                        },
-                    },
-                }),
-                text: async () => '{}',
+                json: async () => payload,
+                text: async () => JSON.stringify(payload),
             });
 
             const users = await auth.getHomeUsers();
@@ -937,6 +969,31 @@ describe('PlexAuth', () => {
             expect(String(fetchMock.mock.calls[1][0])).toBe('https://plex.tv/api/home/users');
         });
 
+        it('propagates AbortError when getHomeUsers is cancelled by the caller', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const controller = new AbortController();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                (_url: string, options?: RequestInit) =>
+                    new Promise((_resolve, reject) => {
+                        const signal = options?.signal as AbortSignal | undefined;
+                        if (!signal) {
+                            return;
+                        }
+                        signal.addEventListener('abort', () => {
+                            reject(new DOMException('Aborted', 'AbortError'));
+                        }, { once: true });
+                    })
+            );
+
+            const request = auth.getHomeUsers({ signal: controller.signal });
+            controller.abort();
+
+            await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+        });
+
         it('should build switch URL with pin query param', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
@@ -968,6 +1025,226 @@ describe('PlexAuth', () => {
 
             const firstUrl = String(fetchMock.mock.calls[0][0]);
             expect(firstUrl).toBe('https://plex.tv/api/v2/home/users/2/switch?pin=1234');
+        });
+
+        it('falls back to the v1 switch endpoint when the v2 PIN-protected switch returns 500', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 500,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ error: 'server failure' }),
+                    text: async () => '{}',
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ authToken: 'child-token' }),
+                    text: async () => JSON.stringify({ authToken: 'child-token' }),
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({
+                        id: 'kid',
+                        username: 'kid',
+                        email: 'kid@example.com',
+                        thumb: '',
+                    }),
+                    text: async () => JSON.stringify({ id: 'kid' }),
+                });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await auth.switchHomeUser('kid', { pin: '1234' });
+
+            expect(fetchMock).toHaveBeenCalledTimes(3);
+            expect(String(fetchMock.mock.calls[0][0])).toBe('https://plex.tv/api/v2/home/users/kid/switch?pin=1234');
+            expect(String(fetchMock.mock.calls[1][0])).toBe('https://plex.tv/api/home/users/kid/switch?pin=1234');
+            expect(auth.getCurrentUser()?.token).toBe('child-token');
+        });
+
+        it('treats 401 + valid account token as wrong PIN', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 401,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ error: 'unauthorized' }),
+                    text: async () => '{}',
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({
+                        id: 'admin',
+                        username: 'admin',
+                        email: 'admin@example.com',
+                    }),
+                    text: async () => '{}',
+                });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await expect(auth.switchHomeUser('2', { pin: '1234' })).rejects.toMatchObject({
+                code: 'AUTH_FAILED',
+                httpStatus: 401,
+            });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it('treats 401 + invalid account token as auth required', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 401,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ error: 'unauthorized' }),
+                    text: async () => '{}',
+                })
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 401,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ error: 'unauthorized' }),
+                    text: async () => '{}',
+                });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await expect(auth.switchHomeUser('2', { pin: '1234' })).rejects.toMatchObject({
+                code: 'AUTH_REQUIRED',
+                httpStatus: 401,
+            });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it('treats 403 + invalid account token as auth invalid', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 403,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ error: 'forbidden' }),
+                    text: async () => '{}',
+                })
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 403,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ error: 'forbidden' }),
+                    text: async () => '{}',
+                });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await expect(auth.switchHomeUser('2', { pin: '1234' })).rejects.toMatchObject({
+                code: 'AUTH_INVALID',
+                httpStatus: 403,
+            });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it('propagates service/network failures from validateToken during PIN disambiguation', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 401,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ error: 'unauthorized' }),
+                    text: async () => '{}',
+                })
+                .mockRejectedValueOnce(new TypeError('Network error'));
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await expect(auth.switchHomeUser('2', { pin: '1234' })).rejects.toMatchObject({
+                code: 'SERVER_UNREACHABLE',
+            });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it('propagates AbortError when switchHomeUser is cancelled before the switch request completes', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const controller = new AbortController();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                (_url: string, options?: RequestInit) =>
+                    new Promise((_resolve, reject) => {
+                        const signal = options?.signal as AbortSignal | undefined;
+                        if (!signal) {
+                            return;
+                        }
+                        signal.addEventListener('abort', () => {
+                            reject(new DOMException('Aborted', 'AbortError'));
+                        }, { once: true });
+                    })
+            );
+
+            const request = auth.switchHomeUser('2', { signal: controller.signal });
+            controller.abort();
+
+            await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+        });
+
+        it('propagates AbortError when switchHomeUser is cancelled during profile fetch', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            await auth.storeCredentials(createAuthData(testToken));
+
+            const controller = new AbortController();
+            let notifySecondFetchStarted: (() => void) | null = null;
+            const secondFetchStarted = new Promise<void>((resolve) => {
+                notifySecondFetchStarted = resolve;
+            });
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ authToken: 'switched-token' }),
+                    text: async () => JSON.stringify({ authToken: 'switched-token' }),
+                })
+                .mockImplementationOnce((_url: string, options?: RequestInit) =>
+                    new Promise((_resolve, reject) => {
+                        notifySecondFetchStarted?.();
+                        const signal = options?.signal as AbortSignal | undefined;
+                        if (!signal) {
+                            return;
+                        }
+                        signal.addEventListener('abort', () => {
+                            reject(new DOMException('Aborted', 'AbortError'));
+                        }, { once: true });
+                    })
+                );
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            const request = auth.switchHomeUser('2', { signal: controller.signal });
+            await secondFetchStarted;
+            controller.abort();
+
+            await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
         });
 
         it('should throw not-supported when both home switch endpoints return 404', async () => {

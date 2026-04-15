@@ -6,6 +6,6 @@
 
 export { PlexStreamResolver, PlexStreamErrorCode } from './PlexStreamResolver';
 export { mapPlexStreamErrorCodeToAppErrorCode } from './types';
-export { getMimeType } from './utils';
+export { getMimeType } from './streamMimeType';
 export type { IPlexStreamResolver, PlexStreamResolverConfig, StreamResolverError } from './interfaces';
 export type { StreamRequest, StreamDecision, HlsOptions, PlexMediaItem, PlexStream } from './types';

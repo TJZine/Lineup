@@ -1,4 +1,4 @@
-import type { PlexLibraryType } from '../../modules/plex/library';
+import type { PlexLibrarySection } from '../../modules/plex/library';
 import type { ChannelSetupPlanDiagnosticsResult } from './ChannelSetupPlanDiagnostics';
 import type {
     ChannelBuildProgress,
@@ -30,7 +30,7 @@ export class ChannelSetupWorkflow {
         this._deps.planningService.invalidateFacetSnapshot();
     }
 
-    getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibraryType[]> {
+    getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibrarySection[]> {
         return this._deps.planningService.getLibrariesForSetup(signal ?? null);
     }
 

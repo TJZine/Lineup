@@ -22,7 +22,7 @@ describe('SubtitleTrackRecoveryController warn contract', () => {
     it('warns when audio reload resolves to failure value', async () => {
         const nowPlayingWarn = jest.fn();
         const playbackRecovery = {
-            attemptAudioTrackReloadForCurrentProgram: jest.fn(async () => false),
+            attemptAudioTrackReloadForCurrentProgram: jest.fn(async () => ({ outcome: 'failed' })),
         } as unknown as PlaybackRecoveryManager;
 
         const controller = new SubtitleTrackRecoveryController(
@@ -83,6 +83,26 @@ describe('SubtitleTrackRecoveryController warn contract', () => {
         expect(nowPlayingWarn).toHaveBeenCalledWith('Failed to disable burn-in subtitles');
     });
 
+    it('does not warn when audio reload is ignored', async () => {
+        const nowPlayingWarn = jest.fn();
+        const playbackRecovery = {
+            attemptAudioTrackReloadForCurrentProgram: jest.fn(async () => ({ outcome: 'ignored', reason: 'program_changed' })),
+        } as unknown as PlaybackRecoveryManager;
+
+        const controller = new SubtitleTrackRecoveryController(
+            createDeps({
+                nowPlayingWarn,
+                getCurrentStreamDescriptor: () => ({ protocol: 'direct' } as StreamDescriptor),
+                getPlaybackRecovery: () => playbackRecovery,
+            })
+        );
+
+        controller.handleTrackChange({ type: 'audio', trackId: '1' });
+        await flushPromises();
+
+        expect(nowPlayingWarn).not.toHaveBeenCalled();
+    });
+
     it('warns when burn-in disable rejects', async () => {
         const nowPlayingWarn = jest.fn();
         const playbackRecovery = {
@@ -125,10 +145,10 @@ describe('SubtitleTrackRecoveryController warn contract', () => {
         expect(nowPlayingWarn).not.toHaveBeenCalled();
     });
 
-    it('records a diagnostic when burn-in reload resolves to false', async () => {
+    it('records a diagnostic when burn-in reload reports a failed outcome', async () => {
         const appendIssueDiagnostic = jest.fn();
         const playbackRecovery = {
-            attemptBurnInSubtitleForCurrentProgram: jest.fn(async () => false),
+            attemptBurnInSubtitleForCurrentProgram: jest.fn(async () => ({ outcome: 'failed' })),
         } as unknown as PlaybackRecoveryManager;
 
         const controller = new SubtitleTrackRecoveryController(
@@ -154,6 +174,35 @@ describe('SubtitleTrackRecoveryController warn contract', () => {
                 format: 'ass',
             },
         });
+    });
+
+    it('does not record a failure diagnostic when burn-in reload is ignored', async () => {
+        const appendIssueDiagnostic = jest.fn();
+        const playbackRecovery = {
+            attemptBurnInSubtitleForCurrentProgram: jest.fn(async () => ({ outcome: 'ignored', reason: 'already_burned_in' })),
+        } as unknown as PlaybackRecoveryManager;
+
+        const controller = new SubtitleTrackRecoveryController(
+            createDeps({
+                appendIssueDiagnostic,
+                getVideoPlayer: () =>
+                    ({
+                        getAvailableSubtitles: () => [{ id: 'sub-1', format: 'ass' }],
+                    } as unknown as IVideoPlayer),
+                readSubtitleMode: () => 'full',
+                getPlaybackRecovery: () => playbackRecovery,
+                getCurrentStreamDecision: () => null,
+            })
+        );
+
+        controller.handleTrackChange({ type: 'subtitle', trackId: 'sub-1' });
+        await flushPromises();
+
+        const failureDiagnostics = appendIssueDiagnostic.mock.calls.filter(
+            ([payload]: [{ key?: string }]) => payload?.key === 'orchestrator.subtitleTrackChange.burnInFailure'
+        );
+
+        expect(failureDiagnostics).toHaveLength(0);
     });
 
     it('records a diagnostic when burn-in reload rejects', async () => {

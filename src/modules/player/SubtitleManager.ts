@@ -6,7 +6,7 @@
  */
 
 import type { SubtitleTrack } from './types';
-import { BURN_IN_SUBTITLE_FORMATS } from './constants';
+import { BURN_IN_SUBTITLE_FORMATS } from '../../shared/subtitle-formats';
 import { DeveloperSettingsStore } from '../settings/DeveloperSettingsStore';
 import { redactSensitiveTokens, safeStringifyForLog } from '../../utils/redact';
 import type { PlatformSubtitleService } from '../../platform';
@@ -30,6 +30,10 @@ interface SubtitleTrackContext {
     burnedInSubtitleTrackId?: string | null;
     onUnavailable?: () => void;
     onDeactivate?: (args: { trackId: string; reason: string }) => boolean;
+    onDeactivateRecovery?: (args: {
+        trackId: string;
+        reason: string;
+    }) => Promise<'handled' | 'failed'>;
 }
 
 /**
@@ -604,7 +608,11 @@ export class SubtitleManager {
     }
 
     private _notifySubtitleUnavailable(): void {
-        const handler = this._subtitleContext?.onUnavailable;
+        this._notifySubtitleUnavailableForContext(this._subtitleContext);
+    }
+
+    private _notifySubtitleUnavailableForContext(context: SubtitleTrackContext | null): void {
+        const handler = context?.onUnavailable;
         if (handler) {
             handler();
         }
@@ -619,7 +627,9 @@ export class SubtitleManager {
         const handled = this._notifySubtitleDeactivated(track.id, reason);
         if (!handled) {
             this._notifySubtitleUnavailable();
+            return;
         }
+        this._recoverHandledSubtitleDeactivation(track.id, reason);
     }
 
     private _notifySubtitleDeactivated(trackId: string, reason: string): boolean {
@@ -630,6 +640,23 @@ export class SubtitleManager {
         } catch {
             return false;
         }
+    }
+
+    private _recoverHandledSubtitleDeactivation(trackId: string, reason: string): void {
+        const capturedContext = this._subtitleContext;
+        const handler = capturedContext?.onDeactivateRecovery;
+        if (!handler) {
+            return;
+        }
+        void Promise.resolve(handler({ trackId, reason }))
+            .then((result) => {
+                if (result === 'failed') {
+                    this._notifySubtitleUnavailableForContext(capturedContext);
+                }
+            })
+            .catch(() => {
+                this._notifySubtitleUnavailableForContext(capturedContext);
+            });
     }
 
     private _applyTrackModeShowing(trackId: string): void {

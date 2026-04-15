@@ -26,8 +26,8 @@ export type {
     PlexTagDirectoryMediaTypes,
 } from './tagDirectoryPolicy';
 export type {
-    PlexLibrary as PlexLibraryType,
-    PlexLibraryType as PlexLibraryTypeEnum,
+    PlexLibrarySection,
+    PlexLibrarySectionType,
     PlexMediaItem,
     PlexMediaType,
     PlexMediaFile,

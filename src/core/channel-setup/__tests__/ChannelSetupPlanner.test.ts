@@ -5,7 +5,7 @@ import {
     diffChannelPlans,
 } from '../ChannelSetupPlanner';
 import type { ChannelSetupConfig, SetupStrategyConfig, SetupStrategyKey } from '../types';
-import type { PlexLibraryType, PlexPlaylist } from '../../../modules/plex/library';
+import type { PlexLibrarySection, PlexPlaylist } from '../../../modules/plex/library';
 import type { ChannelConfig } from '../../../modules/scheduler/channel-manager';
 import type { PendingChannel } from '../ChannelSetupPlanner';
 import { DEFAULT_STRATEGY_PRIORITIES, MIXED_SCOPE_STRATEGY_KEYS, SETUP_STRATEGY_KEYS } from '../constants';
@@ -198,7 +198,7 @@ describe('ChannelSetupPlanner', () => {
                 strategyConfig: createStrategyConfig({ genres: { enabled: true } }),
                 minItemsPerChannel: 1,
             }),
-            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 25 }] as PlexLibraryType[],
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 25 }] as PlexLibrarySection[],
             playlists: [],
             collectionsByLibraryId: new Map(),
             genresByLibraryId: new Map([['s1', [{ key: 'action', title: 'Action', count: 10 }]]]),
@@ -232,7 +232,7 @@ describe('ChannelSetupPlanner', () => {
                 }),
                 minItemsPerChannel: 5,
             }),
-            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 25 }] as PlexLibraryType[],
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 25 }] as PlexLibrarySection[],
             playlists: [],
             collectionsByLibraryId: new Map(),
             genresByLibraryId: new Map([['s1', [{ key: 'action', title: 'Action', count: null }]]]),
@@ -255,7 +255,7 @@ describe('ChannelSetupPlanner', () => {
                 strategyConfig: createStrategyConfig({ genres: { enabled: true } }),
                 minItemsPerChannel: 1,
             }),
-            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 25 }] as PlexLibraryType[],
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 25 }] as PlexLibrarySection[],
             playlists: [],
             collectionsByLibraryId: new Map(),
             genresByLibraryId: new Map([['s1', [{ key: 'action', title: 'Action', count: 10 }]]]),
@@ -303,7 +303,7 @@ describe('ChannelSetupPlanner', () => {
                     variantBlockSize: 4,
                 },
             }),
-            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 10 }] as PlexLibraryType[],
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 10 }] as PlexLibrarySection[],
             playlists: [],
             collectionsByLibraryId: new Map([
                 ['s1', [{ ratingKey: 'co1', key: '/library/collections/co1', title: 'Classics', thumb: null, childCount: 10 }]],
@@ -357,7 +357,7 @@ describe('ChannelSetupPlanner', () => {
             libraries: [
                 { id: 's1', title: 'Shows A', type: 'show', contentCount: 10 },
                 { id: 's2', title: 'Shows B', type: 'show', contentCount: 10 },
-            ] as PlexLibraryType[],
+            ] as PlexLibrarySection[],
             playlists: [],
             collectionsByLibraryId: new Map(),
             genresByLibraryId: new Map(),
@@ -402,7 +402,7 @@ describe('ChannelSetupPlanner', () => {
             libraries: [
                 { id: 's1', title: 'Shows A', type: 'show', contentCount: 10 },
                 { id: 's2', title: 'Shows B', type: 'show', contentCount: 10 },
-            ] as PlexLibraryType[],
+            ] as PlexLibrarySection[],
             playlists: [],
             collectionsByLibraryId: new Map(),
             genresByLibraryId: new Map([
@@ -441,7 +441,7 @@ describe('ChannelSetupPlanner', () => {
             libraries: [
                 { id: 's1', title: 'Shows A', type: 'show', contentCount: 10 },
                 { id: 's2', title: 'Shows B', type: 'show', contentCount: 10 },
-            ] as PlexLibraryType[],
+            ] as PlexLibrarySection[],
             playlists: [],
             collectionsByLibraryId: new Map(),
             genresByLibraryId: new Map(),
@@ -472,7 +472,7 @@ describe('ChannelSetupPlanner', () => {
                     baseBlockSize: Number.NaN,
                 },
             }),
-            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 10 }] as PlexLibraryType[],
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 10 }] as PlexLibrarySection[],
             playlists: [],
             collectionsByLibraryId: new Map([
                 ['s1', [{ ratingKey: 'co1', key: '/library/collections/co1', title: 'Classics', thumb: null, childCount: 10 }]],
@@ -504,7 +504,7 @@ describe('ChannelSetupPlanner', () => {
                     variantBlockSize: 0,
                 },
             }),
-            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 10 }] as PlexLibraryType[],
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 10 }] as PlexLibrarySection[],
             playlists: [],
             collectionsByLibraryId: new Map([
                 ['s1', [{ ratingKey: 'co1', key: '/library/collections/co1', title: 'Classics', thumb: null, childCount: 10 }]],
@@ -540,7 +540,7 @@ describe('ChannelSetupPlanner', () => {
                     variantBlockSize: 3,
                 },
             }),
-            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 10 }] as PlexLibraryType[],
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 10 }] as PlexLibrarySection[],
             playlists: [],
             collectionsByLibraryId: new Map([
                 ['s1', [{ ratingKey: 'co1', key: '/library/collections/co1', title: 'Classics', thumb: null, childCount: 10 }]],
@@ -566,7 +566,7 @@ describe('ChannelSetupPlanner', () => {
                 strategyConfig: createStrategyConfig({ decades: { enabled: true } }),
                 minItemsPerChannel: 5,
             }),
-            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 1200 }] as PlexLibraryType[],
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 1200 }] as PlexLibrarySection[],
             playlists: [],
             collectionsByLibraryId: new Map(),
             genresByLibraryId: new Map(),
@@ -595,7 +595,7 @@ describe('ChannelSetupPlanner', () => {
                 strategyConfig: createStrategyConfig({ decades: { enabled: true } }),
                 minItemsPerChannel: 5,
             }),
-            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 1200 }] as PlexLibraryType[],
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 1200 }] as PlexLibrarySection[],
             playlists: [],
             collectionsByLibraryId: new Map(),
             genresByLibraryId: new Map(),
@@ -634,7 +634,7 @@ describe('ChannelSetupPlanner', () => {
                     variantBlockSize: 3,
                 },
             }),
-            libraries: [{ id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 }] as PlexLibraryType[],
+            libraries: [{ id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 }] as PlexLibrarySection[],
             playlists: [],
             collectionsByLibraryId: new Map(),
             genresByLibraryId: new Map([['m1', [
@@ -680,7 +680,7 @@ describe('ChannelSetupPlanner', () => {
                     decades: { enabled: true },
                 }),
             }),
-            libraries: [{ id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 }] as PlexLibraryType[],
+            libraries: [{ id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 }] as PlexLibrarySection[],
             playlists: [],
             collectionsByLibraryId: new Map(),
             genresByLibraryId: new Map(),
@@ -712,7 +712,7 @@ describe('ChannelSetupPlanner', () => {
                     actors: { enabled: true },
                 }),
             }),
-            libraries: [{ id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 }] as PlexLibraryType[],
+            libraries: [{ id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 }] as PlexLibrarySection[],
             playlists: [],
             collectionsByLibraryId: new Map(),
             genresByLibraryId: new Map([['m1', [
@@ -837,7 +837,7 @@ describe('ChannelSetupPlanner', () => {
                     decades: { enabled: true },
                 }),
             }),
-            libraries: [{ id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 }] as PlexLibraryType[],
+            libraries: [{ id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 }] as PlexLibrarySection[],
             playlists: [],
             collectionsByLibraryId: new Map(),
             genresByLibraryId: new Map(),
@@ -872,7 +872,7 @@ describe('ChannelSetupPlanner', () => {
     });
 
     it('reports alternate-lineup cap losses separately from base strategy bucket sizes', () => {
-        const libraries = [{ id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 }] as PlexLibraryType[];
+        const libraries = [{ id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 }] as PlexLibrarySection[];
         const baseInput = {
             config: createConfig({
                 selectedLibraryIds: ['m1'],

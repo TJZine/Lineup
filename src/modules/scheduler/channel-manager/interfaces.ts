@@ -11,6 +11,7 @@ import type {
     ChannelManagerEventMap,
 } from './types';
 import type { PlexMediaFile } from '../../plex/library';
+import type { PlexMediaType } from '../../plex/shared/types';
 import type { IDisposable } from '../../../utils/interfaces';
 
 // ============================================
@@ -257,7 +258,7 @@ export interface IPlexLibraryMinimal {
  */
 export interface PlexMediaItemMinimal {
     ratingKey: string;
-    type: 'movie' | 'show' | 'episode' | 'track' | 'clip';
+    type: PlexMediaType;
     title: string;
     year: number;
     durationMs: number;

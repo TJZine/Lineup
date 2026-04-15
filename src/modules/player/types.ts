@@ -152,6 +152,14 @@ export interface StreamDescriptor {
          * the generic "unavailable" toast.
          */
         onDeactivate?: (args: { trackId: string; reason: string }) => boolean;
+        /**
+         * Runs the async recovery flow after a handled subtitle deactivation.
+         * Return `'failed'` to surface the generic unavailable warning.
+         */
+        onDeactivateRecovery?: (args: {
+            trackId: string;
+            reason: string;
+        }) => Promise<'handled' | 'failed'>;
     };
     /** Preferred subtitle track ID (default selection) */
     preferredSubtitleTrackId?: string | null;

@@ -1,8 +1,6 @@
 import { safeLocalStorageGet, safeLocalStorageSet } from '../../../utils/storage';
 import { PLEX_AUTH_CONSTANTS } from './constants';
 
-let inMemoryFallbackClientId: string | null = null;
-
 function isSaneClientId(value: string): boolean {
     return value.length > 0 && value.length <= 128 && /^[a-zA-Z0-9._-]+$/.test(value);
 }
@@ -37,24 +35,16 @@ function getStoredClientId(): string | null {
 
 export function resolveClientIdentifier(preferred?: string): string {
     if (typeof preferred === 'string' && isSaneClientId(preferred)) {
-        inMemoryFallbackClientId = preferred;
         tryPersistClientId(preferred);
         return preferred;
     }
 
     const stored = getStoredClientId();
     if (typeof stored === 'string' && isSaneClientId(stored)) {
-        inMemoryFallbackClientId = stored;
         return stored;
     }
 
-    if (typeof inMemoryFallbackClientId === 'string' && isSaneClientId(inMemoryFallbackClientId)) {
-        tryPersistClientId(inMemoryFallbackClientId);
-        return inMemoryFallbackClientId;
-    }
-
     const generated = generateFallbackClientId();
-    inMemoryFallbackClientId = generated;
     tryPersistClientId(generated);
     return generated;
 }

@@ -4,7 +4,8 @@
  * @version 1.0.0
  */
 
-export { VideoPlayer, mapMediaErrorCodeToPlaybackError } from './VideoPlayer';
+export { VideoPlayer } from './VideoPlayer';
+export { mapMediaErrorCodeToPlaybackError } from './ErrorHandler';
 export { SubtitleManager } from './SubtitleManager';
 
 // Interface

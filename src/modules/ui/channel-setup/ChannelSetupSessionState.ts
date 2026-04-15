@@ -18,7 +18,7 @@ import {
     SETUP_STRATEGY_KEYS,
 } from '../../../core/channel-setup/constants';
 import { normalizeChannelSetupConfig } from '../../../core/channel-setup/normalizeChannelSetupConfig';
-import type { PlexLibraryType } from '../../plex/library';
+import type { PlexLibrarySection } from '../../plex/library';
 import {
     SERIES_BLOCK_PRESETS,
     type SetupStrategyKey,
@@ -107,7 +107,7 @@ export const defaultSeriesOrderingState = (): SeriesOrderingState => ({
 
 export type ChannelSetupSessionSnapshot = {
     step: SetupStep;
-    libraries: PlexLibraryType[];
+    libraries: PlexLibrarySection[];
     selectedLibraryIds: Set<string>;
     loadError: string | null;
     strategies: SetupStrategyState;
@@ -180,7 +180,7 @@ const cloneReview = (review: ChannelSetupReview | null): ChannelSetupReview | nu
 
 export class ChannelSetupSessionState {
     step: SetupStep = 1;
-    libraries: PlexLibraryType[] = [];
+    libraries: PlexLibrarySection[] = [];
     selectedLibraryIds: Set<string> = new Set();
     loadError: string | null = null;
     strategies: SetupStrategyState = createDefaultStrategyState();
