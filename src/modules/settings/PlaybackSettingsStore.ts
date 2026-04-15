@@ -8,7 +8,7 @@ import {
 } from '../../utils/storage';
 
 export class PlaybackSettingsStore {
-    readTranscodeCompatEnabled(fallback: boolean = false): boolean {
+    readTranscodeCompatEnabledAndClean(fallback: boolean = false): boolean {
         return this._readBooleanKey(LINEUP_STORAGE_KEYS.TRANSCODE_COMPAT, fallback);
     }
 
@@ -16,7 +16,7 @@ export class PlaybackSettingsStore {
         safeLocalStorageSet(LINEUP_STORAGE_KEYS.TRANSCODE_COMPAT, enabled ? '1' : '0');
     }
 
-    readSmartHdr10FallbackEnabled(fallback: boolean = false): boolean {
+    readSmartHdr10FallbackEnabledAndClean(fallback: boolean = false): boolean {
         return this._readBooleanKey(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK, fallback);
     }
 
@@ -24,7 +24,7 @@ export class PlaybackSettingsStore {
         safeLocalStorageSet(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK, enabled ? '1' : '0');
     }
 
-    readForceHdr10FallbackEnabled(fallback: boolean = false): boolean {
+    readForceHdr10FallbackEnabledAndClean(fallback: boolean = false): boolean {
         return this._readBooleanKey(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK, fallback);
     }
 
@@ -32,22 +32,22 @@ export class PlaybackSettingsStore {
         safeLocalStorageSet(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK, enabled ? '1' : '0');
     }
 
-    readHdr10FallbackMode(): 'off' | 'smart' | 'force' {
-        const force = this.readForceHdr10FallbackEnabled(false);
+    readHdr10FallbackModeAndClean(): 'off' | 'smart' | 'force' {
+        const force = this.readForceHdr10FallbackEnabledAndClean(false);
         if (force) return 'force';
 
-        const smart = this.readSmartHdr10FallbackEnabled(false);
+        const smart = this.readSmartHdr10FallbackEnabledAndClean(false);
         if (smart) return 'smart';
 
         return 'off';
     }
 
-    readTranscodeQualityOption(): ReturnType<typeof getTranscodeQualityOption> {
+    readTranscodeQualityOptionAndClean(): ReturnType<typeof getTranscodeQualityOption> {
         const { option } = this._readNormalizedTranscodeQualityOption();
         return option;
     }
 
-    readTranscodeQualityValue(options: ReadonlyArray<{ storageValue: string }> = TRANSCODE_QUALITY_OPTIONS): number {
+    readTranscodeQualityValueAndClean(options: ReadonlyArray<{ storageValue: string }> = TRANSCODE_QUALITY_OPTIONS): number {
         const { rawValue, option: storedOption } = this._readNormalizedTranscodeQualityOption();
         if (!storedOption) {
             return 0;

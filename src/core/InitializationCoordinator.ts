@@ -35,7 +35,6 @@ import type {
 import { EpgPreferencesStore, type EpgLayoutMode } from '../modules/settings/EpgPreferencesStore';
 import { ProfileSessionStore } from '../modules/settings/ProfileSessionStore';
 import { summarizeErrorForLog } from '../utils/errors';
-import { InitializationUiInitializer } from './initialization/InitializationUiInitializer';
 import {
     applyPhase2AuthGatePolicy,
     applyPhase3ServerGatePolicy,
@@ -73,12 +72,16 @@ export interface InitializationDependencies {
         miniGuide: IMiniGuideOverlay | null;
         channelTransition: IChannelTransitionOverlay | null;
     };
-    uiInitializer: InitializationUiInitializer;
+    startupUiInitializer: InitializationStartupUiPort;
     epgDebugRuntime: IEPGDebugRuntime | null;
     stores: {
         epgPreferencesStore: EpgPreferencesStore;
         profileSessionStore: ProfileSessionStore;
     };
+}
+
+export interface InitializationStartupUiPort {
+    ensureCorePlayerUiInitialized(): Promise<void>;
 }
 
 /**
@@ -580,9 +583,9 @@ export class InitializationCoordinator {
                 scheduler: this._deps.modules.scheduler,
                 buildPlexResourceUrl: this._callbacks.resources.buildPlexResourceUrl,
                 readEpgLayoutMode: (): EpgLayoutMode =>
-                    this._deps.stores.epgPreferencesStore.readLayoutMode('classic'),
+                    this._deps.stores.epgPreferencesStore.readLayoutModeAndClean('classic'),
                 readShowNowWatchingBanner: (): boolean =>
-                    this._deps.stores.epgPreferencesStore.readNowWatchingEnabled(true),
+                    this._deps.stores.epgPreferencesStore.readNowWatchingEnabledAndClean(true),
                 debugRuntime: this._deps.epgDebugRuntime,
             });
             this._deps.modules.epg!.initialize(epgConfigWithResolver);
@@ -610,7 +613,7 @@ export class InitializationCoordinator {
     }
 
     private async _ensureCorePlayerUiInitialized(): Promise<void> {
-        await this._deps.uiInitializer.ensureCorePlayerUiInitialized();
+        await this._deps.startupUiInitializer.ensureCorePlayerUiInitialized();
     }
 
     private _cancelEpgWarmup(): void {

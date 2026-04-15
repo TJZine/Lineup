@@ -9,7 +9,7 @@ Do not use this launcher for cleanup-only refactors; use [`cleanup-plan.md`](./c
 1. [`agents.md`](../../../agents.md)
 2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
 3. [`docs/agentic/codanna-playbook.md`](../codanna-playbook.md)
-4. [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md)
+4. [`docs/agentic/plan-authoring-standard.md#universal-plan-core`](../plan-authoring-standard.md#universal-plan-core)
 5. [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) when UI creation or redesign is in scope
 6. domain current-state docs that match the feature boundary
 
@@ -44,7 +44,8 @@ If the short follow-up form is used, treat the named feature/design target as th
 
 ## Required Planning Constraints
 
-- follow [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md) for serious tracked plans
+- follow [`docs/agentic/plan-authoring-standard.md#universal-plan-core`](../plan-authoring-standard.md#universal-plan-core) for serious tracked plans
+- declare `**Task family:** feature/design` for serious tracked feature plans
 - distinguish feature/design intent work from cleanup/refactor remediation work
 - for UI creation/redesign, reference [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) and require the appropriate global UI skill (`interface-design` or `frontend-design`)
 - resolve any open architecture seam, ownership seam, or adjacent contract decision before freezing the execution steps
@@ -54,7 +55,7 @@ If the short follow-up form is used, treat the named feature/design target as th
   - `analyze_impact` result when risky/shared symbols are involved
   - direct-read/`rg` fallback note when used
 - include exact files in scope and out of scope, verification commands, and rollback notes when risk warrants it
-- run the planner self-check from [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md) before finalizing the plan
+- run the planner self-check from [`docs/agentic/plan-authoring-standard.md#planner-self-check`](../plan-authoring-standard.md#planner-self-check) before finalizing the plan
 - if adjacent files may need contract/type changes, either place them in scope explicitly or freeze them explicitly and explain how the task still works
 - preserve the repo verification gate expectations:
   - `npm run verify` for risky UI/navigation/Orchestrator/Plex changes

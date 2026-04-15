@@ -32,6 +32,7 @@ export type WriteServerHealthRecordInput = {
 type ServerSelectionStorageKeys = { selectedServerKey: string; serverHealthKey: string };
 
 const SERVER_HEALTH_RECORD_KEYS = new Set(['status', 'type', 'latencyMs', 'testedAt']);
+const RESERVED_SERVER_HEALTH_IDS = new Set(['__proto__', 'prototype', 'constructor']);
 
 export class ServerSelectionStore {
     constructor(
@@ -41,7 +42,7 @@ export class ServerSelectionStore {
         })
     ) {}
 
-    readSelectedServerId(): string | null {
+    readSelectedServerIdAndClean(): string | null {
         const { selectedServerKey } = this._keys();
         const raw = safeLocalStorageGet(selectedServerKey);
         if (raw === null) return null;
@@ -74,14 +75,20 @@ export class ServerSelectionStore {
         safeLocalStorageRemove(selectedServerKey);
     }
 
-    readServerHealthMap(): ServerHealthMap {
+    readServerHealthMapAndClean(): ServerHealthMap {
         const { serverHealthKey } = this._keys();
         const raw = safeLocalStorageGet(serverHealthKey);
-        if (!raw) return {};
+        if (raw == null) return {};
+
+        const normalizedRaw = raw.trim();
+        if (!normalizedRaw) {
+            safeLocalStorageRemove(serverHealthKey);
+            return {};
+        }
 
         let parsed: unknown;
         try {
-            parsed = JSON.parse(raw);
+            parsed = JSON.parse(normalizedRaw);
         } catch {
             safeLocalStorageRemove(serverHealthKey);
             return {};
@@ -92,12 +99,15 @@ export class ServerSelectionStore {
             return {};
         }
 
-        const normalized: ServerHealthMap = {};
-        let changed = false;
+        const normalized = Object.create(null) as ServerHealthMap;
+        let changed = normalizedRaw !== raw;
 
         for (const [serverId, value] of Object.entries(parsed as Record<string, unknown>)) {
             const normalizedServerId = serverId.trim();
-            if (normalizedServerId.length === 0) {
+            if (
+                normalizedServerId.length === 0
+                || RESERVED_SERVER_HEALTH_IDS.has(normalizedServerId)
+            ) {
                 changed = true;
                 continue;
             }
@@ -143,7 +153,7 @@ export class ServerSelectionStore {
         const serverId = input.serverId.trim();
         if (serverId.length === 0) return;
 
-        const healthMap = this.readServerHealthMap();
+        const healthMap = this.readServerHealthMapAndClean();
         const previous = healthMap[serverId];
 
         const type: ServerHealthType = input.details?.connection

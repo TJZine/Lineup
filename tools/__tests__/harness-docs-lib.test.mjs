@@ -242,6 +242,12 @@ test('checkPlanConformance reports missing required sections for serious active 
         'rollback notes',
         'commit checkpoints',
     ]);
+    assert.deepEqual(result.errors, [
+        'missing required plan classification field: **Task family:**',
+        'verification commands section must contain substantive content',
+        'verification commands section must contain at least one command-looking `Run:` line',
+        'verification commands section must contain at least one expected-result `Expected:` line',
+    ]);
 });
 
 test('checkPlanConformance accepts the tracked section variants used by older and newer plans', () => {
@@ -283,6 +289,571 @@ test('checkPlanConformance accepts the tracked section variants used by older an
 
     assert.equal(result.isSerious, true);
     assert.deepEqual(result.missingSections, []);
+    assert.deepEqual(result.errors, [
+        'missing required plan classification field: **Task family:**',
+        'planner self-check section must contain substantive content',
+        'architecture seam decision gate section must contain substantive content',
+        'verification commands section must contain substantive content',
+        'files in scope section must contain at least one concrete entry',
+        'files out of scope section must contain at least one concrete entry',
+        'verification commands section must contain at least one command-looking `Run:` line',
+        'verification commands section must contain at least one expected-result `Expected:` line',
+    ]);
+});
+
+test('checkPlanConformance accepts valid feature-plan classification and substantive sections', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-feature-example.md',
+        content: `# Feature Example
+
+**Plan Status:** active
+**Task family:** feature/design
+
+## Goal
+
+Ship a narrow feature workflow improvement.
+
+## Non-Goals
+
+- No cleanup routing changes.
+
+## Parent Architecture Alignment
+
+- Keep one authority doc.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- \`search_documents\`: confirmed the workflow surfaces.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`ARCHITECTURE_CLEANUP_CHECKLIST.md\`
+
+## Planner Self-Check
+
+- No hidden seam remains.
+
+## Architecture Seam Decision Gate
+
+- Chosen seam: scoped doc-anchor realignment only.
+
+## Verification Commands
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- Revert the scoped anchor split if feature launchers become ambiguous.
+
+## Commit Checkpoints
+
+- \`docs(workflow): realign feature plan references\`
+`,
+    });
+
+    assert.equal(result.isSerious, true);
+    assert.deepEqual(result.missingSections, []);
+    assert.deepEqual(result.errors, []);
+    assert.equal(result.taskFamily, 'feature/design');
+    assert.equal(result.cleanupSubtype, null);
+});
+
+test('checkPlanConformance rejects cleanup subtype on feature plans', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-feature-example.md',
+        content: `# Feature Example
+
+**Plan Status:** active
+**Task family:** feature/design
+**Cleanup subtype:** checklist-linked
+
+## Goal
+
+Ship a narrow feature workflow improvement.
+
+## Non-Goals
+
+- No cleanup routing changes.
+
+## Parent Architecture Alignment
+
+- Keep one authority doc.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- \`search_documents\`: confirmed the workflow surfaces.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`ARCHITECTURE_CLEANUP_CHECKLIST.md\`
+
+## Planner Self-Check
+
+- No hidden seam remains.
+
+## Architecture Seam Decision Gate
+
+- Chosen seam: scoped doc-anchor realignment only.
+
+## Verification Commands
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- Revert the scoped anchor split if feature launchers become ambiguous.
+
+## Commit Checkpoints
+
+- \`docs(workflow): realign feature plan references\`
+`,
+    });
+
+    assert.equal(result.isSerious, true);
+    assert.deepEqual(result.errors, ['feature/design plans must not declare **Cleanup subtype:**']);
+    assert.equal(result.taskFamily, 'feature/design');
+    assert.equal(result.cleanupSubtype, 'checklist-linked');
+});
+
+test('checkPlanConformance treats cleanup subtype as invalid when task family is malformed', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-unknown-example.md',
+        content: `# Unknown Example
+
+**Plan Status:** active
+**Task family:** migration
+**Cleanup subtype:** checklist-linked
+
+## Goal
+
+Ship a narrow workflow improvement.
+
+## Non-Goals
+
+- No cleanup routing changes.
+
+## Parent Architecture Alignment
+
+- Keep one authority doc.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- \`search_documents\`: confirmed the workflow surfaces.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`ARCHITECTURE_CLEANUP_CHECKLIST.md\`
+
+## Planner Self-Check
+
+- No hidden seam remains.
+
+## Architecture Seam Decision Gate
+
+- Chosen seam: scoped doc-anchor realignment only.
+
+## Verification Commands
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- Revert the scoped anchor split if feature launchers become ambiguous.
+
+## Commit Checkpoints
+
+- \`docs(workflow): realign feature plan references\`
+`,
+    });
+
+    assert.equal(result.isSerious, true);
+    assert.deepEqual(result.errors, [
+        'invalid task family classification: migration (expected one of: feature/design, cleanup/refactor)',
+        '**Cleanup subtype:** is only valid when **Task family:** is cleanup/refactor',
+    ]);
+});
+
+test('checkPlanConformance accepts numbered and starred list markers in plan sections', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+        content: `# Cleanup Example
+
+**Plan Status:** active
+**Task family:** cleanup/refactor
+**Cleanup subtype:** standalone remediation
+
+## Goal
+
+Do the cleanup.
+
+## Non-Goals
+
+* No runtime changes.
+
+## Parent Architecture Alignment
+
+* Keep the control plane small.
+
+## Required Reading
+
+1. \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+* \`writing-plans\`
+
+## Codanna Discovery
+
+* fallback: direct reads only.
+
+## Impact Snapshot
+
+1. \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+1. \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+* \`src/App.ts\`
+
+## Planner Self-Check
+
+* resolved.
+
+## Architecture Seam Decision Gate
+
+* explicit.
+
+## Verification Commands
+
+Run: \`npm run verify:docs\`
+Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+* revert.
+
+## Commit Checkpoints
+
+1. \`docs: update plan rules\`
+`,
+    });
+
+    assert.equal(result.isSerious, true);
+    assert.deepEqual(result.missingSections, []);
+    assert.deepEqual(result.errors, []);
+});
+
+test('checkPlanConformance enforces cleanup subtype, verification shape, and priority-exit readiness structure', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+        content: `# Cleanup Example
+
+**Plan Status:** active
+**Task family:** cleanup/refactor
+
+## Goal
+
+Do the cleanup.
+
+## Non-Goals
+
+- No runtime changes.
+
+## Parent Architecture Alignment
+
+- Keep the control plane small.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- fallback: direct reads only.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`src/App.ts\`
+
+## Planner Self-Check
+
+- resolved.
+
+## Architecture Seam Decision Gate
+
+- explicit.
+
+## Verification Commands
+
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- revert.
+
+## Commit Checkpoints
+
+- \`docs: update plan rules\`
+
+## Priority-Exit Readiness
+
+- \`review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes\`
+- note: missing disposition, owner, and security gate details
+`,
+    });
+
+    assert.equal(result.isSerious, true);
+    assert.deepEqual(result.missingSections, []);
+    assert.deepEqual(result.errors, [
+        'cleanup/refactor plans must declare **Cleanup subtype:**',
+        'verification commands section must contain at least one command-looking `Run:` line',
+        'priority-exit readiness section must record exact disposition tokens for mapped imported issues',
+        'priority-exit readiness section must record a P0/security-gate disposition before the next priority advances',
+        'priority-exit readiness section must name the blocking next-priority or P#-EXIT gate',
+    ]);
+    assert.equal(result.taskFamily, 'cleanup/refactor');
+});
+
+test('checkPlanConformance requires one final owner and revisit trigger for deferred priority-exit items', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+        content: `# Cleanup Example
+
+**Plan Status:** active
+**Task family:** cleanup/refactor
+**Cleanup subtype:** checklist-linked
+
+## Goal
+
+Do the cleanup.
+
+## Non-Goals
+
+- No runtime changes.
+
+## Parent Architecture Alignment
+
+- Keep the control plane small.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- fallback: direct reads only.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`src/App.ts\`
+
+## Planner Self-Check
+
+- resolved.
+
+## Architecture Seam Decision Gate
+
+- explicit.
+
+## Verification Commands
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- revert.
+
+## Commit Checkpoints
+
+- \`docs: update plan rules\`
+
+## Priority-Exit Readiness
+
+- \`review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes\`
+  - expected disposition: split follow-up
+- Security gate:
+  - list the exact issue ids if any remain
+- no \`P6\` work starts while \`P5-EXIT\` is unresolved
+`,
+    });
+
+    assert.equal(result.isSerious, true);
+    assert.deepEqual(result.errors, [
+        'priority-exit readiness must assign exactly one final owner to each deferred or split imported issue',
+        'priority-exit readiness must include a revisit trigger for each deferred or split imported issue',
+    ]);
+});
+
+test('checkPlanConformance accepts semantically complete priority-exit readiness sections', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+        content: `# Cleanup Example
+
+**Plan Status:** active
+**Task family:** cleanup/refactor
+**Cleanup subtype:** checklist-linked
+
+## Goal
+
+Do the cleanup.
+
+## Non-Goals
+
+- No runtime changes.
+
+## Parent Architecture Alignment
+
+- Keep the control plane small.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- fallback: direct reads only.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`src/App.ts\`
+
+## Planner Self-Check
+
+- resolved.
+
+## Architecture Seam Decision Gate
+
+- explicit.
+
+## Verification Commands
+
+1. Run: \`npm run verify:docs\`
+1. Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- revert.
+
+## Commit Checkpoints
+
+- \`docs: update plan rules\`
+
+## Priority-Exit Readiness
+
+### Imported issue dispositions by exact id
+
+- \`review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes\`
+  - expected disposition: split follow-up
+  - residual final owner: \`P10-W1 residual mechanical detector owner\`
+  - reason: one broader residual package remains outside this slice
+  - revisit trigger: rerun the exact residual audit before \`P10-EXIT\`
+- \`review::.::holistic::api_surface_coherence::storage_write_contract_fragmentation\`
+  - expected disposition: resolved
+
+### Security gate
+
+- expected outcome: \`no open P0 security findings\`
+- if security output still shows open issues, record the exact issue ids and their current owner before allowing \`P6\`
+
+### Next-priority gate
+
+- no \`P6\` plan or implementation starts while \`P5-EXIT\` is unresolved
+`,
+    });
+
+    assert.equal(result.isSerious, true);
+    assert.deepEqual(result.errors, []);
 });
 
 test('checkPlanConformance skips non-plan artifacts such as risk registers', () => {

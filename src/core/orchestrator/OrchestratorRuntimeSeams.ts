@@ -11,7 +11,7 @@ import type {
     IPlexStreamResolver,
     StreamResolverError,
 } from '../../modules/plex/stream';
-import type { IChannelManager } from '../../modules/scheduler/channel-manager';
+import type { ChannelManagerEventMap, IChannelManager } from '../../modules/scheduler/channel-manager';
 import type {
     IChannelScheduler,
     ScheduledProgram,
@@ -85,6 +85,6 @@ export interface PriorityOneEventRuntimePort {
     handlePlexLibraryAuthExpired: () => void;
     handlePlexStreamError: (error: StreamResolverError) => void;
     handleScreenChange: (payload: { from: Screen; to: Screen }) => void;
-    reportPersistenceWarning: (message: string) => void;
+    reportPersistenceWarning: (warning: ChannelManagerEventMap['persistenceWarning']) => void;
     cleanupReporter: OrchestratorEventCleanupReporter;
 }

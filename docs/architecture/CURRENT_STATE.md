@@ -46,6 +46,19 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - owner for route-driven app-shell show/hide policy
 - owns splash-backed deferred-screen reveal sequencing for startup and setup routes
 
+### `src/core/app-shell/AppThemeController.ts`
+
+- app-shell-owned runtime owner for active theme state
+- owns theme initialization and theme class application at startup
+- composes Settings runtime theme reads/writes via app-shell runtime ports
+- delegates persisted theme storage to `ThemePreferencesStore`
+
+### `src/core/app-shell/AppStartupUiInitializer.ts`
+
+- app-shell-owned startup UI initializer
+- owns startup-time initialization calls for now-playing-info, playback-options, and exit-confirm overlays
+- keeps startup UI readiness sequencing explicit through `InitializationCoordinator`'s narrow startup-UI port
+
 ### `src/core/InitializationCoordinator.ts`
 
 - focused startup sequencing collaborator between app shell and orchestrator
@@ -127,7 +140,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - `src/modules/plex/auth/clientIdentifier.ts`
 - these are the current designated owners for storage-backed state
 - `src/modules/ui/settings/SettingsStore.ts` is a UI-facing facade; `debugLogging` and `subtitleDebugLogging` persistence now routes through `src/modules/settings/DeveloperSettingsStore.ts`
-- runtime consumers route mapped key families through typed stores (for example `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`, `ProfileSelectScreen` -> `ProfileSessionStore`, `ThemeManager` -> `ThemePreferencesStore`, `EPGInfoPanel` -> `NowPlayingDisplayStore`/`EpgPreferencesStore`, `SettingsStore` -> dedicated settings stores, `AudioSetupScreen`/`Orchestrator`/`AudioTrackManager` -> `AudioSettingsStore` policy reads and setup completion state, `Orchestrator` -> `SubtitlePreferencesStore` subtitle mode policy for burn-in decisions)
+- runtime consumers route mapped key families through typed stores (for example `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`, `ProfileSelectScreen` -> `ProfileSessionStore`, `AppThemeController` -> `ThemePreferencesStore`, `EPGInfoPanel` -> `NowPlayingDisplayStore`/`EpgPreferencesStore`, `SettingsStore` -> dedicated settings stores, `AudioSetupScreen`/`Orchestrator`/`AudioTrackManager` -> `AudioSettingsStore` policy reads and setup completion state, `Orchestrator` -> `SubtitlePreferencesStore` subtitle mode policy for burn-in decisions)
 - `src/modules/ui/epg/EPGDebugRuntime.ts` is the bounded EPG-layer owner for `lineup_debug_epg_log` buffering + flush scheduling and debug-flag cache reads used by EPG runtime/UI consumers; it is not a general storage-owner precedent
 - `src/modules/debug/DebugOverridesStore.ts` is the canonical owner for the `lineup_debug_epg` flag
 - `src/core/channel-setup/ChannelSetupRecordStore.ts` owns only the persisted setup-record family `lineup_channel_setup_v2:${serverId}`
@@ -141,7 +154,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - `src/modules/ui/`
 - owns TV screens, overlays, shared primitives, and user-visible composition
-- `src/modules/ui/theme/` owns `ThemeManager` plus the public theme metadata contract (`ThemeName`, `DEFAULT_THEME`, `THEME_CLASSES`, `THEME_OPTIONS`); `src/modules/ui/settings/` consumes that owner but does not publicly re-export theme metadata
+- `src/modules/ui/theme/` owns the public theme metadata contract (`ThemeName`, `DEFAULT_THEME`, `THEME_CLASSES`, `THEME_OPTIONS`); runtime theme state/control lives in app-shell ownership (`AppThemeController`), and `src/modules/ui/settings/` consumes theme callbacks through app-composed ports
 - `src/modules/ui/common/` owns cross-surface UI presentation helpers such as `appShellContainerIds`, `channelDisplay`, and the pure `formatTimecode` helper shared by overlay owners
 - `src/modules/ui/common/appShellContainerIds.ts` is the shared owner for app-shell-owned container IDs created by `src/core/app-shell/AppContainerFactory.ts` and consumed by app-shell/runtime wiring; feature-owned container IDs such as EPG, player OSD, mini guide, channel badge, channel transition, and exit confirm remain with their feature modules
 - `src/modules/ui/epg/EPGCoordinator.ts` owns EPG runtime policy entrypoints (open/close/toggle/guide-setting handling and schedule-policy orchestration), while `src/Orchestrator.ts` remains a delegation surface that wires this owner

@@ -4,7 +4,6 @@
  * @version 1.0.0
  */
 
-import { IStateManager } from './interfaces';
 import {
     PersistentState,
     UserPreferences,
@@ -20,7 +19,7 @@ import { safeLocalStorageRemove } from '../../utils/storage';
  * Manages application state persistence to localStorage.
  * Handles versioning, migrations, and quota errors.
  */
-export class StateManager implements IStateManager {
+export class StateManager {
     private readonly _storageKey: string;
     private readonly _currentVersion: number;
 
@@ -38,7 +37,7 @@ export class StateManager implements IStateManager {
      * Handles QuotaExceededError by attempting cleanup and retry.
      * @param state - State to save
      */
-    public async save(state: PersistentState): Promise<void> {
+    public save(state: PersistentState): void {
         const stateToSave: PersistentState = {
             ...state,
             version: this._currentVersion,
@@ -65,16 +64,7 @@ export class StateManager implements IStateManager {
      * Load state from localStorage and apply migrations if needed.
      * @returns Loaded state, or null if not available/invalid
      */
-    public async load(): Promise<PersistentState | null> {
-        return this.loadSync();
-    }
-
-    /**
-     * Load state synchronously from localStorage.
-     * Used by _buildCurrentState which cannot be async.
-     * @returns Loaded state, or null if not available/invalid
-     */
-    public loadSync(): PersistentState | null {
+    public load(): PersistentState | null {
         try {
             const serialized = localStorage.getItem(this._storageKey);
             if (serialized === null) {
@@ -102,7 +92,7 @@ export class StateManager implements IStateManager {
     /**
      * Clear stored state.
      */
-    public async clear(): Promise<void> {
+    public clear(): void {
         safeLocalStorageRemove(this._storageKey);
     }
 

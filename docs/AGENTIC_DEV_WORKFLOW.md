@@ -45,7 +45,7 @@ When tracked docs conflict, use this order:
 - **Local execution artifacts**: [`docs/runs/`](./runs/README.md) and raw eval outputs under `docs/agentic/evals/baselines/` stay local-only by default; promote durable lessons into tracked docs or tracked eval summaries in the same pass
 - **Skill topology**: [`docs/agentic/skill-strategy.md`](./agentic/skill-strategy.md)
 - **Evaluation roadmap and tracked summaries**: [`docs/agentic/evals/README.md`](./agentic/evals/README.md), [`docs/agentic/evals-roadmap.md`](./agentic/evals-roadmap.md), and [`docs/agentic/evals/baseline-summaries/`](./agentic/evals/baseline-summaries/README.md)
-- **Historical corpus review**: [`docs/agentic/historical-plan-corpus-review.md`](./agentic/historical-plan-corpus-review.md)
+- **Historical corpus review**: optional calibration for plan review, harness review, eval seeding, and archive-ingestion follow-up
 - **Plan and launcher standards**: [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md) and [`docs/agentic/session-prompts/README.md`](./agentic/session-prompts/README.md)
 - **Steady-state transition**: [`docs/agentic/phase-2-steady-state-plan.md`](./agentic/phase-2-steady-state-plan.md)
 - **Recurring maintenance**: [`docs/agentic/doc-gardening-checklist.md`](./agentic/doc-gardening-checklist.md)
@@ -98,20 +98,20 @@ When tracked docs conflict, use this order:
 6. Plan explicitly before multi-step work.
    - keep the authoritative plan in `update_plan`
    - write or refresh `docs/plans/*` when a task requires durable, tracked task memory
+   - every serious tracked plan must satisfy [`docs/agentic/plan-authoring-standard.md#universal-plan-core`](./agentic/plan-authoring-standard.md#universal-plan-core)
+   - every serious tracked cleanup plan must also satisfy [`docs/agentic/plan-authoring-standard.md#cleanup-overlay`](./agentic/plan-authoring-standard.md#cleanup-overlay)
+   - serious tracked plans must declare `**Task family:**`; cleanup plans must also declare `**Cleanup subtype:**`
    - for cleanup work, record whether the task is `checklist-linked` or `standalone remediation` before freezing the plan; only `checklist-linked` tasks should promise checklist updates or priority-exit progress
    - for serious tracked plans, follow [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md)
    - before freezing a serious tracked plan, run the planner self-check from the plan standard so unresolved seams, wrong owners, contradictory scope, or missing evidence are surfaced before execution
    - if an architecture seam or adjacent contract change is still undecided, resolve that boundary before freezing a “decision-point-free” execution plan
-   - when a mapped imported issue is broader than the proposed slice, choose one intended final owner up front; do not approve a narrow slice that expects `P#-EXIT` to keep re-splitting the same issue envelope by default
-   - if a slice is only retiring one sub-claim of a broader detector issue, name that sub-claim explicitly in the plan and say whether the same work unit or one already-named final owner will carry any residual live debt
    - if a cleanup slice is the last planned `P#-W#` item for a priority, add an explicit priority-exit step before any `P(n+1)` work begins
-   - a final `P#-W#` plan is incomplete unless its `Priority-exit readiness` section names every mapped imported issue with an exact disposition, assigns a single final owner to every deferred or split-follow-up item, records exact `P0` security issue ids plus revisit triggers for anything not cleared, and lists the evidence/commands that will close `P#-EXIT`
-   - when a plan's main job is closeout or reconciliation of detector-backed ownership/coupling findings, do not treat detector silence alone as sufficient evidence; require a current-code source audit, ownership proof matrix, or equivalent explicit justification tied to the checklist outcome being claimed
-   - when detector-backed closeout work finds that a slice-owned rationale is gone but the same issue id still reports broader stale evidence, prefer recording the slice as resolved on current-code proof and keep one established final owner for any remaining live residual instead of minting another routine split follow-up
+   - a final `P#-W#` cleanup plan must use the cleanup overlay's `Priority-Exit Readiness` section and assign a single final owner to any deferred or split-follow-up residual before starting or planning the next priority
+   - for final-slice cleanup closeout planning, follow [`docs/agentic/plan-authoring-standard.md#cleanup-overlay`](./agentic/plan-authoring-standard.md#cleanup-overlay) as the normative owner for imported-issue disposition, single-final-owner rules, detector-vs-source-audit reconciliation, and `Priority-Exit Readiness`
    - move completed or superseded tracked plans to `docs/archive/plans/` once they stop being the active handoff surface
    - use `docs/runs/` for local-only major-task execution bundles and run logs
    - keep path surfaces truthful across memory tiers: local run-bundle artifacts should continue to reference `docs/runs/...` until their durable lessons are promoted into tracked docs; do not relabel local artifacts as `docs/plans/...` in handoffs or required-reading sections
-   - when drafting or reviewing serious tracked plans, use `docs/agentic/historical-plan-corpus-review.md` alongside `docs/agentic/plan-authoring-standard.md` as calibration for strong plan shape and eval seeding
+   - treat `docs/agentic/historical-plan-corpus-review.md` as optional calibration, not default required reading, when a serious tracked plan needs extra example-driven review context or when you are updating eval seeds
    - for serious tracked plans, record the full Codanna evidence trail: `semantic_search_with_context`, `search_documents` when repo-doc context matters, `analyze_impact`, and any explicit fallback reads
    - record the Codanna impact snapshot for risky/shared-symbol edits
 7. Implement narrowly.
@@ -129,22 +129,12 @@ When tracked docs conflict, use this order:
 9. Review before closeout.
    - AI review is the baseline pass
    - humans still own architecture, product intent, and merge decisions
-   - if the work claims to finish a cleanup priority, run a priority-exit review before starting or planning the next priority
-   - priority-exit review must verify:
-     - authoritative `desloppify` evidence requirements are satisfied; see Step 2 for the canonical integration-branch rule
-     - every imported review issue mapped to that priority is retired, explicitly deferred, or split into a new owned follow-up
-     - every deferred or split item has one named final owner plus a reason and revisit trigger, especially when one issue was mapped across multiple `P#-W#` items
-     - detector lag is not being mistaken for live residual debt: when current-code proof shows a slice-owned rationale is gone, the review should prefer “resolved on source audit” over creating another follow-up just because the exact issue id still prints stale wording
-     - the same imported issue is not being re-split for a second time unless the current source audit shows a genuinely different remaining owner or the earlier owner mapping was wrong
-     - every deferred or split item is mirrored into its destination checklist work item (`Pn-Wm`) with exact issue id(s) and required verification command(s), not only in the source `P#-EXIT` record
-     - the `P0` security gate has been cleared or explicitly deferred with exact issue ids
-     - the strongest verification/evidence commands for that priority have been rerun on current code
-     - no `P(n+1)` checklist item, plan, or implementation work has been opened while `P#-EXIT` is still unresolved
-     - `P#-EXIT` is acting as a reconciliation gate, not a routine follow-up factory; if no new live owner was discovered, the exit should confirm the established final owner rather than minting new work
+   - if the work claims to finish a cleanup priority, run a [`priority-exit review`](./agentic/session-prompts/cleanup-review.md) before starting or planning the next priority
+   - a priority-exit review must enforce the blocking review checks in [`docs/agentic/session-prompts/cleanup-review.md`](./agentic/session-prompts/cleanup-review.md) together with the closeout requirements owned by [`docs/agentic/plan-authoring-standard.md#cleanup-overlay`](./agentic/plan-authoring-standard.md#cleanup-overlay) before any `P(n+1)` checklist item, plan, or implementation work is opened
 10. Update the right memory surface in the same pass.
    - update [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md) when a `checklist-linked` cleanup work unit is completed
-   - when a `P#-W#` slice implementation is done, rerun the slice verification and then check that work-unit box in the same pass once every mapped issue is either retired on current evidence or explicitly recorded there as `deferred`/`split follow-up` with one exact owner, reason, and revisit trigger
-   - when the slice-owned rationale is retired on current-code proof but the same detector id still reports broader stale evidence, mark the slice issue as resolved in that work unit and record the stale detector residue plus the already-established final owner for any still-live residual; do not create a new follow-up solely because the issue id stayed open
+   - when a `P#-W#` slice implementation is done, rerun the slice verification and then check that work-unit box in the same pass once the applicable cleanup review checks and cleanup-overlay disposition rules have been satisfied for every mapped issue
+   - when current-code proof clears the slice-owned rationale but detector wording still lags, record the slice as resolved plus the already-established final owner for any truly remaining residual; do not create a new follow-up solely because the same issue id stayed open
    - do not leave a finished `P#-W#` unchecked merely because its remaining mapped debt now belongs to `P#-EXIT`; the unchecked state is for unfinished slice work or missing disposition data, not for already-reassigned debt
    - a checked `P#-W#` means the slice is complete; it does not authorize `P(n+1)` work while `P#-EXIT` is still open
    - for `standalone remediation`, do not create or update checklist linkage unless the task is intentionally promoted into tracked cleanup backlog
@@ -159,6 +149,7 @@ When tracked docs conflict, use this order:
    - do not leave stale current-state claims behind
 11. Close workflow/control-plane changes deliberately.
    - when launcher invocation behavior changes, update the matching tracked launcher docs and keep cleanup vs feature ergonomics aligned unless a documented difference is intentional
+   - when plan-standard section ownership changes, realign launcher/workflow references to the correct plan-standard anchors in the same pass
    - when repo-local skills change, sync the `.agent/skills/` mirror with `scripts/sync_agent_skills.sh`
    - when prompt inventories or managed README sections change, run `npm run docs:sync` before `npm run verify:docs`
    - when workflow, launcher, skill, or role changes trip an eval trigger, run the required manual eval prompt set named in [`docs/agentic/evals/README.md`](./agentic/evals/README.md) and record the tracked baseline summary in the same pass
@@ -211,6 +202,7 @@ If you keep optional local launcher skills installed, invoke them explicitly thr
 - whole-harness audit: [`workflow-harness-review.md`](./agentic/session-prompts/workflow-harness-review.md)
 
 Feature Tier 2 work should use the same explicit tracked prompt family as cleanup, with planner (`feature-plan`) -> reviewer (`feature-review`) -> implementer (`feature-implement`) -> reviewer (`feature-review`).
+Feature plans consume the [`Universal Plan Core`](./agentic/plan-authoring-standard.md#universal-plan-core); cleanup plans consume the universal core plus the [`Cleanup Overlay`](./agentic/plan-authoring-standard.md#cleanup-overlay).
 
 Use the reusable launchers only when the task risk justifies them. Tier 1 work should usually stay in one session with review.
 

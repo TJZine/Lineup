@@ -1404,6 +1404,22 @@ function checkSeriousPlanConformance(errors) {
         }
 
         const result = checkPlanConformance({ filePath: relativePath, content });
+        if (result.isSerious && result.errors.length > 0) {
+            for (const error of result.errors) {
+                errors.push(`${relativePath} ${error}`);
+            }
+        }
+
+        if (
+            checklistLinkedTrackedPlanPaths.has(relativePath) &&
+            result.isSerious &&
+            (result.taskFamily !== 'cleanup/refactor' || result.cleanupSubtype !== 'checklist-linked')
+        ) {
+            errors.push(
+                `${relativePath} is referenced by ARCHITECTURE_CLEANUP_CHECKLIST.md and must declare **Task family:** cleanup/refactor plus **Cleanup subtype:** checklist-linked`
+            );
+        }
+
         if (result.isSerious && result.missingSections.length > 0) {
             errors.push(`${relativePath} is missing required serious-plan sections: ${result.missingSections.join(', ')}`);
         }

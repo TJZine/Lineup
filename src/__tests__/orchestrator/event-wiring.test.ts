@@ -2,6 +2,7 @@ import {
     OrchestratorEventBinder,
     type OrchestratorEventBinderDeps,
 } from '../../core';
+import { AppErrorCode } from '../../modules/lifecycle';
 import type { IAppLifecycle } from '../../modules/lifecycle';
 import type { INavigationManager } from '../../modules/navigation';
 import type { IVideoPlayer } from '../../modules/player';
@@ -28,11 +29,23 @@ type BinderHarness = {
     resumeDispose: jest.Mock;
     getPauseCallback: () => (() => void | Promise<void>) | null;
     getResumeCallback: () => (() => void | Promise<void>) | null;
+    getPersistenceWarningCallback: () => ((payload: {
+        message: string;
+        code: AppErrorCode;
+        isQuotaError: boolean;
+        timestamp: number;
+    }) => void) | null;
 };
 
 const makeBinder = (overrides: Partial<OrchestratorEventBinderDeps> = {}): BinderHarness => {
     let pauseCallback: (() => void | Promise<void>) | null = null;
     let resumeCallback: (() => void | Promise<void>) | null = null;
+    let persistenceWarningCallback: ((payload: {
+        message: string;
+        code: AppErrorCode;
+        isQuotaError: boolean;
+        timestamp: number;
+    }) => void) | null = null;
 
     const navigationCleanup = jest.fn();
     const epgCleanup = jest.fn();
@@ -71,7 +84,17 @@ const makeBinder = (overrides: Partial<OrchestratorEventBinderDeps> = {}): Binde
         }),
     } as unknown as IAppLifecycle;
     const channelManager = {
-        on: jest.fn(() => ({ dispose: persistenceDispose })),
+        on: jest.fn((event: string, callback: unknown) => {
+            if (event === 'persistenceWarning') {
+                persistenceWarningCallback = callback as (payload: {
+                    message: string;
+                    code: AppErrorCode;
+                    isQuotaError: boolean;
+                    timestamp: number;
+                }) => void;
+            }
+            return { dispose: persistenceDispose };
+        }),
     } as unknown as IChannelManager;
 
     const deps: OrchestratorEventBinderDeps = {
@@ -119,6 +142,7 @@ const makeBinder = (overrides: Partial<OrchestratorEventBinderDeps> = {}): Binde
         resumeDispose,
         getPauseCallback: () => pauseCallback,
         getResumeCallback: () => resumeCallback,
+        getPersistenceWarningCallback: () => persistenceWarningCallback,
     };
 };
 
@@ -263,6 +287,28 @@ describe('AppOrchestrator event wiring', () => {
         resumeDeferred.resolve(undefined);
         await resumePromise;
         expect(resumeSettled).toBe(true);
+    });
+
+    it('forwards the full persistenceWarning payload from channel manager events', () => {
+        const { binder, deps, getPersistenceWarningCallback } = makeBinder();
+
+        binder.bind();
+
+        const persistenceWarningCallback = getPersistenceWarningCallback();
+        expect(typeof persistenceWarningCallback).toBe('function');
+        persistenceWarningCallback?.({
+            message: 'Storage full - some settings may not be saved',
+            code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+            isQuotaError: true,
+            timestamp: 123,
+        });
+
+        expect(deps.reportPersistenceWarning).toHaveBeenCalledWith({
+            message: 'Storage full - some settings may not be saved',
+            code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+            isQuotaError: true,
+            timestamp: 123,
+        });
     });
 
     it('bind is idempotent until dispose is called', () => {

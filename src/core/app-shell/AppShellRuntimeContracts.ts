@@ -2,6 +2,7 @@ import type { INavigationManager } from '../../modules/navigation';
 import type { PlexHomeUser, PlexPinRequest } from '../../modules/plex/auth';
 import type { PlexServer } from '../../modules/plex/discovery';
 import type { GuideSettingChange } from '../../modules/ui/settings/types';
+import type { ThemeName } from '../../modules/ui/theme';
 import type { PlaybackInfoSnapshot } from '../../Orchestrator';
 import type { ChannelSetupWorkflowPort } from '../channel-setup/ChannelSetupWorkflowPort';
 import type { OrchestratorServerSelectionResult } from '../server-selection/ServerSelectionTypes';
@@ -46,6 +47,8 @@ export interface AppShellSettingsRuntimePort {
     setSubtitleTrack(trackId: string | null): Promise<void>;
     onGuideSettingChange(change: GuideSettingChange): void;
     getActiveUsername(): string | null;
+    getTheme(): ThemeName;
+    setTheme(theme: ThemeName): void;
 }
 
 export interface AppShellDiagnosticsRuntimePort {

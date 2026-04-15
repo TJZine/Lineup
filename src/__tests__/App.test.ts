@@ -6,8 +6,8 @@ import { App } from '../App';
 import { AppOrchestrator, type PlaybackInfoSnapshot } from '../Orchestrator';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../core/app-shell/constants';
+import { AppThemeController } from '../core/app-shell/AppThemeController';
 import type { ChannelSetupConfig } from '../core/channel-setup/types';
-import { ThemeManager } from '../modules/ui/theme';
 import { STORAGE_KEYS } from '../types';
 
 import { flushPromises } from './helpers';
@@ -221,10 +221,7 @@ describe('App bootstrap smoke', () => {
         initializeSpy = jest.spyOn(AppOrchestrator.prototype, 'initialize').mockResolvedValue(undefined);
         startSpy = jest.spyOn(AppOrchestrator.prototype, 'start').mockResolvedValue(undefined);
         jest.spyOn(AppOrchestrator.prototype, 'shutdown').mockResolvedValue(undefined);
-        jest.spyOn(ThemeManager, 'getInstance').mockReturnValue({
-            getTheme: jest.fn().mockReturnValue('ember-steel'),
-            setTheme: jest.fn(),
-        } as never);
+        jest.spyOn(AppThemeController.prototype, 'initialize').mockReturnValue('ember-steel');
     };
 
     const installPlaybackSnapshotSpy = (): void => {
@@ -752,10 +749,7 @@ describe('App bootstrap smoke', () => {
 
     it('shuts down partial startup state before rethrowing a screen initialization failure', async () => {
         const appUnderTest = new App();
-        const themeSpy = jest.spyOn(ThemeManager, 'getInstance').mockReturnValue({
-            getTheme: jest.fn().mockReturnValue('ember-steel'),
-            setTheme: jest.fn(),
-        } as never);
+        const themeInitializeSpy = jest.spyOn(AppThemeController.prototype, 'initialize').mockReturnValue('ember-steel');
         const orchestratorInitializeSpy = jest
             .spyOn(AppOrchestrator.prototype, 'initialize')
             .mockResolvedValue(undefined);
@@ -779,7 +773,7 @@ describe('App bootstrap smoke', () => {
 
         await expect(appUnderTest.start()).rejects.toThrow('screen init failed');
 
-        expect(themeSpy).toHaveBeenCalledTimes(1);
+        expect(themeInitializeSpy).toHaveBeenCalledTimes(1);
         expect(createContainersSpy).toHaveBeenCalledTimes(1);
         expect(buildConfigSpy).toHaveBeenCalledTimes(1);
         expect(orchestratorInitializeSpy).toHaveBeenCalledTimes(1);
@@ -969,13 +963,13 @@ describe('App bootstrap smoke', () => {
         let currentScreen: string | null = 'splash';
         (AppOrchestrator.prototype.getCurrentScreen as unknown as jest.Mock).mockImplementation(() => currentScreen);
 
-        const getScreenParams = jest
+        const getServerSelectParams = jest
             .fn()
             .mockReturnValueOnce({ allowAutoConnect: true })
-            .mockReturnValueOnce({})
-            .mockReturnValueOnce({ allowAutoConnect: 'yes' });
+            .mockReturnValueOnce(null)
+            .mockReturnValueOnce(null);
         jest.spyOn(AppOrchestrator.prototype, 'getNavigation').mockReturnValue({
-            getScreenParams,
+            getServerSelectParams,
             openModal: jest.fn(),
             closeModal: jest.fn(),
             isModalOpen: jest.fn().mockReturnValue(false),
@@ -1000,7 +994,7 @@ describe('App bootstrap smoke', () => {
         await flushPromises(6);
         expect(serverSelectHide).toHaveBeenCalled();
 
-        // Validate non-boolean/missing screen params pass undefined options through App flow.
+        // Validate missing server-select params pass undefined options through App flow.
         currentScreen = 'server-select';
         screenChangeHandler?.('auth', 'server-select');
         await flushPromises(6);
@@ -1086,7 +1080,7 @@ describe('App bootstrap smoke', () => {
         const replaceScreen = jest.fn();
         jest.spyOn(AppOrchestrator.prototype, 'getNavigation').mockReturnValue({
             replaceScreen,
-            getScreenParams: jest.fn().mockReturnValue({}),
+            getServerSelectParams: jest.fn().mockReturnValue(null),
             openModal: jest.fn(),
             closeModal: jest.fn(),
             isModalOpen: jest.fn().mockReturnValue(false),

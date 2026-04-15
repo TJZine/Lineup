@@ -1515,7 +1515,7 @@ export class ChannelSetupScreen {
     }
 
     private _getSelectedServerId(): string | null {
-        const stored = this._serverSelectionStore.readSelectedServerId();
+        const stored = this._serverSelectionStore.readSelectedServerIdAndClean();
         if (stored) {
             return stored;
         }

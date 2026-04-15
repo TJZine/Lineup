@@ -4,7 +4,6 @@
  * @version 1.0.0
  */
 
-import { IErrorRecovery } from './interfaces';
 import { AppError, AppErrorCode, ErrorAction } from './types';
 import { ERROR_MESSAGES } from './constants';
 
@@ -12,7 +11,7 @@ import { ERROR_MESSAGES } from './constants';
  * Maps application errors to recovery actions.
  * Provides user-facing action buttons for error dialogs.
  */
-export class ErrorRecovery implements IErrorRecovery {
+export class ErrorRecovery {
     /** Callbacks for recovery actions */
     private _onSignIn: (() => void) | null = null;
     private _onRetry: (() => void) | null = null;

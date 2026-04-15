@@ -32,7 +32,7 @@ interface IPlexAuth {
   getActiveUserId(): string | null;
   getAccountUserId(): string | null;
   logoutActiveUser(): Promise<void>;
-  getStoredCredentials(): Promise<PlexStoredCredentialsReadResult>;
+  readStoredCredentialsAndClearCorruption(): Promise<PlexStoredCredentialsReadResult>;
   storeCredentials(auth: PlexAuthData): Promise<void>;
   clearCredentials(): Promise<void>;
   isAuthenticated(): boolean;

@@ -8,7 +8,7 @@ Use this prompt for adversarial review of a cleanup artifact from any orchestrat
 2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
 3. the artifact being reviewed
 4. supporting standards that apply:
-   - [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md) for plan review
+   - [`docs/agentic/plan-authoring-standard.md#universal-plan-core`](../plan-authoring-standard.md#universal-plan-core) and [`docs/agentic/plan-authoring-standard.md#cleanup-overlay`](../plan-authoring-standard.md#cleanup-overlay) for cleanup plan review
    - [`docs/agentic/historical-plan-corpus-review.md`](../historical-plan-corpus-review.md) for plan-shape calibration
    - [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md) and any relevant domain doc for implementation review
    - [`docs/agentic/evals/rubric.md`](../evals/rubric.md) when the review touches workflow-quality expectations

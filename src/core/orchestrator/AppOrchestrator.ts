@@ -89,15 +89,13 @@ import {
     ExitConfirmModal,
     EXIT_CONFIRM_MODAL_ID,
 } from '../../modules/ui/exit-confirm';
-import {
-    InitializationCoordinator,
-    ChannelTuningCoordinator,
-    OrchestratorStorageContext,
-    OrchestratorEventBinder,
-    OverlayRuntimePolicyController,
-    ProfileSwitchCleanupController,
-    PlaybackRuntimeController,
-} from '..';
+import { InitializationCoordinator } from '../InitializationCoordinator';
+import { ChannelTuningCoordinator } from '../channel-tuning';
+import { OrchestratorStorageContext } from './OrchestratorStorageContext';
+import { OrchestratorEventBinder } from './OrchestratorEventBinder';
+import { OverlayRuntimePolicyController } from './OverlayRuntimePolicyController';
+import { ProfileSwitchCleanupController } from './ProfileSwitchCleanupController';
+import { PlaybackRuntimeController } from '../PlaybackRuntimeController';
 import type {
     OrchestratorServerSelectionReadiness,
     OrchestratorServerSelectionResult,
@@ -133,6 +131,7 @@ import { NowPlayingDisplayStore } from '../../modules/settings/NowPlayingDisplay
 import { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
 import { SubtitlePreferencesStore } from '../../modules/settings/SubtitlePreferencesStore';
 import { AudioSettingsStore } from '../../modules/settings/AudioSettingsStore';
+import { DeveloperSettingsStore } from '../../modules/settings/DeveloperSettingsStore';
 import type { IDisposable } from '../../utils/interfaces';
 import { getRecoveryActions as getRecoveryActionsHelper } from '../error-recovery/RecoveryActions';
 import { toLifecycleAppError as toLifecycleAppErrorHelper } from '../error-recovery/LifecycleErrorAdapter';
@@ -147,7 +146,7 @@ import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
 import { ScheduleDayRolloverController } from './ScheduleDayRolloverController';
 import { SubtitleTrackRecoveryController } from './SubtitleTrackRecoveryController';
 import { OrchestratorSchedulePolicy } from './OrchestratorSchedulePolicy';
-import { InitializationUiInitializer } from '../initialization/InitializationUiInitializer';
+import { AppStartupUiInitializer } from '../app-shell/AppStartupUiInitializer';
 
 // ============================================
 // Types
@@ -277,6 +276,7 @@ export class AppOrchestrator {
     private _exitConfirmCoordinator: ExitConfirmCoordinator | null = null;
     private _sleepTimer: SleepTimerManager | null = null;
     private readonly _audioSettingsStore = new AudioSettingsStore();
+    private readonly _developerSettingsStore = new DeveloperSettingsStore();
     private readonly _subtitlePreferencesStore = new SubtitlePreferencesStore();
     private readonly _epgPreferencesStore = new EpgPreferencesStore();
     private readonly _nowPlayingDisplayStore = new NowPlayingDisplayStore();
@@ -455,6 +455,7 @@ export class AppOrchestrator {
             config: orchestratorConfig,
             platformServices: this._platformServices,
             debugOverridesStore: this._debugOverridesStore,
+            developerSettingsStore: this._developerSettingsStore,
             onSleepTimerTick: (): void => {
                 // Sleep timer countdown is independent of playback time updates; only refresh OSD if visible.
                 this._playerOsdCoordinator?.refreshIfVisible();
@@ -484,7 +485,7 @@ export class AppOrchestrator {
 
         this._configureDiscoveryStorageKeysForActiveUser();
 
-        const initializationUiInitializer = new InitializationUiInitializer(
+        const startupUiInitializer = new AppStartupUiInitializer(
             orchestratorConfig,
             {
                 nowPlayingInfo: this._nowPlayingInfo,
@@ -524,7 +525,7 @@ export class AppOrchestrator {
                     miniGuide: this._miniGuide,
                     channelTransition: this._channelTransitionOverlay,
                 },
-                uiInitializer: initializationUiInitializer,
+                startupUiInitializer,
                 epgDebugRuntime: this._epgDebugRuntime,
                 stores: {
                     epgPreferencesStore: this._epgPreferencesStore,
@@ -676,6 +677,7 @@ export class AppOrchestrator {
                 sleepTimer: this._sleepTimer,
             },
             stores: {
+                developerSettingsStore: this._developerSettingsStore,
                 debugOverridesStore: this._debugOverridesStore,
                 subtitlePreferencesStore: this._subtitlePreferencesStore,
                 epgPreferencesStore: this._epgPreferencesStore,
@@ -1685,7 +1687,7 @@ export class AppOrchestrator {
         return toLifecycleAppErrorHelper(error, {
             getPhase: (): AppPhase => (this._lifecycle ? this._lifecycle.getPhase() : 'error'),
             getUserMessage: (code: AppErrorCode): string =>
-                this._lifecycle ? this._lifecycle.getErrorRecovery().getUserMessage(code) : error.message,
+                this._lifecycle ? this._lifecycle.getErrorUserMessage(code) : error.message,
             getRecoveryActions: (code: AppErrorCode): ErrorRecoveryAction[] =>
                 this.getRecoveryActions(code),
             nowMs: (): number => Date.now(),
@@ -1892,7 +1894,7 @@ export class AppOrchestrator {
         if (!this._plexAuth) {
             return 'skipped_missing_credentials';
         }
-        const stored = await this._plexAuth.getStoredCredentials();
+        const stored = await this._plexAuth.readStoredCredentialsAndClearCorruption();
         if (stored.kind === 'missing') {
             return 'skipped_missing_credentials';
         }
@@ -2097,8 +2099,8 @@ export class AppOrchestrator {
                     handlePlexLibraryAuthExpired: (): void => this._handlePlexLibraryAuthExpired(),
                     handlePlexStreamError: (error): void => this._handlePlexStreamError(error),
                     handleScreenChange: (payload): void => this._handleScreenChange(payload),
-                    reportPersistenceWarning: (message): void => {
-                        this._nowPlayingHandler?.({ message, type: 'warning' });
+                    reportPersistenceWarning: (warning): void => {
+                        this._nowPlayingHandler?.({ message: warning.message, type: 'warning' });
                     },
                     cleanupReporter: (failures: OrchestratorEventCleanupFailure[]): void => {
                         try {

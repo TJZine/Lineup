@@ -67,7 +67,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         channelBadgeOverlay: InitializationDependencies['overlays']['channelBadgeOverlay'];
         miniGuide: InitializationDependencies['overlays']['miniGuide'];
         channelTransition: InitializationDependencies['overlays']['channelTransition'];
-        uiInitializer: InitializationDependencies['uiInitializer'];
+        startupUiInitializer: InitializationDependencies['startupUiInitializer'];
         epgPreferencesStore: InitializationDependencies['stores']['epgPreferencesStore'];
         profileSessionStore: InitializationDependencies['stores']['profileSessionStore'];
     };
@@ -106,12 +106,12 @@ describe('InitializationCoordinator (Plex Home)', () => {
             getCurrentScreen: jest.fn().mockReturnValue('splash'),
             goTo: jest.fn(),
             replaceScreen: jest.fn(),
-            getScreenParams: jest.fn().mockReturnValue({}),
+            getServerSelectParams: jest.fn().mockReturnValue(null),
             getState: jest.fn().mockReturnValue({ screenStack: [] }),
         } as unknown as LegacyInitializationDependencies['navigation'];
 
         const plexAuth = {
-            getStoredCredentials: jest.fn().mockResolvedValue({ kind: 'missing' }),
+            readStoredCredentialsAndClearCorruption: jest.fn().mockResolvedValue({ kind: 'missing' }),
             validateToken: jest.fn().mockResolvedValue(true),
             getCurrentUser: jest.fn().mockReturnValue(null),
             storeCredentials: jest.fn().mockResolvedValue(undefined),
@@ -142,9 +142,9 @@ describe('InitializationCoordinator (Plex Home)', () => {
             channelBadgeOverlay: null,
             miniGuide: null,
             channelTransition: null,
-            uiInitializer: {
+            startupUiInitializer: {
                 ensureCorePlayerUiInitialized: jest.fn().mockResolvedValue(undefined),
-            } as unknown as LegacyInitializationDependencies['uiInitializer'],
+            } as unknown as LegacyInitializationDependencies['startupUiInitializer'],
             epgPreferencesStore: new EpgPreferencesStore(),
             profileSessionStore: new ProfileSessionStore(),
         };
@@ -173,7 +173,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
                 miniGuide: legacyDeps.miniGuide,
                 channelTransition: legacyDeps.channelTransition,
             },
-            uiInitializer: legacyDeps.uiInitializer,
+            startupUiInitializer: legacyDeps.startupUiInitializer,
             epgDebugRuntime: null,
             stores: {
                 epgPreferencesStore: legacyDeps.epgPreferencesStore,
@@ -270,13 +270,13 @@ describe('InitializationCoordinator (Plex Home)', () => {
     it('routes to server-select when active token is valid and picker is disabled', async () => {
         const { coordinator, deps } = makeCoordinator();
         const plexAuth = deps.plexAuth as unknown as {
-            getStoredCredentials: jest.Mock;
+            readStoredCredentialsAndClearCorruption: jest.Mock;
             validateToken: jest.Mock;
         };
         const navigation = deps.navigation as unknown as { goTo: jest.Mock };
         const plexDiscovery = deps.plexDiscovery as unknown as { isConnected: jest.Mock };
 
-        plexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('active-token', 'account-token'));
+        plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('active-token', 'account-token'));
         plexAuth.validateToken.mockResolvedValue(true);
         plexDiscovery.isConnected.mockReturnValue(false);
 
@@ -289,12 +289,12 @@ describe('InitializationCoordinator (Plex Home)', () => {
     it('routes to profile-select when active token is invalid but account is valid', async () => {
         const { coordinator, deps } = makeCoordinator();
         const plexAuth = deps.plexAuth as unknown as {
-            getStoredCredentials: jest.Mock;
+            readStoredCredentialsAndClearCorruption: jest.Mock;
             validateToken: jest.Mock;
         };
         const navigation = deps.navigation as unknown as { goTo: jest.Mock };
 
-        plexAuth.getStoredCredentials.mockResolvedValue(createStoredCredentials('bad-token', 'account-token'));
+        plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('bad-token', 'account-token'));
         plexAuth.validateToken
             .mockResolvedValueOnce(false)
             .mockResolvedValueOnce(true);
@@ -307,13 +307,13 @@ describe('InitializationCoordinator (Plex Home)', () => {
     it('rethrows non-auth token validation failures instead of masking them as auth resume', async () => {
         const { coordinator, deps, callbacks } = makeCoordinator();
         const plexAuth = deps.plexAuth as unknown as {
-            getStoredCredentials: jest.Mock;
+            readStoredCredentialsAndClearCorruption: jest.Mock;
             validateToken: jest.Mock;
             on: jest.Mock;
         };
         const navigation = deps.navigation as unknown as { goTo: jest.Mock };
 
-        plexAuth.getStoredCredentials.mockResolvedValue(
+        plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(
             createStoredCredentials('active-token', 'account-token')
         );
         plexAuth.validateToken.mockRejectedValue(new Error('validation down'));
@@ -337,10 +337,10 @@ describe('InitializationCoordinator (Plex Home)', () => {
         });
 
         const plexAuth = deps.plexAuth as unknown as {
-            getStoredCredentials: jest.Mock;
+            readStoredCredentialsAndClearCorruption: jest.Mock;
         };
 
-        plexAuth.getStoredCredentials.mockResolvedValue({ kind: 'missing' });
+        plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue({ kind: 'missing' });
 
         await coordinator.runStartup(1);
 
@@ -356,7 +356,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
         // Arrange deps: stored creds + valid active token, and ensure startup shows profile-select
         const plexAuth = deps.plexAuth as unknown as {
-            getStoredCredentials: jest.Mock;
+            readStoredCredentialsAndClearCorruption: jest.Mock;
             validateToken: jest.Mock;
             getHomeUsers: jest.Mock;
             on: jest.Mock;
@@ -391,7 +391,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         });
 
         navigation.getCurrentScreen.mockReturnValue('auth');
-        plexAuth.getStoredCredentials.mockResolvedValue(
+        plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(
             createStoredCredentials('active-token', 'account-token')
         );
         plexAuth.validateToken.mockResolvedValue(true);
@@ -485,13 +485,13 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
     it('initializes core player UI before marking startup ready after phase 4', async () => {
         const callOrder: string[] = [];
-        const uiInitializer = {
+        const startupUiInitializer = {
             ensureCorePlayerUiInitialized: jest.fn().mockImplementation(async () => {
                 callOrder.push('core-player-ui');
             }),
-        } as unknown as LegacyInitializationDependencies['uiInitializer'];
+        } as unknown as LegacyInitializationDependencies['startupUiInitializer'];
         const { coordinator, callbacks } = makeCoordinator({
-            uiInitializer,
+            startupUiInitializer,
         });
 
         (callbacks.setReady as jest.Mock).mockImplementation((ready: boolean) => {
@@ -554,7 +554,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             getCurrentScreen: jest.Mock;
         };
         const plexAuth = deps.plexAuth as unknown as {
-            getStoredCredentials: jest.Mock;
+            readStoredCredentialsAndClearCorruption: jest.Mock;
             validateToken: jest.Mock;
             getHomeUsers: jest.Mock;
             on: jest.Mock;
@@ -573,7 +573,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             return { dispose: jest.fn() };
         });
 
-        plexAuth.getStoredCredentials.mockResolvedValue(
+        plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(
             createStoredCredentials('active-token', 'account-token')
         );
         plexAuth.validateToken.mockResolvedValue(true);
@@ -625,7 +625,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
     it('does not resolve queued startup callers until final ready work completes', async () => {
         const { coordinator, callbacks, deps } = makeCoordinator();
         const plexAuth = deps.plexAuth as unknown as {
-            getStoredCredentials: jest.Mock;
+            readStoredCredentialsAndClearCorruption: jest.Mock;
             validateToken: jest.Mock;
         };
         const plexDiscovery = deps.plexDiscovery as unknown as {
@@ -633,7 +633,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             isConnected: jest.Mock;
         };
 
-        plexAuth.getStoredCredentials.mockResolvedValue(
+        plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(
             createStoredCredentials('active-token', 'account-token')
         );
         plexAuth.validateToken.mockResolvedValue(true);
@@ -685,7 +685,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             epgReadiness,
         });
         const plexAuth = deps.plexAuth as unknown as {
-            getStoredCredentials: jest.Mock;
+            readStoredCredentialsAndClearCorruption: jest.Mock;
             validateToken: jest.Mock;
         };
         const plexDiscovery = deps.plexDiscovery as unknown as {
@@ -694,7 +694,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         };
 
         try {
-            plexAuth.getStoredCredentials.mockResolvedValue(
+            plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(
                 createStoredCredentials('active-token', 'account-token')
             );
             plexAuth.validateToken.mockResolvedValue(true);

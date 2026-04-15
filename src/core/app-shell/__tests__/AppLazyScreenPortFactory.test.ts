@@ -22,6 +22,8 @@ type MockRuntimeOrchestrator = {
     setSubtitleTrack: jest.Mock;
     onGuideSettingChange: jest.Mock;
     getActiveUsername: jest.Mock;
+    getTheme: jest.Mock;
+    setTheme: jest.Mock;
     getNavigation: jest.Mock;
 };
 
@@ -47,6 +49,8 @@ const makeOrchestrator = (): MockRuntimeOrchestrator => ({
     setSubtitleTrack: jest.fn().mockResolvedValue(undefined),
     onGuideSettingChange: jest.fn(),
     getActiveUsername: jest.fn().mockReturnValue('UnitTestUser'),
+    getTheme: jest.fn().mockReturnValue('ember-steel'),
+    setTheme: jest.fn(),
     getNavigation: jest.fn().mockReturnValue({ replaceScreen: jest.fn() }),
 });
 
@@ -199,11 +203,14 @@ describe('AppLazyScreenPortFactory', () => {
         const settingsRuntimePorts = factory.createSettingsRuntimePorts();
         expect(settingsRuntimePorts).not.toBeNull();
         expect(settingsRuntimePorts?.getActiveUsername()).toBe('UnitTestUser');
+        expect(settingsRuntimePorts?.getTheme()).toBe('ember-steel');
 
         await settingsRuntimePorts?.clearSubtitleTrack();
         settingsRuntimePorts?.onGuideSettingChange({ key: 'categoryColors', enabled: true });
+        settingsRuntimePorts?.setTheme('glass');
 
         expect(orchestrator.setSubtitleTrack).toHaveBeenCalledWith(null);
         expect(orchestrator.onGuideSettingChange).toHaveBeenCalledWith({ key: 'categoryColors', enabled: true });
+        expect(orchestrator.setTheme).toHaveBeenCalledWith('glass');
     });
 });

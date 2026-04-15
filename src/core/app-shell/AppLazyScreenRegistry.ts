@@ -348,6 +348,8 @@ export class AppLazyScreenRegistry {
                         settingsRuntimePorts.onGuideSettingChange(change);
                     },
                     settingsRuntimePorts.getActiveUsername,
+                    settingsRuntimePorts.getTheme,
+                    settingsRuntimePorts.setTheme,
                     new SettingsStore()
                 );
 

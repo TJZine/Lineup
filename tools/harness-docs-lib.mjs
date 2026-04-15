@@ -162,6 +162,24 @@ export const HARNESS_INGESTION_TRIAGE_ACTIONS = [
     'harness-update-loop',
 ];
 export const ACTIVE_PLAN_MARKER = '**Plan Status:** active';
+const VALID_TASK_FAMILIES = new Set(['feature/design', 'cleanup/refactor']);
+const VALID_CLEANUP_SUBTYPES = new Set(['checklist-linked', 'standalone remediation']);
+const PLAN_LIST_ENTRY_RE = /^\s*(?:[-*]|\d+\.)\s+\S+/mu;
+const PLAN_RUN_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Run:\s*`[^`]+`/imu;
+const PLAN_EXPECTED_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Expected:\s*.+$/imu;
+const PRIORITY_EXIT_DISPOSITION_RE =
+    /(?:expected|planned)?\s*disposition:\s*`?(?:resolved|deferred|split follow-up)`?/iu;
+const PRIORITY_EXIT_DEFERRED_RE =
+    /(?:expected|planned)?\s*disposition:\s*`?(?:deferred|split follow-up)`?/iu;
+const PRIORITY_EXIT_FINAL_OWNER_RE =
+    /(?:final owner|residual final owner):\s*`[^`]+`/giu;
+const PRIORITY_EXIT_REVISIT_TRIGGER_RE = /revisit trigger:\s*.+/iu;
+const PRIORITY_EXIT_SECURITY_RE =
+    /(security triage expectation|security gate|security output)/iu;
+const PRIORITY_EXIT_SECURITY_DISPOSITION_RE =
+    /(?:no open P0 security findings|exact issue ids|`P0`|security issue ids|list the exact issue ids)/iu;
+const PRIORITY_EXIT_NEXT_PRIORITY_GATE_RE =
+    /(?:P#-EXIT|P\(n\+1\)|before\s+`?P\d+`?.*?\b(?:begins|starts)\b|no\s+`?P\d+`?.*?\b(?:starts|begins)\b)/iu;
 
 const PLAN_SECTION_RULES = [
     { label: 'goal', patterns: [/^\*\*Goal:\*\*/im, /^## Goal$/im] },
@@ -189,6 +207,23 @@ const PLAN_SECTION_RULES = [
     { label: 'rollback notes', patterns: [/^## Rollback Notes$/im] },
     { label: 'commit checkpoints', patterns: [/^## Commit Checkpoints$/im] },
 ];
+const PLAN_SECTION_CONTENT_RULES = [
+    {
+        label: 'planner self-check',
+        headings: ['Planner Self-Check'],
+        error: 'planner self-check section must contain substantive content',
+    },
+    {
+        label: 'architecture seam decision gate',
+        headings: ['Architecture Seam Decision Gate'],
+        error: 'architecture seam decision gate section must contain substantive content',
+    },
+    {
+        label: 'verification commands',
+        headings: ['Verification Commands'],
+        error: 'verification commands section must contain substantive content',
+    },
+];
 
 function escapeRegExp(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
@@ -209,6 +244,17 @@ function extractMarkdownSection(content, heading) {
     return sectionContent.trim();
 }
 
+function extractFirstMatchingMarkdownSection(content, headings) {
+    for (const heading of headings) {
+        const section = extractMarkdownSection(content, heading);
+        if (section !== null) {
+            return section;
+        }
+    }
+
+    return null;
+}
+
 function parseInlineField(section, label) {
     const pattern = new RegExp(`^- ${escapeRegExp(label)}:\\s*(.+)$`, 'mu');
     const match = pattern.exec(section);
@@ -217,6 +263,81 @@ function parseInlineField(section, label) {
     }
 
     return match[1].trim().replace(/`([^`]+)`/gu, '$1').trim();
+}
+
+function getPriorityExitIssueBlocks(section) {
+    const lines = section.split(/\r?\n/u);
+    const blocks = [];
+    let currentBlock = [];
+
+    for (const line of lines) {
+        if (/^\s*-\s*`review::/u.test(line)) {
+            if (currentBlock.length > 0) {
+                blocks.push(currentBlock.join('\n'));
+            }
+            currentBlock = [line];
+            continue;
+        }
+
+        if (currentBlock.length > 0) {
+            currentBlock.push(line);
+        }
+    }
+
+    if (currentBlock.length > 0) {
+        blocks.push(currentBlock.join('\n'));
+    }
+
+    return blocks;
+}
+
+function getPriorityExitErrors(section) {
+    const errors = [];
+    const issueBlocks = getPriorityExitIssueBlocks(section);
+
+    if (issueBlocks.length === 0) {
+        errors.push('priority-exit readiness section must name each mapped imported issue by exact issue id');
+    } else {
+        const missingDisposition = issueBlocks.some((block) => !PRIORITY_EXIT_DISPOSITION_RE.test(block));
+        if (missingDisposition) {
+            errors.push('priority-exit readiness section must record exact disposition tokens for mapped imported issues');
+        }
+
+        const deferredWithoutSingleOwner = issueBlocks.some((block) => {
+            if (!PRIORITY_EXIT_DEFERRED_RE.test(block)) {
+                return false;
+            }
+
+            return Array.from(block.matchAll(PRIORITY_EXIT_FINAL_OWNER_RE)).length !== 1;
+        });
+        if (deferredWithoutSingleOwner) {
+            errors.push('priority-exit readiness must assign exactly one final owner to each deferred or split imported issue');
+        }
+
+        const deferredWithoutRevisitTrigger = issueBlocks.some((block) => {
+            if (!PRIORITY_EXIT_DEFERRED_RE.test(block)) {
+                return false;
+            }
+
+            return !PRIORITY_EXIT_REVISIT_TRIGGER_RE.test(block);
+        });
+        if (deferredWithoutRevisitTrigger) {
+            errors.push('priority-exit readiness must include a revisit trigger for each deferred or split imported issue');
+        }
+    }
+
+    if (
+        !PRIORITY_EXIT_SECURITY_RE.test(section)
+        || !PRIORITY_EXIT_SECURITY_DISPOSITION_RE.test(section)
+    ) {
+        errors.push('priority-exit readiness section must record a P0/security-gate disposition before the next priority advances');
+    }
+
+    if (!PRIORITY_EXIT_NEXT_PRIORITY_GATE_RE.test(section)) {
+        errors.push('priority-exit readiness section must name the blocking next-priority or P#-EXIT gate');
+    }
+
+    return errors;
 }
 
 function isArchiveSectionSummaryPath(filePath) {
@@ -518,6 +639,7 @@ export function checkPlanConformance({ filePath, content }) {
             filePath,
             isSerious: false,
             missingSections: [],
+            errors: [],
         };
     }
 
@@ -525,10 +647,76 @@ export function checkPlanConformance({ filePath, content }) {
         ({ patterns }) => !patterns.some((pattern) => pattern.test(content))
     ).map(({ label }) => label);
 
+    const errors = [];
+    const taskFamilyMatch = content.match(/^\*\*Task family:\*\*\s*(.+?)\s*$/imu);
+    const taskFamily = taskFamilyMatch?.[1]?.trim() ?? null;
+    if (taskFamily === null) {
+        errors.push('missing required plan classification field: **Task family:**');
+    } else if (!VALID_TASK_FAMILIES.has(taskFamily)) {
+        errors.push(
+            `invalid task family classification: ${taskFamily} (expected one of: ${Array.from(VALID_TASK_FAMILIES).join(', ')})`
+        );
+    }
+
+    const cleanupSubtypeMatch = content.match(/^\*\*Cleanup subtype:\*\*\s*(.+?)\s*$/imu);
+    const cleanupSubtype = cleanupSubtypeMatch?.[1]?.trim() ?? null;
+    if (taskFamily === 'cleanup/refactor') {
+        if (cleanupSubtype === null) {
+            errors.push('cleanup/refactor plans must declare **Cleanup subtype:**');
+        } else if (!VALID_CLEANUP_SUBTYPES.has(cleanupSubtype)) {
+            errors.push(
+                `invalid cleanup subtype classification: ${cleanupSubtype} (expected one of: ${Array.from(VALID_CLEANUP_SUBTYPES).join(', ')})`
+            );
+        }
+    } else if (taskFamily === 'feature/design' && cleanupSubtype !== null) {
+        errors.push('feature/design plans must not declare **Cleanup subtype:**');
+    } else if (cleanupSubtype !== null && taskFamily !== null) {
+        errors.push('**Cleanup subtype:** is only valid when **Task family:** is cleanup/refactor');
+    }
+
+    for (const rule of PLAN_SECTION_CONTENT_RULES) {
+        const section = extractFirstMatchingMarkdownSection(content, rule.headings);
+        if (section !== null && section.trim().length === 0) {
+            errors.push(rule.error);
+        }
+    }
+
+    const filesInScope = extractFirstMatchingMarkdownSection(content, ['Files In Scope', 'Allowed File Changes']);
+    if (filesInScope !== null && !PLAN_LIST_ENTRY_RE.test(filesInScope)) {
+        errors.push('files in scope section must contain at least one concrete entry');
+    }
+
+    const filesOutOfScope = extractFirstMatchingMarkdownSection(content, ['Files Out Of Scope']);
+    if (filesOutOfScope !== null && !PLAN_LIST_ENTRY_RE.test(filesOutOfScope)) {
+        errors.push('files out of scope section must contain at least one concrete entry');
+    }
+
+    const verificationCommands = extractFirstMatchingMarkdownSection(content, ['Verification Commands']);
+    if (verificationCommands !== null) {
+        if (!PLAN_RUN_LINE_RE.test(verificationCommands)) {
+            errors.push('verification commands section must contain at least one command-looking `Run:` line');
+        }
+        if (!PLAN_EXPECTED_LINE_RE.test(verificationCommands)) {
+            errors.push('verification commands section must contain at least one expected-result `Expected:` line');
+        }
+    }
+
+    const priorityExitReadiness = extractFirstMatchingMarkdownSection(content, ['Priority-Exit Readiness']);
+    if (priorityExitReadiness !== null) {
+        if (priorityExitReadiness.trim().length === 0) {
+            errors.push('priority-exit readiness section must contain substantive content when present');
+        } else {
+            errors.push(...getPriorityExitErrors(priorityExitReadiness));
+        }
+    }
+
     return {
         filePath,
         isSerious: true,
         missingSections,
+        errors,
+        taskFamily,
+        cleanupSubtype,
     };
 }
 

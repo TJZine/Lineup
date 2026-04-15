@@ -14,7 +14,7 @@ type StatusCallbacks = {
     getModuleStatus: (id: string) => ModuleStatus['status'] | undefined;
 };
 
-export class InitializationUiInitializer {
+export class AppStartupUiInitializer {
     private _nowPlayingInfoInitPromise: Promise<void> | null = null;
     private _playbackOptionsInitPromise: Promise<void> | null = null;
     private _exitConfirmInitPromise: Promise<void> | null = null;

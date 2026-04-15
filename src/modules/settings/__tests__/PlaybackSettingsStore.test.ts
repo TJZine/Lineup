@@ -16,24 +16,24 @@ describe('PlaybackSettingsStore', () => {
     });
 
     it('defaults transcode compat and HDR fallback mode to false/off when storage is missing', () => {
-        expect(store.readTranscodeCompatEnabled(false)).toBe(false);
-        expect(store.readSmartHdr10FallbackEnabled(false)).toBe(false);
-        expect(store.readForceHdr10FallbackEnabled(false)).toBe(false);
-        expect(store.readHdr10FallbackMode()).toBe('off');
+        expect(store.readTranscodeCompatEnabledAndClean(false)).toBe(false);
+        expect(store.readSmartHdr10FallbackEnabledAndClean(false)).toBe(false);
+        expect(store.readForceHdr10FallbackEnabledAndClean(false)).toBe(false);
+        expect(store.readHdr10FallbackModeAndClean()).toBe('off');
     });
 
     it('reads/writes boolean playback knobs as 1/0', () => {
         store.writeTranscodeCompatEnabled(true);
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.TRANSCODE_COMPAT)).toBe('1');
-        expect(store.readTranscodeCompatEnabled()).toBe(true);
+        expect(store.readTranscodeCompatEnabledAndClean()).toBe(true);
 
         store.writeSmartHdr10FallbackEnabled(true);
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK)).toBe('1');
-        expect(store.readSmartHdr10FallbackEnabled()).toBe(true);
+        expect(store.readSmartHdr10FallbackEnabledAndClean()).toBe(true);
 
         store.writeForceHdr10FallbackEnabled(true);
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK)).toBe('1');
-        expect(store.readForceHdr10FallbackEnabled()).toBe(true);
+        expect(store.readForceHdr10FallbackEnabledAndClean()).toBe(true);
     });
 
     it('normalizes invalid boolean values by removing them and falling back', () => {
@@ -41,9 +41,9 @@ describe('PlaybackSettingsStore', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK, 'bad');
         localStorage.setItem(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK, 'bad');
 
-        expect(store.readTranscodeCompatEnabled(false)).toBe(false);
-        expect(store.readSmartHdr10FallbackEnabled(false)).toBe(false);
-        expect(store.readForceHdr10FallbackEnabled(false)).toBe(false);
+        expect(store.readTranscodeCompatEnabledAndClean(false)).toBe(false);
+        expect(store.readSmartHdr10FallbackEnabledAndClean(false)).toBe(false);
+        expect(store.readForceHdr10FallbackEnabledAndClean(false)).toBe(false);
 
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.TRANSCODE_COMPAT)).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK)).toBeNull();
@@ -53,33 +53,33 @@ describe('PlaybackSettingsStore', () => {
     it('applies force-over-smart semantics for HDR10 fallback mode', () => {
         store.writeSmartHdr10FallbackEnabled(true);
         store.writeForceHdr10FallbackEnabled(false);
-        expect(store.readHdr10FallbackMode()).toBe('smart');
+        expect(store.readHdr10FallbackModeAndClean()).toBe('smart');
 
         store.writeSmartHdr10FallbackEnabled(false);
         store.writeForceHdr10FallbackEnabled(true);
-        expect(store.readHdr10FallbackMode()).toBe('force');
+        expect(store.readHdr10FallbackModeAndClean()).toBe('force');
 
         store.writeSmartHdr10FallbackEnabled(true);
         store.writeForceHdr10FallbackEnabled(true);
-        expect(store.readHdr10FallbackMode()).toBe('force');
+        expect(store.readHdr10FallbackModeAndClean()).toBe('force');
     });
 
     it('reads transcode quality value/option via one normalization path and removes invalid raw values', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.TRANSCODE_QUALITY, '4000-720p');
 
-        expect(store.readTranscodeQualityOption()?.storageValue).toBe('4000-720p');
-        expect(store.readTranscodeQualityValue(TRANSCODE_QUALITY_OPTIONS)).toBe(3);
+        expect(store.readTranscodeQualityOptionAndClean()?.storageValue).toBe('4000-720p');
+        expect(store.readTranscodeQualityValueAndClean(TRANSCODE_QUALITY_OPTIONS)).toBe(3);
 
         localStorage.setItem(LINEUP_STORAGE_KEYS.TRANSCODE_QUALITY, 'bogus');
-        expect(store.readTranscodeQualityOption()).toBeNull();
-        expect(store.readTranscodeQualityValue(TRANSCODE_QUALITY_OPTIONS)).toBe(0);
+        expect(store.readTranscodeQualityOptionAndClean()).toBeNull();
+        expect(store.readTranscodeQualityValueAndClean(TRANSCODE_QUALITY_OPTIONS)).toBe(0);
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.TRANSCODE_QUALITY)).toBeNull();
     });
 
     it('removes persisted transcode quality when the caller option list no longer supports it', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.TRANSCODE_QUALITY, '4000-720p');
 
-        expect(store.readTranscodeQualityValue([{ storageValue: '' }, { storageValue: '12000-1080p' }])).toBe(0);
+        expect(store.readTranscodeQualityValueAndClean([{ storageValue: '' }, { storageValue: '12000-1080p' }])).toBe(0);
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.TRANSCODE_QUALITY)).toBeNull();
     });
 
@@ -106,14 +106,14 @@ describe('PlaybackSettingsStore', () => {
             throw new DOMException('Blocked', 'SecurityError');
         });
 
-        expect(() => store.readTranscodeCompatEnabled(false)).not.toThrow();
-        expect(store.readTranscodeCompatEnabled(false)).toBe(false);
-        expect(() => store.readSmartHdr10FallbackEnabled(false)).not.toThrow();
-        expect(() => store.readForceHdr10FallbackEnabled(false)).not.toThrow();
-        expect(() => store.readHdr10FallbackMode()).not.toThrow();
-        expect(() => store.readTranscodeQualityOption()).not.toThrow();
-        expect(() => store.readTranscodeQualityValue()).not.toThrow();
-        expect(store.readTranscodeQualityValue()).toBe(0);
+        expect(() => store.readTranscodeCompatEnabledAndClean(false)).not.toThrow();
+        expect(store.readTranscodeCompatEnabledAndClean(false)).toBe(false);
+        expect(() => store.readSmartHdr10FallbackEnabledAndClean(false)).not.toThrow();
+        expect(() => store.readForceHdr10FallbackEnabledAndClean(false)).not.toThrow();
+        expect(() => store.readHdr10FallbackModeAndClean()).not.toThrow();
+        expect(() => store.readTranscodeQualityOptionAndClean()).not.toThrow();
+        expect(() => store.readTranscodeQualityValueAndClean()).not.toThrow();
+        expect(store.readTranscodeQualityValueAndClean()).toBe(0);
         expect(() => store.writeTranscodeCompatEnabled(true)).not.toThrow();
         expect(() => store.writeSmartHdr10FallbackEnabled(true)).not.toThrow();
         expect(() => store.writeForceHdr10FallbackEnabled(true)).not.toThrow();

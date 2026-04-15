@@ -7,8 +7,8 @@ Use this prompt for Tier 2 or Tier 3 work when you need a serious implementation
 1. [`agents.md`](../../../agents.md)
 2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
 3. [`docs/agentic/codanna-playbook.md`](../codanna-playbook.md)
-4. [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md)
-5. [`docs/agentic/historical-plan-corpus-review.md`](../historical-plan-corpus-review.md)
+4. [`docs/agentic/plan-authoring-standard.md#universal-plan-core`](../plan-authoring-standard.md#universal-plan-core)
+5. [`docs/agentic/plan-authoring-standard.md#cleanup-overlay`](../plan-authoring-standard.md#cleanup-overlay)
 6. [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md)
 7. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 
@@ -42,8 +42,10 @@ If the short follow-up form is used, treat the named checklist item or cleanup t
 
 ## Required Planning Constraints
 
-- follow [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md)
+- follow [`docs/agentic/plan-authoring-standard.md#universal-plan-core`](../plan-authoring-standard.md#universal-plan-core) and [`docs/agentic/plan-authoring-standard.md#cleanup-overlay`](../plan-authoring-standard.md#cleanup-overlay)
+- treat [`docs/agentic/historical-plan-corpus-review.md`](../historical-plan-corpus-review.md) as optional calibration only when the plan needs extra example-driven context beyond the standard and current tracked docs
 - use the `writing-plans` skill format for structure and checkpoint shape
+- declare `**Task family:** cleanup/refactor` and the exact `**Cleanup subtype:**` before freezing the plan
 - resolve any open architecture seam or adjacent contract decision before freezing the execution steps
 - include exact files in scope and exact files out of scope
 - include the full Codanna evidence trail for serious cleanup plans:
@@ -52,7 +54,7 @@ If the short follow-up form is used, treat the named checklist item or cleanup t
   - `analyze_impact` result
   - direct-read/`rg` fallback note when used
 - include Codanna discovery findings and impact snapshot for risky/shared-symbol work
-- run the planner self-check from [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md) before finalizing the plan
+- run the planner self-check from [`docs/agentic/plan-authoring-standard.md#planner-self-check`](../plan-authoring-standard.md#planner-self-check) before finalizing the plan
 - include required reading and required skills
 - include verification commands with expected outcomes
 - include rollback notes when the task is risky

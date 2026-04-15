@@ -10,7 +10,7 @@ export { ErrorRecovery } from './ErrorRecovery';
 export { StateManager } from './StateManager';
 
 // Interfaces
-export type { IAppLifecycle, IErrorRecovery, IStateManager } from './interfaces';
+export type { IAppLifecycle } from './interfaces';
 
 // Types
 export type {

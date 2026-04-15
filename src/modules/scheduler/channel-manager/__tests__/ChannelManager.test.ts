@@ -319,6 +319,26 @@ describe('ChannelManager', () => {
 
             expect(writeCurrentSpy).toHaveBeenCalledWith('replace-1');
         });
+
+        it('emits quota-specific persistenceWarning when replaceAllChannels current-channel write hits quota', async () => {
+            const warningHandler = jest.fn();
+            manager.on('persistenceWarning', warningHandler);
+            jest
+                .spyOn(ChannelRepository.prototype, 'saveCurrentChannelId')
+                .mockReturnValue({ ok: false, reason: 'quota-exceeded' });
+
+            await manager.replaceAllChannels([createBaseChannel({ id: 'replace-1', number: 10 })], {
+                currentChannelId: 'replace-1',
+            });
+
+            expect(warningHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+                    isQuotaError: true,
+                    message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                })
+            );
+        });
     });
 
     describe('storage key updates', () => {
@@ -685,6 +705,59 @@ describe('ChannelManager', () => {
 
             expect(writeCurrentSpy).toHaveBeenCalledWith(ch1.id);
             expect(writeCurrentSpy).toHaveBeenCalledTimes(1);
+        });
+
+        it('emits quota-specific persistenceWarning when current-channel write hits quota', async () => {
+            const ch1 = await manager.createChannel({ name: 'Ch1', contentSource: createMockContentSource() });
+            const warningHandler = jest.fn();
+            manager.on('persistenceWarning', warningHandler);
+            jest
+                .spyOn(ChannelRepository.prototype, 'saveCurrentChannelId')
+                .mockReturnValue({ ok: false, reason: 'quota-exceeded' });
+
+            manager.setCurrentChannel(ch1.id);
+
+            expect(warningHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+                    isQuotaError: true,
+                    message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                })
+            );
+        });
+
+        it('resets persistence warning backoff after a successful current-channel save', async () => {
+            const ch1 = await manager.createChannel({ name: 'Ch1', contentSource: createMockContentSource() });
+            const ch2 = await manager.createChannel({ name: 'Ch2', contentSource: createMockContentSource() });
+            const warningHandler = jest.fn();
+            manager.on('persistenceWarning', warningHandler);
+            jest
+                .spyOn(ChannelRepository.prototype, 'saveCurrentChannelId')
+                .mockReturnValueOnce({ ok: false, reason: 'quota-exceeded' })
+                .mockReturnValueOnce({ ok: true })
+                .mockReturnValueOnce({ ok: false, reason: 'quota-exceeded' });
+
+            manager.setCurrentChannel(ch1.id);
+            manager.setCurrentChannel(ch2.id);
+            manager.setCurrentChannel(ch1.id);
+
+            expect(warningHandler).toHaveBeenCalledTimes(2);
+            expect(warningHandler).toHaveBeenNthCalledWith(
+                1,
+                expect.objectContaining({
+                    code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+                    isQuotaError: true,
+                    message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                })
+            );
+            expect(warningHandler).toHaveBeenNthCalledWith(
+                2,
+                expect.objectContaining({
+                    code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+                    isQuotaError: true,
+                    message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                })
+            );
         });
 
         it('should get next and previous channels', async () => {

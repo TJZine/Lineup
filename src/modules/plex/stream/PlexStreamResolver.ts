@@ -603,8 +603,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             );
         }
 
-        const compatMode = this._playbackSettingsStore.readTranscodeCompatEnabled(false);
-        const quality = this._playbackSettingsStore.readTranscodeQualityOption();
+        const compatMode = this._playbackSettingsStore.readTranscodeCompatEnabledAndClean(false);
+        const quality = this._playbackSettingsStore.readTranscodeQualityOptionAndClean();
         const shouldApplyQualityOverride = Boolean(quality && quality.storageValue.length > 0);
         const qualityMaxBitrate = shouldApplyQualityOverride ? quality?.maxVideoBitrateKbps : undefined;
         const effectiveMaxBitrate = typeof qualityMaxBitrate === 'number'
@@ -1106,7 +1106,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     // ========================================
 
     private _getHdr10FallbackMode(): 'off' | 'smart' | 'force' {
-        return this._playbackSettingsStore.readHdr10FallbackMode();
+        return this._playbackSettingsStore.readHdr10FallbackModeAndClean();
     }
 
     private _isDebugLoggingEnabled(): boolean {

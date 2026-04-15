@@ -5,6 +5,7 @@ import type { ProfileSelectScreenPorts } from '../../modules/ui/profile-select/P
 import type { ServerSelectScreenPorts } from '../../modules/ui/server-select/ServerSelectScreen';
 import type { INavigationManager } from '../../modules/navigation';
 import type { GuideSettingChange } from '../../modules/ui/settings/types';
+import type { ThemeName } from '../../modules/ui/theme';
 import type {
     AppShellAuthRuntimePort,
     AppShellChannelSetupRuntimePort,
@@ -33,6 +34,8 @@ export interface AppLazySettingsRuntimePorts {
     clearSubtitleTrack: () => Promise<void>;
     onGuideSettingChange: (change: GuideSettingChange) => void;
     getActiveUsername: () => string | null;
+    getTheme: () => ThemeName;
+    setTheme: (theme: ThemeName) => void;
 }
 
 export class AppLazyScreenPortFactory {
@@ -133,6 +136,8 @@ export class AppLazyScreenPortFactory {
             clearSubtitleTrack: () => runtime.setSubtitleTrack(null),
             onGuideSettingChange: (change: GuideSettingChange) => runtime.onGuideSettingChange(change),
             getActiveUsername: () => runtime.getActiveUsername(),
+            getTheme: () => runtime.getTheme(),
+            setTheme: (theme: ThemeName) => runtime.setTheme(theme),
         };
     }
 }

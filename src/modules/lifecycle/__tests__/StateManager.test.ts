@@ -41,6 +41,38 @@ describe('StateManager', () => {
         jest.clearAllMocks();
     });
 
+    describe('synchronous helper contract', () => {
+        it('save returns synchronously', () => {
+            const state = stateManager.createDefaultState();
+            const result = stateManager.save(state);
+
+            expect(result).toBeUndefined();
+        });
+
+        it('load returns state synchronously', () => {
+            const state: PersistentState = {
+                version: 1,
+                userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
+                lastUpdated: Date.now(),
+            };
+            mockLocalStorage[STORAGE_CONFIG.STATE_KEY] = JSON.stringify(state);
+
+            const loaded = stateManager.load() as unknown as PersistentState | null;
+
+            expect(loaded).not.toBeNull();
+            expect(loaded?.version).toBe(1);
+        });
+
+        it('clear returns synchronously', () => {
+            mockLocalStorage[STORAGE_CONFIG.STATE_KEY] = '{}';
+
+            const result = stateManager.clear();
+
+            expect(result).toBeUndefined();
+            expect(localStorage.removeItem).toHaveBeenCalledWith(STORAGE_CONFIG.STATE_KEY);
+        });
+    });
+
     describe('save', () => {
         it('should save state to localStorage', async () => {
             const state = stateManager.createDefaultState();

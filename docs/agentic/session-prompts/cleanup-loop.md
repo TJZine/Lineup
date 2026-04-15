@@ -30,6 +30,7 @@ Run the full controller loop only for Tier 3 work:
 
 - keep `update_plan` aligned with the current step
 - ensure the planner follows [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md)
+- ensure cleanup planning and review use both [`Universal Plan Core`](../plan-authoring-standard.md#universal-plan-core) and [`Cleanup Overlay`](../plan-authoring-standard.md#cleanup-overlay)
 - ensure the implementer uses the right repo-local boundary skills
 - ensure verification matches risk
 - ensure checklist/current-state docs are updated in the same pass when ownership or status changes

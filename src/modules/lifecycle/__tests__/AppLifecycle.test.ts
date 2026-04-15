@@ -8,6 +8,7 @@ import { AppLifecycle } from '../AppLifecycle';
 import { StateManager } from '../StateManager';
 import { ErrorRecovery } from '../ErrorRecovery';
 import { AppErrorCode, PersistentState } from '../types';
+import type { IAppLifecycle } from '../interfaces';
 import type { PlatformLifecycleService } from '../../../platform';
 import { flushPromisesAndTimers } from '../../../__tests__/helpers';
 
@@ -22,10 +23,9 @@ describe('AppLifecycle', () => {
         jest.useFakeTimers();
         // Mock StateManager
         mockStateManager = {
-            save: jest.fn().mockResolvedValue(undefined),
-            load: jest.fn().mockResolvedValue(null),
-            loadSync: jest.fn().mockReturnValue(null),
-            clear: jest.fn().mockResolvedValue(undefined),
+            save: jest.fn(),
+            load: jest.fn().mockReturnValue(null),
+            clear: jest.fn(),
             createDefaultState: jest.fn().mockReturnValue({
                 version: 1,
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
@@ -86,7 +86,7 @@ describe('AppLifecycle', () => {
 
     describe('initialization', () => {
         it('should set phase to initializing then authenticating when no saved state', async () => {
-            mockStateManager.load.mockResolvedValue(null);
+            mockStateManager.load.mockReturnValue(null);
 
             await lifecycle.initialize();
 
@@ -99,7 +99,7 @@ describe('AppLifecycle', () => {
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
-            mockStateManager.load.mockResolvedValue(savedState);
+            mockStateManager.load.mockReturnValue(savedState);
 
             await lifecycle.initialize();
 
@@ -112,7 +112,7 @@ describe('AppLifecycle', () => {
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
-            mockStateManager.load.mockResolvedValue(savedState);
+            mockStateManager.load.mockReturnValue(savedState);
 
             const handler = jest.fn();
             lifecycle.on('stateRestored', handler);
@@ -264,12 +264,23 @@ describe('AppLifecycle', () => {
             expect(mockStateManager.save).toHaveBeenCalled();
         });
 
-        it('should include version number in restored or default state', async () => {
-            await lifecycle.initialize();
-            const savedState = (await lifecycle.restoreState()) || mockStateManager.createDefaultState();
+        it('exposes the narrowed lifecycle public seam', () => {
+            const lifecyclePublicSurface: Pick<IAppLifecycle, 'saveState' | 'getPhase' | 'setPhase' | 'on'> = lifecycle;
 
-            expect(savedState.version).toBeDefined();
-            expect(typeof savedState.version).toBe('number');
+            expect(typeof lifecyclePublicSurface.saveState).toBe('function');
+            expect(typeof lifecyclePublicSurface.getPhase).toBe('function');
+            expect(typeof lifecyclePublicSurface.setPhase).toBe('function');
+            expect(typeof lifecyclePublicSurface.on).toBe('function');
+        });
+
+        it('exposes getErrorUserMessage and does not expose getErrorRecovery', () => {
+            const lifecycleWithErrorMessage = lifecycle as unknown as {
+                getErrorUserMessage?: (code: AppErrorCode) => string;
+                getErrorRecovery?: unknown;
+            };
+
+            expect(typeof lifecycleWithErrorMessage.getErrorUserMessage).toBe('function');
+            expect('getErrorRecovery' in lifecycleWithErrorMessage).toBe(false);
         });
     });
 

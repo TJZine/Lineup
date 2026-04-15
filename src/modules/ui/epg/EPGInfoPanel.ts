@@ -664,7 +664,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     }
 
     private resolveInfoBackgroundMode(): 0 | 1 | 2 {
-        return this.epgPreferencesStore.readInfoBackgroundMode(0);
+        return this.epgPreferencesStore.readInfoBackgroundModeAndClean(0);
     }
 
     private resolvePosterSampleUrl(program: ScheduledProgram): string | null {

@@ -21,6 +21,7 @@ export type {
     RemoteButton,
     KeyEvent,
     Screen,
+    ServerSelectNavigationParams,
 } from './interfaces';
 export type {
     AuthScreenNavigationPort,

@@ -71,7 +71,7 @@ Rationale: these define the authority surfaces, how work is routed, and what is 
 2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) (deep, ~12-18m): workflow, precedence, routing, and verification expectations
 3. [`docs/agentic/codanna-playbook.md`](../codanna-playbook.md) (deep, ~8-12m): Codanna-first discovery and fallback rules
 4. [`docs/agentic/skill-strategy.md`](../skill-strategy.md) (skim, ~5-8m): skill topology and mirror policy
-5. [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md) (deep, ~10-15m): tracked plan requirements and handoff quality bar
+5. [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md) (deep, ~10-15m): single plan-standard authority surface, including `Universal Plan Core` and `Cleanup Overlay`
 6. [`docs/agentic/historical-plan-corpus-review.md`](../historical-plan-corpus-review.md) (skim, ~5-8m): common failure modes and what to avoid repeating
 7. [`docs/agentic/evals/README.md`](../evals/README.md) (deep, ~10-15m): eval protocol, ownership, and what is measured
 8. [`docs/agentic/evals/rubric.md`](../evals/rubric.md) (deep, ~8-12m): scoring criteria and definitions

@@ -15,6 +15,7 @@ import { SettingsStore } from './SettingsStore';
 import type { SubtitleMode } from '../../../shared/subtitle-mode';
 import { SettingsScreenStateController } from './SettingsScreenStateController';
 import { syncFocusableRegistry } from '../common/focus/syncFocusableRegistry';
+import type { ThemeName } from '../theme';
 
 /**
  * Settings screen component.
@@ -52,6 +53,8 @@ export class SettingsScreen {
         onSubtitleModeChange?: (mode: SubtitleMode) => void,
         onGuideSettingChange?: (change: GuideSettingChange) => void,
         getActiveUsername?: () => string | null,
+        getTheme?: () => ThemeName,
+        setTheme?: (theme: ThemeName) => void,
         settingsStore: SettingsStore = new SettingsStore()
     ) {
         this._container = container;
@@ -70,6 +73,8 @@ export class SettingsScreen {
             onStateInvalidated: (): void => {
                 this._handleStateInvalidated();
             },
+            ...(getTheme ? { getTheme } : {}),
+            ...(setTheme ? { setTheme } : {}),
         });
         this._buildUI();
     }

@@ -17,8 +17,8 @@ Write a serious tracked implementation plan for a bounded UI extraction that app
 
 - `using-superpowers`
 - `brainstorming`
-- `writing-plans`
 - matching repo-local boundary skill(s)
+- `writing-plans`
 
 ## Expected Codanna Behavior
 

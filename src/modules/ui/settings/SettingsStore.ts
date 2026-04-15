@@ -85,7 +85,7 @@ export class SettingsStore {
         this._profileSessionStore = options.profileSessionStore ?? new ProfileSessionStore();
     }
 
-    readToggleSetting(id: ToggleSettingId): boolean {
+    readToggleSettingAndClean(id: ToggleSettingId): boolean {
         switch (id) {
             case 'dtsPassthrough':
                 return this._audioSettingsStore.readDtsPassthroughEnabled(TOGGLE_DEFAULT_BY_ID.dtsPassthrough);
@@ -98,7 +98,7 @@ export class SettingsStore {
                     TOGGLE_DEFAULT_BY_ID.keepPlayingInSettings
                 );
             case 'transcodeCompat':
-                return this._playbackSettingsStore.readTranscodeCompatEnabled(TOGGLE_DEFAULT_BY_ID.transcodeCompat);
+                return this._playbackSettingsStore.readTranscodeCompatEnabledAndClean(TOGGLE_DEFAULT_BY_ID.transcodeCompat);
             case 'debugLogging':
                 return this._developerSettingsStore.readDebugLoggingEnabled(TOGGLE_DEFAULT_BY_ID.debugLogging);
             case 'subtitleDebugLogging':
@@ -110,15 +110,15 @@ export class SettingsStore {
                     TOGGLE_DEFAULT_BY_ID.subtitlePreferForced
                 );
             case 'guideCategoryColors':
-                return this._epgPreferencesStore.readGuideCategoryColorsEnabled(
+                return this._epgPreferencesStore.readGuideCategoryColorsEnabledAndClean(
                     TOGGLE_DEFAULT_BY_ID.guideCategoryColors
                 );
             case 'epgLibraryTabsEnabled':
-                return this._epgPreferencesStore.readLibraryTabsEnabled(TOGGLE_DEFAULT_BY_ID.epgLibraryTabsEnabled);
+                return this._epgPreferencesStore.readLibraryTabsEnabledAndClean(TOGGLE_DEFAULT_BY_ID.epgLibraryTabsEnabled);
             case 'epgNowWatchingEnabled':
-                return this._epgPreferencesStore.readNowWatchingEnabled(TOGGLE_DEFAULT_BY_ID.epgNowWatchingEnabled);
+                return this._epgPreferencesStore.readNowWatchingEnabledAndClean(TOGGLE_DEFAULT_BY_ID.epgNowWatchingEnabled);
             case 'epgAggressivePreloadEnabled':
-                return this._epgPreferencesStore.readAggressivePreloadEnabled(
+                return this._epgPreferencesStore.readAggressivePreloadEnabledAndClean(
                     TOGGLE_DEFAULT_BY_ID.epgAggressivePreloadEnabled
                 );
             case 'showProfilePickerOnStartup':
@@ -134,11 +134,11 @@ export class SettingsStore {
                     TOGGLE_DEFAULT_BY_ID.preferClearLogos
                 );
             case 'smartHdr10Fallback':
-                return this._playbackSettingsStore.readSmartHdr10FallbackEnabled(
+                return this._playbackSettingsStore.readSmartHdr10FallbackEnabledAndClean(
                     TOGGLE_DEFAULT_BY_ID.smartHdr10Fallback
                 );
             case 'forceHdr10Fallback':
-                return this._playbackSettingsStore.readForceHdr10FallbackEnabled(
+                return this._playbackSettingsStore.readForceHdr10FallbackEnabledAndClean(
                     TOGGLE_DEFAULT_BY_ID.forceHdr10Fallback
                 );
             default:
@@ -201,11 +201,11 @@ export class SettingsStore {
         }
     }
 
-    readHdr10FallbackModeValue(): 0 | 1 | 2 {
-        if (this.readToggleSetting('forceHdr10Fallback')) {
+    readHdr10FallbackModeValueAndClean(): 0 | 1 | 2 {
+        if (this.readToggleSettingAndClean('forceHdr10Fallback')) {
             return 2;
         }
-        if (this.readToggleSetting('smartHdr10Fallback')) {
+        if (this.readToggleSettingAndClean('smartHdr10Fallback')) {
             return 1;
         }
         return 0;
@@ -228,8 +228,8 @@ export class SettingsStore {
         }
     }
 
-    readEpgLayoutModeValue(): 0 | 1 {
-        return this._epgPreferencesStore.readLayoutMode('classic') === 'overlay' ? 0 : 1;
+    readEpgLayoutModeValueAndClean(): 0 | 1 {
+        return this._epgPreferencesStore.readLayoutModeAndClean('classic') === 'overlay' ? 0 : 1;
     }
 
     writeEpgLayoutModeValue(value: 0 | 1): void {
@@ -237,8 +237,8 @@ export class SettingsStore {
         this._epgPreferencesStore.writeLayoutMode(mode);
     }
 
-    readEpgGuideDensityValue(): 0 | 1 {
-        return this._epgPreferencesStore.readGuideDensity('detailed') === 'wide' ? 1 : 0;
+    readEpgGuideDensityValueAndClean(): 0 | 1 {
+        return this._epgPreferencesStore.readGuideDensityAndClean('detailed') === 'wide' ? 1 : 0;
     }
 
     writeEpgGuideDensityValue(value: number): void {
@@ -246,8 +246,8 @@ export class SettingsStore {
         this._epgPreferencesStore.writeGuideDensity(density);
     }
 
-    readEpgPastItemsWindowValue(): number {
-        const raw = this._epgPreferencesStore.readPastItemsWindow('auto');
+    readEpgPastItemsWindowValueAndClean(): number {
+        const raw = this._epgPreferencesStore.readPastItemsWindowAndClean('auto');
         const index = EPG_PAST_ITEMS_STORAGE_VALUES.findIndex((option) => option === raw);
         if (index >= 0) return index;
         return 0;
@@ -259,8 +259,8 @@ export class SettingsStore {
         return option;
     }
 
-    readEpgInfoBackgroundModeValue(): 0 | 1 | 2 {
-        return this._epgPreferencesStore.readInfoBackgroundMode(DEFAULT_SETTINGS.display.epgInfoBackgroundMode);
+    readEpgInfoBackgroundModeValueAndClean(): 0 | 1 | 2 {
+        return this._epgPreferencesStore.readInfoBackgroundModeAndClean(DEFAULT_SETTINGS.display.epgInfoBackgroundMode);
     }
 
     writeEpgInfoBackgroundModeValue(value: number): 0 | 1 | 2 {
@@ -269,7 +269,7 @@ export class SettingsStore {
         return mode;
     }
 
-    readSubtitleMode(): SubtitleMode {
+    readSubtitleModeAndClean(): SubtitleMode {
         return this._subtitlePreferencesStore.readSubtitleMode('full');
     }
 
@@ -277,7 +277,7 @@ export class SettingsStore {
         this._subtitlePreferencesStore.writeSubtitleMode(mode);
     }
 
-    readSubtitleLanguageValue(options: ReadonlyArray<SubtitleLanguageOption>): number {
+    readSubtitleLanguageValueAndClean(options: ReadonlyArray<SubtitleLanguageOption>): number {
         const raw = this._subtitlePreferencesStore.readSubtitleLanguage();
         if (raw === null) return 0;
 
@@ -297,15 +297,15 @@ export class SettingsStore {
         this._subtitlePreferencesStore.writeSubtitleLanguage(option?.code ?? null);
     }
 
-    readTranscodeQualityValue(options: ReadonlyArray<{ storageValue: string }> = TRANSCODE_QUALITY_OPTIONS): number {
-        return this._playbackSettingsStore.readTranscodeQualityValue(options);
+    readTranscodeQualityValueAndClean(options: ReadonlyArray<{ storageValue: string }> = TRANSCODE_QUALITY_OPTIONS): number {
+        return this._playbackSettingsStore.readTranscodeQualityValueAndClean(options);
     }
 
     writeTranscodeQualityValue(value: number, options: ReadonlyArray<{ storageValue: string }> = TRANSCODE_QUALITY_OPTIONS): void {
         this._playbackSettingsStore.writeTranscodeQualityValue(value, options);
     }
 
-    readClampedNowPlayingAutoHideValue(validOptions: readonly number[], fallback: number = NOW_PLAYING_INFO_DEFAULTS.autoHideMs): number {
+    readClampedNowPlayingAutoHideValueAndClean(validOptions: readonly number[], fallback: number = NOW_PLAYING_INFO_DEFAULTS.autoHideMs): number {
         return this._nowPlayingDisplayStore.readClampedAutoHideMs(
             validOptions,
             validOptions.includes(fallback)
