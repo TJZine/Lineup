@@ -64,7 +64,7 @@ export class NowPlayingInfoCoordinator {
         if (modalId !== this.deps.nowPlayingModalId) {
             return;
         }
-        this.cinematicNowPlaying = this._nowPlayingDisplayStore.readCinematicNowPlayingEnabled(false);
+        this.cinematicNowPlaying = this._nowPlayingDisplayStore.readCinematicNowPlayingEnabledAndClean(false);
         const overlay = this.deps.getNowPlayingInfo();
         const channelManager = this.deps.getChannelManager();
         if (!overlay || !channelManager) {
@@ -272,7 +272,7 @@ export class NowPlayingInfoCoordinator {
         if (backdropPath) {
             backdropUrl = this.deps.buildPlexResourceUrl(backdropPath);
         }
-        const preferClearLogos = this._nowPlayingDisplayStore.readPreferClearLogosEnabled(true);
+        const preferClearLogos = this._nowPlayingDisplayStore.readPreferClearLogosEnabledAndClean(true);
         const clearLogoPath =
             details?.clearLogo ?? (item as { clearLogo?: string | null }).clearLogo ?? null;
         const clearLogoUrl = preferClearLogos && clearLogoPath
@@ -565,7 +565,7 @@ export function getNowPlayingInfoAutoHideMs(
     const configuredFallback = typeof configured === 'number' && Number.isFinite(configured)
         ? (configured === 0 ? 0 : Math.max(1000, Math.floor(configured)))
         : NOW_PLAYING_INFO_DEFAULTS.autoHideMs;
-    return nowPlayingDisplayStore.readClampedAutoHideMs(
+    return nowPlayingDisplayStore.readClampedAutoHideMsAndClean(
         NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS,
         configuredFallback
     );

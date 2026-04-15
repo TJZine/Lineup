@@ -1587,7 +1587,9 @@ describe('AppOrchestrator', () => {
         });
 
         it('routes to audio-setup before channel-setup when audio setup is incomplete', async () => {
-            const readSpy = jest.spyOn(AudioSettingsStore.prototype, 'readAudioSetupComplete').mockReturnValue(false);
+            const readSpy = jest
+                .spyOn(AudioSettingsStore.prototype, 'readAudioSetupCompleteAndClean')
+                .mockReturnValue(false);
             mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);

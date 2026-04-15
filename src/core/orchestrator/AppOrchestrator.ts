@@ -774,7 +774,7 @@ export class AppOrchestrator {
             getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
             getPlaybackRecovery: (): PlaybackRecoveryManager | null => this._playbackRecovery,
             readSubtitleMode: (): import('../../shared/subtitle-mode').SubtitleMode =>
-                this._subtitlePreferencesStore.readSubtitleMode('full'),
+                this._subtitlePreferencesStore.readSubtitleModeAndClean('full'),
             setSubtitleTrack: (trackId: string | null): Promise<void> => this.setSubtitleTrack(trackId),
             nowPlayingWarn: (message: string): void => {
                 this._nowPlayingHandler?.({ message, type: 'warning' });
@@ -1868,7 +1868,7 @@ export class AppOrchestrator {
     }
 
     private _seedSubtitleLanguageFromPlexUser(): void {
-        const existing = this._subtitlePreferencesStore.readSubtitleLanguage();
+        const existing = this._subtitlePreferencesStore.readSubtitleLanguageAndClean();
         if (typeof existing === 'string' && existing.trim().length > 0) {
             return;
         }
@@ -1921,7 +1921,7 @@ export class AppOrchestrator {
     }
 
     private _shouldRunAudioSetup(): boolean {
-        return !this._audioSettingsStore.readAudioSetupComplete(false);
+        return !this._audioSettingsStore.readAudioSetupCompleteAndClean(false);
     }
 
     private _handlePlexLibraryAuthExpired(): void {

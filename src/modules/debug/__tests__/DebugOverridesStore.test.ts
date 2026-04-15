@@ -15,10 +15,10 @@ describe('DebugOverridesStore', () => {
     });
 
     it('returns default disabled values when debug keys are missing', () => {
-        expect(store.readNowPlayingStreamDebugEnabled()).toBe(false);
-        expect(store.readNowPlayingStreamDebugAutoShowEnabled()).toBe(false);
-        expect(store.readEpgDebugEnabled()).toBe(false);
-        expect(store.readTranscodeProfileName()).toBeNull();
+        expect(store.readNowPlayingStreamDebugEnabledAndClean()).toBe(false);
+        expect(store.readNowPlayingStreamDebugAutoShowEnabledAndClean()).toBe(false);
+        expect(store.readEpgDebugEnabledAndClean()).toBe(false);
+        expect(store.readTranscodeProfileNameAndClean()).toBeNull();
     });
 
     it('reads and writes now-playing debug flags as 1/0', () => {
@@ -29,9 +29,9 @@ describe('DebugOverridesStore', () => {
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG)).toBe('1');
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW)).toBe('1');
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG)).toBe('1');
-        expect(store.readNowPlayingStreamDebugEnabled()).toBe(true);
-        expect(store.readNowPlayingStreamDebugAutoShowEnabled()).toBe(true);
-        expect(store.readEpgDebugEnabled()).toBe(true);
+        expect(store.readNowPlayingStreamDebugEnabledAndClean()).toBe(true);
+        expect(store.readNowPlayingStreamDebugAutoShowEnabledAndClean()).toBe(true);
+        expect(store.readEpgDebugEnabledAndClean()).toBe(true);
 
         store.writeNowPlayingStreamDebugEnabled(false);
         store.writeNowPlayingStreamDebugAutoShowEnabled(false);
@@ -47,9 +47,9 @@ describe('DebugOverridesStore', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW, 'bogus');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_DEBUG, 'bogus');
 
-        expect(store.readNowPlayingStreamDebugEnabled()).toBe(false);
-        expect(store.readNowPlayingStreamDebugAutoShowEnabled()).toBe(false);
-        expect(store.readEpgDebugEnabled()).toBe(false);
+        expect(store.readNowPlayingStreamDebugEnabledAndClean()).toBe(false);
+        expect(store.readNowPlayingStreamDebugAutoShowEnabledAndClean()).toBe(false);
+        expect(store.readEpgDebugEnabledAndClean()).toBe(false);
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG)).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW)).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG)).toBeNull();
@@ -59,7 +59,7 @@ describe('DebugOverridesStore', () => {
         const longName = `  ${'A'.repeat(200)}  `;
         localStorage.setItem(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME, longName);
 
-        const value = store.readTranscodeProfileName();
+        const value = store.readTranscodeProfileNameAndClean();
 
         expect(value).toBe('A'.repeat(128));
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME)).toBe('A'.repeat(128));
@@ -68,7 +68,7 @@ describe('DebugOverridesStore', () => {
     it('removes invalid transcode profile names', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME, 'bad\nname');
 
-        expect(store.readTranscodeProfileName()).toBeNull();
+        expect(store.readTranscodeProfileNameAndClean()).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME)).toBeNull();
 
         store.writeTranscodeProfileName('   ');
@@ -101,10 +101,10 @@ describe('DebugOverridesStore', () => {
         });
 
         try {
-            expect(() => store.readNowPlayingStreamDebugEnabled()).not.toThrow();
-            expect(() => store.readNowPlayingStreamDebugAutoShowEnabled()).not.toThrow();
-            expect(() => store.readEpgDebugEnabled()).not.toThrow();
-            expect(() => store.readTranscodeProfileName()).not.toThrow();
+            expect(() => store.readNowPlayingStreamDebugEnabledAndClean()).not.toThrow();
+            expect(() => store.readNowPlayingStreamDebugAutoShowEnabledAndClean()).not.toThrow();
+            expect(() => store.readEpgDebugEnabledAndClean()).not.toThrow();
+            expect(() => store.readTranscodeProfileNameAndClean()).not.toThrow();
             expect(() => store.writeNowPlayingStreamDebugEnabled(true)).not.toThrow();
             expect(() => store.writeNowPlayingStreamDebugAutoShowEnabled(true)).not.toThrow();
             expect(() => store.writeEpgDebugEnabled(true)).not.toThrow();

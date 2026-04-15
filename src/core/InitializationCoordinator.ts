@@ -396,7 +396,7 @@ export class InitializationCoordinator {
             updateModuleStatus: this._callbacks.status.updateModuleStatus,
             configureDiscoveryStorage: this._callbacks.serverStorage.configureDiscoveryStorage,
             readShowProfilePickerOnStartup: (): boolean =>
-                this._deps.stores.profileSessionStore.readShowProfilePickerOnStartup(false),
+                this._deps.stores.profileSessionStore.readShowProfilePickerOnStartupAndClean(false),
             handlers: {
                 registerAuthResume: (): void => this._registerAuthResume(),
                 registerProfileResume: (): void => this._registerProfileResume(),
@@ -651,9 +651,7 @@ export class InitializationCoordinator {
                 return;
             }
             this.clearAuthResume();
-            this.runStartup(2).catch((error) => {
-                console.error('[InitializationCoordinator] Auth resume failed:', summarizeErrorForLog(error));
-            });
+            this._resumeStartupPhase(2, '[InitializationCoordinator] Auth resume failed:');
         });
         this._authResumeDisposable = disposable;
     }
@@ -672,9 +670,7 @@ export class InitializationCoordinator {
                 return;
             }
             this.clearServerResume();
-            this.runStartup(3).catch((error) => {
-                console.error('[InitializationCoordinator] Server resume failed:', summarizeErrorForLog(error));
-            });
+            this._resumeStartupPhase(3, '[InitializationCoordinator] Server resume failed:');
         });
         this._serverResumeDisposable = disposable;
     }
@@ -693,10 +689,14 @@ export class InitializationCoordinator {
             // Critical: ensure discovery storage keys are updated for the new activeUserId
             // before Phase 3 runs and restores server selection from localStorage.
             this._callbacks.serverStorage.configureDiscoveryStorage();
-            this.runStartup(3).catch((error) => {
-                console.error('[InitializationCoordinator] Profile resume failed:', summarizeErrorForLog(error));
-            });
+            this._resumeStartupPhase(3, '[InitializationCoordinator] Profile resume failed:');
         });
         this._profileResumeDisposable = disposable;
+    }
+
+    private _resumeStartupPhase(phase: 2 | 3, message: string): void {
+        void this.runStartup(phase).catch((error) => {
+            console.warn(message, summarizeErrorForLog(error));
+        });
     }
 }

@@ -15,9 +15,9 @@ describe('AudioSettingsStore', () => {
     });
 
     it('returns defaults when keys are missing', () => {
-        expect(store.readDtsPassthroughEnabled()).toBe(false);
-        expect(store.readDirectPlayAudioFallbackEnabled()).toBe(false);
-        expect(store.readAudioSetupComplete()).toBe(false);
+        expect(store.readDtsPassthroughEnabledAndClean()).toBe(false);
+        expect(store.readDirectPlayAudioFallbackEnabledAndClean()).toBe(false);
+        expect(store.readAudioSetupCompleteAndClean()).toBe(false);
     });
 
     it('reads/writes booleans as 1/0', () => {
@@ -43,9 +43,9 @@ describe('AudioSettingsStore', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK, 'bogus');
         localStorage.setItem(LINEUP_STORAGE_KEYS.AUDIO_SETUP_COMPLETE, 'bogus');
 
-        expect(store.readDtsPassthroughEnabled()).toBe(false);
-        expect(store.readDirectPlayAudioFallbackEnabled()).toBe(false);
-        expect(store.readAudioSetupComplete()).toBe(false);
+        expect(store.readDtsPassthroughEnabledAndClean()).toBe(false);
+        expect(store.readDirectPlayAudioFallbackEnabledAndClean()).toBe(false);
+        expect(store.readAudioSetupCompleteAndClean()).toBe(false);
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.DTS_PASSTHROUGH)).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK)).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.AUDIO_SETUP_COMPLETE)).toBeNull();
@@ -62,9 +62,9 @@ describe('AudioSettingsStore', () => {
             throw new DOMException('Blocked', 'SecurityError');
         });
 
-        expect(() => store.readDtsPassthroughEnabled()).not.toThrow();
-        expect(() => store.readDirectPlayAudioFallbackEnabled()).not.toThrow();
-        expect(() => store.readAudioSetupComplete()).not.toThrow();
+        expect(() => store.readDtsPassthroughEnabledAndClean()).not.toThrow();
+        expect(() => store.readDirectPlayAudioFallbackEnabledAndClean()).not.toThrow();
+        expect(() => store.readAudioSetupCompleteAndClean()).not.toThrow();
         expect(() => store.writeDtsPassthroughEnabled(true)).not.toThrow();
         expect(() => store.writeDirectPlayAudioFallbackEnabled(true)).not.toThrow();
         expect(() => store.writeAudioSetupComplete(true)).not.toThrow();

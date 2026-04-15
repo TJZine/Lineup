@@ -11,7 +11,7 @@ import {
 } from '../../shared/subtitle-mode';
 
 export class SubtitlePreferencesStore {
-    readSubtitleMode(fallback: SubtitleMode = 'full'): SubtitleMode {
+    readSubtitleModeAndClean(fallback: SubtitleMode = 'full'): SubtitleMode {
         const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.SUBTITLE_MODE);
         const parsed = parseSubtitleMode(raw);
         if (parsed) {
@@ -27,7 +27,7 @@ export class SubtitlePreferencesStore {
         safeLocalStorageSet(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, mode);
     }
 
-    readSubtitlePreferForced(fallback: boolean = false): boolean {
+    readSubtitlePreferForcedAndClean(fallback: boolean = false): boolean {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.SUBTITLE_PREFER_FORCED, fallback);
     }
 
@@ -35,7 +35,7 @@ export class SubtitlePreferencesStore {
         safeLocalStorageSet(LINEUP_STORAGE_KEYS.SUBTITLE_PREFER_FORCED, enabled ? '1' : '0');
     }
 
-    readSubtitleLanguage(): string | null {
+    readSubtitleLanguageAndClean(): string | null {
         const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE);
         if (raw === null) {
             return null;

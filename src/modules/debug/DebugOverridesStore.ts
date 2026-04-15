@@ -10,7 +10,7 @@ const PROFILE_MAX_LENGTH = 128;
 const INVALID_PROFILE_CHARS = /[\r\n\0]/;
 
 export class DebugOverridesStore {
-    readNowPlayingStreamDebugEnabled(): boolean {
+    readNowPlayingStreamDebugEnabledAndClean(): boolean {
         return this._readBooleanKey(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG, false);
     }
 
@@ -18,7 +18,7 @@ export class DebugOverridesStore {
         safeLocalStorageSet(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG, enabled ? '1' : '0');
     }
 
-    readNowPlayingStreamDebugAutoShowEnabled(): boolean {
+    readNowPlayingStreamDebugAutoShowEnabledAndClean(): boolean {
         return this._readBooleanKey(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW, false);
     }
 
@@ -26,7 +26,7 @@ export class DebugOverridesStore {
         safeLocalStorageSet(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW, enabled ? '1' : '0');
     }
 
-    readEpgDebugEnabled(fallback: boolean = false): boolean {
+    readEpgDebugEnabledAndClean(fallback: boolean = false): boolean {
         return this._readBooleanKey(LINEUP_STORAGE_KEYS.EPG_DEBUG, fallback);
     }
 
@@ -34,7 +34,7 @@ export class DebugOverridesStore {
         safeLocalStorageSet(LINEUP_STORAGE_KEYS.EPG_DEBUG, enabled ? '1' : '0');
     }
 
-    readTranscodeProfileName(): string | null {
+    readTranscodeProfileNameAndClean(): string | null {
         const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.TRANSCODE_PROFILE_NAME);
         if (raw === null) return null;
 

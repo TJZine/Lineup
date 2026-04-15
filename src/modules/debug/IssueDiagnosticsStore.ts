@@ -30,7 +30,7 @@ export class IssueDiagnosticsStore {
     }
 
     append(issue: string, event: string, data: unknown): void {
-        if (!this._developerSettingsStore.readDebugLoggingEnabled(false)) {
+        if (!this._developerSettingsStore.readDebugLoggingEnabledAndClean(false)) {
             return;
         }
 

@@ -60,7 +60,7 @@ const TRACK_SWITCH_POLL_INTERVAL_MS = 100;
  * Manages audio track switching with retry logic.
  */
 export type AudioTrackManagerDeps = {
-    audioSettingsStore: Pick<AudioSettingsStore, 'readDtsPassthroughEnabled'>;
+    audioSettingsStore: Pick<AudioSettingsStore, 'readDtsPassthroughEnabledAndClean'>;
 };
 
 export class AudioTrackManager {
@@ -73,7 +73,7 @@ export class AudioTrackManager {
     /** Currently active track ID */
     private _activeTrackId: string | null = null;
 
-    private readonly _audioSettingsStore: Pick<AudioSettingsStore, 'readDtsPassthroughEnabled'>;
+    private readonly _audioSettingsStore: Pick<AudioSettingsStore, 'readDtsPassthroughEnabledAndClean'>;
 
     constructor(deps: AudioTrackManagerDeps) {
         this._audioSettingsStore = deps.audioSettingsStore;
@@ -218,7 +218,7 @@ export class AudioTrackManager {
     private _isCodecSupported(codec: string): boolean {
         const normalizedCodec = codec.toLowerCase().trim();
         if (normalizedCodec === 'dts' || normalizedCodec === 'dca' || normalizedCodec.startsWith('dts')) {
-            return this._audioSettingsStore.readDtsPassthroughEnabled(false);
+            return this._audioSettingsStore.readDtsPassthroughEnabledAndClean(false);
         }
         return SUPPORTED_AUDIO_CODECS.some(
             (supported) => normalizedCodec === supported || normalizedCodec.startsWith(supported)

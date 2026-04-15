@@ -51,7 +51,7 @@ export class EPGDebugRuntime implements IEPGDebugRuntime {
         }
         this._enabledCacheReadMs = now;
         try {
-            this._enabledCache = this._debugOverridesStore.readEpgDebugEnabled(false);
+            this._enabledCache = this._debugOverridesStore.readEpgDebugEnabledAndClean(false);
         } catch {
             this._enabledCache = false;
         }

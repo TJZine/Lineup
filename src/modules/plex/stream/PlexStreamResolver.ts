@@ -96,7 +96,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
     private _isDtsPassthroughEnabled(): boolean {
         try {
-            const userEnabled = this._audioSettingsStore.readDtsPassthroughEnabled(false);
+            const userEnabled = this._audioSettingsStore.readDtsPassthroughEnabledAndClean(false);
             const chromeMajor = this._getChromeMajor();
             return userEnabled && chromeMajor !== null && chromeMajor >= 108;
         } catch {
@@ -118,7 +118,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     }
 
     private _isSubtitleDebugEnabled(): boolean {
-        return this._developerSettingsStore.readSubtitleDebugLoggingEnabled(false);
+        return this._developerSettingsStore.readSubtitleDebugLoggingEnabledAndClean(false);
     }
 
     private _logSubtitleDebug(event: string, context: Record<string, unknown>): void {
@@ -329,7 +329,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         const sessionId = generatePlexSessionId();
-        const allowDirectPlayAudioFallback = this._audioSettingsStore.readDirectPlayAudioFallbackEnabled();
+        const allowDirectPlayAudioFallback = this._audioSettingsStore.readDirectPlayAudioFallbackEnabledAndClean();
         const dtsPassthroughEnabled = this._isDtsPassthroughEnabled();
         const userAgent = this._getBrowserUserAgent();
         const hdr10FallbackMode = this._getHdr10FallbackMode();
@@ -720,7 +720,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         applyXPlexQueryParamsFromHeaders(params, this._config.getAuthHeaders());
 
         // Optional: Force the server to use a specific built-in profile name/version (advanced).
-        const forcedProfileName = this._config.debugOverridesStore.readTranscodeProfileName();
+        const forcedProfileName = this._config.debugOverridesStore.readTranscodeProfileNameAndClean();
         ensurePlexClientProfileName(params, forcedProfileName);
 
         // Ensure minimum required ID params are present even if getAuthHeaders is mocked/minimal
@@ -1110,7 +1110,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        return this._developerSettingsStore.readDebugLoggingEnabled(false);
+        return this._developerSettingsStore.readDebugLoggingEnabledAndClean(false);
     }
 
     // ========================================

@@ -197,7 +197,7 @@ describe('AudioSetupScreen', () => {
     });
 
     it('delegates setup-complete reads through AudioSettingsStore', () => {
-        const readSpy = jest.spyOn(AudioSettingsStore.prototype, 'readAudioSetupComplete').mockReturnValue(true);
+        const readSpy = jest.spyOn(AudioSettingsStore.prototype, 'readAudioSetupCompleteAndClean').mockReturnValue(true);
         expect(AudioSetupScreen.isSetupComplete()).toBe(true);
         expect(readSpy).toHaveBeenCalledWith(false);
         readSpy.mockRestore();

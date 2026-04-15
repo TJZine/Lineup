@@ -381,7 +381,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         }
         const hasShowTitleText = Boolean(showTitle?.textContent?.trim());
 
-        const preferClearLogos = this.nowPlayingDisplayStore.readPreferClearLogosEnabled(true);
+        const preferClearLogos = this.nowPlayingDisplayStore.readPreferClearLogosEnabledAndClean(true);
         const clearLogoPath = (item as { clearLogo?: string | null }).clearLogo ?? null;
         const clearLogoUrl = preferClearLogos && clearLogoPath
             ? (this.thumbResolver?.(clearLogoPath, 520, 84) ?? null)

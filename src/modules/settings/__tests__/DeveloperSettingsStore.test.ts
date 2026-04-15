@@ -12,16 +12,16 @@ describe('DeveloperSettingsStore', () => {
     it('reads debug logging default when missing', () => {
         mockLocalStorage.removeItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING);
         const store = new DeveloperSettingsStore();
-        expect(store.readDebugLoggingEnabled(false)).toBe(false);
-        expect(store.readDebugLoggingEnabled(true)).toBe(true);
+        expect(store.readDebugLoggingEnabledAndClean(false)).toBe(false);
+        expect(store.readDebugLoggingEnabledAndClean(true)).toBe(true);
     });
 
     it('reads debug logging true/false', () => {
         const store = new DeveloperSettingsStore();
         mockLocalStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, '1');
-        expect(store.readDebugLoggingEnabled(false)).toBe(true);
+        expect(store.readDebugLoggingEnabledAndClean(false)).toBe(true);
         mockLocalStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, '0');
-        expect(store.readDebugLoggingEnabled(true)).toBe(false);
+        expect(store.readDebugLoggingEnabledAndClean(true)).toBe(false);
     });
 
     it('writes debug logging true/false', () => {
@@ -44,7 +44,7 @@ describe('DeveloperSettingsStore', () => {
     it('normalizes invalid debug logging values', () => {
         const store = new DeveloperSettingsStore();
         mockLocalStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, 'true');
-        expect(store.readDebugLoggingEnabled(false)).toBe(false);
+        expect(store.readDebugLoggingEnabledAndClean(false)).toBe(false);
         expect(mockLocalStorage.getItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING)).toBe(null);
     });
 
@@ -65,16 +65,16 @@ describe('DeveloperSettingsStore', () => {
     it('reads subtitle debug logging default when missing', () => {
         mockLocalStorage.removeItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING);
         const store = new DeveloperSettingsStore();
-        expect(store.readSubtitleDebugLoggingEnabled(false)).toBe(false);
-        expect(store.readSubtitleDebugLoggingEnabled(true)).toBe(true);
+        expect(store.readSubtitleDebugLoggingEnabledAndClean(false)).toBe(false);
+        expect(store.readSubtitleDebugLoggingEnabledAndClean(true)).toBe(true);
     });
 
     it('reads subtitle debug logging true/false', () => {
         const store = new DeveloperSettingsStore();
         mockLocalStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING, '1');
-        expect(store.readSubtitleDebugLoggingEnabled(false)).toBe(true);
+        expect(store.readSubtitleDebugLoggingEnabledAndClean(false)).toBe(true);
         mockLocalStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING, '0');
-        expect(store.readSubtitleDebugLoggingEnabled(true)).toBe(false);
+        expect(store.readSubtitleDebugLoggingEnabledAndClean(true)).toBe(false);
     });
 
     it('writes subtitle debug logging true/false', () => {
@@ -97,7 +97,7 @@ describe('DeveloperSettingsStore', () => {
     it('normalizes invalid subtitle debug logging values', () => {
         const store = new DeveloperSettingsStore();
         mockLocalStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING, 'yes');
-        expect(store.readSubtitleDebugLoggingEnabled(false)).toBe(false);
+        expect(store.readSubtitleDebugLoggingEnabledAndClean(false)).toBe(false);
         expect(mockLocalStorage.getItem(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING)).toBe(null);
     });
 
@@ -125,8 +125,8 @@ describe('DeveloperSettingsStore', () => {
         });
 
         try {
-            expect(() => store.readDebugLoggingEnabled(false)).not.toThrow();
-            expect(() => store.readSubtitleDebugLoggingEnabled(false)).not.toThrow();
+            expect(() => store.readDebugLoggingEnabledAndClean(false)).not.toThrow();
+            expect(() => store.readSubtitleDebugLoggingEnabledAndClean(false)).not.toThrow();
             expect(() => store.writeDebugLoggingEnabled(true)).not.toThrow();
             expect(() => store.writeSubtitleDebugLoggingEnabled(true)).not.toThrow();
         } finally {

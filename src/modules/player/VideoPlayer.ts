@@ -85,7 +85,7 @@ export class VideoPlayer implements IVideoPlayer {
     }
 
     private _isSubtitleDebugEnabled(): boolean {
-        return this._developerSettingsStore.readSubtitleDebugLoggingEnabled(false);
+        return this._developerSettingsStore.readSubtitleDebugLoggingEnabledAndClean(false);
     }
 
     private _logSubtitleDebug(event: string, contextFactory: () => Record<string, unknown>): void {

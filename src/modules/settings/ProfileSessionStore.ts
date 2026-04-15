@@ -7,7 +7,7 @@ import {
 } from '../../utils/storage';
 
 export class ProfileSessionStore {
-    readShowProfilePickerOnStartup(fallback: boolean = false): boolean {
+    readShowProfilePickerOnStartupAndClean(fallback: boolean = false): boolean {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP, fallback);
     }
 
@@ -15,7 +15,7 @@ export class ProfileSessionStore {
         safeLocalStorageSet(LINEUP_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP, enabled ? '1' : '0');
     }
 
-    readKeepPlayingInSettings(fallback: boolean = false): boolean {
+    readKeepPlayingInSettingsAndClean(fallback: boolean = false): boolean {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS, fallback);
     }
 
@@ -23,7 +23,7 @@ export class ProfileSessionStore {
         safeLocalStorageSet(LINEUP_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS, enabled ? '1' : '0');
     }
 
-    readLastProfileId(): string | null {
+    readLastProfileIdAndClean(): string | null {
         return readTrimmedStringAndClean(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID);
     }
 

@@ -123,7 +123,7 @@ export class PlaybackOptionsCoordinator {
 
     private buildViewModel(): PlaybackOptionsViewModel {
         const player = this.deps.getVideoPlayer();
-        const subtitleMode = this.subtitlePreferencesStore.readSubtitleMode('full');
+        const subtitleMode = this.subtitlePreferencesStore.readSubtitleModeAndClean('full');
         const externalOnly = subtitleModeIsDirectOnly(subtitleMode);
         const allowBurnIn = subtitleModeAllowsBurnIn(subtitleMode);
         const subtitleTracks = player?.getAvailableSubtitles() ?? [];
@@ -294,7 +294,7 @@ export class PlaybackOptionsCoordinator {
         const player = this.deps.getVideoPlayer();
         if (!player) return;
         if (trackId) {
-            const mode = this.subtitlePreferencesStore.readSubtitleMode('full');
+            const mode = this.subtitlePreferencesStore.readSubtitleModeAndClean('full');
             if (mode === 'off') {
                 // Selecting a subtitle should implicitly enable subtitle handling.
                 this.subtitlePreferencesStore.writeSubtitleMode('standard');
@@ -325,7 +325,7 @@ export class PlaybackOptionsCoordinator {
         token: number,
         player: IVideoPlayer
     ): Promise<boolean> {
-        const mode = this.subtitlePreferencesStore.readSubtitleMode('full');
+        const mode = this.subtitlePreferencesStore.readSubtitleModeAndClean('full');
         const allowBurnIn = subtitleModeAllowsBurnIn(mode);
         if (!allowBurnIn) {
             return true;

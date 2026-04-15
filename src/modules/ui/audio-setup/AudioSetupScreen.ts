@@ -75,7 +75,7 @@ export class AudioSetupScreen {
         this._container = container;
         this._getNavigation = getNavigation;
         this._onComplete = onComplete;
-        this._directPlayFallbackEnabled = this._audioSettingsStore.readDirectPlayAudioFallbackEnabled(
+        this._directPlayFallbackEnabled = this._audioSettingsStore.readDirectPlayAudioFallbackEnabledAndClean(
             DEFAULT_SETTINGS.audio.directPlayAudioFallback
         );
         this._buildUI();
@@ -253,7 +253,7 @@ export class AudioSetupScreen {
      * Check if audio setup is already complete.
      */
     public static isSetupComplete(): boolean {
-        return new AudioSettingsStore().readAudioSetupComplete(false);
+        return new AudioSettingsStore().readAudioSetupCompleteAndClean(false);
     }
 
     /**
@@ -378,7 +378,9 @@ export class AudioSetupScreen {
             }
             return;
         }
-        const dtsEnabled = this._audioSettingsStore.readDtsPassthroughEnabled(DEFAULT_SETTINGS.audio.dtsPassthrough);
+        const dtsEnabled = this._audioSettingsStore.readDtsPassthroughEnabledAndClean(
+            DEFAULT_SETTINGS.audio.dtsPassthrough
+        );
         this._selectedChoice = dtsEnabled ? 'external' : 'tv-speakers';
         this._lastFocusedChoiceId = `audio-choice-${this._selectedChoice}`;
 

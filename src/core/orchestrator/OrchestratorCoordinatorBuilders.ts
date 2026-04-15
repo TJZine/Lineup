@@ -341,7 +341,7 @@ export function buildPlaybackRecovery(
         getServerUri: (): string | null =>
             input.modules.plexDiscovery.getServerUri() ?? null,
         getPreferredSubtitleLanguage: (): string | null =>
-            input.stores.subtitlePreferencesStore.readSubtitleLanguage(),
+            input.stores.subtitlePreferencesStore.readSubtitleLanguageAndClean(),
         getPlexPreferredSubtitleLanguage: (): string | null =>
             input.modules.plexAuth.getCurrentUser()?.preferredSubtitleLanguage ?? null,
         notifySubtitleUnavailable: (): void => {
@@ -588,8 +588,8 @@ export function buildNavigationCoordinator(
             input.nowPlaying.handler()?.(toast);
         },
         readKeepPlayingInSettings: (): boolean =>
-            input.stores.profileSessionStore.readKeepPlayingInSettings(false),
+            input.stores.profileSessionStore.readKeepPlayingInSettingsAndClean(false),
         readDebugLoggingEnabled: (): boolean =>
-            input.stores.developerSettingsStore.readDebugLoggingEnabled(false),
+            input.stores.developerSettingsStore.readDebugLoggingEnabledAndClean(false),
     });
 }

@@ -126,11 +126,11 @@ export class PlaybackRecoveryManager {
     }
 
     private _preferForcedSubtitles(): boolean {
-        return this._subtitlePreferencesStore.readSubtitlePreferForced(false);
+        return this._subtitlePreferencesStore.readSubtitlePreferForcedAndClean(false);
     }
 
     private _readSubtitleMode(): SubtitleMode {
-        return this._subtitlePreferencesStore.readSubtitleMode('full');
+        return this._subtitlePreferencesStore.readSubtitleModeAndClean('full');
     }
 
     private _getCurrentItemKey(): string | null {

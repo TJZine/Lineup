@@ -2,7 +2,7 @@ import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import { readStoredBooleanAndClean, safeLocalStorageRemove, safeLocalStorageSet } from '../../utils/storage';
 
 export class AudioSettingsStore {
-    readDtsPassthroughEnabled(fallback: boolean = false): boolean {
+    readDtsPassthroughEnabledAndClean(fallback: boolean = false): boolean {
         return this._readBooleanKey(LINEUP_STORAGE_KEYS.DTS_PASSTHROUGH, fallback);
     }
 
@@ -10,7 +10,7 @@ export class AudioSettingsStore {
         safeLocalStorageSet(LINEUP_STORAGE_KEYS.DTS_PASSTHROUGH, enabled ? '1' : '0');
     }
 
-    readDirectPlayAudioFallbackEnabled(fallback: boolean = false): boolean {
+    readDirectPlayAudioFallbackEnabledAndClean(fallback: boolean = false): boolean {
         return this._readBooleanKey(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK, fallback);
     }
 
@@ -18,7 +18,7 @@ export class AudioSettingsStore {
         safeLocalStorageSet(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK, enabled ? '1' : '0');
     }
 
-    readAudioSetupComplete(fallback: boolean = false): boolean {
+    readAudioSetupCompleteAndClean(fallback: boolean = false): boolean {
         return this._readBooleanKey(LINEUP_STORAGE_KEYS.AUDIO_SETUP_COMPLETE, fallback);
     }
 

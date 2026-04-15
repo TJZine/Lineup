@@ -80,13 +80,13 @@ function initializeWithVideo(manager: AudioTrackManager): HTMLVideoElement {
 
 describe('AudioTrackManager', () => {
     let manager: AudioTrackManager;
-    let readDtsPassthroughEnabled: jest.Mock<boolean, [boolean?]>;
+    let readDtsPassthroughEnabledAndClean: jest.Mock<boolean, [boolean?]>;
 
     beforeEach(() => {
-        readDtsPassthroughEnabled = jest.fn().mockReturnValue(false);
+        readDtsPassthroughEnabledAndClean = jest.fn().mockReturnValue(false);
         manager = new AudioTrackManager({
             audioSettingsStore: {
-                readDtsPassthroughEnabled,
+                readDtsPassthroughEnabledAndClean,
             },
         });
     });
@@ -207,7 +207,7 @@ describe('AudioTrackManager', () => {
         });
 
         it('should allow DTS when passthrough is enabled via AudioSettingsStore', async () => {
-            readDtsPassthroughEnabled.mockReturnValue(true);
+            readDtsPassthroughEnabledAndClean.mockReturnValue(true);
             const videoEl = createMockVideoElement([
                 { id: 'track-aac', enabled: true },
                 { id: 'track-dts', enabled: false },

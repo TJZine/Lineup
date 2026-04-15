@@ -90,7 +90,7 @@ export function createOrchestratorModules(deps: OrchestratorModuleFactoryDeps): 
     const lifecycle = new AppLifecycle(undefined, undefined, deps.platformServices.lifecycle);
     const navigation = new NavigationManager(deps.platformServices.input, {
         readDebugLoggingEnabled: (): boolean =>
-            deps.developerSettingsStore.readDebugLoggingEnabled(false),
+            deps.developerSettingsStore.readDebugLoggingEnabledAndClean(false),
     });
     const plexAuth = new PlexAuth(deps.config.plexConfig);
     const plexDiscovery = new PlexServerDiscovery({

@@ -6,7 +6,7 @@ import {
 } from '../../utils/storage';
 
 export class NowPlayingDisplayStore {
-    readCinematicNowPlayingEnabled(fallback: boolean = false): boolean {
+    readCinematicNowPlayingEnabledAndClean(fallback: boolean = false): boolean {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.CINEMATIC_NOW_PLAYING, fallback);
     }
 
@@ -14,7 +14,7 @@ export class NowPlayingDisplayStore {
         safeLocalStorageSet(LINEUP_STORAGE_KEYS.CINEMATIC_NOW_PLAYING, enabled ? '1' : '0');
     }
 
-    readPreferClearLogosEnabled(fallback: boolean = true): boolean {
+    readPreferClearLogosEnabledAndClean(fallback: boolean = true): boolean {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, fallback);
     }
 
@@ -22,7 +22,7 @@ export class NowPlayingDisplayStore {
         safeLocalStorageSet(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, enabled ? '1' : '0');
     }
 
-    readClampedAutoHideMs(validOptions: readonly number[], fallback: number): number {
+    readClampedAutoHideMsAndClean(validOptions: readonly number[], fallback: number): number {
         const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS);
         const parsed = ((): number => {
             if (raw === null) return NaN;

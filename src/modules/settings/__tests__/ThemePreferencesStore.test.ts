@@ -15,10 +15,10 @@ describe('ThemePreferencesStore', () => {
 
     it('reads trimmed themes and removes blank persisted values', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.THEME, '  swiss  ');
-        expect(store.readTheme()).toBe('swiss');
+        expect(store.readThemeAndClean()).toBe('swiss');
 
         localStorage.setItem(LINEUP_STORAGE_KEYS.THEME, '   ');
-        expect(store.readTheme()).toBeNull();
+        expect(store.readThemeAndClean()).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.THEME)).toBeNull();
     });
 

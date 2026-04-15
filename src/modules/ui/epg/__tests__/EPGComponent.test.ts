@@ -331,7 +331,7 @@ describe('EPGComponent', () => {
     it('updates debug log gating immediately after cross-tab storage events through injected runtime', () => {
         let debugEnabled = false;
         const readDebugSpy = jest
-            .spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabled')
+            .spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabledAndClean')
             .mockImplementation(() => debugEnabled);
         const debugRuntime = new EPGDebugRuntime();
         const appendSpy = jest.spyOn(debugRuntime, 'append');
