@@ -29,7 +29,7 @@
 ## Fresh-Session Deviations
 
 - fresh reviewer session was used
-- the repo-local `review-context-loader` skill path advertised in the session tool manifest was absent at `/Users/tristan/Software/Lineup/.codex/skills/review-context-loader/SKILL.md`, so the run used the tracked runbook and direct repo evidence instead
+- the repo-local `review-context-loader` skill path advertised in the session tool manifest was absent at `.codex/skills/review-context-loader/SKILL.md`, so the run used the tracked runbook and direct repo evidence instead
 
 ## Outcome Summary
 

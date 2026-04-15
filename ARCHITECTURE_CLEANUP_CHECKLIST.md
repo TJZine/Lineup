@@ -1305,10 +1305,11 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
   - `desloppify show src/modules/player --status open --no-budget --top 200` refreshed; no new `P7-W1`-specific player issues were introduced
   - `desloppify show logs --status open --no-budget --top 50` refreshed; no new log-only regressions were introduced by the Media Session warning change
   - `desloppify show smells --status open --no-budget --top 250` refreshed; no new recovery-helper smell was introduced by the shared reload executor
-  - `desloppify show "review::.::holistic::ai_generated_debt::nested_defensive_catch_defaults" --status all` still reports stale pre-fix evidence against `PlaybackRecoveryManager`; current source no longer contains those blanket getter/live-position catch wrappers
-  - `desloppify show "review::.::holistic::error_consistency::media_session_play_swallow" --status all` still reports stale pre-fix evidence; current `VideoPlayer` now routes Media Session `play()` failures through `_warnMediaSessionActionFailure('play', error)`
-  - `desloppify show "review::.::holistic::low_level_elegance::playback_recovery_repeated_reload_choreography" --status all` still reports stale pre-extraction evidence; current source routes all four reload paths through `_executeRecoveryReload(...)`
-  - `desloppify show "review::.::holistic::type_safety::raw_error_code_string_branching" --status all` now points at `src/core/channel-setup/ChannelSetupPlanningService.ts`, not the player recovery slice
+  - reran all four mapped `P7-W1` imported issue-id commands with `desloppify show ... --status open --no-budget --top 20`; each returned no open issues on current branch code
+  - supplemental context: `desloppify show "review::.::holistic::ai_generated_debt::nested_defensive_catch_defaults" --status all` still reports stale pre-fix evidence against `PlaybackRecoveryManager`; current source no longer contains those blanket getter/live-position catch wrappers
+  - supplemental context: `desloppify show "review::.::holistic::error_consistency::media_session_play_swallow" --status all` still reports stale pre-fix evidence; current `VideoPlayer` now routes Media Session `play()` failures through `_warnMediaSessionActionFailure('play', error)`
+  - supplemental context: `desloppify show "review::.::holistic::low_level_elegance::playback_recovery_repeated_reload_choreography" --status all` still reports stale pre-extraction evidence; current source routes all four reload paths through `_executeRecoveryReload(...)`
+  - supplemental context: `desloppify show "review::.::holistic::type_safety::raw_error_code_string_branching" --status all` now points at `src/core/channel-setup/ChannelSetupPlanningService.ts`, not the player recovery slice
 - Follow-ups: `P7-W2` remains the next planned player cleanup slice; no additional `P7-W1` split follow-up is required from current-source evidence
 - Handoff: run `lineup-cleanup-review` for `P7-W1` implementation evidence before opening `P7-W2`
 
