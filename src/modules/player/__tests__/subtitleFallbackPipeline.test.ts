@@ -123,6 +123,70 @@ Hello`));
         expect(fetchMock.mock.calls[1]?.[0]).toBe('http://192.168.50.19:32400/library/streams/1?X-Plex-Token=token');
     });
 
+    it('rejects html subtitle responses and logs the html_response branch', async () => {
+        const fetchMock = globalThis.fetch as jest.Mock;
+        const logDebug = jest.fn();
+        fetchMock.mockResolvedValueOnce(
+            createResponse('<!DOCTYPE html><html><body>not a subtitle</body></html>', {
+                contentType: 'text/html',
+            })
+        );
+
+        const result = await fetchSubtitleFallbackVtt({
+            track: createTrack(),
+            initialUrl: new URL('http://example.com/library/streams/1?X-Plex-Token=token'),
+            context: {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            },
+            signal: new AbortController().signal,
+            isCurrentLoad: () => true,
+            deriveLanHttpUrl: () => null,
+            logDebug,
+        });
+
+        expect(result).toBeNull();
+        expect(logDebug).toHaveBeenCalledWith(
+            'subtitle_fetch_error',
+            expect.any(Function)
+        );
+        const htmlResponseLog = logDebug.mock.calls
+            .map((call) => call[1]())
+            .find((entry) => entry.error === 'html_response');
+        expect(htmlResponseLog).toEqual(
+            expect.objectContaining({
+                id: 'sub-1',
+                error: 'html_response',
+                attempt: 'query',
+            })
+        );
+    });
+
+    it('short-circuits to null when the load is stale after a fetch attempt', async () => {
+        const fetchMock = globalThis.fetch as jest.Mock;
+        fetchMock.mockResolvedValueOnce(createResponse(`1
+00:00:00,000 --> 00:00:01,000
+Hello`));
+
+        let currentLoad = true;
+        const resultPromise = fetchSubtitleFallbackVtt({
+            track: createTrack(),
+            initialUrl: new URL('http://example.com/library/streams/1?X-Plex-Token=token'),
+            context: {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            },
+            signal: new AbortController().signal,
+            isCurrentLoad: () => currentLoad,
+            deriveLanHttpUrl: () => null,
+            logDebug: jest.fn(),
+        });
+        currentLoad = false;
+
+        await expect(resultPromise).resolves.toBeNull();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
     it('falls back to the universal subtitles endpoint when stream fetch attempts fail', async () => {
         const fetchMock = globalThis.fetch as jest.Mock;
         fetchMock
