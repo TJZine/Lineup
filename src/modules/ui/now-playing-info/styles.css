@@ -1,6 +1,6 @@
-@import './styles.core.css';
-@import './styles.motion.css';
-@import './styles.theme.css';
+@import url('./styles.core.css');
+@import url('./styles.motion.css');
+@import url('./styles.theme.css');
 
 .now-playing-info-actors {
   display: flex;
