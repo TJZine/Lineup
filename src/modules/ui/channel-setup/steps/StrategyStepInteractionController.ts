@@ -425,7 +425,7 @@ export class StrategyStepInteractionController {
                     value,
                 })),
                 currentValue: session.buildMode,
-                onSelect: (value) => {
+                onSelect: (value): void => {
                     this.applySettingChange(controlId, (draft) => {
                         draft.buildMode = value as typeof draft.buildMode;
                     }, adapters);
@@ -441,7 +441,7 @@ export class StrategyStepInteractionController {
                     value,
                 })),
                 currentValue: session.actorStudioCombineMode,
-                onSelect: (value) => {
+                onSelect: (value): void => {
                     this.applySettingChange(controlId, (draft) => {
                         draft.actorStudioCombineMode = value as typeof draft.actorStudioCombineMode;
                     }, adapters);
@@ -460,7 +460,7 @@ export class StrategyStepInteractionController {
                     value: String(value),
                 })),
                 currentValue: String(session.channelExpansion.alternateLineupCopies),
-                onSelect: (value) => {
+                onSelect: (value): void => {
                     this.applySettingChange(controlId, (draft) => {
                         draft.channelExpansion.alternateLineupCopies = Number(value);
                     }, adapters);
@@ -476,7 +476,7 @@ export class StrategyStepInteractionController {
                     value,
                 })),
                 currentValue: session.seriesOrdering.basePlaybackMode,
-                onSelect: (value) => {
+                onSelect: (value): void => {
                     this.applySettingChange(controlId, (draft) => {
                         draft.seriesOrdering.basePlaybackMode = value as typeof draft.seriesOrdering.basePlaybackMode;
                     }, adapters);
@@ -495,7 +495,7 @@ export class StrategyStepInteractionController {
                     value: String(value),
                 })),
                 currentValue: String(session.seriesOrdering.baseBlockSize),
-                onSelect: (value) => {
+                onSelect: (value): void => {
                     this.applySettingChange(controlId, (draft) => {
                         draft.seriesOrdering.baseBlockSize = Number(value);
                     }, adapters);
@@ -511,7 +511,7 @@ export class StrategyStepInteractionController {
                     value,
                 })),
                 currentValue: session.channelExpansion.variantType,
-                onSelect: (value) => {
+                onSelect: (value): void => {
                     this.applySettingChange(controlId, (draft) => {
                         draft.channelExpansion.variantType = value as typeof draft.channelExpansion.variantType;
                     }, adapters);
@@ -530,7 +530,7 @@ export class StrategyStepInteractionController {
                     value: String(value),
                 })),
                 currentValue: String(session.channelExpansion.variantBlockSize),
-                onSelect: (value) => {
+                onSelect: (value): void => {
                     this.applySettingChange(controlId, (draft) => {
                         draft.channelExpansion.variantBlockSize = Number(value);
                     }, adapters);
@@ -546,7 +546,7 @@ export class StrategyStepInteractionController {
                     value: String(value),
                 })),
                 currentValue: String(session.maxChannels),
-                onSelect: (value) => {
+                onSelect: (value): void => {
                     this.applySettingChange(controlId, (draft) => {
                         draft.maxChannels = Number(value);
                     }, adapters);
@@ -562,7 +562,7 @@ export class StrategyStepInteractionController {
                     value: String(value),
                 })),
                 currentValue: String(session.minItems),
-                onSelect: (value) => {
+                onSelect: (value): void => {
                     this.applySettingChange(controlId, (draft) => {
                         draft.minItems = Number(value);
                     }, adapters);

@@ -25,7 +25,11 @@ import type { SetupStrategyKey } from './steps/constants';
 import { scrollToNearest } from './focus/scrollToNearest';
 import { ChannelSetupSessionController } from './ChannelSetupSessionController';
 import { strategySupportsMixedScope } from './ChannelSetupSessionState';
-import type { EstimateKey, StrategyStepMutableState } from './ChannelSetupSessionContracts';
+import type {
+    ChannelSetupSessionSnapshot,
+    EstimateKey,
+    StrategyStepMutableState,
+} from './ChannelSetupSessionContracts';
 import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/ChannelSetupWorkflowPort';
 import type { ChannelSetupScreenPorts } from './ChannelSetupScreenPorts';
 
@@ -153,7 +157,7 @@ export class ChannelSetupScreen {
         });
         this._strategyInteraction = new StrategyStepInteractionController({
             strategySupportsMixedScope,
-            toDomId: (raw) => this._toDomId(raw),
+            toDomId: (raw): string => this._toDomId(raw),
         });
 
         if (!this._channelLimitOptions.includes(DEFAULT_CHANNEL_SETUP_MAX)) {
@@ -411,20 +415,20 @@ export class ChannelSetupScreen {
         }
     }
 
-    private _createStrategyInteractionAdapters() {
+    private _createStrategyInteractionAdapters(): Parameters<StrategyStepInteractionController['handleKeyPress']>[2] {
         return {
             channelLimitOptions: this._channelLimitOptions,
-            deferDropdownRender: () => {
+            deferDropdownRender: (): void => {
                 this._pendingDropdownDeferredRender = true;
             },
-            dismissDropdown: () => {
+            dismissDropdown: (): void => {
                 this._dismissDropdown();
             },
-            getPreferredFocusId: () => this._preferredFocusId,
-            getSessionSnapshot: () => this._session.getSnapshot(),
-            hasActiveDropdown: () => this._activeDropdown !== null,
+            getPreferredFocusId: (): string | null => this._preferredFocusId,
+            getSessionSnapshot: (): ChannelSetupSessionSnapshot => this._session.getSnapshot(),
+            hasActiveDropdown: (): boolean => this._activeDropdown !== null,
             minItemsOptions: this._minItemsOptions,
-            openDropdown: (config: StrategyStepDropdownConfig) => {
+            openDropdown: (config: StrategyStepDropdownConfig): void => {
                 this._openStep2Dropdown(config);
             },
             registerStep2: (
@@ -435,7 +439,7 @@ export class ChannelSetupScreen {
                 detailFocusTarget: string | null,
                 preferredFocusId: string | null,
                 rememberDetailFocus: (id: string) => void
-            ) => this._focus.registerStep2(
+            ): boolean => this._focus.registerStep2(
                 categoryButtons,
                 detailButtons,
                 footerButtons,
@@ -444,16 +448,16 @@ export class ChannelSetupScreen {
                 preferredFocusId,
                 rememberDetailFocus
             ),
-            renderStep: () => {
+            renderStep: (): void => {
                 this._renderStep();
             },
-            schedulePreview: () => {
+            schedulePreview: (): void => {
                 this._session.schedulePreview(() => this._renderStep());
             },
-            setPreferredFocusId: (focusId: string | null) => {
+            setPreferredFocusId: (focusId: string | null): void => {
                 this._preferredFocusId = focusId;
             },
-            setPriorityRowGrabbedVisual: (strategy: SetupStrategyKey | null, grabbed: boolean) => {
+            setPriorityRowGrabbedVisual: (strategy: SetupStrategyKey | null, grabbed: boolean): void => {
                 this._setPriorityRowGrabbedVisual(strategy, grabbed);
             },
             stepPreset: (
@@ -461,10 +465,10 @@ export class ChannelSetupScreen {
                 current: number,
                 dir: 'left' | 'right',
                 mode: 'clamp' | 'wrap'
-            ) => this._stepPreset(options, current, dir, mode),
-            updatePriorityRowState: (rowId: string, enabled: boolean) =>
+            ): number => this._stepPreset(options, current, dir, mode),
+            updatePriorityRowState: (rowId: string, enabled: boolean): boolean =>
                 this._strategyStep.updatePriorityRowState(this._contentEl, rowId, enabled) !== null,
-            updateStrategyState: (mutate: (draft: StrategyStepMutableState) => void) => {
+            updateStrategyState: (mutate: (draft: StrategyStepMutableState) => void): void => {
                 this._session.updateStrategyState(mutate);
             },
         };
