@@ -108,6 +108,10 @@ export function isValidContentSource(source: unknown, depth: number = 0): source
         return false;
     }
 
+    if (!Object.prototype.hasOwnProperty.call(CONTENT_SOURCE_VALIDATORS, src.type)) {
+        return false;
+    }
+
     const validator = CONTENT_SOURCE_VALIDATORS[src.type as ContentSourceType];
-    return validator ? validator(src, depth) : false;
+    return typeof validator === 'function' ? validator(src, depth) : false;
 }
