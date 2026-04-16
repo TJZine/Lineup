@@ -52,9 +52,6 @@ export interface StrategyStepStateSnapshot extends StrategyStepMutableState {
 
 export interface StrategyStepDeps {
     state: StrategyStepStateSnapshot;
-    stepPreset: (options: number[], current: number, dir: 'left' | 'right', mode: 'clamp' | 'wrap') => number;
-    channelLimitOptions: number[];
-    minItemsOptions: number[];
     strategyKeys: readonly SetupStrategyKey[];
     categoryButtonId: (category: StrategyCategoryKey) => string;
     strategyButtonId: (strategy: SetupStrategyKey) => string;
@@ -62,7 +59,6 @@ export interface StrategyStepDeps {
     lastReorder: { key: SetupStrategyKey; dir: 'up' | 'down' } | null;
     scopeButtonId: (strategy: SetupStrategyKey) => string;
     strategySupportsMixedScope: (strategy: SetupStrategyKey) => boolean;
-    rememberDetailFocus: (controlId: string) => void;
     buildPreviewRow: (label: string, value: number | string, key?: EstimateKey) => HTMLElement;
     renderCappedWarnings: (warnings: string[], container: HTMLElement) => void;
     applyCategoryChange: (category: StrategyCategoryKey, focusId: string) => void;
@@ -70,12 +66,7 @@ export interface StrategyStepDeps {
         focusId: string,
         mutate: (state: StrategyStepMutableState) => void
     ) => void;
-    openDropdown: (config: {
-        anchorId: string;
-        options: Array<{ label: string; value: string }>;
-        currentValue: string;
-        onSelect: (value: string) => void;
-    }) => void;
+    openAdjustableControl: (controlId: string) => void;
     onBack: () => void;
     onNext: () => void;
     registerStep2Focusables: (
@@ -86,6 +77,13 @@ export interface StrategyStepDeps {
     ) => void;
     detailText: string;
     schedulePreview: () => void;
+}
+
+export interface StrategyStepDropdownConfig {
+    anchorId: string;
+    options: Array<{ label: string; value: string }>;
+    currentValue: string;
+    onSelect: (value: string) => void;
 }
 
 export interface BuildReviewStateSnapshot {

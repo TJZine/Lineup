@@ -17,23 +17,11 @@ import { renderCappedWarnings } from '../common/render/renderCappedWarnings';
 import { ChannelSetupFocusCoordinator } from './focus/ChannelSetupFocusCoordinator';
 import { LibraryStepController } from './steps/LibraryStepController';
 import { StrategyStepController } from './steps/StrategyStepController';
+import { StrategyStepInteractionController } from './steps/StrategyStepInteractionController';
 import { BuildReviewStepController } from './steps/BuildReviewStepController';
 import { BuildProgressStepController } from './steps/BuildProgressStepController';
-import type { BuildReviewStateSnapshot } from './steps/types';
-import {
-    ADVANCED_STRATEGY_KEYS,
-    ALTERNATE_LINEUP_COPY_OPTIONS,
-    BUILD_MODE_OPTIONS,
-    COMBINE_MODE_OPTIONS,
-    CONTENT_STRATEGY_KEYS,
-    SERIES_BASE_MODE_OPTIONS,
-    SERIES_BLOCK_PRESETS,
-    SERIES_VARIANT_TYPE_OPTIONS,
-    STEP2_CONTROL_IDS,
-    STRATEGY_CATEGORIES,
-    type SetupStrategyKey,
-    type StrategyCategoryKey,
-} from './steps/constants';
+import type { BuildReviewStateSnapshot, StrategyStepDropdownConfig } from './steps/types';
+import type { SetupStrategyKey } from './steps/constants';
 import { scrollToNearest } from './focus/scrollToNearest';
 import { ChannelSetupSessionController } from './ChannelSetupSessionController';
 import { strategySupportsMixedScope } from './ChannelSetupSessionState';
@@ -42,13 +30,6 @@ import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/Chann
 import type { ChannelSetupScreenPorts } from './ChannelSetupScreenPorts';
 
 const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
-
-type AdjustableControl = {
-    cyclePrev: () => boolean;
-    cycleNext: () => boolean;
-    isDisabled: () => boolean;
-    openDropdown: () => void;
-};
 
 const MOVIE_SVG = `
 <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" aria-hidden="true">
@@ -85,9 +66,7 @@ export class ChannelSetupScreen {
     private _errorEl: HTMLElement;
     private _contentEl: HTMLElement;
     private readonly _session: ChannelSetupSessionController;
-
-    private _activeStrategyCategory: StrategyCategoryKey = 'content-sources';
-    private _rememberedDetailFocusByCategory: Partial<Record<StrategyCategoryKey, string>> = {};
+    private readonly _strategyInteraction: StrategyStepInteractionController;
     private _channelLimitOptions: number[] = CHANNEL_LIMIT_PRESETS.filter((value) => value <= MAX_CHANNELS);
     private _minItemsOptions: number[] = [1, 5, 10, 20, 50];
     private _preferredFocusId: string | null = null;
@@ -97,8 +76,6 @@ export class ChannelSetupScreen {
     private _pendingDropdownDeferredRender = false;
     private _previewPanelId = 'setup-preview-panel';
     private _maxPreviewWarnings = 5;
-    private _lastReorder: { key: SetupStrategyKey; dir: 'up' | 'down' } | null = null;
-    private _grabbedPriorityKey: SetupStrategyKey | null = null;
 
     private _getNearestOptionIndex(options: number[], current: number): number {
         const first = options[0];
@@ -142,23 +119,11 @@ export class ChannelSetupScreen {
         return raw.replace(/[^a-zA-Z0-9_-]/g, '_');
     }
 
-    private _strategyButtonId(strategy: SetupStrategyKey): string {
-        return `setup-strategy-${this._toDomId(String(strategy))}`;
-    }
-
-    private _priorityRowId(strategy: SetupStrategyKey): string {
-        return `setup-priority-row-${this._toDomId(String(strategy))}`;
-    }
-
     private _setPriorityRowGrabbedVisual(strategy: SetupStrategyKey | null, grabbed: boolean): void {
         if (!strategy) return;
-        const el = document.getElementById(this._priorityRowId(strategy));
+        const el = document.getElementById(this._strategyInteraction.priorityRowId(strategy));
         el?.classList.toggle('setup-priority-row--grabbed', grabbed);
         el?.setAttribute('aria-grabbed', grabbed ? 'true' : 'false');
-    }
-
-    private _scopeButtonId(strategy: SetupStrategyKey): string {
-        return `setup-scope-${this._toDomId(String(strategy))}`;
     }
 
     private _formatCount(value: number): string {
@@ -185,6 +150,10 @@ export class ChannelSetupScreen {
         this._session = new ChannelSetupSessionController({
             workflowPort: deps.workflowPort,
             getSelectedServerId: (): string | null => this._getSelectedServerId(),
+        });
+        this._strategyInteraction = new StrategyStepInteractionController({
+            strategySupportsMixedScope,
+            toDomId: (raw) => this._toDomId(raw),
         });
 
         if (!this._channelLimitOptions.includes(DEFAULT_CHANNEL_SETUP_MAX)) {
@@ -243,161 +212,12 @@ export class ChannelSetupScreen {
             this._navKeyHandler = (event: KeyEvent): void => {
                 const session = this._session.getSnapshot();
                 if (event.handled || session.step !== 2) return;
-                if (this._activeDropdown && event.button === 'back') {
-                    event.handled = true;
-                    event.originalEvent.preventDefault();
-                    this._dismissDropdown();
-                    return;
-                }
-                const focusedId = nav.getFocusedElement()?.id ?? null;
-                if (!focusedId) return;
-
-                const activeCategoryButtonId = this._categoryButtonId(this._activeStrategyCategory);
-                const adjustableControl = this._getAdjustableStep2Control(focusedId);
-                if (adjustableControl && !adjustableControl.isDisabled()) {
-                    if (event.button === 'ok') {
-                        event.handled = true;
-                        event.originalEvent.preventDefault();
-                        adjustableControl.openDropdown();
-                        return;
-                    }
-                    if (event.button === 'right') {
-                        event.handled = true;
-                        event.originalEvent.preventDefault();
-                        adjustableControl.cycleNext();
-                        return;
-                    }
-                    if (event.button === 'left') {
-                        event.handled = true;
-                        event.originalEvent.preventDefault();
-                        const changed = adjustableControl.cyclePrev();
-                        if (!changed) {
-                            this._preferredFocusId = activeCategoryButtonId;
-                            nav.setFocus(activeCategoryButtonId);
-                        }
-                        return;
-                    }
-                }
-
-                // Grab/drop toggle for priority reorder
-                if (
-                    this._activeStrategyCategory === 'priority-order'
-                    && focusedId.startsWith('setup-priority-row-')
-                    && event.button === 'ok'
-                ) {
-                    event.handled = true;
-                    event.originalEvent.preventDefault();
-                    const strategy = this._strategyKeyFromControlId(focusedId, 'setup-priority-row-');
-                    if (!strategy) return;
-
-                    if (this._grabbedPriorityKey === strategy) {
-                        // Drop: exit grab mode
-                        this._setPriorityRowGrabbedVisual(strategy, false);
-                        this._grabbedPriorityKey = null;
-                    } else {
-                        // Grab: enter grab mode (release any previous)
-                        if (this._grabbedPriorityKey) {
-                            this._setPriorityRowGrabbedVisual(this._grabbedPriorityKey, false);
-                        }
-                        this._grabbedPriorityKey = strategy;
-                        this._setPriorityRowGrabbedVisual(strategy, true);
-                    }
-                    return;
-                }
-
-                // D-pad up/down reorder when grabbed
-                if (
-                    this._activeStrategyCategory === 'priority-order'
-                    && focusedId.startsWith('setup-priority-row-')
-                    && this._grabbedPriorityKey !== null
-                    && (event.button === 'up' || event.button === 'down')
-                ) {
-                    if (event.isRepeat || event.isLongPress) {
-                        event.handled = true;
-                        event.originalEvent.preventDefault();
-                        return;
-                    }
-                    const strategy = this._grabbedPriorityKey;
-                    const currentIndex = session.strategyOrder.indexOf(strategy);
-                    if (currentIndex < 0) {
-                        event.handled = true;
-                        event.originalEvent.preventDefault();
-                        return;
-                    }
-                    const targetIndex = event.button === 'up' ? currentIndex - 1 : currentIndex + 1;
-                    if (targetIndex < 0 || targetIndex >= session.strategyOrder.length) {
-                        event.handled = true;
-                        event.originalEvent.preventDefault();
-                        return;
-                    }
-                    const targetKey = session.strategyOrder[targetIndex];
-                    if (!targetKey) {
-                        event.handled = true;
-                        event.originalEvent.preventDefault();
-                        return;
-                    }
-                    event.handled = true;
-                    event.originalEvent.preventDefault();
-                    this._session.updateStrategyState((draft) => {
-                        draft.strategyOrder[currentIndex] = targetKey;
-                        draft.strategyOrder[targetIndex] = strategy;
-                    });
-                    this._lastReorder = { key: strategy, dir: event.button === 'up' ? 'up' : 'down' };
-                    this._preferredFocusId = this._priorityRowId(strategy);
-                    this._rememberedDetailFocusByCategory['priority-order'] = this._preferredFocusId;
-                    this._session.schedulePreview(() => this._renderStep());
-                    this._renderStep();
-                    this._lastReorder = null;
-                    // Re-apply grabbed state after render
-                    this._setPriorityRowGrabbedVisual(strategy, true);
-                    return;
-                }
-
-                const direction = event.button === 'left'
-                    ? 'left'
-                    : event.button === 'right'
-                        ? 'right'
-                        : null;
-                if (!direction) return;
-
-                const activeDetailIds = this._getDetailControlIdsForCategory(this._activeStrategyCategory);
-                const focusedCategory = this._categoryFromButtonId(focusedId);
-
-                if (focusedCategory && direction === 'right') {
-                    if (focusedCategory !== this._activeStrategyCategory) {
-                        if (focusedCategory !== 'priority-order') {
-                            this._grabbedPriorityKey = null;
-                        }
-                        this._activeStrategyCategory = focusedCategory;
-                    }
-                    const detailIds = this._getDetailControlIdsForCategory(focusedCategory);
-                    const target = this._resolveDetailFocusTarget(focusedCategory, detailIds);
-                    if (target) {
-                        event.handled = true;
-                        this._preferredFocusId = target;
-                        this._rememberedDetailFocusByCategory[focusedCategory] = target;
-                        this._renderStep();
-                    }
-                    return;
-                }
-
-                if (direction === 'left' && activeDetailIds.includes(focusedId)) {
-                    event.handled = true;
-                    if (this._activeStrategyCategory === 'priority-order' && this._grabbedPriorityKey) {
-                        this._setPriorityRowGrabbedVisual(this._grabbedPriorityKey, false);
-                        this._grabbedPriorityKey = null;
-                    }
-                    this._preferredFocusId = activeCategoryButtonId;
-                    nav.setFocus(activeCategoryButtonId);
-                }
+                this._strategyInteraction.handleKeyPress(event, nav, this._createStrategyInteractionAdapters());
             };
             nav.on('keyPress', this._navKeyHandler);
         }
         this._session.beginSession();
-        this._activeStrategyCategory = 'content-sources';
-        this._rememberedDetailFocusByCategory = {};
-        this._lastReorder = null;
-        this._grabbedPriorityKey = null;
+        this._strategyInteraction.reset();
         this._statusEl.textContent = 'Loading libraries...';
         this._detailEl.textContent = '';
         this._errorEl.textContent = '';
@@ -591,9 +411,69 @@ export class ChannelSetupScreen {
         }
     }
 
+    private _createStrategyInteractionAdapters() {
+        return {
+            channelLimitOptions: this._channelLimitOptions,
+            deferDropdownRender: () => {
+                this._pendingDropdownDeferredRender = true;
+            },
+            dismissDropdown: () => {
+                this._dismissDropdown();
+            },
+            getPreferredFocusId: () => this._preferredFocusId,
+            getSessionSnapshot: () => this._session.getSnapshot(),
+            hasActiveDropdown: () => this._activeDropdown !== null,
+            minItemsOptions: this._minItemsOptions,
+            openDropdown: (config: StrategyStepDropdownConfig) => {
+                this._openStep2Dropdown(config);
+            },
+            registerStep2: (
+                categoryButtons: HTMLButtonElement[],
+                detailButtons: HTMLButtonElement[],
+                footerButtons: [HTMLButtonElement, HTMLButtonElement],
+                activeCategoryButtonId: string,
+                detailFocusTarget: string | null,
+                preferredFocusId: string | null,
+                rememberDetailFocus: (id: string) => void
+            ) => this._focus.registerStep2(
+                categoryButtons,
+                detailButtons,
+                footerButtons,
+                activeCategoryButtonId,
+                detailFocusTarget,
+                preferredFocusId,
+                rememberDetailFocus
+            ),
+            renderStep: () => {
+                this._renderStep();
+            },
+            schedulePreview: () => {
+                this._session.schedulePreview(() => this._renderStep());
+            },
+            setPreferredFocusId: (focusId: string | null) => {
+                this._preferredFocusId = focusId;
+            },
+            setPriorityRowGrabbedVisual: (strategy: SetupStrategyKey | null, grabbed: boolean) => {
+                this._setPriorityRowGrabbedVisual(strategy, grabbed);
+            },
+            stepPreset: (
+                options: number[],
+                current: number,
+                dir: 'left' | 'right',
+                mode: 'clamp' | 'wrap'
+            ) => this._stepPreset(options, current, dir, mode),
+            updatePriorityRowState: (rowId: string, enabled: boolean) =>
+                this._strategyStep.updatePriorityRowState(this._contentEl, rowId, enabled) !== null,
+            updateStrategyState: (mutate: (draft: StrategyStepMutableState) => void) => {
+                this._session.updateStrategyState(mutate);
+            },
+        };
+    }
+
     private _renderStrategyStep(): void {
         this._session.syncSetupContext();
         const session = this._session.getSnapshot();
+        const strategyInteraction = this._createStrategyInteractionAdapters();
         this._strategyStep.render({
             contentEl: this._contentEl,
             stepEl: this._stepEl,
@@ -602,7 +482,7 @@ export class ChannelSetupScreen {
             errorEl: this._errorEl,
         }, {
             state: {
-                activeStrategyCategory: this._activeStrategyCategory,
+                activeStrategyCategory: this._strategyInteraction.getActiveStrategyCategory(),
                 strategies: session.strategies,
                 strategyOrder: session.strategyOrder,
                 channelExpansion: session.channelExpansion,
@@ -618,17 +498,13 @@ export class ChannelSetupScreen {
                 previewStatus: session.previewStatus,
                 isPreviewLoading: session.isPreviewLoading,
             },
-            stepPreset: (options, current, dir, mode) => this._stepPreset(options, current, dir, mode),
-            channelLimitOptions: this._channelLimitOptions,
-            minItemsOptions: this._minItemsOptions,
             strategyKeys: SETUP_STRATEGY_KEYS,
-            categoryButtonId: (category) => this._categoryButtonId(category),
-            strategyButtonId: (strategy) => this._strategyButtonId(strategy),
-            priorityRowId: (strategy) => this._priorityRowId(strategy),
-            lastReorder: this._lastReorder,
-            scopeButtonId: (strategy) => this._scopeButtonId(strategy),
-            strategySupportsMixedScope: (strategy) => strategySupportsMixedScope(strategy),
-            rememberDetailFocus: (controlId) => this._rememberActiveDetailFocus(controlId),
+            categoryButtonId: (category) => this._strategyInteraction.categoryButtonId(category),
+            strategyButtonId: (strategy) => this._strategyInteraction.strategyButtonId(strategy),
+            priorityRowId: (strategy) => this._strategyInteraction.priorityRowId(strategy),
+            lastReorder: this._strategyInteraction.getLastReorder(),
+            scopeButtonId: (strategy) => this._strategyInteraction.scopeButtonId(strategy),
+            strategySupportsMixedScope,
             buildPreviewRow: (label, value, key) => this._buildPreviewRow(label, value, key),
             renderCappedWarnings: (warnings, container) => {
                 renderCappedWarnings({
@@ -639,79 +515,39 @@ export class ChannelSetupScreen {
                 });
             },
             applyCategoryChange: (category, focusId) => {
-                if (category !== 'priority-order') {
-                    this._grabbedPriorityKey = null;
-                }
-                this._activeStrategyCategory = category;
-                this._preferredFocusId = focusId;
-                this._renderStep();
+                this._strategyInteraction.applyCategoryChange(category, focusId, strategyInteraction);
             },
             applySettingChange: (focusId, mutate) => {
-                this._applyStep2SettingChange(focusId, mutate);
+                this._strategyInteraction.applySettingChange(focusId, mutate, strategyInteraction);
             },
-            openDropdown: (config) => {
-                this._openStep2Dropdown(config);
+            openAdjustableControl: (controlId) => {
+                this._strategyInteraction.openAdjustableControl(controlId, strategyInteraction);
             },
             onBack: () => {
-                this._grabbedPriorityKey = null;
                 this._session.setStep(1);
                 this._renderStep();
             },
             onNext: () => {
-                this._grabbedPriorityKey = null;
                 this._session.setStep(3);
                 this._renderStep();
             },
             registerStep2Focusables: (categoryButtons, detailButtons, backButton, nextButton) => {
-                this._registerStep2Focusables(categoryButtons, detailButtons, backButton, nextButton);
+                this._strategyInteraction.registerStep2Focusables(
+                    categoryButtons,
+                    detailButtons,
+                    backButton,
+                    nextButton,
+                    strategyInteraction
+                );
             },
             detailText: session.strategies.genres.enabled || session.strategies.directors.enabled
                 ? 'Performance warning: may be slow on large libraries.'
                 : '',
-            schedulePreview: () => this._session.schedulePreview(() => this._renderStep()),
+            schedulePreview: () => strategyInteraction.schedulePreview(),
         });
     }
 
-    private _applyStep2SettingChange(focusId: string, mutate: (state: StrategyStepMutableState) => void): void {
-        this._preferredFocusId = focusId;
-        this._rememberActiveDetailFocus(focusId);
-        this._session.updateStrategyState((draft: StrategyStepMutableState) => {
-            draft.activeStrategyCategory = this._activeStrategyCategory;
-            mutate(draft);
-            this._activeStrategyCategory = draft.activeStrategyCategory;
-        });
-        this._session.schedulePreview(() => this._renderStep());
-
-        if (focusId.startsWith('setup-priority-row-')) {
-            const strategy = this._strategyKeyFromControlId(focusId, 'setup-priority-row-');
-            if (strategy) {
-                const updatedSession = this._session.getSnapshot();
-                const updated = this._strategyStep.updatePriorityRowState(
-                    this._contentEl,
-                    this._priorityRowId(strategy),
-                    updatedSession.strategies[strategy].enabled
-                );
-                if (updated) {
-                    this._preferredFocusId = null;
-                    return;
-                }
-            }
-        }
-
-        if (this._activeDropdown) {
-            this._pendingDropdownDeferredRender = true;
-            return;
-        }
-
-        this._renderStep();
-    }
-
-    private _openStep2Dropdown(config: {
-        anchorId: string;
-        options: Array<{ label: string; value: string }>;
-        currentValue: string;
-        onSelect: (value: string) => void;
-    }): void {
+    private _openStep2Dropdown(config: StrategyStepDropdownConfig): void {
         this._closeDropdown();
         const anchor = document.getElementById(config.anchorId);
         if (!(anchor instanceof HTMLElement)) {
@@ -739,311 +575,6 @@ export class ChannelSetupScreen {
             cssClass: 'setup-dropdown',
             optionCssClass: 'setup-dropdown-option',
         });
-    }
-
-    private _cycleStep2Option<T extends string | number>(
-        options: readonly T[],
-        current: T,
-        dir: 'left' | 'right'
-    ): T {
-        if (options.length === 0) {
-            return current;
-        }
-        const currentIndex = options.indexOf(current);
-        let baseIndex = currentIndex;
-        if (baseIndex < 0) {
-            if (typeof current === 'number' && options.every((option) => typeof option === 'number')) {
-                baseIndex = this._getNearestOptionIndex(options as unknown as number[], current);
-            } else {
-                baseIndex = 0;
-            }
-        }
-        const nextIndex = dir === 'left'
-            ? Math.max(0, baseIndex - 1)
-            : Math.min(options.length - 1, baseIndex + 1);
-        return options[nextIndex] ?? current;
-    }
-
-    private _getAdjustableStep2Control(controlId: string): AdjustableControl | null {
-        const openDropdown = (): void => {
-            const control = document.getElementById(controlId);
-            if (control instanceof HTMLButtonElement && !control.disabled) {
-                control.click();
-            }
-        };
-
-        if (controlId === STEP2_CONTROL_IDS.buildMode) {
-            return {
-                cyclePrev: (): boolean => {
-                    const session = this._session.getSnapshot();
-                    const next = this._cycleStep2Option(BUILD_MODE_OPTIONS, session.buildMode, 'left');
-                    if (next === session.buildMode) return false;
-                    this._applyStep2SettingChange(controlId, (draft) => {
-                        draft.buildMode = next;
-                    });
-                    return true;
-                },
-                cycleNext: (): boolean => {
-                    const session = this._session.getSnapshot();
-                    const next = this._cycleStep2Option(BUILD_MODE_OPTIONS, session.buildMode, 'right');
-                    if (next === session.buildMode) return false;
-                    this._applyStep2SettingChange(controlId, (draft) => {
-                        draft.buildMode = next;
-                    });
-                    return true;
-                },
-                isDisabled: () => false,
-                openDropdown,
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.combineMode) {
-            return {
-                cyclePrev: (): boolean => {
-                    const session = this._session.getSnapshot();
-                    const next = this._cycleStep2Option(COMBINE_MODE_OPTIONS, session.actorStudioCombineMode, 'left');
-                    if (next === session.actorStudioCombineMode) return false;
-                    this._applyStep2SettingChange(controlId, (draft) => {
-                        draft.actorStudioCombineMode = next;
-                    });
-                    return true;
-                },
-                cycleNext: (): boolean => {
-                    const session = this._session.getSnapshot();
-                    const next = this._cycleStep2Option(COMBINE_MODE_OPTIONS, session.actorStudioCombineMode, 'right');
-                    if (next === session.actorStudioCombineMode) return false;
-                    this._applyStep2SettingChange(controlId, (draft) => {
-                        draft.actorStudioCombineMode = next;
-                    });
-                    return true;
-                },
-                isDisabled: () => false,
-                openDropdown,
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.alternateLineupCopies) {
-            return {
-                cyclePrev: (): boolean => {
-                    const session = this._session.getSnapshot();
-                    if (!session.channelExpansion.addAlternateLineups) return false;
-                    const next = this._cycleStep2Option(
-                        ALTERNATE_LINEUP_COPY_OPTIONS,
-                        session.channelExpansion.alternateLineupCopies,
-                        'left'
-                    );
-                    if (next === session.channelExpansion.alternateLineupCopies) return false;
-                    this._applyStep2SettingChange(controlId, (draft) => {
-                        draft.channelExpansion.alternateLineupCopies = next;
-                    });
-                    return true;
-                },
-                cycleNext: (): boolean => {
-                    const session = this._session.getSnapshot();
-                    if (!session.channelExpansion.addAlternateLineups) return false;
-                    const next = this._cycleStep2Option(
-                        ALTERNATE_LINEUP_COPY_OPTIONS,
-                        session.channelExpansion.alternateLineupCopies,
-                        'right'
-                    );
-                    if (next === session.channelExpansion.alternateLineupCopies) return false;
-                    this._applyStep2SettingChange(controlId, (draft) => {
-                        draft.channelExpansion.alternateLineupCopies = next;
-                    });
-                    return true;
-                },
-                isDisabled: () => !this._session.getSnapshot().channelExpansion.addAlternateLineups,
-                openDropdown,
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.seriesBaseMode) {
-            return {
-                cyclePrev: (): boolean => {
-                    const session = this._session.getSnapshot();
-                    const next = this._cycleStep2Option(
-                        SERIES_BASE_MODE_OPTIONS,
-                        session.seriesOrdering.basePlaybackMode,
-                        'left'
-                    );
-                    if (next === session.seriesOrdering.basePlaybackMode) return false;
-                    this._applyStep2SettingChange(controlId, (draft) => {
-                        draft.seriesOrdering.basePlaybackMode = next;
-                    });
-                    return true;
-                },
-                cycleNext: (): boolean => {
-                    const session = this._session.getSnapshot();
-                    const next = this._cycleStep2Option(
-                        SERIES_BASE_MODE_OPTIONS,
-                        session.seriesOrdering.basePlaybackMode,
-                        'right'
-                    );
-                    if (next === session.seriesOrdering.basePlaybackMode) return false;
-                    this._applyStep2SettingChange(controlId, (draft) => {
-                        draft.seriesOrdering.basePlaybackMode = next;
-                    });
-                    return true;
-                },
-                isDisabled: () => false,
-                openDropdown,
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.seriesBaseBlockSize) {
-            return {
-                cyclePrev: (): boolean => {
-                    const session = this._session.getSnapshot();
-                    if (session.seriesOrdering.basePlaybackMode !== 'block') return false;
-                    const next = this._cycleStep2Option(
-                        SERIES_BLOCK_PRESETS,
-                        session.seriesOrdering.baseBlockSize,
-                        'left'
-                    );
-                    if (next === session.seriesOrdering.baseBlockSize) return false;
-                    this._applyStep2SettingChange(controlId, (draft) => {
-                        draft.seriesOrdering.baseBlockSize = next;
-                    });
-                    return true;
-                },
-                cycleNext: (): boolean => {
-                    const session = this._session.getSnapshot();
-                    if (session.seriesOrdering.basePlaybackMode !== 'block') return false;
-                    const next = this._cycleStep2Option(
-                        SERIES_BLOCK_PRESETS,
-                        session.seriesOrdering.baseBlockSize,
-                        'right'
-                    );
-                    if (next === session.seriesOrdering.baseBlockSize) return false;
-                    this._applyStep2SettingChange(controlId, (draft) => {
-                        draft.seriesOrdering.baseBlockSize = next;
-                    });
-                    return true;
-                },
-                isDisabled: () => this._session.getSnapshot().seriesOrdering.basePlaybackMode !== 'block',
-                openDropdown,
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.seriesVariantType) {
-            return {
-                cyclePrev: (): boolean => {
-                    const session = this._session.getSnapshot();
-                    const next = this._cycleStep2Option(
-                        SERIES_VARIANT_TYPE_OPTIONS,
-                        session.channelExpansion.variantType,
-                        'left'
-                    );
-                    if (next === session.channelExpansion.variantType) return false;
-                    this._applyStep2SettingChange(controlId, (draft) => {
-                        draft.channelExpansion.variantType = next;
-                    });
-                    return true;
-                },
-                cycleNext: (): boolean => {
-                    const session = this._session.getSnapshot();
-                    const next = this._cycleStep2Option(
-                        SERIES_VARIANT_TYPE_OPTIONS,
-                        session.channelExpansion.variantType,
-                        'right'
-                    );
-                    if (next === session.channelExpansion.variantType) return false;
-                    this._applyStep2SettingChange(controlId, (draft) => {
-                        draft.channelExpansion.variantType = next;
-                    });
-                    return true;
-                },
-                isDisabled: () => false,
-                openDropdown,
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.seriesVariantBlockSize) {
-            return {
-                cyclePrev: (): boolean => {
-                    const session = this._session.getSnapshot();
-                    if (session.channelExpansion.variantType !== 'block') return false;
-                    const next = this._cycleStep2Option(
-                        SERIES_BLOCK_PRESETS,
-                        session.channelExpansion.variantBlockSize,
-                        'left'
-                    );
-                    if (next === session.channelExpansion.variantBlockSize) return false;
-                    this._applyStep2SettingChange(controlId, (draft) => {
-                        draft.channelExpansion.variantBlockSize = next;
-                    });
-                    return true;
-                },
-                cycleNext: (): boolean => {
-                    const session = this._session.getSnapshot();
-                    if (session.channelExpansion.variantType !== 'block') return false;
-                    const next = this._cycleStep2Option(
-                        SERIES_BLOCK_PRESETS,
-                        session.channelExpansion.variantBlockSize,
-                        'right'
-                    );
-                    if (next === session.channelExpansion.variantBlockSize) return false;
-                    this._applyStep2SettingChange(controlId, (draft) => {
-                        draft.channelExpansion.variantBlockSize = next;
-                    });
-                    return true;
-                },
-                isDisabled: () => this._session.getSnapshot().channelExpansion.variantType !== 'block',
-                openDropdown,
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.maxChannels) {
-            return {
-                cyclePrev: (): boolean => {
-                    const session = this._session.getSnapshot();
-                    const next = this._stepPreset(this._channelLimitOptions, session.maxChannels, 'left', 'clamp');
-                    if (next === session.maxChannels) return false;
-                    this._applyStep2SettingChange(controlId, (draft) => {
-                        draft.maxChannels = next;
-                    });
-                    return true;
-                },
-                cycleNext: (): boolean => {
-                    const session = this._session.getSnapshot();
-                    const next = this._stepPreset(this._channelLimitOptions, session.maxChannels, 'right', 'clamp');
-                    if (next === session.maxChannels) return false;
-                    this._applyStep2SettingChange(controlId, (draft) => {
-                        draft.maxChannels = next;
-                    });
-                    return true;
-                },
-                isDisabled: () => false,
-                openDropdown,
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.minItems) {
-            return {
-                cyclePrev: (): boolean => {
-                    const session = this._session.getSnapshot();
-                    const next = this._stepPreset(this._minItemsOptions, session.minItems, 'left', 'clamp');
-                    if (next === session.minItems) return false;
-                    this._applyStep2SettingChange(controlId, (draft) => {
-                        draft.minItems = next;
-                    });
-                    return true;
-                },
-                cycleNext: (): boolean => {
-                    const session = this._session.getSnapshot();
-                    const next = this._stepPreset(this._minItemsOptions, session.minItems, 'right', 'clamp');
-                    if (next === session.minItems) return false;
-                    this._applyStep2SettingChange(controlId, (draft) => {
-                        draft.minItems = next;
-                    });
-                    return true;
-                },
-                isDisabled: () => false,
-                openDropdown,
-            };
-        }
-
-        return null;
     }
 
     private _closeDropdown(): void {
@@ -1076,126 +607,6 @@ export class ChannelSetupScreen {
             }
         }
         this._flushDeferredDropdownRender();
-    }
-
-    private _categoryButtonId(category: StrategyCategoryKey): string {
-        return `setup-category-${category}`;
-    }
-
-    private _categoryFromButtonId(buttonId: string): StrategyCategoryKey | null {
-        const match = STRATEGY_CATEGORIES.find((category) => this._categoryButtonId(category) === buttonId);
-        return match ?? null;
-    }
-
-    private _getDetailControlIdsForCategory(category: StrategyCategoryKey): string[] {
-        const session = this._session.getSnapshot();
-        if (category === 'content-sources') {
-            return CONTENT_STRATEGY_KEYS.flatMap((key) => {
-                const ids = [this._strategyButtonId(key)];
-                if (strategySupportsMixedScope(key)) {
-                    ids.push(this._scopeButtonId(key));
-                }
-                return ids;
-            });
-        }
-        if (category === 'advanced-sources') {
-            return ADVANCED_STRATEGY_KEYS.flatMap((key) => {
-                const ids = [this._strategyButtonId(key)];
-                if (strategySupportsMixedScope(key)) {
-                    ids.push(this._scopeButtonId(key));
-                }
-                return ids;
-            });
-        }
-        if (category === 'build-options') {
-            return [
-                STEP2_CONTROL_IDS.buildMode,
-                STEP2_CONTROL_IDS.combineMode,
-                STEP2_CONTROL_IDS.addAlternateLineups,
-                STEP2_CONTROL_IDS.alternateLineupCopies,
-            ];
-        }
-        if (category === 'series-ordering') {
-            return [
-                STEP2_CONTROL_IDS.seriesBaseMode,
-                STEP2_CONTROL_IDS.seriesBaseBlockSize,
-                STEP2_CONTROL_IDS.seriesVariantType,
-                STEP2_CONTROL_IDS.seriesVariantBlockSize,
-            ];
-        }
-        if (category === 'priority-order') {
-            return session.strategyOrder.map((key) => this._priorityRowId(key));
-        }
-        return [STEP2_CONTROL_IDS.maxChannels, STEP2_CONTROL_IDS.minItems, STEP2_CONTROL_IDS.expandLineup];
-    }
-
-    private _resolveDetailFocusTarget(category: StrategyCategoryKey, availableIds: string[]): string | null {
-        if (availableIds.length === 0) return null;
-        const enabledIds = availableIds.filter((id) => this._isDetailControlEnabled(category, id));
-        if (enabledIds.length === 0) {
-            return null;
-        }
-        const remembered = this._rememberedDetailFocusByCategory[category];
-        if (remembered && enabledIds.includes(remembered)) {
-            return remembered;
-        }
-        return enabledIds[0] ?? null;
-    }
-
-    private _isDetailControlEnabled(category: StrategyCategoryKey, controlId: string): boolean {
-        const session = this._session.getSnapshot();
-        if (category === 'build-options' && controlId === STEP2_CONTROL_IDS.alternateLineupCopies) {
-            return session.channelExpansion.addAlternateLineups;
-        }
-        if (category === 'series-ordering') {
-            if (controlId === STEP2_CONTROL_IDS.seriesBaseBlockSize) {
-                return session.seriesOrdering.basePlaybackMode === 'block';
-            }
-            if (controlId === STEP2_CONTROL_IDS.seriesVariantBlockSize) {
-                return session.channelExpansion.variantType === 'block';
-            }
-        }
-        return true;
-    }
-
-    private _strategyKeyFromControlId(controlId: string, prefix: string): SetupStrategyKey | null {
-        if (!controlId.startsWith(prefix)) {
-            return null;
-        }
-        const raw = controlId.slice(prefix.length).toLowerCase();
-        const match = SETUP_STRATEGY_KEYS.find((strategy) => strategy.toLowerCase() === raw);
-        return match ?? null;
-    }
-
-    private _rememberActiveDetailFocus(controlId: string): void {
-        const activeIds = this._getDetailControlIdsForCategory(this._activeStrategyCategory);
-        if (!activeIds.includes(controlId)) {
-            return;
-        }
-        this._rememberedDetailFocusByCategory[this._activeStrategyCategory] = controlId;
-    }
-
-    private _registerStep2Focusables(
-        categoryButtons: HTMLButtonElement[],
-        detailButtons: HTMLButtonElement[],
-        backButton: HTMLButtonElement,
-        nextButton: HTMLButtonElement
-    ): void {
-        const activeCategoryButtonId = this._categoryButtonId(this._activeStrategyCategory);
-        const detailIds = detailButtons.filter((button) => !button.disabled).map((button) => button.id);
-        const detailFocusTarget = this._resolveDetailFocusTarget(this._activeStrategyCategory, detailIds);
-        const preferredApplied = this._focus.registerStep2(
-            categoryButtons,
-            detailButtons,
-            [backButton, nextButton],
-            activeCategoryButtonId,
-            detailFocusTarget,
-            this._preferredFocusId,
-            (id) => this._rememberActiveDetailFocus(id)
-        );
-        if (preferredApplied) {
-            this._preferredFocusId = null;
-        }
     }
 
     private _renderBuildStep(): void {

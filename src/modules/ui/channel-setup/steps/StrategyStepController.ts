@@ -1,13 +1,7 @@
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
 import {
     ADVANCED_STRATEGY_KEYS,
-    ALTERNATE_LINEUP_COPY_OPTIONS,
-    BUILD_MODE_OPTIONS,
-    COMBINE_MODE_OPTIONS,
     CONTENT_STRATEGY_KEYS,
-    SERIES_BASE_MODE_OPTIONS,
-    SERIES_BLOCK_PRESETS,
-    SERIES_VARIANT_TYPE_OPTIONS,
     STEP2_CONTROL_IDS,
     STRATEGY_CATEGORIES,
 } from './constants';
@@ -143,19 +137,7 @@ export class StrategyStepController {
             stateText: this._capitalize(state.buildMode),
             showChevron: true,
             onClick: () => {
-                deps.openDropdown({
-                    anchorId: STEP2_CONTROL_IDS.buildMode,
-                    options: BUILD_MODE_OPTIONS.map((value) => ({
-                        label: this._capitalize(value),
-                        value,
-                    })),
-                    currentValue: state.buildMode,
-                    onSelect: (value) => {
-                        deps.applySettingChange(STEP2_CONTROL_IDS.buildMode, (draft) => {
-                            draft.buildMode = value as typeof draft.buildMode;
-                        });
-                    },
-                });
+                deps.openAdjustableControl(STEP2_CONTROL_IDS.buildMode);
             },
         });
 
@@ -167,19 +149,7 @@ export class StrategyStepController {
             stateText: state.actorStudioCombineMode === 'combined' ? 'Combined' : 'Separate',
             showChevron: true,
             onClick: () => {
-                deps.openDropdown({
-                    anchorId: STEP2_CONTROL_IDS.combineMode,
-                    options: COMBINE_MODE_OPTIONS.map((value) => ({
-                        label: this._capitalize(value),
-                        value,
-                    })),
-                    currentValue: state.actorStudioCombineMode,
-                    onSelect: (value) => {
-                        deps.applySettingChange(STEP2_CONTROL_IDS.combineMode, (draft) => {
-                            draft.actorStudioCombineMode = value as typeof draft.actorStudioCombineMode;
-                        });
-                    },
-                });
+                deps.openAdjustableControl(STEP2_CONTROL_IDS.combineMode);
             },
         });
 
@@ -260,23 +230,9 @@ export class StrategyStepController {
                 if (!state.channelExpansion.addAlternateLineups) {
                     return;
                 }
-                deps.openDropdown({
-                    anchorId: STEP2_CONTROL_IDS.alternateLineupCopies,
-                    options: ALTERNATE_LINEUP_COPY_OPTIONS.map((value) => ({
-                        label: String(value),
-                        value: String(value),
-                    })),
-                    currentValue: String(state.channelExpansion.alternateLineupCopies),
-                    onSelect: (value) => {
-                        deps.applySettingChange(STEP2_CONTROL_IDS.alternateLineupCopies, (draft) => {
-                            draft.channelExpansion.alternateLineupCopies = Number(value);
-                        });
-                    },
-                });
+                deps.openAdjustableControl(STEP2_CONTROL_IDS.alternateLineupCopies);
             },
         });
-
-        const blockSizeOptions = [...SERIES_BLOCK_PRESETS];
 
         const baseModeStateText = state.seriesOrdering.basePlaybackMode === 'block'
             ? `Block • ${state.seriesOrdering.baseBlockSize}`
@@ -290,19 +246,7 @@ export class StrategyStepController {
             stateText: baseModeStateText,
             showChevron: true,
             onClick: () => {
-                deps.openDropdown({
-                    anchorId: STEP2_CONTROL_IDS.seriesBaseMode,
-                    options: SERIES_BASE_MODE_OPTIONS.map((value) => ({
-                        label: this._capitalize(value),
-                        value,
-                    })),
-                    currentValue: state.seriesOrdering.basePlaybackMode,
-                    onSelect: (value) => {
-                        deps.applySettingChange(STEP2_CONTROL_IDS.seriesBaseMode, (draft) => {
-                            draft.seriesOrdering.basePlaybackMode = value as typeof draft.seriesOrdering.basePlaybackMode;
-                        });
-                    },
-                });
+                deps.openAdjustableControl(STEP2_CONTROL_IDS.seriesBaseMode);
             },
         });
 
@@ -318,16 +262,7 @@ export class StrategyStepController {
                 if (state.seriesOrdering.basePlaybackMode !== 'block') {
                     return;
                 }
-                deps.openDropdown({
-                    anchorId: STEP2_CONTROL_IDS.seriesBaseBlockSize,
-                    options: blockSizeOptions.map((value) => ({ label: String(value), value: String(value) })),
-                    currentValue: String(state.seriesOrdering.baseBlockSize),
-                    onSelect: (value) => {
-                        deps.applySettingChange(STEP2_CONTROL_IDS.seriesBaseBlockSize, (draft) => {
-                            draft.seriesOrdering.baseBlockSize = Number(value);
-                        });
-                    },
-                });
+                deps.openAdjustableControl(STEP2_CONTROL_IDS.seriesBaseBlockSize);
             },
         });
 
@@ -345,19 +280,7 @@ export class StrategyStepController {
             stateText: variantTypeStateText,
             showChevron: true,
             onClick: () => {
-                deps.openDropdown({
-                    anchorId: STEP2_CONTROL_IDS.seriesVariantType,
-                    options: SERIES_VARIANT_TYPE_OPTIONS.map((value) => ({
-                        label: this._capitalize(value),
-                        value,
-                    })),
-                    currentValue: state.channelExpansion.variantType,
-                    onSelect: (value) => {
-                        deps.applySettingChange(STEP2_CONTROL_IDS.seriesVariantType, (draft) => {
-                            draft.channelExpansion.variantType = value as typeof draft.channelExpansion.variantType;
-                        });
-                    },
-                });
+                deps.openAdjustableControl(STEP2_CONTROL_IDS.seriesVariantType);
             },
         });
 
@@ -373,16 +296,7 @@ export class StrategyStepController {
                 if (state.channelExpansion.variantType !== 'block') {
                     return;
                 }
-                deps.openDropdown({
-                    anchorId: STEP2_CONTROL_IDS.seriesVariantBlockSize,
-                    options: blockSizeOptions.map((value) => ({ label: String(value), value: String(value) })),
-                    currentValue: String(state.channelExpansion.variantBlockSize),
-                    onSelect: (value) => {
-                        deps.applySettingChange(STEP2_CONTROL_IDS.seriesVariantBlockSize, (draft) => {
-                            draft.channelExpansion.variantBlockSize = Number(value);
-                        });
-                    },
-                });
+                deps.openAdjustableControl(STEP2_CONTROL_IDS.seriesVariantBlockSize);
             },
         });
 
@@ -394,16 +308,7 @@ export class StrategyStepController {
             stateText: String(state.maxChannels),
             showChevron: true,
             onClick: () => {
-                deps.openDropdown({
-                    anchorId: STEP2_CONTROL_IDS.maxChannels,
-                    options: deps.channelLimitOptions.map((value) => ({ label: String(value), value: String(value) })),
-                    currentValue: String(state.maxChannels),
-                    onSelect: (value) => {
-                        deps.applySettingChange(STEP2_CONTROL_IDS.maxChannels, (draft) => {
-                            draft.maxChannels = Number(value);
-                        });
-                    },
-                });
+                deps.openAdjustableControl(STEP2_CONTROL_IDS.maxChannels);
             },
         });
 
@@ -415,16 +320,7 @@ export class StrategyStepController {
             stateText: String(state.minItems),
             showChevron: true,
             onClick: () => {
-                deps.openDropdown({
-                    anchorId: STEP2_CONTROL_IDS.minItems,
-                    options: deps.minItemsOptions.map((value) => ({ label: String(value), value: String(value) })),
-                    currentValue: String(state.minItems),
-                    onSelect: (value) => {
-                        deps.applySettingChange(STEP2_CONTROL_IDS.minItems, (draft) => {
-                            draft.minItems = Number(value);
-                        });
-                    },
-                });
+                deps.openAdjustableControl(STEP2_CONTROL_IDS.minItems);
             },
         });
 
