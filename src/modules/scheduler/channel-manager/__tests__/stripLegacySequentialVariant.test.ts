@@ -32,6 +32,7 @@ describe('stripLegacySequentialVariant', () => {
         };
 
         const result = stripLegacySequentialVariant(channel);
+        const hasLegacyKey: 'isSequentialVariant' extends keyof typeof result.channel ? true : false = false;
 
         expect(result.didMutate).toBe(true);
         expect(result.channel).toEqual({
@@ -39,5 +40,6 @@ describe('stripLegacySequentialVariant', () => {
             isPlaybackModeVariant: false,
         });
         expect(result.channel).not.toBe(channel);
+        expect(hasLegacyKey).toBe(false);
     });
 });
