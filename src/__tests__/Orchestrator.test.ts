@@ -2014,9 +2014,17 @@ describe('AppOrchestrator', () => {
                 expect(consoleSpy).toHaveBeenCalledWith(
                     'switchToChannel: channel tuning unavailable',
                     expect.objectContaining({
-                        missingModules: ['_channelTuning', '_channelManager', '_scheduler'],
+                        missingModules: expect.arrayContaining([
+                            '_channelTuning',
+                            '_channelManager',
+                            '_scheduler',
+                        ]),
                     })
                 );
+                const switchPayload = (consoleSpy.mock.calls.at(-1) ?? [])[1] as {
+                    missingModules: string[];
+                };
+                expect(switchPayload.missingModules).toHaveLength(3);
                 expect(mockVideoPlayer.stop).not.toHaveBeenCalled();
             } finally {
                 consoleSpy.mockRestore();
@@ -2174,9 +2182,16 @@ describe('AppOrchestrator', () => {
                 expect(consoleSpy).toHaveBeenCalledWith(
                     'switchToChannelByNumber: channel tuning unavailable',
                     expect.objectContaining({
-                        missingModules: ['_channelTuning', '_videoPlayer'],
+                        missingModules: expect.arrayContaining([
+                            '_channelTuning',
+                            '_videoPlayer',
+                        ]),
                     })
                 );
+                const switchByNumberPayload = (consoleSpy.mock.calls.at(-1) ?? [])[1] as {
+                    missingModules: string[];
+                };
+                expect(switchByNumberPayload.missingModules).toHaveLength(2);
             } finally {
                 consoleSpy.mockRestore();
             }
