@@ -103,7 +103,7 @@ export function getHdrCompatibilityDecision(
         hdr10BaseLayerInfo.isKnownNoHdr10BaseLayer
     );
     const fallback = shouldApplyHdr10Fallback(
-        buildHdr10FallbackRequest(inputs, isDolbyVision)
+        buildHdr10FallbackRequest(inputs, isDolbyVision, sourceContainer)
     );
 
     return {
@@ -269,7 +269,8 @@ function shouldForceHlsForDvNoHdr10BaseLayer(
 
 function buildHdr10FallbackRequest(
     inputs: HdrCompatibilityInputs,
-    isDolbyVision: boolean
+    isDolbyVision: boolean,
+    sourceContainer: string
 ): {
     mode: 'off' | 'smart' | 'force';
     container: string | null | undefined;
@@ -287,7 +288,7 @@ function buildHdr10FallbackRequest(
 } {
     return {
         mode: inputs.hdr10FallbackMode,
-        container: inputs.media.container,
+        container: sourceContainer,
         isDolbyVision,
         doviProfile: inputs.videoStream?.doviProfile ?? null,
         codecProfileString: inputs.videoStream?.profile ?? null,

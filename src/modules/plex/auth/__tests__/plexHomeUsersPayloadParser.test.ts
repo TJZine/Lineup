@@ -105,6 +105,21 @@ describe('plexHomeUsersPayloadParser', () => {
         ]);
     });
 
+    it('handles cyclic object payloads without looping and still returns nested users', () => {
+        const payload: Record<string, unknown> = {
+            MediaContainer: {
+                users: [{ id: '1', title: 'Admin', admin: 1, protected: 0 }],
+            },
+        };
+        payload.self = payload;
+
+        const users = parseHomeUsersPayloadData(payload);
+
+        expect(users).toEqual([
+            { id: '1', title: 'Admin', admin: true, protected: false, thumb: null },
+        ]);
+    });
+
     it('falls back cleanly when DOMParser is present but not callable', () => {
         const originalDomParser = globalThis.DOMParser;
         Object.defineProperty(globalThis, 'DOMParser', {

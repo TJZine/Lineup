@@ -166,7 +166,9 @@ function parseXmlAttributeString(raw: string): Record<string, unknown> {
 
 function collectHomeUserCandidates(payload: object): Record<string, unknown>[] {
     const out: Record<string, unknown>[] = [];
-    const queue: object[] = [payload];
+    const queue: object[] = [];
+    const visited = new WeakSet<object>();
+    enqueueCandidate(payload, queue, visited);
 
     while (queue.length > 0) {
         const current = queue.shift();
@@ -180,7 +182,7 @@ function collectHomeUserCandidates(payload: object): Record<string, unknown>[] {
         }
 
         for (const [key, value] of Object.entries(record)) {
-            collectNestedCandidates(key, value, queue, out);
+            collectNestedCandidates(key, value, queue, out, visited);
         }
     }
 
@@ -191,14 +193,15 @@ function collectNestedCandidates(
     key: string,
     value: unknown,
     queue: object[],
-    out: Record<string, unknown>[]
+    out: Record<string, unknown>[],
+    visited: WeakSet<object>
 ): void {
     if (!value) {
         return;
     }
 
     if (Array.isArray(value)) {
-        collectArrayCandidates(key, value, queue, out);
+        collectArrayCandidates(key, value, queue, out, visited);
         return;
     }
 
@@ -207,7 +210,7 @@ function collectNestedCandidates(
         if (HOME_USER_CONTAINER_KEYS.has(key.toLowerCase())) {
             out.push(record);
         }
-        queue.push(record);
+        enqueueCandidate(record, queue, visited);
     }
 }
 
@@ -215,7 +218,8 @@ function collectArrayCandidates(
     key: string,
     value: unknown[],
     queue: object[],
-    out: Record<string, unknown>[]
+    out: Record<string, unknown>[],
+    visited: WeakSet<object>
 ): void {
     const isUserContainer = HOME_USER_CONTAINER_KEYS.has(key.toLowerCase());
 
@@ -228,9 +232,22 @@ function collectArrayCandidates(
         if (isUserContainer) {
             out.push(record);
         } else {
-            queue.push(record);
+            enqueueCandidate(record, queue, visited);
         }
     }
+}
+
+function enqueueCandidate(
+    value: object,
+    queue: object[],
+    visited: WeakSet<object>
+): void {
+    if (visited.has(value)) {
+        return;
+    }
+
+    visited.add(value);
+    queue.push(value);
 }
 
 function looksLikeHomeUserRecord(record: Record<string, unknown>): boolean {

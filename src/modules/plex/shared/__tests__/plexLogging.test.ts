@@ -44,6 +44,7 @@ describe('plexLogging', () => {
 
         expect(warnSpy).toHaveBeenCalledWith('warning', expect.anything());
         expect(errorSpy).toHaveBeenCalledWith('error', expect.anything());
+        expect(warnSpy.mock.calls[0]?.[1]).not.toBeInstanceOf(Error);
         expect(errorSpy.mock.calls[0]?.[1]).not.toBeInstanceOf(Error);
     });
 });

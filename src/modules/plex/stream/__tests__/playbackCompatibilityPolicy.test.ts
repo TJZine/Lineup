@@ -397,6 +397,19 @@ describe('playbackCompatibilityPolicy', () => {
             expect(decision.fallbackReason).toBe('smart');
         });
 
+        it('normalizes whitespace-padded MKV container values before applying smart HDR10 fallback', () => {
+            const media = createDolbyVisionMedia(' MKV ', '8.1', { aspectRatio: 2.39, width: 2560, height: 1070 });
+            const decision = getHdrCompatibilityDecision({
+                media,
+                videoStream: media.parts[0]!.streams[0]!,
+                hdr10FallbackMode: 'smart',
+            });
+
+            expect(decision.applyHdr10Fallback).toBe(true);
+            expect(decision.forceTranscodeForHdr10Fallback).toBe(false);
+            expect(decision.fallbackReason).toBe('smart');
+        });
+
         it('does not apply smart HDR10 fallback for non-letterbox DV MKV', () => {
             const media = createDolbyVisionMedia('mkv', '8.1', { aspectRatio: 1.78, width: 1920, height: 1080 });
             const decision = getHdrCompatibilityDecision({
