@@ -4,6 +4,7 @@
  */
 
 import { PlexStreamResolver } from '../PlexStreamResolver';
+import { generatePlexSessionId } from '../plexSessionId';
 import type { PlexStream } from '../types';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import type { PlatformIdentityService } from '../../../../platform';
@@ -407,7 +408,7 @@ describe('PlexStreamResolver', () => {
 
             expect(decision.isTranscoding).toBe(true);
             expect(warnSpy).toHaveBeenCalledWith(
-                '[PlexStreamResolver] PMS universal decision fetch failed:',
+                'PMS universal decision fetch failed:',
                 expect.objectContaining({ itemKey: '12345' })
             );
         });
@@ -446,11 +447,11 @@ describe('PlexStreamResolver', () => {
 
             expect(decision.isTranscoding).toBe(true);
             expect(warnSpy).toHaveBeenCalledWith(
-                '[PlexStreamResolver] HDR10 fallback applied:',
+                'HDR10 fallback applied:',
                 expect.objectContaining({ itemKey: '12345', reason: expect.any(String) })
             );
             expect(warnSpy).toHaveBeenCalledWith(
-                '[PlexStreamResolver] Stream decision:',
+                'Stream decision:',
                 expect.objectContaining({ itemKey: '12345', mode: 'transcode' })
             );
         });
@@ -1123,23 +1124,23 @@ describe('PlexStreamResolver', () => {
         });
 
         it('uses injected debug override profile name when provided', () => {
-            const readTranscodeProfileName = jest.fn(() => 'Generic');
+            const readTranscodeProfileNameAndClean = jest.fn(() => 'Generic');
             const resolver = new PlexStreamResolver(
                 createMockConfig({
-                    debugOverridesStore: { readTranscodeProfileName },
+                    debugOverridesStore: { readTranscodeProfileNameAndClean },
                 })
             );
 
             const parsed = new URL(resolver.getTranscodeUrl('12345', {}));
 
-            expect(readTranscodeProfileName).toHaveBeenCalledTimes(1);
+            expect(readTranscodeProfileNameAndClean).toHaveBeenCalledTimes(1);
             expect(parsed.searchParams.get('X-Plex-Client-Profile-Name')).toBe('Generic');
         });
 
         it('falls back to HTML TV App when injected profile override is absent', () => {
             const resolver = new PlexStreamResolver(
                 createMockConfig({
-                    debugOverridesStore: { readTranscodeProfileName: () => null },
+                    debugOverridesStore: { readTranscodeProfileNameAndClean: () => null },
                 })
             );
 
@@ -1212,7 +1213,7 @@ describe('PlexStreamResolver', () => {
 
             expect(url).toContain('X-Plex-Token=mock-token');
             expect(warnSpy).toHaveBeenCalledWith(
-                '[PlexStreamResolver] Transcode URL (compat=0):',
+                'Transcode URL (compat=0):',
                 expect.stringContaining('X-Plex-Token=REDACTED')
             );
             expect(warnSpy.mock.calls.some((call) =>
@@ -1599,7 +1600,7 @@ describe('PlexStreamResolver', () => {
             await resolver.stopTranscodeSession('sess-1');
 
             expect(warnSpy).toHaveBeenCalledWith(
-                '[PlexStreamResolver] stopTranscodeSession failed:',
+                'stopTranscodeSession failed:',
                 expect.objectContaining({
                     sessionId: 'sess-1',
                     error: expect.anything(),
@@ -1675,5 +1676,38 @@ describe('PlexStreamResolver', () => {
                 recoverable: false,
             });
         });
+    });
+});
+
+describe('generatePlexSessionId', () => {
+    const originalCrypto = globalThis.crypto;
+
+    afterEach(() => {
+        Object.defineProperty(globalThis, 'crypto', {
+            configurable: true,
+            value: originalCrypto,
+        });
+    });
+
+    it('uses crypto.randomUUID when available', () => {
+        const randomUUID = jest.fn(() => 'uuid-from-crypto');
+        Object.defineProperty(globalThis, 'crypto', {
+            configurable: true,
+            value: { randomUUID },
+        });
+
+        expect(generatePlexSessionId()).toBe('uuid-from-crypto');
+        expect(randomUUID).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back to a UUID-like value when crypto.randomUUID is unavailable', () => {
+        Object.defineProperty(globalThis, 'crypto', {
+            configurable: true,
+            value: {},
+        });
+
+        expect(generatePlexSessionId()).toMatch(
+            /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+        );
     });
 });

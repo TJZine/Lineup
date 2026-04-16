@@ -11,8 +11,8 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, `P4-EXIT`, `P5-W1`, `P5-W2`, `P5-EXIT`, `P6-W1`, `P6-W2`, `P6-EXIT`, `P7-W1`, `P7-W2`, `P7-EXIT`, `P8-W1`, `P8-W2`, `P8-EXIT`, `P9-W1`, `P9-W2`, and `P9-EXIT` completed on integration-branch evidence
-- Next safe start: `P10-W1`
+- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, `P4-EXIT`, `P5-W1`, `P5-W2`, `P5-EXIT`, `P6-W1`, `P6-W2`, `P6-EXIT`, `P7-W1`, `P7-W2`, `P7-EXIT`, `P8-W1`, `P8-W2`, `P8-EXIT`, `P9-W1`, `P9-W2`, `P9-EXIT`, `P10-W1`, `P10-W2`, `P10-W3`, `P10-W4`, `P10-W5`, `P10-W6`, and `P10-W7` completed on integration-branch evidence
+- Next safe start: `P10-EXIT`
 - Legacy note: `docs/plans/2026-04-02-p3-w1-channel-setup-workflow-owner.md` predates the `2026-04-10` checklist refresh and is historical planning context, not the active `P3-W1` gate token
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
 - Recent update log:
@@ -35,6 +35,12 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
   - `2026-04-15`: completed `P8-W2` bounded template-docblock and architecture-reference refresh (removed template header/signature-restating commentary from the scoped live auth/player files, updated `modules.md` to match `CURRENT_STATE.md` plus current source for `src/Orchestrator.ts` and the server-selection split, and recorded the remaining repo-wide template-ceremony/detector-lag closeout path under `P8-EXIT`), reran `npm run typecheck` plus `npm run verify:docs`
   - `2026-04-15`: completed `P8-EXIT` priority-exit reconciliation (`diagnostic_payload_dump_logging` and `architecture_reference_drift` stayed resolved on current-source proof despite stale imported wording, the scoped `templated_docblock_ceremony` anchors remained resolved while broader repo-wide header residue was handed to one exact `P10-W1` owner, and security triage stayed outside Priority 8 scope), reran the exact `P8` issue-id commands, refreshed scan/status/queue evidence, reran the scoped detector/source audits, and reran `npm run verify` plus `npm run verify:docs`
   - `2026-04-15`: completed `P9-EXIT` priority-exit reconciliation (`private_api_test_coupling` is now retired on current source, `Orchestrator.test.ts` retains only the AppOrchestrator-owned `ensureEPGInitialized()` callback-path proof while focused coordinator owner suites cover builder/assembly seams, all remaining Priority 9 detector rows were dispositioned in-place as detector mismatch, orchestrator-helper residue, or type-only limitation, and only lower-priority Plex helper coverage rows were handed to one exact `P10-W1` owner), reran the exact `P9` evidence matrix, refreshed scan/status/queue/security evidence, reran the targeted P9 suites, and reran `npm run verify` plus `npm run verify:docs`
+  - `2026-04-15`: reconciled stale imported review state in `desloppify` (`desloppify plan resolve review ... --confirm` fixed 51 stale tracked review ids), reran a fresh integration-branch scan (`desloppify status` last scan `2026-04-15T21:13:48+00:00`), confirmed imported review rows are no longer the blocker, and inserted `P10-W2` because the remaining live mechanical backlog is broader than the frozen `P10-W1` residual matrix so `P10-EXIT` cannot close honestly yet
+  - `2026-04-15`: completed `P10-W2` live-backlog rebaseline using the persisted `desloppify` baseline from `2026-04-15T22:07:55+00:00`, then refreshed the persisted evidence at `2026-04-15T22:24:08+00:00` with unchanged `353 open` / `83.1 strict`; current-source audit retired the startup-owner detector-contract candidates in `AppOrchestratorConfigFactory.ts`, `AppStartupUiInitializer.ts`, `AppScreenVisibilityCoordinator.ts`, and `NowPlayingInfoCoordinator.ts`/`index.ts`, confirmed only `AppContainerFactory.ts::hardcoded_color` and `src/modules/ui/now-playing-info/styles.css::css_monolith` as still-live startup-owner code debt, and opened `P10-W3` as the one exact successor owner because orchestrator/runtime, lifecycle/navigation, channel-setup, Plex, scheduler, and startup-owner live buckets all still remain outside `P10-EXIT`
+  - `2026-04-15`: completed `P10-W4` runtime/startup residual cleanup (recoverable runtime diagnostics now flow through the required typed seam across orchestrator/startup/navigation, `InitializationCoordinator` resume rejections are explicit without widening the fatal startup path, `NavigationCoordinator` throttles to at most one toast plus one diagnostics callback per failure, `AppContainerFactory` keeps the inline hidden baseline while shell presentation tokens moved to `shell.css`, and `now-playing-info/styles.css` is now a 111-line import barrel with motion/theme partials); reran the scoped `P10-W4` regression suites plus `npm run verify`, `npm run verify:docs`, and `npm run plans:check`, and recorded direct current-source proof for the frozen-scan `AppLifecycle`/detector-lag rows after a mid-cycle `desloppify scan --path .` was correctly refused without `--force-rescan`
+  - `2026-04-15`: completed `P10-W5` channel-setup residual cleanup (shared session contracts now route through `ChannelSetupSessionContracts.ts`, Step 2 interaction ownership moved into `StrategyStepInteractionController`, `BuildProgressStepController` no longer logs build failures via `console.error`, and `styles.css` is now a 4-line import barrel with stable partial ownership); reran the exact `P10-W5` source-audit matrix, focused channel-setup/tag-filter suites, `npm run verify`, `npm run verify:docs`, and `npm run plans:check`, and recorded which frozen detector rows are stale current-source wording versus live fixes
+  - `2026-04-16`: completed `P10-W7` scheduler residual cleanup (content-source validation now dispatches by explicit type without changing `isValidContentSource()` behavior, one package-local `stripLegacySequentialVariant()` helper now owns legacy-field stripping across codec/repository/manager, direct helper coverage was added, and the forced `desloppify` rescan + current-source audit retired the stale carried-forward scheduler smell ids with explicit proof); reran the focused scheduler suites, `npm run verify`, `npm run verify:docs`, and `npm run plans:check`, confirmed `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150` returns `No open issues matching`, and recorded that the same forced rescan reopened one out-of-slice Plex smell for `P10-EXIT` reconciliation instead of opening a new slice
+  - `2026-04-16`: refreshed `P10-EXIT` post-`P10-W7` evidence on the integration branch; documented that `desloppify status` / `desloppify plan queue` reflect the live subjective queue, `desloppify next` shows a focused one-item local slice before restating the full queue, `desloppify plan` includes planned/backlog inventory, and `desloppify plan commit-log` tracks commit attribution rather than open debt; current-source audit classified `smells::src/modules/plex/library/mediaItemParser.ts::high_cyclomatic_complexity` as stale current-source residue and `test_coverage::src/modules/scheduler/channel-manager/stripLegacySequentialVariant.ts::transitive_only` as bookkeeping drift only, so `P10-EXIT` remains blocked only on the required priority-exit review instead of a new cleanup slice
 
 ## Goal
 
@@ -1585,7 +1591,7 @@ Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until t
 
 ## Priority 10: Residual Detector Burn-Down And Overall Exit
 
-### [ ] `P10-W1` Burn Down Residual Mechanical Detector Envelopes
+### [x] `P10-W1` Burn Down Residual Mechanical Detector Envelopes
 
 This pass is intentionally last. Earlier architectural work should retire a large fraction of the current detector backlog automatically.
 
@@ -1612,16 +1618,28 @@ This pass is intentionally last. Earlier architectural work should retire a larg
 - `desloppify show single_use --status open --no-budget --top 50`
 - `desloppify show naming --status open --no-budget --top 50`
 - `desloppify show boilerplate_duplication --status open --no-budget --top 50`
-- Status: planned
-- Plan: `none yet`
-- Last touched: `2026-04-14`
-- Verification: `none yet (inherited P4 exact-mechanical follow-up recorded from current integration-branch evidence)`
+- Status: completed
+- Plan: `docs/plans/2026-04-15-p10-w1-residual-detector-envelope-burndown.md`
+- Last touched: `2026-04-15`
+- Verification:
+  - `npm run typecheck` passed
+  - `npm test -- --runInBand src/modules/settings/__tests__/AudioSettingsStore.test.ts src/modules/settings/__tests__/DeveloperSettingsStore.test.ts src/modules/settings/__tests__/NowPlayingDisplayStore.test.ts src/modules/settings/__tests__/ProfileSessionStore.test.ts src/modules/settings/__tests__/SubtitlePreferencesStore.test.ts src/modules/settings/__tests__/ThemePreferencesStore.test.ts src/modules/debug/__tests__/DebugOverridesStore.test.ts src/modules/ui/settings/__tests__/SettingsStore.test.ts src/modules/ui/settings/__tests__/SettingsScreenStateController.test.ts src/core/app-shell/__tests__/AppThemeController.test.ts src/core/app-shell/__tests__/AppDiagnosticsSurface.test.ts src/modules/ui/audio-setup/__tests__/AudioSetupScreen.test.ts src/modules/ui/now-playing-info/__tests__/NowPlayingInfoCoordinator.test.ts src/modules/ui/player-osd/__tests__/PlayerOsdCoordinator.test.ts src/modules/ui/profile-select/__tests__/ProfileSelectScreen.test.ts src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts src/modules/ui/epg/__tests__/EPGDebugRuntime.test.ts src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts src/modules/debug/__tests__/IssueDiagnosticsStore.test.ts src/modules/debug/__tests__/NowPlayingDebugManager.test.ts src/modules/player/__tests__/AudioTrackManager.test.ts src/modules/player/__tests__/SubtitleManager.test.ts src/modules/player/__tests__/VideoPlayer.test.ts src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts src/modules/plex/stream/__tests__/PlexStreamResolver.subtitle-errors.test.ts` passed
+  - `npm test -- --runInBand src/modules/lifecycle/__tests__/AppLifecycle.test.ts src/modules/navigation/__tests__/NavigationCoordinator.test.ts src/core/app-shell/__tests__/AppStartupUiInitializer.test.ts src/core/channel-setup/__tests__/ChannelSetupTagFilters.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorBuilders.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorAssembly.test.ts` passed
+  - `npm test -- --runInBand src/modules/plex/auth/__tests__/plexAuthPayloadParsers.test.ts src/modules/plex/library/__tests__/PlexLibrary.test.ts src/modules/plex/library/__tests__/ResponseParser.test.ts src/modules/plex/stream/__tests__/fetchWithTimeout.test.ts src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts src/modules/plex/stream/__tests__/playbackCompatibilityPolicy.test.ts src/modules/plex/stream/__tests__/dvHdr10Fallback.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelContentSourceValidator.test.ts src/modules/scheduler/channel-manager/__tests__/StoredChannelDataCodec.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts` passed
+  - `desloppify scan --path .` completed; `desloppify status` reported `overall 83.1 / objective 94.7 / strict 83.1 / verified 94.7` on `2026-04-15T20:35:39+00:00`
+  - `desloppify show "review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes" --status open --no-budget` returned no open issues; the exact `rg -n "readDtsPassthroughEnabled\\(|readDirectPlayAudioFallbackEnabled\\(|readAudioSetupComplete\\(|readDebugLoggingEnabled\\(|readSubtitleDebugLoggingEnabled\\(|readCinematicNowPlayingEnabled\\(|readPreferClearLogosEnabled\\(|readClampedAutoHideMs\\(|readShowProfilePickerOnStartup\\(|readKeepPlayingInSettings\\(|readLastProfileId\\(|readSubtitleMode\\(|readSubtitlePreferForced\\(|readSubtitleLanguage\\(|readTheme\\(|readNowPlayingStreamDebugEnabled\\(|readNowPlayingStreamDebugAutoShowEnabled\\(|readEpgDebugEnabled\\(|readTranscodeProfileName\\(" src/modules/settings/AudioSettingsStore.ts src/modules/settings/DeveloperSettingsStore.ts src/modules/settings/NowPlayingDisplayStore.ts src/modules/settings/ProfileSessionStore.ts src/modules/settings/SubtitlePreferencesStore.ts src/modules/settings/ThemePreferencesStore.ts src/modules/debug/DebugOverridesStore.ts src/bootstrap.ts src/modules/player src/modules/ui src/core src/__tests__` proof returned only callback/helper names (`PlaybackRecoveryManager._readSubtitleMode`, `InitializationStartupPolicy.readShowProfilePickerOnStartup`, `SubtitleTrackRecoveryController.readSubtitleMode`), not remaining cleanup-on-read store contracts
+  - `desloppify show "review::.::holistic::ai_generated_debt::templated_docblock_ceremony" --status open --no-budget` returned no open issues, but the required `rg -n "@fileoverview|@module|@version" src --glob '!**/__tests__/**'` census still showed broad current-source header residue (including `src/modules/player/PlaybackRecoveryManager.ts` and `src/modules/plex/stream/interfaces.ts`), and `desloppify show src/modules/player --status open --no-budget --top 150` plus `desloppify show src/modules/plex --status open --no-budget --top 150` still reported live player/Plex residuals; `followup::p8-exit::template-docblock-residual` therefore remains deferred to `P10-EXIT` per the recorded owner/reason/revisit-trigger model
+  - `desloppify show facade --status open --no-budget --top 50` reported only `dist-ts/**` facade rows after deleting `src/modules/ui/epg/model/index.ts`
+  - `desloppify show src/modules/plex/auth --status open --no-budget --top 150` reported only `plexAuthPayloadParsers.ts` (`transitive_only`, complexity); no deleted `helpers.ts` residue remained
+  - `desloppify show src/Orchestrator.ts --status open --no-budget --top 100` and `desloppify show src/core/orchestrator/OrchestratorCoordinatorFactory.ts --status open --no-budget --top 50` still reported stale rows even though the current source remains a `14`-line root barrel and a `6`-line coordinator barrel
+  - `desloppify show test_coverage::src/core/channel-setup/ChannelSetupTagFilters.ts::transitive_only --status open --no-budget --top 20` stayed open despite `src/core/channel-setup/__tests__/ChannelSetupTagFilters.test.ts`
+  - `desloppify show src/modules/plex/stream --status open --no-budget --top 150` still reported `transitive_only` for `hdr.ts` and `plexSessionId.ts` after the direct-helper coverage additions in `fetchWithTimeout.test.ts`, `playbackCompatibilityPolicy.test.ts`, and `PlexStreamResolver.test.ts`
 - Follow-ups:
-  - `followup::p4-exit::exact-p4-mechanical-residue`
-    source: `P4-EXIT`
-    exact issue ids: `smells::src/modules/lifecycle/AppLifecycle.ts::hardcoded_url`, `smells::src/modules/navigation/NavigationCoordinator.ts::console_error_no_throw`, `smells::src/modules/navigation/NavigationCoordinator.ts::async_no_await`, `smells::src/core/app-shell/AppStartupUiInitializer.ts::async_no_await`, `smells::src/core/InitializationCoordinator.ts::console_error_no_throw`
-    required verification: `desloppify scan --path .` + `desloppify show src/modules/lifecycle --status open --no-budget --top 100` + `desloppify show src/modules/navigation --status open --no-budget --top 150` + `desloppify show src/core/app-shell --status open --no-budget --top 100` + `desloppify show src/core/InitializationCoordinator.ts --status open --no-budget --top 50`
-- Handoff: `carry the exact P4 mechanical residue above into the first P10-W1 execution plan before P10-EXIT`
+  - resolved on current-source / integration-branch proof: `followup::p5-exit::read-api-cleanup-write-residual`, `followup::p3-exit::epg-model-index-facade-residue`, `followup::p6-exit::deleted-plex-auth-helper-detector-residue`
+  - `P10-W2` is the single pre-exit owner for the refreshed tooling-state / excluded-output rebaseline: `followup::p1-exit::root-orchestrator-detector-residue`, `followup::p1-exit::factory-smell-detector-residue`, `followup::p1-exit::orchestrator-cycle-detector-residue`, `followup::p2-exit::channel-setup-tagfilters-transitive-only-detector-residue`, and `followup::p0-exit::dist-ts-facade-residue`
+  - `P10-W2` is the single pre-exit owner for the refreshed live residual rebaseline: `followup::p1-exit::orchestrator-live-log-error-policy-residue`, `followup::p4-exit::exact-p4-mechanical-residue`, `followup::p2-exit::channel-setup-tagfilters-hardcoded-url-residue`, `followup::p6-exit::exact-p6-mechanical-residue`, `followup::p8-exit::template-docblock-residual`, and `followup::p9-exit::outside-priority-test-coverage-residual`
+  - the fresh post-reconciliation scan at `2026-04-15T21:13:48+00:00` also surfaced additional live backlog outside the frozen `P10-W1` matrix (`src/modules/ui/channel-setup/**`, `src/modules/ui/now-playing-info/**`, and `src/core/app-shell/**` / `src/core/InitializationCoordinator.ts`), so `P10-EXIT` is blocked until `P10-W2` either folds those rows into one last bounded pass or explicitly opens the successor iteration
+- Handoff: `run lineup-cleanup-review on docs/plans/2026-04-15-p10-w2-live-backlog-rebaseline-and-successor-scope.md, then execute that rebaseline before any P10-EXIT closeout edits`
 
 **Exit rule:** any residual detector debt is explicit, intentionally owned, and backed by current-code proof rather than stale scan residue.
 
@@ -1657,10 +1675,266 @@ This pass is intentionally last. Earlier architectural work should retire a larg
   - exact issue id: `review::.::holistic::ai_generated_debt::templated_docblock_ceremony`
   - required commands: `desloppify show "review::.::holistic::ai_generated_debt::templated_docblock_ceremony" --status open --no-budget`; `rg -n "@fileoverview|@module|@version" src --glob '!**/__tests__/**'`; `desloppify show src/modules/player --status open --no-budget --top 150`; `desloppify show src/modules/plex --status open --no-budget --top 150`
 
+### [x] `P10-W2` Rebaseline Remaining Live Backlog And Freeze Exit Scope
+
+This pass exists because the post-reconciliation integration-branch scan cleared the stale imported-review layer but did not make Priority 10 exit-ready. `P10-W2` must separate exact tooling-state / excluded-output residue from still-live mechanical debt, refresh the final owner map, and decide whether the remaining work can finish inside one last bounded Priority 10 pass or needs a fresh successor iteration before `P10-EXIT`.
+
+**Authoritative commands:**
+
+- `desloppify status`
+- `desloppify next --count 20`
+- `desloppify plan queue`
+- `desloppify plan`
+- `desloppify show review --status open --no-budget --top 150`
+- `desloppify show security --status open --no-budget --top 50`
+- `desloppify show facade --status open --no-budget --top 50`
+- `desloppify show cycles --status open --no-budget --top 50`
+- `desloppify show test_coverage --status open --no-budget --top 100`
+- `desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 100`
+- `desloppify show src/core/orchestrator/OrchestratorEventBinder.ts --status open --no-budget --top 50`
+- `desloppify show src/modules/lifecycle --status open --no-budget --top 100`
+- `desloppify show src/modules/navigation --status open --no-budget --top 150`
+- `desloppify show src/core/app-shell --status open --no-budget --top 100`
+- `desloppify show src/core/InitializationCoordinator.ts --status open --no-budget --top 50`
+- `desloppify show src/modules/ui/channel-setup --status open --no-budget --top 120`
+- `desloppify show src/modules/ui/now-playing-info --status open --no-budget --top 100`
+- `desloppify show src/modules/plex --status open --no-budget --top 180`
+- `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150`
+- `desloppify show "review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes" --status open --no-budget`
+- `desloppify show "review::.::holistic::ai_generated_debt::templated_docblock_ceremony" --status open --no-budget`
+- `rg -n "@fileoverview|@module|@version" src --glob '!**/__tests__/**'`
+- Status: completed
+- Plan: `docs/plans/2026-04-15-p10-w2-live-backlog-rebaseline-and-successor-scope.md`
+- Last touched: `2026-04-15`
+- Verification:
+  - `desloppify status` on the persisted baseline `2026-04-15T22:07:55+00:00` scan and the refreshed persisted scan `2026-04-15T22:24:08+00:00` both report `overall 83.1 / objective 94.7 / strict 83.1 / verified 94.7`, `353 open`, and queue `1 item (29 planned · 3 stale tracked · 1 subjective)`
+  - `desloppify next --count 20`, `desloppify plan queue`, `desloppify plan`, `desloppify show review --status open --no-budget --top 150`, `desloppify show security --status open --no-budget --top 50`, `desloppify show cycles --status open --no-budget --top 50`, and `desloppify show test_coverage --status open --no-budget --top 100` confirmed imported review debt is no longer the blocker, but multiple live non-tooling buckets remain on current branch evidence
+  - `desloppify show src/core/app-shell --status open --no-budget --top 100`, `desloppify show src/core/InitializationCoordinator.ts --status open --no-budget --top 50`, `desloppify show src/modules/ui/channel-setup --status open --no-budget --top 120`, `desloppify show src/modules/ui/now-playing-info --status open --no-budget --top 100`, `desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 100`, `desloppify show src/core/orchestrator/OrchestratorEventBinder.ts --status open --no-budget --top 50`, `desloppify show src/modules/lifecycle --status open --no-budget --top 100`, `desloppify show src/modules/navigation --status open --no-budget --top 150`, `desloppify show src/modules/plex --status open --no-budget --top 180`, and `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150` together proved startup-owner is not the sole remaining non-tooling `P10` bucket
+  - `desloppify show "test_coverage::src/core/app-shell/AppOrchestratorConfigFactory.ts::transitive_only" --status open --no-budget --top 20`, `desloppify show "smells::src/core/app-shell/AppStartupUiInitializer.ts::async_no_await" --status open --no-budget --top 20`, `desloppify show "smells::src/core/app-shell/AppScreenVisibilityCoordinator.ts::voided_symbol" --status open --no-budget --top 20`, `desloppify show "smells::src/modules/ui/now-playing-info/NowPlayingInfoCoordinator.ts::voided_symbol" --status open --no-budget --top 20`, `desloppify show "cycles::src/modules/ui/now-playing-info/NowPlayingInfoCoordinator.ts::src/modules/ui/now-playing-info/NowPlayingInfoCoordinator.ts::src/modules/ui/now-playing-info/index.ts" --status open --no-budget --top 20`, `rg -n "from './index'|from '../now-playing-info'|from '../../modules/ui/now-playing-info'|from './NowPlayingInfoCoordinator'" src/modules/ui/now-playing-info src/core/app-shell src/core -g'*.ts'`, `nl -ba src/core/app-shell/AppStartupUiInitializer.ts | sed -n '40,140p'`, `nl -ba src/core/app-shell/AppScreenVisibilityCoordinator.ts | sed -n '200,255p'`, and `nl -ba src/modules/ui/now-playing-info/NowPlayingInfoCoordinator.ts | sed -n '215,235p'` established the startup-owner stale-vs-live matrix on current source
+- Follow-ups:
+  - exact tooling-state / excluded-output candidates to confirm or retire: `followup::p1-exit::root-orchestrator-detector-residue`, `followup::p1-exit::factory-smell-detector-residue`, `followup::p1-exit::orchestrator-cycle-detector-residue`, `followup::p2-exit::channel-setup-tagfilters-transitive-only-detector-residue`, `followup::p0-exit::dist-ts-facade-residue`
+  - exact inherited live residuals to either burn down or deliberately carry with one final owner: `followup::p1-exit::orchestrator-live-log-error-policy-residue`, `followup::p4-exit::exact-p4-mechanical-residue`, `followup::p2-exit::channel-setup-tagfilters-hardcoded-url-residue`, `followup::p6-exit::exact-p6-mechanical-residue`, `followup::p8-exit::template-docblock-residual`, `followup::p9-exit::outside-priority-test-coverage-residual`
+  - startup-owner detector-contract candidates retired on current-source proof and should not be reopened without fresh contradictory source evidence: `test_coverage::src/core/app-shell/AppOrchestratorConfigFactory.ts::transitive_only`, `smells::src/core/app-shell/AppStartupUiInitializer.ts::async_no_await`, `smells::src/core/app-shell/AppScreenVisibilityCoordinator.ts::voided_symbol`, `cycles::src/modules/ui/now-playing-info/NowPlayingInfoCoordinator.ts::src/modules/ui/now-playing-info/NowPlayingInfoCoordinator.ts::src/modules/ui/now-playing-info/index.ts`, `smells::src/modules/ui/now-playing-info/NowPlayingInfoCoordinator.ts::voided_symbol`
+  - still-live startup-owner rows moved to exact successor owner `P10-W3`: `smells::src/core/app-shell/AppContainerFactory.ts::hardcoded_color`, `smells::src/modules/ui/now-playing-info/styles.css::css_monolith`
+  - newly surfaced live clusters moved to exact successor owner `P10-W3`: `src/core/orchestrator/AppOrchestrator.ts`, `src/core/orchestrator/OrchestratorEventBinder.ts`, `src/modules/lifecycle/AppLifecycle.ts`, `src/modules/navigation/NavigationCoordinator.ts`, `src/core/InitializationCoordinator.ts`, `src/modules/ui/channel-setup/**`, `src/modules/plex/**`, `src/modules/scheduler/channel-manager/**`
+- Handoff: `run lineup-cleanup-review on the completed P10-W2 rebaseline record, then freeze and review the P10-W3 successor plan before any more Priority 10 code changes`
+
+### [x] `P10-W3` Successor Owner For Remaining Live Non-Tooling Backlog
+
+`P10-W2` proved that Priority 10 still has multiple live non-tooling buckets on current integration-branch evidence, so `P10-EXIT` cannot honestly close next and the startup-owner rows cannot be treated as the last bounded pass. `P10-W3` is the one exact successor owner for the remaining live non-tooling backlog re-frozen on the refreshed persisted `2026-04-15T22:24:08+00:00` scan after validating the `2026-04-15T22:07:55+00:00` baseline.
+
+**Authoritative commands:**
+
+- `desloppify status`
+- `desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 100`
+- `desloppify show src/core/orchestrator/OrchestratorEventBinder.ts --status open --no-budget --top 50`
+- `desloppify show src/modules/lifecycle --status open --no-budget --top 100`
+- `desloppify show src/modules/navigation --status open --no-budget --top 150`
+- `desloppify show src/core/app-shell --status open --no-budget --top 100`
+- `desloppify show src/core/InitializationCoordinator.ts --status open --no-budget --top 50`
+- `desloppify show src/modules/ui/channel-setup --status open --no-budget --top 120`
+- `desloppify show src/modules/ui/now-playing-info --status open --no-budget --top 100`
+- `desloppify show src/modules/plex --status open --no-budget --top 180`
+- `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150`
+- Status: split follow-up
+- Plan: `docs/plans/2026-04-15-p10-w3-successor-owner-remaining-live-non-tooling-backlog.md`
+- Last touched: `2026-04-15`
+- Verification:
+  - `P10-W2` rebaseline evidence on the baseline `2026-04-15T22:07:55+00:00` scan and refreshed persisted `2026-04-15T22:24:08+00:00` scan already proved more than one non-tooling bucket remains live, so this successor owner is required before `P10-EXIT`
+  - startup-owner stale-vs-live disposition is frozen: detector-contract candidates stay retired on current-source proof, while `smells::src/core/app-shell/AppContainerFactory.ts::hardcoded_color` and `smells::src/modules/ui/now-playing-info/styles.css::css_monolith` remain live
+  - implementation landed as seven bounded commits on `code-health`: `af185e74`, `d4d13baf`, `fc37d375`, `3f4cd336`, `2c9351fb`, `9755a8c6`, and `f6ca5f7d`
+  - the post-implementation working-branch detector refresh (`desloppify scan --path . --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`) completed at `2026-04-15T23:30:15+00:00` and showed real remaining live `P10` residue, so this slice must split instead of claiming false completion
+- Follow-ups:
+  - `followup::p10-w3-runtime-startup-postscan-residue`
+    owner: `P10-W4`
+    reason: the post-implementation scan still reports live runtime/startup/app-shell issues in `AppOrchestrator`, `OrchestratorEventBinder`, `AppLifecycle`, `NavigationCoordinator`, `InitializationCoordinator`, `AppContainerFactory`, and `src/modules/ui/now-playing-info/styles.css`
+    revisit trigger: rerun `desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 100` + `desloppify show src/core/orchestrator/OrchestratorEventBinder.ts --status open --no-budget --top 50` + `desloppify show src/modules/lifecycle --status open --no-budget --top 100` + `desloppify show src/modules/navigation --status open --no-budget --top 150` + `desloppify show src/core/InitializationCoordinator.ts --status open --no-budget --top 50` + `desloppify show "smells::src/core/app-shell/AppContainerFactory.ts::hardcoded_color" --status open --no-budget --top 20` + `desloppify show "smells::src/modules/ui/now-playing-info/styles.css::css_monolith" --status open --no-budget --top 20` before closing `P10-W4`
+  - `followup::p10-w3-channel-setup-postscan-residue`
+    owner: `P10-W5`
+    reason: the post-implementation scan still reports live channel-setup-core/UI residue, including the explicit `ChannelSetupTagFilters.ts::hardcoded_url` seam, a controller/runtime cycle, direct-test gaps, and remaining UI detector hits
+    revisit trigger: rerun `desloppify show "smells::src/core/channel-setup/ChannelSetupTagFilters.ts::hardcoded_url" --status open --no-budget --top 20` + `desloppify show src/modules/ui/channel-setup --status open --no-budget --top 200` before closing `P10-W5`
+  - `followup::p10-w3-plex-postscan-residue`
+    owner: `P10-W6`
+    reason: the post-implementation scan still reports live Plex log-policy, test-coverage, and complexity residue across discovery, library, auth payload parsing, stream policy, and transport helpers
+    revisit trigger: rerun `desloppify show src/modules/plex --status open --no-budget --top 200` before closing `P10-W6`
+  - `followup::p10-w3-scheduler-postscan-residue`
+    owner: `P10-W7`
+    reason: the post-implementation scan still reports live scheduler residue in `ChannelContentSourceValidator`, `ChannelManager`, and `StoredChannelDataCodec`
+    revisit trigger: rerun `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150` before closing `P10-W7`
+  - explicit non-goal: do not reopen the `P10-W2` startup-owner detector-contract retirements or the already-frozen `P10-EXIT` tooling-state residue unless a fresh rerun points at contradictory current-source evidence
+- Handoff: `run lineup-cleanup-review on the landed P10-W3 implementation evidence with this split-follow-up record; review the seven code commits plus the checklist split, then implement P10-W4 through P10-W7 as separate follow-up slices before any P10-EXIT closeout work`
+
+### [x] `P10-W4` Runtime / Startup Post-Scan Residual Cleanup
+
+This is the exact owned follow-up from the `P10-W3` split for the remaining runtime, startup, navigation, and startup-owner live residue still present on the post-implementation `2026-04-15T23:30:15+00:00` detector refresh.
+
+**Authoritative commands:**
+
+- `desloppify status`
+- `desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 100`
+- `desloppify show src/core/orchestrator/OrchestratorEventBinder.ts --status open --no-budget --top 50`
+- `desloppify show src/modules/lifecycle --status open --no-budget --top 100`
+- `desloppify show src/modules/navigation --status open --no-budget --top 150`
+- `desloppify show src/core/InitializationCoordinator.ts --status open --no-budget --top 50`
+- `desloppify show "smells::src/core/app-shell/AppContainerFactory.ts::hardcoded_color" --status open --no-budget --top 20`
+- `desloppify show "smells::src/modules/ui/now-playing-info/styles.css::css_monolith" --status open --no-budget --top 20`
+- Status: completed
+- Plan: `docs/plans/2026-04-15-p10-w4-runtime-startup-post-scan-residual-cleanup.md`
+- Last touched: `2026-04-15`
+- Verification:
+  - `desloppify status` passed and still reported the frozen `2026-04-15T23:30:15+00:00` baseline (`strict 83.1`, `359 open`) before any forced rescan.
+  - `desloppify show review --status open --no-budget --top 150` returned `No open issues matching: review`.
+  - `desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 100`, `desloppify show src/core/orchestrator/OrchestratorEventBinder.ts --status open --no-budget --top 50`, `desloppify show src/modules/lifecycle --status open --no-budget --top 100`, `desloppify show src/modules/navigation --status open --no-budget --top 150`, `desloppify show src/core/InitializationCoordinator.ts --status open --no-budget --top 50`, `desloppify show "smells::src/core/app-shell/AppContainerFactory.ts::hardcoded_color" --status open --no-budget --top 20`, and `desloppify show "smells::src/modules/ui/now-playing-info/styles.css::css_monolith" --status open --no-budget --top 20` all still reflect the frozen pre-fix scan; current-source proof now shows no direct `console.warn`/`console.error` in `AppOrchestrator.ts`, `OrchestratorEventBinder.ts`, `NavigationCoordinator.ts`, `InitializationCoordinator.ts`, or `AppContainerFactory.ts`, the required `reportRecoverableAsyncFailure(event, message, error)` seam is threaded through the typed orchestrator/startup/navigation contracts, `AppLifecycle.ts` still references `NETWORK_CHECK_PROBE_URL` from `src/modules/lifecycle/constants.ts` rather than an inline URL literal, `AppContainerFactory.ts` no longer carries the hardcoded color/shadow tokens, and `src/modules/ui/now-playing-info/styles.css` is now a 111-line import barrel with `styles.motion.css` + `styles.theme.css` partials.
+  - `desloppify scan --path .` was attempted post-implementation and correctly refused mid-cycle without `--force-rescan`, so no forced rescan was recorded in this slice.
+  - `npm test -- --runInBand src/__tests__/Orchestrator.test.ts src/__tests__/orchestrator/event-wiring.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorAssembly.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorFactory.playbackState.test.ts src/core/orchestrator/__tests__/OrchestratorPriorityOneControllerFactory.playbackState.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorBuilders.test.ts` passed.
+  - `npm test -- --runInBand src/core/__tests__/InitializationCoordinator.test.ts src/modules/navigation/__tests__/NavigationCoordinator.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorBuilders.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorAssembly.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorFactory.playbackState.test.ts` passed.
+  - `npm test -- --runInBand src/core/app-shell/__tests__/AppContainerFactory.test.ts src/__tests__/App.test.ts src/modules/ui/now-playing-info/__tests__/NowPlayingInfoOverlay.test.ts src/modules/ui/now-playing-info/__tests__/NowPlayingInfoCoordinator.test.ts` passed.
+  - `npm run verify` passed.
+  - `npm run verify:docs` passed.
+  - `npm run plans:check` passed.
+- Follow-ups: none
+- Handoff: `run lineup-cleanup-review on docs/plans/2026-04-15-p10-w4-runtime-startup-post-scan-residual-cleanup.md using commits 17ee85c8, b90dbc01, 9bc52289, 7193467e plus the checklist update; confirm the frozen-scan detector rows are now stale/current-source-retired and that no new successor owner is needed before opening P10-W5`
+
+### [x] `P10-W5` Channel-Setup Post-Scan Residual Cleanup
+
+This is the exact owned follow-up from the `P10-W3` split for the remaining channel-setup-core and channel-setup-UI residue still present on the post-implementation `2026-04-15T23:30:15+00:00` detector refresh.
+
+**Authoritative commands:**
+
+- `desloppify status`
+- `desloppify show "smells::src/core/channel-setup/ChannelSetupTagFilters.ts::hardcoded_url" --status open --no-budget --top 20`
+- `desloppify show src/modules/ui/channel-setup --status open --no-budget --top 200`
+- Status: completed
+- Plan: `local implementation plan executed; not committed per maintainer request`
+- Last touched: `2026-04-15`
+- Verification:
+  - `desloppify status` still reports the frozen `2026-04-15T23:30:15+00:00` baseline with `overall 83.1 / strict 83.1 / objective 94.7 / verified 94.7`; the queue remains `1 item (29 planned · 3 stale tracked · 1 subjective)`
+  - `desloppify show review --status open --no-budget --top 150` returned `No open issues matching: review`
+  - `desloppify show "smells::src/core/channel-setup/ChannelSetupTagFilters.ts::hardcoded_url" --status open --no-budget --top 20` still reports the inherited parser-local row at line 38, so retirement remains current-source proof rather than forced detector churn
+  - `desloppify show src/modules/ui/channel-setup --status open --no-budget --top 200` still reports the frozen pre-fix `P10-W5` row set, including `ChannelSetupSessionTypes.ts`, `BuildProgressStepController.ts::console_error_no_throw`, `styles.css::css_monolith`, and the controller/runtime cycle
+  - `rg -n "console\\.error|console\\.warn" src/modules/ui/channel-setup/ChannelSetupScreen.ts src/modules/ui/channel-setup/steps/BuildProgressStepController.ts` now reports only `ChannelSetupScreen.ts` `console.warn(...)` calls at lines 247, 711, and 749; `BuildProgressStepController.ts` has no remaining `console.error(...)`
+  - `rg -n "from './ChannelSetupSessionController'|from './ChannelSetupSessionRuntime'|from './ChannelSetupSessionContracts'|from '../ChannelSetupSessionController'|from '../ChannelSetupSessionRuntime'|from '../ChannelSetupSessionContracts'" src/modules/ui/channel-setup src/modules/ui/channel-setup/__tests__` shows shared state/runtime types now route through `ChannelSetupSessionContracts.ts`; controller imports remain class-owner only
+  - `rg -n "^@import url\\('./styles\\.(core|library|strategy|review-progress)\\.css'\\);$" src/modules/ui/channel-setup/styles.css` reports exactly the four approved import lines
+  - `rg -n -v "^(@import url\\('./styles\\.(core|library|strategy|review-progress)\\.css'\\);|\\s*)$" src/modules/ui/channel-setup/styles.css` returned no matches
+  - `wc -l src/modules/ui/channel-setup/styles.css src/modules/ui/channel-setup/styles.core.css src/modules/ui/channel-setup/styles.library.css src/modules/ui/channel-setup/styles.strategy.css src/modules/ui/channel-setup/styles.review-progress.css` reported `4 / 186 / 76 / 286 / 66` lines (`618 total`)
+  - `npm test -- --runInBand src/core/channel-setup/__tests__/ChannelSetupTagFilters.test.ts` passed
+  - `npm test -- --runInBand src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupSessionRuntime.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupSessionState.test.ts` passed
+  - `npm test -- --runInBand src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts` passed
+  - `npm test -- --runInBand src/modules/ui/channel-setup/steps/__tests__/BuildProgressStepController.test.ts src/modules/ui/channel-setup/steps/__tests__/BuildReviewStepController.test.ts src/modules/ui/channel-setup/steps/__tests__/LibraryStepController.test.ts src/modules/ui/channel-setup/steps/__tests__/StrategyStepController.test.ts` passed
+  - `npm run verify` passed
+  - `npm run verify:docs` passed
+  - `npm run plans:check` passed
+- Issue dispositions:
+  - `smells::src/core/channel-setup/ChannelSetupTagFilters.ts::hardcoded_url` -> `resolved via current-source proof` -> owner `P10-W5`; proof: `ChannelSetupTagFilters.ts` remains a parser-local fast-key helper with focused direct tests, not a transport/url-construction owner
+  - `test_coverage::src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts::transitive_only` -> `resolved via current-source proof` -> owner `P10-W5`; proof: direct runtime-owner suite exists and passed
+  - `test_coverage::src/modules/ui/channel-setup/ChannelSetupSessionState.ts::transitive_only` -> `resolved via current-source proof` -> owner `P10-W5`; proof: direct state-owner suite exists and passed
+  - `test_coverage::src/modules/ui/channel-setup/ChannelSetupSessionTypes.ts::transitive_only` -> `resolved` -> owner `P10-W5`; proof: the file was retired and shared types now live only in `ChannelSetupSessionContracts.ts`
+  - `test_coverage::src/modules/ui/channel-setup/steps/BuildReviewStepController.ts::transitive_only` -> `resolved via current-source proof` -> owner `P10-W5`; proof: direct step-owner suite exists and passed
+  - `test_coverage::src/modules/ui/channel-setup/steps/LibraryStepController.ts::transitive_only` -> `resolved via current-source proof` -> owner `P10-W5`; proof: direct step-owner suite exists and passed
+  - `test_coverage::src/modules/ui/channel-setup/steps/StrategyStepController.ts::transitive_only` -> `resolved via current-source proof` -> owner `P10-W5`; proof: direct step-owner suite exists and passed while Step 2 interaction logic moved to its own owner without widening screen/focus seams
+  - `smells::src/modules/ui/channel-setup/ChannelSetupScreen.ts::console_error_no_throw` -> `resolved via current-source proof` -> owner `P10-W5`; proof: current source contains audited `console.warn(...)` calls only
+  - `smells::src/modules/ui/channel-setup/steps/BuildProgressStepController.ts::console_error_no_throw` -> `resolved` -> owner `P10-W5`; proof: build failure handling now preserves UI error state without a live `console.error(...)`
+  - `smells::src/modules/ui/channel-setup/styles.css::css_monolith` -> `resolved` -> owner `P10-W5`; proof: `styles.css` is now an import barrel and the partials carry the stable ownership split
+  - `cycles::src/modules/ui/channel-setup/ChannelSetupSessionController.ts::src/modules/ui/channel-setup/ChannelSetupSessionController.ts::src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts` -> `resolved` -> owner `P10-W5`; proof: shared session/runtime types moved into `ChannelSetupSessionContracts.ts`, removing the controller/runtime shared-contract cycle
+- Follow-ups: none
+- Handoff: `run lineup-cleanup-review for P10-W5 using commits 2d443d91, efabab81, 2a6f87ec, a79783fe, 2ed54f87, plus the checklist update; confirm the frozen detector rows are stale/current-source-retired where noted and that no additional successor owner is needed before opening P10-W6`
+
+### [x] `P10-W6` Plex Post-Scan Residual Cleanup
+
+This is the exact owned follow-up from the `P10-W3` split for the remaining Plex residue still present on the post-implementation `2026-04-15T23:30:15+00:00` detector refresh.
+
+**Authoritative commands:**
+
+- `desloppify status`
+- `desloppify show src/modules/plex --status open --no-budget --top 200`
+- Status: completed
+- Plan: `docs/plans/2026-04-15-p10-w6-plex-post-scan-residual-cleanup.md`
+- Last touched: `2026-04-16`
+- Verification:
+  - the `2026-04-15T23:30:15+00:00` post-implementation scan left these exact residual issue ids in this owner set:
+    - `test_coverage::src/modules/plex/auth/plexAuthPayloadParsers.ts::transitive_only`
+    - `smells::src/modules/plex/auth/plexAuthPayloadParsers.ts::high_cyclomatic_complexity`
+    - `test_coverage::src/modules/plex/stream/hdr.ts::transitive_only`
+    - `smells::src/modules/plex/stream/hdr.ts::high_cyclomatic_complexity`
+    - `test_coverage::src/modules/plex/shared/fetchWithTimeoutCore.ts::transitive_only`
+    - `test_coverage::src/modules/plex/stream/plexSessionId.ts::transitive_only`
+    - `logs::src/modules/plex/stream/PlexStreamResolver.ts::PlexStreamResolver`
+    - `logs::src/modules/plex/discovery/PlexServerDiscovery.ts::Discovery`
+    - `smells::src/modules/plex/library/ResponseParser.ts::high_cyclomatic_complexity`
+    - `smells::src/modules/plex/stream/playbackCompatibilityPolicy.ts::high_cyclomatic_complexity`
+    - `smells::src/modules/plex/library/PlexLibrary.ts::console_error_no_throw`
+    - `smells::src/modules/plex/stream/dvHdr10Fallback.ts::high_cyclomatic_complexity`
+    - `smells::src/modules/plex/stream/types.ts::high_cyclomatic_complexity`
+  - implemented the bounded Plex-local cleanup plan on `code-health` without widening `PlexAuth`, `resolveStreamPipeline`, or the public stream/docs surfaces: auth/library parsing split into package-local helpers, Plex log normalization stayed Plex-local, and tagged log strings were removed from `PlexServerDiscovery` / `PlexStreamResolver`
+  - added direct focused tests for the new helper owners and stale transitive-only source-audit surfaces:
+    `src/modules/plex/auth/__tests__/plexHomeUsersPayloadParser.test.ts`,
+    `src/modules/plex/auth/__tests__/plexSwitchPayloadParser.test.ts`,
+    `src/modules/plex/library/__tests__/mediaItemParser.test.ts`,
+    `src/modules/plex/library/__tests__/streamParser.test.ts`,
+    `src/modules/plex/shared/__tests__/fetchWithTimeoutCore.test.ts`,
+    `src/modules/plex/shared/__tests__/plexLogging.test.ts`,
+    `src/modules/plex/stream/__tests__/hdr.test.ts`,
+    `src/modules/plex/stream/__tests__/plexSessionId.test.ts`
+  - required focused verification passed:
+    `npm test -- --runInBand src/modules/plex/auth/__tests__/plexAuthPayloadParsers.test.ts src/modules/plex/auth/__tests__/plexHomeUsersPayloadParser.test.ts src/modules/plex/auth/__tests__/plexSwitchPayloadParser.test.ts src/modules/plex/auth/__tests__/PlexAuth.test.ts src/modules/plex/library/__tests__/ResponseParser.test.ts src/modules/plex/library/__tests__/mediaItemParser.test.ts src/modules/plex/library/__tests__/streamParser.test.ts src/modules/plex/library/__tests__/PlexLibrary.test.ts src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts src/modules/plex/shared/__tests__/fetchWithTimeoutCore.test.ts src/modules/plex/shared/__tests__/plexLogging.test.ts src/modules/plex/stream/__tests__/hdr.test.ts src/modules/plex/stream/__tests__/fetchWithTimeout.test.ts src/modules/plex/stream/__tests__/plexSessionId.test.ts src/modules/plex/stream/__tests__/playbackCompatibilityPolicy.test.ts src/modules/plex/stream/__tests__/dvHdr10Fallback.test.ts src/modules/plex/stream/__tests__/error-taxonomy.test.ts src/modules/plex/stream/__tests__/resolveStreamPipeline.test.ts src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts src/modules/plex/stream/__tests__/PlexStreamResolver.subtitle-errors.test.ts src/__tests__/tools/plexIntegrationDocs.test.ts`
+  - refreshed `desloppify` on `2026-04-16T04:54:26+00:00`, then retired the stale carried-forward Plex issue ids with current-source proof via `desloppify plan resolve --force-resolve ... --confirm`; the final area drill now returns `No open issues matching: src/modules/plex`
+- Follow-ups: `owned follow-up from P10-W3 only; do not merge this residual set back into runtime/startup or scheduler without a fresh owner decision`
+- Handoff: `none; P10-W6 is complete on current-source evidence`
+
+### [x] `P10-W7` Scheduler Post-Scan Residual Cleanup
+
+This is the exact owned follow-up from the `P10-W3` split for the remaining scheduler residue still present on the post-implementation `2026-04-15T23:30:15+00:00` detector refresh.
+
+**Authoritative commands:**
+
+- `desloppify status`
+- `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150`
+- Status: completed
+- Plan: `docs/plans/2026-04-16-p10-w7-scheduler-post-scan-residual-cleanup.md`
+- Last touched: `2026-04-16`
+- Verification:
+  - entry evidence matched the reviewed owner set on current source:
+    - `desloppify status` reported last scan `2026-04-16T04:54:26+00:00`
+    - `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150` returned only:
+      - `smells::src/modules/scheduler/channel-manager/ChannelContentSourceValidator.ts::high_cyclomatic_complexity`
+      - `smells::src/modules/scheduler/channel-manager/ChannelManager.ts::voided_symbol`
+      - `smells::src/modules/scheduler/channel-manager/StoredChannelDataCodec.ts::voided_symbol`
+  - source-audit guardrails passed after implementation:
+    - `rg -n "delete .*isSequentialVariant" src/modules/scheduler/channel-manager` returned no matches
+    - `rg -n "isValidContentSource\\(" src/modules/scheduler/channel-manager src/modules/scheduler/channel-manager/__tests__` kept the same scheduler-local call footprint (`ChannelRepository.ts`, `ChannelManager.ts`, import validation, and focused validator tests)
+    - `wc -l src/modules/scheduler/channel-manager/ChannelManager.ts src/modules/scheduler/channel-manager/ChannelContentSourceValidator.ts src/modules/scheduler/channel-manager/StoredChannelDataCodec.ts src/modules/scheduler/channel-manager/ChannelRepository.ts src/modules/scheduler/channel-manager/stripLegacySequentialVariant.ts` reported `1485`, `113`, `49`, `126`, and `19` lines respectively
+    - `npx eslint src/modules/scheduler/channel-manager/ChannelContentSourceValidator.ts --rule 'complexity:[2,15]'` exited `0`
+    - `npx eslint src/modules/scheduler/channel-manager/StoredChannelDataCodec.ts src/modules/scheduler/channel-manager/ChannelManager.ts src/modules/scheduler/channel-manager/stripLegacySequentialVariant.ts --rule '@typescript-eslint/no-unused-vars:[2]'` exited `0`
+  - focused scheduler regressions passed:
+    - `npm test -- --runInBand src/modules/scheduler/channel-manager/__tests__/ChannelContentSourceValidator.test.ts` passed
+    - `npm test -- --runInBand src/modules/scheduler/channel-manager/__tests__/stripLegacySequentialVariant.test.ts src/modules/scheduler/channel-manager/__tests__/StoredChannelDataCodec.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelRepository.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelContentSourceValidator.test.ts` passed
+  - global verification passed:
+    - `npm run verify` passed
+    - `npm run verify:docs` passed
+    - `npm run plans:check` passed
+  - final-slice evidence:
+    - plain `desloppify scan --path .` was refused mid-cycle by the queue guard, so the integration branch reran `desloppify scan --path . --force-rescan --attest "I understand this is not the intended workflow and I am intentionally refreshing P10-W7 closeout evidence on the integration branch"`; `desloppify status` now reports last scan `2026-04-16T05:46:10+00:00`
+    - `desloppify plan resolve --force-resolve ... --confirm` retired the three carried-forward scheduler smell ids with current-source proof because the live source no longer matches the stale detector anchors
+    - `desloppify plan resolve --force-resolve "test_coverage::src/modules/scheduler/channel-manager/stripLegacySequentialVariant.ts::transitive_only" --confirm` retired the helper coverage row after adding direct tests
+    - `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150` now returns `No open issues matching: src/modules/scheduler/channel-manager`
+    - `desloppify show review --status open --no-budget --top 100` returns `No open issues matching: review`
+    - `desloppify show security --status open --no-budget --top 50` surfaced only existing `cycles::...` rows outside scheduler; no new `security::...` blocker was introduced by this slice
+    - `desloppify show src/modules/plex --status open --no-budget --top 250` reopened one out-of-slice row on the forced rescan:
+      - `smells::src/modules/plex/library/mediaItemParser.ts::high_cyclomatic_complexity`
+    - `desloppify next` and `desloppify plan queue` now show only subjective/stale-tracked queue work; no scheduler production row remains live
+- Follow-ups:
+  - `P10-W7` itself is closed on current-source proof; do not reopen scheduler cleanup unless a later integration-branch source audit finds a new live scheduler owner
+  - `P10-EXIT` must reconcile the forced-rescan Plex reopen `smells::src/modules/plex/library/mediaItemParser.ts::high_cyclomatic_complexity` as part of exit evidence instead of opening a new cleanup slice from this session
+- Handoff: `run lineup-cleanup-review on P10-W7 using commits 27c3744c, 6646e431, d9865c7d, 8cb086d0 plus this checklist update, then hand the accepted evidence directly into P10-EXIT / priority-exit review; do not open a new cleanup slice`
+
 ### [ ] `P10-EXIT` Overall Closeout Gate
+
+`P10-W7` is now complete, so `P10-EXIT` is the next safe step. The forced `2026-04-16T05:46:10+00:00` rescan cleared the scheduler area and refreshed the final queue surfaces; the remaining task is to carry the refreshed evidence through the required priority-exit review. No new cleanup slice is warranted unless that review or a fresh source audit disproves the stale-residue classifications recorded below.
 
 Do not treat the cleanup wave as complete until all of the following are true on the target integration branch:
 
+- `P10-W6` is completed
+- `P10-W7` is completed
 - `npm run verify` passes
 - `npm run verify:docs` passes
 - `desloppify scan --path .` completes cleanly
@@ -1671,6 +1945,26 @@ Do not treat the cleanup wave as complete until all of the following are true on
 - any surviving `stale_exclude` warnings are explicitly accepted as approved local-state excludes and do not obscure repo-source debt
 - any `dist-ts/` decision has been applied consistently to scan scope, documentation, and the final evidence snapshot
 - this checklist has been updated in the same pass with the final score, residual debt, and archive/supersession notes
+- Status: blocked
+- Plan: `docs/plans/2026-04-15-p10-exit-overall-closeout-gate.md`
+- Last touched: `2026-04-16`
+- Verification:
+  - queue-surface reconciliation on the forced-rescan baseline is now explicit instead of contradictory:
+    - `desloppify status` reports last scan `2026-04-16T05:46:10+00:00`, `overall 83.2 / objective 94.9 / strict 83.1 / verified 94.2`, `351 open`, and `Queue: 6 items (16 planned · 11 stale tracked · 6 subjective)`
+    - `desloppify next` under the active `auto/logs` focus prints `Queue: 1 item` for the focused local slice, then restates the full live queue as `Queue: 6 items (16 planned · 11 stale tracked · 6 subjective)`
+    - `desloppify plan queue` reports the same live queue (`Queue: 6 items`) while showing the broader living-plan inventory (`27 planned · 6 subjective`)
+    - `desloppify plan` is not a live-queue surface; it lists `27` planned items plus `282` backlog rows
+    - `desloppify plan commit-log` is not an open-debt surface; it tracks commit attribution and currently reports `1` resolved issue as uncommitted
+  - queue-adjacent blocker checks are clean enough for closeout review:
+    - `desloppify show review --status open --no-budget --top 100` returns `No open issues matching: review`
+    - `desloppify show security --status open --no-budget --top 50` shows only three existing T3 cycle rows (`OrchestratorCoordinatorBuilders`, `ChannelSetupSessionController`, `NowPlayingInfoCoordinator`); no open `P0` security blocker appears
+    - `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150` returns `No open issues matching: src/modules/scheduler/channel-manager`
+  - late residual classifications are now source-audit backed:
+    - `desloppify show src/modules/plex/library --status open --no-budget --top 150` and `desloppify show src/modules/plex/library/mediaItemParser.ts --status open --no-budget --top 100` report only `smells::src/modules/plex/library/mediaItemParser.ts::high_cyclomatic_complexity` as a reopened row
+    - `npx eslint src/modules/plex/library/mediaItemParser.ts --rule 'complexity:[2,15]'` exited `0`, `src/modules/plex/library/__tests__/mediaItemParser.test.ts` remains present, and `npm test -- --runInBand src/modules/plex/library/__tests__/mediaItemParser.test.ts src/modules/scheduler/channel-manager/__tests__/stripLegacySequentialVariant.test.ts` passed; classify the Plex row as stale current-source residue unless a later source audit disproves it
+    - `desloppify show "test_coverage::src/modules/scheduler/channel-manager/stripLegacySequentialVariant.ts::transitive_only" --status open --no-budget --top 20` returns `No open issues matching`, `git diff -- src/modules/scheduler/channel-manager/stripLegacySequentialVariant.ts src/modules/scheduler/channel-manager/__tests__/stripLegacySequentialVariant.test.ts` is empty, and the same targeted Jest run passed; classify the remaining `desloppify plan commit-log` entry for that issue as bookkeeping drift only
+- Follow-ups: `run the required priority-exit review against P10-W6, P10-W7, and this refreshed P10-EXIT record; only open a new cleanup slice if that review or a fresh source audit disproves the stale-residue classifications above`
+- Handoff: `run lineup-cleanup-review against the completed P10-W6/P10-W7 artifacts plus this refreshed P10-EXIT evidence; if review accepts the queue-surface semantics and residual classifications, close P10-EXIT without creating a new cleanup slice`
 
 ## Imported Review Issue Map By Priority
 

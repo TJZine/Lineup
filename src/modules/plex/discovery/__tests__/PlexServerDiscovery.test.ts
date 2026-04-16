@@ -682,14 +682,14 @@ describe('PlexServerDiscovery', () => {
 	
 	                const result = await discovery.findFastestConnection(mockServer);
 	
-	                expect(result.connection).toBeNull();
-	                expect(warnSpy).toHaveBeenCalledTimes(1);
-	                expect(warnSpy).toHaveBeenCalledWith(
-	                    '[Discovery] No working connections found',
-	                    expect.objectContaining({
-	                        serverId: 'srv1',
-	                        authRequired: false,
-	                        httpsCount: 1,
+                expect(result.connection).toBeNull();
+                expect(warnSpy).toHaveBeenCalledTimes(1);
+                expect(warnSpy).toHaveBeenCalledWith(
+                    'No working connections found',
+                    expect.objectContaining({
+                        serverId: 'srv1',
+                        authRequired: false,
+                        httpsCount: 1,
 	                        httpCount: 1,
 	                    })
 	                );
@@ -727,15 +727,15 @@ describe('PlexServerDiscovery', () => {
 	
 	                const result = await discovery.findFastestConnection(mockServer);
 	
-	                expect(result.connection).not.toBeNull();
-	                expect(result.connection!.protocol).toBe('http');
-	                expect(warnSpy).toHaveBeenCalledTimes(1);
-	                expect(warnSpy).toHaveBeenCalledWith(
-	                    '[Discovery] Selected HTTP connection (last resort)',
-	                    expect.objectContaining({
-	                        local: true,
-	                        relay: false,
-	                    })
+                expect(result.connection).not.toBeNull();
+                expect(result.connection!.protocol).toBe('http');
+                expect(warnSpy).toHaveBeenCalledTimes(1);
+                expect(warnSpy).toHaveBeenCalledWith(
+                    'Selected HTTP connection (last resort)',
+                    expect.objectContaining({
+                        local: true,
+                        relay: false,
+                    })
 	                );
 	            } finally {
 	                warnSpy.mockRestore();
@@ -1592,7 +1592,7 @@ describe('PlexServerDiscovery', () => {
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.uri).toBe('https://valid:32400');
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    '[Discovery] Skipping invalid connection URI:',
+                    'Skipping invalid Plex connection URI:',
                     'file:///etc/passwd'
                 );
             } finally {
@@ -1645,8 +1645,60 @@ describe('PlexServerDiscovery', () => {
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.uri).toBe('https://clean:32400');
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    '[Discovery] Skipping invalid connection URI:',
-                    'https://user:pass@server:32400'
+                    'Skipping invalid Plex connection URI:',
+                    'https://server:32400/'
+                );
+            } finally {
+                consoleWarnSpy.mockRestore();
+            }
+        });
+
+        it('redacts sensitive fragments when logging invalid credentialed connection URIs', async () => {
+            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+            try {
+                const mockServers = [
+                    {
+                        clientIdentifier: 'srv1',
+                        name: 'Test Server',
+                        sourceTitle: 'testuser',
+                        ownerId: 'owner1',
+                        owned: true,
+                        provides: 'server',
+                        connections: [
+                            {
+                                uri: 'https://user:pass@server:32400/#token=secret',
+                                protocol: 'https',
+                                address: 'server',
+                                port: 32400,
+                                local: false,
+                                relay: false,
+                            },
+                            {
+                                uri: 'https://clean:32400',
+                                protocol: 'https',
+                                address: 'clean',
+                                port: 32400,
+                                local: false,
+                                relay: false,
+                            },
+                        ],
+                    },
+                ];
+                mockFetchJson(mockServers);
+                const discovery = new PlexServerDiscovery(mockConfig);
+
+                const result = await discovery.discoverServers();
+
+                const server = result[0];
+                expect(server).toBeDefined();
+                if (!server) {
+                    throw new Error('Expected server to be defined');
+                }
+                expect(server.connections).toHaveLength(1);
+                expect(server.connections[0]?.uri).toBe('https://clean:32400');
+                expect(consoleWarnSpy).toHaveBeenCalledWith(
+                    'Skipping invalid Plex connection URI:',
+                    'https://server:32400/#REDACTED_FRAGMENT'
                 );
             } finally {
                 consoleWarnSpy.mockRestore();
@@ -1706,11 +1758,11 @@ describe('PlexServerDiscovery', () => {
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.protocol).toBe('http');
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    '[Discovery] Skipping invalid connection URI:',
-                    'ftp://server:21'
+                    'Skipping invalid Plex connection URI:',
+                    'ftp://server/'
                 );
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    '[Discovery] Skipping invalid connection URI:',
+                    'Skipping invalid Plex connection URI:',
                     'javascript:alert(1)'
                 );
             } finally {
@@ -1762,7 +1814,7 @@ describe('PlexServerDiscovery', () => {
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.uri).toBe('https://valid:32400');
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    '[Discovery] Skipping invalid connection URI:',
+                    'Skipping invalid Plex connection URI:',
                     'data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg=='
                 );
             } finally {
@@ -1858,11 +1910,11 @@ describe('PlexServerDiscovery', () => {
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.uri).toBe('https://valid:32400');
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    '[Discovery] Skipping invalid connection URI:',
+                    'Skipping invalid Plex connection URI:',
                     'not-a-valid-uri'
                 );
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    '[Discovery] Skipping invalid connection URI:',
+                    'Skipping invalid Plex connection URI:',
                     '://missing-protocol'
                 );
             } finally {

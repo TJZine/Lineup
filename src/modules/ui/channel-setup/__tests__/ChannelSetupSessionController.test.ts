@@ -3,10 +3,8 @@ import { DEFAULT_MIN_ITEMS_PER_CHANNEL } from '../../../../core/channel-setup/co
 import type { ChannelSetupConfig, ChannelSetupRecord } from '../../../../core/channel-setup/types';
 import type { ChannelSetupWorkflowPort } from '../../../../core/channel-setup/ChannelSetupWorkflowPort';
 import type { PlexLibrarySection as PlexLibraryModel } from '../../../plex/library/types';
-import {
-    ChannelSetupSessionController,
-    type ChannelSetupBuildOutcome,
-} from '../ChannelSetupSessionController';
+import { ChannelSetupSessionController } from '../ChannelSetupSessionController';
+import type { ChannelSetupBuildOutcome } from '../ChannelSetupSessionContracts';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
 import { DEFAULT_BUILD_RESULT, DEFAULT_PREVIEW, DEFAULT_REVIEW, makeLibrary } from './channel-setup-test-helpers';
 

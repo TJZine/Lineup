@@ -63,7 +63,7 @@ export interface StreamResolverEventMap {
  * Configuration for PlexStreamResolver.
  */
 export interface PlexStreamDebugOverridesReader {
-    readTranscodeProfileName(): string | null;
+    readTranscodeProfileNameAndClean(): string | null;
 }
 
 export interface PlexStreamResolverConfig {

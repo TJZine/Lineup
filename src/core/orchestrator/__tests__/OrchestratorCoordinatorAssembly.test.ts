@@ -81,6 +81,7 @@ const createCoordinatorFactoryDeps = (): OrchestratorCoordinatorFactoryDeps => (
     },
     diagnostics: {
         appendIssueDiagnostic: jest.fn(),
+        reportRecoverableAsyncFailure: jest.fn(),
     },
     playback: {
         state: {} as OrchestratorCoordinatorFactoryDeps['playback']['state'],

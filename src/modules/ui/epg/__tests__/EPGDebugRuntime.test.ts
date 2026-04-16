@@ -30,7 +30,9 @@ describe('EPGDebugRuntime', () => {
     });
 
     it('reuses a cached debug flag between rapid append calls', () => {
-        const readEpgDebugSpy = jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabled').mockReturnValue(false);
+        const readEpgDebugSpy = jest
+            .spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabledAndClean')
+            .mockReturnValue(false);
         const runtime = createRuntime();
 
         runtime.append('event:one', { ok: true });
@@ -41,7 +43,9 @@ describe('EPGDebugRuntime', () => {
     });
 
     it('shares one cached debug-flag read across isEnabled and append in same refresh window', () => {
-        const readEpgDebugSpy = jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabled').mockReturnValue(true);
+        const readEpgDebugSpy = jest
+            .spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabledAndClean')
+            .mockReturnValue(true);
         const runtime = createRuntime();
 
         expect(runtime.isEnabled()).toBe(true);
@@ -51,7 +55,9 @@ describe('EPGDebugRuntime', () => {
     });
 
     it('updates cached debug flag immediately on EPG debug storage events', () => {
-        const readEpgDebugSpy = jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabled').mockReturnValue(false);
+        const readEpgDebugSpy = jest
+            .spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabledAndClean')
+            .mockReturnValue(false);
         const runtime = createRuntime();
 
         expect(runtime.isEnabled()).toBe(false);
@@ -78,7 +84,7 @@ describe('EPGDebugRuntime', () => {
     it('keeps same-tab debug toggles behind bounded refresh when no storage event is fired', () => {
         let debugEnabled = false;
         const readEpgDebugSpy = jest
-            .spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabled')
+            .spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabledAndClean')
             .mockImplementation(() => debugEnabled);
         const nowSpy = jest.spyOn(Date, 'now');
         const runtime = createRuntime();
@@ -103,7 +109,7 @@ describe('EPGDebugRuntime', () => {
     });
 
     it('normalizes non-array stored debug log payloads to an empty list before append', () => {
-        jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabled').mockReturnValue(true);
+        jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabledAndClean').mockReturnValue(true);
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_DEBUG_LOG, '{"bad":true}');
         const runtime = createRuntime();
 
@@ -118,7 +124,7 @@ describe('EPGDebugRuntime', () => {
     });
 
     it('remains non-throwing when debug log storage write fails', () => {
-        jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabled').mockReturnValue(true);
+        jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabledAndClean').mockReturnValue(true);
         const setSpy = jest.spyOn(storageHelpers, 'safeLocalStorageSet').mockReturnValue(false);
         const runtime = createRuntime();
 
@@ -131,7 +137,7 @@ describe('EPGDebugRuntime', () => {
     });
 
     it('flushes pending entries immediately on destroy and cancels the timer', () => {
-        jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabled').mockReturnValue(true);
+        jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabledAndClean').mockReturnValue(true);
         const setSpy = jest.spyOn(storageHelpers, 'safeLocalStorageSet');
         const runtime = createRuntime();
 
@@ -148,7 +154,7 @@ describe('EPGDebugRuntime', () => {
     });
 
     it('keeps destroy non-throwing and idempotent after a pending flush', () => {
-        jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabled').mockReturnValue(true);
+        jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabledAndClean').mockReturnValue(true);
         const runtime = createRuntime();
 
         runtime.append('event:destroy-safe', { ok: true });
@@ -160,7 +166,7 @@ describe('EPGDebugRuntime', () => {
     });
 
     it('falls back to an empty persisted log when entry serialization throws', () => {
-        jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabled').mockReturnValue(true);
+        jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabledAndClean').mockReturnValue(true);
         const runtime = createRuntime();
 
         const circular: Record<string, unknown> = {};

@@ -230,4 +230,40 @@ describe('resolveStreamPipeline', () => {
         );
         expect(result.decision.playbackUrl).toContain('audioStreamID=audio-2');
     });
+
+    it('trims and lowercases the delivered audio codec in direct-play decisions', () => {
+        const item = createMockMediaItem(
+            { audioCodec: 'truehd' },
+            {
+                extraStreams: [
+                    {
+                        id: 'audio-2',
+                        streamType: 2,
+                        codec: ' AAC ',
+                        language: 'Spanish',
+                        languageCode: 'es',
+                        channels: 2,
+                    },
+                ],
+            }
+        );
+
+        const result = resolveStreamPipeline({
+            item,
+            request: { itemKey: '12345', audioStreamId: 'audio-2' },
+            sessionId: 'session-1',
+            allowDirectPlayAudioFallback: true,
+            dtsPassthroughEnabled: false,
+            userAgent: null,
+            hdr10FallbackMode: 'off',
+            createError,
+            buildDirectPlayUrl: () => 'http://example.com/direct',
+            getTranscodeUrl: () => {
+                throw new Error('transcode path should not be used');
+            },
+        });
+
+        expect(result.decision.isDirectPlay).toBe(true);
+        expect(result.decision.audioCodec).toBe('aac');
+    });
 });

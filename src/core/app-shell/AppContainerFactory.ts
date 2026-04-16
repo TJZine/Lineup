@@ -112,13 +112,10 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
     devMenu.style.top = '50%';
     devMenu.style.left = '50%';
     devMenu.style.transform = 'translate(-50%, -50%)';
-    devMenu.style.background = '#222';
-    devMenu.style.color = '#fff';
     devMenu.style.padding = '20px';
     devMenu.style.borderRadius = '8px';
     devMenu.style.zIndex = '10000';
     devMenu.style.display = 'none';
-    devMenu.style.boxShadow = '0 0 20px rgba(0,0,0,0.5)';
     devMenu.style.minWidth = '300px';
 
     // Toast container (non-blocking warnings)
@@ -132,8 +129,6 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
     toastContainer.style.bottom = '64px';
     toastContainer.style.transform = 'translateX(-50%)';
     toastContainer.style.maxWidth = '70%';
-    toastContainer.style.background = 'rgba(0, 0, 0, 0.8)';
-    toastContainer.style.color = '#fff';
     toastContainer.style.padding = '12px 20px';
     toastContainer.style.borderLeft = '4px solid transparent';
     toastContainer.style.boxSizing = 'border-box';

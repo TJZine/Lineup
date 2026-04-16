@@ -210,7 +210,7 @@ export class AppDiagnosticsSurface {
         if (__LINEUP_DEV_BUILD__) {
             return true;
         }
-        return this._developerSettingsStore.readDebugLoggingEnabled(false);
+        return this._developerSettingsStore.readDebugLoggingEnabledAndClean(false);
     }
 
     private _toggleDevMenu(): void {
@@ -464,7 +464,7 @@ export class AppDiagnosticsSurface {
         void this._refreshDevPlaybackInfo();
 
         // Transcode override controls (real mode only)
-        const storedProfileName = this._debugOverridesStore.readTranscodeProfileName();
+        const storedProfileName = this._debugOverridesStore.readTranscodeProfileNameAndClean();
         const isSupportedStoredProfileName = Array.from(profileNameSelect.options).some(
             (option) => option.value === storedProfileName
         );
@@ -474,9 +474,9 @@ export class AppDiagnosticsSurface {
         } else {
             profileNameSelect.value = storedProfileName ?? '';
         }
-        directPlayAudioFallbackEl.checked = this._audioSettingsStore.readDirectPlayAudioFallbackEnabled();
-        nowPlayingStreamDebugEl.checked = this._debugOverridesStore.readNowPlayingStreamDebugEnabled();
-        nowPlayingStreamDebugAutoEl.checked = this._debugOverridesStore.readNowPlayingStreamDebugAutoShowEnabled();
+        directPlayAudioFallbackEl.checked = this._audioSettingsStore.readDirectPlayAudioFallbackEnabledAndClean();
+        nowPlayingStreamDebugEl.checked = this._debugOverridesStore.readNowPlayingStreamDebugEnabledAndClean();
+        nowPlayingStreamDebugAutoEl.checked = this._debugOverridesStore.readNowPlayingStreamDebugAutoShowEnabledAndClean();
 
         saveOverridesButton.addEventListener('click', () => {
             this._audioSettingsStore.writeDirectPlayAudioFallbackEnabled(directPlayAudioFallbackEl.checked);

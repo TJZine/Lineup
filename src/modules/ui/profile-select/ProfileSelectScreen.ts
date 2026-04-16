@@ -319,7 +319,7 @@ export class ProfileSelectScreen {
         this._listEl.replaceChildren();
         this._userButtonIds = [];
         const buttonIds = this._buildUserButtonIds(users.map((user) => user.id));
-        const lastUsedId = this.profileSessionStore.readLastProfileId();
+        const lastUsedId = this.profileSessionStore.readLastProfileIdAndClean();
 
         users.forEach((user, index) => {
             const button = document.createElement('button');

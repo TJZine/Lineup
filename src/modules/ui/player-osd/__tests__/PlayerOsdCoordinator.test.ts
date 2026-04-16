@@ -98,7 +98,7 @@ function makeCoordinatorOptions(
         getNavigation: (): INavigationManager => navigation,
         buildPlexResourceUrl: jest.fn().mockReturnValue(null),
         nowPlayingDisplayStore: {
-            readPreferClearLogosEnabled: jest.fn().mockReturnValue(true),
+            readPreferClearLogosEnabledAndClean: jest.fn().mockReturnValue(true),
         } as unknown as NowPlayingDisplayStore,
         playbackOptionsModalId: 'playback-options',
         preparePlaybackOptionsModal: jest.fn().mockReturnValue({
@@ -558,7 +558,7 @@ describe('PlayerOsdCoordinator', () => {
                 }),
                 buildPlexResourceUrl: jest.fn((path) => `http://mock${path}`) as unknown as (path: string) => string,
                 nowPlayingDisplayStore: {
-                    readPreferClearLogosEnabled: jest.fn().mockReturnValue(false),
+                    readPreferClearLogosEnabledAndClean: jest.fn().mockReturnValue(false),
                 } as unknown as NowPlayingDisplayStore,
             })
         );

@@ -4,13 +4,20 @@ import type {
     ChannelSetupPreview,
     ChannelSetupRecord,
     ChannelSetupReview,
-    ChannelExpansionConfig,
-    SeriesOrderingConfig,
-    SetupStrategyConfig,
 } from '../../../core/channel-setup/types';
 import {
     DEFAULT_CHANNEL_SETUP_MAX,
 } from '../../scheduler/channel-manager/constants';
+import type {
+    ChannelExpansionState,
+    ChannelSetupPreviewUiStatus,
+    ChannelSetupSessionSnapshot,
+    EstimateKey,
+    SeriesOrderingState,
+    SetupStep,
+    SetupStrategyState,
+    StrategyStepMutableState,
+} from './ChannelSetupSessionContracts';
 import {
     DEFAULT_MIN_ITEMS_PER_CHANNEL,
     DEFAULT_STRATEGY_PRIORITIES,
@@ -22,7 +29,6 @@ import type { PlexLibrarySection } from '../../plex/library';
 import {
     SERIES_BLOCK_PRESETS,
     type SetupStrategyKey,
-    type StrategyCategoryKey,
 } from './steps/constants';
 
 const SERIES_BLOCK_PRESET_MIN = SERIES_BLOCK_PRESETS.length > 0
@@ -41,34 +47,6 @@ export const clampSeriesBlockPreset = (raw: unknown): number => {
     const value = Math.floor(numeric);
     return Math.min(SERIES_BLOCK_PRESET_MAX, Math.max(SERIES_BLOCK_PRESET_MIN, value));
 };
-
-type SetupStrategyStateItem = Pick<SetupStrategyConfig, 'enabled' | 'scope'>;
-export type SetupStrategyState = Record<SetupStrategyKey, SetupStrategyStateItem>;
-
-export type ChannelExpansionState = Pick<
-    ChannelExpansionConfig,
-    'addAlternateLineups' | 'alternateLineupCopies' | 'variantType' | 'variantBlockSize'
->;
-
-export type SeriesOrderingState = Pick<SeriesOrderingConfig, 'basePlaybackMode' | 'baseBlockSize'>;
-
-export type StrategyStepMutableState = {
-    activeStrategyCategory: StrategyCategoryKey;
-    strategies: SetupStrategyState;
-    strategyOrder: SetupStrategyKey[];
-    channelExpansion: ChannelExpansionState;
-    seriesOrdering: SeriesOrderingState;
-    buildMode: ChannelSetupConfig['buildMode'];
-    actorStudioCombineMode: ChannelSetupConfig['actorStudioCombineMode'];
-    maxChannels: number;
-    minItems: number;
-};
-
-export type EstimateKey = keyof ChannelSetupPreview['estimates'];
-
-export type SetupStep = 1 | 2 | 3;
-
-export type ChannelSetupPreviewUiStatus = 'idle' | 'loading' | 'ready' | 'blocked' | 'slow' | 'error';
 
 export const strategySupportsMixedScope = (key: SetupStrategyKey): boolean =>
     MIXED_SCOPE_STRATEGY_KEYS.has(key);
@@ -104,35 +82,6 @@ export const defaultSeriesOrderingState = (): SeriesOrderingState => ({
     basePlaybackMode: 'shuffle',
     baseBlockSize: DEFAULT_SERIES_BLOCK_PRESET,
 });
-
-export type ChannelSetupSessionSnapshot = {
-    step: SetupStep;
-    libraries: PlexLibrarySection[];
-    selectedLibraryIds: Set<string>;
-    loadError: string | null;
-    strategies: SetupStrategyState;
-    strategyOrder: SetupStrategyKey[];
-    channelExpansion: ChannelExpansionState;
-    seriesOrdering: SeriesOrderingState;
-    buildMode: ChannelSetupConfig['buildMode'];
-    actorStudioCombineMode: ChannelSetupConfig['actorStudioCombineMode'];
-    maxChannels: number;
-    minItems: number;
-    isLoading: boolean;
-    isBuilding: boolean;
-    isPreviewLoading: boolean;
-    isReviewLoading: boolean;
-    replaceConfirm: boolean;
-    preview: ChannelSetupPreview | null;
-    previewError: string | null;
-    previewStatus: ChannelSetupPreviewUiStatus;
-    review: ChannelSetupReview | null;
-    reviewError: string | null;
-    previewDeltas: Partial<Record<EstimateKey, number>>;
-    previewDeltaExpiresAtMs: number;
-    recordApplied: boolean;
-    setupContext: ChannelSetupContext;
-};
 
 const cloneStrategies = (strategies: SetupStrategyState): SetupStrategyState =>
     SETUP_STRATEGY_KEYS.reduce<SetupStrategyState>((acc, key) => {
@@ -250,7 +199,6 @@ export class ChannelSetupSessionState {
         const channelExpansion: ChannelExpansionState = { ...this.channelExpansion };
         const seriesOrdering: SeriesOrderingState = { ...this.seriesOrdering };
         const draft: StrategyStepMutableState = {
-            activeStrategyCategory: 'content-sources',
             strategies,
             strategyOrder,
             channelExpansion,

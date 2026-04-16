@@ -32,7 +32,7 @@ const developerSettingsStore = new DeveloperSettingsStore();
  * Keep console.error intact for real failure diagnostics.
  */
 function configureLoggingPolicy(): void {
-    const debugEnabled = developerSettingsStore.readDebugLoggingEnabled(false);
+    const debugEnabled = developerSettingsStore.readDebugLoggingEnabledAndClean(false);
     const shouldSuppressNoise = !__LINEUP_DEV_BUILD__ && !debugEnabled;
     const noop = (..._args: unknown[]): void => undefined;
     for (const method of CONSOLE_NOISE_METHODS) {
@@ -107,7 +107,7 @@ function handleBootstrapFailure(prefix: string, error: unknown): void {
 }
 
 function isDebugSurfaceEnabled(): boolean {
-    const debugEnabled = developerSettingsStore.readDebugLoggingEnabled(false);
+    const debugEnabled = developerSettingsStore.readDebugLoggingEnabledAndClean(false);
     return __LINEUP_DEV_BUILD__ || debugEnabled;
 }
 

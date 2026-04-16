@@ -158,6 +158,7 @@ const makeDeps = (
         },
         diagnostics: {
             appendIssueDiagnostic: jest.fn(),
+            reportRecoverableAsyncFailure: jest.fn(),
         },
         playback: {
             state: playbackState,

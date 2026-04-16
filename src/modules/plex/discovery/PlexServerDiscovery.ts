@@ -22,6 +22,7 @@ import {
     applyXPlexTokenQueryParamIfTrusted,
     PLEX_CLOUD_TRUSTED_ORIGINS,
 } from '../shared/plexUrl';
+import { logPlexError, logPlexWarning } from '../shared/plexLogging';
 
 // Re-export for consumers
 export { AppErrorCode, PlexApiError };
@@ -214,11 +215,15 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         } catch (error) {
             const lastUrlInfo = this._redactUrl(lastUrl) || 'unknown';
             if (error instanceof PlexApiError) {
-                console.error(`[Discovery] Discovery failed (API Error): ${error.message} (last url: ${lastUrlInfo})`);
+                logPlexError(
+                    `[Discovery] Discovery failed (API Error): ${error.message} (last url: ${lastUrlInfo})`
+                );
                 throw error;
             }
             const message = redactSensitiveTokens(error instanceof Error ? error.message : String(error));
-            console.error(`[Discovery] Discovery failed (Network/Other): ${message} (last url: ${lastUrlInfo})`);
+            logPlexError(
+                `[Discovery] Discovery failed (Network/Other): ${message} (last url: ${lastUrlInfo})`
+            );
             throw new PlexApiError(
                 AppErrorCode.SERVER_UNREACHABLE,
                 `Failed to discover servers: ${message} (last url: ${lastUrlInfo})`,
@@ -392,7 +397,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                     noteAuthState('auth_invalid');
                 } else if (latency !== null) {
                     if (config.logWarnings) {
-                        console.warn('[Discovery] Selected HTTP connection (last resort)', {
+                        logPlexWarning('Selected HTTP connection (last resort)', {
                             local: conn.local,
                             relay: conn.relay,
                         });
@@ -407,7 +412,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         }
 
         if (config.logWarnings) {
-            console.warn('[Discovery] No working connections found', {
+            logPlexWarning('No working connections found', {
                 serverId: server.id,
                 authRequired,
                 httpsCount: httpsConns.length,
@@ -694,7 +699,10 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         for (const conn of apiConnections) {
             const normalizedUri = this._normalizeConnectionUri(conn.uri);
             if (!normalizedUri) {
-                console.warn('[Discovery] Skipping invalid connection URI:', conn.uri);
+                logPlexWarning(
+                    'Skipping invalid Plex connection URI:',
+                    this._redactUrl(conn.uri)
+                );
                 continue;
             }
 

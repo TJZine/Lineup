@@ -139,6 +139,43 @@ describe('AppStartupUiInitializer', () => {
 
         await expect(errorInitializer.ensureCorePlayerUiInitialized()).rejects.toThrow('boom');
         expect(errorStatus.updateModuleStatus).toHaveBeenCalledWith('now-playing-info-ui', 'initializing');
-        expect(errorStatus.updateModuleStatus).toHaveBeenCalledWith('now-playing-info-ui', 'error');
+        expect(errorStatus.updateModuleStatus).toHaveBeenCalledWith(
+            'now-playing-info-ui',
+            'error',
+            expect.objectContaining({
+                code: 'MODULE_INIT_FAILED',
+                message: 'boom',
+                recoverable: true,
+            })
+        );
+
+        const asyncErrorStatus = {
+            updateModuleStatus: jest.fn(),
+            getModuleStatus: jest.fn<ModuleStatus['status'] | undefined, [string]>().mockReturnValue(undefined),
+        };
+        const asyncErrorInitializer = new AppStartupUiInitializer(
+            createConfig(),
+            {
+                nowPlayingInfo: {
+                    initialize: jest.fn().mockRejectedValue(new Error('async boom')),
+                } as never,
+                playbackOptions: { initialize: jest.fn() } as never,
+                exitConfirm: { initialize: jest.fn() } as never,
+            },
+            asyncErrorStatus
+        );
+
+        await expect(asyncErrorInitializer.ensureCorePlayerUiInitialized()).rejects.toThrow(
+            'async boom'
+        );
+        expect(asyncErrorStatus.updateModuleStatus).toHaveBeenCalledWith(
+            'now-playing-info-ui',
+            'error',
+            expect.objectContaining({
+                code: 'MODULE_INIT_FAILED',
+                message: 'async boom',
+                recoverable: true,
+            })
+        );
     });
 });

@@ -25,6 +25,11 @@ export const STORAGE_CONFIG = {
 } as const;
 
 /**
+ * Lifecycle-owned endpoint used for best-effort internet reachability checks.
+ */
+export const NETWORK_CHECK_PROBE_URL = 'https://example.com' as const;
+
+/**
  * Memory thresholds for webOS.
  * Total app budget: 300MB peak.
  */

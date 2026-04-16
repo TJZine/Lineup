@@ -254,6 +254,9 @@ export function createPriorityOneControllersAndBinder(
         reportPersistenceWarning: (warning): void => {
             events.reportPersistenceWarning(warning);
         },
+        reportRecoverableAsyncFailure: (event, message, error): void => {
+            events.reportRecoverableAsyncFailure(event, message, error);
+        },
     };
     const eventBinder = new OrchestratorEventBinder(binderDeps);
 

@@ -80,6 +80,7 @@ const createInput = (): OrchestratorCoordinatorBuilderInput => {
         } as unknown as OrchestratorCoordinatorBuilderInput['stores'],
         diagnostics: {
             appendIssueDiagnostic: jest.fn(),
+            reportRecoverableAsyncFailure: jest.fn(),
         },
         playback: {
             state: { kind: 'state' },

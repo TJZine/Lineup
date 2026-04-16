@@ -6,7 +6,7 @@ import {
 } from '../../utils/storage';
 
 export class ThemePreferencesStore {
-    readTheme(): string | null {
+    readThemeAndClean(): string | null {
         const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.THEME);
         if (typeof raw !== 'string') {
             return null;

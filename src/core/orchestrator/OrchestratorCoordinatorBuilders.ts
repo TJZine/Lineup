@@ -227,7 +227,6 @@ export function buildNowPlayingInfoCoordinator(
         nowPlayingModalId: NOW_PLAYING_INFO_MODAL_ID,
         getNavigation: (): INavigationManager | null => input.modules.navigation,
         getScheduler: (): IChannelScheduler | null => input.modules.scheduler,
-        getChannelManager: (): IChannelManager | null => input.modules.channelManager,
         getPlexLibrary: (): IPlexLibrary | null => input.modules.plexLibrary,
         getNowPlayingInfo: (): INowPlayingInfoOverlay | null => input.overlays.nowPlayingInfo,
         getNowPlayingInfoConfig: (): NowPlayingInfoConfig | null =>
@@ -341,7 +340,7 @@ export function buildPlaybackRecovery(
         getServerUri: (): string | null =>
             input.modules.plexDiscovery.getServerUri() ?? null,
         getPreferredSubtitleLanguage: (): string | null =>
-            input.stores.subtitlePreferencesStore.readSubtitleLanguage(),
+            input.stores.subtitlePreferencesStore.readSubtitleLanguageAndClean(),
         getPlexPreferredSubtitleLanguage: (): string | null =>
             input.modules.plexAuth.getCurrentUser()?.preferredSubtitleLanguage ?? null,
         notifySubtitleUnavailable: (): void => {
@@ -584,12 +583,13 @@ export function buildNavigationCoordinator(
         modals: buildNavigationModalsConfig(deps),
         channelSwitching: buildNavigationChannelSwitchingConfig(input, deps),
         uiGuards: buildNavigationUiGuardsConfig(deps),
+        reportRecoverableAsyncFailure: input.diagnostics.reportRecoverableAsyncFailure,
         reportToast: (toast: { message: string; type: 'warning' | 'error' | 'info' | 'success' }): void => {
             input.nowPlaying.handler()?.(toast);
         },
         readKeepPlayingInSettings: (): boolean =>
-            input.stores.profileSessionStore.readKeepPlayingInSettings(false),
+            input.stores.profileSessionStore.readKeepPlayingInSettingsAndClean(false),
         readDebugLoggingEnabled: (): boolean =>
-            input.stores.developerSettingsStore.readDebugLoggingEnabled(false),
+            input.stores.developerSettingsStore.readDebugLoggingEnabledAndClean(false),
     });
 }

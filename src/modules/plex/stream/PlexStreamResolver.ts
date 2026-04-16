@@ -43,6 +43,7 @@ import {
     buildPlexMetadataPath,
     ensurePlexClientProfileName,
 } from './plexStreamUrlPolicy';
+import { logPlexWarning } from '../shared/plexLogging';
 
 // Re-export types for consumers
 export { PlexStreamErrorCode } from './types';
@@ -96,7 +97,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
     private _isDtsPassthroughEnabled(): boolean {
         try {
-            const userEnabled = this._audioSettingsStore.readDtsPassthroughEnabled(false);
+            const userEnabled = this._audioSettingsStore.readDtsPassthroughEnabledAndClean(false);
             const chromeMajor = this._getChromeMajor();
             return userEnabled && chromeMajor !== null && chromeMajor >= 108;
         } catch {
@@ -118,13 +119,13 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     }
 
     private _isSubtitleDebugEnabled(): boolean {
-        return this._developerSettingsStore.readSubtitleDebugLoggingEnabled(false);
+        return this._developerSettingsStore.readSubtitleDebugLoggingEnabledAndClean(false);
     }
 
     private _logSubtitleDebug(event: string, context: Record<string, unknown>): void {
         if (!this._isSubtitleDebugEnabled()) return;
         try {
-            console.warn('[PlexStreamResolver] subtitle-debug:', event, safeStringifyForLog(context));
+            logPlexWarning('subtitle-debug:', event, safeStringifyForLog(context));
         } catch {
             // Ignore logging failures.
         }
@@ -329,7 +330,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         const sessionId = generatePlexSessionId();
-        const allowDirectPlayAudioFallback = this._audioSettingsStore.readDirectPlayAudioFallbackEnabled();
+        const allowDirectPlayAudioFallback = this._audioSettingsStore.readDirectPlayAudioFallbackEnabledAndClean();
         const dtsPassthroughEnabled = this._isDtsPassthroughEnabled();
         const userAgent = this._getBrowserUserAgent();
         const hdr10FallbackMode = this._getHdr10FallbackMode();
@@ -446,7 +447,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
         if (debugEnabled) {
             if (pipeline.hdrFallbackReason) {
-                console.warn('[PlexStreamResolver] HDR10 fallback applied:', {
+                logPlexWarning('HDR10 fallback applied:', {
                     itemKey: request.itemKey,
                     reason: pipeline.hdrFallbackReason,
                     container: media.container,
@@ -454,7 +455,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 });
             }
             if (pipeline.forceHlsForDvNoHdr10BaseLayer) {
-                console.warn('[PlexStreamResolver] HDR10 base-layer fallback forced:', {
+                logPlexWarning('HDR10 base-layer fallback forced:', {
                     itemKey: request.itemKey,
                     reason: 'dv_profile_no_hdr10_base_layer',
                     container: media.container,
@@ -467,7 +468,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         if (debugEnabled) {
-            console.warn('[PlexStreamResolver] Stream decision:', {
+            logPlexWarning('Stream decision:', {
                 itemKey: request.itemKey,
                 mode: decision.isTranscoding ? 'transcode' : 'direct_play',
                 protocol: decision.protocol,
@@ -485,7 +486,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                     decision.transcodeRequest
                 );
             } catch (error) {
-                console.warn('[PlexStreamResolver] PMS universal decision fetch failed:', {
+                logPlexWarning('PMS universal decision fetch failed:', {
                     itemKey: request.itemKey,
                     sessionId: decision.transcodeRequest.sessionId,
                     error: summarizeErrorForLog(error),
@@ -520,7 +521,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             });
             this._throwIfAuthFailure(response);
         } catch (error) {
-            console.warn('[PlexStreamResolver] stopTranscodeSession failed:', {
+            logPlexWarning('stopTranscodeSession failed:', {
                 sessionId: trimmedSessionId,
                 error: summarizeErrorForLog(error),
             });
@@ -720,7 +721,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         applyXPlexQueryParamsFromHeaders(params, this._config.getAuthHeaders());
 
         // Optional: Force the server to use a specific built-in profile name/version (advanced).
-        const forcedProfileName = this._config.debugOverridesStore.readTranscodeProfileName();
+        const forcedProfileName = this._config.debugOverridesStore.readTranscodeProfileNameAndClean();
         ensurePlexClientProfileName(params, forcedProfileName);
 
         // Ensure minimum required ID params are present even if getAuthHeaders is mocked/minimal
@@ -738,8 +739,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             if (debugUrl.searchParams.has('X-Plex-Token')) {
                 applyXPlexTokenQueryParam(debugUrl.searchParams, 'REDACTED');
             }
-            console.warn(
-                `[PlexStreamResolver] Transcode URL (compat=${compatMode ? '1' : '0'}):`,
+            logPlexWarning(
+                `Transcode URL (compat=${compatMode ? '1' : '0'}):`,
                 debugUrl.toString()
             );
         } catch {
@@ -1069,7 +1070,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             try {
                 const url = new URL(relayConn.uri);
                 if (url.protocol === 'https:') {
-                    console.warn('Using Plex relay due to mixed content restrictions');
+                    logPlexWarning('Using Plex relay due to mixed content restrictions');
                     return url.origin;
                 }
             } catch {
@@ -1110,7 +1111,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        return this._developerSettingsStore.readDebugLoggingEnabled(false);
+        return this._developerSettingsStore.readDebugLoggingEnabledAndClean(false);
     }
 
     // ========================================

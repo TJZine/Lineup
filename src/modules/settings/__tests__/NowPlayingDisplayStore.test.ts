@@ -19,16 +19,16 @@ describe('NowPlayingDisplayStore', () => {
         store.writeCinematicNowPlayingEnabled(true);
         store.writePreferClearLogosEnabled(false);
 
-        expect(store.readCinematicNowPlayingEnabled(false)).toBe(true);
-        expect(store.readPreferClearLogosEnabled(true)).toBe(false);
+        expect(store.readCinematicNowPlayingEnabledAndClean(false)).toBe(true);
+        expect(store.readPreferClearLogosEnabledAndClean(true)).toBe(false);
     });
 
     it('reads stored auto-hide values when valid and normalizes invalid persisted values', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, '5000');
-        expect(store.readClampedAutoHideMs(NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, 7000)).toBe(5000);
+        expect(store.readClampedAutoHideMsAndClean(NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, 7000)).toBe(5000);
 
         localStorage.setItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, 'bogus');
-        expect(store.readClampedAutoHideMs(NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, 7000)).toBe(0);
+        expect(store.readClampedAutoHideMsAndClean(NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, 7000)).toBe(0);
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS)).toBe('0');
     });
 
@@ -36,6 +36,6 @@ describe('NowPlayingDisplayStore', () => {
         store.writeAutoHideMs(7_000, NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS);
 
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS)).toBe('0');
-        expect(store.readClampedAutoHideMs(NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, 7_000)).toBe(0);
+        expect(store.readClampedAutoHideMsAndClean(NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, 7_000)).toBe(0);
     });
 });

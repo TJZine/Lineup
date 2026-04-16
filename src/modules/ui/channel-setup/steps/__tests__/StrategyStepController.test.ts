@@ -3,11 +3,10 @@
  */
 
 import { createDefaultStrategyOrder, createDefaultStrategyState } from '../../ChannelSetupSessionState';
+import type { EstimateKey, StrategyStepMutableState } from '../../ChannelSetupSessionContracts';
 import { StrategyStepController } from '../StrategyStepController';
 import type {
-    EstimateKey,
     StrategyStepDeps,
-    StrategyStepMutableState,
     StepRenderContext,
 } from '../types';
 
@@ -45,9 +44,6 @@ const createDeps = (overrides: Partial<StrategyStepDeps> = {}): StrategyStepDeps
         previewStatus: 'idle',
         isPreviewLoading: false,
     },
-    stepPreset: jest.fn(),
-    channelLimitOptions: [100, 200, 300],
-    minItemsOptions: [1, 2, 3],
     strategyKeys: createDefaultStrategyOrder(),
     categoryButtonId: (category) => `category-${category}`,
     strategyButtonId: (strategy) => `strategy-${strategy}`,
@@ -55,7 +51,6 @@ const createDeps = (overrides: Partial<StrategyStepDeps> = {}): StrategyStepDeps
     lastReorder: null,
     scopeButtonId: (strategy) => `scope-${strategy}`,
     strategySupportsMixedScope: (strategy) => strategy === 'genres' || strategy === 'directors' || strategy === 'studios' || strategy === 'actors',
-    rememberDetailFocus: jest.fn(),
     buildPreviewRow: jest.fn((label: string, value: number | string, key?: EstimateKey) => {
         const row = document.createElement('div');
         row.dataset.key = key ?? '';
@@ -66,7 +61,6 @@ const createDeps = (overrides: Partial<StrategyStepDeps> = {}): StrategyStepDeps
     applyCategoryChange: jest.fn(),
     applySettingChange: jest.fn((_focusId: string, mutate: (state: StrategyStepMutableState) => void) => {
         const draft: StrategyStepMutableState = {
-            activeStrategyCategory: 'content-sources',
             strategies: createDefaultStrategyState(),
             strategyOrder: createDefaultStrategyOrder(),
             channelExpansion: {
@@ -86,7 +80,7 @@ const createDeps = (overrides: Partial<StrategyStepDeps> = {}): StrategyStepDeps
         };
         mutate(draft);
     }),
-    openDropdown: jest.fn(),
+    openAdjustableControl: jest.fn(),
     onBack: jest.fn(),
     onNext: jest.fn(),
     registerStep2Focusables: jest.fn(),
@@ -159,7 +153,7 @@ describe('StrategyStepController', () => {
         expect(previewPanel.hidden).toBe(false);
     });
 
-    it('routes adjustable controls through openDropdown and applySettingChange', () => {
+    it('routes adjustable controls through the interaction owner hook', () => {
         const ctx = createContext();
         const deps = createDeps({
             state: {
@@ -171,15 +165,7 @@ describe('StrategyStepController', () => {
         new StrategyStepController().render(ctx, deps);
         (ctx.contentEl.querySelector('#setup-build-mode') as HTMLButtonElement).click();
 
-        const dropdownConfig = (deps.openDropdown as jest.Mock).mock.calls[0]?.[0];
-        expect(dropdownConfig.anchorId).toBe('setup-build-mode');
-
-        dropdownConfig.onSelect('append');
-
-        expect(deps.applySettingChange).toHaveBeenCalledWith(
-            'setup-build-mode',
-            expect.any(Function)
-        );
+        expect(deps.openAdjustableControl).toHaveBeenCalledWith('setup-build-mode');
     });
 
     it('updates priority rows in place without a full rerender', () => {

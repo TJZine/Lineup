@@ -3,7 +3,7 @@
  */
 
 import { ChannelSetupScreen } from '../ChannelSetupScreen';
-import type { StrategyStepMutableState } from '../ChannelSetupSessionController';
+import type { StrategyStepMutableState } from '../ChannelSetupSessionContracts';
 import type { PlexLibrarySection } from '../../../plex/library/types';
 import type { INavigationManager } from '../../../navigation/interfaces';
 import { MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
@@ -248,6 +248,47 @@ describe('ChannelSetupScreen', () => {
         expect(nav.unregisterFocusable.mock.calls.length).toBeGreaterThan(unregisterCallsAfterHide);
     });
 
+    it('clears grabbed priority visuals before a reopened session reloads libraries', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        let resolveSecondLoad: ((libraries: PlexLibrarySection[]) => void) | undefined;
+        const secondLoad = new Promise<PlexLibrarySection[]>((resolve) => {
+            resolveSecondLoad = resolve;
+        });
+        const getLibrariesForSetup = jest.fn()
+            .mockResolvedValueOnce([makeLibrary({ id: 'movies' })])
+            .mockImplementationOnce(() => secondLoad);
+
+        const nav = createNavigationMock();
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup,
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+        clickButton(container, '#setup-category-priority-order');
+
+        nav.setMockFocus('setup-priority-row-playlists');
+        const grab = nav.emitKeyPress('ok');
+        expect(grab.handled).toBe(true);
+        expect(container.querySelector('.setup-priority-row--grabbed')).not.toBeNull();
+
+        screen.hide();
+        screen.show();
+
+        expect(container.textContent ?? '').toContain('Loading libraries...');
+        expect(container.querySelector('.setup-priority-row--grabbed')).toBeNull();
+        expect(container.querySelector('#setup-priority-row-playlists')).toBeNull();
+
+        resolveSecondLoad?.([makeLibrary({ id: 'movies' })]);
+        await flushPromises();
+    });
+
     it('does not re-register focusables if library loading settles after hide', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -402,6 +443,7 @@ describe('ChannelSetupScreen', () => {
         nav.setMockFocus('setup-category-content-sources');
         const firstTransfer = nav.emitKeyPress('right');
         expect(firstTransfer.handled).toBe(true);
+        expect(firstTransfer.originalEvent.preventDefault).toHaveBeenCalled();
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-strategy-collections');
 
         clickButton(container, '#setup-strategy-playlists');
@@ -411,6 +453,7 @@ describe('ChannelSetupScreen', () => {
         nav.setMockFocus('setup-category-content-sources');
         const rememberedTransfer = nav.emitKeyPress('right');
         expect(rememberedTransfer.handled).toBe(true);
+        expect(rememberedTransfer.originalEvent.preventDefault).toHaveBeenCalled();
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-strategy-playlists');
     });
 
@@ -434,6 +477,7 @@ describe('ChannelSetupScreen', () => {
         nav.setMockFocus('setup-category-build-options');
         const transfer = nav.emitKeyPress('right');
         expect(transfer.handled).toBe(true);
+        expect(transfer.originalEvent.preventDefault).toHaveBeenCalled();
         expect(container.querySelector('#setup-build-mode')).not.toBeNull();
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-build-mode');
     });
@@ -468,6 +512,7 @@ describe('ChannelSetupScreen', () => {
         nav.setMockFocus('setup-category-series-ordering');
         const transfer = nav.emitKeyPress('right');
         expect(transfer.handled).toBe(true);
+        expect(transfer.originalEvent.preventDefault).toHaveBeenCalled();
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-series-base-mode');
     });
 
@@ -489,6 +534,7 @@ describe('ChannelSetupScreen', () => {
         nav.setMockFocus('setup-strategy-collections');
         const event = nav.emitKeyPress('left');
         expect(event.handled).toBe(true);
+        expect(event.originalEvent.preventDefault).toHaveBeenCalled();
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-category-content-sources');
     });
 
@@ -1641,7 +1687,7 @@ describe('ChannelSetupScreen', () => {
         expect(container.querySelector('#setup-scope-decades')).toBeNull();
     });
 
-    it('updates priority row enabled state in place without replacing the row node', async () => {
+    it('updates priority row enabled state when toggled from the priority list', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -1666,10 +1712,33 @@ describe('ChannelSetupScreen', () => {
         clickButton(container, rowId);
 
         const after = container.querySelector(rowId) as HTMLButtonElement | null;
-        expect(after).toBe(before);
         const afterLabel = after?.getAttribute('aria-label');
         expect(afterLabel).toContain(', Off');
         expect(after?.classList.contains('selected')).toBe(false);
+    });
+
+    it('refreshes category activity dots after priority-row toggles', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-priority-order');
+
+        expect(container.querySelector('#setup-category-content-sources .setup-category-dot')).not.toBeNull();
+
+        clickButton(container, '#setup-priority-row-collections');
+        clickButton(container, '#setup-priority-row-playlists');
+        clickButton(container, '#setup-priority-row-recentlyAdded');
+
+        expect(container.querySelector('#setup-category-content-sources .setup-category-dot')).toBeNull();
     });
 
     it('drops grabbed priority state when moving left back to the category rail', async () => {
@@ -1700,6 +1769,7 @@ describe('ChannelSetupScreen', () => {
 
         const left = nav.emitKeyPress('left');
         expect(left.handled).toBe(true);
+        expect(left.originalEvent.preventDefault).toHaveBeenCalled();
         expect(
             (container.querySelector('#setup-priority-row-playlists') as HTMLButtonElement | null)?.classList.contains(
                 'setup-priority-row--grabbed'
@@ -1709,6 +1779,7 @@ describe('ChannelSetupScreen', () => {
         nav.setMockFocus('setup-category-priority-order');
         const right = nav.emitKeyPress('right');
         expect(right.handled).toBe(true);
+        expect(right.originalEvent.preventDefault).toHaveBeenCalled();
 
         nav.setMockFocus('setup-priority-row-playlists');
         const moveWithoutGrab = nav.emitKeyPress('down');
@@ -1746,6 +1817,54 @@ describe('ChannelSetupScreen', () => {
         expect(getSetupPreview).toHaveBeenCalled();
         const lastFocused = nav.setFocus.mock.calls.at(-1)?.[0];
         expect(lastFocused).toBe('setup-category-priority-order');
+    });
+
+    it('preserves grabbed priority visuals across click-triggered and preview-triggered rerenders', async () => {
+        jest.useFakeTimers();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const getSetupPreview = jest.fn().mockResolvedValue(DEFAULT_PREVIEW);
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+            getSetupPreview,
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-priority-order');
+        nav.setMockFocus('setup-priority-row-playlists');
+
+        const grab = nav.emitKeyPress('ok');
+        expect(grab.handled).toBe(true);
+        expect(
+            (container.querySelector('#setup-priority-row-playlists') as HTMLButtonElement | null)?.classList.contains(
+                'setup-priority-row--grabbed'
+            )
+        ).toBe(true);
+
+        clickButton(container, '#setup-priority-row-playlists');
+        expect(
+            (container.querySelector('#setup-priority-row-playlists') as HTMLButtonElement | null)?.classList.contains(
+                'setup-priority-row--grabbed'
+            )
+        ).toBe(true);
+
+        jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
+        await flushPromises();
+
+        expect(getSetupPreview).toHaveBeenCalled();
+        expect(
+            (container.querySelector('#setup-priority-row-playlists') as HTMLButtonElement | null)?.classList.contains(
+                'setup-priority-row--grabbed'
+            )
+        ).toBe(true);
     });
 
     it('renders strategy toggles and priority rows for every setup strategy key with no extras', async () => {
@@ -1878,6 +1997,79 @@ describe('ChannelSetupScreen', () => {
             container.querySelectorAll<HTMLButtonElement>('[id^="setup-priority-row-"]')
         ).map((row) => row.id.replace('setup-priority-row-', ''));
         expect(afterOrder).toEqual(beforeOrder);
+    });
+
+    it('clears grabbed priority state when leaving Step 2 with Back and returning', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+        clickButton(container, '#setup-category-priority-order');
+
+        nav.setMockFocus('setup-priority-row-playlists');
+        const grab = nav.emitKeyPress('ok');
+        expect(grab.handled).toBe(true);
+
+        clickButton(container, '#setup-back');
+        await flushPromises();
+        await enterStep2(container);
+        clickButton(container, '#setup-category-priority-order');
+        nav.setMockFocus('setup-priority-row-playlists');
+
+        expect(
+            (container.querySelector('#setup-priority-row-playlists') as HTMLButtonElement | null)?.classList.contains(
+                'setup-priority-row--grabbed'
+            )
+        ).toBe(false);
+        expect(nav.emitKeyPress('down').handled).toBeFalsy();
+    });
+
+    it('clears grabbed priority state when leaving Step 2 with Next and returning', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
+            getSelectedServerId: jest.fn(() => null),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+        clickButton(container, '#setup-category-priority-order');
+
+        nav.setMockFocus('setup-priority-row-playlists');
+        const grab = nav.emitKeyPress('ok');
+        expect(grab.handled).toBe(true);
+
+        clickButton(container, '#setup-next');
+        await flushPromises();
+        clickButton(container, '#setup-back');
+        await flushPromises();
+
+        clickButton(container, '#setup-category-priority-order');
+        nav.setMockFocus('setup-priority-row-playlists');
+
+        expect(
+            (container.querySelector('#setup-priority-row-playlists') as HTMLButtonElement | null)?.classList.contains(
+                'setup-priority-row--grabbed'
+            )
+        ).toBe(false);
+        expect(nav.emitKeyPress('down').handled).toBeFalsy();
     });
 
     it('applies Expand Lineup values only after successful build completion', async () => {

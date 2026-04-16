@@ -224,13 +224,13 @@ export class NowPlayingDebugManager {
     }
 
     private _isNowPlayingStreamDebugEnabled(): boolean {
-        return this.deps.debugOverridesStore.readNowPlayingStreamDebugEnabled();
+        return this.deps.debugOverridesStore.readNowPlayingStreamDebugEnabledAndClean();
     }
 
     private _isNowPlayingStreamDebugAutoShowEnabled(): boolean {
         return (
             this._isNowPlayingStreamDebugEnabled() &&
-            this.deps.debugOverridesStore.readNowPlayingStreamDebugAutoShowEnabled()
+            this.deps.debugOverridesStore.readNowPlayingStreamDebugAutoShowEnabledAndClean()
         );
     }
 

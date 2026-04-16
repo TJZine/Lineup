@@ -147,6 +147,11 @@ import { ScheduleDayRolloverController } from './ScheduleDayRolloverController';
 import { SubtitleTrackRecoveryController } from './SubtitleTrackRecoveryController';
 import { OrchestratorSchedulePolicy } from './OrchestratorSchedulePolicy';
 import { AppStartupUiInitializer } from '../app-shell/AppStartupUiInitializer';
+import {
+    createRecoverableRuntimeIssueReporter,
+    type RecoverableRuntimeIssueReporter,
+} from './OrchestratorRecoverableRuntimeReporter';
+import type { RecoverableAsyncFailureReporter } from './OrchestratorRuntimeSeams';
 
 // ============================================
 // Types
@@ -314,6 +319,7 @@ export class AppOrchestrator {
     private readonly _storageContext: OrchestratorStorageContext;
     private readonly _debugOverridesStore = new DebugOverridesStore();
     private readonly _issueDiagnosticsStore = new IssueDiagnosticsStore();
+    private readonly _recoverableRuntimeReporter: RecoverableRuntimeIssueReporter;
     private _epgDebugRuntime: IEPGDebugRuntime | null = null;
     private readonly _playbackStateAccessors: OrchestratorPlaybackStateAccessors;
     private readonly _channelSetupWorkflowPort: ChannelSetupWorkflowPort;
@@ -332,8 +338,56 @@ export class AppOrchestrator {
         } satisfies Pick<AppError, 'code' | 'recoverable' | 'context'>);
     }
 
+    private _warnRecoverableRuntimeIssue(
+        event: string,
+        message: string,
+        data: Record<string, unknown> = {}
+    ): void {
+        try {
+            this._recoverableRuntimeReporter.reportIssue(event, message, data);
+        } catch (error) {
+            this._logRecoverableRuntimeReporterFailure(error);
+        }
+    }
+
+    private _warnRecoverableRuntimeError(
+        event: string,
+        message: string,
+        error: unknown,
+        data: Record<string, unknown> = {}
+    ): void {
+        try {
+            this._recoverableRuntimeReporter.reportError(event, message, error, data);
+        } catch (reporterError) {
+            this._logRecoverableRuntimeReporterFailure(reporterError);
+        }
+    }
+
+    private readonly _reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter = (
+        event,
+        message,
+        error
+    ): void => {
+        this._warnRecoverableRuntimeError(event, message, error);
+    };
+
+    private _logRecoverableRuntimeReporterFailure(error: unknown): void {
+        try {
+            console.error(
+                '[AppOrchestrator] recoverable runtime reporter failed:',
+                summarizeErrorForLog(error)
+            );
+        } catch {
+            // Reporter fallback logging must not create a new runtime failure.
+        }
+    }
+
     constructor(platformServices?: PlatformServices) {
         this._platformServices = platformServices ?? webosPlatformServices;
+        this._recoverableRuntimeReporter = createRecoverableRuntimeIssueReporter({
+            issueId: QA_003B_ISSUE_ID,
+            appendIssueDiagnostic: this._issueDiagnosticsStore.append.bind(this._issueDiagnosticsStore),
+        });
         this._storageContext = new OrchestratorStorageContext({
             getActiveUserId: this._getActiveUserId.bind(this),
             getSelectedServerId: this._getSelectedServerId.bind(this),
@@ -404,16 +458,20 @@ export class AppOrchestrator {
                     try {
                         await this._epgCoordinator?.refreshEpgSchedules({ reason: 'server-swap' });
                     } catch (error) {
-                        console.warn('[Orchestrator] Post-selection EPG refresh failed:', {
-                            step,
-                            error: summarizeErrorForLog(error),
-                        });
+                        this._warnRecoverableRuntimeError(
+                            'orchestrator.serverSwap.refreshEpgSchedules',
+                            'Post-selection EPG refresh failed',
+                            error,
+                            { step }
+                        );
                     }
                 } catch (error) {
-                    console.error('[Orchestrator] Post-selection runtime swap failed:', {
-                        step,
-                        error: summarizeErrorForLog(error),
-                    });
+                    this._warnRecoverableRuntimeError(
+                        'orchestrator.serverSwap.runStartup',
+                        'Post-selection runtime swap failed',
+                        error,
+                        { step }
+                    );
                     throw error;
                 }
             },
@@ -540,6 +598,9 @@ export class AppOrchestrator {
                 },
                 errors: {
                     handleGlobalError: this.handleGlobalError.bind(this),
+                },
+                diagnostics: {
+                    reportRecoverableAsyncFailure: this._reportRecoverableAsyncFailure,
                 },
                 state: {
                     setReady: (ready: boolean): void => {
@@ -686,6 +747,7 @@ export class AppOrchestrator {
             },
             diagnostics: {
                 appendIssueDiagnostic,
+                reportRecoverableAsyncFailure: this._reportRecoverableAsyncFailure,
             },
             playback: {
                 state: this._playbackStateAccessors,
@@ -767,14 +829,18 @@ export class AppOrchestrator {
                 referenceTimeMs: number
             ): ScheduleConfig => this._schedulePolicy.buildDailyScheduleConfig(channel, items, referenceTimeMs),
             reportError: (message: string, error: unknown): void => {
-                console.error(message, summarizeErrorForLog(error));
+                this._warnRecoverableRuntimeError(
+                    'orchestrator.scheduleDayRollover',
+                    message,
+                    error
+                );
             },
         });
         this._subtitleTrackRecoveryController = new SubtitleTrackRecoveryController({
             getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
             getPlaybackRecovery: (): PlaybackRecoveryManager | null => this._playbackRecovery,
             readSubtitleMode: (): import('../../shared/subtitle-mode').SubtitleMode =>
-                this._subtitlePreferencesStore.readSubtitleMode('full'),
+                this._subtitlePreferencesStore.readSubtitleModeAndClean('full'),
             setSubtitleTrack: (trackId: string | null): Promise<void> => this.setSubtitleTrack(trackId),
             nowPlayingWarn: (message: string): void => {
                 this._nowPlayingHandler?.({ message, type: 'warning' });
@@ -1057,7 +1123,11 @@ export class AppOrchestrator {
         }
 
         if (teardownFailures.length > 0) {
-            console.warn('[Orchestrator] Shutdown teardown failures:', teardownFailures);
+            this._warnRecoverableRuntimeIssue(
+                'orchestrator.shutdown.teardown',
+                'Shutdown teardown failures',
+                { teardownFailures }
+            );
         }
 
         this._initCoordinator = null;
@@ -1251,10 +1321,12 @@ export class AppOrchestrator {
         try {
             await this._videoPlayer.setSubtitleTrack(trackId);
         } catch (error) {
-            console.warn('[Orchestrator] setSubtitleTrack failed:', {
-                trackId,
-                error: summarizeErrorForLog(error),
-            });
+            this._warnRecoverableRuntimeError(
+                'orchestrator.subtitleTrack.set',
+                'setSubtitleTrack failed',
+                error,
+                { trackId }
+            );
             if (this._nowPlayingHandler) {
                 this._nowPlayingHandler({ message: 'Could not update subtitles', type: 'warning' });
             }
@@ -1469,12 +1541,17 @@ export class AppOrchestrator {
         ].filter((module): module is string => module !== null);
 
         if (missingModules.length === 0) {
-            console.warn(`[Orchestrator] ${context}: channel tuning unavailable.`);
+            this._warnRecoverableRuntimeIssue(
+                'orchestrator.channelTuningUnavailable',
+                `${context}: channel tuning unavailable`
+            );
             return;
         }
 
-        console.warn(
-            `[Orchestrator] ${context}: channel tuning unavailable. Missing modules: ${missingModules.join(', ')}`
+        this._warnRecoverableRuntimeIssue(
+            'orchestrator.channelTuningUnavailable',
+            `${context}: channel tuning unavailable`,
+            { missingModules }
         );
     }
 
@@ -1526,7 +1603,11 @@ export class AppOrchestrator {
             if (isAbortLikeError(error, options?.signal)) {
                 return 'aborted';
             }
-            console.error('switchToChannelByNumberWithOutcome failed:', summarizeErrorForLog(error));
+            this._warnRecoverableRuntimeError(
+                'orchestrator.channelSwitch.byNumberOutcome',
+                'switchToChannelByNumberWithOutcome failed',
+                error
+            );
             return 'failed';
         }
     }
@@ -1615,9 +1696,11 @@ export class AppOrchestrator {
             }
 
             if (this._pendingGlobalErrors.length > 0) {
-                console.warn('[Orchestrator] Dropping queued global errors after reentrancy limit:', {
-                    droppedCount: this._pendingGlobalErrors.length,
-                });
+                this._warnRecoverableRuntimeIssue(
+                    'orchestrator.globalErrorQueue.reentrancyLimit',
+                    'Dropping queued global errors after reentrancy limit',
+                    { droppedCount: this._pendingGlobalErrors.length }
+                );
                 this._pendingGlobalErrors = [];
             }
         } finally {
@@ -1667,12 +1750,20 @@ export class AppOrchestrator {
             },
             retryStart: (): void => {
                 this.start().catch((error: unknown) => {
-                    console.error('[Orchestrator] Retry start failed:', summarizeErrorForLog(error));
+                    this._warnRecoverableRuntimeError(
+                        'orchestrator.recovery.retryStart',
+                        'Retry start failed',
+                        error
+                    );
                 });
             },
             exitApp: (): void => {
                 this.shutdown().catch((error: unknown) => {
-                    console.error('[Orchestrator] Shutdown failed:', summarizeErrorForLog(error));
+                    this._warnRecoverableRuntimeError(
+                        'orchestrator.recovery.exitApp',
+                        'Shutdown failed',
+                        error
+                    );
                 });
             },
             skipToNext: (): void => {
@@ -1868,7 +1959,7 @@ export class AppOrchestrator {
     }
 
     private _seedSubtitleLanguageFromPlexUser(): void {
-        const existing = this._subtitlePreferencesStore.readSubtitleLanguage();
+        const existing = this._subtitlePreferencesStore.readSubtitleLanguageAndClean();
         if (typeof existing === 'string' && existing.trim().length > 0) {
             return;
         }
@@ -1921,7 +2012,7 @@ export class AppOrchestrator {
     }
 
     private _shouldRunAudioSetup(): boolean {
-        return !this._audioSettingsStore.readAudioSetupComplete(false);
+        return !this._audioSettingsStore.readAudioSetupCompleteAndClean(false);
     }
 
     private _handlePlexLibraryAuthExpired(): void {
@@ -1955,10 +2046,14 @@ export class AppOrchestrator {
 
     private _queueReentrantGlobalError(error: AppError, context: string): void {
         if (this._pendingGlobalErrors.length >= AppOrchestrator.MAX_PENDING_GLOBAL_ERRORS) {
-            console.warn('[Orchestrator] Dropping reentrant global error after queue limit:', {
-                context,
-                error: summarizeErrorForLog(error),
-            });
+            this._warnRecoverableRuntimeIssue(
+                'orchestrator.globalErrorQueue.queueLimit',
+                'Dropping reentrant global error after queue limit',
+                {
+                    context,
+                    safeError: summarizeErrorForLog(error),
+                }
+            );
             return;
         }
 
@@ -1966,17 +2061,29 @@ export class AppOrchestrator {
     }
 
     private _handleGlobalErrorOnce(error: AppError, context: string): void {
-        console.error(`[${context}] Error:`, summarizeErrorForLog(error));
+        this._warnRecoverableRuntimeError(
+            'orchestrator.globalError',
+            `Global error in ${context}`,
+            error
+        );
 
         for (const [moduleId, handler] of this._errorHandlers) {
             try {
                 const handled = handler(error);
                 if (handled) {
-                    console.warn(`Error handled by ${moduleId}`);
+                    this._warnRecoverableRuntimeIssue(
+                        'orchestrator.globalError.handlerHandled',
+                        'Global error handled by module',
+                        { moduleId }
+                    );
                     return;
                 }
             } catch (handlerError) {
-                console.error(`Error in handler for ${moduleId}:`, summarizeErrorForLog(handlerError));
+                this._warnRecoverableRuntimeError(
+                    'orchestrator.globalError.handlerFailure',
+                    `Error in handler for ${moduleId}`,
+                    handlerError
+                );
             }
         }
 
@@ -2082,7 +2189,11 @@ export class AppOrchestrator {
                         void this._nowPlayingDebugManager?.maybeFetchNowPlayingStreamDecisionForDebugHud();
                     },
                     onPlaybackStartFailure: (error: unknown): void => {
-                        console.error('Failed to load stream:', summarizeErrorForLog(error));
+                        this._warnRecoverableRuntimeError(
+                            'orchestrator.playback.loadStream',
+                            'Failed to load stream',
+                            error
+                        );
                     },
                 },
                 events: {
@@ -2104,10 +2215,17 @@ export class AppOrchestrator {
                     },
                     cleanupReporter: (failures: OrchestratorEventCleanupFailure[]): void => {
                         try {
-                            console.warn('[Orchestrator] Event wiring rollback failures:', failures);
+                            this._warnRecoverableRuntimeIssue(
+                                'orchestrator.eventWiring.rollback',
+                                'Event wiring rollback failures',
+                                { failures }
+                            );
                         } catch {
                             // Cleanup reporting must never throw during event binder teardown.
                         }
+                    },
+                    reportRecoverableAsyncFailure: (event, message, error): void => {
+                        this._warnRecoverableRuntimeError(event, message, error);
                     },
                 },
                 nowPlayingModalId: NOW_PLAYING_INFO_MODAL_ID,
@@ -2165,9 +2283,11 @@ export class AppOrchestrator {
         try {
             this._playbackRuntimeController?.stopActiveTranscodeSession();
         } catch (error) {
-            console.warn('[Orchestrator] stopActiveTranscodeSession failed during playback stop:', {
-                error: summarizeErrorForLog(error),
-            });
+            this._warnRecoverableRuntimeError(
+                'orchestrator.playback.stopTranscodeSession',
+                'stopActiveTranscodeSession failed during playback stop',
+                error
+            );
         }
         this._videoPlayer?.stop();
     }
@@ -2180,11 +2300,15 @@ export class AppOrchestrator {
             const headers = this._plexAuth?.getAuthHeaders() ?? {};
             return buildPlexResourceUrlWithAuth(baseUri, pathOrUrl, headers);
         } catch (error) {
-            console.warn('[Orchestrator] buildPlexResourceUrlWithAuth failed:', {
-                pathOrUrl: summarizeErrorForLog(pathOrUrl),
-                baseUri: summarizeErrorForLog(baseUri),
-                error: summarizeErrorForLog(error),
-            });
+            this._warnRecoverableRuntimeError(
+                'orchestrator.plexResourceUrl.build',
+                'buildPlexResourceUrlWithAuth failed',
+                error,
+                {
+                    pathOrUrl: summarizeErrorForLog(pathOrUrl),
+                    baseUri: summarizeErrorForLog(baseUri),
+                }
+            );
             return null;
         }
     }
@@ -2214,7 +2338,11 @@ export class AppOrchestrator {
         if (nextChannel) {
             this.switchToChannel(nextChannel.id).catch((error: unknown) => {
                 if (isAbortLikeError(error)) return;
-                console.error('[Orchestrator] Next channel switch failed:', summarizeErrorForLog(error));
+                this._warnRecoverableRuntimeError(
+                    'orchestrator.channelSwitch.next',
+                    'Next channel switch failed',
+                    error
+                );
             });
         }
     }
@@ -2229,7 +2357,11 @@ export class AppOrchestrator {
         if (prevChannel) {
             this.switchToChannel(prevChannel.id).catch((error: unknown) => {
                 if (isAbortLikeError(error)) return;
-                console.error('[Orchestrator] Previous channel switch failed:', summarizeErrorForLog(error));
+                this._warnRecoverableRuntimeError(
+                    'orchestrator.channelSwitch.previous',
+                    'Previous channel switch failed',
+                    error
+                );
             });
         }
     }

@@ -78,6 +78,14 @@ describe('ChannelContentSourceValidator', () => {
     });
 
     it('rejects sources missing required fields or with invalid shapes', () => {
+        expect(isValidContentSource(null)).toBe(false);
+        expect(isValidContentSource([])).toBe(false);
+        expect(isValidContentSource({})).toBe(false);
+        expect(isValidContentSource({ type: 'unknown' })).toBe(false);
+        expect(() => isValidContentSource({ type: '__proto__' })).not.toThrow();
+        expect(isValidContentSource({ type: '__proto__' })).toBe(false);
+        expect(isValidContentSource({ type: 'constructor' })).toBe(false);
+
         expect(isValidContentSource({ type: 'library', libraryId: 'lib-1' })).toBe(false);
         expect(isValidContentSource({ type: 'library', libraryId: 'lib-1', libraryType: 'movie' })).toBe(false);
         expect(

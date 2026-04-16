@@ -34,12 +34,13 @@ import type {
 } from './orchestrator/OverlayPorts';
 import { EpgPreferencesStore, type EpgLayoutMode } from '../modules/settings/EpgPreferencesStore';
 import { ProfileSessionStore } from '../modules/settings/ProfileSessionStore';
-import { summarizeErrorForLog } from '../utils/errors';
 import {
     applyPhase2AuthGatePolicy,
     applyPhase3ServerGatePolicy,
     applyPostReadyRoutingPolicy,
 } from './initialization/InitializationStartupPolicy';
+import { toRecoverableModuleStatusError } from './initialization/RecoverableModuleStatusError';
+import type { RecoverableAsyncFailureReporter } from './orchestrator/OrchestratorRuntimeSeams';
 
 // ============================================
 // Types
@@ -100,6 +101,9 @@ export interface InitializationCallbacks {
     };
     errors: {
         handleGlobalError: (error: AppError, context: string) => void;
+    };
+    diagnostics: {
+        reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter;
     };
     state: {
         setReady: (ready: boolean) => void;
@@ -384,7 +388,14 @@ export class InitializationCoordinator {
         this._callbacks.status.updateModuleStatus('plex-auth', 'initializing');
 
         if (!this._deps.modules.plexAuth || !this._deps.modules.navigation) {
-            this._callbacks.status.updateModuleStatus('plex-auth', 'error');
+            this._callbacks.status.updateModuleStatus(
+                'plex-auth',
+                'error',
+                toRecoverableModuleStatusError(
+                    new Error('Plex auth or navigation module unavailable during startup.'),
+                    'Plex auth or navigation module unavailable during startup.'
+                )
+            );
             return false;
         }
 
@@ -396,7 +407,7 @@ export class InitializationCoordinator {
             updateModuleStatus: this._callbacks.status.updateModuleStatus,
             configureDiscoveryStorage: this._callbacks.serverStorage.configureDiscoveryStorage,
             readShowProfilePickerOnStartup: (): boolean =>
-                this._deps.stores.profileSessionStore.readShowProfilePickerOnStartup(false),
+                this._deps.stores.profileSessionStore.readShowProfilePickerOnStartupAndClean(false),
             handlers: {
                 registerAuthResume: (): void => this._registerAuthResume(),
                 registerProfileResume: (): void => this._registerProfileResume(),
@@ -599,7 +610,11 @@ export class InitializationCoordinator {
         };
         this._epgInitPromise = init()
             .catch((e) => {
-                this._callbacks.status.updateModuleStatus('epg-ui', 'error');
+                this._callbacks.status.updateModuleStatus(
+                    'epg-ui',
+                    'error',
+                    toRecoverableModuleStatusError(e, 'EPG initialization failed.')
+                );
                 throw e;
             })
             .finally(() => {
@@ -651,9 +666,7 @@ export class InitializationCoordinator {
                 return;
             }
             this.clearAuthResume();
-            this.runStartup(2).catch((error) => {
-                console.error('[InitializationCoordinator] Auth resume failed:', summarizeErrorForLog(error));
-            });
+            this._resumeStartupPhase(2);
         });
         this._authResumeDisposable = disposable;
     }
@@ -672,9 +685,7 @@ export class InitializationCoordinator {
                 return;
             }
             this.clearServerResume();
-            this.runStartup(3).catch((error) => {
-                console.error('[InitializationCoordinator] Server resume failed:', summarizeErrorForLog(error));
-            });
+            this._resumeStartupPhase(3);
         });
         this._serverResumeDisposable = disposable;
     }
@@ -693,10 +704,24 @@ export class InitializationCoordinator {
             // Critical: ensure discovery storage keys are updated for the new activeUserId
             // before Phase 3 runs and restores server selection from localStorage.
             this._callbacks.serverStorage.configureDiscoveryStorage();
-            this.runStartup(3).catch((error) => {
-                console.error('[InitializationCoordinator] Profile resume failed:', summarizeErrorForLog(error));
-            });
+            this._resumeStartupPhase(3);
         });
         this._profileResumeDisposable = disposable;
+    }
+
+    private _resumeStartupPhase(phase: 2 | 3): void {
+        void this.runStartup(phase).catch((error: unknown) => {
+            // runStartup() already reports fatal startup failures via handleGlobalError('start').
+            // Consume the rejection here only to avoid an unhandled Promise rejection on resume.
+            try {
+                this._callbacks.diagnostics.reportRecoverableAsyncFailure(
+                    `initialization.resume.phase${phase}`,
+                    `Background startup resume failed for phase ${phase}`,
+                    error
+                );
+            } catch {
+                // Resume rejection is already consumed above; diagnostics must stay best-effort.
+            }
+        });
     }
 }

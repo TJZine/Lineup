@@ -56,6 +56,10 @@ export interface ResolveStreamPipelineResult {
     hdrFallbackReason: string | null;
 }
 
+function normalizeResolvedCodec(value: string | null | undefined): string {
+    return (value ?? '').trim().toLowerCase();
+}
+
 export function resolveStreamPipeline({
     item,
     request,
@@ -211,7 +215,7 @@ export function resolveStreamPipeline({
         protocol = 'http';
         container = media.container;
         videoCodec = media.videoCodec;
-        audioCodec = ((requestedAudioStream ?? audioStream)?.codec ?? media.audioCodec).toLowerCase();
+        audioCodec = normalizeResolvedCodec((requestedAudioStream ?? audioStream)?.codec ?? media.audioCodec);
     } else {
         const options: HlsOptions = { maxBitrate: resolvedTranscodeBitrate, sessionId, mediaIndex, partIndex };
         if (shouldForceAudioStreamId && audioStream?.id) {

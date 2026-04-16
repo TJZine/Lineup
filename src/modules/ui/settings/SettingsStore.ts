@@ -88,25 +88,29 @@ export class SettingsStore {
     readToggleSettingAndClean(id: ToggleSettingId): boolean {
         switch (id) {
             case 'dtsPassthrough':
-                return this._audioSettingsStore.readDtsPassthroughEnabled(TOGGLE_DEFAULT_BY_ID.dtsPassthrough);
+                return this._audioSettingsStore.readDtsPassthroughEnabledAndClean(
+                    TOGGLE_DEFAULT_BY_ID.dtsPassthrough
+                );
             case 'directPlayAudioFallback':
-                return this._audioSettingsStore.readDirectPlayAudioFallbackEnabled(
+                return this._audioSettingsStore.readDirectPlayAudioFallbackEnabledAndClean(
                     TOGGLE_DEFAULT_BY_ID.directPlayAudioFallback
                 );
             case 'keepPlayingInSettings':
-                return this._profileSessionStore.readKeepPlayingInSettings(
+                return this._profileSessionStore.readKeepPlayingInSettingsAndClean(
                     TOGGLE_DEFAULT_BY_ID.keepPlayingInSettings
                 );
             case 'transcodeCompat':
                 return this._playbackSettingsStore.readTranscodeCompatEnabledAndClean(TOGGLE_DEFAULT_BY_ID.transcodeCompat);
             case 'debugLogging':
-                return this._developerSettingsStore.readDebugLoggingEnabled(TOGGLE_DEFAULT_BY_ID.debugLogging);
+                return this._developerSettingsStore.readDebugLoggingEnabledAndClean(
+                    TOGGLE_DEFAULT_BY_ID.debugLogging
+                );
             case 'subtitleDebugLogging':
-                return this._developerSettingsStore.readSubtitleDebugLoggingEnabled(
+                return this._developerSettingsStore.readSubtitleDebugLoggingEnabledAndClean(
                     TOGGLE_DEFAULT_BY_ID.subtitleDebugLogging
                 );
             case 'subtitlePreferForced':
-                return this._subtitlePreferencesStore.readSubtitlePreferForced(
+                return this._subtitlePreferencesStore.readSubtitlePreferForcedAndClean(
                     TOGGLE_DEFAULT_BY_ID.subtitlePreferForced
                 );
             case 'guideCategoryColors':
@@ -122,15 +126,15 @@ export class SettingsStore {
                     TOGGLE_DEFAULT_BY_ID.epgAggressivePreloadEnabled
                 );
             case 'showProfilePickerOnStartup':
-                return this._profileSessionStore.readShowProfilePickerOnStartup(
+                return this._profileSessionStore.readShowProfilePickerOnStartupAndClean(
                     TOGGLE_DEFAULT_BY_ID.showProfilePickerOnStartup
                 );
             case 'cinematicNowPlaying':
-                return this._nowPlayingDisplayStore.readCinematicNowPlayingEnabled(
+                return this._nowPlayingDisplayStore.readCinematicNowPlayingEnabledAndClean(
                     TOGGLE_DEFAULT_BY_ID.cinematicNowPlaying
                 );
             case 'preferClearLogos':
-                return this._nowPlayingDisplayStore.readPreferClearLogosEnabled(
+                return this._nowPlayingDisplayStore.readPreferClearLogosEnabledAndClean(
                     TOGGLE_DEFAULT_BY_ID.preferClearLogos
                 );
             case 'smartHdr10Fallback':
@@ -270,7 +274,7 @@ export class SettingsStore {
     }
 
     readSubtitleModeAndClean(): SubtitleMode {
-        return this._subtitlePreferencesStore.readSubtitleMode('full');
+        return this._subtitlePreferencesStore.readSubtitleModeAndClean('full');
     }
 
     writeSubtitleMode(mode: SubtitleMode): void {
@@ -278,7 +282,7 @@ export class SettingsStore {
     }
 
     readSubtitleLanguageValueAndClean(options: ReadonlyArray<SubtitleLanguageOption>): number {
-        const raw = this._subtitlePreferencesStore.readSubtitleLanguage();
+        const raw = this._subtitlePreferencesStore.readSubtitleLanguageAndClean();
         if (raw === null) return 0;
 
         const index = options.findIndex((option) => {
@@ -306,7 +310,7 @@ export class SettingsStore {
     }
 
     readClampedNowPlayingAutoHideValueAndClean(validOptions: readonly number[], fallback: number = NOW_PLAYING_INFO_DEFAULTS.autoHideMs): number {
-        return this._nowPlayingDisplayStore.readClampedAutoHideMs(
+        return this._nowPlayingDisplayStore.readClampedAutoHideMsAndClean(
             validOptions,
             validOptions.includes(fallback)
                 ? fallback

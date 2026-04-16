@@ -87,7 +87,7 @@ it('writes subtitle mode, emits subtitle callback, and invalidates state', () =>
 
     (subtitleMode as SettingsSelectConfig).onChange(0);
 
-    expect(new SubtitlePreferencesStore().readSubtitleMode()).toBe('off');
+    expect(new SubtitlePreferencesStore().readSubtitleModeAndClean()).toBe('off');
     expect(onSubtitleModeChange).toHaveBeenCalledWith('off');
     expect(onStateInvalidated).toHaveBeenCalledTimes(1);
 });

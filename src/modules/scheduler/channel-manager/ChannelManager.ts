@@ -8,6 +8,7 @@ import { summarizeErrorForLog } from '../../../utils/errors';
 import { ContentResolver } from './ContentResolver';
 import { ChannelRepository } from './ChannelRepository';
 import { isValidContentSource } from './ChannelContentSourceValidator';
+import { stripLegacySequentialVariant } from './stripLegacySequentialVariant';
 import { AppErrorCode } from '../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../lifecycle/constants';
 import { TIMING_CONFIG } from '../../../config/timing';
@@ -593,7 +594,7 @@ export class ChannelManager implements IChannelManager {
         return this._state.channelOrder
             .map((id) => this._state.channels.get(id))
             .filter((ch): ch is ChannelConfig => ch !== undefined)
-            .map((channel) => this._stripLegacySequentialVariant(channel).channel);
+            .map((channel) => stripLegacySequentialVariant(channel).channel);
     }
 
     /**
@@ -1085,7 +1086,7 @@ export class ChannelManager implements IChannelManager {
     private _performSaveSync(): void {
         const sanitizedChannels: ChannelConfig[] = [];
         for (const [id, channel] of this._state.channels.entries()) {
-            const sanitized = this._stripLegacySequentialVariant(channel);
+            const sanitized = stripLegacySequentialVariant(channel);
             if (sanitized.didMutate) {
                 this._state.channels.set(id, sanitized.channel);
             }
@@ -1129,7 +1130,7 @@ export class ChannelManager implements IChannelManager {
             // Restore state
             this._state.channels.clear();
             for (const channel of data.channels) {
-                const sanitized = this._stripLegacySequentialVariant(channel);
+                const sanitized = stripLegacySequentialVariant(channel);
                 if (sanitized.didMutate) {
                     didMutateFromRuntimeCleanup = true;
                 }
@@ -1182,18 +1183,6 @@ export class ChannelManager implements IChannelManager {
 
     private _cloneResolvedItems(items: ResolvedContentItem[]): ResolvedContentItem[] {
         return items.map((item) => this._cloneResolvedItem(item));
-    }
-
-    private _stripLegacySequentialVariant(
-        channel: ChannelConfig
-    ): { channel: ChannelConfig; didMutate: boolean } {
-        const record = channel as ChannelConfig & { isSequentialVariant?: unknown };
-        if (!Object.prototype.hasOwnProperty.call(record, 'isSequentialVariant')) {
-            return { channel, didMutate: false };
-        }
-        const { isSequentialVariant, ...rest } = record as ChannelConfig & Record<string, unknown>;
-        void isSequentialVariant;
-        return { channel: rest as ChannelConfig, didMutate: true };
     }
 
     private _cloneResolvedContent(

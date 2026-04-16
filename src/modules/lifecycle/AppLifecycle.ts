@@ -22,6 +22,7 @@ import { EventEmitter } from '../../utils/EventEmitter';
 import type { IDisposable } from '../../utils/interfaces';
 import {
     MEMORY_THRESHOLDS,
+    NETWORK_CHECK_PROBE_URL,
     TIMING_CONFIG,
     VALID_PHASE_TRANSITIONS,
 } from './constants';
@@ -238,7 +239,7 @@ export class AppLifecycle implements IAppLifecycle {
                 TIMING_CONFIG.NETWORK_CHECK_TIMEOUT_MS
             ) as unknown as number;
 
-            const response = await fetch('https://plex.tv', {
+            const response = await fetch(NETWORK_CHECK_PROBE_URL, {
                 method: 'HEAD',
                 signal: controller.signal,
                 mode: 'no-cors' // Use no-cors to avoid CORS errors on opaque network check

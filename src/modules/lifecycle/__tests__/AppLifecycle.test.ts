@@ -7,6 +7,7 @@
 import { AppLifecycle } from '../AppLifecycle';
 import { StateManager } from '../StateManager';
 import { ErrorRecovery } from '../ErrorRecovery';
+import { NETWORK_CHECK_PROBE_URL } from '../constants';
 import { AppErrorCode, PersistentState } from '../types';
 import type { IAppLifecycle } from '../interfaces';
 import type { PlatformLifecycleService } from '../../../platform';
@@ -501,17 +502,26 @@ describe('AppLifecycle', () => {
 
         it('checkNetworkStatus should treat resolved no-cors fetch as available', async () => {
             const originalFetch = globalThis.fetch;
+            const fetchMock = jest.fn().mockResolvedValue({
+                ok: false,
+                type: 'opaque',
+            });
             try {
-                (globalThis as unknown as { fetch: typeof fetch }).fetch = (jest.fn().mockResolvedValue({
-                    ok: false,
-                    type: 'opaque',
-                }) as unknown) as typeof fetch;
+                (globalThis as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
 
                 await lifecycle.initialize();
 
                 const result = await lifecycle.checkNetworkStatus();
                 expect(result).toBe(true);
                 expect(lifecycle.isNetworkAvailable()).toBe(true);
+                expect(fetchMock).toHaveBeenCalledWith(
+                    NETWORK_CHECK_PROBE_URL,
+                    expect.objectContaining({
+                        method: 'HEAD',
+                        mode: 'no-cors',
+                        signal: expect.any(AbortSignal),
+                    })
+                );
             } finally {
                 globalThis.fetch = originalFetch;
             }

@@ -1,4 +1,4 @@
-import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
+import { isAbortLikeError } from '../../../../utils/errors';
 import type { BuildProgressDeps, StepRenderContext } from './types';
 
 export class BuildProgressStepController {
@@ -64,14 +64,13 @@ export class BuildProgressStepController {
             detailLabel,
         }).catch((error: unknown) => {
             if (isAbortLikeError(error)) return;
-            const summary = summarizeErrorForLog(error);
+            ctx.statusEl.textContent = 'Error';
             ctx.errorEl.textContent = 'Build failed. Please go back and try again.';
             taskLabel.textContent = 'Build failed';
             detailLabel.textContent = 'Press Back to adjust settings and retry.';
             backButton.disabled = false;
             backButton.textContent = 'Back';
             doneButton.disabled = true;
-            console.error('[ChannelSetup] Build failed:', summary);
         });
     }
 }

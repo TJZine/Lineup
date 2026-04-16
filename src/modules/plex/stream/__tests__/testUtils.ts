@@ -13,7 +13,7 @@ export function createMockConfig(
         getHttpsConnection: () => null,
         getRelayConnection: () => null,
         debugOverridesStore: {
-            readTranscodeProfileName: () => null,
+            readTranscodeProfileNameAndClean: () => null,
         },
         getItem: jest.fn().mockResolvedValue(null),
         clientIdentifier: 'test-client-id',

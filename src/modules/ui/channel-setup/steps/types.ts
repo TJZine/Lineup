@@ -1,13 +1,14 @@
 import type {
     ChannelSetupConfig,
     ChannelSetupContext,
-    ChannelExpansionConfig,
     ChannelSetupPreview,
     ChannelSetupReview,
-    SeriesOrderingConfig,
-    SetupStrategyConfig,
 } from '../../../../core/channel-setup/types';
 import type { PlexLibrarySection } from '../../../plex/library';
+import type {
+    EstimateKey,
+    StrategyStepMutableState,
+} from '../ChannelSetupSessionContracts';
 import type { SetupStrategyKey, StrategyCategoryKey } from './constants';
 
 export type { SetupStrategyKey, StrategyCategoryKey } from './constants';
@@ -18,25 +19,6 @@ export interface StepRenderContext {
     statusEl: HTMLElement;
     detailEl: HTMLElement;
     errorEl: HTMLElement;
-}
-
-interface StrategyStateItem {
-    enabled: boolean;
-    scope: SetupStrategyConfig['scope'];
-}
-
-type StrategyStateMap = Record<SetupStrategyKey, StrategyStateItem>;
-
-export interface ChannelExpansionState {
-    addAlternateLineups: boolean;
-    alternateLineupCopies: number;
-    variantType: ChannelExpansionConfig['variantType'];
-    variantBlockSize: number;
-}
-
-export interface SeriesOrderingState {
-    basePlaybackMode: SeriesOrderingConfig['basePlaybackMode'];
-    baseBlockSize: number;
 }
 
 export interface LibraryStepDeps {
@@ -59,21 +41,8 @@ export interface LibraryStepDeps {
     ) => void;
 }
 
-export type StrategyStepMutableState = {
-    activeStrategyCategory: StrategyCategoryKey;
-    strategies: StrategyStateMap;
-    strategyOrder: SetupStrategyKey[];
-    channelExpansion: ChannelExpansionState;
-    seriesOrdering: SeriesOrderingState;
-    buildMode: ChannelSetupConfig['buildMode'];
-    actorStudioCombineMode: ChannelSetupConfig['actorStudioCombineMode'];
-    maxChannels: number;
-    minItems: number;
-};
-
-export type EstimateKey = keyof ChannelSetupPreview['estimates'];
-
 export interface StrategyStepStateSnapshot extends StrategyStepMutableState {
+    activeStrategyCategory: StrategyCategoryKey;
     setupContext: ChannelSetupContext;
     previewPanelId: string;
     preview: ChannelSetupPreview | null;
@@ -84,9 +53,6 @@ export interface StrategyStepStateSnapshot extends StrategyStepMutableState {
 
 export interface StrategyStepDeps {
     state: StrategyStepStateSnapshot;
-    stepPreset: (options: number[], current: number, dir: 'left' | 'right', mode: 'clamp' | 'wrap') => number;
-    channelLimitOptions: number[];
-    minItemsOptions: number[];
     strategyKeys: readonly SetupStrategyKey[];
     categoryButtonId: (category: StrategyCategoryKey) => string;
     strategyButtonId: (strategy: SetupStrategyKey) => string;
@@ -94,7 +60,6 @@ export interface StrategyStepDeps {
     lastReorder: { key: SetupStrategyKey; dir: 'up' | 'down' } | null;
     scopeButtonId: (strategy: SetupStrategyKey) => string;
     strategySupportsMixedScope: (strategy: SetupStrategyKey) => boolean;
-    rememberDetailFocus: (controlId: string) => void;
     buildPreviewRow: (label: string, value: number | string, key?: EstimateKey) => HTMLElement;
     renderCappedWarnings: (warnings: string[], container: HTMLElement) => void;
     applyCategoryChange: (category: StrategyCategoryKey, focusId: string) => void;
@@ -102,12 +67,7 @@ export interface StrategyStepDeps {
         focusId: string,
         mutate: (state: StrategyStepMutableState) => void
     ) => void;
-    openDropdown: (config: {
-        anchorId: string;
-        options: Array<{ label: string; value: string }>;
-        currentValue: string;
-        onSelect: (value: string) => void;
-    }) => void;
+    openAdjustableControl: (controlId: string) => void;
     onBack: () => void;
     onNext: () => void;
     registerStep2Focusables: (
@@ -118,6 +78,13 @@ export interface StrategyStepDeps {
     ) => void;
     detailText: string;
     schedulePreview: () => void;
+}
+
+export interface StrategyStepDropdownConfig {
+    anchorId: string;
+    options: Array<{ label: string; value: string }>;
+    currentValue: string;
+    onSelect: (value: string) => void;
 }
 
 export interface BuildReviewStateSnapshot {

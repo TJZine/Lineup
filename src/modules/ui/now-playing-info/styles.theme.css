@@ -1,0 +1,56 @@
+.theme-glass .now-playing-info-panel {
+  --npi-scrim-fallback-rgb: 8, 11, 15;
+  --npi-start-alpha: 62%;
+  --npi-end-alpha: 80%;
+  --npi-border-alpha: 6%;
+  box-shadow: none;
+}
+
+.theme-glass .now-playing-info-title {
+  font-family: var(--font-family-display);
+  letter-spacing: -0.01em;
+}
+
+.theme-glass .now-playing-info-subtitle {
+  letter-spacing: 0.02em;
+}
+
+.theme-slate-pine .now-playing-info-panel {
+  --npi-scrim-fallback-rgb: 22, 24, 22;
+  --npi-start-alpha: 36%;
+  --npi-end-alpha: 58%;
+  --npi-border-alpha: 8%;
+}
+
+.theme-swiss .now-playing-info-panel {
+  --npi-scrim-fallback-rgb: 0, 0, 0;
+  --npi-start-alpha: 36%;
+  --npi-end-alpha: 58%;
+  --npi-border-alpha: 4%;
+}
+
+.theme-swiss .now-playing-info-title {
+  font-family: var(--font-family-display);
+}
+
+.theme-directv .now-playing-info-panel {
+  --npi-scrim-fallback-rgb: 0, 24, 48;
+  --npi-start-alpha: 50%;
+  --npi-end-alpha: 72%;
+  --npi-border-alpha: 8%;
+}
+
+.theme-directv .now-playing-info-title {
+  font-family: var(--font-family-display);
+}
+
+.theme-ember-steel .now-playing-info-panel {
+  --npi-scrim-fallback-rgb: 20, 20, 20;
+  --npi-start-alpha: 44%;
+  --npi-end-alpha: 66%;
+  --npi-border-alpha: 8%;
+}
+
+.theme-ember-steel .now-playing-info-title {
+  font-family: var(--font-family-display);
+}

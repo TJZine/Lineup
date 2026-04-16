@@ -93,6 +93,23 @@ export const PlexStreamErrorCode = {
 
 export type PlexStreamErrorCode = typeof PlexStreamErrorCode[keyof typeof PlexStreamErrorCode];
 
+const STREAM_TO_APP_ERROR_CODE_MAP: Record<string, AppErrorCode> = {
+    [PlexStreamErrorCode.AUTH_REQUIRED]: AppErrorCode.AUTH_REQUIRED,
+    [PlexStreamErrorCode.AUTH_EXPIRED]: AppErrorCode.AUTH_EXPIRED,
+    [PlexStreamErrorCode.AUTH_INVALID]: AppErrorCode.AUTH_INVALID,
+    [PlexStreamErrorCode.NETWORK_TIMEOUT]: AppErrorCode.NETWORK_TIMEOUT,
+    [PlexStreamErrorCode.NETWORK_OFFLINE]: AppErrorCode.NETWORK_OFFLINE,
+    [PlexStreamErrorCode.SERVER_UNREACHABLE]: AppErrorCode.SERVER_UNREACHABLE,
+    [PlexStreamErrorCode.MIXED_CONTENT_BLOCKED]: AppErrorCode.MIXED_CONTENT_BLOCKED,
+    [PlexStreamErrorCode.PLAYBACK_SOURCE_NOT_FOUND]: AppErrorCode.PLAYBACK_SOURCE_NOT_FOUND,
+    [PlexStreamErrorCode.PLAYBACK_FORMAT_UNSUPPORTED]: AppErrorCode.PLAYBACK_FORMAT_UNSUPPORTED,
+    [PlexStreamErrorCode.TRANSCODE_FAILED]: AppErrorCode.TRANSCODE_FAILED,
+    [PlexStreamErrorCode.PARSE_ERROR]: AppErrorCode.PARSE_ERROR,
+    [PlexStreamErrorCode.ITEM_NOT_FOUND]: AppErrorCode.ITEM_NOT_FOUND,
+    [PlexStreamErrorCode.SERVER_ERROR]: AppErrorCode.SERVER_ERROR,
+    [PlexStreamErrorCode.UNKNOWN]: AppErrorCode.UNKNOWN,
+};
+
 export function mapPlexStreamErrorCodeToAppErrorCode(
     code: PlexStreamErrorCode
 ): AppErrorCode {
@@ -102,25 +119,8 @@ export function mapPlexStreamErrorCodeToAppErrorCode(
         // Keep user-facing error mapping consistent while enabling more precise internal branching.
         return AppErrorCode.PLAYBACK_SOURCE_NOT_FOUND;
     }
-    switch (runtimeCode) {
-        case PlexStreamErrorCode.AUTH_REQUIRED:
-        case PlexStreamErrorCode.AUTH_EXPIRED:
-        case PlexStreamErrorCode.AUTH_INVALID:
-        case PlexStreamErrorCode.NETWORK_TIMEOUT:
-        case PlexStreamErrorCode.NETWORK_OFFLINE:
-        case PlexStreamErrorCode.SERVER_UNREACHABLE:
-        case PlexStreamErrorCode.MIXED_CONTENT_BLOCKED:
-        case PlexStreamErrorCode.PLAYBACK_SOURCE_NOT_FOUND:
-        case PlexStreamErrorCode.PLAYBACK_FORMAT_UNSUPPORTED:
-        case PlexStreamErrorCode.TRANSCODE_FAILED:
-        case PlexStreamErrorCode.PARSE_ERROR:
-        case PlexStreamErrorCode.ITEM_NOT_FOUND:
-        case PlexStreamErrorCode.SERVER_ERROR:
-        case PlexStreamErrorCode.UNKNOWN:
-            return runtimeCode;
-    }
 
-    return AppErrorCode.UNKNOWN;
+    return STREAM_TO_APP_ERROR_CODE_MAP[runtimeCode] ?? AppErrorCode.UNKNOWN;
 }
 
 // ============================================

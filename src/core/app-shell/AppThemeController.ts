@@ -17,7 +17,7 @@ export class AppThemeController {
     }
 
     initialize(): ThemeName {
-        const stored = this._themePreferencesStore.readTheme();
+        const stored = this._themePreferencesStore.readThemeAndClean();
         this._currentTheme = isThemeName(stored) ? stored : DEFAULT_THEME;
 
         if (stored !== this._currentTheme) {

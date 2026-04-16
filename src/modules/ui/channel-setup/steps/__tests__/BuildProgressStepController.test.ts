@@ -44,6 +44,7 @@ describe('BuildProgressStepController', () => {
         const taskLabel = ctx.contentEl.querySelector('.setup-progress-task') as HTMLElement | null;
 
         expect(ctx.errorEl.textContent ?? '').not.toBe('');
+        expect(ctx.statusEl.textContent).toBe('Error');
         expect(taskLabel?.textContent ?? '').toContain('failed');
         expect(backButton?.disabled).toBe(false);
         expect(backButton?.textContent).toBe('Back');
@@ -71,6 +72,7 @@ describe('BuildProgressStepController', () => {
         const backButton = ctx.contentEl.querySelector('#setup-back') as HTMLButtonElement | null;
         const doneButton = ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement | null;
         expect(ctx.errorEl.textContent ?? '').toBe('');
+        expect(ctx.statusEl.textContent).toBe('Building channels...');
         expect(backButton?.textContent).toBe('Cancel');
         expect(backButton?.disabled).toBe(false);
         expect(doneButton?.disabled).toBe(true);

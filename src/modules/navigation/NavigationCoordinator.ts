@@ -15,8 +15,9 @@ import {
     EPG_REPEAT_TIMING,
     MINI_GUIDE_REPEAT_TIMING,
 } from './constants';
-import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
+import { isAbortLikeError } from '../../utils/errors';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
+import type { RecoverableAsyncFailureReporter } from '../../core/orchestrator/OrchestratorRuntimeSeams';
 
 export interface NavigationCoordinatorDeps {
     navigation: INavigationManager;
@@ -81,6 +82,7 @@ export interface NavigationCoordinatorDeps {
         shouldRunChannelSetup: () => boolean;
         hideChannelTransition: () => void;
     };
+    reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter;
     reportToast?: (toast: { message: string; type: 'warning' | 'error' | 'info' | 'success' }) => void;
     readKeepPlayingInSettings: () => boolean;
     readDebugLoggingEnabled: () => boolean;
@@ -98,10 +100,12 @@ export class NavigationCoordinator {
 
     constructor(private readonly deps: NavigationCoordinatorDeps) { }
 
-    private _warnNonBlockingFailure(
+    private _reportNonBlockingFailure(
         key: string,
+        event: string,
         message: string,
-        error: unknown
+        error: unknown,
+        toastMessage?: string
     ): void {
         const now = Date.now();
         const last = this._nonBlockingFailureTimestamps.get(key);
@@ -112,18 +116,49 @@ export class NavigationCoordinator {
             this._nonBlockingFailureTimestamps.clear();
         }
         this._nonBlockingFailureTimestamps.set(key, now);
-        console.warn(message, summarizeErrorForLog(error));
+        try {
+            this.deps.reportRecoverableAsyncFailure(event, message, error);
+        } catch {
+            // Diagnostics are best-effort in non-blocking failure paths.
+        }
+        if (toastMessage) {
+            try {
+                this.deps.reportToast?.({ message: toastMessage, type: 'warning' });
+            } catch {
+                // Toast delivery must remain best-effort here.
+            }
+        }
     }
 
     private _fireAndReport(
         key: string,
-        promise: Promise<void>,
+        promiseFactory: () => Promise<void>,
+        message: string,
         toastMessage: string
-    ): void {
+    ): Promise<void> | null {
+        let promise: Promise<void>;
+        try {
+            promise = promiseFactory();
+        } catch (error: unknown) {
+            this._reportNonBlockingFailure(
+                key,
+                `navigation.${key}`,
+                message,
+                error,
+                toastMessage
+            );
+            return null;
+        }
         void promise.catch((error: unknown) => {
-            this._warnNonBlockingFailure(key, `[Navigation] ${key} failed:`, error);
-            this.deps.reportToast?.({ message: toastMessage, type: 'warning' });
+            this._reportNonBlockingFailure(
+                key,
+                `navigation.${key}`,
+                message,
+                error,
+                toastMessage
+            );
         });
+        return promise;
     }
 
     wireNavigationEvents(): Array<() => void> {
@@ -154,23 +189,16 @@ export class NavigationCoordinator {
             navigation.off('keyUp', keyUpHandler);
         });
 
-        const channelNumberHandler = async (payload: { channelNumber: number }): Promise<void> => {
+        const channelNumberHandler = (payload: { channelNumber: number }): void => {
             if (!Number.isFinite(payload.channelNumber)) {
                 return;
             }
-            this.deps.channelSwitching.setLastChannelChangeSourceNumber();
-            try {
-                const outcome = await this.deps.channelSwitching.switchToChannelByNumber(payload.channelNumber);
-                if (outcome !== 'switched') {
-                    return;
-                }
-                if (this.deps.epg?.isVisible()) {
-                    this.deps.channelSwitching.focusEpgOnCurrentChannel();
-                }
-            } catch (error: unknown) {
-                if (isAbortLikeError(error)) return;
-                console.error('[Navigation] switchToChannelByNumber failed:', summarizeErrorForLog(error));
-            }
+            this._fireAndReport(
+                'channel-number',
+                () => this._handleChannelNumberEntered(payload.channelNumber),
+                '[Navigation] channel-number failed:',
+                'Could not switch to that channel'
+            );
         };
         navigation.on('channelNumberEntered', channelNumberHandler);
         unsubs.push(() => {
@@ -300,7 +328,12 @@ export class NavigationCoordinator {
         // Resume playback when returning to player
         if (to === 'player' && from !== 'player') {
             if (videoPlayer) {
-                this._fireAndReport('resume_play', videoPlayer.play(), 'Playback failed to resume');
+                this._fireAndReport(
+                    'resume_play',
+                    () => videoPlayer.play(),
+                    '[Navigation] resume_play failed:',
+                    'Playback failed to resume'
+                );
             }
         }
     }
@@ -579,13 +612,13 @@ export class NavigationCoordinator {
                     if (!player) {
                         break;
                     }
-                    const playPromise = player.play();
-                    this._fireAndReport(
+                    const playPromise = this._fireAndReport(
                         'remote_play',
-                        playPromise,
+                        () => player.play(),
+                        '[Navigation] remote_play failed:',
                         'Unable to start playback'
                     );
-                    void playPromise.then(
+                    void playPromise?.then(
                         () => {
                             this.deps.playback.playerOsd.coordinator?.poke('play');
                         },
@@ -603,9 +636,11 @@ export class NavigationCoordinator {
                     break;
                 }
                 const deltaMs = -this.deps.playback.getSeekIncrementMs();
-                player.seekRelative(deltaMs).catch((error: unknown) => {
-                    console.error('[Navigation] seek failed:', summarizeErrorForLog(error));
-                });
+                void this._observeNonBlockingPromise(
+                    'seek',
+                    () => player.seekRelative(deltaMs),
+                    '[Navigation] seek failed:'
+                );
                 this.deps.playback.playerOsd.coordinator?.poke('seek');
                 break;
             }
@@ -615,9 +650,11 @@ export class NavigationCoordinator {
                     break;
                 }
                 const deltaMs = this.deps.playback.getSeekIncrementMs();
-                player.seekRelative(deltaMs).catch((error: unknown) => {
-                    console.error('[Navigation] seek failed:', summarizeErrorForLog(error));
-                });
+                void this._observeNonBlockingPromise(
+                    'seek',
+                    () => player.seekRelative(deltaMs),
+                    '[Navigation] seek failed:'
+                );
                 this.deps.playback.playerOsd.coordinator?.poke('seek');
                 break;
             }
@@ -736,6 +773,53 @@ export class NavigationCoordinator {
             () => this._scheduleNextMiniGuideRepeatTick(),
             MINI_GUIDE_REPEAT_TIMING.INITIAL_DELAY_MS
         );
+    }
+
+    private async _handleChannelNumberEntered(channelNumber: number): Promise<void> {
+        this.deps.channelSwitching.setLastChannelChangeSourceNumber();
+        try {
+            const outcome = await this.deps.channelSwitching.switchToChannelByNumber(channelNumber);
+            if (outcome !== 'switched') {
+                return;
+            }
+            if (this.deps.epg?.isVisible()) {
+                this.deps.channelSwitching.focusEpgOnCurrentChannel();
+            }
+        } catch (error: unknown) {
+            if (isAbortLikeError(error)) {
+                return;
+            }
+            throw error;
+        }
+    }
+
+    private async _observeNonBlockingPromise(
+        key: string,
+        promiseFactory: () => Promise<void>,
+        message: string
+    ): Promise<void> {
+        let promise: Promise<void>;
+        try {
+            promise = promiseFactory();
+        } catch (error: unknown) {
+            this._reportNonBlockingFailure(
+                key,
+                `navigation.${key}`,
+                message,
+                error
+            );
+            return;
+        }
+        try {
+            await promise;
+        } catch (error: unknown) {
+            this._reportNonBlockingFailure(
+                key,
+                `navigation.${key}`,
+                message,
+                error
+            );
+        }
     }
 
     private _shouldKeepPlayingInSettings(): boolean {

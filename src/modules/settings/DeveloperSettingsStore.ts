@@ -7,7 +7,7 @@ import {
 } from '../../utils/storage';
 
 export class DeveloperSettingsStore {
-    readDebugLoggingEnabled(fallback: boolean = false): boolean {
+    readDebugLoggingEnabledAndClean(fallback: boolean = false): boolean {
         return this._readBooleanKey(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, fallback);
     }
 
@@ -23,7 +23,7 @@ export class DeveloperSettingsStore {
         safeLocalStorageRemove(LINEUP_STORAGE_KEYS.DEBUG_LOGGING);
     }
 
-    readSubtitleDebugLoggingEnabled(fallback: boolean = false): boolean {
+    readSubtitleDebugLoggingEnabledAndClean(fallback: boolean = false): boolean {
         return this._readBooleanKey(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING, fallback);
     }
 

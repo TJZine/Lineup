@@ -49,36 +49,17 @@ export function parseDolbyVisionProfileString(
     const raw = (doviProfile ?? '').trim();
     const profileFromCodec = (codecProfileString ?? '').trim();
 
-    // Prefer deterministic Dolby codec strings (dvhe.<profile>.<level> or dvh1.<profile>.<level>).
-    const codecMatch = profileFromCodec.match(/dv(?:he|h1)\.(\d+)\.(\d+)/i);
-    if (codecMatch) {
-        const profileId = Number.parseInt(codecMatch[1]!, 10);
-        const levelId = Number.parseInt(codecMatch[2]!, 10);
-        return {
-            raw: profileFromCodec,
-            profileId: Number.isFinite(profileId) ? profileId : null,
-            levelId: Number.isFinite(levelId) ? levelId : null,
-            hasHdr10BaseLayer: hasHdr10BaseLayer(profileId, levelId, profileFromCodec),
-        };
+    const codecProfileInfo = parseCodecProfileString(profileFromCodec);
+    if (codecProfileInfo) {
+        return codecProfileInfo;
     }
 
-    // Plex sometimes exposes strings like "8.1" or a misparsed "7.6" (profile 7, level 6).
-    if (raw.length > 0) {
-        const m = raw.match(/^(\d+)(?:\.(\d+))?$/);
-        if (m) {
-            const profileId = Number.parseInt(m[1]!, 10);
-            const levelId = m[2] ? Number.parseInt(m[2], 10) : null;
-            const normalizedRaw = raw;
-            return {
-                raw: normalizedRaw,
-                profileId: Number.isFinite(profileId) ? profileId : null,
-                levelId: levelId !== null && Number.isFinite(levelId) ? levelId : null,
-                hasHdr10BaseLayer: hasHdr10BaseLayer(profileId, levelId, normalizedRaw),
-            };
-        }
+    const rawProfileInfo = parseRawProfileString(raw);
+    if (rawProfileInfo) {
+        return rawProfileInfo;
     }
 
-    return { raw: raw.length > 0 ? raw : null, profileId: null, levelId: null, hasHdr10BaseLayer: false };
+    return buildDvProfileInfo(raw.length > 0 ? raw : null, null, null);
 }
 
 export function hasHdr10BaseLayer(
@@ -118,6 +99,58 @@ function hasHdr10Indicator(...values: Array<string | null | undefined>): boolean
 
 function normalizeColorTrc(value: string | null | undefined): string {
     return (value ?? '').trim().toLowerCase();
+}
+
+function parseCodecProfileString(profileFromCodec: string): DvProfileInfo | null {
+    const codecMatch = profileFromCodec.match(/dv(?:he|h1)\.(\d+)\.(\d+)/i);
+    if (!codecMatch) {
+        return null;
+    }
+
+    return buildDvProfileInfo(
+        profileFromCodec,
+        parseNumericProfilePart(codecMatch[1]),
+        parseNumericProfilePart(codecMatch[2])
+    );
+}
+
+function parseRawProfileString(rawProfile: string): DvProfileInfo | null {
+    if (rawProfile.length === 0) {
+        return null;
+    }
+
+    const match = rawProfile.match(/^(\d+)(?:\.(\d+))?$/);
+    if (!match) {
+        return null;
+    }
+
+    return buildDvProfileInfo(
+        rawProfile,
+        parseNumericProfilePart(match[1]),
+        parseNumericProfilePart(match[2])
+    );
+}
+
+function parseNumericProfilePart(value: string | undefined): number | null {
+    if (!value) {
+        return null;
+    }
+
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function buildDvProfileInfo(
+    raw: string | null,
+    profileId: number | null,
+    levelId: number | null
+): DvProfileInfo {
+    return {
+        raw,
+        profileId,
+        levelId,
+        hasHdr10BaseLayer: hasHdr10BaseLayer(profileId, levelId, raw),
+    };
 }
 
 export function inferHdr10BaseLayer(context: DvHdr10BaseLayerContext): DvHdr10BaseLayerResult {

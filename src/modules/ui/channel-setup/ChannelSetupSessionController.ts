@@ -1,58 +1,18 @@
-import type { ChannelBuildProgress, ChannelSetupConfig } from '../../../core/channel-setup/types';
 import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/ChannelSetupWorkflowPort';
+import type { ChannelSetupConfig } from '../../../core/channel-setup/types';
+import type {
+    ChannelSetupBuildHandlers,
+    ChannelSetupBuildOutcome,
+    ChannelSetupSessionSnapshot,
+    SetupStep,
+    StrategyStepMutableState,
+} from './ChannelSetupSessionContracts';
 import {
     ChannelSetupSessionRuntime,
 } from './ChannelSetupSessionRuntime';
 import {
     ChannelSetupSessionState,
-    clampSeriesBlockPreset,
-    strategySupportsMixedScope,
-    createDefaultStrategyState,
-    createDefaultStrategyOrder,
-    defaultChannelExpansionState,
-    defaultSeriesOrderingState,
-    type SetupStrategyState,
-    type ChannelExpansionState,
-    type SeriesOrderingState,
-    type StrategyStepMutableState,
-    type EstimateKey,
-    type SetupStep,
-    type ChannelSetupPreviewUiStatus,
-    type ChannelSetupSessionSnapshot,
 } from './ChannelSetupSessionState';
-
-export {
-    clampSeriesBlockPreset,
-    strategySupportsMixedScope,
-    createDefaultStrategyState,
-    createDefaultStrategyOrder,
-    defaultChannelExpansionState,
-    defaultSeriesOrderingState,
-};
-
-export type {
-    SetupStrategyState,
-    ChannelExpansionState,
-    SeriesOrderingState,
-    StrategyStepMutableState,
-    EstimateKey,
-    SetupStep,
-    ChannelSetupPreviewUiStatus,
-    ChannelSetupSessionSnapshot,
-};
-
-export type ChannelSetupBuildOutcome =
-    | { kind: 'missing-server' }
-    | { kind: 'canceled' }
-    | { kind: 'blocked'; message: string }
-    | { kind: 'error'; message: string }
-    | {
-        kind: 'success';
-        serverId: string;
-        config: ChannelSetupConfig;
-        result: Awaited<ReturnType<ChannelSetupWorkflowPort['createChannelsFromSetup']>>;
-        bookkeepingError?: string;
-    };
 
 export class ChannelSetupSessionController {
     private readonly _state: ChannelSetupSessionState;
@@ -158,10 +118,7 @@ export class ChannelSetupSessionController {
     }
 
     async beginBuild(
-        options: {
-            onProgress: (progress: ChannelBuildProgress) => void;
-            onStateChange: () => void;
-        }
+        options: ChannelSetupBuildHandlers
     ): Promise<ChannelSetupBuildOutcome> {
         return this._runtime.beginBuild(options);
     }

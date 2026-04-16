@@ -110,12 +110,15 @@ export const createNavigationMock = (): NavigationMock => {
             }
         }),
         emitKeyPress: (button: KeyEvent['button']): KeyEvent => {
+            const originalEvent = {
+                preventDefault: jest.fn(),
+            } as unknown as KeyboardEvent;
             const event: KeyEvent = {
                 button,
                 isRepeat: false,
                 isLongPress: false,
                 timestamp: Date.now(),
-                originalEvent: new KeyboardEvent('keydown'),
+                originalEvent,
                 handled: false,
             };
             keyPressHandler?.(event);

@@ -14,7 +14,6 @@ import { EPGCoordinator } from '../modules/ui/epg';
 import type { INavigationManager } from '../modules/navigation';
 import type { PlexAuthDataV2, PlexStoredCredentialsReadResult } from '../modules/plex/auth';
 import type { IPlexLibrary } from '../modules/plex/library';
-import type { ChannelConfig, IChannelManager } from '../modules/scheduler/channel-manager';
 import type { ScheduledProgram } from '../modules/scheduler/scheduler';
 import type { INowPlayingInfoOverlay, NowPlayingInfoConfig } from '../modules/ui/now-playing-info';
 import { CHANNEL_BADGE_CONTAINER_ID } from '../modules/ui/channel-badge';
@@ -28,6 +27,7 @@ import { AudioSettingsStore } from '../modules/settings/AudioSettingsStore';
 import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
 import { PlaybackRecoveryManager } from '../modules/player/PlaybackRecoveryManager';
 import * as orchestratorCoordinatorFactory from '../core/orchestrator/OrchestratorCoordinatorFactory';
+import * as recoverableRuntimeReporterModule from '../core/orchestrator/OrchestratorRecoverableRuntimeReporter';
 
 // Mock localStorage
 const mockLocalStorage = {
@@ -904,7 +904,6 @@ describe('AppOrchestrator', () => {
                     thumb: '/thumb',
                 },
             };
-            const channel = mockChannel as unknown as ChannelConfig;
             const coordinator = new NowPlayingInfoCoordinator({
                 nowPlayingModalId: 'now-playing-info',
                 getNavigation: (): INavigationManager =>
@@ -912,10 +911,6 @@ describe('AppOrchestrator', () => {
                         isModalOpen: (): boolean => true,
                     }) as INavigationManager,
                 getScheduler: (): null => null,
-                getChannelManager: (): IChannelManager =>
-                    ({
-                        getCurrentChannel: (): ChannelConfig => channel,
-                    }) as unknown as IChannelManager,
                 getPlexLibrary: (): IPlexLibrary => mockPlexLibrary as unknown as IPlexLibrary,
                 getNowPlayingInfo: (): INowPlayingInfoOverlay =>
                     ({
@@ -1067,7 +1062,7 @@ describe('AppOrchestrator', () => {
             await orchestrator.initialize(mockConfig);
 
             const refreshError = new Error('refresh failed');
-            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
             const refreshSpy = jest
                 .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
                 .mockRejectedValue(refreshError);
@@ -1087,17 +1082,17 @@ describe('AppOrchestrator', () => {
 
                 expect(runStartupSpy).toHaveBeenCalledWith(3);
                 expect(refreshSpy).toHaveBeenCalledWith({ reason: 'server-swap' });
-                expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    expect.stringContaining('[Orchestrator] Post-selection EPG refresh failed:'),
+                expect(consoleErrorSpy).toHaveBeenCalledWith(
+                    'Post-selection EPG refresh failed',
                     expect.objectContaining({
                         step: 'refreshEpgSchedules',
-                        error: expect.objectContaining({
+                        safeError: expect.objectContaining({
                             message: 'refresh failed',
                         }),
                     })
                 );
             } finally {
-                consoleWarnSpy.mockRestore();
+                consoleErrorSpy.mockRestore();
                 refreshSpy.mockRestore();
                 runStartupSpy.mockRestore();
             }
@@ -1587,7 +1582,9 @@ describe('AppOrchestrator', () => {
         });
 
         it('routes to audio-setup before channel-setup when audio setup is incomplete', async () => {
-            const readSpy = jest.spyOn(AudioSettingsStore.prototype, 'readAudioSetupComplete').mockReturnValue(false);
+            const readSpy = jest
+                .spyOn(AudioSettingsStore.prototype, 'readAudioSetupCompleteAndClean')
+                .mockReturnValue(false);
             mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
@@ -1804,7 +1801,7 @@ describe('AppOrchestrator', () => {
         });
 
         it('shows a warning toast when setSubtitleTrack fails', async () => {
-            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
             try {
                 const toastSpy = jest.fn();
 
@@ -1813,11 +1810,11 @@ describe('AppOrchestrator', () => {
 
                 await orchestrator.setSubtitleTrack(null);
 
-                expect(warnSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] setSubtitleTrack failed:',
+                expect(errorSpy).toHaveBeenCalledWith(
+                    'setSubtitleTrack failed',
                     expect.objectContaining({
                         trackId: null,
-                        error: expect.objectContaining({
+                        safeError: expect.objectContaining({
                             name: 'Error',
                             message: 'boom',
                         }),
@@ -1827,7 +1824,7 @@ describe('AppOrchestrator', () => {
                     expect.objectContaining({ type: 'warning', message: expect.any(String) })
                 );
             } finally {
-                warnSpy.mockRestore();
+                errorSpy.mockRestore();
             }
         });
 
@@ -2015,8 +2012,19 @@ describe('AppOrchestrator', () => {
                 await expect(orchestrator.switchToChannel('ch1')).resolves.toBeUndefined();
 
                 expect(consoleSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] switchToChannel: channel tuning unavailable. Missing modules: _channelTuning, _channelManager, _scheduler'
+                    'switchToChannel: channel tuning unavailable',
+                    expect.objectContaining({
+                        missingModules: expect.arrayContaining([
+                            '_channelTuning',
+                            '_channelManager',
+                            '_scheduler',
+                        ]),
+                    })
                 );
+                const switchPayload = (consoleSpy.mock.calls.at(-1) ?? [])[1] as {
+                    missingModules: string[];
+                };
+                expect(switchPayload.missingModules).toHaveLength(3);
                 expect(mockVideoPlayer.stop).not.toHaveBeenCalled();
             } finally {
                 consoleSpy.mockRestore();
@@ -2172,8 +2180,18 @@ describe('AppOrchestrator', () => {
                 await expect(orchestrator.switchToChannelByNumber(5)).resolves.toBeUndefined();
 
                 expect(consoleSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] switchToChannelByNumber: channel tuning unavailable. Missing modules: _channelTuning, _videoPlayer'
+                    'switchToChannelByNumber: channel tuning unavailable',
+                    expect.objectContaining({
+                        missingModules: expect.arrayContaining([
+                            '_channelTuning',
+                            '_videoPlayer',
+                        ]),
+                    })
                 );
+                const switchByNumberPayload = (consoleSpy.mock.calls.at(-1) ?? [])[1] as {
+                    missingModules: string[];
+                };
+                expect(switchByNumberPayload.missingModules).toHaveLength(2);
             } finally {
                 consoleSpy.mockRestore();
             }
@@ -2575,24 +2593,64 @@ describe('AppOrchestrator', () => {
 
         it('redacts tokenized message values in global error logs', () => {
             const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
-            const secret = 'secret-token';
-            const error = {
-                code: AppErrorCode.NETWORK_TIMEOUT,
-                message: `http://x?X-Plex-Token=${secret}`,
-                recoverable: true,
-            };
+            try {
+                const secret = 'secret-token';
+                const error = {
+                    code: AppErrorCode.NETWORK_TIMEOUT,
+                    message: `http://x?X-Plex-Token=${secret}`,
+                    recoverable: true,
+                };
 
-            orchestrator.handleGlobalError(error, 'test-context');
+                orchestrator.handleGlobalError(error, 'test-context');
 
-            const globalErrorCall = consoleSpy.mock.calls.find((call) =>
-                typeof call[0] === 'string' && call[0].includes('[test-context] Error:')
+                const globalErrorCall = consoleSpy.mock.calls.find((call) =>
+                    typeof call[0] === 'string' && call[0].includes('Global error in test-context')
+                );
+                expect(globalErrorCall).toBeDefined();
+                const logged = JSON.stringify(globalErrorCall);
+                expect(logged).toContain('REDACTED');
+                expect(logged).not.toContain(secret);
+            } finally {
+                consoleSpy.mockRestore();
+            }
+        });
+
+        it('swallows recoverable reporter failures during global error handling', () => {
+            const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+            const createReporterSpy = jest.spyOn(
+                recoverableRuntimeReporterModule,
+                'createRecoverableRuntimeIssueReporter'
             );
-            expect(globalErrorCall).toBeDefined();
-            const logged = JSON.stringify(globalErrorCall);
-            expect(logged).toContain('REDACTED');
-            expect(logged).not.toContain(secret);
+            try {
+                createReporterSpy.mockReturnValue({
+                    reportIssue: jest.fn(),
+                    reportError: jest.fn(() => {
+                        throw new Error('reporter failed');
+                    }),
+                });
+                const isolatedOrchestrator = new AppOrchestrator();
 
-            consoleSpy.mockRestore();
+                expect(() => {
+                    isolatedOrchestrator.handleGlobalError(
+                        {
+                            code: AppErrorCode.NETWORK_TIMEOUT,
+                            message: 'test',
+                            recoverable: true,
+                        },
+                        'test-context'
+                    );
+                }).not.toThrow();
+
+                expect(consoleSpy).toHaveBeenCalledWith(
+                    '[AppOrchestrator] recoverable runtime reporter failed:',
+                    expect.objectContaining({
+                        message: 'reporter failed',
+                    })
+                );
+            } finally {
+                createReporterSpy.mockRestore();
+                consoleSpy.mockRestore();
+            }
         });
 
         it('defers reentrant global errors until the active handling pass completes', () => {
@@ -2851,13 +2909,15 @@ describe('AppOrchestrator', () => {
 
                 expect(mockNavigation.destroy).toHaveBeenCalled();
                 expect(warnSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] Shutdown teardown failures:',
-                    expect.arrayContaining([
-                        expect.objectContaining({ step: 'lifecycle.shutdown' }),
-                        expect.objectContaining({ step: 'videoPlayer.stop' }),
-                        expect.objectContaining({ step: 'scheduler.pauseSyncTimer' }),
-                        expect.objectContaining({ step: 'epg.destroy' }),
-                    ])
+                    'Shutdown teardown failures',
+                    expect.objectContaining({
+                        teardownFailures: expect.arrayContaining([
+                            expect.objectContaining({ step: 'lifecycle.shutdown' }),
+                            expect.objectContaining({ step: 'videoPlayer.stop' }),
+                            expect.objectContaining({ step: 'scheduler.pauseSyncTimer' }),
+                            expect.objectContaining({ step: 'epg.destroy' }),
+                        ]),
+                    })
                 );
             } finally {
                 (mockLifecycle.shutdown as jest.Mock).mockResolvedValue(undefined);
@@ -2868,7 +2928,7 @@ describe('AppOrchestrator', () => {
         });
 
         it('stops the video player during shutdown when active transcode cleanup fails', async () => {
-            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
             const stopActiveTranscodeSession = jest.fn(() => {
                 throw new Error('transcode cleanup failed');
             });
@@ -2882,17 +2942,17 @@ describe('AppOrchestrator', () => {
 
                 expect(stopActiveTranscodeSession).toHaveBeenCalledTimes(1);
                 expect(mockVideoPlayer.stop).toHaveBeenCalledTimes(1);
-                expect(warnSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] stopActiveTranscodeSession failed during playback stop:',
+                expect(errorSpy).toHaveBeenCalledWith(
+                    'stopActiveTranscodeSession failed during playback stop',
                     expect.objectContaining({
-                        error: expect.objectContaining({
+                        safeError: expect.objectContaining({
                             name: 'Error',
                             message: 'transcode cleanup failed',
                         }),
                     })
                 );
             } finally {
-                warnSpy.mockRestore();
+                errorSpy.mockRestore();
             }
         });
 
@@ -2911,11 +2971,13 @@ describe('AppOrchestrator', () => {
 
                 expect(mockNavigation.destroy).toHaveBeenCalled();
                 expect(warnSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] Shutdown teardown failures:',
-                    expect.arrayContaining([
-                        expect.objectContaining({ step: 'channelNumberOverlay.destroy' }),
-                        expect.objectContaining({ step: 'channelBadgeOverlay.destroy' }),
-                    ])
+                    'Shutdown teardown failures',
+                    expect.objectContaining({
+                        teardownFailures: expect.arrayContaining([
+                            expect.objectContaining({ step: 'channelNumberOverlay.destroy' }),
+                            expect.objectContaining({ step: 'channelBadgeOverlay.destroy' }),
+                        ]),
+                    })
                 );
             } finally {
                 (mockChannelNumberOverlay.destroy as jest.Mock).mockImplementation(() => undefined);
@@ -2947,10 +3009,12 @@ describe('AppOrchestrator', () => {
                 expect(pauseDispose).toHaveBeenCalledTimes(1);
                 expect(mockNavigation.destroy).toHaveBeenCalled();
                 expect(warnSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] Shutdown teardown failures:',
-                    expect.arrayContaining([
-                        expect.objectContaining({ step: 'events.unsubscribe' }),
-                    ])
+                    'Shutdown teardown failures',
+                    expect.objectContaining({
+                        teardownFailures: expect.arrayContaining([
+                            expect.objectContaining({ step: 'events.unsubscribe' }),
+                        ]),
+                    })
                 );
             } finally {
                 warnSpy.mockRestore();
@@ -2971,10 +3035,12 @@ describe('AppOrchestrator', () => {
                 expect(dispose).toHaveBeenCalledTimes(1);
                 expect(mockNavigation.destroy).toHaveBeenCalled();
                 expect(warnSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] Shutdown teardown failures:',
-                    expect.arrayContaining([
-                        expect.objectContaining({ step: 'events.unsubscribe' }),
-                    ])
+                    'Shutdown teardown failures',
+                    expect.objectContaining({
+                        teardownFailures: expect.arrayContaining([
+                            expect.objectContaining({ step: 'events.unsubscribe' }),
+                        ]),
+                    })
                 );
             } finally {
                 warnSpy.mockRestore();
@@ -2995,10 +3061,12 @@ describe('AppOrchestrator', () => {
 
                 expect(mockNavigation.destroy).toHaveBeenCalled();
                 expect(warnSpy).toHaveBeenCalledWith(
-                    '[Orchestrator] Shutdown teardown failures:',
-                    expect.arrayContaining([
-                        expect.objectContaining({ step: 'scheduleDayRolloverController.dispose' }),
-                    ])
+                    'Shutdown teardown failures',
+                    expect.objectContaining({
+                        teardownFailures: expect.arrayContaining([
+                            expect.objectContaining({ step: 'scheduleDayRolloverController.dispose' }),
+                        ]),
+                    })
                 );
             } finally {
                 warnSpy.mockRestore();

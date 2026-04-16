@@ -6,7 +6,6 @@ import { NOW_PLAYING_INFO_DEFAULTS } from '../constants';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import type { INavigationManager } from '../../../navigation';
 import type { IChannelScheduler, ScheduledProgram } from '../../../scheduler/scheduler';
-import type { IChannelManager, ChannelConfig } from '../../../scheduler/channel-manager';
 import type { IPlexLibrary, PlexMediaItem } from '../../../plex/library';
 import type { INowPlayingInfoOverlay } from '../interfaces';
 import type { NowPlayingInfoConfig } from '../types';
@@ -36,13 +35,6 @@ const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgra
         isCurrent: true,
         ...overrides,
     }) as ScheduledProgram;
-
-const makeChannel = (): ChannelConfig =>
-    ({
-        id: 'ch1',
-        name: 'Channel 1',
-        number: 1,
-    }) as ChannelConfig;
 
 const makeOverlay = (overrides: Partial<INowPlayingInfoOverlay> = {}): INowPlayingInfoOverlay =>
     ({
@@ -81,14 +73,6 @@ const makeScheduler = (
         ...overrides,
     }) as unknown as IChannelScheduler;
 
-const makeChannelManager = (
-    overrides: Partial<IChannelManager> = {}
-): IChannelManager =>
-    ({
-        getCurrentChannel: jest.fn().mockReturnValue(makeChannel()),
-        ...overrides,
-    }) as unknown as IChannelManager;
-
 const makePlexLibrary = (overrides: Partial<IPlexLibrary> = {}): IPlexLibrary =>
     ({
         getItem: jest.fn().mockResolvedValue(null),
@@ -109,21 +93,18 @@ const setup = (
     deps: ConstructorParameters<typeof NowPlayingInfoCoordinator>[0];
     navigation: INavigationManager;
     scheduler: IChannelScheduler;
-    channelManager: IChannelManager;
     plexLibrary: IPlexLibrary;
     overlay: INowPlayingInfoOverlay;
 } => {
     const navigation = makeNavigation();
     const scheduler = makeScheduler();
-    const channelManager = makeChannelManager();
     const plexLibrary = makePlexLibrary();
     const overlay = makeOverlay();
     const config = makeConfig();
-    const deps = {
+    const deps: ConstructorParameters<typeof NowPlayingInfoCoordinator>[0] = {
         nowPlayingModalId: modalId,
         getNavigation: (): INavigationManager => navigation,
         getScheduler: (): IChannelScheduler => scheduler,
-        getChannelManager: (): IChannelManager => channelManager,
         getPlexLibrary: (): IPlexLibrary => plexLibrary,
         getNowPlayingInfo: (): INowPlayingInfoOverlay => overlay,
         getNowPlayingInfoConfig: (): NowPlayingInfoConfig => config,
@@ -141,7 +122,6 @@ const setup = (
         deps,
         navigation,
         scheduler,
-        channelManager,
         plexLibrary,
         overlay,
     };
@@ -173,6 +153,14 @@ describe('NowPlayingInfoCoordinator', () => {
 
         coordinator.handleModalClose(modalId);
         expect(onVisibilityChange).toHaveBeenCalledWith(false);
+    });
+
+    it('opens when overlay and program are available even without a channel manager dependency', () => {
+        const { coordinator, overlay } = setup();
+
+        coordinator.handleModalOpen(modalId);
+
+        expect(overlay.show).toHaveBeenCalledTimes(1);
     });
 
     it('handleModalOpen uses scheduled metadata when details are unavailable', () => {
@@ -442,6 +430,60 @@ describe('NowPlayingInfoCoordinator', () => {
         jest.useRealTimers();
     });
 
+    it('refreshIfOpen preserves cached details for the current program', async () => {
+        const program = makeProgram();
+        const scheduler = makeScheduler({
+            getCurrentProgram: jest.fn().mockReturnValue(program),
+        });
+        const plexLibrary = makePlexLibrary({
+            getItem: jest.fn().mockResolvedValue({
+                ratingKey: 'rk1',
+                title: 'Detail Title',
+                type: 'movie',
+                summary: 'Detail summary',
+                clearLogo: '/logo',
+            } as PlexMediaItem),
+        });
+        const { coordinator, overlay } = setup({
+            getScheduler: () => scheduler,
+            getPlexLibrary: () => plexLibrary,
+            buildPlexResourceUrl: jest.fn((path: string) => `http://mock${path}`),
+        });
+
+        coordinator.handleModalOpen(modalId);
+        await Promise.resolve();
+
+        coordinator.refreshIfOpen();
+
+        const lastUpdate = (overlay.update as jest.Mock).mock.calls.at(-1)?.[0] as {
+            description?: string;
+            clearLogoUrl?: string | null;
+        };
+        expect(lastUpdate.description).toBe('Detail summary');
+        expect(lastUpdate.clearLogoUrl).toBe('http://mock/logo');
+    });
+
+    it('logs playback summary refresh failures through the background task wrapper', async () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const { coordinator, deps } = setup({
+            refreshPlaybackInfoSnapshot: jest.fn().mockRejectedValue(new Error('snapshot failed')),
+        });
+
+        coordinator.handleModalOpen(modalId);
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(deps.refreshPlaybackInfoSnapshot).toHaveBeenCalled();
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[NowPlayingInfoCoordinator] Failed to refresh playback summary:',
+            expect.objectContaining({
+                message: 'snapshot failed',
+            })
+        );
+
+        warnSpy.mockRestore();
+    });
+
     it('handleModalClose stops live updates', () => {
         jest.useFakeTimers();
         const { coordinator, overlay } = setup();
@@ -553,6 +595,29 @@ describe('NowPlayingInfoCoordinator', () => {
         const lastUpdate = updates[updates.length - 1]?.[0] as { backdropUrl?: string };
         expect(lastUpdate.backdropUrl).toBe('http://mock/detail-art');
         coordinator.handleModalClose(modalId);
+    });
+
+    it('logs and suppresses debug hud refresh failures during modal open', async () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        try {
+            const { coordinator } = setup({
+                maybeFetchStreamDecisionForDebugHud: jest.fn().mockRejectedValue(new Error('debug boom')),
+            });
+
+            coordinator.handleModalOpen(modalId);
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(warnSpy).toHaveBeenCalledWith(
+                '[NowPlayingInfoCoordinator] Failed to refresh stream debug HUD:',
+                expect.objectContaining({
+                    name: 'Error',
+                    message: 'debug boom',
+                })
+            );
+        } finally {
+            warnSpy.mockRestore();
+        }
     });
 
     it('omits clearLogoUrl when prefer clear logos is disabled', () => {

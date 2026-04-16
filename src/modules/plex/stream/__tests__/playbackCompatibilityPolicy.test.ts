@@ -4,6 +4,10 @@
 
 import type { PlexMediaFile, PlexStream } from '../types';
 import {
+    detectHdrLabel,
+    extractHdrLabelFromPlexMedia,
+} from '../hdr';
+import {
     getDirectPlayDecision,
     getHdrCompatibilityDecision,
     isTrueHdCodec,
@@ -106,6 +110,18 @@ describe('playbackCompatibilityPolicy', () => {
             expect(decision.reasons).toContain('unsupported_container:avi');
         });
 
+        it('normalizes container and video codec casing before compatibility checks', () => {
+            const decision = getDirectPlayDecision({
+                media: createPolicyMedia({ container: ' MKV ', videoCodec: ' H264 ' }),
+                dtsPassthroughEnabled: true,
+                userAgent:
+                    'Mozilla/5.0 (Web0S) AppleWebKit/537.36 Chrome/108.0.0.0 Safari/537.36',
+            });
+
+            expect(decision.canDirect).toBe(true);
+            expect(decision.reasons).toEqual([]);
+        });
+
         it('blocks TrueHD audio by default', () => {
             const decision = getDirectPlayDecision({
                 media: createPolicyMedia({ audioCodec: 'truehd' }),
@@ -134,6 +150,16 @@ describe('playbackCompatibilityPolicy', () => {
 
             expect(decision.canDirect).toBe(true);
             expect(decision.reasons).toEqual([]);
+        });
+
+        it('normalizes audio codec casing and whitespace before compatibility checks', () => {
+            const decision = getDirectPlayDecision({
+                media: createPolicyMedia({ audioCodec: ' DTS ' }),
+                dtsPassthroughEnabled: false,
+            });
+
+            expect(decision.canDirect).toBe(false);
+            expect(decision.reasons).toContain('dts_passthrough_disabled');
         });
 
         it('blocks legacy webOS MKV when webOS Chromium is too old', () => {
@@ -271,6 +297,39 @@ describe('playbackCompatibilityPolicy', () => {
         });
     });
 
+    describe('hdr helpers', () => {
+        it('prefers explicit hdr labels before fallback detection', () => {
+            expect(
+                extractHdrLabelFromPlexMedia({
+                    media: [
+                        {
+                            parts: [
+                                {
+                                    streams: [
+                                        {
+                                            streamType: 1,
+                                            hdr: 'HDR10+',
+                                            title: 'Dolby Vision',
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                })
+            ).toBe('HDR10+');
+        });
+
+        it('detects Dolby Vision from dovi metadata', () => {
+            expect(
+                detectHdrLabel({
+                    displayTitle: '4K Remux',
+                    doviPresent: true,
+                })
+            ).toBe('Dolby Vision');
+        });
+    });
+
     describe('HDR compatibility', () => {
         function createDolbyVisionMedia(
             container: string,
@@ -353,6 +412,19 @@ describe('playbackCompatibilityPolicy', () => {
 
         it('forces HLS when Dolby Vision MKV has no HDR10 base layer', () => {
             const media = createDolbyVisionMedia('mkv', '5');
+            const decision = getHdrCompatibilityDecision({
+                media,
+                videoStream: media.parts[0]!.streams[0]!,
+                hdr10FallbackMode: 'off',
+            });
+
+            expect(decision.forceHlsForDvNoHdr10BaseLayer).toBe(true);
+            expect(decision.applyHdr10Fallback).toBe(false);
+            expect(decision.fallbackReason).toBe('none');
+        });
+
+        it('normalizes Dolby Vision container values before forcing HLS for MKV without HDR10 base layer', () => {
+            const media = createDolbyVisionMedia(' MKV ', '5');
             const decision = getHdrCompatibilityDecision({
                 media,
                 videoStream: media.parts[0]!.streams[0]!,

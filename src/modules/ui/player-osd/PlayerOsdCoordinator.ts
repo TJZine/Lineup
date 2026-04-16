@@ -275,7 +275,7 @@ export class PlayerOsdCoordinator {
         const subtitle = program?.item.fullTitle && program.item.fullTitle !== program.item.title
             ? program.item.fullTitle
             : null;
-        const preferClearLogos = this.deps.nowPlayingDisplayStore.readPreferClearLogosEnabled(true);
+        const preferClearLogos = this.deps.nowPlayingDisplayStore.readPreferClearLogosEnabledAndClean(true);
         const clearLogoPath = program?.item.clearLogo ?? null;
         const clearLogoUrl = preferClearLogos && clearLogoPath
             ? this.deps.buildPlexResourceUrl(clearLogoPath)

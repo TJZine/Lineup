@@ -100,6 +100,7 @@ type LegacyNavigationCoordinatorDeps = {
     shouldRunChannelSetup: jest.Mock;
     hidePlayerOsd: jest.Mock;
     hideChannelTransition: jest.Mock;
+    reportRecoverableAsyncFailure: jest.Mock;
     readKeepPlayingInSettings: jest.Mock;
     readDebugLoggingEnabled: jest.Mock;
 };
@@ -176,6 +177,7 @@ const setup = (
         shouldRunChannelSetup: jest.fn().mockReturnValue(false),
         hidePlayerOsd: jest.fn(),
         hideChannelTransition: jest.fn(),
+        reportRecoverableAsyncFailure: jest.fn(),
         readKeepPlayingInSettings: jest.fn().mockReturnValue(false),
         readDebugLoggingEnabled: jest.fn().mockReturnValue(false),
     };
@@ -244,6 +246,7 @@ const setup = (
             shouldRunChannelSetup: legacy.shouldRunChannelSetup,
             hideChannelTransition: legacy.hideChannelTransition,
         },
+        reportRecoverableAsyncFailure: legacy.reportRecoverableAsyncFailure,
         readKeepPlayingInSettings: legacy.readKeepPlayingInSettings,
         readDebugLoggingEnabled: legacy.readDebugLoggingEnabled,
         ...overrides,
@@ -279,7 +282,6 @@ describe('NavigationCoordinator', () => {
     });
 
     it('does not log an error when channel-number entry is superseded (AbortError)', async () => {
-        const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
         const abortError = Object.assign(new Error('superseded'), { name: 'AbortError' });
         const { handlers, deps } = setup({
             switchToChannelByNumber: jest.fn().mockRejectedValue(abortError),
@@ -292,22 +294,23 @@ describe('NavigationCoordinator', () => {
 
         expect(deps.setLastChannelChangeSourceNumber).toHaveBeenCalledTimes(1);
         expect(deps.switchToChannelByNumber).toHaveBeenCalledWith(12);
-        expect(consoleError).not.toHaveBeenCalled();
+        expect(deps.reportRecoverableAsyncFailure).not.toHaveBeenCalled();
     });
 
-    it('logs an error when channel-number entry fails unexpectedly', async () => {
-        const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    it('reports diagnostics when channel-number entry fails unexpectedly', async () => {
         const failure = new Error('boom');
-        const { handlers } = setup({
+        const { handlers, deps } = setup({
             switchToChannelByNumber: jest.fn().mockRejectedValue(failure),
         });
 
         handlers.channelNumberEntered?.({ channelNumber: 7 });
         await Promise.resolve();
+        await Promise.resolve();
 
-        expect(consoleError).toHaveBeenCalledWith(
-            '[Navigation] switchToChannelByNumber failed:',
-            expect.anything()
+        expect(deps.reportRecoverableAsyncFailure).toHaveBeenCalledWith(
+            'navigation.channel-number',
+            '[Navigation] channel-number failed:',
+            failure
         );
     });
 
@@ -836,7 +839,6 @@ describe('NavigationCoordinator', () => {
     });
 
     it('reports a toast when resume playback fails on screen change', async () => {
-        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
         const reportToast = jest.fn();
         const { handlers, deps, videoPlayer } = setup();
         (deps as unknown as { reportToast?: (toast: unknown) => void }).reportToast = reportToast;
@@ -845,14 +847,39 @@ describe('NavigationCoordinator', () => {
         handlers.screenChange?.({ from: 'settings', to: 'player' });
         await Promise.resolve();
 
-        expect(warnSpy).toHaveBeenCalled();
+        expect(deps.reportRecoverableAsyncFailure).toHaveBeenCalledWith(
+            'navigation.resume_play',
+            '[Navigation] resume_play failed:',
+            expect.any(Error)
+        );
+        expect(reportToast).toHaveBeenCalledWith(
+            expect.objectContaining({ message: expect.any(String), type: 'warning' })
+        );
+    });
+
+    it('reports a toast when resume playback throws synchronously on screen change', () => {
+        const reportToast = jest.fn();
+        const { handlers, deps, videoPlayer } = setup();
+        (deps as unknown as { reportToast?: (toast: unknown) => void }).reportToast = reportToast;
+        (videoPlayer.play as jest.Mock).mockImplementationOnce(() => {
+            throw new Error('sync play failed');
+        });
+
+        expect(() => {
+            handlers.screenChange?.({ from: 'settings', to: 'player' });
+        }).not.toThrow();
+
+        expect(deps.reportRecoverableAsyncFailure).toHaveBeenCalledWith(
+            'navigation.resume_play',
+            '[Navigation] resume_play failed:',
+            expect.any(Error)
+        );
         expect(reportToast).toHaveBeenCalledWith(
             expect.objectContaining({ message: expect.any(String), type: 'warning' })
         );
     });
 
     it('reports a toast when Play key playback fails', async () => {
-        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
         const reportToast = jest.fn();
         const { handlers, deps, videoPlayer } = setup();
         (deps as unknown as { reportToast?: (toast: unknown) => void }).reportToast = reportToast;
@@ -861,10 +888,95 @@ describe('NavigationCoordinator', () => {
         handlers.keyPress?.(makeKeyEvent('play'));
         await Promise.resolve();
 
-        expect(warnSpy).toHaveBeenCalled();
+        expect(deps.reportRecoverableAsyncFailure).toHaveBeenCalledWith(
+            'navigation.remote_play',
+            '[Navigation] remote_play failed:',
+            expect.any(Error)
+        );
         expect(reportToast).toHaveBeenCalledWith(
             expect.objectContaining({ message: expect.any(String), type: 'warning' })
         );
+    });
+
+    it('reports a toast when Play key playback throws synchronously', () => {
+        const reportToast = jest.fn();
+        const { handlers, deps, videoPlayer } = setup();
+        (deps as unknown as { reportToast?: (toast: unknown) => void }).reportToast = reportToast;
+        (videoPlayer.play as jest.Mock).mockImplementationOnce(() => {
+            throw new Error('sync play failed');
+        });
+
+        expect(() => {
+            handlers.keyPress?.(makeKeyEvent('play'));
+        }).not.toThrow();
+
+        expect(deps.reportRecoverableAsyncFailure).toHaveBeenCalledWith(
+            'navigation.remote_play',
+            '[Navigation] remote_play failed:',
+            expect.any(Error)
+        );
+        expect(reportToast).toHaveBeenCalledWith(
+            expect.objectContaining({ message: expect.any(String), type: 'warning' })
+        );
+    });
+
+    it('reports seek failures when rewind throws synchronously', () => {
+        const { handlers, deps, videoPlayer } = setup();
+        (videoPlayer.seekRelative as jest.Mock).mockImplementationOnce(() => {
+            throw new Error('sync seek failed');
+        });
+
+        expect(() => {
+            handlers.keyPress?.(makeKeyEvent('rewind'));
+        }).not.toThrow();
+
+        expect(deps.reportRecoverableAsyncFailure).toHaveBeenCalledWith(
+            'navigation.seek',
+            '[Navigation] seek failed:',
+            expect.any(Error)
+        );
+        expect(deps.pokePlayerOsd).toHaveBeenCalledWith('seek');
+    });
+
+    it('throttles duplicate non-blocking failures to one toast and one diagnostics callback per key window', async () => {
+        const reportToast = jest.fn();
+        const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1_000);
+        const playFailure = new Error('play failed');
+        const { handlers, deps, videoPlayer } = setup();
+        (deps as unknown as { reportToast?: (toast: unknown) => void }).reportToast = reportToast;
+        (videoPlayer.play as jest.Mock).mockRejectedValue(playFailure);
+
+        handlers.keyPress?.(makeKeyEvent('play'));
+        await Promise.resolve();
+        handlers.keyPress?.(makeKeyEvent('play'));
+        await Promise.resolve();
+
+        expect(deps.reportRecoverableAsyncFailure).toHaveBeenCalledTimes(1);
+        expect(reportToast).toHaveBeenCalledTimes(1);
+
+        nowSpy.mockRestore();
+    });
+
+    it('swallows failures from diagnostics and toast reporters in non-blocking paths', async () => {
+        const { handlers, deps, videoPlayer } = setup({
+            reportRecoverableAsyncFailure: jest.fn(() => {
+                throw new Error('diagnostics failed');
+            }),
+        });
+        const reportToast = jest.fn(() => {
+            throw new Error('toast failed');
+        });
+        (deps as unknown as { reportToast?: (toast: unknown) => void }).reportToast = reportToast;
+        (videoPlayer.play as jest.Mock).mockRejectedValue(new Error('play failed'));
+
+        expect(() => {
+            handlers.keyPress?.(makeKeyEvent('play'));
+        }).not.toThrow();
+
+        await Promise.resolve();
+
+        expect(deps.reportRecoverableAsyncFailure).toHaveBeenCalledTimes(1);
+        expect(reportToast).toHaveBeenCalledTimes(1);
     });
 
     it('guide hides mini-guide before toggling EPG', () => {

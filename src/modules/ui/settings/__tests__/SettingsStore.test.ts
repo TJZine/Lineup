@@ -29,15 +29,17 @@ describe('SettingsStore', () => {
 
     it('delegates debug logging toggle reads/writes to DeveloperSettingsStore', () => {
         const developerSettingsStore = {
-            readDebugLoggingEnabled: jest.fn().mockReturnValue(true),
+            readDebugLoggingEnabledAndClean: jest.fn().mockReturnValue(true),
             writeDebugLoggingEnabled: jest.fn(),
-            readSubtitleDebugLoggingEnabled: jest.fn().mockReturnValue(false),
+            readSubtitleDebugLoggingEnabledAndClean: jest.fn().mockReturnValue(false),
             writeSubtitleDebugLoggingEnabled: jest.fn(),
         } as unknown as DeveloperSettingsStore;
         const delegatedStore = new SettingsStore({ developerSettingsStore });
 
         expect(delegatedStore.readToggleSettingAndClean('debugLogging')).toBe(true);
-        expect(developerSettingsStore.readDebugLoggingEnabled).toHaveBeenCalledWith(DEFAULT_SETTINGS.developer.debugLogging);
+        expect(developerSettingsStore.readDebugLoggingEnabledAndClean).toHaveBeenCalledWith(
+            DEFAULT_SETTINGS.developer.debugLogging
+        );
 
         delegatedStore.writeToggleSetting('debugLogging', true);
         expect(developerSettingsStore.writeDebugLoggingEnabled).toHaveBeenCalledWith(true);
@@ -46,15 +48,17 @@ describe('SettingsStore', () => {
 
     it('delegates subtitle debug logging toggle reads/writes to DeveloperSettingsStore', () => {
         const developerSettingsStore = {
-            readDebugLoggingEnabled: jest.fn().mockReturnValue(false),
+            readDebugLoggingEnabledAndClean: jest.fn().mockReturnValue(false),
             writeDebugLoggingEnabled: jest.fn(),
-            readSubtitleDebugLoggingEnabled: jest.fn().mockReturnValue(true),
+            readSubtitleDebugLoggingEnabledAndClean: jest.fn().mockReturnValue(true),
             writeSubtitleDebugLoggingEnabled: jest.fn(),
         } as unknown as DeveloperSettingsStore;
         const delegatedStore = new SettingsStore({ developerSettingsStore });
 
         expect(delegatedStore.readToggleSettingAndClean('subtitleDebugLogging')).toBe(true);
-        expect(developerSettingsStore.readSubtitleDebugLoggingEnabled).toHaveBeenCalledWith(DEFAULT_SETTINGS.developer.subtitleDebugLogging);
+        expect(developerSettingsStore.readSubtitleDebugLoggingEnabledAndClean).toHaveBeenCalledWith(
+            DEFAULT_SETTINGS.developer.subtitleDebugLogging
+        );
 
         delegatedStore.writeToggleSetting('subtitleDebugLogging', false);
         expect(developerSettingsStore.writeSubtitleDebugLoggingEnabled).toHaveBeenCalledWith(false);

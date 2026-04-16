@@ -1,13 +1,16 @@
 import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/ChannelSetupWorkflowPort';
 import type {
-    ChannelBuildProgress,
     ChannelSetupPreview,
     ChannelSetupContext,
 } from '../../../core/channel-setup/types';
 import { isAbortLikeError } from '../../../utils/errors';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from './constants';
-import type { ChannelSetupBuildOutcome } from './ChannelSetupSessionController';
-import type { ChannelSetupSessionState, EstimateKey } from './ChannelSetupSessionState';
+import type {
+    ChannelSetupBuildHandlers,
+    ChannelSetupBuildOutcome,
+    EstimateKey,
+} from './ChannelSetupSessionContracts';
+import type { ChannelSetupSessionState } from './ChannelSetupSessionState';
 
 export class ChannelSetupSessionRuntime {
     private static readonly PREVIEW_TIMEOUT_MS = 15000;
@@ -228,10 +231,7 @@ export class ChannelSetupSessionRuntime {
     }
 
     async beginBuild(
-        options: {
-            onProgress: (progress: ChannelBuildProgress) => void;
-            onStateChange: () => void;
-        }
+        options: ChannelSetupBuildHandlers
     ): Promise<ChannelSetupBuildOutcome> {
         const state = this._deps.state;
         if (this._buildAbortController) {
