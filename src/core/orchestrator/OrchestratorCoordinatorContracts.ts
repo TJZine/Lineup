@@ -73,6 +73,7 @@ import type { PlaybackOptionsCoordinator } from '../../modules/ui/playback-optio
 import type { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryManager';
 import type { ChannelTuningCoordinator } from '../channel-tuning';
 import type { NavigationCoordinator } from '../../modules/navigation/NavigationCoordinator';
+import type { RecoverableAsyncFailureReporter } from './OrchestratorRuntimeSeams';
 
 export interface OrchestratorCoordinatorFactoryDeps {
     epgDebugRuntime: IEPGDebugRuntime | null;
@@ -113,6 +114,7 @@ export interface OrchestratorCoordinatorFactoryDeps {
     };
     diagnostics: {
         appendIssueDiagnostic: AppendIssueDiagnostic;
+        reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter;
     };
     playback: {
         state: OrchestratorPlaybackStateAccessors;

@@ -19,6 +19,12 @@ import type {
 import type { OrchestratorEventCleanupReporter } from './OrchestratorEventCleanupReporter';
 import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
 
+export type RecoverableAsyncFailureReporter = (
+    event: string,
+    message: string,
+    error: unknown
+) => void;
+
 export interface PriorityOnePlaybackRecoveryPort {
     resolveStreamForProgram?: (program: ScheduledProgram) => Promise<StreamDescriptor | null | undefined>;
     resetPlaybackFailureGuard?: () => void;
@@ -87,5 +93,5 @@ export interface PriorityOneEventRuntimePort {
     handleScreenChange: (payload: { from: Screen; to: Screen }) => void;
     reportPersistenceWarning: (warning: ChannelManagerEventMap['persistenceWarning']) => void;
     cleanupReporter: OrchestratorEventCleanupReporter;
-    reportRecoverableAsyncFailure: (event: string, message: string, error: unknown) => void;
+    reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter;
 }

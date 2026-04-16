@@ -147,6 +147,11 @@ import { ScheduleDayRolloverController } from './ScheduleDayRolloverController';
 import { SubtitleTrackRecoveryController } from './SubtitleTrackRecoveryController';
 import { OrchestratorSchedulePolicy } from './OrchestratorSchedulePolicy';
 import { AppStartupUiInitializer } from '../app-shell/AppStartupUiInitializer';
+import {
+    createRecoverableRuntimeIssueReporter,
+    type RecoverableRuntimeIssueReporter,
+} from './OrchestratorRecoverableRuntimeReporter';
+import type { RecoverableAsyncFailureReporter } from './OrchestratorRuntimeSeams';
 
 // ============================================
 // Types
@@ -314,6 +319,7 @@ export class AppOrchestrator {
     private readonly _storageContext: OrchestratorStorageContext;
     private readonly _debugOverridesStore = new DebugOverridesStore();
     private readonly _issueDiagnosticsStore = new IssueDiagnosticsStore();
+    private readonly _recoverableRuntimeReporter: RecoverableRuntimeIssueReporter;
     private _epgDebugRuntime: IEPGDebugRuntime | null = null;
     private readonly _playbackStateAccessors: OrchestratorPlaybackStateAccessors;
     private readonly _channelSetupWorkflowPort: ChannelSetupWorkflowPort;
@@ -332,17 +338,12 @@ export class AppOrchestrator {
         } satisfies Pick<AppError, 'code' | 'recoverable' | 'context'>);
     }
 
-    private _appendRecoverableIssueDiagnostic(event: string, data: Record<string, unknown>): void {
-        this._issueDiagnosticsStore.append(QA_003B_ISSUE_ID, event, data);
-    }
-
     private _warnRecoverableRuntimeIssue(
         event: string,
         message: string,
         data: Record<string, unknown> = {}
     ): void {
-        this._appendRecoverableIssueDiagnostic(event, { message, ...data });
-        console.warn(message, data);
+        this._recoverableRuntimeReporter.reportIssue(event, message, data);
     }
 
     private _warnRecoverableRuntimeError(
@@ -351,14 +352,23 @@ export class AppOrchestrator {
         error: unknown,
         data: Record<string, unknown> = {}
     ): void {
-        this._warnRecoverableRuntimeIssue(event, message, {
-            ...data,
-            safeError: summarizeErrorForLog(error),
-        });
+        this._recoverableRuntimeReporter.reportError(event, message, error, data);
     }
+
+    private readonly _reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter = (
+        event,
+        message,
+        error
+    ): void => {
+        this._warnRecoverableRuntimeError(event, message, error);
+    };
 
     constructor(platformServices?: PlatformServices) {
         this._platformServices = platformServices ?? webosPlatformServices;
+        this._recoverableRuntimeReporter = createRecoverableRuntimeIssueReporter({
+            issueId: QA_003B_ISSUE_ID,
+            appendIssueDiagnostic: this._issueDiagnosticsStore.append.bind(this._issueDiagnosticsStore),
+        });
         this._storageContext = new OrchestratorStorageContext({
             getActiveUserId: this._getActiveUserId.bind(this),
             getSelectedServerId: this._getSelectedServerId.bind(this),
@@ -715,6 +725,7 @@ export class AppOrchestrator {
             },
             diagnostics: {
                 appendIssueDiagnostic,
+                reportRecoverableAsyncFailure: this._reportRecoverableAsyncFailure,
             },
             playback: {
                 state: this._playbackStateAccessors,
