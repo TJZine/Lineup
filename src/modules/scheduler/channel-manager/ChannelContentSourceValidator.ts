@@ -1,6 +1,9 @@
 import type { ChannelContentSource } from './types';
 
 const MAX_CONTENT_SOURCE_DEPTH = 25;
+type ContentSourceRecord = Record<string, unknown> & { type?: unknown };
+type ContentSourceType = ChannelContentSource['type'];
+type ContentSourceValidator = (source: ContentSourceRecord, depth: number) => boolean;
 
 const isNonEmptyString = (value: unknown): value is string =>
     typeof value === 'string' && value.length > 0;
@@ -76,6 +79,21 @@ const isValidManualSource = (source: Record<string, unknown>): boolean =>
     (source['items'] as unknown[]).length > 0 &&
     (source['items'] as unknown[]).every((item) => isValidManualItem(item));
 
+const isValidMixedSource = (source: ContentSourceRecord, depth: number): boolean =>
+    (source['mixMode'] === 'interleave' || source['mixMode'] === 'sequential') &&
+    Array.isArray(source['sources']) &&
+    (source['sources'] as unknown[]).length > 0 &&
+    (source['sources'] as unknown[]).every((entry) => isValidContentSource(entry, depth + 1));
+
+const CONTENT_SOURCE_VALIDATORS: Record<ContentSourceType, ContentSourceValidator> = {
+    library: (source) => isValidLibrarySource(source),
+    collection: (source) => isValidCollectionSource(source),
+    show: (source) => isValidShowSource(source),
+    playlist: (source) => isValidPlaylistSource(source),
+    manual: (source) => isValidManualSource(source),
+    mixed: isValidMixedSource,
+};
+
 export function isValidContentSource(source: unknown, depth: number = 0): source is ChannelContentSource {
     // Guard against excessive nesting in corrupted storage (mixed sources can be recursive).
     // JSON cannot represent cyclic references, so a depth limit is sufficient here.
@@ -85,31 +103,11 @@ export function isValidContentSource(source: unknown, depth: number = 0): source
     if (!source || typeof source !== 'object') {
         return false;
     }
-    const src = source as Record<string, unknown> & { type?: unknown };
-    const type = src.type;
-    if (typeof type !== 'string') {
+    const src = source as ContentSourceRecord;
+    if (typeof src.type !== 'string') {
         return false;
     }
 
-    switch (type) {
-        case 'library':
-            return isValidLibrarySource(src);
-        case 'collection':
-            return isValidCollectionSource(src);
-        case 'show':
-            return isValidShowSource(src);
-        case 'playlist':
-            return isValidPlaylistSource(src);
-        case 'manual':
-            return isValidManualSource(src);
-        case 'mixed':
-            return (
-                (src['mixMode'] === 'interleave' || src['mixMode'] === 'sequential') &&
-                Array.isArray(src['sources']) &&
-                (src['sources'] as unknown[]).length > 0 &&
-                (src['sources'] as unknown[]).every((s) => isValidContentSource(s, depth + 1))
-            );
-        default:
-            return false;
-    }
+    const validator = CONTENT_SOURCE_VALIDATORS[src.type as ContentSourceType];
+    return validator ? validator(src, depth) : false;
 }
