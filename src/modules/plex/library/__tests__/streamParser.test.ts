@@ -39,4 +39,22 @@ describe('streamParser', () => {
         expect(unknown.doviPresent).toBeUndefined();
         expect(explicitFalse.doviPresent).toBe(false);
     });
+
+    it('coerces numeric DOVIPresent values', () => {
+        const explicitFalse = parseStream({
+            id: 10,
+            streamType: 1,
+            codec: 'hevc',
+            DOVIPresent: 0,
+        } as unknown as RawStream);
+        const explicitTrue = parseStream({
+            id: 11,
+            streamType: 1,
+            codec: 'hevc',
+            DOVIPresent: 1,
+        } as unknown as RawStream);
+
+        expect(explicitFalse.doviPresent).toBe(false);
+        expect(explicitTrue.doviPresent).toBe(true);
+    });
 });

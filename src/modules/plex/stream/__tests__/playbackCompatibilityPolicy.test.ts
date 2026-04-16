@@ -152,6 +152,16 @@ describe('playbackCompatibilityPolicy', () => {
             expect(decision.reasons).toEqual([]);
         });
 
+        it('normalizes audio codec casing and whitespace before compatibility checks', () => {
+            const decision = getDirectPlayDecision({
+                media: createPolicyMedia({ audioCodec: ' DTS ' }),
+                dtsPassthroughEnabled: false,
+            });
+
+            expect(decision.canDirect).toBe(false);
+            expect(decision.reasons).toContain('dts_passthrough_disabled');
+        });
+
         it('blocks legacy webOS MKV when webOS Chromium is too old', () => {
             const decision = getDirectPlayDecision({
                 media: createPolicyMedia({ container: 'mkv' }),

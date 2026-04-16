@@ -1,6 +1,10 @@
 import { createPlexConsoleLogger, logPlexError, logPlexWarning } from '../plexLogging';
 
 describe('plexLogging', () => {
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
     it('redacts token-bearing strings before writing warnings', () => {
         const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
         const logger = createPlexConsoleLogger();
@@ -11,7 +15,6 @@ describe('plexLogging', () => {
             expect.not.stringContaining('secret'),
             expect.objectContaining({ authToken: 'REDACTED' })
         );
-        warnSpy.mockRestore();
     });
 
     it('redacts token-bearing fields even when their values are non-string objects', () => {
@@ -30,7 +33,6 @@ describe('plexLogging', () => {
                 refreshTokenList: 'REDACTED',
             })
         );
-        warnSpy.mockRestore();
     });
 
     it('summarizes errors before writing error logs', () => {
@@ -43,7 +45,5 @@ describe('plexLogging', () => {
         expect(warnSpy).toHaveBeenCalledWith('warning', expect.anything());
         expect(errorSpy).toHaveBeenCalledWith('error', expect.anything());
         expect(errorSpy.mock.calls[0]?.[1]).not.toBeInstanceOf(Error);
-        warnSpy.mockRestore();
-        errorSpy.mockRestore();
     });
 });

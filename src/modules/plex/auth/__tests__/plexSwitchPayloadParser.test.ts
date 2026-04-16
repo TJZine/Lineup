@@ -79,4 +79,43 @@ describe('plexSwitchPayloadParser', () => {
             })
         ).toThrow('Plex Home switch response did not include auth token');
     });
+
+    it('throws a JSON parse error for malformed JSON string payloads', () => {
+        expect(() => parseSwitchPayloadData('{invalid json}')).toThrow(
+            'Unable to parse Plex Home switch JSON payload'
+        );
+    });
+
+    it('preserves the missing-token error for valid JSON string payloads without an auth token', () => {
+        expect(() => parseSwitchPayloadData('{}')).toThrow(
+            'Plex Home switch response did not include auth token'
+        );
+    });
+
+    it('throws the missing-token error for empty object payloads', () => {
+        expect(() => parseSwitchPayloadData({})).toThrow(
+            'Plex Home switch response did not include auth token'
+        );
+    });
+
+    it('falls back cleanly when DOMParser is present but not callable', () => {
+        const originalDomParser = globalThis.DOMParser;
+        Object.defineProperty(globalThis, 'DOMParser', {
+            configurable: true,
+            value: {},
+        });
+
+        try {
+            expect(
+                parseSwitchPayloadData(
+                    '<MediaContainer><User authToken="child-token" /></MediaContainer>'
+                )
+            ).toEqual({ authToken: 'child-token' });
+        } finally {
+            Object.defineProperty(globalThis, 'DOMParser', {
+                configurable: true,
+                value: originalDomParser,
+            });
+        }
+    });
 });

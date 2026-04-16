@@ -12,6 +12,8 @@ export type DirectPlayDecision = {
     reasons: string[];
 };
 
+const FALLBACK_AUDIO_CODECS = ['eac3', 'ac3', 'aac'] as const;
+
 export function getDirectPlayDecision(options: {
     media: PlexMediaFile;
     audioCodecOverride?: string | null;
@@ -20,7 +22,7 @@ export function getDirectPlayDecision(options: {
 }): DirectPlayDecision {
     const reasons: string[] = [];
     const { media } = options;
-    const audioCodec = (options.audioCodecOverride ?? media.audioCodec).toLowerCase();
+    const audioCodec = normalizeCompatibilityValue(options.audioCodecOverride ?? media.audioCodec);
 
     appendContainerCompatibilityReasons(reasons, media.container, options.userAgent);
     appendVideoCompatibilityReasons(reasons, media.videoCodec);
@@ -200,11 +202,11 @@ function isCompatibleFallbackAudioTrack(
     stream: PlexStream,
     defaultTrackId: string
 ): boolean {
-    const codec = (stream.codec || '').toLowerCase();
+    const codec = normalizeCompatibilityValue(stream.codec);
 
     return (
         stream.id !== defaultTrackId &&
-        ['eac3', 'ac3', 'aac'].includes(codec) &&
+        FALLBACK_AUDIO_CODECS.includes(codec as (typeof FALLBACK_AUDIO_CODECS)[number]) &&
         !isCommentaryStream(stream)
     );
 }
@@ -231,8 +233,9 @@ function normalizeLanguageCode(stream: PlexStream): string {
 }
 
 function getFallbackCodecPriority(stream: PlexStream): number {
-    const codecPriority = ['eac3', 'ac3', 'aac'];
-    const index = codecPriority.indexOf((stream.codec || '').toLowerCase());
+    const index = FALLBACK_AUDIO_CODECS.indexOf(
+        normalizeCompatibilityValue(stream.codec) as (typeof FALLBACK_AUDIO_CODECS)[number]
+    );
     return index === -1 ? Number.MAX_SAFE_INTEGER : index;
 }
 

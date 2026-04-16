@@ -28,8 +28,9 @@ function parseSwitchPayloadText(payload: string): SwitchPayloadResult {
     const text = payload.trim();
 
     if (text.startsWith('{') || text.startsWith('[')) {
+        let parsed: unknown;
         try {
-            return parseSwitchPayloadData(JSON.parse(text));
+            parsed = JSON.parse(text);
         } catch {
             throw new PlexApiError(
                 AppErrorCode.PARSE_ERROR,
@@ -38,6 +39,8 @@ function parseSwitchPayloadText(payload: string): SwitchPayloadResult {
                 false
             );
         }
+
+        return parseSwitchPayloadData(parsed);
     }
 
     if (text.startsWith('<')) {
@@ -60,7 +63,7 @@ function parseSwitchTokenXml(payload: string): string | null {
 }
 
 function parseSwitchTokenDocument(payload: string): string | null {
-    if (typeof DOMParser === 'undefined') {
+    if (typeof DOMParser !== 'function') {
         return null;
     }
 

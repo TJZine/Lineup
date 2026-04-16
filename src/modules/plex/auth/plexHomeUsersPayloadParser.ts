@@ -23,6 +23,9 @@ const HOME_USER_SIGNAL_KEYS = [
     'home',
 ] as const;
 
+const HOME_USER_ID_KEYS = ['id', 'userid', 'uuid', 'key'] as const;
+const HOME_USER_TITLE_KEYS = ['title', 'username', 'name'] as const;
+
 export function parseHomeUsersPayloadData(payload: unknown): PlexHomeUser[] {
     if (!payload) {
         return [];
@@ -87,7 +90,7 @@ function looksLikeXml(payload: string): boolean {
 }
 
 function parseHomeUsersXml(payload: string): PlexHomeUser[] {
-    if (typeof DOMParser === 'undefined') {
+    if (typeof DOMParser !== 'function') {
         return parseHomeUsersXmlFallback(payload);
     }
 
@@ -227,8 +230,8 @@ function collectArrayCandidates(
 }
 
 function looksLikeHomeUserRecord(record: Record<string, unknown>): boolean {
-    const id = getRecordValue(record, ['id', 'userid', 'uuid', 'key']);
-    const title = getRecordValue(record, ['title', 'username', 'name']);
+    const id = getRecordValue(record, HOME_USER_ID_KEYS);
+    const title = getRecordValue(record, HOME_USER_TITLE_KEYS);
 
     if (typeof id === 'undefined' || id === null || String(id).trim().length === 0) {
         return false;
@@ -242,8 +245,8 @@ function looksLikeHomeUserRecord(record: Record<string, unknown>): boolean {
 }
 
 function parseHomeUserAttributes(attrs: Record<string, unknown>): PlexHomeUser | null {
-    const idValue = getRecordValue(attrs, ['id', 'userID', 'userId', 'userid', 'key']);
-    const titleValue = getRecordValue(attrs, ['title', 'username', 'name']);
+    const idValue = getRecordValue(attrs, HOME_USER_ID_KEYS);
+    const titleValue = getRecordValue(attrs, HOME_USER_TITLE_KEYS);
     const id = String(idValue ?? '').trim();
     const title = String(titleValue ?? '').trim();
 
