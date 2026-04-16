@@ -11,8 +11,8 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, `P4-EXIT`, `P5-W1`, `P5-W2`, `P5-EXIT`, `P6-W1`, `P6-W2`, `P6-EXIT`, `P7-W1`, `P7-W2`, `P7-EXIT`, `P8-W1`, `P8-W2`, `P8-EXIT`, `P9-W1`, `P9-W2`, `P9-EXIT`, and `P10-W2` completed on integration-branch evidence
-- Next safe start: `P10-W3`
+- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, `P4-EXIT`, `P5-W1`, `P5-W2`, `P5-EXIT`, `P6-W1`, `P6-W2`, `P6-EXIT`, `P7-W1`, `P7-W2`, `P7-EXIT`, `P8-W1`, `P8-W2`, `P8-EXIT`, `P9-W1`, `P9-W2`, `P9-EXIT`, `P10-W2`, `P10-W3`, and `P10-W4` completed on integration-branch evidence
+- Next safe start: `P10-W5`
 - Legacy note: `docs/plans/2026-04-02-p3-w1-channel-setup-workflow-owner.md` predates the `2026-04-10` checklist refresh and is historical planning context, not the active `P3-W1` gate token
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
 - Recent update log:
@@ -1870,11 +1870,10 @@ This is the exact owned follow-up from the `P10-W3` split for the remaining sche
 
 ### [ ] `P10-EXIT` Overall Closeout Gate
 
-Blocked on `P10-W4`, `P10-W5`, `P10-W6`, and `P10-W7`. `P10-W3` completed its bounded code pass on the working branch, but the post-implementation detector refresh still showed real live backlog across runtime/startup, channel-setup, Plex, and scheduler, so the old monolithic successor owner has been split into four exact owned follow-ups. `P10-EXIT` remains unavailable until those successors complete.
+Blocked on `P10-W5`, `P10-W6`, and `P10-W7`. `P10-W3` completed its bounded code pass on the working branch, but the post-implementation detector refresh still showed real live backlog across runtime/startup, channel-setup, Plex, and scheduler, so the old monolithic successor owner was split into exact owned follow-ups. `P10-W4` has since completed, and `P10-EXIT` remains unavailable until the remaining successors complete.
 
 Do not treat the cleanup wave as complete until all of the following are true on the target integration branch:
 
-- `P10-W4` is completed
 - `P10-W5` is completed
 - `P10-W6` is completed
 - `P10-W7` is completed
@@ -1893,9 +1892,9 @@ Do not treat the cleanup wave as complete until all of the following are true on
 - Last touched: `2026-04-15`
 - Verification:
   - `desloppify status`, `desloppify next --count 20`, `desloppify plan queue`, and `desloppify plan` on the baseline `2026-04-15T22:07:55+00:00` scan and refreshed persisted `2026-04-15T22:24:08+00:00` scan confirmed the imported-review queue mismatch is reconciled but live mechanical backlog remains (`353 open`, queue `1 item (29 planned · 3 stale tracked · 1 subjective)`, backlog still present in `desloppify plan`)
-  - `desloppify show review --status open --no-budget --top 150` returned no open issues, but the `P10-W4` through `P10-W7` area drills on runtime/startup, channel-setup, Plex, and scheduler still show live residual code debt, so `P10-EXIT` must wait for those four owned follow-up slices
-- Follow-ups: `blocked by P10-W4, P10-W5, P10-W6, and P10-W7`
-- Handoff: `none until P10-W4, P10-W5, P10-W6, and P10-W7 complete`
+  - `desloppify show review --status open --no-budget --top 150` returned no open issues, but the `P10-W5` through `P10-W7` area drills on channel-setup, Plex, and scheduler still show live residual code debt, so `P10-EXIT` must wait for those remaining owned follow-up slices
+- Follow-ups: `blocked by P10-W5, P10-W6, and P10-W7`
+- Handoff: `none until P10-W5, P10-W6, and P10-W7 complete`
 
 ## Imported Review Issue Map By Priority
 

@@ -509,6 +509,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             'Background startup resume failed for phase 3',
             expect.any(Error)
         );
+        expect(callbacks.reportRecoverableAsyncFailure).toHaveBeenCalledTimes(1);
     });
 
     describe('Phase 3 startup policy branches', () => {
@@ -526,7 +527,12 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
             expect(callbacks.updateModuleStatus).toHaveBeenCalledWith(
                 'plex-server-discovery',
-                'error'
+                'error',
+                expect.objectContaining({
+                    code: 'MODULE_INIT_FAILED',
+                    message: 'discovery init failed',
+                    recoverable: true,
+                })
             );
             expect(navigation.goTo).toHaveBeenCalledWith('server-select');
             expect(plexDiscovery.on).not.toHaveBeenCalled();

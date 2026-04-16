@@ -39,6 +39,7 @@ import {
     applyPhase3ServerGatePolicy,
     applyPostReadyRoutingPolicy,
 } from './initialization/InitializationStartupPolicy';
+import { toRecoverableModuleStatusError } from './initialization/RecoverableModuleStatusError';
 import type { RecoverableAsyncFailureReporter } from './orchestrator/OrchestratorRuntimeSeams';
 
 // ============================================
@@ -387,7 +388,14 @@ export class InitializationCoordinator {
         this._callbacks.status.updateModuleStatus('plex-auth', 'initializing');
 
         if (!this._deps.modules.plexAuth || !this._deps.modules.navigation) {
-            this._callbacks.status.updateModuleStatus('plex-auth', 'error');
+            this._callbacks.status.updateModuleStatus(
+                'plex-auth',
+                'error',
+                toRecoverableModuleStatusError(
+                    new Error('Plex auth or navigation module unavailable during startup.'),
+                    'Plex auth or navigation module unavailable during startup.'
+                )
+            );
             return false;
         }
 
@@ -602,7 +610,11 @@ export class InitializationCoordinator {
         };
         this._epgInitPromise = init()
             .catch((e) => {
-                this._callbacks.status.updateModuleStatus('epg-ui', 'error');
+                this._callbacks.status.updateModuleStatus(
+                    'epg-ui',
+                    'error',
+                    toRecoverableModuleStatusError(e, 'EPG initialization failed.')
+                );
                 throw e;
             })
             .finally(() => {

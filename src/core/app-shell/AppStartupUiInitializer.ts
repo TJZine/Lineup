@@ -3,6 +3,7 @@ import type { IPlaybackOptionsModal } from '../../modules/ui/playback-options';
 import { ExitConfirmModal, EXIT_CONFIRM_CONTAINER_ID } from '../../modules/ui/exit-confirm';
 import type { ModuleStatus, OrchestratorConfig } from '../orchestrator/OrchestratorTypes';
 import type { AppError } from '../../modules/lifecycle';
+import { toRecoverableModuleStatusError } from '../initialization/RecoverableModuleStatusError';
 
 type StatusCallbacks = {
     updateModuleStatus: (
@@ -97,7 +98,14 @@ export class AppStartupUiInitializer {
         try {
             initResult = options.initialize();
         } catch (error) {
-            this._status.updateModuleStatus(options.moduleId, 'error');
+            this._status.updateModuleStatus(
+                options.moduleId,
+                'error',
+                toRecoverableModuleStatusError(
+                    error,
+                    `Startup UI initialization failed for ${options.moduleId}.`
+                )
+            );
             return Promise.reject(error);
         }
 
@@ -111,7 +119,14 @@ export class AppStartupUiInitializer {
                 );
             })
             .catch((error) => {
-                this._status.updateModuleStatus(options.moduleId, 'error');
+                this._status.updateModuleStatus(
+                    options.moduleId,
+                    'error',
+                    toRecoverableModuleStatusError(
+                        error,
+                        `Startup UI initialization failed for ${options.moduleId}.`
+                    )
+                );
                 throw error;
             })
             .finally(() => {

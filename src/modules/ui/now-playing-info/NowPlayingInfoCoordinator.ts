@@ -6,7 +6,6 @@
 
 import type { INavigationManager } from '../../navigation';
 import type { IChannelScheduler, ScheduledProgram } from '../../scheduler/scheduler';
-import type { IChannelManager } from '../../scheduler/channel-manager';
 import type { IPlexLibrary, PlexMediaItem } from '../../plex/library';
 import type { INowPlayingInfoOverlay } from './interfaces';
 import type { NowPlayingInfoViewModel } from './types';
@@ -24,7 +23,6 @@ interface NowPlayingInfoCoordinatorDeps {
 
     getNavigation: () => INavigationManager | null;
     getScheduler: () => IChannelScheduler | null;
-    getChannelManager: () => IChannelManager | null;
     getPlexLibrary: () => IPlexLibrary | null;
     getNowPlayingInfo: () => INowPlayingInfoOverlay | null;
     getNowPlayingInfoConfig: () => NowPlayingInfoConfig | null;
@@ -67,8 +65,7 @@ export class NowPlayingInfoCoordinator {
         }
         this.cinematicNowPlaying = this._nowPlayingDisplayStore.readCinematicNowPlayingEnabledAndClean(false);
         const overlay = this.deps.getNowPlayingInfo();
-        const channelManager = this.deps.getChannelManager();
-        if (!overlay || !channelManager) {
+        if (!overlay) {
             return;
         }
         const program = ((): ScheduledProgram | null => {

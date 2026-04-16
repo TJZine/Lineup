@@ -30,6 +30,12 @@ describe('ChannelSetupTagFilters', () => {
         ).toEqual({ type: 4, actor: 'Alex Star' });
     });
 
+    it('ignores query-like text inside URL fragments', () => {
+        expect(
+            parseChannelSetupTagFastKeyFilters('/library/sections/1/actor#frag?type=4&actor=Alex%20Star')
+        ).toEqual({});
+    });
+
     it('falls back to tag.key when fastKey does not contain the requested family', () => {
         expect(
             buildChannelSetupTagFilter(

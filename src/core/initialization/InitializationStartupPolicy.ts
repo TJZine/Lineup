@@ -7,6 +7,7 @@ import type { IPlexStreamResolver } from '../../modules/plex/stream';
 import type { IChannelManager } from '../../modules/scheduler/channel-manager';
 import type { ModuleStatus } from '../orchestrator/OrchestratorTypes';
 import { summarizeErrorForLog } from '../../utils/errors';
+import { toRecoverableModuleStatusError } from './RecoverableModuleStatusError';
 
 type UpdateModuleStatus = (
     id: string,
@@ -241,7 +242,11 @@ export async function applyPhase3ServerGatePolicy(inputs: Phase3ServerGateInputs
         await inputs.plexDiscovery.initialize();
     } catch (error) {
         console.error('Server discovery failed:', summarizeErrorForLog(error));
-        inputs.updateModuleStatus('plex-server-discovery', 'error');
+        inputs.updateModuleStatus(
+            'plex-server-discovery',
+            'error',
+            toRecoverableModuleStatusError(error, 'Server discovery failed during startup.')
+        );
         inputs.navigation.goTo('server-select');
         return false;
     }

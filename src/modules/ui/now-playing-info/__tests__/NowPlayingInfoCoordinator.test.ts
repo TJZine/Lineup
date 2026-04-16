@@ -6,7 +6,6 @@ import { NOW_PLAYING_INFO_DEFAULTS } from '../constants';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import type { INavigationManager } from '../../../navigation';
 import type { IChannelScheduler, ScheduledProgram } from '../../../scheduler/scheduler';
-import type { IChannelManager, ChannelConfig } from '../../../scheduler/channel-manager';
 import type { IPlexLibrary, PlexMediaItem } from '../../../plex/library';
 import type { INowPlayingInfoOverlay } from '../interfaces';
 import type { NowPlayingInfoConfig } from '../types';
@@ -36,13 +35,6 @@ const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgra
         isCurrent: true,
         ...overrides,
     }) as ScheduledProgram;
-
-const makeChannel = (): ChannelConfig =>
-    ({
-        id: 'ch1',
-        name: 'Channel 1',
-        number: 1,
-    }) as ChannelConfig;
 
 const makeOverlay = (overrides: Partial<INowPlayingInfoOverlay> = {}): INowPlayingInfoOverlay =>
     ({
@@ -81,14 +73,6 @@ const makeScheduler = (
         ...overrides,
     }) as unknown as IChannelScheduler;
 
-const makeChannelManager = (
-    overrides: Partial<IChannelManager> = {}
-): IChannelManager =>
-    ({
-        getCurrentChannel: jest.fn().mockReturnValue(makeChannel()),
-        ...overrides,
-    }) as unknown as IChannelManager;
-
 const makePlexLibrary = (overrides: Partial<IPlexLibrary> = {}): IPlexLibrary =>
     ({
         getItem: jest.fn().mockResolvedValue(null),
@@ -109,21 +93,18 @@ const setup = (
     deps: ConstructorParameters<typeof NowPlayingInfoCoordinator>[0];
     navigation: INavigationManager;
     scheduler: IChannelScheduler;
-    channelManager: IChannelManager;
     plexLibrary: IPlexLibrary;
     overlay: INowPlayingInfoOverlay;
 } => {
     const navigation = makeNavigation();
     const scheduler = makeScheduler();
-    const channelManager = makeChannelManager();
     const plexLibrary = makePlexLibrary();
     const overlay = makeOverlay();
     const config = makeConfig();
-    const deps = {
+    const deps: ConstructorParameters<typeof NowPlayingInfoCoordinator>[0] = {
         nowPlayingModalId: modalId,
         getNavigation: (): INavigationManager => navigation,
         getScheduler: (): IChannelScheduler => scheduler,
-        getChannelManager: (): IChannelManager => channelManager,
         getPlexLibrary: (): IPlexLibrary => plexLibrary,
         getNowPlayingInfo: (): INowPlayingInfoOverlay => overlay,
         getNowPlayingInfoConfig: (): NowPlayingInfoConfig => config,
@@ -141,7 +122,6 @@ const setup = (
         deps,
         navigation,
         scheduler,
-        channelManager,
         plexLibrary,
         overlay,
     };
@@ -173,6 +153,14 @@ describe('NowPlayingInfoCoordinator', () => {
 
         coordinator.handleModalClose(modalId);
         expect(onVisibilityChange).toHaveBeenCalledWith(false);
+    });
+
+    it('opens when overlay and program are available even without a channel manager dependency', () => {
+        const { coordinator, overlay } = setup();
+
+        coordinator.handleModalOpen(modalId);
+
+        expect(overlay.show).toHaveBeenCalledTimes(1);
     });
 
     it('handleModalOpen uses scheduled metadata when details are unavailable', () => {

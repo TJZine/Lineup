@@ -37,10 +37,11 @@ export function parseChannelSetupTagFastKeyFilters(fastKey: string): Record<stri
         const result: Record<string, string | number> = {};
         const allowList = new Set(['actor', 'studio', 'type']);
         const queryStart = fastKey.indexOf('?');
-        if (queryStart === -1) {
+        const hashIndex = fastKey.indexOf('#');
+        if (queryStart === -1 || (hashIndex !== -1 && queryStart > hashIndex)) {
             return result;
         }
-        const query = fastKey.slice(queryStart + 1).split('#', 1)[0] ?? '';
+        const query = fastKey.slice(queryStart + 1, hashIndex === -1 ? undefined : hashIndex);
         const params = new URLSearchParams(query);
         for (const [rawKey, value] of params.entries()) {
             if (!rawKey || value === '') continue;

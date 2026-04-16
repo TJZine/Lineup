@@ -17,6 +17,11 @@ describe('createAppOrchestratorConfig', () => {
         expect(first.playerConfig).not.toBe(second.playerConfig);
         expect(first.epgConfig).not.toBe(second.epgConfig);
         expect(first.nowPlayingInfoConfig).not.toBe(second.nowPlayingInfoConfig);
+        expect(first.playerOsdConfig).not.toBe(second.playerOsdConfig);
+        expect(first.channelNumberOverlayConfig).not.toBe(second.channelNumberOverlayConfig);
+        expect(first.channelBadgeConfig).not.toBe(second.channelBadgeConfig);
+        expect(first.miniGuideConfig).not.toBe(second.miniGuideConfig);
+        expect(first.channelTransitionConfig).not.toBe(second.channelTransitionConfig);
         expect(first.playbackOptionsConfig).not.toBe(second.playbackOptionsConfig);
 
         expect(first.playerConfig.containerId).toBe(APP_SHELL_CONTAINER_IDS.VIDEO);

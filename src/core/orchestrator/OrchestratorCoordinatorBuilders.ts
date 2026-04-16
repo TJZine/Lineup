@@ -227,7 +227,6 @@ export function buildNowPlayingInfoCoordinator(
         nowPlayingModalId: NOW_PLAYING_INFO_MODAL_ID,
         getNavigation: (): INavigationManager | null => input.modules.navigation,
         getScheduler: (): IChannelScheduler | null => input.modules.scheduler,
-        getChannelManager: (): IChannelManager | null => input.modules.channelManager,
         getPlexLibrary: (): IPlexLibrary | null => input.modules.plexLibrary,
         getNowPlayingInfo: (): INowPlayingInfoOverlay | null => input.overlays.nowPlayingInfo,
         getNowPlayingInfoConfig: (): NowPlayingInfoConfig | null =>
