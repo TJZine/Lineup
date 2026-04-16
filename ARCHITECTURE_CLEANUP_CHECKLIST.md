@@ -37,6 +37,7 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
   - `2026-04-15`: completed `P9-EXIT` priority-exit reconciliation (`private_api_test_coupling` is now retired on current source, `Orchestrator.test.ts` retains only the AppOrchestrator-owned `ensureEPGInitialized()` callback-path proof while focused coordinator owner suites cover builder/assembly seams, all remaining Priority 9 detector rows were dispositioned in-place as detector mismatch, orchestrator-helper residue, or type-only limitation, and only lower-priority Plex helper coverage rows were handed to one exact `P10-W1` owner), reran the exact `P9` evidence matrix, refreshed scan/status/queue/security evidence, reran the targeted P9 suites, and reran `npm run verify` plus `npm run verify:docs`
   - `2026-04-15`: reconciled stale imported review state in `desloppify` (`desloppify plan resolve review ... --confirm` fixed 51 stale tracked review ids), reran a fresh integration-branch scan (`desloppify status` last scan `2026-04-15T21:13:48+00:00`), confirmed imported review rows are no longer the blocker, and inserted `P10-W2` because the remaining live mechanical backlog is broader than the frozen `P10-W1` residual matrix so `P10-EXIT` cannot close honestly yet
   - `2026-04-15`: completed `P10-W2` live-backlog rebaseline using the persisted `desloppify` baseline from `2026-04-15T22:07:55+00:00`, then refreshed the persisted evidence at `2026-04-15T22:24:08+00:00` with unchanged `353 open` / `83.1 strict`; current-source audit retired the startup-owner detector-contract candidates in `AppOrchestratorConfigFactory.ts`, `AppStartupUiInitializer.ts`, `AppScreenVisibilityCoordinator.ts`, and `NowPlayingInfoCoordinator.ts`/`index.ts`, confirmed only `AppContainerFactory.ts::hardcoded_color` and `src/modules/ui/now-playing-info/styles.css::css_monolith` as still-live startup-owner code debt, and opened `P10-W3` as the one exact successor owner because orchestrator/runtime, lifecycle/navigation, channel-setup, Plex, scheduler, and startup-owner live buckets all still remain outside `P10-EXIT`
+  - `2026-04-15`: completed `P10-W4` runtime/startup residual cleanup (recoverable runtime diagnostics now flow through the required typed seam across orchestrator/startup/navigation, `InitializationCoordinator` resume rejections are explicit without widening the fatal startup path, `NavigationCoordinator` throttles to at most one toast plus one diagnostics callback per failure, `AppContainerFactory` keeps the inline hidden baseline while shell presentation tokens moved to `shell.css`, and `now-playing-info/styles.css` is now a 111-line import barrel with motion/theme partials); reran the scoped `P10-W4` regression suites plus `npm run verify`, `npm run verify:docs`, and `npm run plans:check`, and recorded direct current-source proof for the frozen-scan `AppLifecycle`/detector-lag rows after a mid-cycle `desloppify scan --path .` was correctly refused without `--force-rescan`
 
 ## Goal
 
@@ -1760,7 +1761,7 @@ This pass exists because the post-reconciliation integration-branch scan cleared
   - explicit non-goal: do not reopen the `P10-W2` startup-owner detector-contract retirements or the already-frozen `P10-EXIT` tooling-state residue unless a fresh rerun points at contradictory current-source evidence
 - Handoff: `run lineup-cleanup-review on the landed P10-W3 implementation evidence with this split-follow-up record; review the seven code commits plus the checklist split, then implement P10-W4 through P10-W7 as separate follow-up slices before any P10-EXIT closeout work`
 
-### [ ] `P10-W4` Runtime / Startup Post-Scan Residual Cleanup
+### [x] `P10-W4` Runtime / Startup Post-Scan Residual Cleanup
 
 This is the exact owned follow-up from the `P10-W3` split for the remaining runtime, startup, navigation, and startup-owner live residue still present on the post-implementation `2026-04-15T23:30:15+00:00` detector refresh.
 
@@ -1774,24 +1775,22 @@ This is the exact owned follow-up from the `P10-W3` split for the remaining runt
 - `desloppify show src/core/InitializationCoordinator.ts --status open --no-budget --top 50`
 - `desloppify show "smells::src/core/app-shell/AppContainerFactory.ts::hardcoded_color" --status open --no-budget --top 20`
 - `desloppify show "smells::src/modules/ui/now-playing-info/styles.css::css_monolith" --status open --no-budget --top 20`
-- Status: planned
-- Plan: `none yet (checklist-only successor owner; write the tracked plan before implementation if this item is selected next)`
+- Status: completed
+- Plan: `docs/plans/2026-04-15-p10-w4-runtime-startup-post-scan-residual-cleanup.md`
 - Last touched: `2026-04-15`
 - Verification:
-  - the `2026-04-15T23:30:15+00:00` post-implementation scan left these exact residual issue ids in this owner set:
-    - `logs::src/core/orchestrator/AppOrchestrator.ts::Orchestrator`
-    - `smells::src/core/orchestrator/AppOrchestrator.ts::console_error_no_throw`
-    - `smells::src/core/orchestrator/AppOrchestrator.ts::swallowed_error`
-    - `logs::src/core/orchestrator/OrchestratorEventBinder.ts::Orchestrator`
-    - `smells::src/core/orchestrator/OrchestratorEventBinder.ts::console_error_no_throw`
-    - `smells::src/modules/lifecycle/AppLifecycle.ts::hardcoded_url`
-    - `smells::src/modules/navigation/NavigationCoordinator.ts::console_error_no_throw`
-    - `smells::src/modules/navigation/NavigationCoordinator.ts::async_no_await`
-    - `smells::src/core/InitializationCoordinator.ts::console_error_no_throw`
-    - `smells::src/core/app-shell/AppContainerFactory.ts::hardcoded_color`
-    - `smells::src/modules/ui/now-playing-info/styles.css::css_monolith`
-- Follow-ups: `owned follow-up from P10-W3 only; do not split further unless a fresh source audit proves a narrower final owner`
-- Handoff: `write the bounded implementation plan for P10-W4, then run lineup-cleanup-review on that plan before code changes`
+  - `desloppify status` passed and still reported the frozen `2026-04-15T23:30:15+00:00` baseline (`strict 83.1`, `359 open`) before any forced rescan.
+  - `desloppify show review --status open --no-budget --top 150` returned `No open issues matching: review`.
+  - `desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 100`, `desloppify show src/core/orchestrator/OrchestratorEventBinder.ts --status open --no-budget --top 50`, `desloppify show src/modules/lifecycle --status open --no-budget --top 100`, `desloppify show src/modules/navigation --status open --no-budget --top 150`, `desloppify show src/core/InitializationCoordinator.ts --status open --no-budget --top 50`, `desloppify show "smells::src/core/app-shell/AppContainerFactory.ts::hardcoded_color" --status open --no-budget --top 20`, and `desloppify show "smells::src/modules/ui/now-playing-info/styles.css::css_monolith" --status open --no-budget --top 20` all still reflect the frozen pre-fix scan; current-source proof now shows no direct `console.warn`/`console.error` in `AppOrchestrator.ts`, `OrchestratorEventBinder.ts`, `NavigationCoordinator.ts`, `InitializationCoordinator.ts`, or `AppContainerFactory.ts`, the required `reportRecoverableAsyncFailure(event, message, error)` seam is threaded through the typed orchestrator/startup/navigation contracts, `AppLifecycle.ts` still references `NETWORK_CHECK_PROBE_URL` from `src/modules/lifecycle/constants.ts` rather than an inline URL literal, `AppContainerFactory.ts` no longer carries the hardcoded color/shadow tokens, and `src/modules/ui/now-playing-info/styles.css` is now a 111-line import barrel with `styles.motion.css` + `styles.theme.css` partials.
+  - `desloppify scan --path .` was attempted post-implementation and correctly refused mid-cycle without `--force-rescan`, so no forced rescan was recorded in this slice.
+  - `npm test -- --runInBand src/__tests__/Orchestrator.test.ts src/__tests__/orchestrator/event-wiring.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorAssembly.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorFactory.playbackState.test.ts src/core/orchestrator/__tests__/OrchestratorPriorityOneControllerFactory.playbackState.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorBuilders.test.ts` passed.
+  - `npm test -- --runInBand src/core/__tests__/InitializationCoordinator.test.ts src/modules/navigation/__tests__/NavigationCoordinator.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorBuilders.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorAssembly.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorFactory.playbackState.test.ts` passed.
+  - `npm test -- --runInBand src/core/app-shell/__tests__/AppContainerFactory.test.ts src/__tests__/App.test.ts src/modules/ui/now-playing-info/__tests__/NowPlayingInfoOverlay.test.ts src/modules/ui/now-playing-info/__tests__/NowPlayingInfoCoordinator.test.ts` passed.
+  - `npm run verify` passed.
+  - `npm run verify:docs` passed.
+  - `npm run plans:check` passed.
+- Follow-ups: none
+- Handoff: `run lineup-cleanup-review on docs/plans/2026-04-15-p10-w4-runtime-startup-post-scan-residual-cleanup.md using commits 17ee85c8, b90dbc01, 9bc52289, 7193467e plus the checklist update; confirm the frozen-scan detector rows are now stale/current-source-retired and that no new successor owner is needed before opening P10-W5`
 
 ### [ ] `P10-W5` Channel-Setup Post-Scan Residual Cleanup
 
