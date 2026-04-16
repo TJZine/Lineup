@@ -40,6 +40,7 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
   - `2026-04-15`: completed `P10-W4` runtime/startup residual cleanup (recoverable runtime diagnostics now flow through the required typed seam across orchestrator/startup/navigation, `InitializationCoordinator` resume rejections are explicit without widening the fatal startup path, `NavigationCoordinator` throttles to at most one toast plus one diagnostics callback per failure, `AppContainerFactory` keeps the inline hidden baseline while shell presentation tokens moved to `shell.css`, and `now-playing-info/styles.css` is now a 111-line import barrel with motion/theme partials); reran the scoped `P10-W4` regression suites plus `npm run verify`, `npm run verify:docs`, and `npm run plans:check`, and recorded direct current-source proof for the frozen-scan `AppLifecycle`/detector-lag rows after a mid-cycle `desloppify scan --path .` was correctly refused without `--force-rescan`
   - `2026-04-15`: completed `P10-W5` channel-setup residual cleanup (shared session contracts now route through `ChannelSetupSessionContracts.ts`, Step 2 interaction ownership moved into `StrategyStepInteractionController`, `BuildProgressStepController` no longer logs build failures via `console.error`, and `styles.css` is now a 4-line import barrel with stable partial ownership); reran the exact `P10-W5` source-audit matrix, focused channel-setup/tag-filter suites, `npm run verify`, `npm run verify:docs`, and `npm run plans:check`, and recorded which frozen detector rows are stale current-source wording versus live fixes
   - `2026-04-16`: completed `P10-W7` scheduler residual cleanup (content-source validation now dispatches by explicit type without changing `isValidContentSource()` behavior, one package-local `stripLegacySequentialVariant()` helper now owns legacy-field stripping across codec/repository/manager, direct helper coverage was added, and the forced `desloppify` rescan + current-source audit retired the stale carried-forward scheduler smell ids with explicit proof); reran the focused scheduler suites, `npm run verify`, `npm run verify:docs`, and `npm run plans:check`, confirmed `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150` returns `No open issues matching`, and recorded that the same forced rescan reopened one out-of-slice Plex smell for `P10-EXIT` reconciliation instead of opening a new slice
+  - `2026-04-16`: refreshed `P10-EXIT` post-`P10-W7` evidence on the integration branch; documented that `desloppify status` / `desloppify plan queue` reflect the live subjective queue, `desloppify next` shows a focused one-item local slice before restating the full queue, `desloppify plan` includes planned/backlog inventory, and `desloppify plan commit-log` tracks commit attribution rather than open debt; current-source audit classified `smells::src/modules/plex/library/mediaItemParser.ts::high_cyclomatic_complexity` as stale current-source residue and `test_coverage::src/modules/scheduler/channel-manager/stripLegacySequentialVariant.ts::transitive_only` as bookkeeping drift only, so `P10-EXIT` remains blocked only on the required priority-exit review instead of a new cleanup slice
 
 ## Goal
 
@@ -1928,7 +1929,7 @@ This is the exact owned follow-up from the `P10-W3` split for the remaining sche
 
 ### [ ] `P10-EXIT` Overall Closeout Gate
 
-`P10-W7` is now complete, so `P10-EXIT` is the next safe step. The forced `2026-04-16T05:46:10+00:00` rescan cleared the scheduler area but also reopened one out-of-slice Plex row (`smells::src/modules/plex/library/mediaItemParser.ts::high_cyclomatic_complexity`), so exit review must reconcile that reopened residual before the wave can close.
+`P10-W7` is now complete, so `P10-EXIT` is the next safe step. The forced `2026-04-16T05:46:10+00:00` rescan cleared the scheduler area and refreshed the final queue surfaces; the remaining task is to carry the refreshed evidence through the required priority-exit review. No new cleanup slice is warranted unless that review or a fresh source audit disproves the stale-residue classifications recorded below.
 
 Do not treat the cleanup wave as complete until all of the following are true on the target integration branch:
 
@@ -1944,16 +1945,26 @@ Do not treat the cleanup wave as complete until all of the following are true on
 - any surviving `stale_exclude` warnings are explicitly accepted as approved local-state excludes and do not obscure repo-source debt
 - any `dist-ts/` decision has been applied consistently to scan scope, documentation, and the final evidence snapshot
 - this checklist has been updated in the same pass with the final score, residual debt, and archive/supersession notes
-- Status: planned
+- Status: blocked
 - Plan: `docs/plans/2026-04-15-p10-exit-overall-closeout-gate.md`
 - Last touched: `2026-04-16`
 - Verification:
-  - `desloppify status`, `desloppify next --count 20`, `desloppify plan queue`, and `desloppify plan` on the baseline `2026-04-15T22:07:55+00:00` scan and refreshed persisted `2026-04-15T22:24:08+00:00` scan confirmed the imported-review queue mismatch is reconciled but live mechanical backlog remains (`353 open`, queue `1 item (29 planned · 3 stale tracked · 1 subjective)`, backlog still present in `desloppify plan`)
-  - `P10-W6` is complete on the pre-`P10-W7` area drill, but the forced `2026-04-16T05:46:10+00:00` rescan reopened `smells::src/modules/plex/library/mediaItemParser.ts::high_cyclomatic_complexity`; `P10-EXIT` now owns reconciling whether that row is stale detector state or a true live blocker
-  - `P10-W7` is complete: `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150` now returns `No open issues matching: src/modules/scheduler/channel-manager`
-  - `desloppify show review --status open --no-budget --top 150` still returns no open review issues
-- Follow-ups: `priority-exit review must disposition the reopened Plex row before wave closeout`
-- Handoff: `run lineup-cleanup-review for P10-W7 first, then execute P10-EXIT as the next and only cleanup target`
+  - queue-surface reconciliation on the forced-rescan baseline is now explicit instead of contradictory:
+    - `desloppify status` reports last scan `2026-04-16T05:46:10+00:00`, `overall 83.2 / objective 94.9 / strict 83.1 / verified 94.2`, `351 open`, and `Queue: 6 items (16 planned · 11 stale tracked · 6 subjective)`
+    - `desloppify next` under the active `auto/logs` focus prints `Queue: 1 item` for the focused local slice, then restates the full live queue as `Queue: 6 items (16 planned · 11 stale tracked · 6 subjective)`
+    - `desloppify plan queue` reports the same live queue (`Queue: 6 items`) while showing the broader living-plan inventory (`27 planned · 6 subjective`)
+    - `desloppify plan` is not a live-queue surface; it lists `27` planned items plus `282` backlog rows
+    - `desloppify plan commit-log` is not an open-debt surface; it tracks commit attribution and currently reports `1` resolved issue as uncommitted
+  - queue-adjacent blocker checks are clean enough for closeout review:
+    - `desloppify show review --status open --no-budget --top 100` returns `No open issues matching: review`
+    - `desloppify show security --status open --no-budget --top 50` shows only three existing T3 cycle rows (`OrchestratorCoordinatorBuilders`, `ChannelSetupSessionController`, `NowPlayingInfoCoordinator`); no open `P0` security blocker appears
+    - `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150` returns `No open issues matching: src/modules/scheduler/channel-manager`
+  - late residual classifications are now source-audit backed:
+    - `desloppify show src/modules/plex/library --status open --no-budget --top 150` and `desloppify show src/modules/plex/library/mediaItemParser.ts --status open --no-budget --top 100` report only `smells::src/modules/plex/library/mediaItemParser.ts::high_cyclomatic_complexity` as a reopened row
+    - `npx eslint src/modules/plex/library/mediaItemParser.ts --rule 'complexity:[2,15]'` exited `0`, `src/modules/plex/library/__tests__/mediaItemParser.test.ts` remains present, and `npm test -- --runInBand src/modules/plex/library/__tests__/mediaItemParser.test.ts src/modules/scheduler/channel-manager/__tests__/stripLegacySequentialVariant.test.ts` passed; classify the Plex row as stale current-source residue unless a later source audit disproves it
+    - `desloppify show "test_coverage::src/modules/scheduler/channel-manager/stripLegacySequentialVariant.ts::transitive_only" --status open --no-budget --top 20` returns `No open issues matching`, `git diff -- src/modules/scheduler/channel-manager/stripLegacySequentialVariant.ts src/modules/scheduler/channel-manager/__tests__/stripLegacySequentialVariant.test.ts` is empty, and the same targeted Jest run passed; classify the remaining `desloppify plan commit-log` entry for that issue as bookkeeping drift only
+- Follow-ups: `run the required priority-exit review against P10-W6, P10-W7, and this refreshed P10-EXIT record; only open a new cleanup slice if that review or a fresh source audit disproves the stale-residue classifications above`
+- Handoff: `run lineup-cleanup-review against the completed P10-W6/P10-W7 artifacts plus this refreshed P10-EXIT evidence; if review accepts the queue-surface semantics and residual classifications, close P10-EXIT without creating a new cleanup slice`
 
 ## Imported Review Issue Map By Priority
 
