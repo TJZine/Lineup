@@ -3,6 +3,7 @@ import {
     observeRecoverableAsyncFailure,
     safelyReportCleanupFailures,
 } from '../OrchestratorRecoverableRuntimeReporter';
+import type { OrchestratorEventCleanupFailure } from '../OrchestratorEventCleanupReporter';
 
 describe('OrchestratorRecoverableRuntimeReporter', () => {
     it('swallows appendIssueDiagnostic failures and falls back to console.error', () => {
@@ -134,13 +135,17 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
     });
 
     it('swallows cleanup reporter failures', () => {
+        const failures: OrchestratorEventCleanupFailure[] = [
+            { step: 'event-wiring.cleanup', error: { message: 'boom' } },
+        ];
+        const cleanupReporter = jest.fn(() => {
+            throw new Error('cleanup failed');
+        });
+
         expect(() => {
-            safelyReportCleanupFailures(
-                () => {
-                    throw new Error('cleanup failed');
-                },
-                [{ step: 'event-wiring.cleanup', error: { message: 'boom' } }]
-            );
+            safelyReportCleanupFailures(cleanupReporter, failures);
         }).not.toThrow();
+
+        expect(cleanupReporter).toHaveBeenCalledWith(failures);
     });
 });
