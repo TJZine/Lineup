@@ -16,6 +16,15 @@ interface HdrStreamLike {
     doviProfile?: string | null;
 }
 
+type NormalizedHdrFields = {
+    title: string;
+    displayTitle: string;
+    extendedDisplayTitle: string;
+    hdr: string;
+    dynamicRange: string;
+    colorTrc: string;
+};
+
 export function extractHdrLabelFromPlexMedia(
     item: { media?: Array<{ parts?: Array<{ streams?: HdrStreamLike[] }> }> } | null | undefined
 ): string | undefined {
@@ -31,23 +40,56 @@ export function extractHdrLabelFromPlexMedia(
 }
 
 export function detectHdrLabel(stream?: HdrStreamLike | null): string | undefined {
-    if (!stream) return undefined;
-    const normalizedTitle = stream.title?.toLowerCase() ?? '';
-    const normalizedDisplay = stream.displayTitle?.toLowerCase() ?? '';
-    const normalizedExtended = stream.extendedDisplayTitle?.toLowerCase() ?? '';
-    const normalizedHdr = stream.hdr?.toLowerCase() ?? '';
-    const normalizedRange = stream.dynamicRange?.toLowerCase() ?? '';
-    const normalizedColorTrc = stream.colorTrc?.toLowerCase() ?? '';
-    const combined = `${normalizedTitle} ${normalizedDisplay} ${normalizedExtended} ${normalizedHdr} ${normalizedRange}`.trim();
+    if (!stream) {
+        return undefined;
+    }
 
-    const doviPresent = stream.doviPresent === true
-        || (typeof stream.doviProfile === 'string' && stream.doviProfile.length > 0)
-        || combined.includes('dolby vision')
-        || combined.includes('dovi');
+    const hdrFields = normalizeHdrFields(stream);
+    const combined = [
+        hdrFields.title,
+        hdrFields.displayTitle,
+        hdrFields.extendedDisplayTitle,
+        hdrFields.hdr,
+        hdrFields.dynamicRange,
+    ]
+        .join(' ')
+        .trim();
 
-    if (doviPresent) return 'Dolby Vision';
-    if (combined.includes('hdr10+') || normalizedHdr.includes('hdr10+')) return 'HDR10+';
-    if (combined.includes('hdr10') || normalizedColorTrc === 'smpte2084') return 'HDR10';
-    if (combined.includes('hlg') || normalizedColorTrc === 'arib-std-b67') return 'HLG';
+    if (isDolbyVisionStream(stream, combined)) {
+        return 'Dolby Vision';
+    }
+
+    if (combined.includes('hdr10+') || hdrFields.hdr.includes('hdr10+')) {
+        return 'HDR10+';
+    }
+
+    if (combined.includes('hdr10') || hdrFields.colorTrc === 'smpte2084') {
+        return 'HDR10';
+    }
+
+    if (combined.includes('hlg') || hdrFields.colorTrc === 'arib-std-b67') {
+        return 'HLG';
+    }
+
     return undefined;
+}
+
+function normalizeHdrFields(stream: HdrStreamLike): NormalizedHdrFields {
+    return {
+        title: stream.title?.toLowerCase() ?? '',
+        displayTitle: stream.displayTitle?.toLowerCase() ?? '',
+        extendedDisplayTitle: stream.extendedDisplayTitle?.toLowerCase() ?? '',
+        hdr: stream.hdr?.toLowerCase() ?? '',
+        dynamicRange: stream.dynamicRange?.toLowerCase() ?? '',
+        colorTrc: stream.colorTrc?.toLowerCase() ?? '',
+    };
+}
+
+function isDolbyVisionStream(stream: HdrStreamLike, combined: string): boolean {
+    return (
+        stream.doviPresent === true ||
+        (typeof stream.doviProfile === 'string' && stream.doviProfile.length > 0) ||
+        combined.includes('dolby vision') ||
+        combined.includes('dovi')
+    );
 }

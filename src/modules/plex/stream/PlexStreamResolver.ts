@@ -43,6 +43,7 @@ import {
     buildPlexMetadataPath,
     ensurePlexClientProfileName,
 } from './plexStreamUrlPolicy';
+import { logPlexWarning } from '../shared/plexLogging';
 
 // Re-export types for consumers
 export { PlexStreamErrorCode } from './types';
@@ -124,7 +125,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     private _logSubtitleDebug(event: string, context: Record<string, unknown>): void {
         if (!this._isSubtitleDebugEnabled()) return;
         try {
-            console.warn('subtitle-debug:', event, safeStringifyForLog(context));
+            logPlexWarning('subtitle-debug:', event, safeStringifyForLog(context));
         } catch {
             // Ignore logging failures.
         }
@@ -446,7 +447,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
         if (debugEnabled) {
             if (pipeline.hdrFallbackReason) {
-                console.warn('[PlexStreamResolver] HDR10 fallback applied:', {
+                logPlexWarning('[PlexStreamResolver] HDR10 fallback applied:', {
                     itemKey: request.itemKey,
                     reason: pipeline.hdrFallbackReason,
                     container: media.container,
@@ -454,7 +455,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 });
             }
             if (pipeline.forceHlsForDvNoHdr10BaseLayer) {
-                console.warn('[PlexStreamResolver] HDR10 base-layer fallback forced:', {
+                logPlexWarning('[PlexStreamResolver] HDR10 base-layer fallback forced:', {
                     itemKey: request.itemKey,
                     reason: 'dv_profile_no_hdr10_base_layer',
                     container: media.container,
@@ -467,7 +468,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         if (debugEnabled) {
-            console.warn('[PlexStreamResolver] Stream decision:', {
+            logPlexWarning('[PlexStreamResolver] Stream decision:', {
                 itemKey: request.itemKey,
                 mode: decision.isTranscoding ? 'transcode' : 'direct_play',
                 protocol: decision.protocol,
@@ -485,7 +486,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                     decision.transcodeRequest
                 );
             } catch (error) {
-                console.warn('[PlexStreamResolver] PMS universal decision fetch failed:', {
+                logPlexWarning('[PlexStreamResolver] PMS universal decision fetch failed:', {
                     itemKey: request.itemKey,
                     sessionId: decision.transcodeRequest.sessionId,
                     error: summarizeErrorForLog(error),
@@ -520,7 +521,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             });
             this._throwIfAuthFailure(response);
         } catch (error) {
-            console.warn('[PlexStreamResolver] stopTranscodeSession failed:', {
+            logPlexWarning('[PlexStreamResolver] stopTranscodeSession failed:', {
                 sessionId: trimmedSessionId,
                 error: summarizeErrorForLog(error),
             });
@@ -738,7 +739,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             if (debugUrl.searchParams.has('X-Plex-Token')) {
                 applyXPlexTokenQueryParam(debugUrl.searchParams, 'REDACTED');
             }
-            console.warn(
+            logPlexWarning(
                 `[PlexStreamResolver] Transcode URL (compat=${compatMode ? '1' : '0'}):`,
                 debugUrl.toString()
             );
@@ -1069,7 +1070,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             try {
                 const url = new URL(relayConn.uri);
                 if (url.protocol === 'https:') {
-                    console.warn('Using Plex relay due to mixed content restrictions');
+                    logPlexWarning('Using Plex relay due to mixed content restrictions');
                     return url.origin;
                 }
             } catch {

@@ -53,6 +53,7 @@ import {
     classifyPlexUrlOrigin,
     buildPlexUrlFromKey,
 } from '../shared/plexUrl';
+import { createPlexConsoleLogger } from '../shared/plexLogging';
 
 // ============================================
 // Error Class
@@ -130,10 +131,7 @@ export class PlexLibrary implements IPlexLibrary {
      */
     constructor(config: PlexLibraryConfig) {
         this._config = config;
-        this._logger = config.logger ?? {
-            warn: console.warn.bind(console),
-            error: console.error.bind(console),
-        };
+        this._logger = config.logger ?? createPlexConsoleLogger();
         this._emitter = new EventEmitter<PlexLibraryEvents>();
         this._state = {
             libraryCache: new Map(),
