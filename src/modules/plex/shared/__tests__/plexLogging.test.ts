@@ -14,6 +14,25 @@ describe('plexLogging', () => {
         warnSpy.mockRestore();
     });
 
+    it('redacts token-bearing fields even when their values are non-string objects', () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const logger = createPlexConsoleLogger();
+
+        logger.warn('safe', {
+            authToken: { raw: 'secret-token' },
+            refreshTokenList: ['a', 'b'],
+        });
+
+        expect(warnSpy).toHaveBeenCalledWith(
+            'safe',
+            expect.objectContaining({
+                authToken: 'REDACTED',
+                refreshTokenList: 'REDACTED',
+            })
+        );
+        warnSpy.mockRestore();
+    });
+
     it('summarizes errors before writing error logs', () => {
         const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
         const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);

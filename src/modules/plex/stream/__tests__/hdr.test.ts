@@ -18,4 +18,12 @@ describe('hdr helpers', () => {
             })
         ).toBe('HDR10');
     });
+
+    it('trims incidental whitespace before comparing HDR metadata', () => {
+        expect(
+            detectHdrLabel({
+                colorTrc: ' smpte2084 ',
+            })
+        ).toBe('HDR10');
+    });
 });

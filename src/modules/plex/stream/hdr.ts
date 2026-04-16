@@ -98,7 +98,7 @@ function detectNonDolbyVisionHdrLabel(hdrFields: NormalizedHdrFields): string | 
 }
 
 function normalizeHdrValue(value: string | null | undefined): string {
-    return typeof value === 'string' ? value.toLowerCase() : '';
+    return typeof value === 'string' ? value.trim().toLowerCase() : '';
 }
 
 function matchesHdr10Plus(hdrFields: NormalizedHdrFields): boolean {

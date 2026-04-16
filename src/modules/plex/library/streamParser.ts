@@ -2,6 +2,7 @@ import type { PlexStream, RawStream } from './types';
 
 const VALID_STREAM_TYPES = new Set([1, 2, 3]);
 const TRUE_VALUES = new Set(['1', 'true', 'yes']);
+const FALSE_VALUES = new Set(['0', 'false', 'no']);
 
 export function parseStream(data: RawStream): PlexStream {
     const stream: PlexStream = {
@@ -74,7 +75,14 @@ function normalizeOptionalBoolean(value: unknown): boolean | undefined {
     }
 
     if (typeof value === 'string') {
-        return TRUE_VALUES.has(value.trim().toLowerCase());
+        const normalized = value.trim().toLowerCase();
+        if (TRUE_VALUES.has(normalized)) {
+            return true;
+        }
+        if (FALSE_VALUES.has(normalized)) {
+            return false;
+        }
+        return undefined;
     }
 
     return undefined;

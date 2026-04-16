@@ -6,11 +6,9 @@ const SWITCH_TOKEN_KEYS = ['authToken', 'authenticationToken', 'token'] as const
 type SwitchPayloadResult = { authToken: string };
 
 export function parseSwitchPayloadData(payload: unknown): SwitchPayloadResult {
-    if (payload && typeof payload === 'object') {
-        const direct = findSwitchToken(payload as Record<string, unknown>);
-        if (direct) {
-            return { authToken: direct };
-        }
+    const token = findSwitchTokenInPayload(payload, new WeakSet<object>());
+    if (token) {
+        return { authToken: token };
     }
 
     if (typeof payload === 'string') {
@@ -137,6 +135,77 @@ function findSwitchToken(record: Record<string, unknown>): string | null {
         if (trimmed.length > 0) {
             return trimmed;
         }
+    }
+
+    return null;
+}
+
+function findSwitchTokenInPayload(
+    payload: unknown,
+    seen: WeakSet<object>
+): string | null {
+    if (!payload) {
+        return null;
+    }
+
+    if (typeof payload === 'string') {
+        return findSwitchTokenInStructuredString(payload, seen);
+    }
+
+    if (Array.isArray(payload)) {
+        for (const entry of payload) {
+            const token = findSwitchTokenInPayload(entry, seen);
+            if (token) {
+                return token;
+            }
+        }
+        return null;
+    }
+
+    if (typeof payload !== 'object') {
+        return null;
+    }
+
+    if (seen.has(payload)) {
+        return null;
+    }
+    seen.add(payload);
+
+    const record = payload as Record<string, unknown>;
+    const direct = findSwitchToken(record);
+    if (direct) {
+        return direct;
+    }
+
+    for (const value of Object.values(record)) {
+        const nested = findSwitchTokenInPayload(value, seen);
+        if (nested) {
+            return nested;
+        }
+    }
+
+    return null;
+}
+
+function findSwitchTokenInStructuredString(
+    payload: string,
+    seen: WeakSet<object>
+): string | null {
+    const text = payload.trim();
+    if (!text) {
+        return null;
+    }
+
+    if (text.startsWith('{') || text.startsWith('[')) {
+        try {
+            return findSwitchTokenInPayload(JSON.parse(text), seen);
+        } catch {
+            return null;
+        }
+    }
+
+    if (text.startsWith('<')) {
+        return parseSwitchTokenXml(text);
     }
 
     return null;

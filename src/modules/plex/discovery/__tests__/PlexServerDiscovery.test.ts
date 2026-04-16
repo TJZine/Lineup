@@ -1646,7 +1646,7 @@ describe('PlexServerDiscovery', () => {
                 expect(server.connections[0]?.uri).toBe('https://clean:32400');
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
                     'Skipping invalid Plex connection URI:',
-                    'https://user:pass@server:32400'
+                    'https://REDACTED@server:32400'
                 );
             } finally {
                 consoleWarnSpy.mockRestore();

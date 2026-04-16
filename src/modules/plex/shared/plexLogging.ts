@@ -80,7 +80,7 @@ function sanitizePlexLogField(
     value: unknown,
     seen: WeakSet<object>
 ): unknown {
-    if (typeof value === 'string' && key.toLowerCase().includes('token')) {
+    if (key.toLowerCase().includes('token')) {
         return 'REDACTED';
     }
 

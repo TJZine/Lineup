@@ -123,18 +123,20 @@ function appendContainerCompatibilityReasons(
     container: string,
     userAgent?: string | null
 ): void {
-    if (!SUPPORTED_CONTAINERS.includes(container)) {
-        reasons.push(`unsupported_container:${container}`);
+    const normalizedContainer = container.trim().toLowerCase();
+    if (!SUPPORTED_CONTAINERS.includes(normalizedContainer)) {
+        reasons.push(`unsupported_container:${normalizedContainer}`);
     }
 
-    if (container === 'mkv' && isLegacyWebOsUserAgent(userAgent)) {
+    if (normalizedContainer === 'mkv' && isLegacyWebOsUserAgent(userAgent)) {
         reasons.push('mkv_legacy_webos');
     }
 }
 
 function appendVideoCompatibilityReasons(reasons: string[], videoCodec: string): void {
-    if (!SUPPORTED_VIDEO_CODECS.includes(videoCodec)) {
-        reasons.push(`unsupported_video_codec:${videoCodec}`);
+    const normalizedVideoCodec = videoCodec.trim().toLowerCase();
+    if (!SUPPORTED_VIDEO_CODECS.includes(normalizedVideoCodec)) {
+        reasons.push(`unsupported_video_codec:${normalizedVideoCodec}`);
     }
 }
 

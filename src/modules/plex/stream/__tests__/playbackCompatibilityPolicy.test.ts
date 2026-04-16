@@ -110,6 +110,18 @@ describe('playbackCompatibilityPolicy', () => {
             expect(decision.reasons).toContain('unsupported_container:avi');
         });
 
+        it('normalizes container and video codec casing before compatibility checks', () => {
+            const decision = getDirectPlayDecision({
+                media: createPolicyMedia({ container: ' MKV ', videoCodec: ' H264 ' }),
+                dtsPassthroughEnabled: true,
+                userAgent:
+                    'Mozilla/5.0 (Web0S) AppleWebKit/537.36 Chrome/108.0.0.0 Safari/537.36',
+            });
+
+            expect(decision.canDirect).toBe(true);
+            expect(decision.reasons).toEqual([]);
+        });
+
         it('blocks TrueHD audio by default', () => {
             const decision = getDirectPlayDecision({
                 media: createPolicyMedia({ audioCodec: 'truehd' }),

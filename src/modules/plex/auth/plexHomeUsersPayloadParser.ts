@@ -122,7 +122,17 @@ function isStructurallyValidXml(payload: string): boolean {
 }
 
 function parseHomeUsersXmlFallback(payload: string): PlexHomeUser[] {
-    const matches = payload.match(/<(?:User|HomeUser|user|homeUser)\b[^>]*>/g) ?? [];
+    const matches: string[] = [];
+    const tagRegex = /<([:\w-]+)\b[^>]*>/g;
+    let match: RegExpExecArray | null = null;
+
+    while ((match = tagRegex.exec(payload)) !== null) {
+        const raw = match[0];
+        const tagName = match[1];
+        if (tagName && isHomeUserXmlTag(tagName)) {
+            matches.push(raw);
+        }
+    }
 
     return dedupeHomeUsersById(
         matches
@@ -286,14 +296,11 @@ function getRecordValue(record: Record<string, unknown>, keys: readonly string[]
 }
 
 function getXmlUserNodes(doc: Document): Element[] {
-    const names = ['User', 'HomeUser', 'user', 'homeUser'];
-    const nodes: Element[] = [];
+    return Array.from(doc.getElementsByTagName('*')).filter((node) => isHomeUserXmlTag(node.tagName));
+}
 
-    for (const name of names) {
-        nodes.push(...Array.from(doc.getElementsByTagName(name)));
-    }
-
-    return nodes;
+function isHomeUserXmlTag(tagName: string): boolean {
+    return HOME_USER_CONTAINER_KEYS.has(tagName.trim().toLowerCase());
 }
 
 function readXmlNodeAttributes(node: Element): Record<string, unknown> {
