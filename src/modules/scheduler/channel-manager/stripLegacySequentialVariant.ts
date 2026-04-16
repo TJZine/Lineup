@@ -1,5 +1,5 @@
 type StrippedLegacySequentialVariant<T> =
-    T extends (...args: any[]) => unknown ? T :
+    T extends (...args: never[]) => unknown ? T :
     T extends readonly unknown[] ? T :
     T extends object ? Omit<T, 'isSequentialVariant'> : T;
 
