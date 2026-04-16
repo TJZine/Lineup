@@ -402,6 +402,7 @@ describe('ChannelSetupScreen', () => {
         nav.setMockFocus('setup-category-content-sources');
         const firstTransfer = nav.emitKeyPress('right');
         expect(firstTransfer.handled).toBe(true);
+        expect(firstTransfer.originalEvent.preventDefault).toHaveBeenCalled();
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-strategy-collections');
 
         clickButton(container, '#setup-strategy-playlists');
@@ -411,6 +412,7 @@ describe('ChannelSetupScreen', () => {
         nav.setMockFocus('setup-category-content-sources');
         const rememberedTransfer = nav.emitKeyPress('right');
         expect(rememberedTransfer.handled).toBe(true);
+        expect(rememberedTransfer.originalEvent.preventDefault).toHaveBeenCalled();
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-strategy-playlists');
     });
 
@@ -434,6 +436,7 @@ describe('ChannelSetupScreen', () => {
         nav.setMockFocus('setup-category-build-options');
         const transfer = nav.emitKeyPress('right');
         expect(transfer.handled).toBe(true);
+        expect(transfer.originalEvent.preventDefault).toHaveBeenCalled();
         expect(container.querySelector('#setup-build-mode')).not.toBeNull();
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-build-mode');
     });
@@ -468,6 +471,7 @@ describe('ChannelSetupScreen', () => {
         nav.setMockFocus('setup-category-series-ordering');
         const transfer = nav.emitKeyPress('right');
         expect(transfer.handled).toBe(true);
+        expect(transfer.originalEvent.preventDefault).toHaveBeenCalled();
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-series-base-mode');
     });
 
@@ -489,6 +493,7 @@ describe('ChannelSetupScreen', () => {
         nav.setMockFocus('setup-strategy-collections');
         const event = nav.emitKeyPress('left');
         expect(event.handled).toBe(true);
+        expect(event.originalEvent.preventDefault).toHaveBeenCalled();
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-category-content-sources');
     });
 
@@ -1723,6 +1728,7 @@ describe('ChannelSetupScreen', () => {
 
         const left = nav.emitKeyPress('left');
         expect(left.handled).toBe(true);
+        expect(left.originalEvent.preventDefault).toHaveBeenCalled();
         expect(
             (container.querySelector('#setup-priority-row-playlists') as HTMLButtonElement | null)?.classList.contains(
                 'setup-priority-row--grabbed'
@@ -1732,6 +1738,7 @@ describe('ChannelSetupScreen', () => {
         nav.setMockFocus('setup-category-priority-order');
         const right = nav.emitKeyPress('right');
         expect(right.handled).toBe(true);
+        expect(right.originalEvent.preventDefault).toHaveBeenCalled();
 
         nav.setMockFocus('setup-priority-row-playlists');
         const moveWithoutGrab = nav.emitKeyPress('down');
@@ -1949,6 +1956,79 @@ describe('ChannelSetupScreen', () => {
             container.querySelectorAll<HTMLButtonElement>('[id^="setup-priority-row-"]')
         ).map((row) => row.id.replace('setup-priority-row-', ''));
         expect(afterOrder).toEqual(beforeOrder);
+    });
+
+    it('clears grabbed priority state when leaving Step 2 with Back and returning', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+        clickButton(container, '#setup-category-priority-order');
+
+        nav.setMockFocus('setup-priority-row-playlists');
+        const grab = nav.emitKeyPress('ok');
+        expect(grab.handled).toBe(true);
+
+        clickButton(container, '#setup-back');
+        await flushPromises();
+        await enterStep2(container);
+        clickButton(container, '#setup-category-priority-order');
+        nav.setMockFocus('setup-priority-row-playlists');
+
+        expect(
+            (container.querySelector('#setup-priority-row-playlists') as HTMLButtonElement | null)?.classList.contains(
+                'setup-priority-row--grabbed'
+            )
+        ).toBe(false);
+        expect(nav.emitKeyPress('down').handled).toBeFalsy();
+    });
+
+    it('clears grabbed priority state when leaving Step 2 with Next and returning', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
+            getSelectedServerId: jest.fn(() => null),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+        clickButton(container, '#setup-category-priority-order');
+
+        nav.setMockFocus('setup-priority-row-playlists');
+        const grab = nav.emitKeyPress('ok');
+        expect(grab.handled).toBe(true);
+
+        clickButton(container, '#setup-next');
+        await flushPromises();
+        clickButton(container, '#setup-back');
+        await flushPromises();
+
+        clickButton(container, '#setup-category-priority-order');
+        nav.setMockFocus('setup-priority-row-playlists');
+
+        expect(
+            (container.querySelector('#setup-priority-row-playlists') as HTMLButtonElement | null)?.classList.contains(
+                'setup-priority-row--grabbed'
+            )
+        ).toBe(false);
+        expect(nav.emitKeyPress('down').handled).toBeFalsy();
     });
 
     it('applies Expand Lineup values only after successful build completion', async () => {

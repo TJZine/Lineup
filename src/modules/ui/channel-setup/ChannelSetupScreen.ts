@@ -130,6 +130,12 @@ export class ChannelSetupScreen {
         el?.setAttribute('aria-grabbed', grabbed ? 'true' : 'false');
     }
 
+    private _clearStrategyStepTransientState(): void {
+        this._strategyInteraction.clearTransientState((strategy, grabbed) => {
+            this._setPriorityRowGrabbedVisual(strategy, grabbed);
+        });
+    }
+
     private _formatCount(value: number): string {
         try {
             return new Intl.NumberFormat().format(value);
@@ -528,10 +534,12 @@ export class ChannelSetupScreen {
                 this._strategyInteraction.openAdjustableControl(controlId, strategyInteraction);
             },
             onBack: () => {
+                this._clearStrategyStepTransientState();
                 this._session.setStep(1);
                 this._renderStep();
             },
             onNext: () => {
+                this._clearStrategyStepTransientState();
                 this._session.setStep(3);
                 this._renderStep();
             },

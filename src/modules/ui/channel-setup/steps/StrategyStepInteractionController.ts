@@ -88,6 +88,13 @@ export class StrategyStepInteractionController {
         return this._grabbedPriorityKey;
     }
 
+    clearTransientState(
+        setPriorityRowGrabbedVisual: (strategy: SetupStrategyKey | null, grabbed: boolean) => void
+    ): void {
+        this._lastReorder = null;
+        this._clearGrabbedPriority(setPriorityRowGrabbedVisual);
+    }
+
     categoryButtonId(category: StrategyCategoryKey): string {
         return `setup-category-${category}`;
     }
@@ -341,6 +348,7 @@ export class StrategyStepInteractionController {
             const target = this._resolveDetailFocusTarget(focusedCategory, detailIds, session);
             if (target) {
                 event.handled = true;
+                event.originalEvent.preventDefault();
                 adapters.setPreferredFocusId(target);
                 this._rememberedDetailFocusByCategory[focusedCategory] = target;
                 adapters.renderStep();
@@ -350,6 +358,7 @@ export class StrategyStepInteractionController {
 
         if (direction === 'left' && activeDetailIds.includes(focusedId)) {
             event.handled = true;
+            event.originalEvent.preventDefault();
             this._clearGrabbedPriority(adapters.setPriorityRowGrabbedVisual);
             adapters.setPreferredFocusId(activeCategoryButtonId);
             nav.setFocus(activeCategoryButtonId);
