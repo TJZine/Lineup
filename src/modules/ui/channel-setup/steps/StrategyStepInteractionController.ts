@@ -84,6 +84,10 @@ export class StrategyStepInteractionController {
         return this._lastReorder;
     }
 
+    getGrabbedPriorityKey(): SetupStrategyKey | null {
+        return this._grabbedPriorityKey;
+    }
+
     categoryButtonId(category: StrategyCategoryKey): string {
         return `setup-category-${category}`;
     }

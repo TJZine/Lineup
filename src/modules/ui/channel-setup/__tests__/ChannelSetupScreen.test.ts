@@ -1771,6 +1771,54 @@ describe('ChannelSetupScreen', () => {
         expect(lastFocused).toBe('setup-category-priority-order');
     });
 
+    it('preserves grabbed priority visuals across click-triggered and preview-triggered rerenders', async () => {
+        jest.useFakeTimers();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const nav = createNavigationMock();
+        const getSetupPreview = jest.fn().mockResolvedValue(DEFAULT_PREVIEW);
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+            getSetupPreview,
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-priority-order');
+        nav.setMockFocus('setup-priority-row-playlists');
+
+        const grab = nav.emitKeyPress('ok');
+        expect(grab.handled).toBe(true);
+        expect(
+            (container.querySelector('#setup-priority-row-playlists') as HTMLButtonElement | null)?.classList.contains(
+                'setup-priority-row--grabbed'
+            )
+        ).toBe(true);
+
+        clickButton(container, '#setup-priority-row-playlists');
+        expect(
+            (container.querySelector('#setup-priority-row-playlists') as HTMLButtonElement | null)?.classList.contains(
+                'setup-priority-row--grabbed'
+            )
+        ).toBe(true);
+
+        jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
+        await flushPromises();
+
+        expect(getSetupPreview).toHaveBeenCalled();
+        expect(
+            (container.querySelector('#setup-priority-row-playlists') as HTMLButtonElement | null)?.classList.contains(
+                'setup-priority-row--grabbed'
+            )
+        ).toBe(true);
+    });
+
     it('renders strategy toggles and priority rows for every setup strategy key with no extras', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);

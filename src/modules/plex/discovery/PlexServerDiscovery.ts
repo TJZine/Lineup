@@ -701,7 +701,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             if (!normalizedUri) {
                 logPlexWarning(
                     'Skipping invalid Plex connection URI:',
-                    this._redactConnectionUriForLog(conn.uri)
+                    this._redactUrl(conn.uri)
                 );
                 continue;
             }
@@ -740,10 +740,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         } catch {
             return null;
         }
-    }
-
-    private _redactConnectionUriForLog(uri: string): string {
-        return uri.replace(/\/\/([^/@]+)@/, '//REDACTED@');
     }
 
     private _findServerById(serverId: string): PlexServer | undefined {

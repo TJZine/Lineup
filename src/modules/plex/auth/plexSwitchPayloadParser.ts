@@ -148,10 +148,6 @@ function findSwitchTokenInPayload(
         return null;
     }
 
-    if (typeof payload === 'string') {
-        return findSwitchTokenInStructuredString(payload, seen);
-    }
-
     if (Array.isArray(payload)) {
         for (const entry of payload) {
             const token = findSwitchTokenInPayload(entry, seen);
@@ -182,30 +178,6 @@ function findSwitchTokenInPayload(
         if (nested) {
             return nested;
         }
-    }
-
-    return null;
-}
-
-function findSwitchTokenInStructuredString(
-    payload: string,
-    seen: WeakSet<object>
-): string | null {
-    const text = payload.trim();
-    if (!text) {
-        return null;
-    }
-
-    if (text.startsWith('{') || text.startsWith('[')) {
-        try {
-            return findSwitchTokenInPayload(JSON.parse(text), seen);
-        } catch {
-            return null;
-        }
-    }
-
-    if (text.startsWith('<')) {
-        return parseSwitchTokenXml(text);
     }
 
     return null;

@@ -549,6 +549,7 @@ export class ChannelSetupScreen {
                 : '',
             schedulePreview: () => strategyInteraction.schedulePreview(),
         });
+        this._setPriorityRowGrabbedVisual(this._strategyInteraction.getGrabbedPriorityKey(), true);
     }
 
     private _openStep2Dropdown(config: StrategyStepDropdownConfig): void {

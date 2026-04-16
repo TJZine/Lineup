@@ -146,6 +146,7 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
             safelyReportCleanupFailures(cleanupReporter, failures);
         }).not.toThrow();
 
+        expect(cleanupReporter).toHaveBeenCalledTimes(1);
         expect(cleanupReporter).toHaveBeenCalledWith(failures);
     });
 });

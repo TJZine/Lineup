@@ -1646,7 +1646,59 @@ describe('PlexServerDiscovery', () => {
                 expect(server.connections[0]?.uri).toBe('https://clean:32400');
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
                     'Skipping invalid Plex connection URI:',
-                    'https://REDACTED@server:32400'
+                    'https://server:32400/'
+                );
+            } finally {
+                consoleWarnSpy.mockRestore();
+            }
+        });
+
+        it('redacts sensitive fragments when logging invalid credentialed connection URIs', async () => {
+            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+            try {
+                const mockServers = [
+                    {
+                        clientIdentifier: 'srv1',
+                        name: 'Test Server',
+                        sourceTitle: 'testuser',
+                        ownerId: 'owner1',
+                        owned: true,
+                        provides: 'server',
+                        connections: [
+                            {
+                                uri: 'https://user:pass@server:32400/#token=secret',
+                                protocol: 'https',
+                                address: 'server',
+                                port: 32400,
+                                local: false,
+                                relay: false,
+                            },
+                            {
+                                uri: 'https://clean:32400',
+                                protocol: 'https',
+                                address: 'clean',
+                                port: 32400,
+                                local: false,
+                                relay: false,
+                            },
+                        ],
+                    },
+                ];
+                mockFetchJson(mockServers);
+                const discovery = new PlexServerDiscovery(mockConfig);
+
+                const result = await discovery.discoverServers();
+
+                const server = result[0];
+                expect(server).toBeDefined();
+                if (!server) {
+                    throw new Error('Expected server to be defined');
+                }
+                expect(server.connections).toHaveLength(1);
+                expect(server.connections[0]?.uri).toBe('https://clean:32400');
+                expect(consoleWarnSpy).toHaveBeenCalledWith(
+                    'Skipping invalid Plex connection URI:',
+                    'https://server:32400/#REDACTED_FRAGMENT'
                 );
             } finally {
                 consoleWarnSpy.mockRestore();
@@ -1707,7 +1759,7 @@ describe('PlexServerDiscovery', () => {
                 expect(server.connections[0]?.protocol).toBe('http');
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
                     'Skipping invalid Plex connection URI:',
-                    'ftp://server:21'
+                    'ftp://server/'
                 );
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
                     'Skipping invalid Plex connection URI:',

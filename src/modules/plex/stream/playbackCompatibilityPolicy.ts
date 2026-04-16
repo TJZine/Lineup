@@ -92,7 +92,7 @@ export function getHdrCompatibilityDecision(
 ): HdrCompatibilityDecision {
     const videoStream = inputs.videoStream;
     const isDolbyVision = detectHdrLabel(videoStream) === 'Dolby Vision';
-    const sourceContainer = (inputs.media.container ?? '').toLowerCase();
+    const sourceContainer = normalizeCompatibilityValue(inputs.media.container);
 
     const hdr10BaseLayerInfo = inferHdr10BaseLayer(buildHdr10BaseLayerContext(videoStream));
     const forceHlsForDvNoHdr10BaseLayer = shouldForceHlsForDvNoHdr10BaseLayer(
@@ -123,7 +123,7 @@ function appendContainerCompatibilityReasons(
     container: string,
     userAgent?: string | null
 ): void {
-    const normalizedContainer = container.trim().toLowerCase();
+    const normalizedContainer = normalizeCompatibilityValue(container);
     if (!SUPPORTED_CONTAINERS.includes(normalizedContainer)) {
         reasons.push(`unsupported_container:${normalizedContainer}`);
     }
@@ -134,10 +134,14 @@ function appendContainerCompatibilityReasons(
 }
 
 function appendVideoCompatibilityReasons(reasons: string[], videoCodec: string): void {
-    const normalizedVideoCodec = videoCodec.trim().toLowerCase();
+    const normalizedVideoCodec = normalizeCompatibilityValue(videoCodec);
     if (!SUPPORTED_VIDEO_CODECS.includes(normalizedVideoCodec)) {
         reasons.push(`unsupported_video_codec:${normalizedVideoCodec}`);
     }
+}
+
+function normalizeCompatibilityValue(value: string | null | undefined): string {
+    return (value ?? '').trim().toLowerCase();
 }
 
 function appendAudioCompatibilityReasons(

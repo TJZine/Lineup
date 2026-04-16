@@ -48,15 +48,23 @@ describe('plexSwitchPayloadParser', () => {
         ).toEqual({ authToken: 'child-token' });
     });
 
-    it('accepts auth tokens from nested arrays and structured JSON strings', () => {
+    it('accepts auth tokens from nested arrays of wrapped objects', () => {
         expect(
             parseSwitchPayloadData({
                 MediaContainer: [
                     {
-                        User: '{"authToken":"child-token"}',
+                        User: { authToken: 'child-token' },
                     },
                 ],
             })
         ).toEqual({ authToken: 'child-token' });
+    });
+
+    it('rejects unrelated structured strings nested inside wrapper objects', () => {
+        expect(() =>
+            parseSwitchPayloadData({
+                message: '{"authToken":"stale-token"}',
+            })
+        ).toThrow('Plex Home switch response did not include auth token');
     });
 });

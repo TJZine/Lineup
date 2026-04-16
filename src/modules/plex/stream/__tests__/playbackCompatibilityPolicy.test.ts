@@ -412,5 +412,18 @@ describe('playbackCompatibilityPolicy', () => {
             expect(decision.applyHdr10Fallback).toBe(false);
             expect(decision.fallbackReason).toBe('none');
         });
+
+        it('normalizes Dolby Vision container values before forcing HLS for MKV without HDR10 base layer', () => {
+            const media = createDolbyVisionMedia(' MKV ', '5');
+            const decision = getHdrCompatibilityDecision({
+                media,
+                videoStream: media.parts[0]!.streams[0]!,
+                hdr10FallbackMode: 'off',
+            });
+
+            expect(decision.forceHlsForDvNoHdr10BaseLayer).toBe(true);
+            expect(decision.applyHdr10Fallback).toBe(false);
+            expect(decision.fallbackReason).toBe('none');
+        });
     });
 });
