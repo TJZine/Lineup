@@ -136,6 +136,18 @@ export class ChannelSetupScreen {
         });
     }
 
+    private _resetStepUi(statusText: string): void {
+        this._closeDropdown();
+        this._clearStrategyStepTransientState();
+        this._pendingDropdownDeferredRender = false;
+        this._preferredFocusId = null;
+        this._contentEl.replaceChildren();
+        this._stepEl.textContent = '';
+        this._statusEl.textContent = statusText;
+        this._detailEl.textContent = '';
+        this._errorEl.textContent = '';
+    }
+
     private _formatCount(value: number): string {
         try {
             return new Intl.NumberFormat().format(value);
@@ -215,6 +227,7 @@ export class ChannelSetupScreen {
     show(): void {
         this._visibilityToken += 1;
         const token = this._visibilityToken;
+        this._resetStepUi('Loading libraries...');
         this._container.style.display = 'flex';
         this._container.classList.add('visible');
         const nav = this._screenPorts.getNavigation();
@@ -228,9 +241,6 @@ export class ChannelSetupScreen {
         }
         this._session.beginSession();
         this._strategyInteraction.reset();
-        this._statusEl.textContent = 'Loading libraries...';
-        this._detailEl.textContent = '';
-        this._errorEl.textContent = '';
         this._session.loadLibraries().then(() => {
             if (token !== this._visibilityToken) {
                 return;
@@ -256,7 +266,7 @@ export class ChannelSetupScreen {
 
     hide(): void {
         this._visibilityToken += 1;
-        this._closeDropdown();
+        this._resetStepUi('');
         this._session.endSession();
         if (this._navKeyHandler) {
             const nav = this._screenPorts.getNavigation();

@@ -67,23 +67,27 @@ function parseSwitchTokenDocument(payload: string): string | null {
         return null;
     }
 
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(payload, 'application/xml');
-    if (doc.getElementsByTagName('parsererror').length > 0) {
-        return null;
-    }
-
-    const candidates = [
-        doc.documentElement,
-        doc.getElementsByTagName('User')[0],
-        doc.getElementsByTagName('HomeUser')[0],
-    ];
-
-    for (const candidate of candidates) {
-        const token = readTokenFromXmlNode(candidate);
-        if (token) {
-            return token;
+    try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(payload, 'application/xml');
+        if (doc.getElementsByTagName('parsererror').length > 0) {
+            return null;
         }
+
+        const candidates = [
+            doc.documentElement,
+            doc.getElementsByTagName('User')[0],
+            doc.getElementsByTagName('HomeUser')[0],
+        ];
+
+        for (const candidate of candidates) {
+            const token = readTokenFromXmlNode(candidate);
+            if (token) {
+                return token;
+            }
+        }
+    } catch {
+        return null;
     }
 
     return null;

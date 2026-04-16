@@ -118,4 +118,27 @@ describe('plexSwitchPayloadParser', () => {
             });
         }
     });
+
+    it('falls back cleanly when DOMParser throws during XML parsing', () => {
+        const originalDomParser = globalThis.DOMParser;
+        Object.defineProperty(globalThis, 'DOMParser', {
+            configurable: true,
+            value: function DOMParser(): never {
+                throw new TypeError('Not constructable');
+            },
+        });
+
+        try {
+            expect(
+                parseSwitchPayloadData(
+                    '<MediaContainer><User authToken="child-token" /></MediaContainer>'
+                )
+            ).toEqual({ authToken: 'child-token' });
+        } finally {
+            Object.defineProperty(globalThis, 'DOMParser', {
+                configurable: true,
+                value: originalDomParser,
+            });
+        }
+    });
 });

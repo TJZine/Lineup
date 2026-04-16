@@ -23,7 +23,7 @@ const HOME_USER_SIGNAL_KEYS = [
     'home',
 ] as const;
 
-const HOME_USER_ID_KEYS = ['id', 'userid', 'uuid', 'key'] as const;
+const HOME_USER_ID_KEYS = ['id', 'userid', 'key'] as const;
 const HOME_USER_TITLE_KEYS = ['title', 'username', 'name'] as const;
 
 export function parseHomeUsersPayloadData(payload: unknown): PlexHomeUser[] {
@@ -94,20 +94,24 @@ function parseHomeUsersXml(payload: string): PlexHomeUser[] {
         return parseHomeUsersXmlFallback(payload);
     }
 
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(payload, 'application/xml');
-    if (doc.getElementsByTagName('parsererror').length > 0) {
+    try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(payload, 'application/xml');
+        if (doc.getElementsByTagName('parsererror').length > 0) {
+            return parseHomeUsersXmlFallback(payload);
+        }
+
+        const users = dedupeHomeUsersById(
+            getXmlUserNodes(doc)
+                .map(readXmlNodeAttributes)
+                .map(parseHomeUserAttributes)
+                .filter((user): user is PlexHomeUser => user !== null)
+        );
+
+        return users.length > 0 ? users : parseHomeUsersXmlFallback(payload);
+    } catch {
         return parseHomeUsersXmlFallback(payload);
     }
-
-    const users = dedupeHomeUsersById(
-        getXmlUserNodes(doc)
-            .map(readXmlNodeAttributes)
-            .map(parseHomeUserAttributes)
-            .filter((user): user is PlexHomeUser => user !== null)
-    );
-
-    return users.length > 0 ? users : parseHomeUsersXmlFallback(payload);
 }
 
 function isStructurallyValidXml(payload: string): boolean {

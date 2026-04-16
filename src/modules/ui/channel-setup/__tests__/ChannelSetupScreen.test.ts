@@ -248,6 +248,47 @@ describe('ChannelSetupScreen', () => {
         expect(nav.unregisterFocusable.mock.calls.length).toBeGreaterThan(unregisterCallsAfterHide);
     });
 
+    it('clears grabbed priority visuals before a reopened session reloads libraries', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        let resolveSecondLoad: ((libraries: PlexLibrarySection[]) => void) | undefined;
+        const secondLoad = new Promise<PlexLibrarySection[]>((resolve) => {
+            resolveSecondLoad = resolve;
+        });
+        const getLibrariesForSetup = jest.fn()
+            .mockResolvedValueOnce([makeLibrary({ id: 'movies' })])
+            .mockImplementationOnce(() => secondLoad);
+
+        const nav = createNavigationMock();
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup,
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+        clickButton(container, '#setup-category-priority-order');
+
+        nav.setMockFocus('setup-priority-row-playlists');
+        const grab = nav.emitKeyPress('ok');
+        expect(grab.handled).toBe(true);
+        expect(container.querySelector('.setup-priority-row--grabbed')).not.toBeNull();
+
+        screen.hide();
+        screen.show();
+
+        expect(container.textContent ?? '').toContain('Loading libraries...');
+        expect(container.querySelector('.setup-priority-row--grabbed')).toBeNull();
+        expect(container.querySelector('#setup-priority-row-playlists')).toBeNull();
+
+        resolveSecondLoad?.([makeLibrary({ id: 'movies' })]);
+        await flushPromises();
+    });
+
     it('does not re-register focusables if library loading settles after hide', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);

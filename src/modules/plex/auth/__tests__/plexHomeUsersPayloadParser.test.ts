@@ -88,6 +88,7 @@ describe('plexHomeUsersPayloadParser', () => {
                     { id: '', title: 'Missing id', admin: 1, protected: 1 },
                     { id: '2', title: '', admin: 1, protected: 1 },
                     { uuid: 'uuid-only', title: 'UUID User', admin: 'true', protected: 'yes' },
+                    { key: 'managed-user-key', title: 'Managed User', admin: 'true', protected: 'yes' },
                 ],
             },
         });
@@ -95,8 +96,8 @@ describe('plexHomeUsersPayloadParser', () => {
         expect(users).toEqual([
             { id: '1', title: 'Admin', admin: true, protected: false, thumb: null },
             {
-                id: 'uuid-only',
-                title: 'UUID User',
+                id: 'managed-user-key',
+                title: 'Managed User',
                 admin: true,
                 protected: true,
                 thumb: null,
@@ -113,11 +114,36 @@ describe('plexHomeUsersPayloadParser', () => {
 
         try {
             const users = parseHomeUsersPayloadData(
-                '<MediaContainer><User uuid="uuid-only" title="Admin" admin="1" protected="0" /></MediaContainer>'
+                '<MediaContainer><User id="1" title="Admin" admin="1" protected="0" /></MediaContainer>'
             );
 
             expect(users).toEqual([
-                { id: 'uuid-only', title: 'Admin', admin: true, protected: false, thumb: null },
+                { id: '1', title: 'Admin', admin: true, protected: false, thumb: null },
+            ]);
+        } finally {
+            Object.defineProperty(globalThis, 'DOMParser', {
+                configurable: true,
+                value: originalDomParser,
+            });
+        }
+    });
+
+    it('falls back cleanly when DOMParser throws during XML parsing', () => {
+        const originalDomParser = globalThis.DOMParser;
+        Object.defineProperty(globalThis, 'DOMParser', {
+            configurable: true,
+            value: function DOMParser(): never {
+                throw new TypeError('Not constructable');
+            },
+        });
+
+        try {
+            const users = parseHomeUsersPayloadData(
+                '<MediaContainer><User id="1" title="Admin" admin="1" protected="0" /></MediaContainer>'
+            );
+
+            expect(users).toEqual([
+                { id: '1', title: 'Admin', admin: true, protected: false, thumb: null },
             ]);
         } finally {
             Object.defineProperty(globalThis, 'DOMParser', {
