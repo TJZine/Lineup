@@ -2,6 +2,7 @@ import { AppErrorCode } from '../../lifecycle/types';
 import { PlexApiError } from './plexAuthTransport';
 
 const SWITCH_TOKEN_KEYS = ['authToken', 'authenticationToken', 'token'] as const;
+const SWITCH_PAYLOAD_CONTAINER_KEYS = new Set(['mediacontainer', 'user', 'homeuser']);
 
 type SwitchPayloadResult = { authToken: string };
 
@@ -173,11 +174,46 @@ function findSwitchTokenInPayload(
         return direct;
     }
 
-    for (const value of Object.values(record)) {
+    for (const [key, value] of Object.entries(record)) {
+        if (
+            typeof value === 'string'
+            && SWITCH_PAYLOAD_CONTAINER_KEYS.has(key.toLowerCase())
+        ) {
+            const nested = findSwitchTokenInStructuredString(value, seen);
+            if (nested) {
+                return nested;
+            }
+            continue;
+        }
+
         const nested = findSwitchTokenInPayload(value, seen);
         if (nested) {
             return nested;
         }
+    }
+
+    return null;
+}
+
+function findSwitchTokenInStructuredString(
+    payload: string,
+    seen: WeakSet<object>
+): string | null {
+    const text = payload.trim();
+    if (!text) {
+        return null;
+    }
+
+    if (text.startsWith('{') || text.startsWith('[')) {
+        try {
+            return findSwitchTokenInPayload(JSON.parse(text), seen);
+        } catch {
+            return null;
+        }
+    }
+
+    if (text.startsWith('<')) {
+        return parseSwitchTokenXml(text);
     }
 
     return null;

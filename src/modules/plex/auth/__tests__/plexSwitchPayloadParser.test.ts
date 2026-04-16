@@ -60,6 +60,18 @@ describe('plexSwitchPayloadParser', () => {
         ).toEqual({ authToken: 'child-token' });
     });
 
+    it('accepts structured auth-token strings nested under Plex wrapper keys', () => {
+        expect(
+            parseSwitchPayloadData({
+                MediaContainer: [
+                    {
+                        User: '{"authToken":"child-token"}',
+                    },
+                ],
+            })
+        ).toEqual({ authToken: 'child-token' });
+    });
+
     it('rejects unrelated structured strings nested inside wrapper objects', () => {
         expect(() =>
             parseSwitchPayloadData({
