@@ -132,10 +132,23 @@ export class NavigationCoordinator {
 
     private _fireAndReport(
         key: string,
-        promise: Promise<void>,
+        promiseFactory: () => Promise<void>,
         message: string,
         toastMessage: string
-    ): void {
+    ): Promise<void> | null {
+        let promise: Promise<void>;
+        try {
+            promise = promiseFactory();
+        } catch (error: unknown) {
+            this._reportNonBlockingFailure(
+                key,
+                `navigation.${key}`,
+                message,
+                error,
+                toastMessage
+            );
+            return null;
+        }
         void promise.catch((error: unknown) => {
             this._reportNonBlockingFailure(
                 key,
@@ -145,6 +158,7 @@ export class NavigationCoordinator {
                 toastMessage
             );
         });
+        return promise;
     }
 
     wireNavigationEvents(): Array<() => void> {
@@ -181,7 +195,7 @@ export class NavigationCoordinator {
             }
             this._fireAndReport(
                 'channel-number',
-                this._handleChannelNumberEntered(payload.channelNumber),
+                () => this._handleChannelNumberEntered(payload.channelNumber),
                 '[Navigation] channel-number failed:',
                 'Could not switch to that channel'
             );
@@ -316,7 +330,7 @@ export class NavigationCoordinator {
             if (videoPlayer) {
                 this._fireAndReport(
                     'resume_play',
-                    videoPlayer.play(),
+                    () => videoPlayer.play(),
                     '[Navigation] resume_play failed:',
                     'Playback failed to resume'
                 );
@@ -598,14 +612,13 @@ export class NavigationCoordinator {
                     if (!player) {
                         break;
                     }
-                    const playPromise = player.play();
-                    this._fireAndReport(
+                    const playPromise = this._fireAndReport(
                         'remote_play',
-                        playPromise,
+                        () => player.play(),
                         '[Navigation] remote_play failed:',
                         'Unable to start playback'
                     );
-                    void playPromise.then(
+                    void playPromise?.then(
                         () => {
                             this.deps.playback.playerOsd.coordinator?.poke('play');
                         },
@@ -623,7 +636,11 @@ export class NavigationCoordinator {
                     break;
                 }
                 const deltaMs = -this.deps.playback.getSeekIncrementMs();
-                void this._observeNonBlockingPromise('seek', player.seekRelative(deltaMs), '[Navigation] seek failed:');
+                void this._observeNonBlockingPromise(
+                    'seek',
+                    () => player.seekRelative(deltaMs),
+                    '[Navigation] seek failed:'
+                );
                 this.deps.playback.playerOsd.coordinator?.poke('seek');
                 break;
             }
@@ -633,7 +650,11 @@ export class NavigationCoordinator {
                     break;
                 }
                 const deltaMs = this.deps.playback.getSeekIncrementMs();
-                void this._observeNonBlockingPromise('seek', player.seekRelative(deltaMs), '[Navigation] seek failed:');
+                void this._observeNonBlockingPromise(
+                    'seek',
+                    () => player.seekRelative(deltaMs),
+                    '[Navigation] seek failed:'
+                );
                 this.deps.playback.playerOsd.coordinator?.poke('seek');
                 break;
             }
@@ -774,9 +795,21 @@ export class NavigationCoordinator {
 
     private async _observeNonBlockingPromise(
         key: string,
-        promise: Promise<void>,
+        promiseFactory: () => Promise<void>,
         message: string
     ): Promise<void> {
+        let promise: Promise<void>;
+        try {
+            promise = promiseFactory();
+        } catch (error: unknown) {
+            this._reportNonBlockingFailure(
+                key,
+                `navigation.${key}`,
+                message,
+                error
+            );
+            return;
+        }
         try {
             await promise;
         } catch (error: unknown) {

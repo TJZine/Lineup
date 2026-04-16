@@ -1,6 +1,7 @@
 import {
     createRecoverableRuntimeIssueReporter,
     observeRecoverableAsyncFailure,
+    safelyReportCleanupFailures,
 } from '../OrchestratorRecoverableRuntimeReporter';
 
 describe('OrchestratorRecoverableRuntimeReporter', () => {
@@ -85,5 +86,61 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
         );
 
         consoleError.mockRestore();
+    });
+
+    it('reportError appends safeError and logs via console.error without calling warn', () => {
+        const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        const appendIssueDiagnostic = jest.fn();
+        const warn = jest.fn();
+        const reporter = createRecoverableRuntimeIssueReporter({
+            issueId: 'qa-1',
+            appendIssueDiagnostic,
+            warn,
+        });
+
+        reporter.reportError('runtime.event', 'Recoverable error', new Error('boom'), { detail: 'x' });
+
+        expect(warn).not.toHaveBeenCalled();
+        expect(appendIssueDiagnostic).toHaveBeenCalledWith(
+            'qa-1',
+            'runtime.event',
+            expect.objectContaining({
+                message: 'Recoverable error',
+                detail: 'x',
+                safeError: expect.objectContaining({
+                    message: 'boom',
+                }),
+            })
+        );
+        expect(consoleError).toHaveBeenCalledWith(
+            'Recoverable error',
+            expect.objectContaining({
+                detail: 'x',
+                safeError: expect.objectContaining({
+                    message: 'boom',
+                }),
+            })
+        );
+
+        consoleError.mockRestore();
+    });
+
+    it('does nothing when cleanup failure list is empty', () => {
+        const cleanupReporter = jest.fn();
+
+        safelyReportCleanupFailures(cleanupReporter, []);
+
+        expect(cleanupReporter).not.toHaveBeenCalled();
+    });
+
+    it('swallows cleanup reporter failures', () => {
+        expect(() => {
+            safelyReportCleanupFailures(
+                () => {
+                    throw new Error('cleanup failed');
+                },
+                [{ step: 'event-wiring.cleanup', error: { message: 'boom' } }]
+            );
+        }).not.toThrow();
     });
 });

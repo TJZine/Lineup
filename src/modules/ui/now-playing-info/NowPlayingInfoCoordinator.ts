@@ -147,7 +147,8 @@ export class NowPlayingInfoCoordinator {
                 this.deps.getScheduler()?.getCurrentProgram() ??
                 this.deps.getCurrentProgramForPlayback();
             if (freshProgram) {
-                const viewModel = this.buildNowPlayingInfoViewModel(freshProgram, null);
+                const details = this.getCachedDetailsForProgram(freshProgram);
+                const viewModel = this.buildNowPlayingInfoViewModel(freshProgram, details);
                 overlay.update(viewModel);
             }
         } catch {
@@ -331,11 +332,7 @@ export class NowPlayingInfoCoordinator {
     }
 
     private async refreshPlaybackSummary(program: ScheduledProgram): Promise<void> {
-        try {
-            await this.deps.refreshPlaybackInfoSnapshot();
-        } catch {
-            return;
-        }
+        await this.deps.refreshPlaybackInfoSnapshot();
 
         const overlay = this.deps.getNowPlayingInfo();
         const navigation = this.deps.getNavigation();

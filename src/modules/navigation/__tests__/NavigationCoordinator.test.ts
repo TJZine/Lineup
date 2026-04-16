@@ -857,6 +857,28 @@ describe('NavigationCoordinator', () => {
         );
     });
 
+    it('reports a toast when resume playback throws synchronously on screen change', () => {
+        const reportToast = jest.fn();
+        const { handlers, deps, videoPlayer } = setup();
+        (deps as unknown as { reportToast?: (toast: unknown) => void }).reportToast = reportToast;
+        (videoPlayer.play as jest.Mock).mockImplementationOnce(() => {
+            throw new Error('sync play failed');
+        });
+
+        expect(() => {
+            handlers.screenChange?.({ from: 'settings', to: 'player' });
+        }).not.toThrow();
+
+        expect(deps.reportRecoverableAsyncFailure).toHaveBeenCalledWith(
+            'navigation.resume_play',
+            '[Navigation] resume_play failed:',
+            expect.any(Error)
+        );
+        expect(reportToast).toHaveBeenCalledWith(
+            expect.objectContaining({ message: expect.any(String), type: 'warning' })
+        );
+    });
+
     it('reports a toast when Play key playback fails', async () => {
         const reportToast = jest.fn();
         const { handlers, deps, videoPlayer } = setup();
@@ -874,6 +896,46 @@ describe('NavigationCoordinator', () => {
         expect(reportToast).toHaveBeenCalledWith(
             expect.objectContaining({ message: expect.any(String), type: 'warning' })
         );
+    });
+
+    it('reports a toast when Play key playback throws synchronously', () => {
+        const reportToast = jest.fn();
+        const { handlers, deps, videoPlayer } = setup();
+        (deps as unknown as { reportToast?: (toast: unknown) => void }).reportToast = reportToast;
+        (videoPlayer.play as jest.Mock).mockImplementationOnce(() => {
+            throw new Error('sync play failed');
+        });
+
+        expect(() => {
+            handlers.keyPress?.(makeKeyEvent('play'));
+        }).not.toThrow();
+
+        expect(deps.reportRecoverableAsyncFailure).toHaveBeenCalledWith(
+            'navigation.remote_play',
+            '[Navigation] remote_play failed:',
+            expect.any(Error)
+        );
+        expect(reportToast).toHaveBeenCalledWith(
+            expect.objectContaining({ message: expect.any(String), type: 'warning' })
+        );
+    });
+
+    it('reports seek failures when rewind throws synchronously', () => {
+        const { handlers, deps, videoPlayer } = setup();
+        (videoPlayer.seekRelative as jest.Mock).mockImplementationOnce(() => {
+            throw new Error('sync seek failed');
+        });
+
+        expect(() => {
+            handlers.keyPress?.(makeKeyEvent('rewind'));
+        }).not.toThrow();
+
+        expect(deps.reportRecoverableAsyncFailure).toHaveBeenCalledWith(
+            'navigation.seek',
+            '[Navigation] seek failed:',
+            expect.any(Error)
+        );
+        expect(deps.pokePlayerOsd).toHaveBeenCalledWith('seek');
     });
 
     it('throttles duplicate non-blocking failures to one toast and one diagnostics callback per key window', async () => {

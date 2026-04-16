@@ -713,11 +713,15 @@ export class InitializationCoordinator {
         void this.runStartup(phase).catch((error: unknown) => {
             // runStartup() already reports fatal startup failures via handleGlobalError('start').
             // Consume the rejection here only to avoid an unhandled Promise rejection on resume.
-            this._callbacks.diagnostics.reportRecoverableAsyncFailure(
-                `initialization.resume.phase${phase}`,
-                `Background startup resume failed for phase ${phase}`,
-                error
-            );
+            try {
+                this._callbacks.diagnostics.reportRecoverableAsyncFailure(
+                    `initialization.resume.phase${phase}`,
+                    `Background startup resume failed for phase ${phase}`,
+                    error
+                );
+            } catch {
+                // Resume rejection is already consumed above; diagnostics must stay best-effort.
+            }
         });
     }
 }

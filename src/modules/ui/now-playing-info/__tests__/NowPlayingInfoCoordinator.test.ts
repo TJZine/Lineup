@@ -430,6 +430,60 @@ describe('NowPlayingInfoCoordinator', () => {
         jest.useRealTimers();
     });
 
+    it('refreshIfOpen preserves cached details for the current program', async () => {
+        const program = makeProgram();
+        const scheduler = makeScheduler({
+            getCurrentProgram: jest.fn().mockReturnValue(program),
+        });
+        const plexLibrary = makePlexLibrary({
+            getItem: jest.fn().mockResolvedValue({
+                ratingKey: 'rk1',
+                title: 'Detail Title',
+                type: 'movie',
+                summary: 'Detail summary',
+                clearLogo: '/logo',
+            } as PlexMediaItem),
+        });
+        const { coordinator, overlay } = setup({
+            getScheduler: () => scheduler,
+            getPlexLibrary: () => plexLibrary,
+            buildPlexResourceUrl: jest.fn((path: string) => `http://mock${path}`),
+        });
+
+        coordinator.handleModalOpen(modalId);
+        await Promise.resolve();
+
+        coordinator.refreshIfOpen();
+
+        const lastUpdate = (overlay.update as jest.Mock).mock.calls.at(-1)?.[0] as {
+            description?: string;
+            clearLogoUrl?: string | null;
+        };
+        expect(lastUpdate.description).toBe('Detail summary');
+        expect(lastUpdate.clearLogoUrl).toBe('http://mock/logo');
+    });
+
+    it('logs playback summary refresh failures through the background task wrapper', async () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const { coordinator, deps } = setup({
+            refreshPlaybackInfoSnapshot: jest.fn().mockRejectedValue(new Error('snapshot failed')),
+        });
+
+        coordinator.handleModalOpen(modalId);
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(deps.refreshPlaybackInfoSnapshot).toHaveBeenCalled();
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[NowPlayingInfoCoordinator] Failed to refresh playback summary:',
+            expect.objectContaining({
+                message: 'snapshot failed',
+            })
+        );
+
+        warnSpy.mockRestore();
+    });
+
     it('handleModalClose stops live updates', () => {
         jest.useFakeTimers();
         const { coordinator, overlay } = setup();
