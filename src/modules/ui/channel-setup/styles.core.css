@@ -172,6 +172,7 @@
 
 .setup-focus-safe-scroll {
     --_focus-inset: calc(var(--focus-ring-width) + var(--focus-ring-offset));
+
     box-sizing: border-box;
     padding-right: calc(var(--_focus-inset) + 6px);
     padding-left: calc(var(--_focus-inset) + 2px);

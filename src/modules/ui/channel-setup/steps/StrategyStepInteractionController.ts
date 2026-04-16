@@ -135,9 +135,7 @@ export class StrategyStepInteractionController {
         adapters.setPreferredFocusId(focusId);
         this._rememberActiveDetailFocus(focusId, adapters.getSessionSnapshot());
         adapters.updateStrategyState((draft: StrategyStepMutableState) => {
-            draft.activeStrategyCategory = this._activeStrategyCategory;
             mutate(draft);
-            this._activeStrategyCategory = draft.activeStrategyCategory;
         });
         adapters.schedulePreview();
 
@@ -151,7 +149,6 @@ export class StrategyStepInteractionController {
                 );
                 if (updated) {
                     adapters.setPreferredFocusId(null);
-                    return;
                 }
             }
         }

@@ -61,7 +61,6 @@ const createDeps = (overrides: Partial<StrategyStepDeps> = {}): StrategyStepDeps
     applyCategoryChange: jest.fn(),
     applySettingChange: jest.fn((_focusId: string, mutate: (state: StrategyStepMutableState) => void) => {
         const draft: StrategyStepMutableState = {
-            activeStrategyCategory: 'content-sources',
             strategies: createDefaultStrategyState(),
             strategyOrder: createDefaultStrategyOrder(),
             channelExpansion: {

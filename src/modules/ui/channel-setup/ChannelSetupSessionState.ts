@@ -199,7 +199,6 @@ export class ChannelSetupSessionState {
         const channelExpansion: ChannelExpansionState = { ...this.channelExpansion };
         const seriesOrdering: SeriesOrderingState = { ...this.seriesOrdering };
         const draft: StrategyStepMutableState = {
-            activeStrategyCategory: 'content-sources',
             strategies,
             strategyOrder,
             channelExpansion,

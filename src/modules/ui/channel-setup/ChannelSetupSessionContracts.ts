@@ -10,7 +10,7 @@ import type {
     SetupStrategyConfig,
 } from '../../../core/channel-setup/types';
 import type { PlexLibrarySection } from '../../plex/library';
-import type { SetupStrategyKey, StrategyCategoryKey } from './steps/constants';
+import type { SetupStrategyKey } from './steps/constants';
 
 type SetupStrategyStateItem = Pick<SetupStrategyConfig, 'enabled' | 'scope'>;
 
@@ -24,7 +24,6 @@ export type ChannelExpansionState = Pick<
 export type SeriesOrderingState = Pick<SeriesOrderingConfig, 'basePlaybackMode' | 'baseBlockSize'>;
 
 export type StrategyStepMutableState = {
-    activeStrategyCategory: StrategyCategoryKey;
     strategies: SetupStrategyState;
     strategyOrder: SetupStrategyKey[];
     channelExpansion: ChannelExpansionState;

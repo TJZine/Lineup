@@ -42,6 +42,7 @@ export interface LibraryStepDeps {
 }
 
 export interface StrategyStepStateSnapshot extends StrategyStepMutableState {
+    activeStrategyCategory: StrategyCategoryKey;
     setupContext: ChannelSetupContext;
     previewPanelId: string;
     preview: ChannelSetupPreview | null;

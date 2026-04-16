@@ -1641,7 +1641,7 @@ describe('ChannelSetupScreen', () => {
         expect(container.querySelector('#setup-scope-decades')).toBeNull();
     });
 
-    it('updates priority row enabled state in place without replacing the row node', async () => {
+    it('updates priority row enabled state when toggled from the priority list', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -1666,10 +1666,33 @@ describe('ChannelSetupScreen', () => {
         clickButton(container, rowId);
 
         const after = container.querySelector(rowId) as HTMLButtonElement | null;
-        expect(after).toBe(before);
         const afterLabel = after?.getAttribute('aria-label');
         expect(afterLabel).toContain(', Off');
         expect(after?.classList.contains('selected')).toBe(false);
+    });
+
+    it('refreshes category activity dots after priority-row toggles', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-priority-order');
+
+        expect(container.querySelector('#setup-category-content-sources .setup-category-dot')).not.toBeNull();
+
+        clickButton(container, '#setup-priority-row-collections');
+        clickButton(container, '#setup-priority-row-playlists');
+        clickButton(container, '#setup-priority-row-recentlyAdded');
+
+        expect(container.querySelector('#setup-category-content-sources .setup-category-dot')).toBeNull();
     });
 
     it('drops grabbed priority state when moving left back to the category rail', async () => {

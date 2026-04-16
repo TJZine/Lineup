@@ -64,6 +64,7 @@ export class BuildProgressStepController {
             detailLabel,
         }).catch((error: unknown) => {
             if (isAbortLikeError(error)) return;
+            ctx.statusEl.textContent = 'Error';
             ctx.errorEl.textContent = 'Build failed. Please go back and try again.';
             taskLabel.textContent = 'Build failed';
             detailLabel.textContent = 'Press Back to adjust settings and retry.';
