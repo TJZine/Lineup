@@ -34,7 +34,6 @@ import type {
 } from './orchestrator/OverlayPorts';
 import { EpgPreferencesStore, type EpgLayoutMode } from '../modules/settings/EpgPreferencesStore';
 import { ProfileSessionStore } from '../modules/settings/ProfileSessionStore';
-import { summarizeErrorForLog } from '../utils/errors';
 import {
     applyPhase2AuthGatePolicy,
     applyPhase3ServerGatePolicy,
@@ -651,7 +650,7 @@ export class InitializationCoordinator {
                 return;
             }
             this.clearAuthResume();
-            this._resumeStartupPhase(2, '[InitializationCoordinator] Auth resume failed:');
+            this._resumeStartupPhase(2);
         });
         this._authResumeDisposable = disposable;
     }
@@ -670,7 +669,7 @@ export class InitializationCoordinator {
                 return;
             }
             this.clearServerResume();
-            this._resumeStartupPhase(3, '[InitializationCoordinator] Server resume failed:');
+            this._resumeStartupPhase(3);
         });
         this._serverResumeDisposable = disposable;
     }
@@ -689,22 +688,15 @@ export class InitializationCoordinator {
             // Critical: ensure discovery storage keys are updated for the new activeUserId
             // before Phase 3 runs and restores server selection from localStorage.
             this._callbacks.serverStorage.configureDiscoveryStorage();
-            this._resumeStartupPhase(3, '[InitializationCoordinator] Profile resume failed:');
+            this._resumeStartupPhase(3);
         });
         this._profileResumeDisposable = disposable;
     }
 
-    private _resumeStartupPhase(phase: 2 | 3, message: string): void {
-        void this.runStartup(phase).catch((error) => {
-            const safeError = summarizeErrorForLog(error);
-            this._callbacks.errors.handleGlobalError(
-                {
-                    code: AppErrorCode.INITIALIZATION_FAILED,
-                    message: `${message} ${JSON.stringify(safeError)}`,
-                    recoverable: true,
-                },
-                'initialization-resume'
-            );
+    private _resumeStartupPhase(phase: 2 | 3): void {
+        void this.runStartup(phase).catch(() => {
+            // runStartup() already reports fatal startup failures via handleGlobalError('start').
+            // Consume the rejection here only to avoid an unhandled Promise rejection on resume.
         });
     }
 }

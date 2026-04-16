@@ -425,6 +425,82 @@ describe('InitializationCoordinator (Plex Home)', () => {
         expect(order).toContain('init');
     });
 
+    it('reports resumed phase failures only once when profile resume startup rejects', async () => {
+        const { coordinator, deps, callbacks } = makeCoordinator({
+            lifecycle: {
+                setPhase: jest.fn(),
+            } as unknown as LegacyInitializationDependencies['lifecycle'],
+            channelManager: {
+                loadChannels: jest.fn().mockResolvedValue(undefined),
+                getCurrentChannel: jest.fn().mockReturnValue({ id: 'current-channel-id' }),
+                getAllChannels: jest.fn().mockReturnValue([]),
+            } as unknown as LegacyInitializationDependencies['channelManager'],
+        });
+
+        const plexAuth = deps.plexAuth as unknown as {
+            readStoredCredentialsAndClearCorruption: jest.Mock;
+            validateToken: jest.Mock;
+            getHomeUsers: jest.Mock;
+            on: jest.Mock;
+        };
+        const plexDiscovery = deps.plexDiscovery as unknown as {
+            initialize: jest.Mock;
+            isConnected: jest.Mock;
+        };
+        const navigation = deps.navigation as unknown as {
+            getCurrentScreen: jest.Mock;
+        };
+
+        let profileChangeHandler: (() => void) | null = null;
+        plexAuth.on.mockImplementation((event: string, handler: () => void) => {
+            if (event === 'profileChange') {
+                profileChangeHandler = handler;
+            }
+            return { dispose: jest.fn() };
+        });
+
+        plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(
+            createStoredCredentials('active-token', 'account-token')
+        );
+        plexAuth.validateToken.mockResolvedValue(true);
+        plexAuth.getHomeUsers.mockResolvedValue([
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: false },
+        ]);
+        plexDiscovery.initialize.mockResolvedValue(undefined);
+        plexDiscovery.isConnected.mockReturnValue(true);
+        navigation.getCurrentScreen.mockReturnValue('auth');
+        (callbacks.switchToChannel as jest.Mock).mockRejectedValueOnce(new Error('route failed'));
+
+        const runSpy = jest.spyOn(coordinator, 'runStartup');
+
+        await coordinator.runStartup(2);
+        expect(profileChangeHandler).toBeTruthy();
+
+        if (!profileChangeHandler) {
+            throw new Error('Expected profileChange handler to be registered');
+        }
+        const resumeHandler = profileChangeHandler as () => void;
+        resumeHandler();
+
+        const resumeCallIndex = runSpy.mock.calls.findIndex((args) => args[0] === 3);
+        expect(resumeCallIndex).toBeGreaterThanOrEqual(0);
+
+        const resumePromise = runSpy.mock.results[resumeCallIndex]?.value as Promise<void>;
+        await expect(resumePromise).rejects.toThrow('route failed');
+        await Promise.resolve();
+
+        expect(callbacks.handleGlobalError).toHaveBeenCalledTimes(1);
+        expect(callbacks.handleGlobalError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                code: 'INITIALIZATION_FAILED',
+                message: 'route failed',
+                recoverable: true,
+            }),
+            'start'
+        );
+    });
+
     describe('Phase 3 startup policy branches', () => {
         it('marks discovery error, navigates to server-select, and does not register server resume when discovery init fails', async () => {
             const { coordinator, deps, callbacks } = makeCoordinator();
