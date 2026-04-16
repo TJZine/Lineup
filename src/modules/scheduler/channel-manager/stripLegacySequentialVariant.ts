@@ -10,7 +10,10 @@ export function stripLegacySequentialVariant<T>(
         return { channel, didMutate: false };
     }
 
-    const sanitized = (({ isSequentialVariant: _legacySequentialVariant, ...rest }) => rest)(record);
+    const sanitized = (({
+        isSequentialVariant: _legacySequentialVariant,
+        ...rest
+    }): Record<string, unknown> => rest)(record);
 
     return {
         channel: sanitized as T,
