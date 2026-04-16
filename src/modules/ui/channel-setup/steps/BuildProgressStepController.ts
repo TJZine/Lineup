@@ -71,7 +71,7 @@ export class BuildProgressStepController {
             backButton.disabled = false;
             backButton.textContent = 'Back';
             doneButton.disabled = true;
-            console.warn('Build failed:', summary);
+            console.error('Build failed:', summary);
         });
     }
 }

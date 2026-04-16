@@ -895,6 +895,28 @@ describe('NavigationCoordinator', () => {
         nowSpy.mockRestore();
     });
 
+    it('swallows failures from diagnostics and toast reporters in non-blocking paths', async () => {
+        const { handlers, deps, videoPlayer } = setup({
+            reportRecoverableAsyncFailure: jest.fn(() => {
+                throw new Error('diagnostics failed');
+            }),
+        });
+        const reportToast = jest.fn(() => {
+            throw new Error('toast failed');
+        });
+        (deps as unknown as { reportToast?: (toast: unknown) => void }).reportToast = reportToast;
+        (videoPlayer.play as jest.Mock).mockRejectedValue(new Error('play failed'));
+
+        expect(() => {
+            handlers.keyPress?.(makeKeyEvent('play'));
+        }).not.toThrow();
+
+        await Promise.resolve();
+
+        expect(deps.reportRecoverableAsyncFailure).toHaveBeenCalledTimes(1);
+        expect(reportToast).toHaveBeenCalledTimes(1);
+    });
+
     it('guide hides mini-guide before toggling EPG', () => {
         const { handlers, deps } = setup();
 

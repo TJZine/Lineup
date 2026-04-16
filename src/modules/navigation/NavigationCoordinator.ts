@@ -116,9 +116,17 @@ export class NavigationCoordinator {
             this._nonBlockingFailureTimestamps.clear();
         }
         this._nonBlockingFailureTimestamps.set(key, now);
-        this.deps.reportRecoverableAsyncFailure(event, message, error);
+        try {
+            this.deps.reportRecoverableAsyncFailure(event, message, error);
+        } catch {
+            // Diagnostics are best-effort in non-blocking failure paths.
+        }
         if (toastMessage) {
-            this.deps.reportToast?.({ message: toastMessage, type: 'warning' });
+            try {
+                this.deps.reportToast?.({ message: toastMessage, type: 'warning' });
+            } catch {
+                // Toast delivery must remain best-effort here.
+            }
         }
     }
 

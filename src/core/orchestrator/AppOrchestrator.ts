@@ -343,7 +343,11 @@ export class AppOrchestrator {
         message: string,
         data: Record<string, unknown> = {}
     ): void {
-        this._recoverableRuntimeReporter.reportIssue(event, message, data);
+        try {
+            this._recoverableRuntimeReporter.reportIssue(event, message, data);
+        } catch (error) {
+            this._logRecoverableRuntimeReporterFailure(error);
+        }
     }
 
     private _warnRecoverableRuntimeError(
@@ -352,7 +356,11 @@ export class AppOrchestrator {
         error: unknown,
         data: Record<string, unknown> = {}
     ): void {
-        this._recoverableRuntimeReporter.reportError(event, message, error, data);
+        try {
+            this._recoverableRuntimeReporter.reportError(event, message, error, data);
+        } catch (reporterError) {
+            this._logRecoverableRuntimeReporterFailure(reporterError);
+        }
     }
 
     private readonly _reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter = (
@@ -362,6 +370,17 @@ export class AppOrchestrator {
     ): void => {
         this._warnRecoverableRuntimeError(event, message, error);
     };
+
+    private _logRecoverableRuntimeReporterFailure(error: unknown): void {
+        try {
+            console.error(
+                '[AppOrchestrator] recoverable runtime reporter failed:',
+                summarizeErrorForLog(error)
+            );
+        } catch {
+            // Reporter fallback logging must not create a new runtime failure.
+        }
+    }
 
     constructor(platformServices?: PlatformServices) {
         this._platformServices = platformServices ?? webosPlatformServices;
