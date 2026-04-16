@@ -11,8 +11,8 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-10` from `.desloppify/subagents/runs/20260410_053544`
-- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, `P4-EXIT`, `P5-W1`, `P5-W2`, `P5-EXIT`, `P6-W1`, `P6-W2`, `P6-EXIT`, `P7-W1`, `P7-W2`, `P7-EXIT`, `P8-W1`, `P8-W2`, `P8-EXIT`, `P9-W1`, `P9-W2`, `P9-EXIT`, `P10-W2`, `P10-W3`, and `P10-W4` completed on integration-branch evidence
-- Next safe start: `P10-W5`
+- Current execution state: `P0-W1`, `P0-W2`, `P0-EXIT`, `P1-W1`, `P1-W2`, `P1-EXIT`, `P2-W1`, `P2-W2`, `P2-W3`, `P2-EXIT`, `P3-W1`, `P3-W2`, `P3-EXIT`, `P4-W1`, `P4-W2`, `P4-EXIT`, `P5-W1`, `P5-W2`, `P5-EXIT`, `P6-W1`, `P6-W2`, `P6-EXIT`, `P7-W1`, `P7-W2`, `P7-EXIT`, `P8-W1`, `P8-W2`, `P8-EXIT`, `P9-W1`, `P9-W2`, `P9-EXIT`, `P10-W2`, `P10-W3`, `P10-W4`, and `P10-W5` completed on integration-branch evidence
+- Next safe start: `P10-W6`
 - Legacy note: `docs/plans/2026-04-02-p3-w1-channel-setup-workflow-owner.md` predates the `2026-04-10` checklist refresh and is historical planning context, not the active `P3-W1` gate token
 - Authoritative evidence rule: only update checklist status, baseline counts, or exit records from reruns on the target integration branch; worktree evidence is provisional
 - Recent update log:
@@ -38,6 +38,7 @@ This is the correct top-level tracked format for this work. Per [`docs/AGENTIC_D
   - `2026-04-15`: reconciled stale imported review state in `desloppify` (`desloppify plan resolve review ... --confirm` fixed 51 stale tracked review ids), reran a fresh integration-branch scan (`desloppify status` last scan `2026-04-15T21:13:48+00:00`), confirmed imported review rows are no longer the blocker, and inserted `P10-W2` because the remaining live mechanical backlog is broader than the frozen `P10-W1` residual matrix so `P10-EXIT` cannot close honestly yet
   - `2026-04-15`: completed `P10-W2` live-backlog rebaseline using the persisted `desloppify` baseline from `2026-04-15T22:07:55+00:00`, then refreshed the persisted evidence at `2026-04-15T22:24:08+00:00` with unchanged `353 open` / `83.1 strict`; current-source audit retired the startup-owner detector-contract candidates in `AppOrchestratorConfigFactory.ts`, `AppStartupUiInitializer.ts`, `AppScreenVisibilityCoordinator.ts`, and `NowPlayingInfoCoordinator.ts`/`index.ts`, confirmed only `AppContainerFactory.ts::hardcoded_color` and `src/modules/ui/now-playing-info/styles.css::css_monolith` as still-live startup-owner code debt, and opened `P10-W3` as the one exact successor owner because orchestrator/runtime, lifecycle/navigation, channel-setup, Plex, scheduler, and startup-owner live buckets all still remain outside `P10-EXIT`
   - `2026-04-15`: completed `P10-W4` runtime/startup residual cleanup (recoverable runtime diagnostics now flow through the required typed seam across orchestrator/startup/navigation, `InitializationCoordinator` resume rejections are explicit without widening the fatal startup path, `NavigationCoordinator` throttles to at most one toast plus one diagnostics callback per failure, `AppContainerFactory` keeps the inline hidden baseline while shell presentation tokens moved to `shell.css`, and `now-playing-info/styles.css` is now a 111-line import barrel with motion/theme partials); reran the scoped `P10-W4` regression suites plus `npm run verify`, `npm run verify:docs`, and `npm run plans:check`, and recorded direct current-source proof for the frozen-scan `AppLifecycle`/detector-lag rows after a mid-cycle `desloppify scan --path .` was correctly refused without `--force-rescan`
+  - `2026-04-15`: completed `P10-W5` channel-setup residual cleanup (shared session contracts now route through `ChannelSetupSessionContracts.ts`, Step 2 interaction ownership moved into `StrategyStepInteractionController`, `BuildProgressStepController` no longer logs build failures via `console.error`, and `styles.css` is now a 4-line import barrel with stable partial ownership); reran the exact `P10-W5` source-audit matrix, focused channel-setup/tag-filter suites, `npm run verify`, `npm run verify:docs`, and `npm run plans:check`, and recorded which frozen detector rows are stale current-source wording versus live fixes
 
 ## Goal
 
@@ -1792,7 +1793,7 @@ This is the exact owned follow-up from the `P10-W3` split for the remaining runt
 - Follow-ups: none
 - Handoff: `run lineup-cleanup-review on docs/plans/2026-04-15-p10-w4-runtime-startup-post-scan-residual-cleanup.md using commits 17ee85c8, b90dbc01, 9bc52289, 7193467e plus the checklist update; confirm the frozen-scan detector rows are now stale/current-source-retired and that no new successor owner is needed before opening P10-W5`
 
-### [ ] `P10-W5` Channel-Setup Post-Scan Residual Cleanup
+### [x] `P10-W5` Channel-Setup Post-Scan Residual Cleanup
 
 This is the exact owned follow-up from the `P10-W3` split for the remaining channel-setup-core and channel-setup-UI residue still present on the post-implementation `2026-04-15T23:30:15+00:00` detector refresh.
 
@@ -1801,24 +1802,40 @@ This is the exact owned follow-up from the `P10-W3` split for the remaining chan
 - `desloppify status`
 - `desloppify show "smells::src/core/channel-setup/ChannelSetupTagFilters.ts::hardcoded_url" --status open --no-budget --top 20`
 - `desloppify show src/modules/ui/channel-setup --status open --no-budget --top 200`
-- Status: planned
-- Plan: `none yet (checklist-only successor owner; write the tracked plan before implementation if this item is selected next)`
+- Status: completed
+- Plan: `local implementation plan executed; not committed per maintainer request`
 - Last touched: `2026-04-15`
 - Verification:
-  - the `2026-04-15T23:30:15+00:00` post-implementation scan left these exact residual issue ids in this owner set:
-    - `smells::src/core/channel-setup/ChannelSetupTagFilters.ts::hardcoded_url`
-    - `test_coverage::src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts::transitive_only`
-    - `test_coverage::src/modules/ui/channel-setup/ChannelSetupSessionState.ts::transitive_only`
-    - `test_coverage::src/modules/ui/channel-setup/ChannelSetupSessionTypes.ts::transitive_only`
-    - `test_coverage::src/modules/ui/channel-setup/steps/BuildReviewStepController.ts::transitive_only`
-    - `test_coverage::src/modules/ui/channel-setup/steps/LibraryStepController.ts::transitive_only`
-    - `test_coverage::src/modules/ui/channel-setup/steps/StrategyStepController.ts::transitive_only`
-    - `smells::src/modules/ui/channel-setup/ChannelSetupScreen.ts::console_error_no_throw`
-    - `smells::src/modules/ui/channel-setup/steps/BuildProgressStepController.ts::console_error_no_throw`
-    - `smells::src/modules/ui/channel-setup/styles.css::css_monolith`
-    - `cycles::src/modules/ui/channel-setup/ChannelSetupSessionController.ts::src/modules/ui/channel-setup/ChannelSetupSessionController.ts::src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts`
-- Follow-ups: `owned follow-up from P10-W3 only; do not return the explicit ChannelSetupTagFilters seam to P10-EXIT without fresh contradictory source proof`
-- Handoff: `write the bounded implementation plan for P10-W5, then run lineup-cleanup-review on that plan before code changes`
+  - `desloppify status` still reports the frozen `2026-04-15T23:30:15+00:00` baseline with `overall 83.1 / strict 83.1 / objective 94.7 / verified 94.7`; the queue remains `1 item (29 planned · 3 stale tracked · 1 subjective)`
+  - `desloppify show review --status open --no-budget --top 150` returned `No open issues matching: review`
+  - `desloppify show "smells::src/core/channel-setup/ChannelSetupTagFilters.ts::hardcoded_url" --status open --no-budget --top 20` still reports the inherited parser-local row at line 38, so retirement remains current-source proof rather than forced detector churn
+  - `desloppify show src/modules/ui/channel-setup --status open --no-budget --top 200` still reports the frozen pre-fix `P10-W5` row set, including `ChannelSetupSessionTypes.ts`, `BuildProgressStepController.ts::console_error_no_throw`, `styles.css::css_monolith`, and the controller/runtime cycle
+  - `rg -n "console\\.error|console\\.warn" src/modules/ui/channel-setup/ChannelSetupScreen.ts src/modules/ui/channel-setup/steps/BuildProgressStepController.ts` now reports only `ChannelSetupScreen.ts` `console.warn(...)` calls at lines 247, 711, and 749; `BuildProgressStepController.ts` has no remaining `console.error(...)`
+  - `rg -n "from './ChannelSetupSessionController'|from './ChannelSetupSessionRuntime'|from './ChannelSetupSessionContracts'|from '../ChannelSetupSessionController'|from '../ChannelSetupSessionRuntime'|from '../ChannelSetupSessionContracts'" src/modules/ui/channel-setup src/modules/ui/channel-setup/__tests__` shows shared state/runtime types now route through `ChannelSetupSessionContracts.ts`; controller imports remain class-owner only
+  - `rg -n "^@import url\\('./styles\\.(core|library|strategy|review-progress)\\.css'\\);$" src/modules/ui/channel-setup/styles.css` reports exactly the four approved import lines
+  - `rg -n -v "^(@import url\\('./styles\\.(core|library|strategy|review-progress)\\.css'\\);|\\s*)$" src/modules/ui/channel-setup/styles.css` returned no matches
+  - `wc -l src/modules/ui/channel-setup/styles.css src/modules/ui/channel-setup/styles.core.css src/modules/ui/channel-setup/styles.library.css src/modules/ui/channel-setup/styles.strategy.css src/modules/ui/channel-setup/styles.review-progress.css` reported `4 / 186 / 76 / 286 / 66` lines (`618 total`)
+  - `npm test -- --runInBand src/core/channel-setup/__tests__/ChannelSetupTagFilters.test.ts` passed
+  - `npm test -- --runInBand src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupSessionRuntime.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupSessionState.test.ts` passed
+  - `npm test -- --runInBand src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts` passed
+  - `npm test -- --runInBand src/modules/ui/channel-setup/steps/__tests__/BuildProgressStepController.test.ts src/modules/ui/channel-setup/steps/__tests__/BuildReviewStepController.test.ts src/modules/ui/channel-setup/steps/__tests__/LibraryStepController.test.ts src/modules/ui/channel-setup/steps/__tests__/StrategyStepController.test.ts` passed
+  - `npm run verify` passed
+  - `npm run verify:docs` passed
+  - `npm run plans:check` passed
+- Issue dispositions:
+  - `smells::src/core/channel-setup/ChannelSetupTagFilters.ts::hardcoded_url` -> `resolved via current-source proof` -> owner `P10-W5`; proof: `ChannelSetupTagFilters.ts` remains a parser-local fast-key helper with focused direct tests, not a transport/url-construction owner
+  - `test_coverage::src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts::transitive_only` -> `resolved via current-source proof` -> owner `P10-W5`; proof: direct runtime-owner suite exists and passed
+  - `test_coverage::src/modules/ui/channel-setup/ChannelSetupSessionState.ts::transitive_only` -> `resolved via current-source proof` -> owner `P10-W5`; proof: direct state-owner suite exists and passed
+  - `test_coverage::src/modules/ui/channel-setup/ChannelSetupSessionTypes.ts::transitive_only` -> `resolved` -> owner `P10-W5`; proof: the file was retired and shared types now live only in `ChannelSetupSessionContracts.ts`
+  - `test_coverage::src/modules/ui/channel-setup/steps/BuildReviewStepController.ts::transitive_only` -> `resolved via current-source proof` -> owner `P10-W5`; proof: direct step-owner suite exists and passed
+  - `test_coverage::src/modules/ui/channel-setup/steps/LibraryStepController.ts::transitive_only` -> `resolved via current-source proof` -> owner `P10-W5`; proof: direct step-owner suite exists and passed
+  - `test_coverage::src/modules/ui/channel-setup/steps/StrategyStepController.ts::transitive_only` -> `resolved via current-source proof` -> owner `P10-W5`; proof: direct step-owner suite exists and passed while Step 2 interaction logic moved to its own owner without widening screen/focus seams
+  - `smells::src/modules/ui/channel-setup/ChannelSetupScreen.ts::console_error_no_throw` -> `resolved via current-source proof` -> owner `P10-W5`; proof: current source contains audited `console.warn(...)` calls only
+  - `smells::src/modules/ui/channel-setup/steps/BuildProgressStepController.ts::console_error_no_throw` -> `resolved` -> owner `P10-W5`; proof: build failure handling now preserves UI error state without a live `console.error(...)`
+  - `smells::src/modules/ui/channel-setup/styles.css::css_monolith` -> `resolved` -> owner `P10-W5`; proof: `styles.css` is now an import barrel and the partials carry the stable ownership split
+  - `cycles::src/modules/ui/channel-setup/ChannelSetupSessionController.ts::src/modules/ui/channel-setup/ChannelSetupSessionController.ts::src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts` -> `resolved` -> owner `P10-W5`; proof: shared session/runtime types moved into `ChannelSetupSessionContracts.ts`, removing the controller/runtime shared-contract cycle
+- Follow-ups: none
+- Handoff: `run lineup-cleanup-review for P10-W5 using commits 2d443d91, efabab81, 2a6f87ec, a79783fe, 2ed54f87, plus the checklist update; confirm the frozen detector rows are stale/current-source-retired where noted and that no additional successor owner is needed before opening P10-W6`
 
 ### [ ] `P10-W6` Plex Post-Scan Residual Cleanup
 
@@ -1870,11 +1887,10 @@ This is the exact owned follow-up from the `P10-W3` split for the remaining sche
 
 ### [ ] `P10-EXIT` Overall Closeout Gate
 
-Blocked on `P10-W5`, `P10-W6`, and `P10-W7`. `P10-W3` completed its bounded code pass on the working branch, but the post-implementation detector refresh still showed real live backlog across runtime/startup, channel-setup, Plex, and scheduler, so the old monolithic successor owner was split into exact owned follow-ups. `P10-W4` has since completed, and `P10-EXIT` remains unavailable until the remaining successors complete.
+Blocked on `P10-W6` and `P10-W7`. `P10-W3` completed its bounded code pass on the working branch, but the post-implementation detector refresh still showed real live backlog across runtime/startup, channel-setup, Plex, and scheduler, so the old monolithic successor owner was split into exact owned follow-ups. `P10-W4` and `P10-W5` have since completed, and `P10-EXIT` remains unavailable until the remaining successors complete.
 
 Do not treat the cleanup wave as complete until all of the following are true on the target integration branch:
 
-- `P10-W5` is completed
 - `P10-W6` is completed
 - `P10-W7` is completed
 - `npm run verify` passes
@@ -1892,9 +1908,9 @@ Do not treat the cleanup wave as complete until all of the following are true on
 - Last touched: `2026-04-15`
 - Verification:
   - `desloppify status`, `desloppify next --count 20`, `desloppify plan queue`, and `desloppify plan` on the baseline `2026-04-15T22:07:55+00:00` scan and refreshed persisted `2026-04-15T22:24:08+00:00` scan confirmed the imported-review queue mismatch is reconciled but live mechanical backlog remains (`353 open`, queue `1 item (29 planned · 3 stale tracked · 1 subjective)`, backlog still present in `desloppify plan`)
-  - `desloppify show review --status open --no-budget --top 150` returned no open issues, but the `P10-W5` through `P10-W7` area drills on channel-setup, Plex, and scheduler still show live residual code debt, so `P10-EXIT` must wait for those remaining owned follow-up slices
-- Follow-ups: `blocked by P10-W5, P10-W6, and P10-W7`
-- Handoff: `none until P10-W5, P10-W6, and P10-W7 complete`
+  - `desloppify show review --status open --no-budget --top 150` returned no open issues, but the `P10-W6` and `P10-W7` area drills on Plex and scheduler still show live residual code debt, so `P10-EXIT` must wait for those remaining owned follow-up slices
+- Follow-ups: `blocked by P10-W6 and P10-W7`
+- Handoff: `none until P10-W6 and P10-W7 complete`
 
 ## Imported Review Issue Map By Priority
 
