@@ -1715,7 +1715,7 @@ This pass exists because the post-reconciliation integration-branch scan cleared
   - newly surfaced live clusters moved to exact successor owner `P10-W3`: `src/core/orchestrator/AppOrchestrator.ts`, `src/core/orchestrator/OrchestratorEventBinder.ts`, `src/modules/lifecycle/AppLifecycle.ts`, `src/modules/navigation/NavigationCoordinator.ts`, `src/core/InitializationCoordinator.ts`, `src/modules/ui/channel-setup/**`, `src/modules/plex/**`, `src/modules/scheduler/channel-manager/**`
 - Handoff: `run lineup-cleanup-review on the completed P10-W2 rebaseline record, then freeze and review the P10-W3 successor plan before any more Priority 10 code changes`
 
-### [ ] `P10-W3` Successor Owner For Remaining Live Non-Tooling Backlog
+### [x] `P10-W3` Successor Owner For Remaining Live Non-Tooling Backlog
 
 `P10-W2` proved that Priority 10 still has multiple live non-tooling buckets on current integration-branch evidence, so `P10-EXIT` cannot honestly close next and the startup-owner rows cannot be treated as the last bounded pass. `P10-W3` is the one exact successor owner for the remaining live non-tooling backlog re-frozen on the refreshed persisted `2026-04-15T22:24:08+00:00` scan after validating the `2026-04-15T22:07:55+00:00` baseline.
 
@@ -1732,24 +1732,153 @@ This pass exists because the post-reconciliation integration-branch scan cleared
 - `desloppify show src/modules/ui/now-playing-info --status open --no-budget --top 100`
 - `desloppify show src/modules/plex --status open --no-budget --top 180`
 - `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150`
-- Status: planned
-- Plan: `none yet`
+- Status: split follow-up
+- Plan: `docs/plans/2026-04-15-p10-w3-successor-owner-remaining-live-non-tooling-backlog.md`
 - Last touched: `2026-04-15`
 - Verification:
   - `P10-W2` rebaseline evidence on the baseline `2026-04-15T22:07:55+00:00` scan and refreshed persisted `2026-04-15T22:24:08+00:00` scan already proved more than one non-tooling bucket remains live, so this successor owner is required before `P10-EXIT`
   - startup-owner stale-vs-live disposition is frozen: detector-contract candidates stay retired on current-source proof, while `smells::src/core/app-shell/AppContainerFactory.ts::hardcoded_color` and `smells::src/modules/ui/now-playing-info/styles.css::css_monolith` remain live
+  - implementation landed as seven bounded commits on `code-health`: `af185e74`, `d4d13baf`, `fc37d375`, `3f4cd336`, `2c9351fb`, `9755a8c6`, and `f6ca5f7d`
+  - the post-implementation working-branch detector refresh (`desloppify scan --path . --force-rescan --attest "I understand this is not the intended workflow and I am intentionally skipping queue completion"`) completed at `2026-04-15T23:30:15+00:00` and showed real remaining live `P10` residue, so this slice must split instead of claiming false completion
 - Follow-ups:
-  - exact live buckets now owned by `P10-W3`: orchestrator/runtime, lifecycle/navigation, startup-owner live rows, `InitializationCoordinator`, channel-setup, Plex, and scheduler
-  - explicit non-goal: do not reopen the `P10-W2` detector-contract candidates unless a fresh rerun points at contradictory current-source evidence
-- Handoff: `write and approve the P10-W3 successor plan before any further Priority 10 implementation; P10-EXIT stays blocked until P10-W3 completes`
+  - `followup::p10-w3-runtime-startup-postscan-residue`
+    owner: `P10-W4`
+    reason: the post-implementation scan still reports live runtime/startup/app-shell issues in `AppOrchestrator`, `OrchestratorEventBinder`, `AppLifecycle`, `NavigationCoordinator`, `InitializationCoordinator`, `AppContainerFactory`, and `src/modules/ui/now-playing-info/styles.css`
+    revisit trigger: rerun `desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 100` + `desloppify show src/core/orchestrator/OrchestratorEventBinder.ts --status open --no-budget --top 50` + `desloppify show src/modules/lifecycle --status open --no-budget --top 100` + `desloppify show src/modules/navigation --status open --no-budget --top 150` + `desloppify show src/core/InitializationCoordinator.ts --status open --no-budget --top 50` + `desloppify show "smells::src/core/app-shell/AppContainerFactory.ts::hardcoded_color" --status open --no-budget --top 20` + `desloppify show "smells::src/modules/ui/now-playing-info/styles.css::css_monolith" --status open --no-budget --top 20` before closing `P10-W4`
+  - `followup::p10-w3-channel-setup-postscan-residue`
+    owner: `P10-W5`
+    reason: the post-implementation scan still reports live channel-setup-core/UI residue, including the explicit `ChannelSetupTagFilters.ts::hardcoded_url` seam, a controller/runtime cycle, direct-test gaps, and remaining UI detector hits
+    revisit trigger: rerun `desloppify show "smells::src/core/channel-setup/ChannelSetupTagFilters.ts::hardcoded_url" --status open --no-budget --top 20` + `desloppify show src/modules/ui/channel-setup --status open --no-budget --top 200` before closing `P10-W5`
+  - `followup::p10-w3-plex-postscan-residue`
+    owner: `P10-W6`
+    reason: the post-implementation scan still reports live Plex log-policy, test-coverage, and complexity residue across discovery, library, auth payload parsing, stream policy, and transport helpers
+    revisit trigger: rerun `desloppify show src/modules/plex --status open --no-budget --top 200` before closing `P10-W6`
+  - `followup::p10-w3-scheduler-postscan-residue`
+    owner: `P10-W7`
+    reason: the post-implementation scan still reports live scheduler residue in `ChannelContentSourceValidator`, `ChannelManager`, and `StoredChannelDataCodec`
+    revisit trigger: rerun `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150` before closing `P10-W7`
+  - explicit non-goal: do not reopen the `P10-W2` startup-owner detector-contract retirements or the already-frozen `P10-EXIT` tooling-state residue unless a fresh rerun points at contradictory current-source evidence
+- Handoff: `run lineup-cleanup-review on the landed P10-W3 implementation evidence with this split-follow-up record; review the seven code commits plus the checklist split, then implement P10-W4 through P10-W7 as separate follow-up slices before any P10-EXIT closeout work`
+
+### [ ] `P10-W4` Runtime / Startup Post-Scan Residual Cleanup
+
+This is the exact owned follow-up from the `P10-W3` split for the remaining runtime, startup, navigation, and startup-owner live residue still present on the post-implementation `2026-04-15T23:30:15+00:00` detector refresh.
+
+**Authoritative commands:**
+
+- `desloppify status`
+- `desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 100`
+- `desloppify show src/core/orchestrator/OrchestratorEventBinder.ts --status open --no-budget --top 50`
+- `desloppify show src/modules/lifecycle --status open --no-budget --top 100`
+- `desloppify show src/modules/navigation --status open --no-budget --top 150`
+- `desloppify show src/core/InitializationCoordinator.ts --status open --no-budget --top 50`
+- `desloppify show "smells::src/core/app-shell/AppContainerFactory.ts::hardcoded_color" --status open --no-budget --top 20`
+- `desloppify show "smells::src/modules/ui/now-playing-info/styles.css::css_monolith" --status open --no-budget --top 20`
+- Status: planned
+- Plan: `none yet (checklist-only successor owner; write the tracked plan before implementation if this item is selected next)`
+- Last touched: `2026-04-15`
+- Verification:
+  - the `2026-04-15T23:30:15+00:00` post-implementation scan left these exact residual issue ids in this owner set:
+    - `logs::src/core/orchestrator/AppOrchestrator.ts::Orchestrator`
+    - `smells::src/core/orchestrator/AppOrchestrator.ts::console_error_no_throw`
+    - `smells::src/core/orchestrator/AppOrchestrator.ts::swallowed_error`
+    - `logs::src/core/orchestrator/OrchestratorEventBinder.ts::Orchestrator`
+    - `smells::src/core/orchestrator/OrchestratorEventBinder.ts::console_error_no_throw`
+    - `smells::src/modules/lifecycle/AppLifecycle.ts::hardcoded_url`
+    - `smells::src/modules/navigation/NavigationCoordinator.ts::console_error_no_throw`
+    - `smells::src/modules/navigation/NavigationCoordinator.ts::async_no_await`
+    - `smells::src/core/InitializationCoordinator.ts::console_error_no_throw`
+    - `smells::src/core/app-shell/AppContainerFactory.ts::hardcoded_color`
+    - `smells::src/modules/ui/now-playing-info/styles.css::css_monolith`
+- Follow-ups: `owned follow-up from P10-W3 only; do not split further unless a fresh source audit proves a narrower final owner`
+- Handoff: `write the bounded implementation plan for P10-W4, then run lineup-cleanup-review on that plan before code changes`
+
+### [ ] `P10-W5` Channel-Setup Post-Scan Residual Cleanup
+
+This is the exact owned follow-up from the `P10-W3` split for the remaining channel-setup-core and channel-setup-UI residue still present on the post-implementation `2026-04-15T23:30:15+00:00` detector refresh.
+
+**Authoritative commands:**
+
+- `desloppify status`
+- `desloppify show "smells::src/core/channel-setup/ChannelSetupTagFilters.ts::hardcoded_url" --status open --no-budget --top 20`
+- `desloppify show src/modules/ui/channel-setup --status open --no-budget --top 200`
+- Status: planned
+- Plan: `none yet (checklist-only successor owner; write the tracked plan before implementation if this item is selected next)`
+- Last touched: `2026-04-15`
+- Verification:
+  - the `2026-04-15T23:30:15+00:00` post-implementation scan left these exact residual issue ids in this owner set:
+    - `smells::src/core/channel-setup/ChannelSetupTagFilters.ts::hardcoded_url`
+    - `test_coverage::src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts::transitive_only`
+    - `test_coverage::src/modules/ui/channel-setup/ChannelSetupSessionState.ts::transitive_only`
+    - `test_coverage::src/modules/ui/channel-setup/ChannelSetupSessionTypes.ts::transitive_only`
+    - `test_coverage::src/modules/ui/channel-setup/steps/BuildReviewStepController.ts::transitive_only`
+    - `test_coverage::src/modules/ui/channel-setup/steps/LibraryStepController.ts::transitive_only`
+    - `test_coverage::src/modules/ui/channel-setup/steps/StrategyStepController.ts::transitive_only`
+    - `smells::src/modules/ui/channel-setup/ChannelSetupScreen.ts::console_error_no_throw`
+    - `smells::src/modules/ui/channel-setup/steps/BuildProgressStepController.ts::console_error_no_throw`
+    - `smells::src/modules/ui/channel-setup/styles.css::css_monolith`
+    - `cycles::src/modules/ui/channel-setup/ChannelSetupSessionController.ts::src/modules/ui/channel-setup/ChannelSetupSessionController.ts::src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts`
+- Follow-ups: `owned follow-up from P10-W3 only; do not return the explicit ChannelSetupTagFilters seam to P10-EXIT without fresh contradictory source proof`
+- Handoff: `write the bounded implementation plan for P10-W5, then run lineup-cleanup-review on that plan before code changes`
+
+### [ ] `P10-W6` Plex Post-Scan Residual Cleanup
+
+This is the exact owned follow-up from the `P10-W3` split for the remaining Plex residue still present on the post-implementation `2026-04-15T23:30:15+00:00` detector refresh.
+
+**Authoritative commands:**
+
+- `desloppify status`
+- `desloppify show src/modules/plex --status open --no-budget --top 200`
+- Status: planned
+- Plan: `none yet (checklist-only successor owner; write the tracked plan before implementation if this item is selected next)`
+- Last touched: `2026-04-15`
+- Verification:
+  - the `2026-04-15T23:30:15+00:00` post-implementation scan left these exact residual issue ids in this owner set:
+    - `test_coverage::src/modules/plex/auth/plexAuthPayloadParsers.ts::transitive_only`
+    - `smells::src/modules/plex/auth/plexAuthPayloadParsers.ts::high_cyclomatic_complexity`
+    - `test_coverage::src/modules/plex/stream/hdr.ts::transitive_only`
+    - `smells::src/modules/plex/stream/hdr.ts::high_cyclomatic_complexity`
+    - `test_coverage::src/modules/plex/shared/fetchWithTimeoutCore.ts::transitive_only`
+    - `test_coverage::src/modules/plex/stream/plexSessionId.ts::transitive_only`
+    - `logs::src/modules/plex/stream/PlexStreamResolver.ts::PlexStreamResolver`
+    - `logs::src/modules/plex/discovery/PlexServerDiscovery.ts::Discovery`
+    - `smells::src/modules/plex/library/ResponseParser.ts::high_cyclomatic_complexity`
+    - `smells::src/modules/plex/stream/playbackCompatibilityPolicy.ts::high_cyclomatic_complexity`
+    - `smells::src/modules/plex/library/PlexLibrary.ts::console_error_no_throw`
+    - `smells::src/modules/plex/stream/dvHdr10Fallback.ts::high_cyclomatic_complexity`
+    - `smells::src/modules/plex/stream/types.ts::high_cyclomatic_complexity`
+- Follow-ups: `owned follow-up from P10-W3 only; do not merge this residual set back into runtime/startup or scheduler without a fresh owner decision`
+- Handoff: `write the bounded implementation plan for P10-W6, then run lineup-cleanup-review on that plan before code changes`
+
+### [ ] `P10-W7` Scheduler Post-Scan Residual Cleanup
+
+This is the exact owned follow-up from the `P10-W3` split for the remaining scheduler residue still present on the post-implementation `2026-04-15T23:30:15+00:00` detector refresh.
+
+**Authoritative commands:**
+
+- `desloppify status`
+- `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150`
+- Status: planned
+- Plan: `none yet (checklist-only successor owner; write the tracked plan before implementation if this item is selected next)`
+- Last touched: `2026-04-15`
+- Verification:
+  - the `2026-04-15T23:30:15+00:00` post-implementation scan left these exact residual issue ids in this owner set:
+    - `smells::src/modules/scheduler/channel-manager/ChannelContentSourceValidator.ts::high_cyclomatic_complexity`
+    - `smells::src/modules/scheduler/channel-manager/ChannelManager.ts::voided_symbol`
+    - `smells::src/modules/scheduler/channel-manager/StoredChannelDataCodec.ts::voided_symbol`
+- Follow-ups: `owned follow-up from P10-W3 only; do not widen this owner beyond scheduler unless a fresh source audit proves another boundary owns the remaining symbols`
+- Handoff: `write the bounded implementation plan for P10-W7, then run lineup-cleanup-review on that plan before code changes`
 
 ### [ ] `P10-EXIT` Overall Closeout Gate
 
-Blocked on `P10-W3`. `P10-W2` completed the persisted-scan rebaseline using the `2026-04-15T22:07:55+00:00` baseline and refreshed the persisted evidence at `2026-04-15T22:24:08+00:00`, retired the startup-owner detector-contract candidates on current-source proof, and opened one exact successor owner for the still-live non-tooling backlog. `P10-EXIT` remains unavailable until that successor owner completes.
+Blocked on `P10-W4`, `P10-W5`, `P10-W6`, and `P10-W7`. `P10-W3` completed its bounded code pass on the working branch, but the post-implementation detector refresh still showed real live backlog across runtime/startup, channel-setup, Plex, and scheduler, so the old monolithic successor owner has been split into four exact owned follow-ups. `P10-EXIT` remains unavailable until those successors complete.
 
 Do not treat the cleanup wave as complete until all of the following are true on the target integration branch:
 
-- `P10-W3` is completed
+- `P10-W4` is completed
+- `P10-W5` is completed
+- `P10-W6` is completed
+- `P10-W7` is completed
 - `npm run verify` passes
 - `npm run verify:docs` passes
 - `desloppify scan --path .` completes cleanly
@@ -1765,9 +1894,9 @@ Do not treat the cleanup wave as complete until all of the following are true on
 - Last touched: `2026-04-15`
 - Verification:
   - `desloppify status`, `desloppify next --count 20`, `desloppify plan queue`, and `desloppify plan` on the baseline `2026-04-15T22:07:55+00:00` scan and refreshed persisted `2026-04-15T22:24:08+00:00` scan confirmed the imported-review queue mismatch is reconciled but live mechanical backlog remains (`353 open`, queue `1 item (29 planned · 3 stale tracked · 1 subjective)`, backlog still present in `desloppify plan`)
-  - `desloppify show review --status open --no-budget --top 150` returned no open issues, but the `P10-W2` area drills on orchestrator / lifecycle / navigation / app-shell / `InitializationCoordinator` / channel-setup / now-playing-info / Plex / scheduler still show live residual code debt, so `P10-EXIT` must wait for `P10-W3`
-- Follow-ups: `blocked by P10-W3 successor-owner pass for the remaining live non-tooling backlog`
-- Handoff: `none until P10-W3 completes`
+  - `desloppify show review --status open --no-budget --top 150` returned no open issues, but the `P10-W4` through `P10-W7` area drills on runtime/startup, channel-setup, Plex, and scheduler still show live residual code debt, so `P10-EXIT` must wait for those four owned follow-up slices
+- Follow-ups: `blocked by P10-W4, P10-W5, P10-W6, and P10-W7`
+- Handoff: `none until P10-W4, P10-W5, P10-W6, and P10-W7 complete`
 
 ## Imported Review Issue Map By Priority
 
