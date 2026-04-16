@@ -3,6 +3,7 @@ import type { SafeLocalStorageWriteResult } from '../../../utils/storage';
 import { isValidContentSource } from './ChannelContentSourceValidator';
 import { ChannelPersistenceStore } from './ChannelPersistenceStore';
 import { CURRENT_CHANNEL_KEY, STORAGE_KEY } from './constants';
+import { stripLegacySequentialVariant } from './stripLegacySequentialVariant';
 import type { ChannelConfig, StoredChannelData } from './types';
 
 export type LoadedChannelState = {
@@ -47,12 +48,11 @@ export class ChannelRepository {
                 didMutate = true;
                 continue;
             }
-            const record = raw as unknown as Record<string, unknown>;
-            if (Object.prototype.hasOwnProperty.call(record, 'isSequentialVariant')) {
-                delete record.isSequentialVariant;
+            const sanitized = stripLegacySequentialVariant(raw);
+            if (sanitized.didMutate) {
                 didMutate = true;
             }
-            const channel = record as unknown as ChannelConfig;
+            const channel = sanitized.channel as ChannelConfig;
             if (typeof channel.id !== 'string' || channel.id.length === 0) {
                 didMutate = true;
                 continue;

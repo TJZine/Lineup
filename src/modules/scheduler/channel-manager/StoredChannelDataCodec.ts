@@ -1,4 +1,5 @@
 import type { StoredChannelData } from './types';
+import { stripLegacySequentialVariant } from './stripLegacySequentialVariant';
 
 function isValidStoredShape(value: unknown): value is Partial<StoredChannelData> {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -7,23 +8,6 @@ function isValidStoredShape(value: unknown): value is Partial<StoredChannelData>
 
     const record = value as Record<string, unknown>;
     return Array.isArray(record.channels) && Array.isArray(record.channelOrder);
-}
-
-function stripLegacySequentialVariant(
-    channel: unknown
-): { channel: unknown; didMutate: boolean } {
-    if (!channel || typeof channel !== 'object' || Array.isArray(channel)) {
-        return { channel, didMutate: false };
-    }
-
-    const record = channel as Record<string, unknown>;
-    if (!Object.prototype.hasOwnProperty.call(record, 'isSequentialVariant')) {
-        return { channel, didMutate: false };
-    }
-
-    const sanitized = { ...record };
-    delete sanitized.isSequentialVariant;
-    return { channel: sanitized, didMutate: true };
 }
 
 function sanitizeStoredChannels(channels: unknown): { channels: unknown[]; didMutate: boolean } {

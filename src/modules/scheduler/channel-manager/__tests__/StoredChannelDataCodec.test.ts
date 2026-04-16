@@ -102,4 +102,44 @@ describe('StoredChannelDataCodec', () => {
 
         expect(parsed.channels[0]).not.toHaveProperty('isSequentialVariant');
     });
+
+    it('preserves canonical playback variant metadata while stripping the legacy field', () => {
+        const payload = {
+            channels: [{
+                id: 'channel-1',
+                number: 1,
+                name: 'Legacy',
+                contentSource: {
+                    type: 'library',
+                    libraryId: 'library-1',
+                    libraryType: 'movie',
+                    includeWatched: true,
+                },
+                playbackMode: 'shuffle',
+                shuffleSeed: 1,
+                phaseSeed: 2,
+                startTimeAnchor: 0,
+                skipIntros: false,
+                skipCredits: false,
+                createdAt: 0,
+                updatedAt: 0,
+                lastContentRefresh: 0,
+                itemCount: 0,
+                totalDurationMs: 0,
+                isSequentialVariant: true,
+                isPlaybackModeVariant: false,
+            }],
+            channelOrder: ['channel-1'],
+            currentChannelId: 'channel-1',
+            savedAt: Date.now(),
+        } as unknown as StoredChannelData;
+
+        const encoded = encodeStoredChannelData(payload);
+        const parsed = JSON.parse(encoded) as {
+            channels: Array<Record<string, unknown>>;
+        };
+
+        expect(parsed.channels[0]).not.toHaveProperty('isSequentialVariant');
+        expect(parsed.channels[0]?.isPlaybackModeVariant).toBe(false);
+    });
 });
