@@ -39,6 +39,7 @@ import {
     applyPhase3ServerGatePolicy,
     applyPostReadyRoutingPolicy,
 } from './initialization/InitializationStartupPolicy';
+import type { RecoverableAsyncFailureReporter } from './orchestrator/OrchestratorRuntimeSeams';
 
 // ============================================
 // Types
@@ -99,6 +100,9 @@ export interface InitializationCallbacks {
     };
     errors: {
         handleGlobalError: (error: AppError, context: string) => void;
+    };
+    diagnostics: {
+        reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter;
     };
     state: {
         setReady: (ready: boolean) => void;
@@ -694,9 +698,14 @@ export class InitializationCoordinator {
     }
 
     private _resumeStartupPhase(phase: 2 | 3): void {
-        void this.runStartup(phase).catch(() => {
+        void this.runStartup(phase).catch((error: unknown) => {
             // runStartup() already reports fatal startup failures via handleGlobalError('start').
             // Consume the rejection here only to avoid an unhandled Promise rejection on resume.
+            this._callbacks.diagnostics.reportRecoverableAsyncFailure(
+                `initialization.resume.phase${phase}`,
+                `Background startup resume failed for phase ${phase}`,
+                error
+            );
         });
     }
 }

@@ -15,8 +15,9 @@ import {
     EPG_REPEAT_TIMING,
     MINI_GUIDE_REPEAT_TIMING,
 } from './constants';
-import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
+import { isAbortLikeError } from '../../utils/errors';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
+import type { RecoverableAsyncFailureReporter } from '../../core/orchestrator/OrchestratorRuntimeSeams';
 
 export interface NavigationCoordinatorDeps {
     navigation: INavigationManager;
@@ -81,6 +82,7 @@ export interface NavigationCoordinatorDeps {
         shouldRunChannelSetup: () => boolean;
         hideChannelTransition: () => void;
     };
+    reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter;
     reportToast?: (toast: { message: string; type: 'warning' | 'error' | 'info' | 'success' }) => void;
     readKeepPlayingInSettings: () => boolean;
     readDebugLoggingEnabled: () => boolean;
@@ -98,10 +100,12 @@ export class NavigationCoordinator {
 
     constructor(private readonly deps: NavigationCoordinatorDeps) { }
 
-    private _warnNonBlockingFailure(
+    private _reportNonBlockingFailure(
         key: string,
+        event: string,
         message: string,
-        error: unknown
+        error: unknown,
+        toastMessage?: string
     ): void {
         const now = Date.now();
         const last = this._nonBlockingFailureTimestamps.get(key);
@@ -112,17 +116,26 @@ export class NavigationCoordinator {
             this._nonBlockingFailureTimestamps.clear();
         }
         this._nonBlockingFailureTimestamps.set(key, now);
-        console.warn(message, summarizeErrorForLog(error));
+        this.deps.reportRecoverableAsyncFailure(event, message, error);
+        if (toastMessage) {
+            this.deps.reportToast?.({ message: toastMessage, type: 'warning' });
+        }
     }
 
     private _fireAndReport(
         key: string,
         promise: Promise<void>,
+        message: string,
         toastMessage: string
     ): void {
         void promise.catch((error: unknown) => {
-            this._warnNonBlockingFailure(key, `[Navigation] ${key} failed:`, error);
-            this.deps.reportToast?.({ message: toastMessage, type: 'warning' });
+            this._reportNonBlockingFailure(
+                key,
+                `navigation.${key}`,
+                message,
+                error,
+                toastMessage
+            );
         });
     }
 
@@ -161,6 +174,7 @@ export class NavigationCoordinator {
             this._fireAndReport(
                 'channel-number',
                 this._handleChannelNumberEntered(payload.channelNumber),
+                '[Navigation] channel-number failed:',
                 'Could not switch to that channel'
             );
         };
@@ -292,7 +306,12 @@ export class NavigationCoordinator {
         // Resume playback when returning to player
         if (to === 'player' && from !== 'player') {
             if (videoPlayer) {
-                this._fireAndReport('resume_play', videoPlayer.play(), 'Playback failed to resume');
+                this._fireAndReport(
+                    'resume_play',
+                    videoPlayer.play(),
+                    '[Navigation] resume_play failed:',
+                    'Playback failed to resume'
+                );
             }
         }
     }
@@ -575,6 +594,7 @@ export class NavigationCoordinator {
                     this._fireAndReport(
                         'remote_play',
                         playPromise,
+                        '[Navigation] remote_play failed:',
                         'Unable to start playback'
                     );
                     void playPromise.then(
@@ -752,7 +772,12 @@ export class NavigationCoordinator {
         try {
             await promise;
         } catch (error: unknown) {
-            this._warnNonBlockingFailure(key, message, error);
+            this._reportNonBlockingFailure(
+                key,
+                `navigation.${key}`,
+                message,
+                error
+            );
         }
     }
 

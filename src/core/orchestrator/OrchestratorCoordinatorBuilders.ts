@@ -584,6 +584,7 @@ export function buildNavigationCoordinator(
         modals: buildNavigationModalsConfig(deps),
         channelSwitching: buildNavigationChannelSwitchingConfig(input, deps),
         uiGuards: buildNavigationUiGuardsConfig(deps),
+        reportRecoverableAsyncFailure: input.diagnostics.reportRecoverableAsyncFailure,
         reportToast: (toast: { message: string; type: 'warning' | 'error' | 'info' | 'success' }): void => {
             input.nowPlaying.handler()?.(toast);
         },

@@ -76,6 +76,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         updateModuleStatus: InitializationCallbacks['status']['updateModuleStatus'];
         getModuleStatus: InitializationCallbacks['status']['getModuleStatus'];
         handleGlobalError: InitializationCallbacks['errors']['handleGlobalError'];
+        reportRecoverableAsyncFailure: InitializationCallbacks['diagnostics']['reportRecoverableAsyncFailure'];
         setReady: InitializationCallbacks['state']['setReady'];
         setupEventWiring: InitializationCallbacks['state']['setupEventWiring'];
         configureDiscoveryStorage: InitializationCallbacks['serverStorage']['configureDiscoveryStorage'];
@@ -185,6 +186,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             updateModuleStatus: jest.fn(),
             getModuleStatus: jest.fn(),
             handleGlobalError: jest.fn(),
+            reportRecoverableAsyncFailure: jest.fn(),
             setReady: jest.fn(),
             setupEventWiring: jest.fn(),
             configureDiscoveryStorage: jest.fn(),
@@ -203,6 +205,9 @@ describe('InitializationCoordinator (Plex Home)', () => {
             },
             errors: {
                 handleGlobalError: legacyCallbacks.handleGlobalError,
+            },
+            diagnostics: {
+                reportRecoverableAsyncFailure: legacyCallbacks.reportRecoverableAsyncFailure,
             },
             state: {
                 setReady: legacyCallbacks.setReady,
@@ -498,6 +503,11 @@ describe('InitializationCoordinator (Plex Home)', () => {
                 recoverable: true,
             }),
             'start'
+        );
+        expect(callbacks.reportRecoverableAsyncFailure).toHaveBeenCalledWith(
+            'initialization.resume.phase3',
+            'Background startup resume failed for phase 3',
+            expect.any(Error)
         );
     });
 

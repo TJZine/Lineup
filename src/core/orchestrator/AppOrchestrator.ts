@@ -580,6 +580,9 @@ export class AppOrchestrator {
                 errors: {
                     handleGlobalError: this.handleGlobalError.bind(this),
                 },
+                diagnostics: {
+                    reportRecoverableAsyncFailure: this._reportRecoverableAsyncFailure,
+                },
                 state: {
                     setReady: (ready: boolean): void => {
                         this._ready = ready;
