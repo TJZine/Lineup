@@ -1,0 +1,186 @@
+.setup-preview {
+    width: 100%;
+    padding: 12px 18px 12px 14px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(200, 160, 100, 0.12);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 180px;
+    box-sizing: border-box;
+}
+
+.setup-preview-title {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--onboarding-text-secondary, rgba(240, 236, 232, 0.6));
+}
+
+.setup-preview-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-right: 6px;
+}
+
+.setup-preview-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 15px;
+    color: rgba(255, 255, 255, 0.85);
+    align-items: center;
+    min-width: 0;
+}
+
+.setup-preview-label {
+    color: var(--onboarding-text-secondary, rgba(240, 236, 232, 0.6));
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.setup-preview-value {
+    display: inline-flex;
+    gap: 8px;
+    align-items: baseline;
+    justify-content: flex-end;
+    white-space: nowrap;
+    font-weight: 600;
+    text-align: right;
+    flex: 0 0 auto;
+}
+
+.setup-preview-delta {
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0.9;
+}
+
+.setup-preview-delta.positive {
+    color: var(--color-success);
+}
+
+.setup-preview-delta.negative {
+    color: var(--color-error);
+}
+
+.setup-preview-warning {
+    font-size: 14px;
+    color: rgba(255, 196, 0, 0.9);
+}
+
+.setup-preview-loading,
+.setup-preview-empty {
+    font-size: 14px;
+    color: var(--onboarding-text-secondary, rgba(240, 236, 232, 0.6));
+}
+
+.setup-preview-warnings {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.setup-preview-updating {
+    font-size: 13px;
+    color: var(--onboarding-text-secondary, rgba(240, 236, 232, 0.6));
+    font-style: italic;
+    margin-top: 4px;
+}
+
+.setup-dropdown {
+    position: absolute;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px;
+    background: rgba(14, 16, 23, 0.94);
+    border: 1px solid rgba(200, 160, 100, 0.15);
+    border-radius: 10px;
+    box-shadow: none;
+    max-height: 320px;
+    overflow-y: auto;
+    animation: setup-dropdown-enter 150ms ease-out both;
+}
+
+@keyframes setup-dropdown-enter {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.setup-dropdown-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 14px;
+    text-align: left;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 18px;
+    cursor: pointer;
+    transition:
+        background-color 120ms ease,
+        border-color 120ms ease;
+}
+
+.setup-dropdown-option:hover,
+.setup-dropdown-option:focus,
+.setup-dropdown-option.focused {
+    background: rgba(200, 160, 100, 0.12);
+    border-color: rgba(200, 160, 100, 0.24);
+    outline: none;
+}
+
+.setup-dropdown-option--selected {
+    background: rgba(200, 160, 100, 0.18);
+    color: var(--onboarding-accent, rgb(200, 160, 100));
+}
+
+.setup-dropdown-option--selected:hover,
+.setup-dropdown-option--selected:focus,
+.setup-dropdown-option--selected.focused {
+    background: rgba(200, 160, 100, 0.24);
+}
+
+.setup-dropdown-option-label {
+    flex: 1;
+    min-width: 0;
+}
+
+.setup-dropdown-option-check {
+    flex-shrink: 0;
+    font-size: 16px;
+    color: var(--onboarding-accent, rgb(200, 160, 100));
+}
+
+.setup-focus-safe-scroll {
+    --_focus-inset: calc(var(--focus-ring-width) + var(--focus-ring-offset));
+    box-sizing: border-box;
+    padding-right: calc(var(--_focus-inset) + 6px);
+    padding-left: calc(var(--_focus-inset) + 2px);
+    padding-top: calc(var(--_focus-inset) + 2px);
+    padding-bottom: calc(var(--_focus-inset) + 2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .setup-dropdown {
+        animation: none;
+    }
+}
