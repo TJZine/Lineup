@@ -132,7 +132,7 @@ export class OrchestratorEventBinder {
 
         const programStartHandler = (program: ScheduledProgram): void => {
             void observeRecoverableAsyncFailure(
-                this._deps.handleProgramStartTracked(program),
+                () => this._deps.handleProgramStartTracked(program),
                 this._deps.reportRecoverableAsyncFailure,
                 'orchestratorEventBinder.programStart',
                 'Unhandled program-start failure'
@@ -145,7 +145,7 @@ export class OrchestratorEventBinder {
 
         const scheduleSyncHandler = (): void => {
             void observeRecoverableAsyncFailure(
-                this._deps.handleScheduleDayRollover(),
+                () => this._deps.handleScheduleDayRollover(),
                 this._deps.reportRecoverableAsyncFailure,
                 'orchestratorEventBinder.scheduleSync',
                 'Unhandled schedule-sync failure'
@@ -271,7 +271,7 @@ export class OrchestratorEventBinder {
 
         const pauseSub = lifecycle.onPause(() => {
             return observeRecoverableAsyncFailure(
-                this._deps.handleLifecyclePause(),
+                () => this._deps.handleLifecyclePause(),
                 this._deps.reportRecoverableAsyncFailure,
                 'orchestratorEventBinder.lifecyclePause',
                 'Unhandled lifecycle pause failure'
@@ -281,7 +281,7 @@ export class OrchestratorEventBinder {
 
         const resumeSub = lifecycle.onResume(() => {
             return observeRecoverableAsyncFailure(
-                this._deps.handleLifecycleResume(),
+                () => this._deps.handleLifecycleResume(),
                 this._deps.reportRecoverableAsyncFailure,
                 'orchestratorEventBinder.lifecycleResume',
                 'Unhandled lifecycle resume failure'

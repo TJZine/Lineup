@@ -91,11 +91,28 @@ export function createRecoverableRuntimeIssueReporter(
 }
 
 export function observeRecoverableAsyncFailure(
-    promise: Promise<unknown>,
+    promiseOrFactory: Promise<unknown> | (() => Promise<unknown>),
     reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter,
     event: string,
     message: string
 ): Promise<void> {
+    let promise: Promise<unknown>;
+    try {
+        promise = typeof promiseOrFactory === 'function'
+            ? promiseOrFactory()
+            : promiseOrFactory;
+    } catch (error: unknown) {
+        try {
+            reportRecoverableAsyncFailure(event, message, error);
+        } catch (reporterError) {
+            safeConsoleError(
+                '[RecoverableRuntimeReporter] observeRecoverableAsyncFailure failed:',
+                summarizeErrorForLog(reporterError)
+            );
+        }
+        return Promise.resolve();
+    }
+
     return promise.then(
         () => undefined,
         (error: unknown) => {
