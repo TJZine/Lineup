@@ -1,13 +1,14 @@
 import type {
     ChannelSetupConfig,
     ChannelSetupContext,
-    ChannelExpansionConfig,
     ChannelSetupPreview,
     ChannelSetupReview,
-    SeriesOrderingConfig,
-    SetupStrategyConfig,
 } from '../../../../core/channel-setup/types';
 import type { PlexLibrarySection } from '../../../plex/library';
+import type {
+    EstimateKey,
+    StrategyStepMutableState,
+} from '../ChannelSetupSessionContracts';
 import type { SetupStrategyKey, StrategyCategoryKey } from './constants';
 
 export type { SetupStrategyKey, StrategyCategoryKey } from './constants';
@@ -18,25 +19,6 @@ export interface StepRenderContext {
     statusEl: HTMLElement;
     detailEl: HTMLElement;
     errorEl: HTMLElement;
-}
-
-interface StrategyStateItem {
-    enabled: boolean;
-    scope: SetupStrategyConfig['scope'];
-}
-
-type StrategyStateMap = Record<SetupStrategyKey, StrategyStateItem>;
-
-export interface ChannelExpansionState {
-    addAlternateLineups: boolean;
-    alternateLineupCopies: number;
-    variantType: ChannelExpansionConfig['variantType'];
-    variantBlockSize: number;
-}
-
-export interface SeriesOrderingState {
-    basePlaybackMode: SeriesOrderingConfig['basePlaybackMode'];
-    baseBlockSize: number;
 }
 
 export interface LibraryStepDeps {
@@ -58,20 +40,6 @@ export interface LibraryStepDeps {
         listButtons: HTMLButtonElement[]
     ) => void;
 }
-
-export type StrategyStepMutableState = {
-    activeStrategyCategory: StrategyCategoryKey;
-    strategies: StrategyStateMap;
-    strategyOrder: SetupStrategyKey[];
-    channelExpansion: ChannelExpansionState;
-    seriesOrdering: SeriesOrderingState;
-    buildMode: ChannelSetupConfig['buildMode'];
-    actorStudioCombineMode: ChannelSetupConfig['actorStudioCombineMode'];
-    maxChannels: number;
-    minItems: number;
-};
-
-export type EstimateKey = keyof ChannelSetupPreview['estimates'];
 
 export interface StrategyStepStateSnapshot extends StrategyStepMutableState {
     setupContext: ChannelSetupContext;

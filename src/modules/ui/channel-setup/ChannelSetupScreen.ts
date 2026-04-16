@@ -35,12 +35,9 @@ import {
     type StrategyCategoryKey,
 } from './steps/constants';
 import { scrollToNearest } from './focus/scrollToNearest';
-import {
-    ChannelSetupSessionController,
-    type EstimateKey,
-    type StrategyStepMutableState,
-    strategySupportsMixedScope,
-} from './ChannelSetupSessionController';
+import { ChannelSetupSessionController } from './ChannelSetupSessionController';
+import { strategySupportsMixedScope } from './ChannelSetupSessionState';
+import type { EstimateKey, StrategyStepMutableState } from './ChannelSetupSessionContracts';
 import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/ChannelSetupWorkflowPort';
 import type { ChannelSetupScreenPorts } from './ChannelSetupScreenPorts';
 

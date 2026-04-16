@@ -5,8 +5,12 @@ import type {
 } from '../../../core/channel-setup/types';
 import { isAbortLikeError } from '../../../utils/errors';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from './constants';
-import type { ChannelSetupBuildHandlers, ChannelSetupBuildOutcome } from './ChannelSetupSessionTypes';
-import type { ChannelSetupSessionState, EstimateKey } from './ChannelSetupSessionState';
+import type {
+    ChannelSetupBuildHandlers,
+    ChannelSetupBuildOutcome,
+    EstimateKey,
+} from './ChannelSetupSessionContracts';
+import type { ChannelSetupSessionState } from './ChannelSetupSessionState';
 
 export class ChannelSetupSessionRuntime {
     private static readonly PREVIEW_TIMEOUT_MS = 15000;

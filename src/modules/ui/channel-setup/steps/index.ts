@@ -6,7 +6,6 @@ export type {
     StepRenderContext,
     LibraryStepDeps,
     StrategyStepStateSnapshot,
-    StrategyStepMutableState,
     StrategyStepDeps,
     BuildReviewStateSnapshot,
     BuildReviewDeps,

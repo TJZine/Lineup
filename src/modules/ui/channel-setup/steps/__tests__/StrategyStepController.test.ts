@@ -3,11 +3,10 @@
  */
 
 import { createDefaultStrategyOrder, createDefaultStrategyState } from '../../ChannelSetupSessionState';
+import type { EstimateKey, StrategyStepMutableState } from '../../ChannelSetupSessionContracts';
 import { StrategyStepController } from '../StrategyStepController';
 import type {
-    EstimateKey,
     StrategyStepDeps,
-    StrategyStepMutableState,
     StepRenderContext,
 } from '../types';
 

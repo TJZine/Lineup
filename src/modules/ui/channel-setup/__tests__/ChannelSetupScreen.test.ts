@@ -3,7 +3,7 @@
  */
 
 import { ChannelSetupScreen } from '../ChannelSetupScreen';
-import type { StrategyStepMutableState } from '../ChannelSetupSessionController';
+import type { StrategyStepMutableState } from '../ChannelSetupSessionContracts';
 import type { PlexLibrarySection } from '../../../plex/library/types';
 import type { INavigationManager } from '../../../navigation/interfaces';
 import { MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';

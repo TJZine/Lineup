@@ -1,48 +1,18 @@
 import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/ChannelSetupWorkflowPort';
 import type { ChannelSetupConfig } from '../../../core/channel-setup/types';
+import type {
+    ChannelSetupBuildHandlers,
+    ChannelSetupBuildOutcome,
+    ChannelSetupSessionSnapshot,
+    SetupStep,
+    StrategyStepMutableState,
+} from './ChannelSetupSessionContracts';
 import {
     ChannelSetupSessionRuntime,
 } from './ChannelSetupSessionRuntime';
-import type { ChannelSetupBuildHandlers, ChannelSetupBuildOutcome } from './ChannelSetupSessionTypes';
 import {
     ChannelSetupSessionState,
-    clampSeriesBlockPreset,
-    strategySupportsMixedScope,
-    createDefaultStrategyState,
-    createDefaultStrategyOrder,
-    defaultChannelExpansionState,
-    defaultSeriesOrderingState,
-    type SetupStrategyState,
-    type ChannelExpansionState,
-    type SeriesOrderingState,
-    type StrategyStepMutableState,
-    type EstimateKey,
-    type SetupStep,
-    type ChannelSetupPreviewUiStatus,
-    type ChannelSetupSessionSnapshot,
 } from './ChannelSetupSessionState';
-
-export {
-    clampSeriesBlockPreset,
-    strategySupportsMixedScope,
-    createDefaultStrategyState,
-    createDefaultStrategyOrder,
-    defaultChannelExpansionState,
-    defaultSeriesOrderingState,
-};
-
-export type {
-    SetupStrategyState,
-    ChannelExpansionState,
-    SeriesOrderingState,
-    StrategyStepMutableState,
-    EstimateKey,
-    SetupStep,
-    ChannelSetupPreviewUiStatus,
-    ChannelSetupSessionSnapshot,
-};
-
-export type { ChannelSetupBuildOutcome } from './ChannelSetupSessionTypes';
 
 export class ChannelSetupSessionController {
     private readonly _state: ChannelSetupSessionState;
