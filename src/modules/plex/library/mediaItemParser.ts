@@ -9,24 +9,10 @@ import type {
 } from './types';
 import { parseStream } from './streamParser';
 
+const UNIX_TIMESTAMP_MS = 1000;
+
 export function parseMediaItem(data: RawMediaItem): PlexMediaItem {
-    const item: PlexMediaItem = {
-        ratingKey: data.ratingKey,
-        key: data.key,
-        type: mapMediaType(data.type),
-        title: data.title,
-        sortTitle: data.titleSort ?? data.title,
-        summary: data.summary ?? '',
-        year: data.year ?? 0,
-        durationMs: data.duration ?? 0,
-        addedAt: data.addedAt ? new Date(data.addedAt * 1000) : new Date(0),
-        updatedAt: data.updatedAt ? new Date(data.updatedAt * 1000) : new Date(0),
-        thumb: data.thumb ?? null,
-        art: data.art ?? null,
-        viewOffset: data.viewOffset ?? 0,
-        viewCount: data.viewCount ?? 0,
-        media: (data.Media || []).map(parseMediaFile),
-    };
+    const item = buildBaseMediaItem(data);
 
     assignOptionalMediaMetadata(item, data);
     assignMediaCredits(item, data);
@@ -54,9 +40,34 @@ export function mapMediaType(type: string): PlexMediaType {
 }
 
 function parseMediaFile(data: RawMediaFile): PlexMediaFile {
-    const videoCodec = data.videoCodec ?? '';
-    const audioCodec = data.audioCodec ?? '';
-    const container = data.container ?? '';
+    return {
+        ...buildBaseMediaFile(data),
+        parts: parseMediaParts(data.Part),
+    };
+}
+
+function buildBaseMediaItem(data: RawMediaItem): PlexMediaItem {
+    return {
+        ratingKey: data.ratingKey,
+        key: data.key,
+        type: mapMediaType(data.type),
+        title: data.title,
+        sortTitle: data.titleSort ?? data.title,
+        summary: data.summary ?? '',
+        year: data.year ?? 0,
+        durationMs: data.duration ?? 0,
+        addedAt: toPlexDate(data.addedAt),
+        updatedAt: toPlexDate(data.updatedAt),
+        thumb: data.thumb ?? null,
+        art: data.art ?? null,
+        viewOffset: data.viewOffset ?? 0,
+        viewCount: data.viewCount ?? 0,
+        media: parseMediaFiles(data.Media),
+    };
+}
+
+function buildBaseMediaFile(data: RawMediaFile): Omit<PlexMediaFile, 'parts'> {
+    const normalizedValues = normalizeMediaFileValues(data);
 
     return {
         id: String(data.id),
@@ -65,12 +76,11 @@ function parseMediaFile(data: RawMediaFile): PlexMediaFile {
         width: data.width ?? 0,
         height: data.height ?? 0,
         aspectRatio: data.aspectRatio ?? 0,
-        videoCodec: videoCodec.toLowerCase(),
-        audioCodec: audioCodec.toLowerCase(),
+        videoCodec: normalizedValues.videoCodec,
+        audioCodec: normalizedValues.audioCodec,
         audioChannels: data.audioChannels ?? 0,
-        container: container.toLowerCase(),
+        container: normalizedValues.container,
         videoResolution: data.videoResolution ?? '',
-        parts: (data.Part || []).map(parseMediaPart),
     };
 }
 
@@ -96,13 +106,33 @@ function parseMediaPart(data: RawMediaPart): PlexMediaPart {
     return part;
 }
 
+function parseMediaFiles(mediaFiles: RawMediaFile[] | undefined): PlexMediaFile[] {
+    return (mediaFiles ?? []).map(parseMediaFile);
+}
+
+function parseMediaParts(parts: RawMediaPart[] | undefined): PlexMediaPart[] {
+    return (parts ?? []).map(parseMediaPart);
+}
+
+function normalizeMediaFileValues(data: RawMediaFile): {
+    videoCodec: string;
+    audioCodec: string;
+    container: string;
+} {
+    return {
+        videoCodec: (data.videoCodec ?? '').toLowerCase(),
+        audioCodec: (data.audioCodec ?? '').toLowerCase(),
+        container: (data.container ?? '').toLowerCase(),
+    };
+}
+
 function assignOptionalMediaMetadata(item: PlexMediaItem, data: RawMediaItem): void {
     assignOptional(item, 'originalTitle', data.originalTitle);
     assignOptional(item, 'banner', data.banner ?? null, data.banner !== undefined);
     assignOptional(item, 'rating', data.rating);
     assignOptional(item, 'audienceRating', data.audienceRating);
     assignOptional(item, 'contentRating', data.contentRating);
-    assignOptional(item, 'lastViewedAt', data.lastViewedAt ? new Date(data.lastViewedAt * 1000) : undefined);
+    assignOptional(item, 'lastViewedAt', toPlexDateOrUndefined(data.lastViewedAt));
 }
 
 function assignMediaCredits(item: PlexMediaItem, data: RawMediaItem): void {
@@ -173,4 +203,12 @@ function assignOptional<K extends keyof PlexMediaItem>(
     if (condition) {
         item[key] = value as PlexMediaItem[K];
     }
+}
+
+function toPlexDate(value: number | undefined): Date {
+    return typeof value === 'number' ? new Date(value * UNIX_TIMESTAMP_MS) : new Date(0);
+}
+
+function toPlexDateOrUndefined(value: number | undefined): Date | undefined {
+    return typeof value === 'number' ? toPlexDate(value) : undefined;
 }

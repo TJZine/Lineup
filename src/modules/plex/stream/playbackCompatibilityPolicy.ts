@@ -230,7 +230,15 @@ function getFallbackCodecPriority(stream: PlexStream): number {
     return index === -1 ? Number.MAX_SAFE_INTEGER : index;
 }
 
-function buildHdr10BaseLayerContext(videoStream: PlexStream | null) {
+function buildHdr10BaseLayerContext(videoStream: PlexStream | null): {
+    doviProfile: string | null;
+    codecProfileString: string | null;
+    hdr: string | null;
+    dynamicRange: string | null;
+    colorTrc: string | null;
+    displayTitle: string | null;
+    extendedDisplayTitle: string | null;
+} {
     return {
         doviProfile: videoStream?.doviProfile ?? null,
         codecProfileString: videoStream?.profile ?? null,
@@ -253,7 +261,21 @@ function shouldForceHlsForDvNoHdr10BaseLayer(
 function buildHdr10FallbackRequest(
     inputs: HdrCompatibilityInputs,
     isDolbyVision: boolean
-) {
+): {
+    mode: 'off' | 'smart' | 'force';
+    container: string | null | undefined;
+    isDolbyVision: boolean;
+    doviProfile: string | null;
+    codecProfileString: string | null;
+    hdr: string | null;
+    dynamicRange: string | null;
+    colorTrc: string | null;
+    displayTitle: string | null;
+    extendedDisplayTitle: string | null;
+    aspectRatio: number | null;
+    width: number;
+    height: number;
+} {
     return {
         mode: inputs.hdr10FallbackMode,
         container: inputs.media.container,

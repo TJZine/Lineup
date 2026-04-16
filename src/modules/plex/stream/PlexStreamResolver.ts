@@ -447,7 +447,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
         if (debugEnabled) {
             if (pipeline.hdrFallbackReason) {
-                logPlexWarning('[PlexStreamResolver] HDR10 fallback applied:', {
+                logPlexWarning('HDR10 fallback applied:', {
                     itemKey: request.itemKey,
                     reason: pipeline.hdrFallbackReason,
                     container: media.container,
@@ -455,7 +455,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 });
             }
             if (pipeline.forceHlsForDvNoHdr10BaseLayer) {
-                logPlexWarning('[PlexStreamResolver] HDR10 base-layer fallback forced:', {
+                logPlexWarning('HDR10 base-layer fallback forced:', {
                     itemKey: request.itemKey,
                     reason: 'dv_profile_no_hdr10_base_layer',
                     container: media.container,
@@ -468,7 +468,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         if (debugEnabled) {
-            logPlexWarning('[PlexStreamResolver] Stream decision:', {
+            logPlexWarning('Stream decision:', {
                 itemKey: request.itemKey,
                 mode: decision.isTranscoding ? 'transcode' : 'direct_play',
                 protocol: decision.protocol,
@@ -486,7 +486,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                     decision.transcodeRequest
                 );
             } catch (error) {
-                logPlexWarning('[PlexStreamResolver] PMS universal decision fetch failed:', {
+                logPlexWarning('PMS universal decision fetch failed:', {
                     itemKey: request.itemKey,
                     sessionId: decision.transcodeRequest.sessionId,
                     error: summarizeErrorForLog(error),
@@ -521,7 +521,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             });
             this._throwIfAuthFailure(response);
         } catch (error) {
-            logPlexWarning('[PlexStreamResolver] stopTranscodeSession failed:', {
+            logPlexWarning('stopTranscodeSession failed:', {
                 sessionId: trimmedSessionId,
                 error: summarizeErrorForLog(error),
             });
@@ -740,7 +740,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 applyXPlexTokenQueryParam(debugUrl.searchParams, 'REDACTED');
             }
             logPlexWarning(
-                `[PlexStreamResolver] Transcode URL (compat=${compatMode ? '1' : '0'}):`,
+                `Transcode URL (compat=${compatMode ? '1' : '0'}):`,
                 debugUrl.toString()
             );
         } catch {

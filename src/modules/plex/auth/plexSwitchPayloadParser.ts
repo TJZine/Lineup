@@ -143,16 +143,9 @@ function findSwitchToken(record: Record<string, unknown>): string | null {
 }
 
 function readXmlNodeAttributes(node: Element): Record<string, unknown> {
-    const out: Record<string, unknown> = {};
-
-    for (let index = 0; index < node.attributes.length; index += 1) {
-        const attr = node.attributes.item(index);
-        if (attr) {
-            out[attr.name] = attr.value;
-        }
-    }
-
-    return out;
+    return Object.fromEntries(
+        Array.from(node.attributes, (attribute) => [attribute.name, attribute.value] as const)
+    );
 }
 
 function escapeRegExp(value: string): string {

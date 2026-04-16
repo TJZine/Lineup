@@ -408,7 +408,7 @@ describe('PlexStreamResolver', () => {
 
             expect(decision.isTranscoding).toBe(true);
             expect(warnSpy).toHaveBeenCalledWith(
-                '[PlexStreamResolver] PMS universal decision fetch failed:',
+                'PMS universal decision fetch failed:',
                 expect.objectContaining({ itemKey: '12345' })
             );
         });
@@ -447,11 +447,11 @@ describe('PlexStreamResolver', () => {
 
             expect(decision.isTranscoding).toBe(true);
             expect(warnSpy).toHaveBeenCalledWith(
-                '[PlexStreamResolver] HDR10 fallback applied:',
+                'HDR10 fallback applied:',
                 expect.objectContaining({ itemKey: '12345', reason: expect.any(String) })
             );
             expect(warnSpy).toHaveBeenCalledWith(
-                '[PlexStreamResolver] Stream decision:',
+                'Stream decision:',
                 expect.objectContaining({ itemKey: '12345', mode: 'transcode' })
             );
         });
@@ -1213,7 +1213,7 @@ describe('PlexStreamResolver', () => {
 
             expect(url).toContain('X-Plex-Token=mock-token');
             expect(warnSpy).toHaveBeenCalledWith(
-                '[PlexStreamResolver] Transcode URL (compat=0):',
+                'Transcode URL (compat=0):',
                 expect.stringContaining('X-Plex-Token=REDACTED')
             );
             expect(warnSpy.mock.calls.some((call) =>
@@ -1600,7 +1600,7 @@ describe('PlexStreamResolver', () => {
             await resolver.stopTranscodeSession('sess-1');
 
             expect(warnSpy).toHaveBeenCalledWith(
-                '[PlexStreamResolver] stopTranscodeSession failed:',
+                'stopTranscodeSession failed:',
                 expect.objectContaining({
                     sessionId: 'sess-1',
                     error: expect.anything(),

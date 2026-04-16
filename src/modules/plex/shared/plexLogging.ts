@@ -10,10 +10,10 @@ type PlexConsoleLogger = {
 
 export function createPlexConsoleLogger(): PlexConsoleLogger {
     return {
-        warn: (message?: unknown, ...args: unknown[]) => {
+        warn: (message?: unknown, ...args: unknown[]): void => {
             writePlexConsole('warn', message, ...args);
         },
-        error: (message?: unknown, ...args: unknown[]) => {
+        error: (message?: unknown, ...args: unknown[]): void => {
             writePlexConsole('error', message, ...args);
         },
     };
@@ -29,13 +29,13 @@ export function logPlexError(message?: unknown, ...args: unknown[]): void {
 
 function writePlexConsole(method: PlexLogMethod, message?: unknown, ...args: unknown[]): void {
     try {
-        const sink = console[method];
+        const sink = globalThis.console[method];
         if (typeof sink !== 'function') {
             return;
         }
 
         sink.call(
-            console,
+            globalThis.console,
             sanitizePlexLogValue(message),
             ...args.map((arg) => sanitizePlexLogValue(arg))
         );

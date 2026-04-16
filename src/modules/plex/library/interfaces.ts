@@ -288,7 +288,7 @@ export interface PlexLibraryConfig {
 
     /**
      * Optional logger for warnings and errors.
-     * Defaults to console.warn for warnings and console.error for errors if not provided.
+     * Defaults to Plex-safe console logging when not provided.
      */
     logger?: {
         warn: (message: string, ...args: unknown[]) => void;

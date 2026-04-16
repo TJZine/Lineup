@@ -1592,7 +1592,7 @@ describe('PlexServerDiscovery', () => {
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.uri).toBe('https://valid:32400');
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    '[Discovery] Skipping invalid connection URI:',
+                    'Skipping invalid Plex connection URI:',
                     'file:///etc/passwd'
                 );
             } finally {
@@ -1645,7 +1645,7 @@ describe('PlexServerDiscovery', () => {
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.uri).toBe('https://clean:32400');
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    '[Discovery] Skipping invalid connection URI:',
+                    'Skipping invalid Plex connection URI:',
                     'https://user:pass@server:32400'
                 );
             } finally {
@@ -1706,11 +1706,11 @@ describe('PlexServerDiscovery', () => {
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.protocol).toBe('http');
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    '[Discovery] Skipping invalid connection URI:',
+                    'Skipping invalid Plex connection URI:',
                     'ftp://server:21'
                 );
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    '[Discovery] Skipping invalid connection URI:',
+                    'Skipping invalid Plex connection URI:',
                     'javascript:alert(1)'
                 );
             } finally {
@@ -1762,7 +1762,7 @@ describe('PlexServerDiscovery', () => {
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.uri).toBe('https://valid:32400');
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    '[Discovery] Skipping invalid connection URI:',
+                    'Skipping invalid Plex connection URI:',
                     'data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg=='
                 );
             } finally {
@@ -1858,11 +1858,11 @@ describe('PlexServerDiscovery', () => {
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.uri).toBe('https://valid:32400');
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    '[Discovery] Skipping invalid connection URI:',
+                    'Skipping invalid Plex connection URI:',
                     'not-a-valid-uri'
                 );
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    '[Discovery] Skipping invalid connection URI:',
+                    'Skipping invalid Plex connection URI:',
                     '://missing-protocol'
                 );
             } finally {

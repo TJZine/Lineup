@@ -23,6 +23,7 @@ type NormalizedHdrFields = {
     hdr: string;
     dynamicRange: string;
     colorTrc: string;
+    combined: string;
 };
 
 export function extractHdrLabelFromPlexMedia(
@@ -45,43 +46,29 @@ export function detectHdrLabel(stream?: HdrStreamLike | null): string | undefine
     }
 
     const hdrFields = normalizeHdrFields(stream);
-    const combined = [
-        hdrFields.title,
-        hdrFields.displayTitle,
-        hdrFields.extendedDisplayTitle,
-        hdrFields.hdr,
-        hdrFields.dynamicRange,
-    ]
-        .join(' ')
-        .trim();
 
-    if (isDolbyVisionStream(stream, combined)) {
+    if (isDolbyVisionStream(stream, hdrFields.combined)) {
         return 'Dolby Vision';
     }
 
-    if (combined.includes('hdr10+') || hdrFields.hdr.includes('hdr10+')) {
-        return 'HDR10+';
-    }
-
-    if (combined.includes('hdr10') || hdrFields.colorTrc === 'smpte2084') {
-        return 'HDR10';
-    }
-
-    if (combined.includes('hlg') || hdrFields.colorTrc === 'arib-std-b67') {
-        return 'HLG';
-    }
-
-    return undefined;
+    return detectNonDolbyVisionHdrLabel(hdrFields);
 }
 
 function normalizeHdrFields(stream: HdrStreamLike): NormalizedHdrFields {
+    const title = normalizeHdrValue(stream.title);
+    const displayTitle = normalizeHdrValue(stream.displayTitle);
+    const extendedDisplayTitle = normalizeHdrValue(stream.extendedDisplayTitle);
+    const hdr = normalizeHdrValue(stream.hdr);
+    const dynamicRange = normalizeHdrValue(stream.dynamicRange);
+
     return {
-        title: stream.title?.toLowerCase() ?? '',
-        displayTitle: stream.displayTitle?.toLowerCase() ?? '',
-        extendedDisplayTitle: stream.extendedDisplayTitle?.toLowerCase() ?? '',
-        hdr: stream.hdr?.toLowerCase() ?? '',
-        dynamicRange: stream.dynamicRange?.toLowerCase() ?? '',
-        colorTrc: stream.colorTrc?.toLowerCase() ?? '',
+        title,
+        displayTitle,
+        extendedDisplayTitle,
+        hdr,
+        dynamicRange,
+        colorTrc: normalizeHdrValue(stream.colorTrc),
+        combined: [title, displayTitle, extendedDisplayTitle, hdr, dynamicRange].join(' ').trim(),
     };
 }
 
@@ -92,4 +79,36 @@ function isDolbyVisionStream(stream: HdrStreamLike, combined: string): boolean {
         combined.includes('dolby vision') ||
         combined.includes('dovi')
     );
+}
+
+function detectNonDolbyVisionHdrLabel(hdrFields: NormalizedHdrFields): string | undefined {
+    if (matchesHdr10Plus(hdrFields)) {
+        return 'HDR10+';
+    }
+
+    if (matchesHdr10(hdrFields)) {
+        return 'HDR10';
+    }
+
+    if (matchesHlg(hdrFields)) {
+        return 'HLG';
+    }
+
+    return undefined;
+}
+
+function normalizeHdrValue(value: string | null | undefined): string {
+    return typeof value === 'string' ? value.toLowerCase() : '';
+}
+
+function matchesHdr10Plus(hdrFields: NormalizedHdrFields): boolean {
+    return hdrFields.combined.includes('hdr10+') || hdrFields.hdr.includes('hdr10+');
+}
+
+function matchesHdr10(hdrFields: NormalizedHdrFields): boolean {
+    return hdrFields.combined.includes('hdr10') || hdrFields.colorTrc === 'smpte2084';
+}
+
+function matchesHlg(hdrFields: NormalizedHdrFields): boolean {
+    return hdrFields.combined.includes('hlg') || hdrFields.colorTrc === 'arib-std-b67';
 }

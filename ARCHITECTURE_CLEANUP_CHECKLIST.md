@@ -1837,7 +1837,7 @@ This is the exact owned follow-up from the `P10-W3` split for the remaining chan
 - Follow-ups: none
 - Handoff: `run lineup-cleanup-review for P10-W5 using commits 2d443d91, efabab81, 2a6f87ec, a79783fe, 2ed54f87, plus the checklist update; confirm the frozen detector rows are stale/current-source-retired where noted and that no additional successor owner is needed before opening P10-W6`
 
-### [ ] `P10-W6` Plex Post-Scan Residual Cleanup
+### [x] `P10-W6` Plex Post-Scan Residual Cleanup
 
 This is the exact owned follow-up from the `P10-W3` split for the remaining Plex residue still present on the post-implementation `2026-04-15T23:30:15+00:00` detector refresh.
 
@@ -1845,9 +1845,9 @@ This is the exact owned follow-up from the `P10-W3` split for the remaining Plex
 
 - `desloppify status`
 - `desloppify show src/modules/plex --status open --no-budget --top 200`
-- Status: planned
-- Plan: `none yet (checklist-only successor owner; write the tracked plan before implementation if this item is selected next)`
-- Last touched: `2026-04-15`
+- Status: completed
+- Plan: `docs/plans/2026-04-15-p10-w6-plex-post-scan-residual-cleanup.md`
+- Last touched: `2026-04-16`
 - Verification:
   - the `2026-04-15T23:30:15+00:00` post-implementation scan left these exact residual issue ids in this owner set:
     - `test_coverage::src/modules/plex/auth/plexAuthPayloadParsers.ts::transitive_only`
@@ -1863,8 +1863,21 @@ This is the exact owned follow-up from the `P10-W3` split for the remaining Plex
     - `smells::src/modules/plex/library/PlexLibrary.ts::console_error_no_throw`
     - `smells::src/modules/plex/stream/dvHdr10Fallback.ts::high_cyclomatic_complexity`
     - `smells::src/modules/plex/stream/types.ts::high_cyclomatic_complexity`
+  - implemented the bounded Plex-local cleanup plan on `code-health` without widening `PlexAuth`, `resolveStreamPipeline`, or the public stream/docs surfaces: auth/library parsing split into package-local helpers, Plex log normalization stayed Plex-local, and tagged log strings were removed from `PlexServerDiscovery` / `PlexStreamResolver`
+  - added direct focused tests for the new helper owners and stale transitive-only source-audit surfaces:
+    `src/modules/plex/auth/__tests__/plexHomeUsersPayloadParser.test.ts`,
+    `src/modules/plex/auth/__tests__/plexSwitchPayloadParser.test.ts`,
+    `src/modules/plex/library/__tests__/mediaItemParser.test.ts`,
+    `src/modules/plex/library/__tests__/streamParser.test.ts`,
+    `src/modules/plex/shared/__tests__/fetchWithTimeoutCore.test.ts`,
+    `src/modules/plex/shared/__tests__/plexLogging.test.ts`,
+    `src/modules/plex/stream/__tests__/hdr.test.ts`,
+    `src/modules/plex/stream/__tests__/plexSessionId.test.ts`
+  - required focused verification passed:
+    `npm test -- --runInBand src/modules/plex/auth/__tests__/plexAuthPayloadParsers.test.ts src/modules/plex/auth/__tests__/plexHomeUsersPayloadParser.test.ts src/modules/plex/auth/__tests__/plexSwitchPayloadParser.test.ts src/modules/plex/auth/__tests__/PlexAuth.test.ts src/modules/plex/library/__tests__/ResponseParser.test.ts src/modules/plex/library/__tests__/mediaItemParser.test.ts src/modules/plex/library/__tests__/streamParser.test.ts src/modules/plex/library/__tests__/PlexLibrary.test.ts src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts src/modules/plex/shared/__tests__/fetchWithTimeoutCore.test.ts src/modules/plex/shared/__tests__/plexLogging.test.ts src/modules/plex/stream/__tests__/hdr.test.ts src/modules/plex/stream/__tests__/fetchWithTimeout.test.ts src/modules/plex/stream/__tests__/plexSessionId.test.ts src/modules/plex/stream/__tests__/playbackCompatibilityPolicy.test.ts src/modules/plex/stream/__tests__/dvHdr10Fallback.test.ts src/modules/plex/stream/__tests__/error-taxonomy.test.ts src/modules/plex/stream/__tests__/resolveStreamPipeline.test.ts src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts src/modules/plex/stream/__tests__/PlexStreamResolver.subtitle-errors.test.ts src/__tests__/tools/plexIntegrationDocs.test.ts`
+  - refreshed `desloppify` on `2026-04-16T04:54:26+00:00`, then retired the stale carried-forward Plex issue ids with current-source proof via `desloppify plan resolve --force-resolve ... --confirm`; the final area drill now returns `No open issues matching: src/modules/plex`
 - Follow-ups: `owned follow-up from P10-W3 only; do not merge this residual set back into runtime/startup or scheduler without a fresh owner decision`
-- Handoff: `write the bounded implementation plan for P10-W6, then run lineup-cleanup-review on that plan before code changes`
+- Handoff: `none; P10-W6 is complete on current-source evidence`
 
 ### [ ] `P10-W7` Scheduler Post-Scan Residual Cleanup
 
@@ -1887,7 +1900,7 @@ This is the exact owned follow-up from the `P10-W3` split for the remaining sche
 
 ### [ ] `P10-EXIT` Overall Closeout Gate
 
-Blocked on `P10-W6` and `P10-W7`. `P10-W3` completed its bounded code pass on the working branch, but the post-implementation detector refresh still showed real live backlog across runtime/startup, channel-setup, Plex, and scheduler, so the old monolithic successor owner was split into exact owned follow-ups. `P10-W4` and `P10-W5` have since completed, and `P10-EXIT` remains unavailable until the remaining successors complete.
+Blocked on `P10-W7`. `P10-W3` completed its bounded code pass on the working branch, but the post-implementation detector refresh still showed real live backlog across runtime/startup, channel-setup, Plex, and scheduler, so the old monolithic successor owner was split into exact owned follow-ups. `P10-W4`, `P10-W5`, and `P10-W6` have since completed, and `P10-EXIT` remains unavailable until the remaining successor completes.
 
 Do not treat the cleanup wave as complete until all of the following are true on the target integration branch:
 
@@ -1903,14 +1916,15 @@ Do not treat the cleanup wave as complete until all of the following are true on
 - any surviving `stale_exclude` warnings are explicitly accepted as approved local-state excludes and do not obscure repo-source debt
 - any `dist-ts/` decision has been applied consistently to scan scope, documentation, and the final evidence snapshot
 - this checklist has been updated in the same pass with the final score, residual debt, and archive/supersession notes
-- Status: blocked
+- Status: blocked on `P10-W7`
 - Plan: `docs/plans/2026-04-15-p10-exit-overall-closeout-gate.md`
-- Last touched: `2026-04-15`
+- Last touched: `2026-04-16`
 - Verification:
   - `desloppify status`, `desloppify next --count 20`, `desloppify plan queue`, and `desloppify plan` on the baseline `2026-04-15T22:07:55+00:00` scan and refreshed persisted `2026-04-15T22:24:08+00:00` scan confirmed the imported-review queue mismatch is reconciled but live mechanical backlog remains (`353 open`, queue `1 item (29 planned · 3 stale tracked · 1 subjective)`, backlog still present in `desloppify plan`)
-  - `desloppify show review --status open --no-budget --top 150` returned no open issues, but the `P10-W6` and `P10-W7` area drills on Plex and scheduler still show live residual code debt, so `P10-EXIT` must wait for those remaining owned follow-up slices
-- Follow-ups: `blocked by P10-W6 and P10-W7`
-- Handoff: `none until P10-W6 and P10-W7 complete`
+  - `P10-W6` is now complete: the refreshed `desloppify` pass at `2026-04-16T04:54:26+00:00` plus the final `desloppify show src/modules/plex --status open --no-budget --top 250` area drill returned `No open issues matching: src/modules/plex`
+  - `desloppify show review --status open --no-budget --top 150` still returns no open review issues, but `P10-W7` scheduler residuals remain the final owned blocker before `P10-EXIT`
+- Follow-ups: `blocked by P10-W7`
+- Handoff: `none until P10-W7 completes`
 
 ## Imported Review Issue Map By Priority
 
