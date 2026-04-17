@@ -3194,9 +3194,15 @@ describe('AppOrchestrator', () => {
             expect(nestedContext?.value).toBe('original');
         });
 
-        it('reports when module status error context falls back from structuredClone', () => {
+        it('reports structuredClone fallback once per failing context identity', () => {
             const originalStructuredClone = globalThis.structuredClone;
             const reportError = jest.fn();
+            const context = {
+                source: 'test',
+                nested: {
+                    value: 'original',
+                },
+            };
 
             Object.defineProperty(globalThis, 'structuredClone', {
                 configurable: true,
@@ -3220,27 +3226,26 @@ describe('AppOrchestrator', () => {
                             code: AppErrorCode.AUTH_INVALID,
                             message: 'bad auth',
                             recoverable: true,
-                            context: {
-                                source: 'test',
-                                nested: {
-                                    value: 'original',
-                                },
-                            },
+                            context,
                         },
                     },
                 ],
             ]));
 
             try {
-                const returned = orchestrator.getModuleStatus().get('plex-auth');
+                const firstReturned = orchestrator.getModuleStatus().get('plex-auth');
+                const secondReturned = orchestrator.getModuleStatus().get('plex-auth');
 
-                expect(returned?.error?.context).toEqual({
+                expect(firstReturned?.error?.context).toEqual({
                     source: 'test',
                     nested: {
                         value: 'original',
                     },
                 });
-                expect(reportError).toHaveBeenCalledWith(
+                expect(secondReturned?.error?.context).toEqual(firstReturned?.error?.context);
+                expect(reportError).toHaveBeenCalledTimes(1);
+                expect(reportError).toHaveBeenNthCalledWith(
+                    1,
                     'orchestrator.moduleStatus.cloneContext',
                     'Falling back to diagnostic-value clone for module status error context',
                     expect.objectContaining({
@@ -3248,6 +3253,29 @@ describe('AppOrchestrator', () => {
                     }),
                     {}
                 );
+
+                Reflect.set(orchestrator as object, '_moduleStatus', new Map([
+                    [
+                        'plex-auth',
+                        {
+                            id: 'plex-auth',
+                            name: 'plex-auth',
+                            status: 'error',
+                            error: {
+                                code: AppErrorCode.AUTH_INVALID,
+                                message: 'bad auth',
+                                recoverable: true,
+                                context: {
+                                    source: 'test-2',
+                                },
+                            },
+                        },
+                    ],
+                ]));
+
+                orchestrator.getModuleStatus();
+
+                expect(reportError).toHaveBeenCalledTimes(2);
             } finally {
                 Object.defineProperty(globalThis, 'structuredClone', {
                     configurable: true,

@@ -12,6 +12,10 @@ export function captureRecoverableRuntimeResult<T>(
     }
 }
 
+/**
+ * Async callers must use this helper instead of `captureRecoverableRuntimeResult`.
+ * The sync helper is only for operations that complete synchronously.
+ */
 export async function captureRecoverableRuntimeResultAsync<T>(
     operation: () => Promise<T>
 ): Promise<RecoverableRuntimeResult<T>> {

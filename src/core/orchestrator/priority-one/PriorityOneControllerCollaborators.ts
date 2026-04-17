@@ -37,8 +37,11 @@ function resolvePlaybackStartStream(
     playback: PriorityOneAssemblyInput['playback'],
     program: ScheduledProgram
 ): Promise<StreamDescriptor | null> {
-    return playback.playbackRecovery.resolveStreamForProgram?.(program).then((stream) => stream ?? null)
-        ?? Promise.resolve(null);
+    if (!playback.playbackRecovery.resolveStreamForProgram) {
+        return Promise.resolve(null);
+    }
+
+    return playback.playbackRecovery.resolveStreamForProgram(program).then((stream) => stream ?? null);
 }
 
 function markProgramStarting(

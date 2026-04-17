@@ -1,4 +1,3 @@
-import '../OrchestratorRuntimeSeams';
 import type {
     PriorityOneEventRuntimePort,
     PriorityOnePlaybackRecoveryPort,
@@ -11,8 +10,9 @@ import type {
 } from '../OrchestratorRuntimeSeams';
 
 describe('OrchestratorRuntimeSeams', () => {
-    it('provides direct type contracts for the priority-one runtime seams', () => {
-        const reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter = () => undefined;
+    it('accepts minimal runtime-safe fixtures that satisfy the priority-one seam contracts', () => {
+        const cleanupCallbacks: Array<() => void> = [];
+        const reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter = jest.fn();
         const playbackRecovery: PriorityOnePlaybackRecoveryPort = {
             isStreamRecoveryInProgress: () => false,
         };
@@ -50,8 +50,8 @@ describe('OrchestratorRuntimeSeams', () => {
             onPlaybackStartFailure: () => undefined,
         };
         const eventRuntime: PriorityOneEventRuntimePort = {
-            wireNavigationCoordinatorEvents: () => [],
-            wireEpgCoordinatorEvents: () => [],
+            wireNavigationCoordinatorEvents: () => cleanupCallbacks,
+            wireEpgCoordinatorEvents: () => cleanupCallbacks,
             handleScheduleDayRollover: async () => undefined,
             handlePlayerTrackChange: () => undefined,
             handlePlexLibraryAuthExpired: () => undefined,
@@ -62,13 +62,13 @@ describe('OrchestratorRuntimeSeams', () => {
             reportRecoverableAsyncFailure,
         };
 
-        expect(typeof reportRecoverableAsyncFailure).toBe('function');
         expect(playbackRecovery.isStreamRecoveryInProgress()).toBe(false);
         expect(playbackRuntime.playbackRecovery).toBe(playbackRecovery);
-        expect(typeof schedulerRuntime.syncSchedulerToCurrentTime).toBe('function');
-        expect(typeof playerEvents.onPlayerStateChange).toBe('function');
-        expect(typeof uiRuntime.showInfoBanner).toBe('function');
-        expect(eventRuntime.wireNavigationCoordinatorEvents()).toEqual([]);
+        expect(eventRuntime.wireNavigationCoordinatorEvents()).toBe(cleanupCallbacks);
+        expect(eventRuntime.wireEpgCoordinatorEvents()).toBe(cleanupCallbacks);
         expect(modules.scheduler).toBeDefined();
+        expect(schedulerRuntime.syncSchedulerToCurrentTime).toBeDefined();
+        expect(playerEvents.onPlayerStateChange).toBeDefined();
+        expect(uiRuntime.showInfoBanner).toBeDefined();
     });
 });

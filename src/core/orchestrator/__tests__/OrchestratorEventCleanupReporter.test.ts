@@ -1,7 +1,5 @@
 import {
     summarizeEventCleanupFailure,
-    type OrchestratorEventCleanupFailure,
-    type OrchestratorEventCleanupReporter,
 } from '../OrchestratorEventCleanupReporter';
 
 describe('OrchestratorEventCleanupReporter', () => {
@@ -18,17 +16,5 @@ describe('OrchestratorEventCleanupReporter', () => {
                 message: 'token=REDACTED exploded',
             },
         });
-    });
-
-    it('preserves the reporter callback contract for summarized cleanup batches', () => {
-        const reporter: OrchestratorEventCleanupReporter = jest.fn();
-        const failures: OrchestratorEventCleanupFailure[] = [
-            summarizeEventCleanupFailure('event-wiring.cleanup', new Error('cleanup failed')),
-            summarizeEventCleanupFailure('event-wiring.onCleanupError', { message: 'fallback failed' }),
-        ];
-
-        reporter(failures);
-
-        expect(reporter).toHaveBeenCalledWith(failures);
     });
 });

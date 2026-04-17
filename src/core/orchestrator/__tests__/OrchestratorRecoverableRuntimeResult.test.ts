@@ -17,6 +17,14 @@ describe('OrchestratorRecoverableRuntimeResult', () => {
             ok: false,
             error,
         });
+
+        const thrownValue = 'boom';
+        expect(captureRecoverableRuntimeResult(() => {
+            throw thrownValue;
+        })).toEqual({
+            ok: false,
+            error: thrownValue,
+        });
     });
 
     it('captures async success and failure outcomes', async () => {
@@ -35,6 +43,14 @@ describe('OrchestratorRecoverableRuntimeResult', () => {
         ).resolves.toEqual({
             ok: false,
             error,
+        });
+
+        const rejectedValue = { reason: 'async boom' };
+        await expect(
+            captureRecoverableRuntimeResultAsync(async () => Promise.reject(rejectedValue))
+        ).resolves.toEqual({
+            ok: false,
+            error: rejectedValue,
         });
     });
 });

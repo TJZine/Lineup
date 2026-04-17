@@ -36,6 +36,7 @@ import {
     EPGUiStatus,
     withEpgVisibleRangeChangeBinding,
 } from '../../modules/ui/epg';
+import type { EpgVisibleRange } from '../../modules/ui/epg/types';
 import {
     NowPlayingInfoCoordinator,
     getNowPlayingInfoAutoHideMs,
@@ -156,8 +157,8 @@ function reportCoordinatorEpgInitWarning(input: OrchestratorCoordinatorFactoryDe
     });
 }
 
-function handleVisibleRangeChange(epgCoordinator: EPGCoordinator, range: unknown): void {
-    epgCoordinator.handleVisibleRangeChange(range as never);
+function handleVisibleRangeChange(epgCoordinator: EPGCoordinator, range: EpgVisibleRange): void {
+    epgCoordinator.handleVisibleRangeChange(range);
 }
 
 function getSelectedServerId(input: OrchestratorCoordinatorFactoryDeps): string | null {

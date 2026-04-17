@@ -331,6 +331,7 @@ export class AppOrchestrator {
     private readonly _serverSelectionCoordinator: ServerSelectionCoordinator;
     private readonly _selectedServerRuntimeController: SelectedServerRuntimeController;
     private readonly _schedulePolicy = new OrchestratorSchedulePolicy();
+    private readonly _reportedModuleStatusCloneFallbackContexts = new WeakSet<object>();
 
     private _throwModuleInitPreconditionError(
         message: string,
@@ -1813,11 +1814,14 @@ export class AppOrchestrator {
             }
 
             if (!cloneResult.ok) {
-                this._warnRecoverableRuntimeError(
-                    'orchestrator.moduleStatus.cloneContext',
-                    'Falling back to diagnostic-value clone for module status error context',
-                    cloneResult.error
-                );
+                if (!this._reportedModuleStatusCloneFallbackContexts.has(context)) {
+                    this._reportedModuleStatusCloneFallbackContexts.add(context);
+                    this._warnRecoverableRuntimeError(
+                        'orchestrator.moduleStatus.cloneContext',
+                        'Falling back to diagnostic-value clone for module status error context',
+                        cloneResult.error
+                    );
+                }
             }
         }
 

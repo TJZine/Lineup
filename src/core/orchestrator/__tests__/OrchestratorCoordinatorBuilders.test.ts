@@ -1,4 +1,5 @@
 import type { EPGConfig } from '../../../modules/ui/epg';
+import type { EpgVisibleRange } from '../../../modules/ui/epg/types';
 import type {
     OrchestratorCoordinatorFactoryDeps,
     OrchestratorNavigationCoordinatorBuilderInput,
@@ -168,7 +169,12 @@ describe('OrchestratorCoordinatorBuilders', () => {
         expect(config.epgConfig).not.toBe(originalConfig);
         expect(originalConfig.onVisibleRangeChange).toBe(previousOnVisibleRangeChange);
 
-        const range = { startTime: 1_000, endTime: 2_000, channelStartIndex: 0, channelEndIndex: 4 } as never;
+        const range: EpgVisibleRange = {
+            timeStartMs: 1_000,
+            timeEndMs: 2_000,
+            channelStart: 0,
+            channelEnd: 4,
+        };
         config.epgConfig.onVisibleRangeChange?.(range);
 
         expect(previousOnVisibleRangeChange).toHaveBeenCalledWith(range);

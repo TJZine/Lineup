@@ -115,7 +115,10 @@ export class NavigationCoordinator {
             return;
         }
         if (this._nonBlockingFailureTimestamps.size > 20) {
-            this._nonBlockingFailureTimestamps.clear();
+            const oldestEntry = this._nonBlockingFailureTimestamps.entries().next().value;
+            if (oldestEntry) {
+                this._nonBlockingFailureTimestamps.delete(oldestEntry[0]);
+            }
         }
         this._nonBlockingFailureTimestamps.set(key, now);
         try {

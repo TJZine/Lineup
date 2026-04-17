@@ -314,6 +314,57 @@ describe('NavigationCoordinator', () => {
         );
     });
 
+    it('evicts the oldest non-blocking failure timestamp instead of clearing the whole dedupe map', async () => {
+        const dateNowSpy = jest.spyOn(Date, 'now');
+        const { coordinator, deps } = setup();
+        const reportNonBlockingFailure = (
+            coordinator as unknown as {
+                _reportNonBlockingFailure: (
+                    key: string,
+                    event: string,
+                    message: string,
+                    error: unknown
+                ) => void;
+            }
+        )._reportNonBlockingFailure.bind(coordinator);
+
+        for (let index = 0; index <= 20; index += 1) {
+            dateNowSpy.mockReturnValue(index * 1_000);
+            reportNonBlockingFailure(
+                `key-${index}`,
+                `navigation.key-${index}`,
+                `[Navigation] key-${index} failed:`,
+                new Error(`boom-${index}`)
+            );
+        }
+
+        expect(deps.reportRecoverableAsyncFailure).toHaveBeenCalledTimes(21);
+
+        dateNowSpy.mockReturnValue(21_500);
+        reportNonBlockingFailure(
+            'key-0',
+            'navigation.key-0',
+            '[Navigation] key-0 failed:',
+            new Error('boom-repeat-oldest')
+        );
+
+        dateNowSpy.mockReturnValue(21_600);
+        reportNonBlockingFailure(
+            'key-20',
+            'navigation.key-20',
+            '[Navigation] key-20 failed:',
+            new Error('boom-repeat-recent')
+        );
+
+        expect(deps.reportRecoverableAsyncFailure).toHaveBeenCalledTimes(22);
+        expect(deps.reportRecoverableAsyncFailure).toHaveBeenNthCalledWith(
+            22,
+            'navigation.key-0',
+            '[Navigation] key-0 failed:',
+            expect.objectContaining({ message: 'boom-repeat-oldest' })
+        );
+    });
+
     it('channelNumberEntered focuses EPG current channel after numeric switch when guide is visible', async () => {
         const focusEpgOnCurrentChannel = jest.fn();
         const { handlers, deps, epg } = setup({

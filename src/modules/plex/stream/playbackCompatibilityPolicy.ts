@@ -273,7 +273,7 @@ function buildHdr10FallbackRequest(
     sourceContainer: string
 ): {
     mode: 'off' | 'smart' | 'force';
-    container: string | null | undefined;
+    container: string;
     isDolbyVision: boolean;
     doviProfile: string | null;
     codecProfileString: string | null;
