@@ -15,6 +15,7 @@ const FROZEN_SUITES = [
     'src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts',
     'src/modules/ui/auth/__tests__/AuthScreen.test.ts',
     'src/modules/ui/epg/__tests__/EPGComponent.test.ts',
+    'src/modules/navigation/__tests__/NavigationCoordinator.test.ts',
     'src/modules/navigation/__tests__/RemoteHandler.test.ts',
 ];
 

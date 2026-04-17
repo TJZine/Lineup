@@ -9,7 +9,7 @@ import {
 import {
     PlaybackRuntimeController,
     type PlaybackRuntimeControllerDeps,
-} from '../PlaybackRuntimeController';
+} from '../orchestrator/priority-one/PlaybackRuntimeController';
 
 const makeSetup = (
     overrides: Partial<PlaybackRuntimeControllerDeps> = {}

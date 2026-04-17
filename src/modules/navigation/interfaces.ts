@@ -142,6 +142,12 @@ export interface KeyEvent {
     handled?: boolean;
 }
 
+export type NavigationAsyncFailureReporter = (
+    event: string,
+    message: string,
+    error: unknown
+) => void;
+
 /**
  * Application screens
  */

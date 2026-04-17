@@ -1,0 +1,897 @@
+{
+  "artifact_version": 1,
+  "artifact_role": "Tracked companion mapping the active cleanup checklist package tokens to exact issue membership for the reconciled 2026-04-16 live backlog.",
+  "live_backlog_date": "2026-04-16",
+  "package_model": "active_cleanup_checklist_package_companion",
+  "stable_package_id_format": "pkg_*",
+  "checklist_token_model": {
+    "work_item_format": "P#-W1",
+    "priority_exit_format": "P#-EXIT",
+    "assignment_rule": "Each package owns one checklist work item and one matching priority-exit token, keyed by recommended_execution_order."
+  },
+  "verified_counts": {
+    "total_open": 209,
+    "older_live_non_review": 158,
+    "fresh_review": 41,
+    "fresh_non_review": 10
+  },
+  "validation": {
+    "every_open_issue_assigned_once": true,
+    "no_open_issue_unassigned": true,
+    "no_issue_multiply_assigned": true,
+    "no_reconciled_closed_issue_included": true
+  },
+  "validation_details": {
+    "total_open_issues": 209,
+    "assigned_open_issues": 209,
+    "unassigned_issue_ids": [],
+    "duplicate_assignments": [],
+    "closed_audit_ids_included": []
+  },
+  "package_count": 9,
+  "packages": [
+    {
+      "package_id": "pkg_control_plane_runtime",
+      "package_name": "Control-Plane Runtime Ownership",
+      "purpose": "Retire the orchestrator/runtime hotspot cluster, remove broad builder-bag assembly, and keep navigation-facing control-plane seams owner-honest.",
+      "areas": [
+        "src/core/orchestrator",
+        "src/modules/navigation",
+        "src/core/PlaybackStartController.ts",
+        "root orchestrator-facing tests"
+      ],
+      "includes_detectors": [
+        "flat_dirs",
+        "review",
+        "smells",
+        "structural",
+        "test_coverage"
+      ],
+      "includes_issue_ids": [
+        "flat_dirs::src/core/orchestrator",
+        "review::.::holistic::abstraction_fitness::orchestrator_builder_passthrough_bags",
+        "review::.::holistic::abstraction_fitness::single_impl_runtime_interfaces",
+        "review::.::holistic::cross_module_architecture::navigation_depends_on_orchestrator_runtime_seam",
+        "review::.::holistic::design_coherence::app_orchestrator_remains_runtime_hub",
+        "review::.::holistic::design_coherence::priority_one_runtime_assembly_is_still_one_large_factory_step",
+        "review::.::holistic::high_level_elegance::runtime_owner_concentration",
+        "review::.::holistic::package_organization::core_priority_one_root_residue",
+        "smells::src/core/orchestrator/__tests__/OrchestratorEventBinder.test.ts::stub_function",
+        "smells::src/core/orchestrator/__tests__/OrchestratorRecoverableRuntimeReporter.test.ts::console_error_no_throw",
+        "smells::src/core/orchestrator/AppOrchestrator.ts::console_error_no_throw",
+        "smells::src/core/orchestrator/AppOrchestrator.ts::swallowed_error",
+        "smells::src/core/orchestrator/OrchestratorCoordinatorBuilders.ts::magic_number",
+        "smells::src/core/orchestrator/OrchestratorCoordinatorBuilders.ts::nested_closure",
+        "smells::src/core/orchestrator/OrchestratorPriorityOneControllerFactory.ts::monster_function",
+        "smells::src/core/orchestrator/OrchestratorPriorityOneControllerFactory.ts::nested_closure",
+        "smells::src/core/orchestrator/OrchestratorRecoverableRuntimeReporter.ts::console_error_no_throw",
+        "smells::src/core/orchestrator/OverlayRuntimePolicyController.ts::voided_symbol",
+        "smells::src/core/PlaybackStartController.ts::console_error_no_throw",
+        "smells::src/modules/navigation/FocusManager.ts::magic_number",
+        "smells::src/modules/navigation/NavigationCoordinator.ts::magic_number",
+        "smells::src/modules/navigation/NavigationManager.ts::magic_number",
+        "structural::src/__tests__/Orchestrator.test.ts",
+        "structural::src/core/orchestrator/AppOrchestrator.ts",
+        "structural::src/core/orchestrator/OrchestratorCoordinatorBuilders.ts",
+        "structural::src/modules/navigation/__tests__/NavigationCoordinator.test.ts",
+        "structural::src/modules/navigation/__tests__/NavigationManager.test.ts",
+        "structural::src/modules/navigation/FocusManager.ts",
+        "structural::src/modules/navigation/NavigationCoordinator.ts",
+        "structural::src/modules/navigation/NavigationManager.ts",
+        "test_coverage::src/core/orchestrator/OrchestratorEventCleanupReporter.ts::transitive_only",
+        "test_coverage::src/core/orchestrator/OverlayPorts.ts::transitive_only"
+      ],
+      "includes_review_issue_ids": [
+        "review::.::holistic::abstraction_fitness::orchestrator_builder_passthrough_bags",
+        "review::.::holistic::abstraction_fitness::single_impl_runtime_interfaces",
+        "review::.::holistic::cross_module_architecture::navigation_depends_on_orchestrator_runtime_seam",
+        "review::.::holistic::design_coherence::app_orchestrator_remains_runtime_hub",
+        "review::.::holistic::design_coherence::priority_one_runtime_assembly_is_still_one_large_factory_step",
+        "review::.::holistic::high_level_elegance::runtime_owner_concentration",
+        "review::.::holistic::package_organization::core_priority_one_root_residue"
+      ],
+      "includes_fresh_non_review_issue_ids": [
+        "flat_dirs::src/core/orchestrator",
+        "smells::src/core/orchestrator/__tests__/OrchestratorEventBinder.test.ts::stub_function",
+        "smells::src/core/orchestrator/__tests__/OrchestratorRecoverableRuntimeReporter.test.ts::console_error_no_throw",
+        "smells::src/core/orchestrator/OrchestratorRecoverableRuntimeReporter.ts::console_error_no_throw"
+      ],
+      "entry_criteria": [
+        "Refresh control-plane scoping commands and confirm the active cleanup package map still matches the live open state before implementation starts.",
+        "Call out any runtime seam changes that will affect `pkg_app_shell_shared_ui` or `pkg_startup_auth_lifecycle` before code changes begin."
+      ],
+      "exit_criteria": [
+        "All mapped control-plane runtime and navigation issues are closed on current source or explicitly re-homed by an approved package-map revision in the same pass.",
+        "Control-plane scoping commands and mapped review issues are refreshed with current counts after the package work lands."
+      ],
+      "recommended_scope_boundary": "Stay inside orchestration assembly, runtime controller ownership, and navigation dependency direction. Do not pull app-shell seam cleanup or Plex contract work into this package except through explicit seam handoffs.",
+      "recommended_execution_order": 1,
+      "estimated_backlog_size": {
+        "total_open": 32,
+        "older_live_non_review": 21,
+        "fresh_review": 7,
+        "fresh_non_review": 4
+      },
+      "risk_level": "high",
+      "why_this_grouping": "These issues share the same hotspot owners, the same runtime assembly seams, and the same failure mode: too much control-plane concentration in one runtime slice.",
+      "overlaps_or_coordination_notes": [
+        "Coordinate with `pkg_app_shell_shared_ui` before moving any app-shell import seams.",
+        "Coordinate with `pkg_startup_auth_lifecycle` if startup-time control-plane changes affect lifecycle/error-normalization flows."
+      ],
+      "notes": [
+        "This is the first package because it removes the highest-risk control-plane ownership debt and absorbs the fresh control-plane non-review findings."
+      ],
+      "checklist_tokens": {
+        "work_item": "P1-W1",
+        "priority_exit": "P1-EXIT"
+      },
+      "verified_package_size": {
+        "package_name": "Control-Plane Runtime Ownership",
+        "total_open": 32,
+        "older_live_non_review": 21,
+        "fresh_review": 7,
+        "fresh_non_review": 4,
+        "by_detector": {
+          "smells": 14,
+          "structural": 8,
+          "review": 7,
+          "test_coverage": 2,
+          "flat_dirs": 1
+        }
+      }
+    },
+    {
+      "package_id": "pkg_app_shell_shared_ui",
+      "package_name": "App-Shell, Shared UI, And Persistence Seams",
+      "purpose": "Keep app-shell wiring on package-owned seams, finish shared UI persistence assembly cleanup, and group non-EPG shared UI residue under one execution surface.",
+      "areas": [
+        "src/core/app-shell",
+        "src/modules/ui/settings",
+        "src/modules/ui/mini-guide",
+        "src/modules/ui/now-playing-info",
+        "src/modules/ui/playback-options",
+        "src/modules/ui/player-osd",
+        "src/modules/ui/common",
+        "src/modules/ui/{channel-badge,channel-number-overlay,sleep-timer,theme}",
+        "src/styles",
+        "src/bootstrap.ts",
+        "root app-shell tests"
+      ],
+      "includes_detectors": [
+        "facade",
+        "logs",
+        "review",
+        "single_use",
+        "smells",
+        "structural"
+      ],
+      "includes_issue_ids": [
+        "facade::src/modules/ui/channel-badge/index.ts",
+        "facade::src/modules/ui/channel-number-overlay/index.ts",
+        "facade::src/modules/ui/sleep-timer/index.ts",
+        "facade::src/modules/ui/theme/index.ts",
+        "logs::src/modules/ui/mini-guide/MiniGuideCoordinator.ts::MiniGuideCoordinator",
+        "review::.::holistic::convention_outlier::playback_options_root_surface_bypass",
+        "review::.::holistic::cross_module_architecture::lazy_screen_contracts_live_in_concrete_ui_files",
+        "review::.::holistic::high_level_elegance::orchestrator_public_barrel_backflow",
+        "review::.::holistic::high_level_elegance::types_package_role_drift",
+        "review::.::holistic::incomplete_migration::internal_orchestrator_barrel_drift",
+        "review::.::holistic::mid_level_elegance::ui_owned_persistence_seams",
+        "single_use::src/modules/ui/now-playing-info/styles.css",
+        "smells::src/__tests__/App.test.ts::non_null_assert",
+        "smells::src/bootstrap.ts::hardcoded_color",
+        "smells::src/core/app-shell/AppToastPresenter.ts::magic_number",
+        "smells::src/modules/ui/common/ScreenShell.ts::monster_function",
+        "smells::src/modules/ui/mini-guide/styles.css::css_monolith",
+        "smells::src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts::as_any_cast",
+        "smells::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::console_error_no_throw",
+        "smells::src/modules/ui/playback-options/styles.css::css_monolith",
+        "smells::src/modules/ui/player-osd/PlayerOsdCoordinator.ts::voided_symbol",
+        "smells::src/modules/ui/player-osd/styles.css::css_monolith",
+        "smells::src/modules/ui/settings/styles.css::css_monolith",
+        "smells::src/styles/shell.css::css_monolith",
+        "structural::src/__tests__/App.test.ts",
+        "structural::src/core/app-shell/__tests__/AppDiagnosticsSurface.test.ts",
+        "structural::src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts",
+        "structural::src/core/app-shell/AppDiagnosticsSurface.ts",
+        "structural::src/modules/ui/mini-guide/__tests__/MiniGuideCoordinator.test.ts",
+        "structural::src/modules/ui/mini-guide/MiniGuideCoordinator.ts",
+        "structural::src/modules/ui/now-playing-info/__tests__/NowPlayingInfoCoordinator.test.ts",
+        "structural::src/modules/ui/now-playing-info/NowPlayingInfoCoordinator.ts",
+        "structural::src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts",
+        "structural::src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts",
+        "structural::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts",
+        "structural::src/modules/ui/player-osd/__tests__/PlayerOsdCoordinator.test.ts",
+        "structural::src/modules/ui/player-osd/PlayerOsdCoordinator.ts",
+        "structural::src/modules/ui/settings/__tests__/SettingsScreen.test.ts",
+        "structural::src/modules/ui/settings/SettingsScreen.ts"
+      ],
+      "includes_review_issue_ids": [
+        "review::.::holistic::convention_outlier::playback_options_root_surface_bypass",
+        "review::.::holistic::cross_module_architecture::lazy_screen_contracts_live_in_concrete_ui_files",
+        "review::.::holistic::high_level_elegance::orchestrator_public_barrel_backflow",
+        "review::.::holistic::high_level_elegance::types_package_role_drift",
+        "review::.::holistic::incomplete_migration::internal_orchestrator_barrel_drift",
+        "review::.::holistic::mid_level_elegance::ui_owned_persistence_seams"
+      ],
+      "includes_fresh_non_review_issue_ids": [],
+      "entry_criteria": [
+        "Refresh app-shell/shared-UI scoping commands and verify the package map still captures the full non-EPG shared UI surface.",
+        "Confirm whether any server-select or startup-state changes belong in `pkg_startup_auth_lifecycle` before implementation starts."
+      ],
+      "exit_criteria": [
+        "All mapped app-shell/shared-UI issues are closed on current source or explicitly re-homed by an approved package-map revision in the same pass.",
+        "App-shell, shared-UI, and persistence-seam scoping commands are refreshed with current counts after the package work lands."
+      ],
+      "recommended_scope_boundary": "Keep this package on app-shell seams, shared UI overlays, settings/persistence assembly, and shared presentation helpers. Do not absorb auth/profile lifecycle behavior or EPG-specific runtime cleanup.",
+      "recommended_execution_order": 2,
+      "estimated_backlog_size": {
+        "total_open": 39,
+        "older_live_non_review": 33,
+        "fresh_review": 6,
+        "fresh_non_review": 0
+      },
+      "risk_level": "high",
+      "why_this_grouping": "These issues all execute in the same shared UI/app-shell context and would thrash badly if split by detector or by individual overlay package.",
+      "overlaps_or_coordination_notes": [
+        "Coordinate with `pkg_startup_auth_lifecycle` when server-select or startup flow files need behavior changes rather than seam cleanup.",
+        "Coordinate with `pkg_shared_hygiene_migration` for toast/back-compat cleanup if shared UI callsites need migration follow-through."
+      ],
+      "notes": [
+        "This is intentionally a large package. Humans can create temporary local sub-slices for overlays or settings work without adding more checklist rows.",
+        "Large package: allow temporary local sub-slices during execution, but keep one checklist row unless the package map itself is revised and re-approved."
+      ],
+      "checklist_tokens": {
+        "work_item": "P2-W1",
+        "priority_exit": "P2-EXIT"
+      },
+      "verified_package_size": {
+        "package_name": "App-Shell, Shared UI, And Persistence Seams",
+        "total_open": 39,
+        "older_live_non_review": 33,
+        "fresh_review": 6,
+        "fresh_non_review": 0,
+        "by_detector": {
+          "structural": 15,
+          "smells": 12,
+          "review": 6,
+          "facade": 4,
+          "logs": 1,
+          "single_use": 1
+        }
+      }
+    },
+    {
+      "package_id": "pkg_plex_contracts_identity",
+      "package_name": "Plex Contracts And Identity",
+      "purpose": "Normalize Plex discovery/library/auth contracts, error paths, and platform identity behavior under one Plex-owned package.",
+      "areas": [
+        "src/modules/plex/discovery",
+        "src/modules/plex/library",
+        "src/modules/plex/auth",
+        "platform identity seams referenced by Plex startup and stream setup"
+      ],
+      "includes_detectors": [
+        "responsibility_cohesion",
+        "review",
+        "smells",
+        "structural"
+      ],
+      "includes_issue_ids": [
+        "responsibility_cohesion::src/modules/plex/library/ResponseParser.ts::cohesion::src/modules/plex/library/ResponseParser.ts",
+        "review::.::holistic::api_surface_coherence::plex_discovery_scalar_test_result",
+        "review::.::holistic::api_surface_coherence::plex_library_failure_contract_drift",
+        "review::.::holistic::error_consistency::plex_auth_pin_parsing_bypasses_typed_errors",
+        "review::.::holistic::error_consistency::plex_auth_poll_timeout_masks_retryable_failures",
+        "review::.::holistic::error_consistency::plex_library_null_results_mask_fetch_failures",
+        "review::.::holistic::initialization_coupling::platform_version_first_probe_cache",
+        "smells::src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts::non_null_assert",
+        "smells::src/modules/plex/discovery/PlexServerDiscovery.ts::magic_number",
+        "smells::src/modules/plex/library/__tests__/PlexLibrary.test.ts::non_null_assert",
+        "smells::src/modules/plex/library/mediaItemParser.ts::high_cyclomatic_complexity",
+        "smells::src/modules/plex/library/mediaItemParser.ts::magic_number",
+        "smells::src/modules/plex/library/PlexLibrary.ts::magic_number",
+        "structural::src/modules/plex/auth/__tests__/PlexAuth.test.ts",
+        "structural::src/modules/plex/auth/PlexAuth.ts",
+        "structural::src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts",
+        "structural::src/modules/plex/discovery/PlexServerDiscovery.ts",
+        "structural::src/modules/plex/library/__tests__/PlexLibrary.test.ts",
+        "structural::src/modules/plex/library/PlexLibrary.ts"
+      ],
+      "includes_review_issue_ids": [
+        "review::.::holistic::api_surface_coherence::plex_discovery_scalar_test_result",
+        "review::.::holistic::api_surface_coherence::plex_library_failure_contract_drift",
+        "review::.::holistic::error_consistency::plex_auth_pin_parsing_bypasses_typed_errors",
+        "review::.::holistic::error_consistency::plex_auth_poll_timeout_masks_retryable_failures",
+        "review::.::holistic::error_consistency::plex_library_null_results_mask_fetch_failures",
+        "review::.::holistic::initialization_coupling::platform_version_first_probe_cache"
+      ],
+      "includes_fresh_non_review_issue_ids": [
+        "smells::src/modules/plex/library/mediaItemParser.ts::high_cyclomatic_complexity",
+        "smells::src/modules/plex/library/mediaItemParser.ts::magic_number"
+      ],
+      "entry_criteria": [
+        "Refresh Plex discovery/library/auth scoping commands and confirm the live open set still matches the active cleanup package map.",
+        "Document any expected follow-through needed in `pkg_startup_auth_lifecycle` before changing shared auth owners."
+      ],
+      "exit_criteria": [
+        "All mapped Plex contract/identity issues are closed on current source or explicitly re-homed by an approved package-map revision in the same pass.",
+        "Plex scoping commands and mapped review issues are refreshed with current counts after the package work lands."
+      ],
+      "recommended_scope_boundary": "Stay inside Plex discovery/library/auth contracts and the platform identity behavior they directly own. Do not absorb startup-profile lifecycle semantics except where PlexAuth or identity seams force coordination.",
+      "recommended_execution_order": 3,
+      "estimated_backlog_size": {
+        "total_open": 19,
+        "older_live_non_review": 11,
+        "fresh_review": 6,
+        "fresh_non_review": 2
+      },
+      "risk_level": "high",
+      "why_this_grouping": "Discovery, library, and auth contract drift all share the same Plex-facing ownership boundary and should be retired together instead of being split by detector family.",
+      "overlaps_or_coordination_notes": [
+        "Coordinate with `pkg_startup_auth_lifecycle` on constructor-time PlexAuth behavior and startup token state.",
+        "Coordinate with `pkg_playback_subtitle_recovery` if stream-path changes alter playback-facing error propagation."
+      ],
+      "notes": [
+        "This package absorbs the fresh non-review `mediaItemParser` findings so Plex mechanical cleanup does not need a separate checklist lane."
+      ],
+      "checklist_tokens": {
+        "work_item": "P3-W1",
+        "priority_exit": "P3-EXIT"
+      },
+      "verified_package_size": {
+        "package_name": "Plex Contracts And Identity",
+        "total_open": 19,
+        "older_live_non_review": 11,
+        "fresh_review": 6,
+        "fresh_non_review": 2,
+        "by_detector": {
+          "review": 6,
+          "smells": 6,
+          "structural": 6,
+          "responsibility_cohesion": 1
+        }
+      }
+    },
+    {
+      "package_id": "pkg_startup_auth_lifecycle",
+      "package_name": "Startup, Auth, Profile, And Lifecycle State",
+      "purpose": "Make startup/session state honest across auth expiry, profile selection, initialization, error normalization, and lifecycle timing.",
+      "areas": [
+        "src/core/initialization",
+        "src/modules/ui/auth",
+        "src/modules/ui/profile-select",
+        "src/modules/ui/server-select",
+        "src/modules/lifecycle",
+        "startup/error-recovery seams"
+      ],
+      "includes_detectors": [
+        "responsibility_cohesion",
+        "review",
+        "smells",
+        "structural",
+        "test_coverage"
+      ],
+      "includes_issue_ids": [
+        "responsibility_cohesion::src/modules/lifecycle/AppLifecycle.ts::cohesion::src/modules/lifecycle/AppLifecycle.ts",
+        "review::.::holistic::authorization_consistency::profile_select_auth_resume_gap",
+        "review::.::holistic::authorization_consistency::startup_invalid_active_token_persisted",
+        "review::.::holistic::initialization_coupling::plex_auth_constructor_storage_side_effect",
+        "review::.::holistic::logic_clarity::lifecycle_promise_semantics_hide_real_timing",
+        "review::.::holistic::low_level_elegance::phase2_auth_gate_branch_stack",
+        "review::.::holistic::test_strategy::startup-error-normalization-gap",
+        "smells::src/core/error-recovery/RecoveryActions.ts::high_cyclomatic_complexity",
+        "smells::src/core/initialization/InitializationStartupPolicy.ts::console_error_no_throw",
+        "smells::src/core/initialization/InitializationStartupPolicy.ts::high_cyclomatic_complexity",
+        "smells::src/core/InitializationCoordinator.ts::non_null_assert",
+        "smells::src/modules/ui/auth/AuthScreen.ts::console_error_no_throw",
+        "smells::src/modules/ui/profile-select/styles.css::css_monolith",
+        "smells::src/modules/ui/server-select/ServerSelectScreen.ts::console_error_no_throw",
+        "structural::src/core/__tests__/InitializationCoordinator.test.ts",
+        "structural::src/core/InitializationCoordinator.ts",
+        "structural::src/modules/lifecycle/__tests__/AppLifecycle.test.ts",
+        "structural::src/modules/ui/auth/AuthScreen.ts",
+        "structural::src/modules/ui/profile-select/__tests__/ProfileSelectScreen.test.ts",
+        "structural::src/modules/ui/profile-select/ProfileSelectScreen.ts",
+        "structural::src/modules/ui/server-select/__tests__/ServerSelectScreen.test.ts",
+        "structural::src/modules/ui/server-select/ServerSelectScreen.ts",
+        "test_coverage::src/core/initialization/RecoverableModuleStatusError.ts::transitive_only"
+      ],
+      "includes_review_issue_ids": [
+        "review::.::holistic::authorization_consistency::profile_select_auth_resume_gap",
+        "review::.::holistic::authorization_consistency::startup_invalid_active_token_persisted",
+        "review::.::holistic::initialization_coupling::plex_auth_constructor_storage_side_effect",
+        "review::.::holistic::logic_clarity::lifecycle_promise_semantics_hide_real_timing",
+        "review::.::holistic::low_level_elegance::phase2_auth_gate_branch_stack",
+        "review::.::holistic::test_strategy::startup-error-normalization-gap"
+      ],
+      "includes_fresh_non_review_issue_ids": [
+        "smells::src/core/initialization/InitializationStartupPolicy.ts::console_error_no_throw",
+        "test_coverage::src/core/initialization/RecoverableModuleStatusError.ts::transitive_only"
+      ],
+      "entry_criteria": [
+        "Refresh startup/auth/lifecycle scoping commands and confirm the active cleanup package map still matches the live open set.",
+        "Call out any shared PlexAuth ownership questions with `pkg_plex_contracts_identity` before implementation starts."
+      ],
+      "exit_criteria": [
+        "All mapped startup/auth/lifecycle issues are closed on current source or explicitly re-homed by an approved package-map revision in the same pass.",
+        "Startup/auth/lifecycle scoping commands and mapped review issues are refreshed with current counts after the package work lands."
+      ],
+      "recommended_scope_boundary": "Keep this package on startup-time session state, auth/profile flow behavior, lifecycle timing, and initialization error handling. Do not absorb general app-shell seam cleanup or Plex discovery/library contracts.",
+      "recommended_execution_order": 4,
+      "estimated_backlog_size": {
+        "total_open": 23,
+        "older_live_non_review": 15,
+        "fresh_review": 6,
+        "fresh_non_review": 2
+      },
+      "risk_level": "high",
+      "why_this_grouping": "These issues share one execution context: startup/session state correctness. Splitting them across UI, initialization, and lifecycle rows would create coordination churn without improving ownership clarity.",
+      "overlaps_or_coordination_notes": [
+        "Coordinate with `pkg_plex_contracts_identity` when PlexAuth changes affect both contract cleanup and startup-state semantics.",
+        "Coordinate with `pkg_app_shell_shared_ui` if server-select changes are seam-assembly-only rather than behavior/state changes."
+      ],
+      "notes": [
+        "This package absorbs the fresh initialization findings so startup-state cleanup stays in one lane."
+      ],
+      "checklist_tokens": {
+        "work_item": "P4-W1",
+        "priority_exit": "P4-EXIT"
+      },
+      "verified_package_size": {
+        "package_name": "Startup, Auth, Profile, And Lifecycle State",
+        "total_open": 23,
+        "older_live_non_review": 15,
+        "fresh_review": 6,
+        "fresh_non_review": 2,
+        "by_detector": {
+          "structural": 8,
+          "smells": 7,
+          "review": 6,
+          "responsibility_cohesion": 1,
+          "test_coverage": 1
+        }
+      }
+    },
+    {
+      "package_id": "pkg_playback_subtitle_recovery",
+      "package_name": "Playback And Subtitle Recovery",
+      "purpose": "Separate generic playback recovery from subtitle-specific policy and keep player/stream recovery cleanup in one execution surface.",
+      "areas": [
+        "src/modules/player",
+        "src/modules/plex/stream"
+      ],
+      "includes_detectors": [
+        "logs",
+        "review",
+        "smells",
+        "structural"
+      ],
+      "includes_issue_ids": [
+        "logs::src/modules/player/PlaybackRecoveryManager.ts::PlaybackRecovery",
+        "logs::src/modules/player/SubtitleManager.ts::SubtitleManager",
+        "logs::src/modules/player/VideoPlayer.ts::VideoPlayer",
+        "review::.::holistic::ai_generated_debt::duplicate_subtitle_debug_helpers",
+        "review::.::holistic::design_coherence::playback_recovery_manager_blends_generic_recovery_with_subtitle_policy",
+        "smells::src/modules/player/__tests__/SubtitleManager.test.ts::as_any_cast",
+        "smells::src/modules/player/VideoPlayer.ts::switch_no_default",
+        "smells::src/modules/plex/stream/__tests__/mediaSelectionPolicy.test.ts::non_null_assert",
+        "smells::src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts::non_null_assert",
+        "smells::src/modules/plex/stream/PlexStreamResolver.ts::magic_number",
+        "structural::src/modules/player/__tests__/PlaybackRecoveryManager.test.ts",
+        "structural::src/modules/player/__tests__/SubtitleManager.test.ts",
+        "structural::src/modules/player/__tests__/VideoPlayer.test.ts",
+        "structural::src/modules/player/PlaybackRecoveryManager.ts",
+        "structural::src/modules/player/SubtitleManager.ts",
+        "structural::src/modules/player/VideoPlayer.ts",
+        "structural::src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts",
+        "structural::src/modules/plex/stream/PlexStreamResolver.ts"
+      ],
+      "includes_review_issue_ids": [
+        "review::.::holistic::ai_generated_debt::duplicate_subtitle_debug_helpers",
+        "review::.::holistic::design_coherence::playback_recovery_manager_blends_generic_recovery_with_subtitle_policy"
+      ],
+      "includes_fresh_non_review_issue_ids": [],
+      "entry_criteria": [
+        "Refresh playback/stream scoping commands and confirm the active cleanup package map still matches the live open set.",
+        "Call out any stream-contract dependencies on `pkg_plex_contracts_identity` before implementation starts."
+      ],
+      "exit_criteria": [
+        "All mapped playback/subtitle issues are closed on current source or explicitly re-homed by an approved package-map revision in the same pass.",
+        "Playback/stream scoping commands and mapped review issues are refreshed with current counts after the package work lands."
+      ],
+      "recommended_scope_boundary": "Stay inside player runtime, playback recovery, subtitle fallback, and stream-resolution behavior. Do not absorb cross-cutting type-taxonomy cleanup except where a playback owner is the final destination.",
+      "recommended_execution_order": 5,
+      "estimated_backlog_size": {
+        "total_open": 18,
+        "older_live_non_review": 16,
+        "fresh_review": 2,
+        "fresh_non_review": 0
+      },
+      "risk_level": "high",
+      "why_this_grouping": "Player and stream recovery issues share the same runtime failure path and can be resolved together without mixing in broader UI or Plex discovery work.",
+      "overlaps_or_coordination_notes": [
+        "Coordinate with `pkg_plex_contracts_identity` if stream resolver contract changes propagate into playback error handling.",
+        "Coordinate with `pkg_type_safety_test_guardrails` if typed error-code cleanup lands inside player/stream files."
+      ],
+      "notes": [
+        "This package is smaller than the shell/channel packages but still hotspot-heavy because it contains multiple large runtime and test files."
+      ],
+      "checklist_tokens": {
+        "work_item": "P5-W1",
+        "priority_exit": "P5-EXIT"
+      },
+      "verified_package_size": {
+        "package_name": "Playback And Subtitle Recovery",
+        "total_open": 18,
+        "older_live_non_review": 16,
+        "fresh_review": 2,
+        "fresh_non_review": 0,
+        "by_detector": {
+          "structural": 8,
+          "smells": 5,
+          "logs": 3,
+          "review": 2
+        }
+      }
+    },
+    {
+      "package_id": "pkg_channel_setup_scheduler",
+      "package_name": "Channel Setup And Scheduler Contracts",
+      "purpose": "Keep channel-setup workflow cleanup, scheduler/channel-manager contracts, and channel-tuning residue in one domain-owned package.",
+      "areas": [
+        "src/core/channel-setup",
+        "src/modules/ui/channel-setup",
+        "src/modules/scheduler",
+        "src/core/channel-tuning"
+      ],
+      "includes_detectors": [
+        "facade",
+        "flat_dirs",
+        "logs",
+        "review",
+        "smells",
+        "structural",
+        "test_coverage"
+      ],
+      "includes_issue_ids": [
+        "facade::src/core/channel-tuning/index.ts",
+        "flat_dirs::src/core/channel-setup",
+        "logs::src/core/channel-setup/ChannelSetupBuildCommitter.ts::ChannelSetup",
+        "logs::src/core/channel-setup/ChannelSetupBuildExecutor.ts::ChannelSetup",
+        "review::.::holistic::contract_coherence::channel_manager_error_contract_docs_lag_runtime",
+        "review::.::holistic::contract_coherence::channel_setup_port_absence_contract_split",
+        "smells::src/core/channel-setup/ChannelSetupBuildCommitter.ts::console_error_no_throw",
+        "smells::src/core/channel-setup/ChannelSetupBuildCommitter.ts::swallowed_error",
+        "smells::src/core/channel-setup/ChannelSetupBuildExecutor.ts::swallowed_error",
+        "smells::src/core/channel-setup/ChannelSetupFacetSnapshotLoader.ts::sort_no_comparator",
+        "smells::src/core/channel-setup/ChannelSetupPlanner.ts::sort_no_comparator",
+        "smells::src/core/channel-setup/ChannelSetupTagFilters.ts::high_cyclomatic_complexity",
+        "smells::src/core/channel-tuning/ChannelTuningCoordinator.ts::swallowed_error",
+        "smells::src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts::non_null_assert",
+        "smells::src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts::stub_function",
+        "smells::src/modules/scheduler/scheduler/ChannelScheduler.ts::non_null_assert",
+        "structural::src/core/channel-setup/__tests__/ChannelSetupPlanner.test.ts",
+        "structural::src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts",
+        "structural::src/core/channel-setup/ChannelSetupFacetSnapshotLoader.ts",
+        "structural::src/core/channel-setup/ChannelSetupPlanner.ts",
+        "structural::src/core/channel-tuning/__tests__/ChannelTuningCoordinator.test.ts",
+        "structural::src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts",
+        "structural::src/modules/scheduler/channel-manager/__tests__/ContentResolver.test.ts",
+        "structural::src/modules/scheduler/channel-manager/ChannelManager.ts",
+        "structural::src/modules/scheduler/channel-manager/ContentResolver.ts",
+        "structural::src/modules/scheduler/scheduler/__tests__/ChannelScheduler.test.ts",
+        "structural::src/modules/scheduler/scheduler/__tests__/ScheduleCalculator.test.ts",
+        "structural::src/modules/scheduler/scheduler/ChannelScheduler.ts",
+        "structural::src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts",
+        "structural::src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts",
+        "structural::src/modules/ui/channel-setup/ChannelSetupScreen.ts",
+        "structural::src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts",
+        "structural::src/modules/ui/channel-setup/steps/StrategyStepController.ts",
+        "structural::src/modules/ui/channel-setup/steps/StrategyStepInteractionController.ts",
+        "test_coverage::src/modules/ui/channel-setup/steps/BuildReviewStepController.ts::transitive_only",
+        "test_coverage::src/modules/ui/channel-setup/steps/LibraryStepController.ts::transitive_only",
+        "test_coverage::src/modules/ui/channel-setup/steps/StrategyStepController.ts::transitive_only",
+        "test_coverage::src/modules/ui/channel-setup/steps/StrategyStepInteractionController.ts::transitive_only"
+      ],
+      "includes_review_issue_ids": [
+        "review::.::holistic::contract_coherence::channel_manager_error_contract_docs_lag_runtime",
+        "review::.::holistic::contract_coherence::channel_setup_port_absence_contract_split"
+      ],
+      "includes_fresh_non_review_issue_ids": [
+        "structural::src/modules/ui/channel-setup/steps/StrategyStepInteractionController.ts",
+        "test_coverage::src/modules/ui/channel-setup/steps/StrategyStepInteractionController.ts::transitive_only"
+      ],
+      "entry_criteria": [
+        "Refresh channel-setup/scheduler scoping commands and confirm the active cleanup package map still matches the live open set.",
+        "Document any EPG dependencies that should stay deferred to `pkg_epg_runtime_surfaces` before implementation starts."
+      ],
+      "exit_criteria": [
+        "All mapped channel-setup/scheduler issues are closed on current source or explicitly re-homed by an approved package-map revision in the same pass.",
+        "Channel-setup/scheduler scoping commands and mapped review issues are refreshed with current counts after the package work lands."
+      ],
+      "recommended_scope_boundary": "Keep this package on channel-setup workflow seams, scheduler/channel-manager contracts, and channel-tuning behavior. Do not absorb EPG runtime/package cleanup beyond documented contract handoffs.",
+      "recommended_execution_order": 6,
+      "estimated_backlog_size": {
+        "total_open": 38,
+        "older_live_non_review": 34,
+        "fresh_review": 2,
+        "fresh_non_review": 2
+      },
+      "risk_level": "high",
+      "why_this_grouping": "Channel setup and scheduler issues are tightly coupled by workflow contracts and shared tests. They are one execution context, but they are too different from EPG runtime cleanup to share a single checklist row.",
+      "overlaps_or_coordination_notes": [
+        "Coordinate with `pkg_epg_runtime_surfaces` when EPG cleanup depends on channel-setup or schedule contract changes."
+      ],
+      "notes": [
+        "This package is intentionally large. Humans can sub-slice by `core/channel-setup`, `ui/channel-setup`, or scheduler tests locally without adding checklist rows.",
+        "Large package: allow temporary local sub-slices during execution, but keep one checklist row unless the package map itself is revised and re-approved."
+      ],
+      "checklist_tokens": {
+        "work_item": "P6-W1",
+        "priority_exit": "P6-EXIT"
+      },
+      "verified_package_size": {
+        "package_name": "Channel Setup And Scheduler Contracts",
+        "total_open": 38,
+        "older_live_non_review": 34,
+        "fresh_review": 2,
+        "fresh_non_review": 2,
+        "by_detector": {
+          "structural": 18,
+          "smells": 10,
+          "test_coverage": 4,
+          "logs": 2,
+          "review": 2,
+          "facade": 1,
+          "flat_dirs": 1
+        }
+      }
+    },
+    {
+      "package_id": "pkg_epg_runtime_surfaces",
+      "package_name": "EPG Runtime And Package Surfaces",
+      "purpose": "Retire the remaining EPG runtime, view-package, naming, and test hotspot residue under one EPG-owned package.",
+      "areas": [
+        "src/modules/ui/epg",
+        "src/modules/ui/epg/runtime",
+        "src/modules/ui/epg/view",
+        "EPG tests and package-root seams"
+      ],
+      "includes_detectors": [
+        "facade",
+        "flat_dirs",
+        "review",
+        "signature",
+        "smells",
+        "structural"
+      ],
+      "includes_issue_ids": [
+        "facade::src/modules/ui/epg/index.ts",
+        "facade::src/modules/ui/epg/runtime/index.ts",
+        "facade::src/modules/ui/epg/view/index.ts",
+        "flat_dirs::src/modules/ui/epg",
+        "flat_dirs::src/modules/ui/epg/__tests__",
+        "review::.::holistic::contract_coherence::epg_cache_queries_hide_cleanup_side_effects",
+        "review::.::holistic::low_level_elegance::epg_refresh_session_too_dense",
+        "review::.::holistic::naming_quality::boolean_accessor_get_is_drift",
+        "review::.::holistic::naming_quality::epg_run_for_channel_callback",
+        "review::.::holistic::package_organization::epg_view_leaves_in_root",
+        "signature::src/modules/ui/epg/__tests__/DeferredEpgComponent.test.ts::signature_variance::makeChannel",
+        "smells::src/modules/ui/epg/__tests__/EPGChannelList.test.ts::hardcoded_color",
+        "smells::src/modules/ui/epg/__tests__/EPGComponent.test.ts::non_null_assert",
+        "smells::src/modules/ui/epg/EPGCoordinator.ts::console_error_no_throw",
+        "smells::src/modules/ui/epg/EPGRefreshController.ts::console_error_no_throw",
+        "smells::src/modules/ui/epg/runtime/EPGBackgroundWarmQueue.ts::console_error_no_throw",
+        "smells::src/modules/ui/epg/runtime/EPGScheduleRefreshRuntime.ts::console_error_no_throw",
+        "smells::src/modules/ui/epg/styles.css::css_monolith",
+        "structural::src/modules/ui/epg/__tests__/EPGComponent.test.ts",
+        "structural::src/modules/ui/epg/__tests__/EPGCoordinator.test.ts",
+        "structural::src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts",
+        "structural::src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts",
+        "structural::src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts",
+        "structural::src/modules/ui/epg/EPGComponent.ts",
+        "structural::src/modules/ui/epg/EPGCoordinator.ts",
+        "structural::src/modules/ui/epg/EPGInfoPanel.ts",
+        "structural::src/modules/ui/epg/runtime/EPGScheduleRefreshRuntime.ts",
+        "structural::src/modules/ui/epg/view/EPGVirtualizer.ts"
+      ],
+      "includes_review_issue_ids": [
+        "review::.::holistic::contract_coherence::epg_cache_queries_hide_cleanup_side_effects",
+        "review::.::holistic::low_level_elegance::epg_refresh_session_too_dense",
+        "review::.::holistic::naming_quality::boolean_accessor_get_is_drift",
+        "review::.::holistic::naming_quality::epg_run_for_channel_callback",
+        "review::.::holistic::package_organization::epg_view_leaves_in_root"
+      ],
+      "includes_fresh_non_review_issue_ids": [],
+      "entry_criteria": [
+        "Refresh EPG scoping commands and confirm the active cleanup package map still matches the live open set.",
+        "Confirm any contract handoffs from `pkg_channel_setup_scheduler` before implementation starts."
+      ],
+      "exit_criteria": [
+        "All mapped EPG issues are closed on current source or explicitly re-homed by an approved package-map revision in the same pass.",
+        "EPG scoping commands and mapped review issues are refreshed with current counts after the package work lands."
+      ],
+      "recommended_scope_boundary": "Stay inside EPG runtime, EPG tests, EPG view packaging, and EPG naming/query side effects. Do not absorb general shared UI shell cleanup or channel-setup contract work except through explicit handoffs.",
+      "recommended_execution_order": 7,
+      "estimated_backlog_size": {
+        "total_open": 28,
+        "older_live_non_review": 23,
+        "fresh_review": 5,
+        "fresh_non_review": 0
+      },
+      "risk_level": "high",
+      "why_this_grouping": "EPG already behaves like its own execution area. Keeping it separate avoids a 66-issue mega-package and preserves one clear owner for EPG runtime and package-surface work.",
+      "overlaps_or_coordination_notes": [
+        "Depends on `pkg_channel_setup_scheduler` only for channel/schedule contract cleanup that the EPG package consumes."
+      ],
+      "notes": [
+        "Splitting EPG away from channel-setup/scheduler is the only package split needed to keep the checklist small without creating execution thrash."
+      ],
+      "checklist_tokens": {
+        "work_item": "P7-W1",
+        "priority_exit": "P7-EXIT"
+      },
+      "verified_package_size": {
+        "package_name": "EPG Runtime And Package Surfaces",
+        "total_open": 28,
+        "older_live_non_review": 23,
+        "fresh_review": 5,
+        "fresh_non_review": 0,
+        "by_detector": {
+          "structural": 10,
+          "smells": 7,
+          "review": 5,
+          "facade": 3,
+          "flat_dirs": 2,
+          "signature": 1
+        }
+      }
+    },
+    {
+      "package_id": "pkg_shared_hygiene_migration",
+      "package_name": "Shared Hygiene And Migration Residue",
+      "purpose": "Isolate the truly cross-cutting AI-debt, wrapper-sprawl, and dead migration residue so domain packages do not inherit repo-wide cleanup noise.",
+      "areas": [
+        "cross-cutting shared surfaces",
+        "src/utils",
+        "toast/shared migration residue",
+        "root directory/package hygiene"
+      ],
+      "includes_detectors": [
+        "flat_dirs",
+        "review",
+        "smells"
+      ],
+      "includes_issue_ids": [
+        "flat_dirs::src",
+        "review::.::holistic::ai_generated_debt::defensive_nonfatal_wrapper_sprawl",
+        "review::.::holistic::ai_generated_debt::template_docblock_noise",
+        "review::.::holistic::incomplete_migration::toast_string_back_compat_dead",
+        "smells::src/utils/EventEmitter.ts::console_error_no_throw"
+      ],
+      "includes_review_issue_ids": [
+        "review::.::holistic::ai_generated_debt::defensive_nonfatal_wrapper_sprawl",
+        "review::.::holistic::ai_generated_debt::template_docblock_noise",
+        "review::.::holistic::incomplete_migration::toast_string_back_compat_dead"
+      ],
+      "includes_fresh_non_review_issue_ids": [],
+      "entry_criteria": [
+        "Refresh the shared-hygiene scoping commands and confirm the active cleanup package map still matches the live open set.",
+        "Confirm that any planned callsite migrations from domain packages are ready before implementation starts."
+      ],
+      "exit_criteria": [
+        "All mapped shared-hygiene/migration issues are closed on current source or explicitly re-homed by an approved package-map revision in the same pass.",
+        "Shared-hygiene scoping commands and mapped review issues are refreshed with current counts after the package work lands."
+      ],
+      "recommended_scope_boundary": "Keep this package on repo-wide template noise, defensive wrapper sprawl, dead compatibility shims, and other residue that does not belong to a single runtime domain owner.",
+      "recommended_execution_order": 8,
+      "estimated_backlog_size": {
+        "total_open": 5,
+        "older_live_non_review": 2,
+        "fresh_review": 3,
+        "fresh_non_review": 0
+      },
+      "risk_level": "medium",
+      "why_this_grouping": "These issues are cross-cutting by nature. Giving them one small package keeps them out of domain rows without forcing the checklist to track raw issue ids inline.",
+      "overlaps_or_coordination_notes": [
+        "Coordinate with `pkg_app_shell_shared_ui` for toast/shared UI callsites and with `pkg_type_safety_test_guardrails` when helper cleanup changes typed surfaces or test helpers."
+      ],
+      "notes": [
+        "Small package on purpose: it is cross-cutting, but still distinct enough to deserve one dedicated row instead of being smeared across domain packages.",
+        "Small package by design: keep it separate because the execution context is distinct even though the count is low."
+      ],
+      "checklist_tokens": {
+        "work_item": "P8-W1",
+        "priority_exit": "P8-EXIT"
+      },
+      "verified_package_size": {
+        "package_name": "Shared Hygiene And Migration Residue",
+        "total_open": 5,
+        "older_live_non_review": 2,
+        "fresh_review": 3,
+        "fresh_non_review": 0,
+        "by_detector": {
+          "review": 3,
+          "flat_dirs": 1,
+          "smells": 1
+        }
+      }
+    },
+    {
+      "package_id": "pkg_type_safety_test_guardrails",
+      "package_name": "Type Safety And Test Guardrails",
+      "purpose": "Retire the remaining typed-error drift and focused test-fragility residue under one verification-oriented package.",
+      "areas": [
+        "root/shared tests",
+        "typed error-code and branding surfaces",
+        "verification policy/guardrail residue"
+      ],
+      "includes_detectors": [
+        "review",
+        "signature",
+        "structural",
+        "test_coverage"
+      ],
+      "includes_issue_ids": [
+        "review::.::holistic::test_strategy::fragility-ratchet-blind-spots",
+        "review::.::holistic::type_safety::branding_icon_api_uses_plain_string",
+        "review::.::holistic::type_safety::duplicated_error_code_taxonomies",
+        "review::.::holistic::type_safety::unsafe_error_code_coercions",
+        "signature::src/__tests__/helpers.ts::signature_variance::flushPromises",
+        "structural::src/__tests__/tools/verifyDocs.test.ts",
+        "test_coverage::src/index.ts::untested_module"
+      ],
+      "includes_review_issue_ids": [
+        "review::.::holistic::test_strategy::fragility-ratchet-blind-spots",
+        "review::.::holistic::type_safety::branding_icon_api_uses_plain_string",
+        "review::.::holistic::type_safety::duplicated_error_code_taxonomies",
+        "review::.::holistic::type_safety::unsafe_error_code_coercions"
+      ],
+      "includes_fresh_non_review_issue_ids": [],
+      "entry_criteria": [
+        "Refresh the type-safety/test scoping commands and confirm the active cleanup package map still matches the live open set.",
+        "Confirm whether any domain package needs to land first before tightening shared error or test guardrails."
+      ],
+      "exit_criteria": [
+        "All mapped type-safety/test issues are closed on current source or explicitly re-homed by an approved package-map revision in the same pass.",
+        "Type-safety/test scoping commands and mapped review issues are refreshed with current counts after the package work lands."
+      ],
+      "recommended_scope_boundary": "Keep this package on typed surface cleanup, shared test helpers, and fragility-guardrail expansion. Do not absorb broad repo-wide prose/template cleanup or domain runtime decomposition.",
+      "recommended_execution_order": 9,
+      "estimated_backlog_size": {
+        "total_open": 7,
+        "older_live_non_review": 3,
+        "fresh_review": 4,
+        "fresh_non_review": 0
+      },
+      "risk_level": "medium",
+      "why_this_grouping": "Type-safety cleanup and verification guardrails are both cross-cutting but executionally similar: they harden shared contracts and tests after the major domain packages have stabilized.",
+      "overlaps_or_coordination_notes": [
+        "Sequence this last so earlier domain packages can simplify or delete fragile tests before the ratchet is tightened.",
+        "Coordinate with `pkg_playback_subtitle_recovery` or `pkg_plex_contracts_identity` if canonical error-code cleanup needs final owner decisions in player or Plex files."
+      ],
+      "notes": [
+        "Small package on purpose: it is a late-stage hardening lane, not a broad domain cleanup bucket.",
+        "Small package by design: keep it separate because the execution context is distinct even though the count is low."
+      ],
+      "checklist_tokens": {
+        "work_item": "P9-W1",
+        "priority_exit": "P9-EXIT"
+      },
+      "verified_package_size": {
+        "package_name": "Type Safety And Test Guardrails",
+        "total_open": 7,
+        "older_live_non_review": 3,
+        "fresh_review": 4,
+        "fresh_non_review": 0,
+        "by_detector": {
+          "review": 4,
+          "signature": 1,
+          "structural": 1,
+          "test_coverage": 1
+        }
+      }
+    }
+  ]
+}

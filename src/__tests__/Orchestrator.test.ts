@@ -1062,7 +1062,7 @@ describe('AppOrchestrator', () => {
             await orchestrator.initialize(mockConfig);
 
             const refreshError = new Error('refresh failed');
-            const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
             const refreshSpy = jest
                 .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
                 .mockRejectedValue(refreshError);
@@ -1082,7 +1082,7 @@ describe('AppOrchestrator', () => {
 
                 expect(runStartupSpy).toHaveBeenCalledWith(3);
                 expect(refreshSpy).toHaveBeenCalledWith({ reason: 'server-swap' });
-                expect(consoleErrorSpy).toHaveBeenCalledWith(
+                expect(consoleWarnSpy).toHaveBeenCalledWith(
                     'Post-selection EPG refresh failed',
                     expect.objectContaining({
                         step: 'refreshEpgSchedules',
@@ -1092,7 +1092,7 @@ describe('AppOrchestrator', () => {
                     })
                 );
             } finally {
-                consoleErrorSpy.mockRestore();
+                consoleWarnSpy.mockRestore();
                 refreshSpy.mockRestore();
                 runStartupSpy.mockRestore();
             }
@@ -1801,7 +1801,7 @@ describe('AppOrchestrator', () => {
         });
 
         it('shows a warning toast when setSubtitleTrack fails', async () => {
-            const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
             try {
                 const toastSpy = jest.fn();
 
@@ -1810,7 +1810,7 @@ describe('AppOrchestrator', () => {
 
                 await orchestrator.setSubtitleTrack(null);
 
-                expect(errorSpy).toHaveBeenCalledWith(
+                expect(warnSpy).toHaveBeenCalledWith(
                     'setSubtitleTrack failed',
                     expect.objectContaining({
                         trackId: null,
@@ -1824,7 +1824,7 @@ describe('AppOrchestrator', () => {
                     expect.objectContaining({ type: 'warning', message: expect.any(String) })
                 );
             } finally {
-                errorSpy.mockRestore();
+                warnSpy.mockRestore();
             }
         });
 
@@ -2592,7 +2592,7 @@ describe('AppOrchestrator', () => {
         });
 
         it('redacts tokenized message values in global error logs', () => {
-            const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
             try {
                 const secret = 'secret-token';
                 const error = {
@@ -2615,42 +2615,38 @@ describe('AppOrchestrator', () => {
             }
         });
 
-        it('swallows recoverable reporter failures during global error handling', () => {
-            const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
-            const createReporterSpy = jest.spyOn(
-                recoverableRuntimeReporterModule,
-                'createRecoverableRuntimeIssueReporter'
+        it('keeps recoverable reporter failures inside the reporter collaborator during global error handling', () => {
+            const warn = jest.fn();
+            const isolatedOrchestrator = new AppOrchestrator();
+            Reflect.set(
+                isolatedOrchestrator as object,
+                '_recoverableRuntimeReporter',
+                recoverableRuntimeReporterModule.createRecoverableRuntimeIssueReporter({
+                    issueId: 'qa-1',
+                    appendIssueDiagnostic: () => {
+                        throw new Error('append failed');
+                    },
+                    warn,
+                })
             );
-            try {
-                createReporterSpy.mockReturnValue({
-                    reportIssue: jest.fn(),
-                    reportError: jest.fn(() => {
-                        throw new Error('reporter failed');
-                    }),
-                });
-                const isolatedOrchestrator = new AppOrchestrator();
 
-                expect(() => {
-                    isolatedOrchestrator.handleGlobalError(
-                        {
-                            code: AppErrorCode.NETWORK_TIMEOUT,
-                            message: 'test',
-                            recoverable: true,
-                        },
-                        'test-context'
-                    );
-                }).not.toThrow();
-
-                expect(consoleSpy).toHaveBeenCalledWith(
-                    '[AppOrchestrator] recoverable runtime reporter failed:',
-                    expect.objectContaining({
-                        message: 'reporter failed',
-                    })
+            expect(() => {
+                isolatedOrchestrator.handleGlobalError(
+                    {
+                        code: AppErrorCode.NETWORK_TIMEOUT,
+                        message: 'test',
+                        recoverable: true,
+                    },
+                    'test-context'
                 );
-            } finally {
-                createReporterSpy.mockRestore();
-                consoleSpy.mockRestore();
-            }
+            }).not.toThrow();
+
+            expect(warn).toHaveBeenCalledWith(
+                '[RecoverableRuntimeReporter] reportError failed:',
+                expect.objectContaining({
+                    message: 'append failed',
+                })
+            );
         });
 
         it('defers reentrant global errors until the active handling pass completes', () => {
@@ -2928,7 +2924,7 @@ describe('AppOrchestrator', () => {
         });
 
         it('stops the video player during shutdown when active transcode cleanup fails', async () => {
-            const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+            const errorSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
             const stopActiveTranscodeSession = jest.fn(() => {
                 throw new Error('transcode cleanup failed');
             });
@@ -3196,6 +3192,130 @@ describe('AppOrchestrator', () => {
                 | { value: string }
                 | undefined;
             expect(nestedContext?.value).toBe('original');
+        });
+
+        it('reports structuredClone fallback once per failing context identity', () => {
+            const originalStructuredClone = globalThis.structuredClone;
+            const reportError = jest.fn();
+            const context = {
+                source: 'test',
+                nested: {
+                    value: 'original',
+                },
+            };
+
+            Object.defineProperty(globalThis, 'structuredClone', {
+                configurable: true,
+                value: jest.fn(() => {
+                    throw new Error('clone failed');
+                }),
+            });
+
+            Reflect.set(orchestrator as object, '_recoverableRuntimeReporter', {
+                reportIssue: jest.fn(),
+                reportError,
+            });
+            Reflect.set(orchestrator as object, '_moduleStatus', new Map([
+                [
+                    'plex-auth',
+                    {
+                        id: 'plex-auth',
+                        name: 'plex-auth',
+                        status: 'error',
+                        error: {
+                            code: AppErrorCode.AUTH_INVALID,
+                            message: 'bad auth',
+                            recoverable: true,
+                            context,
+                        },
+                    },
+                ],
+            ]));
+
+            try {
+                const firstReturned = orchestrator.getModuleStatus().get('plex-auth');
+                const secondReturned = orchestrator.getModuleStatus().get('plex-auth');
+
+                expect(firstReturned?.error?.context).toEqual({
+                    source: 'test',
+                    nested: {
+                        value: 'original',
+                    },
+                });
+                expect(secondReturned?.error?.context).toEqual(firstReturned?.error?.context);
+                expect(reportError).toHaveBeenCalledTimes(1);
+                expect(reportError).toHaveBeenNthCalledWith(
+                    1,
+                    'orchestrator.moduleStatus.cloneContext',
+                    'Falling back to diagnostic-value clone for module status error context',
+                    expect.objectContaining({
+                        message: 'clone failed',
+                    }),
+                    {}
+                );
+
+                Reflect.set(orchestrator as object, '_moduleStatus', new Map([
+                    [
+                        'plex-auth',
+                        {
+                            id: 'plex-auth',
+                            name: 'plex-auth',
+                            status: 'error',
+                            error: {
+                                code: AppErrorCode.AUTH_INVALID,
+                                message: 'bad auth',
+                                recoverable: true,
+                                context: {
+                                    source: 'test-2',
+                                },
+                            },
+                        },
+                    ],
+                ]));
+
+                orchestrator.getModuleStatus();
+
+                expect(reportError).toHaveBeenCalledTimes(2);
+            } finally {
+                Object.defineProperty(globalThis, 'structuredClone', {
+                    configurable: true,
+                    value: originalStructuredClone,
+                });
+            }
+        });
+
+        it('returns null and reports when Plex resource URL accessor dependencies throw', () => {
+            const reportError = jest.fn();
+
+            mockPlexDiscovery.getServerUri.mockImplementation(() => {
+                throw new Error('server uri failed');
+            });
+            Reflect.set(orchestrator as object, '_recoverableRuntimeReporter', {
+                reportIssue: jest.fn(),
+                reportError,
+            });
+
+            try {
+                expect(
+                    Reflect.get(
+                        orchestrator as object,
+                        '_buildPlexResourceUrl'
+                    ).call(orchestrator, '/library/metadata/1/thumb')
+                ).toBeNull();
+                expect(reportError).toHaveBeenCalledWith(
+                    'orchestrator.plexResourceUrl.build',
+                    'buildPlexResourceUrlWithAuth failed',
+                    expect.objectContaining({
+                        message: 'server uri failed',
+                    }),
+                    expect.objectContaining({
+                        pathOrUrl: '/library/metadata/1/thumb',
+                    })
+                );
+            } finally {
+                mockPlexDiscovery.getServerUri.mockReset();
+                mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400');
+            }
         });
     });
 

@@ -20,6 +20,7 @@ export type {
     FocusGroup,
     RemoteButton,
     KeyEvent,
+    NavigationAsyncFailureReporter,
     Screen,
     ServerSelectNavigationParams,
 } from './interfaces';

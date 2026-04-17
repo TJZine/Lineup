@@ -168,7 +168,42 @@ describe('createOrchestratorCoordinators', () => {
         expect(buildChannelSetupOwners).toHaveBeenCalledWith(deps, epgCoordinator);
         expect(buildNowPlayingInfoCoordinator).toHaveBeenCalledWith(deps, nowPlayingDebugManager);
         expect(buildNavigationCoordinator).toHaveBeenCalledWith(
-            deps,
+            {
+                config: deps.config,
+                modules: {
+                    navigation: deps.modules.navigation,
+                    epg: deps.modules.epg,
+                    plexAuth: deps.modules.plexAuth,
+                    videoPlayer: deps.modules.videoPlayer,
+                },
+                overlays: {
+                    playerOsd: deps.overlays.playerOsd,
+                    miniGuide: deps.overlays.miniGuide,
+                    nowPlayingInfo: deps.overlays.nowPlayingInfo,
+                    channelNumberOverlay: deps.overlays.channelNumberOverlay,
+                },
+                stores: {
+                    developerSettingsStore: deps.stores.developerSettingsStore,
+                    profileSessionStore: deps.stores.profileSessionStore,
+                },
+                diagnostics: {
+                    reportRecoverableAsyncFailure: deps.diagnostics.reportRecoverableAsyncFailure,
+                },
+                playback: {
+                    stopPlayback: deps.playback.stopPlayback,
+                },
+                schedule: {
+                    setLastChannelChangeSource: deps.schedule.setLastChannelChangeSource,
+                },
+                actions: {
+                    switchToNextChannel: deps.actions.switchToNextChannel,
+                    switchToPreviousChannel: deps.actions.switchToPreviousChannel,
+                    switchToChannelByNumberWithOutcome: deps.actions.switchToChannelByNumberWithOutcome,
+                    toggleEPG: deps.actions.toggleEPG,
+                    toggleNowPlayingInfoOverlay: deps.actions.toggleNowPlayingInfoOverlay,
+                },
+                nowPlaying: deps.nowPlaying,
+            },
             expect.objectContaining({
                 epgCoordinator,
                 channelSetup,

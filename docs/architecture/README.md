@@ -12,6 +12,7 @@ This folder has a stable split between current truth, active reference, and back
 | 1 | [`CURRENT_STATE.md`](./CURRENT_STATE.md) | Canonical and current architecture truth |
 | 2 | [`modules.md`](./modules.md) | Current module inventory and ownership reference |
 | 3 | [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md) | Active backlog, priority queue, and cleanup direction |
+| 4 | [`active-cleanup-package-map.json`](./active-cleanup-package-map.json) | Exact package-membership companion for the active cleanup checklist |
 
 ## Notes
 

@@ -6,8 +6,7 @@ import {
 import type { OrchestratorEventCleanupFailure } from '../OrchestratorEventCleanupReporter';
 
 describe('OrchestratorRecoverableRuntimeReporter', () => {
-    it('swallows appendIssueDiagnostic failures and falls back to console.error', () => {
-        const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    it('routes appendIssueDiagnostic failures through the optional runtime warning sink', () => {
         const warn = jest.fn();
         const reporter = createRecoverableRuntimeIssueReporter({
             issueId: 'qa-1',
@@ -21,26 +20,25 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
             reporter.reportIssue('runtime.event', 'Recoverable failure', { detail: 'x' });
         }).not.toThrow();
 
-        expect(warn).toHaveBeenCalledWith('Recoverable failure', { detail: 'x' });
-        expect(consoleError).toHaveBeenCalledWith(
+        expect(warn).toHaveBeenNthCalledWith(
+            1,
             '[RecoverableRuntimeReporter] reportIssue failed:',
             expect.objectContaining({
                 message: 'append failed',
             })
         );
-
-        consoleError.mockRestore();
+        expect(warn).toHaveBeenNthCalledWith(2, 'Recoverable failure', { detail: 'x' });
     });
 
-    it('swallows warn failures and falls back to console.error', () => {
-        const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    it('swallows warn failures without introducing a second fallback path', () => {
         const appendIssueDiagnostic = jest.fn();
+        const warn = jest.fn(() => {
+            throw new Error('warn failed');
+        });
         const reporter = createRecoverableRuntimeIssueReporter({
             issueId: 'qa-1',
             appendIssueDiagnostic,
-            warn: () => {
-                throw new Error('warn failed');
-            },
+            warn,
         });
 
         expect(() => {
@@ -55,18 +53,12 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
                 detail: 'x',
             })
         );
-        expect(consoleError).toHaveBeenCalledWith(
-            '[RecoverableRuntimeReporter] reportIssue failed:',
-            expect.objectContaining({
-                message: 'warn failed',
-            })
-        );
-
-        consoleError.mockRestore();
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn).toHaveBeenCalledWith('Recoverable failure', { detail: 'x' });
     });
 
-    it('swallows recoverable async reporter failures and falls back to console.error', async () => {
-        const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    it('routes recoverable async reporter failures through the optional runtime warning sink', async () => {
+        const warn = jest.fn();
 
         await expect(
             observeRecoverableAsyncFailure(
@@ -75,22 +67,20 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
                     throw new Error('reporter boom');
                 },
                 'runtime.async',
-                'Background task failed'
+                'Background task failed',
+                warn
             )
         ).resolves.toBeUndefined();
 
-        expect(consoleError).toHaveBeenCalledWith(
+        expect(warn).toHaveBeenCalledWith(
             '[RecoverableRuntimeReporter] observeRecoverableAsyncFailure failed:',
             expect.objectContaining({
                 message: 'reporter boom',
             })
         );
-
-        consoleError.mockRestore();
     });
 
-    it('reportError appends safeError and logs via console.error without calling warn', () => {
-        const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    it('reportError appends safeError and emits through the optional runtime warning sink', () => {
         const appendIssueDiagnostic = jest.fn();
         const warn = jest.fn();
         const reporter = createRecoverableRuntimeIssueReporter({
@@ -101,7 +91,6 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
 
         reporter.reportError('runtime.event', 'Recoverable error', new Error('boom'), { detail: 'x' });
 
-        expect(warn).not.toHaveBeenCalled();
         expect(appendIssueDiagnostic).toHaveBeenCalledWith(
             'qa-1',
             'runtime.event',
@@ -113,7 +102,7 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
                 }),
             })
         );
-        expect(consoleError).toHaveBeenCalledWith(
+        expect(warn).toHaveBeenCalledWith(
             'Recoverable error',
             expect.objectContaining({
                 detail: 'x',
@@ -122,8 +111,6 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
                 }),
             })
         );
-
-        consoleError.mockRestore();
     });
 
     it('does nothing when cleanup failure list is empty', () => {

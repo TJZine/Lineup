@@ -19,10 +19,6 @@ export type {
     ChannelSetupPreview,
     ChannelSetupReview,
 } from './channel-setup';
-export { PlaybackStartController } from './PlaybackStartController';
-export type { PlaybackStartControllerDeps } from './PlaybackStartController';
-export { PlaybackRuntimeController } from './PlaybackRuntimeController';
-export type { PlaybackRuntimeControllerDeps } from './PlaybackRuntimeController';
 export { OverlayRuntimePolicyController } from './orchestrator/OverlayRuntimePolicyController';
 export type { OverlayRuntimePolicyControllerDeps } from './orchestrator/OverlayRuntimePolicyController';
 export { ProfileSwitchCleanupController } from './orchestrator/ProfileSwitchCleanupController';

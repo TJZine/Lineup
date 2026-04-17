@@ -23,3 +23,7 @@ export const TIMING_CONFIG = {
     /** Minimum delay between network warnings from monitoring (ms) */
     NETWORK_WARNING_BACKOFF_MS: 300000,
 } as const;
+
+export function secondsToMilliseconds(valueSeconds: number): number {
+    return valueSeconds * 1000;
+}
