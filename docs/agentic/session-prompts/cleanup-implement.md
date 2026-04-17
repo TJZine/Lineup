@@ -18,10 +18,13 @@ Accept either of these as the task-specific input after the launcher:
 
 - a pasted `NEXT_SESSION_HANDOFF` block; when present, treat `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE` as required additional reading after the standard read order
 - one short follow-up message naming the approved plan path and exact checklist item, for example `Implement docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1 slice P1-W1-S1.`
+- one short follow-up message naming the approved standalone-remediation plan path and scope, for example `Implement docs/plans/2026-04-16-navigation-remediation.md for standalone remediation: navigation warning fallback.` 
 
-If the short follow-up form is used, do not wait for a formal handoff block; use the named approved plan plus checklist item as the execution surface.
+If the short follow-up form is used, do not wait for a formal handoff block; use the named approved plan plus the supplied execution target as the execution surface.
 
-For `checklist-linked` package plans, the execution target must include a `slice_id`. If it is not supplied, derive the next incomplete approved slice from the tracked package plan before editing files and state that derivation in your kickoff note.
+For `checklist-linked` package plans, the execution target must include a checklist item context and should include a `slice_id`. If the `slice_id` is not supplied, derive the next incomplete approved slice from the tracked package plan before editing files and state that derivation in your kickoff note.
+
+For `standalone remediation`, do not require checklist linkage just to use the short follow-up form. Use the named approved plan and the bounded remediation scope directly.
 
 ## What This Session Must Do
 

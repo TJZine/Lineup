@@ -26,7 +26,7 @@ The current tracked `cleanup-loop` launcher describes the Tier 3 controller at a
 
 ### Canonical Owner
 
-`docs/agentic/session-prompts/cleanup-loop.md` becomes the canonical orchestrator contract for Tier 3 cleanup/refactor work. It should stop reading like a thin placeholder and instead define the explicit controller state machine and loop semantics.
+`docs/agentic/session-prompts/cleanup-loop.md` becomes the canonical orchestrator contract for Tier 3 cleanup/refactor work. It should stop reading like a thin placeholder and instead define the explicit controller state machine and loop semantics. This spec should defer to the tracked launcher and runbook for durable invocation wording, read order, and verification policy rather than duplicating those details here.
 
 ### Orchestrator Responsibilities
 
@@ -76,12 +76,13 @@ The orchestrator should run `cleanup-loop` as an explicit state machine with the
 2. `plan`
 3. `plan-review`
 4. `plan-revise`
-5. `implement`
-6. `implementation-review`
-7. `implementation-revise`
-8. `closeout`
-9. `done`
-10. `blocked`
+5. `slice-select`
+6. `implement`
+7. `implementation-review`
+8. `implementation-revise`
+9. `closeout`
+10. `done`
+11. `blocked`
 
 ### Phase Rules
 
@@ -108,10 +109,17 @@ The orchestrator should run `cleanup-loop` as an explicit state machine with the
 - do not open implementation while material plan findings remain
 - repeat `plan` -> `plan-review` until review is clean
 
+#### `slice-select`
+
+- choose the next approved cleanup slice from the tracked package plan before implementation starts
+- keep slice selection controller-owned so the orchestrator, not the implementer or reviewer, decides package sequencing
+- return here after each clean slice review until the approved package slices are complete or explicitly deferred by the approved plan
+
 #### `implement`
 
 - spawn or resume the persistent implementation agent using the approved plan
 - default to `gpt-5.4` medium unless the approved review output explicitly recommends the stronger implementation model
+- implementation work is scoped to the controller-selected slice unless the approved plan explicitly permits an adjacent-slice merge
 
 #### `implementation-review`
 
@@ -145,6 +153,8 @@ Planning is not complete until the plan reviewer returns no material findings an
 
 Implementation is not complete until the adversarial implementation review returns no material findings. Any implementation-review findings route back to the existing implementer agent, not to a fresh implementer by default.
 
+When a slice review is clean, return to `slice-select` for the next approved slice unless package exit conditions are already satisfied.
+
 ### Repeated-Finding Escalation
 
 If the same findings recur across loops, the orchestrator should escalate deliberately instead of spinning:
@@ -173,7 +183,7 @@ Primary tracked changes:
 - `docs/agentic/session-prompts/cleanup-loop.md`
 - `docs/AGENTIC_DEV_WORKFLOW.md`
 - `docs/agentic/session-prompts/README.md` if its launcher description or routing note needs to reflect the finished orchestrator behavior
-- `/Users/tristan/.codex/skills/lineup-cleanup-loop/SKILL.md` only as a thin wrapper update, if needed
+- [`.codex/skills/lineup-cleanup-loop/SKILL.md`](../../../.codex/skills/lineup-cleanup-loop/SKILL.md) only as a thin wrapper update, if needed
 
 Change-boundary rule:
 
@@ -182,11 +192,7 @@ Change-boundary rule:
 
 ## Verification And Eval Expectations
 
-This is a workflow/control-plane change, so the minimum required verification is:
-
-- `npm run verify:docs`
-
-Because this materially changes multi-agent workflow behavior, the implementation should also run the required manual workflow eval pass for control-plane changes and record the result in the tracked eval-summary surface rather than only in local notes.
+This is a workflow/control-plane change, so the implementation should follow the canonical verification and eval requirements from `docs/AGENTIC_DEV_WORKFLOW.md` and the tracked eval guidance. At minimum, the tracked docs verifier must run, and any workflow-eval trigger should be satisfied through the canonical eval surfaces instead of local-only notes.
 
 ## Implementation Guidance
 
