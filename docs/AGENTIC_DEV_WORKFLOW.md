@@ -93,7 +93,7 @@ When tracked docs conflict, use this order:
    - Tier 2: a normal cleanup unit uses planner -> implementer -> reviewer
    - Tier 2 feature/design work uses the same tracked planner/reviewer/implementer prompt family as cleanup, with planner -> reviewer -> implementer -> reviewer sequencing
    - Tier 3: hotspot, cross-boundary, multi-session, or otherwise high-risk work uses task-specific orchestration, and a local run bundle when repeated handoff is likely
-   - for cleanup Tier 3 work, `cleanup-loop` is an explicit orchestrator: the main session keeps `update_plan`, keeps planning/closeout package-scoped, runs planner -> reviewer once for plan approval, then iterates slice-select -> implementer -> reviewer loops through subagents until package exit gates are clean
+  - for cleanup Tier 3 work, `cleanup-loop` is an explicit orchestrator: the main session keeps `update_plan`, keeps planning/closeout package-scoped for `checklist-linked` work, runs planner -> reviewer once for plan approval, then iterates `slice-select` -> implementer -> reviewer loops for checklist-linked slices or one bounded execution target for `standalone remediation` until the subtype-matched closeout gates are clean
    - for Tier 3 feature or mixed work, use a task-specific run bundle and the normal workflow; do not treat `cleanup-loop` as umbrella control for feature delivery
    - do not escalate to a heavier tier unless the lower tier would materially weaken reliability
 6. Plan explicitly before multi-step work.
@@ -217,7 +217,7 @@ Feature plans consume the [`Universal Plan Core`](./agentic/plan-authoring-stand
 
 Use the reusable launchers only when the task risk justifies them. Tier 1 work should usually stay in one session with review.
 
-For larger multi-session or hotspot work, create a task-specific run bundle in [`docs/runs/`](./runs/README.md). Use `cleanup-loop` only for Tier 3 cleanup/refactor control; keep planning/package closeout package-scoped and run slice-by-slice implementation/review by default, with parallel slices only when the approved plan explicitly allows it. For Tier 3 feature or mixed work, keep the same feature `feature-plan` + `feature-review` + `feature-implement` + `feature-review` workflow, use the run bundle as the task-specific context, and keep cleanup prompts scoped to the cleanup slice.
+For larger multi-session or hotspot work, create a task-specific run bundle in [`docs/runs/`](./runs/README.md). Use `cleanup-loop` only for Tier 3 cleanup/refactor control; keep planning/package closeout package-scoped for `checklist-linked` work, run slice-by-slice implementation/review by default there, keep `standalone remediation` bounded to its approved execution target unless the plan stages it further, and allow parallel slices only when the approved plan explicitly allows them. For Tier 3 feature or mixed work, keep the same feature `feature-plan` + `feature-review` + `feature-implement` + `feature-review` workflow, use the run bundle as the task-specific context, and keep cleanup prompts scoped to the cleanup slice.
 
 ## Session Handoffs
 

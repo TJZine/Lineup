@@ -4,7 +4,7 @@ Replace the unfinished Tier 3 `cleanup-loop` controller placeholder with the exp
 
 ## Goal
 
-Make `cleanup-loop` the canonical all-in-one cleanup workflow for a checklist-linked `P#-W#` work item:
+Make `cleanup-loop` the canonical all-in-one cleanup workflow for Tier 3 cleanup/refactor work, including checklist-linked `P#-W#` items and standalone remediation that is still risky enough to need controller orchestration:
 
 - accept the current work item from the user
 - drive planning, plan review, implementation, and implementation review through subagents
@@ -47,18 +47,18 @@ The orchestrator should prefer subagents for nearly all substantive work. Direct
 
 Even in those cases, direct editing is an exception path, not the default execution model.
 
-### Agent Roles And Model Defaults
+### Agent Roles And Runtime Policy
 
-The workflow should stay aligned with the tracked Lineup role catalog instead of inventing a second repo-local role system. The controller may override model and reasoning settings per spawned agent when the `cleanup-loop` contract requires behavior that is stricter than the repo-wide defaults.
+The workflow should stay aligned with the tracked Lineup role catalog instead of inventing a second repo-local role system. The controller may apply per-pass overrides when the tracked launcher contract requires stricter behavior than the repo-wide defaults, but this spec should not hardcode volatile model identifiers. The authoritative defaults and any current override wording belong in the tracked role config plus the launcher/runbook.
 
-- planner: controller-managed planning agent, using `gpt-5.4` with `high` reasoning
-- plan reviewer: reviewer role, using `gpt-5.4` with `high` reasoning
-- implementation reviewer: reviewer role, using `gpt-5.4` with `high` reasoning
-- implementer: worker role by default, but overridden to `gpt-5.4` with `medium` reasoning for the main execution pass
+- planner: controller-managed planning pass using the tracked write-capable role and any stricter launcher-defined reasoning override
+- plan reviewer: tracked reviewer role, with any stricter review settings defined by the launcher
+- implementation reviewer: tracked reviewer role, with any stricter review settings defined by the launcher
+- implementer: tracked worker role by default, with escalation allowed only when the approved handoff or review output explicitly justifies it
 
 Implementation model escalation rule:
 
-- if the approved plan review output explicitly recommends a stronger implementation model, the orchestrator may route implementation to `gpt-5.3-codex` with `high` reasoning instead of the default implementation model
+- if the approved plan review output explicitly recommends stronger implementation settings, the orchestrator may escalate the implementation pass instead of silently staying on the default worker settings
 
 Persistence rule:
 
@@ -111,15 +111,16 @@ The orchestrator should run `cleanup-loop` as an explicit state machine with the
 
 #### `slice-select`
 
-- choose the next approved cleanup slice from the tracked package plan before implementation starts
+- for `checklist-linked` work, choose the next approved cleanup slice from the tracked package plan before implementation starts
 - keep slice selection controller-owned so the orchestrator, not the implementer or reviewer, decides package sequencing
-- return here after each clean slice review until the approved package slices are complete or explicitly deferred by the approved plan
+- for `standalone remediation`, confirm the one approved bounded execution target and proceed without inventing package slices
+- return here after each clean checklist-linked slice review until the approved package slices are complete or explicitly deferred by the approved plan
 
 #### `implement`
 
 - spawn or resume the persistent implementation agent using the approved plan
-- default to `gpt-5.4` medium unless the approved review output explicitly recommends the stronger implementation model
-- implementation work is scoped to the controller-selected slice unless the approved plan explicitly permits an adjacent-slice merge
+- follow the tracked role defaults plus any launcher-defined override or approved handoff guidance rather than restating concrete model ids here
+- implementation work is scoped to the controller-selected slice for `checklist-linked` work and to the one approved execution target for `standalone remediation` unless the approved plan explicitly permits a narrower or adjacent merge
 
 #### `implementation-review`
 
@@ -135,8 +136,8 @@ The orchestrator should run `cleanup-loop` as an explicit state machine with the
 #### `closeout`
 
 - ensure required verification actually ran
-- ensure required checklist bookkeeping happened in the same pass
-- if the slice closes the final planned work item in the priority, ensure the required `P#-EXIT` evidence and status handling are also complete before marking the loop done
+- ensure the subtype-matched bookkeeping/doc updates happened in the same pass
+- if a completed checklist-linked slice closes the final planned work item in the priority, ensure the required `P#-EXIT` evidence and status handling are also complete before marking the loop done
 
 #### Terminal States
 
@@ -153,7 +154,7 @@ Planning is not complete until the plan reviewer returns no material findings an
 
 Implementation is not complete until the adversarial implementation review returns no material findings. Any implementation-review findings route back to the existing implementer agent, not to a fresh implementer by default.
 
-When a slice review is clean, return to `slice-select` for the next approved slice unless package exit conditions are already satisfied.
+When a checklist-linked slice review is clean, return to `slice-select` for the next approved slice unless package exit conditions are already satisfied. `Standalone remediation` proceeds directly to `closeout` once its one approved execution target is clean.
 
 ### Repeated-Finding Escalation
 
@@ -171,7 +172,7 @@ The orchestrator must not treat a task as complete unless all of the following a
 - plan review is clean
 - implementation review is clean
 - required verification actually ran
-- required checklist updates were made in the same pass
+- the subtype-matched bookkeeping/doc updates were made in the same pass
 - if applicable, required `P#-EXIT` evidence and status handling are complete
 
 This means “code landed” is not enough, and “review is clean but checklist is stale” is not enough.
