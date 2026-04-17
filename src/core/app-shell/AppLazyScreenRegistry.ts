@@ -4,7 +4,7 @@ import type { ChannelSetupScreen } from '../../modules/ui/channel-setup/ChannelS
 import type { ProfileSelectScreen } from '../../modules/ui/profile-select/ProfileSelectScreen';
 import type { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
 import type { ServerSelectScreen } from '../../modules/ui/server-select/ServerSelectScreen';
-import type { SettingsScreen } from '../../modules/ui/settings/SettingsScreen';
+import type { SettingsScreen } from '../../modules/ui/settings';
 import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from './constants';
 import { AppLazyScreenPortFactory } from './AppLazyScreenPortFactory';
 
@@ -23,8 +23,7 @@ export interface AppLazyScreenRegistryLoaders {
     loadServerSelectScreen: () => Promise<typeof import('../../modules/ui/server-select/ServerSelectScreen')>;
     loadAudioSetupScreen: () => Promise<typeof import('../../modules/ui/audio-setup')>;
     loadChannelSetupScreen: () => Promise<typeof import('../../modules/ui/channel-setup/ChannelSetupScreen')>;
-    loadSettingsScreen: () => Promise<typeof import('../../modules/ui/settings/SettingsScreen')>;
-    loadSettingsStore: () => Promise<typeof import('../../modules/ui/settings/SettingsStore')>;
+    loadSettingsModule: () => Promise<typeof import('../../modules/ui/settings')>;
 }
 
 export interface AppLazyScreenRegistryOptions {
@@ -41,8 +40,7 @@ const DEFAULT_LOADERS: AppLazyScreenRegistryLoaders = {
     loadServerSelectScreen: () => import('../../modules/ui/server-select/ServerSelectScreen'),
     loadAudioSetupScreen: () => import('../../modules/ui/audio-setup'),
     loadChannelSetupScreen: () => import('../../modules/ui/channel-setup/ChannelSetupScreen'),
-    loadSettingsScreen: () => import('../../modules/ui/settings/SettingsScreen'),
-    loadSettingsStore: () => import('../../modules/ui/settings/SettingsStore'),
+    loadSettingsModule: () => import('../../modules/ui/settings'),
 };
 
 export class AppLazyScreenRegistry {
@@ -126,10 +124,7 @@ export class AppLazyScreenRegistry {
             this._settingsPrefetchTimerId = null;
             if (this._destroyed) return;
             if (this._settingsScreen || this._settingsScreenLoad) return;
-            void Promise.all([
-                this._loaders.loadSettingsScreen(),
-                this._loaders.loadSettingsStore(),
-            ]).catch(() => {
+            void this._loaders.loadSettingsModule().catch(() => {
                 // Best-effort prefetch only.
             });
         }, SETTINGS_PREFETCH_DELAY_MS);
@@ -329,10 +324,7 @@ export class AppLazyScreenRegistry {
         if (!container) return null;
 
         if (!this._settingsScreenLoad) {
-            this._settingsScreenLoad = Promise.all([
-                this._loaders.loadSettingsScreen(),
-                this._loaders.loadSettingsStore(),
-            ]).then(([{ SettingsScreen }, { SettingsStore }]) => {
+            this._settingsScreenLoad = this._loaders.loadSettingsModule().then(({ SettingsScreen, SettingsStore }) => {
                 if (this._destroyed) return null;
                 const settingsRuntimePorts = this._portFactory.createSettingsRuntimePorts();
                 if (!settingsRuntimePorts) return null;

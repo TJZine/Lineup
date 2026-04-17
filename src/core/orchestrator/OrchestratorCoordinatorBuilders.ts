@@ -6,7 +6,7 @@ import {
     NavigationCoordinator,
     type NavigationCoordinatorDeps,
 } from '../../modules/navigation/NavigationCoordinator';
-import type { PlaybackOptionsSectionId } from '../../modules/ui/playback-options/types';
+import type { PlaybackOptionsSectionId } from '../../modules/ui/playback-options';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import type { AppError } from '../../modules/lifecycle';
 import type { IPlexLibrary } from '../../modules/plex/library';
@@ -59,9 +59,9 @@ import type {
 import { ChannelTransitionCoordinator } from '../../modules/ui/channel-transition';
 import {
     PLAYBACK_OPTIONS_MODAL_ID,
+    PlaybackOptionsCoordinator,
     type IPlaybackOptionsModal,
 } from '../../modules/ui/playback-options';
-import { PlaybackOptionsCoordinator } from '../../modules/ui/playback-options/PlaybackOptionsCoordinator';
 import {
     ExitConfirmCoordinator,
     ExitConfirmModal,

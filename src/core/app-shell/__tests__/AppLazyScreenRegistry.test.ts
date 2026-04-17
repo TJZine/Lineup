@@ -3,7 +3,7 @@
  */
 
 import { ProfileSessionStore } from '../../../modules/settings/ProfileSessionStore';
-import { SettingsStore } from '../../../modules/ui/settings/SettingsStore';
+import { SettingsStore } from '../../../modules/ui/settings';
 import {
     AppLazyScreenRegistry,
 } from '../AppLazyScreenRegistry';
@@ -186,8 +186,7 @@ describe('AppLazyScreenRegistry', () => {
         const loadProfileSelectScreen = jest.fn().mockResolvedValue({ ProfileSelectScreen });
         const loadServerSelectScreen = jest.fn().mockResolvedValue({ ServerSelectScreen });
         const loadChannelSetupScreen = jest.fn().mockResolvedValue({ ChannelSetupScreen });
-        const loadSettingsScreen = jest.fn().mockResolvedValue({ SettingsScreen });
-        const loadSettingsStore = jest.fn().mockResolvedValue({ SettingsStore });
+        const loadSettingsModule = jest.fn().mockResolvedValue({ SettingsScreen, SettingsStore });
 
         const registry = new AppLazyScreenRegistry({
             portFactory: makeMissingPortFactory() as AppLazyScreenPortFactory,
@@ -204,8 +203,7 @@ describe('AppLazyScreenRegistry', () => {
                 loadProfileSelectScreen,
                 loadServerSelectScreen,
                 loadChannelSetupScreen,
-                loadSettingsScreen,
-                loadSettingsStore,
+                loadSettingsModule,
             },
         });
 
@@ -219,8 +217,7 @@ describe('AppLazyScreenRegistry', () => {
         expect(loadProfileSelectScreen).toHaveBeenCalledTimes(1);
         expect(loadServerSelectScreen).toHaveBeenCalledTimes(1);
         expect(loadChannelSetupScreen).toHaveBeenCalledTimes(1);
-        expect(loadSettingsScreen).toHaveBeenCalledTimes(1);
-        expect(loadSettingsStore).toHaveBeenCalledTimes(1);
+        expect(loadSettingsModule).toHaveBeenCalledTimes(1);
         expect(AuthScreen).not.toHaveBeenCalled();
         expect(ProfileSelectScreen).not.toHaveBeenCalled();
         expect(ServerSelectScreen).not.toHaveBeenCalled();
@@ -322,8 +319,9 @@ describe('AppLazyScreenRegistry', () => {
     it('dedupes concurrent settings loads and caches the instance', async () => {
         const settingsScreen = makeScreen();
         const SettingsScreen = jest.fn().mockImplementation(() => settingsScreen);
-        const loadSettingsScreen = jest.fn().mockResolvedValue({
+        const loadSettingsModule = jest.fn().mockResolvedValue({
             SettingsScreen,
+            SettingsStore,
         });
 
         const registry = new AppLazyScreenRegistry({
@@ -333,7 +331,7 @@ describe('AppLazyScreenRegistry', () => {
                 settingsContainer: document.createElement('div'),
             },
             loaders: {
-                loadSettingsScreen,
+                loadSettingsModule,
             },
         });
 
@@ -344,7 +342,7 @@ describe('AppLazyScreenRegistry', () => {
         const third = await registry.ensureSettingsScreen();
         const constructorArgs = SettingsScreen.mock.calls[0];
 
-        expect(loadSettingsScreen).toHaveBeenCalledTimes(1);
+        expect(loadSettingsModule).toHaveBeenCalledTimes(1);
         expect(SettingsScreen).toHaveBeenCalledTimes(1);
         expect(constructorArgs).toBeDefined();
         expect(constructorArgs?.[constructorArgs.length - 1]).toBeInstanceOf(SettingsStore);
@@ -421,7 +419,7 @@ describe('AppLazyScreenRegistry', () => {
     });
 
     it('schedules and cancels prefetch timers without duplicates', () => {
-        const loadSettingsScreen = jest.fn().mockResolvedValue({ SettingsScreen: jest.fn() });
+        const loadSettingsModule = jest.fn().mockResolvedValue({ SettingsScreen: jest.fn(), SettingsStore });
         const loadChannelSetupScreen = jest.fn().mockResolvedValue({ ChannelSetupScreen: jest.fn() });
 
         const registry = new AppLazyScreenRegistry({
@@ -432,7 +430,7 @@ describe('AppLazyScreenRegistry', () => {
                 channelSetupContainer: document.createElement('div'),
             },
             loaders: {
-                loadSettingsScreen,
+                loadSettingsModule,
                 loadChannelSetupScreen,
             },
         });
@@ -452,7 +450,7 @@ describe('AppLazyScreenRegistry', () => {
     });
 
     it('fires prefetch loaders after the existing delays only once', async () => {
-        const loadSettingsScreen = jest.fn().mockResolvedValue({ SettingsScreen: jest.fn() });
+        const loadSettingsModule = jest.fn().mockResolvedValue({ SettingsScreen: jest.fn(), SettingsStore });
         const loadChannelSetupScreen = jest.fn().mockResolvedValue({ ChannelSetupScreen: jest.fn() });
 
         const registry = new AppLazyScreenRegistry({
@@ -463,7 +461,7 @@ describe('AppLazyScreenRegistry', () => {
                 channelSetupContainer: document.createElement('div'),
             },
             loaders: {
-                loadSettingsScreen,
+                loadSettingsModule,
                 loadChannelSetupScreen,
             },
         });
@@ -475,12 +473,12 @@ describe('AppLazyScreenRegistry', () => {
         await flushMicrotasks();
 
         expect(loadChannelSetupScreen).toHaveBeenCalledTimes(1);
-        expect(loadSettingsScreen).toHaveBeenCalledTimes(0);
+        expect(loadSettingsModule).toHaveBeenCalledTimes(0);
 
         jest.advanceTimersByTime(SETTINGS_PREFETCH_DELAY_MS - CHANNEL_SETUP_PREFETCH_DELAY_MS);
         await flushMicrotasks();
 
-        expect(loadSettingsScreen).toHaveBeenCalledTimes(1);
+        expect(loadSettingsModule).toHaveBeenCalledTimes(1);
     });
 
     it('returns null without constructing a screen when an in-flight load resolves after destroy', async () => {
@@ -488,12 +486,13 @@ describe('AppLazyScreenRegistry', () => {
         const SettingsScreen = jest.fn().mockImplementation(() => settingsScreen);
         type DeferredSettingsModule = {
             SettingsScreen: new (...args: unknown[]) => unknown;
+            SettingsStore: typeof SettingsStore;
         };
         let resolveLoad!: (value: DeferredSettingsModule) => void;
         const loadPromise = new Promise<DeferredSettingsModule>((resolve) => {
             resolveLoad = resolve;
         });
-        const loadSettingsScreen = jest.fn().mockReturnValue(loadPromise);
+        const loadSettingsModule = jest.fn().mockReturnValue(loadPromise);
 
         const registry = new AppLazyScreenRegistry({
             portFactory: makePortFactory() as AppLazyScreenPortFactory,
@@ -502,16 +501,16 @@ describe('AppLazyScreenRegistry', () => {
                 settingsContainer: document.createElement('div'),
             },
             loaders: {
-                loadSettingsScreen,
+                loadSettingsModule,
             },
         });
 
         const pendingScreen = registry.ensureSettingsScreen();
 
-        expect(loadSettingsScreen).toHaveBeenCalledTimes(1);
+        expect(loadSettingsModule).toHaveBeenCalledTimes(1);
 
         registry.destroy();
-        resolveLoad({ SettingsScreen });
+        resolveLoad({ SettingsScreen, SettingsStore });
 
         await expect(pendingScreen).resolves.toBeNull();
         expect(SettingsScreen).not.toHaveBeenCalled();
@@ -553,8 +552,9 @@ describe('AppLazyScreenRegistry', () => {
                 loadChannelSetupScreen: jest.fn().mockResolvedValue({
                     ChannelSetupScreen: jest.fn().mockImplementation(() => channelSetupScreen),
                 }),
-                loadSettingsScreen: jest.fn().mockResolvedValue({
+                loadSettingsModule: jest.fn().mockResolvedValue({
                     SettingsScreen: jest.fn().mockImplementation(() => settingsScreen),
+                    SettingsStore,
                 }),
             },
         });

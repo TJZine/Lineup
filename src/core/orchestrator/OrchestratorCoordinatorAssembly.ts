@@ -1,5 +1,5 @@
 import type { NowPlayingInfoCoordinator } from '../../modules/ui/now-playing-info';
-import type { PlaybackOptionsCoordinator } from '../../modules/ui/playback-options/PlaybackOptionsCoordinator';
+import type { PlaybackOptionsCoordinator } from '../../modules/ui/playback-options';
 import type {
     OrchestratorCoordinatorFactoryDeps,
     OrchestratorCoordinators,
