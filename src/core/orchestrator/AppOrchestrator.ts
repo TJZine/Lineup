@@ -149,11 +149,14 @@ import { SubtitleTrackRecoveryController } from './SubtitleTrackRecoveryControll
 import { OrchestratorSchedulePolicy } from './OrchestratorSchedulePolicy';
 import { AppStartupUiInitializer } from '../app-shell/AppStartupUiInitializer';
 import {
-    createRecoverableRuntimeIssueReporter,
-    logRecoverableRuntimeFallback,
+    createDefaultRecoverableRuntimeIssueReporter,
     type RecoverableRuntimeIssueReporter,
 } from './OrchestratorRecoverableRuntimeReporter';
 import type { RecoverableAsyncFailureReporter } from './OrchestratorRuntimeSeams';
+import {
+    captureRecoverableRuntimeResult,
+    captureRecoverableRuntimeResultAsync,
+} from './OrchestratorRecoverableRuntimeResult';
 
 // ============================================
 // Types
@@ -345,11 +348,7 @@ export class AppOrchestrator {
         message: string,
         data: Record<string, unknown> = {}
     ): void {
-        try {
-            this._recoverableRuntimeReporter.reportIssue(event, message, data);
-        } catch (error) {
-            this._logRecoverableRuntimeReporterFailure(error);
-        }
+        this._recoverableRuntimeReporter.reportIssue(event, message, data);
     }
 
     private _warnRecoverableRuntimeError(
@@ -358,11 +357,7 @@ export class AppOrchestrator {
         error: unknown,
         data: Record<string, unknown> = {}
     ): void {
-        try {
-            this._recoverableRuntimeReporter.reportError(event, message, error, data);
-        } catch (reporterError) {
-            this._logRecoverableRuntimeReporterFailure(reporterError);
-        }
+        this._recoverableRuntimeReporter.reportError(event, message, error, data);
     }
 
     private readonly _reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter = (
@@ -373,19 +368,12 @@ export class AppOrchestrator {
         this._warnRecoverableRuntimeError(event, message, error);
     };
 
-    private _logRecoverableRuntimeReporterFailure(error: unknown): void {
-        logRecoverableRuntimeFallback(
-            '[AppOrchestrator] recoverable runtime reporter failed:',
-            summarizeErrorForLog(error)
-        );
-    }
-
     constructor(platformServices?: PlatformServices) {
         this._platformServices = platformServices ?? webosPlatformServices;
-        this._recoverableRuntimeReporter = createRecoverableRuntimeIssueReporter({
-            issueId: QA_003B_ISSUE_ID,
-            appendIssueDiagnostic: this._issueDiagnosticsStore.append.bind(this._issueDiagnosticsStore),
-        });
+        this._recoverableRuntimeReporter = createDefaultRecoverableRuntimeIssueReporter(
+            QA_003B_ISSUE_ID,
+            this._issueDiagnosticsStore.append.bind(this._issueDiagnosticsStore)
+        );
         this._storageContext = new OrchestratorStorageContext({
             getActiveUserId: this._getActiveUserId.bind(this),
             getSelectedServerId: this._getSelectedServerId.bind(this),
@@ -453,13 +441,14 @@ export class AppOrchestrator {
                     this._epgCoordinator?.primeEpgChannels();
 
                     step = 'refreshEpgSchedules';
-                    try {
-                        await this._epgCoordinator?.refreshEpgSchedules({ reason: 'server-swap' });
-                    } catch (error) {
+                    const refreshResult = await captureRecoverableRuntimeResultAsync(
+                        async () => this._epgCoordinator?.refreshEpgSchedules({ reason: 'server-swap' })
+                    );
+                    if (!refreshResult.ok) {
                         this._warnRecoverableRuntimeError(
                             'orchestrator.serverSwap.refreshEpgSchedules',
                             'Post-selection EPG refresh failed',
-                            error,
+                            refreshResult.error,
                             { step }
                         );
                     }
@@ -1316,13 +1305,14 @@ export class AppOrchestrator {
 
     async setSubtitleTrack(trackId: string | null): Promise<void> {
         if (!this._videoPlayer) return;
-        try {
-            await this._videoPlayer.setSubtitleTrack(trackId);
-        } catch (error) {
+        const setTrackResult = await captureRecoverableRuntimeResultAsync(
+            async () => this._videoPlayer?.setSubtitleTrack(trackId)
+        );
+        if (!setTrackResult.ok) {
             this._warnRecoverableRuntimeError(
                 'orchestrator.subtitleTrack.set',
                 'setSubtitleTrack failed',
-                error,
+                setTrackResult.error,
                 { trackId }
             );
             if (this._nowPlayingHandler) {
@@ -1815,10 +1805,19 @@ export class AppOrchestrator {
 
     private _cloneModuleStatusErrorContext(context: Record<string, unknown>): Record<string, unknown> {
         if (typeof globalThis.structuredClone === 'function') {
-            try {
-                return globalThis.structuredClone(context) as Record<string, unknown>;
-            } catch {
-                // Fall through to a best-effort clone for non-structured-cloneable diagnostic values.
+            const cloneResult = captureRecoverableRuntimeResult(
+                () => globalThis.structuredClone(context) as Record<string, unknown>
+            );
+            if (cloneResult.ok) {
+                return cloneResult.value;
+            }
+
+            if (!cloneResult.ok) {
+                this._warnRecoverableRuntimeError(
+                    'orchestrator.moduleStatus.cloneContext',
+                    'Falling back to diagnostic-value clone for module status error context',
+                    cloneResult.error
+                );
             }
         }
 
@@ -2084,16 +2083,21 @@ export class AppOrchestrator {
         handler: (error: AppError) => boolean,
         error: AppError
     ): boolean {
-        try {
-            return handler(error);
-        } catch (handlerError) {
+        const handlerResult = captureRecoverableRuntimeResult(() => handler(error));
+        if (handlerResult.ok) {
+            return handlerResult.value;
+        }
+
+        if (!handlerResult.ok) {
             this._warnRecoverableRuntimeError(
                 'orchestrator.globalError.handlerFailure',
                 `Error in handler for ${moduleId}`,
-                handlerError
+                handlerResult.error
             );
             return false;
         }
+
+        return false;
     }
 
     private _initializePriorityOneControllers(): void {
@@ -2272,13 +2276,14 @@ export class AppOrchestrator {
     }
 
     private _stopPlayback(): void {
-        try {
-            this._playbackRuntimeController?.stopActiveTranscodeSession();
-        } catch (error) {
+        const stopTranscodeResult = captureRecoverableRuntimeResult(
+            () => this._playbackRuntimeController?.stopActiveTranscodeSession()
+        );
+        if (!stopTranscodeResult.ok) {
             this._warnRecoverableRuntimeError(
                 'orchestrator.playback.stopTranscodeSession',
                 'stopActiveTranscodeSession failed during playback stop',
-                error
+                stopTranscodeResult.error
             );
         }
         this._videoPlayer?.stop();
@@ -2286,16 +2291,19 @@ export class AppOrchestrator {
 
     private _buildPlexResourceUrl(pathOrUrl: string): string | null {
         let baseUri: string | null = null;
-
-        try {
-            baseUri = this._plexDiscovery?.getServerUri() ?? null;
-            const headers = this._plexAuth?.getAuthHeaders() ?? {};
-            return buildPlexResourceUrlWithAuth(baseUri, pathOrUrl, headers);
-        } catch (error) {
+        let headers: Record<string, string> = {};
+        const buildResult = captureRecoverableRuntimeResult(
+            () => {
+                baseUri = this._plexDiscovery?.getServerUri() ?? null;
+                headers = this._plexAuth?.getAuthHeaders() ?? {};
+                return buildPlexResourceUrlWithAuth(baseUri, pathOrUrl, headers);
+            }
+        );
+        if (!buildResult.ok) {
             this._warnRecoverableRuntimeError(
                 'orchestrator.plexResourceUrl.build',
                 'buildPlexResourceUrlWithAuth failed',
-                error,
+                buildResult.error,
                 {
                     pathOrUrl: summarizeErrorForLog(pathOrUrl),
                     baseUri: summarizeErrorForLog(baseUri),
@@ -2303,6 +2311,8 @@ export class AppOrchestrator {
             );
             return null;
         }
+
+        return buildResult.value;
     }
 
     /**

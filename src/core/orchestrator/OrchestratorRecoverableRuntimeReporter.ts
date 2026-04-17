@@ -5,6 +5,10 @@ import type {
     OrchestratorEventCleanupReporter,
 } from './OrchestratorEventCleanupReporter';
 import type { RecoverableAsyncFailureReporter } from './OrchestratorRuntimeSeams';
+import {
+    createRecoverableRuntimeWarningSink,
+    type RecoverableRuntimeWarningSink,
+} from './OrchestratorRecoverableRuntimeWarnings';
 
 export interface RecoverableRuntimeIssueReporter {
     reportIssue: (event: string, message: string, data?: Record<string, unknown>) => void;
@@ -20,14 +24,15 @@ interface RecoverableRuntimeIssueReporterInput {
     issueId: string;
     appendIssueDiagnostic: AppendIssueDiagnostic;
     warn?: (message?: unknown, ...optionalParams: unknown[]) => void;
+    warningSink?: RecoverableRuntimeWarningSink;
 }
 
-export function logRecoverableRuntimeFallback(message: string, data: unknown): void {
-    try {
-        globalThis.console?.warn?.call(globalThis.console, message, data);
-    } catch {
-        // Recoverable reporter fallback logging must stay non-fatal.
-    }
+function emitRecoverableRuntimeWarning(
+    warningSink: RecoverableRuntimeWarningSink,
+    message: string,
+    data: unknown
+): void {
+    warningSink.emit({ message, data });
 }
 
 function safeAppendIssueDiagnostic(
@@ -39,7 +44,8 @@ function safeAppendIssueDiagnostic(
     try {
         input.appendIssueDiagnostic(input.issueId, event, data);
     } catch (error) {
-        logRecoverableRuntimeFallback(
+        emitRecoverableRuntimeWarning(
+            input.warningSink ?? createRecoverableRuntimeWarningSink({ warn: input.warn }),
             `[RecoverableRuntimeReporter] ${scope} failed:`,
             summarizeErrorForLog(error)
         );
@@ -47,27 +53,17 @@ function safeAppendIssueDiagnostic(
 }
 
 function safeWarn(
-    warn: RecoverableRuntimeIssueReporterInput['warn'],
+    warningSink: RecoverableRuntimeWarningSink,
     message: string,
     data: Record<string, unknown>
 ): void {
-    try {
-        if (warn) {
-            warn(message, data);
-            return;
-        }
-        console.warn(message, data);
-    } catch (error) {
-        logRecoverableRuntimeFallback(
-            '[RecoverableRuntimeReporter] reportIssue failed:',
-            summarizeErrorForLog(error)
-        );
-    }
+    emitRecoverableRuntimeWarning(warningSink, message, data);
 }
 
 export function createRecoverableRuntimeIssueReporter(
     input: RecoverableRuntimeIssueReporterInput
 ): RecoverableRuntimeIssueReporter {
+    const warningSink = input.warningSink ?? createRecoverableRuntimeWarningSink({ warn: input.warn });
     const reportIssue = (
         event: string,
         message: string,
@@ -75,7 +71,7 @@ export function createRecoverableRuntimeIssueReporter(
     ): void => {
         const payload = { message, ...data };
         safeAppendIssueDiagnostic(input, event, payload, 'reportIssue');
-        safeWarn(input.warn, message, data);
+        safeWarn(warningSink, message, data);
     };
 
     return {
@@ -91,17 +87,30 @@ export function createRecoverableRuntimeIssueReporter(
                 safeError: summarizeErrorForLog(error),
             };
             safeAppendIssueDiagnostic(input, event, { message, ...payload }, 'reportError');
-            logRecoverableRuntimeFallback(message, payload);
+            emitRecoverableRuntimeWarning(warningSink, message, payload);
         },
     };
+}
+
+export function createDefaultRecoverableRuntimeIssueReporter(
+    issueId: string,
+    appendIssueDiagnostic: AppendIssueDiagnostic
+): RecoverableRuntimeIssueReporter {
+    return createRecoverableRuntimeIssueReporter({
+        issueId,
+        appendIssueDiagnostic,
+        warningSink: createRecoverableRuntimeWarningSink(),
+    });
 }
 
 export function observeRecoverableAsyncFailure(
     promiseOrFactory: Promise<unknown> | (() => Promise<unknown>),
     reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter,
     event: string,
-    message: string
+    message: string,
+    warn?: RecoverableRuntimeIssueReporterInput['warn']
 ): Promise<void> {
+    const warningSink = createRecoverableRuntimeWarningSink({ warn });
     let promise: Promise<unknown>;
     try {
         promise = typeof promiseOrFactory === 'function'
@@ -111,7 +120,8 @@ export function observeRecoverableAsyncFailure(
         try {
             reportRecoverableAsyncFailure(event, message, error);
         } catch (reporterError) {
-            logRecoverableRuntimeFallback(
+            emitRecoverableRuntimeWarning(
+                warningSink,
                 '[RecoverableRuntimeReporter] observeRecoverableAsyncFailure failed:',
                 summarizeErrorForLog(reporterError)
             );
@@ -125,7 +135,8 @@ export function observeRecoverableAsyncFailure(
             try {
                 reportRecoverableAsyncFailure(event, message, error);
             } catch (reporterError) {
-                logRecoverableRuntimeFallback(
+                emitRecoverableRuntimeWarning(
+                    warningSink,
                     '[RecoverableRuntimeReporter] observeRecoverableAsyncFailure failed:',
                     summarizeErrorForLog(reporterError)
                 );
