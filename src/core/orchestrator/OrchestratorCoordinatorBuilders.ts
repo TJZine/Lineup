@@ -270,7 +270,7 @@ function notifyPlaybackRecoveryToast(
     handler(type ? { message, type } : message);
 }
 
-function handlePlaybackRecoveryGlobalError(
+function handleCoordinatorGlobalError(
     input: OrchestratorCoordinatorFactoryDeps,
     error: AppError,
     context: string
@@ -287,6 +287,15 @@ function setNavigationLastChannelChangeSource(
 
 function stopNavigationPlayback(input: OrchestratorNavigationCoordinatorBuilderInput): void {
     input.playback.stopPlayback();
+}
+
+function getNavigationSeekIncrementMs(input: OrchestratorNavigationCoordinatorBuilderInput): number {
+    const seekIncrementSeconds = input.config?.playerConfig?.seekIncrementSec;
+    const normalizedSeekIncrementSeconds =
+        typeof seekIncrementSeconds === 'number' && Number.isFinite(seekIncrementSeconds)
+            ? seekIncrementSeconds
+            : DEFAULT_SEEK_INCREMENT_SECONDS;
+    return secondsToMilliseconds(normalizedSeekIncrementSeconds);
 }
 
 function focusNavigationEpgOnCurrentChannel(deps: NavigationCoordinatorBuilderDeps): void {
@@ -583,7 +592,7 @@ export function buildPlaybackRecovery(
         notifyToast: notifyPlaybackRecoveryToast.bind(null, input),
         subtitlePreferencesStore: input.stores.subtitlePreferencesStore,
         appendIssueDiagnostic: input.diagnostics.appendIssueDiagnostic,
-        handleGlobalError: handlePlaybackRecoveryGlobalError.bind(null, input),
+        handleGlobalError: handleCoordinatorGlobalError.bind(null, input),
     });
 }
 
@@ -639,10 +648,7 @@ function buildNavigationPlaybackConfig(
         videoPlayer: input.modules.videoPlayer,
         plexAuth: input.modules.plexAuth,
         stopPlayback: stopNavigationPlayback.bind(null, input),
-        getSeekIncrementMs: secondsToMilliseconds.bind(
-            null,
-            input.config?.playerConfig?.seekIncrementSec ?? DEFAULT_SEEK_INCREMENT_SECONDS
-        ),
+        getSeekIncrementMs: getNavigationSeekIncrementMs.bind(null, input),
         playerOsd: {
             overlay: input.overlays.playerOsd,
             coordinator: deps.playerOsdCoordinator,
@@ -760,7 +766,7 @@ export function buildChannelTuningCoordinator(
         stopActiveTranscodeSession: stopChannelTuningActiveTranscodeSession.bind(null, input),
         armChannelTransitionForSwitch: armChannelTransitionForSwitch.bind(null, channelTransitionCoordinator),
         appendIssueDiagnostic: input.diagnostics.appendIssueDiagnostic,
-        handleGlobalError: handlePlaybackRecoveryGlobalError.bind(null, input),
+        handleGlobalError: handleCoordinatorGlobalError.bind(null, input),
         saveLifecycleState: saveChannelTuningLifecycleState.bind(null, input),
     });
 }

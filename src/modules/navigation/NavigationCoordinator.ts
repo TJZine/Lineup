@@ -19,6 +19,7 @@ import {
     EPG_REPEAT_TIMING,
     MINI_GUIDE_REPEAT_TIMING,
 } from './constants';
+import { recordNonBlockingFailureTimestamp } from './nonBlockingFailureTimestamps';
 import { isAbortLikeError } from '../../utils/errors';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 export interface NavigationCoordinatorDeps {
@@ -110,17 +111,9 @@ export class NavigationCoordinator {
         toastMessage?: string
     ): void {
         const now = Date.now();
-        const last = this._nonBlockingFailureTimestamps.get(key);
-        if (typeof last === 'number' && now - last < 5000) {
+        if (!recordNonBlockingFailureTimestamp(this._nonBlockingFailureTimestamps, key, now)) {
             return;
         }
-        if (last === undefined && this._nonBlockingFailureTimestamps.size >= 20) {
-            const oldestEntry = this._nonBlockingFailureTimestamps.entries().next().value;
-            if (oldestEntry) {
-                this._nonBlockingFailureTimestamps.delete(oldestEntry[0]);
-            }
-        }
-        this._nonBlockingFailureTimestamps.set(key, now);
         try {
             this.deps.reportRecoverableAsyncFailure(event, message, error);
         } catch {

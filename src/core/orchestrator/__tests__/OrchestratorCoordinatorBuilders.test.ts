@@ -346,6 +346,10 @@ describe('OrchestratorCoordinatorBuilders', () => {
         navigationDeps.reportToast?.({ message: 'Recovered', type: 'warning' });
         expect(reportToast).toHaveBeenCalledWith({ message: 'Recovered', type: 'warning' });
         expect(navigationDeps.playback.getSeekIncrementMs()).toBe(15_000);
+        input.config!.playerConfig!.seekIncrementSec = 30;
+        expect(navigationDeps.playback.getSeekIncrementMs()).toBe(30_000);
+        input.config!.playerConfig!.seekIncrementSec = Number.NaN;
+        expect(navigationDeps.playback.getSeekIncrementMs()).toBe(10_000);
         expect(navigationDeps.readKeepPlayingInSettings()).toBe(false);
         expect(navigationDeps.readDebugLoggingEnabled()).toBe(true);
     });
