@@ -3,6 +3,7 @@ import type { PlaybackOptionsCoordinator } from '../../modules/ui/playback-optio
 import type {
     OrchestratorCoordinatorFactoryDeps,
     OrchestratorCoordinators,
+    OrchestratorNavigationCoordinatorBuilderInput,
 } from './OrchestratorCoordinatorContracts';
 import {
     buildChannelSetupOwners,
@@ -19,6 +20,47 @@ import {
     buildPlaybackRecovery,
     buildPlayerOsdCoordinator,
 } from './OrchestratorCoordinatorBuilders';
+
+function buildNavigationCoordinatorInput(
+    input: OrchestratorCoordinatorFactoryDeps
+): OrchestratorNavigationCoordinatorBuilderInput {
+    return {
+        config: input.config,
+        modules: {
+            navigation: input.modules.navigation,
+            epg: input.modules.epg,
+            plexAuth: input.modules.plexAuth,
+            videoPlayer: input.modules.videoPlayer,
+        },
+        overlays: {
+            playerOsd: input.overlays.playerOsd,
+            miniGuide: input.overlays.miniGuide,
+            nowPlayingInfo: input.overlays.nowPlayingInfo,
+            channelNumberOverlay: input.overlays.channelNumberOverlay,
+        },
+        stores: {
+            developerSettingsStore: input.stores.developerSettingsStore,
+            profileSessionStore: input.stores.profileSessionStore,
+        },
+        diagnostics: {
+            reportRecoverableAsyncFailure: input.diagnostics.reportRecoverableAsyncFailure,
+        },
+        playback: {
+            stopPlayback: input.playback.stopPlayback,
+        },
+        schedule: {
+            setLastChannelChangeSource: input.schedule.setLastChannelChangeSource,
+        },
+        actions: {
+            switchToNextChannel: input.actions.switchToNextChannel,
+            switchToPreviousChannel: input.actions.switchToPreviousChannel,
+            switchToChannelByNumberWithOutcome: input.actions.switchToChannelByNumberWithOutcome,
+            toggleEPG: input.actions.toggleEPG,
+            toggleNowPlayingInfoOverlay: input.actions.toggleNowPlayingInfoOverlay,
+        },
+        nowPlaying: input.nowPlaying,
+    };
+}
 
 export function createOrchestratorCoordinators(
     input: OrchestratorCoordinatorFactoryDeps
@@ -54,7 +96,7 @@ export function createOrchestratorCoordinators(
         playbackRecovery,
         channelTransitionCoordinator
     );
-    const navigationCoordinator = buildNavigationCoordinator(input, {
+    const navigationCoordinator = buildNavigationCoordinator(buildNavigationCoordinatorInput(input), {
         epgCoordinator,
         channelSetup: channelSetupOwners.coordinator,
         nowPlayingInfoCoordinator,

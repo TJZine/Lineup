@@ -1,6 +1,5 @@
-import type { StreamDescriptor, IVideoPlayer } from '../modules/player';
-import type { ScheduledProgram } from '../modules/scheduler/scheduler';
-import { summarizeErrorForLog } from '../utils/errors';
+import type { StreamDescriptor, IVideoPlayer } from '../../../modules/player';
+import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
 
 export interface PlaybackStartControllerDeps {
     getVideoPlayer: () => Pick<IVideoPlayer, 'loadStream' | 'play'> | null;
@@ -9,7 +8,7 @@ export interface PlaybackStartControllerDeps {
     tryHandleStreamResolverAuthError: (error: unknown) => boolean;
     tryHandleStreamResolverPermissionError: (error: unknown) => boolean;
     handlePlaybackFailure: (context: string, error: unknown) => void;
-    logPlaybackStartFailure?: (error: unknown) => void;
+    logPlaybackStartFailure: (error: unknown) => void;
     markProgramStarting: (
         program: ScheduledProgram
     ) => {
@@ -83,12 +82,7 @@ export class PlaybackStartController {
                 return;
             }
 
-            if (this._deps.logPlaybackStartFailure) {
-                this._deps.logPlaybackStartFailure(error);
-            } else {
-                console.error('Failed to load stream:', summarizeErrorForLog(error));
-            }
-
+            this._deps.logPlaybackStartFailure(error);
             this._deps.handlePlaybackFailure('programStart', error);
             abort();
         }

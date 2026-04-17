@@ -45,8 +45,7 @@ export class OverlayRuntimePolicyController {
         });
     }
 
-    public handleOverlayVisibilityChange(visible: boolean): void {
-        void visible;
+    public handleOverlayVisibilityChange(_visible: boolean): void {
         this.syncChannelBadgeOverlay();
     }
 

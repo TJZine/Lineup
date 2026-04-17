@@ -79,6 +79,13 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - central runtime coordinator implementation owner
 - owns composition-root diagnostics append wiring (`AppendIssueDiagnostic`) for runtime collaborators while `IssueDiagnosticsStore` remains the storage/debug owner
 - constructs `InitializationCoordinator` before coordinator assembly so `ensureEpgInitialized` callbacks always bind the real startup owner (no fake no-op readiness path)
+- delegates priority-one runtime assembly through `src/core/orchestrator/priority-one/PriorityOneAssemblyInput.ts` so the orchestrator stays at composition wiring rather than rebuilding the full controller/binder bag inline
+
+### `src/core/orchestrator/priority-one/`
+
+- focused owner for priority-one runtime assembly input shaping plus controller/binder composition
+- `PriorityOneControllerFactory.ts` now owns playback start/runtime, overlay runtime policy, profile-switch cleanup, and event-binder assembly for the priority-one path
+- `OrchestratorPriorityOneControllerFactory.ts` remains only as a thin compatibility re-export surface for the extracted priority-one assembly owner
 
 ### `src/core/orchestrator/OrchestratorSchedulePolicy.ts`
 

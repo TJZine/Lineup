@@ -1,5 +1,8 @@
 import type { EPGConfig } from '../../../modules/ui/epg';
-import type { OrchestratorCoordinatorBuilderInput } from '../OrchestratorCoordinatorContracts';
+import type {
+    OrchestratorCoordinatorFactoryDeps,
+    OrchestratorNavigationCoordinatorBuilderInput,
+} from '../OrchestratorCoordinatorContracts';
 
 const recordStoreInstance = { kind: 'record-store' };
 const scratchStoreInstance = { kind: 'scratch-store' };
@@ -34,9 +37,11 @@ import {
 import {
     bindEpgVisibleRangeChange,
     buildChannelSetupOwners,
+    buildNavigationCoordinator,
+    buildPlayerOsdCoordinator,
 } from '../OrchestratorCoordinatorBuilders';
 
-const createInput = (): OrchestratorCoordinatorBuilderInput => {
+const createInput = (): OrchestratorCoordinatorFactoryDeps => {
     const channelManager = {
         getAllChannels: jest.fn(() => [{ id: 'channel-1' }, { id: 'channel-2' }]),
     };
@@ -59,7 +64,7 @@ const createInput = (): OrchestratorCoordinatorBuilderInput => {
             videoPlayer: { kind: 'video-player' },
             lifecycle: { kind: 'lifecycle' },
             epg: { kind: 'epg' },
-        } as unknown as OrchestratorCoordinatorBuilderInput['modules'],
+        } as unknown as OrchestratorCoordinatorFactoryDeps['modules'],
         overlays: {
             nowPlayingInfo: { kind: 'now-playing' },
             playerOsd: { kind: 'player-osd' },
@@ -69,7 +74,7 @@ const createInput = (): OrchestratorCoordinatorBuilderInput => {
             playbackOptionsModal: { kind: 'playback-options-modal' },
             exitConfirmModal: { kind: 'exit-confirm-modal' },
             sleepTimer: { kind: 'sleep-timer' },
-        } as unknown as OrchestratorCoordinatorBuilderInput['overlays'],
+        } as unknown as OrchestratorCoordinatorFactoryDeps['overlays'],
         stores: {
             developerSettingsStore: { kind: 'developer-settings-store' },
             debugOverridesStore: { kind: 'debug-overrides-store' },
@@ -77,7 +82,7 @@ const createInput = (): OrchestratorCoordinatorBuilderInput => {
             epgPreferencesStore: { kind: 'epg-preferences-store' },
             nowPlayingDisplayStore: { kind: 'now-playing-display-store' },
             profileSessionStore: { kind: 'profile-session-store' },
-        } as unknown as OrchestratorCoordinatorBuilderInput['stores'],
+        } as unknown as OrchestratorCoordinatorFactoryDeps['stores'],
         diagnostics: {
             appendIssueDiagnostic: jest.fn(),
             reportRecoverableAsyncFailure: jest.fn(),
@@ -90,7 +95,7 @@ const createInput = (): OrchestratorCoordinatorBuilderInput => {
             stopActiveTranscodeSession: jest.fn(),
             getMimeType: jest.fn(),
             buildPlexResourceUrl: jest.fn(),
-        } as unknown as OrchestratorCoordinatorBuilderInput['playback'],
+        } as unknown as OrchestratorCoordinatorFactoryDeps['playback'],
         schedule: {
             lastChannelChangeSource: jest.fn(() => null),
             setLastChannelChangeSource: jest.fn(),
@@ -108,7 +113,7 @@ const createInput = (): OrchestratorCoordinatorBuilderInput => {
             toggleEPG: jest.fn(),
             onOverlayVisibilityChange: jest.fn(),
             toggleNowPlayingInfoOverlay: jest.fn(),
-        } as unknown as OrchestratorCoordinatorBuilderInput['actions'],
+        } as unknown as OrchestratorCoordinatorFactoryDeps['actions'],
         errors: {
             handleGlobalError: jest.fn(),
         },
@@ -153,7 +158,7 @@ describe('OrchestratorCoordinatorBuilders', () => {
         };
         const config = {
             epgConfig: originalConfig,
-        } as unknown as NonNullable<OrchestratorCoordinatorBuilderInput['config']>;
+        } as unknown as NonNullable<OrchestratorCoordinatorFactoryDeps['config']>;
         input.config = config;
 
         bindEpgVisibleRangeChange(input, {
@@ -219,5 +224,154 @@ describe('OrchestratorCoordinatorBuilders', () => {
         expect(coordinatorInstance.clearRerunRequest).toHaveBeenCalledTimes(1);
         expect(workflowArgs.recordStore).toBe(recordStoreInstance);
         expect(workflowArgs.completionTracker).toBe(completionTrackerInstance);
+    });
+
+    it('buildNavigationCoordinator preserves navigation-facing reporting semantics with the narrowed input seam', () => {
+        const reportRecoverableAsyncFailure = jest.fn();
+        const reportToast = jest.fn();
+        const input: OrchestratorNavigationCoordinatorBuilderInput = {
+            config: {
+                playerConfig: {
+                    seekIncrementSec: 15,
+                },
+                channelNumberOverlayConfig: {
+                    completeHideDelayMs: 900,
+                },
+            } as OrchestratorCoordinatorFactoryDeps['config'],
+            modules: {
+                navigation: { kind: 'navigation' },
+                epg: { kind: 'epg' },
+                plexAuth: { kind: 'plex-auth' },
+                videoPlayer: { kind: 'video-player' },
+            } as unknown as OrchestratorNavigationCoordinatorBuilderInput['modules'],
+            overlays: {
+                playerOsd: { kind: 'player-osd' },
+                miniGuide: { kind: 'mini-guide' },
+                nowPlayingInfo: { resetAutoHideTimer: jest.fn() },
+                channelNumberOverlay: {
+                    showDigits: jest.fn(),
+                    scheduleHide: jest.fn(),
+                },
+            } as unknown as OrchestratorNavigationCoordinatorBuilderInput['overlays'],
+            stores: {
+                developerSettingsStore: {
+                    readDebugLoggingEnabledAndClean: jest.fn(() => true),
+                },
+                profileSessionStore: {
+                    readKeepPlayingInSettingsAndClean: jest.fn(() => false),
+                },
+            } as unknown as OrchestratorNavigationCoordinatorBuilderInput['stores'],
+            diagnostics: {
+                reportRecoverableAsyncFailure,
+            },
+            playback: {
+                stopPlayback: jest.fn(),
+            },
+            schedule: {
+                setLastChannelChangeSource: jest.fn(),
+            },
+            actions: {
+                switchToNextChannel: jest.fn(),
+                switchToPreviousChannel: jest.fn(),
+                switchToChannelByNumberWithOutcome: jest.fn(),
+                toggleEPG: jest.fn(),
+                toggleNowPlayingInfoOverlay: jest.fn(),
+            },
+            nowPlaying: {
+                handler: jest.fn(() => reportToast),
+            },
+        };
+        const deps = {
+            epgCoordinator: {
+                focusEpgOnCurrentChannel: jest.fn(),
+            },
+            channelSetup: {
+                shouldRunChannelSetup: jest.fn(() => false),
+            },
+            nowPlayingInfoCoordinator: {
+                handleModalOpen: jest.fn(),
+                handleModalClose: jest.fn(),
+            },
+            playerOsdCoordinator: {
+                poke: jest.fn(),
+                toggle: jest.fn(),
+                hide: jest.fn(),
+            },
+            miniGuideCoordinator: {
+                show: jest.fn(),
+                hide: jest.fn(),
+                handleNavigation: jest.fn(() => true),
+                handlePage: jest.fn(() => true),
+                handleSelect: jest.fn(),
+            },
+            channelTransitionCoordinator: {
+                hide: jest.fn(),
+            },
+            playbackOptionsCoordinator: {
+                prepareModal: jest.fn(() => ({
+                    focusableIds: ['audio-track'],
+                    preferredFocusId: 'audio-track',
+                })),
+                handleModalOpen: jest.fn(),
+                handleModalClose: jest.fn(),
+            },
+            exitConfirmCoordinator: {
+                handleModalOpen: jest.fn(),
+                handleModalClose: jest.fn(),
+            },
+        };
+
+        const coordinator = buildNavigationCoordinator(input, deps as never);
+        const navigationDeps = (
+            coordinator as unknown as {
+                deps: Pick<
+                    import('../../../modules/navigation/NavigationCoordinator').NavigationCoordinatorDeps,
+                    | 'reportRecoverableAsyncFailure'
+                    | 'reportToast'
+                    | 'playback'
+                    | 'readKeepPlayingInSettings'
+                    | 'readDebugLoggingEnabled'
+                >;
+            }
+        ).deps;
+
+        expect(navigationDeps.reportRecoverableAsyncFailure).toBe(reportRecoverableAsyncFailure);
+        expect(navigationDeps.reportToast).toBeDefined();
+        navigationDeps.reportToast?.({ message: 'Recovered', type: 'warning' });
+        expect(reportToast).toHaveBeenCalledWith({ message: 'Recovered', type: 'warning' });
+        expect(navigationDeps.playback.getSeekIncrementMs()).toBe(15_000);
+        expect(navigationDeps.readKeepPlayingInSettings()).toBe(false);
+        expect(navigationDeps.readDebugLoggingEnabled()).toBe(true);
+    });
+
+    it('buildPlayerOsdCoordinator falls back to the default auto-hide duration when playerConfig is absent', () => {
+        const input = createInput();
+        input.config = {
+            epgConfig: {
+                containerId: 'epg',
+                visibleChannels: 5,
+                timeSlotMinutes: 30,
+                visibleHours: 3,
+                totalHours: 24,
+                pixelsPerMinute: 4,
+                rowHeight: 80,
+                showCurrentTimeIndicator: true,
+                autoScrollToNow: false,
+            },
+        } as OrchestratorCoordinatorFactoryDeps['config'];
+
+        const coordinator = buildPlayerOsdCoordinator(input, () => ({
+            focusableIds: [],
+            preferredFocusId: null,
+        }));
+        const playerOsdDeps = (
+            coordinator as unknown as {
+                deps: {
+                    getAutoHideMs: () => number;
+                };
+            }
+        ).deps;
+
+        expect(playerOsdDeps.getAutoHideMs()).toBe(3000);
     });
 });

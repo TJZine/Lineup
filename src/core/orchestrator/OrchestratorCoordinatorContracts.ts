@@ -1,5 +1,6 @@
 import type {
     INavigationManager,
+    NavigationAsyncFailureReporter,
 } from '../../modules/navigation';
 import type {
     AppError,
@@ -73,8 +74,6 @@ import type { PlaybackOptionsCoordinator } from '../../modules/ui/playback-optio
 import type { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryManager';
 import type { ChannelTuningCoordinator } from '../channel-tuning';
 import type { NavigationCoordinator } from '../../modules/navigation/NavigationCoordinator';
-import type { RecoverableAsyncFailureReporter } from './OrchestratorRuntimeSeams';
-
 export interface OrchestratorCoordinatorFactoryDeps {
     epgDebugRuntime: IEPGDebugRuntime | null;
     config: OrchestratorConfig | null;
@@ -114,7 +113,7 @@ export interface OrchestratorCoordinatorFactoryDeps {
     };
     diagnostics: {
         appendIssueDiagnostic: AppendIssueDiagnostic;
-        reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter;
+        reportRecoverableAsyncFailure: NavigationAsyncFailureReporter;
     };
     playback: {
         state: OrchestratorPlaybackStateAccessors;
@@ -158,7 +157,35 @@ export interface OrchestratorCoordinatorFactoryDeps {
     };
 }
 
-export type OrchestratorCoordinatorBuilderInput = OrchestratorCoordinatorFactoryDeps;
+export interface OrchestratorNavigationCoordinatorBuilderInput {
+    config: OrchestratorCoordinatorFactoryDeps['config'];
+    modules: Pick<
+        OrchestratorCoordinatorFactoryDeps['modules'],
+        'navigation' | 'epg' | 'plexAuth' | 'videoPlayer'
+    >;
+    overlays: Pick<
+        OrchestratorCoordinatorFactoryDeps['overlays'],
+        'playerOsd' | 'miniGuide' | 'nowPlayingInfo' | 'channelNumberOverlay'
+    >;
+    stores: Pick<
+        OrchestratorCoordinatorFactoryDeps['stores'],
+        'developerSettingsStore' | 'profileSessionStore'
+    >;
+    diagnostics: {
+        reportRecoverableAsyncFailure: NavigationAsyncFailureReporter;
+    };
+    playback: Pick<OrchestratorCoordinatorFactoryDeps['playback'], 'stopPlayback'>;
+    schedule: Pick<OrchestratorCoordinatorFactoryDeps['schedule'], 'setLastChannelChangeSource'>;
+    actions: Pick<
+        OrchestratorCoordinatorFactoryDeps['actions'],
+        | 'switchToNextChannel'
+        | 'switchToPreviousChannel'
+        | 'switchToChannelByNumberWithOutcome'
+        | 'toggleEPG'
+        | 'toggleNowPlayingInfoOverlay'
+    >;
+    nowPlaying: OrchestratorCoordinatorFactoryDeps['nowPlaying'];
+}
 
 export interface OrchestratorCoordinators {
     epgCoordinator: EPGCoordinator;

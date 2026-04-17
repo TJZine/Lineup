@@ -6,8 +6,8 @@ import {
 import type { OrchestratorEventCleanupFailure } from '../OrchestratorEventCleanupReporter';
 
 describe('OrchestratorRecoverableRuntimeReporter', () => {
-    it('swallows appendIssueDiagnostic failures and falls back to console.error', () => {
-        const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    it('swallows appendIssueDiagnostic failures and falls back to console.warn', () => {
+        const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
         const warn = jest.fn();
         const reporter = createRecoverableRuntimeIssueReporter({
             issueId: 'qa-1',
@@ -22,18 +22,18 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
         }).not.toThrow();
 
         expect(warn).toHaveBeenCalledWith('Recoverable failure', { detail: 'x' });
-        expect(consoleError).toHaveBeenCalledWith(
+        expect(consoleWarn).toHaveBeenCalledWith(
             '[RecoverableRuntimeReporter] reportIssue failed:',
             expect.objectContaining({
                 message: 'append failed',
             })
         );
 
-        consoleError.mockRestore();
+        consoleWarn.mockRestore();
     });
 
-    it('swallows warn failures and falls back to console.error', () => {
-        const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    it('swallows warn failures and falls back to console.warn', () => {
+        const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
         const appendIssueDiagnostic = jest.fn();
         const reporter = createRecoverableRuntimeIssueReporter({
             issueId: 'qa-1',
@@ -55,18 +55,18 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
                 detail: 'x',
             })
         );
-        expect(consoleError).toHaveBeenCalledWith(
+        expect(consoleWarn).toHaveBeenCalledWith(
             '[RecoverableRuntimeReporter] reportIssue failed:',
             expect.objectContaining({
                 message: 'warn failed',
             })
         );
 
-        consoleError.mockRestore();
+        consoleWarn.mockRestore();
     });
 
-    it('swallows recoverable async reporter failures and falls back to console.error', async () => {
-        const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    it('swallows recoverable async reporter failures and falls back to console.warn', async () => {
+        const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
         await expect(
             observeRecoverableAsyncFailure(
@@ -79,18 +79,18 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
             )
         ).resolves.toBeUndefined();
 
-        expect(consoleError).toHaveBeenCalledWith(
+        expect(consoleWarn).toHaveBeenCalledWith(
             '[RecoverableRuntimeReporter] observeRecoverableAsyncFailure failed:',
             expect.objectContaining({
                 message: 'reporter boom',
             })
         );
 
-        consoleError.mockRestore();
+        consoleWarn.mockRestore();
     });
 
-    it('reportError appends safeError and logs via console.error without calling warn', () => {
-        const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    it('reportError appends safeError and logs via console.warn without calling warn', () => {
+        const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
         const appendIssueDiagnostic = jest.fn();
         const warn = jest.fn();
         const reporter = createRecoverableRuntimeIssueReporter({
@@ -113,7 +113,7 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
                 }),
             })
         );
-        expect(consoleError).toHaveBeenCalledWith(
+        expect(consoleWarn).toHaveBeenCalledWith(
             'Recoverable error',
             expect.objectContaining({
                 detail: 'x',
@@ -123,7 +123,7 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
             })
         );
 
-        consoleError.mockRestore();
+        consoleWarn.mockRestore();
     });
 
     it('does nothing when cleanup failure list is empty', () => {

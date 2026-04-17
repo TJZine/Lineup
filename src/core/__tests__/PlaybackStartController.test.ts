@@ -3,7 +3,7 @@ import type { ScheduledProgram } from '../../modules/scheduler/scheduler';
 import {
     PlaybackStartController,
     type PlaybackStartControllerDeps,
-} from '../PlaybackStartController';
+} from '../orchestrator/priority-one/PlaybackStartController';
 
 const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgram =>
     ({

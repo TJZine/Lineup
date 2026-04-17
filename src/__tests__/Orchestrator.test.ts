@@ -1062,7 +1062,7 @@ describe('AppOrchestrator', () => {
             await orchestrator.initialize(mockConfig);
 
             const refreshError = new Error('refresh failed');
-            const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
             const refreshSpy = jest
                 .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
                 .mockRejectedValue(refreshError);
@@ -1082,7 +1082,7 @@ describe('AppOrchestrator', () => {
 
                 expect(runStartupSpy).toHaveBeenCalledWith(3);
                 expect(refreshSpy).toHaveBeenCalledWith({ reason: 'server-swap' });
-                expect(consoleErrorSpy).toHaveBeenCalledWith(
+                expect(consoleWarnSpy).toHaveBeenCalledWith(
                     'Post-selection EPG refresh failed',
                     expect.objectContaining({
                         step: 'refreshEpgSchedules',
@@ -1092,7 +1092,7 @@ describe('AppOrchestrator', () => {
                     })
                 );
             } finally {
-                consoleErrorSpy.mockRestore();
+                consoleWarnSpy.mockRestore();
                 refreshSpy.mockRestore();
                 runStartupSpy.mockRestore();
             }
@@ -1801,7 +1801,7 @@ describe('AppOrchestrator', () => {
         });
 
         it('shows a warning toast when setSubtitleTrack fails', async () => {
-            const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
             try {
                 const toastSpy = jest.fn();
 
@@ -1810,7 +1810,7 @@ describe('AppOrchestrator', () => {
 
                 await orchestrator.setSubtitleTrack(null);
 
-                expect(errorSpy).toHaveBeenCalledWith(
+                expect(warnSpy).toHaveBeenCalledWith(
                     'setSubtitleTrack failed',
                     expect.objectContaining({
                         trackId: null,
@@ -1824,7 +1824,7 @@ describe('AppOrchestrator', () => {
                     expect.objectContaining({ type: 'warning', message: expect.any(String) })
                 );
             } finally {
-                errorSpy.mockRestore();
+                warnSpy.mockRestore();
             }
         });
 
@@ -2592,7 +2592,7 @@ describe('AppOrchestrator', () => {
         });
 
         it('redacts tokenized message values in global error logs', () => {
-            const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
             try {
                 const secret = 'secret-token';
                 const error = {
@@ -2616,7 +2616,7 @@ describe('AppOrchestrator', () => {
         });
 
         it('swallows recoverable reporter failures during global error handling', () => {
-            const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
             const createReporterSpy = jest.spyOn(
                 recoverableRuntimeReporterModule,
                 'createRecoverableRuntimeIssueReporter'
@@ -2928,7 +2928,7 @@ describe('AppOrchestrator', () => {
         });
 
         it('stops the video player during shutdown when active transcode cleanup fails', async () => {
-            const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+            const errorSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
             const stopActiveTranscodeSession = jest.fn(() => {
                 throw new Error('transcode cleanup failed');
             });

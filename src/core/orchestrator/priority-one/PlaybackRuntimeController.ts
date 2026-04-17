@@ -1,10 +1,10 @@
-import type { AppError } from '../modules/lifecycle';
+import type { AppError } from '../../../modules/lifecycle';
 import {
     mapPlayerErrorCodeToAppErrorCode,
     type PlaybackError,
     type PlaybackState,
     type TimeRange,
-} from '../modules/player';
+} from '../../../modules/player';
 
 type PlayerTimeUpdatePayload = {
     currentTimeMs: number;

@@ -22,9 +22,9 @@ interface RecoverableRuntimeIssueReporterInput {
     warn?: (message?: unknown, ...optionalParams: unknown[]) => void;
 }
 
-function safeConsoleError(message: string, data: unknown): void {
+export function logRecoverableRuntimeFallback(message: string, data: unknown): void {
     try {
-        console.error(message, data);
+        globalThis.console?.warn?.call(globalThis.console, message, data);
     } catch {
         // Recoverable reporter fallback logging must stay non-fatal.
     }
@@ -39,7 +39,10 @@ function safeAppendIssueDiagnostic(
     try {
         input.appendIssueDiagnostic(input.issueId, event, data);
     } catch (error) {
-        safeConsoleError(`[RecoverableRuntimeReporter] ${scope} failed:`, summarizeErrorForLog(error));
+        logRecoverableRuntimeFallback(
+            `[RecoverableRuntimeReporter] ${scope} failed:`,
+            summarizeErrorForLog(error)
+        );
     }
 }
 
@@ -55,7 +58,10 @@ function safeWarn(
         }
         console.warn(message, data);
     } catch (error) {
-        safeConsoleError('[RecoverableRuntimeReporter] reportIssue failed:', summarizeErrorForLog(error));
+        logRecoverableRuntimeFallback(
+            '[RecoverableRuntimeReporter] reportIssue failed:',
+            summarizeErrorForLog(error)
+        );
     }
 }
 
@@ -85,7 +91,7 @@ export function createRecoverableRuntimeIssueReporter(
                 safeError: summarizeErrorForLog(error),
             };
             safeAppendIssueDiagnostic(input, event, { message, ...payload }, 'reportError');
-            safeConsoleError(message, payload);
+            logRecoverableRuntimeFallback(message, payload);
         },
     };
 }
@@ -105,7 +111,7 @@ export function observeRecoverableAsyncFailure(
         try {
             reportRecoverableAsyncFailure(event, message, error);
         } catch (reporterError) {
-            safeConsoleError(
+            logRecoverableRuntimeFallback(
                 '[RecoverableRuntimeReporter] observeRecoverableAsyncFailure failed:',
                 summarizeErrorForLog(reporterError)
             );
@@ -119,7 +125,7 @@ export function observeRecoverableAsyncFailure(
             try {
                 reportRecoverableAsyncFailure(event, message, error);
             } catch (reporterError) {
-                safeConsoleError(
+                logRecoverableRuntimeFallback(
                     '[RecoverableRuntimeReporter] observeRecoverableAsyncFailure failed:',
                     summarizeErrorForLog(reporterError)
                 );

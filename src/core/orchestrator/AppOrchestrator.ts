@@ -95,7 +95,7 @@ import { OrchestratorStorageContext } from './OrchestratorStorageContext';
 import { OrchestratorEventBinder } from './OrchestratorEventBinder';
 import { OverlayRuntimePolicyController } from './OverlayRuntimePolicyController';
 import { ProfileSwitchCleanupController } from './ProfileSwitchCleanupController';
-import { PlaybackRuntimeController } from '../PlaybackRuntimeController';
+import { PlaybackRuntimeController } from './priority-one/PlaybackRuntimeController';
 import type {
     OrchestratorServerSelectionReadiness,
     OrchestratorServerSelectionResult,
@@ -110,6 +110,7 @@ import type {
 import { createOrchestratorModules } from './OrchestratorModuleFactory';
 import { createOrchestratorCoordinators } from './OrchestratorCoordinatorFactory';
 import { createPriorityOneControllersAndBinder } from './OrchestratorPriorityOneControllerFactory';
+import { createPriorityOneAssemblyInput } from './priority-one/PriorityOneAssemblyInput';
 import type { OrchestratorEventCleanupFailure } from './OrchestratorEventCleanupReporter';
 import type {
     ChannelBadgeOverlayInitPort,
@@ -149,6 +150,7 @@ import { OrchestratorSchedulePolicy } from './OrchestratorSchedulePolicy';
 import { AppStartupUiInitializer } from '../app-shell/AppStartupUiInitializer';
 import {
     createRecoverableRuntimeIssueReporter,
+    logRecoverableRuntimeFallback,
     type RecoverableRuntimeIssueReporter,
 } from './OrchestratorRecoverableRuntimeReporter';
 import type { RecoverableAsyncFailureReporter } from './OrchestratorRuntimeSeams';
@@ -372,14 +374,10 @@ export class AppOrchestrator {
     };
 
     private _logRecoverableRuntimeReporterFailure(error: unknown): void {
-        try {
-            console.error(
-                '[AppOrchestrator] recoverable runtime reporter failed:',
-                summarizeErrorForLog(error)
-            );
-        } catch {
-            // Reporter fallback logging must not create a new runtime failure.
-        }
+        logRecoverableRuntimeFallback(
+            '[AppOrchestrator] recoverable runtime reporter failed:',
+            summarizeErrorForLog(error)
+        );
     }
 
     constructor(platformServices?: PlatformServices) {
@@ -2068,26 +2066,34 @@ export class AppOrchestrator {
         );
 
         for (const [moduleId, handler] of this._errorHandlers) {
-            try {
-                const handled = handler(error);
-                if (handled) {
-                    this._warnRecoverableRuntimeIssue(
-                        'orchestrator.globalError.handlerHandled',
-                        'Global error handled by module',
-                        { moduleId }
-                    );
-                    return;
-                }
-            } catch (handlerError) {
-                this._warnRecoverableRuntimeError(
-                    'orchestrator.globalError.handlerFailure',
-                    `Error in handler for ${moduleId}`,
-                    handlerError
+            if (this._runGlobalErrorHandler(moduleId, handler, error)) {
+                this._warnRecoverableRuntimeIssue(
+                    'orchestrator.globalError.handlerHandled',
+                    'Global error handled by module',
+                    { moduleId }
                 );
+                return;
             }
         }
 
         this._lifecycle?.reportError(error);
+    }
+
+    private _runGlobalErrorHandler(
+        moduleId: string,
+        handler: (error: AppError) => boolean,
+        error: AppError
+    ): boolean {
+        try {
+            return handler(error);
+        } catch (handlerError) {
+            this._warnRecoverableRuntimeError(
+                'orchestrator.globalError.handlerFailure',
+                `Error in handler for ${moduleId}`,
+                handlerError
+            );
+            return false;
+        }
     }
 
     private _initializePriorityOneControllers(): void {
@@ -2112,25 +2118,23 @@ export class AppOrchestrator {
                 throw new Error('Priority 1 controller initialization requires playback recovery');
             }
 
-            const priorityOne = createPriorityOneControllersAndBinder({
-                modules: {
+            const priorityOne = createPriorityOneControllersAndBinder(
+                createPriorityOneAssemblyInput({
                     scheduler: this._scheduler,
                     videoPlayer: this._videoPlayer,
                     lifecycle: this._lifecycle,
-                },
-                surfaces: {
-                    channelBadgeOverlay: this._channelBadgeOverlay,
-                    playerOsd: this._playerOsd,
-                    nowPlayingInfo: this._nowPlayingInfo,
-                    epg: this._epg,
-                    channelManager: this._channelManager,
-                    navigation: this._navigation,
-                    plexLibrary: this._plexLibrary,
-                    plexStreamResolver: this._plexStreamResolver,
-                },
-                playback: {
                     playbackState: this._playbackStateAccessors,
                     playbackRecovery: this._playbackRecovery,
+                    surfaces: {
+                        channelBadgeOverlay: this._channelBadgeOverlay,
+                        playerOsd: this._playerOsd,
+                        nowPlayingInfo: this._nowPlayingInfo,
+                        epg: this._epg,
+                        channelManager: this._channelManager,
+                        navigation: this._navigation,
+                        plexLibrary: this._plexLibrary,
+                        plexStreamResolver: this._plexStreamResolver,
+                    },
                     stopPlayback: (): void => this._stopPlayback(),
                     unloadCurrentChannel: (): void => {
                         this._scheduler?.unloadChannel();
@@ -2145,8 +2149,6 @@ export class AppOrchestrator {
                         this._videoPlayer?.pause();
                     },
                     playPlayer: (): Promise<void> => this._videoPlayer?.play() ?? Promise.resolve(),
-                },
-                schedulerRuntime: {
                     cancelPendingDayRollover: (): void => {
                         this._scheduleDayRolloverController?.cancelPendingDayRollover();
                     },
@@ -2159,8 +2161,6 @@ export class AppOrchestrator {
                     syncSchedulerToCurrentTime: (): void => {
                         this._scheduler?.syncToCurrentTime();
                     },
-                },
-                playerEvents: {
                     onPlayerStateChange: (state): void => {
                         this._playerOsdCoordinator?.onPlayerStateChange(state);
                         this._channelTransitionCoordinator?.onPlayerStateChange(state);
@@ -2171,8 +2171,6 @@ export class AppOrchestrator {
                     onPlayerBufferUpdate: (payload): void => {
                         this._playerOsdCoordinator?.onBufferUpdate(payload);
                     },
-                },
-                uiRuntime: {
                     handleGlobalError: (error: AppError, context: string): void => {
                         this.handleGlobalError(error, context);
                     },
@@ -2195,8 +2193,6 @@ export class AppOrchestrator {
                             error
                         );
                     },
-                },
-                events: {
                     wireNavigationCoordinatorEvents: (): Array<() => void> =>
                         this._navigationCoordinator?.wireNavigationEvents() ?? [],
                     wireEpgCoordinatorEvents: (): Array<() => void> =>
@@ -2214,22 +2210,18 @@ export class AppOrchestrator {
                         this._nowPlayingHandler?.({ message: warning.message, type: 'warning' });
                     },
                     cleanupReporter: (failures: OrchestratorEventCleanupFailure[]): void => {
-                        try {
-                            this._warnRecoverableRuntimeIssue(
-                                'orchestrator.eventWiring.rollback',
-                                'Event wiring rollback failures',
-                                { failures }
-                            );
-                        } catch {
-                            // Cleanup reporting must never throw during event binder teardown.
-                        }
+                        this._warnRecoverableRuntimeIssue(
+                            'orchestrator.eventWiring.rollback',
+                            'Event wiring rollback failures',
+                            { failures }
+                        );
                     },
                     reportRecoverableAsyncFailure: (event, message, error): void => {
                         this._warnRecoverableRuntimeError(event, message, error);
                     },
-                },
-                nowPlayingModalId: NOW_PLAYING_INFO_MODAL_ID,
-            });
+                    nowPlayingModalId: NOW_PLAYING_INFO_MODAL_ID,
+                })
+            );
 
             this._overlayRuntimePolicyController = priorityOne.overlayRuntimePolicyController;
             this._playbackRuntimeController = priorityOne.playbackRuntimeController;

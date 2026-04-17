@@ -4,7 +4,11 @@
  * @version 1.0.0
  */
 
-import type { INavigationManager, KeyEvent } from './interfaces';
+import type {
+    INavigationManager,
+    KeyEvent,
+    NavigationAsyncFailureReporter,
+} from './interfaces';
 import type { IEPGComponent } from '../ui/epg';
 import type { IVideoPlayer } from '../player';
 import type { IPlexAuth } from '../plex/auth';
@@ -17,8 +21,6 @@ import {
 } from './constants';
 import { isAbortLikeError } from '../../utils/errors';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
-import type { RecoverableAsyncFailureReporter } from '../../core/orchestrator/OrchestratorRuntimeSeams';
-
 export interface NavigationCoordinatorDeps {
     navigation: INavigationManager;
     epg: IEPGComponent | null;
@@ -82,7 +84,7 @@ export interface NavigationCoordinatorDeps {
         shouldRunChannelSetup: () => boolean;
         hideChannelTransition: () => void;
     };
-    reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter;
+    reportRecoverableAsyncFailure: NavigationAsyncFailureReporter;
     reportToast?: (toast: { message: string; type: 'warning' | 'error' | 'info' | 'success' }) => void;
     readKeepPlayingInSettings: () => boolean;
     readDebugLoggingEnabled: () => boolean;
