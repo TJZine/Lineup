@@ -4,7 +4,7 @@
 >
 > Supersedes the pre-package-migration draft archived at `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-v5-pre-package-migration.md`.
 >
-> Exact issue membership belongs to the tracked companion surface `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json`. Local planning bundles under `docs/runs/` are historical planning context only and are not authority.
+> Exact issue membership belongs to the tracked companion surface `docs/architecture/active-cleanup-package-map.json`. Local planning bundles under `docs/runs/` are historical planning context only and are not authority.
 
 This document is the live cleanup queue for the reconciled `2026-04-16` backlog. It stays concise at the package layer while preserving checklist-resident gate scaffolding, mini-record expectations, and `P#-W#` / `P#-EXIT` execution discipline.
 
@@ -17,7 +17,7 @@ This checklist is not complete until an authoritative rerun on the target integr
 - Current execution state: `P1-W1` and `P1-EXIT` are complete; no `P2` work has started yet
 - Next safe start: `P2-W1`
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
-- Exact issue-membership surface: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json`
+- Exact issue-membership surface: `docs/architecture/active-cleanup-package-map.json`
 - Historical planning context only: local run bundles under `docs/runs/`
 
 ## Goals
@@ -133,7 +133,7 @@ Every `P#-EXIT` must, in the same pass:
   - `desloppify show review --status open --no-budget --top 100` still reports `41` live open review issues
   - `desloppify show security --status open --no-budget --top 50` reports no open security/cycles issues
   - the backlog has been reconciled to `209 = 158 older live non-review + 41 fresh review + 10 fresh non-review`
-  - this checklist now routes exact issue membership to `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` and treats `docs/runs/...` as historical context only
+  - this checklist now routes exact issue membership to `docs/architecture/active-cleanup-package-map.json` and treats `docs/runs/...` as historical context only
 - Status: completed
 - Plan: local-only controller-approved migration directive
 - Last touched: `2026-04-16`
@@ -159,7 +159,7 @@ Every `P#-EXIT` must, in the same pass:
 
 - Backlog: `32 = 21 older live non-review + 7 fresh review + 4 fresh non-review`
 - Scope: retire the orchestrator/runtime hotspot cluster, narrow builder-bag assembly, and restore owner-honest navigation-facing control-plane seams
-- Exact membership: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` -> `pkg_control_plane_runtime`
+- Exact membership: `docs/architecture/active-cleanup-package-map.json` -> `pkg_control_plane_runtime`
 - Package-local scoping commands:
   - `desloppify show src/core/orchestrator --status open --no-budget --top 150`
   - `desloppify show src/modules/navigation --status open --no-budget --top 120`
@@ -193,7 +193,7 @@ Every `P#-EXIT` must, in the same pass:
 
 - Backlog: `39 = 33 older live non-review + 6 fresh review + 0 fresh non-review`
 - Scope: keep app-shell wiring on package-owned seams, finish shared UI persistence assembly cleanup, and hold non-EPG shared UI residue in one execution surface
-- Exact membership: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` -> `pkg_app_shell_shared_ui`
+- Exact membership: `docs/architecture/active-cleanup-package-map.json` -> `pkg_app_shell_shared_ui`
 - Package-local scoping commands:
   - `desloppify show src/core/app-shell --status open --no-budget --top 150`
   - `desloppify show src/modules/ui/mini-guide --status open --no-budget --top 120`
@@ -228,7 +228,7 @@ Every `P#-EXIT` must, in the same pass:
 
 - Backlog: `19 = 11 older live non-review + 6 fresh review + 2 fresh non-review`
 - Scope: normalize Plex discovery, library, auth, and identity/error seams under one Plex-owned package
-- Exact membership: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` -> `pkg_plex_contracts_identity`
+- Exact membership: `docs/architecture/active-cleanup-package-map.json` -> `pkg_plex_contracts_identity`
 - Package-local scoping commands:
   - `desloppify show src/modules/plex/discovery --status open --no-budget --top 120`
   - `desloppify show src/modules/plex/library --status open --no-budget --top 150`
@@ -256,7 +256,7 @@ Every `P#-EXIT` must, in the same pass:
 
 - Backlog: `23 = 15 older live non-review + 6 fresh review + 2 fresh non-review`
 - Scope: make startup/session state honest across auth expiry, profile selection, initialization, error normalization, and lifecycle timing
-- Exact membership: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` -> `pkg_startup_auth_lifecycle`
+- Exact membership: `docs/architecture/active-cleanup-package-map.json` -> `pkg_startup_auth_lifecycle`
 - Package-local scoping commands:
   - `desloppify show src/core/initialization --status open --no-budget --top 150`
   - `desloppify show src/core/InitializationCoordinator.ts --status open --no-budget --top 80`
@@ -288,7 +288,7 @@ Every `P#-EXIT` must, in the same pass:
 
 - Backlog: `18 = 16 older live non-review + 2 fresh review + 0 fresh non-review`
 - Scope: separate generic playback recovery from subtitle-specific policy and keep player/stream recovery cleanup in one execution surface
-- Exact membership: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` -> `pkg_playback_subtitle_recovery`
+- Exact membership: `docs/architecture/active-cleanup-package-map.json` -> `pkg_playback_subtitle_recovery`
 - Package-local scoping commands:
   - `desloppify show src/modules/player --status open --no-budget --top 150`
   - `desloppify show src/modules/plex/stream --status open --no-budget --top 150`
@@ -314,7 +314,7 @@ Every `P#-EXIT` must, in the same pass:
 
 - Backlog: `38 = 34 older live non-review + 2 fresh review + 2 fresh non-review`
 - Scope: keep channel-setup workflow cleanup, scheduler/channel-manager contracts, and channel-tuning residue in one domain-owned package
-- Exact membership: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` -> `pkg_channel_setup_scheduler`
+- Exact membership: `docs/architecture/active-cleanup-package-map.json` -> `pkg_channel_setup_scheduler`
 - Package-local scoping commands:
   - `desloppify show src/core/channel-setup --status open --no-budget --top 150`
   - `desloppify show src/core/channel-tuning --status open --no-budget --top 100`
@@ -343,7 +343,7 @@ Every `P#-EXIT` must, in the same pass:
 
 - Backlog: `28 = 23 older live non-review + 5 fresh review + 0 fresh non-review`
 - Scope: retire the remaining EPG runtime, view-package, naming, and test hotspot residue under one EPG-owned package
-- Exact membership: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` -> `pkg_epg_runtime_surfaces`
+- Exact membership: `docs/architecture/active-cleanup-package-map.json` -> `pkg_epg_runtime_surfaces`
 - Package-local scoping commands:
   - `desloppify show src/modules/ui/epg --status open --no-budget --top 180`
   - `desloppify show src/modules/ui/epg/runtime --status open --no-budget --top 120`
@@ -371,7 +371,7 @@ Every `P#-EXIT` must, in the same pass:
 
 - Backlog: `5 = 2 older live non-review + 3 fresh review + 0 fresh non-review`
 - Scope: isolate the truly cross-cutting AI-debt, wrapper-sprawl, and dead migration residue so domain packages do not inherit repo-wide cleanup noise
-- Exact membership: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` -> `pkg_shared_hygiene_migration`
+- Exact membership: `docs/architecture/active-cleanup-package-map.json` -> `pkg_shared_hygiene_migration`
 - Package-local scoping commands:
   - `desloppify show src --status open --no-budget --top 80`
   - `desloppify show src/utils --status open --no-budget --top 80`
@@ -398,7 +398,7 @@ Every `P#-EXIT` must, in the same pass:
 
 - Backlog: `7 = 3 older live non-review + 4 fresh review + 0 fresh non-review`
 - Scope: retire the remaining typed-error drift and focused test-fragility residue under one verification-oriented package
-- Exact membership: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` -> `pkg_type_safety_test_guardrails`
+- Exact membership: `docs/architecture/active-cleanup-package-map.json` -> `pkg_type_safety_test_guardrails`
 - Package-local scoping commands:
   - `desloppify show src/__tests__/helpers.ts --status open --no-budget --top 50`
   - `desloppify show src/__tests__/tools/verifyDocs.test.ts --status open --no-budget --top 50`
