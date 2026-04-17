@@ -114,7 +114,7 @@ export class NavigationCoordinator {
         if (typeof last === 'number' && now - last < 5000) {
             return;
         }
-        if (this._nonBlockingFailureTimestamps.size > 20) {
+        if (last === undefined && this._nonBlockingFailureTimestamps.size >= 20) {
             const oldestEntry = this._nonBlockingFailureTimestamps.entries().next().value;
             if (oldestEntry) {
                 this._nonBlockingFailureTimestamps.delete(oldestEntry[0]);

@@ -314,7 +314,7 @@ describe('NavigationCoordinator', () => {
         );
     });
 
-    it('evicts the oldest non-blocking failure timestamp instead of clearing the whole dedupe map', async () => {
+    it('evicts the oldest non-blocking failure timestamp as soon as the dedupe cap is reached', async () => {
         const dateNowSpy = jest.spyOn(Date, 'now');
         const { coordinator, deps } = setup();
         const reportNonBlockingFailure = (
@@ -328,8 +328,8 @@ describe('NavigationCoordinator', () => {
             }
         )._reportNonBlockingFailure.bind(coordinator);
 
-        for (let index = 0; index <= 20; index += 1) {
-            dateNowSpy.mockReturnValue(index * 1_000);
+        for (let index = 0; index < 20; index += 1) {
+            dateNowSpy.mockReturnValue(index);
             reportNonBlockingFailure(
                 `key-${index}`,
                 `navigation.key-${index}`,
@@ -338,9 +338,17 @@ describe('NavigationCoordinator', () => {
             );
         }
 
-        expect(deps.reportRecoverableAsyncFailure).toHaveBeenCalledTimes(21);
+        expect(deps.reportRecoverableAsyncFailure).toHaveBeenCalledTimes(20);
 
-        dateNowSpy.mockReturnValue(21_500);
+        dateNowSpy.mockReturnValue(20);
+        reportNonBlockingFailure(
+            'key-20',
+            'navigation.key-20',
+            '[Navigation] key-20 failed:',
+            new Error('boom-20')
+        );
+
+        dateNowSpy.mockReturnValue(1_000);
         reportNonBlockingFailure(
             'key-0',
             'navigation.key-0',
@@ -348,7 +356,7 @@ describe('NavigationCoordinator', () => {
             new Error('boom-repeat-oldest')
         );
 
-        dateNowSpy.mockReturnValue(21_600);
+        dateNowSpy.mockReturnValue(1_001);
         reportNonBlockingFailure(
             'key-20',
             'navigation.key-20',
