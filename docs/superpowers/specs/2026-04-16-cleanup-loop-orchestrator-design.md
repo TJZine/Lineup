@@ -183,7 +183,7 @@ Primary tracked changes:
 - `docs/agentic/session-prompts/cleanup-loop.md`
 - `docs/AGENTIC_DEV_WORKFLOW.md`
 - `docs/agentic/session-prompts/README.md` if its launcher description or routing note needs to reflect the finished orchestrator behavior
-- [`.codex/skills/lineup-cleanup-loop/SKILL.md`](../../../.codex/skills/lineup-cleanup-loop/SKILL.md) only as a thin wrapper update, if needed
+- the `lineup-cleanup-loop` launcher skill, only as a thin wrapper update if needed
 
 Change-boundary rule:
 
