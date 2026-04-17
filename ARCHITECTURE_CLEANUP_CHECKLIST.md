@@ -1,1122 +1,453 @@
 # Architecture Cleanup Checklist
 
-> V5 established 2026-04-16 from the fresh holistic review imported from `.desloppify/subagents/runs/20260416_084655`.
+> V6 package-backed execution model established `2026-04-16` from the reconciled `2026-04-16` `desloppify` baseline.
 >
-> Archived prior wave: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`.
+> Supersedes the pre-package-migration draft archived at `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-v5-pre-package-migration.md`.
 >
-> Any pre-refresh copy preserved under `docs/_local/` is scratch-only and must not be treated as tracked handoff memory or current truth.
+> Exact issue membership belongs to the tracked companion surface `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json`. Local planning bundles under `docs/runs/` are historical planning context only and are not authority.
 
-This document is the active cleanup queue for the live debt confirmed by the 2026-04-16 `desloppify` baseline.
+This document is the live cleanup queue for the reconciled `2026-04-16` backlog. It stays concise at the package layer while preserving checklist-resident gate scaffolding, mini-record expectations, and `P#-W#` / `P#-EXIT` execution discipline.
 
-This is the authoritative tracked backlog for this cleanup wave. Per [`docs/AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles`](./docs/AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles), `ARCHITECTURE_CLEANUP_CHECKLIST.md` is the live cleanup and status surface, while execution plans remain task-scoped memory that stay local by default unless durable tracked handoff memory is explicitly needed.
-
-This checklist is not complete until a fresh authoritative rerun on the target integration branch proves all live 2026-04-16 review and mechanical debt is retired or stale-proven with current-source evidence, `strict` is greater than `87.2`, and `overall` is greater than `87.2`.
+This checklist is not complete until an authoritative rerun on the target integration branch proves the live `2026-04-16` review and mechanical backlog is retired or stale-proven with current-source evidence, `strict > 87.2`, `overall > 87.2`, and no issue was dropped without an explicit disposition.
 
 ## Fresh-Session Handoff
 
-- Last structural refresh: `2026-04-16` from `.desloppify/subagents/runs/20260416_084655`
+- Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
-- Current execution state: fresh reset; no `V5` work unit has started yet
-- Next safe start: `P0-W1`
-- Authoritative evidence rule: only integration-branch `desloppify` reruns may change checklist status, baseline counts, exit records, or closeout claims
-- Queue-trust signal to resolve first:
-  - `desloppify status`: `Queue: 1 item (41 stale tracked · 1 subjective)`
-  - `desloppify plan queue --sort recent`: `Queue: 1 item (41 planned · 1 subjective)`
-  - `desloppify show review --status open --no-budget --top 100`: `41` live open review issues
-- Reopen guardrails:
-  - `src/Orchestrator.ts` is now a thin public barrel, not the old hotspot owner
-  - `src/modules/ui/channel-setup/ChannelSetupSessionController.ts` is a small facade, not a fresh decomposition target unless new current-source proof appears
-  - `src/modules/plex/auth/plexAuthPayloadParsers.ts` is focused enough; do not elevate it into a standalone hotspot absent new evidence
-  - current cycle/security rows must be verified on current source before they are treated as live architecture regressions; some prior cycle noise is known stale residue
+- Current execution state: package-backed migration applied; queue-trust preflight and package-map lock completed in this pass
+- Next safe start: `P1-W1`
+- Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
+- Exact issue-membership surface: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json`
+- Historical planning context only: local run bundles under `docs/runs/`
 
-## Goal
+## Goals
 
-- retire every live imported review issue and non-review detector envelope confirmed by the 2026-04-16 baseline
-- improve the authoritative integration-branch baseline beyond `overall 87.2 / strict 87.2`
-- keep one explicit final owner for every imported review envelope and one explicit detector-owner path for every remaining mechanical backlog slice
+- retire every live reconciled backlog item from the `2026-04-16` baseline
+- keep one explicit owner package for every mapped review issue and every remaining detector residue
+- preserve checklist-resident gates while keeping the live backlog readable
 
 ## Non-Goals
 
-- do not reopen retired work just because older wording or stale tracked review state still exists
-- do not close priorities on bookkeeping, suppressions, exclusions, archive cleanup, or prose-only improvements
-- do not freeze unstable mechanical issue ids as permanent ownership records in this file
-- do not turn this wave into a rewrite-the-world program; priorities stay surgical and owner-based
+- do not treat `docs/runs/...` artifacts as the live authority surface
+- do not dump raw non-review issue ids into this checklist
+- do not reopen retired hotspots because of stale wording alone
+- do not claim closeout on bookkeeping, suppressions, or prose-only cleanup
 
-## How To Use This
+## Operating Contract
 
-- work top to bottom unless a production incident or explicit maintainer direction forces a different order
-- keep the authoritative execution state in `update_plan`
+- work top to bottom unless explicit maintainer direction says otherwise
+- keep the authoritative execution state in Codex `update_plan`
 - before code changes begin, create an execution-grade plan for the selected `P#-W#`; keep it local by default and promote it to `docs/plans/*` only when durable handoff memory is needed
-- refresh the listed authoritative `desloppify` commands at the start and end of each work unit on the integration branch
-- boxes are checked only after current-source proof, rerun evidence, and the mini-record fields below are current
+- the checklist owns package rows and gate records; the companion map owns exact issue membership
+- refresh the listed authoritative `desloppify` commands at package entry and exit on the integration branch
 - no `P(n+1)` work, tracked plan, or checklist progress starts before the current `P#-EXIT` is complete
 
-## Work-Unit Status Contract
+## Mini-Record Contract
 
-Each work unit and each `P#-EXIT` keeps the same compact shared ledger:
+Every work unit and every exit gate keeps the same compact ledger:
 
 - `Status`: `not started`, `in progress`, `blocked`, or `completed`
-- `Plan`: exact tracked plan path or `local-only`; `none yet` is explicit
+- `Plan`: exact tracked plan path, `local-only`, or `none yet`
 - `Last touched`: exact date or `not started`
 - `Verification`: exact latest commands and whether they passed; `not run` is explicit
-- `Follow-ups`: exact inherited/deferred residuals with one owner, or `none yet`
+- `Follow-ups`: exact inherited or deferred residuals with one owner, or `none yet`
 - `Handoff`: next safe step, next owner, or blocking condition
 
 Do not check a box unless the mini-record is updated in the same pass with current evidence.
 
-## Fresh Evidence Snapshot
+## Package Exit Expectations
 
-### Commands Run For The Current Baseline
+Every `P#-EXIT` must, in the same pass:
 
-- `desloppify status`
-- `desloppify show review --status open --no-budget --top 100`
-- `desloppify show security --status open --no-budget --top 50`
-- `desloppify plan queue --sort recent`
-- inspect `.desloppify/subagents/runs/20260416_084655/run_summary.json`
-- inspect `.desloppify/subagents/runs/20260416_084655/holistic_issues_merged.json`
-- inspect the completed `ARCHITECTURE_CLEANUP_CHECKLIST.md` wave being archived
-- inspect `docs/archive/checklists/2026-03-26-architecture-cleanup-checklist-wave-2.md` for archive-note pattern
-- inspect `.desloppify/state-typescript.json` for open detector inventory
-
-### Run Summary
-
-- Fresh run directory: `.desloppify/subagents/runs/20260416_084655`
-- Import replay already succeeded: `desloppify review --import-run /Users/tristan/Software/Lineup/.desloppify/subagents/runs/20260416_084655 --scan-after-import`
-- Run summary: `20 / 20` successful batches, `0` failed batches
-- Merged output: `.desloppify/subagents/runs/20260416_084655/holistic_issues_merged.json`
-- Review scope metadata: imported `20` subjective dimensions; no missing scored dimensions
-
-### Current Post-Import Score State
-
-- Last scan: `2026-04-16T09:51:26+00:00`
-- `desloppify status`: `overall 87.2 / objective 94.9 / strict 87.2 / verified 94.2`
-- Strict target `85.0` is already reached; checklist closeout still requires `strict > 87.2` and `overall > 87.2`
-- Open issues: `393` total
-- Open imported review issues: `41`
-- Open non-review issues: `352`
-- Subjective pool average: `84.7`
-- Current security surface: `desloppify show security --status open --no-budget --top 50` reports `3` open `cycles` rows and no `P0` blocker beyond those detector envelopes
-
-### Full 20-Dimension Subjective Scorecard
-
-- `abstraction_fitness`: `80.0`
-- `ai_generated_debt`: `78.0`
-- `api_surface_coherence`: `81.0`
-- `authorization_consistency`: `84.0`
-- `contract_coherence`: `82.0`
-- `convention_outlier`: `91.0`
-- `cross_module_architecture`: `88.0`
-- `dependency_health`: `96.0`
-- `design_coherence`: `84.0`
-- `error_consistency`: `82.0`
-- `high_level_elegance`: `83.0`
-- `incomplete_migration`: `88.0`
-- `initialization_coupling`: `87.0`
-- `logic_clarity`: `85.6`
-- `low_level_elegance`: `88.7`
-- `mid_level_elegance`: `87.0`
-- `naming_quality`: `90.0`
-- `package_organization`: `84.5`
-- `test_strategy`: `84.0`
-- `type_safety`: `84.0`
-
-### Current Detector Inventory
-
-These counts come from open work items in `.desloppify/state-typescript.json` and sum to the current `393` open issues:
-
-- `smells`: `181`
-- `structural`: `81`
-- `review`: `41`
-- `test_coverage`: `25`
-- `facade`: `21`
-- `logs`: `9`
-- `signature`: `9`
-- `stale_exclude`: `7`
-- `responsibility_cohesion`: `5`
-- `flat_dirs`: `5`
-- `single_use`: `4`
-- `cycles`: `3`
-- `naming`: `1`
-- `boilerplate_duplication`: `1`
-
-### Queue-Trust And Current-Source Guards
-
-- the `41` stale tracked review items are not allowed to remain implicit backlog truth after `P0`
-- the one live subjective reminder is not implementation work; it is a queue-surface signal that must stay separated from the imported review backlog
-- `dependency_health` has no live review issues despite the subjective reminder surface; do not invent dependency work just because the reminder exists
-- do not treat stale historical complaints about `src/Orchestrator.ts`, `ChannelSetupSessionController`, or `plexAuthPayloadParsers.ts` as live backlog without fresh source proof from this baseline
-
-## Discovery Trail
-
-- Codanna index lookup succeeded (`9172` symbols / `550` files), which was enough to confirm repo-index health.
-- Codanna document search was too imprecise for this archive-and-reset task, so final shaping used direct reads of:
-  - `docs/AGENTIC_DEV_WORKFLOW.md`
-  - `agents.md`
-  - `docs/architecture/CURRENT_STATE.md`
-  - the completed `ARCHITECTURE_CLEANUP_CHECKLIST.md` wave being archived
-  - `docs/archive/checklists/2026-03-26-architecture-cleanup-checklist-wave-2.md`
-  - `.desloppify/subagents/runs/20260416_084655/run_summary.json`
-  - `.desloppify/subagents/runs/20260416_084655/holistic_issues_merged.json`
-  - `.desloppify/state-typescript.json`
-- Live owner mapping used `desloppify show review --status open --no-budget --top 100` as the authoritative open-review surface and used the merged run only for score/evidence context and full issue metadata.
-
-## Review Backlog Shape By Dimension
-
-- `abstraction_fitness`: `2`
-- `ai_generated_debt`: `3`
-- `api_surface_coherence`: `2`
-- `authorization_consistency`: `2`
-- `contract_coherence`: `3`
-- `convention_outlier`: `1`
-- `cross_module_architecture`: `2`
-- `dependency_health`: `0`
-- `design_coherence`: `3`
-- `error_consistency`: `3`
-- `high_level_elegance`: `3`
-- `incomplete_migration`: `2`
-- `initialization_coupling`: `2`
-- `logic_clarity`: `1`
-- `low_level_elegance`: `2`
-- `mid_level_elegance`: `1`
-- `naming_quality`: `2`
-- `package_organization`: `2`
-- `test_strategy`: `2`
-- `type_safety`: `3`
-
-## Mechanical Debt Planning Rule
-
-Imported review issues are stable enough to track by exact id. The remaining `352` non-review issues are not.
-
-Track mechanical debt in this checklist by:
-
-- detector envelope
-- owner area
-- authoritative `desloppify show <area-or-detector> --status open --no-budget` commands
-- entry and exit score snapshots
-- explicit inherited follow-ups when a priority cannot retire all live detector residue in its area
-
-Do not convert the current `352` non-review issue ids into long-lived ownership records here. Refresh them at each `P#-EXIT` instead.
-
-## Companion Plan Rule
-
-Before implementing any work unit below:
-
-- keep the authoritative execution state in `update_plan`
-- create an execution-grade plan with exact files in scope, exact files out of scope, mapped review issue ids, detector envelopes, verification commands, and rollback notes where ownership/persistence/startup/runtime seams change
-- keep that plan local by default; promote it to `docs/plans/*` only when durable tracked handoff memory is explicitly needed
-- if the slice is the last planned `P#-W#` item for a priority, include the priority-exit review steps and score-delta recording in the same plan before implementation starts
-
-## Priority Overview
-
-- `P0`: queue trust, stale tracked review-state retirement, and baseline lock
-- `P1`: runtime/orchestrator ownership and priority-one assembly concentration
-- `P2`: app-shell seams, package surfaces, and UI-owned persistence residue
-- `P3`: Plex discovery/library/auth contract coherence
-- `P4`: auth/profile/startup/lifecycle state coherence
-- `P5`: player, playback, and subtitle-recovery ownership
-- `P6`: channel-setup, scheduler, and EPG contract/package residue
-- `P7`: template-comment, wrapper-sprawl, and low-value migration residue cleanup
-- `P8`: type-safety, naming, and verification-ratchet cleanup
-- `P9`: residual mechanical burn-down and score-gated final closeout
-
-## Priority Skill Routing
-
-- `P0`: docs/process only by default; add `architecture-boundaries` only if queue-trust cleanup changes tracked ownership rules
-- `P1`: `architecture-boundaries`
-- `P2`: `architecture-boundaries`, `ui-composition-patterns`, `persistence-boundaries`
-- `P3`: `architecture-boundaries`, `plex-integration-boundaries`
-- `P4`: `architecture-boundaries`, `plex-integration-boundaries`, `persistence-boundaries`, `ui-composition-patterns`
-- `P5`: `architecture-boundaries`, `plex-integration-boundaries`
-- `P6`: `architecture-boundaries`, `ui-composition-patterns`, `persistence-boundaries`
-- `P7`: boundary skill matching touched files; default `architecture-boundaries`
-- `P8`: `architecture-boundaries` plus the narrow boundary skill matching the touched owner area
-- `P9`: only the skills needed by the remaining live residual owners; do not load broad skills by habit
+- record mapped review dispositions from the tracked companion map rather than inline checklist ids
+- refresh the package-local scoping commands and record detector-count deltas that matter for that package
+- refresh `desloppify show security --status open --no-budget --top 50` as security triage
+- record entry baseline, exit baseline, and delta; if neither `overall` nor `strict` improves, keep the exit open unless every survivor has one exact later owner
+- keep exact residual ownership in the companion map and this checklist synchronized
 
 ## Execution Hygiene
 
 - Disposition vocabulary:
-  - `resolved`: the exact review issue or slice-owned detector rationale is retired on current source and backed by fresh rerun evidence
-  - `deferred`: the issue stays open, but the record names the exact owner, reason, and revisit trigger
-  - `split follow-up`: the current slice is not the final owner; the remaining live gap is handed to one exact later owner in this checklist
-  - `owned follow-up`: the exact successor owner named by a `split follow-up` record; no shared implicit ownership
-  - `priority-exit review`: the blocking review and rerun pass that closes a priority before any lower priority starts
-  - `stale-proven`: current-source proof shows the live rationale is gone even if detector wording or tracked state still lags; this still requires a fresh rerun and exact evidence
-  - `security triage`: `desloppify show security --status open --no-budget --top 50` has been refreshed and any live blocker is either retired or explicitly deferred with owner plus revisit trigger
-- Issue-envelope ownership rule:
-  - every imported review issue listed in this checklist has a single final owner the moment the wave starts
-  - detector lag alone is not a reason to reassign an issue to a new owner
-  - a completed work unit may hand remaining live debt to one exact later owner, but it may not leave ownership implicit
-- Source-audit precedence rule:
-  - when current-source proof shows the slice-owned rationale is gone, prefer `resolved` or `stale-proven` over inventing a new follow-up
-  - use `split follow-up` only when current-source proof shows a genuinely different remaining owner
-- Mechanical follow-up rule:
-  - mechanical debt is tracked by detector envelope plus owner area, not by frozen issue ids
-  - every `P#-EXIT` must record the entry and exit detector counts that matter for that priority and name the exact later owner for any surviving live residue
-- Priority-exit score rule:
-  - every `P#-EXIT` requires a fresh authoritative rerun on the integration branch
-  - every `P#-EXIT` records `entry baseline`, `exit baseline`, and `delta`
-  - if neither `overall` nor `strict` improves versus the priority-entry snapshot, the exit stays open unless all remaining live debt is explicitly handed to one later owner inside this checklist and the no-drop proof is updated in the same pass
-- Priority-exit record format:
-  - mapped imported issues with one disposition each
-  - follow-up ownership for every `deferred` or `split follow-up`
-  - relevant detector envelopes and counts at entry vs exit
-  - `security triage`
-  - exact verification commands
-  - score delta versus the priority-entry snapshot
+  - `stale-proven`: the exact mapped issue is absent on current source, and the rerun evidence plus current-source inspection prove the tracked complaint was stale rather than silently dropped.
+  - `resolved`: the exact mapped issue or package-owned rationale is retired on current source and backed by fresh rerun evidence.
+  - `deferred`: the issue stays open, but the record names the exact current owner, reason, and revisit trigger.
+  - `split follow-up`: the current package is not the final owner; the remaining live gap is handed to one exact successor owner.
+  - `owned follow-up`: the exact successor owner named by a `split follow-up` record; every deferred or split item must have one single final owner.
+  - `priority-exit review`: the blocking review run after the package work item and before any `P(n+1)` work, plan, or checklist progress begins.
+- Ownership rule:
+  - keep one single final owner for every deferred or split follow-up item.
+  - detector lag alone is not a reason to invent a new successor owner.
 - Cleanup slice execution template:
   - `priority/work units`: exact `P#-W#` items in scope for the slice
-  - `imported review issues`: exact mapped review ids being retired
-  - `security triage`: `no open P0 security findings`, or the exact deferred/resolved blocker ids plus owner and revisit trigger
+  - `imported review issues`: exact mapped issue ids or the exact companion-map package section being retired
+  - `security triage`: `no open P0 security findings`, or the exact deferred or resolved `P0` security findings for the slice
   - `verification`: exact commands that prove the slice is complete
-  - `deferred items`: anything intentionally left open with one exact owner and revisit trigger
-  - `proof matrix`: for each mapped imported issue, record whether the slice-owned rationale is retired on current source, whether live residual debt remains, and the single final owner if anything survives
+  - `deferred items`: anything intentionally left open with one exact owner, reason, and revisit trigger
+  - `proof matrix`: for each mapped imported issue or package-owned rationale, record whether the slice-owned rationale is retired on current source, whether live residual debt remains, the single final owner, and the revisit trigger if anything remains open
 - Priority exit command checklist:
   - rerun `desloppify status`
   - rerun `desloppify plan queue --sort recent`
   - rerun `desloppify show review --status open --no-budget --top 100`
   - rerun `desloppify show security --status open --no-budget --top 50`
-  - rerun every exact area/detector command used to scope the closing priority
-  - confirm every mapped imported issue for the priority is either retired here or explicitly deferred/split with a single final owner
-  - do not mark progress on `P(n+1)` work until the current priority's `P#-EXIT` record is complete
-- Final closeout rule:
-  - the checklist itself cannot close on wording improvements, exclusions, suppressions, archive hygiene, or stale-state cleanup alone
-  - `P9-EXIT` must prove `overall > 87.2`, `strict > 87.2`, no live 2026-04-16 review issue was dropped without owner or stale-proof disposition, and the remaining detector table is fully accounted for
+  - rerun the package-local scoping commands for the closing priority
+  - rerun the strongest task-specific verification used by the closing work item
+  - confirm every mapped imported issue or package-owned rationale for the priority is either retired here or explicitly deferred or split with one single final owner, reason, and revisit trigger
+  - do not mark progress on `P(n+1)` work until the current priority-exit review is complete and the `P#-EXIT` record is complete
 
-## Priority Exit Gates
+## Fresh Evidence Snapshot
 
-Each exit gate below is mandatory. Do not mark progress on `P(n+1)` work until the current `P#-EXIT` is complete with a fresh authoritative rerun and recorded score delta.
+### Reconciled Backlog Counts
 
-- [ ] `P0-EXIT`
-  - required: record every mapped imported issue with an exact disposition, assign a single final owner for every deferred or split follow-up, and record the priority score delta before `P1`
-  - required: reconcile the `41` stale tracked queue entries against the V5 owner map, record them as stale queue-state rather than live owner truth, lock the V5 owner map as the only live checklist truth, refresh `status`/`plan queue`/`review`/`security`, and record `entry vs exit` score deltas before `P1`
-  - Status: not started
-  - Plan: none yet; execution-grade plan required before edits
-  - Last touched: not started
-  - Verification: not run
-  - Follow-ups: none yet
-  - Handoff: `P1-W1` only after queue-trust and owner-map evidence is current
-- [ ] `P1-EXIT`
-  - required: record every mapped imported issue with an exact disposition, assign a single final owner for every deferred or split follow-up, and record the priority score delta before `P2`
-  - required: runtime/orchestrator review issues are retired or explicitly reassigned, orchestrator detector residue is refreshed, and the exit records a positive score delta or an exact later-owner handoff inside this checklist
-  - Status: not started
-  - Plan: none yet; execution-grade plan required before edits
-  - Last touched: not started
-  - Verification: not run
-  - Follow-ups: none yet
-  - Handoff: `P2-W1` only after runtime/orchestrator exit evidence is complete
-- [ ] `P2-EXIT`
-  - required: record every mapped imported issue with an exact disposition, assign a single final owner for every deferred or split follow-up, and record the priority score delta before `P3`
-  - required: app-shell/package seam issues are retired, `src/types` runtime-ownership drift is resolved or explicitly reassigned, persistence-adapter residue is accounted for, and the exit records a fresh score delta
-  - Status: not started
-  - Plan: none yet; execution-grade plan required before edits
-  - Last touched: not started
-  - Verification: not run
-  - Follow-ups: none yet
-  - Handoff: `P3-W1` only after app-shell/package exit evidence is complete
-- [ ] `P3-EXIT`
-  - required: record every mapped imported issue with an exact disposition, assign a single final owner for every deferred or split follow-up, and record the priority score delta before `P4`
-  - required: Plex discovery/library/auth contract drift is retired or reassigned with one owner, library/discovery detector envelopes are refreshed, and the exit records a fresh score delta
-  - Status: not started
-  - Plan: none yet; execution-grade plan required before edits
-  - Last touched: not started
-  - Verification: not run
-  - Follow-ups: none yet
-  - Handoff: `P4-W1` only after Plex contract exit evidence is complete
-- [ ] `P4-EXIT`
-  - required: record every mapped imported issue with an exact disposition, assign a single final owner for every deferred or split follow-up, and record the priority score delta before `P5`
-  - required: startup auth/profile state is coherent, lifecycle timing claims are honest, startup normalization tests are current, and the exit records a fresh score delta
-  - Status: not started
-  - Plan: none yet; execution-grade plan required before edits
-  - Last touched: not started
-  - Verification: not run
-  - Follow-ups: none yet
-  - Handoff: `P5-W1` only after startup/lifecycle exit evidence is complete
-- [ ] `P5-EXIT`
-  - required: record every mapped imported issue with an exact disposition, assign a single final owner for every deferred or split follow-up, and record the priority score delta before `P6`
-  - required: playback recovery ownership is narrowed, subtitle-specific helper duplication is retired or reassigned with one owner, player/log detector envelopes are refreshed, and the exit records a fresh score delta
-  - Status: not started
-  - Plan: none yet; execution-grade plan required before edits
-  - Last touched: not started
-  - Verification: not run
-  - Follow-ups: none yet
-  - Handoff: `P6-W1` only after playback/subtitle exit evidence is complete
-- [ ] `P6-EXIT`
-  - required: record every mapped imported issue with an exact disposition, assign a single final owner for every deferred or split follow-up, and record the priority score delta before `P7`
-  - required: channel-setup, scheduler, and EPG contract/package residue is retired or explicitly handed forward, area detector envelopes are refreshed, and the exit records a fresh score delta
-  - Status: not started
-  - Plan: none yet; execution-grade plan required before edits
-  - Last touched: not started
-  - Verification: not run
-  - Follow-ups: none yet
-  - Handoff: `P7-W1` only after channel/EPG exit evidence is complete
-- [ ] `P7-EXIT`
-  - required: record every mapped imported issue with an exact disposition, assign a single final owner for every deferred or split follow-up, and record the priority score delta before `P8`
-  - required: template-comment noise, wrapper sprawl, and the toast migration residue are retired or reassigned with current-source proof; wording-only cleanup is not enough; the exit records a fresh score delta
-  - Status: not started
-  - Plan: none yet; execution-grade plan required before edits
-  - Last touched: not started
-  - Verification: not run
-  - Follow-ups: none yet
-  - Handoff: `P8-W1` only after AI-debt/migration exit evidence is complete
-- [ ] `P8-EXIT`
-  - required: record every mapped imported issue with an exact disposition, assign a single final owner for every deferred or split follow-up, and record the priority score delta before `P9`
-  - required: type-safety, naming, and test-ratchet issues are retired or reassigned, verification envelopes are refreshed, and the exit records a fresh score delta
-  - Status: not started
-  - Plan: none yet; execution-grade plan required before edits
-  - Last touched: not started
-  - Verification: not run
-  - Follow-ups: none yet
-  - Handoff: `P9-W1` only after type-safety/test exit evidence is complete
-- [ ] `P9-EXIT`
-  - required: authoritative rerun on the integration branch records previous baseline, new baseline, delta, remaining open issues by detector, remaining open review issues, and proof that no live 2026-04-16 issue was dropped without an owner or stale-proof disposition; close only if `overall > 87.2` and `strict > 87.2`
-  - Status: not started
-  - Plan: none yet; execution-grade plan required before edits
-  - Last touched: not started
-  - Verification: not run
-  - Follow-ups: none yet
-  - Handoff: checklist complete only when this gate is satisfied
+- `209` total open
+- `158` older live non-review
+- `41` fresh review
+- `10` fresh non-review
+- package count: `9` backlog work units, with queue-trust preflight and final rerun/no-drop proof kept outside the package count
 
-## Priority 0: Restore Queue Trust Before Cleanup Execution
+### Commands Observed In This Session
 
-### [ ] `P0-W1` Reconcile Stale Tracked Review State And Lock The V5 Baseline
+- `desloppify status`: `overall 87.7 / objective 96.6 / strict 87.6 / verified 94.2`; `209` open; living plan signal still reports `Queue: 54 items (54 planned · 2 skipped)`
+- `desloppify plan`: `54` user-ordered queue items, `143` backlog items, `2` skipped stale placeholders; next command reported as `desloppify next --count 20`
+- `desloppify plan queue --sort recent`: `Queue: 0 items (54 planned · 2 skipped)`; queue is empty
+- `desloppify next`: `Queue: 0 items`; `Nothing to do! Strict score: 87.6/100`
+- `desloppify show review --status open --no-budget --top 100`: `41` open review issues
+- `desloppify show security --status open --no-budget --top 50`: no open security/cycles issues
+- queue-trust conclusion for this migration pass: the queue-order surface is stale and is not authoritative backlog truth; the package-backed checklist plus the tracked companion map are the live backlog model until a fresh integration-branch rerun says otherwise
 
-**Goal:** make the V5 checklist the only live owner map before implementation starts.
+### Current-Source Guardrails
 
-**Required outcomes:**
+- `src/Orchestrator.ts` remains a thin public barrel and is not, by itself, proof of a reopened hotspot
+- `src/modules/ui/channel-setup/ChannelSetupSessionController.ts` should not be re-elevated without fresh current-source proof
+- `src/modules/plex/auth/plexAuthPayloadParsers.ts` is not a standalone hotspot absent new evidence
 
-- reconcile the `41` stale tracked review items so queue surfaces stop competing with the live imported review backlog
-- confirm the one live subjective reminder stays outside the implementation queue unless a later rerun turns it into concrete review debt
-- refresh the baseline commands and lock the detector inventory plus imported-owner map to the V5 checklist
-- record any surviving queue-surface mismatch as repo-state, by-design semantics, or upstream tool defect with a local operating rule
+## Queue-Trust Gate
 
-**Primary files/areas:**
+### [x] `P0-W1` Queue-Trust Preflight And Package-Map Lock
 
-- `ARCHITECTURE_CLEANUP_CHECKLIST.md`
-- `.desloppify/plan.json`
-- `.desloppify/state-typescript.json`
-- `.desloppify/subagents/runs/20260416_084655/*`
-
-**Mechanical envelopes to refresh at entry and exit:**
-
-- `desloppify status`
-- `desloppify plan queue --sort recent`
-- `desloppify show review --status open --no-budget --top 100`
-- `desloppify show security --status open --no-budget --top 50`
-- `desloppify show stale_exclude --status open --no-budget --top 50`
-
-**Exit rule:** queue-trust ambiguity is no longer an excuse to drop or mis-own live 2026-04-16 work.
-
-- Status: not started
-- Plan: none yet; execution-grade plan required before edits
-- Last touched: not started
-- Verification: not run
+- Goal: retire queue-order ambiguity before package execution starts and make the package-backed model the only live checklist truth
+- Evidence captured in this session:
+  - `desloppify status` reports `209` open with scores `overall 87.7 / strict 87.6`
+  - `desloppify plan` still renders a stale ordered queue surface
+  - `desloppify plan queue --sort recent` is empty despite `54` planned items, proving queue order is not the right execution surface
+  - `desloppify next` is empty, proving queue order is not the right execution surface
+  - `desloppify show review --status open --no-budget --top 100` still reports `41` live open review issues
+  - `desloppify show security --status open --no-budget --top 50` reports no open security/cycles issues
+  - the backlog has been reconciled to `209 = 158 older live non-review + 41 fresh review + 10 fresh non-review`
+  - this checklist now routes exact issue membership to `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` and treats `docs/runs/...` as historical context only
+- Status: completed
+- Plan: local-only controller-approved migration directive
+- Last touched: `2026-04-16`
+- Verification: `desloppify status`, `desloppify plan`, `desloppify plan queue --sort recent`, `desloppify next`, `desloppify show review --status open --no-budget --top 100`, and `desloppify show security --status open --no-budget --top 50` observed in this session
 - Follow-ups: none yet
 - Handoff: `P0-EXIT`
 
-## Priority 1: Retire Runtime Ownership And Assembly Concentration
+- [x] `P0-EXIT` Lock Queue Trust Before Package Execution
 
-### [ ] `P1-W1` Shrink The Runtime Hub And Priority-One Factory Step
-
-**Goal:** stop `AppOrchestrator` and the priority-one assembly path from remaining the de facto owner for cross-domain runtime behavior.
-
-**Mapped live review issues:**
-
-- `review::.::holistic::high_level_elegance::runtime_owner_concentration`
-- `review::.::holistic::design_coherence::app_orchestrator_remains_runtime_hub`
-- `review::.::holistic::design_coherence::priority_one_runtime_assembly_is_still_one_large_factory_step`
-- `review::.::holistic::package_organization::core_priority_one_root_residue`
-
-**Primary files/areas:**
-
-- `src/core/orchestrator/AppOrchestrator.ts`
-- `src/core/orchestrator/OrchestratorPriorityOneControllerFactory.ts`
-- `src/core/orchestrator/OrchestratorRuntimeSeams.ts`
-- `src/core/PlaybackStartController.ts`
-- `src/core/PlaybackRuntimeController.ts`
-
-**Mechanical envelopes to refresh at entry and exit:**
-
-- `desloppify show src/core/orchestrator --status open --no-budget --top 150`
-- `desloppify show src/core --status open --no-budget --top 150`
-- `desloppify show smells --status open --no-budget --top 250`
-- `desloppify show structural --status open --no-budget --top 150`
-
-**Exit rule:** runtime controller ownership no longer forces readers through one large orchestrator shell or one large priority-one assembly step.
-
-- Status: not started
-- Plan: none yet; execution-grade plan required before edits
-- Last touched: not started
-- Verification: not run
+- Required closeout met in this pass: stale queue-order surfaces were demoted from backlog authority, the package-backed row model replaced the old draft, the tracked companion path is now the exact issue-membership surface for live execution, and the old queue/review/security reads were refreshed before exposing `P1-W1` as the next safe start
+- Entry baseline: `desloppify status` observed in this session as `overall 87.7 / objective 96.6 / strict 87.6 / verified 94.2`, `209` open
+- Exit baseline: `desloppify plan queue --sort recent` is empty, `desloppify show review --status open --no-budget --top 100` still reports `41` open review issues, and `desloppify show security --status open --no-budget --top 50` reports no open security/cycles issues; no integration-branch scan rerun performed in this docs-only migration pass
+- Status: completed
+- Plan: local-only controller-approved migration directive
+- Last touched: `2026-04-16`
+- Verification: `desloppify status`, `desloppify plan`, `desloppify plan queue --sort recent`, `desloppify next`, `desloppify show review --status open --no-budget --top 100`, and `desloppify show security --status open --no-budget --top 50` observed in this session; no integration-branch scan rerun performed in this pass
 - Follow-ups: none yet
-- Handoff: `P1-W2`
+- Handoff: `P1-W1`
 
-### [ ] `P1-W2` Remove Broad Builder Bags And Reverse Runtime Seams
+## Package Backlog
 
-**Goal:** replace wrapper-heavy coordinator assembly with direct, owner-honest seams.
+### [ ] `P1-W1` `pkg_control_plane_runtime` Control-Plane Runtime Ownership
 
-**Mapped live review issues:**
-
-- `review::.::holistic::abstraction_fitness::orchestrator_builder_passthrough_bags`
-- `review::.::holistic::abstraction_fitness::single_impl_runtime_interfaces`
-- `review::.::holistic::cross_module_architecture::navigation_depends_on_orchestrator_runtime_seam`
-
-**Primary files/areas:**
-
-- `src/core/orchestrator/OrchestratorCoordinatorContracts.ts`
-- `src/core/orchestrator/OrchestratorCoordinatorBuilders.ts`
-- `src/modules/navigation/NavigationCoordinator.ts`
-- `src/core/orchestrator/OrchestratorModuleFactory.ts`
-
-**Mechanical envelopes to refresh at entry and exit:**
-
-- `desloppify show src/core/orchestrator/OrchestratorCoordinatorContracts.ts --status open --no-budget --top 80`
-- `desloppify show src/core/orchestrator/OrchestratorCoordinatorBuilders.ts --status open --no-budget --top 120`
-- `desloppify show src/modules/navigation --status open --no-budget --top 120`
-- `desloppify show logs --status open --no-budget --top 50`
-
-**Exit rule:** coordinator builders use focused dependency types, navigation no longer imports orchestrator-owned callback types, and full-module one-implementation interfaces are retired or narrowed where they still add ceremony without substitution value.
-
+- Backlog: `32 = 21 older live non-review + 7 fresh review + 4 fresh non-review`
+- Scope: retire the orchestrator/runtime hotspot cluster, narrow builder-bag assembly, and restore owner-honest navigation-facing control-plane seams
+- Exact membership: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` -> `pkg_control_plane_runtime`
+- Package-local scoping commands:
+  - `desloppify show src/core/orchestrator --status open --no-budget --top 150`
+  - `desloppify show src/modules/navigation --status open --no-budget --top 120`
+  - `desloppify show structural --status open --no-budget --top 150`
+  - `desloppify show smells --status open --no-budget --top 250`
 - Status: not started
-- Plan: none yet; execution-grade plan required before edits
+- Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
 - Handoff: `P1-EXIT`
 
-## Priority 2: Repair App-Shell Seams, Package Surfaces, And UI-Owned Persistence Residue
+- [ ] `P1-EXIT`
 
-### [ ] `P2-W1` Move App-Shell And Overlay Wiring Onto Package-Owned Seams
-
-**Goal:** keep app-shell wiring on public owner seams instead of concrete UI implementation files or the old public orchestrator barrel.
-
-**Mapped live review issues:**
-
-- `review::.::holistic::cross_module_architecture::lazy_screen_contracts_live_in_concrete_ui_files`
-- `review::.::holistic::convention_outlier::playback_options_root_surface_bypass`
-- `review::.::holistic::incomplete_migration::internal_orchestrator_barrel_drift`
-- `review::.::holistic::high_level_elegance::orchestrator_public_barrel_backflow`
-
-**Primary files/areas:**
-
-- `src/core/app-shell/AppLazyScreenRegistry.ts`
-- `src/core/app-shell/AppLazyScreenPortFactory.ts`
-- `src/core/app-shell/AppOrchestratorConfigFactory.ts`
-- `src/core/app-shell/AppShellRuntimeContracts.ts`
-- `src/modules/ui/playback-options/index.ts`
-
-**Mechanical envelopes to refresh at entry and exit:**
-
-- `desloppify show src/core/app-shell --status open --no-budget --top 150`
-- `desloppify show src/modules/ui --status open --no-budget --top 150`
-- `desloppify show facade --status open --no-budget --top 80`
-
-**Exit rule:** app-shell imports package-owned seams only, overlay package conventions are consistent, and the top-level `src/Orchestrator.ts` barrel is reserved for external entry stability instead of internal core wiring.
-
+  - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P2`
+  - required: refresh package-local commands, record mapped review dispositions from `pkg_control_plane_runtime`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
 - Status: not started
-- Plan: none yet; execution-grade plan required before edits
+- Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: `P2-W2`
+- Handoff: `P2-W1`
 
-### [ ] `P2-W2` Resolve Package-Role Drift And UI-Owned Persistence Assembly
+### [ ] `P2-W1` `pkg_app_shell_shared_ui` App-Shell, Shared UI, And Persistence Seams
 
-**Goal:** finish the remaining ownership drift where package names and persistence seams still misdescribe reality.
-
-**Mapped live review issues:**
-
-- `review::.::holistic::high_level_elegance::types_package_role_drift`
-- `review::.::holistic::mid_level_elegance::ui_owned_persistence_seams`
-
-**Primary files/areas:**
-
-- `src/types/**`
-- `src/config/storageKeys.ts`
-- `src/core/app-shell/AppDiagnosticsSurface.ts`
-- `src/modules/ui/server-select/ServerSelectScreen.ts`
-- `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
-- `src/modules/ui/settings/SettingsStore.ts`
-
-**Mechanical envelopes to refresh at entry and exit:**
-
-- `desloppify show src/types --status open --no-budget --top 80`
-- `desloppify show src/core/app-shell --status open --no-budget --top 150`
-- `desloppify show src/modules/ui --status open --no-budget --top 150`
-- `desloppify show signature --status open --no-budget --top 80`
-
-**Exit rule:** runtime storage ownership no longer hides under `src/types`, and storage-backed collaborators are constructed by the right composition owners instead of inside UI/app-shell leaves.
-
+- Backlog: `39 = 33 older live non-review + 6 fresh review + 0 fresh non-review`
+- Scope: keep app-shell wiring on package-owned seams, finish shared UI persistence assembly cleanup, and hold non-EPG shared UI residue in one execution surface
+- Exact membership: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` -> `pkg_app_shell_shared_ui`
+- Package-local scoping commands:
+  - `desloppify show src/core/app-shell --status open --no-budget --top 150`
+  - `desloppify show src/modules/ui/mini-guide --status open --no-budget --top 120`
+  - `desloppify show src/modules/ui/now-playing-info --status open --no-budget --top 120`
+  - `desloppify show src/modules/ui/playback-options --status open --no-budget --top 120`
+  - `desloppify show src/modules/ui/player-osd --status open --no-budget --top 120`
+  - `desloppify show src/modules/ui/settings --status open --no-budget --top 120`
+  - `desloppify show src/modules/ui/common --status open --no-budget --top 100`
+  - `desloppify show src/styles --status open --no-budget --top 80`
+  - `desloppify show src/bootstrap.ts --status open --no-budget --top 50`
+  - `desloppify show src/__tests__/App.test.ts --status open --no-budget --top 50`
+- Companion-map leaf review required at entry/exit: confirm the exact package-owned facade leaves in `channel-badge`, `channel-number-overlay`, `sleep-timer`, and `theme` from `pkg_app_shell_shared_ui`; do not treat the command list alone as exhaustive closure proof
 - Status: not started
-- Plan: none yet; execution-grade plan required before edits
+- Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
 - Handoff: `P2-EXIT`
 
-## Priority 3: Normalize Plex Discovery, Library, And Auth Contract Surfaces
+- [ ] `P2-EXIT`
 
-### [ ] `P3-W1` Replace Scalar And Sentinel Plex Result Drift With Coherent Contracts
-
-**Goal:** make Plex discovery and library boundaries tell the truth about failure and success in one coherent way.
-
-**Mapped live review issues:**
-
-- `review::.::holistic::api_surface_coherence::plex_discovery_scalar_test_result`
-- `review::.::holistic::api_surface_coherence::plex_library_failure_contract_drift`
-- `review::.::holistic::error_consistency::plex_library_null_results_mask_fetch_failures`
-
-**Primary files/areas:**
-
-- `src/modules/plex/discovery/interfaces.ts`
-- `src/modules/plex/discovery/PlexServerDiscovery.ts`
-- `src/modules/plex/library/interfaces.ts`
-- `src/modules/plex/library/PlexLibrary.ts`
-
-**Mechanical envelopes to refresh at entry and exit:**
-
-- `desloppify show src/modules/plex/discovery --status open --no-budget --top 120`
-- `desloppify show src/modules/plex/library --status open --no-budget --top 150`
-- `desloppify show structural --status open --no-budget --top 150`
-- `desloppify show test_coverage --status open --no-budget --top 120`
-
-**Exit rule:** discovery and library readers use explicit, internally consistent result contracts instead of raw scalar unions and mixed `throw`/`null`/`[]` failure semantics.
-
+  - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P3`
+  - required: refresh package-local commands, record mapped review dispositions from `pkg_app_shell_shared_ui`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
 - Status: not started
-- Plan: none yet; execution-grade plan required before edits
+- Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: `P3-W2`
+- Handoff: `P3-W1`
 
-### [ ] `P3-W2` Normalize Plex Parse, Polling, And Platform-Identity Error Paths
+### [ ] `P3-W1` `pkg_plex_contracts_identity` Plex Contracts And Identity
 
-**Goal:** keep Plex auth and stream request setup on typed, observable failure paths without reopening already-focused parser helpers as fake hotspots.
-
-**Mapped live review issues:**
-
-- `review::.::holistic::error_consistency::plex_auth_pin_parsing_bypasses_typed_errors`
-- `review::.::holistic::error_consistency::plex_auth_poll_timeout_masks_retryable_failures`
-- `review::.::holistic::initialization_coupling::platform_version_first_probe_cache`
-
-**Primary files/areas:**
-
-- `src/modules/plex/auth/PlexAuth.ts`
-- `src/modules/plex/auth/plexAuthPayloadParsers.ts`
-- `src/platform/webosPlatformServices.ts`
-- `src/modules/plex/stream/PlexStreamResolver.ts`
-
-**Mechanical envelopes to refresh at entry and exit:**
-
-- `desloppify show src/modules/plex/auth --status open --no-budget --top 150`
-- `desloppify show src/modules/plex/stream --status open --no-budget --top 150`
-- `desloppify show logs --status open --no-budget --top 50`
-- `desloppify show test_coverage --status open --no-budget --top 120`
-
-**Exit rule:** PIN/profile parse failures stay typed, polling preserves the true retryable failure class, and platform-version identity is no longer frozen by an early fallback probe.
-
+- Backlog: `19 = 11 older live non-review + 6 fresh review + 2 fresh non-review`
+- Scope: normalize Plex discovery, library, auth, and identity/error seams under one Plex-owned package
+- Exact membership: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` -> `pkg_plex_contracts_identity`
+- Package-local scoping commands:
+  - `desloppify show src/modules/plex/discovery --status open --no-budget --top 120`
+  - `desloppify show src/modules/plex/library --status open --no-budget --top 150`
+  - `desloppify show src/modules/plex/auth --status open --no-budget --top 150`
+  - `desloppify show test_coverage --status open --no-budget --top 120`
 - Status: not started
-- Plan: none yet; execution-grade plan required before edits
+- Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
 - Handoff: `P3-EXIT`
 
-## Priority 4: Make Auth, Profile, Startup, And Lifecycle State Coherent
+- [ ] `P3-EXIT`
 
-### [ ] `P4-W1` Normalize Startup Auth/Profile Expiry And Constructor-Time Auth State
-
-**Goal:** stop startup and profile selection from advertising a coherent auth state while reusing stale tokens or constructor-time side effects.
-
-**Mapped live review issues:**
-
-- `review::.::holistic::authorization_consistency::startup_invalid_active_token_persisted`
-- `review::.::holistic::authorization_consistency::profile_select_auth_resume_gap`
-- `review::.::holistic::low_level_elegance::phase2_auth_gate_branch_stack`
-- `review::.::holistic::initialization_coupling::plex_auth_constructor_storage_side_effect`
-
-**Primary files/areas:**
-
-- `src/core/initialization/InitializationStartupPolicy.ts`
-- `src/modules/plex/auth/PlexAuth.ts`
-- `src/modules/ui/profile-select/ProfileSelectScreen.ts`
-- `src/modules/ui/profile-select/__tests__/ProfileSelectScreen.test.ts`
-
-**Mechanical envelopes to refresh at entry and exit:**
-
-- `desloppify show src/core/initialization --status open --no-budget --top 150`
-- `desloppify show src/modules/ui/profile-select --status open --no-budget --top 120`
-- `desloppify show src/modules/plex/auth --status open --no-budget --top 150`
-- `desloppify show test_coverage --status open --no-budget --top 120`
-
-**Exit rule:** startup no longer preserves a known-invalid active token as authenticated state, profile actions follow one auth-expiry recovery rule, and auth construction no longer performs stateful cleanup before startup policy owns the decision.
-
+  - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P4`
+  - required: refresh package-local commands, record mapped review dispositions from `pkg_plex_contracts_identity`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
 - Status: not started
-- Plan: none yet; execution-grade plan required before edits
+- Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: `P4-W2`
+- Handoff: `P4-W1`
 
-### [ ] `P4-W2` Make Lifecycle Timing And Startup Error Normalization Honest
+### [ ] `P4-W1` `pkg_startup_auth_lifecycle` Startup, Auth, Profile, And Lifecycle State
 
-**Goal:** align startup/lifecycle public timing contracts with what the runtime actually does.
-
-**Mapped live review issues:**
-
-- `review::.::holistic::logic_clarity::lifecycle_promise_semantics_hide_real_timing`
-- `review::.::holistic::test_strategy::startup-error-normalization-gap`
-
-**Primary files/areas:**
-
-- `src/modules/lifecycle/AppLifecycle.ts`
-- `src/core/PlaybackRuntimeController.ts`
-- `src/core/channel-tuning/ChannelTuningCoordinator.ts`
-- `src/core/initialization/RecoverableModuleStatusError.ts`
-- `src/core/initialization/__tests__/**`
-
-**Mechanical envelopes to refresh at entry and exit:**
-
-- `desloppify show src/modules/lifecycle --status open --no-budget --top 120`
-- `desloppify show src/core/initialization --status open --no-budget --top 150`
-- `desloppify show test_coverage --status open --no-budget --top 120`
-- `desloppify show signature --status open --no-budget --top 80`
-
-**Exit rule:** lifecycle `await`/phase semantics are truthful, and startup error normalization has focused tests for the shared unknown-error branches it currently owns.
-
+- Backlog: `23 = 15 older live non-review + 6 fresh review + 2 fresh non-review`
+- Scope: make startup/session state honest across auth expiry, profile selection, initialization, error normalization, and lifecycle timing
+- Exact membership: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` -> `pkg_startup_auth_lifecycle`
+- Package-local scoping commands:
+  - `desloppify show src/core/initialization --status open --no-budget --top 150`
+  - `desloppify show src/core/InitializationCoordinator.ts --status open --no-budget --top 80`
+  - `desloppify show src/core/__tests__/InitializationCoordinator.test.ts --status open --no-budget --top 50`
+  - `desloppify show src/core/error-recovery --status open --no-budget --top 80`
+  - `desloppify show src/modules/ui/auth --status open --no-budget --top 120`
+  - `desloppify show src/modules/ui/profile-select --status open --no-budget --top 120`
+  - `desloppify show src/modules/ui/server-select --status open --no-budget --top 120`
+  - `desloppify show src/modules/lifecycle --status open --no-budget --top 120`
 - Status: not started
-- Plan: none yet; execution-grade plan required before edits
+- Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
 - Handoff: `P4-EXIT`
 
-## Priority 5: Narrow Player, Playback, And Subtitle-Recovery Ownership
+- [ ] `P4-EXIT`
 
-### [ ] `P5-W1` Split Subtitle-Specific Recovery Policy Out Of Generic Playback Recovery
-
-**Goal:** keep generic stream recovery and subtitle policy in explicit sibling owners instead of one blended class.
-
-**Mapped live review issues:**
-
-- `review::.::holistic::design_coherence::playback_recovery_manager_blends_generic_recovery_with_subtitle_policy`
-
-**Primary files/areas:**
-
-- `src/modules/player/PlaybackRecoveryManager.ts`
-- `src/core/orchestrator/SubtitleTrackRecoveryController.ts`
-- `src/modules/player/**`
-
-**Mechanical envelopes to refresh at entry and exit:**
-
-- `desloppify show src/modules/player --status open --no-budget --top 150`
-- `desloppify show src/core/orchestrator --status open --no-budget --top 150`
-- `desloppify show smells --status open --no-budget --top 250`
-- `desloppify show structural --status open --no-budget --top 150`
-
-**Exit rule:** subtitle-specific fallback policy no longer hides inside the generic playback recovery owner.
-
+  - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P5`
+  - required: refresh package-local commands, record mapped review dispositions from `pkg_startup_auth_lifecycle`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
 - Status: not started
-- Plan: none yet; execution-grade plan required before edits
+- Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: `P5-W2`
+- Handoff: `P5-W1`
 
-### [ ] `P5-W2` Deduplicate Subtitle Debug Helpers Behind One Honest Logging Seam
+### [ ] `P5-W1` `pkg_playback_subtitle_recovery` Playback And Subtitle Recovery
 
-**Goal:** remove the repeated subtitle-debug boilerplate without broadening diagnostics ceremony.
-
-**Mapped live review issues:**
-
-- `review::.::holistic::ai_generated_debt::duplicate_subtitle_debug_helpers`
-
-**Primary files/areas:**
-
-- `src/modules/player/VideoPlayer.ts`
-- `src/modules/player/SubtitleManager.ts`
-- `src/modules/plex/stream/PlexStreamResolver.ts`
-- shared logging helpers used by those owners
-
-**Mechanical envelopes to refresh at entry and exit:**
-
-- `desloppify show src/modules/player --status open --no-budget --top 150`
-- `desloppify show src/modules/plex/stream --status open --no-budget --top 150`
-- `desloppify show logs --status open --no-budget --top 50`
-
-**Exit rule:** subtitle-debug behavior is owned by one bounded helper path rather than three near-identical fail-open copies.
-
+- Backlog: `18 = 16 older live non-review + 2 fresh review + 0 fresh non-review`
+- Scope: separate generic playback recovery from subtitle-specific policy and keep player/stream recovery cleanup in one execution surface
+- Exact membership: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` -> `pkg_playback_subtitle_recovery`
+- Package-local scoping commands:
+  - `desloppify show src/modules/player --status open --no-budget --top 150`
+  - `desloppify show src/modules/plex/stream --status open --no-budget --top 150`
 - Status: not started
-- Plan: none yet; execution-grade plan required before edits
+- Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
 - Handoff: `P5-EXIT`
 
-## Priority 6: Finish Channel-Setup, Scheduler, And EPG Contract And Package Cleanup
+- [ ] `P5-EXIT`
 
-### [ ] `P6-W1` Normalize Channel-Setup And Scheduler Public Contract Semantics
-
-**Goal:** make channel setup and channel-manager contracts honest about absence and rejection behavior without reopening already-retired facade work.
-
-**Mapped live review issues:**
-
-- `review::.::holistic::contract_coherence::channel_setup_port_absence_contract_split`
-- `review::.::holistic::contract_coherence::channel_manager_error_contract_docs_lag_runtime`
-
-**Primary files/areas:**
-
-- `src/core/channel-setup/ChannelSetupWorkflowPort.ts`
-- `src/core/channel-setup/createChannelSetupWorkflowPort.ts`
-- `src/modules/scheduler/channel-manager/interfaces.ts`
-- `src/modules/scheduler/channel-manager/ChannelManager.ts`
-
-**Mechanical envelopes to refresh at entry and exit:**
-
-- `desloppify show src/core/channel-setup --status open --no-budget --top 150`
-- `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150`
-- `desloppify show signature --status open --no-budget --top 80`
-- `desloppify show test_coverage --status open --no-budget --top 120`
-
-**Exit rule:** missing-workflow behavior and channel-manager rejection surfaces are uniform, explicit, and test-backed.
-
+  - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P6`
+  - required: refresh package-local commands, record mapped review dispositions from `pkg_playback_subtitle_recovery`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
 - Status: not started
-- Plan: none yet; execution-grade plan required before edits
+- Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: `P6-W2`
+- Handoff: `P6-W1`
 
-### [ ] `P6-W2` Finish EPG Read Semantics, View Packaging, And Naming Residue
+### [ ] `P6-W1` `pkg_channel_setup_scheduler` Channel Setup And Scheduler Contracts
 
-**Goal:** close the remaining EPG residue without resurrecting already-retired public-surface work.
-
-**Mapped live review issues:**
-
-- `review::.::holistic::contract_coherence::epg_cache_queries_hide_cleanup_side_effects`
-- `review::.::holistic::low_level_elegance::epg_refresh_session_too_dense`
-- `review::.::holistic::package_organization::epg_view_leaves_in_root`
-- `review::.::holistic::naming_quality::boolean_accessor_get_is_drift`
-- `review::.::holistic::naming_quality::epg_run_for_channel_callback`
-
-**Primary files/areas:**
-
-- `src/modules/ui/epg/runtime/EPGScheduleCacheStore.ts`
-- `src/modules/ui/epg/runtime/EPGScheduleRefreshRuntime.ts`
-- `src/modules/ui/epg/view/**`
-- `src/modules/ui/epg/EPGComponent.ts`
-
-**Mechanical envelopes to refresh at entry and exit:**
-
-- `desloppify show src/modules/ui/epg --status open --no-budget --top 180`
-- `desloppify show src/modules/ui/epg/runtime --status open --no-budget --top 120`
-- `desloppify show facade --status open --no-budget --top 80`
-- `desloppify show structural --status open --no-budget --top 150`
-
-**Exit rule:** EPG query APIs are honest about side effects, refresh flow is decomposed into named phases, view-only leaves live under `view/`, and awkward `getIs*` / `runForChannel` naming residue is gone.
-
+- Backlog: `38 = 34 older live non-review + 2 fresh review + 2 fresh non-review`
+- Scope: keep channel-setup workflow cleanup, scheduler/channel-manager contracts, and channel-tuning residue in one domain-owned package
+- Exact membership: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` -> `pkg_channel_setup_scheduler`
+- Package-local scoping commands:
+  - `desloppify show src/core/channel-setup --status open --no-budget --top 150`
+  - `desloppify show src/core/channel-tuning --status open --no-budget --top 100`
+  - `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150`
+  - `desloppify show src/modules/scheduler/scheduler --status open --no-budget --top 150`
+  - `desloppify show src/modules/ui/channel-setup --status open --no-budget --top 150`
 - Status: not started
-- Plan: none yet; execution-grade plan required before edits
+- Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
 - Handoff: `P6-EXIT`
 
-## Priority 7: Remove Template Noise, Wrapper Sprawl, And Low-Value Migration Residue
+- [ ] `P6-EXIT`
 
-### [ ] `P7-W1` Delete Template Docblock Noise And Defensive Wrapper Sprawl
-
-**Goal:** improve the weakest AI-debt dimensions by removing codebase-wide template ceremony and low-signal wrapper layers where current source shows no real platform constraint.
-
-**Mapped live review issues:**
-
-- `review::.::holistic::ai_generated_debt::template_docblock_noise`
-- `review::.::holistic::ai_generated_debt::defensive_nonfatal_wrapper_sprawl`
-
-**Primary files/areas:**
-
-- representative noisy files called out by the baseline:
-  - `src/config/timing.ts`
-  - `src/modules/player/constants.ts`
-  - `src/modules/lifecycle/AppLifecycle.ts`
-  - `src/modules/plex/discovery/interfaces.ts`
-  - `src/modules/scheduler/channel-manager/interfaces.ts`
-- current diagnostic/wrapper owners called out by the baseline
-
-**Mechanical envelopes to refresh at entry and exit:**
-
-- `desloppify show src/config --status open --no-budget --top 80`
-- `desloppify show src/modules --status open --no-budget --top 200`
-- `desloppify show boilerplate_duplication --status open --no-budget --top 50`
-- `desloppify show logs --status open --no-budget --top 50`
-
-**Exit rule:** template commentary and multi-layered fail-open wrappers are materially reduced on live source, with no false claim that docs-only cleanup finished the wave.
-
+  - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P7`
+  - required: refresh package-local commands, record mapped review dispositions from `pkg_channel_setup_scheduler`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
 - Status: not started
-- Plan: none yet; execution-grade plan required before edits
+- Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: `P7-W2`
+- Handoff: `P7-W1`
 
-### [ ] `P7-W2` Retire Dead Toast Compatibility Residue
+### [ ] `P7-W1` `pkg_epg_runtime_surfaces` EPG Runtime And Package Surfaces
 
-**Goal:** remove the remaining migration-only toast compatibility path once current-source proof confirms production callers already use the structured payload contract.
-
-**Mapped live review issues:**
-
-- `review::.::holistic::incomplete_migration::toast_string_back_compat_dead`
-
-**Primary files/areas:**
-
-- `src/modules/ui/toast/types.ts`
-- current production toast callsites
-
-**Mechanical envelopes to refresh at entry and exit:**
-
-- `desloppify show src/modules/ui --status open --no-budget --top 150`
-- `desloppify show signature --status open --no-budget --top 80`
-- `desloppify show test_coverage --status open --no-budget --top 120`
-
-**Exit rule:** the toast surface no longer carries dead string compatibility that current production code does not need.
-
+- Backlog: `28 = 23 older live non-review + 5 fresh review + 0 fresh non-review`
+- Scope: retire the remaining EPG runtime, view-package, naming, and test hotspot residue under one EPG-owned package
+- Exact membership: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` -> `pkg_epg_runtime_surfaces`
+- Package-local scoping commands:
+  - `desloppify show src/modules/ui/epg --status open --no-budget --top 180`
+  - `desloppify show src/modules/ui/epg/runtime --status open --no-budget --top 120`
+  - `desloppify show facade --status open --no-budget --top 100`
+  - `desloppify show structural --status open --no-budget --top 150`
 - Status: not started
-- Plan: none yet; execution-grade plan required before edits
+- Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
 - Handoff: `P7-EXIT`
 
-## Priority 8: Normalize Type Safety, Naming, And Verification Guardrails
+- [ ] `P7-EXIT`
 
-### [ ] `P8-W1` Collapse Duplicate Error Taxonomies And Unsafe String Coercions
-
-**Goal:** stop shadow error enums and raw string coercions from undermining the canonical typed error surface.
-
-**Mapped live review issues:**
-
-- `review::.::holistic::type_safety::duplicated_error_code_taxonomies`
-- `review::.::holistic::type_safety::unsafe_error_code_coercions`
-- `review::.::holistic::type_safety::branding_icon_api_uses_plain_string`
-
-**Primary files/areas:**
-
-- `src/types/app-errors.ts`
-- `src/modules/player/types.ts`
-- `src/modules/plex/library/types.ts`
-- `src/modules/plex/stream/types.ts`
-- `src/modules/plex/stream/resolveStreamPipeline.ts`
-- `src/core/channel-tuning/ChannelTuningCoordinator.ts`
-- `src/core/channel-setup/ChannelSetupFacetSnapshotLoader.ts`
-- `src/modules/ui/common/channelBrandingIcons.ts`
-
-**Mechanical envelopes to refresh at entry and exit:**
-
-- `desloppify show src/modules/player --status open --no-budget --top 150`
-- `desloppify show src/modules/plex --status open --no-budget --top 180`
-- `desloppify show src/core/channel-tuning --status open --no-budget --top 100`
-- `desloppify show naming --status open --no-budget --top 50`
-
-**Exit rule:** the canonical error-code surface is singular, unknown values are validated before they become typed, and branding icon helpers no longer accept plain strings when a domain type already exists.
-
+  - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P8`
+  - required: refresh package-local commands, record mapped review dispositions from `pkg_epg_runtime_surfaces`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
 - Status: not started
-- Plan: none yet; execution-grade plan required before edits
+- Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: `P8-W2`
+- Handoff: `P8-W1`
 
-### [ ] `P8-W2` Expand The Test Fragility Ratchet To Live Blind Spots
+### [ ] `P8-W1` `pkg_shared_hygiene_migration` Shared Hygiene And Migration Residue
 
-**Goal:** stop private-probe and sleep-wait debt from surviving outside the currently frozen suite subset.
-
-**Mapped live review issues:**
-
-- `review::.::holistic::test_strategy::fragility-ratchet-blind-spots`
-
-**Primary files/areas:**
-
-- `src/__tests__/policy/AntiPatterns.policy.test.ts`
-- the live blind-spot suites called out by the baseline in player, Plex stream, scheduler, and channel-setup tests
-
-**Mechanical envelopes to refresh at entry and exit:**
-
-- `desloppify show test_coverage --status open --no-budget --top 150`
-- `desloppify show src/__tests__ --status open --no-budget --top 120`
-- `desloppify show structural --status open --no-budget --top 150`
-
-**Exit rule:** fragility guardrails cover the live private-probe and sleep-wait offenders instead of only a frozen historical subset.
-
+- Backlog: `5 = 2 older live non-review + 3 fresh review + 0 fresh non-review`
+- Scope: isolate the truly cross-cutting AI-debt, wrapper-sprawl, and dead migration residue so domain packages do not inherit repo-wide cleanup noise
+- Exact membership: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` -> `pkg_shared_hygiene_migration`
+- Package-local scoping commands:
+  - `desloppify show src --status open --no-budget --top 80`
+  - `desloppify show src/utils --status open --no-budget --top 80`
+- Exact-id review scope required at entry/exit: the cross-cutting review items in `pkg_shared_hygiene_migration` are closed only by companion-map issue-id review, because the AI-debt and migration-residue findings are broader than any one area command
 - Status: not started
-- Plan: none yet; execution-grade plan required before edits
+- Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
 - Handoff: `P8-EXIT`
 
-## Priority 9: Burn Down Remaining Mechanical Debt And Prove The Score Gate
+- [ ] `P8-EXIT`
 
-### [ ] `P9-W1` Retire Or Reassign The Remaining Mechanical Detector Backlog
-
-**Goal:** clear the non-review backlog that survives owner-priority cleanup without hiding it behind suppressions or stale wording.
-
-**Required outcomes:**
-
-- refresh every open detector envelope from the 2026-04-16 baseline
-- burn down or stale-prove the remaining non-review backlog by owner area
-- if any mechanical residue survives, assign it to one explicit later owner inside `P9` with exact revisit proof
-- record detector-count deltas for every still-live detector family
-
-**Primary files/areas:**
-
-- whichever owner areas still contain live non-review residue after `P1` through `P8`
-- `ARCHITECTURE_CLEANUP_CHECKLIST.md`
-- `.desloppify/state-typescript.json`
-
-**Mechanical envelopes to refresh at entry and exit:**
-
-- `desloppify show smells --status open --no-budget --top 250`
-- `desloppify show structural --status open --no-budget --top 150`
-- `desloppify show test_coverage --status open --no-budget --top 150`
-- `desloppify show facade --status open --no-budget --top 100`
-- `desloppify show logs --status open --no-budget --top 50`
-- `desloppify show signature --status open --no-budget --top 80`
-- `desloppify show stale_exclude --status open --no-budget --top 50`
-- `desloppify show security --status open --no-budget --top 50`
-
-**Exit rule:** no live non-review detector family remains unowned or undocumented before the final rerun prep begins.
-
+  - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P9`
+  - required: refresh package-local commands, record mapped review dispositions from `pkg_shared_hygiene_migration`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
 - Status: not started
-- Plan: none yet; execution-grade plan required before edits
+- Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: `P9-W2`
+- Handoff: `P9-W1`
 
-### [ ] `P9-W2` Run The Authoritative Rerun And Build The No-Drop Proof Matrix
+### [ ] `P9-W1` `pkg_type_safety_test_guardrails` Type Safety And Test Guardrails
 
-**Goal:** prepare the final closeout record with an integration-branch rerun, exact score deltas, and proof that every live 2026-04-16 issue is either retired or explicitly owned.
-
-**Required outcomes:**
-
-- run the authoritative integration-branch rerun (`desloppify scan --path .`) and refresh `status`, `plan queue`, `review`, and `security`
-- compare the new baseline against the 2026-04-16 baseline and record `previous`, `new`, and `delta`
-- produce the final detector table and remaining-review table
-- prove no live fresh-run review issue or mechanical envelope disappeared without a `resolved`, `stale-proven`, `deferred`, or `split follow-up` record
-
-**Primary files/areas:**
-
-- `ARCHITECTURE_CLEANUP_CHECKLIST.md`
-- `.desloppify/state-typescript.json`
-- `.desloppify/plan.json`
-
-**Mechanical envelopes to refresh at entry and exit:**
-
-- `desloppify scan --path .`
-- `desloppify status`
-- `desloppify plan queue --sort recent`
-- `desloppify show review --status open --no-budget --top 100`
-- `desloppify show security --status open --no-budget --top 50`
-
-**Exit rule:** the final closeout record is ready to prove a real score-improving finish instead of a bookkeeping-only stop.
-
+- Backlog: `7 = 3 older live non-review + 4 fresh review + 0 fresh non-review`
+- Scope: retire the remaining typed-error drift and focused test-fragility residue under one verification-oriented package
+- Exact membership: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json` -> `pkg_type_safety_test_guardrails`
+- Package-local scoping commands:
+  - `desloppify show src/__tests__/helpers.ts --status open --no-budget --top 50`
+  - `desloppify show src/__tests__/tools/verifyDocs.test.ts --status open --no-budget --top 50`
+  - `desloppify show src/index.ts --status open --no-budget --top 50`
+  - `desloppify show src/modules/ui/common/channelBrandingIcons.ts --status open --no-budget --top 50`
+- Exact-id review scope required at entry/exit: the cross-cutting review items in `pkg_type_safety_test_guardrails` are closed only by companion-map issue-id review, because `duplicated_error_code_taxonomies` and `unsafe_error_code_coercions` are broader than any one file-level scoping command
 - Status: not started
-- Plan: none yet; execution-grade plan required before edits
+- Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
 - Handoff: `P9-EXIT`
 
-## Imported Review Issue Map By Priority
+- [ ] `P9-EXIT`
 
-### `P1`
+- Required: record every mapped imported issue with an exact disposition, and if any survivor remains open after this last package, keep `pkg_type_safety_test_guardrails` as the single final owner through `P10` rather than inventing a later package owner
+- Required: refresh package-local commands, record mapped review dispositions from `pkg_type_safety_test_guardrails`, record detector deltas and security triage, and either post a score delta or explicitly carry same-package ownership into `P10-W1` for every survivor
+- Status: not started
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: `P10-W1`
 
-- `review::.::holistic::high_level_elegance::runtime_owner_concentration`
-- `review::.::holistic::design_coherence::app_orchestrator_remains_runtime_hub`
-- `review::.::holistic::design_coherence::priority_one_runtime_assembly_is_still_one_large_factory_step`
-- `review::.::holistic::package_organization::core_priority_one_root_residue`
-- `review::.::holistic::abstraction_fitness::orchestrator_builder_passthrough_bags`
-- `review::.::holistic::abstraction_fitness::single_impl_runtime_interfaces`
-- `review::.::holistic::cross_module_architecture::navigation_depends_on_orchestrator_runtime_seam`
+## Final Rerun / No-Drop Gate
 
-### `P2`
+### [ ] `P10-W1` Authoritative Rerun And No-Drop Proof
 
-- `review::.::holistic::cross_module_architecture::lazy_screen_contracts_live_in_concrete_ui_files`
-- `review::.::holistic::convention_outlier::playback_options_root_surface_bypass`
-- `review::.::holistic::incomplete_migration::internal_orchestrator_barrel_drift`
-- `review::.::holistic::high_level_elegance::orchestrator_public_barrel_backflow`
-- `review::.::holistic::high_level_elegance::types_package_role_drift`
-- `review::.::holistic::mid_level_elegance::ui_owned_persistence_seams`
+- Goal: rerun the integration-branch baseline, refresh the companion map if membership changed, and prove that no live `2026-04-16` issue disappeared without an explicit disposition
+- Required commands:
+  - `desloppify scan --path .`
+  - `desloppify status`
+  - `desloppify plan queue --sort recent`
+  - `desloppify show review --status open --no-budget --top 100`
+  - `desloppify show security --status open --no-budget --top 50`
+  - rerun every package-local scoping command for any still-open package or inherited residual owner
+- Final proof record must include:
+  - previous baseline
+  - new baseline
+  - delta
+  - remaining open review issues
+  - no-drop proof for every removed, stale-proven, deferred, or still-open mapped issue
+- Status: not started
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: `P10-EXIT`
 
-### `P3`
+- [ ] `P10-EXIT`
 
-- `review::.::holistic::api_surface_coherence::plex_discovery_scalar_test_result`
-- `review::.::holistic::api_surface_coherence::plex_library_failure_contract_drift`
-- `review::.::holistic::error_consistency::plex_library_null_results_mask_fetch_failures`
-- `review::.::holistic::error_consistency::plex_auth_pin_parsing_bypasses_typed_errors`
-- `review::.::holistic::error_consistency::plex_auth_poll_timeout_masks_retryable_failures`
-- `review::.::holistic::initialization_coupling::platform_version_first_probe_cache`
-
-### `P4`
-
-- `review::.::holistic::authorization_consistency::startup_invalid_active_token_persisted`
-- `review::.::holistic::authorization_consistency::profile_select_auth_resume_gap`
-- `review::.::holistic::low_level_elegance::phase2_auth_gate_branch_stack`
-- `review::.::holistic::initialization_coupling::plex_auth_constructor_storage_side_effect`
-- `review::.::holistic::logic_clarity::lifecycle_promise_semantics_hide_real_timing`
-- `review::.::holistic::test_strategy::startup-error-normalization-gap`
-
-### `P5`
-
-- `review::.::holistic::design_coherence::playback_recovery_manager_blends_generic_recovery_with_subtitle_policy`
-- `review::.::holistic::ai_generated_debt::duplicate_subtitle_debug_helpers`
-
-### `P6`
-
-- `review::.::holistic::contract_coherence::channel_setup_port_absence_contract_split`
-- `review::.::holistic::contract_coherence::channel_manager_error_contract_docs_lag_runtime`
-- `review::.::holistic::contract_coherence::epg_cache_queries_hide_cleanup_side_effects`
-- `review::.::holistic::low_level_elegance::epg_refresh_session_too_dense`
-- `review::.::holistic::package_organization::epg_view_leaves_in_root`
-- `review::.::holistic::naming_quality::boolean_accessor_get_is_drift`
-- `review::.::holistic::naming_quality::epg_run_for_channel_callback`
-
-### `P7`
-
-- `review::.::holistic::ai_generated_debt::template_docblock_noise`
-- `review::.::holistic::ai_generated_debt::defensive_nonfatal_wrapper_sprawl`
-- `review::.::holistic::incomplete_migration::toast_string_back_compat_dead`
-
-### `P8`
-
-- `review::.::holistic::type_safety::duplicated_error_code_taxonomies`
-- `review::.::holistic::type_safety::unsafe_error_code_coercions`
-- `review::.::holistic::type_safety::branding_icon_api_uses_plain_string`
-- `review::.::holistic::test_strategy::fragility-ratchet-blind-spots`
-
-## Detector Envelope Inventory For Fresh Refreshes
-
-Use these exact commands at the start and end of each priority. The counts below are the 2026-04-16 open baseline and must be refreshed during `P9-W2` and `P9-EXIT`.
-
-- `smells (181)`: `desloppify show smells --status open --no-budget --top 250`
-- `structural (81)`: `desloppify show structural --status open --no-budget --top 150`
-- `review (41)`: `desloppify show review --status open --no-budget --top 100`
-- `test_coverage (25)`: `desloppify show test_coverage --status open --no-budget --top 150`
-- `facade (21)`: `desloppify show facade --status open --no-budget --top 100`
-- `logs (9)`: `desloppify show logs --status open --no-budget --top 50`
-- `signature (9)`: `desloppify show signature --status open --no-budget --top 80`
-- `stale_exclude (7)`: `desloppify show stale_exclude --status open --no-budget --top 50`
-- `responsibility_cohesion (5)`: `desloppify show responsibility_cohesion --status open --no-budget --top 80`
-- `flat_dirs (5)`: `desloppify show flat_dirs --status open --no-budget --top 50`
-- `single_use (4)`: `desloppify show single_use --status open --no-budget --top 50`
-- `cycles (3)`: `desloppify show security --status open --no-budget --top 50`
-- `naming (1)`: `desloppify show naming --status open --no-budget --top 50`
-- `boilerplate_duplication (1)`: `desloppify show boilerplate_duplication --status open --no-budget --top 50`
-
-## Operating Rules
-
-- no imported review issue may be resolved without direct current-source proof plus a fresh authoritative rerun
-- no mechanical detector may be suppressed purely to improve the score
-- no already-retired seam may be reopened because of historical wording alone
-- every `P#-EXIT` must record entry baseline, exit baseline, delta, mapped imported issue dispositions, relevant detector counts, and security triage
-- no priority may claim success if it leaves live 2026-04-16 debt outside this checklist without an explicit later owner
-- no final closeout claim is valid unless `P9-EXIT` proves `overall > 87.2`, `strict > 87.2`, and the no-drop proof matrix is complete
+- Close only if: `overall > 87.2`, `strict > 87.2`, the final record captures previous baseline, new baseline, delta, remaining open review issues, and no-drop proof, every mapped review item has a recorded disposition, every surviving detector residue has one exact owner or stale-proven disposition, the companion map and checklist agree, and the final detector table is fully accounted for
+- Status: not started
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: checklist complete only when this gate is satisfied
