@@ -1,10 +1,6 @@
 /** Application shell that creates root containers and initializes the orchestrator. */
 
-import {
-    AppOrchestrator,
-    type OrchestratorConfig,
-    AppErrorCode,
-} from './Orchestrator';
+import { AppErrorCode } from './modules/lifecycle';
 import type {
     AppShellAuthRuntimePort,
     AppShellChannelSetupRuntimePort,
@@ -17,6 +13,8 @@ import type {
 import type { LifecycleAppError, AppPhase } from './modules/lifecycle/types';
 import type { INavigationManager } from './modules/navigation';
 import { createAppContainers, type AppContainerRefs } from './core/app-shell/AppContainerFactory';
+import { AppOrchestrator } from './core/orchestrator/AppOrchestrator';
+import type { OrchestratorConfig } from './core/orchestrator/OrchestratorTypes';
 import {
     AppLazyScreenRegistry,
 } from './core/app-shell/AppLazyScreenRegistry';

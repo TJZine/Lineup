@@ -26,6 +26,20 @@ const ORIGINAL_CONSOLE_METHODS: Record<ConsoleNoiseMethod, (...args: unknown[]) 
 /* eslint-enable no-console */
 
 const developerSettingsStore = new DeveloperSettingsStore();
+const GLOBAL_ERROR_OVERLAY_ID = 'global-error-overlay';
+const GLOBAL_ERROR_OVERLAY_BACKDROP = 'var(--color-bg-overlay)';
+const GLOBAL_ERROR_OVERLAY_TEXT = 'var(--color-text-primary)';
+const GLOBAL_ERROR_OVERLAY_TYPOGRAPHY = {
+    fontFamily: 'var(--font-family-sans)',
+    titleSize: '28px',
+    detailSize: '18px',
+    hintSize: '16px',
+} as const;
+const GLOBAL_ERROR_OVERLAY_OPACITY = {
+    detail: '0.9',
+    hint: '0.75',
+} as const;
+const GLOBAL_ERROR_OVERLAY_Z_INDEX = 'var(--z-max)';
 
 /**
  * In lean production builds, silence noisy console output unless debug logging is explicitly enabled.
@@ -195,11 +209,11 @@ function handleUnhandledRejection(event: PromiseRejectionEvent): void {
 
 function showGlobalErrorOverlay(message: string): void {
     if (typeof document === 'undefined') return;
-    const existing = document.getElementById('global-error-overlay');
+    const existing = document.getElementById(GLOBAL_ERROR_OVERLAY_ID);
     if (existing) return;
 
     const overlay = document.createElement('div');
-    overlay.id = 'global-error-overlay';
+    overlay.id = GLOBAL_ERROR_OVERLAY_ID;
     overlay.setAttribute('role', 'alert');
     overlay.setAttribute('aria-live', 'assertive');
     overlay.tabIndex = -1;
@@ -208,34 +222,34 @@ function showGlobalErrorOverlay(message: string): void {
     overlay.style.top = '0';
     overlay.style.width = '100%';
     overlay.style.height = '100%';
-    overlay.style.background = 'rgba(0, 0, 0, 0.85)';
-    overlay.style.color = '#fff';
-    overlay.style.zIndex = '99999';
+    overlay.style.background = GLOBAL_ERROR_OVERLAY_BACKDROP;
+    overlay.style.color = GLOBAL_ERROR_OVERLAY_TEXT;
+    overlay.style.zIndex = GLOBAL_ERROR_OVERLAY_Z_INDEX;
     overlay.style.display = 'flex';
     overlay.style.flexDirection = 'column';
     overlay.style.alignItems = 'center';
     overlay.style.justifyContent = 'center';
-    overlay.style.fontFamily = 'sans-serif';
+    overlay.style.fontFamily = GLOBAL_ERROR_OVERLAY_TYPOGRAPHY.fontFamily;
     overlay.style.padding = '24px';
     overlay.style.textAlign = 'center';
 
     const title = document.createElement('div');
     title.textContent = 'Something went wrong';
-    title.style.fontSize = '28px';
+    title.style.fontSize = GLOBAL_ERROR_OVERLAY_TYPOGRAPHY.titleSize;
     title.style.marginBottom = '12px';
     title.style.fontWeight = '600';
 
     const detail = document.createElement('div');
     detail.textContent = message || 'An unexpected error occurred.';
-    detail.style.fontSize = '18px';
-    detail.style.opacity = '0.9';
+    detail.style.fontSize = GLOBAL_ERROR_OVERLAY_TYPOGRAPHY.detailSize;
+    detail.style.opacity = GLOBAL_ERROR_OVERLAY_OPACITY.detail;
     detail.style.maxWidth = '80%';
 
     const hint = document.createElement('div');
     hint.textContent = 'Please restart the app or try again.';
-    hint.style.fontSize = '16px';
+    hint.style.fontSize = GLOBAL_ERROR_OVERLAY_TYPOGRAPHY.hintSize;
     hint.style.marginTop = '16px';
-    hint.style.opacity = '0.75';
+    hint.style.opacity = GLOBAL_ERROR_OVERLAY_OPACITY.hint;
 
     overlay.append(title, detail, hint);
     const host = document.body ?? document.documentElement;

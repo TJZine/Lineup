@@ -1,4 +1,3 @@
-import type { OrchestratorConfig } from '../../Orchestrator';
 import { createDefaultPlexAuthConfig } from '../../modules/plex/auth';
 import type { NavigationConfig } from '../../modules/navigation';
 import type { VideoPlayerConfig } from '../../modules/player';
@@ -11,6 +10,7 @@ import { CHANNEL_BADGE_CONTAINER_ID, type ChannelBadgeConfig } from '../../modul
 import { MINI_GUIDE_CONTAINER_ID, type MiniGuideConfig } from '../../modules/ui/mini-guide';
 import { CHANNEL_TRANSITION_CONTAINER_ID, type ChannelTransitionConfig } from '../../modules/ui/channel-transition';
 import type { PlaybackOptionsConfig } from '../../modules/ui/playback-options';
+import type { OrchestratorConfig } from '../orchestrator/OrchestratorTypes';
 
 const DEFAULT_NAV_CONFIG: NavigationConfig = {
     enablePointerMode: false,
