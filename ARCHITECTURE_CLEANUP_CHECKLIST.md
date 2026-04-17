@@ -14,8 +14,8 @@ This checklist is not complete until an authoritative rerun on the target integr
 
 - Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
-- Current execution state: package-backed migration applied; queue-trust preflight and package-map lock completed in this pass
-- Next safe start: `P1-W1`
+- Current execution state: `P1-W1` slice execution is complete; package closeout and residual ownership now route through `P1-EXIT`
+- Next safe start: `P1-EXIT`
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
 - Exact issue-membership surface: `/Users/tristan/Software/Lineup/docs/architecture/active-cleanup-package-map.json`
 - Historical planning context only: local run bundles under `docs/runs/`
@@ -155,7 +155,7 @@ Every `P#-EXIT` must, in the same pass:
 
 ## Package Backlog
 
-### [ ] `P1-W1` `pkg_control_plane_runtime` Control-Plane Runtime Ownership
+### [x] `P1-W1` `pkg_control_plane_runtime` Control-Plane Runtime Ownership
 
 - Backlog: `32 = 21 older live non-review + 7 fresh review + 4 fresh non-review`
 - Scope: retire the orchestrator/runtime hotspot cluster, narrow builder-bag assembly, and restore owner-honest navigation-facing control-plane seams
@@ -165,23 +165,60 @@ Every `P#-EXIT` must, in the same pass:
   - `desloppify show src/modules/navigation --status open --no-budget --top 120`
   - `desloppify show structural --status open --no-budget --top 150`
   - `desloppify show smells --status open --no-budget --top 250`
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
+- Status: completed
+- Plan: `docs/plans/2026-04-16-p1-w1-control-plane-runtime-ownership.md`
+- Last touched: `2026-04-17`
+- Verification: `npm run verify` passed on `2026-04-17`; targeted slice envelopes passed for `P1-W1-S3` (`src/__tests__/Orchestrator.test.ts`, `src/__tests__/orchestrator/event-wiring.test.ts`, `src/core/orchestrator/__tests__/OrchestratorPriorityOneControllerFactory.playbackState.test.ts`, `src/core/orchestrator/__tests__/OrchestratorRecoverableRuntimeReporter.test.ts`) and `P1-W1-S4` (`src/core/orchestrator/__tests__/OrchestratorEventBinder.test.ts`, `src/core/orchestrator/__tests__/OrchestratorEventCleanupReporter.test.ts`, `src/core/orchestrator/__tests__/OverlayPorts.test.ts`, `src/core/orchestrator/__tests__/OrchestratorCoordinatorBuilders.test.ts`, `src/__tests__/Orchestrator.test.ts`, `src/modules/navigation/__tests__/FocusManager.test.ts`, `src/modules/navigation/__tests__/NavigationManager.test.ts`, `src/modules/navigation/__tests__/NavigationCoordinator.test.ts`); package-local `desloppify show src/core/orchestrator --status open --no-budget --top 150`, `desloppify show src/modules/navigation --status open --no-budget --top 120`, `desloppify show structural --status open --no-budget --top 150`, and the mapped exact-row reruns were refreshed on `2026-04-17`
+- Follow-ups: `P1-EXIT` is the single final owner for the remaining package-local orchestrator residue, including live `PriorityOneControllerFactory` complexity/nested-closure rows, live runtime-fallback rows in `AppOrchestrator.ts` / `OrchestratorRecoverableRuntimeReporter.ts`, and stale detector lag still pointing at `OrchestratorPriorityOneControllerFactory.ts` / `OverlayRuntimePolicyController.ts`
 - Handoff: `P1-EXIT`
 
 - [ ] `P1-EXIT`
 
   - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P2`
   - required: refresh package-local commands, record mapped review dispositions from `pkg_control_plane_runtime`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: `P2-W1`
+- Status: in progress
+- Plan: local-only closeout pass
+- Last touched: `2026-04-17`
+- Verification: refreshed closeout evidence on `2026-04-17` includes `desloppify scan --skip-slow`, `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, `desloppify show security --status open --no-budget --top 50`, `desloppify show src/core/orchestrator --status open --no-budget --top 150`, `desloppify show src/modules/navigation --status open --no-budget --top 120`, `desloppify show structural --status open --no-budget --top 150`, `desloppify show "flat_dirs::src/core/orchestrator" --status open --no-budget --top 20`, the exact survivor reruns for `AppOrchestrator.ts`, `OrchestratorRecoverableRuntimeReporter.ts`, `priority-one/PriorityOneControllerFactory.ts`, `OrchestratorPriorityOneControllerFactory.ts`, `OverlayRuntimePolicyController.ts`, and `OrchestratorRuntimeSeams.ts`, plus targeted Jest envelopes `npm test -- --runInBand --runTestsByPath src/core/orchestrator/__tests__/OrchestratorRecoverableRuntimeReporter.test.ts src/core/orchestrator/__tests__/OrchestratorRuntimeSeams.test.ts src/__tests__/Orchestrator.test.ts` and `npm test -- --runInBand --runTestsByPath src/core/__tests__/OverlayRuntimePolicyController.test.ts src/core/orchestrator/__tests__/OrchestratorPriorityOneControllerFactory.playbackState.test.ts`; all mapped review reruns still return absent, navigation/structural remain clean, queue is empty, security is clean, and the targeted Jest envelopes passed
+- Entry baseline: package entry used the checklist-backed `2026-04-16` status snapshot `overall 87.7 / objective 96.6 / strict 87.6 / verified 94.2`, `209` open
+- Exit baseline: post-refresh `2026-04-17T08:29:21+00:00` status snapshot `overall 87.6 / objective 96.3 / strict 87.5 / verified 94.4`, `320` open, with `typescript` slow phases skipped
+- Score delta: `overall -0.1`, `strict -0.1`; `P1-EXIT` stays open because scores did not improve and package-local orchestrator survivors remain
+- Imported review dispositions: `review::.::holistic::abstraction_fitness::orchestrator_builder_passthrough_bags`, `review::.::holistic::abstraction_fitness::single_impl_runtime_interfaces`, `review::.::holistic::cross_module_architecture::navigation_depends_on_orchestrator_runtime_seam`, `review::.::holistic::design_coherence::app_orchestrator_remains_runtime_hub`, `review::.::holistic::design_coherence::priority_one_runtime_assembly_is_still_one_large_factory_step`, `review::.::holistic::high_level_elegance::runtime_owner_concentration`, and `review::.::holistic::package_organization::core_priority_one_root_residue` all reran absent on `2026-04-17` and are treated as `resolved` on current source
+- Detector deltas: entry mapped package counts were `review 7 / structural 8 / smells 14 / test_coverage 2 / flat_dirs 1`; refreshed exit reads are `review 0 / structural 0 / flat_dirs 0`, `src/modules/navigation` clean, and the remaining package-local command surface is concentrated in `src/core/orchestrator` at `12` smell rows plus `1` transitive-only coverage row
+- Follow-ups:
+  - `smells::src/core/orchestrator/AppOrchestrator.ts::console_error_no_throw`
+    reason: fresh scan still reports the row, but `rg -n "console\\.error" src/core/orchestrator/AppOrchestrator.ts src/core/orchestrator/OrchestratorRecoverableRuntimeReporter.ts` returns no match on current source after the recoverable fallback path was switched to `console.warn`; this now needs detector/source reconciliation rather than more blind closeout edits
+    final owner: `P1-EXIT`
+    revisit trigger: rerun the exact issue id after reproducing the detector on current source or after the fallback helper is further simplified to an analyzer-friendly shape
+  - `smells::src/core/orchestrator/AppOrchestrator.ts::swallowed_error`
+    reason: fresh scan still flags a catch-only logging path in the global-error handling area even after extracting `_runGlobalErrorHandler()`; the remaining debt is still live until the exact issue rerun drops absent
+    final owner: `P1-EXIT`
+    revisit trigger: reduce the remaining handler/error-path branching until `desloppify show "smells::src/core/orchestrator/AppOrchestrator.ts::swallowed_error" --status open --no-budget --top 20` returns absent, then rerun the Orchestrator test envelope
+  - `smells::src/core/orchestrator/OrchestratorRecoverableRuntimeReporter.ts::console_error_no_throw`
+    reason: fresh scan still reports the row even though the fallback helper now calls `console.warn` and the updated recoverable-runtime reporter tests pass on current source
+    final owner: `P1-EXIT`
+    revisit trigger: reproduce the detector against the current helper implementation and keep rerunning `src/core/orchestrator/__tests__/OrchestratorRecoverableRuntimeReporter.test.ts` while reconciling it
+  - `smells::src/core/orchestrator/priority-one/PriorityOneControllerFactory.ts::nested_closure`
+    reason: the helper extraction reduced some inline logic, but the exact smell row remains live after a fresh scan
+    final owner: `P1-EXIT`
+    revisit trigger: continue extracting controller-deps assembly until `desloppify show "smells::src/core/orchestrator/priority-one/PriorityOneControllerFactory.ts::nested_closure" --status open --no-budget --top 20` returns absent, then rerun the priority-one factory/overlay test envelope
+  - `smells::src/core/orchestrator/priority-one/PriorityOneControllerFactory.ts::high_cyclomatic_complexity`
+    reason: fresh scan still flags the priority-one assembly entry despite the bounded helper split, so the remaining complexity is still live
+    final owner: `P1-EXIT`
+    revisit trigger: break the remaining assembly branches into smaller owners until the exact issue rerun returns absent, then rerun `src/core/orchestrator/__tests__/OrchestratorPriorityOneControllerFactory.playbackState.test.ts`
+  - `test_coverage::src/core/orchestrator/OrchestratorRuntimeSeams.ts::transitive_only`
+    reason: a direct seam test now exists at `src/core/orchestrator/__tests__/OrchestratorRuntimeSeams.test.ts`, but the fresh scan still treats the file as transitive-only coverage
+    final owner: `P1-EXIT`
+    revisit trigger: reconcile `desloppify`'s direct-test criteria for type-heavy seam files or adopt a detector-recognized direct runtime/contract harness until the exact rerun drops absent
+  - `smells::src/core/orchestrator/OrchestratorPriorityOneControllerFactory.ts::{monster_function,nested_closure,high_cyclomatic_complexity}`
+    reason: current source proves the compatibility file is now a five-line re-export barrel, but the fresh scan still carries the old detector ids
+    final owner: `P1-EXIT`
+    revisit trigger: reconcile or suppress the stale detector rows only after preserving the current-source proof (`wc -l` plus file contents) and rerunning the exact ids on the refreshed branch state
+  - `smells::src/core/orchestrator/OverlayRuntimePolicyController.ts::voided_symbol`
+    reason: current source no longer uses `void` suppression and the method body is only `this.syncChannelBadgeOverlay()`, yet the exact detector id remains open after a fresh scan
+    final owner: `P1-EXIT`
+    revisit trigger: reconcile or suppress the stale detector row only after preserving the current-source proof (`handleOverlayVisibilityChange(_visible: boolean)` with no `void` use) and rerunning the exact id on the refreshed branch state
+- Handoff: keep `P1-EXIT` open; next safe step is a focused detector/source-reconciliation pass for the eight survivor buckets above, followed by the reusable priority-exit reviewer, before any `P2` plan or implementation work starts
 
 ### [ ] `P2-W1` `pkg_app_shell_shared_ui` App-Shell, Shared UI, And Persistence Seams
 
