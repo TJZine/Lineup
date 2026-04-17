@@ -1,5 +1,5 @@
 model = "gpt-5.4 Mini"
-model_reasoning_effort = "High"
+model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 developer_instructions = """
 Stay in exploration mode.
