@@ -61,4 +61,16 @@ describe('recordNonBlockingFailureTimestamp', () => {
         expect(timestamps.get('key-5')).toBe(10_000);
         expect(timestamps.has('key-0')).toBe(true);
     });
+
+    it('still evicts one entry at capacity when existing timestamps are not finite', () => {
+        const timestamps = new Map<string, number>();
+        for (let index = 0; index < NON_BLOCKING_FAILURE_MAX_ENTRIES; index += 1) {
+            timestamps.set(`key-${index}`, Number.NaN);
+        }
+
+        expect(recordNonBlockingFailureTimestamp(timestamps, 'new-key', 10_000)).toBe(true);
+
+        expect(timestamps.size).toBe(NON_BLOCKING_FAILURE_MAX_ENTRIES);
+        expect(timestamps.has('new-key')).toBe(true);
+    });
 });

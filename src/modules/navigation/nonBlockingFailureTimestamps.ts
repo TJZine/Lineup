@@ -15,18 +15,20 @@ export function recordNonBlockingFailureTimestamp(
     }
 
     if (lastRecordedTimestamp === undefined && timestamps.size >= NON_BLOCKING_FAILURE_MAX_ENTRIES) {
+        const fallbackOldestKey = timestamps.keys().next().value ?? null;
         let oldestKey: string | null = null;
         let oldestTimestamp = Number.POSITIVE_INFINITY;
 
         for (const [candidateKey, candidateTimestamp] of timestamps) {
-            if (candidateTimestamp < oldestTimestamp) {
+            if (typeof candidateTimestamp === 'number' && Number.isFinite(candidateTimestamp) && candidateTimestamp < oldestTimestamp) {
                 oldestKey = candidateKey;
                 oldestTimestamp = candidateTimestamp;
             }
         }
 
-        if (oldestKey !== null) {
-            timestamps.delete(oldestKey);
+        const evictionKey = oldestKey ?? fallbackOldestKey;
+        if (evictionKey !== null) {
+            timestamps.delete(evictionKey);
         }
     }
 
