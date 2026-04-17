@@ -1,7 +1,7 @@
-import { DEFAULT_THEME, THEME_OPTIONS } from '../theme';
+import { DEFAULT_THEME, THEME_OPTIONS } from '../theme/themeDefinitions';
 import type { GuideSettingChange, SettingsCategoryConfig } from './types';
 import { SettingsStore } from './SettingsStore';
-import type { ThemeName } from '../theme';
+import type { ThemeName } from '../theme/themeDefinitions';
 import type { SubtitleMode } from '../../../shared/subtitle-mode';
 import { dispatchDebugLoggingChanged } from '../../../config/events';
 import { TRANSCODE_QUALITY_OPTIONS } from '../../../config/transcodeQuality';

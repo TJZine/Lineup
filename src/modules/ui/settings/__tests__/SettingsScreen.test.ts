@@ -6,7 +6,7 @@ import { SettingsScreen } from '../SettingsScreen';
 import { SettingsStore } from '../SettingsStore';
 import { SETTINGS_STORAGE_KEYS } from '../constants';
 import type { GuideSettingChange } from '../types';
-import { THEME_OPTIONS, THEME_CLASSES, type ThemeName } from '../../theme';
+import { THEME_OPTIONS, THEME_CLASSES, type ThemeName } from '../../theme/themeDefinitions';
 
 type StubFocusable = {
     id: string;
