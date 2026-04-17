@@ -714,7 +714,7 @@ describe('PlaybackOptionsCoordinator', () => {
             [{ id: 'audio-1', language: 'en', codec: 'aac', channels: 2 } as AudioTrack]
         );
         (player.setAudioTrack as jest.Mock).mockRejectedValue(new Error(rawMessage));
-        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
         try {
             const coordinator = new PlaybackOptionsCoordinator({
@@ -731,18 +731,18 @@ describe('PlaybackOptionsCoordinator', () => {
             audioOption?.onSelect?.();
             await flushPromises();
 
-            expect(errorSpy).toHaveBeenCalledWith('[PlaybackOptions] Audio track switch failed:', {
+            expect(warnSpy).toHaveBeenCalledWith('[PlaybackOptions] Audio track switch failed:', {
                 name: 'Error',
                 message: 'switch failed X-Plex-Token=REDACTED',
             });
-            expect(errorSpy).not.toHaveBeenCalledWith(
+            expect(warnSpy).not.toHaveBeenCalledWith(
                 '[PlaybackOptions] Audio track switch failed:',
                 expect.stringContaining(rawMessage)
             );
             expect(navigation.closeModal).toHaveBeenCalledWith('playback-options');
             expect(refreshSpy).toHaveBeenCalled();
         } finally {
-            errorSpy.mockRestore();
+            warnSpy.mockRestore();
         }
     });
 
