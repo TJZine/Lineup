@@ -189,6 +189,30 @@ Feature/design plans satisfy `Universal Plan Core` only and must not rely on cle
 - declare `**Cleanup subtype:** checklist-linked` or `**Cleanup subtype:** standalone remediation`
 - describe imported-issue disposition and detector-vs-source-audit reconciliation when detector-backed cleanup evidence is in scope
 - keep `checklist-linked` versus `standalone remediation` explicit throughout the plan
+- for `checklist-linked` package work, include a dedicated tracked `## Package Decomposition` section with:
+  - `package_id`
+  - `checklist_token`
+  - `package_issue_ids`
+  - `slice_table`
+  - `coverage_check`
+  - `recommended_slice_order`
+  - `ready_now_slice`
+  - `parallel_execution_policy`
+- for `checklist-linked` package work, `slice_table` must record at least:
+  - `slice_id`
+  - `goal`
+  - `areas/files`
+  - `exact_issue_ids`
+  - `verification`
+  - `dependencies`
+  - `stop_condition`
+  - `handoff_condition`
+  - either `serial_only` or `parallel_group`
+  - `parallel_justification`
+- for `checklist-linked` package work, require package-scoped slice ids (for example `P6-W1-S1`) in `slice_table`, `recommended_slice_order`, and `ready_now_slice`
+- for `checklist-linked` package work, treat `coverage_check` as a hard implementation-ready gate: every package issue must map to exactly one planned slice or one explicit defer path with one final owner before implementation can begin
+- for `checklist-linked` package work, keep the checklist companion map canonical for package issue membership; tracked plans may snapshot `package_issue_ids` for execution coverage but must not become a rival membership authority
+- for `checklist-linked` package work, decomposition is still mandatory even when the package is small enough to yield exactly one slice
 - add `## Priority-Exit Readiness` only when the cleanup plan is intended to close the last `P#-W#` item in a cleanup priority or is itself `P#-EXIT`
 - for `standalone remediation`, say explicitly that no checklist update is expected unless the task is intentionally promoted later
 

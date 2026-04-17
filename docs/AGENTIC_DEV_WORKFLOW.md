@@ -92,7 +92,8 @@ When tracked docs conflict, use this order:
    - Tier 1: small bounded low-risk work uses one session/agent plus review before closeout
    - Tier 2: a normal cleanup unit uses planner -> implementer -> reviewer
    - Tier 2 feature/design work uses the same tracked planner/reviewer/implementer prompt family as cleanup, with planner -> reviewer -> implementer -> reviewer sequencing
-   - Tier 3: hotspot, cross-boundary, multi-session, or otherwise high-risk work uses the controller loop, and a local run bundle when repeated handoff is likely
+   - Tier 3: hotspot, cross-boundary, multi-session, or otherwise high-risk work uses task-specific orchestration, and a local run bundle when repeated handoff is likely
+   - for cleanup Tier 3 work, `cleanup-loop` is an explicit orchestrator: the main session keeps `update_plan`, keeps planning/closeout package-scoped, runs planner -> reviewer once for plan approval, then iterates slice-select -> implementer -> reviewer loops through subagents until package exit gates are clean
    - for Tier 3 feature or mixed work, use a task-specific run bundle and the normal workflow; do not treat `cleanup-loop` as umbrella control for feature delivery
    - do not escalate to a heavier tier unless the lower tier would materially weaken reliability
 6. Plan explicitly before multi-step work.
@@ -147,6 +148,8 @@ When tracked docs conflict, use this order:
    - when archiving a completed section summary (`*section-summary.md`), add the required `Harness Ingestion Triage` block and run `npm run harness:ingestion`
    - when a local `docs/runs/<date>-<topic>/` bundle or eval baseline changes the workflow conclusion, write the durable lesson into a tracked workflow doc or tracked eval summary in the same pass
    - do not leave stale current-state claims behind
+   - when a delegated worker or implementer pass makes substantive repo changes, create a focused non-interactive commit checkpoint for that implementation batch unless the main session explicitly chose a no-commit tiny-edit exception
+   - keep active tracked plan docs in `docs/plans/` out of those implementation commits; if plan progress or plan refresh must be recorded, leave it for the orchestrator or a separate tracked-doc commit instead of bundling it into the implementation checkpoint
 11. Close workflow/control-plane changes deliberately.
    - when launcher invocation behavior changes, update the matching tracked launcher docs and keep cleanup vs feature ergonomics aligned unless a documented difference is intentional
    - when plan-standard section ownership changes, realign launcher/workflow references to the correct plan-standard anchors in the same pass
@@ -203,7 +206,7 @@ If you keep optional local launcher skills installed, invoke them explicitly thr
 - Tier 2 planner session: [`cleanup-plan.md`](./agentic/session-prompts/cleanup-plan.md)
 - Tier 2 implementer session: [`cleanup-implement.md`](./agentic/session-prompts/cleanup-implement.md)
 - reusable review session: [`cleanup-review.md`](./agentic/session-prompts/cleanup-review.md)
-- Tier 3 controller session: [`cleanup-loop.md`](./agentic/session-prompts/cleanup-loop.md)
+- Tier 3 controller/orchestrator session (cleanup/refactor only, package-scoped orchestration with slice-default implementation/review): [`cleanup-loop.md`](./agentic/session-prompts/cleanup-loop.md)
 - Tier 2/3 feature planner session: [`feature-plan.md`](./agentic/session-prompts/feature-plan.md)
 - approved feature implementer session: [`feature-implement.md`](./agentic/session-prompts/feature-implement.md) (Tier 2 default; reusable in Tier 3 when a run bundle already exists)
 - reusable feature/design review session: [`feature-review.md`](./agentic/session-prompts/feature-review.md)
@@ -214,7 +217,7 @@ Feature plans consume the [`Universal Plan Core`](./agentic/plan-authoring-stand
 
 Use the reusable launchers only when the task risk justifies them. Tier 1 work should usually stay in one session with review.
 
-For larger multi-session or hotspot work, create a task-specific run bundle in [`docs/runs/`](./runs/README.md). Use `cleanup-loop` only for Tier 3 cleanup/refactor control; for Tier 3 feature or mixed work, keep the same feature `feature-plan` + `feature-review` + `feature-implement` + `feature-review` workflow, use the run bundle as the task-specific context, and keep cleanup prompts scoped to the cleanup slice.
+For larger multi-session or hotspot work, create a task-specific run bundle in [`docs/runs/`](./runs/README.md). Use `cleanup-loop` only for Tier 3 cleanup/refactor control; keep planning/package closeout package-scoped and run slice-by-slice implementation/review by default, with parallel slices only when the approved plan explicitly allows it. For Tier 3 feature or mixed work, keep the same feature `feature-plan` + `feature-review` + `feature-implement` + `feature-review` workflow, use the run bundle as the task-specific context, and keep cleanup prompts scoped to the cleanup slice.
 
 ## Session Handoffs
 

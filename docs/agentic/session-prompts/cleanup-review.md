@@ -18,9 +18,11 @@ Use this prompt for adversarial review of a cleanup artifact from any orchestrat
 Accept either of these as the task-specific input after the launcher:
 
 - a pasted `NEXT_SESSION_HANDOFF` block; when present, treat `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE` as required additional reading after the standard read order
-- one short follow-up message naming the exact artifact under review and its checklist linkage when applicable, for example `Review docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1.`
+- one short follow-up message naming the exact artifact under review and its checklist linkage when applicable, for example `Review docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1 slice P1-W1-S1.`
 
 If the short follow-up form is used, treat the named artifact as the review target and derive the rest of the context from the checklist, plan, and tracked workflow docs instead of waiting for a formal handoff block.
+
+For `checklist-linked` package plans, implementation review must identify the `slice_id` under review (or derive the implemented slice from the approved tracked package plan and implementation artifact) before assessing correctness.
 
 ## Review Mode
 
@@ -63,8 +65,13 @@ If reviewing an implementation, focus on:
 
 - regressions, architecture leakage, and responsibility growth
 - deviation from the approved plan
+- incorrect slice targeting, including missing `slice_id` or unapproved adjacent-slice merge
 - missing doc updates
 - incorrect checklist bookkeeping for `standalone remediation`, or missing checklist updates for `checklist-linked` work
+- slice-to-issue retirement correctness for the reviewed slice
+- remaining package coverage integrity after the reviewed slice
+- no-drop accounting across completed and remaining slices
+- whether package state is ready for the next slice or ready for package exit
 - missing or weak verification
 - accidental local-only artifact changes
 - new slop, fallback paths, or cross-boundary shortcuts
@@ -86,11 +93,15 @@ If reviewing an implementation, focus on:
 - list open questions or assumptions after findings
 - keep summaries brief
 - if there are no material findings, say so explicitly and note any residual risk or testing gap
+- for `checklist-linked` package-plan implementation reviews, include an explicit package-coverage verdict stating the reviewed `slice_id`, retired issues, remaining slice coverage, and whether next-slice work or package-exit review is justified
 - if another session is needed, end with one `NEXT_SESSION_HANDOFF` block:
   - when reviewing a plan with material findings: route back to `lineup-cleanup-plan`
   - when reviewing a plan with no material findings: route to `lineup-cleanup-implement`
   - when reviewing an implementation with material findings: route back to `lineup-cleanup-implement`
+  - when reviewing an implementation with no material findings but approved package slices still remain and no active `cleanup-loop` controller owns the run: route to `lineup-cleanup-implement` for the next approved slice
+  - when reviewing an implementation inside an active `cleanup-loop` run with no material findings: no handoff block is required, but state explicitly whether control returns to `slice-select` or `closeout`
   - when reviewing an implementation with no material findings: no handoff block is required if closeout is complete
+  - for `checklist-linked` package-plan implementation review handoffs, include the exact reviewed or next `slice_id` in the request
   - if the user explicitly asked for model guidance, or if the handoff is Tier 3 or architecture-risk score `>= 2`, include a `MODEL_SUGGESTION` block immediately before `NEXT_SESSION_HANDOFF` using repo-local `model-selection`
 - for plan review, treat “implementation-ready” as meaning:
   - no hidden architecture or scope decisions remain

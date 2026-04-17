@@ -61,6 +61,22 @@ If the short follow-up form is used, treat the named checklist item or cleanup t
 - include commit checkpoints only for tracked work
 - do not rely on ignored local material unless a tracked curated reference already exists
 - for `standalone remediation`, state explicitly that no checklist item is being updated; do not invent checklist linkage just to fit the cleanup lane
+- for `checklist-linked` package work, require a tracked `## Package Decomposition` section in the plan with canonical fields:
+  - `package_id`
+  - `checklist_token`
+  - `package_issue_ids`
+  - `slice_table`
+  - `coverage_check`
+  - `recommended_slice_order`
+  - `ready_now_slice`
+  - `parallel_execution_policy`
+- for `checklist-linked` package work, require each `slice_table` row to capture at least `slice_id`, `goal`, `areas/files`, `exact_issue_ids`, `verification`, `dependencies`, `stop_condition`, `handoff_condition`, and either `serial_only` or `parallel_group` plus `parallel_justification`
+- for `checklist-linked` package work, require package-scoped slice ids (for example `P6-W1-S1`) in `slice_table`, `recommended_slice_order`, and `ready_now_slice`
+- for `checklist-linked` package work, treat `coverage_check` as a hard implementation-ready gate: every package issue must map to exactly one planned slice or one explicit defer path with one final owner before implementation can begin
+- for `checklist-linked` package work, keep the checklist companion map canonical for package issue membership; tracked plans may snapshot `package_issue_ids` for execution coverage but must not become a rival membership authority
+- for `checklist-linked` package work, decomposition is still mandatory even when the package is small enough to yield exactly one slice
+- for `checklist-linked` package work, require `ready_now_slice` to name the first implementation slice for the next implementer session
+- for `checklist-linked` package work, require `parallel_execution_policy` to be explicit; when parallel slices are allowed, the plan must justify why boundaries and verification surfaces are disjoint
 - if adjacent files may need contract/type changes, either place them in scope explicitly or freeze them explicitly and explain how the extraction still works
 - when a mapped imported issue is broader than the proposed slice, either widen the slice or name one intended final owner for the remaining live debt; do not rely on repeated future `P#-EXIT` re-splitting to sort out stale detector residue
 - if the plan expects a slice to retire one sub-claim of a broader imported issue, say exactly which slice-owned rationale is being retired and whether any residual live debt stays with the same final owner
@@ -86,6 +102,7 @@ Return:
 1. the plan file path
 2. the cleanup subtype (`checklist-linked` or `standalone remediation`) and why it applies
 3. the locked decisions and invariants
+   - for `checklist-linked` package work, include `Package Decomposition` decisions with `ready_now_slice` and `parallel_execution_policy`
 4. the main impacted files or symbols
 5. the exact verification commands
    - if this is the final `P#-W#` for a priority, include the exact priority-exit evidence and `P#-EXIT` update that must happen before `P(n+1)`
