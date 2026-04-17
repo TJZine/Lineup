@@ -45,10 +45,12 @@ Run the loop as an explicit state machine:
   - identify the exact cleanup subtype (`checklist-linked` or `standalone remediation`) and the approved scope
   - for `checklist-linked` work, load the matching checklist entry and linkage
   - load the current plan or active run-bundle context when present
+  - keep controller-side startup reading bounded to the authority surfaces and package-local scope needed to route the work and brief subagents correctly
+  - do not front-load planner-grade repo discovery in the controller unless the delegated planning pass fails, stalls with a concrete blocker, or needs a controller-level seam decision
   - initialize or refresh `update_plan`
 - `plan`
   - keep initial routing and seam decisions local unless Tier 3 scale clearly justifies delegating the plan-writing pass
-  - when delegating plan writing, use the tracked write-capable `worker` role for the bounded plan artifact rather than inventing a new planner role
+  - when delegating plan writing, use the tracked write-capable `worker` role for the bounded plan artifact rather than inventing a new planner role, but override that planning pass to `gpt-5.4` with `high` reasoning effort instead of the generic worker default
   - have the planning pass write or refresh the implementation plan using the tracked cleanup planning standards
   - for `checklist-linked` package work, require approved package decomposition and a clear next slice recommendation in the tracked plan before implementation starts
 - `plan-review`
@@ -99,6 +101,7 @@ Run the loop as an explicit state machine:
 - ensure cleanup planning and review use both [`Universal Plan Core`](../plan-authoring-standard.md#universal-plan-core) and [`Cleanup Overlay`](../plan-authoring-standard.md#cleanup-overlay)
 - keep orchestration package-scoped for planning and closeout, but drive implementation/review by approved slices
 - keep delegation inside the tracked role catalog from `.codex/config.toml`; use `worker` for bounded write passes and `reviewer` for adversarial review passes
+- when the delegated pass is the primary plan-writing pass for `cleanup-loop`, explicitly raise that `worker` run to `gpt-5.4` with `high` reasoning effort
 - ensure delegated write passes use the right repo-local boundary skills
 - keep write-capable delegated passes alive across revision rounds unless there is a specific reason to restart them
 - keep review passes adversarial and fresh for each loop instead of reusing a writer pass as reviewer
@@ -115,6 +118,7 @@ Run the loop as an explicit state machine:
 - if the same findings recur, tighten instructions, narrow context, or explicitly resolve the blocked decision in the controller before continuing
 - direct orchestrator edits are allowed only as a last resort and should stay narrowly scoped
 - if delegated implementation updates plan progress and code in the same pass, keep the worker commit focused on implementation artifacts and let the orchestrator decide whether plan-doc updates should be committed separately
+- do not interrupt a planner or implementer subagent just because a large cleanup package is taking a long time; prefer long waits and progress checks, and only interrupt when there is a concrete wrong-scope, failure, or no-progress signal
 
 ## Completion Gate
 
