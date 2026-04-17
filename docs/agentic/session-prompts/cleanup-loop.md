@@ -55,10 +55,14 @@ Run the loop as an explicit state machine:
   - for `checklist-linked` package work, require approved package decomposition and a clear next slice recommendation in the tracked plan before implementation starts
 - `plan-review`
   - run an adversarial plan review using a fresh tracked `reviewer` pass
+  - keep that reviewer thread alive for follow-up closure checks on the same plan artifact when findings come back
   - treat the plan as implementation-ready only when there are no material findings
   - treat slice parallelism as unavailable unless the approved plan explicitly authorizes it and explains the boundary and verification split
 - `plan-revise`
   - route plan-review findings back to the same planning subagent
+  - by default, send the revised plan back to the same reviewer thread for closure checking instead of spawning a brand-new reviewer each round
+  - run a fresh reviewer again only for the final clean approval gate, when the prior reviewer context is no longer trustworthy, or when the controller wants a second opinion because the loop is stuck or scope changed materially
+  - when a same-reviewer closure check clears the findings after a non-clean round, return to `plan-review` for the fresh final approval gate before entering `slice-select`
   - do not begin implementation while material plan findings remain
 - `slice-select`
   - keep planning and package closeout package-scoped, but select implementation scope at slice level by default
@@ -72,9 +76,13 @@ Run the loop as an explicit state machine:
   - keep active tracked plan docs from `docs/plans/` out of delegated implementation commits; plan-progress updates may stay in the working tree for orchestrator handling or a separate tracked-doc commit
 - `implementation-review`
   - run an adversarial implementation review using a fresh tracked `reviewer` pass for the implemented slice
+  - keep that reviewer thread alive for follow-up closure checks on the same slice artifact when findings come back
   - after a clean slice review, either return to `slice-select` for remaining slices or proceed to `closeout` when package exit conditions are satisfied
 - `implementation-revise`
   - route implementation-review findings back to the same implementation subagent for the current slice
+  - by default, send the revised slice back to the same reviewer thread for closure checking instead of spawning a brand-new reviewer each round
+  - run a fresh reviewer again only for the final clean approval gate, when the prior reviewer context is no longer trustworthy, or when the controller wants a second opinion because the loop is stuck or scope changed materially
+  - when a same-reviewer closure check clears the findings after a non-clean round, return to `implementation-review` for the fresh final approval gate before advancing to the next slice or `closeout`
   - do not advance to the next slice or mark the package complete while material implementation findings remain
 - `closeout`
   - ensure required verification actually ran
@@ -104,7 +112,9 @@ Run the loop as an explicit state machine:
 - when the delegated pass is the primary plan-writing pass for `cleanup-loop`, explicitly raise that `worker` run to `gpt-5.4` with `high` reasoning effort
 - ensure delegated write passes use the right repo-local boundary skills
 - keep write-capable delegated passes alive across revision rounds unless there is a specific reason to restart them
-- keep review passes adversarial and fresh for each loop instead of reusing a writer pass as reviewer
+- keep reviewers read-only by default and do not reuse a writer pass as reviewer
+- keep the same reviewer alive for follow-up closure checks on the same artifact by default, and reserve fresh reviewers for the initial adversarial pass plus the final clean approval gate
+- do not ask a tracked read-only reviewer to patch the artifact; if the controller breaks repeated churn with a tiny direct fix or a write-capable pass after reviewer guidance, require a fresh reviewer before the artifact can be treated as clean
 - ensure verification matches risk
 - ensure delegated implementation commits stay focused on implementation artifacts and exclude active tracked plan docs
 - ensure checklist/current-state docs are updated in the same pass when ownership or status changes
@@ -112,20 +122,23 @@ Run the loop as an explicit state machine:
 
 ## Loop Discipline
 
-- planner -> reviewer -> planner repeats until plan review is clean
-- slice-select -> implementer -> reviewer -> implementer repeats until the current slice review is clean
+- planner -> fresh reviewer -> planner repeats, with the same reviewer handling rereview closure checks by default until the plan is ready for a final clean approval pass
+- slice-select -> implementer -> fresh reviewer -> implementer repeats, with the same reviewer handling rereview closure checks by default until the slice is ready for a final clean approval pass
 - after a slice is clean, return to slice-select until the approved package slices are complete or explicitly deferred by the approved plan
 - if the same findings recur, tighten instructions, narrow context, or explicitly resolve the blocked decision in the controller before continuing
 - direct orchestrator edits are allowed only as a last resort and should stay narrowly scoped
 - if delegated implementation updates plan progress and code in the same pass, keep the worker commit focused on implementation artifacts and let the orchestrator decide whether plan-doc updates should be committed separately
 - do not interrupt a planner or implementer subagent just because a large cleanup package is taking a long time; prefer long waits and progress checks, and only interrupt when there is a concrete wrong-scope, failure, or no-progress signal
+- do not spawn a brand-new reviewer for every rereview round by default; prefer reviewer continuity for closure checks, then use a fresh reviewer again for the final clean gate
 
 ## Completion Gate
 
 Do not treat the task as complete unless all of the following are true:
 
 1. the plan review loop is clean
+   - if the plan ever had material findings, “clean” includes the required fresh final approval pass after any same-reviewer closure checks
 2. each implemented approved slice has a clean implementation review loop, and package closeout only starts when slice completion/deferral state matches the approved plan
+   - if a slice review ever had material findings, “clean” includes the required fresh final approval pass after any same-reviewer closure checks
 3. the required verification commands actually ran
 4. the required subtype-matched updates happened in the same pass (`checklist-linked`: checklist/current-state/doc updates; `standalone remediation`: docs/current-state updates without inventing checklist linkage)
 5. if applicable, the required `P#-EXIT` evidence and status handling are complete

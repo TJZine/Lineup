@@ -97,7 +97,9 @@ If reviewing an implementation, focus on:
 - if another session is needed, end with one `NEXT_SESSION_HANDOFF` block:
   - when reviewing a plan with material findings: route back to `lineup-cleanup-plan`
   - when reviewing a plan with no material findings: route to `lineup-cleanup-implement`
+  - when reviewing a revised plan inside an active `cleanup-loop` run as the same-reviewer closure check after earlier material findings: do not treat the plan as finally approved yet; state explicitly that control returns to `plan-review` for the required fresh final approval gate
   - when reviewing an implementation with material findings: route back to `lineup-cleanup-implement`
+  - when reviewing a revised implementation inside an active `cleanup-loop` run as the same-reviewer closure check after earlier material findings: do not treat the slice as finally approved yet; state explicitly that control returns to `implementation-review` for the required fresh final approval gate
   - when reviewing an implementation with no material findings but approved package slices still remain and no active `cleanup-loop` controller owns the run: route to `lineup-cleanup-implement` for the next approved slice
   - when reviewing an implementation inside an active `cleanup-loop` run with no material findings: no handoff block is required, but state explicitly whether control returns to `slice-select` or `closeout`
   - when reviewing an implementation with no material findings: no handoff block is required if closeout is complete
