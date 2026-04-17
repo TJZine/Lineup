@@ -1,5 +1,5 @@
-model = "gpt-5.1-codex-max"
-model_reasoning_effort = "medium"
+model = "gpt-5.4 Mini"
+model_reasoning_effort = "High"
 sandbox_mode = "read-only"
 developer_instructions = """
 Stay in exploration mode.
