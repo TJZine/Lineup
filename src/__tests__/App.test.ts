@@ -8,7 +8,7 @@ import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../
 import { AppThemeController } from '../core/app-shell/AppThemeController';
 import type { ChannelSetupConfig } from '../core/channel-setup/types';
 import { AppOrchestrator, type PlaybackInfoSnapshot } from '../core/orchestrator/AppOrchestrator';
-import { STORAGE_KEYS } from '../types';
+import { PLEX_AUTH_CONSTANTS } from '../modules/plex/auth';
 
 import { flushPromises } from './helpers';
 import { EXPECTED_CONTAINER_IDS } from './fixtures/appShellContainerIds';
@@ -31,7 +31,7 @@ jest.mock('../modules/ui/splash', () => ({
 
 const authScreenChunkLoaded = jest.fn();
 const authScreenConstructed = jest.fn();
-jest.mock('../modules/ui/auth/AuthScreen', () => {
+jest.mock('../modules/ui/auth', () => {
     authScreenChunkLoaded();
     return {
         AuthScreen: class AuthScreen {
@@ -53,7 +53,7 @@ jest.mock('../modules/ui/auth/AuthScreen', () => {
 
 const profileSelectScreenChunkLoaded = jest.fn();
 const profileSelectScreenConstructed = jest.fn();
-jest.mock('../modules/ui/profile-select/ProfileSelectScreen', () => {
+jest.mock('../modules/ui/profile-select', () => {
     profileSelectScreenChunkLoaded();
     return {
         ProfileSelectScreen: class ProfileSelectScreen {
@@ -77,7 +77,7 @@ const serverSelectShow = jest.fn();
 const serverSelectHide = jest.fn();
 const serverSelectScreenChunkLoaded = jest.fn();
 const serverSelectScreenConstructed = jest.fn();
-jest.mock('../modules/ui/server-select/ServerSelectScreen', () => {
+jest.mock('../modules/ui/server-select', () => {
     serverSelectScreenChunkLoaded();
     return {
         ServerSelectScreen: class ServerSelectScreen {
@@ -99,7 +99,7 @@ jest.mock('../modules/ui/server-select/ServerSelectScreen', () => {
 
 const settingsScreenChunkLoaded = jest.fn();
 const settingsScreenConstructed = jest.fn();
-jest.mock('../modules/ui/settings/SettingsScreen', () => {
+jest.mock('../modules/ui/settings', () => {
     settingsScreenChunkLoaded();
     return {
         SettingsScreen: class SettingsScreen {
@@ -122,7 +122,7 @@ jest.mock('../modules/ui/settings/SettingsScreen', () => {
 const channelSetupScreenChunkLoaded = jest.fn();
 const channelSetupScreenConstructed = jest.fn();
 const getPlannerDiagnosticsConfigMock = jest.fn<ChannelSetupConfig | null, []>();
-jest.mock('../modules/ui/channel-setup/ChannelSetupScreen', () => {
+jest.mock('../modules/ui/channel-setup', () => {
     channelSetupScreenChunkLoaded();
     return {
         ChannelSetupScreen: class ChannelSetupScreen {
@@ -986,10 +986,10 @@ describe('App bootstrap smoke', () => {
                 configurable: true,
             });
 
-            localStorage.setItem(STORAGE_KEYS.CLIENT_ID, '');
+            localStorage.setItem(PLEX_AUTH_CONSTANTS.CLIENT_ID_KEY, '');
             await bootstrapApp();
 
-            const clientId = localStorage.getItem(STORAGE_KEYS.CLIENT_ID) ?? '';
+            const clientId = localStorage.getItem(PLEX_AUTH_CONSTANTS.CLIENT_ID_KEY) ?? '';
             expect(clientId).toMatch(/^lineup-[A-Za-z0-9._-]+$/);
         } finally {
             Object.defineProperty(globalThis, 'crypto', {
@@ -1000,9 +1000,9 @@ describe('App bootstrap smoke', () => {
     });
 
     it('uses an existing sane client id without regenerating', async () => {
-        localStorage.setItem(STORAGE_KEYS.CLIENT_ID, 'lineup-existing_123');
+        localStorage.setItem(PLEX_AUTH_CONSTANTS.CLIENT_ID_KEY, 'lineup-existing_123');
         await bootstrapApp();
 
-        expect(localStorage.getItem(STORAGE_KEYS.CLIENT_ID)).toBe('lineup-existing_123');
+        expect(localStorage.getItem(PLEX_AUTH_CONSTANTS.CLIENT_ID_KEY)).toBe('lineup-existing_123');
     });
 });

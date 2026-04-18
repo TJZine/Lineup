@@ -8,7 +8,7 @@ import type { AppShellDiagnosticsRuntimePort } from './AppShellRuntimeContracts'
 import {
     safeClearLineupStorage,
 } from '../../utils/storage';
-import { STORAGE_KEYS } from '../../types';
+import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import { summarizeChannelSetupPlannerDiagnostics } from './AppDiagnosticsChannelSetupSummary';
 
 type DiagnosticsWindow = Window & {
@@ -443,8 +443,8 @@ export class AppDiagnosticsSurface {
         stack.append(overridesSection, playbackSection, resetButton, closeButton);
         container.replaceChildren(heading, storageInfo, stack);
 
-        channelsKey.textContent = STORAGE_KEYS.CHANNELS_REAL;
-        currentChannelKey.textContent = STORAGE_KEYS.CURRENT_CHANNEL;
+        channelsKey.textContent = LINEUP_STORAGE_KEYS.CHANNELS_REAL;
+        currentChannelKey.textContent = LINEUP_STORAGE_KEYS.CURRENT_CHANNEL;
 
         // Bind events
         resetButton.addEventListener('click', () => {

@@ -45,7 +45,7 @@ import {
 } from '../../modules/ui/playback-options';
 import { ExitConfirmModal } from '../../modules/ui/exit-confirm';
 import { SleepTimerManager } from '../../modules/ui/sleep-timer';
-import { STORAGE_KEYS } from '../../types';
+import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import type { OrchestratorConfig } from './OrchestratorTypes';
 import type {
     ChannelBadgeOverlayInitPort,
@@ -134,8 +134,8 @@ export function createOrchestratorModules(deps: OrchestratorModuleFactoryDeps): 
 
     const channelManagerConfig: ChannelManagerConfig = {
         plexLibrary,
-        storageKey: STORAGE_KEYS.CHANNELS_REAL,
-        currentChannelKey: STORAGE_KEYS.CURRENT_CHANNEL,
+        storageKey: LINEUP_STORAGE_KEYS.CHANNELS_REAL,
+        currentChannelKey: LINEUP_STORAGE_KEYS.CURRENT_CHANNEL,
     };
     const channelManager = new ChannelManager(channelManagerConfig);
 

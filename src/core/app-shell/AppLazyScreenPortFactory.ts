@@ -1,9 +1,9 @@
 import type { ChannelSetupWorkflowPort } from '../channel-setup/ChannelSetupWorkflowPort';
-import type { ChannelSetupScreenPorts } from '../../modules/ui/channel-setup/ChannelSetupScreenPorts';
-import type { AuthScreenPorts } from '../../modules/ui/auth/AuthScreen';
-import type { ProfileSelectScreenPorts } from '../../modules/ui/profile-select/ProfileSelectScreen';
-import type { ServerSelectScreenPorts } from '../../modules/ui/server-select/ServerSelectScreen';
+import type { AuthScreenPorts } from '../../modules/ui/auth';
+import type { ChannelSetupScreenPorts } from '../../modules/ui/channel-setup';
 import type { INavigationManager } from '../../modules/navigation';
+import type { ProfileSelectScreenPorts } from '../../modules/ui/profile-select';
+import type { ServerSelectScreenPorts } from '../../modules/ui/server-select';
 import type { GuideSettingChange } from '../../modules/ui/settings/types';
 import type { ThemeName } from '../../modules/ui/theme';
 import type {

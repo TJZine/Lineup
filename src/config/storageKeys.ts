@@ -4,6 +4,11 @@
  * Keep this file free of UI imports so core/player/plex can depend on it safely.
  */
 export const LINEUP_STORAGE_KEYS = {
+    // Channels
+    CHANNELS_REAL: 'lineup_channels_v4',
+    CHANNELS_SERVER: 'lineup_channels_server_v1',
+    CURRENT_CHANNEL: 'lineup_current_channel_v4',
+
     // Audio / Playback
     DTS_PASSTHROUGH: 'lineup_enable_dts_passthrough',
     DIRECT_PLAY_AUDIO_FALLBACK: 'lineup_direct_play_audio_fallback',
