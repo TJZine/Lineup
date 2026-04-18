@@ -14,8 +14,10 @@ This checklist is not complete until an authoritative rerun on the target integr
 
 - Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
-- Current execution state: `P1-W1`, `P1-EXIT`, `P2-W1`, and `P2-EXIT` are complete on authoritative `2026-04-18` closeout evidence; `P3` remains not started
-- Next safe start: `P3-W1`
+- Current execution state: `P1-W1`, `P1-EXIT`, `P2-W1`, and `P2-EXIT` are complete on authoritative `2026-04-18` closeout evidence; `P3` remains not started, and no `P3` implementation or tracked plan doc has begun yet
+- Next safe start: `P3-W1` / `pkg_plex_contracts_identity`
+- Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to `P3-W1`
+- First action at package start: planning only; create the package-local execution-grade plan first and do not begin implementation until that planning gate is complete
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
 - Exact issue-membership surface: `docs/architecture/active-cleanup-package-map.json`
 - Historical planning context only: local run bundles under `docs/runs/`
@@ -301,7 +303,7 @@ Every `P#-EXIT` must, in the same pass:
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: `P3-EXIT`
+- Handoff: Start with `P3-W1` planning, not implementation. Keep the package boundary centered on `pkg_plex_contracts_identity`: `src/modules/plex/discovery`, `src/modules/plex/library`, `src/modules/plex/auth`, plus the platform-identity seams directly owned by Plex startup or stream setup. Do not absorb startup-profile lifecycle semantics except where `PlexAuth` or Plex-owned identity seams force that boundary to be touched; coordinate with `P4` or `P5` only if those downstream boundaries are directly implicated by the current-source evidence. At package entry, rerun the package-local scoping commands listed above before writing the local execution plan so the fresh session scopes from current authoritative evidence.
 
 - [ ] `P3-EXIT`
 
