@@ -28,11 +28,7 @@ export function createOverlayPrimitives(
     panelEl.className = classNames.panel;
     applyOverlayPanelConfig(panelEl, props.panel);
 
-    const headerEl = classNames.header ? document.createElement('div') : null;
-    if (headerEl && classNames.header) {
-        headerEl.className = classNames.header;
-        panelEl.appendChild(headerEl);
-    }
+    const headerEl = createOptionalPanelSection(panelEl, classNames.header);
 
     const titleText = typeof props.title === 'string' ? props.title.trim() : '';
     const titleEl = classNames.title && titleText ? document.createElement('h1') : null;
@@ -42,38 +38,10 @@ export function createOverlayPrimitives(
         (headerEl ?? panelEl).appendChild(titleEl);
     }
 
-    const contentEl = classNames.content ? document.createElement('div') : null;
-    if (contentEl && classNames.content) {
-        contentEl.className = classNames.content;
-        panelEl.appendChild(contentEl);
-    }
-
-    const metaEl = classNames.meta ? document.createElement('div') : null;
-    if (metaEl && classNames.meta) {
-        metaEl.className = classNames.meta;
-        if (props.metaSlot) {
-            metaEl.appendChild(props.metaSlot);
-        }
-        panelEl.appendChild(metaEl);
-    }
-
-    const hintsEl = classNames.hints ? document.createElement('div') : null;
-    if (hintsEl && classNames.hints) {
-        hintsEl.className = classNames.hints;
-        if (props.hintsSlot) {
-            hintsEl.appendChild(props.hintsSlot);
-        }
-        panelEl.appendChild(hintsEl);
-    }
-
-    const actionsEl = classNames.actions ? document.createElement('div') : null;
-    if (actionsEl && classNames.actions) {
-        actionsEl.className = classNames.actions;
-        if (props.actionsSlot) {
-            actionsEl.appendChild(props.actionsSlot);
-        }
-        panelEl.appendChild(actionsEl);
-    }
+    const contentEl = createOptionalPanelSection(panelEl, classNames.content);
+    const metaEl = createOptionalPanelSection(panelEl, classNames.meta, props.metaSlot);
+    const hintsEl = createOptionalPanelSection(panelEl, classNames.hints, props.hintsSlot);
+    const actionsEl = createOptionalPanelSection(panelEl, classNames.actions, props.actionsSlot);
 
     return {
         panelEl,
@@ -84,6 +52,25 @@ export function createOverlayPrimitives(
         hintsEl,
         actionsEl,
     };
+}
+
+function createOptionalPanelSection(
+    panelEl: HTMLElement,
+    className: string | undefined,
+    slot?: HTMLElement | null
+): HTMLElement | null {
+    if (!className) {
+        return null;
+    }
+
+    const sectionEl = document.createElement('div');
+    sectionEl.className = className;
+    if (slot) {
+        sectionEl.appendChild(slot);
+    }
+    panelEl.appendChild(sectionEl);
+
+    return sectionEl;
 }
 
 function applyOverlayPanelConfig(panelEl: HTMLElement, panel: OverlayPanelConfig): void {
