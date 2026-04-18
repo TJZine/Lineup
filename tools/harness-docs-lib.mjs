@@ -355,8 +355,41 @@ function getExecutionWaveEntries(executionWavesBlock) {
     });
 }
 
-function getChecklistWaveSliceIds(waveContent) {
-    return Array.from(waveContent.matchAll(/P\d+-W\d+-S\d+/gu), (match) => match[0]);
+function getDeclaredExecutionWaveSliceIds(waveContent) {
+    const lines = waveContent.split(/\r?\n/u);
+    let collecting = false;
+    const sliceIds = [];
+
+    for (const line of lines) {
+        if (!collecting) {
+            const sliceIdsLineMatch = line.match(/^[ \t]*(?:[-*]|\d+\.)[ \t]+`slice_ids`:\s*(.*)$/u);
+            if (sliceIdsLineMatch === null) {
+                continue;
+            }
+
+            const inlineIds = Array.from(sliceIdsLineMatch[1].matchAll(/P\d+-W\d+-S\d+/gu), (match) => match[0]);
+            if (inlineIds.length > 0) {
+                return inlineIds;
+            }
+
+            collecting = true;
+            continue;
+        }
+
+        const nestedSliceId = line.match(/^[ \t]+(?:[-*]|\d+\.)[ \t]+`(P\d+-W\d+-S\d+)`/u)?.[1] ?? null;
+        if (nestedSliceId !== null) {
+            sliceIds.push(nestedSliceId);
+            continue;
+        }
+
+        if (line.trim().length === 0) {
+            continue;
+        }
+
+        break;
+    }
+
+    return sliceIds;
 }
 
 function getChecklistLinkedPackagePlanErrors(content) {
@@ -484,7 +517,7 @@ function getChecklistLinkedPackagePlanErrors(content) {
         if (sliceTableBlock !== null) {
             const declaredSliceIds = new Set(getChecklistSliceSections(sliceTableBlock).map((sliceSection) => sliceSection.sliceId));
             const hasUnknownWaveSliceId = waveEntries.some((waveEntry) =>
-                getChecklistWaveSliceIds(waveEntry.content).some((sliceId) => !declaredSliceIds.has(sliceId))
+                getDeclaredExecutionWaveSliceIds(waveEntry.content).some((sliceId) => !declaredSliceIds.has(sliceId))
             );
             if (hasUnknownWaveSliceId) {
                 errors.push('`execution_waves` slice_ids must reference declared `slice_table` slices');
@@ -498,10 +531,7 @@ function getChecklistLinkedPackagePlanErrors(content) {
         if (readyNowExecutionUnit !== null && readyNowSlice !== null) {
             const selectedWave = waveEntries.find((entry) => entry.waveId === readyNowExecutionUnit) ?? null;
             if (selectedWave !== null) {
-                const firstDeclaredSlice =
-                    selectedWave.content.match(
-                        /`slice_ids`:\s*(?:\r?\n)+[ \t]*(?:[-*]|\d+\.)[ \t]+`(P\d+-W\d+-S\d+)`/u
-                    )?.[1] ?? null;
+                const firstDeclaredSlice = getDeclaredExecutionWaveSliceIds(selectedWave.content)[0] ?? null;
                 if (firstDeclaredSlice !== null && readyNowSlice !== firstDeclaredSlice) {
                     errors.push('`ready_now_slice` must match the first declared `slice_id` in the selected `ready_now_execution_unit` wave');
                 }

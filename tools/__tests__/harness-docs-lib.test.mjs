@@ -2150,6 +2150,86 @@ ${buildWaveScopedPackageDecomposition()}
     assert.deepEqual(result.errors, []);
 });
 
+test('checkPlanConformance enforces ready_now_slice ordering when execution_waves uses inline slice_ids', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+        content: `# Cleanup Example
+
+**Plan Status:** active
+**Task family:** cleanup/refactor
+**Cleanup subtype:** checklist-linked
+
+## Goal
+
+- Do the cleanup.
+
+## Non-Goals
+
+- No runtime changes.
+
+## Parent Architecture Alignment
+
+- Keep the control plane small.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- fallback: direct reads only.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`src/App.ts\`
+
+## Planner Self-Check
+
+- resolved.
+
+## Architecture Seam Decision Gate
+
+- explicit.
+
+## Verification Commands
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- revert.
+
+## Commit Checkpoints
+
+- \`docs: update plan rules\`
+
+${buildWaveScopedPackageDecomposition()
+    .replace(
+        ['  - `slice_ids`:', '    - `P6-W1-S1`', '    - `P6-W1-S2`'].join('\n'),
+        '  - `slice_ids`: `P6-W1-S1`, `P6-W1-S2`'
+    )
+    .replace('- `ready_now_slice`: `P6-W1-S1`', '- `ready_now_slice`: `P6-W1-S2`')}
+`,
+    });
+
+    assert.deepEqual(result.errors, [
+        '`ready_now_slice` must match the first declared `slice_id` in the selected `ready_now_execution_unit` wave',
+    ]);
+});
+
 test('checkPlanConformance skips non-plan artifacts such as risk registers', () => {
     const result = checkPlanConformance({
         filePath: 'docs/plans/2026-03-04-epg-performance-risk-register.md',
