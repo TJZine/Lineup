@@ -113,7 +113,7 @@ export class PlayerOsdCoordinator {
         this._suppressActions = true;
         this._lastUserActionAt = 0;
         this._lastReason = 'status';
-        overlay.setViewModel(this._buildInfoOnlyViewModel('status'));
+        overlay.setViewModel(this._buildViewModel('status', true));
         overlay.show();
         this._notifyVisibilityChange(true);
         this._clearAutoHideTimer();
@@ -245,10 +245,6 @@ export class PlayerOsdCoordinator {
                 ? this._buildViewModel(reason, true)
                 : this._buildViewModel(reason)
         );
-    }
-
-    private _buildInfoOnlyViewModel(reason: PlayerOsdReason): PlayerOsdViewModel {
-        return this._buildViewModel(reason, true);
     }
 
     private _buildViewModel(reason: PlayerOsdReason, infoOnly: boolean = false): PlayerOsdViewModel {

@@ -23,7 +23,6 @@ import { SubtitlePreferencesStore } from '../../settings/SubtitlePreferencesStor
 import type { ToastType } from '../toast/types';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
 import type { StreamDescriptor } from '../../player/types';
-import { summarizeErrorForLog } from '../../../utils/errors';
 import { fetchWithTimeout } from '../../plex/shared/fetchWithTimeout';
 import {
     applyXPlexTokenQueryParam,
@@ -515,8 +514,8 @@ export class PlaybackOptionsCoordinator {
         const player = this.deps.getVideoPlayer();
         if (!player) return;
         player.setAudioTrack(trackId)
-            .catch((error) => {
-                console.warn('[PlaybackOptions] Audio track switch failed:', summarizeErrorForLog(error));
+            .catch(() => {
+                this.deps.notifyToast?.('Failed to apply audio track change', 'warning');
             })
             .finally(() => {
                 this.refreshIfOpen();

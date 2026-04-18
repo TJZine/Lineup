@@ -484,6 +484,19 @@ describe('PlayerOsdCoordinator', () => {
         expect(navigation.registerFocusable).not.toHaveBeenCalled();
     });
 
+    it('showInfoBanner omits actionIds from the rendered view model', () => {
+        const { coordinator, overlay } = setup();
+
+        coordinator.showInfoBanner();
+
+        const viewModel = (overlay.setViewModel as jest.Mock).mock.calls[0]?.[0] as {
+            infoOnly?: boolean;
+            actionIds?: Record<string, string>;
+        };
+        expect(viewModel.infoOnly).toBe(true);
+        expect(viewModel.actionIds).toBeUndefined();
+    });
+
     it('showInfoBanner clears pending throttled renders', () => {
         const { coordinator, overlay } = setup();
 
