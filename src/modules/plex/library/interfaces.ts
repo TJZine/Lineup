@@ -35,6 +35,10 @@ export interface PlexTagDirectoryQueryOptions {
 /**
  * Plex Library Interface.
  * Provides access to Plex media libraries and content.
+ *
+ * Semantic absence is represented by `null` or an empty array only for real
+ * not-found or empty-success outcomes. Malformed payloads, timeouts, and
+ * server failures must reject with `PlexLibraryError`.
  */
 export interface IPlexLibrary {
     // Library Sections
@@ -80,7 +84,7 @@ export interface IPlexLibrary {
      * Get total item count for a library without fetching items.
      * @param libraryId - Library section ID
      * @param options - Optional query options (filter/signal)
-     * @returns Promise resolving to item count, or `null` when unavailable
+     * @returns Promise resolving to item count, or `null` when Plex reports no matching items
      */
     getLibraryItemCount(libraryId: string, options?: LibraryQueryOptions): Promise<number | null>;
 

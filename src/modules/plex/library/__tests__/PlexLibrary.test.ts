@@ -3,6 +3,18 @@ import { PlexLibrary, PlexLibraryError, PlexLibraryErrorCode } from '../PlexLibr
 import type { PlexLibraryConfig, PlexTagDirectoryQueryOptions } from '../interfaces';
 import { mockLocalStorage, installMockLocalStorage } from '../../../../__tests__/mocks/localStorage';
 import { PLEX_LIBRARY_CONSTANTS, PLEX_MEDIA_TYPES } from '../constants';
+import {
+    mockCollectionsResponse,
+    mockConfig,
+    mockFetchJson,
+    mockFetchSequence,
+    mockFetchTextResponse,
+    mockLibrarySectionsResponse,
+    mockMediaItemResponse,
+    mockPlaylistsResponse,
+    mockSearchResponse,
+    mockTagDirectoryResponse,
+} from './plexLibraryTestUtils';
 
 // ============================================
 // Install Mock localStorage
@@ -10,203 +22,6 @@ import { PLEX_LIBRARY_CONSTANTS, PLEX_MEDIA_TYPES } from '../constants';
 
 installMockLocalStorage();
 
-// ============================================
-// Mock Config
-// ============================================
-
-const mockConfig: PlexLibraryConfig = {
-    getAuthHeaders: () => ({
-        Accept: 'application/json',
-        'X-Plex-Token': 'mock-token',
-        'X-Plex-Client-Identifier': 'mock-client-id',
-    }),
-    getServerUri: () => 'http://192.168.1.100:32400',
-    getAuthToken: () => 'mock-token',
-};
-
-// ============================================
-// Mock Data
-// ============================================
-
-const mockLibrarySectionsResponse = {
-    MediaContainer: {
-        Directory: [
-            {
-                key: '1',
-                uuid: 'lib-1',
-                title: 'Movies',
-                type: 'movie',
-                agent: 'com.plexapp.agents.imdb',
-                scanner: 'Plex Movie Scanner',
-                art: '/library/sections/1/art',
-                thumb: '/library/sections/1/thumb',
-                scannedAt: 1704067200,
-            },
-            {
-                key: '2',
-                uuid: 'lib-2',
-                title: 'TV Shows',
-                type: 'show',
-                agent: 'com.plexapp.agents.thetvdb',
-                scanner: 'Plex TV Series',
-            },
-            {
-                key: '3',
-                uuid: 'lib-3',
-                title: 'Music',
-                type: 'artist',
-                agent: 'com.plexapp.agents.lastfm',
-                scanner: 'Plex Music Scanner',
-            },
-            {
-                key: '4',
-                uuid: 'lib-4',
-                title: 'Photos',
-                type: 'photo',
-                agent: 'com.plexapp.agents.none',
-                scanner: 'Plex Photo Scanner',
-            },
-        ],
-    },
-};
-
-const mockMediaItemResponse = {
-    MediaContainer: {
-        Metadata: [
-            {
-                ratingKey: '12345',
-                key: '/library/metadata/12345',
-                type: 'movie',
-                title: 'Test Movie',
-                titleSort: 'Test Movie',
-                summary: 'A test movie summary',
-                year: 2023,
-                duration: 7200000,
-                addedAt: 1704067200,
-                updatedAt: 1704153600,
-                thumb: '/library/metadata/12345/thumb',
-                art: '/library/metadata/12345/art',
-                rating: 8.5,
-                audienceRating: 9.0,
-                contentRating: 'PG-13',
-                Media: [
-                    {
-                        id: 'm1',
-                        duration: 7200000,
-                        bitrate: 10000,
-                        width: 1920,
-                        height: 1080,
-                        aspectRatio: 1.78,
-                        videoCodec: 'h264',
-                        audioCodec: 'aac',
-                        audioChannels: 6,
-                        container: 'mp4',
-                        videoResolution: '1080',
-                        Part: [
-                            {
-                                id: 'p1',
-                                key: '/library/parts/p1',
-                                duration: 7200000,
-                                file: '/movies/test.mp4',
-                                size: 5000000000,
-                                container: 'mp4',
-                                Stream: [
-                                    {
-                                        id: 's1',
-                                        streamType: 1,
-                                        codec: 'h264',
-                                        width: 1920,
-                                        height: 1080,
-                                    },
-                                    {
-                                        id: 's2',
-                                        streamType: 2,
-                                        codec: 'aac',
-                                        language: 'English',
-                                        languageCode: 'en',
-                                        channels: 6,
-                                    },
-                                ],
-                            },
-                        ],
-                    },
-                ],
-            },
-        ],
-    },
-};
-
-const mockCollectionsResponse = {
-    MediaContainer: {
-        Metadata: [
-            { ratingKey: 'c1', key: '/library/collections/c1', title: 'Marvel', thumb: '/c1/thumb', childCount: 25 },
-            { ratingKey: 'c2', key: '/library/collections/c2', title: 'Star Wars', childCount: 12 },
-        ],
-    },
-};
-
-const mockPlaylistsResponse = {
-    MediaContainer: {
-        Metadata: [
-            { ratingKey: 'pl1', key: '/playlists/pl1', title: 'Favorites', thumb: '/pl1/thumb', duration: 36000000, leafCount: 10 },
-        ],
-    },
-};
-
-const mockTagDirectoryResponse = {
-    MediaContainer: {
-        Directory: [
-            { key: 't1', title: 'Tag One', count: 12, fastKey: '/library/sections/1/actor?type=1&actor=Tag%20One', thumb: '/t1/thumb' },
-            { key: 't2', title: 'Tag Two', count: 3 },
-        ],
-    },
-};
-
-const mockSearchResponse = {
-    MediaContainer: {
-        Hub: [
-            {
-                type: 'movie',
-                hubIdentifier: 'movie',
-                size: 2,
-                title: 'Movies',
-                Metadata: [
-                    { ratingKey: 's1', key: '/library/metadata/s1', type: 'movie', title: 'Search Result 1', year: 2023, duration: 7200000 },
-                    { ratingKey: 's2', key: '/library/metadata/s2', type: 'movie', title: 'Search Result 2', year: 2022, duration: 6600000 },
-                ],
-            },
-        ],
-    },
-};
-
-// ============================================
-// Helper Functions
-// ============================================
-
-function mockFetchJson(json: unknown, status: number = 200): void {
-    (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
-        ok: status >= 200 && status < 300,
-        status,
-        headers: { get: () => null },
-        json: async () => json,
-        text: async () => JSON.stringify(json),
-    });
-}
-
-function mockFetchSequence(responses: Array<{ json: unknown; status?: number }>): void {
-    let callIndex = 0;
-    (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(() => {
-        const response = responses[callIndex] || responses[responses.length - 1];
-        callIndex++;
-        return Promise.resolve({
-            ok: (response?.status ?? 200) >= 200 && (response?.status ?? 200) < 300,
-            status: response?.status ?? 200,
-            headers: { get: () => null },
-            json: async () => response?.json,
-            text: async () => JSON.stringify(response?.json),
-        });
-    });
-}
 // ============================================
 // Tests
 // ============================================
@@ -224,10 +39,10 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             const libs = await library.getLibraries();
+            const [movies] = libs;
 
             expect(libs).toHaveLength(4);
-            expect(libs[0]!.id).toBe('1');
-            expect(libs[0]!.title).toBe('Movies');
+            expect(movies).toMatchObject({ id: '1', title: 'Movies' });
         });
 
         it('should populate contentCount when includeItemCounts is enabled', async () => {
@@ -242,13 +57,14 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             const libs = await library.getLibraries({ includeItemCounts: true, itemCountConcurrency: 1 });
+            const [movies, shows, music, photos] = libs;
 
             expect(libs).toHaveLength(4);
-            expect(libs[0]!.contentCount).toBe(123);
-            expect(libs[1]!.contentCount).toBe(456);
-            expect(libs[1]!.episodeCount).toBe(999);
-            expect(libs[2]!.contentCount).toBe(789);
-            expect(libs[3]!.contentCount).toBe(10);
+            expect(movies?.contentCount).toBe(123);
+            expect(shows?.contentCount).toBe(456);
+            expect(shows?.episodeCount).toBe(999);
+            expect(music?.contentCount).toBe(789);
+            expect(photos?.contentCount).toBe(10);
         });
 
         it('does not reset contentCount when episodeCount fetch fails', async () => {
@@ -335,9 +151,10 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             const libs = await library.getLibraries({ includeItemCounts: true, itemCountConcurrency: Number.NaN });
+            const [firstLibrary] = libs;
 
             expect(libs).toHaveLength(1);
-            expect(libs[0]!.contentCount).toBe(123);
+            expect(firstLibrary?.contentCount).toBe(123);
             expect(fetch).toHaveBeenCalledTimes(2);
         });
 
@@ -346,11 +163,12 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             const libs = await library.getLibraries();
+            const [movies, shows, artist, photo] = libs;
 
-            expect(libs[0]!.type).toBe('movie');
-            expect(libs[1]!.type).toBe('show');
-            expect(libs[2]!.type).toBe('artist');
-            expect(libs[3]!.type).toBe('photo');
+            expect(movies?.type).toBe('movie');
+            expect(shows?.type).toBe('show');
+            expect(artist?.type).toBe('artist');
+            expect(photo?.type).toBe('photo');
         });
 
         it('throws typed parse error when library sections payload omits Directory', async () => {
@@ -430,9 +248,7 @@ describe('PlexLibrary', () => {
 
             const lib = await library.getLibrary('2');
 
-            expect(lib).not.toBeNull();
-            expect(lib!.id).toBe('2');
-            expect(lib!.title).toBe('TV Shows');
+            expect(lib).toMatchObject({ id: '2', title: 'TV Shows' });
         });
 
         it('should return null for non-existent library', async () => {
@@ -581,9 +397,7 @@ describe('PlexLibrary', () => {
 
             const item = await library.getItem('12345');
 
-            expect(item).not.toBeNull();
-            expect(item!.ratingKey).toBe('12345');
-            expect(item!.title).toBe('Test Movie');
+            expect(item).toMatchObject({ ratingKey: '12345', title: 'Test Movie' });
         });
 
         it('should return null for 404', async () => {
@@ -593,6 +407,16 @@ describe('PlexLibrary', () => {
             const item = await library.getItem('99999');
 
             expect(item).toBeNull();
+        });
+
+        it('throws typed parse error when item metadata payload is malformed', async () => {
+            mockFetchJson({ MediaContainer: { Metadata: {} } });
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getItem('12345')).rejects.toMatchObject({
+                code: PlexLibraryErrorCode.PARSE_ERROR,
+                message: expect.stringContaining('item lookup'),
+            });
         });
 
         it('should redact tokens in URL logs', async () => {
@@ -613,11 +437,13 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             const item = await library.getItem('12345');
+            const media = item?.media[0];
+            const part = media?.parts[0];
 
-            expect(item!.media).toHaveLength(1);
-            expect(item!.media[0]!.videoCodec).toBe('h264');
-            expect(item!.media[0]!.parts).toHaveLength(1);
-            expect(item!.media[0]!.parts[0]!.streams).toHaveLength(2);
+            expect(item?.media).toHaveLength(1);
+            expect(media?.videoCodec).toBe('h264');
+            expect(media?.parts).toHaveLength(1);
+            expect(part?.streams).toHaveLength(2);
         });
     });
 
@@ -659,13 +485,14 @@ describe('PlexLibrary', () => {
 
             const library = new PlexLibrary(mockConfig);
             const episodes = await library.getShowEpisodes('show1');
+            const [firstEpisode, secondEpisode, thirdEpisode] = episodes;
 
-            expect(episodes[0]!.seasonNumber).toBe(1);
-            expect(episodes[0]!.episodeNumber).toBe(1);
-            expect(episodes[1]!.seasonNumber).toBe(1);
-            expect(episodes[1]!.episodeNumber).toBe(2);
-            expect(episodes[2]!.seasonNumber).toBe(2);
-            expect(episodes[2]!.episodeNumber).toBe(1);
+            expect(firstEpisode?.seasonNumber).toBe(1);
+            expect(firstEpisode?.episodeNumber).toBe(1);
+            expect(secondEpisode?.seasonNumber).toBe(1);
+            expect(secondEpisode?.episodeNumber).toBe(2);
+            expect(thirdEpisode?.seasonNumber).toBe(2);
+            expect(thirdEpisode?.episodeNumber).toBe(1);
         });
 
         it('should sort episodes when allLeaves mid-pagination fetch returns null', async () => {
@@ -688,8 +515,8 @@ describe('PlexLibrary', () => {
             // Assert
             expect(episodes).toHaveLength(2);
             expect(fetch).toHaveBeenCalledTimes(2);
-            expect(episodes[0]!.episodeNumber).toBe(1);
-            expect(episodes[1]!.episodeNumber).toBe(2);
+            expect(episodes[0]?.episodeNumber).toBe(1);
+            expect(episodes[1]?.episodeNumber).toBe(2);
         });
 
         it('should return empty array when allLeaves returns null', async () => {
@@ -859,7 +686,7 @@ describe('PlexLibrary', () => {
             const results = await library.search('test');
 
             expect(results).toHaveLength(2);
-            expect(results[0]!.title).toBe('Search Result 1');
+            expect(results[0]?.title).toBe('Search Result 1');
         });
 
         it('should pass query parameter', async () => {
@@ -893,10 +720,11 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             const collections = await library.getCollections('1');
+            const [firstCollection] = collections;
 
             expect(collections).toHaveLength(2);
-            expect(collections[0]!.title).toBe('Marvel');
-            expect(collections[0]!.childCount).toBe(25);
+            expect(firstCollection?.title).toBe('Marvel');
+            expect(firstCollection?.childCount).toBe(25);
         });
 
         it('should return collection items', async () => {
@@ -907,6 +735,16 @@ describe('PlexLibrary', () => {
 
             expect(items).toHaveLength(1);
         });
+
+        it('throws typed parse error when collections response is empty-success noise', async () => {
+            mockFetchTextResponse('');
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getCollections('1')).rejects.toMatchObject({
+                code: PlexLibraryErrorCode.PARSE_ERROR,
+                message: expect.stringContaining('Empty response body'),
+            });
+        });
     });
 
     describe('playlists', () => {
@@ -915,10 +753,11 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             const playlists = await library.getPlaylists();
+            const [firstPlaylist] = playlists;
 
             expect(playlists).toHaveLength(1);
-            expect(playlists[0]!.title).toBe('Favorites');
-            expect(playlists[0]!.leafCount).toBe(10);
+            expect(firstPlaylist?.title).toBe('Favorites');
+            expect(firstPlaylist?.leafCount).toBe(10);
         });
 
         it('should return playlist items', async () => {
