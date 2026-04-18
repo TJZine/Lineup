@@ -3,6 +3,7 @@
  */
 
 import { createScreenShell } from '../common/ScreenShell';
+import { createScreenShellView } from '../common/ScreenShellView';
 
 describe('ScreenShell', () => {
     afterEach(() => {
@@ -99,6 +100,53 @@ describe('ScreenShell', () => {
         expect(onSecondary).toHaveBeenCalledTimes(1);
     });
 
+    it('hides actions and detaches prior button handlers when actions are cleared', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const onPrimary = jest.fn();
+
+        const shell = createScreenShell(container, {
+            title: 'Actions',
+            status: null,
+            error: null,
+            actions: [
+                { id: 'action-primary', label: 'Continue', variant: 'primary', onSelect: onPrimary },
+            ],
+        });
+
+        const primary = container.querySelector('#action-primary') as HTMLButtonElement;
+        shell.setActions([]);
+
+        expect(shell.actionsEl.style.display).toBe('none');
+        expect(shell.actionsEl.children).toHaveLength(0);
+
+        primary.click();
+        expect(onPrimary).not.toHaveBeenCalled();
+    });
+
+    it('removes button handlers on destroy', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const onPrimary = jest.fn();
+
+        const shell = createScreenShell(container, {
+            title: 'Actions',
+            status: null,
+            error: null,
+            actions: [
+                { id: 'action-primary', label: 'Continue', variant: 'primary', onSelect: onPrimary },
+            ],
+        });
+
+        const primary = container.querySelector('#action-primary') as HTMLButtonElement;
+        shell.destroy();
+
+        expect(container.querySelector('.screen-panel')).toBeNull();
+
+        primary.click();
+        expect(onPrimary).not.toHaveBeenCalled();
+    });
+
     it('renders hero before title when heroSlot is provided', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -153,5 +201,20 @@ describe('ScreenShell', () => {
 
         expect(panel.children[0]?.className).toBe('screen-hero');
         expect(shell.heroEl.querySelector('.hero-probe')).not.toBeNull();
+    });
+
+    it('directly initializes ScreenShellView footer hint and hidden hero state', () => {
+        const shell = createScreenShellView({
+            title: 'Welcome',
+            footerHint: 'Press back to exit',
+            status: null,
+            error: null,
+            actions: [],
+        });
+
+        expect(shell.panelEl.querySelector('.screen-footer-hint')?.textContent).toBe('Press back to exit');
+        expect(shell.heroEl.hidden).toBe(true);
+
+        shell.destroy();
     });
 });
