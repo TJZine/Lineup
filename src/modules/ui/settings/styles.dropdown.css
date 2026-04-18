@@ -183,7 +183,8 @@
     border: 2px solid ButtonText;
   }
 
-  .settings-dropdown-option:focus {
+  .settings-dropdown-option:focus,
+  .settings-dropdown-option.focused {
     outline: 2px solid Highlight;
   }
 }

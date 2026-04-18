@@ -168,6 +168,21 @@ describe('bootstrap seam', () => {
         expectBootstrapFailureState(module);
     });
 
+    it('uses passive alert semantics for the fatal bootstrap overlay', async () => {
+        const focusSpy = jest.spyOn(HTMLElement.prototype, 'focus');
+        const start = jest.fn().mockRejectedValue(new Error('start failed'));
+
+        await importBootstrapModule({ start });
+
+        const overlay = document.getElementById('global-error-overlay');
+        expect(overlay).not.toBeNull();
+        expect(overlay?.getAttribute('role')).toBe('alert');
+        expect(overlay?.getAttribute('aria-live')).toBe('assertive');
+        expect(overlay?.hasAttribute('aria-modal')).toBe(false);
+        expect(overlay?.getAttribute('tabindex')).toBeNull();
+        expect(focusSpy).not.toHaveBeenCalled();
+    });
+
     it('uses the fatal overlay stylesheet contract for topmost stacking without inline z-index styling', async () => {
         const shellSurface = document.createElement('div');
         shellSurface.id = 'existing-shell-surface';
