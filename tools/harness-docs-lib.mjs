@@ -437,9 +437,9 @@ function getChecklistLinkedPackagePlanErrors(content) {
         '`ready_now_execution_unit`',
         '`parallel_execution_policy`',
     ]);
+    const sliceSections = sliceTableBlock === null ? [] : getChecklistSliceSections(sliceTableBlock);
+    const declaredSliceIds = new Set(sliceSections.map((sliceSection) => sliceSection.sliceId));
     if (sliceTableBlock !== null) {
-        const sliceSections = getChecklistSliceSections(sliceTableBlock);
-        const declaredSliceIds = new Set(sliceSections.map((sliceSection) => sliceSection.sliceId));
         if (sliceSections.length === 0) {
             errors.push('`slice_table` must define at least one package-scoped slice section');
         }
@@ -515,7 +515,6 @@ function getChecklistLinkedPackagePlanErrors(content) {
         }
 
         if (sliceTableBlock !== null) {
-            const declaredSliceIds = new Set(getChecklistSliceSections(sliceTableBlock).map((sliceSection) => sliceSection.sliceId));
             const hasUnknownWaveSliceId = waveEntries.some((waveEntry) =>
                 getDeclaredExecutionWaveSliceIds(waveEntry.content).some((sliceId) => !declaredSliceIds.has(sliceId))
             );

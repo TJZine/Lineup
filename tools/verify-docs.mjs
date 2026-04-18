@@ -1083,6 +1083,29 @@ function checkCleanupPriorityExitContracts(errors) {
     }
 }
 
+function checkChecklistMiniRecordStatusVocabulary(errors) {
+    const checklist = readRepoFile('ARCHITECTURE_CLEANUP_CHECKLIST.md', errors);
+    if (checklist === null) {
+        return;
+    }
+
+    const validStatuses = new Set(['not started', 'in progress', 'blocked', 'completed']);
+    const statusLineRe = /^\s*-\s+Status:\s*(.+?)\s*$/gmu;
+
+    for (const match of checklist.matchAll(statusLineRe)) {
+        const rawStatus = match[1].trim().replace(/`([^`]+)`/gu, '$1').trim();
+        if (validStatuses.has(rawStatus)) {
+            continue;
+        }
+
+        const lineNumber = checklist.slice(0, match.index ?? 0).split(/\r?\n/u).length;
+        errors.push(
+            'Checklist mini-record `Status` must be one of: `not started`, `in progress`, `blocked`, `completed`; ' +
+                `found \`${rawStatus}\` on line ${lineNumber}`
+        );
+    }
+}
+
 function checkCleanupExecutionUnitContracts(errors) {
     const planStandard = readRepoFile('docs/agentic/plan-authoring-standard.md', errors);
     if (planStandard !== null) {
@@ -1575,6 +1598,7 @@ function main() {
     checkWorkflowRoutingSplit(errors);
     checkFeatureRemediationPromptContracts(errors);
     checkCleanupPriorityExitContracts(errors);
+    checkChecklistMiniRecordStatusVocabulary(errors);
     checkCleanupExecutionUnitContracts(errors);
     checkChecklistPlanPaths(errors, warnings);
     checkPlanArchiveCoherence(errors);
