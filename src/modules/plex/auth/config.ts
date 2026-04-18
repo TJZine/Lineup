@@ -11,11 +11,24 @@ const DEFAULT_PLEX_AUTH_METADATA = {
 
 export function createDefaultPlexAuthConfig(
     preferredClientIdentifier?: string,
-    platformVersion: string = '6.0'
+    platformVersion: string = '6.0',
+    resolvePlatformVersion?: () => string
 ): PlexAuthConfig {
-    return {
+    const config: PlexAuthConfig = {
         ...DEFAULT_PLEX_AUTH_METADATA,
         platformVersion,
         clientIdentifier: resolveClientIdentifier(preferredClientIdentifier),
     };
+
+    if (!resolvePlatformVersion) {
+        return config;
+    }
+
+    Object.defineProperty(config, 'platformVersion', {
+        enumerable: true,
+        configurable: true,
+        get: () => resolvePlatformVersion(),
+    });
+
+    return config;
 }

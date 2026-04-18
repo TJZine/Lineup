@@ -4,6 +4,7 @@
 
 import { App } from '../App';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
+import { createAppOrchestratorConfig } from '../core/app-shell/AppOrchestratorConfigFactory';
 import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../core/app-shell/constants';
 import { AppThemeController } from '../core/app-shell/AppThemeController';
 import type { ChannelSetupConfig } from '../core/channel-setup/types';
@@ -311,6 +312,22 @@ describe('App bootstrap smoke', () => {
         for (const id of EXPECTED_CONTAINER_IDS) {
             expect(document.getElementById(id)).not.toBeNull();
         }
+    });
+
+    it('defers the first platform version probe until plex auth config consumers read it', () => {
+        let bridgeReady = false;
+        const detectPlatformVersionSpy = jest
+            .spyOn(webosPlatformServices.identity, 'detectPlatformVersion')
+            .mockImplementation(() => (bridgeReady ? '24.0' : '6.0'));
+
+        const config = createAppOrchestratorConfig();
+
+        expect(detectPlatformVersionSpy).not.toHaveBeenCalled();
+
+        bridgeReady = true;
+
+        expect(config.plexConfig.platformVersion).toBe('24.0');
+        expect(detectPlatformVersionSpy).toHaveBeenCalledTimes(1);
     });
 
     const createPlaybackSnapshots = (): {

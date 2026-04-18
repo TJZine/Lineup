@@ -291,6 +291,47 @@ describe('PlexAuth', () => {
             }
         });
 
+        it('falls back to timeout auth required after a retryable error is followed by later unclaimed polls', async () => {
+            jest.useFakeTimers();
+            try {
+                const auth = new PlexAuth(mockConfig);
+                const retryableError = new PlexApiError(
+                    AppErrorCode.SERVER_UNREACHABLE,
+                    'Temporary network issue',
+                    undefined,
+                    true
+                );
+                const unclaimedPin = {
+                    id: 12345,
+                    code: 'ABCD',
+                    expiresAt: new Date('2026-01-15T12:15:00Z'),
+                    authToken: null,
+                    clientIdentifier: mockConfig.clientIdentifier,
+                };
+                const checkPinStatusSpy = jest
+                    .spyOn(auth, 'checkPinStatus')
+                    .mockRejectedValueOnce(retryableError)
+                    .mockResolvedValue(unclaimedPin);
+
+                const promise = auth.pollForPin(12345);
+                const rejection = expect(promise).rejects.toMatchObject({
+                    code: AppErrorCode.AUTH_REQUIRED,
+                    retryable: false,
+                });
+                await jest.advanceTimersByTimeAsync(PLEX_AUTH_CONSTANTS.PIN_TIMEOUT_MS + 1_000);
+
+                await rejection;
+                expect(checkPinStatusSpy).toHaveBeenCalledTimes(
+                    Math.ceil(
+                        PLEX_AUTH_CONSTANTS.PIN_TIMEOUT_MS /
+                            PLEX_AUTH_CONSTANTS.PIN_POLL_INTERVAL_MS
+                    )
+                );
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
         it('still throws non-retryable PIN errors immediately', async () => {
             jest.useFakeTimers();
             try {

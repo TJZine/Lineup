@@ -179,6 +179,7 @@ export class PlexAuth implements IPlexAuth {
                 if (pin.authToken !== null) {
                     return pin;
                 }
+                lastRetryableError = null;
             } catch (error) {
                 if (error instanceof PlexApiError) {
                     if (!error.retryable) {

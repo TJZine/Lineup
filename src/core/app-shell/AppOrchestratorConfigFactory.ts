@@ -118,7 +118,8 @@ export function createAppOrchestratorConfig(): OrchestratorConfig {
     return {
         plexConfig: createDefaultPlexAuthConfig(
             undefined,
-            webosPlatformServices.identity.detectPlatformVersion()
+            '6.0',
+            () => webosPlatformServices.identity.detectPlatformVersion()
         ),
         navConfig: createNavigationConfig(),
         playerConfig: createPlayerConfig(),

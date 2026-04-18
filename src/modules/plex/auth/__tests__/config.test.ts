@@ -44,6 +44,17 @@ describe('createDefaultPlexAuthConfig', () => {
         expect(config.clientIdentifier).toBe('resolved-id');
     });
 
+    it('defers platform version resolution until consumers read the field', () => {
+        jest.spyOn(clientIdentifierModule, 'resolveClientIdentifier').mockReturnValue('client-id-1');
+        const resolvePlatformVersion = jest.fn(() => '24.0');
+
+        const config = createDefaultPlexAuthConfig(undefined, '6.0', resolvePlatformVersion);
+
+        expect(resolvePlatformVersion).not.toHaveBeenCalled();
+        expect(config.platformVersion).toBe('24.0');
+        expect(resolvePlatformVersion).toHaveBeenCalledTimes(1);
+    });
+
     it('returns a fresh object each call', () => {
         const resolver = jest
             .spyOn(clientIdentifierModule, 'resolveClientIdentifier')
