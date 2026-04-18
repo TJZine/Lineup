@@ -52,6 +52,7 @@ import {
     extractLibrarySectionDirectories,
     extractMediaContainer,
     extractMetadataArray,
+    extractSearchHubMetadata,
     extractSearchHubs,
 } from './libraryResponsePayload';
 import { PLEX_LIBRARY_CONSTANTS, PLEX_ENDPOINTS, PLEX_MEDIA_TYPES } from './constants';
@@ -630,8 +631,22 @@ export class PlexLibrary implements IPlexLibrary {
                 }
             }
 
-            const metadata = (hub as unknown as { Metadata?: RawMediaItem[] }).Metadata || [];
-            items.push(...parseMediaItems(metadata));
+            const metadata = extractSearchHubMetadata(
+                hub,
+                `search hub "${hub.type}" for query "${query}"`
+            );
+
+            try {
+                items.push(...parseMediaItems(metadata));
+            } catch (error) {
+                if (error instanceof PlexLibraryError) {
+                    throw new PlexLibraryError(
+                        error.code,
+                        `Invalid search hub "${hub.type}" for query "${query}": ${error.message}`
+                    );
+                }
+                throw error;
+            }
         }
 
         return items;

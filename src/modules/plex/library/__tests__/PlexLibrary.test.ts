@@ -712,6 +712,25 @@ describe('PlexLibrary', () => {
                 expect.any(Object)
             );
         });
+
+        it('throws typed parse error when a search hub metadata payload is malformed', async () => {
+            mockFetchJson({
+                MediaContainer: {
+                    Hub: [
+                        {
+                            type: 'movie',
+                            Metadata: [null],
+                        },
+                    ],
+                },
+            });
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.search('broken')).rejects.toMatchObject({
+                code: PlexLibraryErrorCode.PARSE_ERROR,
+                message: expect.stringContaining('search hub "movie"'),
+            });
+        });
     });
 
     describe('collections', () => {

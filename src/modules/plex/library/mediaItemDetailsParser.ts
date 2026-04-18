@@ -1,4 +1,5 @@
 import type { PlexMediaItem, RawMediaItem } from './types';
+import { parseArrayOrEmpty, parseRequiredObject } from './parserValidation';
 
 const UNIX_TIMESTAMP_MS = 1000;
 
@@ -29,7 +30,14 @@ function assignMediaCredits(item: PlexMediaItem, data: RawMediaItem): void {
         item.directors = directors;
     }
 
-    const roles = (data.Role ?? [])
+    const roles = parseArrayOrEmpty<unknown>(
+        data.Role,
+        'media item roles'
+    )
+        .map((entry, index) => parseRequiredObject<{ tag?: string; role?: string | null; thumb?: string | null }>(
+            entry,
+            `media item roles[${index}]`
+        ))
         .map((entry) => ({
             name: entry.tag?.trim() ?? '',
             role: entry.role?.trim() ?? null,
@@ -81,8 +89,11 @@ function toPlexDateOrUndefined(value: number | undefined): Date | undefined {
     return typeof value === 'number' ? toPlexDate(value) : undefined;
 }
 
-function collectTagNames(tags: Array<{ tag?: string }> | undefined): string[] {
-    return (tags ?? []).map((tag) => tag.tag).filter((tag): tag is string => Boolean(tag));
+function collectTagNames(tags: unknown): string[] {
+    return parseArrayOrEmpty<unknown>(tags, 'media item tags')
+        .map((tag, index) => parseRequiredObject<{ tag?: string }>(tag, `media item tags[${index}]`))
+        .map((tag) => tag.tag)
+        .filter((tag): tag is string => Boolean(tag));
 }
 
 function assignOptional<K extends keyof PlexMediaItem>(

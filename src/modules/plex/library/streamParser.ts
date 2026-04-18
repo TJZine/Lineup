@@ -1,17 +1,19 @@
 import type { PlexStream, RawStream } from './types';
+import { parseRequiredObject } from './parserValidation';
 
 const VALID_STREAM_TYPES = new Set([1, 2, 3]);
 const TRUE_VALUES = new Set(['1', 'true', 'yes']);
 const FALSE_VALUES = new Set(['0', 'false', 'no']);
 
 export function parseStream(data: RawStream): PlexStream {
+    const streamData = parseRequiredObject<RawStream>(data, 'stream');
     const stream: PlexStream = {
-        id: String(data.id),
-        streamType: normalizeStreamType(data.streamType),
-        codec: data.codec ?? '',
+        id: String(streamData.id),
+        streamType: normalizeStreamType(streamData.streamType),
+        codec: streamData.codec ?? '',
     };
 
-    assignOptionalStreamFields(stream, data);
+    assignOptionalStreamFields(stream, streamData);
 
     return stream;
 }

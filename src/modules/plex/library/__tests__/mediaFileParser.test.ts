@@ -1,3 +1,4 @@
+import { PlexLibraryError } from '../PlexLibraryError';
 import { parseMediaFiles } from '../mediaFileParser';
 
 describe('mediaFileParser', () => {
@@ -35,5 +36,26 @@ describe('mediaFileParser', () => {
             container: 'mkv',
         });
         expect(files[0]?.parts[0]?.streams[0]?.codec).toBe('hevc');
+    });
+
+    it('throws a typed parse error when a media file entry is malformed', () => {
+        expect(() => parseMediaFiles([null])).toThrow(PlexLibraryError);
+    });
+
+    it('throws a typed parse error when nested part or stream entries are malformed', () => {
+        expect(() =>
+            parseMediaFiles([
+                {
+                    id: '9',
+                    Part: [
+                        {
+                            id: '12',
+                            key: '/library/parts/12',
+                            Stream: [null],
+                        },
+                    ],
+                },
+            ])
+        ).toThrow(PlexLibraryError);
     });
 });

@@ -3,11 +3,15 @@ import type {
     PlexMediaPart,
     RawMediaFile,
     RawMediaPart,
+    RawStream,
 } from './types';
 import { parseStream } from './streamParser';
+import { parseArrayOrEmpty, parseRequiredObject } from './parserValidation';
 
-export function parseMediaFiles(mediaFiles: RawMediaFile[] | undefined): PlexMediaFile[] {
-    return (mediaFiles ?? []).map(parseMediaFile);
+export function parseMediaFiles(mediaFiles: unknown): PlexMediaFile[] {
+    return parseArrayOrEmpty<unknown>(mediaFiles, 'media file list').map((mediaFile, index) =>
+        parseMediaFile(parseRequiredObject<RawMediaFile>(mediaFile, `media file list[${index}]`))
+    );
 }
 
 function parseMediaFile(data: RawMediaFile): PlexMediaFile {
@@ -43,7 +47,9 @@ function parseMediaPart(data: RawMediaPart): PlexMediaPart {
         file: data.file ?? '',
         size: data.size ?? 0,
         container: data.container ?? '',
-        streams: (data.Stream || []).map(parseStream),
+        streams: parseArrayOrEmpty<unknown>(data.Stream, 'media part streams').map((stream, index) =>
+            parseStream(parseRequiredObject<RawStream>(stream, `media part streams[${index}]`))
+        ),
     };
 
     if (data.videoProfile !== undefined) {
@@ -57,8 +63,10 @@ function parseMediaPart(data: RawMediaPart): PlexMediaPart {
     return part;
 }
 
-function parseMediaParts(parts: RawMediaPart[] | undefined): PlexMediaPart[] {
-    return (parts ?? []).map(parseMediaPart);
+function parseMediaParts(parts: unknown): PlexMediaPart[] {
+    return parseArrayOrEmpty<unknown>(parts, 'media file parts').map((part, index) =>
+        parseMediaPart(parseRequiredObject<RawMediaPart>(part, `media file parts[${index}]`))
+    );
 }
 
 function normalizeMediaFileValues(data: RawMediaFile): {

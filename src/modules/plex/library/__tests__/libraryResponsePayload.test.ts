@@ -3,6 +3,7 @@ import {
     extractDirectoryArray,
     extractMediaContainer,
     extractMetadataArray,
+    extractSearchHubMetadata,
     extractSearchHubs,
 } from '../libraryResponsePayload';
 
@@ -32,6 +33,18 @@ describe('libraryResponsePayload', () => {
     it('requires Hub to be an array', () => {
         expect(() =>
             extractSearchHubs({ MediaContainer: { Hub: {} } } as never, 'search test')
+        ).toThrow(PlexLibraryError);
+    });
+
+    it('requires each search hub entry to be an object', () => {
+        expect(() =>
+            extractSearchHubs({ MediaContainer: { Hub: [null] } } as never, 'search test')
+        ).toThrow(PlexLibraryError);
+    });
+
+    it('requires each search hub Metadata field to be an array', () => {
+        expect(() =>
+            extractSearchHubMetadata({ type: 'movie', Metadata: {} }, 'search hub')
         ).toThrow(PlexLibraryError);
     });
 });

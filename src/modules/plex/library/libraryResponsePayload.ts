@@ -1,4 +1,5 @@
 import { PlexLibraryError } from './PlexLibraryError';
+import { parseRequiredArray, parseRequiredObject } from './parserValidation';
 import { PlexLibraryErrorCode } from './types';
 import type {
     PlexMediaContainer,
@@ -12,7 +13,7 @@ import type {
 
 type SearchHubPayload = {
     type: string;
-    Metadata?: RawMediaItem[];
+    Metadata?: unknown;
 };
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -90,7 +91,16 @@ export function extractSearchHubs(
         );
     }
 
-    return hubs as SearchHubPayload[];
+    return (hubs as unknown[]).map((hub, index) =>
+        parseRequiredObject<SearchHubPayload>(hub, `${context} Hub[${index}]`)
+    );
+}
+
+export function extractSearchHubMetadata(
+    hub: SearchHubPayload,
+    context: string
+): RawMediaItem[] {
+    return parseRequiredArray<RawMediaItem>(hub.Metadata, `${context} Metadata`);
 }
 
 export type {

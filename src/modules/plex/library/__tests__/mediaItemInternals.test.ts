@@ -1,6 +1,8 @@
 import { buildBaseMediaItem } from '../mediaItemBaseParser';
 import { parseMediaItem } from '../mediaItemCoreParser';
 import { applyMediaItemDetails, toPlexDate } from '../mediaItemDetailsParser';
+import { parseMediaItems } from '../mediaItemParser';
+import { PlexLibraryError } from '../PlexLibraryError';
 import { mapMediaType } from '../mediaTypeParser';
 import type { RawMediaItem } from '../types';
 
@@ -65,6 +67,60 @@ describe('media item internals', () => {
 
         expect(item.title).toBe('Movie');
         expect(item.media).toHaveLength(1);
+    });
+
+    it('throws a typed parse error when nested media arrays are malformed', () => {
+        expect(() =>
+            parseMediaItem({
+                ratingKey: 'movie-1',
+                key: '/library/metadata/movie-1',
+                type: 'movie',
+                title: 'Movie',
+                Media: {} as never,
+            } as RawMediaItem)
+        ).toThrow(PlexLibraryError);
+    });
+
+    it('throws a typed parse error when a media item entry is malformed', () => {
+        expect(() => parseMediaItems([null])).toThrow(PlexLibraryError);
+    });
+
+    it('throws a typed parse error when nested role arrays are malformed', () => {
+        const item = buildBaseMediaItem({
+            ratingKey: 'episode-1',
+            key: '/library/metadata/episode-1',
+            type: 'episode',
+            title: 'Episode',
+        } as RawMediaItem);
+
+        expect(() =>
+            applyMediaItemDetails(item, {
+                ratingKey: 'episode-1',
+                key: '/library/metadata/episode-1',
+                type: 'episode',
+                title: 'Episode',
+                Role: {} as never,
+            } as RawMediaItem)
+        ).toThrow(PlexLibraryError);
+    });
+
+    it('throws a typed parse error when nested tag entries are malformed', () => {
+        const item = buildBaseMediaItem({
+            ratingKey: 'episode-1',
+            key: '/library/metadata/episode-1',
+            type: 'episode',
+            title: 'Episode',
+        } as RawMediaItem);
+
+        expect(() =>
+            applyMediaItemDetails(item, {
+                ratingKey: 'episode-1',
+                key: '/library/metadata/episode-1',
+                type: 'episode',
+                title: 'Episode',
+                Director: [null] as never,
+            } as RawMediaItem)
+        ).toThrow(PlexLibraryError);
     });
 
     it('converts Plex timestamps into Date instances', () => {
