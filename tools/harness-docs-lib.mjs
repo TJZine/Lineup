@@ -167,6 +167,7 @@ const VALID_CLEANUP_SUBTYPES = new Set(['checklist-linked', 'standalone remediat
 const PLAN_LIST_ENTRY_RE = /^\s*(?:[-*]|\d+\.)\s+\S+/mu;
 const PLAN_RUN_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Run:\s*`[^`]+`/imu;
 const PLAN_EXPECTED_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Expected:\s*.+$/imu;
+const CHECKLIST_SLICE_ID_RE = /^P\d+-W\d+-S\d+$/u;
 const PRIORITY_EXIT_ISSUE_HEADER_RE =
     /^\s*(?:[-*]|\d+\.)\s+`?([A-Za-z0-9/._:-]*[._:-][A-Za-z0-9/._:-]*)`?\s*$/iu;
 const PRIORITY_EXIT_DISPOSITION_RE =
@@ -265,6 +266,179 @@ function parseInlineField(section, label) {
     }
 
     return match[1].trim().replace(/`([^`]+)`/gu, '$1').trim();
+}
+
+function extractChecklistPackageFieldBlock(section, label, nextLabels = null) {
+    const lines = section.split(/\r?\n/u);
+    const fieldPattern = new RegExp(`^- ${escapeRegExp(label)}:\\s*(.*)$`, 'u');
+    const nextFieldPatterns = nextLabels === null
+        ? [/^- `[^`]+`:\s*/u]
+        : nextLabels.map((nextLabel) => new RegExp(`^- ${escapeRegExp(nextLabel)}:\\s*(.*)$`, 'u'));
+    let startIndex = -1;
+
+    for (let index = 0; index < lines.length; index += 1) {
+        if (fieldPattern.test(lines[index])) {
+            startIndex = index;
+            break;
+        }
+    }
+
+    if (startIndex === -1) {
+        return null;
+    }
+
+    const collected = [lines[startIndex]];
+    for (let index = startIndex + 1; index < lines.length; index += 1) {
+        if (nextFieldPatterns.some((pattern) => pattern.test(lines[index]))) {
+            break;
+        }
+        collected.push(lines[index]);
+    }
+
+    return collected.join('\n').trim();
+}
+
+function getChecklistSliceSections(sliceTableBlock) {
+    const matches = Array.from(sliceTableBlock.matchAll(/^###\s+`(P\d+-W\d+-S\d+)`[^\n]*$/gmu));
+    if (matches.length === 0) {
+        return [];
+    }
+
+    return matches.map((match, index) => {
+        const start = match.index + match[0].length;
+        const end = index + 1 < matches.length ? matches[index + 1].index : sliceTableBlock.length;
+        return {
+            sliceId: match[1],
+            content: sliceTableBlock.slice(start, end).trim(),
+        };
+    });
+}
+
+function getChecklistLinkedPackagePlanErrors(content) {
+    const errors = [];
+    const packageDecomposition = extractFirstMatchingMarkdownSection(content, ['Package Decomposition']);
+    if (packageDecomposition === null) {
+        return ['checklist-linked plans must include `## Package Decomposition`'];
+    }
+
+    const requiredFields = [
+        '`package_id`',
+        '`checklist_token`',
+        '`package_issue_ids`',
+        '`slice_table`',
+        '`coverage_check`',
+        '`recommended_slice_order`',
+        '`ready_now_slice`',
+        '`ready_now_execution_unit`',
+        '`parallel_execution_policy`',
+    ];
+
+    for (const field of requiredFields) {
+        const hasInlineValue = parseInlineField(packageDecomposition, field) !== null;
+        const hasBlockValue = extractChecklistPackageFieldBlock(packageDecomposition, field) !== null;
+        if (!hasInlineValue && !hasBlockValue) {
+            errors.push(`checklist-linked plans must include ${field} in \`## Package Decomposition\``);
+        }
+    }
+
+    const readyNowSlice = parseInlineField(packageDecomposition, '`ready_now_slice`');
+    if (readyNowSlice !== null && !CHECKLIST_SLICE_ID_RE.test(readyNowSlice)) {
+        errors.push('checklist-linked plans must keep `ready_now_slice` on a package-scoped slice id');
+    }
+
+    const sliceTableBlock = extractChecklistPackageFieldBlock(packageDecomposition, '`slice_table`', [
+        '`coverage_check`',
+        '`coverage_ledger`',
+        '`execution_waves`',
+        '`recommended_slice_order`',
+        '`ready_now_slice`',
+        '`ready_now_execution_unit`',
+        '`parallel_execution_policy`',
+    ]);
+    if (sliceTableBlock !== null) {
+        const sliceSections = getChecklistSliceSections(sliceTableBlock);
+        if (sliceSections.length === 0) {
+            errors.push('`slice_table` must define at least one package-scoped slice section');
+        }
+
+        for (const sliceSection of sliceSections) {
+            const requiredSliceFields = [
+                '`goal`',
+                '`areas/files`',
+                '`exact_issue_ids`',
+                '`verification`',
+                '`dependencies`',
+                '`stop_condition`',
+                '`handoff_condition`',
+                '`parallel_justification`',
+            ];
+
+            for (const field of requiredSliceFields) {
+                const hasInlineValue = parseInlineField(sliceSection.content, field) !== null;
+                const hasBlockValue = extractChecklistPackageFieldBlock(sliceSection.content, field) !== null;
+                if (!hasInlineValue && !hasBlockValue) {
+                    errors.push(`${sliceSection.sliceId} in \`slice_table\` must include ${field}`);
+                }
+            }
+
+            const hasSerialOnly = parseInlineField(sliceSection.content, '`serial_only`') !== null;
+            const hasParallelGroup = parseInlineField(sliceSection.content, '`parallel_group`') !== null;
+            if (!hasSerialOnly && !hasParallelGroup) {
+                errors.push(`${sliceSection.sliceId} in \`slice_table\` must include either \`serial_only\` or \`parallel_group\``);
+            }
+        }
+    }
+
+    const readyNowExecutionUnit = parseInlineField(packageDecomposition, '`ready_now_execution_unit`');
+    const executionWavesBlock = extractChecklistPackageFieldBlock(packageDecomposition, '`execution_waves`');
+    const isWaveScoped = executionWavesBlock !== null || (
+        readyNowExecutionUnit !== null &&
+        readyNowSlice !== null &&
+        readyNowExecutionUnit !== readyNowSlice
+    );
+
+    if (isWaveScoped && executionWavesBlock === null) {
+        errors.push(
+            'checklist-linked plans without `execution_waves` must point `ready_now_execution_unit` at the same slice as `ready_now_slice`'
+        );
+    }
+
+    if (executionWavesBlock !== null) {
+        const normalizedWaves = executionWavesBlock.replace(/`([^`]+)`/gu, '$1');
+        const waveIds = Array.from(executionWavesBlock.matchAll(/`wave_id`:\s*`?([^`\n]+)`?/gu)).map((match) => match[1].trim());
+        const requiredWaveMarkers = ['wave_id', 'slice_ids', 'completion_condition', 'absorb_now_scope', 'replan_triggers'];
+        const missingWaveMarkers = requiredWaveMarkers.filter((marker) => !normalizedWaves.includes(marker));
+        if (missingWaveMarkers.length > 0) {
+            errors.push('each `execution_waves` entry must record `absorb_now_scope` and `replan_triggers`');
+        }
+        if (readyNowExecutionUnit !== null && waveIds.length > 0 && !waveIds.includes(readyNowExecutionUnit)) {
+            errors.push('`ready_now_execution_unit` must match one declared `wave_id` when `execution_waves` are present');
+        }
+
+        const coverageLedgerBlock = extractChecklistPackageFieldBlock(packageDecomposition, '`coverage_ledger`');
+        if (coverageLedgerBlock === null) {
+            errors.push('wave-scoped checklist-linked plans must include `coverage_ledger` in `## Package Decomposition`');
+        } else {
+            const normalizedLedger = coverageLedgerBlock.replace(/`([^`]+)`/gu, '$1').toLowerCase();
+            if (!normalizedLedger.includes('slice_id')) {
+                errors.push('`coverage_ledger` must map each existing package issue to exactly one `slice_id`');
+            }
+            if (!normalizedLedger.includes('execution_unit') && !normalizedLedger.includes('wave_id')) {
+                errors.push('`coverage_ledger` must map each existing package issue to exactly one execution unit');
+            }
+            if (
+                !normalizedLedger.includes('default survivor disposition') &&
+                !normalizedLedger.includes('final owner') &&
+                !normalizedLedger.includes('survivor disposition')
+            ) {
+                errors.push(
+                    '`coverage_ledger` must record the default survivor disposition or final owner for any issue that survives its execution unit'
+                );
+            }
+        }
+    }
+
+    return errors;
 }
 
 function getPriorityExitIssueBlocks(section) {
@@ -683,6 +857,10 @@ export function checkPlanConformance({ filePath, content }) {
         errors.push('feature/design plans must not declare **Cleanup subtype:**');
     } else if (cleanupSubtype !== null && taskFamily !== null) {
         errors.push('**Cleanup subtype:** is only valid when **Task family:** is cleanup/refactor');
+    }
+
+    if (taskFamily === 'cleanup/refactor' && cleanupSubtype === 'checklist-linked') {
+        errors.push(...getChecklistLinkedPackagePlanErrors(content));
     }
 
     for (const rule of PLAN_SECTION_CONTENT_RULES) {

@@ -27,7 +27,7 @@ Authority, read order, and document precedence now live in [`docs/AGENTIC_DEV_WO
   - adversarial whole-system review of the repo harness against current OpenAI and Anthropic guidance
 <!-- END MANAGED SESSION PROMPT SET -->
 
-The generated managed-list label for `cleanup-loop.md` is shorthand only. The authoritative scope is cleanup/refactor-only Tier 3 orchestration: keep planning/package closeout package-scoped for `checklist-linked` work, run implementation/review by slice by default there, keep `standalone remediation` to one bounded execution target unless the approved plan says otherwise, and do not route feature/design or mixed-task umbrella control through it.
+The generated managed-list label for `cleanup-loop.md` is shorthand only. The authoritative scope is cleanup/refactor-only Tier 3 orchestration: keep planning/package closeout package-scoped for `checklist-linked` work, run implementation/review by approved `execution_unit` there, keep `standalone remediation` to one bounded execution target unless the approved plan says otherwise, and do not route feature/design or mixed-task umbrella control through it.
 
 ## Routing (Authoritative)
 
@@ -35,7 +35,7 @@ Route task family first. Choose risk tier second.
 
 | Task Type | Use This Path | Prompt Family | Notes |
 |---|---|---|---|
-| cleanup/refactor | checklist cleanup units, standalone bugfix/remediation, bounded remediation, refactors with no net-new feature intent | `cleanup-*` | choose `checklist-linked` vs `standalone remediation` before tiering; `cleanup-loop` is only for Tier 3 cleanup controller/orchestrator work, with package-scoped slice orchestration for `checklist-linked` work and one bounded execution target for `standalone remediation` unless the approved plan says otherwise. |
+| cleanup/refactor | checklist cleanup units, standalone bugfix/remediation, bounded remediation, refactors with no net-new feature intent | `cleanup-*` | choose `checklist-linked` vs `standalone remediation` before tiering; `cleanup-loop` is only for Tier 3 cleanup controller/orchestrator work, with package-scoped planning/closeout plus approved execution-unit orchestration for `checklist-linked` work and one bounded execution target for `standalone remediation` unless the approved plan says otherwise. |
 | feature/design | net-new capability, behavior expansion, product/design direction work, UI creation/redesign | `feature-plan` + `feature-implement` + `feature-review` | Tier 2 feature flow uses the same tracked planner/reviewer/implementer prompt family as cleanup, with planner -> reviewer -> implementer -> reviewer sequencing. |
 | mixed | feature delivery that also includes a cleanup slice (for example hotspot extraction, ownership correction, or required doc refresh) | route by primary intent and split slices explicitly | Use `cleanup-*` only for the cleanup slice, never as umbrella control for full feature delivery. |
 
@@ -62,9 +62,12 @@ Tier 3 rule for feature or mixed work:
 Tier 3 cleanup orchestration note:
 
 - keep planning and closeout package-scoped for `checklist-linked` work
-- iterate implementation/review per approved slice by default for `checklist-linked` work
+- for checklist-linked package work, `slice_table` remains the atomic ownership map and `execution_unit` is the execution/review surface
+- require `ready_now_execution_unit` for checklist-linked package work; `ready_now_slice` remains the first slice inside that unit
+- require `execution_waves` and `coverage_ledger` only when the approved execution unit spans multiple slices or explicitly opts into wave-scoped execution
+- when a wave is selected, stay inside that approved wave until its completion condition is met or a replan trigger fires; wave review is the default approval gate for that coherent batch
 - keep `standalone remediation` bounded to the single approved execution target unless the plan explicitly stages it further
-- allow parallel slice execution only when the approved cleanup plan explicitly authorizes it
+- large-package execution should review coherent retirement batches, not one tiny fix at a time
 
 ## Invocation
 

@@ -93,17 +93,25 @@ When tracked docs conflict, use this order:
    - Tier 2: a normal cleanup unit uses planner -> implementer -> reviewer
    - Tier 2 feature/design work uses the same tracked planner/reviewer/implementer prompt family as cleanup, with planner -> reviewer -> implementer -> reviewer sequencing
    - Tier 3: hotspot, cross-boundary, multi-session, or otherwise high-risk work uses task-specific orchestration, and a local run bundle when repeated handoff is likely
-  - for cleanup Tier 3 work, `cleanup-loop` is an explicit orchestrator: the main session keeps `update_plan`, keeps planning/closeout package-scoped for `checklist-linked` work, runs planner -> reviewer once for plan approval, then iterates `slice-select` -> implementer -> reviewer loops for checklist-linked slices or one bounded execution target for `standalone remediation` until the subtype-matched closeout gates are clean
+  - for cleanup Tier 3 work, `cleanup-loop` is an explicit orchestrator: the main session keeps `update_plan`, keeps planning/closeout package-scoped for `checklist-linked` work, runs planner -> reviewer once for plan approval, then iterates approved `execution_unit` -> implementer -> reviewer loops for checklist-linked work or one bounded execution target for `standalone remediation` until the subtype-matched closeout gates are clean
+    - for checklist-linked package work, `slice_table` remains the atomic ownership map and `execution_unit` is the execution/review surface
+    - `ready_now_execution_unit` is required for checklist-linked package work and must identify either one approved single-slice unit or one approved `wave_id`; `ready_now_slice` remains the first slice inside that unit
+    - `execution_waves` are required only when the approved execution unit spans multiple slices or the plan explicitly opts into wave-scoped execution
+    - when a wave is selected, the controller stays inside that wave until its declared completion condition is met or a replan trigger fires; wave review is the default approval gate for that unit, while slice-level accounting remains mandatory inside the wave
+    - large-package execution should review coherent retirement batches, not one tiny fix at a time
    - for Tier 3 feature or mixed work, use a task-specific run bundle and the normal workflow; do not treat `cleanup-loop` as umbrella control for feature delivery
    - do not escalate to a heavier tier unless the lower tier would materially weaken reliability
 6. Plan explicitly before multi-step work.
    - keep the authoritative plan in `update_plan`
    - write or refresh `docs/plans/*` when a task requires durable, tracked task memory
    - every serious tracked plan must satisfy [`docs/agentic/plan-authoring-standard.md#universal-plan-core`](./agentic/plan-authoring-standard.md#universal-plan-core)
-   - every serious tracked cleanup plan must also satisfy [`docs/agentic/plan-authoring-standard.md#cleanup-overlay`](./agentic/plan-authoring-standard.md#cleanup-overlay)
-   - serious tracked plans must declare `**Task family:**`; cleanup plans must also declare `**Cleanup subtype:**`
-   - for cleanup work, record whether the task is `checklist-linked` or `standalone remediation` before freezing the plan; only `checklist-linked` tasks should promise checklist updates or priority-exit progress
-   - for serious tracked plans, follow [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md)
+  - every serious tracked cleanup plan must also satisfy [`docs/agentic/plan-authoring-standard.md#cleanup-overlay`](./agentic/plan-authoring-standard.md#cleanup-overlay)
+  - serious tracked plans must declare `**Task family:**`; cleanup plans must also declare `**Cleanup subtype:**`
+  - for cleanup work, record whether the task is `checklist-linked` or `standalone remediation` before freezing the plan; only `checklist-linked` tasks should promise checklist updates or priority-exit progress
+  - for checklist-linked package plans, require `ready_now_execution_unit`; keep `execution_waves` and `coverage_ledger` optional for single-slice plans and required only when the approved execution unit spans multiple slices or explicitly opts into wave-scoped execution
+  - for checklist-linked package plans, `coverage_ledger` is execution-only and must not redefine package membership, which remains owned by the checklist companion map
+  - for checklist-linked package plans, absorb now only when newly discovered residue stays within the same approved execution unit goal, same owner, same seam/files, same verification envelope, and same final-owner accounting; otherwise replan before execution continues
+  - for serious tracked plans, follow [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md)
    - before freezing a serious tracked plan, run the planner self-check from the plan standard so unresolved seams, wrong owners, contradictory scope, or missing evidence are surfaced before execution
    - if an architecture seam or adjacent contract change is still undecided, resolve that boundary before freezing a “decision-point-free” execution plan
    - if a cleanup slice is the last planned `P#-W#` item for a priority, add an explicit priority-exit step before any `P(n+1)` work begins
@@ -206,7 +214,7 @@ If you keep optional local launcher skills installed, invoke them explicitly thr
 - Tier 2 planner session: [`cleanup-plan.md`](./agentic/session-prompts/cleanup-plan.md)
 - Tier 2 implementer session: [`cleanup-implement.md`](./agentic/session-prompts/cleanup-implement.md)
 - reusable review session: [`cleanup-review.md`](./agentic/session-prompts/cleanup-review.md)
-- Tier 3 controller/orchestrator session (cleanup/refactor only, package-scoped orchestration with slice-default implementation/review): [`cleanup-loop.md`](./agentic/session-prompts/cleanup-loop.md)
+- Tier 3 controller/orchestrator session (cleanup/refactor only, package-scoped orchestration with execution-unit-default implementation/review): [`cleanup-loop.md`](./agentic/session-prompts/cleanup-loop.md)
 - Tier 2/3 feature planner session: [`feature-plan.md`](./agentic/session-prompts/feature-plan.md)
 - approved feature implementer session: [`feature-implement.md`](./agentic/session-prompts/feature-implement.md) (Tier 2 default; reusable in Tier 3 when a run bundle already exists)
 - reusable feature/design review session: [`feature-review.md`](./agentic/session-prompts/feature-review.md)
@@ -217,7 +225,7 @@ Feature plans consume the [`Universal Plan Core`](./agentic/plan-authoring-stand
 
 Use the reusable launchers only when the task risk justifies them. Tier 1 work should usually stay in one session with review.
 
-For larger multi-session or hotspot work, create a task-specific run bundle in [`docs/runs/`](./runs/README.md). Use `cleanup-loop` only for Tier 3 cleanup/refactor control; keep planning/package closeout package-scoped for `checklist-linked` work, run slice-by-slice implementation/review by default there, keep `standalone remediation` bounded to its approved execution target unless the plan stages it further, and allow parallel slices only when the approved plan explicitly allows them. For Tier 3 feature or mixed work, keep the same feature `feature-plan` + `feature-review` + `feature-implement` + `feature-review` workflow, use the run bundle as the task-specific context, and keep cleanup prompts scoped to the cleanup slice.
+For larger multi-session or hotspot work, create a task-specific run bundle in [`docs/runs/`](./runs/README.md). Use `cleanup-loop` only for Tier 3 cleanup/refactor control; keep planning/package closeout package-scoped for `checklist-linked` work, run approved execution-unit implementation/review there, keep `standalone remediation` bounded to its approved execution target unless the plan stages it further, and allow parallel execution units only when the approved plan explicitly allows them. For Tier 3 feature or mixed work, keep the same feature `feature-plan` + `feature-review` + `feature-implement` + `feature-review` workflow, use the run bundle as the task-specific context, and keep cleanup prompts scoped to the cleanup slice.
 
 ## Session Handoffs
 

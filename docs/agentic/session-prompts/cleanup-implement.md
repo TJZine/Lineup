@@ -22,7 +22,7 @@ Accept either of these as the task-specific input after the launcher:
 
 If the short follow-up form is used, do not wait for a formal handoff block; use the named approved plan plus the supplied execution target as the execution surface.
 
-For `checklist-linked` package plans, the execution target must include a checklist item context and should include a `slice_id`. If the `slice_id` is not supplied, derive the next incomplete approved slice from the tracked package plan before editing files and state that derivation in your kickoff note.
+For `checklist-linked` package plans, the execution target must include a checklist item context and should identify the approved `execution_unit`. That unit may be one approved slice or one approved wave. If only `slice_id` is supplied, treat it as a single-slice execution unit. If the execution unit is not supplied, derive `ready_now_execution_unit` from the tracked package plan before editing files and state that derivation in your kickoff note.
 
 For `standalone remediation`, do not require checklist linkage just to use the short follow-up form. Use the named approved plan and the bounded remediation scope directly.
 
@@ -35,7 +35,8 @@ For `standalone remediation`, do not require checklist linkage just to use the s
 - preserve the approved cleanup subtype during execution:
   - `checklist-linked` tasks carry their checklist or priority-exit updates
   - `standalone remediation` tasks stay out of checklist bookkeeping unless the approved plan explicitly promotes them
-- for `checklist-linked` package plans, execute one approved slice by default; only merge adjacent slices when the approved plan explicitly permits that merge and states the slices share one code boundary and one verification surface
+- for `checklist-linked` package plans, execute one approved execution unit by default; `slice_table` remains the atomic ownership map and `execution_unit` is the execution/review surface
+- for `checklist-linked` package plans, only merge adjacent slices when the approved plan explicitly permits that merge and states the slices share one code boundary, one verification surface, and one approved execution unit
 - run Codanna impact confirmation again before risky/shared-symbol edits if the code moved since planning
 - implement one work unit at a time without widening scope
 - update the tracked docs that the plan explicitly requires in the same pass
@@ -59,6 +60,9 @@ For `standalone remediation`, do not require checklist linkage just to use the s
 - if the approved plan closes the last planned `P#-W#` item in a priority, prepare the `P#-EXIT` evidence and checklist update in the same pass or report exactly why exit is still blocked; do not start `P(n+1)` work in the same session while that exit remains unresolved
 - when a mapped imported issue still reports open after implementation, separate stale detector wording from live residual debt using current-code proof; do not mint a new `split follow-up` unless the source audit shows a genuinely different remaining owner
 - if the slice-owned rationale is retired and the plan already names the final owner for any broader residual debt, record that as `resolved` plus proof instead of automatically handing the same issue envelope forward again
+- absorb now only when newly discovered residue stays within the same approved execution unit goal, same owner, same seam/files, same verification envelope, and same final-owner accounting already approved by the tracked plan
+- absorbed-now residue must still be recorded in the implementation output for that execution unit
+- replan required when current-source proof shows a new owner, new package membership, changed execution-unit membership, materially wider verification surface, changed final-owner accounting, or a need to widen beyond the approved execution unit
 - keep checklist bookkeeping package-level; record slice completion and remaining coverage in the tracked package plan, and only update checklist status at package/priority-exit boundaries
 
 ## Verification Requirements
@@ -77,7 +81,7 @@ Return:
 3. any remaining risks or follow-up items
 4. whether the checklist item or plan status should be updated
    - for `standalone remediation`, say explicitly when no checklist update applies
-   - for `checklist-linked` package plans, name the executed `slice_id`, whether it is complete, and which slices remain in-package before proposing any checklist status change
+   - for `checklist-linked` package plans, name the executed `execution_unit`, the covered `slice_id` set, whether that unit is complete, and which slices remain in-package before proposing any checklist status change
    - if this closes the last planned `P#-W#` item in a priority, include the exact priority-exit evidence, any deferred/split items with their exact issue id, single final owner, and reason and revisit trigger, and whether the outgoing review should be treated as a priority-exit review
    - if any detector id stayed open because of stale wording rather than live slice-owned debt, say that explicitly and name the already-established final owner for any residual live debt
 5. a `NEXT_SESSION_HANDOFF` block that routes to `lineup-cleanup-review` and includes:
@@ -85,6 +89,6 @@ Return:
    - `PLAN`
    - `ARTIFACT`
    - `FILES`
-   - a pasteable implementation-review request unless the task is fully blocked before code changes; for `checklist-linked` package plans, that request must name the executed `slice_id`; for claimed priority closeout, repeat the same deferred/split-item exact issue id, single final owner, and reason and revisit trigger metadata in that request, and for `standalone remediation` say explicitly that no checklist update is expected
+   - a pasteable implementation-review request unless the task is fully blocked before code changes; for `checklist-linked` package plans, that request must name the executed `execution_unit`, and when that unit is a wave it must also name the covered `slice_id` set; for claimed priority closeout, repeat the same deferred/split-item exact issue id, single final owner, and reason and revisit trigger metadata in that request, and for `standalone remediation` say explicitly that no checklist update is expected
    - when the session claims priority closeout, explicitly request a priority-exit review rather than a normal slice review
    - if the user explicitly asked for model guidance, or if the handoff is Tier 3 or architecture-risk score `>= 2`, include a `MODEL_SUGGESTION` block immediately before `NEXT_SESSION_HANDOFF` using repo-local `model-selection`
