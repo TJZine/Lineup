@@ -2554,6 +2554,114 @@ describe('verify-docs', () => {
         expect(result.status).toBe(0);
     });
 
+    it('ignores non-mini-record `Status` examples outside `P#-EXIT` blocks', () => {
+        const checklistContent = [
+            '# Checklist',
+            '',
+            '## Execution Hygiene',
+            '',
+            '- Disposition vocabulary:',
+            '  - `owned follow-up`: assign one single final owner.',
+            '  - `security triage`: a fresh `desloppify status` result that either says `no open P0 security findings` or lists the exact open/deferred `P0` security issue ids.',
+            '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
+            '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
+            '- Cleanup slice execution template:',
+            '  - `security triage`: `no open P0 security findings`, or the deferred/resolved `P0` security findings for this slice',
+            '- Priority exit command checklist:',
+            '  - confirm the `P0` security gate is either cleared or explicitly deferred before the next priority begins',
+            '',
+            '## Mini-Record Contract',
+            '',
+            '- `Status`: `not started`, `in progress`, `blocked`, or `completed`',
+            '- Example:',
+            '  - Status: complete',
+            '',
+            '- [ ] `P1-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [x] `P2-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- Status: completed',
+            '- Plan: local-only',
+            '- Last touched: 2026-04-18',
+            '- Verification: not run',
+            '- Follow-ups: none yet',
+            '- Handoff: next owner',
+            '- [ ] `P3-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P4-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P5-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P6-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P7-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P8-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '',
+        ].join('\n');
+        const repoRoot = createRepoFixture({
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md': checklistContent,
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+    });
+
+    it('fails when a later `P10-EXIT` mini-record uses a non-canonical Status token', () => {
+        const checklistContent = [
+            '# Checklist',
+            '',
+            '## Execution Hygiene',
+            '',
+            '- Disposition vocabulary:',
+            '  - `owned follow-up`: assign one single final owner.',
+            '  - `security triage`: a fresh `desloppify status` result that either says `no open P0 security findings` or lists the exact open/deferred `P0` security issue ids.',
+            '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
+            '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
+            '- Cleanup slice execution template:',
+            '  - `security triage`: `no open P0 security findings`, or the deferred/resolved `P0` security findings for this slice',
+            '- Priority exit command checklist:',
+            '  - confirm the `P0` security gate is either cleared or explicitly deferred before the next priority begins',
+            '',
+            '## Mini-Record Contract',
+            '',
+            '- `Status`: `not started`, `in progress`, `blocked`, or `completed`',
+            '',
+            '- [x] `P9-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- Status: completed',
+            '- Plan: local-only',
+            '- Last touched: 2026-04-18',
+            '- Verification: not run',
+            '- Follow-ups: none yet',
+            '- Handoff: next owner',
+            '- [x] `P10-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- Status: complete',
+            '- Plan: local-only',
+            '- Last touched: 2026-04-18',
+            '- Verification: not run',
+            '- Follow-ups: none yet',
+            '- Handoff: checklist complete only when this gate is satisfied',
+            '',
+        ].join('\n');
+        const repoRoot = createRepoFixture({
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md': checklistContent,
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Checklist mini-record `Status` must be one of: `not started`, `in progress`, `blocked`, `completed`'
+        );
+        expect(result.stderr).toContain('found `complete`');
+    });
+
     it('fails when `P2-EXIT` is mentioned in `P1-EXIT` prose before the real heading', () => {
         const repoRoot = createRepoFixture({
             'ARCHITECTURE_CLEANUP_CHECKLIST.md': [

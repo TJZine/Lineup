@@ -1090,19 +1090,28 @@ function checkChecklistMiniRecordStatusVocabulary(errors) {
     }
 
     const validStatuses = new Set(['not started', 'in progress', 'blocked', 'completed']);
-    const statusLineRe = /^\s*-\s+Status:\s*(.+?)\s*$/gmu;
+    const exitLineRe = /(^|\n)\s*-\s*\[[ xX]\]\s*`P\d+-EXIT`/g;
+    const exitMatches = [...checklist.matchAll(exitLineRe)].map((match) => ({
+        index: (match.index ?? 0) + match[1].length,
+    }));
 
-    for (const match of checklist.matchAll(statusLineRe)) {
-        const rawStatus = match[1].trim().replace(/`([^`]+)`/gu, '$1').trim();
-        if (validStatuses.has(rawStatus)) {
-            continue;
+    for (let index = 0; index < exitMatches.length; index += 1) {
+        const startIndex = exitMatches[index].index;
+        const endIndex = exitMatches[index + 1]?.index ?? checklist.length;
+        const block = checklist.slice(startIndex, endIndex);
+        const statusLineRe = /^\s*-\s+Status:\s*(.+?)\s*$/gmu;
+        for (const match of block.matchAll(statusLineRe)) {
+            const rawStatus = match[1].trim().replace(/`([^`]+)`/gu, '$1').trim();
+            if (validStatuses.has(rawStatus)) {
+                continue;
+            }
+
+            const lineNumber = checklist.slice(0, startIndex + (match.index ?? 0)).split(/\r?\n/u).length;
+            errors.push(
+                'Checklist mini-record `Status` must be one of: `not started`, `in progress`, `blocked`, `completed`; ' +
+                    `found \`${rawStatus}\` on line ${lineNumber}`
+            );
         }
-
-        const lineNumber = checklist.slice(0, match.index ?? 0).split(/\r?\n/u).length;
-        errors.push(
-            'Checklist mini-record `Status` must be one of: `not started`, `in progress`, `blocked`, `completed`; ' +
-                `found \`${rawStatus}\` on line ${lineNumber}`
-        );
     }
 }
 
