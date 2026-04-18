@@ -6,6 +6,8 @@
 import { PlexAuth } from '../PlexAuth';
 import { PlexAuthConfig, PlexAuthToken } from '../interfaces';
 import { PLEX_AUTH_CONSTANTS } from '../constants';
+import { PlexApiError } from '../plexAuthTransport';
+import { AppErrorCode } from '../../../../types/app-errors';
 
 // Mock localStorage
 const mockLocalStorage = (function (): Storage {
@@ -172,6 +174,19 @@ describe('PlexAuth', () => {
                 jest.useRealTimers();
             }
         });
+
+        it('throws PARSE_ERROR when a successful PIN payload is malformed', async () => {
+            const auth = new PlexAuth(mockConfig);
+            mockFetchJson({
+                id: 'not-a-number',
+                code: 'ABCD',
+                expiresAt: '2026-01-15T12:15:00Z',
+            });
+
+            await expect(auth.requestPin()).rejects.toMatchObject({
+                code: 'PARSE_ERROR',
+            });
+        });
     });
 
     describe('checkPinStatus', () => {
@@ -237,6 +252,64 @@ describe('PlexAuth', () => {
                 })
             );
             expect(auth.isAuthenticated()).toBe(true);
+        });
+
+        it('throws PARSE_ERROR when a success payload is missing required PIN fields', async () => {
+            const auth = new PlexAuth(mockConfig);
+            mockFetchJson({
+                id: 12345,
+                authToken: null,
+                clientIdentifier: mockConfig.clientIdentifier,
+            });
+
+            await expect(auth.checkPinStatus(12345)).rejects.toMatchObject({
+                code: 'PARSE_ERROR',
+            });
+        });
+    });
+
+    describe('pollForPin', () => {
+        it('preserves the last retryable PlexApiError instead of collapsing to timeout auth required', async () => {
+            jest.useFakeTimers();
+            try {
+                const auth = new PlexAuth(mockConfig);
+                const retryableError = new PlexApiError(
+                    AppErrorCode.SERVER_UNREACHABLE,
+                    'Temporary network issue',
+                    undefined,
+                    true
+                );
+                jest.spyOn(auth, 'checkPinStatus').mockRejectedValue(retryableError);
+
+                const promise = auth.pollForPin(12345);
+                const rejection = expect(promise).rejects.toBe(retryableError);
+                await jest.advanceTimersByTimeAsync(PLEX_AUTH_CONSTANTS.PIN_TIMEOUT_MS + 1_000);
+
+                await rejection;
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('still throws non-retryable PIN errors immediately', async () => {
+            jest.useFakeTimers();
+            try {
+                const auth = new PlexAuth(mockConfig);
+                const terminalError = new PlexApiError(
+                    AppErrorCode.AUTH_REQUIRED,
+                    'PIN expired',
+                    undefined,
+                    false
+                );
+                jest.spyOn(auth, 'checkPinStatus').mockRejectedValue(terminalError);
+
+                const promise = auth.pollForPin(12345);
+                await Promise.resolve();
+
+                await expect(promise).rejects.toBe(terminalError);
+            } finally {
+                jest.useRealTimers();
+            }
         });
     });
 

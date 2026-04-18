@@ -171,6 +171,7 @@ export class PlexAuth implements IPlexAuth {
         const startTime = Date.now();
         const timeout = PLEX_AUTH_CONSTANTS.PIN_TIMEOUT_MS;
         const interval = PLEX_AUTH_CONSTANTS.PIN_POLL_INTERVAL_MS;
+        let lastRetryableError: PlexApiError | null = null;
 
         while (Date.now() - startTime < timeout) {
             try {
@@ -179,12 +180,19 @@ export class PlexAuth implements IPlexAuth {
                     return pin;
                 }
             } catch (error) {
-                if (error instanceof PlexApiError && !error.retryable) {
-                    throw error;
+                if (error instanceof PlexApiError) {
+                    if (!error.retryable) {
+                        throw error;
+                    }
+                    lastRetryableError = error;
                 }
                 // Transient/network error: continue polling.
             }
             await this._sleep(interval);
+        }
+
+        if (lastRetryableError) {
+            throw lastRetryableError;
         }
 
         throw new PlexApiError(

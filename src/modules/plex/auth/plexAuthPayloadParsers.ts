@@ -56,28 +56,22 @@ export async function readPlexResponse(response: Response): Promise<PlexResponse
  * @returns Parsed PIN request
  */
 export function parsePinResponse(
-    data: Record<string, unknown>,
+    data: unknown,
     fallbackClientId: string
 ): PlexPinRequest {
-    const expiresAtValue = data['expiresAt'];
-    const expiresAt = typeof expiresAtValue === 'string'
-        ? new Date(expiresAtValue)
-        : new Date();
-
-    const authTokenValue = data['authToken'];
-    const authToken = typeof authTokenValue === 'string' ? authTokenValue : null;
-
-    const clientIdValue = data['clientIdentifier'];
-    const clientIdentifier = typeof clientIdValue === 'string'
-        ? clientIdValue
-        : fallbackClientId;
+    const payload = requireRecord(data, 'PIN response');
+    const id = requireFiniteNumber(payload['id'], 'PIN response id');
+    const code = requireNonEmptyString(payload['code'], 'PIN response code');
+    const expiresAt = requireDate(payload['expiresAt'], 'PIN response expiresAt');
+    const authToken = readNullableString(payload['authToken'], 'PIN response authToken');
+    const clientIdentifier = readOptionalString(payload['clientIdentifier']) ?? fallbackClientId;
 
     return {
-        id: Number(data['id']),
-        code: String(data['code']),
-        expiresAt: expiresAt,
-        authToken: authToken,
-        clientIdentifier: clientIdentifier,
+        id,
+        code,
+        expiresAt,
+        authToken,
+        clientIdentifier,
     };
 }
 
@@ -157,4 +151,94 @@ function extractPreferredSubtitleLanguageFromSettings(settings: unknown): string
         return null;
     }
     return extractPreferredSubtitleLanguageFromRecord(settings as Record<string, unknown>);
+}
+
+function requireRecord(value: unknown, label: string): Record<string, unknown> {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+        return value as Record<string, unknown>;
+    }
+
+    throw new PlexApiError(
+        AppErrorCode.PARSE_ERROR,
+        `${label} was not an object`,
+        undefined,
+        false
+    );
+}
+
+function requireFiniteNumber(value: unknown, label: string): number {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+    }
+
+    if (typeof value === 'string' && value.trim().length > 0) {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) {
+            return parsed;
+        }
+    }
+
+    throw new PlexApiError(
+        AppErrorCode.PARSE_ERROR,
+        `${label} was missing or invalid`,
+        undefined,
+        false
+    );
+}
+
+function requireNonEmptyString(value: unknown, label: string): string {
+    if (typeof value === 'string' && value.trim().length > 0) {
+        return value;
+    }
+
+    throw new PlexApiError(
+        AppErrorCode.PARSE_ERROR,
+        `${label} was missing or invalid`,
+        undefined,
+        false
+    );
+}
+
+function requireDate(value: unknown, label: string): Date {
+    if (typeof value !== 'string' || value.trim().length === 0) {
+        throw new PlexApiError(
+            AppErrorCode.PARSE_ERROR,
+            `${label} was missing or invalid`,
+            undefined,
+            false
+        );
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+        throw new PlexApiError(
+            AppErrorCode.PARSE_ERROR,
+            `${label} was missing or invalid`,
+            undefined,
+            false
+        );
+    }
+
+    return parsed;
+}
+
+function readNullableString(value: unknown, label: string): string | null {
+    if (value === undefined || value === null) {
+        return null;
+    }
+
+    if (typeof value === 'string') {
+        return value;
+    }
+
+    throw new PlexApiError(
+        AppErrorCode.PARSE_ERROR,
+        `${label} was invalid`,
+        undefined,
+        false
+    );
+}
+
+function readOptionalString(value: unknown): string | null {
+    return typeof value === 'string' && value.trim().length > 0 ? value : null;
 }

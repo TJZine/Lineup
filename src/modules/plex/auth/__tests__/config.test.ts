@@ -27,6 +27,14 @@ describe('createDefaultPlexAuthConfig', () => {
         });
     });
 
+    it('uses the provided platform version without re-probing inside auth config', () => {
+        jest.spyOn(clientIdentifierModule, 'resolveClientIdentifier').mockReturnValue('client-id-1');
+
+        const config = createDefaultPlexAuthConfig(undefined, '24.0');
+
+        expect(config.platformVersion).toBe('24.0');
+    });
+
     it('passes through preferred client identifier for boundary-owned resolution', () => {
         jest.spyOn(clientIdentifierModule, 'resolveClientIdentifier').mockReturnValue('resolved-id');
 
