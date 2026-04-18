@@ -139,52 +139,70 @@ function toSafeErrorMessage(value: unknown): string {
     return 'An unexpected error occurred.';
 }
 
+function openDebugEpg(currentApp: App): void {
+    currentApp.getOrchestrator()?.openEPG();
+}
+
+function closeDebugEpg(currentApp: App): void {
+    currentApp.getOrchestrator()?.closeEPG();
+}
+
+function toggleDebugEpg(currentApp: App): void {
+    currentApp.getOrchestrator()?.toggleEPG();
+}
+
+function getDebugDomSnapshot(): unknown {
+    return {
+        app: describeElement(document.getElementById('app')),
+        videoContainer: describeElement(document.getElementById(APP_SHELL_CONTAINER_IDS.VIDEO)),
+        video: describeElement(document.querySelector('video')),
+        epgContainer: describeElement(document.getElementById('epg-container')),
+    };
+}
+
+function setDebugVideoDisplay(display: string): void {
+    const video = document.querySelector('video') as HTMLElement | null;
+    if (video) video.style.display = display;
+}
+
+function hideDebugVideo(): void {
+    setDebugVideoDisplay('none');
+}
+
+function showDebugVideo(): void {
+    // Remove the inline override so the stylesheet/default display can apply.
+    setDebugVideoDisplay('');
+}
+
+function getDebugOrchestratorStatus(currentApp: App): unknown {
+    const orchestrator = currentApp.getOrchestrator();
+    if (!orchestrator) return null;
+    const status = Array.from(orchestrator.getModuleStatus().values(), toDebugModuleStatusSnapshot);
+    return {
+        isReady: orchestrator.isReady(),
+        status,
+    };
+}
+
+function createLineupDebugApi(currentApp: App): LineupDebugApi {
+    return {
+        openEPG: openDebugEpg.bind(null, currentApp),
+        closeEPG: closeDebugEpg.bind(null, currentApp),
+        toggleEPG: toggleDebugEpg.bind(null, currentApp),
+        domSnapshot: getDebugDomSnapshot,
+        hideVideo: hideDebugVideo,
+        showVideo: showDebugVideo,
+        orchestratorStatus: getDebugOrchestratorStatus.bind(null, currentApp),
+    };
+}
+
 function syncWindowDebugApi(currentApp: App | null): void {
     const win = window as Window & { __LINEUP__?: LineupDebugApi };
     if (!currentApp || !isDebugSurfaceEnabled()) {
         delete win.__LINEUP__;
         return;
     }
-    win.__LINEUP__ = {
-        openEPG: (): void => {
-            currentApp.getOrchestrator()?.openEPG();
-        },
-        closeEPG: (): void => {
-            currentApp.getOrchestrator()?.closeEPG();
-        },
-        toggleEPG: (): void => {
-            currentApp.getOrchestrator()?.toggleEPG();
-        },
-        domSnapshot: (): unknown => ({
-            app: describeElement(document.getElementById('app')),
-            videoContainer: describeElement(document.getElementById(APP_SHELL_CONTAINER_IDS.VIDEO)),
-            video: describeElement(document.querySelector('video')),
-            epgContainer: describeElement(document.getElementById('epg-container')),
-        }),
-        hideVideo: (): void => {
-            const video = document.querySelector('video') as HTMLElement | null;
-            if (video) video.style.display = 'none';
-        },
-        showVideo: (): void => {
-            const video = document.querySelector('video') as HTMLElement | null;
-            // Remove the inline override so the stylesheet/default display can apply.
-            if (video) video.style.display = '';
-        },
-        orchestratorStatus: (): unknown => {
-            const orchestrator = currentApp.getOrchestrator();
-            if (!orchestrator) return null;
-            const status = Array.from(orchestrator.getModuleStatus().values()).map((s) => ({
-                id: s.id,
-                status: s.status,
-                loadTimeMs: s.loadTimeMs ?? null,
-                errorCode: s.error?.code ?? null,
-            }));
-            return {
-                isReady: orchestrator.isReady(),
-                status,
-            };
-        },
-    };
+    win.__LINEUP__ = createLineupDebugApi(currentApp);
 }
 
 // ============================================
@@ -271,12 +289,7 @@ function describeElement(el: Element | null): unknown {
         id: element.id || null,
         className: element.className || null,
         children: element.childElementCount,
-        rect: element.getBoundingClientRect
-            ? ((): { x: number; y: number; w: number; h: number } => {
-                const r = element.getBoundingClientRect();
-                return { x: r.x, y: r.y, w: r.width, h: r.height };
-            })()
-            : null,
+        rect: describeElementRect(element),
         computed: style
             ? {
                 display: style.display,
@@ -287,6 +300,28 @@ function describeElement(el: Element | null): unknown {
             }
             : null,
     };
+}
+
+function toDebugModuleStatusSnapshot(s: {
+    id: string;
+    status: string;
+    loadTimeMs?: number | null;
+    error?: { code?: string | null } | null;
+}): { id: string; status: string; loadTimeMs: number | null; errorCode: string | null } {
+    return {
+        id: s.id,
+        status: s.status,
+        loadTimeMs: s.loadTimeMs ?? null,
+        errorCode: s.error?.code ?? null,
+    };
+}
+
+function describeElementRect(
+    element: HTMLElement
+): { x: number; y: number; w: number; h: number } | null {
+    if (!element.getBoundingClientRect) return null;
+    const rect = element.getBoundingClientRect();
+    return { x: rect.x, y: rect.y, w: rect.width, h: rect.height };
 }
 
 /**
