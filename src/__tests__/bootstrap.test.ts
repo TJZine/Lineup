@@ -186,8 +186,8 @@ describe('bootstrap seam', () => {
         expect((overlay as HTMLElement).style.zIndex).toBe('');
 
         const shellChromeCss = readShellChromeCss();
-        expect(shellChromeCss).toMatch(/\.error-overlay\s*\{[^}]*z-index:\s*var\(--z-overlay\);/s);
-        expect(shellChromeCss).toMatch(/\.error-overlay-fatal\s*\{[^}]*z-index:\s*2147483647;/s);
+        expect(shellChromeCss).toMatch(/\.error-overlay\s*\{[^}]*z-index:\s*var\(--z-overlay\);/);
+        expect(shellChromeCss).toMatch(/\.error-overlay-fatal\s*\{[^}]*z-index:\s*2147483647;/);
     });
 
     it('shows fatal overlay and clears app/debug state when pageshow bootstrap fails after cleanup', async () => {

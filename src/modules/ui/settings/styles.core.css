@@ -188,6 +188,14 @@
   outline: none;
 }
 
+@media (forced-colors: active) {
+  .settings-category-button:focus,
+  .settings-profile-row:focus {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}
+
 .settings-profile-icon {
   font-size: 28px;
   line-height: 1;

@@ -167,7 +167,7 @@
 
 .theme-directv .settings-category-button.active:focus,
 .theme-directv .settings-category-button[aria-selected="true"]:focus {
-  border-left-color: var(--directv-focus-border);
+  border-left-color: var(--focus-color);
 }
 
 .theme-directv .settings-profile-action {

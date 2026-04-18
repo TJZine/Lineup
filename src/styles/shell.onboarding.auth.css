@@ -20,13 +20,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 64px;
-  height: 72px;
+  width: calc(64px * var(--onboarding-scale, 1));
+  height: calc(72px * var(--onboarding-scale, 1));
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.08);
   border: 2px solid rgba(255, 255, 255, 0.15);
   font-family: var(--font-family-sans);
-  font-size: 40px;
+  font-size: calc(40px * var(--onboarding-scale, 1));
   font-weight: 700;
   color: var(--onboarding-text);
   text-transform: uppercase;

@@ -319,8 +319,7 @@ export class PlaybackOptionsCoordinator {
             // Subtitle selection errors are handled by SubtitleManager fallback/Toast.
         });
         // Intentionally do not persist subtitle track selections (webOS subtitle reliability concerns).
-        this.refreshIfOpen();
-        this.closeModalAndReturnFocus();
+        this.refreshAndCloseModal();
     }
 
     private async maybeHandleBurnInSubtitleSelection(

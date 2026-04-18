@@ -286,6 +286,13 @@
 }
 
 @media (forced-colors: active) {
+    .profile-row.focused,
+    .profile-row:focus {
+        outline: 2px solid Highlight;
+        outline-offset: 2px;
+        box-shadow: none;
+    }
+
     .profile-numpad-button.focused,
     .profile-numpad-button:focus {
         outline: 2px solid Highlight;

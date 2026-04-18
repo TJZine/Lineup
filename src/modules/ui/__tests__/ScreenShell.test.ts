@@ -214,6 +214,7 @@ describe('ScreenShell', () => {
 
         expect(shell.panelEl.querySelector('.screen-footer-hint')?.textContent).toBe('Press back to exit');
         expect(shell.heroEl.hidden).toBe(true);
+        expect(shell.actionsEl.style.display).toBe('none');
 
         shell.destroy();
     });

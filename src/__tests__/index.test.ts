@@ -44,7 +44,13 @@ function getIndexStylesheetImportSpecifiers(): string[] {
 }
 
 function toTestModuleSpecifier(indexImportSpecifier: string): string {
-    return indexImportSpecifier.replace(/^\.\//, '../');
+    if (!indexImportSpecifier.startsWith('./')) {
+        throw new Error(
+            `toTestModuleSpecifier expected a ./ stylesheet specifier from ${INDEX_FILE_PATH}, got: ${indexImportSpecifier}`
+        );
+    }
+
+    return `../${indexImportSpecifier.slice(2)}`;
 }
 
 function mockIndexStylesheetImports(): void {

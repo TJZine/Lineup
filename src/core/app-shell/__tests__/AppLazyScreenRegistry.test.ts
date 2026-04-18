@@ -321,9 +321,10 @@ describe('AppLazyScreenRegistry', () => {
         const loadSettingsModule = jest.fn().mockResolvedValue({
             SettingsScreen,
         });
+        const portFactory = makePortFactory();
 
         const registry = new AppLazyScreenRegistry({
-            portFactory: makePortFactory() as AppLazyScreenPortFactory,
+            portFactory: portFactory as AppLazyScreenPortFactory,
             profileSessionStore: new ProfileSessionStore(),
             containers: {
                 settingsContainer: document.createElement('div'),
@@ -344,6 +345,9 @@ describe('AppLazyScreenRegistry', () => {
         expect(SettingsScreen).toHaveBeenCalledTimes(1);
         expect(constructorArgs).toBeDefined();
         expect(constructorArgs).toHaveLength(7);
+        expect(portFactory.createSettingsRuntimePorts).toHaveBeenCalledTimes(1);
+        const settingsRuntimePorts = (portFactory.createSettingsRuntimePorts as jest.Mock).mock.results[0]?.value;
+        expect(constructorArgs?.[6]).toBe(settingsRuntimePorts?.setTheme);
         expect(first).toBe(settingsScreen as never);
         expect(second).toBe(settingsScreen as never);
         expect(third).toBe(settingsScreen as never);
