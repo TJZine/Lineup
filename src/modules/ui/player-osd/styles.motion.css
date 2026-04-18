@@ -1,0 +1,16 @@
+@keyframes osd-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-osd,
+  .player-osd-panel {
+    transition: none;
+  }
+
+  .player-osd-spinner {
+    animation: none;
+  }
+}

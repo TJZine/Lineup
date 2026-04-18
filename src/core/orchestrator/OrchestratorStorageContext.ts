@@ -1,5 +1,5 @@
 import { PLEX_DISCOVERY_CONSTANTS } from '../../modules/plex/discovery/constants';
-import { STORAGE_KEYS } from '../../types';
+import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 
 export interface OrchestratorStorageContextDeps {
     getActiveUserId: () => string | null;
@@ -39,11 +39,11 @@ export class OrchestratorStorageContext {
 
         const userId = this._deps.getActiveUserId();
         const channelsKey = userId
-            ? `${STORAGE_KEYS.CHANNELS_SERVER}:${serverId}:${userId}`
-            : `${STORAGE_KEYS.CHANNELS_SERVER}:${serverId}`;
+            ? `${LINEUP_STORAGE_KEYS.CHANNELS_SERVER}:${serverId}:${userId}`
+            : `${LINEUP_STORAGE_KEYS.CHANNELS_SERVER}:${serverId}`;
         const currentKey = userId
-            ? `${STORAGE_KEYS.CURRENT_CHANNEL}:${serverId}:${userId}`
-            : `${STORAGE_KEYS.CURRENT_CHANNEL}:${serverId}`;
+            ? `${LINEUP_STORAGE_KEYS.CURRENT_CHANNEL}:${serverId}:${userId}`
+            : `${LINEUP_STORAGE_KEYS.CURRENT_CHANNEL}:${serverId}`;
 
         this._deps.setChannelManagerStorageKeys(channelsKey, currentKey);
     }

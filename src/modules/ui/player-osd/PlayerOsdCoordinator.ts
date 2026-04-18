@@ -10,7 +10,7 @@ import type { ChannelConfig } from '../../scheduler/channel-manager';
 import type { ScheduledProgram } from '../../scheduler/scheduler';
 import type { IPlayerOsdOverlay } from './interfaces';
 import type { PlayerOsdReason, PlayerOsdViewModel } from './types';
-import type { PlaybackOptionsSectionId } from '../playback-options/types';
+import type { PlaybackOptionsSectionId } from '../playback-options';
 import type { NowPlayingDisplayStore } from '../../settings/NowPlayingDisplayStore';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
 import { getChannelNameForDisplay } from '../common/channelDisplay';
@@ -113,7 +113,7 @@ export class PlayerOsdCoordinator {
         this._suppressActions = true;
         this._lastUserActionAt = 0;
         this._lastReason = 'status';
-        overlay.setViewModel(this._buildInfoOnlyViewModel('status'));
+        overlay.setViewModel(this._buildViewModel('status', true));
         overlay.show();
         this._notifyVisibilityChange(true);
         this._clearAutoHideTimer();
@@ -193,7 +193,7 @@ export class PlayerOsdCoordinator {
         const overlay = this.deps.getOverlay();
         if (!overlay) return;
         this._clearThrottledRenderTimer();
-        overlay.setViewModel(this._suppressActions ? this._buildInfoOnlyViewModel(reason) : this._buildViewModel(reason));
+        this._setOverlayViewModel(overlay, reason);
         this._lastThrottledRenderAt = Date.now();
         overlay.show();
         this._notifyVisibilityChange(true);
@@ -226,11 +226,7 @@ export class PlayerOsdCoordinator {
         const now = Date.now();
         const elapsed = now - this._lastThrottledRenderAt;
         if (elapsed >= OSD_THROTTLE_MS) {
-            overlay.setViewModel(
-                this._suppressActions
-                    ? this._buildInfoOnlyViewModel(this._lastReason)
-                    : this._buildViewModel(this._lastReason)
-            );
+            this._setOverlayViewModel(overlay, this._lastReason);
             this._lastThrottledRenderAt = now;
             return;
         }
@@ -238,25 +234,20 @@ export class PlayerOsdCoordinator {
         this._throttledRenderTimer = globalThis.setTimeout(() => {
             this._throttledRenderTimer = null;
             const nextNow = Date.now();
-            overlay.setViewModel(
-                this._suppressActions
-                    ? this._buildInfoOnlyViewModel(this._lastReason)
-                    : this._buildViewModel(this._lastReason)
-            );
+            this._setOverlayViewModel(overlay, this._lastReason);
             this._lastThrottledRenderAt = nextNow;
         }, OSD_THROTTLE_MS - elapsed) as unknown as number;
     }
 
-    private _buildInfoOnlyViewModel(reason: PlayerOsdReason): PlayerOsdViewModel {
-        const { actionIds, ...vm } = this._buildViewModel(reason);
-        void actionIds;
-        return {
-            ...vm,
-            infoOnly: true,
-        };
+    private _setOverlayViewModel(overlay: IPlayerOsdOverlay, reason: PlayerOsdReason): void {
+        overlay.setViewModel(
+            this._suppressActions
+                ? this._buildViewModel(reason, true)
+                : this._buildViewModel(reason)
+        );
     }
 
-    private _buildViewModel(reason: PlayerOsdReason): PlayerOsdViewModel {
+    private _buildViewModel(reason: PlayerOsdReason, infoOnly: boolean = false): PlayerOsdViewModel {
         const channel = this.deps.getCurrentChannel();
         const program = this.deps.getCurrentProgram();
         const player = this.deps.getVideoPlayer();
@@ -325,10 +316,11 @@ export class PlayerOsdCoordinator {
             playedRatio,
             bufferedRatio,
             timecode,
+            infoOnly,
             endsAtText,
             bufferText,
             ...(upNextText ? { upNextText } : {}),
-            actionIds: { ...PLAYER_OSD_ACTION_IDS },
+            ...(!infoOnly ? { actionIds: { ...PLAYER_OSD_ACTION_IDS } } : {}),
             audioLabel,
             subtitleLabel,
             ...(sleepTimerText ? { sleepTimerText } : {}),

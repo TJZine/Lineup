@@ -486,6 +486,52 @@ describe('MiniGuideCoordinator', () => {
         expect(switchToChannel).toHaveBeenCalledWith('ch3');
     });
 
+    it('reports channel switch failures through notifyToast only', async () => {
+        const overlay = makeOverlay();
+        const channels = [
+            makeChannel('ch1', 1),
+            makeChannel('ch2', 2),
+            makeChannel('ch3', 3),
+            makeChannel('ch4', 4),
+            makeChannel('ch5', 5),
+        ];
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue(channels),
+            getCurrentChannel: jest.fn().mockReturnValue(channels[2]),
+            resolveChannelContent: jest.fn().mockImplementation(() => createDeferred<ResolvedChannelContent>().promise),
+        } as unknown as IChannelManager;
+        const scheduler = {
+            getState: jest.fn().mockReturnValue({ isActive: true, channelId: 'ch3' }),
+            getCurrentProgram: jest.fn().mockReturnValue(makeProgram('Current-Now')),
+            getNextProgram: jest.fn().mockReturnValue(makeProgram('Current-Next')),
+        } as unknown as IChannelScheduler;
+        const switchToChannel = jest.fn().mockRejectedValue(new Error('switch failed'));
+        const notifyToast = jest.fn();
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+        try {
+            const coordinator = new MiniGuideCoordinator({
+                getOverlay: (): IMiniGuideOverlay => overlay,
+                getChannelManager: (): IChannelManager => channelManager,
+                getScheduler: (): IChannelScheduler => scheduler,
+                buildDailyScheduleConfig: buildScheduleConfig,
+                switchToChannel,
+                getAutoHideMs: (): number => AUTO_HIDE_MS,
+                notifyToast,
+            });
+
+            coordinator.show();
+            coordinator.handleSelect();
+            await Promise.resolve();
+
+            expect(switchToChannel).toHaveBeenCalledWith('ch3');
+            expect(notifyToast).toHaveBeenCalledWith('Failed to switch channel', 'warning');
+            expect(warnSpy).not.toHaveBeenCalled();
+        } finally {
+            warnSpy.mockRestore();
+        }
+    });
+
     it('auto-hide hides after timeout after mini-guide interaction', () => {
         const { coordinator, overlay } = setup({ autoHideMs: AUTO_HIDE_MS });
         coordinator.show();

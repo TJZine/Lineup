@@ -23,7 +23,6 @@ import { SubtitlePreferencesStore } from '../../settings/SubtitlePreferencesStor
 import type { ToastType } from '../toast/types';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
 import type { StreamDescriptor } from '../../player/types';
-import { summarizeErrorForLog } from '../../../utils/errors';
 import { fetchWithTimeout } from '../../plex/shared/fetchWithTimeout';
 import {
     applyXPlexTokenQueryParam,
@@ -285,6 +284,11 @@ export class PlaybackOptionsCoordinator {
         this.registeredFocusableIds = [];
     }
 
+    private refreshAndCloseModal(): void {
+        this.refreshIfOpen();
+        this.closeModalAndReturnFocus();
+    }
+
     private handleSubtitleSelect(trackId: string | null): void {
         const token = ++this.subtitleSelectToken;
         void this.handleSubtitleSelectAsync(trackId, token);
@@ -315,8 +319,7 @@ export class PlaybackOptionsCoordinator {
             // Subtitle selection errors are handled by SubtitleManager fallback/Toast.
         });
         // Intentionally do not persist subtitle track selections (webOS subtitle reliability concerns).
-        this.refreshIfOpen();
-        this.closeModalAndReturnFocus();
+        this.refreshAndCloseModal();
     }
 
     private async maybeHandleBurnInSubtitleSelection(
@@ -334,8 +337,7 @@ export class PlaybackOptionsCoordinator {
         // For burn-in formats (PGS/ASS/etc), go straight to the burn-in stream reload.
         if (this.isBurnInTrack(track)) {
             this.requestBurnInSubtitle(track.id, 'user_selected_burn_in_format');
-            this.refreshIfOpen();
-            this.closeModalAndReturnFocus();
+            this.refreshAndCloseModal();
             return false;
         }
 
@@ -365,8 +367,7 @@ export class PlaybackOptionsCoordinator {
 
         if (decision === 'unsupported') {
             this.requestBurnInSubtitle(currentTrack.id, 'user_selected_text_extract_probe_unsupported');
-            this.refreshIfOpen();
-            this.closeModalAndReturnFocus();
+            this.refreshAndCloseModal();
             return false;
         }
 
@@ -511,11 +512,13 @@ export class PlaybackOptionsCoordinator {
     private handleAudioSelect(trackId: string): void {
         const player = this.deps.getVideoPlayer();
         if (!player) return;
-        player.setAudioTrack(trackId).catch((error) => {
-            console.error('[PlaybackOptions] Audio track switch failed:', summarizeErrorForLog(error));
-        }).finally(() => {
-            this.refreshIfOpen();
-        });
+        player.setAudioTrack(trackId)
+            .catch(() => {
+                this.deps.notifyToast?.('Failed to apply audio track change', 'warning');
+            })
+            .finally(() => {
+                this.refreshIfOpen();
+            });
         this.closeModalAndReturnFocus();
     }
 

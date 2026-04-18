@@ -8,7 +8,7 @@ import { SETTINGS_STORAGE_KEYS } from '../constants';
 import type { SettingsSelectConfig, SettingsToggleConfig } from '../types';
 import * as ConfigEvents from '../../../../config/events';
 import { SubtitlePreferencesStore } from '../../../settings/SubtitlePreferencesStore';
-import { THEME_OPTIONS } from '../../theme';
+import { THEME_OPTIONS } from '../../theme/themeDefinitions';
 
 beforeEach(() => {
     localStorage.clear();

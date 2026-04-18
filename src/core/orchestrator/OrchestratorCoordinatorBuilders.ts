@@ -6,7 +6,7 @@ import {
     NavigationCoordinator,
     type NavigationCoordinatorDeps,
 } from '../../modules/navigation/NavigationCoordinator';
-import type { PlaybackOptionsSectionId } from '../../modules/ui/playback-options/types';
+import type { PlaybackOptionsSectionId } from '../../modules/ui/playback-options';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import type { AppError } from '../../modules/lifecycle';
 import type { IPlexLibrary } from '../../modules/plex/library';
@@ -59,9 +59,9 @@ import type {
 import { ChannelTransitionCoordinator } from '../../modules/ui/channel-transition';
 import {
     PLAYBACK_OPTIONS_MODAL_ID,
+    PlaybackOptionsCoordinator,
     type IPlaybackOptionsModal,
 } from '../../modules/ui/playback-options';
-import { PlaybackOptionsCoordinator } from '../../modules/ui/playback-options/PlaybackOptionsCoordinator';
 import {
     ExitConfirmCoordinator,
     ExitConfirmModal,
@@ -557,6 +557,9 @@ export function buildMiniGuideCoordinator(input: OrchestratorCoordinatorFactoryD
             }
             return 8_000;
         },
+        notifyToast: (message, type): void => {
+            notifyPlaybackRecoveryToast(input, message, type);
+        },
     });
 }
 
@@ -611,11 +614,7 @@ export function buildPlaybackOptionsCoordinator(
             input.modules.scheduler.getCurrentProgram() ?? input.playback.state.getCurrentProgramForPlayback(),
         requestBurnInSubtitle: (trackId: string, reason: string) =>
             playbackRecovery.attemptBurnInSubtitleForCurrentProgram(trackId, reason),
-        notifyToast: (message, type): void => {
-            const handler = input.nowPlaying.handler();
-            if (!handler) return;
-            handler(type ? { message, type } : message);
-        },
+        notifyToast: notifyPlaybackRecoveryToast.bind(null, input),
         subtitlePreferencesStore: input.stores.subtitlePreferencesStore,
     });
 }

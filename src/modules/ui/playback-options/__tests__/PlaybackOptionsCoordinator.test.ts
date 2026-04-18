@@ -703,8 +703,7 @@ describe('PlaybackOptionsCoordinator', () => {
         expect(storedGlobal).toBeNull();
     });
 
-    it('logs sanitized audio switch errors and still closes/refreshes modal state', async () => {
-        const rawMessage = 'switch failed X-Plex-Token=abc123';
+    it('shows a warning toast for audio switch errors and still closes/refreshes modal state', async () => {
         const navigation: INavigationManager = {
             isModalOpen: jest.fn().mockReturnValue(true),
             closeModal: jest.fn(),
@@ -713,37 +712,27 @@ describe('PlaybackOptionsCoordinator', () => {
             [makeTextTrack({ id: 'sub-1' })],
             [{ id: 'audio-1', language: 'en', codec: 'aac', channels: 2 } as AudioTrack]
         );
-        (player.setAudioTrack as jest.Mock).mockRejectedValue(new Error(rawMessage));
-        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        (player.setAudioTrack as jest.Mock).mockRejectedValue(new Error('switch failed X-Plex-Token=abc123'));
+        const notifyToast = jest.fn();
 
-        try {
-            const coordinator = new PlaybackOptionsCoordinator({
-                playbackOptionsModalId: 'playback-options',
-                getNavigation: (): INavigationManager => navigation,
-                getPlaybackOptionsModal: (): null => null,
-                getVideoPlayer: (): IVideoPlayer => player,
-                getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
-            });
-            const refreshSpy = jest.spyOn(coordinator, 'refreshIfOpen').mockImplementation(() => undefined);
+        const coordinator = new PlaybackOptionsCoordinator({
+            playbackOptionsModalId: 'playback-options',
+            getNavigation: (): INavigationManager => navigation,
+            getPlaybackOptionsModal: (): null => null,
+            getVideoPlayer: (): IVideoPlayer => player,
+            getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+            notifyToast,
+        });
+        const refreshSpy = jest.spyOn(coordinator, 'refreshIfOpen').mockImplementation(() => undefined);
 
-            const viewModel = getViewModel(coordinator);
-            const audioOption = viewModel.audio.options.find((option) => option.id === 'playback-audio-audio-1');
-            audioOption?.onSelect?.();
-            await flushPromises();
+        const viewModel = getViewModel(coordinator);
+        const audioOption = viewModel.audio.options.find((option) => option.id === 'playback-audio-audio-1');
+        audioOption?.onSelect?.();
+        await flushPromises();
 
-            expect(errorSpy).toHaveBeenCalledWith('[PlaybackOptions] Audio track switch failed:', {
-                name: 'Error',
-                message: 'switch failed X-Plex-Token=REDACTED',
-            });
-            expect(errorSpy).not.toHaveBeenCalledWith(
-                '[PlaybackOptions] Audio track switch failed:',
-                expect.stringContaining(rawMessage)
-            );
-            expect(navigation.closeModal).toHaveBeenCalledWith('playback-options');
-            expect(refreshSpy).toHaveBeenCalled();
-        } finally {
-            errorSpy.mockRestore();
-        }
+        expect(notifyToast).toHaveBeenCalledWith('Failed to apply audio track change', 'warning');
+        expect(navigation.closeModal).toHaveBeenCalledWith('playback-options');
+        expect(refreshSpy).toHaveBeenCalled();
     });
 
     it('closes modal after selecting subtitle or audio', () => {

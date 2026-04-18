@@ -18,11 +18,13 @@ Use this prompt for adversarial review of a cleanup artifact from any orchestrat
 Accept either of these as the task-specific input after the launcher:
 
 - a pasted `NEXT_SESSION_HANDOFF` block; when present, treat `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE` as required additional reading after the standard read order
-- one short follow-up message naming the exact artifact under review and its checklist linkage when applicable, for example `Review docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1 slice P1-W1-S1.`
+- one short follow-up message naming the exact artifact under review and its checklist linkage when applicable, for example `Review docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1 execution unit P1-W1-S1.` When the approved `execution_unit` is a wave, name that wave instead and keep `slice_table` accounting explicit inside it.
 
 If the short follow-up form is used, treat the named artifact as the review target and derive the rest of the context from the checklist, plan, and tracked workflow docs instead of waiting for a formal handoff block.
 
-For `checklist-linked` package plans, implementation review must identify the `slice_id` under review (or derive the implemented slice from the approved tracked package plan and implementation artifact) before assessing correctness.
+For `checklist-linked` package plans, implementation review must identify the approved `execution_unit` under review before assessing correctness. That unit may be one approved slice or one approved wave. `slice_table` remains the atomic ownership map inside that unit, so slice-level accounting is still mandatory even when the review gate is wave-scoped.
+
+Treat plan-review and implementation-review loops as iterative until the reviewed artifact reaches clean approval; do not treat a same-reviewer closure check as the final clean gate by itself.
 
 ## Review Mode
 
@@ -65,18 +67,19 @@ If reviewing an implementation, focus on:
 
 - regressions, architecture leakage, and responsibility growth
 - deviation from the approved plan
-- incorrect slice targeting, including missing `slice_id` or unapproved adjacent-slice merge
+- incorrect execution-unit targeting, including missing `slice_id` accounting inside a reviewed wave or an unapproved adjacent-slice merge
 - missing doc updates
 - incorrect checklist bookkeeping for `standalone remediation`, or missing checklist updates for `checklist-linked` work
-- slice-to-issue retirement correctness for the reviewed slice
-- remaining package coverage integrity after the reviewed slice
+- slice-to-issue retirement correctness for the reviewed execution unit
+- remaining package coverage integrity after the reviewed execution unit
 - no-drop accounting across completed and remaining slices
-- whether package state is ready for the next slice or ready for package exit
+- whether package state is ready for the next execution unit or ready for package exit
 - missing or weak verification
 - accidental local-only artifact changes
 - new slop, fallback paths, or cross-boundary shortcuts
 - stale detector residue being mistaken for live slice-owned debt
 - repeated `split follow-up` churn for the same imported issue envelope when no new owner was proven on current code
+- whether wave review is acting as the default approval gate for a coherent approved batch instead of degrading into one tiny fix at a time
 - if the artifact claims to close the last `P#-W#` item in a priority, treat it as a priority-exit review too:
   - verify every imported review issue mapped to that priority is retired, explicitly deferred, or split into a new owned follow-up
   - verify every deferred or split item names one single final owner plus a reason and revisit trigger, especially when one imported issue was mapped to multiple `P#-W#` items
@@ -93,17 +96,17 @@ If reviewing an implementation, focus on:
 - list open questions or assumptions after findings
 - keep summaries brief
 - if there are no material findings, say so explicitly and note any residual risk or testing gap
-- for `checklist-linked` package-plan implementation reviews, include an explicit package-coverage verdict stating the reviewed `slice_id`, retired issues, remaining slice coverage, and whether next-slice work or package-exit review is justified
+- for `checklist-linked` package-plan implementation reviews, include an explicit package-coverage verdict stating the reviewed `execution_unit`, the slice-level accounting inside it, retired issues, remaining package coverage, and whether the next execution unit or package-exit review is justified
 - if another session is needed, end with one `NEXT_SESSION_HANDOFF` block:
   - when reviewing a plan with material findings: route back to `lineup-cleanup-plan`
   - when reviewing a plan with no material findings: route to `lineup-cleanup-implement`
   - when reviewing a revised plan inside an active `cleanup-loop` run as the same-reviewer closure check after earlier material findings: do not treat the plan as finally approved yet; state explicitly that control returns to `plan-review` for the required fresh final approval gate
   - when reviewing an implementation with material findings: route back to `lineup-cleanup-implement`
-  - when reviewing a revised implementation inside an active `cleanup-loop` run as the same-reviewer closure check after earlier material findings: do not treat the slice as finally approved yet; state explicitly that control returns to `implementation-review` for the required fresh final approval gate
-  - when reviewing an implementation with no material findings but approved package slices still remain and no active `cleanup-loop` controller owns the run: route to `lineup-cleanup-implement` for the next approved slice
-  - when reviewing an implementation inside an active `cleanup-loop` run with no material findings: no handoff block is required, but state explicitly whether control returns to `slice-select` or `closeout`
+  - when reviewing a revised implementation inside an active `cleanup-loop` run as the same-reviewer closure check after earlier material findings: do not treat the execution unit as finally approved yet; state explicitly that control returns to `implementation-review` for the required fresh final approval gate
+  - when reviewing an implementation with no material findings but approved package execution units still remain and no active `cleanup-loop` controller owns the run: route to `lineup-cleanup-implement` for the next approved execution unit
+  - when reviewing an implementation inside an active `cleanup-loop` run with no material findings: no handoff block is required, but state explicitly whether control returns to `execution-unit-select` or `closeout`
   - when reviewing an implementation with no material findings: no handoff block is required if closeout is complete
-  - for `checklist-linked` package-plan implementation review handoffs, include the exact reviewed or next `slice_id` in the request
+  - for `checklist-linked` package-plan implementation review handoffs, include the exact reviewed or next `execution_unit`; when that unit is a wave, also include the covered `slice_id` set
   - if the user explicitly asked for model guidance, or if the handoff is Tier 3 or architecture-risk score `>= 2`, include a `MODEL_SUGGESTION` block immediately before `NEXT_SESSION_HANDOFF` using repo-local `model-selection`
 - for plan review, treat “implementation-ready” as meaning:
   - no hidden architecture or scope decisions remain

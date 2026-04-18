@@ -1,0 +1,51 @@
+.pin-code {
+  margin: 16px 0;
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: calc(56px * var(--onboarding-scale));
+  font-weight: 700;
+  letter-spacing: calc(6px * var(--onboarding-scale));
+  text-align: center;
+}
+
+.auth-pin-container {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.auth-pin-character {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(64px * var(--onboarding-scale, 1));
+  height: calc(72px * var(--onboarding-scale, 1));
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  font-family: var(--font-family-sans);
+  font-size: calc(40px * var(--onboarding-scale, 1));
+  font-weight: 700;
+  color: var(--onboarding-text);
+  text-transform: uppercase;
+}
+
+.auth-qr {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0;
+}
+
+.auth-qr-card {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.auth-qr-canvas {
+  width: 160px;
+  height: 160px;
+  display: block;
+}

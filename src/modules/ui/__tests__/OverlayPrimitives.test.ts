@@ -63,4 +63,35 @@ describe('OverlayPrimitives', () => {
         expect(primitives.titleEl).toBeNull();
         expect(primitives.panelEl.querySelector('h1')).toBeNull();
     });
+
+    it('attaches provided meta, hints, and actions slots to their sections', () => {
+        const metaSlot = document.createElement('span');
+        metaSlot.textContent = 'meta';
+        const hintsSlot = document.createElement('span');
+        hintsSlot.textContent = 'hint';
+        const actionsSlot = document.createElement('button');
+        actionsSlot.textContent = 'Go';
+
+        const primitives = createOverlayPrimitives(
+            {
+                panel: 'test-panel',
+                meta: 'test-meta',
+                hints: 'test-hints',
+                actions: 'test-actions',
+            },
+            {
+                panel: {},
+                metaSlot,
+                hintsSlot,
+                actionsSlot,
+            }
+        );
+
+        expect(primitives.metaEl?.className).toBe('test-meta');
+        expect(primitives.metaEl?.firstChild).toBe(metaSlot);
+        expect(primitives.hintsEl?.className).toBe('test-hints');
+        expect(primitives.hintsEl?.firstChild).toBe(hintsSlot);
+        expect(primitives.actionsEl?.className).toBe('test-actions');
+        expect(primitives.actionsEl?.firstChild).toBe(actionsSlot);
+    });
 });

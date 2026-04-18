@@ -14,8 +14,10 @@ This checklist is not complete until an authoritative rerun on the target integr
 
 - Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
-- Current execution state: `P1-W1` and `P1-EXIT` are complete; no `P2` work has started yet
-- Next safe start: `P2-W1`
+- Current execution state: `P1-W1`, `P1-EXIT`, `P2-W1`, and `P2-EXIT` are complete on authoritative `2026-04-18` closeout evidence; `P3` remains not started, and no `P3` implementation or tracked plan doc has begun yet
+- Next safe start: `P3-W1` / `pkg_plex_contracts_identity`
+- Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to `P3-W1`
+- First action at package start: planning only; create the package-local execution-grade plan first and do not begin implementation until that planning gate is complete
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
 - Exact issue-membership surface: `docs/architecture/active-cleanup-package-map.json`
 - Historical planning context only: local run bundles under `docs/runs/`
@@ -189,7 +191,7 @@ Every `P#-EXIT` must, in the same pass:
 - Follow-ups: none
 - Handoff: `P2-W1` is the next safe checklist start, but no `P2` plan or implementation work opened in this pass
 
-### [ ] `P2-W1` `pkg_app_shell_shared_ui` App-Shell, Shared UI, And Persistence Seams
+### [x] `P2-W1` `pkg_app_shell_shared_ui` App-Shell, Shared UI, And Persistence Seams
 
 - Backlog: `39 = 33 older live non-review + 6 fresh review + 0 fresh non-review`
 - Scope: keep app-shell wiring on package-owned seams, finish shared UI persistence assembly cleanup, and hold non-EPG shared UI residue in one execution surface
@@ -206,23 +208,85 @@ Every `P#-EXIT` must, in the same pass:
   - `desloppify show src/bootstrap.ts --status open --no-budget --top 50`
   - `desloppify show src/__tests__/App.test.ts --status open --no-budget --top 50`
 - Companion-map leaf review required at entry/exit: confirm the exact package-owned facade leaves in `channel-badge`, `channel-number-overlay`, `sleep-timer`, and `theme` from `pkg_app_shell_shared_ui`; do not treat the command list alone as exhaustive closure proof
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
+- Status: completed
+- Plan: `docs/plans/2026-04-17-p2-w1-app-shell-shared-ui-persistence-seams.md`
+- Last touched: `2026-04-17`
+- Verification: targeted slice tests passed across `P2-W1` slices on `2026-04-17`; `npm run verify:docs` passed during `P2-W1-S5`; package-level `npm run verify` passed on `2026-04-17` after the reopened `P2-W1-S2` and `P2-W1-S4` CSS lint fixes
+- Follow-ups: `P2-EXIT` must refresh authoritative package-local `desloppify` reruns, security triage, detector deltas, and exit evidence before `P3`
 - Handoff: `P2-EXIT`
 
-- [ ] `P2-EXIT`
+- [x] `P2-EXIT`
 
   - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P3`
   - required: refresh package-local commands, record mapped review dispositions from `pkg_app_shell_shared_ui`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: `P3-W1`
+- Status: completed
+- Plan: `docs/plans/2026-04-17-p2-w1-app-shell-shared-ui-persistence-seams.md`
+- Last touched: `2026-04-18`
+- Verification: `W3` on `2026-04-18` preserved the clean package-local reruns for `src/core/app-shell`, `src/modules/ui/now-playing-info`, `src/modules/ui/settings`, `src/styles`, and `src/__tests__/App.test.ts`, and added exact current-source proof that `smells::src/bootstrap.ts::nested_closure` is stale-proven after the bootstrap debug API helper extraction. The final-gate rerun on `2026-04-18` then reran the required priority-exit commands `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, and `desloppify show security --status open --no-budget --top 50`; reran the package-local scoping commands for `src/core/app-shell`, `src/modules/ui/{mini-guide,now-playing-info,playback-options,player-osd,settings,common}`, `src/styles`, `src/bootstrap.ts`, and `src/__tests__/App.test.ts`; reran every mapped imported review issue id from `docs/architecture/active-cleanup-package-map.json`; reran every mapped package issue id to reconcile current-source absences vs stale detector rows; completed a fresh `desloppify scan --skip-slow --no-badge`; and used the already gathered final-gate evidence recorded below as authoritative closeout proof
+- Entry baseline: checklist-backed package entry was `39 = 33 older live non-review + 6 fresh review + 0 fresh non-review` with global `desloppify status` snapshot `overall 87.7 / objective 96.6 / strict 87.6 / verified 94.2`
+- Exit baseline: authoritative final-gate evidence on `2026-04-18` recorded `npm run verify` passed after `W3`; `desloppify status` and `desloppify scan --skip-slow --no-badge` both at `overall 87.5 / objective 96.1 / strict 87.5 / verified 94.1`; `desloppify status` with `324` open in-scope, `333` open global, and `9` out-of-scope carried; `desloppify plan queue --sort recent` reported the queue empty; `desloppify show review --status open --no-budget --top 100` returned no open review issues; and `desloppify show security --status open --no-budget --top 50` remained clean
+- Score delta: global `overall -0.2`, `objective -0.5`, `strict -0.1`, and `verified -0.1` from the checklist entry baseline to the final `2026-04-18` closeout rerun. Those final numbers are authoritative for `P2-EXIT`, and no live imported review debt, package-local blocker, or queued follow-up remained after the rerun
+- Imported review dispositions: reran absent on `2026-04-18`, treated as `resolved` on current source
+  - `review::.::holistic::high_level_elegance::orchestrator_public_barrel_backflow`
+    - reason: exact issue-id rerun no longer reports an open review row after the app-shell import cleanup
+    - revisit trigger: exact issue-id rerun plus `rg -n "src/Orchestrator|\\.\\./Orchestrator|\\.\\./\\.\\./Orchestrator" src/core/app-shell src/__tests__/App.test.ts src/bootstrap.ts`
+  - `review::.::holistic::high_level_elegance::types_package_role_drift`
+    - reason: exact issue-id rerun no longer reports an open review row after retiring `src/types/index.ts` and routing channel keys through the canonical storage-key surface
+    - revisit trigger: exact issue-id rerun plus `rg -n "STORAGE_KEYS|src/types/index" src`
+  - `review::.::holistic::incomplete_migration::internal_orchestrator_barrel_drift`
+    - reason: exact issue-id rerun no longer reports an open review row after the app-shell barrel cleanup
+    - revisit trigger: exact issue-id rerun plus `rg -n "AppOrchestrator|OrchestratorTypes|src/Orchestrator" src/core/app-shell`
+  - `review::.::holistic::mid_level_elegance::ui_owned_persistence_seams`
+    - reason: exact issue-id rerun no longer reports an open review row after removing app-shell `SettingsStore` assembly and retiring the `src/types` storage-key import path
+    - revisit trigger: exact issue-id rerun plus `rg -n "new SettingsStore\\(|STORAGE_KEYS|src/types/index" src/core/app-shell src`
+  - `review::.::holistic::cross_module_architecture::lazy_screen_contracts_live_in_concrete_ui_files`
+    - reason: exact issue-id rerun no longer reports an open review row after switching lazy-screen loaders and screen-port types onto package-root seams
+    - revisit trigger: exact issue-id rerun plus `rg -n "AuthScreen|AudioSetupScreen|ChannelSetupScreen|ProfileSelectScreen|ServerSelectScreen|SettingsScreen|ChannelSetupScreenPorts|new SettingsStore\\(" src/core/app-shell/AppLazyScreenRegistry.ts src/core/app-shell/AppLazyScreenPortFactory.ts`
+  - `review::.::holistic::convention_outlier::playback_options_root_surface_bypass`
+    - reason: exact issue-id rerun no longer reports an open review row after `PlayerOsdCoordinator` moved to the `playback-options` package root export
+    - revisit trigger: exact issue-id rerun plus `rg -n "playback-options/(PlaybackOptionsCoordinator|types)" src`
+- Detector/survivor summary: all P2 mapped rows and supplemental closeout rows are now either rerun-resolved or stale-proven on current source; no live `P2-EXIT` survivor remains after `W3` plus the final-gate rerun
+  - mapped stale-proven rows:
+    - `logs::src/modules/ui/mini-guide/MiniGuideCoordinator.ts::MiniGuideCoordinator`
+      - reason: `W1` proved the reported detector/source disagreement is stale; the exact anchor is the toast-only `switchToChannel(...).catch(...)` path and test coverage proves notifyToast-only failure handling
+      - revisit trigger: rerun the exact issue id if mini-guide channel-switch failure handling changes
+    - `smells::src/modules/ui/common/ScreenShell.ts::monster_function`
+      - reason: `W2` proved stale detector wording on a current `ScreenShell.ts` wrapper that is only `10` lines long
+      - revisit trigger: rerun the exact issue id if `ScreenShell.ts` regrows beyond a thin wrapper
+    - `smells::src/bootstrap.ts::hardcoded_color`
+      - reason: `W2` proved the anchor lands near `handleUnhandledRejection`; there are no color literals or style color assignments in current `bootstrap.ts`
+      - revisit trigger: rerun the exact issue id if startup wiring reintroduces color/style literals
+    - `smells::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::console_error_no_throw`
+      - reason: `W2` proved the anchor lands on a guard clause and the file contains no `console.error`
+      - revisit trigger: rerun the exact issue id if playback-options logging/error paths change
+    - `smells::src/modules/ui/player-osd/PlayerOsdCoordinator.ts::voided_symbol`
+      - reason: `W2` proved the anchor lands on a normal binding and the file contains no `void` usage
+      - revisit trigger: rerun the exact issue id if player-OSD command dispatch adds `void` calls
+  - supplemental stale-proven rows:
+    - `smells::src/modules/ui/common/OverlayPrimitives.ts::high_cyclomatic_complexity`
+      - reason: `W1` proved stale detector/source disagreement; the current helper shape does not match the reported branch count
+      - revisit trigger: rerun the exact issue id if `OverlayPrimitives.ts` grows new branching paths
+    - `smells::src/modules/ui/common/ScreenShell.ts::high_cyclomatic_complexity`
+      - reason: `W2` proved stale detector wording on the current `10` line wrapper and the reported anchors are impossible on current source
+      - revisit trigger: rerun the exact issue id if `ScreenShell.ts` stops being a thin wrapper
+    - `smells::src/modules/ui/common/ScreenShell.ts::nested_closure`
+      - reason: `W2` proved stale detector wording on the current `10` line wrapper and the reported anchors are impossible on current source
+      - revisit trigger: rerun the exact issue id if `ScreenShell.ts` regains nested control flow
+    - `smells::src/bootstrap.ts::console_error_no_throw`
+      - reason: `W2` proved the anchors hit comments and object-return fields while real logging is funneled through `logSanitizedError()`
+      - revisit trigger: rerun the exact issue id if bootstrap error logging stops routing through `logSanitizedError()`
+    - `smells::src/bootstrap.ts::nested_closure`
+      - reason: `W3` plus final review proved the previous rerun anchor is stale; the rerun still points at line `142`, but current line `142` is a plain helper after the bootstrap debug API helper extraction and the prior nested-closure cluster is gone
+      - revisit trigger: rerun the exact issue id if bootstrap control flow regains nested closure-heavy startup wiring
+    - `test_coverage::src/modules/ui/common/ScreenShellView.ts::transitive_only`
+      - reason: final-gate review proved stale detector output; `ScreenShell.test.ts` directly imports `createScreenShellView` and directly tests it, so this row is not current companion-map membership
+      - revisit trigger: rerun the exact issue id if direct `ScreenShellView` coverage is removed or remapped
+  - package-local command results remain clean for `src/core/app-shell`, `src/modules/ui/now-playing-info`, `src/modules/ui/settings`, `src/styles`, and `src/__tests__/App.test.ts`
+  - the rerun-open package-local rows in `src/modules/ui/mini-guide`, `src/modules/ui/playback-options`, `src/modules/ui/player-osd`, `src/bootstrap.ts`, and `src/modules/ui/common` were reconciled as stale-proven detector lag, not live P2 blockers
+- Resolved-on-rerun groups: `review 6`, `structural 15`, `facade 4`, `single_use 1`, `smells 3`, and `css_monolith 5` reran absent on current source; the remaining rerun-open package-local rows were closed as stale-proven detector lag during final-gate reconciliation
+- Security triage: `desloppify show security --status open --no-budget --top 50` remained clean with no open security or cycle issues
+- Follow-ups: preserve the stale-proven rows above unless future current-source changes invalidate their proof; `P3-W1` is now the next safe start
+- Handoff: `P2-EXIT` closed on authoritative `2026-04-18` final-gate evidence; proceed to `P3-W1`
 
 ### [ ] `P3-W1` `pkg_plex_contracts_identity` Plex Contracts And Identity
 
@@ -239,7 +303,7 @@ Every `P#-EXIT` must, in the same pass:
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: `P3-EXIT`
+- Handoff: Start with `P3-W1` planning, not implementation. Keep the package boundary centered on `pkg_plex_contracts_identity`: `src/modules/plex/discovery`, `src/modules/plex/library`, `src/modules/plex/auth`, plus the platform-identity seams directly owned by Plex startup or stream setup. Do not absorb startup-profile lifecycle semantics except where `PlexAuth` or Plex-owned identity seams force that boundary to be touched; coordinate with `P4` or `P5` only if those downstream boundaries are directly implicated by the current-source evidence. At package entry, rerun the package-local scoping commands listed above before writing the local execution plan so the fresh session scopes from current authoritative evidence.
 
 - [ ] `P3-EXIT`
 

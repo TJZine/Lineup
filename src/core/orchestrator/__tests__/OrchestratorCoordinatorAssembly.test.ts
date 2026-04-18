@@ -1,5 +1,5 @@
 import type { OrchestratorCoordinatorFactoryDeps } from '../OrchestratorCoordinatorContracts';
-import type { PlaybackOptionsSectionId } from '../../../modules/ui/playback-options/types';
+import type { PlaybackOptionsSectionId } from '../../../modules/ui/playback-options';
 
 const buildEpgCoordinator = jest.fn();
 const bindEpgVisibleRangeChange = jest.fn();

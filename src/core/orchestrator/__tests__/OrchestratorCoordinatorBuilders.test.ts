@@ -38,6 +38,7 @@ import {
 import {
     bindEpgVisibleRangeChange,
     buildChannelSetupOwners,
+    buildMiniGuideCoordinator,
     buildNavigationCoordinator,
     buildPlayerOsdCoordinator,
 } from '../OrchestratorCoordinatorBuilders';
@@ -352,6 +353,47 @@ describe('OrchestratorCoordinatorBuilders', () => {
         expect(navigationDeps.playback.getSeekIncrementMs()).toBe(10_000);
         expect(navigationDeps.readKeepPlayingInSettings()).toBe(false);
         expect(navigationDeps.readDebugLoggingEnabled()).toBe(true);
+    });
+
+    it('buildMiniGuideCoordinator routes select-failure toasts through input.nowPlaying.handler()', async () => {
+        const reportToast = jest.fn();
+        const input = createInput();
+        const overlay = {
+            setViewModel: jest.fn(),
+            setFocusedIndex: jest.fn(),
+            show: jest.fn(),
+            hide: jest.fn(),
+            isVisible: jest.fn(() => true),
+        };
+        input.overlays.miniGuide = overlay as unknown as OrchestratorCoordinatorFactoryDeps['overlays']['miniGuide'];
+        input.modules.channelManager = {
+            getAllChannels: jest.fn(() => [
+                { id: 'channel-1', number: 1, name: 'One' },
+                { id: 'channel-2', number: 2, name: 'Two' },
+                { id: 'channel-3', number: 3, name: 'Three' },
+                { id: 'channel-4', number: 4, name: 'Four' },
+                { id: 'channel-5', number: 5, name: 'Five' },
+            ]),
+            getCurrentChannel: jest.fn(() => ({ id: 'channel-3', number: 3, name: 'Three' })),
+        } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['channelManager'];
+        input.modules.scheduler = {
+            getCurrentProgram: jest.fn(() => null),
+        } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['scheduler'];
+        input.actions.switchToChannel = jest.fn().mockRejectedValue(new Error('switch failed'));
+        input.nowPlaying.handler = jest.fn(() => reportToast);
+
+        const coordinator = buildMiniGuideCoordinator(input);
+
+        coordinator.show();
+        coordinator.handleSelect();
+        await Promise.resolve();
+
+        expect(input.nowPlaying.handler).toHaveBeenCalled();
+        expect(input.actions.switchToChannel).toHaveBeenCalledWith('channel-3');
+        expect(reportToast).toHaveBeenCalledWith({
+            message: 'Failed to switch channel',
+            type: 'warning',
+        });
     });
 
     it('buildPlayerOsdCoordinator falls back to the default auto-hide duration when playerConfig is absent', () => {

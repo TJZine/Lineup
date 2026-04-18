@@ -15,7 +15,7 @@ import { SettingsStore } from './SettingsStore';
 import type { SubtitleMode } from '../../../shared/subtitle-mode';
 import { SettingsScreenStateController } from './SettingsScreenStateController';
 import { syncFocusableRegistry } from '../common/focus/syncFocusableRegistry';
-import type { ThemeName } from '../theme';
+import type { ThemeName } from '../theme/themeDefinitions';
 
 /**
  * Settings screen component.

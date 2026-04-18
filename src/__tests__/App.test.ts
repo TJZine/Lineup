@@ -3,12 +3,12 @@
  */
 
 import { App } from '../App';
-import { AppOrchestrator, type PlaybackInfoSnapshot } from '../Orchestrator';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../core/app-shell/constants';
 import { AppThemeController } from '../core/app-shell/AppThemeController';
 import type { ChannelSetupConfig } from '../core/channel-setup/types';
-import { STORAGE_KEYS } from '../types';
+import { AppOrchestrator, type PlaybackInfoSnapshot } from '../core/orchestrator/AppOrchestrator';
+import { PLEX_AUTH_CONSTANTS } from '../modules/plex/auth';
 
 import { flushPromises } from './helpers';
 import { EXPECTED_CONTAINER_IDS } from './fixtures/appShellContainerIds';
@@ -31,7 +31,7 @@ jest.mock('../modules/ui/splash', () => ({
 
 const authScreenChunkLoaded = jest.fn();
 const authScreenConstructed = jest.fn();
-jest.mock('../modules/ui/auth/AuthScreen', () => {
+jest.mock('../modules/ui/auth', () => {
     authScreenChunkLoaded();
     return {
         AuthScreen: class AuthScreen {
@@ -53,7 +53,7 @@ jest.mock('../modules/ui/auth/AuthScreen', () => {
 
 const profileSelectScreenChunkLoaded = jest.fn();
 const profileSelectScreenConstructed = jest.fn();
-jest.mock('../modules/ui/profile-select/ProfileSelectScreen', () => {
+jest.mock('../modules/ui/profile-select', () => {
     profileSelectScreenChunkLoaded();
     return {
         ProfileSelectScreen: class ProfileSelectScreen {
@@ -77,7 +77,7 @@ const serverSelectShow = jest.fn();
 const serverSelectHide = jest.fn();
 const serverSelectScreenChunkLoaded = jest.fn();
 const serverSelectScreenConstructed = jest.fn();
-jest.mock('../modules/ui/server-select/ServerSelectScreen', () => {
+jest.mock('../modules/ui/server-select', () => {
     serverSelectScreenChunkLoaded();
     return {
         ServerSelectScreen: class ServerSelectScreen {
@@ -99,7 +99,7 @@ jest.mock('../modules/ui/server-select/ServerSelectScreen', () => {
 
 const settingsScreenChunkLoaded = jest.fn();
 const settingsScreenConstructed = jest.fn();
-jest.mock('../modules/ui/settings/SettingsScreen', () => {
+jest.mock('../modules/ui/settings', () => {
     settingsScreenChunkLoaded();
     return {
         SettingsScreen: class SettingsScreen {
@@ -122,7 +122,7 @@ jest.mock('../modules/ui/settings/SettingsScreen', () => {
 const channelSetupScreenChunkLoaded = jest.fn();
 const channelSetupScreenConstructed = jest.fn();
 const getPlannerDiagnosticsConfigMock = jest.fn<ChannelSetupConfig | null, []>();
-jest.mock('../modules/ui/channel-setup/ChannelSetupScreen', () => {
+jest.mock('../modules/ui/channel-setup', () => {
     channelSetupScreenChunkLoaded();
     return {
         ChannelSetupScreen: class ChannelSetupScreen {
@@ -511,8 +511,11 @@ describe('App bootstrap smoke', () => {
 
         const retry = overlay?.querySelector('button.error-button.primary') as HTMLButtonElement | null;
         expect(retry).not.toBeNull();
+        if (!retry) {
+            throw new Error('Retry button not found');
+        }
         expect(document.activeElement).toBe(retry);
-        retry!.click();
+        retry.click();
         expect(action).toHaveBeenCalledTimes(1);
         expect(overlay?.classList.contains('hidden')).toBe(true);
     });
@@ -692,8 +695,11 @@ describe('App bootstrap smoke', () => {
         expect(devMenu).not.toBeNull();
         const pre = devMenu?.querySelector('#dev-playback-info') as HTMLPreElement | null;
         expect(pre).not.toBeNull();
-        pre!.dataset.summary = 'SUMMARY';
-        pre!.dataset.raw = '{"raw":true}';
+        if (!pre) {
+            throw new Error('Playback info pre not found');
+        }
+        pre.dataset.summary = 'SUMMARY';
+        pre.dataset.raw = '{"raw":true}';
 
         Object.defineProperty(navigator, 'clipboard', {
             value: { writeText: jest.fn().mockResolvedValue(undefined) },
@@ -703,7 +709,10 @@ describe('App bootstrap smoke', () => {
         jest.setSystemTime(10_000);
         const copySummary = devMenu?.querySelector('#dev-playback-copy-summary') as HTMLButtonElement | null;
         expect(copySummary).not.toBeNull();
-        copySummary!.click();
+        if (!copySummary) {
+            throw new Error('Copy summary button not found');
+        }
+        copySummary.click();
         await flushPromises();
         expect((navigator as unknown as { clipboard: { writeText: jest.Mock } }).clipboard.writeText).toHaveBeenCalledWith(
             'SUMMARY'
@@ -711,19 +720,22 @@ describe('App bootstrap smoke', () => {
 
         const copyRaw = devMenu?.querySelector('#dev-playback-copy-raw') as HTMLButtonElement | null;
         expect(copyRaw).not.toBeNull();
+        if (!copyRaw) {
+            throw new Error('Copy raw button not found');
+        }
         (navigator as unknown as { clipboard: { writeText: jest.Mock } }).clipboard.writeText.mockRejectedValueOnce(
             new Error('blocked')
         );
         jest.setSystemTime(12_000);
-        copyRaw!.click();
+        copyRaw.click();
         await flushPromises();
         const toastEl = document.getElementById('app-toast') as HTMLElement | null;
         expect(toastEl?.textContent ?? '').toContain('Copy not supported');
 
         // Empty text branch.
         jest.setSystemTime(16_000);
-        pre!.dataset.summary = '';
-        copySummary!.click();
+        pre.dataset.summary = '';
+        copySummary.click();
         await flushPromises();
     });
 
@@ -974,10 +986,10 @@ describe('App bootstrap smoke', () => {
                 configurable: true,
             });
 
-            localStorage.setItem(STORAGE_KEYS.CLIENT_ID, '');
+            localStorage.setItem(PLEX_AUTH_CONSTANTS.CLIENT_ID_KEY, '');
             await bootstrapApp();
 
-            const clientId = localStorage.getItem(STORAGE_KEYS.CLIENT_ID) ?? '';
+            const clientId = localStorage.getItem(PLEX_AUTH_CONSTANTS.CLIENT_ID_KEY) ?? '';
             expect(clientId).toMatch(/^lineup-[A-Za-z0-9._-]+$/);
         } finally {
             Object.defineProperty(globalThis, 'crypto', {
@@ -988,9 +1000,9 @@ describe('App bootstrap smoke', () => {
     });
 
     it('uses an existing sane client id without regenerating', async () => {
-        localStorage.setItem(STORAGE_KEYS.CLIENT_ID, 'lineup-existing_123');
+        localStorage.setItem(PLEX_AUTH_CONSTANTS.CLIENT_ID_KEY, 'lineup-existing_123');
         await bootstrapApp();
 
-        expect(localStorage.getItem(STORAGE_KEYS.CLIENT_ID)).toBe('lineup-existing_123');
+        expect(localStorage.getItem(PLEX_AUTH_CONSTANTS.CLIENT_ID_KEY)).toBe('lineup-existing_123');
     });
 });

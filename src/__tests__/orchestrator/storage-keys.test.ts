@@ -1,6 +1,6 @@
 import { OrchestratorStorageContext } from '../../core/orchestrator/OrchestratorStorageContext';
+import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import { PLEX_DISCOVERY_CONSTANTS } from '../../modules/plex/discovery/constants';
-import { STORAGE_KEYS } from '../../types';
 
 describe('OrchestratorStorageContext', () => {
     const createContext = (input: { userId: string | null; serverId: string | null }): {
@@ -48,8 +48,8 @@ describe('OrchestratorStorageContext', () => {
         const { context, setChannelManagerStorageKeys } = createContext({ userId: 'user-1', serverId: 'server-1' });
         context.configureChannelManagerStorageForSelectedServer();
         expect(setChannelManagerStorageKeys).toHaveBeenCalledWith(
-            `${STORAGE_KEYS.CHANNELS_SERVER}:server-1:user-1`,
-            `${STORAGE_KEYS.CURRENT_CHANNEL}:server-1:user-1`
+            `${LINEUP_STORAGE_KEYS.CHANNELS_SERVER}:server-1:user-1`,
+            `${LINEUP_STORAGE_KEYS.CURRENT_CHANNEL}:server-1:user-1`
         );
     });
 
@@ -57,8 +57,8 @@ describe('OrchestratorStorageContext', () => {
         const { context, setChannelManagerStorageKeys } = createContext({ userId: null, serverId: 'server-1' });
         context.configureChannelManagerStorageForSelectedServer();
         expect(setChannelManagerStorageKeys).toHaveBeenCalledWith(
-            `${STORAGE_KEYS.CHANNELS_SERVER}:server-1`,
-            `${STORAGE_KEYS.CURRENT_CHANNEL}:server-1`
+            `${LINEUP_STORAGE_KEYS.CHANNELS_SERVER}:server-1`,
+            `${LINEUP_STORAGE_KEYS.CURRENT_CHANNEL}:server-1`
         );
     });
 

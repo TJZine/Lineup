@@ -1,0 +1,72 @@
+.player-osd-meta-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 8px var(--osd-safe-margin);
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: var(--text-md);
+  color: var(--color-text-secondary);
+}
+
+.player-osd-meta-left {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 18px;
+}
+
+.player-osd-meta-right {
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  justify-content: flex-end;
+}
+
+.player-osd-timecode,
+.player-osd-ends {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.player-osd-buffertext {
+  flex: 0 1 auto;
+  margin-left: 0;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-osd-progress-container {
+  margin: 0;
+}
+
+.player-osd-bar {
+  position: relative;
+  overflow: hidden;
+  margin-top: 0;
+  height: var(--progress-height-lg);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.player-osd-bar-buffer,
+.player-osd-bar-played {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+}
+
+.player-osd-bar-buffer {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.player-osd-bar-played {
+  background: var(--progress-fill);
+}

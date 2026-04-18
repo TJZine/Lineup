@@ -2,6 +2,9 @@
  * @jest-environment jsdom
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
+
 import { LINEUP_EVENT_NAMES } from '../config/events';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 
@@ -85,6 +88,9 @@ const expectBootstrapFailureState = (module: BootstrapModule): void => {
     expect((window as LineupWindow).__LINEUP__).toBeUndefined();
 };
 
+const readShellChromeCss = (): string =>
+    fs.readFileSync(path.resolve(__dirname, '../styles/shell.chrome.css'), 'utf8');
+
 describe('bootstrap seam', () => {
     beforeEach(() => {
         jest.resetModules();
@@ -160,6 +166,49 @@ describe('bootstrap seam', () => {
         const { module } = await importBootstrapModule({ start });
 
         expectBootstrapFailureState(module);
+    });
+
+    it('uses modal alertdialog semantics for the fatal bootstrap overlay', async () => {
+        const focusSpy = jest.spyOn(HTMLElement.prototype, 'focus');
+        const start = jest.fn().mockRejectedValue(new Error('start failed'));
+
+        await importBootstrapModule({ start });
+
+        const overlay = document.getElementById('global-error-overlay');
+        expect(overlay).not.toBeNull();
+        expect(overlay?.getAttribute('role')).toBe('alertdialog');
+        expect(overlay?.getAttribute('aria-live')).toBe('assertive');
+        expect(overlay?.getAttribute('aria-modal')).toBe('true');
+        expect(overlay?.getAttribute('tabindex')).toBe('-1');
+        expect(focusSpy).toHaveBeenCalled();
+    });
+
+    it('keeps the fatal overlay stylesheet contract while providing critical inline fallback styling', async () => {
+        const shellSurface = document.createElement('div');
+        shellSurface.id = 'existing-shell-surface';
+        shellSurface.style.position = 'fixed';
+        shellSurface.style.zIndex = '999999';
+        document.body.appendChild(shellSurface);
+
+        const start = jest.fn().mockRejectedValue(new Error('start failed'));
+
+        await importBootstrapModule({ start });
+
+        const overlay = document.getElementById('global-error-overlay');
+        expect(overlay).not.toBeNull();
+        expect(overlay?.classList.contains('error-overlay')).toBe(true);
+        expect(overlay?.classList.contains('error-overlay-fatal')).toBe(true);
+        expect((overlay as HTMLElement).style.position).toBe('fixed');
+        expect((overlay as HTMLElement).style.top).toBe('0px');
+        expect((overlay as HTMLElement).style.right).toBe('0px');
+        expect((overlay as HTMLElement).style.bottom).toBe('0px');
+        expect((overlay as HTMLElement).style.left).toBe('0px');
+        expect((overlay as HTMLElement).style.display).toBe('flex');
+        expect((overlay as HTMLElement).style.zIndex).toBe('2147483647');
+
+        const shellChromeCss = readShellChromeCss();
+        expect(shellChromeCss).toMatch(/\.error-overlay\s*\{[^}]*z-index:\s*var\(--z-overlay\);/);
+        expect(shellChromeCss).toMatch(/\.error-overlay-fatal\s*\{[^}]*z-index:\s*2147483647;/);
     });
 
     it('shows fatal overlay and clears app/debug state when pageshow bootstrap fails after cleanup', async () => {

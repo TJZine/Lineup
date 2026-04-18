@@ -13,7 +13,7 @@ import type { IEPGComponent } from '../ui/epg';
 import type { IVideoPlayer } from '../player';
 import type { IPlexAuth } from '../plex/auth';
 import { NOW_PLAYING_INFO_MODAL_ID } from '../ui/now-playing-info';
-import type { PlaybackOptionsSectionId } from '../ui/playback-options/types';
+import type { PlaybackOptionsSectionId } from '../ui/playback-options';
 import {
     computeAcceleratedRepeatIntervalMs,
     EPG_REPEAT_TIMING,

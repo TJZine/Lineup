@@ -104,6 +104,53 @@ function writeRepoFile(repoRoot: string, relativePath: string, content = '# Plac
     writeFileSync(fullPath, content, 'utf8');
 }
 
+function buildChecklistLinkedPackageDecomposition({
+    readyNowSlice = 'P1-W1-S1',
+    readyNowExecutionUnit = readyNowSlice,
+    executionWaves = '',
+    coverageLedger = '',
+}: {
+    readyNowSlice?: string;
+    readyNowExecutionUnit?: string;
+    executionWaves?: string;
+    coverageLedger?: string;
+} = {}): string {
+    return [
+        '## Package Decomposition',
+        '',
+        '- `package_id`: `pkg_example_cleanup`',
+        '- `checklist_token`: `P1-W1`',
+        '- `package_issue_ids`:',
+        '  - `review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes`',
+        '- `slice_table`:',
+        '',
+        `### \`${readyNowSlice}\` Example Slice`,
+        '',
+        '- `goal`: retire the package-owned seam without widening scope',
+        '- `areas/files`:',
+        '  - `docs/agentic/plan-authoring-standard.md`',
+        '- `exact_issue_ids`:',
+        '  - `review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes`',
+        '- `verification`:',
+        '  - `npm run verify:docs`',
+        '- `dependencies`: none',
+        '- `stop_condition`: stop if the approved seam widens',
+        '- `handoff_condition`: hand off once review is clean',
+        '- `serial_only`: true',
+        '- `parallel_justification`: keep the execution unit serial',
+        '- `coverage_check`:',
+        '  - every existing package issue is mapped to one slice-owned execution path',
+        ...(coverageLedger.length > 0 ? [coverageLedger] : []),
+        ...(executionWaves.length > 0 ? [executionWaves] : []),
+        '- `recommended_slice_order`:',
+        `  1. \`${readyNowSlice}\``,
+        `- \`ready_now_slice\`: \`${readyNowSlice}\``,
+        `- \`ready_now_execution_unit\`: \`${readyNowExecutionUnit}\``,
+        '- `parallel_execution_policy`: serial',
+        '',
+    ].join('\n');
+}
+
 function writeValidSkillMirrorFixture(repoRoot: string): void {
     writeRepoFile(repoRoot, skillMirrorManifestPath, 'superpowers:brainstorming\n');
     writeRepoFile(
@@ -172,6 +219,11 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '| feature/design | net-new capability | `feature-plan` + `feature-implement` + `feature-review` | Tier 2 feature flow uses tracked launchers. |',
             '| mixed | split slices explicitly | route by primary intent | Keep cleanup scoped to cleanup work. |',
             '',
+            '- For checklist-linked package work, `execution_unit` is the execution/review surface and `slice_table` remains the atomic ownership map.',
+            '- Require `ready_now_execution_unit` for checklist-linked package work.',
+            '- Require `execution_waves` and `coverage_ledger` only when the approved execution unit spans multiple slices.',
+            '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
+            '',
             '## Invocation',
             '',
             'Each launcher should:',
@@ -217,6 +269,10 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '',
             '- For cleanup/refactor work, choose `checklist-linked` or `standalone remediation` before selecting a tier.',
             '- Record whether cleanup work is `checklist-linked` or `standalone remediation` before freezing the plan.',
+            '- For checklist-linked package work, `execution_unit` is the execution/review surface and `slice_table` remains the atomic ownership map.',
+            '- For checklist-linked package work, `ready_now_execution_unit` is required and `execution_waves` are optional unless one approved wave spans multiple slices.',
+            '- `coverage_ledger` stays execution-only and wave review is the default approval gate for a coherent approved batch.',
+            '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
             '',
             'A final `P#-W#` plan must include a `Priority-exit readiness` section, assign a single final owner to each deferred or split follow-up item, and record any exact `P0` security issue ids before starting or planning the next priority.',
             'No `P(n+1)` checklist item, plan, or implementation work may open while `P#-EXIT` is unresolved.',
@@ -279,6 +335,10 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '',
             '- The exact `P#-EXIT` checklist update must be named.',
             '- Every deferred item needs an exact issue id, a single final owner, and a revisit trigger.',
+            '- For checklist-linked package work, `slice_table` remains the atomic ownership map. `execution_unit` is the execution/review surface.',
+            '- Require `ready_now_execution_unit`, and require `execution_waves`, `coverage_ledger`, `absorb_now_scope`, and `replan_triggers` only for wave-scoped execution.',
+            '- Absorb now only when newly discovered residue stays within the same approved execution unit goal.',
+            '- Replan required when current-source proof shows a new owner.',
             '',
         ].join('\n')
     );
@@ -298,6 +358,27 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '- Record exact `P0` security issue ids and the `P#-EXIT` checklist update.',
             '- Mark cleanup work as `checklist-linked` or `standalone remediation` before freezing the plan.',
             '- Only `checklist-linked` work should claim priority closeout.',
+            '- For checklist-linked package work, require `ready_now_execution_unit`.',
+            '- Require `execution_waves`, `coverage_ledger`, `absorb_now_scope`, and `replan_triggers` only for wave-scoped execution.',
+            '- Include Package Decomposition decisions with `ready_now_execution_unit`, `ready_now_slice`, and `parallel_execution_policy` in the output contract.',
+            '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
+            '',
+        ].join('\n')
+    );
+
+    writeRepoFile(
+        repoRoot,
+        'docs/agentic/session-prompts/cleanup-loop.md',
+        [
+            '# Cleanup Loop (Fixture)',
+            '',
+            '- Use `execution-unit-select` for checklist-linked package work.',
+            '- Read `ready_now_execution_unit` before implementation starts.',
+            '- When a wave is selected, the controller stays inside that wave until its completion condition is met.',
+            '- Wave review is the default approval gate for that coherent approved batch.',
+            '- Each implemented approved execution unit or standalone execution target has a clean implementation review loop.',
+            '- If the completed checklist-linked execution unit closes the final planned `P#-W#` item, finish the `P#-EXIT` evidence before closeout.',
+            '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
             '',
         ].join('\n')
     );
@@ -312,6 +393,9 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '- Include any deferred or split items with their exact issue id, single final owner, and reason and revisit trigger.',
             '- Ask for a `priority-exit review` when the task closes a priority and do not start `P(n+1)` work in the same session.',
             '- For `standalone remediation`, state that no checklist update applies.',
+            '- Execute one approved `execution_unit` at a time.',
+            '- Absorb now only when newly discovered residue stays within the same approved execution unit goal.',
+            '- Replan required when current-source proof shows a new owner.',
             '',
         ].join('\n')
     );
@@ -326,6 +410,8 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '- Every deferred item needs a revisit trigger.',
             '- `security triage` must say `no open P0 security findings` or list the exact `P0` security issue ids still open/deferred.',
             '- A `priority-exit review` must ensure no `P(n+1)` plan or implementation work is being approved while `P#-EXIT` is still unresolved.',
+            '- Review the approved `execution_unit` and keep slice-level accounting is still mandatory inside that unit.',
+            '- Confirm wave review is acting as the default approval gate for coherent approved batches.',
             '',
         ].join('\n')
     );
@@ -674,6 +760,10 @@ describe('verify-docs', () => {
                 '- Record exact `P0` security issue ids and the `P#-EXIT` checklist update.',
                 '- Mark cleanup work as `checklist-linked` or `standalone remediation` before freezing the plan.',
                 '- Only `checklist-linked` work should claim priority closeout.',
+                '- Require `ready_now_execution_unit` for checklist-linked package work.',
+                '- Require `execution_waves`, `coverage_ledger`, `absorb_now_scope`, and `replan_triggers` only for wave-scoped execution.',
+                '- Include Package Decomposition decisions with `ready_now_execution_unit`, `ready_now_slice`, and `parallel_execution_policy` in the output contract.',
+                '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
                 '',
             ].join('\n'),
         });
@@ -698,6 +788,10 @@ describe('verify-docs', () => {
                 '- Record exact `P0` security issue ids and the `P#-EXIT` checklist update.',
                 '- Mark cleanup work as `checklist-linked` or `standalone remediation` before freezing the plan.',
                 '- Only `checklist-linked` work should claim priority closeout.',
+                '- Require `ready_now_execution_unit` for checklist-linked package work.',
+                '- Require `execution_waves`, `coverage_ledger`, `absorb_now_scope`, and `replan_triggers` only for wave-scoped execution.',
+                '- Include Package Decomposition decisions with `ready_now_execution_unit`, `ready_now_slice`, and `parallel_execution_policy` in the output contract.',
+                '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
                 '',
             ].join('\n'),
         });
@@ -722,6 +816,10 @@ describe('verify-docs', () => {
                 '- Record exact `P0` security issue ids and the `P#-EXIT` checklist update.',
                 '- Mark cleanup work as `checklist-linked` or `standalone remediation` before freezing the plan.',
                 '- Only `checklist-linked` work should claim priority closeout.',
+                '- Require `ready_now_execution_unit` for checklist-linked package work.',
+                '- Require `execution_waves`, `coverage_ledger`, `absorb_now_scope`, and `replan_triggers` only for wave-scoped execution.',
+                '- Include Package Decomposition decisions with `ready_now_execution_unit`, `ready_now_slice`, and `parallel_execution_policy` in the output contract.',
+                '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
                 '',
             ].join('\n'),
         });
@@ -1241,6 +1339,8 @@ describe('verify-docs', () => {
                 '',
                 '- `docs: refresh tracked plan contract`',
                 '',
+                buildChecklistLinkedPackageDecomposition(),
+                '',
             ].join('\n')
         );
         writeRepoFile(
@@ -1255,6 +1355,186 @@ describe('verify-docs', () => {
 
         expect(result.status).toBe(0);
         expect(result.stdout).toContain('Documentation verification passed.');
+    });
+
+    it('fails when a checklist-linked tracked plan omits ready_now_execution_unit', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRepoFile(
+            repoRoot,
+            'docs/plans/example-active.md',
+            [
+                '# Example Implementation Plan',
+                '',
+                '**Plan Status:** active',
+                '**Task family:** cleanup/refactor',
+                '**Cleanup subtype:** checklist-linked',
+                '',
+                '**Goal:** Do the thing.',
+                '',
+                '**Architecture:** Keep the boundary explicit.',
+                '',
+                '## Non-Goals',
+                '',
+                '- No routing changes.',
+                '',
+                '## Required Reading',
+                '',
+                '- `docs/AGENTIC_DEV_WORKFLOW.md`',
+                '',
+                '## Required Skills',
+                '',
+                '- `writing-plans`',
+                '',
+                '## Codanna Discovery',
+                '',
+                '- `search_documents`: confirmed the right workflow docs.',
+                '',
+                '## Evidence To Preserve',
+                '',
+                '- `docs/agentic/plan-authoring-standard.md`',
+                '',
+                '## Allowed File Changes',
+                '',
+                '- `docs/agentic/plan-authoring-standard.md`',
+                '',
+                '## Files Out Of Scope',
+                '',
+                '- `src/App.ts`',
+                '',
+                '## Planner Self-Check',
+                '',
+                '- No hidden seam remains.',
+                '',
+                '## Architecture Seam Decision Gate',
+                '',
+                '- Chosen seam is explicit.',
+                '',
+                '## Verification Commands',
+                '',
+                '- Run: `npm run verify:docs`',
+                '- Expected: `Documentation verification passed.`',
+                '',
+                '## Rollback Notes',
+                '',
+                '- Revert the doc change if the launcher contract becomes ambiguous.',
+                '',
+                '## Commit Checkpoints',
+                '',
+                '- `docs: refresh tracked plan contract`',
+                '',
+                buildChecklistLinkedPackageDecomposition().replace(
+                    '- `ready_now_execution_unit`: `P1-W1-S1`\n',
+                    ''
+                ),
+                '',
+            ].join('\n')
+        );
+        writeRepoFile(
+            repoRoot,
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md',
+            readFileSync(path.join(repoRoot, 'ARCHITECTURE_CLEANUP_CHECKLIST.md'), 'utf8') +
+                '\n- [ ] Active item (plan: docs/plans/example-active.md)\n'
+        );
+        runGit(['add', '.'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'docs/plans/example-active.md checklist-linked plans must include `ready_now_execution_unit` in `## Package Decomposition`'
+        );
+    });
+
+    it('fails when a checklist-linked tracked plan omits required slice_table execution fields', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRepoFile(
+            repoRoot,
+            'docs/plans/example-active.md',
+            [
+                '# Example Implementation Plan',
+                '',
+                '**Plan Status:** active',
+                '**Task family:** cleanup/refactor',
+                '**Cleanup subtype:** checklist-linked',
+                '',
+                '**Goal:** Do the thing.',
+                '',
+                '**Architecture:** Keep the boundary explicit.',
+                '',
+                '## Non-Goals',
+                '',
+                '- No routing changes.',
+                '',
+                '## Required Reading',
+                '',
+                '- `docs/AGENTIC_DEV_WORKFLOW.md`',
+                '',
+                '## Required Skills',
+                '',
+                '- `writing-plans`',
+                '',
+                '## Codanna Discovery',
+                '',
+                '- `search_documents`: confirmed the right workflow docs.',
+                '',
+                '## Evidence To Preserve',
+                '',
+                '- `docs/agentic/plan-authoring-standard.md`',
+                '',
+                '## Allowed File Changes',
+                '',
+                '- `docs/agentic/plan-authoring-standard.md`',
+                '',
+                '## Files Out Of Scope',
+                '',
+                '- `src/App.ts`',
+                '',
+                '## Planner Self-Check',
+                '',
+                '- No hidden seam remains.',
+                '',
+                '## Architecture Seam Decision Gate',
+                '',
+                '- Chosen seam is explicit.',
+                '',
+                '## Verification Commands',
+                '',
+                '- Run: `npm run verify:docs`',
+                '- Expected: `Documentation verification passed.`',
+                '',
+                '## Rollback Notes',
+                '',
+                '- Revert the doc change if the launcher contract becomes ambiguous.',
+                '',
+                '## Commit Checkpoints',
+                '',
+                '- `docs: refresh tracked plan contract`',
+                '',
+                buildChecklistLinkedPackageDecomposition().replace(
+                    '- `verification`:\n  - `npm run verify:docs`\n',
+                    ''
+                ),
+                '',
+            ].join('\n')
+        );
+        writeRepoFile(
+            repoRoot,
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md',
+            readFileSync(path.join(repoRoot, 'ARCHITECTURE_CLEANUP_CHECKLIST.md'), 'utf8') +
+                '\n- [ ] Active item (plan: docs/plans/example-active.md)\n'
+        );
+        runGit(['add', '.'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'docs/plans/example-active.md P1-W1-S1 in `slice_table` must include `verification`'
+        );
     });
 
     it('fails when an active tracked plan omits required classification fields', () => {
@@ -1880,6 +2160,73 @@ describe('verify-docs', () => {
         expect(result.stderr).toContain('cleanup-plan prompt doc');
     });
 
+    it('fails when cleanup-loop omits the execution-unit wave-review contract', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/cleanup-loop.md': [
+                '# Cleanup Loop',
+                '',
+                '- Use `execution-unit-select` for checklist-linked package work.',
+                '- Read `ready_now_execution_unit` before implementation starts.',
+                '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('cleanup-loop prompt doc is missing required execution-unit orchestration marker');
+        expect(result.stderr).toContain('wave review is the default approval gate');
+    });
+
+    it('fails when cleanup-plan omits execution-unit handoff guidance from the output contract', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/cleanup-plan.md': [
+                '# Cleanup Plan',
+                '',
+                '- Include `Priority-exit readiness` when the plan claims priority closeout.',
+                '- Assign a single final owner to every deferred or split follow-up item.',
+                '- Record exact `P0` security issue ids and the `P#-EXIT` checklist update.',
+                '- Mark cleanup work as `checklist-linked` or `standalone remediation` before freezing the plan.',
+                '- Only `checklist-linked` work should claim priority closeout.',
+                '- For checklist-linked package work, require `ready_now_execution_unit`.',
+                '- Require `execution_waves`, `coverage_ledger`, `absorb_now_scope`, and `replan_triggers` only for wave-scoped execution.',
+                '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('cleanup-plan prompt doc is missing required execution-unit planning marker');
+        expect(result.stderr).toContain('package decomposition decisions with ready now execution unit');
+    });
+
+    it('fails when cleanup-loop omits execution-unit completion-gate guidance', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/cleanup-loop.md': [
+                '# Cleanup Loop',
+                '',
+                '- Use `execution-unit-select` for checklist-linked package work.',
+                '- Read `ready_now_execution_unit` before implementation starts.',
+                '- When a wave is selected, the controller stays inside that wave until its completion condition is met.',
+                '- Wave review is the default approval gate for that coherent approved batch.',
+                '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('cleanup-loop prompt doc is missing required execution-unit orchestration marker');
+        expect(result.stderr).toContain('each implemented approved execution unit or standalone execution target has a clean implementation review loop');
+    });
+
     it('fails when cleanup-review omits single-owner or revisit-trigger priority-exit guidance', () => {
         const repoRoot = createRepoFixture({
             'docs/agentic/session-prompts/cleanup-review.md': [
@@ -1965,6 +2312,9 @@ describe('verify-docs', () => {
                 '- Run a priority-exit review before moving to the next priority.',
                 '- Do not start `P(n+1)` work in the same session.',
                 '- For standalone remediation, state that no checklist update applies.',
+                '- Execute one approved `execution_unit` at a time.',
+                '- Absorb now only when newly discovered residue stays within the same approved execution unit goal.',
+                '- Replan required when current-source proof shows a new owner.',
                 '',
             ].join('\n'),
         });
@@ -2090,6 +2440,226 @@ describe('verify-docs', () => {
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('Checklist doc is missing required cleanup-slice security marker');
+    });
+
+    it('fails when a checklist mini-record uses a non-canonical Status token', () => {
+        const checklistContent = [
+            '# Checklist',
+            '',
+            '## Execution Hygiene',
+            '',
+            '- Disposition vocabulary:',
+            '  - `owned follow-up`: assign one single final owner.',
+            '  - `security triage`: a fresh `desloppify status` result that either says `no open P0 security findings` or lists the exact open/deferred `P0` security issue ids.',
+            '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
+            '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
+            '- Cleanup slice execution template:',
+            '  - `security triage`: `no open P0 security findings`, or the deferred/resolved `P0` security findings for this slice',
+            '- Priority exit command checklist:',
+            '  - confirm the `P0` security gate is either cleared or explicitly deferred before the next priority begins',
+            '',
+            '## Mini-Record Contract',
+            '',
+            '- `Status`: `not started`, `in progress`, `blocked`, or `completed`',
+            '',
+            '- [ ] `P1-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [x] `P2-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- Status: complete',
+            '- Plan: local-only',
+            '- Last touched: 2026-04-18',
+            '- Verification: not run',
+            '- Follow-ups: none yet',
+            '- Handoff: next owner',
+            '- [ ] `P3-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P4-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P5-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P6-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P7-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P8-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '',
+        ].join('\n');
+        const repoRoot = createRepoFixture({
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md': checklistContent,
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Checklist mini-record `Status` must be one of: `not started`, `in progress`, `blocked`, `completed`'
+        );
+        expect(result.stderr).toContain('found `complete`');
+    });
+
+    it('accepts canonical checklist mini-record Status tokens', () => {
+        const checklistContent = [
+            '# Checklist',
+            '',
+            '## Execution Hygiene',
+            '',
+            '- Disposition vocabulary:',
+            '  - `owned follow-up`: assign one single final owner.',
+            '  - `security triage`: a fresh `desloppify status` result that either says `no open P0 security findings` or lists the exact open/deferred `P0` security issue ids.',
+            '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
+            '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
+            '- Cleanup slice execution template:',
+            '  - `security triage`: `no open P0 security findings`, or the deferred/resolved `P0` security findings for this slice',
+            '- Priority exit command checklist:',
+            '  - confirm the `P0` security gate is either cleared or explicitly deferred before the next priority begins',
+            '',
+            '## Mini-Record Contract',
+            '',
+            '- `Status`: `not started`, `in progress`, `blocked`, or `completed`',
+            '',
+            '- [ ] `P1-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [x] `P2-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- Status: completed',
+            '- Plan: local-only',
+            '- Last touched: 2026-04-18',
+            '- Verification: not run',
+            '- Follow-ups: none yet',
+            '- Handoff: next owner',
+            '- [ ] `P3-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P4-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P5-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P6-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P7-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P8-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '',
+        ].join('\n');
+        const repoRoot = createRepoFixture({
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md': checklistContent,
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+    });
+
+    it('ignores non-mini-record `Status` examples outside `P#-EXIT` blocks', () => {
+        const checklistContent = [
+            '# Checklist',
+            '',
+            '## Execution Hygiene',
+            '',
+            '- Disposition vocabulary:',
+            '  - `owned follow-up`: assign one single final owner.',
+            '  - `security triage`: a fresh `desloppify status` result that either says `no open P0 security findings` or lists the exact open/deferred `P0` security issue ids.',
+            '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
+            '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
+            '- Cleanup slice execution template:',
+            '  - `security triage`: `no open P0 security findings`, or the deferred/resolved `P0` security findings for this slice',
+            '- Priority exit command checklist:',
+            '  - confirm the `P0` security gate is either cleared or explicitly deferred before the next priority begins',
+            '',
+            '## Mini-Record Contract',
+            '',
+            '- `Status`: `not started`, `in progress`, `blocked`, or `completed`',
+            '- Example:',
+            '  - Status: complete',
+            '',
+            '- [ ] `P1-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [x] `P2-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- Status: completed',
+            '- Plan: local-only',
+            '- Last touched: 2026-04-18',
+            '- Verification: not run',
+            '- Follow-ups: none yet',
+            '- Handoff: next owner',
+            '- [ ] `P3-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P4-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P5-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P6-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P7-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- [ ] `P8-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '',
+        ].join('\n');
+        const repoRoot = createRepoFixture({
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md': checklistContent,
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+    });
+
+    it('fails when a later `P10-EXIT` mini-record uses a non-canonical Status token', () => {
+        const checklistContent = [
+            '# Checklist',
+            '',
+            '## Execution Hygiene',
+            '',
+            '- Disposition vocabulary:',
+            '  - `owned follow-up`: assign one single final owner.',
+            '  - `security triage`: a fresh `desloppify status` result that either says `no open P0 security findings` or lists the exact open/deferred `P0` security issue ids.',
+            '  - `priority-exit review`: the blocking review before `P(n+1)` work, plan, or checklist progress.',
+            '- Closeout rule: do not start, plan, or mark progress on `P(n+1)` work until the current priority\'s `P#-EXIT` record is complete.',
+            '- Cleanup slice execution template:',
+            '  - `security triage`: `no open P0 security findings`, or the deferred/resolved `P0` security findings for this slice',
+            '- Priority exit command checklist:',
+            '  - confirm the `P0` security gate is either cleared or explicitly deferred before the next priority begins',
+            '',
+            '## Mini-Record Contract',
+            '',
+            '- `Status`: `not started`, `in progress`, `blocked`, or `completed`',
+            '',
+            '- [x] `P9-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- Status: completed',
+            '- Plan: local-only',
+            '- Last touched: 2026-04-18',
+            '- Verification: not run',
+            '- Follow-ups: none yet',
+            '- Handoff: next owner',
+            '- [x] `P10-EXIT`',
+            '  - required: record every mapped imported issue with an exact disposition',
+            '- Status: complete',
+            '- Plan: local-only',
+            '- Last touched: 2026-04-18',
+            '- Verification: not run',
+            '- Follow-ups: none yet',
+            '- Handoff: checklist complete only when this gate is satisfied',
+            '',
+        ].join('\n');
+        const repoRoot = createRepoFixture({
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md': checklistContent,
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Checklist mini-record `Status` must be one of: `not started`, `in progress`, `blocked`, `completed`'
+        );
+        expect(result.stderr).toContain('found `complete`');
     });
 
     it('fails when `P2-EXIT` is mentioned in `P1-EXIT` prose before the real heading', () => {

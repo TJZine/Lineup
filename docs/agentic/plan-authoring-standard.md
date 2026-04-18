@@ -195,9 +195,17 @@ Feature/design plans satisfy `Universal Plan Core` only and must not rely on cle
   - `package_issue_ids`
   - `slice_table`
   - `coverage_check`
-  - `recommended_slice_order`
   - `ready_now_slice`
+  - `ready_now_execution_unit`
+  - `recommended_slice_order`
   - `parallel_execution_policy`
+- for checklist-linked package work, `slice_table` remains the atomic ownership map. `execution_unit` is the execution/review surface.
+- for `checklist-linked` package work, `ready_now_execution_unit` is required and must identify either one approved single-slice unit or one approved `wave_id`. `ready_now_slice` remains the first slice inside that unit.
+- for `checklist-linked` package work, `execution_waves` are required only when the approved execution unit spans multiple slices or the plan explicitly opts into wave-scoped execution. A wave may contain one slice, but single-slice package plans do not need multi-slice wave scaffolding.
+- for `checklist-linked` package work, single-slice package plans may stay lightweight:
+  - `ready_now_execution_unit` points to that slice
+  - `ready_now_slice` stays the same slice
+  - no `execution_waves` or `coverage_ledger` scaffolding is required
 - for `checklist-linked` package work, `slice_table` must record at least:
   - `slice_id`
   - `goal`
@@ -212,9 +220,23 @@ Feature/design plans satisfy `Universal Plan Core` only and must not rely on cle
 - for `checklist-linked` package work, require package-scoped slice ids (for example `P6-W1-S1`) in `slice_table`, `recommended_slice_order`, and `ready_now_slice`
 - for `checklist-linked` package work, treat `coverage_check` as a hard implementation-ready gate: every package issue must map to exactly one planned slice or one explicit defer path with one final owner before implementation can begin
 - for `checklist-linked` package work, keep the checklist companion map canonical for package issue membership; tracked plans may snapshot `package_issue_ids` for execution coverage but must not become a rival membership authority
+- for `checklist-linked` package work, `coverage_ledger` is an execution-only no-drop ledger for existing `package_issue_ids`; it must not redefine package membership, which remains owned by the checklist companion map
+- when `execution_waves` are present, require `coverage_ledger` plus per-wave:
+  - `wave_id`
+  - `slice_ids`
+  - `completion_condition`
+  - `absorb_now_scope`
+  - `replan_triggers`
 - for `checklist-linked` package work, decomposition is still mandatory even when the package is small enough to yield exactly one slice
+- for `checklist-linked` package work, large-package execution should review coherent retirement batches, not one tiny fix at a time
 - add `## Priority-Exit Readiness` only when the cleanup plan is intended to close the last `P#-W#` item in a cleanup priority or is itself `P#-EXIT`
 - for `standalone remediation`, say explicitly that no checklist update is expected unless the task is intentionally promoted later
+
+### Execution-Unit Absorption Rules
+
+- Absorb now only when newly discovered residue stays within the same approved execution unit goal, same owner, same seam/files, same verification envelope, and same final-owner accounting already approved by the tracked plan.
+- Absorbed-now residue must still be recorded in the implementation or review output for that execution unit.
+- Replan required when current-source proof shows a new owner, new package membership, changed execution-unit membership, materially wider verification surface, changed final-owner accounting, or a need to widen beyond the approved execution unit.
 
 ### Cleanup Closeout Rules
 

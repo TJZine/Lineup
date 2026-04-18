@@ -23,13 +23,17 @@ const ORIGINAL_CONSOLE_METHODS: Record<ConsoleNoiseMethod, (...args: unknown[]) 
     log: console.log.bind(console),
     warn: console.warn.bind(console),
 };
+const { error: originalConsoleError } = console;
 /* eslint-enable no-console */
+const ORIGINAL_CONSOLE_ERROR = originalConsoleError.bind(console);
 
 const developerSettingsStore = new DeveloperSettingsStore();
+const GLOBAL_ERROR_OVERLAY_ID = 'global-error-overlay';
+const GLOBAL_ERROR_OVERLAY_FATAL_CLASS = 'error-overlay-fatal';
 
 /**
  * In lean production builds, silence noisy console output unless debug logging is explicitly enabled.
- * Keep console.error intact for real failure diagnostics.
+ * Keep error logging intact for real failure diagnostics.
  */
 function configureLoggingPolicy(): void {
     const debugEnabled = developerSettingsStore.readDebugLoggingEnabledAndClean(false);
@@ -60,6 +64,10 @@ function logLifecycle(message: string): void {
     ORIGINAL_CONSOLE_METHODS.warn(message);
 }
 
+function logSanitizedError(prefix: string, error: unknown): void {
+    ORIGINAL_CONSOLE_ERROR(prefix, summarizeErrorForLog(error));
+}
+
 interface LineupDebugApi {
     openEPG: () => void;
     closeEPG: () => void;
@@ -79,28 +87,38 @@ function handleDebugLoggingChanged(): void {
 }
 
 function handleDomContentLoaded(): void {
-    bootstrap().catch((error: unknown) => {
-        handleBootstrapFailure('[Lineup] bootstrap failed:', error);
-    });
+    startBootstrapAttempt('[Lineup] bootstrap failed:');
 }
 
 function handlePageHide(): void {
-    cleanup().catch((error: unknown) => {
-        console.error('[Lineup] cleanup failed:', summarizeErrorForLog(error));
-    });
+    void cleanup().catch(handleCleanupFailure);
 }
 
 function handlePageShow(event: PageTransitionEvent): void {
     // Restore from BFCache (browser dev). When a page is restored from cache, scripts are not re-run.
     if (!event.persisted) return;
     if (app) return;
-    bootstrap().catch((error: unknown) => {
-        handleBootstrapFailure('[Lineup] bootstrap (pageshow) failed:', error);
-    });
+    startBootstrapAttempt('[Lineup] bootstrap (pageshow) failed:');
+}
+
+function startBootstrapAttempt(prefix: string): void {
+    void runBootstrapAttempt(prefix);
+}
+
+async function runBootstrapAttempt(prefix: string): Promise<void> {
+    try {
+        await bootstrap();
+    } catch (error: unknown) {
+        handleBootstrapFailure(prefix, error);
+    }
+}
+
+function handleCleanupFailure(error: unknown): void {
+    logSanitizedError('[Lineup] cleanup failed:', error);
 }
 
 function handleBootstrapFailure(prefix: string, error: unknown): void {
-    console.error(prefix, summarizeErrorForLog(error));
+    logSanitizedError(prefix, error);
     showGlobalErrorOverlay(toSafeErrorMessage(error));
     app = null;
     syncWindowDebugApi(null);
@@ -121,52 +139,70 @@ function toSafeErrorMessage(value: unknown): string {
     return 'An unexpected error occurred.';
 }
 
+function openDebugEpg(currentApp: App): void {
+    currentApp.getOrchestrator()?.openEPG();
+}
+
+function closeDebugEpg(currentApp: App): void {
+    currentApp.getOrchestrator()?.closeEPG();
+}
+
+function toggleDebugEpg(currentApp: App): void {
+    currentApp.getOrchestrator()?.toggleEPG();
+}
+
+function getDebugDomSnapshot(): unknown {
+    return {
+        app: describeElement(document.getElementById('app')),
+        videoContainer: describeElement(document.getElementById(APP_SHELL_CONTAINER_IDS.VIDEO)),
+        video: describeElement(document.querySelector('video')),
+        epgContainer: describeElement(document.getElementById('epg-container')),
+    };
+}
+
+function setDebugVideoDisplay(display: string): void {
+    const video = document.querySelector('video') as HTMLElement | null;
+    if (video) video.style.display = display;
+}
+
+function hideDebugVideo(): void {
+    setDebugVideoDisplay('none');
+}
+
+function showDebugVideo(): void {
+    // Remove the inline override so the stylesheet/default display can apply.
+    setDebugVideoDisplay('');
+}
+
+function getDebugOrchestratorStatus(currentApp: App): unknown {
+    const orchestrator = currentApp.getOrchestrator();
+    if (!orchestrator) return null;
+    const status = Array.from(orchestrator.getModuleStatus().values(), toDebugModuleStatusSnapshot);
+    return {
+        isReady: orchestrator.isReady(),
+        status,
+    };
+}
+
+function createLineupDebugApi(currentApp: App): LineupDebugApi {
+    return {
+        openEPG: openDebugEpg.bind(null, currentApp),
+        closeEPG: closeDebugEpg.bind(null, currentApp),
+        toggleEPG: toggleDebugEpg.bind(null, currentApp),
+        domSnapshot: getDebugDomSnapshot,
+        hideVideo: hideDebugVideo,
+        showVideo: showDebugVideo,
+        orchestratorStatus: getDebugOrchestratorStatus.bind(null, currentApp),
+    };
+}
+
 function syncWindowDebugApi(currentApp: App | null): void {
     const win = window as Window & { __LINEUP__?: LineupDebugApi };
     if (!currentApp || !isDebugSurfaceEnabled()) {
         delete win.__LINEUP__;
         return;
     }
-    win.__LINEUP__ = {
-        openEPG: (): void => {
-            currentApp.getOrchestrator()?.openEPG();
-        },
-        closeEPG: (): void => {
-            currentApp.getOrchestrator()?.closeEPG();
-        },
-        toggleEPG: (): void => {
-            currentApp.getOrchestrator()?.toggleEPG();
-        },
-        domSnapshot: (): unknown => ({
-            app: describeElement(document.getElementById('app')),
-            videoContainer: describeElement(document.getElementById(APP_SHELL_CONTAINER_IDS.VIDEO)),
-            video: describeElement(document.querySelector('video')),
-            epgContainer: describeElement(document.getElementById('epg-container')),
-        }),
-        hideVideo: (): void => {
-            const video = document.querySelector('video') as HTMLElement | null;
-            if (video) video.style.display = 'none';
-        },
-        showVideo: (): void => {
-            const video = document.querySelector('video') as HTMLElement | null;
-            // Remove the inline override so the stylesheet/default display can apply.
-            if (video) video.style.display = '';
-        },
-        orchestratorStatus: (): unknown => {
-            const orchestrator = currentApp.getOrchestrator();
-            if (!orchestrator) return null;
-            const status = Array.from(orchestrator.getModuleStatus().values()).map((s) => ({
-                id: s.id,
-                status: s.status,
-                loadTimeMs: s.loadTimeMs ?? null,
-                errorCode: s.error?.code ?? null,
-            }));
-            return {
-                isReady: orchestrator.isReady(),
-                status,
-            };
-        },
-    };
+    win.__LINEUP__ = createLineupDebugApi(currentApp);
 }
 
 // ============================================
@@ -178,7 +214,7 @@ function syncWindowDebugApi(currentApp: App | null): void {
  */
 function handleGlobalError(event: ErrorEvent): void {
     const raw = event.error ?? event.message;
-    console.error('Uncaught error:', summarizeErrorForLog(raw));
+    logSanitizedError('Uncaught error:', raw);
     showGlobalErrorOverlay(toSafeErrorMessage(raw));
     event.preventDefault();
 }
@@ -187,7 +223,7 @@ function handleGlobalError(event: ErrorEvent): void {
  * Handle unhandled promise rejections.
  */
 function handleUnhandledRejection(event: PromiseRejectionEvent): void {
-    console.error('Unhandled promise rejection:', summarizeErrorForLog(event.reason));
+    logSanitizedError('Unhandled promise rejection:', event.reason);
     const message = toSafeErrorMessage(event.reason);
     showGlobalErrorOverlay(message);
     event.preventDefault();
@@ -195,49 +231,41 @@ function handleUnhandledRejection(event: PromiseRejectionEvent): void {
 
 function showGlobalErrorOverlay(message: string): void {
     if (typeof document === 'undefined') return;
-    const existing = document.getElementById('global-error-overlay');
+    const existing = document.getElementById(GLOBAL_ERROR_OVERLAY_ID);
     if (existing) return;
 
     const overlay = document.createElement('div');
-    overlay.id = 'global-error-overlay';
-    overlay.setAttribute('role', 'alert');
+    overlay.id = GLOBAL_ERROR_OVERLAY_ID;
+    overlay.className = `error-overlay ${GLOBAL_ERROR_OVERLAY_FATAL_CLASS}`;
+    overlay.setAttribute('role', 'alertdialog');
+    overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-live', 'assertive');
+    overlay.setAttribute('aria-atomic', 'true');
     overlay.tabIndex = -1;
-    overlay.style.position = 'fixed';
-    overlay.style.left = '0';
-    overlay.style.top = '0';
-    overlay.style.width = '100%';
-    overlay.style.height = '100%';
-    overlay.style.background = 'rgba(0, 0, 0, 0.85)';
-    overlay.style.color = '#fff';
-    overlay.style.zIndex = '99999';
-    overlay.style.display = 'flex';
-    overlay.style.flexDirection = 'column';
-    overlay.style.alignItems = 'center';
-    overlay.style.justifyContent = 'center';
-    overlay.style.fontFamily = 'sans-serif';
-    overlay.style.padding = '24px';
-    overlay.style.textAlign = 'center';
+    applyGlobalErrorOverlayFallbackStyles(overlay);
+    const content = document.createElement('div');
+    content.className = 'error-content';
+    applyGlobalErrorContentFallbackStyles(content);
 
-    const title = document.createElement('div');
+    const title = document.createElement('h2');
+    const titleId = `${GLOBAL_ERROR_OVERLAY_ID}-title`;
+    title.id = titleId;
+    title.className = 'error-title';
     title.textContent = 'Something went wrong';
-    title.style.fontSize = '28px';
-    title.style.marginBottom = '12px';
-    title.style.fontWeight = '600';
 
-    const detail = document.createElement('div');
+    const detail = document.createElement('p');
+    const detailId = `${GLOBAL_ERROR_OVERLAY_ID}-detail`;
+    detail.id = detailId;
+    detail.className = 'error-message';
     detail.textContent = message || 'An unexpected error occurred.';
-    detail.style.fontSize = '18px';
-    detail.style.opacity = '0.9';
-    detail.style.maxWidth = '80%';
 
-    const hint = document.createElement('div');
+    const hint = document.createElement('p');
+    hint.className = 'error-message';
     hint.textContent = 'Please restart the app or try again.';
-    hint.style.fontSize = '16px';
-    hint.style.marginTop = '16px';
-    hint.style.opacity = '0.75';
-
-    overlay.append(title, detail, hint);
+    overlay.setAttribute('aria-labelledby', titleId);
+    overlay.setAttribute('aria-describedby', detailId);
+    content.append(title, detail, hint);
+    overlay.appendChild(content);
     const host = document.body ?? document.documentElement;
     if (!host) return;
     host.appendChild(overlay);
@@ -246,6 +274,25 @@ function showGlobalErrorOverlay(message: string): void {
     } catch {
         // Best-effort focus for accessibility; some environments may block programmatic focus.
     }
+}
+
+function applyGlobalErrorOverlayFallbackStyles(overlay: HTMLElement): void {
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.right = '0';
+    overlay.style.bottom = '0';
+    overlay.style.left = '0';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.padding = '24px';
+    overlay.style.background = 'var(--color-bg-overlay, rgba(0, 0, 0, 0.65))';
+    overlay.style.color = 'var(--color-text-primary, #ffffff)';
+    overlay.style.zIndex = '2147483647';
+}
+
+function applyGlobalErrorContentFallbackStyles(content: HTMLElement): void {
+    content.style.width = 'min(760px, 92vw)';
 }
 
 // Register global error handlers
@@ -264,12 +311,7 @@ function describeElement(el: Element | null): unknown {
         id: element.id || null,
         className: element.className || null,
         children: element.childElementCount,
-        rect: element.getBoundingClientRect
-            ? ((): { x: number; y: number; w: number; h: number } => {
-                const r = element.getBoundingClientRect();
-                return { x: r.x, y: r.y, w: r.width, h: r.height };
-            })()
-            : null,
+        rect: describeElementRect(element),
         computed: style
             ? {
                 display: style.display,
@@ -280,6 +322,28 @@ function describeElement(el: Element | null): unknown {
             }
             : null,
     };
+}
+
+function toDebugModuleStatusSnapshot(s: {
+    id: string;
+    status: string;
+    loadTimeMs?: number | null;
+    error?: { code?: string | null } | null;
+}): { id: string; status: string; loadTimeMs: number | null; errorCode: string | null } {
+    return {
+        id: s.id,
+        status: s.status,
+        loadTimeMs: s.loadTimeMs ?? null,
+        errorCode: s.error?.code ?? null,
+    };
+}
+
+function describeElementRect(
+    element: HTMLElement
+): { x: number; y: number; w: number; h: number } | null {
+    if (!element.getBoundingClientRect) return null;
+    const rect = element.getBoundingClientRect();
+    return { x: rect.x, y: rect.y, w: rect.width, h: rect.height };
 }
 
 /**
@@ -308,7 +372,7 @@ async function cleanup(): Promise<void> {
         await currentApp.shutdown();
         logLifecycle('[Lineup] Shut down complete');
     } catch (error: unknown) {
-        console.error('[Lineup] shutdown failed:', summarizeErrorForLog(error));
+        logSanitizedError('[Lineup] shutdown failed:', error);
         throw error;
     } finally {
         app = null;
@@ -331,9 +395,7 @@ export function installLineupBootstrap(): void {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', handleDomContentLoaded, { once: true });
     } else {
-        bootstrap().catch((error: unknown) => {
-            handleBootstrapFailure('[Lineup] bootstrap failed:', error);
-        });
+        startBootstrapAttempt('[Lineup] bootstrap failed:');
     }
 
     // Cleanup on page hide (more reliable for async work than beforeunload)

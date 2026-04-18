@@ -1083,6 +1083,170 @@ function checkCleanupPriorityExitContracts(errors) {
     }
 }
 
+function checkChecklistMiniRecordStatusVocabulary(errors) {
+    const checklist = readRepoFile('ARCHITECTURE_CLEANUP_CHECKLIST.md', errors);
+    if (checklist === null) {
+        return;
+    }
+
+    const validStatuses = new Set(['not started', 'in progress', 'blocked', 'completed']);
+    const exitLineRe = /(^|\n)\s*-\s*\[[ xX]\]\s*`P\d+-EXIT`/g;
+    const exitMatches = [...checklist.matchAll(exitLineRe)].map((match) => ({
+        index: (match.index ?? 0) + match[1].length,
+    }));
+
+    for (let index = 0; index < exitMatches.length; index += 1) {
+        const startIndex = exitMatches[index].index;
+        const endIndex = exitMatches[index + 1]?.index ?? checklist.length;
+        const block = checklist.slice(startIndex, endIndex);
+        const statusLineRe = /^\s*-\s+Status:\s*(.+?)\s*$/gmu;
+        for (const match of block.matchAll(statusLineRe)) {
+            const rawStatus = match[1].trim().replace(/`([^`]+)`/gu, '$1').trim();
+            if (validStatuses.has(rawStatus)) {
+                continue;
+            }
+
+            const lineNumber = checklist.slice(0, startIndex + (match.index ?? 0)).split(/\r?\n/u).length;
+            errors.push(
+                'Checklist mini-record `Status` must be one of: `not started`, `in progress`, `blocked`, `completed`; ' +
+                    `found \`${rawStatus}\` on line ${lineNumber}`
+            );
+        }
+    }
+}
+
+function checkCleanupExecutionUnitContracts(errors) {
+    const planStandard = readRepoFile('docs/agentic/plan-authoring-standard.md', errors);
+    if (planStandard !== null) {
+        const normalized = normalizeDocText(planStandard);
+        const requiredPlanMarkers = [
+            'slice table remains the atomic ownership map',
+            'execution unit is the execution/review surface',
+            'ready now execution unit',
+            'execution waves',
+            'coverage ledger',
+            'absorb now scope',
+            'replan triggers',
+            'absorb now only when newly discovered residue stays within the same approved execution unit goal',
+            'replan required when current-source proof shows a new owner',
+        ];
+
+        for (const marker of requiredPlanMarkers) {
+            if (!normalized.includes(marker)) {
+                errors.push(`Plan authoring standard doc is missing required execution-unit marker: ${marker}`);
+            }
+        }
+    }
+
+    const workflow = readRepoFile('docs/AGENTIC_DEV_WORKFLOW.md', errors);
+    if (workflow !== null) {
+        const normalized = normalizeDocText(workflow);
+        const requiredWorkflowMarkers = [
+            'ready now execution unit',
+            'execution unit',
+            'execution waves',
+            'wave review is the default approval gate',
+            'large-package execution should review coherent retirement batches',
+        ];
+
+        for (const marker of requiredWorkflowMarkers) {
+            if (!normalized.includes(marker)) {
+                errors.push(`Workflow doc is missing required execution-unit marker: ${marker}`);
+            }
+        }
+    }
+
+    const cleanupPlan = readRepoFile('docs/agentic/session-prompts/cleanup-plan.md', errors);
+    if (cleanupPlan !== null) {
+        const normalized = normalizeDocText(cleanupPlan);
+        const requiredCleanupPlanMarkers = [
+            'ready now execution unit',
+            'execution waves',
+            'coverage ledger',
+            'absorb now scope',
+            'replan triggers',
+            'package decomposition decisions with ready now execution unit',
+            'large-package execution should review coherent retirement batches',
+        ];
+
+        for (const marker of requiredCleanupPlanMarkers) {
+            if (!normalized.includes(marker)) {
+                errors.push(`cleanup-plan prompt doc is missing required execution-unit planning marker: ${marker}`);
+            }
+        }
+    }
+
+    const cleanupLoop = readRepoFile('docs/agentic/session-prompts/cleanup-loop.md', errors);
+    if (cleanupLoop !== null) {
+        const normalized = normalizeDocText(cleanupLoop);
+        const requiredCleanupLoopMarkers = [
+            'execution-unit-select',
+            'ready now execution unit',
+            'when a wave is selected, the controller stays inside that wave',
+            'wave review is the default approval gate',
+            'each implemented approved execution unit or standalone execution target has a clean implementation review loop',
+            'completed checklist-linked execution unit closes the final planned',
+            'large-package execution should review coherent retirement batches',
+        ];
+
+        for (const marker of requiredCleanupLoopMarkers) {
+            if (!normalized.includes(marker)) {
+                errors.push(`cleanup-loop prompt doc is missing required execution-unit orchestration marker: ${marker}`);
+            }
+        }
+    }
+
+    const cleanupReview = readRepoFile('docs/agentic/session-prompts/cleanup-review.md', errors);
+    if (cleanupReview !== null) {
+        const normalized = normalizeDocText(cleanupReview);
+        const requiredCleanupReviewMarkers = [
+            'execution unit',
+            'slice-level accounting is still mandatory',
+            'wave review is acting as the default approval gate',
+        ];
+
+        for (const marker of requiredCleanupReviewMarkers) {
+            if (!normalized.includes(marker)) {
+                errors.push(`cleanup-review prompt doc is missing required execution-unit review marker: ${marker}`);
+            }
+        }
+    }
+
+    const cleanupImplement = readRepoFile('docs/agentic/session-prompts/cleanup-implement.md', errors);
+    if (cleanupImplement !== null) {
+        const normalized = normalizeDocText(cleanupImplement);
+        const requiredCleanupImplementMarkers = [
+            'execution unit',
+            'absorb now only when newly discovered residue stays within the same approved execution unit goal',
+            'replan required when current-source proof shows a new owner',
+        ];
+
+        for (const marker of requiredCleanupImplementMarkers) {
+            if (!normalized.includes(marker)) {
+                errors.push(`cleanup-implement prompt doc is missing required execution-unit execution marker: ${marker}`);
+            }
+        }
+    }
+
+    const readme = readRepoFile('docs/agentic/session-prompts/README.md', errors);
+    if (readme !== null) {
+        const normalized = normalizeDocText(readme);
+        const requiredReadmeMarkers = [
+            'execution unit',
+            'ready now execution unit',
+            'execution waves',
+            'coverage ledger',
+            'large-package execution should review coherent retirement batches',
+        ];
+
+        for (const marker of requiredReadmeMarkers) {
+            if (!normalized.includes(marker)) {
+                errors.push(`Session prompt README is missing required execution-unit routing marker: ${marker}`);
+            }
+        }
+    }
+}
+
 function checkChecklistPlanPaths(errors, warnings) {
     const checklist = readRepoFile('ARCHITECTURE_CLEANUP_CHECKLIST.md', errors);
     if (checklist === null) {
@@ -1443,6 +1607,8 @@ function main() {
     checkWorkflowRoutingSplit(errors);
     checkFeatureRemediationPromptContracts(errors);
     checkCleanupPriorityExitContracts(errors);
+    checkChecklistMiniRecordStatusVocabulary(errors);
+    checkCleanupExecutionUnitContracts(errors);
     checkChecklistPlanPaths(errors, warnings);
     checkPlanArchiveCoherence(errors);
     checkArchivedSectionSummaryConformance(errors);
