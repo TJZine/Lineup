@@ -1216,6 +1216,84 @@ ${buildSingleSlicePackageDecomposition({ readyNowExecutionUnit: '' }).replace(
     ]);
 });
 
+test('checkPlanConformance requires ready_now scalar fields to stay inline', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+        content: `# Cleanup Example
+
+**Plan Status:** active
+**Task family:** cleanup/refactor
+**Cleanup subtype:** checklist-linked
+
+## Goal
+
+- Do the cleanup.
+
+## Non-Goals
+
+- No runtime changes.
+
+## Parent Architecture Alignment
+
+- Keep the control plane small.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- fallback: direct reads only.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`src/App.ts\`
+
+## Planner Self-Check
+
+- resolved.
+
+## Architecture Seam Decision Gate
+
+- explicit.
+
+## Verification Commands
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- revert.
+
+## Commit Checkpoints
+
+- \`docs: update plan rules\`
+
+${buildSingleSlicePackageDecomposition()
+    .replace('- `ready_now_slice`: `P6-W1-S1`', '- `ready_now_slice`:')
+    .replace('- `ready_now_execution_unit`: `P6-W1-S1`', '- `ready_now_execution_unit`:')}
+`,
+    });
+
+    assert.deepEqual(result.errors, [
+        '`ready_now_slice` must be an inline scalar value in `## Package Decomposition`',
+        '`ready_now_execution_unit` must be an inline scalar value in `## Package Decomposition`',
+    ]);
+});
+
 test('checkPlanConformance requires wave scaffolding when ready_now_execution_unit does not point at ready_now_slice', () => {
     const result = checkPlanConformance({
         filePath: 'docs/plans/2026-04-14-cleanup-example.md',
@@ -1525,6 +1603,162 @@ ${buildWaveScopedPackageDecomposition().replace(
 
     assert.deepEqual(result.errors, [
         '`ready_now_execution_unit` must match one declared `wave_id` when `execution_waves` are present',
+    ]);
+});
+
+test('checkPlanConformance validates each execution_waves entry individually', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+        content: `# Cleanup Example
+
+**Plan Status:** active
+**Task family:** cleanup/refactor
+**Cleanup subtype:** checklist-linked
+
+## Goal
+
+- Do the cleanup.
+
+## Non-Goals
+
+- No runtime changes.
+
+## Parent Architecture Alignment
+
+- Keep the control plane small.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- fallback: direct reads only.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`src/App.ts\`
+
+## Planner Self-Check
+
+- resolved.
+
+## Architecture Seam Decision Gate
+
+- explicit.
+
+## Verification Commands
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- revert.
+
+## Commit Checkpoints
+
+- \`docs: update plan rules\`
+
+${buildWaveScopedPackageDecomposition().replace(
+    '  - `replan_triggers`:\n    - new owner\n    - changed execution-unit membership\n',
+    '  - `wave_id`: `W2`\n  - `slice_ids`:\n    - `P6-W1-S2`\n  - `completion_condition`: second wave completes\n  - `absorb_now_scope`: stay inside second-wave scope\n'
+)}
+`,
+    });
+
+    assert.deepEqual(result.errors, [
+        'each `execution_waves` entry must record `absorb_now_scope` and `replan_triggers`',
+    ]);
+});
+
+test('checkPlanConformance requires ready_now_slice to match the first slice in the selected wave', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+        content: `# Cleanup Example
+
+**Plan Status:** active
+**Task family:** cleanup/refactor
+**Cleanup subtype:** checklist-linked
+
+## Goal
+
+- Do the cleanup.
+
+## Non-Goals
+
+- No runtime changes.
+
+## Parent Architecture Alignment
+
+- Keep the control plane small.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- fallback: direct reads only.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`src/App.ts\`
+
+## Planner Self-Check
+
+- resolved.
+
+## Architecture Seam Decision Gate
+
+- explicit.
+
+## Verification Commands
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- revert.
+
+## Commit Checkpoints
+
+- \`docs: update plan rules\`
+
+${buildWaveScopedPackageDecomposition().replace(
+    '- `ready_now_slice`: `P6-W1-S1`',
+    '- `ready_now_slice`: `P6-W1-S2`'
+)}
+`,
+    });
+
+    assert.deepEqual(result.errors, [
+        '`ready_now_slice` must match the first declared `slice_id` in the selected `ready_now_execution_unit` wave',
     ]);
 });
 

@@ -18,11 +18,13 @@ Use this prompt for adversarial review of a cleanup artifact from any orchestrat
 Accept either of these as the task-specific input after the launcher:
 
 - a pasted `NEXT_SESSION_HANDOFF` block; when present, treat `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE` as required additional reading after the standard read order
-- one short follow-up message naming the exact artifact under review and its checklist linkage when applicable, for example `Review docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1 slice P1-W1-S1.`
+- one short follow-up message naming the exact artifact under review and its checklist linkage when applicable, for example `Review docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1 execution unit P1-W1-S1.` When the approved `execution_unit` is a wave, name that wave instead and keep `slice_table` accounting explicit inside it.
 
 If the short follow-up form is used, treat the named artifact as the review target and derive the rest of the context from the checklist, plan, and tracked workflow docs instead of waiting for a formal handoff block.
 
 For `checklist-linked` package plans, implementation review must identify the approved `execution_unit` under review before assessing correctness. That unit may be one approved slice or one approved wave. `slice_table` remains the atomic ownership map inside that unit, so slice-level accounting is still mandatory even when the review gate is wave-scoped.
+
+Treat plan-review and implementation-review loops as iterative until the reviewed artifact reaches clean approval; do not treat a same-reviewer closure check as the final clean gate by itself.
 
 ## Review Mode
 

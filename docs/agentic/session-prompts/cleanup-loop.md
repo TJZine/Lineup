@@ -46,7 +46,6 @@ Run the loop as an explicit state machine:
   - identify the exact cleanup subtype (`checklist-linked` or `standalone remediation`) and the approved scope
   - for `checklist-linked` work, load the matching checklist entry and linkage
   - load the current plan or active run-bundle context when present
-  - for `checklist-linked` work, confirm the plan exposes `ready_now_execution_unit`; `ready_now_slice` remains the first slice inside that approved unit
   - keep controller-side startup reading bounded to the authority surfaces and package-local scope needed to route the work and brief subagents correctly
   - do not front-load planner-grade repo discovery in the controller unless the delegated planning pass fails, stalls with a concrete blocker, or needs a controller-level seam decision
   - initialize or refresh `update_plan`
@@ -57,6 +56,7 @@ Run the loop as an explicit state machine:
   - for `standalone remediation`, the controller may keep the planning pass local when the bounded execution target is already clear, but should still delegate when the same Tier 3 scale/risk factors that justified `cleanup-loop` materially benefit from a separate planning writer
   - have the planning pass write or refresh the implementation plan using the tracked cleanup planning standards
   - for `checklist-linked` package work, require approved package decomposition, one explicit `ready_now_execution_unit`, and a clear next-slice recommendation inside that unit before implementation starts
+  - do not enter `implement` for `checklist-linked` work until the active approved plan exposes inline scalar `ready_now_execution_unit` and `ready_now_slice`; `ready_now_slice` remains the first slice inside that approved unit
   - for `standalone remediation`, require one explicit bounded execution target in the approved plan and do not invent package slices or checklist linkage
 - `plan-review`
   - run an adversarial plan review using a fresh tracked `reviewer` pass
@@ -137,7 +137,7 @@ Run the loop as an explicit state machine:
 
 ## Loop Discipline
 
-- planner -> fresh reviewer -> planner repeats, with the same reviewer handling rereview closure checks by default until the plan is ready for a final clean approval pass
+- planner -> fresh reviewer -> planner repeats, with the same reviewer handling rereview closure checks by default until the plan reaches a final clean approval pass
 - for `checklist-linked` work, execution-unit-select -> implementer -> fresh reviewer -> implementer repeats, with the same reviewer handling rereview closure checks by default until the execution unit is ready for a final clean approval pass
 - after a clean review, return to execution-unit-select until the approved checklist-linked execution units are complete or explicitly deferred by the approved plan; `standalone remediation` proceeds directly to `closeout` once its one bounded execution target is clean
 - large-package execution should review coherent retirement batches, not one tiny fix at a time

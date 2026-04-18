@@ -298,6 +298,21 @@ function extractChecklistPackageFieldBlock(section, label, nextLabels = null) {
     return collected.join('\n').trim();
 }
 
+function getRequiredInlineScalarFieldValue(section, label, errors, missingError, blockOnlyError) {
+    const inlineValue = parseInlineField(section, label);
+    if (inlineValue !== null) {
+        return inlineValue;
+    }
+
+    if (extractChecklistPackageFieldBlock(section, label) !== null) {
+        errors.push(blockOnlyError);
+        return null;
+    }
+
+    errors.push(missingError);
+    return null;
+}
+
 function getChecklistSliceSections(sliceTableBlock) {
     const matches = Array.from(sliceTableBlock.matchAll(/^###\s+`(P\d+-W\d+-S\d+)`[^\n]*$/gmu));
     if (matches.length === 0) {
@@ -310,6 +325,23 @@ function getChecklistSliceSections(sliceTableBlock) {
         return {
             sliceId: match[1],
             content: sliceTableBlock.slice(start, end).trim(),
+        };
+    });
+}
+
+function getExecutionWaveEntries(executionWavesBlock) {
+    const matches = Array.from(executionWavesBlock.matchAll(/^[ \t]*-[ \t]+`wave_id`:\s*`?([^`\n]+)`?.*$/gmu));
+    if (matches.length === 0) {
+        return [];
+    }
+
+    return matches.map((match, index) => {
+        const start = match.index;
+        const end = index + 1 < matches.length ? matches[index + 1].index : executionWavesBlock.length;
+
+        return {
+            waveId: match[1].trim(),
+            content: executionWavesBlock.slice(start, end).trim(),
         };
     });
 }
@@ -328,8 +360,6 @@ function getChecklistLinkedPackagePlanErrors(content) {
         '`slice_table`',
         '`coverage_check`',
         '`recommended_slice_order`',
-        '`ready_now_slice`',
-        '`ready_now_execution_unit`',
         '`parallel_execution_policy`',
     ];
 
@@ -341,7 +371,13 @@ function getChecklistLinkedPackagePlanErrors(content) {
         }
     }
 
-    const readyNowSlice = parseInlineField(packageDecomposition, '`ready_now_slice`');
+    const readyNowSlice = getRequiredInlineScalarFieldValue(
+        packageDecomposition,
+        '`ready_now_slice`',
+        errors,
+        'checklist-linked plans must include `ready_now_slice` in `## Package Decomposition`',
+        '`ready_now_slice` must be an inline scalar value in `## Package Decomposition`'
+    );
     if (readyNowSlice !== null && !CHECKLIST_SLICE_ID_RE.test(readyNowSlice)) {
         errors.push('checklist-linked plans must keep `ready_now_slice` on a package-scoped slice id');
     }
@@ -389,7 +425,13 @@ function getChecklistLinkedPackagePlanErrors(content) {
         }
     }
 
-    const readyNowExecutionUnit = parseInlineField(packageDecomposition, '`ready_now_execution_unit`');
+    const readyNowExecutionUnit = getRequiredInlineScalarFieldValue(
+        packageDecomposition,
+        '`ready_now_execution_unit`',
+        errors,
+        'checklist-linked plans must include `ready_now_execution_unit` in `## Package Decomposition`',
+        '`ready_now_execution_unit` must be an inline scalar value in `## Package Decomposition`'
+    );
     const executionWavesBlock = extractChecklistPackageFieldBlock(packageDecomposition, '`execution_waves`');
     const isWaveScoped = executionWavesBlock !== null || (
         readyNowExecutionUnit !== null &&
@@ -404,15 +446,33 @@ function getChecklistLinkedPackagePlanErrors(content) {
     }
 
     if (executionWavesBlock !== null) {
-        const normalizedWaves = executionWavesBlock.replace(/`([^`]+)`/gu, '$1');
-        const waveIds = Array.from(executionWavesBlock.matchAll(/`wave_id`:\s*`?([^`\n]+)`?/gu)).map((match) => match[1].trim());
-        const requiredWaveMarkers = ['wave_id', 'slice_ids', 'completion_condition', 'absorb_now_scope', 'replan_triggers'];
-        const missingWaveMarkers = requiredWaveMarkers.filter((marker) => !normalizedWaves.includes(marker));
-        if (missingWaveMarkers.length > 0) {
+        const waveEntries = getExecutionWaveEntries(executionWavesBlock);
+        if (waveEntries.length === 0) {
             errors.push('each `execution_waves` entry must record `absorb_now_scope` and `replan_triggers`');
         }
+
+        for (const waveEntry of waveEntries) {
+            const normalizedWaveEntry = waveEntry.content.replace(/`([^`]+)`/gu, '$1');
+            const requiredWaveMarkers = ['wave_id', 'slice_ids', 'completion_condition', 'absorb_now_scope', 'replan_triggers'];
+            const missingWaveMarkers = requiredWaveMarkers.filter((marker) => !normalizedWaveEntry.includes(marker));
+            if (missingWaveMarkers.length > 0) {
+                errors.push('each `execution_waves` entry must record `absorb_now_scope` and `replan_triggers`');
+                break;
+            }
+        }
+
+        const waveIds = waveEntries.map((entry) => entry.waveId);
         if (readyNowExecutionUnit !== null && waveIds.length > 0 && !waveIds.includes(readyNowExecutionUnit)) {
             errors.push('`ready_now_execution_unit` must match one declared `wave_id` when `execution_waves` are present');
+        }
+        if (readyNowExecutionUnit !== null && readyNowSlice !== null) {
+            const selectedWave = waveEntries.find((entry) => entry.waveId === readyNowExecutionUnit) ?? null;
+            if (selectedWave !== null) {
+                const firstDeclaredSlice = selectedWave.content.match(/`slice_ids`:\s*(?:\r?\n)+[ \t]*-[ \t]+`(P\d+-W\d+-S\d+)`/u)?.[1] ?? null;
+                if (firstDeclaredSlice !== null && readyNowSlice !== firstDeclaredSlice) {
+                    errors.push('`ready_now_slice` must match the first declared `slice_id` in the selected `ready_now_execution_unit` wave');
+                }
+            }
         }
 
         const coverageLedgerBlock = extractChecklistPackageFieldBlock(packageDecomposition, '`coverage_ledger`');

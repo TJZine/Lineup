@@ -27,7 +27,7 @@ Authority, read order, and document precedence now live in [`docs/AGENTIC_DEV_WO
   - adversarial whole-system review of the repo harness against current OpenAI and Anthropic guidance
 <!-- END MANAGED SESSION PROMPT SET -->
 
-The generated managed-list label for `cleanup-loop.md` is shorthand only. The authoritative scope is cleanup/refactor-only Tier 3 orchestration: keep planning/package closeout package-scoped for `checklist-linked` work, run implementation/review by approved `execution_unit` there, keep `standalone remediation` to one bounded execution target unless the approved plan says otherwise, and do not route feature/design or mixed-task umbrella control through it.
+The generated managed-list label for `cleanup-loop.md` is shorthand only. The authoritative scope is cleanup/refactor-only Tier 3 orchestration: keep planning/package closeout package-scoped for `checklist-linked` work, run implementation/review by approved `execution_unit` there, keep iterating planner/reviewer and implementer/reviewer until clean approval at each gate, keep `standalone remediation` to one bounded execution target unless the approved plan says otherwise, and do not route feature/design or mixed-task umbrella control through it.
 
 ## Routing (Authoritative)
 
@@ -65,7 +65,7 @@ Tier 3 cleanup orchestration note:
 - for checklist-linked package work, `slice_table` remains the atomic ownership map and `execution_unit` is the execution/review surface
 - require `ready_now_execution_unit` for checklist-linked package work; `ready_now_slice` remains the first slice inside that unit
 - require `execution_waves` and `coverage_ledger` only when the approved execution unit spans multiple slices or explicitly opts into wave-scoped execution
-- when a wave is selected, stay inside that approved wave until its completion condition is met or a replan trigger fires; wave review is the default approval gate for that coherent batch
+- when a wave is selected, stay inside that approved wave until its completion condition is met or a replan trigger fires; wave review is the default approval gate for that coherent batch, and slice-level accounting remains required inside that unit
 - keep `standalone remediation` bounded to the single approved execution target unless the plan explicitly stages it further
 - large-package execution should review coherent retirement batches, not one tiny fix at a time
 
@@ -109,11 +109,12 @@ The reusable Lineup launchers are meant to support either of these invocation st
    - the session should obey the handoff's `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE`
 2. launcher skill + one short scope message
    - invoke the launcher skill, then send one short follow-up naming the exact checklist item, plan, or artifact
-   - for `checklist-linked` package-plan implement/review sessions, include the exact `slice_id` when known; if it is omitted, the implementer/reviewer must derive it from the approved tracked package plan before proceeding
+   - for `checklist-linked` package-plan implement/review sessions, include the exact approved `execution_unit` when known; if it is a wave, also name the covered `slice_id` set, and if it is omitted, the implementer/reviewer must derive it from the approved tracked package plan before proceeding
    - example planner follow-up: `We are working on ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1.`
-   - example implementer follow-up: `Implement docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1 slice P1-W1-S1.`
-   - example reviewer follow-up: `Review docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1 slice P1-W1-S1.`
-   - example loop follow-up: `Run cleanup-loop for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1.`
+   - example implementer follow-up: `Implement docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1 execution unit P1-W1-S1.`
+   - example reviewer follow-up: `Review docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1 execution unit P1-W1-S1.`
+   - example wave-scoped reviewer follow-up: `Review docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1 execution unit P1-W1 (slice ids P1-W1-S1, P1-W1-S2).`
+   - example loop follow-up: `Run cleanup-loop for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1 with execution unit P1-W1.`
    - example feature planner follow-up: `We are planning the Settings diagnostics redesign as feature/design work.`
    - example feature implementer follow-up: `Implement docs/plans/2026-03-27-settings-diagnostics-redesign.md.`
    - example feature reviewer follow-up: `Review docs/plans/2026-03-27-settings-diagnostics-redesign.md.`

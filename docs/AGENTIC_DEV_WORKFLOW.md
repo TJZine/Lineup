@@ -93,7 +93,7 @@ When tracked docs conflict, use this order:
    - Tier 2: a normal cleanup unit uses planner -> implementer -> reviewer
    - Tier 2 feature/design work uses the same tracked planner/reviewer/implementer prompt family as cleanup, with planner -> reviewer -> implementer -> reviewer sequencing
    - Tier 3: hotspot, cross-boundary, multi-session, or otherwise high-risk work uses task-specific orchestration, and a local run bundle when repeated handoff is likely
-  - for cleanup Tier 3 work, `cleanup-loop` is an explicit orchestrator: the main session keeps `update_plan`, keeps planning/closeout package-scoped for `checklist-linked` work, runs planner -> reviewer once for plan approval, then iterates approved `execution_unit` -> implementer -> reviewer loops for checklist-linked work or one bounded execution target for `standalone remediation` until the subtype-matched closeout gates are clean
+  - for cleanup Tier 3 work, `cleanup-loop` is an explicit orchestrator: the main session keeps `update_plan`, keeps planning/closeout package-scoped for `checklist-linked` work, runs planner -> reviewer until clean approval, then iterates approved `execution_unit` -> implementer -> reviewer loops for checklist-linked work or one bounded execution target for `standalone remediation` until the subtype-matched closeout gates are clean
     - for checklist-linked package work, `slice_table` remains the atomic ownership map and `execution_unit` is the execution/review surface
     - `ready_now_execution_unit` is required for checklist-linked package work and must identify either one approved single-slice unit or one approved `wave_id`; `ready_now_slice` remains the first slice inside that unit
     - `execution_waves` are required only when the approved execution unit spans multiple slices or the plan explicitly opts into wave-scoped execution
@@ -109,6 +109,7 @@ When tracked docs conflict, use this order:
   - serious tracked plans must declare `**Task family:**`; cleanup plans must also declare `**Cleanup subtype:**`
   - for cleanup work, record whether the task is `checklist-linked` or `standalone remediation` before freezing the plan; only `checklist-linked` tasks should promise checklist updates or priority-exit progress
   - for checklist-linked package plans, require `ready_now_execution_unit`; keep `execution_waves` and `coverage_ledger` optional for single-slice plans and required only when the approved execution unit spans multiple slices or explicitly opts into wave-scoped execution
+  - for checklist-linked package plans, keep `slice_table` as the atomic ownership map inside each approved `execution_unit`; slice-level accounting remains required inside that unit even when review is wave-scoped
   - for checklist-linked package plans, `coverage_ledger` is execution-only and must not redefine package membership, which remains owned by the checklist companion map
   - for checklist-linked package plans, absorb now only when newly discovered residue stays within the same approved execution unit goal, same owner, same seam/files, same verification envelope, and same final-owner accounting; otherwise replan before execution continues
   - for serious tracked plans, follow [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md)
