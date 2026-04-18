@@ -52,7 +52,9 @@ Run the loop as an explicit state machine:
 - `plan`
   - keep initial routing and seam decisions local, but for `checklist-linked` Tier 3 cleanup delegate the primary execution-grade plan-writing pass by default after `scope-load`
   - for that primary `checklist-linked` planning pass, use the tracked write-capable `planner` role for the bounded plan artifact and rely on the tracked planner defaults instead of prompt-level model overrides
-  - the main thread must not author the execution-grade `checklist-linked` package plan itself unless delegated planning is concretely blocked, a controller-level seam decision must be resolved before delegation, the user explicitly asks the main thread to plan locally, or preserving controller context is materially more reliable than another handoff for a narrow plan correction or active-plan refresh
+  - once delegated planning starts, that planner is the authoritative plan author until it finishes, explicitly blocks, fails, or is abandoned only after a long wait, a direct status check, and a follow-up wait that still produces no usable progress signal
+  - while that planner pass is active, the controller may wait, poll status, answer blocker questions, and keep `update_plan` current, but must not do planner-grade repo discovery, redundant package-local scoping, issue reconciliation, or tracked plan drafting locally; limit controller-side inspection to the minimum needed to answer an explicit blocker question or resolve a controller-only seam decision
+  - the main thread must not author the execution-grade `checklist-linked` package plan itself just because it now has enough local context; reclaim planning only when delegated planning explicitly blocks, fails, the user explicitly asks the main thread to plan locally, a controller-only seam decision must be resolved before planning can continue, or the narrow long-wait/direct-status-check/follow-up-wait abandonment test is met
   - for `standalone remediation`, the controller may keep the planning pass local when the bounded execution target is already clear, but should still delegate when the same Tier 3 scale/risk factors that justified `cleanup-loop` materially benefit from a separate planning writer
   - have the planning pass write or refresh the implementation plan using the tracked cleanup planning standards
   - for `checklist-linked` package work, require approved package decomposition, one explicit `ready_now_execution_unit`, and a clear next-slice recommendation inside that unit before implementation starts
@@ -124,6 +126,7 @@ Run the loop as an explicit state machine:
 - for checklist-linked package work, treat `slice_table` as the atomic ownership map and `execution_unit` as the execution/review surface
 - keep delegation inside the tracked role catalog from `.codex/config.toml`; use `planner` for bounded planning artifacts, `worker` for implementation write passes, and `reviewer` for adversarial review passes
 - for `checklist-linked` Tier 3 cleanup, treat delegated primary plan authoring as the default, and treat main-thread plan authoring as a last-resort exception that must be justified by an explicit block, a controller-only seam decision, a user request for local planning, or a narrow controller-context-preservation need
+- while a delegated planner pass is active, treat that planner as the authoritative plan author and do not run competing controller-side planning discovery or draft a rival tracked/local plan
 - ensure delegated write passes use the right repo-local boundary skills
 - keep write-capable delegated passes alive across revision rounds unless there is a specific reason to restart them
 - keep reviewers read-only by default and do not reuse a writer pass as reviewer
@@ -144,6 +147,7 @@ Run the loop as an explicit state machine:
 - direct orchestrator edits are allowed only as a last resort and should stay narrowly scoped
 - if delegated implementation updates plan progress and code in the same pass, keep the worker commit focused on implementation artifacts and let the orchestrator decide whether plan-doc updates should be committed separately
 - do not interrupt a planner or implementer subagent just because a large cleanup package is taking a long time; prefer long waits and progress checks, and only interrupt when there is a concrete wrong-scope, failure, or no-progress signal
+- do not treat planner latency, controller curiosity, or newly gathered local context as a valid reason to reclaim planning while the delegated planner is still active
 - do not spawn a brand-new reviewer for every rereview round by default; prefer reviewer continuity for closure checks, then use a fresh reviewer again for the final clean gate
 
 ## Completion Gate

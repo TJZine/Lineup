@@ -185,6 +185,8 @@ Use Codex multi-agent support only when it materially improves reliability, thro
   - `agents.md`
 - Keep read-only roles read-only; do not route edits through exploration/review/docs/monitor roles (enforced by the tracked config + verifier).
 - Keep the write-capable roles separated by purpose: `planner` owns bounded planning surfaces, `worker` owns implementation scopes.
+- Once a delegated `planner` pass is active, keep it authoritative for plan authoring until it finishes, explicitly blocks, fails, or is abandoned after wait/status-check/wait with no usable progress signal.
+- While that delegated planner is active, limit controller-side inspection to explicit blocker or seam resolution; do not do competing local plan drafting or redundant planning discovery.
 - Do not spawn nested worker trees by default; keep delegation shallow (enforced by the tracked config + verifier).
 - Wait sparingly; block only when the next critical-path action truly depends on a delegated result.
 

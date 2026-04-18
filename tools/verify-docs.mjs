@@ -1215,6 +1215,9 @@ function checkCleanupExecutionUnitContracts(errors) {
             'execution waves',
             'wave review is the default approval gate',
             'large-package execution should review coherent retirement batches',
+            'delegated planner pass is active, keep it authoritative for plan authoring until it finishes, explicitly blocks, fails, or is abandoned after wait/status-check/wait with no usable progress signal',
+            'limit controller-side inspection to explicit blocker or seam resolution',
+            'do not do competing local plan drafting or redundant planning discovery',
         ];
 
         for (const marker of requiredWorkflowMarkers) {
@@ -1260,6 +1263,12 @@ function checkCleanupExecutionUnitContracts(errors) {
             'large-package execution should review coherent retirement batches',
             'tracked write-capable planner role',
             'use planner for bounded planning artifacts, worker for implementation write passes, and reviewer for adversarial review passes',
+            'planner is the authoritative plan author until it finishes, explicitly blocks, fails, or is abandoned',
+            'long wait, a direct status check, and a follow-up wait',
+            'must not do planner-grade repo discovery, redundant package-local scoping, issue reconciliation, or tracked plan drafting locally',
+            'minimum needed to answer an explicit blocker question or resolve a controller-only seam decision',
+            'must not author the execution-grade checklist-linked package plan itself just because it now has enough local context',
+            'do not treat planner latency, controller curiosity, or newly gathered local context as a valid reason to reclaim planning',
         ];
 
         for (const marker of requiredCleanupLoopMarkers) {

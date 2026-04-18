@@ -279,6 +279,8 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '- For checklist-linked package work, `ready_now_execution_unit` is required and `execution_waves` are optional unless one approved wave spans multiple slices.',
             '- `coverage_ledger` stays execution-only and wave review is the default approval gate for a coherent approved batch.',
             '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
+            '- Once a delegated `planner` pass is active, keep it authoritative for plan authoring until it finishes, explicitly blocks, fails, or is abandoned after wait/status-check/wait with no usable progress signal.',
+            '- While that delegated planner is active, limit controller-side inspection to explicit blocker or seam resolution; do not do competing local plan drafting or redundant planning discovery.',
             '',
             'A final `P#-W#` plan must include a `Priority-exit readiness` section, assign a single final owner to each deferred or split follow-up item, and record any exact `P0` security issue ids before starting or planning the next priority.',
             'No `P(n+1)` checklist item, plan, or implementation work may open while `P#-EXIT` is unresolved.',
@@ -381,6 +383,9 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '# Cleanup Loop (Fixture)',
             '',
             '- For the delegated planning pass, use the tracked write-capable `planner` role.',
+            '- Once delegated planning starts, that planner is the authoritative plan author until it finishes, explicitly blocks, fails, or is abandoned only after a long wait, a direct status check, and a follow-up wait that still produces no usable progress signal.',
+            '- While that planner pass is active, the controller must not do planner-grade repo discovery, redundant package-local scoping, issue reconciliation, or tracked plan drafting locally; limit controller-side inspection to the minimum needed to answer an explicit blocker question or resolve a controller-only seam decision.',
+            '- The main thread must not author the execution-grade `checklist-linked` package plan itself just because it now has enough local context.',
             '- Use `execution-unit-select` for checklist-linked package work.',
             '- Read `ready_now_execution_unit` before implementation starts.',
             '- When a wave is selected, the controller stays inside that wave until its completion condition is met.',
@@ -389,6 +394,7 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '- If the completed checklist-linked execution unit closes the final planned `P#-W#` item, finish the `P#-EXIT` evidence before closeout.',
             '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
             '- Use `planner` for bounded planning artifacts, `worker` for implementation write passes, and `reviewer` for adversarial review passes.',
+            '- Do not treat planner latency, controller curiosity, or newly gathered local context as a valid reason to reclaim planning.',
             '',
         ].join('\n')
     );
@@ -2360,6 +2366,97 @@ describe('verify-docs', () => {
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('cleanup-loop prompt doc is missing required execution-unit orchestration marker');
         expect(result.stderr).toContain('each implemented approved execution unit or standalone execution target has a clean implementation review loop');
+    });
+
+    it('fails when cleanup-loop omits delegated-planner authority and no-competing-local-planning guidance', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/cleanup-loop.md': [
+                '# Cleanup Loop',
+                '',
+                '- For the delegated planning pass, use the tracked write-capable `planner` role.',
+                '- Use `execution-unit-select` for checklist-linked package work.',
+                '- Read `ready_now_execution_unit` before implementation starts.',
+                '- When a wave is selected, the controller stays inside that wave until its completion condition is met.',
+                '- Wave review is the default approval gate for that coherent approved batch.',
+                '- Each implemented approved execution unit or standalone execution target has a clean implementation review loop.',
+                '- If the completed checklist-linked execution unit closes the final planned `P#-W#` item, finish the `P#-EXIT` evidence before closeout.',
+                '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
+                '- Use `planner` for bounded planning artifacts, `worker` for implementation write passes, and `reviewer` for adversarial review passes.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('cleanup-loop prompt doc is missing required execution-unit orchestration marker');
+        expect(result.stderr).toContain('planner is the authoritative plan author until it finishes, explicitly blocks, fails, or is abandoned');
+        expect(result.stderr).toContain('must not do planner-grade repo discovery, redundant package-local scoping, issue reconciliation, or tracked plan drafting locally');
+        expect(result.stderr).toContain('minimum needed to answer an explicit blocker question or resolve a controller-only seam decision');
+    });
+
+    it('fails when cleanup-loop allows controller-side reclaim because it has enough local context', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/cleanup-loop.md': [
+                '# Cleanup Loop',
+                '',
+                '- For the delegated planning pass, use the tracked write-capable `planner` role.',
+                '- Once delegated planning starts, that planner is the authoritative plan author until it finishes, explicitly blocks, fails, or is abandoned only after a long wait, a direct status check, and a follow-up wait that still produces no usable progress signal.',
+                '- While that planner pass is active, the controller must not do planner-grade repo discovery, redundant package-local scoping, issue reconciliation, or tracked plan drafting locally; limit controller-side inspection to the minimum needed to answer an explicit blocker question or resolve a controller-only seam decision.',
+                '- The main thread may author the execution-grade `checklist-linked` package plan itself once it now has enough local context.',
+                '- Use `execution-unit-select` for checklist-linked package work.',
+                '- Read `ready_now_execution_unit` before implementation starts.',
+                '- When a wave is selected, the controller stays inside that wave until its completion condition is met.',
+                '- Wave review is the default approval gate for that coherent approved batch.',
+                '- Each implemented approved execution unit or standalone execution target has a clean implementation review loop.',
+                '- If the completed checklist-linked execution unit closes the final planned `P#-W#` item, finish the `P#-EXIT` evidence before closeout.',
+                '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
+                '- Use `planner` for bounded planning artifacts, `worker` for implementation write passes, and `reviewer` for adversarial review passes.',
+                '- Do not treat planner latency, controller curiosity, or newly gathered local context as a valid reason to reclaim planning.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('cleanup-loop prompt doc is missing required execution-unit orchestration marker');
+        expect(result.stderr).toContain('must not author the execution-grade checklist-linked package plan itself just because it now has enough local context');
+    });
+
+    it('fails when workflow omits delegated-planner authority or blocker-only inspection guidance', () => {
+        const repoRoot = createRepoFixture({
+            'docs/AGENTIC_DEV_WORKFLOW.md': [
+                '# Workflow',
+                '',
+                'Route task family before choosing a tier.',
+                '',
+                '- For checklist-linked package work, `execution_unit` is the execution/review surface and `slice_table` remains the atomic ownership map.',
+                '- For checklist-linked package work, `ready_now_execution_unit` is required and `execution_waves` are optional unless one approved wave spans multiple slices.',
+                '- `coverage_ledger` stays execution-only and wave review is the default approval gate for a coherent approved batch.',
+                '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
+                '',
+                '[cleanup-plan](./agentic/session-prompts/cleanup-plan.md)',
+                '[cleanup-review](./agentic/session-prompts/cleanup-review.md)',
+                '[feature-plan](./agentic/session-prompts/feature-plan.md)',
+                '[feature-implement](./agentic/session-prompts/feature-implement.md)',
+                '[feature-review](./agentic/session-prompts/feature-review.md)',
+                '',
+                'Feature Tier 2 work should use planner (`feature-plan`) -> reviewer (`feature-review`) -> implementer (`feature-implement`) -> reviewer (`feature-review`).',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Workflow doc is missing required execution-unit marker');
+        expect(result.stderr).toContain('delegated planner pass is active, keep it authoritative for plan authoring until it finishes, explicitly blocks, fails, or is abandoned after wait/status-check/wait with no usable progress signal');
+        expect(result.stderr).toContain('limit controller-side inspection to explicit blocker or seam resolution');
+        expect(result.stderr).toContain('do not do competing local plan drafting or redundant planning discovery');
     });
 
     it('fails when cleanup-review omits single-owner or revisit-trigger priority-exit guidance', () => {
