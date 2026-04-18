@@ -242,8 +242,10 @@ function showGlobalErrorOverlay(message: string): void {
     overlay.setAttribute('aria-live', 'assertive');
     overlay.setAttribute('aria-atomic', 'true');
     overlay.tabIndex = -1;
+    applyGlobalErrorOverlayFallbackStyles(overlay);
     const content = document.createElement('div');
     content.className = 'error-content';
+    applyGlobalErrorContentFallbackStyles(content);
 
     const title = document.createElement('h2');
     const titleId = `${GLOBAL_ERROR_OVERLAY_ID}-title`;
@@ -272,6 +274,25 @@ function showGlobalErrorOverlay(message: string): void {
     } catch {
         // Best-effort focus for accessibility; some environments may block programmatic focus.
     }
+}
+
+function applyGlobalErrorOverlayFallbackStyles(overlay: HTMLElement): void {
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.right = '0';
+    overlay.style.bottom = '0';
+    overlay.style.left = '0';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.padding = '24px';
+    overlay.style.background = 'var(--color-bg-overlay, rgba(0, 0, 0, 0.65))';
+    overlay.style.color = 'var(--color-text-primary, #ffffff)';
+    overlay.style.zIndex = '2147483647';
+}
+
+function applyGlobalErrorContentFallbackStyles(content: HTMLElement): void {
+    content.style.width = 'min(760px, 92vw)';
 }
 
 // Register global error handlers

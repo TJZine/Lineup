@@ -183,7 +183,7 @@ describe('bootstrap seam', () => {
         expect(focusSpy).toHaveBeenCalled();
     });
 
-    it('uses the fatal overlay stylesheet contract for topmost stacking without inline z-index styling', async () => {
+    it('keeps the fatal overlay stylesheet contract while providing critical inline fallback styling', async () => {
         const shellSurface = document.createElement('div');
         shellSurface.id = 'existing-shell-surface';
         shellSurface.style.position = 'fixed';
@@ -198,7 +198,13 @@ describe('bootstrap seam', () => {
         expect(overlay).not.toBeNull();
         expect(overlay?.classList.contains('error-overlay')).toBe(true);
         expect(overlay?.classList.contains('error-overlay-fatal')).toBe(true);
-        expect((overlay as HTMLElement).style.zIndex).toBe('');
+        expect((overlay as HTMLElement).style.position).toBe('fixed');
+        expect((overlay as HTMLElement).style.top).toBe('0px');
+        expect((overlay as HTMLElement).style.right).toBe('0px');
+        expect((overlay as HTMLElement).style.bottom).toBe('0px');
+        expect((overlay as HTMLElement).style.left).toBe('0px');
+        expect((overlay as HTMLElement).style.display).toBe('flex');
+        expect((overlay as HTMLElement).style.zIndex).toBe('2147483647');
 
         const shellChromeCss = readShellChromeCss();
         expect(shellChromeCss).toMatch(/\.error-overlay\s*\{[^}]*z-index:\s*var\(--z-overlay\);/);
