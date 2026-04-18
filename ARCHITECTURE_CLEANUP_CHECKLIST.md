@@ -14,8 +14,8 @@ This checklist is not complete until an authoritative rerun on the target integr
 
 - Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
-- Current execution state: `P1-W1` and `P1-EXIT` are complete; `P2-W1` remains in progress and is not yet exit-ready
-- Next safe start: continue `P2-W1`
+- Current execution state: `P1-W1`, `P1-EXIT`, and `P2-W1` are complete; `P2-EXIT` remains blocked on authoritative closeout reconciliation
+- Next safe start: continue `P2-EXIT`
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
 - Exact issue-membership surface: `docs/architecture/active-cleanup-package-map.json`
 - Historical planning context only: local run bundles under `docs/runs/`
@@ -189,7 +189,7 @@ Every `P#-EXIT` must, in the same pass:
 - Follow-ups: none
 - Handoff: `P2-W1` is the next safe checklist start, but no `P2` plan or implementation work opened in this pass
 
-### [ ] `P2-W1` `pkg_app_shell_shared_ui` App-Shell, Shared UI, And Persistence Seams
+### [x] `P2-W1` `pkg_app_shell_shared_ui` App-Shell, Shared UI, And Persistence Seams
 
 - Backlog: `39 = 33 older live non-review + 6 fresh review + 0 fresh non-review`
 - Scope: keep app-shell wiring on package-owned seams, finish shared UI persistence assembly cleanup, and hold non-EPG shared UI residue in one execution surface
@@ -206,23 +206,52 @@ Every `P#-EXIT` must, in the same pass:
   - `desloppify show src/bootstrap.ts --status open --no-budget --top 50`
   - `desloppify show src/__tests__/App.test.ts --status open --no-budget --top 50`
 - Companion-map leaf review required at entry/exit: confirm the exact package-owned facade leaves in `channel-badge`, `channel-number-overlay`, `sleep-timer`, and `theme` from `pkg_app_shell_shared_ui`; do not treat the command list alone as exhaustive closure proof
-- Status: blocked
+- Status: completed
 - Plan: `docs/plans/2026-04-17-p2-w1-app-shell-shared-ui-persistence-seams.md`
 - Last touched: `2026-04-17`
-- Verification: targeted slice tests and `npm run verify:docs` have passed across `P2-W1` slices on `2026-04-17`; package-level `npm run verify` remains blocked until shared-ui CSS lint failures are retired
-- Follow-ups: complete remaining `P2-W1` package-local verification cleanup, then refresh authoritative package-local `desloppify` reruns and exit evidence before opening `P2-EXIT`
-- Handoff: continue `P2-W1` until package-level verification is green
+- Verification: targeted slice tests passed across `P2-W1` slices on `2026-04-17`; `npm run verify:docs` passed during `P2-W1-S5`; package-level `npm run verify` passed on `2026-04-17` after the reopened `P2-W1-S2` and `P2-W1-S4` CSS lint fixes
+- Follow-ups: `P2-EXIT` must refresh authoritative package-local `desloppify` reruns, security triage, detector deltas, and exit evidence before `P3`
+- Handoff: `P2-EXIT`
 
 - [ ] `P2-EXIT`
 
   - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P3`
   - required: refresh package-local commands, record mapped review dispositions from `pkg_app_shell_shared_ui`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: `P3-W1`
+- Status: blocked
+- Plan: local-only closeout correction
+- Last touched: `2026-04-17`
+- Verification: refreshed closeout evidence on `2026-04-17` reran `desloppify status`, `desloppify show security --status open --no-budget --top 50`, the package-local scoping commands for `src/core/app-shell`, `src/modules/ui/{mini-guide,now-playing-info,playback-options,player-osd,settings,common}`, `src/styles`, `src/bootstrap.ts`, and `src/__tests__/App.test.ts`, reran every mapped imported review issue id from `docs/architecture/active-cleanup-package-map.json`, reran every mapped package issue id to reconcile live survivors vs current-source absences, and reran `npm run typecheck`, `npm test -- --runInBand --runTestsByPath src/__tests__/App.test.ts src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts src/core/app-shell/__tests__/AppLazyScreenPortFactory.test.ts src/__tests__/orchestrator/storage-keys.test.ts`, and `npm run verify`
+- Entry baseline: checklist-backed package entry was `39 = 33 older live non-review + 6 fresh review + 0 fresh non-review` with global `desloppify status` snapshot `overall 87.7 / objective 96.6 / strict 87.6 / verified 94.2`
+- Exit baseline: authoritative reruns on `2026-04-17` now leave `10` mapped `pkg_app_shell_shared_ui` rows open and `29` mapped rows absent on current source. Remaining mapped detector counts are `logs 1 / smells 9`; mapped `review 6 / structural 15 / facade 4 / single_use 1` now rerun absent. Global `desloppify status` remains `overall 87.5 / objective 96.1 / strict 87.5 / verified 94.0`, `329` open global
+- Score delta: global `overall -0.2`, `strict -0.1`; imported review debt is now cleared on current source, but this pass still does not support `P2-EXIT` completion because `10` mapped non-review survivor rows remain open under the same package owner
+- Imported review dispositions: reran absent on `2026-04-17`, treated as `resolved` on current source
+  - `review::.::holistic::high_level_elegance::orchestrator_public_barrel_backflow`
+    - reason: exact issue-id rerun no longer reports an open review row after the app-shell import cleanup
+    - revisit trigger: exact issue-id rerun plus `rg -n "src/Orchestrator|\\.\\./Orchestrator|\\.\\./\\.\\./Orchestrator" src/core/app-shell src/__tests__/App.test.ts src/bootstrap.ts`
+  - `review::.::holistic::high_level_elegance::types_package_role_drift`
+    - reason: exact issue-id rerun no longer reports an open review row after retiring `src/types/index.ts` and routing channel keys through the canonical storage-key surface
+    - revisit trigger: exact issue-id rerun plus `rg -n "STORAGE_KEYS|src/types/index" src`
+  - `review::.::holistic::incomplete_migration::internal_orchestrator_barrel_drift`
+    - reason: exact issue-id rerun no longer reports an open review row after the app-shell barrel cleanup
+    - revisit trigger: exact issue-id rerun plus `rg -n "AppOrchestrator|OrchestratorTypes|src/Orchestrator" src/core/app-shell`
+  - `review::.::holistic::mid_level_elegance::ui_owned_persistence_seams`
+    - reason: exact issue-id rerun no longer reports an open review row after removing app-shell `SettingsStore` assembly and retiring the `src/types` storage-key import path
+    - revisit trigger: exact issue-id rerun plus `rg -n "new SettingsStore\\(|STORAGE_KEYS|src/types/index" src/core/app-shell src`
+  - `review::.::holistic::cross_module_architecture::lazy_screen_contracts_live_in_concrete_ui_files`
+    - reason: exact issue-id rerun no longer reports an open review row after switching lazy-screen loaders and screen-port types onto package-root seams
+    - revisit trigger: exact issue-id rerun plus `rg -n "AuthScreen|AudioSetupScreen|ChannelSetupScreen|ProfileSelectScreen|ServerSelectScreen|SettingsScreen|ChannelSetupScreenPorts|new SettingsStore\\(" src/core/app-shell/AppLazyScreenRegistry.ts src/core/app-shell/AppLazyScreenPortFactory.ts`
+  - `review::.::holistic::convention_outlier::playback_options_root_surface_bypass`
+    - reason: exact issue-id rerun no longer reports an open review row after `PlayerOsdCoordinator` moved to the `playback-options` package root export
+    - revisit trigger: exact issue-id rerun plus `rg -n "playback-options/(PlaybackOptionsCoordinator|types)" src`
+- Detector/survivor summary: authoritative reruns leave `10` mapped non-review rows open, all with retained owner `pkg_app_shell_shared_ui`
+  - `logs 1`: `logs::src/modules/ui/mini-guide/MiniGuideCoordinator.ts::MiniGuideCoordinator`
+    - revisit trigger: exact issue-id rerun plus `rg -n "\\[Mini Guide\\]|\\[MiniGuideCoordinator\\]" src/modules/ui/mini-guide/MiniGuideCoordinator.ts`
+  - `smells 9`: `smells::src/bootstrap.ts::hardcoded_color`, `smells::src/modules/ui/common/ScreenShell.ts::monster_function`, `smells::src/modules/ui/mini-guide/styles.css::css_monolith`, `smells::src/modules/ui/playback-options/PlaybackOptionsCoordinator.ts::console_error_no_throw`, `smells::src/modules/ui/playback-options/styles.css::css_monolith`, `smells::src/modules/ui/player-osd/PlayerOsdCoordinator.ts::voided_symbol`, `smells::src/modules/ui/player-osd/styles.css::css_monolith`, `smells::src/modules/ui/settings/styles.css::css_monolith`, `smells::src/styles/shell.css::css_monolith`
+    - revisit trigger: rerun each exact issue id; use `wc -l` for the CSS monolith rows and targeted `rg` for the line-anchored JS/TS rows
+- Resolved-on-rerun groups: `review 6`, `structural 15`, `facade 4`, and `single_use 1` now all rerun absent on current source
+- Security triage: `desloppify show security --status open --no-budget --top 50` reported no open security or cycle issues
+- Follow-ups: `P2-EXIT` stays the single exact owner for the `10` remaining mapped survivor rows until a follow-up pass retires them or deliberately re-homes them with one exact successor owner in the same pass
+- Handoff: continue `P2-EXIT`; do not open `P3-W1`
 
 ### [ ] `P3-W1` `pkg_plex_contracts_identity` Plex Contracts And Identity
 
