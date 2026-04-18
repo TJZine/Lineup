@@ -259,7 +259,7 @@ function extractFirstMatchingMarkdownSection(content, headings) {
 }
 
 function parseInlineField(section, label) {
-    const pattern = new RegExp(`^- ${escapeRegExp(label)}:\\s*(.+)$`, 'mu');
+    const pattern = new RegExp(`^- ${escapeRegExp(label)}:[ \\t]*(.+)$`, 'mu');
     const match = pattern.exec(section);
     if (match === null) {
         return null;
@@ -299,9 +299,16 @@ function extractChecklistPackageFieldBlock(section, label, nextLabels = null) {
 }
 
 function getRequiredInlineScalarFieldValue(section, label, errors, missingError, blockOnlyError) {
-    const inlineValue = parseInlineField(section, label);
-    if (inlineValue !== null) {
-        return inlineValue;
+    const inlineFieldPattern = new RegExp(`^- ${escapeRegExp(label)}:[ \\t]*(.*)$`, 'mu');
+    const inlineFieldMatch = inlineFieldPattern.exec(section);
+    if (inlineFieldMatch !== null) {
+        const inlineValue = inlineFieldMatch[1].trim().replace(/`([^`]+)`/gu, '$1').trim();
+        if (inlineValue.length > 0) {
+            return inlineValue;
+        }
+
+        errors.push(blockOnlyError);
+        return null;
     }
 
     if (extractChecklistPackageFieldBlock(section, label) !== null) {
