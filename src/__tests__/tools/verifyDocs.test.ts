@@ -9,6 +9,8 @@ const verifierPath = path.resolve(process.cwd(), 'tools/verify-docs.mjs');
 type PromptInventories = {
     expectedEvalPromptFiles: string[];
     expectedSessionPromptFiles: string[];
+    requiredRepoLocalSkills: string[];
+    requiredRepoLocalSkillFiles: string[];
     skillMirrorManifestPath: string;
     sessionPromptSetStartMarker: string;
     sessionPromptSetEndMarker: string;
@@ -26,6 +28,8 @@ function loadPromptInventoriesFromHarnessDocsLib(): PromptInventories {
         'const payload = {',
         '  expectedEvalPromptFiles: lib.EXPECTED_EVAL_PROMPT_FILES,',
         '  expectedSessionPromptFiles: lib.EXPECTED_SESSION_PROMPT_FILES,',
+        '  requiredRepoLocalSkills: lib.REQUIRED_REPO_LOCAL_SKILLS,',
+        '  requiredRepoLocalSkillFiles: lib.REQUIRED_REPO_LOCAL_SKILL_FILES,',
         '  skillMirrorManifestPath: lib.SKILL_MIRROR_MANIFEST_PATH,',
         '  sessionPromptSetStartMarker: lib.SESSION_PROMPT_SET_START_MARKER,',
         '  sessionPromptSetEndMarker: lib.SESSION_PROMPT_SET_END_MARKER,',
@@ -53,6 +57,8 @@ function loadPromptInventoriesFromHarnessDocsLib(): PromptInventories {
 const {
     expectedEvalPromptFiles,
     expectedSessionPromptFiles,
+    requiredRepoLocalSkills,
+    requiredRepoLocalSkillFiles,
     skillMirrorManifestPath,
     sessionPromptSetStartMarker,
     sessionPromptSetEndMarker,
@@ -102,6 +108,25 @@ function writeRepoFile(repoRoot: string, relativePath: string, content = '# Plac
     const fullPath = path.join(repoRoot, relativePath);
     mkdirSync(path.dirname(fullPath), { recursive: true });
     writeFileSync(fullPath, content, 'utf8');
+}
+
+function writeValidRepoLocalSkillFixtures(repoRoot: string): void {
+    for (const [index, relativePath] of requiredRepoLocalSkillFiles.entries()) {
+        const skill = requiredRepoLocalSkills[index];
+        writeRepoFile(
+            repoRoot,
+            relativePath,
+            [
+                '---',
+                `name: ${skill}`,
+                'description: Test fixture repo-local skill.',
+                '---',
+                '',
+                `# ${skill}`,
+                '',
+            ].join('\n')
+        );
+    }
 }
 
 function buildChecklistLinkedPackageDecomposition({
@@ -680,6 +705,7 @@ function createRepoFixture(
     writeRepoFile(repoRoot, 'docs/development/debugging.md');
     writeRepoFile(repoRoot, 'docs/development/subtitles.md');
     writeRepoFile(repoRoot, 'docs/development/testing.md');
+    writeValidRepoLocalSkillFixtures(repoRoot);
     writeValidSkillMirrorFixture(repoRoot);
     writeValidSessionPromptFixture(repoRoot);
     writeValidEvalPromptFixture(repoRoot);
@@ -968,6 +994,32 @@ describe('verify-docs', () => {
         expect(result.stderr).toContain('docs/agentic/evals/baselines/2026-03-06-b.md');
     });
 
+    it('fails when a tracked doc links to a concrete .agents artifact', () => {
+        const repoRoot = createRepoFixture({
+            'docs/development/testing.md': '# Testing\n\n[Local agent note](../../.agents/run-logs/session.md)\n',
+            '.agents/run-logs/session.md': '# Local agent note\n',
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Tracked doc docs/development/testing.md links to local-only artifact');
+        expect(result.stderr).toContain('../../.agents/run-logs/session.md');
+    });
+
+    it('fails when a tracked doc contains a raw .agents literal path', () => {
+        const repoRoot = createRepoFixture({
+            'docs/development/testing.md': '# Testing\n\nRaw local agent artifact: .agents/run-logs/session.md\n',
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('.agents/run-logs/session.md');
+    });
+
     it('allows placeholder local-only paths that do not point to concrete artifacts', () => {
         const repoRoot = createRepoFixture({
             'docs/development/testing.md': [
@@ -1021,6 +1073,34 @@ describe('verify-docs', () => {
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('Missing required control-plane directory: docs/runs/_template');
+    });
+
+    it('fails when a required repo-local canonical skill file is missing', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        rmSync(path.join(repoRoot, '.codex/skills/verification-strategy'), { recursive: true, force: true });
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Missing required repo-local canonical skill `verification-strategy`: .codex/skills/verification-strategy/SKILL.md'
+        );
+    });
+
+    it('fails when a required repo-local canonical skill file exists locally but is not tracked', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        runGit(['rm', '--cached', '--quiet', '.codex/skills/verification-strategy/SKILL.md'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Required repo-local canonical skill is not tracked: .codex/skills/verification-strategy/SKILL.md'
+        );
     });
 
     it('fails when workflow claims tracked codex roles but .codex/config.toml is missing', () => {
@@ -1523,6 +1603,93 @@ describe('verify-docs', () => {
         expect(result.stderr).not.toContain('missing required serious-plan sections');
     });
 
+    it('fails when an active tracked plan omits the verification classification marker', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRepoFile(
+            repoRoot,
+            'docs/plans/example-active.md',
+            [
+                '# Example Implementation Plan',
+                '',
+                '**Plan Status:** active',
+                '**Task family:** cleanup/refactor',
+                '**Cleanup subtype:** checklist-linked',
+                '',
+                '**Goal:** Do the thing.',
+                '',
+                '**Architecture:** Keep the boundary explicit.',
+                '',
+                '## Non-Goals',
+                '',
+                '- No routing changes.',
+                '',
+                '## Required Reading',
+                '',
+                '- `docs/AGENTIC_DEV_WORKFLOW.md`',
+                '',
+                '## Required Skills',
+                '',
+                '- `execution-plan-authoring`',
+                '',
+                '## Codanna Discovery',
+                '',
+                '- `search_documents`: confirmed the right workflow docs.',
+                '',
+                '## Evidence To Preserve',
+                '',
+                '- `docs/agentic/plan-authoring-standard.md`',
+                '',
+                '## Allowed File Changes',
+                '',
+                '- `docs/agentic/plan-authoring-standard.md`',
+                '',
+                '## Files Out Of Scope',
+                '',
+                '- `src/App.ts`',
+                '',
+                '## Planner Self-Check',
+                '',
+                '- No hidden seam remains.',
+                '',
+                '## Architecture Seam Decision Gate',
+                '',
+                '- Chosen seam is explicit.',
+                '',
+                '## Verification Commands',
+                '',
+                '- Run: `npm run verify:docs`',
+                '- Expected: `Documentation verification passed.`',
+                '',
+                '## Rollback Notes',
+                '',
+                '- Revert the doc change if the launcher contract becomes ambiguous.',
+                '',
+                '## Commit Checkpoints',
+                '',
+                '- `docs: refresh tracked plan contract`',
+                '',
+                buildChecklistLinkedPackageDecomposition(),
+                '',
+            ].join('\n')
+        );
+        writeRepoFile(
+            repoRoot,
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md',
+            readFileSync(path.join(repoRoot, 'ARCHITECTURE_CLEANUP_CHECKLIST.md'), 'utf8') +
+                '\n- [ ] Active item (plan: docs/plans/example-active.md)\n'
+        );
+        runGit(['add', '.'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'verification commands section must classify verification strategy with one exact plan-standard marker'
+        );
+    });
+
     it('passes when a checklist-linked tracked plan uses the exact active marker and full serious-plan structure', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
@@ -1551,7 +1718,7 @@ describe('verify-docs', () => {
                 '',
                 '## Required Skills',
                 '',
-                '- `writing-plans`',
+                '- `execution-plan-authoring`',
                 '',
                 '## Codanna Discovery',
                 '',
@@ -1578,6 +1745,8 @@ describe('verify-docs', () => {
                 '- Chosen seam is explicit.',
                 '',
                 '## Verification Commands',
+                '',
+                '- Verification classification: `existing coverage sufficient`',
                 '',
                 '- Run: `npm run verify:docs`',
                 '- Expected: `Documentation verification passed.`',
@@ -1636,7 +1805,7 @@ describe('verify-docs', () => {
                 '',
                 '## Required Skills',
                 '',
-                '- `writing-plans`',
+                '- `execution-plan-authoring`',
                 '',
                 '## Codanna Discovery',
                 '',
@@ -1663,6 +1832,8 @@ describe('verify-docs', () => {
                 '- Chosen seam is explicit.',
                 '',
                 '## Verification Commands',
+                '',
+                '- Verification classification: `existing coverage sufficient`',
                 '',
                 '- Run: `npm run verify:docs`',
                 '- Expected: `Documentation verification passed.`',
@@ -1726,7 +1897,7 @@ describe('verify-docs', () => {
                 '',
                 '## Required Skills',
                 '',
-                '- `writing-plans`',
+                '- `execution-plan-authoring`',
                 '',
                 '## Codanna Discovery',
                 '',
@@ -1753,6 +1924,8 @@ describe('verify-docs', () => {
                 '- Chosen seam is explicit.',
                 '',
                 '## Verification Commands',
+                '',
+                '- Verification classification: `existing coverage sufficient`',
                 '',
                 '- Run: `npm run verify:docs`',
                 '- Expected: `Documentation verification passed.`',
@@ -1814,7 +1987,7 @@ describe('verify-docs', () => {
                 '',
                 '## Required Skills',
                 '',
-                '- `writing-plans`',
+                '- `execution-plan-authoring`',
                 '',
                 '## Codanna Discovery',
                 '',
@@ -1841,6 +2014,8 @@ describe('verify-docs', () => {
                 '- Chosen seam is explicit.',
                 '',
                 '## Verification Commands',
+                '',
+                '- Verification classification: `existing coverage sufficient`',
                 '',
                 '- Run: `npm run verify:docs`',
                 '- Expected: `Documentation verification passed.`',

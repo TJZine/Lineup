@@ -16,10 +16,11 @@ Ensure no ownership bleed between `ChannelSetupScreen` and `ChannelSetupSessionC
 ## Expected Skills
 
 - `using-superpowers`
-- `brainstorming`
-- `writing-plans`
+- `brainstorming` only when the ownership/session seam is still unresolved after initial discovery
 - `architecture-boundaries`
 - `ui-composition-patterns`
+- `verification-strategy`
+- `execution-plan-authoring`
 
 ## Expected Codanna Behavior
 

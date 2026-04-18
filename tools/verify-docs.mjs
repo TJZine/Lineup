@@ -17,6 +17,8 @@ import {
     hasActivePlanMarker,
     parseSkillMirrorManifest,
     renderEvalPromptInventory,
+    REQUIRED_REPO_LOCAL_SKILL_FILES,
+    REQUIRED_REPO_LOCAL_SKILLS,
     renderSessionPromptSet,
     SESSION_PROMPT_SET_END_MARKER,
     SESSION_PROMPT_SET_START_MARKER,
@@ -153,6 +155,7 @@ const FAILED_GIT = Symbol('FAILED_GIT');
 
 let cachedTrackedPlanPaths = null;
 let cachedTrackedCodexPaths = null;
+let cachedTrackedRepoLocalSkillPaths = null;
 
 function getTrackedPlanPaths(errors) {
     if (cachedTrackedPlanPaths !== null) {
@@ -202,6 +205,30 @@ function getTrackedCodexPaths(errors) {
     }
 }
 
+function getTrackedRepoLocalSkillPaths(errors) {
+    if (cachedTrackedRepoLocalSkillPaths !== null) {
+        return cachedTrackedRepoLocalSkillPaths;
+    }
+
+    try {
+        const output = execFileSync('git', ['ls-files', '--', ...REQUIRED_REPO_LOCAL_SKILL_FILES], {
+            cwd: repoRoot,
+            encoding: 'utf8',
+        });
+        cachedTrackedRepoLocalSkillPaths = new Set(
+            output
+                .split(/\r?\n/u)
+                .map((line) => line.trim())
+                .filter((line) => line.length > 0)
+        );
+        return cachedTrackedRepoLocalSkillPaths;
+    } catch (error) {
+        recordFsError(errors, 'list tracked repo-local skill files via git', '.codex/skills', error);
+        cachedTrackedRepoLocalSkillPaths = FAILED_GIT;
+        return cachedTrackedRepoLocalSkillPaths;
+    }
+}
+
 function toRepoRelativePath(absolutePath) {
     return path.relative(repoRoot, absolutePath).split(path.sep).join('/');
 }
@@ -243,6 +270,8 @@ function isForbiddenLocalOnlyTarget(relativePath) {
     return (
         relativePath === '.agent/skills' ||
         relativePath.startsWith('.agent/skills/') ||
+        relativePath === '.agents' ||
+        relativePath.startsWith('.agents/') ||
         relativePath.startsWith('docs/agentic/evals/baselines/') ||
         relativePath === 'docs/runs' ||
         relativePath.startsWith('docs/runs/')
@@ -381,6 +410,10 @@ function checkForbiddenLiteralReferences(errors) {
         {
             description: 'local-only mirrored skill file',
             regex: /\.agent\/skills\/[a-z0-9._-]+\/SKILL\.md/giu,
+        },
+        {
+            description: 'local-only .agents artifact',
+            regex: /\.agents\/[a-z0-9._/-]+/giu,
         },
         {
             description: 'local-only run instance',
@@ -1476,6 +1509,20 @@ function checkSkillMirrorManifest(errors) {
     }
 }
 
+function checkRequiredRepoLocalSkills(errors) {
+    const trackedSkillPaths = getTrackedRepoLocalSkillPaths(errors);
+    for (const skill of REQUIRED_REPO_LOCAL_SKILLS) {
+        const relativePath = `.codex/skills/${skill}/SKILL.md`;
+        if (!existsSync(path.join(repoRoot, relativePath))) {
+            errors.push(`Missing required repo-local canonical skill \`${skill}\`: ${relativePath}`);
+            continue;
+        }
+        if (trackedSkillPaths !== FAILED_GIT && !trackedSkillPaths.has(relativePath)) {
+            errors.push(`Required repo-local canonical skill is not tracked: ${relativePath}`);
+        }
+    }
+}
+
 function isCodexRoleWorkflowTracked(errors) {
     let foundConfig = false;
     let foundAgents = false;
@@ -1766,6 +1813,7 @@ function main() {
     checkPlanArchiveCoherence(errors);
     checkArchivedSectionSummaryConformance(errors);
     checkSkillMirrorManifest(errors);
+    checkRequiredRepoLocalSkills(errors);
     checkTrackedCodexRoleConfig(errors);
     checkSeriousPlanConformance(errors);
 

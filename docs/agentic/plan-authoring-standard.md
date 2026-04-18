@@ -82,6 +82,9 @@ When `**Plan Status:** active` appears before the first `##` heading, `npm run v
 - Add an explicit freshness gate:
   - if referenced files, ownership, or doc surfaces changed materially since the plan was written, update the plan first
 - Do not continue through contradicted assumptions because the “intent is obvious.”
+- Keep the plan decision-complete at the seam/scope/verification level, not pseudo-code-complete.
+- A fresh session should not need to invent ownership, boundary, or verification policy, but it may still make ordinary local coding decisions inside the approved seam.
+- Record explicit stop-and-replan conditions in `## Architecture Seam Decision Gate` or an adjacent `## Replan Triggers` section when the task has concrete boundary, discovery, or verification conditions that would invalidate the current plan.
 
 ### Planner Self-Check
 
@@ -118,7 +121,7 @@ For serious tracked plans, the evidence block should be explicit enough that a f
 
 - `semantic_search_with_context`: result summary or explicit fallback note
 - `search_documents`: result summary or explicit fallback note when repo-doc context matters
-- `analyze_impact`: result summary
+- `analyze_impact`: result summary or explicit note that it was not required for the current risk level
 - direct tracked-doc reads or `rg`: what was read and why fallback was needed
 
 When a tracked plan is mainly reconciling detector output with checklist/doc closeout state, the evidence bar is higher:
@@ -155,11 +158,36 @@ The goal is not to maximize tool usage for its own sake. The goal is to leave a 
 
 - List exact verification commands.
 - State the expected result for each command.
+- Use repo-local `verification-strategy` to choose the proof mode when the answer is not already obvious; this standard records the resulting plan classification and proof surface, not the whole decision tree.
+- Classify the verification strategy for the execution surface explicitly:
+  - `new regression/contract test required`
+  - `existing coverage sufficient`
+  - `broader integration/manual proof required`
+  - `no new automated test needed`
+- For active serious plans, include one of those exact classification markers verbatim under `## Verification Commands`.
+- The plan should explain why that verification depth matches the risk. Do not force fail-first TDD scaffolding into tracked plans when the work does not need new behavior protection.
+- When using `existing coverage sufficient`, name the exact existing proof target that makes that claim defensible.
+- When using `broader integration/manual proof required` or `no new automated test needed`, name the exact manual, integration, static-analysis, or source-audit proof surface.
 - Match the verification depth to risk:
   - `npm run verify` for UI/navigation/Orchestrator/Plex work
   - `npm run verify:docs` for control-plane and docs work
   - at least `npm run typecheck` plus `npm test` for logic-only TypeScript changes unless the task needs broader coverage
 - Add rollback notes for high-risk work so a fresh session can unwind safely if parity breaks.
+
+### Current-Unit Execution Packets
+
+When a weaker or cheaper implementer needs more current-unit detail than the master plan should carry, emit a bounded execution packet outside the master-plan core rather than expanding the whole tracked plan into pseudo-code.
+
+The packet should name:
+
+- exact execution unit or slice
+- files in scope
+- files out of scope when ambiguity exists
+- constraints and invariants
+- verification commands plus expected outcomes
+- explicit stop-and-replan conditions
+
+The packet may live in a `NEXT_SESSION_HANDOFF` block or a local run-bundle artifact. It should not replace the serious tracked plan as the durable source of scope, seam, and verification policy.
 
 ### Anti-Patterns To Avoid
 
@@ -174,6 +202,8 @@ The goal is not to maximize tool usage for its own sake. The goal is to leave a 
 - vague scope such as “touch whatever is needed”
 - plans that commit local-only artifacts
 - plans that require raw local-only source material when a tracked curated reference should exist instead
+- plans that try to pre-write full implementation details for future steps instead of freezing the seam and execution constraints
+- treating tracked plans as mandatory TDD scripts instead of classifying the real verification need
 
 Keep the universal anti-pattern list short and always-on. Longer cleanup-era examples belong in optional historical references rather than in the core authoring surface.
 

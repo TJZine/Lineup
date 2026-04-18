@@ -95,9 +95,9 @@
 
 - `using-superpowers`
 - `systematic-debugging`
-- `writing-plans`
 - `ui-composition-patterns`
 - `architecture-boundaries`
+- `execution-plan-authoring`
 - `verification-before-completion`
 - `test-driven-development` when behavior coverage changes are introduced
 

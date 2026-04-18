@@ -3,7 +3,6 @@
 
 superpowers:using-superpowers
 superpowers:brainstorming
-superpowers:writing-plans
 superpowers:test-driven-development
 superpowers:verification-before-completion
 superpowers:requesting-code-review

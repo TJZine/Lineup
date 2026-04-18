@@ -68,4 +68,46 @@ describe('sync_agent_skills.sh', () => {
         expect(existsSync(path.join(repoRoot, '.agent/skills/global-skill/SKILL.md'))).toBe(true);
         expect(readFileSync(path.join(repoRoot, '.agent/skills/repo-skill/SKILL.md'), 'utf8')).toContain('Repo skill');
     });
+
+    it('does not mirror tracked doc drafts when the canonical .codex skill is missing', () => {
+        const repoRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-sync-skills-'));
+        const codexHome = mkdtempSync(path.join(os.tmpdir(), 'lineup-sync-skills-home-'));
+        tempRoots.push(repoRoot, codexHome);
+
+        const scriptPath = path.join(repoRoot, 'scripts/sync_agent_skills.sh');
+        mkdirSync(path.dirname(scriptPath), { recursive: true });
+        copyFileSync(sourceScriptPath, scriptPath);
+        chmodSync(scriptPath, 0o755);
+
+        writeFile(
+            path.join(repoRoot, '.codex/skills/repo-skill/SKILL.md'),
+            '# Repo skill\n'
+        );
+        writeFile(
+            path.join(repoRoot, 'docs/agentic/skills/draft-only/SKILL.md'),
+            '# Draft-only skill\n'
+        );
+        writeFile(
+            path.join(repoRoot, 'docs/agentic/skill-mirror-allowlist.txt'),
+            'superpowers:global-skill\n'
+        );
+        writeFile(
+            path.join(codexHome, 'superpowers/skills/global-skill/SKILL.md'),
+            '# Global skill\n'
+        );
+
+        const result = spawnSync('/bin/bash', [scriptPath], {
+            cwd: repoRoot,
+            env: {
+                ...process.env,
+                CODEX_HOME: codexHome,
+            },
+            encoding: 'utf8',
+        });
+
+        expect(result.status).toBe(0);
+        expect(existsSync(path.join(repoRoot, '.agent/skills/repo-skill/SKILL.md'))).toBe(true);
+        expect(existsSync(path.join(repoRoot, '.agent/skills/global-skill/SKILL.md'))).toBe(true);
+        expect(existsSync(path.join(repoRoot, '.agent/skills/draft-only/SKILL.md'))).toBe(false);
+    });
 });

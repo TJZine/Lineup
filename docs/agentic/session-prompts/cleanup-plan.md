@@ -26,9 +26,10 @@ If the short follow-up form is used, treat the named checklist item or cleanup t
 ## Required Skill Order
 
 1. load `using-superpowers`
-2. load `brainstorming`
+2. load `brainstorming` only when the cleanup seam, scope, or remediation approach is still unresolved
 3. load the matching repo-local boundary skill(s)
-4. use `writing-plans` for the plan format
+4. use repo-local `verification-strategy` to choose the proof mode and test depth
+5. use repo-local `execution-plan-authoring` for plan depth, mode selection, and verification strategy
 
 ## What This Session Must Do
 
@@ -40,26 +41,37 @@ If the short follow-up form is used, treat the named checklist item or cleanup t
 - run Codanna-first discovery and record the fallback if Codanna is insufficient
 - produce or refresh a tracked plan in [`docs/plans/`](../../plans/README.md) when the task needs durable memory
 - keep the authoritative execution steps aligned in `update_plan`
-- write the plan so a fresh-session implementer can execute it without making hidden design decisions
+- write the plan so a fresh-session implementer can execute it without making hidden seam, scope, or verification decisions
 - keep write activity confined to planning surfaces unless the parent explicitly narrows the task to a workflow/control-plane planning-doc edit
 
 ## Required Planning Constraints
 
 - follow [`docs/agentic/plan-authoring-standard.md#universal-plan-core`](../plan-authoring-standard.md#universal-plan-core) and [`docs/agentic/plan-authoring-standard.md#cleanup-overlay`](../plan-authoring-standard.md#cleanup-overlay)
 - treat [`docs/agentic/historical-plan-corpus-review.md`](../historical-plan-corpus-review.md) as optional calibration only when the plan needs extra example-driven context beyond the standard and current tracked docs
-- use the `writing-plans` skill format for structure and checkpoint shape
+- use repo-local `execution-plan-authoring` to keep the plan decision-complete without turning it into pseudo-code
+- use repo-local `verification-strategy` to select the verification mode before deciding whether new automated coverage is required
 - declare `**Task family:** cleanup/refactor` and the exact `**Cleanup subtype:**` before freezing the plan
 - resolve any open architecture seam or adjacent contract decision before freezing the execution steps
+- record explicit stop-and-replan conditions under the seam gate or an adjacent replan block whenever discovery, boundary, or verification failure would invalidate the current plan
 - include exact files in scope and exact files out of scope
+- freeze expensive-to-get-wrong decisions and deliberately leave ordinary local coding choices delegated unless a narrow contract snippet materially reduces risk
 - include the full Codanna evidence trail for serious cleanup plans:
   - `semantic_search_with_context` result or explicit fallback note
   - `search_documents` result or explicit fallback note when repo-doc context matters
-  - `analyze_impact` result
+  - `analyze_impact` result when risky/shared symbols are involved, or an explicit note that it was not required for the current risk level
   - direct-read/`rg` fallback note when used
 - include Codanna discovery findings and impact snapshot for risky/shared-symbol work
 - run the planner self-check from [`docs/agentic/plan-authoring-standard.md#planner-self-check`](../plan-authoring-standard.md#planner-self-check) before finalizing the plan
 - include required reading and required skills
 - include verification commands with expected outcomes
+- classify the verification strategy for the execution surface as one of:
+  - `new regression/contract test required`
+  - `existing coverage sufficient`
+  - `broader integration/manual proof required`
+  - `no new automated test needed`
+- when using `existing coverage sufficient`, name the exact existing test or proof surface that makes that claim defensible
+- when using `broader integration/manual proof required` or `no new automated test needed`, name the exact integration/manual/static proof surface
+- avoid brittle tests that overfit current helper structure, mock owned boundaries, or snapshot large transient surfaces when narrower proof is available
 - include rollback notes when the task is risky
 - include commit checkpoints only for tracked work
 - do not rely on ignored local material unless a tracked curated reference already exists
@@ -132,3 +144,10 @@ Return:
    - `FILES`
    - a pasteable review request for the finished plan, explicitly calling out priority-exit readiness when the plan claims priority closeout and explicitly stating when the task is `standalone remediation` with no checklist update
    - if the user explicitly asked for model guidance, or if the handoff is Tier 3 or architecture-risk score `>= 2`, include a `MODEL_SUGGESTION` block immediately before `NEXT_SESSION_HANDOFF` using repo-local `model-selection`
+9. when a weaker/cheaper implementer or an unusually fragile current unit needs extra detail, include an optional `CURRENT_EXECUTION_PACKET` block before `NEXT_SESSION_HANDOFF` with:
+   - `UNIT`
+   - `FILES_IN_SCOPE`
+   - `FILES_OUT_OF_SCOPE`
+   - `CONSTRAINTS`
+   - `VERIFICATION`
+   - `STOP_AND_REPLAN_IF`

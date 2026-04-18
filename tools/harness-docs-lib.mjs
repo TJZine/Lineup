@@ -4,6 +4,20 @@ export const SESSION_PROMPT_SET_START_MARKER = '<!-- BEGIN MANAGED SESSION PROMP
 export const SESSION_PROMPT_SET_END_MARKER = '<!-- END MANAGED SESSION PROMPT SET -->';
 export const EVAL_PROMPT_INVENTORY_START_MARKER = '<!-- BEGIN MANAGED EVAL PROMPT INVENTORY -->';
 export const EVAL_PROMPT_INVENTORY_END_MARKER = '<!-- END MANAGED EVAL PROMPT INVENTORY -->';
+export const REQUIRED_REPO_LOCAL_SKILLS = [
+    'architecture-boundaries',
+    'bounded-worker-execution',
+    'execution-plan-authoring',
+    'model-selection',
+    'parallel-sidecars',
+    'persistence-boundaries',
+    'plex-integration-boundaries',
+    'ui-composition-patterns',
+    'verification-strategy',
+];
+export const REQUIRED_REPO_LOCAL_SKILL_FILES = REQUIRED_REPO_LOCAL_SKILLS.map(
+    (skill) => `.codex/skills/${skill}/SKILL.md`
+);
 
 export const SESSION_PROMPT_INVENTORY = [
     {
@@ -164,6 +178,12 @@ export const HARNESS_INGESTION_TRIAGE_ACTIONS = [
 export const ACTIVE_PLAN_MARKER = '**Plan Status:** active';
 const VALID_TASK_FAMILIES = new Set(['feature/design', 'cleanup/refactor']);
 const VALID_CLEANUP_SUBTYPES = new Set(['checklist-linked', 'standalone remediation']);
+const PLAN_VERIFICATION_CLASSIFICATIONS = [
+    'new regression/contract test required',
+    'existing coverage sufficient',
+    'broader integration/manual proof required',
+    'no new automated test needed',
+];
 const PLAN_LIST_ENTRY_RE = /^\s*(?:[-*]|\d+\.)\s+\S+/mu;
 const PLAN_RUN_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Run:\s*`[^`]+`/imu;
 const PLAN_EXPECTED_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Expected:\s*.+$/imu;
@@ -1002,8 +1022,21 @@ export function checkPlanConformance({ filePath, content }) {
         errors.push('files out of scope section must contain at least one concrete entry');
     }
 
+    const requiredSkills = extractFirstMatchingMarkdownSection(content, ['Required Skills']);
+    if (requiredSkills !== null) {
+        if (!/\bexecution-plan-authoring\b/u.test(requiredSkills)) {
+            errors.push('required skills section must include `execution-plan-authoring` for active serious plans');
+        }
+        if (/\bwriting-plans\b/u.test(requiredSkills)) {
+            errors.push('required skills section must not include legacy `writing-plans` for active serious plans');
+        }
+    }
+
     const verificationCommands = extractFirstMatchingMarkdownSection(content, ['Verification Commands']);
     if (verificationCommands !== null) {
+        if (!PLAN_VERIFICATION_CLASSIFICATIONS.some((marker) => verificationCommands.includes(marker))) {
+            errors.push('verification commands section must classify verification strategy with one exact plan-standard marker');
+        }
         if (!PLAN_RUN_LINE_RE.test(verificationCommands)) {
             errors.push('verification commands section must contain at least one command-looking `Run:` line');
         }
