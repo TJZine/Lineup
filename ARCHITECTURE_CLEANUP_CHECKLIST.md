@@ -14,8 +14,8 @@ This checklist is not complete until an authoritative rerun on the target integr
 
 - Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
-- Current execution state: `P1-W1`, `P1-EXIT`, and `P2-W1` are complete; `P2-EXIT` is the next gate
-- Next safe start: `P2-EXIT`
+- Current execution state: `P1-W1` and `P1-EXIT` are complete; `P2-W1` remains in progress and is not yet exit-ready
+- Next safe start: continue `P2-W1`
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
 - Exact issue-membership surface: `docs/architecture/active-cleanup-package-map.json`
 - Historical planning context only: local run bundles under `docs/runs/`
@@ -206,12 +206,12 @@ Every `P#-EXIT` must, in the same pass:
   - `desloppify show src/bootstrap.ts --status open --no-budget --top 50`
   - `desloppify show src/__tests__/App.test.ts --status open --no-budget --top 50`
 - Companion-map leaf review required at entry/exit: confirm the exact package-owned facade leaves in `channel-badge`, `channel-number-overlay`, `sleep-timer`, and `theme` from `pkg_app_shell_shared_ui`; do not treat the command list alone as exhaustive closure proof
-- Status: completed
+- Status: blocked
 - Plan: `docs/plans/2026-04-17-p2-w1-app-shell-shared-ui-persistence-seams.md`
 - Last touched: `2026-04-17`
-- Verification: `npm test -- --runInBand src/__tests__/App.test.ts src/__tests__/bootstrap.test.ts src/core/app-shell/__tests__/AppOrchestratorConfigFactory.test.ts`; `npm test -- --runInBand src/core/app-shell/__tests__/AppDiagnosticsSurface.test.ts src/core/app-shell/__tests__/AppThemeController.test.ts src/modules/ui/settings/__tests__/SettingsStore.test.ts src/modules/ui/settings/__tests__/SettingsScreenStateController.test.ts src/modules/ui/settings/__tests__/SettingsScreen.test.ts`; `npm test -- --runInBand src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts`; `npm test -- --runInBand src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts src/modules/ui/player-osd/__tests__/PlayerOsdCoordinator.test.ts`; `npm test -- --runInBand src/modules/ui/mini-guide/__tests__/MiniGuideCoordinator.test.ts src/modules/ui/now-playing-info/__tests__/NowPlayingInfoCoordinator.test.ts`; package-local `desloppify show ...` checks run slice-by-slice on `2026-04-17`
-- Follow-ups: `P2-EXIT` must refresh authoritative package-local `desloppify` reruns, security triage, and package score deltas on the integration branch before `P3`
-- Handoff: `P2-EXIT`
+- Verification: targeted slice tests and `npm run verify:docs` have passed across `P2-W1` slices on `2026-04-17`; package-level `npm run verify` remains blocked until shared-ui CSS lint failures are retired
+- Follow-ups: complete remaining `P2-W1` package-local verification cleanup, then refresh authoritative package-local `desloppify` reruns and exit evidence before opening `P2-EXIT`
+- Handoff: continue `P2-W1` until package-level verification is green
 
 - [ ] `P2-EXIT`
 
