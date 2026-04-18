@@ -337,7 +337,9 @@ function getChecklistSliceSections(sliceTableBlock) {
 }
 
 function getExecutionWaveEntries(executionWavesBlock) {
-    const matches = Array.from(executionWavesBlock.matchAll(/^[ \t]*-[ \t]+`wave_id`:\s*`?([^`\n]+)`?.*$/gmu));
+    const matches = Array.from(
+        executionWavesBlock.matchAll(/^[ \t]*(?:[-*]|\d+\.)[ \t]+`wave_id`:\s*`?([^`\n]+)`?.*$/gmu)
+    );
     if (matches.length === 0) {
         return [];
     }
@@ -496,7 +498,10 @@ function getChecklistLinkedPackagePlanErrors(content) {
         if (readyNowExecutionUnit !== null && readyNowSlice !== null) {
             const selectedWave = waveEntries.find((entry) => entry.waveId === readyNowExecutionUnit) ?? null;
             if (selectedWave !== null) {
-                const firstDeclaredSlice = selectedWave.content.match(/`slice_ids`:\s*(?:\r?\n)+[ \t]*-[ \t]+`(P\d+-W\d+-S\d+)`/u)?.[1] ?? null;
+                const firstDeclaredSlice =
+                    selectedWave.content.match(
+                        /`slice_ids`:\s*(?:\r?\n)+[ \t]*(?:[-*]|\d+\.)[ \t]+`(P\d+-W\d+-S\d+)`/u
+                    )?.[1] ?? null;
                 if (firstDeclaredSlice !== null && readyNowSlice !== firstDeclaredSlice) {
                     errors.push('`ready_now_slice` must match the first declared `slice_id` in the selected `ready_now_execution_unit` wave');
                 }

@@ -1921,6 +1921,84 @@ ${buildWaveScopedPackageDecomposition().replace(
     ]);
 });
 
+test('checkPlanConformance accepts starred execution_waves entries', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+        content: `# Cleanup Example
+
+**Plan Status:** active
+**Task family:** cleanup/refactor
+**Cleanup subtype:** checklist-linked
+
+## Goal
+
+- Do the cleanup.
+
+## Non-Goals
+
+- No runtime changes.
+
+## Parent Architecture Alignment
+
+- Keep the control plane small.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- fallback: direct reads only.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`src/App.ts\`
+
+## Planner Self-Check
+
+- resolved.
+
+## Architecture Seam Decision Gate
+
+- explicit.
+
+## Verification Commands
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- revert.
+
+## Commit Checkpoints
+
+- \`docs: update plan rules\`
+
+${buildWaveScopedPackageDecomposition()
+    .replace(/^\s+- `wave_id`:/mu, '  * `wave_id`:')
+    .replace(/^\s+- `slice_ids`:/mu, '  * `slice_ids`:')
+    .replace(/^\s+- `completion_condition`:/mu, '  * `completion_condition`:')
+    .replace(/^\s+- `absorb_now_scope`:/mu, '  * `absorb_now_scope`:')
+    .replace(/^\s+- `replan_triggers`:/mu, '  * `replan_triggers`:')}
+`,
+    });
+
+    assert.deepEqual(result.errors, []);
+});
+
 test('checkPlanConformance requires ready_now_slice to match the first slice in the selected wave', () => {
     const result = checkPlanConformance({
         filePath: 'docs/plans/2026-04-14-cleanup-example.md',
