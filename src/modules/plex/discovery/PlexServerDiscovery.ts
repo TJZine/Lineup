@@ -14,6 +14,10 @@ import {
     PlexApiConnection,
     MixedContentConfig,
 } from './types';
+import {
+    findFastestConnectionProbe,
+    PlexConnectionProbeResult,
+} from './discoveryProbe';
 import { AppErrorCode } from '../../lifecycle/types';
 import { PlexApiError } from '../auth/plexAuthTransport';
 import { redactSensitiveTokens, redactUrlForLog } from '../../../utils/redact';
@@ -55,8 +59,8 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             lastRefreshAt: null,
             isDiscovering: false,
         };
-
     }
+
     public discoverServers(): Promise<PlexServer[]> {
         // Return cached servers if still fresh (avoid unnecessary plex.tv calls)
         if (
@@ -175,7 +179,9 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                 }
                 // Brief backoff if all variants in this attempt failed with 5xx to avoid hammering plex.tv.
                 if (lastNonOkResponse && attempt < maxAttempts - 1) {
-                    await new Promise((resolve) => setTimeout(resolve, 500));
+                    await new Promise((resolve) => {
+                        setTimeout(resolve, PLEX_DISCOVERY_CONSTANTS.DISCOVERY_RETRY_BACKOFF_MS);
+                    });
                 }
             }
 
@@ -243,6 +249,11 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         _server: PlexServer,
         connection: PlexConnection
     ): Promise<number | 'auth_required' | 'auth_invalid' | null> {
+        const probe = await this._probeConnection(connection);
+        return this._mapProbeToPublicTestResult(probe);
+    }
+
+    private async _probeConnection(connection: PlexConnection): Promise<PlexConnectionProbeResult> {
         const url = new URL(PLEX_DISCOVERY_CONSTANTS.IDENTITY_ENDPOINT, connection.uri).toString();
         const headers = this._getAuthHeaders();
         const startTime = Date.now();
@@ -262,20 +273,23 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             clearTimeout(timeoutId);
 
             if (response.status === 401) {
-                return 'auth_required';
+                return { connection, outcome: 'auth_required' };
             }
             if (response.status === 403) {
-                return 'auth_invalid';
+                return { connection, outcome: 'auth_invalid' };
             }
             if (!response.ok) {
-                return null;
+                return { connection, outcome: 'unreachable' };
             }
 
             const latency = Date.now() - startTime;
-            return latency;
+            return {
+                connection: this._createConnectionWithLatency(connection, latency),
+                outcome: 'reachable',
+            };
         } catch {
             clearTimeout(timeoutId);
-            return null;
+            return { connection, outcome: 'unreachable' };
         }
     }
 
@@ -286,140 +300,53 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         authRequired: boolean;
         authState: 'auth_required' | 'auth_invalid' | null;
     }> {
-        const config = this._mixedContentConfig;
-        let authRequired = false;
-        let authState: 'auth_required' | 'auth_invalid' | null = null;
-        const noteAuthState = (state: 'auth_required' | 'auth_invalid'): void => {
-            if (state === 'auth_invalid') {
-                authState = 'auth_invalid';
-                return;
-            }
-            authRequired = true;
-            if (authState === null) {
-                authState = 'auth_required';
-            }
+        const probeSummary = await findFastestConnectionProbe({
+            server,
+            mixedContentConfig: this._mixedContentConfig,
+            probeConnection: (connection) => this._probeConnectionFromTestConnection(server, connection),
+        });
+
+        return {
+            connection: probeSummary.selectedProbe?.connection ?? null,
+            authRequired: probeSummary.authRequired,
+            authState: probeSummary.authState,
         };
+    }
 
-        // Separate connections by protocol per mixed-content handling requirements
-        const httpsConns = server.connections.filter(c => c.protocol === 'https');
-        const httpConns = server.connections.filter(c => c.protocol === 'http');
-
-        // If preferHttps is true (default), test HTTPS first
-        if (config.preferHttps) {
-            // Within HTTPS, prioritize: local > remote > relay
-            const localHttps = httpsConns.filter(c => c.local && !c.relay);
-            const remoteHttps = httpsConns.filter(c => !c.local && !c.relay);
-            const relayHttps = httpsConns.filter(c => c.relay);
-
-            // Test HTTPS connections in priority order
-            for (const conn of localHttps) {
-                const latency = await this.testConnection(server, conn);
-                if (latency === 'auth_required') {
-                    noteAuthState('auth_required');
-                } else if (latency === 'auth_invalid') {
-                    noteAuthState('auth_invalid');
-                } else if (latency !== null) {
-                    return {
-                        connection: this._createConnectionWithLatency(conn, latency),
-                        authRequired,
-                        authState,
-                    };
-                }
-            }
-
-            for (const conn of remoteHttps) {
-                const latency = await this.testConnection(server, conn);
-                if (latency === 'auth_required') {
-                    noteAuthState('auth_required');
-                } else if (latency === 'auth_invalid') {
-                    noteAuthState('auth_invalid');
-                } else if (latency !== null) {
-                    return {
-                        connection: this._createConnectionWithLatency(conn, latency),
-                        authRequired,
-                        authState,
-                    };
-                }
-            }
-
-            for (const conn of relayHttps) {
-                const latency = await this.testConnection(server, conn);
-                if (latency === 'auth_required') {
-                    noteAuthState('auth_required');
-                } else if (latency === 'auth_invalid') {
-                    noteAuthState('auth_invalid');
-                } else if (latency !== null) {
-                    return {
-                        connection: this._createConnectionWithLatency(conn, latency),
-                        authRequired,
-                        authState,
-                    };
-                }
-            }
+    private _mapProbeToPublicTestResult(
+        probe: PlexConnectionProbeResult
+    ): number | 'auth_required' | 'auth_invalid' | null {
+        if (probe.outcome === 'reachable') {
+            return probe.connection.latencyMs;
         }
-
-        // Try HTTPS upgrade for HTTP connections if enabled
-        if (config.tryHttpsUpgrade) {
-            for (const conn of httpConns) {
-                const httpsUri = conn.uri.replace('http://', 'https://');
-                const upgradedConn: PlexConnection = {
-                    uri: httpsUri,
-                    protocol: 'https',
-                    address: conn.address,
-                    port: conn.port,
-                    local: conn.local,
-                    relay: conn.relay,
-                    latencyMs: null,
-                };
-                const latency = await this.testConnection(server, upgradedConn);
-                if (latency === 'auth_required') {
-                    noteAuthState('auth_required');
-                } else if (latency === 'auth_invalid') {
-                    noteAuthState('auth_invalid');
-                } else if (latency !== null) {
-                    return {
-                        connection: this._createConnectionWithLatency(upgradedConn, latency),
-                        authRequired,
-                        authState,
-                    };
-                }
-            }
+        if (probe.outcome === 'auth_required' || probe.outcome === 'auth_invalid') {
+            return probe.outcome;
         }
+        return null;
+    }
 
-        // Only try HTTP as last resort if allowLocalHttp is true
-        if (config.allowLocalHttp) {
-            const localHttp = httpConns.filter(c => c.local && !c.relay);
-            for (const conn of localHttp) {
-                const latency = await this.testConnection(server, conn);
-                if (latency === 'auth_required') {
-                    noteAuthState('auth_required');
-                } else if (latency === 'auth_invalid') {
-                    noteAuthState('auth_invalid');
-                } else if (latency !== null) {
-                    if (config.logWarnings) {
-                        logPlexWarning('Selected HTTP connection (last resort)', {
-                            local: conn.local,
-                            relay: conn.relay,
-                        });
-                    }
-                    return {
-                        connection: this._createConnectionWithLatency(conn, latency),
-                        authRequired,
-                        authState,
-                    };
-                }
-            }
-        }
+    private async _probeConnectionFromTestConnection(
+        server: PlexServer,
+        connection: PlexConnection
+    ): Promise<PlexConnectionProbeResult> {
+        const publicResult = await this.testConnection(server, connection);
 
-        if (config.logWarnings) {
-            logPlexWarning('No working connections found', {
-                serverId: server.id,
-                authRequired,
-                httpsCount: httpsConns.length,
-                httpCount: httpConns.length,
-            });
+        if (typeof publicResult === 'number') {
+            return {
+                connection: this._createConnectionWithLatency(connection, publicResult),
+                outcome: 'reachable',
+            };
         }
-        return { connection: null, authRequired, authState };
+        if (publicResult === 'auth_required' || publicResult === 'auth_invalid') {
+            return {
+                connection,
+                outcome: publicResult,
+            };
+        }
+        return {
+            connection,
+            outcome: 'unreachable',
+        };
     }
 
     private _createConnectionWithLatency(conn: PlexConnection, latency: number): PlexConnection {

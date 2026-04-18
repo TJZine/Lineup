@@ -39,6 +39,9 @@ export const PLEX_DISCOVERY_CONSTANTS = {
     /** Default delay (ms) when rate-limited without Retry-After */
     RATE_LIMIT_DEFAULT_DELAY_MS: 2000,
 
+    /** Backoff (ms) before retrying after a full 5xx discovery attempt fails */
+    DISCOVERY_RETRY_BACKOFF_MS: 500,
+
     /** Maximum concurrent connection tests */
     MAX_CONCURRENT_TESTS: 3,
 
