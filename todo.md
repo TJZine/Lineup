@@ -115,6 +115,130 @@ Rationale:
 Note:
 - Keep this as a gated design track until endpoint/canonicalization and reliability priorities are complete.
 
+### Bootstrap vs Runtime Global Error Overlay Policy Review
+
+- [ ] Revisit the global error overlay policy in `src/bootstrap.ts` after the next thorough manual QA pass.
+- [ ] Confirm whether the current all-fatal behavior is intentionally strict or overly disruptive for production TV flows.
+- [ ] Decide and document the final policy for:
+  - bootstrap/startup failures
+  - uncaught runtime `error` events
+  - unhandled promise rejections
+- [ ] If the policy changes, implement the chosen mode split together with focused tests in `src/__tests__/bootstrap.test.ts`.
+
+Current behavior:
+- `handleBootstrapFailure(...)`, `handleGlobalError(...)`, and `handleUnhandledRejection(...)` all route through the same overlay path in `src/bootstrap.ts`.
+- The current overlay contract is effectively fatal for all three paths:
+  - applies the fatal overlay styling
+  - uses blocking modal semantics
+  - steals focus
+  - treats the first global failure as an app-wide interruption
+
+Why this is deferred:
+- This is a failure-policy decision, not just a styling or cleanup tweak.
+- The right answer depends on whether runtime global errors are proving true shell-corruption events or mostly isolated/recoverable faults.
+- Without another deliberate QA pass, softening runtime handling risks hiding serious problems; keeping the current policy risks overreacting to recoverable faults and degrading TV navigation UX.
+
+Revisit trigger:
+- Complete another end-to-end manual QA pass that explicitly exercises:
+  - cold bootstrap and startup failure handling
+  - guide/navigation flows
+  - playback open, retry, and recovery flows
+  - settings and modal focus return flows
+  - injected uncaught runtime errors during otherwise-usable sessions
+  - injected unhandled rejections during otherwise-usable sessions
+- Record whether the current overlay behavior was:
+  - appropriately fail-fast
+  - too disruptive for recoverable runtime faults
+  - too weak to surface broken shell state
+
+Decision options to consider on revisit:
+
+Option A: Keep the current all-fatal policy
+- Bootstrap failures remain fatal.
+- Runtime global errors and unhandled rejections also remain fatal.
+- Pros:
+  - simplest policy and easiest to reason about
+  - maximizes defect visibility during hardening
+  - avoids continuing after unknown shell corruption
+- Cons:
+  - can turn localized runtime bugs into whole-app interruptions
+  - focus-stealing modal behavior is expensive in TV/D-pad UX
+  - severity signal is coarse because all global failures look equally fatal
+- Best fit when:
+  - uncaught runtime failures usually indicate unusable or untrusted app state
+  - fail-fast visibility is more valuable than graceful degradation
+
+Option B: Fatal bootstrap, nonfatal runtime by default
+- Bootstrap failures stay fatal and modal.
+- `window.onerror` and `unhandledrejection` become visible but non-modal runtime errors by default.
+- Runtime overlays should avoid forced focus and avoid blocking the rest of the app unless explicitly escalated.
+- Pros:
+  - better matches failure scope in many cases
+  - reduces disruption from isolated async/runtime faults
+  - preserves strong startup guarantees while improving in-session UX
+- Cons:
+  - requires stronger policy discipline and better tests
+  - risks underreacting if some runtime global errors actually imply shell corruption
+  - some developers may feel bugs are easier to ignore when the app keeps running
+- Best fit when:
+  - the shell often remains usable after isolated runtime failures
+  - QA shows current modal interruption is harsher than the underlying defect
+
+Option C: Fatal bootstrap, classified runtime escalation
+- Bootstrap failures stay fatal.
+- Runtime global errors start as nonfatal by default, but explicitly classified unrecoverable runtime failures escalate to fatal.
+- Example escalation candidates:
+  - shell root/focus system corruption
+  - unrecoverable navigation/app-shell invariants
+  - runtime failures that prove trusted state is gone
+- Pros:
+  - best long-term policy precision
+  - distinguishes isolated faults from app-wide corruption
+  - preserves user continuity when safe while still supporting hard-stop escalation
+- Cons:
+  - highest design and maintenance complexity
+  - classification mistakes are costly in both directions
+  - needs clear invariants and stronger regression coverage
+- Best fit when:
+  - the team is ready to define explicit unrecoverable runtime boundaries
+  - there is evidence that some, but not all, runtime global failures deserve fatal treatment
+
+Option D: Keep runtime fatal in development/hardening, soften later for release readiness
+- Preserve the current all-fatal behavior for now.
+- Revisit again closer to release with better QA evidence and runtime diagnostics.
+- Pros:
+  - preserves maximum visibility while cleanup/hardening is still active
+  - avoids premature policy churn
+- Cons:
+  - delays UX improvement if runtime failures are already being over-treated
+  - risks institutionalizing an overly harsh production behavior by inertia
+- Best fit when:
+  - current priorities favor strict failure surfacing over user-facing recovery polish
+  - the team expects more architecture/runtime stabilization work first
+
+Concrete implementation considerations if the policy changes:
+- Do not treat this as a CSS-class-only change.
+- Revisit all of these together:
+  - overlay role (`alertdialog` vs `alert`/other runtime treatment)
+  - modal vs non-modal semantics
+  - focus-stealing vs passive visibility
+  - stacking/z-index behavior
+  - dismissibility or retry affordances, if any
+  - duplicate-overlay behavior
+  - test coverage in `src/__tests__/bootstrap.test.ts`
+
+Examples to evaluate during QA:
+- Startup dependency/init failure before the app is usable
+  - likely should stay fatal in every option
+- A stray unhandled rejection in a secondary async path after the shell is already interactive
+  - may be better treated as nonfatal in Options B or C
+- A runtime error that leaves navigation/focus root broken
+  - may justify fatal escalation in Option C
+
+Recommended default if evidence remains mixed:
+- Prefer Option D in the short term.
+- If QA clearly shows current runtime handling is too disruptive while the shell remains usable, move to Option B before attempting the more complex Option C.
+
 ### EPG Per-Category Custom Color Map
 
 - [ ] Add optional per-category color overrides in Settings.
