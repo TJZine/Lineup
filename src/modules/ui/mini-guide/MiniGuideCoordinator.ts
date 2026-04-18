@@ -135,7 +135,7 @@ export class MiniGuideCoordinator {
         }
         this.hide();
         this.deps.switchToChannel(selected.id).catch((error) => {
-            console.warn('[MiniGuideCoordinator] Failed to switch channel:', summarizeErrorForLog(error));
+            console.warn('[Mini Guide] Failed to switch channel:', summarizeErrorForLog(error));
         });
     }
 

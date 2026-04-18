@@ -1,26 +1,9 @@
-/* ============================================================
-   Mini Guide — "Top-Edge Shelf"
-   Flush top/left/right, bottom-rounded, gradient scrim.
-   Design: docs/design/ui-design-language.md
-   ============================================================ */
-
 .mini-guide {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 780;
-  pointer-events: none;
-  opacity: 0;
-  transform: translateY(-100%);
-  transition: opacity 300ms ease-out, transform 300ms ease-out;
+  position: absolute; top: 0; right: 0; left: 0; z-index: 780; pointer-events: none;
+  opacity: 0; transform: translateY(-100%); transition: opacity 300ms ease-out, transform 300ms ease-out;
 }
 
-.mini-guide.visible {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
+.mini-guide.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
 
 .mini-guide-panel {
   --mini-guide-scrim-fallback-rgb: 0, 0, 0;
@@ -30,8 +13,8 @@
   --mini-guide-border-alpha: 8%;
   background: linear-gradient(
     to bottom,
-    rgba(var(--mini-guide-scrim-fallback-rgb), 0.50) 0%,
-    rgba(var(--mini-guide-scrim-fallback-rgb), 0.40) 50%,
+    rgba(var(--mini-guide-scrim-fallback-rgb), 0.5) 0%,
+    rgba(var(--mini-guide-scrim-fallback-rgb), 0.4) 50%,
     rgba(var(--mini-guide-scrim-fallback-rgb), 0.18) 80%,
     transparent 100%
   );
@@ -50,46 +33,28 @@
 }
 
 .mini-guide-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-6);
+  display: flex; align-items: center; gap: var(--space-4); padding: var(--space-3) var(--space-6);
   color: var(--color-text-primary);
 }
 
-.mini-guide-row.focused {
-  background: rgba(255, 255, 255, 0.10);
-  border-left: 3px solid rgba(255, 255, 255, 0.92);
-}
-
-.mini-guide-row:not(.focused) {
-  border-left: 3px solid transparent;
-}
-
-.mini-guide-row:not(.focused)[data-build-strategy="collections"] { border-left: 3px solid var(--epg-category-collections); }
-.mini-guide-row:not(.focused)[data-build-strategy="playlists"] { border-left: 3px solid var(--epg-category-playlists); }
-.mini-guide-row:not(.focused)[data-build-strategy="genres"] { border-left: 3px solid var(--epg-category-genres); }
-.mini-guide-row:not(.focused)[data-build-strategy="directors"] { border-left: 3px solid var(--epg-category-directors); }
-.mini-guide-row:not(.focused)[data-build-strategy="decades"] { border-left: 3px solid var(--epg-category-decades); }
-.mini-guide-row:not(.focused)[data-build-strategy="recentlyAdded"] { border-left: 3px solid var(--epg-category-recently-added); }
-.mini-guide-row:not(.focused)[data-build-strategy="studios"] { border-left: 3px solid var(--epg-category-studios); }
-.mini-guide-row:not(.focused)[data-build-strategy="actors"] { border-left: 3px solid var(--epg-category-actors); }
-.mini-guide-row:not(.focused)[data-build-strategy="libraryFallback"] { border-left: 3px solid var(--epg-category-library); }
+.mini-guide-row.focused { background: rgba(255, 255, 255, 0.1); border-left: 3px solid rgba(255, 255, 255, 0.92); }
+.mini-guide-row:not(.focused) { border-left: 3px solid transparent; }
+.mini-guide-row:not(.focused)[data-build-strategy="collections"] { border-left-color: var(--epg-category-collections); }
+.mini-guide-row:not(.focused)[data-build-strategy="playlists"] { border-left-color: var(--epg-category-playlists); }
+.mini-guide-row:not(.focused)[data-build-strategy="genres"] { border-left-color: var(--epg-category-genres); }
+.mini-guide-row:not(.focused)[data-build-strategy="directors"] { border-left-color: var(--epg-category-directors); }
+.mini-guide-row:not(.focused)[data-build-strategy="decades"] { border-left-color: var(--epg-category-decades); }
+.mini-guide-row:not(.focused)[data-build-strategy="recentlyAdded"] { border-left-color: var(--epg-category-recently-added); }
+.mini-guide-row:not(.focused)[data-build-strategy="studios"] { border-left-color: var(--epg-category-studios); }
+.mini-guide-row:not(.focused)[data-build-strategy="actors"] { border-left-color: var(--epg-category-actors); }
+.mini-guide-row:not(.focused)[data-build-strategy="libraryFallback"] { border-left-color: var(--epg-category-library); }
 
 .mini-guide-row.loading .mini-guide-now,
-.mini-guide-row.loading .mini-guide-next {
-  position: relative;
-  color: transparent;
-}
+.mini-guide-row.loading .mini-guide-next { position: relative; color: transparent; }
 
 .mini-guide-row.loading .mini-guide-now::before,
 .mini-guide-row.loading .mini-guide-next::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 4px;
-  height: 14px;
-  border-radius: 4px;
+  content: ''; position: absolute; left: 0; top: 4px; height: 14px; border-radius: 4px;
   background: linear-gradient(
     90deg,
     rgba(255, 255, 255, 0.08) 0%,
@@ -99,122 +64,62 @@
   animation: mini-guide-loading-shimmer 1.2s ease-in-out infinite;
 }
 
-.mini-guide-row.loading .mini-guide-now::before {
-  right: 0;
-}
-
-.mini-guide-row.loading .mini-guide-next::before {
-  width: 70%;
-}
-
-.mini-guide-row.loading .mini-guide-progress-fill {
-  width: 0%;
-}
+.mini-guide-row.loading .mini-guide-now::before { right: 0; }
+.mini-guide-row.loading .mini-guide-next::before { width: 70%; }
+.mini-guide-row.loading .mini-guide-progress-fill { width: 0%; }
 
 .mini-guide-channel-num {
-  flex: 0 0 clamp(40px, 3.5vw, 73px);
-  font-size: 20px;
-  font-weight: 700;
+  flex: 0 0 clamp(40px, 3.5vw, 73px); min-width: 0; font-size: 20px; font-weight: 700;
   color: var(--color-text-primary);
-  min-width: 0;
 }
 
 .mini-guide-branding-icon-slot {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
 }
 
 .mini-guide-channel-name {
-  flex: 0 0 clamp(154px, 14vw, 286px);
-  font-size: 18px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--color-text-secondary);
+  flex: 0 0 clamp(154px, 14vw, 286px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 18px; font-weight: 600; color: var(--color-text-secondary);
 }
 
 .mini-guide-row .channel-branding-icon {
-  flex: 0 0 auto;
-  opacity: 0.7;
-  margin-right: 6px;
-  width: 18px;
-  height: 18px;
+  flex: 0 0 auto; width: 18px; height: 18px; margin-right: 6px; opacity: 0.7;
 }
 
 .mini-guide-now {
-  flex: 1 1 auto;
-  min-width: clamp(140px, 20vw, 300px);
-  font-size: 20px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 1 1 auto; min-width: clamp(140px, 20vw, 300px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 20px; font-weight: 600;
 }
 
 .mini-guide-start-time {
-  color: var(--color-text-muted, rgba(255, 255, 255, 0.5));
-  font-size: var(--text-xs, 14px);
-  margin-right: var(--space-2, 8px);
-  white-space: nowrap;
-  flex-shrink: 0;
+  flex-shrink: 0; margin-right: var(--space-2, 8px); white-space: nowrap;
+  color: var(--color-text-muted, rgba(255, 255, 255, 0.5)); font-size: var(--text-xs, 14px);
 }
 
 .mini-guide-progress {
-  flex: 0 0 clamp(112px, 10vw, 208px);
-  height: var(--progress-height);
-  background: var(--progress-track);
-  border-radius: var(--progress-radius);
-  overflow: hidden;
+  flex: 0 0 clamp(112px, 10vw, 208px); height: var(--progress-height);
+  background: var(--progress-track); border-radius: var(--progress-radius); overflow: hidden;
 }
 
-.mini-guide-progress-fill {
-  height: 100%;
-  width: 0%;
-  background: var(--progress-fill);
-}
+.mini-guide-progress-fill { height: 100%; width: 0%; background: var(--progress-fill); }
 
 .mini-guide-next {
-  flex: 0 0 clamp(182px, 18vw, 338px);
-  font-size: var(--text-md);
-  color: var(--color-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 0 0 clamp(182px, 18vw, 338px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--text-md); color: var(--color-text-muted);
 }
 
-.mini-guide-footer-hint {
-  padding: var(--space-3) var(--space-6);
-  font-size: var(--text-md);
-  color: var(--color-text-muted);
-}
+.mini-guide-footer-hint { padding: var(--space-3) var(--space-6); font-size: var(--text-md); color: var(--color-text-muted); }
 
 @keyframes mini-guide-loading-shimmer {
-  0% {
-    transform: translateX(-30%);
-  }
-  100% {
-    transform: translateX(30%);
-  }
+  0% { transform: translateX(-30%); }
+  100% { transform: translateX(30%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mini-guide {
-    transition: none;
-  }
+  .mini-guide { transition: none; }
   .mini-guide-row.loading .mini-guide-now::before,
-  .mini-guide-row.loading .mini-guide-next::before {
-    animation: none;
-  }
+  .mini-guide-row.loading .mini-guide-next::before { animation: none; }
 }
-
-/* ============================================================
-   Glass Theme Override
-   Premium smoked acrylic: darker (higher-opacity) scrims than base surfaces, no blur, display font.
-   Does NOT re-introduce borders, box-shadows, or top border-radius.
-   ============================================================ */
 
 .theme-glass .mini-guide-panel {
   --mini-guide-scrim-fallback-rgb: 8, 11, 15;
@@ -222,17 +127,7 @@
   --mini-guide-stop-2: 56%;
   --mini-guide-stop-3: 22%;
   --mini-guide-border-alpha: 6%;
-  border: none;
-  box-shadow: none;
-}
-
-.theme-glass .mini-guide-row.focused {
-  background: linear-gradient(
-    90deg,
-    rgba(var(--focus-color-rgb), 0.18),
-    rgba(var(--focus-color-rgb), 0.04)
-  );
-  border-left: 3px solid var(--focus-color);
+  border: none; box-shadow: none;
 }
 
 .theme-slate-pine .mini-guide-panel {
@@ -243,30 +138,12 @@
   --mini-guide-border-alpha: 8%;
 }
 
-.theme-slate-pine .mini-guide-row.focused {
-  background: linear-gradient(
-    90deg,
-    rgba(var(--focus-color-rgb), 0.18),
-    rgba(var(--focus-color-rgb), 0.05)
-  );
-  border-left: 3px solid var(--focus-color);
-}
-
 .theme-swiss .mini-guide-panel {
   --mini-guide-scrim-fallback-rgb: 0, 0, 0;
   --mini-guide-stop-1: 56%;
   --mini-guide-stop-2: 44%;
   --mini-guide-stop-3: 20%;
   --mini-guide-border-alpha: 4%;
-}
-
-.theme-swiss .mini-guide-row.focused {
-  background: linear-gradient(
-    90deg,
-    rgba(var(--focus-color-rgb), 0.18),
-    rgba(var(--focus-color-rgb), 0.05)
-  );
-  border-left: 3px solid var(--focus-color);
 }
 
 .theme-directv .mini-guide-panel {
@@ -277,20 +154,6 @@
   --mini-guide-border-alpha: 8%;
 }
 
-.theme-directv .mini-guide-row.focused {
-  background: var(--directv-focus-fill);
-  border-left: 3px solid var(--directv-focus-border);
-  color: var(--directv-focus-text);
-}
-
-.theme-directv .mini-guide-row.focused .mini-guide-channel-num,
-.theme-directv .mini-guide-row.focused .mini-guide-channel-name,
-.theme-directv .mini-guide-row.focused .mini-guide-now,
-.theme-directv .mini-guide-row.focused .mini-guide-next,
-.theme-directv .mini-guide-row.focused .mini-guide-start-time {
-  color: var(--directv-focus-text);
-}
-
 .theme-ember-steel .mini-guide-panel {
   --mini-guide-scrim-fallback-rgb: 20, 20, 20;
   --mini-guide-stop-1: 60%;
@@ -299,11 +162,25 @@
   --mini-guide-border-alpha: 8%;
 }
 
+.theme-glass .mini-guide-row.focused,
+.theme-slate-pine .mini-guide-row.focused,
+.theme-swiss .mini-guide-row.focused,
 .theme-ember-steel .mini-guide-row.focused {
-  background: linear-gradient(
-    90deg,
-    rgba(var(--focus-color-rgb), 0.20),
-    rgba(var(--focus-color-rgb), 0.06)
-  );
+  background: linear-gradient(90deg, rgba(var(--focus-color-rgb), 0.18), rgba(var(--focus-color-rgb), 0.04));
   border-left: 3px solid var(--focus-color);
 }
+
+.theme-slate-pine .mini-guide-row.focused,
+.theme-swiss .mini-guide-row.focused { background: linear-gradient(90deg, rgba(var(--focus-color-rgb), 0.18), rgba(var(--focus-color-rgb), 0.05)); }
+
+.theme-ember-steel .mini-guide-row.focused { background: linear-gradient(90deg, rgba(var(--focus-color-rgb), 0.2), rgba(var(--focus-color-rgb), 0.06)); }
+
+.theme-directv .mini-guide-row.focused {
+  background: var(--directv-focus-fill); border-left: 3px solid var(--directv-focus-border); color: var(--directv-focus-text);
+}
+
+.theme-directv .mini-guide-row.focused .mini-guide-channel-num,
+.theme-directv .mini-guide-row.focused .mini-guide-channel-name,
+.theme-directv .mini-guide-row.focused .mini-guide-now,
+.theme-directv .mini-guide-row.focused .mini-guide-next,
+.theme-directv .mini-guide-row.focused .mini-guide-start-time { color: var(--directv-focus-text); }
