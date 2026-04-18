@@ -168,7 +168,7 @@ describe('bootstrap seam', () => {
         expectBootstrapFailureState(module);
     });
 
-    it('uses passive alert semantics for the fatal bootstrap overlay', async () => {
+    it('uses modal alertdialog semantics for the fatal bootstrap overlay', async () => {
         const focusSpy = jest.spyOn(HTMLElement.prototype, 'focus');
         const start = jest.fn().mockRejectedValue(new Error('start failed'));
 
@@ -176,11 +176,11 @@ describe('bootstrap seam', () => {
 
         const overlay = document.getElementById('global-error-overlay');
         expect(overlay).not.toBeNull();
-        expect(overlay?.getAttribute('role')).toBe('alert');
+        expect(overlay?.getAttribute('role')).toBe('alertdialog');
         expect(overlay?.getAttribute('aria-live')).toBe('assertive');
-        expect(overlay?.hasAttribute('aria-modal')).toBe(false);
-        expect(overlay?.getAttribute('tabindex')).toBeNull();
-        expect(focusSpy).not.toHaveBeenCalled();
+        expect(overlay?.getAttribute('aria-modal')).toBe('true');
+        expect(overlay?.getAttribute('tabindex')).toBe('-1');
+        expect(focusSpy).toHaveBeenCalled();
     });
 
     it('uses the fatal overlay stylesheet contract for topmost stacking without inline z-index styling', async () => {

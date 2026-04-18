@@ -237,9 +237,11 @@ function showGlobalErrorOverlay(message: string): void {
     const overlay = document.createElement('div');
     overlay.id = GLOBAL_ERROR_OVERLAY_ID;
     overlay.className = `error-overlay ${GLOBAL_ERROR_OVERLAY_FATAL_CLASS}`;
-    overlay.setAttribute('role', 'alert');
+    overlay.setAttribute('role', 'alertdialog');
+    overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-live', 'assertive');
     overlay.setAttribute('aria-atomic', 'true');
+    overlay.tabIndex = -1;
     const content = document.createElement('div');
     content.className = 'error-content';
 
@@ -265,6 +267,11 @@ function showGlobalErrorOverlay(message: string): void {
     const host = document.body ?? document.documentElement;
     if (!host) return;
     host.appendChild(overlay);
+    try {
+        overlay.focus();
+    } catch {
+        // Best-effort focus for accessibility; some environments may block programmatic focus.
+    }
 }
 
 // Register global error handlers
