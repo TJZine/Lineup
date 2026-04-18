@@ -1,0 +1,129 @@
+/* =========================================
+   App Shell Containers
+   ========================================= */
+
+#dev-menu {
+  background: #222;
+  color: #fff;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+#app-toast {
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+}
+
+/* =========================================
+   Toasts (non-blocking)
+   ========================================= */
+
+#app-toast[data-toast-type='info'] {
+  border-left-color: var(--color-primary);
+}
+
+#app-toast[data-toast-type='success'] {
+  border-left-color: var(--color-success);
+}
+
+#app-toast[data-toast-type='warning'] {
+  border-left-color: var(--color-warning);
+}
+
+#app-toast[data-toast-type='error'] {
+  border-left-color: var(--color-error);
+}
+
+/* =========================================
+   Error Overlay
+   ========================================= */
+
+.error-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: rgba(0, 0, 0, 0.65);
+  z-index: var(--z-overlay);
+}
+
+.error-overlay-fatal {
+  z-index: 2147483647;
+}
+
+.error-overlay.hidden {
+  display: none;
+}
+
+.error-content {
+  width: min(760px, 92vw);
+  background: var(--panel-inner-glow), var(--panel-surface);
+  border: var(--panel-border);
+  border-radius: var(--panel-radius);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-lg);
+}
+
+.error-title {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 700;
+}
+
+.error-message {
+  margin: 12px 0 0;
+  font-size: 20px;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+.error-actions {
+  margin-top: var(--space-6);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.error-button {
+  appearance: none;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+  padding: 12px 18px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+}
+
+.error-button.focused,
+.error-button:focus {
+  outline: none;
+}
+
+.error-button::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 0 var(--focus-color) inset;
+  transition: box-shadow 150ms ease;
+  pointer-events: none;
+}
+
+.error-button.focused::after,
+.error-button:focus-visible::after {
+  box-shadow: 0 0 0 var(--focus-ring-width, 3px) var(--focus-color) inset;
+}
+
+.error-button.primary {
+  background: var(--color-primary);
+}

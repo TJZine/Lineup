@@ -1,0 +1,19 @@
+@keyframes mini-guide-loading-shimmer {
+  0% {
+    transform: translateX(-30%);
+  }
+  100% {
+    transform: translateX(30%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mini-guide {
+    transition: none;
+  }
+
+  .mini-guide-row.loading .mini-guide-now::before,
+  .mini-guide-row.loading .mini-guide-next::before {
+    animation: none;
+  }
+}
