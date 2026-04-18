@@ -353,6 +353,10 @@ function getExecutionWaveEntries(executionWavesBlock) {
     });
 }
 
+function getChecklistWaveSliceIds(waveContent) {
+    return Array.from(waveContent.matchAll(/P\d+-W\d+-S\d+/gu), (match) => match[0]);
+}
+
 function getChecklistLinkedPackagePlanErrors(content) {
     const errors = [];
     const packageDecomposition = extractFirstMatchingMarkdownSection(content, ['Package Decomposition']);
@@ -400,8 +404,13 @@ function getChecklistLinkedPackagePlanErrors(content) {
     ]);
     if (sliceTableBlock !== null) {
         const sliceSections = getChecklistSliceSections(sliceTableBlock);
+        const declaredSliceIds = new Set(sliceSections.map((sliceSection) => sliceSection.sliceId));
         if (sliceSections.length === 0) {
             errors.push('`slice_table` must define at least one package-scoped slice section');
+        }
+
+        if (readyNowSlice !== null && sliceSections.length > 0 && !declaredSliceIds.has(readyNowSlice)) {
+            errors.push('`ready_now_slice` must reference a declared `slice_table` slice');
         }
 
         for (const sliceSection of sliceSections) {
@@ -428,6 +437,8 @@ function getChecklistLinkedPackagePlanErrors(content) {
             const hasParallelGroup = parseInlineField(sliceSection.content, '`parallel_group`') !== null;
             if (!hasSerialOnly && !hasParallelGroup) {
                 errors.push(`${sliceSection.sliceId} in \`slice_table\` must include either \`serial_only\` or \`parallel_group\``);
+            } else if (hasSerialOnly && hasParallelGroup) {
+                errors.push(`${sliceSection.sliceId} in \`slice_table\` cannot include both \`serial_only\` and \`parallel_group\``);
             }
         }
     }
@@ -465,6 +476,16 @@ function getChecklistLinkedPackagePlanErrors(content) {
             if (missingWaveMarkers.length > 0) {
                 errors.push('each `execution_waves` entry must record `absorb_now_scope` and `replan_triggers`');
                 break;
+            }
+        }
+
+        if (sliceTableBlock !== null) {
+            const declaredSliceIds = new Set(getChecklistSliceSections(sliceTableBlock).map((sliceSection) => sliceSection.sliceId));
+            const hasUnknownWaveSliceId = waveEntries.some((waveEntry) =>
+                getChecklistWaveSliceIds(waveEntry.content).some((sliceId) => !declaredSliceIds.has(sliceId))
+            );
+            if (hasUnknownWaveSliceId) {
+                errors.push('`execution_waves` slice_ids must reference declared `slice_table` slices');
             }
         }
 

@@ -105,14 +105,14 @@ When tracked docs conflict, use this order:
    - keep the authoritative plan in `update_plan`
    - write or refresh `docs/plans/*` when a task requires durable, tracked task memory
    - every serious tracked plan must satisfy [`docs/agentic/plan-authoring-standard.md#universal-plan-core`](./agentic/plan-authoring-standard.md#universal-plan-core)
-  - every serious tracked cleanup plan must also satisfy [`docs/agentic/plan-authoring-standard.md#cleanup-overlay`](./agentic/plan-authoring-standard.md#cleanup-overlay)
-  - serious tracked plans must declare `**Task family:**`; cleanup plans must also declare `**Cleanup subtype:**`
-  - for cleanup work, record whether the task is `checklist-linked` or `standalone remediation` before freezing the plan; only `checklist-linked` tasks should promise checklist updates or priority-exit progress
-  - for checklist-linked package plans, require `ready_now_execution_unit`; keep `execution_waves` and `coverage_ledger` optional for single-slice plans and required only when the approved execution unit spans multiple slices or explicitly opts into wave-scoped execution
-  - for checklist-linked package plans, keep `slice_table` as the atomic ownership map inside each approved `execution_unit`; slice-level accounting remains required inside that unit even when review is wave-scoped
-  - for checklist-linked package plans, `coverage_ledger` is execution-only and must not redefine package membership, which remains owned by the checklist companion map
-  - for checklist-linked package plans, absorb now only when newly discovered residue stays within the same approved execution unit goal, same owner, same seam/files, same verification envelope, and same final-owner accounting; otherwise replan before execution continues
-  - for serious tracked plans, follow [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md)
+   - every serious tracked cleanup plan must also satisfy [`docs/agentic/plan-authoring-standard.md#cleanup-overlay`](./agentic/plan-authoring-standard.md#cleanup-overlay)
+   - serious tracked plans must declare `**Task family:**`; cleanup plans must also declare `**Cleanup subtype:**`
+   - for cleanup work, record whether the task is `checklist-linked` or `standalone remediation` before freezing the plan; only `checklist-linked` tasks should promise checklist updates or priority-exit progress
+   - for checklist-linked package plans, require `ready_now_execution_unit`; keep `execution_waves` and `coverage_ledger` optional for single-slice plans and required only when the approved execution unit spans multiple slices or explicitly opts into wave-scoped execution
+   - for checklist-linked package plans, keep `slice_table` as the atomic ownership map inside each approved `execution_unit`; slice-level accounting remains required inside that unit even when review is wave-scoped
+   - for checklist-linked package plans, `coverage_ledger` is execution-only and must not redefine package membership, which remains owned by the checklist companion map
+   - for checklist-linked package plans, absorb now only when newly discovered residue stays within the same approved execution unit goal, same owner, same seam/files, same verification envelope, and same final-owner accounting; otherwise replan before execution continues
+   - for serious tracked plans, follow [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md)
    - before freezing a serious tracked plan, run the planner self-check from the plan standard so unresolved seams, wrong owners, contradictory scope, or missing evidence are surfaced before execution
    - if an architecture seam or adjacent contract change is still undecided, resolve that boundary before freezing a “decision-point-free” execution plan
    - if a cleanup slice is the last planned `P#-W#` item for a priority, add an explicit priority-exit step before any `P(n+1)` work begins

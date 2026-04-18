@@ -1528,6 +1528,243 @@ ${buildSingleSlicePackageDecomposition().replace(
     ]);
 });
 
+test('checkPlanConformance requires ready_now_slice to reference a declared slice_table slice', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+        content: `# Cleanup Example
+
+**Plan Status:** active
+**Task family:** cleanup/refactor
+**Cleanup subtype:** checklist-linked
+
+## Goal
+
+- Do the cleanup.
+
+## Non-Goals
+
+- No runtime changes.
+
+## Parent Architecture Alignment
+
+- Keep the control plane small.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- fallback: direct reads only.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`src/App.ts\`
+
+## Planner Self-Check
+
+- resolved.
+
+## Architecture Seam Decision Gate
+
+- explicit.
+
+## Verification Commands
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- revert.
+
+## Commit Checkpoints
+
+- \`docs: update plan rules\`
+
+${buildSingleSlicePackageDecomposition().replace(
+    '- `ready_now_slice`: `P6-W1-S1`',
+    '- `ready_now_slice`: `P6-W1-S9`'
+).replace(
+    '- `ready_now_execution_unit`: `P6-W1-S1`',
+    '- `ready_now_execution_unit`: `P6-W1-S9`'
+)}
+`,
+    });
+
+    assert.deepEqual(result.errors, [
+        '`ready_now_slice` must reference a declared `slice_table` slice',
+    ]);
+});
+
+test('checkPlanConformance requires execution_waves slice_ids to reference declared slice_table slices', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+        content: `# Cleanup Example
+
+**Plan Status:** active
+**Task family:** cleanup/refactor
+**Cleanup subtype:** checklist-linked
+
+## Goal
+
+- Do the cleanup.
+
+## Non-Goals
+
+- No runtime changes.
+
+## Parent Architecture Alignment
+
+- Keep the control plane small.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- fallback: direct reads only.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`src/App.ts\`
+
+## Planner Self-Check
+
+- resolved.
+
+## Architecture Seam Decision Gate
+
+- explicit.
+
+## Verification Commands
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- revert.
+
+## Commit Checkpoints
+
+- \`docs: update plan rules\`
+
+${buildWaveScopedPackageDecomposition().replace(
+    ['  - `slice_ids`:', '    - `P6-W1-S1`', '    - `P6-W1-S2`'].join('\n'),
+    ['  - `slice_ids`:', '    - `P6-W1-S1`', '    - `P6-W1-S9`'].join('\n')
+)}
+`,
+    });
+
+    assert.deepEqual(result.errors, [
+        '`execution_waves` slice_ids must reference declared `slice_table` slices',
+    ]);
+});
+
+test('checkPlanConformance rejects slice_table rows that declare both serial_only and parallel_group', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+        content: `# Cleanup Example
+
+**Plan Status:** active
+**Task family:** cleanup/refactor
+**Cleanup subtype:** checklist-linked
+
+## Goal
+
+- Do the cleanup.
+
+## Non-Goals
+
+- No runtime changes.
+
+## Parent Architecture Alignment
+
+- Keep the control plane small.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- fallback: direct reads only.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`src/App.ts\`
+
+## Planner Self-Check
+
+- resolved.
+
+## Architecture Seam Decision Gate
+
+- explicit.
+
+## Verification Commands
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- revert.
+
+## Commit Checkpoints
+
+- \`docs: update plan rules\`
+
+${buildSingleSlicePackageDecomposition().replace(
+    '- `parallel_justification`: keep the execution unit serial',
+    ['- `parallel_group`: `wave-a`', '- `parallel_justification`: keep the execution unit serial'].join('\n')
+)}
+`,
+    });
+
+    assert.deepEqual(result.errors, [
+        'P6-W1-S1 in `slice_table` cannot include both `serial_only` and `parallel_group`',
+    ]);
+});
+
 test('checkPlanConformance requires wave-scoped ready_now_execution_unit to match a declared wave_id', () => {
     const result = checkPlanConformance({
         filePath: 'docs/plans/2026-04-14-cleanup-example.md',
