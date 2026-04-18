@@ -57,6 +57,7 @@ When tracked docs conflict, use this order:
 - use Codanna-first discovery for code understanding
 - prevent hotspot files from absorbing more responsibility
 - catch debt early through verification, review, and evals
+- keep the tracked role catalog conservative: `planner` for bounded planning artifacts, `worker` for implementation, `reviewer` for read-only review
 
 ## Default Workflow
 
@@ -174,6 +175,7 @@ Use Codex multi-agent support only when it materially improves reliability, thro
 - Keep immediate critical-path work local when the very next action depends on it.
 - Delegate independent sidecars such as targeted exploration, adversarial review, docs verification, or long waits/polling.
 - Delegate bounded disjoint implementation slices only when `bounded-worker-execution` applies and the main session still owns integration plus final verification.
+- Use the tracked `planner` role for bounded planning/discovery artifacts and execution-ready plan handoffs; do not emulate planner routing by sending planning through `worker` plus prompt-level model overrides.
 - Use repo-local skills to keep delegation rules explicit:
   - use `parallel-sidecars` for optional read-only or monitoring sidecars
   - use `bounded-worker-execution` only for approved, disjoint worker slices with explicit write ownership
@@ -182,6 +184,7 @@ Use Codex multi-agent support only when it materially improves reliability, thro
   - `.codex/agents/*.toml`
   - `agents.md`
 - Keep read-only roles read-only; do not route edits through exploration/review/docs/monitor roles (enforced by the tracked config + verifier).
+- Keep the write-capable roles separated by purpose: `planner` owns bounded planning surfaces, `worker` owns implementation scopes.
 - Do not spawn nested worker trees by default; keep delegation shallow (enforced by the tracked config + verifier).
 - Wait sparingly; block only when the next critical-path action truly depends on a delegated result.
 

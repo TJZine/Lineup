@@ -4,6 +4,8 @@ Use this prompt for Tier 2 or Tier 3 feature/design work when you need a serious
 
 Do not use this launcher for cleanup-only refactors; use [`cleanup-plan.md`](./cleanup-plan.md) for that path.
 
+Run this launcher with the tracked write-capable `planner` role. Use that role for bounded planning discovery, tracked plan artifacts, and execution-ready handoffs rather than product-code implementation.
+
 ## Read Order
 
 1. [`agents.md`](../../../agents.md)
@@ -41,6 +43,7 @@ If the short follow-up form is used, treat the named feature/design target as th
 - separate exploration decisions from implementation sequencing so the plan is executable in a fresh session
 - produce or refresh a tracked plan in [`docs/plans/`](../../plans/README.md) when durable handoff memory is needed
 - keep the authoritative execution steps aligned in `update_plan`
+- keep write activity confined to planning surfaces unless the parent explicitly narrows the task to a workflow/control-plane planning-doc edit
 
 ## Required Planning Constraints
 

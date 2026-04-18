@@ -211,6 +211,12 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             renderedSessionPromptSet,
             sessionPromptSetEndMarker,
             '',
+            'Tracked role intent:',
+            '',
+            '- run `cleanup-plan.md` and `feature-plan.md` with the tracked `planner` role',
+            '- run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role',
+            '- keep `cleanup-review.md`, `feature-review.md`, and `workflow-harness-review.md` read-only under the tracked `reviewer` role',
+            '',
             '## Routing (Authoritative)',
             '',
             '| Task Type | Use This Path | Prompt Family | Notes |',
@@ -353,6 +359,8 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
         [
             '# Cleanup Plan (Fixture)',
             '',
+            '- Run this launcher with the tracked write-capable `planner` role. The role is for bounded planning discovery, tracked plan artifacts, and execution-ready handoffs, not product-code implementation.',
+            '- Keep write activity confined to planning surfaces unless the parent explicitly narrows the task to a workflow/control-plane planning-doc edit.',
             '- Include `Priority-exit readiness` when the plan claims priority closeout.',
             '- Assign a single final owner to every deferred or split follow-up item.',
             '- Record exact `P0` security issue ids and the `P#-EXIT` checklist update.',
@@ -372,6 +380,7 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
         [
             '# Cleanup Loop (Fixture)',
             '',
+            '- For the delegated planning pass, use the tracked write-capable `planner` role.',
             '- Use `execution-unit-select` for checklist-linked package work.',
             '- Read `ready_now_execution_unit` before implementation starts.',
             '- When a wave is selected, the controller stays inside that wave until its completion condition is met.',
@@ -379,6 +388,7 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '- Each implemented approved execution unit or standalone execution target has a clean implementation review loop.',
             '- If the completed checklist-linked execution unit closes the final planned `P#-W#` item, finish the `P#-EXIT` evidence before closeout.',
             '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
+            '- Use `planner` for bounded planning artifacts, `worker` for implementation write passes, and `reviewer` for adversarial review passes.',
             '',
         ].join('\n')
     );
@@ -412,6 +422,20 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '- A `priority-exit review` must ensure no `P(n+1)` plan or implementation work is being approved while `P#-EXIT` is still unresolved.',
             '- Review the approved `execution_unit` and keep slice-level accounting is still mandatory inside that unit.',
             '- Confirm wave review is acting as the default approval gate for coherent approved batches.',
+            '',
+        ].join('\n')
+    );
+
+    writeRepoFile(
+        repoRoot,
+        'docs/agentic/session-prompts/feature-plan.md',
+        [
+            '# Feature Plan (Fixture)',
+            '',
+            '- Run this launcher with the tracked write-capable `planner` role. Use that role for bounded planning discovery, tracked plan artifacts, and execution-ready handoffs rather than product-code implementation.',
+            '- Keep write activity confined to planning surfaces unless the parent explicitly narrows the task to a workflow/control-plane planning-doc edit.',
+            '- Keep the authoritative execution steps aligned in `update_plan`.',
+            '- Preserve the repo verification gate expectations.',
             '',
         ].join('\n')
     );
@@ -514,6 +538,7 @@ const CODEX_MODEL_SPARK = 'gpt-5.3-codex-spark';
 const CODEX_MODEL_DEFAULT = 'gpt-5.3-codex';
 const CODEX_MODEL_FALLBACK = 'gpt-5.1-codex-max';
 const CODEX_MODEL_MONITOR_FALLBACK = 'gpt-5.1';
+const CODEX_MODEL_PLANNER = 'gpt-5.4';
 
 function writeValidCodexRoleConfigFixture(
     repoRoot: string,
@@ -543,6 +568,10 @@ function writeValidCodexRoleConfigFixture(
             '[agents.docs_researcher]',
             'description = "Docs researcher"',
             'config_file = "agents/docs-researcher.toml"',
+            '',
+            '[agents.planner]',
+            'description = "Planner"',
+            'config_file = "agents/planner.toml"',
             '',
             '[agents.worker]',
             'description = "Worker"',
@@ -578,6 +607,20 @@ function writeValidCodexRoleConfigFixture(
         repoRoot,
         '.codex/agents/docs-researcher.toml',
         `model = "${CODEX_MODEL_DEFAULT}"\nsandbox_mode = "read-only"\n`
+    );
+    writeRepoFile(
+        repoRoot,
+        '.codex/agents/planner.toml',
+        [
+            `model = "${CODEX_MODEL_PLANNER}"`,
+            'model_reasoning_effort = "high"',
+            'developer_instructions = """',
+            'Own bounded planning work, not product-code implementation.',
+            'Use write access only for planning artifacts, scoped workflow docs, and execution-ready handoffs that the parent explicitly requested.',
+            'Do the discovery needed to freeze the plan, surface unresolved seams early, and leave implementation to the worker role unless the parent narrows the scope to a planning-surface edit.',
+            '"""',
+            '',
+        ].join('\n')
     );
     writeRepoFile(repoRoot, '.codex/agents/worker.toml', `model = "${CODEX_MODEL_DEFAULT}"\n`);
     writeRepoFile(
@@ -755,6 +798,8 @@ describe('verify-docs', () => {
                 '2. [`docs/agentic/document-map.md`](../document-map.md)',
                 '3. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)',
                 '',
+                '- Run this launcher with the tracked write-capable `planner` role. The role is for bounded planning discovery, tracked plan artifacts, and execution-ready handoffs, not product-code implementation.',
+                '- Keep write activity confined to planning surfaces unless the parent explicitly narrows the task to a workflow/control-plane planning-doc edit.',
                 '- Include `Priority-exit readiness` when the plan claims priority closeout.',
                 '- Assign a single final owner to every deferred or split follow-up item.',
                 '- Record exact `P0` security issue ids and the `P#-EXIT` checklist update.',
@@ -783,6 +828,8 @@ describe('verify-docs', () => {
                 'Read [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) first.',
                 'If an older inbound link mentions [`docs/agentic/document-map.md`](../document-map.md), treat it as a compatibility stub only.',
                 '',
+                '- Run this launcher with the tracked write-capable `planner` role. The role is for bounded planning discovery, tracked plan artifacts, and execution-ready handoffs, not product-code implementation.',
+                '- Keep write activity confined to planning surfaces unless the parent explicitly narrows the task to a workflow/control-plane planning-doc edit.',
                 '- Include `Priority-exit readiness` when the plan claims priority closeout.',
                 '- Assign a single final owner to every deferred or split follow-up item.',
                 '- Record exact `P0` security issue ids and the `P#-EXIT` checklist update.',
@@ -811,6 +858,8 @@ describe('verify-docs', () => {
                 'Read [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) first.',
                 'Do not load [`docs/agentic/document-map.md`](../document-map.md) in launcher read order; keep legacy links pointed there but use the workflow doc instead.',
                 '',
+                '- Run this launcher with the tracked write-capable `planner` role. The role is for bounded planning discovery, tracked plan artifacts, and execution-ready handoffs, not product-code implementation.',
+                '- Keep write activity confined to planning surfaces unless the parent explicitly narrows the task to a workflow/control-plane planning-doc edit.',
                 '- Include `Priority-exit readiness` when the plan claims priority closeout.',
                 '- Assign a single final owner to every deferred or split follow-up item.',
                 '- Record exact `P0` security issue ids and the `P#-EXIT` checklist update.',
@@ -972,6 +1021,32 @@ describe('verify-docs', () => {
         expect(result.stdout).toContain('Documentation verification passed.');
     });
 
+    it('fails when the session prompt README drops the explicit planner/worker/reviewer role mapping', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        const readmePath = path.join(repoRoot, 'docs/agentic/session-prompts/README.md');
+        const readme = readFileSync(readmePath, 'utf8').replace(
+            [
+                'Tracked role intent:',
+                '',
+                '- run `cleanup-plan.md` and `feature-plan.md` with the tracked `planner` role',
+                '- run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role',
+                '- keep `cleanup-review.md`, `feature-review.md`, and `workflow-harness-review.md` read-only under the tracked `reviewer` role',
+                '',
+            ].join('\n'),
+            ''
+        );
+        writeFileSync(readmePath, readme, 'utf8');
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Session prompt README must keep the tracked role intent explicit: planner for planning launchers, worker for implementers, reviewer read-only for review launchers.'
+        );
+    });
+
     it('fails when only workflow-harness-review documents tracked codex roles and .codex/config.toml is missing', () => {
         const repoRoot = createRepoFixture({
             'docs/agentic/session-prompts/workflow-harness-review.md': [
@@ -1069,7 +1144,47 @@ describe('verify-docs', () => {
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('Missing required Codex agent role declarations in .codex/config.toml');
         expect(result.stderr).toContain('explorer_fallback');
+        expect(result.stderr).toContain('planner');
         expect(result.stderr).toContain('monitor_fallback');
+    });
+
+    it('fails when the planner role does not preserve the tracked gpt-5.4 high contract', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        writeRepoFile(repoRoot, '.codex/agents/planner.toml', 'model = "gpt-5.4"\nmodel_reasoning_effort = "medium"\n');
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Codex role config is missing required planner contract line (model_reasoning_effort = "high"): .codex/agents/planner.toml'
+        );
+    });
+
+    it('fails when the planner role loses its planning-only boundary instructions', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        writeRepoFile(
+            repoRoot,
+            '.codex/agents/planner.toml',
+            'model = "gpt-5.4"\nmodel_reasoning_effort = "high"\ndeveloper_instructions = """\nPlan when useful.\n"""\n'
+        );
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Codex role config is missing required planner boundary marker (not product-code implementation): .codex/agents/planner.toml'
+        );
+        expect(result.stderr).toContain(
+            'Codex role config is missing required planner boundary marker (leave implementation to the worker role): .codex/agents/planner.toml'
+        );
     });
 
     it('fails when a declared codex role config file exists locally but is not tracked', () => {
@@ -1808,6 +1923,26 @@ describe('verify-docs', () => {
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('tracked follow-up');
         expect(result.stderr).toContain('harness-update-loop');
+    });
+
+    it('fails when feature-plan omits the planning-surface write boundary for the planner role', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-plan.md': [
+                '# Feature Plan',
+                '',
+                '- Run this launcher with the tracked write-capable `planner` role. Use that role for bounded planning discovery, tracked plan artifacts, and execution-ready handoffs rather than product-code implementation.',
+                '- Keep the authoritative execution steps aligned in `update_plan`.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'feature-plan prompt doc must keep planner write scope confined to planning surfaces unless the parent explicitly narrows the task to a planning-doc edit'
+        );
     });
 
     it('fails when feature implement prompt omits the re-plan stop condition for remediation findings', () => {

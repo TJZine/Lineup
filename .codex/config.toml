@@ -18,6 +18,10 @@ config_file = "agents/reviewer.toml"
 description = "Read-only documentation specialist for verifying framework and API behavior from official sources."
 config_file = "agents/docs-researcher.toml"
 
+[agents.planner]
+description = "Planning-focused writer for bounded discovery, tracked plan artifacts, and execution-ready handoffs."
+config_file = "agents/planner.toml"
+
 [agents.worker]
 description = "Implementation-focused role for narrow, disjoint write scopes once the task is understood."
 config_file = "agents/worker.toml"

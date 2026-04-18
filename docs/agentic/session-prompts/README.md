@@ -29,6 +29,12 @@ Authority, read order, and document precedence now live in [`docs/AGENTIC_DEV_WO
 
 The generated managed-list label for `cleanup-loop.md` is shorthand only. The authoritative scope is cleanup/refactor-only Tier 3 orchestration: keep planning/package closeout package-scoped for `checklist-linked` work, run implementation/review by approved `execution_unit` there, keep iterating planner/reviewer and implementer/reviewer until clean approval at each gate, keep `standalone remediation` to one bounded execution target unless the approved plan says otherwise, and do not route feature/design or mixed-task umbrella control through it.
 
+Tracked role intent:
+
+- run `cleanup-plan.md` and `feature-plan.md` with the tracked `planner` role
+- run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role
+- keep `cleanup-review.md`, `feature-review.md`, and `workflow-harness-review.md` read-only under the tracked `reviewer` role
+
 ## Routing (Authoritative)
 
 Route task family first. Choose risk tier second.
@@ -87,10 +93,11 @@ Each launcher should:
 1. confirm the current repo is Lineup
 2. load [`agents.md`](../../../agents.md) and [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
 3. load the matching file in this directory
-4. if the user message includes a `NEXT_SESSION_HANDOFF` block, treat its `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE` fields as required task-specific context after the launcher read order
-5. if no `NEXT_SESSION_HANDOFF` block is supplied, accept one short follow-up message that names the exact checklist item, plan path, or artifact under review and treat that message as the active scope selector for the session
-6. follow the workflow in that file without duplicating repo policy text inline
-7. load repo-local `model-selection` only when the user explicitly asks for model guidance or the outgoing handoff meets the auto-trigger conditions in [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md#session-handoffs)
+4. use the tracked role that matches the launcher intent (`planner` for planning, `worker` for implementation, `reviewer` for review)
+5. if the user message includes a `NEXT_SESSION_HANDOFF` block, treat its `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE` fields as required task-specific context after the launcher read order
+6. if no `NEXT_SESSION_HANDOFF` block is supplied, accept one short follow-up message that names the exact checklist item, plan path, or artifact under review and treat that message as the active scope selector for the session
+7. follow the workflow in that file without duplicating repo policy text inline
+8. load repo-local `model-selection` only when the user explicitly asks for model guidance or the outgoing handoff meets the auto-trigger conditions in [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md#session-handoffs)
 
 Recommended explicit invocation styles:
 

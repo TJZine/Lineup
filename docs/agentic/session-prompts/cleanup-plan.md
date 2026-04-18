@@ -2,6 +2,8 @@
 
 Use this prompt for Tier 2 or Tier 3 work when you need a serious implementation plan for a cleanup checklist item, standalone bugfix/remediation task, or closely related refactor.
 
+Run this launcher with the tracked write-capable `planner` role. The role is for bounded planning discovery, tracked plan artifacts, and execution-ready handoffs, not product-code implementation.
+
 ## Read Order
 
 1. [`agents.md`](../../../agents.md)
@@ -39,6 +41,7 @@ If the short follow-up form is used, treat the named checklist item or cleanup t
 - produce or refresh a tracked plan in [`docs/plans/`](../../plans/README.md) when the task needs durable memory
 - keep the authoritative execution steps aligned in `update_plan`
 - write the plan so a fresh-session implementer can execute it without making hidden design decisions
+- keep write activity confined to planning surfaces unless the parent explicitly narrows the task to a workflow/control-plane planning-doc edit
 
 ## Required Planning Constraints
 

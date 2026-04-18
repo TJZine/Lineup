@@ -93,6 +93,7 @@ const requiredCodexAgentRoles = [
     'explorer_fallback',
     'reviewer',
     'docs_researcher',
+    'planner',
     'worker',
     'monitor',
     'monitor_fallback',
@@ -110,6 +111,21 @@ const codexRoleWorkflowMarkerFiles = [
     'docs/agentic/skill-strategy.md',
     'docs/agentic/session-prompts/workflow-harness-review.md',
 ];
+const requiredCodexRoleContracts = new Map([
+    [
+        'planner',
+        {
+            requiredLines: ['model = "gpt-5.4"', 'model_reasoning_effort = "high"'],
+            requiredMarkers: [
+                'own bounded planning work',
+                'not product-code implementation',
+                'planning artifacts',
+                'execution-ready handoffs',
+                'leave implementation to the worker role',
+            ],
+        },
+    ],
+]);
 
 function recordFsError(errors, operation, targetPath, error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -464,6 +480,30 @@ function checkSessionPromptReadme(errors) {
     if (managedSection !== expected) {
         errors.push('Session prompt README managed prompt-set section is out of sync; run `npm run docs:sync`.');
     }
+
+    const normalizedLines = normalizeDocLines(readme);
+    const hasPlannerRoleIntent = normalizedLines.some(
+        (line) => includesAllMarkers(line, ['cleanup-plan.md', 'feature-plan.md', 'planner role'])
+    );
+    const hasWorkerRoleIntent = normalizedLines.some(
+        (line) => includesAllMarkers(line, ['cleanup-implement.md', 'feature-implement.md', 'worker role'])
+    );
+    const hasReviewerRoleIntent = normalizedLines.some(
+        (line) =>
+            includesAllMarkers(line, [
+                'cleanup-review.md',
+                'feature-review.md',
+                'workflow-harness-review.md',
+                'read-only',
+                'reviewer role',
+            ])
+    );
+
+    if (!hasPlannerRoleIntent || !hasWorkerRoleIntent || !hasReviewerRoleIntent) {
+        errors.push(
+            'Session prompt README must keep the tracked role intent explicit: planner for planning launchers, worker for implementers, reviewer read-only for review launchers.'
+        );
+    }
 }
 
 function checkEvalPromptReadme(errors) {
@@ -787,6 +827,34 @@ function hasPositiveDocumentMapAuthorityReference(content) {
 }
 
 function checkFeatureRemediationPromptContracts(errors) {
+    const featurePlan = readRepoFile('docs/agentic/session-prompts/feature-plan.md', errors);
+    if (featurePlan !== null) {
+        const normalized = normalizeDocText(featurePlan);
+        const normalizedLines = normalizeDocLines(featurePlan);
+        const hasPlannerRoleBoundary = normalizedLines.some(
+            (line) =>
+                includesAllMarkers(line, [
+                    'tracked write-capable',
+                    'planner role',
+                    'bounded planning discovery',
+                    'tracked plan artifacts',
+                    'execution-ready handoffs',
+                ]) && includesAnyMarker(line, ['not product-code implementation', 'rather than product-code implementation'])
+        );
+
+        if (!hasPlannerRoleBoundary) {
+            errors.push(
+                'feature-plan prompt doc must explicitly bind the planner role to bounded planning discovery, plan artifacts, and execution-ready handoffs rather than product-code implementation'
+            );
+        }
+
+        if (!normalized.includes('keep write activity confined to planning surfaces')) {
+            errors.push(
+                'feature-plan prompt doc must keep planner write scope confined to planning surfaces unless the parent explicitly narrows the task to a planning-doc edit'
+            );
+        }
+    }
+
     const implement = readRepoFile('docs/agentic/session-prompts/feature-implement.md', errors);
     if (implement !== null) {
         const normalized = normalizeDocText(implement);
@@ -1167,6 +1235,9 @@ function checkCleanupExecutionUnitContracts(errors) {
             'replan triggers',
             'package decomposition decisions with ready now execution unit',
             'large-package execution should review coherent retirement batches',
+            'tracked write-capable planner role',
+            'not product-code implementation',
+            'write activity confined to planning surfaces',
         ];
 
         for (const marker of requiredCleanupPlanMarkers) {
@@ -1187,6 +1258,8 @@ function checkCleanupExecutionUnitContracts(errors) {
             'each implemented approved execution unit or standalone execution target has a clean implementation review loop',
             'completed checklist-linked execution unit closes the final planned',
             'large-package execution should review coherent retirement batches',
+            'tracked write-capable planner role',
+            'use planner for bounded planning artifacts, worker for implementation write passes, and reviewer for adversarial review passes',
         ];
 
         for (const marker of requiredCleanupLoopMarkers) {
@@ -1536,6 +1609,39 @@ export function checkTrackedCodexRoleConfig(errors) {
 
         if (!/^sandbox_mode\s*=\s*"read-only"$/mu.test(roleConfigContent)) {
             errors.push(`Read-only Codex role config must set sandbox_mode = "read-only": ${relativePath}`);
+        }
+    }
+
+    for (const [role, contract] of requiredCodexRoleContracts.entries()) {
+        const configFile = roleConfigFiles.get(role);
+        if (configFile === undefined || !configFile.startsWith('agents/') || !configFile.endsWith('.toml')) {
+            continue;
+        }
+
+        const relativePath = `.codex/${configFile}`;
+        if (!existsSync(path.join(repoRoot, relativePath))) {
+            continue;
+        }
+
+        const roleConfigContent = readRepoFile(relativePath, errors);
+        if (roleConfigContent === null) {
+            continue;
+        }
+
+        const normalizedRoleConfig = normalizeDocText(roleConfigContent);
+
+        for (const requiredLine of contract.requiredLines) {
+            if (!roleConfigContent.includes(requiredLine)) {
+                errors.push(`Codex role config is missing required ${role} contract line (${requiredLine}): ${relativePath}`);
+            }
+        }
+
+        for (const requiredMarker of contract.requiredMarkers ?? []) {
+            if (!normalizedRoleConfig.includes(requiredMarker)) {
+                errors.push(
+                    `Codex role config is missing required ${role} boundary marker (${requiredMarker}): ${relativePath}`
+                );
+            }
         }
     }
 }

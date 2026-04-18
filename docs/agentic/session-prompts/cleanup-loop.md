@@ -51,7 +51,7 @@ Run the loop as an explicit state machine:
   - initialize or refresh `update_plan`
 - `plan`
   - keep initial routing and seam decisions local, but for `checklist-linked` Tier 3 cleanup delegate the primary execution-grade plan-writing pass by default after `scope-load`
-  - for that primary `checklist-linked` planning pass, use the tracked write-capable `worker` role for the bounded plan artifact rather than inventing a new planner role, and override that run to `gpt-5.4` with `high` reasoning effort instead of the generic worker default
+  - for that primary `checklist-linked` planning pass, use the tracked write-capable `planner` role for the bounded plan artifact and rely on the tracked planner defaults instead of prompt-level model overrides
   - the main thread must not author the execution-grade `checklist-linked` package plan itself unless delegated planning is concretely blocked, a controller-level seam decision must be resolved before delegation, the user explicitly asks the main thread to plan locally, or preserving controller context is materially more reliable than another handoff for a narrow plan correction or active-plan refresh
   - for `standalone remediation`, the controller may keep the planning pass local when the bounded execution target is already clear, but should still delegate when the same Tier 3 scale/risk factors that justified `cleanup-loop` materially benefit from a separate planning writer
   - have the planning pass write or refresh the implementation plan using the tracked cleanup planning standards
@@ -122,8 +122,7 @@ Run the loop as an explicit state machine:
 - ensure cleanup planning and review use both [`Universal Plan Core`](../plan-authoring-standard.md#universal-plan-core) and [`Cleanup Overlay`](../plan-authoring-standard.md#cleanup-overlay)
 - keep orchestration package-scoped for planning and closeout only when the task is `checklist-linked`; otherwise keep `standalone remediation` bounded to its approved execution target
 - for checklist-linked package work, treat `slice_table` as the atomic ownership map and `execution_unit` as the execution/review surface
-- keep delegation inside the tracked role catalog from `.codex/config.toml`; use `worker` for bounded write passes and `reviewer` for adversarial review passes
-- when the delegated pass is the primary plan-writing pass for `cleanup-loop`, explicitly raise that `worker` run to `gpt-5.4` with `high` reasoning effort
+- keep delegation inside the tracked role catalog from `.codex/config.toml`; use `planner` for bounded planning artifacts, `worker` for implementation write passes, and `reviewer` for adversarial review passes
 - for `checklist-linked` Tier 3 cleanup, treat delegated primary plan authoring as the default, and treat main-thread plan authoring as a last-resort exception that must be justified by an explicit block, a controller-only seam decision, a user request for local planning, or a narrow controller-context-preservation need
 - ensure delegated write passes use the right repo-local boundary skills
 - keep write-capable delegated passes alive across revision rounds unless there is a specific reason to restart them
