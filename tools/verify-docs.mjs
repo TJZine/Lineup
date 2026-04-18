@@ -95,6 +95,7 @@ const requiredCodexAgentRoles = [
     'docs_researcher',
     'planner',
     'worker',
+    'cleanup_worker',
     'monitor',
     'monitor_fallback',
 ];
@@ -125,6 +126,22 @@ const requiredCodexRoleContracts = new Map([
             ],
         },
     ],
+    [
+        'cleanup_worker',
+        {
+            requiredLines: ['model = "gpt-5.4"', 'model_reasoning_effort = "high"'],
+            requiredMarkers: [
+                'bounded cleanup-loop implementation write scope',
+                'smallest defensible cleanup change',
+                'approved execution unit',
+                'tier 3 cleanup-loop implementation passes',
+                'leave general implementation routing to the worker role',
+            ],
+        },
+    ],
+]);
+const requiredCodexRoleDescriptionMarkers = new Map([
+    ['cleanup_worker', ['cleanup-loop-specific implementer', 'approved tier 3 cleanup-loop implementation passes']],
 ]);
 
 function recordFsError(errors, operation, targetPath, error) {
@@ -488,6 +505,9 @@ function checkSessionPromptReadme(errors) {
     const hasWorkerRoleIntent = normalizedLines.some(
         (line) => includesAllMarkers(line, ['cleanup-implement.md', 'feature-implement.md', 'worker role'])
     );
+    const hasCleanupWorkerRoleIntent = normalizedLines.some(
+        (line) => includesAllMarkers(line, ['cleanup-loop.md', 'cleanup worker', 'implementation passes'])
+    );
     const hasReviewerRoleIntent = normalizedLines.some(
         (line) =>
             includesAllMarkers(line, [
@@ -499,9 +519,9 @@ function checkSessionPromptReadme(errors) {
             ])
     );
 
-    if (!hasPlannerRoleIntent || !hasWorkerRoleIntent || !hasReviewerRoleIntent) {
+    if (!hasPlannerRoleIntent || !hasWorkerRoleIntent || !hasCleanupWorkerRoleIntent || !hasReviewerRoleIntent) {
         errors.push(
-            'Session prompt README must keep the tracked role intent explicit: planner for planning launchers, worker for implementers, reviewer read-only for review launchers.'
+            'Session prompt README must keep the tracked role intent explicit: planner for planning launchers, worker for general implementers, cleanup_worker only for Tier 3 cleanup-loop implementation passes, reviewer read-only for review launchers.'
         );
     }
 }
@@ -1262,7 +1282,8 @@ function checkCleanupExecutionUnitContracts(errors) {
             'completed checklist-linked execution unit closes the final planned',
             'large-package execution should review coherent retirement batches',
             'tracked write-capable planner role',
-            'use planner for bounded planning artifacts, worker for implementation write passes, and reviewer for adversarial review passes',
+            'use planner for bounded planning artifacts, cleanup worker for tier 3 cleanup-loop implementation write passes, worker for general implementation outside that loop, and reviewer for adversarial review passes',
+            'for tier 3 cleanup-loop implementation passes, use the tracked cleanup worker role instead of worker',
             'planner is the authoritative plan author until it finishes, explicitly blocks, fails, or is abandoned',
             'long wait, a direct status check, and a follow-up wait',
             'must not do planner-grade repo discovery, redundant package-local scoping, issue reconciliation, or tracked plan drafting locally',
@@ -1319,6 +1340,8 @@ function checkCleanupExecutionUnitContracts(errors) {
             'execution waves',
             'coverage ledger',
             'large-package execution should review coherent retirement batches',
+            'route tier 3 cleanup-loop.md implementation passes through the tracked cleanup worker role only',
+            'cleanup-loop is the exception: tier 3 cleanup implementation inside that loop routes to cleanup worker while tier 2 cleanup and feature implementation stay on worker',
         ];
 
         for (const marker of requiredReadmeMarkers) {
@@ -1473,6 +1496,7 @@ function isCodexRoleWorkflowTracked(errors) {
 function parseCodexRoleConfig(configContent) {
     const declaredRoles = new Set();
     const roleConfigFiles = new Map();
+    const roleSections = new Map();
     let currentRole = null;
     let currentSection = null;
     let maxDepth = null;
@@ -1489,6 +1513,7 @@ function parseCodexRoleConfig(configContent) {
         if (roleMatch !== null) {
             currentRole = roleMatch[1];
             declaredRoles.add(currentRole);
+            roleSections.set(currentRole, []);
             continue;
         }
 
@@ -1508,13 +1533,15 @@ function parseCodexRoleConfig(configContent) {
             continue;
         }
 
+        roleSections.get(currentRole)?.push(line);
+
         const configFileMatch = line.match(/^config_file\s*=\s*"([^"]+)"$/u);
         if (configFileMatch !== null) {
             roleConfigFiles.set(currentRole, configFileMatch[1]);
         }
     }
 
-    return { declaredRoles, roleConfigFiles, maxDepth };
+    return { declaredRoles, roleConfigFiles, roleSections, maxDepth };
 }
 
 export function checkTrackedCodexRoleConfig(errors) {
@@ -1543,7 +1570,7 @@ export function checkTrackedCodexRoleConfig(errors) {
         errors.push(`Tracked Codex role config is not tracked by git: ${configRelativePath}`);
     }
 
-    const { declaredRoles, roleConfigFiles, maxDepth } = parseCodexRoleConfig(configContent);
+    const { declaredRoles, roleConfigFiles, roleSections, maxDepth } = parseCodexRoleConfig(configContent);
     const missingRoles = requiredCodexAgentRoles.filter((role) => !declaredRoles.has(role));
     if (missingRoles.length > 0) {
         errors.push(
@@ -1562,6 +1589,17 @@ export function checkTrackedCodexRoleConfig(errors) {
 
     if (maxDepth !== 1) {
         errors.push('Tracked Codex role config must set agents.max_depth = 1 to preserve conservative nesting');
+    }
+
+    for (const [role, markers] of requiredCodexRoleDescriptionMarkers.entries()) {
+        const normalizedRoleSection = normalizeDocText((roleSections.get(role) ?? []).join('\n'));
+        for (const marker of markers) {
+            if (!normalizedRoleSection.includes(marker)) {
+                errors.push(
+                    `Codex role declaration is missing required ${role} scope marker (${marker}) in .codex/config.toml`
+                );
+            }
+        }
     }
 
     const missingRoleConfigPaths = new Set();

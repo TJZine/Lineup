@@ -215,13 +215,14 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '',
             '- run `cleanup-plan.md` and `feature-plan.md` with the tracked `planner` role',
             '- run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role',
+            '- route Tier 3 cleanup-loop.md implementation passes through the tracked cleanup_worker role only',
             '- keep `cleanup-review.md`, `feature-review.md`, and `workflow-harness-review.md` read-only under the tracked `reviewer` role',
             '',
             '## Routing (Authoritative)',
             '',
             '| Task Type | Use This Path | Prompt Family | Notes |',
             '|---|---|---|---|',
-            '| cleanup/refactor | checklist cleanup | `cleanup-*` | Tier 3 uses cleanup-loop. |',
+            '| cleanup/refactor | checklist cleanup | `cleanup-*` | Tier 3 uses cleanup-loop with planner + cleanup_worker + reviewer. |',
             '| feature/design | net-new capability | `feature-plan` + `feature-implement` + `feature-review` | Tier 2 feature flow uses tracked launchers. |',
             '| mixed | split slices explicitly | route by primary intent | Keep cleanup scoped to cleanup work. |',
             '',
@@ -237,6 +238,8 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '1. confirm the current repo is Lineup',
             '2. load [`agents.md`](../../../agents.md) and [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)',
             '3. load the matching file in this directory',
+            '4. use the tracked role that matches the launcher intent (`planner` for planning, `worker` for implementation, `reviewer` for review)',
+            '   cleanup-loop is the exception: Tier 3 cleanup implementation inside that loop routes to cleanup_worker while Tier 2 cleanup and feature implementation stay on worker',
             '',
         ].join('\n')
     );
@@ -388,12 +391,13 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '- The main thread must not author the execution-grade `checklist-linked` package plan itself just because it now has enough local context.',
             '- Use `execution-unit-select` for checklist-linked package work.',
             '- Read `ready_now_execution_unit` before implementation starts.',
+            '- For Tier 3 `cleanup-loop` implementation passes, use the tracked `cleanup_worker` role instead of `worker`.',
             '- When a wave is selected, the controller stays inside that wave until its completion condition is met.',
             '- Wave review is the default approval gate for that coherent approved batch.',
             '- Each implemented approved execution unit or standalone execution target has a clean implementation review loop.',
             '- If the completed checklist-linked execution unit closes the final planned `P#-W#` item, finish the `P#-EXIT` evidence before closeout.',
             '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
-            '- Use `planner` for bounded planning artifacts, `worker` for implementation write passes, and `reviewer` for adversarial review passes.',
+            '- Use `planner` for bounded planning artifacts, `cleanup_worker` for Tier 3 `cleanup-loop` implementation write passes, `worker` for general implementation outside that loop, and `reviewer` for adversarial review passes.',
             '- Do not treat planner latency, controller curiosity, or newly gathered local context as a valid reason to reclaim planning.',
             '',
         ].join('\n')
@@ -583,6 +587,10 @@ function writeValidCodexRoleConfigFixture(
             'description = "Worker"',
             'config_file = "agents/worker.toml"',
             '',
+            '[agents.cleanup_worker]',
+            'description = "Cleanup-loop-specific implementer for approved Tier 3 cleanup-loop implementation passes."',
+            'config_file = "agents/cleanup-worker.toml"',
+            '',
             '[agents.monitor]',
             'description = "Monitor"',
             'config_file = "agents/monitor.toml"',
@@ -629,6 +637,20 @@ function writeValidCodexRoleConfigFixture(
         ].join('\n')
     );
     writeRepoFile(repoRoot, '.codex/agents/worker.toml', `model = "${CODEX_MODEL_DEFAULT}"\n`);
+    writeRepoFile(
+        repoRoot,
+        '.codex/agents/cleanup-worker.toml',
+        [
+            `model = "${CODEX_MODEL_PLANNER}"`,
+            'model_reasoning_effort = "high"',
+            'developer_instructions = """',
+            'Own one bounded cleanup-loop implementation write scope at a time.',
+            'Make the smallest defensible cleanup change inside the approved execution unit, avoid unrelated edits, and validate the changed behavior before returning.',
+            'Use this role only for Tier 3 cleanup-loop implementation passes; leave general implementation routing to the worker role.',
+            '"""',
+            '',
+        ].join('\n')
+    );
     writeRepoFile(
         repoRoot,
         '.codex/agents/monitor.toml',
@@ -1022,7 +1044,6 @@ describe('verify-docs', () => {
         runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
 
         const result = runVerifier(repoRoot);
-
         expect(result.status).toBe(0);
         expect(result.stdout).toContain('Documentation verification passed.');
     });
@@ -1038,6 +1059,7 @@ describe('verify-docs', () => {
                 '',
                 '- run `cleanup-plan.md` and `feature-plan.md` with the tracked `planner` role',
                 '- run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role',
+                '- route Tier 3 cleanup-loop.md implementation passes through the tracked cleanup_worker role only',
                 '- keep `cleanup-review.md`, `feature-review.md`, and `workflow-harness-review.md` read-only under the tracked `reviewer` role',
                 '',
             ].join('\n'),
@@ -1049,7 +1071,7 @@ describe('verify-docs', () => {
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain(
-            'Session prompt README must keep the tracked role intent explicit: planner for planning launchers, worker for implementers, reviewer read-only for review launchers.'
+            'Session prompt README must keep the tracked role intent explicit: planner for planning launchers, worker for general implementers, cleanup_worker only for Tier 3 cleanup-loop implementation passes, reviewer read-only for review launchers.'
         );
     });
 
@@ -1151,6 +1173,7 @@ describe('verify-docs', () => {
         expect(result.stderr).toContain('Missing required Codex agent role declarations in .codex/config.toml');
         expect(result.stderr).toContain('explorer_fallback');
         expect(result.stderr).toContain('planner');
+        expect(result.stderr).toContain('cleanup_worker');
         expect(result.stderr).toContain('monitor_fallback');
     });
 
@@ -1190,6 +1213,113 @@ describe('verify-docs', () => {
         );
         expect(result.stderr).toContain(
             'Codex role config is missing required planner boundary marker (leave implementation to the worker role): .codex/agents/planner.toml'
+        );
+    });
+
+    it('fails when the cleanup_worker role does not preserve the tracked gpt-5.4 high contract', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        writeRepoFile(
+            repoRoot,
+            '.codex/agents/cleanup-worker.toml',
+            'model = "gpt-5.4"\nmodel_reasoning_effort = "medium"\n'
+        );
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Codex role config is missing required cleanup_worker contract line (model_reasoning_effort = "high"): .codex/agents/cleanup-worker.toml'
+        );
+    });
+
+    it('fails when the cleanup_worker role loses its cleanup-loop-only boundary instructions', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        writeRepoFile(
+            repoRoot,
+            '.codex/agents/cleanup-worker.toml',
+            'model = "gpt-5.4"\nmodel_reasoning_effort = "high"\ndeveloper_instructions = """\nOwn one bounded write scope at a time.\n"""\n'
+        );
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Codex role config is missing required cleanup_worker boundary marker (tier 3 cleanup-loop implementation passes): .codex/agents/cleanup-worker.toml'
+        );
+        expect(result.stderr).toContain(
+            'Codex role config is missing required cleanup_worker boundary marker (leave general implementation routing to the worker role): .codex/agents/cleanup-worker.toml'
+        );
+    });
+
+    it('fails when the cleanup_worker declaration in .codex/config.toml widens beyond cleanup-loop implementation passes', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        writeRepoFile(
+            repoRoot,
+            '.codex/config.toml',
+            [
+                '[agents]',
+                'max_threads = 4',
+                'max_depth = 1',
+                '',
+                '[agents.explorer]',
+                'description = "Explorer"',
+                'config_file = "agents/explorer.toml"',
+                '',
+                '[agents.explorer_fallback]',
+                'description = "Explorer fallback"',
+                'config_file = "agents/explorer-fallback.toml"',
+                '',
+                '[agents.reviewer]',
+                'description = "Reviewer"',
+                'config_file = "agents/reviewer.toml"',
+                '',
+                '[agents.docs_researcher]',
+                'description = "Docs researcher"',
+                'config_file = "agents/docs-researcher.toml"',
+                '',
+                '[agents.planner]',
+                'description = "Planner"',
+                'config_file = "agents/planner.toml"',
+                '',
+                '[agents.worker]',
+                'description = "Worker"',
+                'config_file = "agents/worker.toml"',
+                '',
+                '[agents.cleanup_worker]',
+                'description = "General Tier 3 cleanup implementer"',
+                'config_file = "agents/cleanup-worker.toml"',
+                '',
+                '[agents.monitor]',
+                'description = "Monitor"',
+                'config_file = "agents/monitor.toml"',
+                '',
+                '[agents.monitor_fallback]',
+                'description = "Monitor fallback"',
+                'config_file = "agents/monitor-fallback.toml"',
+                '',
+            ].join('\n')
+        );
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Codex role declaration is missing required cleanup_worker scope marker (cleanup-loop-specific implementer) in .codex/config.toml'
+        );
+        expect(result.stderr).toContain(
+            'Codex role declaration is missing required cleanup_worker scope marker (approved tier 3 cleanup-loop implementation passes) in .codex/config.toml'
         );
     });
 
@@ -2394,6 +2524,37 @@ describe('verify-docs', () => {
         expect(result.stderr).toContain('planner is the authoritative plan author until it finishes, explicitly blocks, fails, or is abandoned');
         expect(result.stderr).toContain('must not do planner-grade repo discovery, redundant package-local scoping, issue reconciliation, or tracked plan drafting locally');
         expect(result.stderr).toContain('minimum needed to answer an explicit blocker question or resolve a controller-only seam decision');
+    });
+
+    it('fails when cleanup-loop omits cleanup_worker routing for Tier 3 implementation passes', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/cleanup-loop.md': [
+                '# Cleanup Loop',
+                '',
+                '- For the delegated planning pass, use the tracked write-capable `planner` role.',
+                '- Once delegated planning starts, that planner is the authoritative plan author until it finishes, explicitly blocks, fails, or is abandoned only after a long wait, a direct status check, and a follow-up wait that still produces no usable progress signal.',
+                '- While that planner pass is active, the controller must not do planner-grade repo discovery, redundant package-local scoping, issue reconciliation, or tracked plan drafting locally; limit controller-side inspection to the minimum needed to answer an explicit blocker question or resolve a controller-only seam decision.',
+                '- The main thread must not author the execution-grade `checklist-linked` package plan itself just because it now has enough local context.',
+                '- Use `execution-unit-select` for checklist-linked package work.',
+                '- Read `ready_now_execution_unit` before implementation starts.',
+                '- Spawn or resume a persistent tracked `worker` implementation subagent using the approved plan and selected execution scope.',
+                '- When a wave is selected, the controller stays inside that wave until its completion condition is met.',
+                '- Wave review is the default approval gate for that coherent approved batch.',
+                '- Each implemented approved execution unit or standalone execution target has a clean implementation review loop.',
+                '- If the completed checklist-linked execution unit closes the final planned `P#-W#` item, finish the `P#-EXIT` evidence before closeout.',
+                '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
+                '- Use `planner` for bounded planning artifacts, `worker` for implementation write passes, and `reviewer` for adversarial review passes.',
+                '- Do not treat planner latency, controller curiosity, or newly gathered local context as a valid reason to reclaim planning.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('cleanup-loop prompt doc is missing required execution-unit orchestration marker');
+        expect(result.stderr).toContain('for tier 3 cleanup-loop implementation passes, use the tracked cleanup worker role instead of worker');
     });
 
     it('fails when cleanup-loop allows controller-side reclaim because it has enough local context', () => {

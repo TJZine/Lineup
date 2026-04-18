@@ -57,7 +57,7 @@ When tracked docs conflict, use this order:
 - use Codanna-first discovery for code understanding
 - prevent hotspot files from absorbing more responsibility
 - catch debt early through verification, review, and evals
-- keep the tracked role catalog conservative: `planner` for bounded planning artifacts, `worker` for implementation, `reviewer` for read-only review
+- keep the tracked role catalog conservative: `planner` for bounded planning artifacts, `worker` for general implementation, one cleanup-loop-specific `cleanup_worker` exception for approved Tier 3 cleanup-loop implementation passes, and `reviewer` for read-only review
 
 ## Default Workflow
 
@@ -184,7 +184,7 @@ Use Codex multi-agent support only when it materially improves reliability, thro
   - `.codex/agents/*.toml`
   - `agents.md`
 - Keep read-only roles read-only; do not route edits through exploration/review/docs/monitor roles (enforced by the tracked config + verifier).
-- Keep the write-capable roles separated by purpose: `planner` owns bounded planning surfaces, `worker` owns implementation scopes.
+- Keep the write-capable roles separated by purpose: `planner` owns bounded planning surfaces, `worker` owns general implementation scopes, and `cleanup_worker` is reserved for approved Tier 3 `cleanup-loop` implementation passes.
 - Once a delegated `planner` pass is active, keep it authoritative for plan authoring until it finishes, explicitly blocks, fails, or is abandoned after wait/status-check/wait with no usable progress signal.
 - While that delegated planner is active, limit controller-side inspection to explicit blocker or seam resolution; do not do competing local plan drafting or redundant planning discovery.
 - Do not spawn nested worker trees by default; keep delegation shallow (enforced by the tracked config + verifier).
@@ -231,7 +231,7 @@ Feature plans consume the [`Universal Plan Core`](./agentic/plan-authoring-stand
 
 Use the reusable launchers only when the task risk justifies them. Tier 1 work should usually stay in one session with review.
 
-For larger multi-session or hotspot work, create a task-specific run bundle in [`docs/runs/`](./runs/README.md). Use `cleanup-loop` only for Tier 3 cleanup/refactor control; keep planning/package closeout package-scoped for `checklist-linked` work, run approved execution-unit implementation/review there, keep `standalone remediation` bounded to its approved execution target unless the plan stages it further, and allow parallel execution units only when the approved plan explicitly allows them. For Tier 3 feature or mixed work, keep the same feature `feature-plan` + `feature-review` + `feature-implement` + `feature-review` workflow, use the run bundle as the task-specific context, and keep cleanup prompts scoped to the cleanup slice.
+For larger multi-session or hotspot work, create a task-specific run bundle in [`docs/runs/`](./runs/README.md). Use `cleanup-loop` only for Tier 3 cleanup/refactor control; planning there still uses `planner`, implementation there routes through `cleanup_worker`, review there stays on `reviewer`, keep planning/package closeout package-scoped for `checklist-linked` work, run approved execution-unit implementation/review there, keep `standalone remediation` bounded to its approved execution target unless the plan stages it further, and allow parallel execution units only when the approved plan explicitly allows them. For Tier 3 feature or mixed work, keep the same feature `feature-plan` + `feature-review` + `feature-implement` + `feature-review` workflow, use the run bundle as the task-specific context, and keep cleanup prompts scoped to the cleanup slice.
 
 ## Session Handoffs
 

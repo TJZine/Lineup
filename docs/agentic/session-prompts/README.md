@@ -33,6 +33,7 @@ Tracked role intent:
 
 - run `cleanup-plan.md` and `feature-plan.md` with the tracked `planner` role
 - run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role
+- route Tier 3 cleanup-loop.md implementation passes through the tracked cleanup_worker role only
 - keep `cleanup-review.md`, `feature-review.md`, and `workflow-harness-review.md` read-only under the tracked `reviewer` role
 
 ## Routing (Authoritative)
@@ -41,7 +42,7 @@ Route task family first. Choose risk tier second.
 
 | Task Type | Use This Path | Prompt Family | Notes |
 |---|---|---|---|
-| cleanup/refactor | checklist cleanup units, standalone bugfix/remediation, bounded remediation, refactors with no net-new feature intent | `cleanup-*` | choose `checklist-linked` vs `standalone remediation` before tiering; `cleanup-loop` is only for Tier 3 cleanup controller/orchestrator work, with package-scoped planning/closeout plus approved execution-unit orchestration for `checklist-linked` work and one bounded execution target for `standalone remediation` unless the approved plan says otherwise. |
+| cleanup/refactor | checklist cleanup units, standalone bugfix/remediation, bounded remediation, refactors with no net-new feature intent | `cleanup-*` | choose `checklist-linked` vs `standalone remediation` before tiering; `cleanup-loop` is only for Tier 3 cleanup controller/orchestrator work, with `planner` for planning, `cleanup_worker` for approved implementation passes, `reviewer` for review, package-scoped planning/closeout for `checklist-linked` work, and one bounded execution target for `standalone remediation` unless the approved plan says otherwise. |
 | feature/design | net-new capability, behavior expansion, product/design direction work, UI creation/redesign | `feature-plan` + `feature-implement` + `feature-review` | Tier 2 feature flow uses the same tracked planner/reviewer/implementer prompt family as cleanup, with planner -> reviewer -> implementer -> reviewer sequencing. |
 | mixed | feature delivery that also includes a cleanup slice (for example hotspot extraction, ownership correction, or required doc refresh) | route by primary intent and split slices explicitly | Use `cleanup-*` only for the cleanup slice, never as umbrella control for full feature delivery. |
 
@@ -94,6 +95,7 @@ Each launcher should:
 2. load [`agents.md`](../../../agents.md) and [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
 3. load the matching file in this directory
 4. use the tracked role that matches the launcher intent (`planner` for planning, `worker` for implementation, `reviewer` for review)
+   cleanup-loop is the exception: Tier 3 cleanup implementation inside that loop routes to cleanup_worker while Tier 2 cleanup and feature implementation stay on worker
 5. if the user message includes a `NEXT_SESSION_HANDOFF` block, treat its `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE` fields as required task-specific context after the launcher read order
 6. if no `NEXT_SESSION_HANDOFF` block is supplied, accept one short follow-up message that names the exact checklist item, plan path, or artifact under review and treat that message as the active scope selector for the session
 7. follow the workflow in that file without duplicating repo policy text inline

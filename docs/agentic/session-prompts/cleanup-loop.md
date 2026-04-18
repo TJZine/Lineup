@@ -81,7 +81,8 @@ Run the loop as an explicit state machine:
   - for `standalone remediation`, confirm the single approved execution target from the tracked plan and proceed without inventing package slices
   - if the approved plan explicitly allows bounded parallel execution units, launch only the approved set; do not invent new splits in the controller
 - `implement`
-  - spawn or resume a persistent tracked `worker` implementation subagent using the approved plan and selected execution scope
+  - spawn or resume a persistent tracked `cleanup_worker` implementation subagent using the approved plan and selected execution scope
+  - for Tier 3 `cleanup-loop` implementation passes, use the tracked `cleanup_worker` role instead of `worker`; keep Tier 2 implementers and feature implementers on the general `worker` role
   - follow the tracked role defaults and any explicit `MODEL_SUGGESTION` guidance already present in the approved handoff rather than inventing ad hoc controller-side role/model routing
   - execute one approved execution unit by default for `checklist-linked` work; package-wide implementation is not the default loop unit there
   - absorb now only when newly discovered residue stays within the same approved execution unit goal, same owner, same seam/files, same verification envelope, and same final-owner accounting already approved by the plan
@@ -124,7 +125,7 @@ Run the loop as an explicit state machine:
 - ensure cleanup planning and review use both [`Universal Plan Core`](../plan-authoring-standard.md#universal-plan-core) and [`Cleanup Overlay`](../plan-authoring-standard.md#cleanup-overlay)
 - keep orchestration package-scoped for planning and closeout only when the task is `checklist-linked`; otherwise keep `standalone remediation` bounded to its approved execution target
 - for checklist-linked package work, treat `slice_table` as the atomic ownership map and `execution_unit` as the execution/review surface
-- keep delegation inside the tracked role catalog from `.codex/config.toml`; use `planner` for bounded planning artifacts, `worker` for implementation write passes, and `reviewer` for adversarial review passes
+- keep delegation inside the tracked role catalog from `.codex/config.toml`; use `planner` for bounded planning artifacts, `cleanup_worker` for Tier 3 `cleanup-loop` implementation write passes, `worker` for general implementation outside that loop, and `reviewer` for adversarial review passes
 - for `checklist-linked` Tier 3 cleanup, treat delegated primary plan authoring as the default, and treat main-thread plan authoring as a last-resort exception that must be justified by an explicit block, a controller-only seam decision, a user request for local planning, or a narrow controller-context-preservation need
 - while a delegated planner pass is active, treat that planner as the authoritative plan author and do not run competing controller-side planning discovery or draft a rival tracked/local plan
 - ensure delegated write passes use the right repo-local boundary skills
