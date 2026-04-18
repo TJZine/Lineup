@@ -557,6 +557,9 @@ export function buildMiniGuideCoordinator(input: OrchestratorCoordinatorFactoryD
             }
             return 8_000;
         },
+        notifyToast: (message, type): void => {
+            notifyPlaybackRecoveryToast(input, message, type);
+        },
     });
 }
 

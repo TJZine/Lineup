@@ -6,6 +6,7 @@
 
 import type { IChannelManager, ChannelConfig, ResolvedChannelContent } from '../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig } from '../../scheduler/scheduler';
+import type { ToastType } from '../toast/types';
 import {
     ShuffleGenerator,
     buildScheduleIndex,
@@ -15,7 +16,6 @@ import {
 import type { IMiniGuideOverlay } from './interfaces';
 import type { MiniGuideChannelViewModel, MiniGuideViewModel } from './types';
 import { getChannelNameForDisplay } from '../common/channelDisplay';
-import { summarizeErrorForLog } from '../../../utils/errors';
 import { shouldApplyMiniGuideRowUpdate } from './MiniGuideCoordinatorPolicies';
 
 const ROW_COUNT = 5;
@@ -35,6 +35,7 @@ interface MiniGuideCoordinatorDeps {
 
     switchToChannel: (channelId: string) => Promise<void>;
     getAutoHideMs: () => number;
+    notifyToast?: (message: string, type?: ToastType) => void;
 }
 
 export class MiniGuideCoordinator {
@@ -134,8 +135,8 @@ export class MiniGuideCoordinator {
             return;
         }
         this.hide();
-        this.deps.switchToChannel(selected.id).catch((error) => {
-            console.warn('[Mini Guide] Failed to switch channel:', summarizeErrorForLog(error));
+        this.deps.switchToChannel(selected.id).catch(() => {
+            this.deps.notifyToast?.('Failed to switch channel', 'warning');
         });
     }
 
