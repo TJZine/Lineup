@@ -212,6 +212,30 @@
   border-color: rgba(var(--focus-color-rgb, 96, 164, 255), 0.45);
 }
 
+@media (forced-colors: active) {
+  .epg-library-pill,
+  .epg-library-picker-panel,
+  .epg-library-picker-item {
+    background: Canvas;
+    color: CanvasText;
+    border-color: CanvasText;
+  }
+
+  .epg-library-pill.focused,
+  .epg-library-picker-item.focused {
+    background: Highlight;
+    color: HighlightText;
+    border-color: Highlight;
+    box-shadow: none;
+    outline: 2px solid Highlight;
+    outline-offset: 0;
+  }
+
+  .epg-library-picker-item.selected:not(.focused) {
+    text-decoration: underline;
+  }
+}
+
 .epg-time-header-slots {
   position: relative;
   height: 100%;

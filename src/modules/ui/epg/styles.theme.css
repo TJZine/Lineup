@@ -329,14 +329,9 @@
 }
 
 /* Minimal themes: keep legacy density and avoid new visual structure. */
-.theme-swiss .epg-cell-meta,
-.theme-swiss .epg-cell-subtitle {
-  display: none !important;
-}
-
-.theme-swiss .epg-info-backdrop,
-.theme-swiss .epg-info-tags {
-  display: none !important;
+.theme-swiss .epg-info-panel .epg-info-backdrop,
+.theme-swiss .epg-info-panel .epg-info-tags {
+  display: none;
 }
 
 .theme-swiss .epg-cell-title {

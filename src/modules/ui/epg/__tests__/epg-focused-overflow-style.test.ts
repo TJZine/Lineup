@@ -309,4 +309,32 @@ describe('focused EPG overflow style contract', () => {
         expect(block).toContain('animation: none');
         expect(block).toContain('transform: none');
     });
+
+    it('keeps library-picker forced-colors selectors scoped to the grid seam', () => {
+        const forcedColorsBlock = getAtRuleBlocks('@media (forced-colors: active)')
+            .find((block) => block.includes('.epg-library-pill.focused'));
+        expect(forcedColorsBlock).toBeDefined();
+        const block = forcedColorsBlock ?? '';
+        expect(block).toContain('.epg-library-pill');
+        expect(block).toContain('.epg-library-picker-panel');
+        expect(block).toContain('.epg-library-picker-item');
+        expect(block).toContain('.epg-library-pill.focused');
+        expect(block).toContain('.epg-library-picker-item.focused');
+        expect(block).toContain('background: Highlight');
+        expect(block).toContain('color: HighlightText');
+        expect(block).toContain('outline: 2px solid Highlight');
+        expect(block).toContain('.epg-library-picker-item.selected:not(.focused)');
+        expect(block).toContain('text-decoration: underline');
+    });
+
+    it('keeps swiss minimal overrides owned by the theme seam without important flags', () => {
+        const block = getBlock(
+            '.theme-swiss .epg-info-panel .epg-info-backdrop,\n' +
+            '.theme-swiss .epg-info-panel .epg-info-tags'
+        );
+        expect(block).toContain('display: none');
+        expect(block).not.toContain('!important');
+        expect(css).not.toContain('.theme-swiss .epg-cell-meta,\n.theme-swiss .epg-cell-subtitle');
+        expect(css).not.toContain('.theme-swiss .epg-info-backdrop,\n.theme-swiss .epg-info-tags');
+    });
 });

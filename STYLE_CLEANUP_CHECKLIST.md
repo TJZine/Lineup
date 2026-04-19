@@ -132,12 +132,18 @@ Check a box only in the same pass that updates the mini-record with current veri
   - Follow-ups: `S3-W1` is now the single downstream owner for remaining EPG design-language and accessibility follow-through; no further `S2` owner remains
   - Handoff: start `S3-W1` without reopening the EPG stylesheet ownership split
 
-- [ ] `S3-EXIT`
+- [x] `S3-EXIT`
   - required: EPG info-panel design/accessibility follow-through is closed or explicitly deferred with one final owner
   - verification:
     - targeted EPG source-audit commands from the active plan
     - `npm run verify`
   - exit rule: no live EPG design-language or forced-colors follow-through remains hidden behind `S2`
+  - Status: `completed`
+  - Plan: `local-only`
+  - Last touched: `2026-04-19`
+  - Verification: `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGLibraryTabs.test.ts src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts src/modules/ui/epg/__tests__/epg-focused-overflow-style.test.ts` -> pass; `npx stylelint src/modules/ui/epg/styles.grid.css src/modules/ui/epg/styles.theme.css src/modules/ui/epg/styles.css` -> pass; `rg -n "epg-library-pill|epg-library-picker-panel|epg-library-picker-item|forced-colors|\\.theme-swiss \\\\.epg-info-panel \\\\.epg-info-(backdrop|tags)|\\.theme-swiss \\\\.epg-(cell-meta|cell-subtitle)|!important" src/modules/ui/epg/styles.grid.css src/modules/ui/epg/styles.theme.css src/modules/ui/epg/__tests__/EPGLibraryTabs.test.ts src/modules/ui/epg/__tests__/epg-focused-overflow-style.test.ts` -> matched the new library-picker forced-colors block and the narrowed Swiss info-panel selector ownership, with no remaining Swiss `!important` or stale Swiss cell-meta/subtitle selector residue in the package seam; `npm run verify` -> pass`
+  - Follow-ups: `none`
+  - Handoff: no further `S3` follow-through session is needed; downstream packages may proceed without reopening EPG follow-through ownership
 
 - [ ] `S4-EXIT`
   - required: compact-overlay/runtime parity work is closed without reclassifying onboarding surfaces as parity defects
@@ -213,18 +219,18 @@ Check a box only in the same pass that updates the mini-record with current veri
 
 ## Priority 3: EPG Follow-Through / Design-Accessibility Cleanup
 
-- [ ] `S3-W1` `pkg_epg_followthrough` EPG Follow-Through / Design-Accessibility Cleanup
+- [x] `S3-W1` `pkg_epg_followthrough` EPG Follow-Through / Design-Accessibility Cleanup
   - Backlog: `4` exact issues
   - Tier / effort / risk: `Tier 2` / `M` / `medium`
   - Execution shape: `2` serial execution units
   - Scope: finish the EPG-only design-language and accessibility work after the hotspot split stabilizes
   - Exact membership: `docs/design/active-style-cleanup-package-map.json` -> `pkg_epg_followthrough`
-  - Status: `in progress`
+  - Status: `completed`
   - Plan: `local-only`
   - Last touched: `2026-04-19`
-  - Verification: `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts src/modules/ui/epg/__tests__/epg-focused-overflow-style.test.ts` -> pass; `npx stylelint src/modules/ui/epg/styles.info-panel.css src/modules/ui/epg/styles.theme.css src/modules/ui/epg/styles.css` -> pass; `rg -n "border: var\\(--panel-border\\)|border-radius: var\\(--panel-radius\\)|box-shadow: var\\(--shadow-md\\)|\\.epg-info-panel\\.epg-info-mode-bleed" src/modules/ui/epg/styles.info-panel.css` -> matched only the retained bleed-mode selectors plus poster-wrap radius, confirming the base info-panel floating-card chrome is retired; `rg -n "epg-info-button|epg-info-actions" src/modules/ui/epg/styles.info-panel.css src/modules/ui/epg/EPGInfoPanel.ts src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts` -> no matches, confirming the stale selector residue is removed instead of gaining dead forced-colors coverage; `rg -n "epg-info-mode-theme-default" src/modules/ui/epg/EPGInfoPanel.ts src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts src/modules/ui/epg/styles.info-panel.css src/modules/ui/epg/styles.theme.css` -> matched the runtime class application, the new DOM assertion, and the remaining mode-specific styling; `rg -n "\\.theme-directv \\\\.epg-info-panel|border-color: rgb\\(var\\(--color-primary-rgb\\) / 82%\\)" src/modules/ui/epg/styles.theme.css` -> matched the DirectTV info-panel rule without a panel-border override while unrelated classic-guide border colors remain in the same theme seam`
-  - Follow-ups: `S3-W1-S2` remains the package owner for library-picker forced-colors coverage and Swiss-theme `!important` retirement; `S3-EXIT` remains the single exit owner
-  - Handoff: run `lineup-cleanup-review` on executed unit `S3-W1-S1`; if approved, keep `S3-W1` open and implement `S3-W1-S2` for library-picker forced-colors coverage plus Swiss-theme `!important` retirement without reopening the info-panel seam
+  - Verification: `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGLibraryTabs.test.ts src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts src/modules/ui/epg/__tests__/epg-focused-overflow-style.test.ts` -> pass; `npx stylelint src/modules/ui/epg/styles.grid.css src/modules/ui/epg/styles.theme.css src/modules/ui/epg/styles.info-panel.css src/modules/ui/epg/styles.css` -> pass; `rg -n "border: var\\(--panel-border\\)|border-radius: var\\(--panel-radius\\)|box-shadow: var\\(--shadow-md\\)|\\.epg-info-panel\\.epg-info-mode-bleed" src/modules/ui/epg/styles.info-panel.css` -> matched only the retained bleed-mode selectors plus poster-wrap radius, confirming the base info-panel floating-card chrome remains retired; `rg -n "epg-info-button|epg-info-actions" src/modules/ui/epg/styles.info-panel.css src/modules/ui/epg/EPGInfoPanel.ts src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts` -> no matches; `rg -n "epg-info-mode-theme-default" src/modules/ui/epg/EPGInfoPanel.ts src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts src/modules/ui/epg/styles.info-panel.css src/modules/ui/epg/styles.theme.css` -> matched the runtime class application, the default-mode DOM assertion, and the remaining mode-specific styling; `rg -n "epg-library-pill|epg-library-picker-panel|epg-library-picker-item|forced-colors|\\.theme-swiss \\\\.epg-info-panel \\\\.epg-info-(backdrop|tags)|\\.theme-swiss \\\\.epg-(cell-meta|cell-subtitle)|!important" src/modules/ui/epg/styles.grid.css src/modules/ui/epg/styles.theme.css src/modules/ui/epg/__tests__/EPGLibraryTabs.test.ts src/modules/ui/epg/__tests__/epg-focused-overflow-style.test.ts` -> matched the new library-picker forced-colors block and the narrowed Swiss info-panel selector ownership, with no remaining Swiss `!important` or stale Swiss cell-meta/subtitle selector residue in the package seam; `npm run verify` -> pass`
+  - Follow-ups: `none`
+  - Handoff: `S3-W1` and `S3-EXIT` closed in the same pass; no further EPG follow-through execution unit remains
 
 ## Priority 4: Runtime Overlay Parity
 
