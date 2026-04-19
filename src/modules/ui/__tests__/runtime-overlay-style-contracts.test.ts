@@ -3,6 +3,7 @@
  */
 
 import { read } from '../../../styles/__tests__/helpers/css-test-utils';
+import { THEME_CLASSES } from '../theme/themeDefinitions';
 
 type OverlayContract = {
     file: string;
@@ -24,7 +25,7 @@ const OVERLAY_CONTRACTS: OverlayContract[] = [
     },
 ];
 
-const THEME_SELECTORS = ['theme-glass', 'theme-swiss', 'theme-directv', 'theme-ember-steel'];
+const THEME_SELECTORS = Object.values(THEME_CLASSES);
 
 describe('runtime overlay style contracts', () => {
     it.each(OVERLAY_CONTRACTS)(
