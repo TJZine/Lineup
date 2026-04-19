@@ -540,6 +540,29 @@ describe('App bootstrap smoke', () => {
         expect(overlay?.classList.contains('hidden')).toBe(true);
     });
 
+    it('falls back to dismiss recovery when an overlay is shown without actions for an unknown error code', async () => {
+        const startedApp = await bootstrapApp(() => {
+        });
+
+        expect(() => {
+            startedApp.showErrorOverlay({
+                code: 'TEST_ERROR',
+                message: 'Boom',
+                userMessage: 'Something failed',
+                recoverable: true,
+                phase: 'error',
+                timestamp: Date.now(),
+                actions: [],
+            } as never);
+        }).not.toThrow();
+
+        const overlay = document.getElementById('error-overlay') as HTMLElement | null;
+        const dismiss = overlay?.querySelector('button.error-button.primary') as HTMLButtonElement | null;
+
+        expect(overlay?.classList.contains('hidden')).toBe(false);
+        expect(dismiss?.textContent).toBe('Dismiss');
+    });
+
     it('routes blocking overlay presentation through navigation modal APIs', async () => {
         const openModal = jest.fn();
         const closeModal = jest.fn();

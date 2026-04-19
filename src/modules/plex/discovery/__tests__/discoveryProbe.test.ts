@@ -217,14 +217,27 @@ describe('discoveryProbe', () => {
             .mockResolvedValueOnce({
                 connection: {
                     ...localHttpConnection,
-                    uri: 'https://192.168.1.20:32400',
-                    protocol: 'https',
+                    uri: 'http://192.168.1.20:32400',
+                    protocol: 'http',
                 },
                 outcome: 'unreachable',
             })
-            .mockResolvedValueOnce({
-                connection: remoteHttpsConnection,
-                outcome: 'reachable',
+            .mockImplementation(async (connection) => {
+                if (connection.uri === 'https://192.168.1.20:32400') {
+                    return {
+                        connection,
+                        outcome: 'unreachable',
+                    };
+                }
+
+                if (connection.uri === 'https://plex.example:32400') {
+                    return {
+                        connection,
+                        outcome: 'reachable',
+                    };
+                }
+
+                throw new Error(`Unexpected probe uri: ${connection.uri}`);
             });
 
         const result = await findFastestConnectionProbe({
@@ -238,10 +251,11 @@ describe('discoveryProbe', () => {
             probeConnection,
         });
 
-        expect(probeConnection).toHaveBeenCalledTimes(2);
+        expect(probeConnection).toHaveBeenCalledTimes(3);
         expect(probeConnection.mock.calls.map(([connection]) => connection.uri)).toEqual([
             'http://192.168.1.20:32400',
             'https://192.168.1.20:32400',
+            'https://plex.example:32400',
         ]);
         expect(result.selectedProbe).toEqual({
             connection: expect.objectContaining({

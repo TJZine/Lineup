@@ -32,6 +32,7 @@ import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
 import { SplashScreen } from './modules/ui/splash';
 import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';
 import type { ChannelSetupConfig } from './core/channel-setup/types';
+import { getAppErrorCode } from './types/app-errors';
 import { summarizeErrorForLog } from './utils/errors';
 
 const NON_BLOCKING_TOAST_MESSAGES: Partial<Record<AppErrorCode, string>> = {
@@ -347,10 +348,11 @@ export class App {
             return;
         }
 
+        const recoveryCode = getAppErrorCode(error.code) ?? AppErrorCode.UNKNOWN;
         const actions: BlockingErrorOverlayAction[] =
             error.actions.length > 0
                 ? error.actions
-                : this._orchestrator.getRecoveryActions(error.code as AppErrorCode);
+                : this._orchestrator.getRecoveryActions(recoveryCode);
         this._blockingErrorOverlayPresenter.show(error, actions);
     }
 
