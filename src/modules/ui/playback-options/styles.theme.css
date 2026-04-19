@@ -1,29 +1,39 @@
 .theme-slate-pine .playback-options-panel {
   --playback-rail-start-alpha: 48%;
+  --playback-rail-start-alpha-legacy: 0.48;
   --playback-rail-end-alpha: 68%;
+  --playback-rail-end-alpha-legacy: 0.68;
   --playback-rail-border: rgba(255, 255, 255, 0.12);
 }
 
 .theme-swiss .playback-options-panel {
   --playback-rail-start-alpha: 52%;
+  --playback-rail-start-alpha-legacy: 0.52;
   --playback-rail-end-alpha: 72%;
+  --playback-rail-end-alpha-legacy: 0.72;
   --playback-rail-border: rgba(255, 255, 255, 0.1);
 }
 
 .theme-ember-steel .playback-options-panel {
   --playback-rail-start-alpha: 54%;
+  --playback-rail-start-alpha-legacy: 0.54;
   --playback-rail-end-alpha: 74%;
+  --playback-rail-end-alpha-legacy: 0.74;
   --playback-rail-border: rgba(var(--focus-color-rgb), 0.2);
 }
 
 .theme-directv .playback-options-panel {
   --playback-rail-start-alpha: 58%;
+  --playback-rail-start-alpha-legacy: 0.58;
   --playback-rail-end-alpha: 78%;
+  --playback-rail-end-alpha-legacy: 0.78;
   --playback-rail-border: rgba(var(--focus-color-rgb), 0.24);
 }
 
 .theme-glass .playback-options-panel {
   --playback-rail-start-alpha: 34%;
+  --playback-rail-start-alpha-legacy: 0.34;
   --playback-rail-end-alpha: 52%;
+  --playback-rail-end-alpha-legacy: 0.52;
   --playback-rail-border: rgba(255, 255, 255, 0.2);
 }

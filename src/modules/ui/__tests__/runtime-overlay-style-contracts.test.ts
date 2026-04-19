@@ -34,6 +34,15 @@ describe('runtime overlay style contracts', () => {
             const css = read(file);
 
             expect(css).toContain('--runtime-overlay-tint-rgb: var(--scrim-tint-rgb, 6 8 10);');
+            expect(css).toContain('--runtime-overlay-tint-rgb-legacy: var(--scrim-tint-rgb-legacy, 6, 8, 10);');
+            expect(css).toContain('--runtime-overlay-start-alpha-legacy: 0.30;');
+            expect(css).toContain('--runtime-overlay-end-alpha-legacy: 0.40;');
+            expect(css).toContain(
+                'rgba(var(--runtime-overlay-tint-rgb-legacy), var(--runtime-overlay-start-alpha-legacy)) 0%'
+            );
+            expect(css).toContain(
+                'rgba(var(--runtime-overlay-tint-rgb-legacy), var(--runtime-overlay-end-alpha-legacy)) 100%'
+            );
             expect(css).toContain(
                 'rgb(var(--runtime-overlay-tint-rgb) / var(--runtime-overlay-start-alpha)) 0%'
             );
@@ -54,6 +63,15 @@ describe('runtime overlay style contracts', () => {
         const themeCss = read('src/modules/ui/playback-options/styles.theme.css');
 
         expect(coreCss).toContain('--playback-rail-tint-rgb: var(--scrim-tint-rgb, 8 11 18);');
+        expect(coreCss).toContain('--playback-rail-tint-rgb-legacy: var(--scrim-tint-rgb-legacy, 8, 11, 18);');
+        expect(coreCss).toContain('--playback-rail-start-alpha-legacy: 0.44;');
+        expect(coreCss).toContain('--playback-rail-end-alpha-legacy: 0.62;');
+        expect(coreCss).toContain(
+            'rgba(var(--playback-rail-tint-rgb-legacy), var(--playback-rail-start-alpha-legacy)) 0%'
+        );
+        expect(coreCss).toContain(
+            'rgba(var(--playback-rail-tint-rgb-legacy), var(--playback-rail-end-alpha-legacy)) 100%'
+        );
         expect(coreCss).toContain(
             'rgb(var(--playback-rail-tint-rgb) / var(--playback-rail-start-alpha)) 0%'
         );

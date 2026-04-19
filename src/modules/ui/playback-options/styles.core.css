@@ -16,12 +16,20 @@
 
 .playback-options-panel {
   --playback-rail-tint-rgb: var(--scrim-tint-rgb, 8 11 18);
+  --playback-rail-tint-rgb-legacy: var(--scrim-tint-rgb-legacy, 8, 11, 18);
   --playback-rail-start-alpha: 44%;
+  --playback-rail-start-alpha-legacy: 0.44;
   --playback-rail-end-alpha: 62%;
+  --playback-rail-end-alpha-legacy: 0.62;
   --playback-rail-border: rgba(255, 255, 255, 0.1);
   width: min(420px, 40vw);
   height: 100%;
   background: linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.55) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(var(--playback-rail-tint-rgb-legacy), var(--playback-rail-start-alpha-legacy)) 0%,
+    rgba(var(--playback-rail-tint-rgb-legacy), var(--playback-rail-end-alpha-legacy)) 100%
+  );
   background: linear-gradient(
     135deg,
     rgb(var(--playback-rail-tint-rgb) / var(--playback-rail-start-alpha)) 0%,
