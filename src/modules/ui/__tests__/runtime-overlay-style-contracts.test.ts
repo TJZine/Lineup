@@ -48,4 +48,38 @@ describe('runtime overlay style contracts', () => {
             }
         }
     );
+
+    it('keeps playback options theme tuning local to the panel surface', () => {
+        const coreCss = read('src/modules/ui/playback-options/styles.core.css');
+        const themeCss = read('src/modules/ui/playback-options/styles.theme.css');
+
+        expect(coreCss).toContain('--playback-rail-tint-rgb: var(--scrim-tint-rgb, 8 11 18);');
+        expect(coreCss).toContain(
+            'rgb(var(--playback-rail-tint-rgb) / var(--playback-rail-start-alpha)) 0%'
+        );
+        expect(coreCss).toContain(
+            'rgb(var(--playback-rail-tint-rgb) / var(--playback-rail-end-alpha)) 100%'
+        );
+
+        for (const themeSelector of THEME_SELECTORS) {
+            expect(themeCss).toContain(`.${themeSelector} .playback-options-panel`);
+        }
+    });
+
+    it('keeps exit confirm theme tuning local to the overlay surface', () => {
+        const css = read('src/modules/ui/exit-confirm/styles.css');
+
+        expect(css).toContain('--exit-confirm-overlay-mid-alpha: 34%;');
+        expect(css).toContain('--exit-confirm-panel-mid-alpha: 78%;');
+        expect(css).toContain(
+            'rgb(var(--scrim-tint-rgb) / var(--exit-confirm-overlay-bottom-alpha)) 100%'
+        );
+        expect(css).toContain(
+            'rgb(var(--scrim-tint-rgb) / var(--exit-confirm-panel-bottom-alpha)) 100%'
+        );
+
+        for (const themeSelector of THEME_SELECTORS) {
+            expect(css).toContain(`.${themeSelector} .exit-confirm-panel`);
+        }
+    });
 });

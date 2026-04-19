@@ -1,3 +1,15 @@
+.theme-slate-pine .playback-options-panel {
+  --playback-rail-start-alpha: 48%;
+  --playback-rail-end-alpha: 68%;
+  --playback-rail-border: rgba(255, 255, 255, 0.12);
+}
+
+.theme-swiss .playback-options-panel {
+  --playback-rail-start-alpha: 52%;
+  --playback-rail-end-alpha: 72%;
+  --playback-rail-border: rgba(255, 255, 255, 0.1);
+}
+
 .theme-ember-steel .playback-options-panel {
   --playback-rail-start-alpha: 54%;
   --playback-rail-end-alpha: 74%;
