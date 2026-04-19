@@ -15,8 +15,8 @@ This checklist is not complete until an authoritative rerun on the target integr
 - Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
 - Current execution state: `P1-W1`, `P1-EXIT`, `P2-W1`, and `P2-EXIT` are complete on authoritative `2026-04-18` closeout evidence; `P3` remains not started, and no `P3` implementation or tracked plan doc has begun yet
-- Next safe start: `P3-W1` / `pkg_plex_contracts_identity`
-- Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to `P3-W1`
+- Next safe start: `P4-W1` / `pkg_startup_auth_lifecycle`
+- Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to `P4-W1`
 - First action at package start: planning only; create the package-local execution-grade plan first and do not begin implementation until that planning gate is complete
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
 - Exact issue-membership surface: `docs/architecture/active-cleanup-package-map.json`
@@ -288,7 +288,7 @@ Every `P#-EXIT` must, in the same pass:
 - Follow-ups: preserve the stale-proven rows above unless future current-source changes invalidate their proof; `P3-W1` is now the next safe start
 - Handoff: `P2-EXIT` closed on authoritative `2026-04-18` final-gate evidence; proceed to `P3-W1`
 
-### [ ] `P3-W1` `pkg_plex_contracts_identity` Plex Contracts And Identity
+### [x] `P3-W1` `pkg_plex_contracts_identity` Plex Contracts And Identity
 
 - Backlog: `19 = 11 older live non-review + 6 fresh review + 2 fresh non-review`
 - Scope: normalize Plex discovery, library, auth, and identity/error seams under one Plex-owned package
@@ -298,23 +298,59 @@ Every `P#-EXIT` must, in the same pass:
   - `desloppify show src/modules/plex/library --status open --no-budget --top 150`
   - `desloppify show src/modules/plex/auth --status open --no-budget --top 150`
   - `desloppify show test_coverage --status open --no-budget --top 120`
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: Start with `P3-W1` planning, not implementation. Keep the package boundary centered on `pkg_plex_contracts_identity`: `src/modules/plex/discovery`, `src/modules/plex/library`, `src/modules/plex/auth`, plus the platform-identity seams directly owned by Plex startup or stream setup. Do not absorb startup-profile lifecycle semantics except where `PlexAuth` or Plex-owned identity seams force that boundary to be touched; coordinate with `P4` or `P5` only if those downstream boundaries are directly implicated by the current-source evidence. At package entry, rerun the package-local scoping commands listed above before writing the local execution plan so the fresh session scopes from current authoritative evidence.
+- Status: completed
+- Plan: `docs/plans/2026-04-18-p3-w1-plex-contracts-identity.md`
+- Last touched: `2026-04-18`
+- Verification: authoritative closeout evidence on `2026-04-18` reran `desloppify show src/modules/plex/discovery --status open --no-budget --top 120`, `desloppify show src/modules/plex/library --status open --no-budget --top 150`, `desloppify show src/modules/plex/auth --status open --no-budget --top 150`, and `desloppify show test_coverage --status open --no-budget --top 120`; observed passing `npm test -- --runInBand src/modules/plex/discovery/__tests__/discoveryProbe.test.ts`; observed passing `npm test -- --runInBand src/modules/plex/library/__tests__/mediaItemInternals.test.ts src/modules/plex/library/__tests__/mediaFileParser.test.ts src/modules/plex/library/__tests__/libraryResponsePayload.test.ts src/modules/plex/library/__tests__/PlexLibraryError.test.ts`; and observed passing `npm run verify`
+- Follow-ups: `P3-EXIT` must preserve the stale-proven detector rows below unless future current-source changes invalidate their proof
+- Handoff: `P3-EXIT`
 
-- [ ] `P3-EXIT`
+- [x] `P3-EXIT`
 
   - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P4`
   - required: refresh package-local commands, record mapped review dispositions from `pkg_plex_contracts_identity`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: `P4-W1`
+- Status: completed
+- Plan: `docs/plans/2026-04-18-p3-w1-plex-contracts-identity.md`
+- Last touched: `2026-04-18`
+- Verification: `P3-EXIT` evidence on `2026-04-18` reran `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, `desloppify show security --status open --no-budget --top 50`, the six exact imported-review reruns for `review::.::holistic::{api_surface_coherence::{plex_discovery_scalar_test_result,plex_library_failure_contract_drift},error_consistency::{plex_auth_pin_parsing_bypasses_typed_errors,plex_auth_poll_timeout_masks_retryable_failures,plex_library_null_results_mask_fetch_failures},initialization_coupling::platform_version_first_probe_cache}`, the package-local scoping commands for `src/modules/plex/{discovery,library,auth}` plus `test_coverage`, the exact reruns for `test_coverage::src/modules/plex/discovery/discoveryProbe.ts::transitive_only` and `smells::src/modules/plex/library/mediaItemBaseParser.ts::high_cyclomatic_complexity`, the focused Jest commands recorded in `P3-W1`, and a passing `npm run verify`
+- Entry baseline: checklist-backed package entry was `19 = 11 older live non-review + 6 fresh review + 2 fresh non-review` with the `P2-EXIT` global snapshot `overall 87.5 / objective 96.1 / strict 87.5 / verified 94.1`, `324` open in-scope, `333` open global, and `9` out-of-scope carried
+- Exit baseline: authoritative `desloppify status` rerun in this session reports `overall 87.5 / objective 96.0 / strict 87.5 / verified 94.0`, `340` open in-scope, `349` open global, and `9` out-of-scope carried; `desloppify plan queue --sort recent` is empty; `desloppify show review --status open --no-budget --top 100` returns no open review issues; and `desloppify show security --status open --no-budget --top 50` remains clean
+- Score delta: global `overall 0.0`, `objective -0.1`, `strict 0.0`, and `verified -0.1` versus the checklist-backed entry snapshot. `P3-EXIT` closes anyway because every mapped `pkg_plex_contracts_identity` review issue reran absent and every remaining discovery/library detector row is `stale-proven` on current source with no successor owner
+- Imported review dispositions: reran absent on `2026-04-18`, treated as `resolved` on current source
+  - `review::.::holistic::api_surface_coherence::plex_discovery_scalar_test_result`
+    - reason: exact issue-id rerun no longer reports an open review row after `P3-W1-S2`, and the current discovery seam keeps typed internal probe results behind the unchanged outward discovery contract
+    - revisit trigger: exact issue-id rerun plus `rg -n "testConnection\\(|findFastestConnection\\(|selectServer\\(" docs/api/plex-integration.md src/modules/plex/discovery/interfaces.ts src/modules/plex/discovery`
+  - `review::.::holistic::api_surface_coherence::plex_library_failure_contract_drift`
+    - reason: exact issue-id rerun no longer reports an open review row after `P3-W1-S3`, and current library entrypoints keep malformed/transport/server failures in typed `PlexLibraryError` paths instead of semantic empties
+    - revisit trigger: exact issue-id rerun plus `rg -n "_fetchWithRetry<|return null;|return \\[\\];|PlexLibraryError" src/modules/plex/library`
+  - `review::.::holistic::error_consistency::plex_auth_pin_parsing_bypasses_typed_errors`
+    - reason: exact issue-id rerun no longer reports an open review row after `P3-W1-S1`, and auth PIN parsing now routes malformed success payloads through typed Plex auth error handling
+    - revisit trigger: exact issue-id rerun plus `rg -n "parsePinResponse\\(" src/modules/plex/auth`
+  - `review::.::holistic::error_consistency::plex_auth_poll_timeout_masks_retryable_failures`
+    - reason: exact issue-id rerun no longer reports an open review row after `P3-W1-S1`, and `pollForPin()` no longer collapses retryable failure context into a terminal timeout-only classification
+    - revisit trigger: exact issue-id rerun plus `rg -n "pollForPin\\(" src/modules/plex/auth`
+  - `review::.::holistic::error_consistency::plex_library_null_results_mask_fetch_failures`
+    - reason: exact issue-id rerun no longer reports an open review row after `P3-W1-S3`, and current library parse/fetch helpers keep failure cases in typed error flows rather than `null`/empty sentinel returns
+    - revisit trigger: exact issue-id rerun plus `rg -n "return null;|return \\[\\];|PlexLibraryError" src/modules/plex/library`
+  - `review::.::holistic::initialization_coupling::platform_version_first_probe_cache`
+    - reason: exact issue-id rerun no longer reports an open review row after `P3-W1-S1`, and Plex startup plus stream identity now consume one platform-owned version source instead of split auth-vs-stream probing
+    - revisit trigger: exact issue-id rerun plus `rg -n "platformVersion|detectPlatformVersion\\(" src/modules/plex src/platform src/core/app-shell`
+- Detector deltas: entry mapped package counts were `review 6 / structural 6 / smells 6 / responsibility_cohesion 1`; refreshed exit reads are `review 0`, `src/modules/plex/auth` clean, `src/modules/plex/discovery` with `2` rerun-open rows, `src/modules/plex/library` with `8` rerun-open rows, and `desloppify show test_coverage --status open --no-budget --top 120` still listing the same six Plex helper transitive-only rows beside unrelated repo rows. Current-source reconciliation proves those remaining Plex rows are detector lag, not live `P3-W1` debt:
+  - `test_coverage::src/modules/plex/discovery/discoveryProbe.ts::transitive_only`
+    - reason: stale-proven; current direct test file `src/modules/plex/discovery/__tests__/discoveryProbe.test.ts` (lines `1-98`) imports `findFastestConnectionProbe` directly and exercises both mixed-content selection and auth-summary outcomes, but the rerun still reports “No direct tests”
+    - revisit trigger: rerun the exact issue id if direct `discoveryProbe` coverage is removed or remapped
+  - `smells::src/modules/plex/discovery/discoveryProbe.ts::async_no_await`
+    - reason: stale-proven; the reported anchor is current line `18`, but `src/modules/plex/discovery/discoveryProbe.ts` awaits `probeConnection(connection)` at line `33`, so the current source does not match the detector wording
+    - revisit trigger: rerun the exact issue id if `findFastestConnectionProbe()` is rewritten to a new async control-flow shape
+  - library helper `transitive_only` rows on `PlexLibraryError.ts`, `libraryResponsePayload.ts`, `mediaFileParser.ts`, `mediaItemCoreParser.ts`, and `mediaItemDetailsParser.ts`
+    - reason: stale-proven; direct tests import each helper directly via `src/modules/plex/library/__tests__/PlexLibraryError.test.ts`, `src/modules/plex/library/__tests__/libraryResponsePayload.test.ts`, `src/modules/plex/library/__tests__/mediaFileParser.test.ts`, and `src/modules/plex/library/__tests__/mediaItemInternals.test.ts`, but the reruns still report “No direct tests”
+    - revisit trigger: rerun the exact issue ids if those direct helper tests are removed or remapped
+  - `smells::src/modules/plex/library/mediaItemCoreParser.ts::high_cyclomatic_complexity`, `smells::src/modules/plex/library/mediaItemBaseParser.ts::high_cyclomatic_complexity`, and `smells::src/modules/plex/library/mediaItemParser.ts::high_cyclomatic_complexity`
+    - reason: stale-proven; `src/modules/plex/library/mediaItemCoreParser.ts` is a straight parse-build-apply pipeline, `src/modules/plex/library/mediaItemBaseParser.ts` is now a thin wrapper over `buildMediaIdentity()` and `buildMediaMetadata()`, and `src/modules/plex/library/mediaItemParser.ts` is a `parseArrayOrEmpty(...).map(...)` wrapper whose reported anchor `21` is impossible on current source
+    - revisit trigger: rerun the exact issue ids if those helpers regrow branching logic or merge back into a larger parser hotspot
+- Security triage: `desloppify show security --status open --no-budget --top 50` remained clean with no open security or cycle issues
+- Follow-ups: preserve the stale-proven discovery/library detector rows above unless future current-source changes invalidate their proof; no deferred or split successor owner remains after `P3-EXIT`
+- Handoff: `P4` remained blocked until this `P3-EXIT` record was completed. With `P3-EXIT` now complete on authoritative `2026-04-18` evidence, `P4-W1` is unblocked and is the next safe checklist start
 
 ### [ ] `P4-W1` `pkg_startup_auth_lifecycle` Startup, Auth, Profile, And Lifecycle State
 

@@ -20,40 +20,10 @@ function assignOptionalMediaMetadata(item: PlexMediaItem, data: RawMediaItem): v
 }
 
 function assignMediaCredits(item: PlexMediaItem, data: RawMediaItem): void {
-    const genres = collectTagNames(data.Genre);
-    if (genres.length > 0) {
-        item.genres = genres;
-    }
-
-    const directors = collectTagNames(data.Director);
-    if (directors.length > 0) {
-        item.directors = directors;
-    }
-
-    const roles = parseArrayOrEmpty<unknown>(
-        data.Role,
-        'media item roles'
-    )
-        .map((entry, index) => parseRequiredObject<{ tag?: string; role?: string | null; thumb?: string | null }>(
-            entry,
-            `media item roles[${index}]`
-        ))
-        .map((entry) => ({
-            name: entry.tag?.trim() ?? '',
-            role: entry.role?.trim() ?? null,
-            thumb: entry.thumb ?? null,
-        }))
-        .filter((entry) => entry.name.length > 0);
-
-    if (roles.length > 0) {
-        item.actorRoles = roles;
-        item.actors = roles.map((role) => role.name);
-    }
-
-    const studios = collectTagNames(data.Studio);
-    if (studios.length > 0) {
-        item.studios = studios;
-    }
+    assignTagNames(item, 'genres', data.Genre);
+    assignTagNames(item, 'directors', data.Director);
+    assignActorRoles(item, data.Role);
+    assignTagNames(item, 'studios', data.Studio);
 }
 
 function assignClearLogo(item: PlexMediaItem, data: RawMediaItem): void {
@@ -94,6 +64,45 @@ function collectTagNames(tags: unknown): string[] {
         .map((tag, index) => parseRequiredObject<{ tag?: string }>(tag, `media item tags[${index}]`))
         .map((tag) => tag.tag)
         .filter((tag): tag is string => Boolean(tag));
+}
+
+function assignTagNames(
+    item: PlexMediaItem,
+    key: 'genres' | 'directors' | 'studios',
+    tags: unknown
+): void {
+    const names = collectTagNames(tags);
+
+    if (names.length > 0) {
+        item[key] = names;
+    }
+}
+
+function assignActorRoles(item: PlexMediaItem, roles: unknown): void {
+    const parsedRoles = parseActorRoles(roles);
+
+    if (parsedRoles.length > 0) {
+        item.actorRoles = parsedRoles;
+        item.actors = parsedRoles.map((role) => role.name);
+    }
+}
+
+function parseActorRoles(
+    roles: unknown
+): Array<{ name: string; role: string | null; thumb: string | null }> {
+    return parseArrayOrEmpty<unknown>(roles, 'media item roles')
+        .map((entry, index) =>
+            parseRequiredObject<{ tag?: string; role?: string | null; thumb?: string | null }>(
+                entry,
+                `media item roles[${index}]`
+            )
+        )
+        .map((entry) => ({
+            name: entry.tag?.trim() ?? '',
+            role: entry.role?.trim() ?? null,
+            thumb: entry.thumb ?? null,
+        }))
+        .filter((entry) => entry.name.length > 0);
 }
 
 function assignOptional<K extends keyof PlexMediaItem>(
