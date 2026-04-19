@@ -1,0 +1,167 @@
+.profile-pin-modal {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.65);
+    z-index: calc(var(--z-overlay) + 2);
+}
+
+.profile-pin-card {
+    background: rgba(20, 20, 28, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 24px 28px;
+    min-width: min(520px, 80vw);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+}
+
+.profile-pin-title {
+    font-size: 22px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.profile-pin-slots {
+    display: grid;
+    grid-template-columns: repeat(4, 24px);
+    gap: 12px;
+    justify-items: center;
+}
+
+.profile-pin-slot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    background: transparent;
+}
+
+.profile-pin-slot.filled {
+    border-color: #ffffff;
+    background: #ffffff;
+}
+
+.profile-pin-slot.just-filled {
+    animation: pin-dot-pop 150ms ease-out;
+}
+
+.profile-pin-slots.error {
+    animation: pin-shake 300ms ease-out;
+}
+
+.profile-pin-error {
+    min-height: 20px;
+    font-size: var(--text-md);
+    color: var(--color-error-text);
+}
+
+.profile-numpad {
+    display: grid;
+    grid-template-columns: repeat(3, 80px);
+    grid-template-rows: repeat(4, 64px);
+    gap: 10px;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.profile-numpad-button {
+    display: flex;
+    position: relative;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.profile-numpad-button.focused,
+.profile-numpad-button:focus {
+    outline: none;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.profile-numpad-button::after {
+    content: '';
+    position: absolute;
+    inset: calc(-1 * var(--focus-ring-offset));
+    border-radius: inherit;
+    border: var(--focus-ring-width, 3px) solid transparent;
+    transition: border-color 150ms ease;
+    pointer-events: none;
+}
+
+.profile-numpad-button.focused::after,
+.profile-numpad-button:focus::after,
+.profile-numpad-button:focus-visible::after {
+    border-color: var(--onboarding-accent-alpha-60, rgba(200, 160, 100, 0.60));
+}
+
+@media (forced-colors: active) {
+    .profile-numpad-button.focused,
+    .profile-numpad-button:focus {
+        outline: 2px solid Highlight;
+        outline-offset: 2px;
+    }
+
+    .profile-numpad-button::after {
+        content: none;
+    }
+}
+
+@keyframes pin-dot-pop {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.3);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes pin-shake {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    20% {
+        transform: translateX(-8px);
+    }
+
+    40% {
+        transform: translateX(8px);
+    }
+
+    60% {
+        transform: translateX(-4px);
+    }
+
+    80% {
+        transform: translateX(4px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .profile-pin-slot.just-filled {
+        animation: none;
+    }
+
+    .profile-pin-slots.error {
+        animation: none;
+    }
+}

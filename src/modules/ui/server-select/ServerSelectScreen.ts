@@ -12,7 +12,6 @@ import type {
     ServerSelectScreenNavigationPort,
 } from '../../navigation';
 import { ServerSelectionStore, type ServerHealthMap } from '../../plex/discovery/ServerSelectionStore';
-import { summarizeErrorForLog } from '../../../utils/errors';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
 import { createLineupBrandGlyph } from '../common/brandGlyph';
@@ -92,9 +91,7 @@ export class ServerSelectScreen {
                     label: 'Retry discovery',
                     variant: 'primary',
                     onSelect: (): void => {
-                        this.refresh().catch((error: unknown) => {
-                            console.error('[ServerSelect] Refresh failed:', summarizeErrorForLog(error));
-                        });
+                        void this.refresh();
                     },
                 },
                 {
@@ -201,9 +198,7 @@ export class ServerSelectScreen {
         this._registerFocusables();
         // Manual server-select entry should not reconnect implicitly unless explicitly requested.
         const allowAutoConnect = options?.allowAutoConnect === true;
-        this._loadServers({ autoSelect: allowAutoConnect, forceRefresh: false }, generation).catch((error: unknown) => {
-            console.error('[ServerSelect] Load servers failed:', summarizeErrorForLog(error));
-        });
+        void this._loadServers({ autoSelect: allowAutoConnect, forceRefresh: false }, generation);
     }
 
     private async _loadServers(
@@ -289,7 +284,6 @@ export class ServerSelectScreen {
             this._setAutoConnectHintVisible(false);
         } catch (error) {
             if (!this._canUpdateUi(generation)) {
-                console.error('[ServerSelect] Discovery failed after screen was hidden:', summarizeErrorForLog(error));
                 return;
             }
 
@@ -456,7 +450,6 @@ export class ServerSelectScreen {
             this._renderServers(this._lastDiscoveredServers, null, { emptyStateReason: 'no_servers' });
             this._restoreFocus(generation);
         } catch (error) {
-            console.error('[ServerSelect] Clear saved server failed:', summarizeErrorForLog(error));
             if (!this._canUpdateUi(generation)) {
                 return;
             }
@@ -580,9 +573,7 @@ export class ServerSelectScreen {
             selectButton.textContent = 'Connect';
             selectButton.disabled = this._isSelecting;
             selectButton.addEventListener('click', () => {
-                this._selectServer(server).catch((error: unknown) => {
-                    console.error('[ServerSelect] Select server failed:', summarizeErrorForLog(error));
-                });
+                void this._selectServer(server);
             });
             actions.appendChild(selectButton);
             row.appendChild(actions);
@@ -728,8 +719,6 @@ export class ServerSelectScreen {
             this._detailEl.textContent = '';
             this._errorEl.textContent = this._selectionFailureMessage(result.reason);
         } catch (error) {
-            console.error('[ServerSelect] Failed to select server:', summarizeErrorForLog(error));
-
             if (!this._canUpdateUi(generation) || this._activeSelectGeneration !== generation) {
                 return;
             }

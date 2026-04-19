@@ -7,7 +7,6 @@
 import { AppErrorCode, PlexApiError, type PlexPinRequest } from '../../plex/auth';
 import type { AuthScreenNavigationPort } from '../../navigation';
 import { getAppErrorCode } from '../../../types/app-errors';
-import { summarizeErrorForLog } from '../../../utils/errors';
 import { setTrustedInlineSvg } from '../../../utils/inlineSvg';
 import { createScreenShell } from '../common/ScreenShell';
 import type { ScreenError, ScreenStatus, ScreenTone } from '../types/screen-shell';
@@ -57,19 +56,13 @@ export class AuthScreen {
         this._container.style.justifyContent = 'center';
 
         this._handleRequestClick = (): void => {
-            this._handleRequestPin().catch((error: unknown) => {
-                console.error('[AuthScreen] Request PIN failed:', summarizeErrorForLog(error));
-            });
+            this._runScreenAction(() => this._handleRequestPin(), 'Failed to request PIN.');
         };
         this._handleCancelClick = (): void => {
-            this._handleCancel().catch((error: unknown) => {
-                console.error('[AuthScreen] Cancel PIN failed:', summarizeErrorForLog(error));
-            });
+            this._runScreenAction(() => this._handleCancel(), 'Failed to cancel PIN.');
         };
         this._handleRetryClick = (): void => {
-            this._handleRequestPin().catch((error: unknown) => {
-                console.error('[AuthScreen] Retry request PIN failed:', summarizeErrorForLog(error));
-            });
+            this._runScreenAction(() => this._handleRequestPin(), 'Failed to request PIN.');
         };
 
         const shell = createScreenShell(this._container, {
@@ -371,6 +364,12 @@ export class AuthScreen {
 
     private _clearError(): void {
         this._shellSetError?.(null);
+    }
+
+    private _runScreenAction(action: () => Promise<void>, fallbackMessage: string): void {
+        void action().catch((error: unknown) => {
+            this._handleError(error, fallbackMessage);
+        });
     }
 
     private _handleError(error: unknown, fallback: string): void {

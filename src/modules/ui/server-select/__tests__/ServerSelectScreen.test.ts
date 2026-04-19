@@ -411,6 +411,53 @@ describe('ServerSelectScreen', () => {
         expect(error.textContent ?? '').toContain('credentials are invalid');
     });
 
+    it('surfaces discovery failures through screen error UI without console logging', async () => {
+        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockRejectedValueOnce(new Error('discovery failed'));
+
+        try {
+            const screen = new ServerSelectScreen(container, orchestrator);
+            screen.show({ allowAutoConnect: false });
+            await flushPromisesAndTimers();
+
+            expect(container.querySelector('.screen-status')?.textContent).toBe('Discovery failed.');
+            expect(container.querySelector('.screen-error')?.textContent).toBe('discovery failed');
+            expect(consoleErrorSpy).not.toHaveBeenCalled();
+        } finally {
+            consoleErrorSpy.mockRestore();
+        }
+    });
+
+    it('surfaces thrown selection failures through screen error UI without console logging', async () => {
+        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+        orchestrator.selectServer.mockRejectedValueOnce(new Error('select failed'));
+
+        try {
+            const screen = new ServerSelectScreen(container, orchestrator);
+            screen.show({ allowAutoConnect: false });
+            await flushPromisesAndTimers();
+
+            const button = container.querySelector('.server-row button') as HTMLButtonElement;
+            button.click();
+            await flushPromisesAndTimers();
+
+            expect(container.querySelector('.screen-status')?.textContent).toBe('Connection failed.');
+            expect(container.querySelector('.screen-error')?.textContent).toBe('select failed');
+            expect(consoleErrorSpy).not.toHaveBeenCalled();
+        } finally {
+            consoleErrorSpy.mockRestore();
+        }
+    });
+
     it('ignores concurrent manual server selection requests while one is in flight', async () => {
         const orchestrator = createOrchestratorStub();
         const container = document.createElement('div');
@@ -628,7 +675,7 @@ describe('ServerSelectScreen', () => {
         );
     });
 
-    it('logs manual selection failures after hide without updating hidden UI', async () => {
+    it('ignores manual selection failures after hide without updating hidden UI or logging', async () => {
         const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
         try {
@@ -651,15 +698,9 @@ describe('ServerSelectScreen', () => {
             selectDeferred.reject(new Error('select failed'));
             await flushPromisesAndTimers();
 
-            expect(consoleErrorSpy).toHaveBeenCalledWith(
-                '[ServerSelect] Failed to select server:',
-                expect.objectContaining({
-                    name: 'Error',
-                    message: 'select failed',
-                })
-            );
             expect(container.querySelector('.screen-status')?.textContent).toBe('Connecting to Server One…');
             expect(container.querySelector('.screen-error')?.textContent).toBe('');
+            expect(consoleErrorSpy).not.toHaveBeenCalled();
         } finally {
             consoleErrorSpy.mockRestore();
         }
@@ -793,7 +834,7 @@ describe('ServerSelectScreen', () => {
         expect(nav.setFocus).toHaveBeenCalledWith('btn-server-refresh');
     });
 
-    it('shows an error and keeps the server list when clearing saved server fails', async () => {
+    it('shows an error and keeps the server list when clearing saved server fails without console logging', async () => {
         const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
         try {
@@ -824,13 +865,7 @@ describe('ServerSelectScreen', () => {
             expect(status?.textContent).toBe('Selection not cleared.');
             expect(detail?.textContent).toBe('Try again.');
             expect(error?.textContent).toBe('store failed');
-            expect(consoleErrorSpy).toHaveBeenCalledWith(
-                '[ServerSelect] Clear saved server failed:',
-                expect.objectContaining({
-                    name: 'Error',
-                    message: 'store failed',
-                })
-            );
+            expect(consoleErrorSpy).not.toHaveBeenCalled();
         } finally {
             consoleErrorSpy.mockRestore();
         }
@@ -1054,7 +1089,7 @@ describe('ServerSelectScreen', () => {
         expect(nav.setFocus).not.toHaveBeenCalled();
     });
 
-    it('logs clear failures after hide without updating hidden UI', async () => {
+    it('ignores clear failures after hide without updating hidden UI or logging', async () => {
         const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
         try {
@@ -1080,13 +1115,7 @@ describe('ServerSelectScreen', () => {
             await flushPromisesAndTimers();
 
             expect(container.querySelector('.screen-status')?.textContent).not.toBe('Selection not cleared.');
-            expect(consoleErrorSpy).toHaveBeenCalledWith(
-                '[ServerSelect] Clear saved server failed:',
-                expect.objectContaining({
-                    name: 'Error',
-                    message: 'store failed',
-                })
-            );
+            expect(consoleErrorSpy).not.toHaveBeenCalled();
         } finally {
             consoleErrorSpy.mockRestore();
         }
@@ -1152,7 +1181,7 @@ describe('ServerSelectScreen', () => {
         expect(nav.setFocus).toHaveBeenCalledWith('btn-server-refresh');
     });
 
-    it('logs discovery failures after hide without updating hidden UI', async () => {
+    it('ignores discovery failures after hide without updating hidden UI or logging', async () => {
         const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
         try {
@@ -1173,13 +1202,7 @@ describe('ServerSelectScreen', () => {
             await flushPromisesAndTimers();
 
             expect(container.querySelector('.screen-status')?.textContent).not.toBe('Discovery failed.');
-            expect(consoleErrorSpy).toHaveBeenCalledWith(
-                '[ServerSelect] Discovery failed after screen was hidden:',
-                expect.objectContaining({
-                    name: 'Error',
-                    message: 'discovery failed',
-                })
-            );
+            expect(consoleErrorSpy).not.toHaveBeenCalled();
         } finally {
             consoleErrorSpy.mockRestore();
         }
