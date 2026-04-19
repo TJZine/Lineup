@@ -94,6 +94,25 @@ describe('ResponseParser', () => {
             expect(result[0]!.lastScannedAt.toISOString()).toBe('1970-01-01T00:00:00.000Z');
         });
 
+        it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+            'falls back to epoch when scannedAt is non-finite (%p)',
+            (scannedAt) => {
+                const result = parseLibrarySections([
+                    {
+                        key: '1',
+                        uuid: 'lib-uuid',
+                        title: 'Broken Timestamp',
+                        type: 'movie',
+                        agent: 'agent',
+                        scanner: 'scanner',
+                        scannedAt,
+                    },
+                ]);
+
+                expect(result[0]!.lastScannedAt.toISOString()).toBe('1970-01-01T00:00:00.000Z');
+            }
+        );
+
         it('throws a typed parse error with indexed context when a section entry is malformed', () => {
             expect(() => parseLibrarySections([null] as unknown as RawLibrarySection[])).toThrow(
                 expect.objectContaining({

@@ -27,11 +27,16 @@ function parseLibrarySection(data: RawLibrarySection): PlexLibrarySection {
         agent,
         scanner,
         contentCount: null,
-        lastScannedAt:
-            typeof data.scannedAt === 'number' ? new Date(data.scannedAt * 1000) : new Date(0),
+        lastScannedAt: parseLibraryScannedAt(data.scannedAt),
         art: data.art ?? null,
         thumb: data.thumb ?? null,
     };
+}
+
+function parseLibraryScannedAt(value: unknown): Date {
+    return typeof value === 'number' && Number.isFinite(value)
+        ? new Date(value * 1000)
+        : new Date(0);
 }
 
 function parseRequiredLibrarySectionString(value: unknown, field: string): string {
