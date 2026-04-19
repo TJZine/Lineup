@@ -472,6 +472,15 @@ describe('EPGInfoPanel', () => {
             expect(infoPanel?.classList.contains('epg-info-mode-bleed')).toBe(true);
         });
 
+        it('marks the panel as theme-default in default mode', () => {
+            localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '1');
+
+            panel.show(createMockProgram('/library/metadata/123/thumb'));
+
+            const infoPanel = container.querySelector('.epg-info-panel') as HTMLElement | null;
+            expect(infoPanel?.classList.contains('epg-info-mode-theme-default')).toBe(true);
+        });
+
         it('should initialize without errors', () => {
             expect(panel.getIsVisible()).toBe(false);
         });

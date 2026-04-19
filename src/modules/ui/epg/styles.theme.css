@@ -317,7 +317,6 @@
     var(--directv-panel-gradient-start),
     var(--directv-panel-gradient-strong-end)
   );
-  border-color: rgb(var(--color-primary-rgb) / 82%);
 }
 
 .theme-directv .epg-info-panel.epg-info-mode-artwork .epg-info-backdrop,

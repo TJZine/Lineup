@@ -229,7 +229,9 @@ describe('focused EPG overflow style contract', () => {
         const block = getBlock('\n.epg-info-panel {');
         expect(block).toContain('height: var(--epg-info-panel-height)');
         expect(block).toContain('padding: var(--epg-info-panel-padding-y) var(--epg-info-panel-padding-x)');
-        expect(block).toContain('box-shadow: var(--shadow-md)');
+        expect(block).not.toContain('border: var(--panel-border)');
+        expect(block).not.toContain('border-radius: var(--panel-radius)');
+        expect(block).not.toContain('box-shadow: var(--shadow-md)');
     });
 
     it('resolves focused tiny movie overlays to single-column + absolute rail in computed styles', () => {

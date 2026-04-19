@@ -219,12 +219,12 @@ Check a box only in the same pass that updates the mini-record with current veri
   - Execution shape: `2` serial execution units
   - Scope: finish the EPG-only design-language and accessibility work after the hotspot split stabilizes
   - Exact membership: `docs/design/active-style-cleanup-package-map.json` -> `pkg_epg_followthrough`
-  - Status: `not started`
-  - Plan: `none yet`
+  - Status: `in progress`
+  - Plan: `local-only`
   - Last touched: `2026-04-19`
-  - Verification: `not run`
-  - Follow-ups: `S3-EXIT` is the single exit owner
-  - Handoff: start after `S2-EXIT`
+  - Verification: `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts src/modules/ui/epg/__tests__/epg-focused-overflow-style.test.ts` -> pass; `npx stylelint src/modules/ui/epg/styles.info-panel.css src/modules/ui/epg/styles.theme.css src/modules/ui/epg/styles.css` -> pass; `rg -n "border: var\\(--panel-border\\)|border-radius: var\\(--panel-radius\\)|box-shadow: var\\(--shadow-md\\)|\\.epg-info-panel\\.epg-info-mode-bleed" src/modules/ui/epg/styles.info-panel.css` -> matched only the retained bleed-mode selectors plus poster-wrap radius, confirming the base info-panel floating-card chrome is retired; `rg -n "epg-info-button|epg-info-actions" src/modules/ui/epg/styles.info-panel.css src/modules/ui/epg/EPGInfoPanel.ts src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts` -> no matches, confirming the stale selector residue is removed instead of gaining dead forced-colors coverage; `rg -n "epg-info-mode-theme-default" src/modules/ui/epg/EPGInfoPanel.ts src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts src/modules/ui/epg/styles.info-panel.css src/modules/ui/epg/styles.theme.css` -> matched the runtime class application, the new DOM assertion, and the remaining mode-specific styling; `rg -n "\\.theme-directv \\\\.epg-info-panel|border-color: rgb\\(var\\(--color-primary-rgb\\) / 82%\\)" src/modules/ui/epg/styles.theme.css` -> matched the DirectTV info-panel rule without a panel-border override while unrelated classic-guide border colors remain in the same theme seam`
+  - Follow-ups: `S3-W1-S2` remains the package owner for library-picker forced-colors coverage and Swiss-theme `!important` retirement; `S3-EXIT` remains the single exit owner
+  - Handoff: run `lineup-cleanup-review` on executed unit `S3-W1-S1`; if approved, keep `S3-W1` open and implement `S3-W1-S2` for library-picker forced-colors coverage plus Swiss-theme `!important` retirement without reopening the info-panel seam
 
 ## Priority 4: Runtime Overlay Parity
 

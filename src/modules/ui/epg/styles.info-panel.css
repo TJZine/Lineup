@@ -14,9 +14,6 @@
   flex-shrink: 0;
   opacity: 1;
   visibility: visible;
-  border: var(--panel-border);
-  border-radius: var(--panel-radius);
-  box-shadow: var(--shadow-md);
 }
 
 .epg-info-backdrop {
@@ -306,33 +303,4 @@
   max-width: 16ch;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.epg-info-actions {
-  display: flex;
-  gap: 16px;
-  margin-top: auto;
-}
-
-.epg-info-button {
-  padding: 12px 32px;
-  font-size: var(--text-md);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.1);
-  border: 2px solid transparent;
-  color: var(--color-text-primary);
-  cursor: pointer;
-  transition: background 150ms ease-out;
-}
-
-.epg-info-button:focus,
-.epg-info-button.focused {
-  background: var(--focus-color, #00a8e1);
-  border-color: white;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-color) inset;
-  outline: none;
-}
-
-.epg-info-button.primary {
-  background: var(--color-primary);
 }
