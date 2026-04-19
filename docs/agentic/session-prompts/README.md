@@ -16,7 +16,7 @@ Authority, read order, and document precedence now live in [`docs/AGENTIC_DEV_WO
 - [`cleanup-review.md`](./cleanup-review.md)
   - reusable adversarial review session for either a plan or an implementation
 - [`cleanup-loop.md`](./cleanup-loop.md)
-  - Tier 3 controller session for high-risk work
+  - Tier 3 cleanup/refactor controller session for package-scoped planning/closeout and execution-unit orchestration
 - [`feature-plan.md`](./feature-plan.md)
   - Tier 2 or Tier 3 planner session for serious feature/design planning
 - [`feature-implement.md`](./feature-implement.md)
@@ -27,7 +27,7 @@ Authority, read order, and document precedence now live in [`docs/AGENTIC_DEV_WO
   - adversarial whole-system review of the repo harness against current OpenAI and Anthropic guidance
 <!-- END MANAGED SESSION PROMPT SET -->
 
-The generated managed-list label for `cleanup-loop.md` is shorthand only. The authoritative scope is cleanup/refactor-only Tier 3 orchestration: keep planning/package closeout package-scoped for `checklist-linked` work, run implementation/review by approved `execution_unit` there, keep iterating planner/reviewer and implementer/reviewer until clean approval at each gate, keep `standalone remediation` to one bounded execution target unless the approved plan says otherwise, and do not route feature/design or mixed-task umbrella control through it.
+The managed-list description for `cleanup-loop.md` is intentionally concise. The authoritative scope is cleanup/refactor-only Tier 3 orchestration: keep planning/package closeout package-scoped for `checklist-linked` work, run implementation/review by approved `execution_unit` there, keep iterating planner/reviewer and implementer/reviewer until clean approval at each gate, keep `standalone remediation` to one bounded execution target unless the approved plan says otherwise, and do not route feature/design or mixed-task umbrella control through it.
 
 Tracked role intent:
 

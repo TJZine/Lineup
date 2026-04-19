@@ -248,6 +248,11 @@ test('buildChecklistPlanPathMessages deduplicates repeated checklist refs for th
 
 test('SESSION_PROMPT_INVENTORY and EVAL_PROMPT_INVENTORY drive expected file order', () => {
     assert.equal(SESSION_PROMPT_INVENTORY[0].file, 'cleanup-plan.md');
+    assert.equal(SESSION_PROMPT_INVENTORY[3].file, 'cleanup-loop.md');
+    assert.equal(
+        SESSION_PROMPT_INVENTORY[3].description,
+        'Tier 3 cleanup/refactor controller session for package-scoped planning/closeout and execution-unit orchestration',
+    );
     assert.equal(SESSION_PROMPT_INVENTORY[5].file, 'feature-implement.md');
     assert.equal(
         SESSION_PROMPT_INVENTORY[5].description,

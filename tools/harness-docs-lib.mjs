@@ -38,7 +38,8 @@ export const SESSION_PROMPT_INVENTORY = [
     {
         file: 'cleanup-loop.md',
         linkText: 'cleanup-loop.md',
-        description: 'Tier 3 controller session for high-risk work',
+        description:
+            'Tier 3 cleanup/refactor controller session for package-scoped planning/closeout and execution-unit orchestration',
     },
     {
         file: 'feature-plan.md',
