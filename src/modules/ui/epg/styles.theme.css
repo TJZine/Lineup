@@ -1,0 +1,371 @@
+/* Premium glass: overall container surface */
+.theme-glass .epg-container {
+  background: linear-gradient(
+      180deg,
+      rgb(5 8 11 / 82%) 0%,
+      rgb(8 11 15 / 78%) 46%,
+      rgb(8 11 15 / 88%) 100%
+    );
+}
+
+/* Fade out grid bottom before it hits the dashboard.
+   Use a ::after overlay instead of mask-image so interactive rows
+   in the fade zone remain visible for focus/hit-testing on TV hardware. */
+.theme-glass .epg-grid {
+  position: relative;
+}
+
+.theme-glass .epg-grid::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 20%;
+  background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.6));
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Inner panels use explicit scrims for no-blur readability */
+.theme-glass .epg-channel-list,
+.theme-glass .epg-time-header,
+.theme-glass .epg-library-tabs {
+  background: rgb(var(--scrim-tint-rgb) / 94%);
+  border-right: none;
+  border-bottom: none;
+}
+
+/* Dashboard surface */
+.theme-glass .epg-dashboard-bottom {
+  background: var(--glass-panel-strong);
+  border-top: 1px solid var(--glass-border-soft);
+  box-shadow: none;
+}
+
+.theme-glass .epg-overlay-showcase {
+  background: var(--glass-scrim-gradient, none), rgba(16, 18, 24, 0.50);
+  border-bottom: 1px solid var(--glass-border-soft);
+}
+
+.theme-glass .epg-overlay-showcase .epg-info-panel {
+  background: transparent;
+  border-bottom: none;
+}
+
+.theme-glass .epg-container.layout-classic .epg-classic-showcase {
+  background: var(--glass-panel-strong);
+  border-radius: var(--panel-radius);
+}
+
+/* Pills: program cells */
+.theme-glass .epg-cell {
+  border-radius: 16px;
+  background: rgb(12 16 21 / 78%);
+  border: 1px solid rgb(255 255 255 / 6%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%);
+}
+
+.theme-glass .epg-cell.focused {
+  background: rgba(var(--focus-color-rgb), 0.15);
+  border: 1px solid rgba(var(--focus-color-rgb), 0.26);
+  box-shadow: none;
+  outline: none;
+}
+
+/* Forced-colors: restore focus outline for glass theme (higher specificity than base `.epg-cell.focused`). */
+@media (forced-colors: active) {
+  .theme-glass .epg-cell.focused {
+    outline: 3px solid CanvasText;
+    outline-offset: 2px;
+  }
+}
+
+/*
+  Pills: channel rows without margins (virtualization-safe).
+  Use an inset pseudo-element for the "floating pill" look without changing rowHeight.
+*/
+.theme-glass .epg-channel-row {
+  position: relative;
+  border-bottom: none;
+  background: transparent;
+}
+
+.theme-glass .epg-channel-row::before {
+  content: '';
+  position: absolute;
+  inset: 4px 8px;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 4%);
+  border: 1px solid rgb(255 255 255 / 5%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.theme-glass .epg-channel-row > * {
+  position: relative;
+  z-index: 1;
+}
+
+.theme-glass .epg-channel-row.focused {
+  box-shadow: none;
+}
+
+.theme-glass .epg-container.layout-classic .epg-channel-row.focused {
+  background: transparent;
+}
+
+.theme-glass .epg-channel-row.focused::before {
+  background: rgba(var(--focus-color-rgb), 0.14);
+  border: 1px solid rgba(var(--focus-color-rgb), 0.28);
+}
+
+@media (forced-colors: active) {
+  .theme-glass .epg-channel-row.focused::before {
+    background: Canvas;
+    border: 2px solid CanvasText;
+  }
+}
+
+/* Premium "laser" current time */
+.theme-glass .epg-time-indicator {
+  background: var(--color-primary);
+  box-shadow: 0 0 12px rgb(var(--color-primary-rgb) / 72%);
+}
+
+.theme-glass .epg-time-indicator::after {
+  background: var(--color-primary);
+  color: #0a0d12;
+}
+
+.theme-ember-steel .epg-cell.focused {
+  background: rgba(var(--focus-color-rgb), 0.18);
+  box-shadow: none;
+  outline: none;
+}
+
+.theme-ember-steel .epg-channel-row.focused {
+  background: rgba(var(--focus-color-rgb), 0.18);
+}
+
+.theme-ember-steel .epg-container.layout-classic .epg-channel-row.focused {
+  background: rgba(var(--focus-color-rgb), 0.18);
+}
+
+.theme-ember-steel .epg-container.layout-classic .epg-cell.focused {
+  background: rgba(var(--focus-color-rgb), 0.22);
+  border-color: rgba(var(--focus-color-rgb), 0.18);
+  box-shadow: none;
+  outline: none;
+}
+
+.theme-ember-steel .epg-container.layout-classic .epg-time-header,
+.theme-ember-steel .epg-container.layout-classic .epg-library-tabs {
+  background: rgb(var(--scrim-tint-rgb) / 96%);
+}
+
+.theme-ember-steel .epg-container.layout-classic .epg-time-header-sticky {
+  color: var(--color-text-primary);
+  background: linear-gradient(
+    to right,
+    rgb(var(--scrim-tint-rgb) / 97%),
+    rgb(var(--scrim-tint-rgb) / 0%)
+  );
+}
+
+.theme-ember-steel .epg-container.layout-classic .epg-time-slot {
+  color: var(--color-text-secondary);
+}
+
+.theme-ember-steel .epg-container.layout-classic .epg-channel-list {
+  background: rgb(var(--scrim-tint-rgb) / 98%);
+}
+
+.theme-ember-steel .epg-container.layout-classic .epg-cell-title {
+  color: var(--color-text-primary);
+}
+
+.theme-ember-steel .epg-container.layout-classic .epg-cell-time,
+.theme-ember-steel .epg-container.layout-classic .epg-cell-subtitle,
+.theme-ember-steel .epg-container.layout-classic .epg-cell-meta {
+  color: var(--color-text-secondary);
+}
+
+.theme-ember-steel .epg-container.layout-classic .epg-cell-episode,
+.theme-ember-steel .epg-container.layout-classic .epg-info-quality-badge,
+.theme-ember-steel .epg-container.layout-classic .epg-info-pill {
+  background: rgb(var(--scrim-tint-rgb) / 42%);
+}
+
+/* Swiss sharp classic-guide treatment */
+.theme-swiss .epg-container.layout-classic {
+  --classic-cell-radius: 0px;
+}
+
+.theme-swiss .epg-container.layout-classic .epg-classic-showcase-pip,
+.theme-swiss .epg-container.layout-classic .epg-cell-episode,
+.theme-swiss .epg-container.layout-classic .epg-info-quality-badge,
+.theme-swiss .epg-container.layout-classic .epg-info-pill {
+  border-radius: 0;
+}
+
+.theme-swiss .epg-cell.focused {
+  background: rgba(var(--focus-color-rgb), 0.12);
+  box-shadow: none;
+  outline: none;
+}
+
+.theme-swiss .epg-channel-row.focused {
+  background: rgba(var(--focus-color-rgb), 0.12);
+}
+
+.theme-swiss .epg-container.layout-classic .epg-channel-row.focused {
+  background: rgba(var(--focus-color-rgb), 0.12);
+}
+
+.theme-swiss .epg-container.layout-classic .epg-cell.focused {
+  background: rgba(var(--focus-color-rgb), 0.12);
+  border-color: rgba(var(--focus-color-rgb), 0.12);
+  box-shadow: none;
+  outline: none;
+}
+
+.theme-directv .epg-container.layout-classic .epg-time-header,
+.theme-directv .epg-container.layout-classic .epg-library-tabs,
+.theme-directv .epg-container.layout-classic .epg-channel-list {
+  background: linear-gradient(
+    180deg,
+    var(--directv-panel-gradient-start),
+    var(--directv-panel-gradient-end)
+  );
+  border-color: rgb(var(--color-primary-rgb) / 82%);
+}
+
+.theme-directv .epg-container.layout-classic .epg-time-header-sticky {
+  color: #eff8ff;
+  background: linear-gradient(
+    to right,
+    rgb(0 16 32 / 98%),
+    rgb(0 16 32 / 0%)
+  );
+}
+
+.theme-directv .epg-container.layout-classic .epg-time-slot {
+  color: #d4ebff;
+  border-left-color: rgb(var(--color-primary-rgb) / 40%);
+}
+
+.theme-directv .epg-container.layout-classic .epg-cell {
+  background: linear-gradient(
+    180deg,
+    var(--directv-panel-gradient-start),
+    var(--directv-panel-gradient-end)
+  );
+  border-color: rgb(var(--color-primary-rgb) / 82%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 14%);
+}
+
+.theme-directv .epg-container.layout-classic .epg-cell:hover {
+  background: linear-gradient(
+    180deg,
+    var(--directv-panel-gradient-start),
+    var(--directv-panel-gradient-strong-end)
+  );
+}
+
+.theme-directv .epg-container.layout-classic .epg-cell.focused {
+  background: var(--directv-focus-fill);
+  border-color: var(--directv-focus-border);
+  box-shadow: none;
+  color: var(--directv-focus-text);
+  outline: none;
+}
+
+.theme-directv .epg-container.layout-classic .epg-channel-row.focused {
+  background: var(--directv-focus-fill);
+  box-shadow: none;
+}
+
+.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-number,
+.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-name {
+  color: var(--directv-focus-text);
+}
+
+.theme-directv .epg-container.layout-classic .epg-cell-title {
+  color: #eff8ff;
+}
+
+.theme-directv .epg-container.layout-classic .epg-cell-time,
+.theme-directv .epg-container.layout-classic .epg-cell-subtitle,
+.theme-directv .epg-container.layout-classic .epg-cell-meta {
+  color: var(--directv-copy-secondary);
+}
+
+.theme-directv .epg-container.layout-classic .epg-cell.focused .epg-cell-title,
+.theme-directv .epg-container.layout-classic .epg-cell.focused .epg-cell-time,
+.theme-directv .epg-container.layout-classic .epg-cell.focused .epg-cell-subtitle,
+.theme-directv .epg-container.layout-classic .epg-cell.focused .epg-cell-meta {
+  color: var(--directv-focus-text);
+  font-weight: 700;
+}
+
+.theme-directv .epg-info-panel,
+.theme-directv .epg-info-panel.epg-info-mode-artwork,
+.theme-directv .epg-info-panel.epg-info-mode-theme-default {
+  background: linear-gradient(
+    180deg,
+    var(--directv-panel-gradient-start),
+    var(--directv-panel-gradient-strong-end)
+  );
+  border-color: rgb(var(--color-primary-rgb) / 82%);
+}
+
+.theme-directv .epg-info-panel.epg-info-mode-artwork .epg-info-backdrop,
+.theme-directv .epg-info-panel.epg-info-mode-theme-default .epg-info-backdrop {
+  background: linear-gradient(
+    180deg,
+    var(--directv-panel-gradient-start),
+    var(--directv-panel-gradient-strong-end)
+  );
+}
+
+/* Minimal themes: keep legacy density and avoid new visual structure. */
+.theme-swiss .epg-cell-meta,
+.theme-swiss .epg-cell-subtitle {
+  display: none !important;
+}
+
+.theme-swiss .epg-info-backdrop,
+.theme-swiss .epg-info-tags {
+  display: none !important;
+}
+
+.theme-swiss .epg-cell-title {
+  white-space: nowrap;
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
+/*
+  Forced-colors: ensure theme-scoped focus rules (more specific, later in file) do not override
+  the system Canvas/CanvasText focus treatment.
+*/
+@media (forced-colors: active) {
+  .theme-slate-pine .epg-cell.focused,
+  .theme-slate-pine .epg-container.layout-classic .epg-cell.focused,
+  .theme-ember-steel .epg-cell.focused,
+  .theme-ember-steel .epg-container.layout-classic .epg-cell.focused,
+  .theme-swiss .epg-cell.focused,
+  .theme-swiss .epg-container.layout-classic .epg-cell.focused,
+  .theme-directv .epg-cell.focused,
+  .theme-directv .epg-container.layout-classic .epg-cell.focused,
+  .theme-glass .epg-cell.focused,
+  .theme-glass .epg-container.layout-classic .epg-cell.focused {
+    background: Canvas;
+    outline: 3px solid CanvasText;
+    outline-offset: 2px;
+    box-shadow: none;
+    border-color: CanvasText;
+    color: CanvasText;
+  }
+}

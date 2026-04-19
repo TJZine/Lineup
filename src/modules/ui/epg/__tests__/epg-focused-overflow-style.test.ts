@@ -47,7 +47,18 @@ describe('focused EPG overflow style contract', () => {
         const gridImport = "@import url('./styles.grid.css');";
         const cellsImport = "@import url('./styles.cells.css');";
         const infoPanelImport = "@import url('./styles.info-panel.css');";
-        const importOrder = [shellImport, gridImport, cellsImport, infoPanelImport];
+        const classicImport = "@import url('./styles.classic.css');";
+        const themeImport = "@import url('./styles.theme.css');";
+        const motionImport = "@import url('./styles.motion.css');";
+        const importOrder = [
+            shellImport,
+            gridImport,
+            cellsImport,
+            infoPanelImport,
+            classicImport,
+            themeImport,
+            motionImport,
+        ];
 
         for (const cssImport of importOrder) {
             expect(rawCss).toContain(cssImport);
@@ -58,6 +69,9 @@ describe('focused EPG overflow style contract', () => {
             const nextImport = importOrder[index + 1]!;
             expect(rawCss.indexOf(currentImport)).toBeLessThan(rawCss.indexOf(nextImport));
         }
+
+        const seamResidual = rawCss.replace(/^\s*@import[^;]+;\s*$/gm, '').trim();
+        expect(seamResidual).toBe('');
 
         injectedStyle = document.createElement('style');
         injectedStyle.textContent = css;

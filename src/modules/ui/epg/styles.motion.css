@@ -1,0 +1,126 @@
+.epg-container.visible {
+  animation: epg-container-enter 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes epg-container-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(-24px, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes epg-loading-shimmer {
+  0% {
+    transform: translateX(-30%);
+  }
+
+  100% {
+    transform: translateX(30%);
+  }
+}
+
+@keyframes epg-title-ticker {
+  0%, 20% {
+    transform: translateX(0);
+  }
+
+  55%, 80% {
+    transform: translateX(calc(-1 * var(--epg-title-ticker-distance-px, 0px)));
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes epg-subtitle-ticker {
+  0%, 20% {
+    transform: translateX(0);
+  }
+
+  55%, 80% {
+    transform: translateX(calc(-1 * var(--epg-subtitle-ticker-distance-px, 0px)));
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: scale(1.6);
+  }
+}
+
+@keyframes epg-info-description-scroll {
+  0%,
+  18% {
+    transform: translateY(0);
+  }
+
+  82%,
+  100% {
+    transform: translateY(var(--scroll-distance, 0));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .epg-container.visible {
+    animation: none;
+    transform: none;
+  }
+
+  .epg-channel-list {
+    transition: none;
+  }
+
+  .epg-cell.loading::before,
+  .epg-cell.loading::after {
+    animation: none;
+  }
+
+  .epg-cell-title.epg-cell-title-ticker-ready,
+  .epg-cell-title.epg-cell-title-ticker-running {
+    animation: none;
+  }
+
+  .epg-cell-title.epg-cell-title-ticker-ready .epg-cell-title-text,
+  .epg-cell-title.epg-cell-title-ticker-running .epg-cell-title-text,
+  .epg-cell-subtitle.epg-cell-subtitle-ticker-ready .epg-cell-subtitle-text,
+  .epg-cell-subtitle.epg-cell-subtitle-ticker-running .epg-cell-subtitle-text {
+    animation: none;
+    transform: none;
+  }
+
+  .epg-live-badge::before {
+    animation: none;
+  }
+
+  .epg-info-gradient-a,
+  .epg-info-gradient-b {
+    transition: none;
+  }
+
+  .epg-info-gradient-a.epg-info-gradient-active,
+  .epg-info-gradient-b.epg-info-gradient-active {
+    will-change: auto;
+  }
+
+  .epg-info-description-inner {
+    animation: none;
+    transform: none;
+  }
+}
