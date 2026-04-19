@@ -8,7 +8,7 @@ import { readComposedCss } from '../../../../styles/__tests__/helpers/css-test-u
 describe('focused EPG overflow style contract', () => {
     const cssPath = path.resolve(__dirname, '..', 'styles.css');
     const rawCss = fs.readFileSync(cssPath, 'utf8');
-    const css = readComposedCss('src/modules/ui/epg/styles.css');
+    let css = '';
     let injectedStyle: HTMLStyleElement | null = null;
     const getBlockFromIndex = (start: number): string => {
         const open = css.indexOf('{', start);
@@ -73,6 +73,7 @@ describe('focused EPG overflow style contract', () => {
         const seamResidual = rawCss.replace(/^\s*@import[^;]+;\s*$/gm, '').trim();
         expect(seamResidual).toBe('');
 
+        css = readComposedCss('src/modules/ui/epg/styles.css');
         injectedStyle = document.createElement('style');
         injectedStyle.textContent = css;
         document.head.appendChild(injectedStyle);

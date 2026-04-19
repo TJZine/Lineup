@@ -11,14 +11,14 @@
 .epg-container.layout-classic .epg-now-watching-banner {
   border-bottom: none;
   padding: 6px 14px;
-  color: #b9c0d8;
+  color: var(--color-text-secondary);
   font-size: 20px;
   letter-spacing: 0.2px;
 }
 
 .epg-container.layout-classic .epg-info-panel {
   height: auto;
-  min-height: calc(var(--classic-showcase-pip-width, var(--classic-guide-pip-width, 672px)) * 9 / 16);
+  min-height: calc(var(--classic-showcase-pip-width, var(--classic-guide-pip-width)) * 9 / 16);
   background: transparent;
   border: none;
   border-radius: 0;
@@ -28,7 +28,7 @@
 
 .epg-container.layout-classic .epg-info-backdrop {
   left: calc(-1 * (
-    var(--classic-showcase-pip-width, var(--classic-guide-pip-width, 672px)) +
+    var(--classic-showcase-pip-width, var(--classic-guide-pip-width)) +
     var(--classic-showcase-gap) +
     24px
   ));
@@ -43,7 +43,7 @@
   right: 0;
   width: calc(
     100% +
-    var(--classic-showcase-pip-width, var(--classic-guide-pip-width, 672px)) +
+    var(--classic-showcase-pip-width, var(--classic-guide-pip-width)) +
     var(--classic-showcase-gap) +
     48px
   );
@@ -82,14 +82,14 @@
 .epg-container.layout-classic .epg-time-header-sticky {
   font-size: 22px;
   font-weight: 700;
-  color: #f4f7ff;
+  color: var(--color-text-primary);
   background: linear-gradient(to right, rgba(12, 15, 24, 0.97), rgba(12, 15, 24, 0));
 }
 
 .epg-container.layout-classic .epg-time-slot {
   font-size: 24px;
   font-weight: 600;
-  color: #d7dcef;
+  color: var(--color-text-secondary);
   border-left: 1px solid rgba(255, 255, 255, 0.14);
 }
 
@@ -144,13 +144,13 @@
 .epg-container.layout-classic .epg-cell-title {
   font-size: 25px;
   font-weight: 500;
-  color: #e7ebfb;
+  color: var(--color-text-primary);
 }
 
 .epg-container.layout-classic .epg-cell-time,
 .epg-container.layout-classic .epg-cell-subtitle,
 .epg-container.layout-classic .epg-cell-meta {
-  color: #b8c0d8;
+  color: var(--color-text-secondary);
 }
 
 .epg-container.layout-classic .epg-cell.current {

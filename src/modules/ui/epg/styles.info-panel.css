@@ -96,18 +96,6 @@
   display: none;
 }
 
-.epg-info-panel.epg-info-mode-artwork {
-  background: linear-gradient(to top, var(--panel-surface-2), var(--panel-surface));
-}
-
-.epg-info-panel.epg-info-mode-artwork .epg-info-backdrop {
-  background: linear-gradient(to top, var(--panel-surface-2), var(--panel-surface));
-}
-
-.epg-info-panel.epg-info-mode-theme-default {
-  background: linear-gradient(to top, var(--panel-surface-2), var(--panel-surface));
-}
-
 .epg-info-panel.epg-info-mode-theme-default .epg-info-backdrop-img {
   display: none;
 }
