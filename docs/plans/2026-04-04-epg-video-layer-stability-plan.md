@@ -97,6 +97,7 @@
 - `systematic-debugging`
 - `ui-composition-patterns`
 - `architecture-boundaries`
+- `verification-strategy`
 - `execution-plan-authoring`
 - `verification-before-completion`
 - `test-driven-development` when behavior coverage changes are introduced
@@ -273,6 +274,8 @@ Out-of-scope rule:
   - `VideoPlayer` changes are blocked unless the gate variant fails or the proof still implicates `display: none/block`
 
 ## Verification Commands
+
+Verification strategy classification: `UX-manual` primary with supporting `integration-ops`; classification is `broader integration/manual proof required` because the proof surface is sequence-sensitive video-layer behavior backed by owner-seam tests and targeted runtime instrumentation.
 
 - `npm test -- --runInBand src/core/__tests__/InitializationCoordinator.test.ts src/modules/ui/epg/__tests__/EPGComponent.test.ts src/modules/navigation/__tests__/NavigationCoordinator.test.ts src/modules/ui/player-osd/__tests__/PlayerOsdCoordinator.test.ts src/modules/player/__tests__/VideoPlayer.test.ts src/core/__tests__/PlaybackRuntimeController.test.ts`
   - Expected: pass

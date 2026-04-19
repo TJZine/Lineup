@@ -67,7 +67,7 @@ Run the loop as an explicit state machine:
   - treat slice parallelism as unavailable unless the approved plan explicitly authorizes it and explains the boundary and verification split
 - `plan-revise`
   - route plan-review findings back to the same planning subagent by default
-  - only keep a narrow controller-side plan revision local as a last resort when delegated planning is blocked, a controller-only seam decision must be resolved in the revision itself, the user explicitly wants local planning, or preserving controller context is materially more reliable than another handoff for the specific plan correction
+  - only keep a narrow controller-side plan revision local as a last resort when delegated planning explicitly blocks, fails, the user explicitly asks the main thread to plan locally, a controller-only seam decision must be resolved in the revision itself, or the narrow long-wait/direct-status-check/follow-up-wait abandonment test is met
   - by default, send the revised plan back to the same reviewer thread for closure checking instead of spawning a brand-new reviewer each round
   - run a fresh reviewer again only for the final clean approval gate, when the prior reviewer context is no longer trustworthy, or when the controller wants a second opinion because the loop is stuck or scope changed materially
   - when a same-reviewer closure check clears the findings after a non-clean round, return to `plan-review` for the fresh final approval gate before entering `execution-unit-select`
@@ -126,7 +126,7 @@ Run the loop as an explicit state machine:
 - keep orchestration package-scoped for planning and closeout only when the task is `checklist-linked`; otherwise keep `standalone remediation` bounded to its approved execution target
 - for checklist-linked package work, treat `slice_table` as the atomic ownership map and `execution_unit` as the execution/review surface
 - keep delegation inside the tracked role catalog from `.codex/config.toml`; use `planner` for bounded planning artifacts, `cleanup_worker` for Tier 3 `cleanup-loop` implementation write passes, `worker` for general implementation outside that loop, and `reviewer` for adversarial review passes
-- for `checklist-linked` Tier 3 cleanup, treat delegated primary plan authoring as the default, and treat main-thread plan authoring as a last-resort exception that must be justified by an explicit block, a controller-only seam decision, a user request for local planning, or a narrow controller-context-preservation need
+- for `checklist-linked` Tier 3 cleanup, treat delegated primary plan authoring as the default, and treat main-thread plan authoring as a last-resort exception that must be justified by delegated planning explicitly blocking or failing, a user request for local planning, a controller-only seam decision that must be resolved before planning can continue, or the narrow long-wait/direct-status-check/follow-up-wait abandonment test
 - while a delegated planner pass is active, treat that planner as the authoritative plan author and do not run competing controller-side planning discovery or draft a rival tracked/local plan
 - ensure delegated write passes use the right repo-local boundary skills
 - keep write-capable delegated passes alive across revision rounds unless there is a specific reason to restart them

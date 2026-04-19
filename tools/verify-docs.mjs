@@ -118,7 +118,13 @@ const requiredCodexRoleContracts = new Map([
     [
         'planner',
         {
-            requiredLines: ['model = "gpt-5.4"', 'model_reasoning_effort = "high"'],
+            requiredLinePatterns: [
+                { pattern: /^model\s*=\s*"gpt-5\.4"\s*(?:#.*)?$/mu, label: 'model = "gpt-5.4"' },
+                {
+                    pattern: /^model_reasoning_effort\s*=\s*"high"\s*(?:#.*)?$/mu,
+                    label: 'model_reasoning_effort = "high"',
+                },
+            ],
             requiredMarkers: [
                 'own bounded planning work',
                 'not product-code implementation',
@@ -131,7 +137,13 @@ const requiredCodexRoleContracts = new Map([
     [
         'cleanup_worker',
         {
-            requiredLines: ['model = "gpt-5.4"', 'model_reasoning_effort = "high"'],
+            requiredLinePatterns: [
+                { pattern: /^model\s*=\s*"gpt-5\.4"\s*(?:#.*)?$/mu, label: 'model = "gpt-5.4"' },
+                {
+                    pattern: /^model_reasoning_effort\s*=\s*"high"\s*(?:#.*)?$/mu,
+                    label: 'model_reasoning_effort = "high"',
+                },
+            ],
             requiredMarkers: [
                 'bounded cleanup-loop implementation write scope',
                 'smallest defensible cleanup change',
@@ -413,7 +425,7 @@ function checkForbiddenLiteralReferences(errors) {
         },
         {
             description: 'local-only .agents artifact',
-            regex: /\.agents\/[a-z0-9._/-]+/giu,
+            regex: /\.agents(?:\/[a-z0-9._/-]+)?/giu,
         },
         {
             description: 'local-only run instance',
@@ -1724,9 +1736,11 @@ export function checkTrackedCodexRoleConfig(errors) {
 
         const normalizedRoleConfig = normalizeDocText(roleConfigContent);
 
-        for (const requiredLine of contract.requiredLines) {
-            if (!roleConfigContent.includes(requiredLine)) {
-                errors.push(`Codex role config is missing required ${role} contract line (${requiredLine}): ${relativePath}`);
+        for (const requiredLinePattern of contract.requiredLinePatterns ?? []) {
+            if (!requiredLinePattern.pattern.test(roleConfigContent)) {
+                errors.push(
+                    `Codex role config is missing required ${role} contract line (${requiredLinePattern.label}): ${relativePath}`
+                );
             }
         }
 
