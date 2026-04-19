@@ -296,6 +296,8 @@ describe('InitializationCoordinator (Plex Home)', () => {
         const plexAuth = deps.plexAuth as unknown as {
             readStoredCredentialsAndClearCorruption: jest.Mock;
             validateToken: jest.Mock;
+            storeCredentials: jest.Mock;
+            getCurrentUser: jest.Mock;
         };
         const navigation = deps.navigation as unknown as { goTo: jest.Mock };
 
@@ -303,10 +305,44 @@ describe('InitializationCoordinator (Plex Home)', () => {
         plexAuth.validateToken
             .mockResolvedValueOnce(false)
             .mockResolvedValueOnce(true);
+        plexAuth.getCurrentUser.mockReturnValue({
+            token: 'account-token',
+            userId: 'user-1',
+            username: 'account',
+            email: 'account@example.com',
+            thumb: '',
+            expiresAt: null,
+            issuedAt: new Date(),
+        });
 
         await coordinator.runStartup(2);
 
         expect(navigation.goTo).toHaveBeenCalledWith('profile-select');
+        expect(plexAuth.storeCredentials).toHaveBeenCalledWith({
+            accountToken: {
+                token: 'account-token',
+                userId: 'user-1',
+                username: 'account',
+                email: 'account@example.com',
+                thumb: '',
+                expiresAt: null,
+                issuedAt: expect.any(Date),
+            },
+            activeToken: {
+                token: 'account-token',
+                userId: 'user-1',
+                username: 'account',
+                email: 'account@example.com',
+                thumb: '',
+                expiresAt: null,
+                issuedAt: expect.any(Date),
+            },
+            activeUserId: 'user-1',
+            selectedServerByUserId: {
+                'user-1': { serverId: null, serverUri: null },
+            },
+            deviceKey: null,
+        });
     });
 
     it('rethrows non-auth token validation failures instead of masking them as auth resume', async () => {

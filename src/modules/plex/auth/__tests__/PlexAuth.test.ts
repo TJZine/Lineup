@@ -529,7 +529,7 @@ describe('PlexAuth', () => {
     });
 
     describe('persistence', () => {
-        it('should restore credentials from localStorage on init', () => {
+        it('does not restore credentials from localStorage until startup explicitly normalizes them', async () => {
             // Pre-populate localStorage
             const storedData = {
                 version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
@@ -565,13 +565,18 @@ describe('PlexAuth', () => {
 
             const auth = new PlexAuth(mockConfig);
 
-            expect(auth.isAuthenticated()).toBe(true);
-            const currentUser = auth.getCurrentUser();
-            expect(currentUser).not.toBeNull();
-            if (currentUser !== null) {
-                expect(currentUser.token).toBe('stored-token');
-                expect(currentUser.username).toBe('storeduser');
-            }
+            expect(auth.isAuthenticated()).toBe(false);
+            expect(auth.getCurrentUser()).toBeNull();
+            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({
+                kind: 'available',
+                credentials: expect.objectContaining({
+                    activeUserId: 'user1',
+                    activeToken: expect.objectContaining({
+                        token: 'stored-token',
+                        username: 'storeduser',
+                    }),
+                }),
+            });
         });
 
         it('should clear localStorage on clearCredentials', async () => {
@@ -675,6 +680,49 @@ describe('PlexAuth', () => {
             expect(result.credentials.activeToken.expiresAt).toBeInstanceOf(Date);
             expect(result.credentials.selectedServerByUserId.user1).toBeDefined();
             expect(result.credentials.selectedServerByUserId.user1?.serverId).toBe('server1');
+        });
+
+        it('does not hydrate runtime auth state from storage before an explicit startup write', async () => {
+            const now = new Date();
+            mockLocalStorage.setItem(
+                PLEX_AUTH_CONSTANTS.STORAGE_KEY,
+                JSON.stringify({
+                    version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
+                    data: {
+                        accountToken: {
+                            token: 'account-token',
+                            userId: 'account-user',
+                            username: 'account',
+                            email: 'account@example.com',
+                            thumb: '',
+                            expiresAt: null,
+                            issuedAt: now.toISOString(),
+                        },
+                        activeToken: {
+                            token: 'active-token',
+                            userId: 'active-user',
+                            username: 'active',
+                            email: 'active@example.com',
+                            thumb: '',
+                            expiresAt: null,
+                            issuedAt: now.toISOString(),
+                        },
+                        activeUserId: 'active-user',
+                        selectedServerByUserId: {
+                            'active-user': {
+                                serverId: null,
+                                serverUri: null,
+                            },
+                        },
+                    },
+                })
+            );
+
+            const auth = new PlexAuth(mockConfig);
+
+            expect(auth.isAuthenticated()).toBe(false);
+            expect(auth.getCurrentUser()).toBeNull();
+            expect(auth.getActiveUserId()).toBeNull();
         });
 
         it('normalizes malformed persisted deviceKey payloads to null', async () => {
@@ -862,7 +910,7 @@ describe('PlexAuth', () => {
             expect(mockLocalStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBeNull();
         });
 
-        it('surfaces constructor-detected corruption once on next read', async () => {
+        it('surfaces corruption on the first explicit read and clears it for later reads', async () => {
             mockLocalStorage.setItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY, '{not-json');
             const auth = new PlexAuth(mockConfig);
 

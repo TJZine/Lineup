@@ -20,7 +20,6 @@ import {
     PlexAuthToken,
     PlexAuthData,
     PlexStoredCredentialsReadResult,
-    PlexStoredCredentialsReadCorruptionReason,
     PlexHomeUser,
     PlexPinRequest,
     PlexAuthState,
@@ -71,10 +70,6 @@ export class PlexAuth implements IPlexAuth {
     private _state: PlexAuthState;
     private _emitter: EventEmitter<PlexAuthEvents>;
     private _credentialsEpoch = 0;
-    private _bootStoredCredentialsCorruption: {
-        kind: 'corrupted';
-        reason: PlexStoredCredentialsReadCorruptionReason;
-    } | null = null;
 
     private isValidUserPayload(payload: unknown): payload is Record<string, unknown> {
         if (typeof payload !== 'object' || payload === null) return false;
@@ -100,7 +95,6 @@ export class PlexAuth implements IPlexAuth {
             isValidated: false,
             pendingPin: null,
         };
-        this._loadStoredCredentials();
     }
 
     // ========================================
@@ -333,17 +327,7 @@ export class PlexAuth implements IPlexAuth {
      * @returns Explicit stored-read classification
      */
     public async readStoredCredentialsAndClearCorruption(): Promise<PlexStoredCredentialsReadResult> {
-        const result = this._readStoredCredentials();
-        if (result.kind === 'available') {
-            this._bootStoredCredentialsCorruption = null;
-            return result;
-        }
-        if (result.kind === 'missing' && this._bootStoredCredentialsCorruption) {
-            const bootCorruption = this._bootStoredCredentialsCorruption;
-            this._bootStoredCredentialsCorruption = null;
-            return bootCorruption;
-        }
-        return result;
+        return this._readStoredCredentials();
     }
 
     /**
@@ -362,7 +346,6 @@ export class PlexAuth implements IPlexAuth {
         this._state.activeToken = auth.activeToken;
         this._state.activeUserId = auth.activeUserId;
         this._state.isValidated = true;
-        this._bootStoredCredentialsCorruption = null;
         this._emitter.emit('authChange', true);
     }
 
@@ -379,7 +362,6 @@ export class PlexAuth implements IPlexAuth {
         this._state.activeUserId = null;
         this._state.isValidated = false;
         this._state.pendingPin = null;
-        this._bootStoredCredentialsCorruption = null;
         this._emitter.emit('authChange', false);
     }
 
@@ -809,21 +791,6 @@ export class PlexAuth implements IPlexAuth {
         throwIfAborted(signal);
         const data = await response.json();
         return parseUserResponse(data, token);
-    }
-
-    private _loadStoredCredentials(): void {
-        const result = this._readStoredCredentials();
-        if (result.kind === 'corrupted') {
-            this._bootStoredCredentialsCorruption = result;
-            return;
-        }
-        if (result.kind !== 'available') {
-            return;
-        }
-        this._state.accountToken = result.credentials.accountToken;
-        this._state.activeToken = result.credentials.activeToken;
-        this._state.activeUserId = result.credentials.activeUserId;
-        this._state.isValidated = false;
     }
 
     /**
