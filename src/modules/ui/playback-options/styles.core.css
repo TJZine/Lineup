@@ -236,3 +236,92 @@
   height: 50%;
   animation-delay: 0.4s;
 }
+
+@media (forced-colors: active) {
+  .playback-options-panel {
+    border-left-color: CanvasText;
+  }
+
+  .playback-options-item {
+    background: Canvas;
+    border-color: CanvasText;
+    color: CanvasText;
+  }
+
+  .playback-options-item-label,
+  .playback-options-item-meta,
+  .playback-options-item-state,
+  .playback-options-item-meta-pill,
+  .playback-options-equalizer > span {
+    color: CanvasText;
+  }
+
+  .playback-options-item-meta-pill {
+    background: Canvas;
+    border: 1px solid currentcolor;
+  }
+
+  .playback-options-equalizer > span {
+    background: CanvasText;
+  }
+
+  .playback-options-item.selected {
+    background: Highlight;
+    border-color: Highlight;
+    border-left-color: Highlight;
+  }
+
+  .playback-options-item.selected .playback-options-item-label,
+  .playback-options-item.selected .playback-options-item-meta,
+  .playback-options-item.selected .playback-options-item-state,
+  .playback-options-item.selected .playback-options-item-meta-pill {
+    color: HighlightText;
+  }
+
+  .playback-options-item.selected .playback-options-item-meta-pill {
+    background: Highlight;
+  }
+
+  .playback-options-item.selected .playback-options-equalizer > span {
+    background: HighlightText;
+  }
+
+  .playback-options-item.focused,
+  .playback-options-item:focus,
+  .playback-options-item:focus-visible {
+    border-color: Highlight;
+    border-left-color: Highlight;
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+
+  .playback-options-item.selected.focused,
+  .playback-options-item.selected:focus,
+  .playback-options-item.selected:focus-visible {
+    outline-color: HighlightText;
+  }
+
+  .playback-options-item.blocked,
+  .playback-options-item:disabled {
+    opacity: 1;
+    border-color: GrayText;
+    color: GrayText;
+  }
+
+  .playback-options-item.blocked .playback-options-item-label,
+  .playback-options-item.blocked .playback-options-item-meta,
+  .playback-options-item.blocked .playback-options-item-state,
+  .playback-options-item.blocked .playback-options-item-meta-pill,
+  .playback-options-item:disabled .playback-options-item-label,
+  .playback-options-item:disabled .playback-options-item-meta,
+  .playback-options-item:disabled .playback-options-item-state,
+  .playback-options-item:disabled .playback-options-item-meta-pill {
+    color: GrayText;
+  }
+
+  .playback-options-item.blocked .playback-options-item-meta-pill,
+  .playback-options-item:disabled .playback-options-item-meta-pill {
+    background: Canvas;
+  }
+}

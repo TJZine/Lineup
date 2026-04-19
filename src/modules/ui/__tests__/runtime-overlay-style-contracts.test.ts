@@ -97,6 +97,21 @@ describe('runtime overlay style contracts', () => {
         }
     });
 
+    it('keeps playback options forced-colors coverage scoped to focused and selected items', () => {
+        const css = read('src/modules/ui/playback-options/styles.core.css');
+
+        expect(css).toContain(FORCED_COLORS_RULE);
+        expect(css).toContain('.playback-options-item.selected');
+        expect(css).toContain('.playback-options-item.focused');
+        expect(css).toContain('.playback-options-item:focus-visible');
+        expect(css).toContain('background: Canvas;');
+        expect(css).toContain('border-color: CanvasText;');
+        expect(css).toContain('background: Highlight;');
+        expect(css).toContain('color: HighlightText;');
+        expect(css).toContain('outline: 2px solid Highlight;');
+        expect(css).toContain('outline-color: HighlightText;');
+    });
+
     it('keeps exit confirm theme tuning local to the overlay surface', () => {
         const css = read('src/modules/ui/exit-confirm/styles.css');
 
