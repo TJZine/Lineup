@@ -74,26 +74,46 @@ function buildProbeTiers(
 ): ProbeTier[] {
     const tiers: ProbeTier[] = [];
     const httpsConnections = server.connections.filter((connection) => connection.protocol === 'https');
-    const httpConnections = server.connections.filter((connection) => connection.protocol === 'http');
+    const localDirectHttpsConnections = httpsConnections.filter((connection) => connection.local && !connection.relay);
+    const remoteDirectHttpsConnections = httpsConnections.filter((connection) => !connection.local && !connection.relay);
+    const relayHttpsConnections = httpsConnections.filter((connection) => connection.relay);
+    const localDirectHttpConnections = server.connections
+        .filter((connection) => connection.protocol === 'http')
+        .filter((connection) => connection.local && !connection.relay);
+
+    if (!mixedContentConfig.preferHttps && mixedContentConfig.allowLocalHttp) {
+        tiers.push({
+            connections: localDirectHttpConnections,
+            warnOnSelection: true,
+        });
+    }
+
+    tiers.push({ connections: localDirectHttpsConnections, warnOnSelection: false });
 
     if (mixedContentConfig.preferHttps) {
         tiers.push(
-            { connections: httpsConnections.filter((connection) => connection.local && !connection.relay), warnOnSelection: false },
-            { connections: httpsConnections.filter((connection) => !connection.local && !connection.relay), warnOnSelection: false },
-            { connections: httpsConnections.filter((connection) => connection.relay), warnOnSelection: false }
+            { connections: remoteDirectHttpsConnections, warnOnSelection: false },
+            { connections: relayHttpsConnections, warnOnSelection: false }
         );
     }
 
     if (mixedContentConfig.tryHttpsUpgrade) {
         tiers.push({
-            connections: httpConnections.map(upgradeConnectionToHttps),
+            connections: localDirectHttpConnections.map(upgradeConnectionToHttps),
             warnOnSelection: false,
         });
     }
 
+    if (!mixedContentConfig.preferHttps) {
+        tiers.push(
+            { connections: remoteDirectHttpsConnections, warnOnSelection: false },
+            { connections: relayHttpsConnections, warnOnSelection: false }
+        );
+    }
+
     if (mixedContentConfig.allowLocalHttp) {
         tiers.push({
-            connections: httpConnections.filter((connection) => connection.local && !connection.relay),
+            connections: mixedContentConfig.preferHttps ? localDirectHttpConnections : [],
             warnOnSelection: true,
         });
     }

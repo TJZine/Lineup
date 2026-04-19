@@ -572,35 +572,39 @@ describe('PlexServerDiscovery', () => {
             expect(result.authState).toBe('auth_invalid');
         });
 
-        it('keeps authRequired false for https-upgrade success after only auth_invalid observations', async () => {
+        it('keeps authRequired false when local HTTP fallback succeeds after an auth_invalid HTTPS-upgrade probe', async () => {
             const discovery = new PlexServerDiscovery(mockConfig);
+            const localHttpConnection = createMockConnection({
+                uri: 'http://local-http:32400',
+                protocol: 'http',
+                local: true,
+                relay: false,
+            });
             const mockServer = createMockServer({
-                connections: [
-                    createMockConnection({
-                        uri: 'http://auth-invalid:32400',
-                        protocol: 'http',
-                        local: false,
-                        relay: false,
-                    }),
-                    createMockConnection({
-                        uri: 'http://local-http:32400',
-                        protocol: 'http',
-                        local: true,
-                        relay: false,
-                    }),
-                ],
+                connections: [localHttpConnection],
             });
 
-            jest.spyOn(discovery, 'testConnection')
+            const testConnectionSpy = jest.spyOn(discovery, 'testConnection')
                 .mockResolvedValueOnce('auth_invalid')
                 .mockResolvedValueOnce(42);
 
             const result = await discovery.findFastestConnection(mockServer);
 
-            expect(result.connection).toEqual(
+            expect(testConnectionSpy).toHaveBeenNthCalledWith(
+                1,
+                mockServer,
                 expect.objectContaining({
                     uri: 'https://local-http:32400',
                     protocol: 'https',
+                    local: true,
+                    relay: false,
+                })
+            );
+            expect(testConnectionSpy).toHaveBeenNthCalledWith(2, mockServer, localHttpConnection);
+            expect(result.connection).toEqual(
+                expect.objectContaining({
+                    uri: 'http://local-http:32400',
+                    protocol: 'http',
                     local: true,
                     relay: false,
                     latencyMs: 42,

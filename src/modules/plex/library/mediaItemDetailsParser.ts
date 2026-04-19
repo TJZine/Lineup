@@ -99,7 +99,10 @@ function parseActorRoles(
         )
         .map((entry) => ({
             name: entry.tag?.trim() ?? '',
-            role: entry.role?.trim() ?? null,
+            role:
+                typeof entry.role === 'string' && entry.role.trim().length > 0
+                    ? entry.role.trim()
+                    : null,
             thumb: entry.thumb ?? null,
         }))
         .filter((entry) => entry.name.length > 0);

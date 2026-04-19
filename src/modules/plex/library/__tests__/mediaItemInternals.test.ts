@@ -104,6 +104,25 @@ describe('media item internals', () => {
         ).toThrow(PlexLibraryError);
     });
 
+    it('normalizes whitespace-only actor roles to null', () => {
+        const item = buildBaseMediaItem({
+            ratingKey: 'episode-1',
+            key: '/library/metadata/episode-1',
+            type: 'episode',
+            title: 'Episode',
+        } as RawMediaItem);
+
+        applyMediaItemDetails(item, {
+            ratingKey: 'episode-1',
+            key: '/library/metadata/episode-1',
+            type: 'episode',
+            title: 'Episode',
+            Role: [{ tag: 'Actor One', role: '   ', thumb: '/actor/thumb' }],
+        } as RawMediaItem);
+
+        expect(item.actorRoles).toEqual([{ name: 'Actor One', role: null, thumb: '/actor/thumb' }]);
+    });
+
     it('throws a typed parse error when nested tag entries are malformed', () => {
         const item = buildBaseMediaItem({
             ratingKey: 'episode-1',

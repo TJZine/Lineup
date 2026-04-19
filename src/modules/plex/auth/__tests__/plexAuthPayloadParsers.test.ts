@@ -1,4 +1,5 @@
 import {
+    parsePinResponse,
     parseHomeUsersPayload,
     parseSwitchResponsePayload,
     readPlexResponse,
@@ -51,6 +52,42 @@ describe('readPlexResponse', () => {
 });
 
 describe('plexAuthPayloadParsers', () => {
+    describe('parsePinResponse', () => {
+        it('trims required and optional string fields after validation', () => {
+            expect(
+                parsePinResponse(
+                    {
+                        id: '42',
+                        code: '  abc123  ',
+                        expiresAt: '2026-04-18T12:00:00.000Z',
+                        clientIdentifier: '  client-123  ',
+                    },
+                    'fallback-client'
+                )
+            ).toMatchObject({
+                id: 42,
+                code: 'abc123',
+                clientIdentifier: 'client-123',
+            });
+        });
+
+        it('falls back when optional clientIdentifier is blank after trimming', () => {
+            expect(
+                parsePinResponse(
+                    {
+                        id: 42,
+                        code: 'abc123',
+                        expiresAt: '2026-04-18T12:00:00.000Z',
+                        clientIdentifier: '   ',
+                    },
+                    'fallback-client'
+                )
+            ).toMatchObject({
+                clientIdentifier: 'fallback-client',
+            });
+        });
+    });
+
     describe('parseHomeUsersPayload', () => {
         it('dedupes duplicate home users collected from nested JSON payloads', () => {
             const payload: PlexResponsePayload = {

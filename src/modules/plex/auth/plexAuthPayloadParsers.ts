@@ -188,7 +188,7 @@ function requireFiniteNumber(value: unknown, label: string): number {
 
 function requireNonEmptyString(value: unknown, label: string): string {
     if (typeof value === 'string' && value.trim().length > 0) {
-        return value;
+        return value.trim();
     }
 
     throw new PlexApiError(
@@ -240,5 +240,10 @@ function readNullableString(value: unknown, label: string): string | null {
 }
 
 function readOptionalString(value: unknown): string | null {
-    return typeof value === 'string' && value.trim().length > 0 ? value : null;
+    if (typeof value !== 'string') {
+        return null;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
 }

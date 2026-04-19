@@ -731,6 +731,85 @@ describe('PlexLibrary', () => {
                 message: expect.stringContaining('search hub "movie"'),
             });
         });
+
+        it('returns an empty array when search payload omits Hub', async () => {
+            mockFetchJson({
+                MediaContainer: {},
+            });
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.search('empty')).resolves.toEqual([]);
+        });
+
+        it('returns an empty array when a search hub omits Metadata', async () => {
+            mockFetchJson({
+                MediaContainer: {
+                    Hub: [
+                        {
+                            type: 'movie',
+                        },
+                    ],
+                },
+            });
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.search('empty hub')).resolves.toEqual([]);
+        });
+
+        it('rejects null Hub payloads instead of treating them as empty search results', async () => {
+            mockFetchJson({
+                MediaContainer: {
+                    Hub: null,
+                },
+            });
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.search('null hub')).rejects.toMatchObject({
+                code: PlexLibraryErrorCode.PARSE_ERROR,
+            });
+            await library.search('null hub').catch((error: unknown) => {
+                expect(error).toBeInstanceOf(PlexLibraryError);
+                expect((error as PlexLibraryError).message).toContain('search results for query "null hub"');
+            });
+        });
+
+        it('wraps null search hub metadata extraction with query and hub context', async () => {
+            mockFetchJson({
+                MediaContainer: {
+                    Hub: [
+                        {
+                            type: 'movie',
+                            Metadata: null,
+                        },
+                    ],
+                },
+            });
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.search('null metadata')).rejects.toMatchObject({
+                code: PlexLibraryErrorCode.PARSE_ERROR,
+                message: expect.stringContaining('Invalid search hub "movie" for query "null metadata"'),
+            });
+        });
+
+        it('wraps malformed search hub metadata extraction with query and hub context', async () => {
+            mockFetchJson({
+                MediaContainer: {
+                    Hub: [
+                        {
+                            type: 'movie',
+                            Metadata: {} as never,
+                        },
+                    ],
+                },
+            });
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.search('broken metadata')).rejects.toMatchObject({
+                code: PlexLibraryErrorCode.PARSE_ERROR,
+                message: expect.stringContaining('Invalid search hub "movie" for query "broken metadata"'),
+            });
+        });
     });
 
     describe('collections', () => {

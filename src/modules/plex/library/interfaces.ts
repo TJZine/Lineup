@@ -84,8 +84,9 @@ export interface IPlexLibrary {
      * Get total item count for a library without fetching items.
      * @param libraryId - Library section ID
      * @param options - Optional query options (filter/signal)
-     * @returns Promise resolving to item count, or `null` when the count is unavailable
-     * because Plex returned no matching items, no count totals, or no response payload
+     * @returns Promise resolving to item count, or `null` only when Plex returns semantic absence
+     * (for example no response payload / 404) or omits count totals in an otherwise valid payload.
+     * Malformed or missing success payload structure rejects with `PlexLibraryError`.
      */
     getLibraryItemCount(libraryId: string, options?: LibraryQueryOptions): Promise<number | null>;
 

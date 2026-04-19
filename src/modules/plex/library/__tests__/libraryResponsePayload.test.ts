@@ -36,6 +36,16 @@ describe('libraryResponsePayload', () => {
         ).toThrow(PlexLibraryError);
     });
 
+    it('treats missing Hub as empty search results', () => {
+        expect(extractSearchHubs({ MediaContainer: {} } as never, 'search test')).toEqual([]);
+    });
+
+    it('rejects null Hub payloads instead of treating them as empty results', () => {
+        expect(() =>
+            extractSearchHubs({ MediaContainer: { Hub: null } } as never, 'search test')
+        ).toThrow(PlexLibraryError);
+    });
+
     it('requires each search hub entry to be an object', () => {
         expect(() =>
             extractSearchHubs({ MediaContainer: { Hub: [null] } } as never, 'search test')
@@ -43,6 +53,22 @@ describe('libraryResponsePayload', () => {
     });
 
     it('requires each search hub Metadata field to be an array', () => {
+        expect(() =>
+            extractSearchHubMetadata({ type: 'movie', Metadata: {} }, 'search hub')
+        ).toThrow(PlexLibraryError);
+    });
+
+    it('treats missing search hub Metadata as empty results', () => {
+        expect(extractSearchHubMetadata({ type: 'movie' }, 'search hub')).toEqual([]);
+    });
+
+    it('rejects null search hub Metadata', () => {
+        expect(() =>
+            extractSearchHubMetadata({ type: 'movie', Metadata: null }, 'search hub')
+        ).toThrow(PlexLibraryError);
+    });
+
+    it('rejects non-array search hub Metadata', () => {
         expect(() =>
             extractSearchHubMetadata({ type: 'movie', Metadata: {} }, 'search hub')
         ).toThrow(PlexLibraryError);

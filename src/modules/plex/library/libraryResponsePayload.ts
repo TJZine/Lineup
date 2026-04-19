@@ -84,14 +84,11 @@ export function extractSearchHubs(
     const mediaContainer = extractMediaContainer(response, context);
     const hubs = (mediaContainer as { Hub?: unknown }).Hub;
 
-    if (!Array.isArray(hubs)) {
-        throw new PlexLibraryError(
-            PlexLibraryErrorCode.PARSE_ERROR,
-            `Invalid ${context} payload: Hub must be an array`
-        );
+    if (hubs === undefined) {
+        return [];
     }
 
-    return (hubs as unknown[]).map((hub, index) =>
+    return parseRequiredArray<unknown>(hubs, `${context} Hub`).map((hub, index) =>
         parseRequiredObject<SearchHubPayload>(hub, `${context} Hub[${index}]`)
     );
 }
@@ -100,6 +97,10 @@ export function extractSearchHubMetadata(
     hub: SearchHubPayload,
     context: string
 ): RawMediaItem[] {
+    if (hub.Metadata === undefined) {
+        return [];
+    }
+
     return parseRequiredArray<RawMediaItem>(hub.Metadata, `${context} Metadata`);
 }
 

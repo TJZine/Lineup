@@ -2,7 +2,7 @@ import { PlexLibraryError } from './PlexLibraryError';
 import { PlexLibraryErrorCode } from './types';
 
 export function parseRequiredObject<T>(value: unknown, context: string): T {
-    if (typeof value !== 'object' || value === null) {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
         throw new PlexLibraryError(
             PlexLibraryErrorCode.PARSE_ERROR,
             `Invalid ${context} payload: expected an object`

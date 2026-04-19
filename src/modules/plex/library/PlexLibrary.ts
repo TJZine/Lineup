@@ -631,12 +631,11 @@ export class PlexLibrary implements IPlexLibrary {
                 }
             }
 
-            const metadata = extractSearchHubMetadata(
-                hub,
-                `search hub "${hub.type}" for query "${query}"`
-            );
-
             try {
+                const metadata = extractSearchHubMetadata(
+                    hub,
+                    `search hub "${hub.type}" for query "${query}"`
+                );
                 items.push(...parseMediaItems(metadata));
             } catch (error) {
                 if (error instanceof PlexLibraryError) {
@@ -964,7 +963,8 @@ export class PlexLibrary implements IPlexLibrary {
      * 
      * @param url - URL to fetch
      * @param options - Optional fetch options
-     * @returns Parsed JSON response or null for 404/empty/parse errors
+     * @returns Parsed JSON response, or `null` only for semantic-not-found outcomes such as 404.
+     * Empty 200 bodies and malformed success payloads throw `PlexLibraryError(PARSE_ERROR)`.
      */
     private async _fetchWithRetry<T>(
         url: string,
