@@ -5,7 +5,6 @@
  */
 
 import { AppErrorCode } from '../../modules/lifecycle';
-import { getAppErrorCode } from '../../types/app-errors';
 import type { ErrorRecoveryAction, RecoveryActionDeps } from './types';
 
 type RecoveryActionGroupId =
@@ -150,14 +149,11 @@ const RECOVERY_GROUP_BY_ERROR_CODE: Record<AppErrorCode, RecoveryActionGroupId> 
 };
 
 export function getRecoveryActions(
-    errorCode: AppErrorCode | string,
+    errorCode: AppErrorCode,
     deps: RecoveryActionDeps
 ): ErrorRecoveryAction[] {
-    const normalizedCode = getAppErrorCode(errorCode);
-    const recoveryGroup = normalizedCode
-        ? RECOVERY_GROUP_BY_ERROR_CODE[normalizedCode]
-        : 'dismiss';
-    const buildRecoveryActions = RECOVERY_ACTION_FACTORIES[recoveryGroup] ?? RECOVERY_ACTION_FACTORIES.dismiss;
+    const recoveryGroup = RECOVERY_GROUP_BY_ERROR_CODE[errorCode];
+    const buildRecoveryActions = RECOVERY_ACTION_FACTORIES[recoveryGroup];
 
     return buildRecoveryActions(deps);
 }

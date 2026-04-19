@@ -602,10 +602,15 @@ describe('AppOrchestrator', () => {
     };
     let pauseHandler: (() => void | Promise<void>) | null;
     let resumeHandler: (() => void | Promise<void>) | null;
-    const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrator => {
+const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrator => {
         const instance = new AppOrchestrator(platformServices);
         ownedOrchestrators.add(instance);
         return instance;
+    };
+
+    const resetMockPlexDiscoveryOn = (): void => {
+        mockPlexDiscovery.on.mockReset();
+        mockPlexDiscovery.on.mockReturnValue({ dispose: jest.fn() });
     };
 
     beforeEach(() => {
@@ -628,6 +633,7 @@ describe('AppOrchestrator', () => {
 
         mockPlexDiscovery.getSelectedServer.mockReset();
         mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
+        resetMockPlexDiscoveryOn();
 
         mockChannelManager.getAllChannels.mockReset();
         mockChannelManager.getAllChannels.mockReturnValue([mockChannel]);
@@ -1514,7 +1520,9 @@ describe('AppOrchestrator', () => {
             expect(connectionChangeListeners.size).toBe(1);
 
             mockPlexAuth.switchHomeUser.mockRejectedValueOnce(new Error('switch failed'));
-            const runStartupSpy = jest.spyOn(InitializationCoordinator.prototype, 'runStartup');
+            const runStartupSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'runStartup')
+                .mockResolvedValue(undefined);
 
             try {
                 await expect(orchestrator.switchHomeUser('user-2')).rejects.toThrow('switch failed');
