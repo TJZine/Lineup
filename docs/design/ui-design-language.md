@@ -2,6 +2,14 @@
 
 > Established 2026-02-27. Governs all TV overlay and panel surfaces.
 
+## Authority Boundary
+
+This doc owns the target visual outcomes for TV overlay and panel surfaces. Record visual pattern changes here.
+
+[`css-governance.md`](./css-governance.md) owns the CSS decision process, reuse and exception policy, and documentation routing for repo-wide CSS decisions.
+
+Surface-local exceptions belong with the owning surface doc or in local comments when that is the clearest place to preserve intent.
+
 ## Core Principle: Edge Integration
 
 UI elements feel like they **emerge from the screen edges**, not float on top. Every surface should feel architectural — part of the display itself — rather than a card dropped onto video content.
@@ -173,13 +181,18 @@ These must be preserved during every redesign pass:
 2. D-pad focusability on all interactive buttons (no `tabindex` removal).
 3. Action button `data-action` attributes for focus management.
 4. `prefers-reduced-motion: reduce` media query on every animated surface.
-5. Sufficient contrast: white text on dark scrim must pass WCAG AA at the scrim's maximum opacity point.
+5. `forced-colors` behavior must remain usable for focus, labels, and key boundaries on supported platforms.
+6. Sufficient contrast: white text on dark scrim must pass WCAG AA at the scrim's maximum opacity point.
+
+Documenting these expectations is not enough on its own. Contrast, forced-colors behavior, focus visibility, and motion reductions still need verification in the relevant surface work.
 
 ---
 
 ## Glass Theme Compatibility
 
-Every surface has a `.theme-glass .{surface}-panel` override block. The glass theme:
+Reusable and runtime surfaces should usually participate through inherited theme tokens or documented surface-scoped custom properties. Add explicit `.theme-glass .{surface}-panel` overrides only when the inherited mapping does not achieve the intended result.
+
+The glass theme:
 
 - Uses darker (higher-opacity) smoked scrims than the base surfaces. Concrete examples from current UI:
 - Mini Guide panel: `rgba(0,0,0,0.50)`, `rgba(0,0,0,0.40)`, `rgba(0,0,0,0.18)` -> `rgb(6 9 13 / 72%)`, `rgb(8 11 15 / 56%)`, `rgb(8 11 15 / 22%)`
