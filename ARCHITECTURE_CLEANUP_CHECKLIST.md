@@ -14,9 +14,9 @@ This checklist is not complete until an authoritative rerun on the target integr
 
 - Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
-- Current execution state: `P1-W1`, `P1-EXIT`, `P2-W1`, `P2-EXIT`, `P3-W1`, and `P3-EXIT` are complete on authoritative `2026-04-18` evidence; `P4-W1` is the next safe checklist start, with planning complete and implementation not yet started
-- Next safe start: `P4-W1` / `pkg_startup_auth_lifecycle`
-- Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to `P4-W1`
+- Current execution state: `P1-W1`, `P1-EXIT`, `P2-W1`, `P2-EXIT`, `P3-W1`, `P3-EXIT`, `P4-W1`, and `P4-EXIT` are complete on authoritative `2026-04-18` evidence; `P5-W1` is the next safe checklist start
+- Next safe start: `P5-W1` / `pkg_playback_subtitle_recovery`
+- Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to `P5-W1`
 - First action at package start: planning only; create the package-local execution-grade plan first and do not begin implementation until that planning gate is complete
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
 - Exact issue-membership surface: `docs/architecture/active-cleanup-package-map.json`
@@ -418,7 +418,7 @@ Every `P#-EXIT` must, in the same pass:
       - reason: stale-proven; `rg -n "console\\.error" src/modules/ui/auth/AuthScreen.ts` returns no hits, and the rerun still cites lines `61`, `66`, and `71`, which now only dispatch through `_runScreenAction(...)`
       - revisit trigger: rerun the exact issue id if startup PIN request/cancel/retry handling reintroduces console-only error paths
     - `smells::src/modules/ui/profile-select/styles.css::css_monolith`
-      - reason: stale-proven; current `src/modules/ui/profile-select/styles.css` is only a `3` line import surface delegating to package-local partials `styles/{layout,cards,pin-modal}.css`
+      - reason: stale-proven; current `src/modules/ui/profile-select/styles.css` is only a `3`-line import surface delegating to package-local partials `styles/{layout,cards,pin-modal}.css`
       - revisit trigger: rerun the exact issue id if profile-select styles collapse back into one large stylesheet
     - `smells::src/modules/ui/server-select/ServerSelectScreen.ts::console_error_no_throw`
       - reason: stale-proven; `rg -n "console\\.error" src/modules/ui/server-select/ServerSelectScreen.ts` returns no hits, and the rerun still cites lines `96`, `205`, and `584`, which no longer contain console logging
