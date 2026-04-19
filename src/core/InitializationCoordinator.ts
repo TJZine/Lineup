@@ -341,6 +341,21 @@ export class InitializationCoordinator {
         this.clearProfileResume();
     }
 
+    restorePendingServerResumeAfterProfileSwitchFailure(): void {
+        const discoveryStatus = this._callbacks.status.getModuleStatus('plex-server-discovery');
+        const libraryStatus = this._callbacks.status.getModuleStatus('plex-library');
+        const streamResolverStatus = this._callbacks.status.getModuleStatus('plex-stream-resolver');
+        if (
+            discoveryStatus !== 'pending'
+            && libraryStatus !== 'pending'
+            && streamResolverStatus !== 'pending'
+        ) {
+            return;
+        }
+
+        this._registerServerResume();
+    }
+
     async resumeStartupAfterProfileSwitch(): Promise<void> {
         this.clearServerResume();
         this.clearProfileResume();

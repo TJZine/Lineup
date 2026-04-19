@@ -1416,7 +1416,12 @@ export class AppOrchestrator {
         const initCoordinator = this._requireInitializationCoordinator();
         cleanupController.prepareForProfileSwitchAttempt();
         initCoordinator.prepareForProfileSwitchAttempt();
-        await this._plexAuth.switchHomeUser(userId, { pin: pin ?? null });
+        try {
+            await this._plexAuth.switchHomeUser(userId, { pin: pin ?? null });
+        } catch (error) {
+            initCoordinator.restorePendingServerResumeAfterProfileSwitchFailure();
+            throw error;
+        }
         // Finalize only after the profile mutation succeeds. Failed profile switches
         // keep the previous active profile, so channel/stream identity should remain intact.
         cleanupController.finalizeProfileSwitch();
@@ -1436,7 +1441,12 @@ export class AppOrchestrator {
         const initCoordinator = this._requireInitializationCoordinator();
         cleanupController.prepareForProfileSwitchAttempt();
         initCoordinator.prepareForProfileSwitchAttempt();
-        await this._plexAuth.logoutActiveUser();
+        try {
+            await this._plexAuth.logoutActiveUser();
+        } catch (error) {
+            initCoordinator.restorePendingServerResumeAfterProfileSwitchFailure();
+            throw error;
+        }
         // Finalize only after logout succeeds. Failed logout leaves the active profile
         // unchanged, so channel/stream identity should remain intact.
         cleanupController.finalizeProfileSwitch();
