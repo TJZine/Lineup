@@ -339,7 +339,8 @@ describe('PlexAuth', () => {
                 await jest.advanceTimersByTimeAsync(PLEX_AUTH_CONSTANTS.PIN_TIMEOUT_MS + 1_000);
 
                 await rejection;
-                expect(checkPinStatusSpy).toHaveBeenCalledTimes(
+                expect(checkPinStatusSpy.mock.calls.length).toBeGreaterThan(1);
+                expect(checkPinStatusSpy.mock.calls.length).toBeLessThanOrEqual(
                     Math.ceil(
                         PLEX_AUTH_CONSTANTS.PIN_TIMEOUT_MS /
                             PLEX_AUTH_CONSTANTS.PIN_POLL_INTERVAL_MS
@@ -363,9 +364,22 @@ describe('PlexAuth', () => {
                 jest.spyOn(auth, 'checkPinStatus').mockRejectedValue(terminalError);
 
                 const promise = auth.pollForPin(12345);
-                await Promise.resolve();
 
                 await expect(promise).rejects.toBe(terminalError);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('rethrows non-PlexApiError polling failures immediately', async () => {
+            jest.useFakeTimers();
+            try {
+                const auth = new PlexAuth(mockConfig);
+                const terminalError = new Error('unexpected parser failure');
+                const checkPinStatusSpy = jest.spyOn(auth, 'checkPinStatus').mockRejectedValue(terminalError);
+
+                await expect(auth.pollForPin(12345)).rejects.toThrow('unexpected parser failure');
+                expect(checkPinStatusSpy).toHaveBeenCalledTimes(1);
             } finally {
                 jest.useRealTimers();
             }

@@ -29,23 +29,27 @@ export async function findFastestConnectionProbe(options: {
     const probeTiers = buildProbeTiers(server, mixedContentConfig);
 
     for (const tier of probeTiers) {
-        for (const connection of tier.connections) {
-            const probe = await probeConnection(connection);
-            if (probe.outcome === 'reachable') {
-                if (tier.warnOnSelection && mixedContentConfig.logWarnings) {
-                    logPlexWarning('Selected HTTP connection (last resort)', {
-                        local: probe.connection.local,
-                        relay: probe.connection.relay,
-                    });
-                }
+        const tierProbes = await Promise.all(tier.connections.map(async (connection) => probeConnection(connection)));
+        const selectedProbe = pickFastestReachableProbe(tierProbes);
 
-                return {
-                    ...summary,
-                    selectedProbe: probe,
-                };
+        for (const probe of tierProbes) {
+            if (probe.outcome !== 'reachable') {
+                noteAuthOutcome(summary, probe.outcome);
+            }
+        }
+
+        if (selectedProbe) {
+            if (tier.warnOnSelection && mixedContentConfig.logWarnings) {
+                logPlexWarning('Selected HTTP connection (last resort)', {
+                    local: selectedProbe.connection.local,
+                    relay: selectedProbe.connection.relay,
+                });
             }
 
-            noteAuthOutcome(summary, probe.outcome);
+            return {
+                ...summary,
+                selectedProbe,
+            };
         }
     }
 
@@ -61,6 +65,33 @@ export async function findFastestConnectionProbe(options: {
     }
 
     return summary;
+}
+
+function pickFastestReachableProbe(
+    probes: PlexConnectionProbeResult[]
+): PlexConnectionProbeResult | null {
+    let fastestProbe: PlexConnectionProbeResult | null = null;
+    let fastestLatency = Number.POSITIVE_INFINITY;
+
+    for (const probe of probes) {
+        if (!probe || probe.outcome !== 'reachable') {
+            continue;
+        }
+
+        const latency = normalizeLatency(probe.connection.latencyMs);
+        if (fastestProbe === null || latency < fastestLatency) {
+            fastestProbe = probe;
+            fastestLatency = latency;
+        }
+    }
+
+    return fastestProbe;
+}
+
+function normalizeLatency(latencyMs: number | null): number {
+    return typeof latencyMs === 'number' && Number.isFinite(latencyMs)
+        ? latencyMs
+        : Number.POSITIVE_INFINITY;
 }
 
 interface ProbeTier {

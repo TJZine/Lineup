@@ -11,11 +11,17 @@ const defaultMixedContentConfig: MixedContentConfig = {
 };
 
 describe('discoveryProbe', () => {
-    it('selects the first reachable probe from the mixed-content tier order', async () => {
+    it('selects the fastest reachable probe within the first successful tier', async () => {
         const localHttpConnection = createMockConnection({
             uri: 'http://192.168.1.20:32400',
             protocol: 'http',
             address: '192.168.1.20',
+        });
+        const secondLocalHttpConnection = createMockConnection({
+            uri: 'http://192.168.1.20:32401',
+            protocol: 'http',
+            address: '192.168.1.20',
+            port: 32401,
         });
         const remoteHttpsConnection = createMockConnection({
             uri: 'https://plex.example:32400',
@@ -24,7 +30,7 @@ describe('discoveryProbe', () => {
             local: false,
         });
         const server = createMockServer({
-            connections: [localHttpConnection, remoteHttpsConnection],
+            connections: [localHttpConnection, secondLocalHttpConnection, remoteHttpsConnection],
         });
 
         const probeConnection = jest.fn<Promise<PlexConnectionProbeResult>, [typeof localHttpConnection]>()
@@ -34,6 +40,16 @@ describe('discoveryProbe', () => {
                     ...localHttpConnection,
                     uri: 'https://192.168.1.20:32400',
                     protocol: 'https',
+                    latencyMs: 35,
+                },
+                outcome: 'reachable',
+            })
+            .mockResolvedValueOnce({
+                connection: {
+                    ...secondLocalHttpConnection,
+                    uri: 'https://192.168.1.20:32401',
+                    protocol: 'https',
+                    latencyMs: 12,
                 },
                 outcome: 'reachable',
             });
@@ -44,12 +60,13 @@ describe('discoveryProbe', () => {
             probeConnection,
         });
 
-        expect(probeConnection).toHaveBeenCalledTimes(2);
+        expect(probeConnection).toHaveBeenCalledTimes(3);
         expect(result).toEqual({
             selectedProbe: {
                 connection: expect.objectContaining({
-                    uri: 'https://192.168.1.20:32400',
+                    uri: 'https://192.168.1.20:32401',
                     protocol: 'https',
+                    latencyMs: 12,
                 }),
                 outcome: 'reachable',
             },
@@ -128,11 +145,17 @@ describe('discoveryProbe', () => {
         });
     });
 
-    it('prefers local HTTP over local HTTPS when preferHttps is false', async () => {
+    it('prefers the fastest local HTTP probe when preferHttps is false', async () => {
         const localHttpConnection = createMockConnection({
             uri: 'http://192.168.1.20:32400',
             protocol: 'http',
             address: '192.168.1.20',
+        });
+        const secondLocalHttpConnection = createMockConnection({
+            uri: 'http://192.168.1.20:32401',
+            protocol: 'http',
+            address: '192.168.1.20',
+            port: 32401,
         });
         const localHttpsConnection = createMockConnection({
             uri: 'https://192.168.1.20:32400',
@@ -140,11 +163,18 @@ describe('discoveryProbe', () => {
             address: '192.168.1.20',
         });
         const server = createMockServer({
-            connections: [localHttpsConnection, localHttpConnection],
+            connections: [localHttpsConnection, localHttpConnection, secondLocalHttpConnection],
         });
 
         const probeConnection = jest.fn<Promise<PlexConnectionProbeResult>, [typeof localHttpConnection]>()
-            .mockResolvedValueOnce({ connection: localHttpConnection, outcome: 'reachable' });
+            .mockResolvedValueOnce({
+                connection: { ...localHttpConnection, latencyMs: 45 },
+                outcome: 'reachable',
+            })
+            .mockResolvedValueOnce({
+                connection: { ...secondLocalHttpConnection, latencyMs: 10 },
+                outcome: 'reachable',
+            });
 
         const result = await findFastestConnectionProbe({
             server,
@@ -157,10 +187,12 @@ describe('discoveryProbe', () => {
             probeConnection,
         });
 
-        expect(probeConnection).toHaveBeenCalledTimes(1);
-        expect(probeConnection).toHaveBeenCalledWith(localHttpConnection);
+        expect(probeConnection).toHaveBeenCalledTimes(2);
         expect(result.selectedProbe).toEqual({
-            connection: localHttpConnection,
+            connection: expect.objectContaining({
+                uri: 'http://192.168.1.20:32401',
+                latencyMs: 10,
+            }),
             outcome: 'reachable',
         });
     });

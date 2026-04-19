@@ -1395,6 +1395,14 @@ export class AppOrchestrator {
         return this._plexAuth?.getCurrentUser()?.username ?? null;
     }
 
+    private _requireInitializationCoordinator(): InitializationCoordinator {
+        if (!this._initCoordinator) {
+            throw new Error('InitializationCoordinator not initialized');
+        }
+
+        return this._initCoordinator;
+    }
+
     async switchHomeUser(userId: string, pin?: string): Promise<void> {
         if (!this._plexAuth || !this._plexDiscovery) {
             const missingDependency = !this._plexAuth ? 'PlexAuth' : 'PlexServerDiscovery';
@@ -1405,13 +1413,14 @@ export class AppOrchestrator {
         }
 
         const cleanupController = this._requireProfileSwitchCleanupController();
+        const initCoordinator = this._requireInitializationCoordinator();
         cleanupController.prepareForProfileSwitchAttempt();
-        this._initCoordinator?.prepareForProfileSwitchAttempt();
+        initCoordinator.prepareForProfileSwitchAttempt();
         await this._plexAuth.switchHomeUser(userId, { pin: pin ?? null });
         // Finalize only after the profile mutation succeeds. Failed profile switches
         // keep the previous active profile, so channel/stream identity should remain intact.
         cleanupController.finalizeProfileSwitch();
-        await this._resumeStartupAfterProfileSwitch();
+        await this._resumeStartupAfterProfileSwitch(initCoordinator);
     }
 
     async useMainAccountProfile(): Promise<void> {
@@ -1424,13 +1433,14 @@ export class AppOrchestrator {
         }
 
         const cleanupController = this._requireProfileSwitchCleanupController();
+        const initCoordinator = this._requireInitializationCoordinator();
         cleanupController.prepareForProfileSwitchAttempt();
-        this._initCoordinator?.prepareForProfileSwitchAttempt();
+        initCoordinator.prepareForProfileSwitchAttempt();
         await this._plexAuth.logoutActiveUser();
         // Finalize only after logout succeeds. Failed logout leaves the active profile
         // unchanged, so channel/stream identity should remain intact.
         cleanupController.finalizeProfileSwitch();
-        await this._resumeStartupAfterProfileSwitch();
+        await this._resumeStartupAfterProfileSwitch(initCoordinator);
     }
 
     async signOutPlex(): Promise<void> {
@@ -1492,12 +1502,9 @@ export class AppOrchestrator {
         await this._selectedServerRuntimeController.clearSelection();
     }
 
-    private async _resumeStartupAfterProfileSwitch(): Promise<void> {
+    private async _resumeStartupAfterProfileSwitch(initCoordinator: InitializationCoordinator): Promise<void> {
         this._navigation?.goTo('splash');
-        if (!this._initCoordinator) {
-            throw new Error('InitializationCoordinator not initialized');
-        }
-        await this._initCoordinator.resumeStartupAfterProfileSwitch();
+        await initCoordinator.resumeStartupAfterProfileSwitch();
     }
 
     getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort {

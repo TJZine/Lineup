@@ -793,11 +793,12 @@ describe('PlexLibrary', () => {
                 },
             });
             const library = new PlexLibrary(mockConfig);
+            const searchPromise = library.search('null hub');
 
-            await expect(library.search('null hub')).rejects.toMatchObject({
+            await expect(searchPromise).rejects.toMatchObject({
                 code: PlexLibraryErrorCode.PARSE_ERROR,
             });
-            await library.search('null hub').catch((error: unknown) => {
+            await searchPromise.catch((error: unknown) => {
                 expect(error).toBeInstanceOf(PlexLibraryError);
                 expect((error as PlexLibraryError).message).toContain('search results for query "null hub"');
             });

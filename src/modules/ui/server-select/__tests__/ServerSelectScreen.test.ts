@@ -432,6 +432,27 @@ describe('ServerSelectScreen', () => {
         }
     });
 
+    it('surfaces initial show-load failures thrown before async discovery starts through screen error UI', async () => {
+        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.getSelectedServerStorageKey.mockReturnValue('');
+
+        try {
+            const screen = new ServerSelectScreen(container, orchestrator);
+            screen.show({ allowAutoConnect: true });
+            await flushPromisesAndTimers();
+
+            expect(container.querySelector('.screen-status')?.textContent).toBe('Discovery failed.');
+            expect(container.querySelector('.screen-error')?.textContent).toBe('Storage keys must be non-empty strings');
+            expect(consoleErrorSpy).not.toHaveBeenCalled();
+        } finally {
+            consoleErrorSpy.mockRestore();
+        }
+    });
+
     it('surfaces thrown selection failures through screen error UI without console logging', async () => {
         const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
         const orchestrator = createOrchestratorStub();

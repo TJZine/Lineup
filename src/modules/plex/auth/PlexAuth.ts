@@ -180,8 +180,9 @@ export class PlexAuth implements IPlexAuth {
                         throw error;
                     }
                     lastRetryableError = error;
+                } else {
+                    throw error;
                 }
-                // Transient/network error: continue polling.
             }
             await this._sleep(interval);
         }

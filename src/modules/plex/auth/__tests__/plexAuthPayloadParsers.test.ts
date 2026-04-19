@@ -118,6 +118,19 @@ describe('plexAuthPayloadParsers', () => {
                 authToken: 'token-123',
             });
         });
+
+        it.each([
+            ['missing id', { code: 'abc123', expiresAt: '2026-04-18T12:00:00.000Z' }],
+            ['invalid id', { id: 'abc', code: 'abc123', expiresAt: '2026-04-18T12:00:00.000Z' }],
+            ['invalid code', { id: 42, code: '   ', expiresAt: '2026-04-18T12:00:00.000Z' }],
+            ['invalid expiresAt', { id: 42, code: 'abc123', expiresAt: 'not-a-date' }],
+        ])('rejects %s in PIN payloads', (_label, payload) => {
+            expect(() => parsePinResponse(payload, 'fallback-client')).toThrow(
+                expect.objectContaining({
+                    code: AppErrorCode.PARSE_ERROR,
+                })
+            );
+        });
     });
 
     describe('parseHomeUsersPayload', () => {

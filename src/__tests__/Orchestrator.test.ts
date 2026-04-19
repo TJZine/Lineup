@@ -1508,6 +1508,28 @@ describe('AppOrchestrator', () => {
                 runStartupSpy.mockRestore();
             }
         });
+
+        it('fails before mutating auth state when switchHomeUser is called without an initialization coordinator', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            Reflect.set(orchestrator as object, '_initCoordinator', null);
+
+            await expect(orchestrator.switchHomeUser('user-2')).rejects.toThrow(
+                'InitializationCoordinator not initialized'
+            );
+            expect(mockPlexAuth.switchHomeUser).not.toHaveBeenCalled();
+        });
+
+        it('fails before logging out when useMainAccountProfile is called without an initialization coordinator', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            Reflect.set(orchestrator as object, '_initCoordinator', null);
+
+            await expect(orchestrator.useMainAccountProfile()).rejects.toThrow(
+                'InitializationCoordinator not initialized'
+            );
+            expect(mockPlexAuth.logoutActiveUser).not.toHaveBeenCalled();
+        });
     });
 
     describe('start', () => {

@@ -91,7 +91,11 @@ export class ServerSelectScreen {
                     label: 'Retry discovery',
                     variant: 'primary',
                     onSelect: (): void => {
-                        void this.refresh();
+                        this._runScreenAction(
+                            () => this.refresh(),
+                            'Failed to discover servers.',
+                            (error) => this._handleDiscoveryLoadError(error)
+                        );
                     },
                 },
                 {
@@ -198,7 +202,11 @@ export class ServerSelectScreen {
         this._registerFocusables();
         // Manual server-select entry should not reconnect implicitly unless explicitly requested.
         const allowAutoConnect = options?.allowAutoConnect === true;
-        void this._loadServers({ autoSelect: allowAutoConnect, forceRefresh: false }, generation);
+        this._runScreenAction(
+            () => this._loadServers({ autoSelect: allowAutoConnect, forceRefresh: false }, generation),
+            'Failed to discover servers.',
+            (error) => this._handleDiscoveryLoadError(error, generation)
+        );
     }
 
     private async _loadServers(
@@ -210,25 +218,26 @@ export class ServerSelectScreen {
         }
         this._isLoading = true;
         this._activeLoadGeneration = generation;
-        this._unregisterServerListFocusables();
-        this._listEl.replaceChildren();
-        const savedId = this._serverSelectionStore.readSelectedServerIdAndClean();
-        const isAutoConnectAttempt = options.autoSelect && Boolean(savedId);
-        this._setAutoConnectHintVisible(isAutoConnectAttempt);
-        this._setStatus(
-            isAutoConnectAttempt ? 'Reconnecting to saved server…' : 'Discovering servers…',
-            isAutoConnectAttempt ? 'If that fails, choose any server below.' : '',
-            'loading'
-        );
-        this._statusEl.classList.add('panel-spinner');
-
-        // Disable controls
-        this._refreshButton.disabled = true;
-        this._setupButton.disabled = true;
-        this._switchProfileButton.disabled = true;
-        this._clearButton.disabled = true;
 
         try {
+            this._unregisterServerListFocusables();
+            this._listEl.replaceChildren();
+            const savedId = this._serverSelectionStore.readSelectedServerIdAndClean();
+            const isAutoConnectAttempt = options.autoSelect && Boolean(savedId);
+            this._setAutoConnectHintVisible(isAutoConnectAttempt);
+            this._setStatus(
+                isAutoConnectAttempt ? 'Reconnecting to saved server…' : 'Discovering servers…',
+                isAutoConnectAttempt ? 'If that fails, choose any server below.' : '',
+                'loading'
+            );
+            this._statusEl.classList.add('panel-spinner');
+
+            // Disable controls
+            this._refreshButton.disabled = true;
+            this._setupButton.disabled = true;
+            this._switchProfileButton.disabled = true;
+            this._clearButton.disabled = true;
+
             const servers = await this._ports.discoverServers(options.forceRefresh);
 
             if (!this._canUpdateUi(generation)) {
@@ -425,7 +434,11 @@ export class ServerSelectScreen {
             return;
         }
 
-        void this._handleClearSelectionAsync(generation);
+        this._runScreenAction(
+            () => this._handleClearSelectionAsync(generation),
+            'Could not clear saved server.',
+            (error) => this._handleClearSelectionError(error, generation)
+        );
     }
 
     private async _handleClearSelectionAsync(generation: number): Promise<void> {
@@ -573,7 +586,11 @@ export class ServerSelectScreen {
             selectButton.textContent = 'Connect';
             selectButton.disabled = this._isSelecting;
             selectButton.addEventListener('click', () => {
-                void this._selectServer(server);
+                this._runScreenAction(
+                    () => this._selectServer(server),
+                    'Unable to use the selected server.',
+                    (error) => this._handleSelectionDispatchError(error, this._visibilityGeneration)
+                );
             });
             actions.appendChild(selectButton);
             row.appendChild(actions);
@@ -766,6 +783,76 @@ export class ServerSelectScreen {
             case 'unreachable':
                 return 'Selected server is unreachable right now.';
         }
+    }
+
+    private _runScreenAction(
+        action: () => Promise<void>,
+        fallbackMessage: string,
+        onError?: (error: unknown) => void
+    ): void {
+        let promise: Promise<void>;
+        try {
+            promise = action();
+        } catch (error) {
+            if (onError) {
+                onError(error);
+                return;
+            }
+            this._handleError(error, fallbackMessage);
+            return;
+        }
+
+        void promise.catch((error: unknown) => {
+            if (onError) {
+                onError(error);
+                return;
+            }
+            this._handleError(error, fallbackMessage);
+        });
+    }
+
+    private _handleDiscoveryLoadError(
+        error: unknown,
+        generation = this._visibilityGeneration
+    ): void {
+        if (!this._canUpdateUi(generation)) {
+            return;
+        }
+
+        this._lastDiscoveredServers = [];
+        this._statusEl.classList.remove('panel-spinner');
+        this._handleError(error, 'Failed to discover servers.');
+        this._setStatus('Discovery failed.', '', 'error');
+        try {
+            this._renderServers([], null, { emptyStateReason: 'discovery_failed' });
+        } catch {
+            this._unregisterServerListFocusables();
+            this._listEl.replaceChildren();
+        }
+        this._setAutoConnectHintVisible(false);
+    }
+
+    private _handleClearSelectionError(error: unknown, generation: number): void {
+        if (!this._canUpdateUi(generation)) {
+            return;
+        }
+
+        this._handleError(error, 'Could not clear saved server.');
+        this._setStatus('Selection not cleared.', 'Try again.', 'error');
+    }
+
+    private _handleSelectionDispatchError(
+        error: unknown,
+        generation: number
+    ): void {
+        if (!this._canUpdateUi(generation)) {
+            return;
+        }
+
+        this._clearError();
+        this._setStatus('Connection failed.', '', 'error');
+        this._detailEl.textContent = '';
+        this._handleError(error, 'Unable to use the selected server.');
     }
 
     private _buildServerMeta(
