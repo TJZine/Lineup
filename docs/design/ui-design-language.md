@@ -143,8 +143,8 @@ font-variant-numeric: tabular-nums;
 - Two-column content: info left, actions right
 - Meta strip between content and progress bar
 - Progress bar full-bleed at absolute bottom pixel
-- **Removed**: `playbackText`, `controlHint` from view model
-- **Removed**: channel info (moved to shared Channel Badge)
+- Keep content focused on playback state, title/subtitle, actions, and progress
+- Shared channel context may live outside the panel when that produces a cleaner edge-anchored layout
 
 ### NowPlayingInfo — "Edge Shelf"
 
@@ -152,10 +152,9 @@ font-variant-numeric: tabular-nums;
 - Two-column: poster left (with vignette), content right
 - Three-tier content hierarchy: primary→secondary→tertiary
 - Auto-scroll description for long text
-- **Removed**: `upNext`, `channelName`, `channelNumber` from view model
-- **Removed**: channel context line (moved to shared Channel Badge)
+- Keep channel context and "up next" treatment subordinate to the title/metadata hierarchy when they appear
 
-### Channel Badge (new)
+### Channel Badge
 
 - Shared overlay shown when OSD or NowPlayingInfo is visible
 - Top-right corner, 10px radius, gradient scrim badge
@@ -194,10 +193,10 @@ Reusable and runtime surfaces should usually participate through inherited theme
 
 The glass theme:
 
-- Uses darker (higher-opacity) smoked scrims than the base surfaces. Concrete examples from current UI:
+- Uses darker (higher-opacity) smoked scrims than the base surfaces. Current covered-surface examples:
 - Mini Guide panel: `rgba(0,0,0,0.50)`, `rgba(0,0,0,0.40)`, `rgba(0,0,0,0.18)` -> `rgb(6 9 13 / 72%)`, `rgb(8 11 15 / 56%)`, `rgb(8 11 15 / 22%)`
 - Now Playing Info panel: `rgba(0,0,0,0.30)` to `rgba(0,0,0,0.50)` -> `rgb(6 9 13 / 62%)` to `rgb(8 11 15 / 80%)`
-- Does **not** use `backdrop-filter` or `blur()` on TV surfaces.
+- Covered overlay/panel surfaces should not re-introduce `backdrop-filter` or `blur()` into panel chrome.
 - Uses `var(--font-family-display)` for titles.
 - May use electric-cyan focus/selection glow on interactive elements.
 - Does **not** re-introduce surface borders, surface box-shadows, floating-card chrome, or border-radius that the base design removed.
