@@ -102,6 +102,16 @@ const resolveRequestPolicy = (profile: PrivateRequestProfile = 'default'): {
     };
 };
 
+function describeTopLevelJsonValue(value: unknown): string {
+    if (value === null) {
+        return 'null';
+    }
+    if (Array.isArray(value)) {
+        return 'an array';
+    }
+    return typeof value;
+}
+
 // ============================================
 // Main Class
 // ============================================
@@ -1122,6 +1132,13 @@ export class PlexLibrary implements IPlexLibrary {
                     }
 
                     data = JSON.parse(text) as T;
+
+                    if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+                        throw new PlexLibraryError(
+                            PlexLibraryErrorCode.PARSE_ERROR,
+                            `Invalid JSON response from ${this._redactUrlForLog(url)}: expected a top-level JSON object but received ${describeTopLevelJsonValue(data)}`
+                        );
+                    }
                 } catch (parseError) {
                     if (parseError instanceof PlexLibraryError) {
                         logger.error(

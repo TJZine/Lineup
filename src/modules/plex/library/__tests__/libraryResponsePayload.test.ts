@@ -52,7 +52,7 @@ describe('libraryResponsePayload', () => {
         ).toThrow(PlexLibraryError);
     });
 
-    it('requires each search hub Metadata field to be an array', () => {
+    it('requires search hub Metadata to be an array when present', () => {
         expect(() =>
             extractSearchHubMetadata({ type: 'movie', Metadata: {} }, 'search hub')
         ).toThrow(PlexLibraryError);
@@ -68,9 +68,4 @@ describe('libraryResponsePayload', () => {
         ).toThrow(PlexLibraryError);
     });
 
-    it('rejects non-array search hub Metadata', () => {
-        expect(() =>
-            extractSearchHubMetadata({ type: 'movie', Metadata: {} }, 'search hub')
-        ).toThrow(PlexLibraryError);
-    });
 });

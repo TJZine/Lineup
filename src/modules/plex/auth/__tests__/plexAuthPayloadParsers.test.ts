@@ -86,6 +86,38 @@ describe('plexAuthPayloadParsers', () => {
                 clientIdentifier: 'fallback-client',
             });
         });
+
+        it('normalizes blank authToken values to null', () => {
+            expect(
+                parsePinResponse(
+                    {
+                        id: 42,
+                        code: 'abc123',
+                        expiresAt: '2026-04-18T12:00:00.000Z',
+                        authToken: '   ',
+                    },
+                    'fallback-client'
+                )
+            ).toMatchObject({
+                authToken: null,
+            });
+        });
+
+        it('trims non-blank authToken values', () => {
+            expect(
+                parsePinResponse(
+                    {
+                        id: 42,
+                        code: 'abc123',
+                        expiresAt: '2026-04-18T12:00:00.000Z',
+                        authToken: '  token-123  ',
+                    },
+                    'fallback-client'
+                )
+            ).toMatchObject({
+                authToken: 'token-123',
+            });
+        });
     });
 
     describe('parseHomeUsersPayload', () => {

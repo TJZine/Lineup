@@ -254,6 +254,24 @@ describe('PlexAuth', () => {
             expect(auth.isAuthenticated()).toBe(true);
         });
 
+        it('does not treat a blank authToken as a claimed PIN', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const storeCredentialsSpy = jest.spyOn(auth, 'storeCredentials');
+            mockFetchJson({
+                id: 12345,
+                code: 'ABCD',
+                expiresAt: '2026-01-15T12:15:00Z',
+                authToken: '   ',
+                clientIdentifier: mockConfig.clientIdentifier,
+            });
+
+            const pin = await auth.checkPinStatus(12345);
+
+            expect(pin.authToken).toBeNull();
+            expect(storeCredentialsSpy).not.toHaveBeenCalled();
+            expect(auth.isAuthenticated()).toBe(false);
+        });
+
         it('throws PARSE_ERROR when a success payload is missing required PIN fields', async () => {
             const auth = new PlexAuth(mockConfig);
             mockFetchJson({

@@ -191,6 +191,26 @@ describe('PlexLibrary', () => {
             });
         });
 
+        it('rejects top-level null JSON payloads before caller parsing', async () => {
+            mockFetchTextResponse('null');
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getLibraries()).rejects.toMatchObject({
+                code: PlexLibraryErrorCode.PARSE_ERROR,
+                message: expect.stringContaining('expected a top-level JSON object'),
+            });
+        });
+
+        it('rejects top-level primitive JSON payloads before caller parsing', async () => {
+            mockFetchTextResponse('false');
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getLibraries()).rejects.toMatchObject({
+                code: PlexLibraryErrorCode.PARSE_ERROR,
+                message: expect.stringContaining('expected a top-level JSON object'),
+            });
+        });
+
         it('should cache libraries', async () => {
             mockFetchJson(mockLibrarySectionsResponse);
             const library = new PlexLibrary(mockConfig);

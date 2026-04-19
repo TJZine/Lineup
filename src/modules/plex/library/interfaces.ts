@@ -85,8 +85,8 @@ export interface IPlexLibrary {
      * @param libraryId - Library section ID
      * @param options - Optional query options (filter/signal)
      * @returns Promise resolving to item count, or `null` only when Plex returns semantic absence
-     * (for example no response payload / 404) or omits count totals in an otherwise valid payload.
-     * Malformed or missing success payload structure rejects with `PlexLibraryError`.
+     * (for example an explicit 404) or omits count totals in an otherwise valid payload.
+     * Empty 200 bodies and malformed success payload structure reject with `PlexLibraryError`.
      */
     getLibraryItemCount(libraryId: string, options?: LibraryQueryOptions): Promise<number | null>;
 

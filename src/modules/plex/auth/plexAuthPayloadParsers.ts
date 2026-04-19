@@ -228,7 +228,8 @@ function readNullableString(value: unknown, label: string): string | null {
     }
 
     if (typeof value === 'string') {
-        return value;
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : null;
     }
 
     throw new PlexApiError(

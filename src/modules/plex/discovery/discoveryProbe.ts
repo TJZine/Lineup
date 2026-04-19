@@ -112,10 +112,12 @@ function buildProbeTiers(
     }
 
     if (mixedContentConfig.allowLocalHttp) {
-        tiers.push({
-            connections: mixedContentConfig.preferHttps ? localDirectHttpConnections : [],
-            warnOnSelection: true,
-        });
+        if (mixedContentConfig.preferHttps) {
+            tiers.push({
+                connections: localDirectHttpConnections,
+                warnOnSelection: true,
+            });
+        }
     }
 
     return tiers;

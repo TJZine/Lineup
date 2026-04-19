@@ -122,6 +122,22 @@ describe('ResponseParser', () => {
                 })
             );
         });
+
+        it.each([
+            ['key', { uuid: 'lib-uuid', title: 'Movies', type: 'movie', agent: 'agent', scanner: 'scanner' }],
+            ['uuid', { key: '1', title: 'Movies', type: 'movie', agent: 'agent', scanner: 'scanner' }],
+            ['title', { key: '1', uuid: 'lib-uuid', type: 'movie', agent: 'agent', scanner: 'scanner' }],
+            ['type', { key: '1', uuid: 'lib-uuid', title: 'Movies', agent: 'agent', scanner: 'scanner' }],
+            ['agent', { key: '1', uuid: 'lib-uuid', title: 'Movies', type: 'movie', scanner: 'scanner' }],
+            ['scanner', { key: '1', uuid: 'lib-uuid', title: 'Movies', type: 'movie', agent: 'agent' }],
+        ])('throws a typed parse error when required field %s is missing', (_field, raw) => {
+            expect(() => parseLibrarySections([raw as RawLibrarySection])).toThrow(
+                expect.objectContaining({
+                    code: PlexLibraryErrorCode.PARSE_ERROR,
+                    message: expect.stringContaining('library section'),
+                })
+            );
+        });
     });
 
     describe('parseMediaItem', () => {
