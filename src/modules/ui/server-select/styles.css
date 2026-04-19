@@ -6,6 +6,9 @@
 }
 
 .server-status-pill {
+    --server-status-pill-bg: var(--color-surface-hover);
+    --server-status-pill-color: var(--color-text-muted);
+    --server-status-pill-border: var(--color-border-subtle);
     display: inline-block;
     padding: 2px 8px;
     border-radius: 12px;
@@ -13,47 +16,41 @@
     font-weight: 500;
     margin-top: 4px;
     align-self: flex-start;
+    background-color: var(--server-status-pill-bg);
+    color: var(--server-status-pill-color);
+    border: 1px solid var(--server-status-pill-border);
 }
 
 .server-status-pill.ok {
-    background-color: rgba(0, 128, 0, 0.2);
-    color: #4ade80;
-    border: 1px solid rgba(0, 128, 0, 0.3);
+    --server-status-pill-bg: rgba(74, 222, 128, 0.16);
+    --server-status-pill-color: var(--color-success);
+    --server-status-pill-border: rgba(74, 222, 128, 0.28);
 }
 
-.server-status-pill.unreachable {
-    background-color: rgba(128, 0, 0, 0.2);
-    color: #f87171;
-    border: 1px solid rgba(128, 0, 0, 0.3);
-}
-
-.server-status-pill.auth-required {
-    background-color: rgba(255, 165, 0, 0.2);
-    color: #fbbf24;
-    border: 1px solid rgba(255, 165, 0, 0.3);
-}
-
+.server-status-pill.unreachable,
 .server-status-pill.auth-invalid {
-    background-color: rgba(128, 0, 0, 0.2);
-    color: #f87171;
-    border: 1px solid rgba(128, 0, 0, 0.3);
+    --server-status-pill-bg: rgba(239, 68, 68, 0.16);
+    --server-status-pill-color: var(--color-error);
+    --server-status-pill-border: rgba(239, 68, 68, 0.28);
 }
 
+.server-status-pill.auth-required,
 .server-status-pill.latency-slow {
-    background-color: rgba(255, 165, 0, 0.2);
-    color: #fbbf24;
-    border: 1px solid rgba(255, 165, 0, 0.3);
+    --server-status-pill-bg: rgba(251, 191, 36, 0.16);
+    --server-status-pill-color: var(--color-warning);
+    --server-status-pill-border: rgba(251, 191, 36, 0.28);
 }
 
 .server-status-pill.latency-very-slow {
-    background-color: rgba(255, 165, 0, 0.28);
-    color: #f59e0b;
-    border: 1px solid rgba(255, 165, 0, 0.45);
+    --server-status-pill-bg: rgba(251, 191, 36, 0.24);
+    --server-status-pill-color: var(--color-warning);
+    --server-status-pill-border: rgba(251, 191, 36, 0.38);
 }
 
 .server-status-pill.unknown {
-    background-color: var(--color-surface-hover);
-    color: var(--color-text-muted);
+    --server-status-pill-bg: var(--color-surface-hover);
+    --server-status-pill-color: var(--color-text-muted);
+    --server-status-pill-border: var(--color-border-subtle);
 }
 
 .server-autoconnect-hint {
