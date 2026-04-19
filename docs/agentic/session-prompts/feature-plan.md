@@ -26,14 +26,13 @@ If the short follow-up form is used, treat the named feature/design target as th
 
 ## Required Skill Order
 
-1. load `using-superpowers`
-2. load `brainstorming` only when product intent, UX direction, or the implementation seam is still unresolved
-3. load a global UI skill only when the task includes real UI creation or redesign:
+1. load `brainstorming` only when product intent, UX direction, or the implementation seam is still unresolved
+2. load a global UI skill only when the task includes real UI creation or redesign:
    - `interface-design` for product interfaces (dashboards/admin/settings/tools/data-heavy UI)
    - `frontend-design` for marketing/landing pages and other brand-forward surfaces
-4. load matching repo-local boundary skills when ownership/composition boundaries are implicated
-5. use repo-local `verification-strategy` to choose the proof mode and test depth
-6. use repo-local `execution-plan-authoring` for plan depth, mode selection, and verification strategy
+3. load matching repo-local boundary skills when ownership/composition boundaries are implicated
+4. use repo-local `verification-strategy` to choose the proof mode and test depth
+5. use repo-local `execution-plan-authoring` for plan depth, mode selection, and verification strategy
 
 ## What This Session Must Do
 

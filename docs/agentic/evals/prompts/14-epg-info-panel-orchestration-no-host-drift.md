@@ -15,7 +15,6 @@ Extract the info-panel orchestration concern out of `EPGComponent` into one focu
 
 ## Expected Skills
 
-- `using-superpowers`
 - `brainstorming`
 - `architecture-boundaries`
 - `ui-composition-patterns`

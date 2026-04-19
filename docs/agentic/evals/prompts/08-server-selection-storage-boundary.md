@@ -15,7 +15,6 @@ Change selected-server persistence or server-health persistence without spreadin
 
 ## Expected Skills
 
-- `using-superpowers`
 - `brainstorming`
 - `persistence-boundaries`
 

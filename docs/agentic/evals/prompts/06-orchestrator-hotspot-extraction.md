@@ -15,7 +15,6 @@ Refactor one bounded runtime workflow out of `src/Orchestrator.ts` into a focuse
 
 ## Expected Skills
 
-- `using-superpowers`
 - `brainstorming`
 - `architecture-boundaries`
 

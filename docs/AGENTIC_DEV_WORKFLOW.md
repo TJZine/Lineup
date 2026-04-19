@@ -62,13 +62,12 @@ When tracked docs conflict, use this order:
 ## Default Workflow
 
 1. Start with the relevant process skills.
-   - always: `using-superpowers`
    - add `brainstorming` when product intent, behavior/design direction, or the planning seam is still unresolved
    - add the matching repo-local boundary skill(s) when the task crosses that boundary
-   - for cleanup/refactor planning, the default planning order is: `using-superpowers` -> matching repo-local boundary skill(s) -> `verification-strategy` -> `execution-plan-authoring`
+   - for cleanup/refactor planning, the default planning order is: matching repo-local boundary skill(s) -> `verification-strategy` -> `execution-plan-authoring`
      - add `brainstorming` first only when the cleanup seam, scope, or approach is still unresolved
    - for feature/design planning, the default planning order is:
-     `using-superpowers` -> one global UI skill when UI creation/redesign is actually in scope -> matching repo-local boundary skill(s) -> `verification-strategy` -> `execution-plan-authoring`
+     one global UI skill when UI creation/redesign is actually in scope -> matching repo-local boundary skill(s) -> `verification-strategy` -> `execution-plan-authoring`
      - add `brainstorming` first only when product intent, UX direction, or the implementation seam is still unresolved
      - choose exactly one global UI skill:
        - `interface-design` for product interfaces (dashboards/admin/settings/tools/data-heavy UI)

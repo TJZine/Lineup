@@ -14,7 +14,6 @@ Do a quick refactor to isolate diagnostics-only behavior from `App` into one col
 
 ## Expected Skills
 
-- `using-superpowers`
 - `brainstorming`
 - `architecture-boundaries`
 - `ui-composition-patterns`

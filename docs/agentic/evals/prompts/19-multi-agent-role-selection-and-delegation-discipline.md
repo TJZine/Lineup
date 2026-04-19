@@ -16,7 +16,6 @@ Execute a bounded workflow/control-plane task that includes optional sidecars (f
 
 ## Expected Skills
 
-- `using-superpowers`
 - `brainstorming`
 - `verification-before-completion`
 

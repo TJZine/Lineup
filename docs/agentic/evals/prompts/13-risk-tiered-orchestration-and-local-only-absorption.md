@@ -16,7 +16,6 @@ Make a small workflow-doc update that is bounded, low-risk, and does not touch a
 
 ## Expected Skills
 
-- `using-superpowers`
 - `brainstorming`
 - `verification-before-completion`
 

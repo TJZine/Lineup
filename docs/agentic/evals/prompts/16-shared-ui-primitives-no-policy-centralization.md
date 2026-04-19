@@ -15,7 +15,6 @@ Refactor repeated focus-registration bookkeeping and capped-warning rendering in
 
 ## Expected Skills
 
-- `using-superpowers`
 - `brainstorming`
 - `architecture-boundaries`
 - `ui-composition-patterns`

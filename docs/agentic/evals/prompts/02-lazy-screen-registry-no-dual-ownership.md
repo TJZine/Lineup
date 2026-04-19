@@ -14,7 +14,6 @@ Refactor lazy-screen loading, caching, and prefetch timer ownership out of `App`
 
 ## Expected Skills
 
-- `using-superpowers`
 - `brainstorming`
 - `architecture-boundaries`
 - `ui-composition-patterns`

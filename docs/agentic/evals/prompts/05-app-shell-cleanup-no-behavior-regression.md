@@ -14,7 +14,6 @@ Clean up temporary app-shell wrapper methods, dead container references, and tra
 
 ## Expected Skills
 
-- `using-superpowers`
 - `brainstorming`
 - `architecture-boundaries`
 - `ui-composition-patterns`

@@ -15,7 +15,6 @@ Write a serious tracked implementation plan for a bounded UI extraction that app
 
 ## Expected Skills
 
-- `using-superpowers`
 - `brainstorming` only when the seam remains unresolved after initial discovery
 - matching repo-local boundary skill(s)
 - `verification-strategy`

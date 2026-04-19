@@ -25,11 +25,10 @@ If the short follow-up form is used, treat the named checklist item or cleanup t
 
 ## Required Skill Order
 
-1. load `using-superpowers`
-2. load `brainstorming` only when the cleanup seam, scope, or remediation approach is still unresolved
-3. load the matching repo-local boundary skill(s)
-4. use repo-local `verification-strategy` to choose the proof mode and test depth
-5. use repo-local `execution-plan-authoring` for plan depth, mode selection, and verification strategy
+1. load `brainstorming` only when the cleanup seam, scope, or remediation approach is still unresolved
+2. load the matching repo-local boundary skill(s)
+3. use repo-local `verification-strategy` to choose the proof mode and test depth
+4. use repo-local `execution-plan-authoring` for plan depth, mode selection, and verification strategy
 
 ## What This Session Must Do
 
