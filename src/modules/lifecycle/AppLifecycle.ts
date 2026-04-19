@@ -120,12 +120,13 @@ export class AppLifecycle implements IAppLifecycle {
         // Restore state
         const savedState = this._stateManager.load();
 
+        // Auth is managed by PlexAuth storage; initialization settles in authenticating
+        // before restored-state observers run so the phase contract is coherent.
+        await this._transitionPhase('authenticating');
+
         if (savedState !== null) {
             this._emitter.emit('stateRestored', savedState);
         }
-
-        // Auth is managed by PlexAuth storage; default to authenticating here.
-        await this._transitionPhase('authenticating');
     }
 
     /**

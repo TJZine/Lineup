@@ -466,6 +466,91 @@ describe('InitializationCoordinator (Plex Home)', () => {
         expect(order).toContain('init');
     });
 
+    it('routes profileChange resume through the coordinator-owned profile-switch restart helper', async () => {
+        const { coordinator, deps } = makeCoordinator();
+        const plexAuth = deps.plexAuth as unknown as {
+            readStoredCredentialsAndClearCorruption: jest.Mock;
+            validateToken: jest.Mock;
+            getHomeUsers: jest.Mock;
+            on: jest.Mock;
+        };
+        const navigation = deps.navigation as unknown as {
+            getCurrentScreen: jest.Mock;
+            goTo: jest.Mock;
+        };
+        const plexDiscovery = deps.plexDiscovery as unknown as {
+            isConnected: jest.Mock;
+        };
+
+        let profileChangeHandler: (() => void) | null = null;
+        plexAuth.on.mockImplementation((event: string, handler: () => void) => {
+            if (event === 'profileChange') {
+                profileChangeHandler = handler;
+            }
+            return { dispose: jest.fn() };
+        });
+
+        navigation.getCurrentScreen.mockReturnValue('auth');
+        plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(
+            createStoredCredentials('active-token', 'account-token')
+        );
+        plexAuth.validateToken.mockResolvedValue(true);
+        plexAuth.getHomeUsers.mockResolvedValue([
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: false },
+        ]);
+        plexDiscovery.isConnected.mockReturnValue(true);
+
+        const resumeSpy = jest
+            .spyOn(coordinator, 'resumeStartupAfterProfileSwitch')
+            .mockResolvedValue(undefined);
+
+        await coordinator.runStartup(2);
+        expect(profileChangeHandler).toBeTruthy();
+
+        const handler = profileChangeHandler as (() => void) | null;
+        if (handler === null) {
+            throw new Error('Expected profileChange handler to be registered');
+        }
+
+        handler();
+        await Promise.resolve();
+
+        expect(resumeSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses the coordinator-owned helper to clear profile resume and rerun phase 3 after a manual profile switch', async () => {
+        const { coordinator, deps, callbacks } = makeCoordinator();
+        const plexDiscovery = deps.plexDiscovery as unknown as {
+            initialize: jest.Mock;
+            isConnected: jest.Mock;
+        };
+
+        const order: string[] = [];
+        const originalClearProfileResume = coordinator.clearProfileResume.bind(coordinator);
+        const clearProfileResumeSpy = jest
+            .spyOn(coordinator, 'clearProfileResume')
+            .mockImplementation(() => {
+                order.push('clear');
+                originalClearProfileResume();
+            });
+
+        (callbacks.configureDiscoveryStorage as jest.Mock).mockImplementation(() => {
+            order.push('configure');
+        });
+        plexDiscovery.initialize.mockImplementation(async () => {
+            order.push('init');
+        });
+        plexDiscovery.isConnected.mockReturnValue(true);
+
+        await coordinator.resumeStartupAfterProfileSwitch();
+
+        expect(clearProfileResumeSpy).toHaveBeenCalled();
+        expect(order[0]).toBe('clear');
+        expect(order[1]).toBe('configure');
+        expect(order).toContain('init');
+    });
+
     it('reports resumed phase failures only once when profile resume startup rejects', async () => {
         const { coordinator, deps, callbacks } = makeCoordinator({
             lifecycle: {

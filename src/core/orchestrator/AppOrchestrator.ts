@@ -1406,14 +1406,11 @@ export class AppOrchestrator {
 
         const cleanupController = this._requireProfileSwitchCleanupController();
         cleanupController.prepareForProfileSwitchAttempt();
-        // Profile-switch startup is resumed explicitly below; avoid duplicate
-        // queued startup runs from a stale profile-resume listener.
-        this._initCoordinator?.clearProfileResume();
+        this._initCoordinator?.prepareForProfileSwitchAttempt();
         await this._plexAuth.switchHomeUser(userId, { pin: pin ?? null });
         // Finalize only after the profile mutation succeeds. Failed profile switches
         // keep the previous active profile, so channel/stream identity should remain intact.
         cleanupController.finalizeProfileSwitch();
-        this._configureDiscoveryStorageKeysForActiveUser();
         await this._resumeStartupAfterProfileSwitch();
     }
 
@@ -1428,14 +1425,11 @@ export class AppOrchestrator {
 
         const cleanupController = this._requireProfileSwitchCleanupController();
         cleanupController.prepareForProfileSwitchAttempt();
-        // Same as switchHomeUser: avoid duplicate startup runs when an old
-        // profile-resume listener is still registered.
-        this._initCoordinator?.clearProfileResume();
+        this._initCoordinator?.prepareForProfileSwitchAttempt();
         await this._plexAuth.logoutActiveUser();
         // Finalize only after logout succeeds. Failed logout leaves the active profile
         // unchanged, so channel/stream identity should remain intact.
         cleanupController.finalizeProfileSwitch();
-        this._configureDiscoveryStorageKeysForActiveUser();
         await this._resumeStartupAfterProfileSwitch();
     }
 
@@ -1500,14 +1494,10 @@ export class AppOrchestrator {
 
     private async _resumeStartupAfterProfileSwitch(): Promise<void> {
         this._navigation?.goTo('splash');
-        if (this._initCoordinator) {
-            await this._initCoordinator.runStartup(3);
-            return;
+        if (!this._initCoordinator) {
+            throw new Error('InitializationCoordinator not initialized');
         }
-        if (!this._plexDiscovery) {
-            throw new Error('PlexServerDiscovery not initialized');
-        }
-        await this._plexDiscovery.initialize();
+        await this._initCoordinator.resumeStartupAfterProfileSwitch();
     }
 
     getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort {
