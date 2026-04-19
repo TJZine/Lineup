@@ -10,8 +10,8 @@ This document tracks package-scoped style cleanup work for shared CSS contracts,
 
 - Last audit refresh: `2026-04-18`
 - Last structural refresh: `2026-04-19`
-- Current execution state: `S3-W1`, `S3-EXIT`, `S4-W1`, `S4-EXIT`, `S5-W1`, and `S5-EXIT` are complete; the Priority 5 cleanup review was cleared and `S6-W1` is now the active package
-- Next safe start: `S6-W1-S1` on `docs/plans/2026-04-19-s6-s7-settings-onboarding-style-polish.md`
+- Current execution state: `S3-W1`, `S3-EXIT`, `S4-W1`, `S4-EXIT`, `S5-W1`, `S5-EXIT`, `S6-W1`, and `S6-EXIT` are complete
+- Next safe start: fresh `lineup-cleanup-plan` for `S7-W1` / `pkg_onboarding_token_cleanup`
 - Preferred launcher: use a local-only execution brief for Tier 2 packages; reserve `cleanup-loop` for the remaining approved Tier 3 package (`S8-W1`)
 - Authoritative evidence rule: change package status only from commands and source reads rerun in the target workspace/branch
 - Exact issue-membership surface: `docs/design/active-style-cleanup-package-map.json`
@@ -171,12 +171,18 @@ Check a box only in the same pass that updates the mini-record with current veri
   - Follow-ups: Priority 5 now routes to `lineup-cleanup-review` for the required cleanup review before any `S6-W1` execution starts
   - Handoff: request a Priority 5 cleanup review for `pkg_runtime_accessibility_coverage`; if that review is clean, start `S6-W1`
 
-- [ ] `S6-EXIT`
+- [x] `S6-EXIT`
   - required: settings/playback polish decisions are closed without widening into broader migration packages
   - verification:
     - targeted source-audit commands from the active plan
     - `npm run verify`
   - exit rule: local playback/settings polish no longer blocks later runtime token cleanup
+  - Status: `completed`
+  - Plan: `docs/plans/2026-04-19-s6-s7-settings-onboarding-style-polish.md`
+  - Last touched: `2026-04-19`
+  - Verification: `npm test -- --runInBand src/modules/ui/__tests__/runtime-overlay-style-contracts.test.ts src/modules/ui/settings/__tests__/SettingsScreen.test.ts src/modules/ui/playback-options/__tests__/PlaybackOptionsModal.test.ts` -> pass; `rg -n "border-radius: 18px 18px 0 0|font-weight: 560" src/modules/ui/exit-confirm/styles.css src/modules/ui/settings/styles.core.css` -> no matches; `rg -n "animation-delay: (210|240|270|300|330|360)ms" src/modules/ui/playback-options/styles.core.css src/modules/ui/playback-options/styles.motion.css` -> no matches; `npm run verify` -> pass; `npm run verify:docs` -> pass
+  - Follow-ups: `S6` is fully closed with no deferred package residue; `S7-W1` is now the next owner for onboarding token cleanup and must start from a fresh planning pass
+  - Handoff: start `lineup-cleanup-plan` for `S7-W1` before any Priority 7 implementation begins
 
 - [ ] `S7-EXIT`
   - required: onboarding token cleanup is closed while preserving theme-immune product intent
@@ -276,18 +282,18 @@ Check a box only in the same pass that updates the mini-record with current veri
 
 ## Priority 6: Settings / Playback Polish
 
-- [ ] `S6-W1` `pkg_settings_playback_polish` Settings / Playback Polish
+- [x] `S6-W1` `pkg_settings_playback_polish` Settings / Playback Polish
   - Backlog: `3` exact issues
   - Tier / effort / risk: `Tier 2` / `S-M` / `low-medium`
   - Execution shape: `1` serial execution unit
   - Scope: close the local playback/settings polish issues without widening into parity or broad token migration
   - Exact membership: `docs/design/active-style-cleanup-package-map.json` -> `pkg_settings_playback_polish`
-  - Status: `planned`
+  - Status: `completed`
   - Plan: `docs/plans/2026-04-19-s6-s7-settings-onboarding-style-polish.md`
   - Last touched: `2026-04-19`
-  - Verification: `not run (implementation pending)`
-  - Follow-ups: `S6-EXIT` is the single exit owner; do not open `S7-W1` until `S6-EXIT` and the required cleanup review are complete
-  - Handoff: implement `S6-W1-S1` from `docs/plans/2026-04-19-s6-s7-settings-onboarding-style-polish.md`
+  - Verification: `npm test -- --runInBand src/modules/ui/__tests__/runtime-overlay-style-contracts.test.ts src/modules/ui/settings/__tests__/SettingsScreen.test.ts src/modules/ui/playback-options/__tests__/PlaybackOptionsModal.test.ts` -> pass; `rg -n "border-radius: 18px 18px 0 0|font-weight: 560" src/modules/ui/exit-confirm/styles.css src/modules/ui/settings/styles.core.css` -> no matches; `rg -n "animation-delay: (210|240|270|300|330|360)ms" src/modules/ui/playback-options/styles.core.css src/modules/ui/playback-options/styles.motion.css` -> no matches; `npm run verify` -> pass
+  - Follow-ups: `S6-EXIT` closed in the same pass with refreshed proof; no `S6` residue remains and `S7-W1` must stay behind a fresh plan rather than opening implementation directly
+  - Handoff: start `lineup-cleanup-plan` for `S7-W1` after `S6-EXIT`
 
 ## Priority 7: Onboarding Token Cleanup
 
