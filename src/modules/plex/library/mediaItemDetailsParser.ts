@@ -52,7 +52,12 @@ function assignEpisodeMetadata(item: PlexMediaItem, data: RawMediaItem): void {
 }
 
 export function toPlexDate(value: number | undefined): Date {
-    return typeof value === 'number' ? new Date(value * UNIX_TIMESTAMP_MS) : new Date(0);
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return new Date(0);
+    }
+
+    const date = new Date(value * UNIX_TIMESTAMP_MS);
+    return Number.isNaN(date.getTime()) ? new Date(0) : date;
 }
 
 function toPlexDateOrUndefined(value: number | undefined): Date | undefined {

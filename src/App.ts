@@ -43,7 +43,7 @@ const NON_BLOCKING_TOAST_MESSAGES: Partial<Record<AppErrorCode, string>> = {
 };
 
 const NON_BLOCKING_LIFECYCLE_CODES = new Set<AppErrorCode>(
-    Object.keys(NON_BLOCKING_TOAST_MESSAGES).map((k) => k as AppErrorCode)
+    Object.values(AppErrorCode).filter((code) => code in NON_BLOCKING_TOAST_MESSAGES)
 );
 
 const ERROR_OVERLAY_MODAL_ID = 'modal:error-overlay';
@@ -165,12 +165,13 @@ export class App {
         if (!error.recoverable) {
             return true;
         }
-        return !NON_BLOCKING_LIFECYCLE_CODES.has(error.code as AppErrorCode);
+        const code = getAppErrorCode(error.code);
+        return code === null || !NON_BLOCKING_LIFECYCLE_CODES.has(code);
     }
 
     private _getNonBlockingToastMessage(error: LifecycleAppError): string {
-        const code = error.code as AppErrorCode;
-        const mapped = NON_BLOCKING_TOAST_MESSAGES[code];
+        const code = getAppErrorCode(error.code);
+        const mapped = code ? NON_BLOCKING_TOAST_MESSAGES[code] : undefined;
         if (typeof mapped === 'string' && mapped.length > 0) {
             return mapped;
         }
