@@ -16,12 +16,20 @@ describe('classic PiP alignment contract', () => {
         const videoCss = read('src/styles/video.css');
         const shellImport = "@import url('./styles.shell.css');";
         const gridImport = "@import url('./styles.grid.css');";
+        const cellsImport = "@import url('./styles.cells.css');";
+        const infoPanelImport = "@import url('./styles.info-panel.css');";
+        const importOrder = [shellImport, gridImport, cellsImport, infoPanelImport];
 
         expect(tokensCss).toContain('--classic-guide-pip-width: 672px;');
         expect(tokensCss).not.toContain('--classic-guide-pip-width: clamp(');
-        expect(epgCss).toContain(shellImport);
-        expect(epgCss).toContain(gridImport);
-        expect(epgCss.indexOf(shellImport)).toBeLessThan(epgCss.indexOf(gridImport));
+        for (const cssImport of importOrder) {
+            expect(epgCss).toContain(cssImport);
+        }
+        for (let index = 0; index < importOrder.length - 1; index += 1) {
+            const currentImport = importOrder[index]!;
+            const nextImport = importOrder[index + 1]!;
+            expect(epgCss.indexOf(currentImport)).toBeLessThan(epgCss.indexOf(nextImport));
+        }
         expect(composedEpgCss).toContain('--classic-showcase-pip-width: var(--classic-guide-pip-width);');
         expect(videoCss).toContain('width: var(--classic-guide-pip-width) !important;');
     });

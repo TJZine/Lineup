@@ -45,9 +45,19 @@ describe('focused EPG overflow style contract', () => {
     beforeAll(() => {
         const shellImport = "@import url('./styles.shell.css');";
         const gridImport = "@import url('./styles.grid.css');";
-        expect(rawCss).toContain(shellImport);
-        expect(rawCss).toContain(gridImport);
-        expect(rawCss.indexOf(shellImport)).toBeLessThan(rawCss.indexOf(gridImport));
+        const cellsImport = "@import url('./styles.cells.css');";
+        const infoPanelImport = "@import url('./styles.info-panel.css');";
+        const importOrder = [shellImport, gridImport, cellsImport, infoPanelImport];
+
+        for (const cssImport of importOrder) {
+            expect(rawCss).toContain(cssImport);
+        }
+
+        for (let index = 0; index < importOrder.length - 1; index += 1) {
+            const currentImport = importOrder[index]!;
+            const nextImport = importOrder[index + 1]!;
+            expect(rawCss.indexOf(currentImport)).toBeLessThan(rawCss.indexOf(nextImport));
+        }
 
         injectedStyle = document.createElement('style');
         injectedStyle.textContent = css;
@@ -199,6 +209,13 @@ describe('focused EPG overflow style contract', () => {
             '.epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-narrow .epg-cell-rail,\n' +
             '.epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-tiny .epg-cell-rail'
         );
+    });
+
+    it('composes the base info-panel block through the seam import chain', () => {
+        const block = getBlock('\n.epg-info-panel {');
+        expect(block).toContain('height: var(--epg-info-panel-height)');
+        expect(block).toContain('padding: var(--epg-info-panel-padding-y) var(--epg-info-panel-padding-x)');
+        expect(block).toContain('box-shadow: var(--shadow-md)');
     });
 
     it('resolves focused tiny movie overlays to single-column + absolute rail in computed styles', () => {
