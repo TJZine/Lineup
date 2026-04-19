@@ -32,7 +32,7 @@
   --exit-confirm-panel-border: rgba(255, 255, 255, 0.08);
   width: 100%;
   padding: 26px 40px 34px;
-  border-radius: 18px 18px 0 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   background: rgba(0, 0, 0, 0.45);
   background: linear-gradient(
     180deg,

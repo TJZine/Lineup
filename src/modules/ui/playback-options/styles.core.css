@@ -116,12 +116,7 @@
 .playback-options-item:nth-child(3) { animation-delay: 120ms; }
 .playback-options-item:nth-child(4) { animation-delay: 150ms; }
 .playback-options-item:nth-child(5) { animation-delay: 180ms; }
-.playback-options-item:nth-child(6) { animation-delay: 210ms; }
-.playback-options-item:nth-child(7) { animation-delay: 240ms; }
-.playback-options-item:nth-child(8) { animation-delay: 270ms; }
-.playback-options-item:nth-child(9) { animation-delay: 300ms; }
-.playback-options-item:nth-child(10) { animation-delay: 330ms; }
-.playback-options-item:nth-child(n + 11) { animation-delay: 360ms; }
+.playback-options-item:nth-child(n + 6) { animation-delay: 180ms; }
 
 .playback-options-item.selected {
   background: rgba(var(--focus-color-rgb, 96, 164, 255), 0.14);

@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { read } from '../../../styles/__tests__/helpers/css-test-utils';
+import { blockFor, declarationValue, read } from '../../../styles/__tests__/helpers/css-test-utils';
 import { THEME_CLASSES } from '../theme/themeDefinitions';
 
 type OverlayContract = {
@@ -127,6 +127,25 @@ describe('runtime overlay style contracts', () => {
         for (const themeSelector of THEME_SELECTORS) {
             expect(css).toContain(`.${themeSelector} .exit-confirm-panel`);
         }
+    });
+
+    it('keeps the settings and playback polish cleanup scoped to the approved CSS contracts', () => {
+        const settingsCss = read('src/modules/ui/settings/styles.core.css');
+        const playbackCss = read('src/modules/ui/playback-options/styles.core.css');
+        const exitConfirmCss = read('src/modules/ui/exit-confirm/styles.css');
+
+        expect(declarationValue(blockFor(settingsCss, '.settings-category-button'), 'font-weight')).toBe(
+            'var(--font-weight-semibold)'
+        );
+        expect(settingsCss).not.toContain('font-weight: 560;');
+
+        expect(declarationValue(blockFor(exitConfirmCss, '.exit-confirm-panel'), 'border-radius')).toBe(
+            'var(--radius-xl) var(--radius-xl) 0 0'
+        );
+        expect(exitConfirmCss).not.toContain('border-radius: 18px 18px 0 0;');
+
+        expect(playbackCss).toContain('.playback-options-item:nth-child(n + 6) { animation-delay: 180ms; }');
+        expect(playbackCss).not.toMatch(/animation-delay:\s*(210|240|270|300|330|360)ms;/);
     });
 
     it('keeps mini guide forced-colors coverage scoped to focused-row readability', () => {

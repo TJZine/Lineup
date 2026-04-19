@@ -95,7 +95,7 @@
   border-radius: 10px;
   color: rgba(255, 255, 255, 0.85);
   font-size: 22px;
-  font-weight: 560;
+  font-weight: var(--font-weight-semibold);
   line-height: 1.2;
   cursor: pointer;
   transition:
