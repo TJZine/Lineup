@@ -30,7 +30,7 @@ When tracked docs conflict, use this order:
 4. [`docs/agentic/skill-strategy.md`](./agentic/skill-strategy.md) for skill topology and mirror policy
 5. [`docs/architecture/CURRENT_STATE.md`](./architecture/CURRENT_STATE.md) for current architecture claims
 6. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md) for active cleanup and live status
-7. domain-specific current docs such as [`docs/design/ui-design-language.md`](./design/ui-design-language.md) and [`docs/api/plex-integration.md`](./api/plex-integration.md)
+7. domain-specific current docs such as [`docs/design/ui-design-language.md`](./design/ui-design-language.md), [`docs/design/css-governance.md`](./design/css-governance.md), and [`docs/api/plex-integration.md`](./api/plex-integration.md)
 8. active task plans in [`docs/plans/`](./plans/README.md) when working that task
 9. historical and reference docs such as [`docs/archive/plans/`](./archive/plans/README.md) and [`docs/decisions/README.md`](./decisions/README.md)
 
@@ -82,7 +82,7 @@ When tracked docs conflict, use this order:
 3. Load the right source-of-truth docs.
    - architecture truth: [`docs/architecture/CURRENT_STATE.md`](./architecture/CURRENT_STATE.md)
    - active cleanup backlog: [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md)
-   - UI language: [`docs/design/ui-design-language.md`](./design/ui-design-language.md)
+   - UI language and CSS governance: [`docs/design/ui-design-language.md`](./design/ui-design-language.md) and [`docs/design/css-governance.md`](./design/css-governance.md)
    - Plex contract: [`docs/api/plex-integration.md`](./api/plex-integration.md)
 4. Route task family before choosing a tier.
    - Use the authoritative routing table in [`docs/agentic/session-prompts/README.md`](./agentic/session-prompts/README.md#routing-authoritative).

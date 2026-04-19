@@ -12,7 +12,7 @@ Run this launcher with the tracked write-capable `planner` role. Use that role f
 2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
 3. [`docs/agentic/codanna-playbook.md`](../codanna-playbook.md)
 4. [`docs/agentic/plan-authoring-standard.md#universal-plan-core`](../plan-authoring-standard.md#universal-plan-core)
-5. [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) when UI creation or redesign is in scope
+5. [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) and [`docs/design/css-governance.md`](../../design/css-governance.md) when UI creation/redesign or repo-wide CSS policy decisions are in scope
 6. domain current-state docs that match the feature boundary
 
 ## Invocation Inputs
@@ -51,7 +51,7 @@ If the short follow-up form is used, treat the named feature/design target as th
 - follow [`docs/agentic/plan-authoring-standard.md#universal-plan-core`](../plan-authoring-standard.md#universal-plan-core) for serious tracked plans
 - declare `**Task family:** feature/design` for serious tracked feature plans
 - distinguish feature/design intent work from cleanup/refactor remediation work
-- for UI creation/redesign, reference [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) and require the appropriate global UI skill (`interface-design` or `frontend-design`)
+- for UI creation/redesign or repo-wide CSS policy/reuse decisions, reference [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) and [`docs/design/css-governance.md`](../../design/css-governance.md), then require the appropriate global UI skill (`interface-design` or `frontend-design`) when real UI creation/redesign is involved
 - resolve any open architecture seam, ownership seam, or adjacent contract decision before freezing the execution steps
 - record explicit stop-and-replan conditions under the seam gate or an adjacent replan block whenever discovery, boundary, or verification failure would invalidate the current plan
 - make the plan decision-complete at the seam, scope, invariants, and verification level without turning it into pseudo-code for every future implementation step

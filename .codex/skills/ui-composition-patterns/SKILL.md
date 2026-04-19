@@ -19,6 +19,7 @@ This skill defines how Lineup UI should be composed and constrained once impleme
 ## Design Source Of Truth
 
 - [`docs/design/ui-design-language.md`](../../../docs/design/ui-design-language.md)
+- [`docs/design/css-governance.md`](../../../docs/design/css-governance.md)
 - [`docs/architecture/CURRENT_STATE.md`](../../../docs/architecture/CURRENT_STATE.md)
 - [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../docs/AGENTIC_DEV_WORKFLOW.md)
 - [`src/modules/ui/common/ScreenShell.ts`](../../../src/modules/ui/common/ScreenShell.ts)
@@ -74,6 +75,7 @@ This skill defines how Lineup UI should be composed and constrained once impleme
 - Confirm the hidden state leaves no stray timer, event listener, or stale focus target.
 - Confirm `prefers-reduced-motion`, `role="status"`, and required `data-action` hooks remain intact where relevant.
 - Update [`docs/design/ui-design-language.md`](../../../docs/design/ui-design-language.md) when you intentionally change a reusable visual rule rather than quietly drifting implementation.
+- Update [`docs/design/css-governance.md`](../../../docs/design/css-governance.md) when you intentionally change repo-wide CSS decision rules, reuse policy, or exception-routing guidance.
 
 ## Common Mistakes
 
