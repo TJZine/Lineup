@@ -652,6 +652,159 @@ Ship a narrow feature workflow improvement.
     );
 });
 
+test('checkPlanConformance rejects multiple verification classification markers even when one is valid', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-feature-example.md',
+        content: `# Feature Example
+
+**Plan Status:** active
+**Task family:** feature/design
+
+## Goal
+
+Ship a narrow feature workflow improvement.
+
+## Non-Goals
+
+- No cleanup routing changes.
+
+## Parent Architecture Alignment
+
+- Keep one authority doc.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`execution-plan-authoring\`
+
+## Codanna Discovery
+
+- \`search_documents\`: confirmed the workflow surfaces.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`ARCHITECTURE_CLEANUP_CHECKLIST.md\`
+
+## Planner Self-Check
+
+- No hidden seam remains.
+
+## Architecture Seam Decision Gate
+
+- Chosen seam: scoped doc-anchor realignment only.
+
+## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
+- Verification classification: \`no new automated test needed\`
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- Revert the scoped anchor split if feature launchers become ambiguous.
+
+## Commit Checkpoints
+
+- \`docs(workflow): realign feature plan references\`
+`,
+    });
+
+    assert.equal(result.isSerious, true);
+    assert.ok(
+        result.errors.includes(
+            'verification commands section must classify verification strategy with one exact plan-standard marker'
+        )
+    );
+});
+
+test('checkPlanConformance accepts inline Required Skills blocks for active serious plans', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-feature-example.md',
+        content: `# Feature Example
+
+**Plan Status:** active
+**Task family:** feature/design
+
+## Goal
+
+Ship a narrow feature workflow improvement.
+
+## Non-Goals
+
+- No cleanup routing changes.
+
+## Parent Architecture Alignment
+
+- Keep one authority doc.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+**Required Skills:**
+- \`execution-plan-authoring\`
+
+## Codanna Discovery
+
+- \`search_documents\`: confirmed the workflow surfaces.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`ARCHITECTURE_CLEANUP_CHECKLIST.md\`
+
+## Planner Self-Check
+
+- No hidden seam remains.
+
+## Architecture Seam Decision Gate
+
+- Chosen seam: scoped doc-anchor realignment only.
+
+## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- Revert the scoped anchor split if feature launchers become ambiguous.
+
+## Commit Checkpoints
+
+- \`docs(workflow): realign feature plan references\`
+`,
+    });
+
+    assert.equal(result.isSerious, true);
+    assert.ok(!result.missingSections.includes('required skills'));
+    assert.ok(
+        !result.errors.includes(
+            'required skills section must include `execution-plan-authoring` for active serious plans'
+        )
+    );
+});
+
 test('checkPlanConformance rejects legacy writing-plans in active serious plans', () => {
     const result = checkPlanConformance({
         filePath: 'docs/plans/2026-04-14-feature-example.md',

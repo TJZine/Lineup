@@ -1690,6 +1690,179 @@ describe('verify-docs', () => {
         );
     });
 
+    it('fails when an active tracked plan declares more than one verification classification marker', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRepoFile(
+            repoRoot,
+            'docs/plans/example-active.md',
+            [
+                '# Example Implementation Plan',
+                '',
+                '**Plan Status:** active',
+                '**Task family:** cleanup/refactor',
+                '**Cleanup subtype:** checklist-linked',
+                '',
+                '**Goal:** Do the thing.',
+                '',
+                '**Architecture:** Keep the boundary explicit.',
+                '',
+                '## Non-Goals',
+                '',
+                '- No routing changes.',
+                '',
+                '## Required Reading',
+                '',
+                '- `docs/AGENTIC_DEV_WORKFLOW.md`',
+                '',
+                '## Required Skills',
+                '',
+                '- `execution-plan-authoring`',
+                '',
+                '## Codanna Discovery',
+                '',
+                '- `search_documents`: confirmed the right workflow docs.',
+                '',
+                '## Evidence To Preserve',
+                '',
+                '- `docs/agentic/plan-authoring-standard.md`',
+                '',
+                '## Allowed File Changes',
+                '',
+                '- `docs/agentic/plan-authoring-standard.md`',
+                '',
+                '## Files Out Of Scope',
+                '',
+                '- `src/App.ts`',
+                '',
+                '## Planner Self-Check',
+                '',
+                '- No hidden seam remains.',
+                '',
+                '## Architecture Seam Decision Gate',
+                '',
+                '- Chosen seam is explicit.',
+                '',
+                '## Verification Commands',
+                '',
+                '- Verification classification: `existing coverage sufficient`',
+                '- Verification classification: `no new automated test needed`',
+                '- Run: `npm run verify:docs`',
+                '- Expected: `Documentation verification passed.`',
+                '',
+                '## Rollback Notes',
+                '',
+                '- Revert the doc change if the launcher contract becomes ambiguous.',
+                '',
+                '## Commit Checkpoints',
+                '',
+                '- `docs: refresh tracked plan contract`',
+                '',
+                buildChecklistLinkedPackageDecomposition(),
+                '',
+            ].join('\n')
+        );
+        writeRepoFile(
+            repoRoot,
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md',
+            readFileSync(path.join(repoRoot, 'ARCHITECTURE_CLEANUP_CHECKLIST.md'), 'utf8') +
+                '\n- [ ] Active item (plan: docs/plans/example-active.md)\n'
+        );
+        runGit(['add', '.'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'verification commands section must classify verification strategy with one exact plan-standard marker'
+        );
+    });
+
+    it('passes when an active tracked plan uses an inline Required Skills block', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRepoFile(
+            repoRoot,
+            'docs/plans/example-active.md',
+            [
+                '# Example Implementation Plan',
+                '',
+                '**Plan Status:** active',
+                '**Task family:** cleanup/refactor',
+                '**Cleanup subtype:** checklist-linked',
+                '',
+                '**Goal:** Do the thing.',
+                '',
+                '**Architecture:** Keep the boundary explicit.',
+                '',
+                '## Non-Goals',
+                '',
+                '- No routing changes.',
+                '',
+                '## Required Reading',
+                '',
+                '- `docs/AGENTIC_DEV_WORKFLOW.md`',
+                '',
+                '**Required Skills:**',
+                '- `execution-plan-authoring`',
+                '',
+                '## Codanna Discovery',
+                '',
+                '- `search_documents`: confirmed the right workflow docs.',
+                '',
+                '## Evidence To Preserve',
+                '',
+                '- `docs/agentic/plan-authoring-standard.md`',
+                '',
+                '## Allowed File Changes',
+                '',
+                '- `docs/agentic/plan-authoring-standard.md`',
+                '',
+                '## Files Out Of Scope',
+                '',
+                '- `src/App.ts`',
+                '',
+                '## Planner Self-Check',
+                '',
+                '- No hidden seam remains.',
+                '',
+                '## Architecture Seam Decision Gate',
+                '',
+                '- Chosen seam is explicit.',
+                '',
+                '## Verification Commands',
+                '',
+                '- Verification classification: `existing coverage sufficient`',
+                '- Run: `npm run verify:docs`',
+                '- Expected: `Documentation verification passed.`',
+                '',
+                '## Rollback Notes',
+                '',
+                '- Revert the doc change if the launcher contract becomes ambiguous.',
+                '',
+                '## Commit Checkpoints',
+                '',
+                '- `docs: refresh tracked plan contract`',
+                '',
+                buildChecklistLinkedPackageDecomposition(),
+                '',
+            ].join('\n')
+        );
+        writeRepoFile(
+            repoRoot,
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md',
+            readFileSync(path.join(repoRoot, 'ARCHITECTURE_CLEANUP_CHECKLIST.md'), 'utf8') +
+                '\n- [ ] Active item (plan: docs/plans/example-active.md)\n'
+        );
+        runGit(['add', '.'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+    });
+
     it('passes when a checklist-linked tracked plan uses the exact active marker and full serious-plan structure', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);

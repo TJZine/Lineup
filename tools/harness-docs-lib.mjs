@@ -185,6 +185,8 @@ const PLAN_VERIFICATION_CLASSIFICATIONS = [
     'broader integration/manual proof required',
     'no new automated test needed',
 ];
+const VERIFICATION_CLASSIFICATION_LINE_RE =
+    /^\s*(?:[-*]|\d+\.)\s+Verification classification:\s*`([^`]+)`\s*$/gmu;
 const PLAN_LIST_ENTRY_RE = /^\s*(?:[-*]|\d+\.)\s+\S+/mu;
 const PLAN_RUN_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Run:\s*`[^`]+`/imu;
 const PLAN_EXPECTED_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Expected:\s*.+$/imu;
@@ -234,17 +236,17 @@ const PLAN_SECTION_RULES = [
 const PLAN_SECTION_CONTENT_RULES = [
     {
         label: 'planner self-check',
-        headings: ['Planner Self-Check'],
+        patterns: [/^## Planner Self-Check$/im],
         error: 'planner self-check section must contain substantive content',
     },
     {
         label: 'architecture seam decision gate',
-        headings: ['Architecture Seam Decision Gate'],
+        patterns: [/^## Architecture Seam Decision Gate$/im],
         error: 'architecture seam decision gate section must contain substantive content',
     },
     {
         label: 'verification commands',
-        headings: ['Verification Commands'],
+        patterns: [/^## Verification Commands$/im],
         error: 'verification commands section must contain substantive content',
     },
 ];
@@ -268,6 +270,25 @@ function extractMarkdownSection(content, heading) {
     return sectionContent.trim();
 }
 
+function extractInlinePlanSection(content, label) {
+    const inlineFieldPattern = new RegExp(`^\\*\\*${escapeRegExp(label)}:\\*\\*\\s*(.*)$`, 'mu');
+    const inlineFieldMatch = inlineFieldPattern.exec(content);
+    if (inlineFieldMatch === null) {
+        return null;
+    }
+
+    const inlineValue = inlineFieldMatch[1].trim();
+    if (inlineValue.length > 0) {
+        return inlineValue;
+    }
+
+    const remaining = content.slice(inlineFieldMatch.index + inlineFieldMatch[0].length);
+    const nextBoundaryIndex = remaining.search(/^(?:\*\*[A-Z][^:\n]*:\*\*|##\s+)/mu);
+    const sectionContent = nextBoundaryIndex === -1 ? remaining : remaining.slice(0, nextBoundaryIndex);
+
+    return sectionContent.trim();
+}
+
 function extractFirstMatchingMarkdownSection(content, headings) {
     for (const heading of headings) {
         const section = extractMarkdownSection(content, heading);
@@ -277,6 +298,34 @@ function extractFirstMatchingMarkdownSection(content, headings) {
     }
 
     return null;
+}
+
+function extractPlanSectionContent(content, { patterns }) {
+    const markdownHeadings = patterns
+        .map((pattern) => pattern.source.match(/\^##\s+(.+)\$/u)?.[1] ?? null)
+        .filter((heading) => heading !== null);
+    const markdownSection = extractFirstMatchingMarkdownSection(content, markdownHeadings);
+    if (markdownSection !== null) {
+        return markdownSection;
+    }
+
+    const inlineLabels = patterns
+        .map((pattern) => pattern.source.match(/\^\\\*\\\*(.+):\\\*\\\*/u)?.[1] ?? null)
+        .filter((label) => label !== null);
+
+    for (const label of inlineLabels) {
+        const inlineSection = extractInlinePlanSection(content, label);
+        if (inlineSection !== null) {
+            return inlineSection;
+        }
+    }
+
+    return null;
+}
+
+function hasExactVerificationClassificationMarker(section) {
+    const matches = Array.from(section.matchAll(VERIFICATION_CLASSIFICATION_LINE_RE), (match) => match[1]);
+    return matches.length === 1 && PLAN_VERIFICATION_CLASSIFICATIONS.includes(matches[0]);
 }
 
 function parseInlineField(section, label) {
@@ -972,7 +1021,7 @@ export function checkPlanConformance({ filePath, content }) {
     }
 
     const missingSections = PLAN_SECTION_RULES.filter(
-        ({ patterns }) => !patterns.some((pattern) => pattern.test(content))
+        (rule) => extractPlanSectionContent(content, rule) === null
     ).map(({ label }) => label);
 
     const errors = [];
@@ -1007,23 +1056,29 @@ export function checkPlanConformance({ filePath, content }) {
     }
 
     for (const rule of PLAN_SECTION_CONTENT_RULES) {
-        const section = extractFirstMatchingMarkdownSection(content, rule.headings);
+        const section = extractPlanSectionContent(content, rule);
         if (section !== null && section.trim().length === 0) {
             errors.push(rule.error);
         }
     }
 
-    const filesInScope = extractFirstMatchingMarkdownSection(content, ['Files In Scope', 'Allowed File Changes']);
+    const filesInScope = extractPlanSectionContent(content, {
+        patterns: [/^## Files In Scope$/im, /^## Allowed File Changes$/im],
+    });
     if (filesInScope !== null && !PLAN_LIST_ENTRY_RE.test(filesInScope)) {
         errors.push('files in scope section must contain at least one concrete entry');
     }
 
-    const filesOutOfScope = extractFirstMatchingMarkdownSection(content, ['Files Out Of Scope']);
+    const filesOutOfScope = extractPlanSectionContent(content, {
+        patterns: [/^## Files Out Of Scope$/im],
+    });
     if (filesOutOfScope !== null && !PLAN_LIST_ENTRY_RE.test(filesOutOfScope)) {
         errors.push('files out of scope section must contain at least one concrete entry');
     }
 
-    const requiredSkills = extractFirstMatchingMarkdownSection(content, ['Required Skills']);
+    const requiredSkills = extractPlanSectionContent(content, {
+        patterns: [/^## Required Skills$/im, /^\*\*Required Skills:\*\*/im],
+    });
     if (requiredSkills !== null) {
         if (!/\bexecution-plan-authoring\b/u.test(requiredSkills)) {
             errors.push('required skills section must include `execution-plan-authoring` for active serious plans');
@@ -1033,9 +1088,11 @@ export function checkPlanConformance({ filePath, content }) {
         }
     }
 
-    const verificationCommands = extractFirstMatchingMarkdownSection(content, ['Verification Commands']);
+    const verificationCommands = extractPlanSectionContent(content, {
+        patterns: [/^## Verification Commands$/im],
+    });
     if (verificationCommands !== null) {
-        if (!PLAN_VERIFICATION_CLASSIFICATIONS.some((marker) => verificationCommands.includes(marker))) {
+        if (!hasExactVerificationClassificationMarker(verificationCommands)) {
             errors.push('verification commands section must classify verification strategy with one exact plan-standard marker');
         }
         if (!PLAN_RUN_LINE_RE.test(verificationCommands)) {
