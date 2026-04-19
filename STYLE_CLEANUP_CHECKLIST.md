@@ -10,8 +10,8 @@ This document tracks package-scoped style cleanup work for shared CSS contracts,
 
 - Last audit refresh: `2026-04-18`
 - Last structural refresh: `2026-04-19`
-- Current execution state: `S1-W1` is planned; no implementation package has started yet and no active tracked plan is required yet
-- Next safe start: `S1-W1` / `pkg_shared_style_contracts`
+- Current execution state: `S2-W1` is in progress locally; `EU1_foundation_shell_grid` is complete and `EU2_cells_and_info_panel` is ready now
+- Next safe start: `S2-W1` / `pkg_epg_hotspot_decomposition` -> `EU2_cells_and_info_panel`
 - Preferred launcher: use a local-only execution brief for `S1-W1` when work begins; reserve `cleanup-loop` for approved Tier 3 packages (`S2-W1`, `S8-W1`)
 - Authoritative evidence rule: change package status only from commands and source reads rerun in the target workspace/branch
 - Exact issue-membership surface: `docs/design/active-style-cleanup-package-map.json`
@@ -198,12 +198,12 @@ Check a box only in the same pass that updates the mini-record with current veri
   - Execution shape: `3` serial execution units
   - Scope: decompose `src/modules/ui/epg/styles.css` into the approved ownership split without mixing in unrelated parity or onboarding cleanup
   - Exact membership: `docs/design/active-style-cleanup-package-map.json` -> `pkg_epg_hotspot_decomposition`
-  - Status: `not started`
-  - Plan: `none yet`
+  - Status: `in progress`
+  - Plan: `local-only`
   - Last touched: `2026-04-19`
-  - Verification: `not run`
+  - Verification: `wc -l src/modules/ui/epg/styles.css` -> `2065` lines confirmed hotspot size before the split; `rg -n '^/\\*|^@media|^@keyframes|^\\.epg|^\\.library-picker|^\\.show-info' src/modules/ui/epg/styles.css` -> confirmed shell/grid/cells/info-panel/classic/theme blocks were co-located in one seam before extraction; `npm test -- --runInBand src/modules/ui/epg/__tests__/epg-focused-overflow-style.test.ts src/styles/__tests__/classic-pip-alignment.test.ts` -> pass after `EU1` barrel/split-file extraction and review revision; `npx stylelint src/modules/ui/epg/styles.css src/modules/ui/epg/styles.shell.css src/modules/ui/epg/styles.grid.css` -> pass; `npm run verify` -> pass`
   - Follow-ups: `S2-EXIT` is the single exit owner; `S3-W1` depends on this package completing first
-  - Handoff: do not start until `S1-EXIT` is complete
+  - Handoff: execute `EU2_cells_and_info_panel` next by extracting `styles.cells.css` and `styles.info-panel.css`, leaving classic/theme/motion finish for `EU3`
 
 ## Priority 3: EPG Follow-Through / Design-Accessibility Cleanup
 
