@@ -226,7 +226,10 @@ export class PlexLibrary implements IPlexLibrary {
         const response = await this._fetchWithRetry<PlexMediaContainer<RawLibrarySection>>(url, { signal: options?.signal ?? null });
 
         if (!response) {
-            return [];
+            throw new PlexLibraryError(
+                PlexLibraryErrorCode.SERVER_ERROR,
+                'Library sections unavailable'
+            );
         }
 
         const directories = extractLibrarySectionDirectories(response, 'library sections payload for getLibraries');

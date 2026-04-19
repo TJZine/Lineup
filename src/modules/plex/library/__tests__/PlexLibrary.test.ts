@@ -211,6 +211,16 @@ describe('PlexLibrary', () => {
             });
         });
 
+        it('throws typed error when library sections are unavailable', async () => {
+            mockFetchJson({ error: 'Not found' }, 404);
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getLibraries()).rejects.toMatchObject({
+                code: PlexLibraryErrorCode.SERVER_ERROR,
+                message: 'Library sections unavailable',
+            });
+        });
+
         it('should cache libraries', async () => {
             mockFetchJson(mockLibrarySectionsResponse);
             const library = new PlexLibrary(mockConfig);
