@@ -551,6 +551,52 @@ describe('InitializationCoordinator (Plex Home)', () => {
         expect(order).toContain('init');
     });
 
+    it('clears a stale server-resume listener before the manual profile-switch rerun from server-select', async () => {
+        const { coordinator, deps } = makeCoordinator();
+        const plexDiscovery = deps.plexDiscovery as unknown as {
+            initialize: jest.Mock;
+            isConnected: jest.Mock;
+            on: jest.Mock;
+        };
+
+        const connectionChangeListeners = new Set<(uri: string | null) => void>();
+        plexDiscovery.on.mockImplementation((event: string, handler: (uri: string | null) => void) => {
+            if (event !== 'connectionChange') {
+                return { dispose: jest.fn() };
+            }
+
+            connectionChangeListeners.add(handler);
+            return {
+                dispose: jest.fn(() => {
+                    connectionChangeListeners.delete(handler);
+                }),
+            };
+        });
+
+        plexDiscovery.isConnected.mockReturnValue(false);
+
+        await coordinator.runStartup(3);
+        expect(connectionChangeListeners.size).toBe(1);
+
+        const runSpy = jest.spyOn(coordinator, 'runStartup');
+
+        coordinator.prepareForProfileSwitchAttempt();
+        expect(connectionChangeListeners.size).toBe(0);
+
+        for (const listener of connectionChangeListeners) {
+            listener('http://server.example');
+        }
+        await Promise.resolve();
+
+        expect(runSpy).not.toHaveBeenCalled();
+
+        plexDiscovery.isConnected.mockReturnValue(true);
+        await coordinator.resumeStartupAfterProfileSwitch();
+
+        expect(runSpy).toHaveBeenCalledTimes(1);
+        expect(runSpy).toHaveBeenCalledWith(3);
+    });
+
     it('reports resumed phase failures only once when profile resume startup rejects', async () => {
         const { coordinator, deps, callbacks } = makeCoordinator({
             lifecycle: {

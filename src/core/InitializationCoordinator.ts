@@ -337,10 +337,12 @@ export class InitializationCoordinator {
     }
 
     prepareForProfileSwitchAttempt(): void {
+        this.clearServerResume();
         this.clearProfileResume();
     }
 
     async resumeStartupAfterProfileSwitch(): Promise<void> {
+        this.clearServerResume();
         this.clearProfileResume();
         this._callbacks.serverStorage.configureDiscoveryStorage();
         await this.runStartup(3);
