@@ -1,4 +1,5 @@
 import {
+    parsePinResponse,
     parseHomeUsersPayload,
     parseSwitchResponsePayload,
     readPlexResponse,
@@ -51,6 +52,87 @@ describe('readPlexResponse', () => {
 });
 
 describe('plexAuthPayloadParsers', () => {
+    describe('parsePinResponse', () => {
+        it('trims required and optional string fields after validation', () => {
+            expect(
+                parsePinResponse(
+                    {
+                        id: '42',
+                        code: '  abc123  ',
+                        expiresAt: '2026-04-18T12:00:00.000Z',
+                        clientIdentifier: '  client-123  ',
+                    },
+                    'fallback-client'
+                )
+            ).toMatchObject({
+                id: 42,
+                code: 'abc123',
+                clientIdentifier: 'client-123',
+            });
+        });
+
+        it('falls back when optional clientIdentifier is blank after trimming', () => {
+            expect(
+                parsePinResponse(
+                    {
+                        id: 42,
+                        code: 'abc123',
+                        expiresAt: '2026-04-18T12:00:00.000Z',
+                        clientIdentifier: '   ',
+                    },
+                    'fallback-client'
+                )
+            ).toMatchObject({
+                clientIdentifier: 'fallback-client',
+            });
+        });
+
+        it('normalizes blank authToken values to null', () => {
+            expect(
+                parsePinResponse(
+                    {
+                        id: 42,
+                        code: 'abc123',
+                        expiresAt: '2026-04-18T12:00:00.000Z',
+                        authToken: '   ',
+                    },
+                    'fallback-client'
+                )
+            ).toMatchObject({
+                authToken: null,
+            });
+        });
+
+        it('trims non-blank authToken values', () => {
+            expect(
+                parsePinResponse(
+                    {
+                        id: 42,
+                        code: 'abc123',
+                        expiresAt: '2026-04-18T12:00:00.000Z',
+                        authToken: '  token-123  ',
+                    },
+                    'fallback-client'
+                )
+            ).toMatchObject({
+                authToken: 'token-123',
+            });
+        });
+
+        it.each([
+            ['missing id', { code: 'abc123', expiresAt: '2026-04-18T12:00:00.000Z' }],
+            ['invalid id', { id: 'abc', code: 'abc123', expiresAt: '2026-04-18T12:00:00.000Z' }],
+            ['invalid code', { id: 42, code: '   ', expiresAt: '2026-04-18T12:00:00.000Z' }],
+            ['invalid expiresAt', { id: 42, code: 'abc123', expiresAt: 'not-a-date' }],
+        ])('rejects %s in PIN payloads', (_label, payload) => {
+            expect(() => parsePinResponse(payload, 'fallback-client')).toThrow(
+                expect.objectContaining({
+                    code: AppErrorCode.PARSE_ERROR,
+                })
+            );
+        });
+    });
+
     describe('parseHomeUsersPayload', () => {
         it('dedupes duplicate home users collected from nested JSON payloads', () => {
             const payload: PlexResponsePayload = {

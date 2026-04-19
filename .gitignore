@@ -120,6 +120,7 @@ test-results/
 .worktrees/
 worktrees/
 .agent/
+.agents/
 agent-memory/
 orchestration-docs/
 .codex/

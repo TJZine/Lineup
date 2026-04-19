@@ -237,4 +237,52 @@ describe('applyPhase2AuthGatePolicy', () => {
         expect(inputs.handlers.registerAuthResume).toHaveBeenCalledTimes(1);
         expect(inputs.navigation.goTo).toHaveBeenCalledWith('auth');
     });
+
+    it('normalizes to the validated account token before routing to profile-select', async () => {
+        const inputs = createInputs({
+            validateToken: jest.fn()
+                .mockResolvedValueOnce(false)
+                .mockResolvedValueOnce(true),
+            getCurrentUser: jest.fn().mockReturnValue(
+                createToken('account-token', 'account-user', 'account', 'account@example.com')
+            ),
+        });
+
+        await expect(applyPolicy(inputs)).resolves.toBe(false);
+
+        expect(inputs.plexAuth.storeCredentials).toHaveBeenCalledWith({
+            accountToken: {
+                token: 'account-token',
+                userId: 'account-user',
+                username: 'account',
+                email: 'account@example.com',
+                thumb: '',
+                expiresAt: expect.any(Date),
+                issuedAt: expect.any(Date),
+            },
+            activeToken: {
+                token: 'account-token',
+                userId: 'account-user',
+                username: 'account',
+                email: 'account@example.com',
+                thumb: '',
+                expiresAt: expect.any(Date),
+                issuedAt: expect.any(Date),
+            },
+            activeUserId: 'account-user',
+            selectedServerByUserId: {
+                'active-user': {
+                    serverId: null,
+                    serverUri: null,
+                },
+                'account-user': {
+                    serverId: null,
+                    serverUri: null,
+                },
+            },
+            deviceKey: null,
+        });
+        expect(inputs.handlers.registerProfileResume).toHaveBeenCalledTimes(1);
+        expect(inputs.navigation.goTo).toHaveBeenCalledWith('profile-select');
+    });
 });

@@ -123,6 +123,30 @@ describe('AppLifecycle', () => {
             expect(handler).toHaveBeenCalledWith(savedState);
         });
 
+        it('transitions to authenticating before stateRestored observers run', async () => {
+            const savedState: PersistentState = {
+                version: 1,
+                userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
+                lastUpdated: Date.now(),
+            };
+            mockStateManager.load.mockReturnValue(savedState);
+
+            const eventOrder: string[] = [];
+            lifecycle.on('phaseChange', ({ from, to }) => {
+                eventOrder.push(`phase:${from}->${to}`);
+            });
+            lifecycle.on('stateRestored', () => {
+                eventOrder.push(`restored:${lifecycle.getPhase()}`);
+            });
+
+            await lifecycle.initialize();
+
+            expect(eventOrder).toEqual([
+                'phase:initializing->authenticating',
+                'restored:authenticating',
+            ]);
+        });
+
         it('should register visibility listeners', async () => {
             await lifecycle.initialize();
 

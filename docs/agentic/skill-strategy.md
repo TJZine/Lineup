@@ -9,6 +9,7 @@
 - Add only Lineup-specific skills to `.codex/skills/`.
 - Encode repo-specific architectural, UI, persistence, and Plex boundaries to reduce future tech debt and "AI slop."
 - Keep Lineup's multi-agent patterns repo-local when the repo needs tighter delegation discipline than generic global skills provide.
+- Keep serious-plan authoring repo-local when the repo needs stricter planning depth and verification rules than generic global planner skills provide.
 - Fit the skill system into a smaller control plane rather than letting skills become a second source of truth for workflow policy.
 
 ## Research Takeaways
@@ -24,9 +25,10 @@ The skill layout and workflow in this repo are based on a small set of recurring
 
 ## Resulting Repo Policy
 
-- `.codex/skills/` is for Lineup-only skills.
+- `.codex/skills/` is the canonical tracked home for Lineup-only skills.
 - `.codex/config.toml` plus `.codex/agents/*.toml` are tracked Codex multi-agent role surfaces for this repo.
 - `.agent/skills/` is a generated local mirror for Antigravity and contains actual copies, not symlinks.
+- `docs/agentic/skills/` is not a steady-state skill source or fallback policy surface.
 - Global Codex skills that already exist for Codex should not be duplicated into `.codex/skills/`.
 - For Codex, global skills are resolved from `${CODEX_HOME:-$HOME/.codex}/skills/` first; the repo does not expect duplicate tracked copies under `.codex/skills/`.
 - The exact global mirror set is pinned in [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt); `scripts/sync_agent_skills.sh` reads that file directly.
@@ -34,7 +36,7 @@ The skill layout and workflow in this repo are based on a small set of recurring
 - Repo-specific skills should stay local to this repo unless they become broadly reusable enough to justify promotion to a global skill home.
 - Lineup's preferred subagent patterns should live in repo-local skills when the tracked workflow needs stricter delegation rules than the generic global defaults.
 - The broader document/control-plane structure is defined in [`docs/AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles`](../AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles).
-- Keep the repo-defined role set conservative: read-only evidence/review/docs/monitor roles plus a bounded `worker` role, with explicit fallback roles instead of assumed automatic failover.
+- Keep the repo-defined role set conservative: read-only evidence/review/docs/monitor roles plus one bounded `planner` role for planning artifacts, one general bounded `worker` role for implementation, and one cleanup-loop-specific `cleanup_worker` role for approved Tier 3 cleanup-loop implementation passes, with explicit fallback roles instead of assumed automatic failover.
 - Stable entrypoint doc: `AGENTS.md`
 - Stable workflow doc: `docs/AGENTIC_DEV_WORKFLOW.md`
 
@@ -44,11 +46,13 @@ The skill layout and workflow in this repo are based on a small set of recurring
 
 - `architecture-boundaries`
 - `bounded-worker-execution`
+- `execution-plan-authoring`
 - `model-selection`
 - `parallel-sidecars`
-- `ui-composition-patterns`
 - `persistence-boundaries`
 - `plex-integration-boundaries`
+- `ui-composition-patterns`
+- `verification-strategy`
 
 These are the source-of-truth Lineup skills. They are authored in `.codex/skills/` and mirrored into `.agent/skills/`.
 
@@ -80,6 +84,8 @@ Local-only by default:
 
 - `architecture-boundaries`: protects composition roots and hotspot decomposition.
 - `bounded-worker-execution`: keeps worker delegation limited to approved, disjoint plan slices with local controller integration and verification.
+- `execution-plan-authoring`: keeps Lineup plans decision-complete at seam/scope/verification level without inheriting generic pseudo-code-heavy planning defaults.
+- `verification-strategy`: makes verification explicit and risk-matched without turning every change into fail-first TDD or brittle-test scaffolding.
 - `ui-composition-patterns`: pairs global UI design skills with Lineup's TV-specific design language and focus rules.
 - `persistence-boundaries`: keeps storage ownership centralized and typed.
 - `plex-integration-boundaries`: keeps Plex transport/policy complexity out of unrelated modules.
@@ -92,9 +98,13 @@ Local-only by default:
 ## Repo-Local Subagent Policy
 
 - Generic global subagent skills may still be installed for Codex, but they are not the authoritative Lineup workflow.
+- Generic global planning skills may still exist for Codex, but they are not the authoritative Lineup planner surface.
 - For this repo, prefer repo-local subagent skills:
   - `parallel-sidecars` for optional exploration/review/docs/wait sidecars
   - `bounded-worker-execution` for approved-plan worker slices with disjoint write scopes
+- For plan authoring, prefer repo-local skills:
+  - `verification-strategy` to choose the proof mode and avoid brittle verification
+  - `execution-plan-authoring` to freeze the execution seam without pseudo-code bloat
 - If a mirrored global subagent skill stops being useful for Antigravity, remove it from [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt) instead of encoding negative routing rules in the main workflow docs.
 
 ## UI Skill Recommendation

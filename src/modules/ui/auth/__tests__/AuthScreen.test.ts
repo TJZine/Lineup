@@ -298,4 +298,32 @@ describe('AuthScreen', () => {
         expect(qr.style.display).toBe('none');
         expect(status?.textContent ?? '').toContain('Code expired.');
     });
+
+    it('surfaces request failures through screen error UI without console logging', async () => {
+        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const ports = createPorts({
+            requestAuthPin: jest.fn().mockRejectedValue({
+                code: 'NETWORK_TIMEOUT',
+                message: 'timed out',
+            }),
+        });
+
+        try {
+            const screen = new AuthScreen(container, ports);
+            screen.show();
+
+            click(container, '#btn-auth-request');
+            await flushPromises();
+
+            const error = container.querySelector('.screen-error') as HTMLElement | null;
+            expect(error?.textContent ?? '').toContain('Connection error');
+            expect(error?.textContent ?? '').toContain('Check your internet connection and try again.');
+            expect(consoleErrorSpy).not.toHaveBeenCalled();
+        } finally {
+            consoleErrorSpy.mockRestore();
+        }
+    });
 });

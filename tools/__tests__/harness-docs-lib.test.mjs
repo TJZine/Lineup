@@ -12,6 +12,8 @@ import {
     extractHarnessIngestionTriage,
     extractChecklistPlanPaths,
     parseSkillMirrorManifest,
+    REQUIRED_REPO_LOCAL_SKILL_FILES,
+    REQUIRED_REPO_LOCAL_SKILLS,
     renderEvalPromptInventory,
     renderSessionPromptSet,
     replaceManagedSection,
@@ -153,6 +155,13 @@ oops:not valid
     );
 });
 
+test('required repo-local skill inventory includes the canonical planner and verification skills', () => {
+    assert.ok(REQUIRED_REPO_LOCAL_SKILLS.includes('execution-plan-authoring'));
+    assert.ok(REQUIRED_REPO_LOCAL_SKILLS.includes('verification-strategy'));
+    assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.codex/skills/execution-plan-authoring/SKILL.md'));
+    assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.codex/skills/verification-strategy/SKILL.md'));
+});
+
 test('extractChecklistPlanPaths returns every checklist-linked tracked plan path', () => {
     const paths = extractChecklistPlanPaths(`
 - [x] P4-W1 (done 2026-03-05; plan: docs/plans/example-plan.md)
@@ -239,6 +248,11 @@ test('buildChecklistPlanPathMessages deduplicates repeated checklist refs for th
 
 test('SESSION_PROMPT_INVENTORY and EVAL_PROMPT_INVENTORY drive expected file order', () => {
     assert.equal(SESSION_PROMPT_INVENTORY[0].file, 'cleanup-plan.md');
+    assert.equal(SESSION_PROMPT_INVENTORY[3].file, 'cleanup-loop.md');
+    assert.equal(
+        SESSION_PROMPT_INVENTORY[3].description,
+        'Tier 3 cleanup/refactor controller session for package-scoped planning/closeout and execution-unit orchestration',
+    );
     assert.equal(SESSION_PROMPT_INVENTORY[5].file, 'feature-implement.md');
     assert.equal(
         SESSION_PROMPT_INVENTORY[5].description,
@@ -353,6 +367,8 @@ test('checkPlanConformance reports missing required sections for serious active 
     assert.deepEqual(result.errors, [
         'missing required plan classification field: **Task family:**',
         'verification commands section must contain substantive content',
+        'required skills section must include `execution-plan-authoring` for active serious plans',
+        'verification commands section must classify verification strategy with one exact plan-standard marker',
         'verification commands section must contain at least one command-looking `Run:` line',
         'verification commands section must contain at least one expected-result `Expected:` line',
     ]);
@@ -404,6 +420,8 @@ test('checkPlanConformance accepts the tracked section variants used by older an
         'verification commands section must contain substantive content',
         'files in scope section must contain at least one concrete entry',
         'files out of scope section must contain at least one concrete entry',
+        'required skills section must include `execution-plan-authoring` for active serious plans',
+        'verification commands section must classify verification strategy with one exact plan-standard marker',
         'verification commands section must contain at least one command-looking `Run:` line',
         'verification commands section must contain at least one expected-result `Expected:` line',
     ]);
@@ -435,7 +453,83 @@ Ship a narrow feature workflow improvement.
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
+
+## Codanna Discovery
+
+- \`search_documents\`: confirmed the workflow surfaces.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`ARCHITECTURE_CLEANUP_CHECKLIST.md\`
+
+## Planner Self-Check
+
+- No hidden seam remains.
+
+## Architecture Seam Decision Gate
+
+- Chosen seam: scoped doc-anchor realignment only.
+
+## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- Revert the scoped anchor split if feature launchers become ambiguous.
+
+## Commit Checkpoints
+
+- \`docs(workflow): realign feature plan references\`
+`,
+    });
+
+    assert.equal(result.isSerious, true);
+    assert.deepEqual(result.missingSections, []);
+    assert.deepEqual(result.errors, []);
+    assert.equal(result.taskFamily, 'feature/design');
+    assert.equal(result.cleanupSubtype, null);
+});
+
+test('checkPlanConformance requires execution-plan-authoring in active serious plans', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-feature-example.md',
+        content: `# Feature Example
+
+**Plan Status:** active
+**Task family:** feature/design
+
+## Goal
+
+Ship a narrow feature workflow improvement.
+
+## Non-Goals
+
+- No cleanup routing changes.
+
+## Parent Architecture Alignment
+
+- Keep one authority doc.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`architecture-boundaries\`
 
 ## Codanna Discovery
 
@@ -478,9 +572,166 @@ Ship a narrow feature workflow improvement.
 
     assert.equal(result.isSerious, true);
     assert.deepEqual(result.missingSections, []);
-    assert.deepEqual(result.errors, []);
-    assert.equal(result.taskFamily, 'feature/design');
-    assert.equal(result.cleanupSubtype, null);
+    assert.ok(
+        result.errors.includes(
+            'required skills section must include `execution-plan-authoring` for active serious plans'
+        )
+    );
+});
+
+test('checkPlanConformance requires a verification classification marker in active serious plans', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-feature-example.md',
+        content: `# Feature Example
+
+**Plan Status:** active
+**Task family:** feature/design
+
+## Goal
+
+Ship a narrow feature workflow improvement.
+
+## Non-Goals
+
+- No cleanup routing changes.
+
+## Parent Architecture Alignment
+
+- Keep one authority doc.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`execution-plan-authoring\`
+
+## Codanna Discovery
+
+- \`search_documents\`: confirmed the workflow surfaces.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`ARCHITECTURE_CLEANUP_CHECKLIST.md\`
+
+## Planner Self-Check
+
+- No hidden seam remains.
+
+## Architecture Seam Decision Gate
+
+- Chosen seam: scoped doc-anchor realignment only.
+
+## Verification Commands
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- Revert the scoped anchor split if feature launchers become ambiguous.
+
+## Commit Checkpoints
+
+- \`docs(workflow): realign feature plan references\`
+`,
+    });
+
+    assert.equal(result.isSerious, true);
+    assert.deepEqual(result.missingSections, []);
+    assert.ok(
+        result.errors.includes(
+            'verification commands section must classify verification strategy with one exact plan-standard marker'
+        )
+    );
+});
+
+test('checkPlanConformance rejects legacy writing-plans in active serious plans', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-feature-example.md',
+        content: `# Feature Example
+
+**Plan Status:** active
+**Task family:** feature/design
+
+## Goal
+
+Ship a narrow feature workflow improvement.
+
+## Non-Goals
+
+- No cleanup routing changes.
+
+## Parent Architecture Alignment
+
+- Keep one authority doc.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`execution-plan-authoring\`
+- \`writing-plans\`
+
+## Codanna Discovery
+
+- \`search_documents\`: confirmed the workflow surfaces.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`ARCHITECTURE_CLEANUP_CHECKLIST.md\`
+
+## Planner Self-Check
+
+- No hidden seam remains.
+
+## Architecture Seam Decision Gate
+
+- Chosen seam: scoped doc-anchor realignment only.
+
+## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- Revert the scoped anchor split if feature launchers become ambiguous.
+
+## Commit Checkpoints
+
+- \`docs(workflow): realign feature plan references\`
+`,
+    });
+
+    assert.equal(result.isSerious, true);
+    assert.deepEqual(result.missingSections, []);
+    assert.ok(
+        result.errors.includes(
+            'required skills section must not include legacy `writing-plans` for active serious plans'
+        )
+    );
 });
 
 test('checkPlanConformance rejects cleanup subtype on feature plans', () => {
@@ -510,7 +761,7 @@ Ship a narrow feature workflow improvement.
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -537,6 +788,8 @@ Ship a narrow feature workflow improvement.
 - Chosen seam: scoped doc-anchor realignment only.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Run: \`npm run verify:docs\`
 - Expected: \`Documentation verification passed.\`
@@ -584,7 +837,7 @@ Ship a narrow workflow improvement.
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -611,6 +864,8 @@ Ship a narrow workflow improvement.
 - Chosen seam: scoped doc-anchor realignment only.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Run: \`npm run verify:docs\`
 - Expected: \`Documentation verification passed.\`
@@ -659,7 +914,7 @@ Do the cleanup.
 
 ## Required Skills
 
-* \`writing-plans\`
+* \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -686,6 +941,8 @@ Do the cleanup.
 * explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 Run: \`npm run verify:docs\`
 Expected: \`Documentation verification passed.\`
@@ -731,7 +988,7 @@ Do the cleanup.
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -758,6 +1015,8 @@ Do the cleanup.
 - explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Expected: \`Documentation verification passed.\`
 
@@ -815,7 +1074,7 @@ Do the cleanup.
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -842,6 +1101,8 @@ Do the cleanup.
 - explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Run: \`npm run verify:docs\`
 - Expected: \`Documentation verification passed.\`
@@ -901,7 +1162,7 @@ Do the cleanup.
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -928,6 +1189,8 @@ Do the cleanup.
 - explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 1. Run: \`npm run verify:docs\`
 1. Expected: \`Documentation verification passed.\`
@@ -996,7 +1259,7 @@ Do the cleanup.
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -1023,6 +1286,8 @@ Do the cleanup.
 - explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Run: \`npm run verify:docs\`
 - Expected: \`Documentation verification passed.\`
@@ -1079,7 +1344,7 @@ Do the cleanup.
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -1106,6 +1371,8 @@ Do the cleanup.
 - explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Run: \`npm run verify:docs\`
 - Expected: \`Documentation verification passed.\`
@@ -1165,7 +1432,7 @@ test('checkPlanConformance requires ready_now_execution_unit for checklist-linke
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -1192,6 +1459,8 @@ test('checkPlanConformance requires ready_now_execution_unit for checklist-linke
 - explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Run: \`npm run verify:docs\`
 - Expected: \`Documentation verification passed.\`
@@ -1243,7 +1512,7 @@ test('checkPlanConformance requires ready_now scalar fields to stay inline', () 
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -1270,6 +1539,8 @@ test('checkPlanConformance requires ready_now scalar fields to stay inline', () 
 - explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Run: \`npm run verify:docs\`
 - Expected: \`Documentation verification passed.\`
@@ -1321,7 +1592,7 @@ test('checkPlanConformance requires wave scaffolding when ready_now_execution_un
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -1348,6 +1619,8 @@ test('checkPlanConformance requires wave scaffolding when ready_now_execution_un
 - explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Run: \`npm run verify:docs\`
 - Expected: \`Documentation verification passed.\`
@@ -1399,7 +1672,7 @@ test('checkPlanConformance requires coverage_ledger and per-wave markers for wav
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -1426,6 +1699,8 @@ test('checkPlanConformance requires coverage_ledger and per-wave markers for wav
 - explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Run: \`npm run verify:docs\`
 - Expected: \`Documentation verification passed.\`
@@ -1477,7 +1752,7 @@ test('checkPlanConformance requires slice_table rows to keep execution-ready fie
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -1504,6 +1779,8 @@ test('checkPlanConformance requires slice_table rows to keep execution-ready fie
 - explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Run: \`npm run verify:docs\`
 - Expected: \`Documentation verification passed.\`
@@ -1555,7 +1832,7 @@ test('checkPlanConformance requires ready_now_slice to reference a declared slic
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -1582,6 +1859,8 @@ test('checkPlanConformance requires ready_now_slice to reference a declared slic
 - explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Run: \`npm run verify:docs\`
 - Expected: \`Documentation verification passed.\`
@@ -1636,7 +1915,7 @@ test('checkPlanConformance requires execution_waves slice_ids to reference decla
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -1663,6 +1942,8 @@ test('checkPlanConformance requires execution_waves slice_ids to reference decla
 - explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Run: \`npm run verify:docs\`
 - Expected: \`Documentation verification passed.\`
@@ -1714,7 +1995,7 @@ test('checkPlanConformance rejects slice_table rows that declare both serial_onl
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -1741,6 +2022,8 @@ test('checkPlanConformance rejects slice_table rows that declare both serial_onl
 - explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Run: \`npm run verify:docs\`
 - Expected: \`Documentation verification passed.\`
@@ -1792,7 +2075,7 @@ test('checkPlanConformance requires wave-scoped ready_now_execution_unit to matc
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -1819,6 +2102,8 @@ test('checkPlanConformance requires wave-scoped ready_now_execution_unit to matc
 - explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Run: \`npm run verify:docs\`
 - Expected: \`Documentation verification passed.\`
@@ -1870,7 +2155,7 @@ test('checkPlanConformance validates each execution_waves entry individually', (
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -1897,6 +2182,8 @@ test('checkPlanConformance validates each execution_waves entry individually', (
 - explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Run: \`npm run verify:docs\`
 - Expected: \`Documentation verification passed.\`
@@ -1948,7 +2235,7 @@ test('checkPlanConformance accepts starred execution_waves entries', () => {
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -1975,6 +2262,8 @@ test('checkPlanConformance accepts starred execution_waves entries', () => {
 - explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Run: \`npm run verify:docs\`
 - Expected: \`Documentation verification passed.\`
@@ -2026,7 +2315,7 @@ test('checkPlanConformance requires ready_now_slice to match the first slice in 
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -2053,6 +2342,8 @@ test('checkPlanConformance requires ready_now_slice to match the first slice in 
 - explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Run: \`npm run verify:docs\`
 - Expected: \`Documentation verification passed.\`
@@ -2104,7 +2395,7 @@ test('checkPlanConformance accepts wave-scoped checklist-linked package plans wi
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -2131,6 +2422,8 @@ test('checkPlanConformance accepts wave-scoped checklist-linked package plans wi
 - explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Run: \`npm run verify:docs\`
 - Expected: \`Documentation verification passed.\`
@@ -2177,7 +2470,7 @@ test('checkPlanConformance enforces ready_now_slice ordering when execution_wave
 
 ## Required Skills
 
-- \`writing-plans\`
+- \`execution-plan-authoring\`
 
 ## Codanna Discovery
 
@@ -2204,6 +2497,8 @@ test('checkPlanConformance enforces ready_now_slice ordering when execution_wave
 - explicit.
 
 ## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
 
 - Run: \`npm run verify:docs\`
 - Expected: \`Documentation verification passed.\`

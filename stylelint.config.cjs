@@ -20,6 +20,7 @@ module.exports = {
         'declaration-block-no-duplicate-custom-properties': null,
         'declaration-empty-line-before': null,
         'selector-not-notation': 'simple',
+        'import-notation': null,
 
         // Keep initial rollout low-friction; tighten later once the rule budget is stable.
         'no-descending-specificity': null,

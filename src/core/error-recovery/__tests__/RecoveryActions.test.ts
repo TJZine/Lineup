@@ -194,4 +194,34 @@ describe('getRecoveryActions', () => {
         expect(deps.exitApp).not.toHaveBeenCalled();
         expect(deps.skipToNext).not.toHaveBeenCalled();
     });
+
+    it.each([
+        [AppErrorCode.PARSE_ERROR, 'Dismiss'],
+        [AppErrorCode.EMPTY_RESPONSE, 'Dismiss'],
+        [AppErrorCode.UI_NAVIGATION_BLOCKED, 'Dismiss'],
+        [AppErrorCode.PLAYBACK_DRM_ERROR, 'Skip'],
+        [AppErrorCode.PLAYBACK_SOURCE_NOT_FOUND, 'Skip'],
+        [AppErrorCode.TRANSCODE_FAILED, 'Skip'],
+        [AppErrorCode.SERVER_UNAUTHORIZED, 'Sign In'],
+        [AppErrorCode.LIBRARY_UNAVAILABLE, 'Select Server'],
+        [AppErrorCode.EMPTY_CHANNEL, 'Edit Channels'],
+        [AppErrorCode.MODULE_CRASH, 'Retry'],
+    ])('maps %s intentionally to %s actions', (errorCode, primaryLabel) => {
+        const deps = createDeps();
+        const actions = getRecoveryActions(errorCode, deps);
+
+        expect(actions[0]).toMatchObject({
+            label: primaryLabel,
+            isPrimary: true,
+        });
+    });
+
+    it('returns at least one recovery action for every AppErrorCode', () => {
+        const deps = createDeps();
+
+        for (const errorCode of Object.values(AppErrorCode)) {
+            const actions = getRecoveryActions(errorCode, deps);
+            expect(actions.length).toBeGreaterThan(0);
+        }
+    });
 });

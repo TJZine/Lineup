@@ -1487,6 +1487,50 @@ describe('AppOrchestrator', () => {
             }
         });
 
+        it('restores pending server resume after a failed profile switch from server-select', async () => {
+            const connectionChangeListeners = new Set<(uri: string | null) => void>();
+            (mockPlexDiscovery.on as jest.Mock).mockImplementation(
+                (event: string, handler: (uri: string | null) => void) => {
+                    if (event !== 'connectionChange') {
+                        return { dispose: jest.fn() };
+                    }
+
+                    connectionChangeListeners.add(handler);
+                    return {
+                        dispose: jest.fn(() => {
+                            connectionChangeListeners.delete(handler);
+                        }),
+                    };
+                }
+            );
+
+            await orchestrator.initialize(mockConfig);
+
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.validateToken.mockResolvedValue(true);
+            mockPlexDiscovery.isConnected.mockReturnValue(false);
+
+            await orchestrator.start();
+            expect(connectionChangeListeners.size).toBe(1);
+
+            mockPlexAuth.switchHomeUser.mockRejectedValueOnce(new Error('switch failed'));
+            const runStartupSpy = jest.spyOn(InitializationCoordinator.prototype, 'runStartup');
+
+            try {
+                await expect(orchestrator.switchHomeUser('user-2')).rejects.toThrow('switch failed');
+
+                expect(connectionChangeListeners.size).toBe(1);
+
+                const [listener] = [...connectionChangeListeners];
+                listener?.('http://server.example');
+                await Promise.resolve();
+
+                expect(runStartupSpy).toHaveBeenCalledWith(3);
+            } finally {
+                runStartupSpy.mockRestore();
+            }
+        });
+
         it('does not reset channel state when useMainAccountProfile fails', async () => {
             await orchestrator.initialize(mockConfig);
 
@@ -1507,6 +1551,28 @@ describe('AppOrchestrator', () => {
                 clearProfileResumeSpy.mockRestore();
                 runStartupSpy.mockRestore();
             }
+        });
+
+        it('fails before mutating auth state when switchHomeUser is called without an initialization coordinator', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            Reflect.set(orchestrator as object, '_initCoordinator', null);
+
+            await expect(orchestrator.switchHomeUser('user-2')).rejects.toThrow(
+                'InitializationCoordinator not initialized'
+            );
+            expect(mockPlexAuth.switchHomeUser).not.toHaveBeenCalled();
+        });
+
+        it('fails before logging out when useMainAccountProfile is called without an initialization coordinator', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            Reflect.set(orchestrator as object, '_initCoordinator', null);
+
+            await expect(orchestrator.useMainAccountProfile()).rejects.toThrow(
+                'InitializationCoordinator not initialized'
+            );
+            expect(mockPlexAuth.logoutActiveUser).not.toHaveBeenCalled();
         });
     });
 

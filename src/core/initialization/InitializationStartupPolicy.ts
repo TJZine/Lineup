@@ -6,7 +6,6 @@ import type { IPlexLibrary } from '../../modules/plex/library';
 import type { IPlexStreamResolver } from '../../modules/plex/stream';
 import type { IChannelManager } from '../../modules/scheduler/channel-manager';
 import type { ModuleStatus } from '../orchestrator/OrchestratorTypes';
-import { summarizeErrorForLog } from '../../utils/errors';
 import { toRecoverableModuleStatusError } from './RecoverableModuleStatusError';
 
 type UpdateModuleStatus = (
@@ -62,6 +61,11 @@ export interface PostReadyRoutingInputs {
     openServerSelect: () => void;
 }
 
+type Phase2StoredCredentials = Extract<
+    Awaited<ReturnType<Phase2AuthPlexAuth['readStoredCredentialsAndClearCorruption']>>,
+    { kind: 'available' }
+>['credentials'];
+
 export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs): Promise<void> {
     const shouldRunAudioSetup = inputs.shouldRunAudioSetup();
     const shouldRunSetup = inputs.shouldRunChannelSetup();
@@ -101,139 +105,176 @@ export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs
     inputs.openServerSelect();
 }
 
+function buildSelectedServerByUserId(
+    storedCredentials: Phase2StoredCredentials,
+    activeUserId: string
+): Phase2StoredCredentials['selectedServerByUserId'] {
+    const selectedServerByUserId = {
+        ...(storedCredentials.selectedServerByUserId ?? {}),
+    };
+    if (!selectedServerByUserId[activeUserId]) {
+        selectedServerByUserId[activeUserId] = { serverId: null, serverUri: null };
+    }
+    return selectedServerByUserId;
+}
+
+function resolveValidatedToken<TToken extends Phase2StoredCredentials['activeToken']>(
+    currentToken: TToken | null,
+    fallbackToken: TToken
+): TToken {
+    if (currentToken?.token === fallbackToken.token) {
+        return currentToken;
+    }
+    return fallbackToken;
+}
+
+function markAuthReady(inputs: Phase2AuthGateInputs): void {
+    inputs.updateModuleStatus(
+        'plex-auth',
+        'ready',
+        undefined,
+        Date.now() - inputs.startTime
+    );
+
+    if (inputs.lifecycle) {
+        inputs.lifecycle.setPhase('loading_data');
+    }
+}
+
+async function routeToPendingAuth(inputs: Phase2AuthGateInputs, error?: AppError): Promise<boolean> {
+    if (error) {
+        inputs.updateModuleStatus('plex-auth', 'pending', error);
+    } else {
+        inputs.updateModuleStatus('plex-auth', 'pending');
+    }
+    inputs.handlers.registerAuthResume();
+    inputs.navigation.goTo('auth');
+    return false;
+}
+
+async function maybeRouteToProfileSelect(inputs: Phase2AuthGateInputs): Promise<boolean> {
+    const currentScreen = inputs.navigation.getCurrentScreen();
+    const isAuthScreen = currentScreen === 'auth';
+    const showPickerOnStartup = inputs.readShowProfilePickerOnStartup();
+    if (!isAuthScreen && !showPickerOnStartup) {
+        return true;
+    }
+
+    try {
+        const users = await inputs.plexAuth.getHomeUsers();
+        if (users.length > 1) {
+            inputs.handlers.registerProfileResume();
+            inputs.navigation.goTo('profile-select');
+            return false;
+        }
+    } catch (error) {
+        const code = (error as { code?: string }).code;
+        if (
+            code === AppErrorCode.AUTH_REQUIRED ||
+            code === AppErrorCode.AUTH_INVALID
+        ) {
+            return routeToPendingAuth(inputs);
+        }
+        throw error;
+    }
+
+    return true;
+}
+
+async function persistValidatedActiveCredentials(
+    inputs: Phase2AuthGateInputs,
+    storedCredentials: Phase2StoredCredentials
+): Promise<void> {
+    const validatedActiveToken = resolveValidatedToken(
+        inputs.plexAuth.getCurrentUser(),
+        storedCredentials.activeToken
+    );
+    const activeUserId = storedCredentials.activeUserId || validatedActiveToken.userId;
+    const accountToken = storedCredentials.accountToken.token === validatedActiveToken.token
+        ? validatedActiveToken
+        : storedCredentials.accountToken;
+
+    await inputs.plexAuth.storeCredentials({
+        accountToken,
+        activeToken: validatedActiveToken,
+        activeUserId,
+        selectedServerByUserId: buildSelectedServerByUserId(storedCredentials, activeUserId),
+        deviceKey: storedCredentials.deviceKey ?? null,
+    });
+}
+
+async function persistValidatedAccountFallback(
+    inputs: Phase2AuthGateInputs,
+    storedCredentials: Phase2StoredCredentials
+): Promise<void> {
+    const validatedAccountToken = resolveValidatedToken(
+        inputs.plexAuth.getCurrentUser(),
+        storedCredentials.accountToken
+    );
+
+    await inputs.plexAuth.storeCredentials({
+        accountToken: validatedAccountToken,
+        activeToken: validatedAccountToken,
+        activeUserId: validatedAccountToken.userId,
+        selectedServerByUserId: buildSelectedServerByUserId(
+            storedCredentials,
+            validatedAccountToken.userId
+        ),
+        deviceKey: storedCredentials.deviceKey ?? null,
+    });
+}
+
 export async function applyPhase2AuthGatePolicy(inputs: Phase2AuthGateInputs): Promise<boolean> {
     const storedReadResult = await inputs.plexAuth.readStoredCredentialsAndClearCorruption();
     if (storedReadResult.kind === 'corrupted') {
-        inputs.updateModuleStatus('plex-auth', 'pending', {
+        return routeToPendingAuth(inputs, {
             code: AppErrorCode.STORAGE_CORRUPTED,
             message: 'Stored Plex auth credentials were invalid and were cleared.',
             recoverable: true,
         });
-        inputs.handlers.registerAuthResume();
-        inputs.navigation.goTo('auth');
-        return false;
     }
 
-    if (storedReadResult.kind === 'available') {
-        const storedCredentials = storedReadResult.credentials;
-        try {
-            const activeValid = await inputs.plexAuth.validateToken(
-                storedCredentials.activeToken.token
-            );
+    if (storedReadResult.kind !== 'available') {
+        return routeToPendingAuth(inputs);
+    }
 
-            if (activeValid) {
-                const currentToken =
-                    inputs.plexAuth.getCurrentUser() ?? storedCredentials.activeToken;
-                const activeUserId = storedCredentials.activeUserId || currentToken.userId;
-                const accountToken = storedCredentials.accountToken.token === currentToken.token
-                    ? currentToken
-                    : storedCredentials.accountToken;
-                const selectedServerByUserId = {
-                    ...(storedCredentials.selectedServerByUserId ?? {}),
-                };
-                if (!selectedServerByUserId[activeUserId]) {
-                    selectedServerByUserId[activeUserId] = { serverId: null, serverUri: null };
-                }
-                await inputs.plexAuth.storeCredentials({
-                    accountToken,
-                    activeToken: currentToken,
-                    activeUserId,
-                    selectedServerByUserId,
-                    deviceKey: storedCredentials.deviceKey ?? null,
-                });
-                inputs.configureDiscoveryStorage();
-                inputs.seedSubtitleLanguageFromPlexUser?.();
-                inputs.updateModuleStatus(
-                    'plex-auth',
-                    'ready',
-                    undefined,
-                    Date.now() - inputs.startTime
-                );
+    const storedCredentials = storedReadResult.credentials;
 
-                if (inputs.lifecycle) {
-                    inputs.lifecycle.setPhase('loading_data');
-                }
-
-                const currentScreen = inputs.navigation.getCurrentScreen();
-                const isAuthScreen = currentScreen === 'auth';
-                const showPickerOnStartup = inputs.readShowProfilePickerOnStartup();
-                if (isAuthScreen || showPickerOnStartup) {
-                    try {
-                        const users = await inputs.plexAuth.getHomeUsers();
-                        if (users.length > 1) {
-                            inputs.handlers.registerProfileResume();
-                            inputs.navigation.goTo('profile-select');
-                            return false;
-                        }
-                    } catch (error) {
-                        const code = (error as { code?: string }).code;
-                        if (
-                            code === AppErrorCode.AUTH_REQUIRED ||
-                            code === AppErrorCode.AUTH_INVALID
-                        ) {
-                            inputs.updateModuleStatus('plex-auth', 'pending');
-                            inputs.handlers.registerAuthResume();
-                            inputs.navigation.goTo('auth');
-                            return false;
-                        }
-                    }
-                }
-
-                return true;
-            }
-
-            const accountValid = await inputs.plexAuth.validateToken(
-                storedCredentials.accountToken.token
-            );
-            if (accountValid) {
-                const selectedServerByUserId = {
-                    ...(storedCredentials.selectedServerByUserId ?? {}),
-                };
-                if (!selectedServerByUserId[storedCredentials.activeUserId]) {
-                    selectedServerByUserId[storedCredentials.activeUserId] = {
-                        serverId: null,
-                        serverUri: null,
-                    };
-                }
-                await inputs.plexAuth.storeCredentials({
-                    accountToken: storedCredentials.accountToken,
-                    activeToken: storedCredentials.activeToken,
-                    activeUserId: storedCredentials.activeUserId,
-                    selectedServerByUserId,
-                    deviceKey: storedCredentials.deviceKey ?? null,
-                });
-
-                inputs.updateModuleStatus(
-                    'plex-auth',
-                    'ready',
-                    undefined,
-                    Date.now() - inputs.startTime
-                );
-                inputs.handlers.registerProfileResume();
-                inputs.navigation.goTo('profile-select');
-                return false;
-            }
-        } catch (error) {
-            const code = (error as { code?: string }).code;
-            if (
-                code === AppErrorCode.AUTH_REQUIRED ||
-                code === AppErrorCode.AUTH_INVALID
-            ) {
-                inputs.updateModuleStatus('plex-auth', 'pending');
-                inputs.handlers.registerAuthResume();
-                inputs.navigation.goTo('auth');
-                return false;
-            }
-
-            console.error('Phase 2 auth gate failed:', summarizeErrorForLog(error));
-            throw error;
+    try {
+        const activeValid = await inputs.plexAuth.validateToken(
+            storedCredentials.activeToken.token
+        );
+        if (activeValid) {
+            await persistValidatedActiveCredentials(inputs, storedCredentials);
+            inputs.configureDiscoveryStorage();
+            inputs.seedSubtitleLanguageFromPlexUser?.();
+            markAuthReady(inputs);
+            return maybeRouteToProfileSelect(inputs);
         }
-    }
 
-    inputs.updateModuleStatus('plex-auth', 'pending');
-    inputs.handlers.registerAuthResume();
-    inputs.navigation.goTo('auth');
-    return false;
+        const accountValid = await inputs.plexAuth.validateToken(
+            storedCredentials.accountToken.token
+        );
+        if (!accountValid) {
+            return routeToPendingAuth(inputs);
+        }
+
+        await persistValidatedAccountFallback(inputs, storedCredentials);
+        markAuthReady(inputs);
+        inputs.handlers.registerProfileResume();
+        inputs.navigation.goTo('profile-select');
+        return false;
+    } catch (error) {
+        const code = (error as { code?: string }).code;
+        if (
+            code === AppErrorCode.AUTH_REQUIRED ||
+            code === AppErrorCode.AUTH_INVALID
+        ) {
+            return routeToPendingAuth(inputs);
+        }
+
+        throw error;
+    }
 }
 
 export async function applyPhase3ServerGatePolicy(inputs: Phase3ServerGateInputs): Promise<boolean> {
@@ -241,7 +282,6 @@ export async function applyPhase3ServerGatePolicy(inputs: Phase3ServerGateInputs
     try {
         await inputs.plexDiscovery.initialize();
     } catch (error) {
-        console.error('Server discovery failed:', summarizeErrorForLog(error));
         inputs.updateModuleStatus(
             'plex-server-discovery',
             'error',

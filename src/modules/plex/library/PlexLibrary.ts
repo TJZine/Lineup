@@ -37,6 +37,7 @@ import type {
     RawDirectoryTag,
 } from './types';
 import { PlexLibraryErrorCode } from './types';
+import { PlexLibraryError } from './PlexLibraryError';
 import {
     parseLibrarySections,
     parseMediaItems,
@@ -46,6 +47,14 @@ import {
     parsePlaylists,
     parseDirectoryTags,
 } from './ResponseParser';
+import {
+    extractDirectoryArray,
+    extractLibrarySectionDirectories,
+    extractMediaContainer,
+    extractMetadataArray,
+    extractSearchHubMetadata,
+    extractSearchHubs,
+} from './libraryResponsePayload';
 import { PLEX_LIBRARY_CONSTANTS, PLEX_ENDPOINTS, PLEX_MEDIA_TYPES } from './constants';
 import { fetchWithTimeoutCore } from '../shared/fetchWithTimeoutCore';
 import {
@@ -55,25 +64,8 @@ import {
 } from '../shared/plexUrl';
 import { createPlexConsoleLogger } from '../shared/plexLogging';
 
-// ============================================
-// Error Class
-// ============================================
-
-/**
- * Plex Library error with typed error code.
- */
-export class PlexLibraryError extends Error {
-    constructor(
-        public readonly code: PlexLibraryErrorCode,
-        message: string,
-        public readonly httpStatus?: number
-    ) {
-        super(message);
-        this.name = 'PlexLibraryError';
-    }
-}
-
 // Re-export for consumers
+export { PlexLibraryError } from './PlexLibraryError';
 export { PlexLibraryErrorCode };
 
 const INTERACTIVE_REQUEST_POLICY = {
@@ -109,6 +101,16 @@ const resolveRequestPolicy = (profile: PrivateRequestProfile = 'default'): {
         maxTimeoutRetries: PLEX_LIBRARY_CONSTANTS.MAX_TIMEOUT_RETRIES,
     };
 };
+
+function describeTopLevelJsonValue(value: unknown): string {
+    if (value === null) {
+        return 'null';
+    }
+    if (Array.isArray(value)) {
+        return 'an array';
+    }
+    return typeof value;
+}
 
 // ============================================
 // Main Class
@@ -169,29 +171,6 @@ export class PlexLibrary implements IPlexLibrary {
         return redactUrlForLog(url);
     }
 
-    private _extractLibrarySectionDirectories(
-        response: PlexMediaContainer<RawLibrarySection>,
-        context: string
-    ): RawLibrarySection[] {
-        const mediaContainer = response.MediaContainer;
-        if (!mediaContainer || typeof mediaContainer !== 'object') {
-            throw new PlexLibraryError(
-                PlexLibraryErrorCode.PARSE_ERROR,
-                `Invalid library sections payload for ${context}: missing MediaContainer object`
-            );
-        }
-
-        const rawDirectories = (mediaContainer as { Directory?: unknown }).Directory;
-        if (!Array.isArray(rawDirectories)) {
-            throw new PlexLibraryError(
-                PlexLibraryErrorCode.PARSE_ERROR,
-                `Invalid library sections payload for ${context}: Directory must be an array`
-            );
-        }
-
-        return rawDirectories as RawLibrarySection[];
-    }
-
     private async _fetchLibrarySectionsForLookup(libraryId: string): Promise<LibrarySectionsLookupSource> {
         const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTIONS);
         const response = await this._fetchWithRetry<PlexMediaContainer<RawLibrarySection>>(url);
@@ -207,9 +186,9 @@ export class PlexLibrary implements IPlexLibrary {
         }
 
         try {
-            const directories = this._extractLibrarySectionDirectories(
+            const directories = extractLibrarySectionDirectories(
                 response,
-                `library lookup for ${libraryId}`
+                `library sections payload for library lookup ${libraryId}`
             );
             return {
                 kind: 'available',
@@ -247,10 +226,13 @@ export class PlexLibrary implements IPlexLibrary {
         const response = await this._fetchWithRetry<PlexMediaContainer<RawLibrarySection>>(url, { signal: options?.signal ?? null });
 
         if (!response) {
-            return [];
+            throw new PlexLibraryError(
+                PlexLibraryErrorCode.SERVER_ERROR,
+                'Library sections unavailable'
+            );
         }
 
-        const directories = this._extractLibrarySectionDirectories(response, 'getLibraries');
+        const directories = extractLibrarySectionDirectories(response, 'library sections payload for getLibraries');
         const libraries = parseLibrarySections(directories);
 
         if (options?.includeItemCounts) {
@@ -402,15 +384,15 @@ export class PlexLibrary implements IPlexLibrary {
                 params['includeCollections'] = 1;
             }
 
-            const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_ALL(libraryId), params);
-            const response = await this._fetchWithRetry<PlexMediaContainer<RawMediaItem>>(url, { signal: options.signal ?? null });
+        const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_ALL(libraryId), params);
+        const response = await this._fetchWithRetry<PlexMediaContainer<RawMediaItem>>(url, { signal: options.signal ?? null });
 
-            if (!response) {
-                break; // Empty/error response, stop pagination
-            }
+        if (!response) {
+            break; // Empty/error response, stop pagination
+        }
 
-            const metadata = response.MediaContainer.Metadata || [];
-            const pageItems = parseMediaItems(metadata);
+        const metadata = extractMetadataArray(response, `library items for section ${libraryId}`);
+        const pageItems = parseMediaItems(metadata);
 
             items.push(...pageItems);
             offset += pageItems.length;
@@ -460,7 +442,11 @@ export class PlexLibrary implements IPlexLibrary {
         if (!response) {
             return null;
         }
-        const total = response.MediaContainer.totalSize ?? response.MediaContainer.size;
+        const mediaContainer = extractMediaContainer(
+            response,
+            `library item count for section ${libraryId}`
+        );
+        const total = mediaContainer.totalSize ?? mediaContainer.size;
         return typeof total === 'number' && Number.isFinite(total) ? total : null;
     }
 
@@ -477,12 +463,13 @@ export class PlexLibrary implements IPlexLibrary {
             return null;
         }
 
-        const metadata = response.MediaContainer.Metadata || [];
-        if (metadata.length === 0) {
+        const metadata = extractMetadataArray(response, `item lookup for ${ratingKey}`);
+        const [item] = metadata;
+        if (!item) {
             return null;
         }
 
-        return parseMediaItem(metadata[0]!);
+        return parseMediaItem(item);
     }
 
     // ============================================
@@ -505,7 +492,7 @@ export class PlexLibrary implements IPlexLibrary {
             return [];
         }
 
-        const metadata = response.MediaContainer.Metadata || [];
+        const metadata = extractMetadataArray(response, `show list for library ${libraryId}`);
         return parseMediaItems(metadata);
     }
 
@@ -522,7 +509,7 @@ export class PlexLibrary implements IPlexLibrary {
             return [];
         }
 
-        const metadata = response.MediaContainer.Metadata || [];
+        const metadata = extractMetadataArray(response, `season list for show ${showKey}`);
         return parseSeasons(metadata);
     }
 
@@ -539,7 +526,7 @@ export class PlexLibrary implements IPlexLibrary {
             return [];
         }
 
-        const metadata = response.MediaContainer.Metadata || [];
+        const metadata = extractMetadataArray(response, `episode list for season ${seasonKey}`);
         return parseMediaItems(metadata);
     }
 
@@ -574,12 +561,13 @@ export class PlexLibrary implements IPlexLibrary {
                 break;
             }
 
-            const reportedTotal = response.MediaContainer.totalSize;
+            const mediaContainer = extractMediaContainer(response, `show episodes for ${showKey}`);
+            const reportedTotal = mediaContainer.totalSize;
             if (typeof reportedTotal === 'number' && Number.isFinite(reportedTotal)) {
                 totalSize = reportedTotal;
             }
 
-            const metadata = response.MediaContainer.Metadata || [];
+            const metadata = extractMetadataArray(response, `show episodes for ${showKey}`);
             const pageEpisodes = parseMediaItems(metadata);
             if (pageEpisodes.length === 0) {
                 break;
@@ -644,7 +632,7 @@ export class PlexLibrary implements IPlexLibrary {
         }
 
         // Search results come in "Hubs" - extract items from all hubs
-        const hubs = response.MediaContainer.Hub || [];
+        const hubs = extractSearchHubs(response, `search results for query "${query}"`);
         const items: PlexMediaItem[] = [];
 
         for (const hub of hubs) {
@@ -656,8 +644,21 @@ export class PlexLibrary implements IPlexLibrary {
                 }
             }
 
-            const metadata = (hub as unknown as { Metadata?: RawMediaItem[] }).Metadata || [];
-            items.push(...parseMediaItems(metadata));
+            try {
+                const metadata = extractSearchHubMetadata(
+                    hub,
+                    `search hub "${hub.type}" for query "${query}"`
+                );
+                items.push(...parseMediaItems(metadata));
+            } catch (error) {
+                if (error instanceof PlexLibraryError) {
+                    throw new PlexLibraryError(
+                        error.code,
+                        `Invalid search hub "${hub.type}" for query "${query}": ${error.message}`
+                    );
+                }
+                throw error;
+            }
         }
 
         return items;
@@ -694,7 +695,7 @@ export class PlexLibrary implements IPlexLibrary {
             return [];
         }
 
-        const metadata = response.MediaContainer.Metadata || [];
+        const metadata = extractMetadataArray(response, `collections for library ${libraryId}`);
         return parseCollections(metadata);
     }
 
@@ -715,7 +716,7 @@ export class PlexLibrary implements IPlexLibrary {
             return [];
         }
 
-        const metadata = response.MediaContainer.Metadata || [];
+        const metadata = extractMetadataArray(response, `collection items for ${collectionKey}`);
         return parseMediaItems(metadata);
     }
 
@@ -737,7 +738,7 @@ export class PlexLibrary implements IPlexLibrary {
             return [];
         }
 
-        const metadata = response.MediaContainer.Metadata || [];
+        const metadata = extractMetadataArray(response, 'playlists');
         return parsePlaylists(metadata);
     }
 
@@ -754,7 +755,7 @@ export class PlexLibrary implements IPlexLibrary {
             return [];
         }
 
-        const metadata = response.MediaContainer.Metadata || [];
+        const metadata = extractMetadataArray(response, `playlist items for ${playlistKey}`);
         return parseMediaItems(metadata);
     }
 
@@ -779,7 +780,7 @@ export class PlexLibrary implements IPlexLibrary {
             }
             return [];
         }
-        const directories = response.MediaContainer.Directory || [];
+        const directories = extractDirectoryArray(response, `${label.toLowerCase()} tag directory for library ${libraryId}`);
         if (options.requireEntries === true && directories.length === 0) {
             this._notifyUnsupportedTagDirectory(options, 'empty', label, libraryId);
             return [];
@@ -969,13 +970,14 @@ export class PlexLibrary implements IPlexLibrary {
      * - 404 Not Found: return null, log warning
      * - 429 Rate Limited: backoff per Retry-After header
      * - 500+ Server Error: retry once after 2s delay
-     * - Empty response: return null, log warning
-     * - Parse error: return null, log error with response body
+     * - Empty response: throw PARSE_ERROR
+     * - Parse error: throw PARSE_ERROR and log the response body snippet
      * - Server unreachable: trigger re-discovery hook
      * 
      * @param url - URL to fetch
      * @param options - Optional fetch options
-     * @returns Parsed JSON response or null for 404/empty/parse errors
+     * @returns Parsed JSON response, or `null` only for semantic-not-found outcomes such as 404.
+     * Empty 200 bodies and malformed success payloads throw `PlexLibraryError(PARSE_ERROR)`.
      */
     private async _fetchWithRetry<T>(
         url: string,
@@ -1125,17 +1127,41 @@ export class PlexLibrary implements IPlexLibrary {
                 try {
                     text = await response.text();
 
-                    // Handle empty response
                     if (!text || text.trim() === '') {
-                        logger.warn(`[PlexLibrary] Empty response from: ${this._redactUrlForLog(url)}`);
-                        return null;
+                        throw new PlexLibraryError(
+                            PlexLibraryErrorCode.PARSE_ERROR,
+                            `Empty response body from ${this._redactUrlForLog(url)}`
+                        );
                     }
 
                     data = JSON.parse(text) as T;
+
+                    if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+                        throw new PlexLibraryError(
+                            PlexLibraryErrorCode.PARSE_ERROR,
+                            `Invalid JSON response from ${this._redactUrlForLog(url)}: expected a top-level JSON object but received ${describeTopLevelJsonValue(data)}`
+                        );
+                    }
                 } catch (parseError) {
-                    // Include response body in parse error log per spec
-                    logger.error(`[PlexLibrary] Parse error for ${this._redactUrlForLog(url)}:`, parseError, `Response body: ${text.substring(0, 500)}`);
-                    return null;
+                    if (parseError instanceof PlexLibraryError) {
+                        logger.error(
+                            `[PlexLibrary] Parse error for ${this._redactUrlForLog(url)}:`,
+                            parseError,
+                            `Response body: ${text.substring(0, 500)}`
+                        );
+                        throw parseError;
+                    }
+
+                    logger.error(
+                        `[PlexLibrary] Parse error for ${this._redactUrlForLog(url)}:`,
+                        parseError,
+                        `Response body: ${text.substring(0, 500)}`
+                    );
+                    const message = parseError instanceof Error ? parseError.message : String(parseError);
+                    throw new PlexLibraryError(
+                        PlexLibraryErrorCode.PARSE_ERROR,
+                        `Invalid JSON response from ${this._redactUrlForLog(url)}: ${message}`
+                    );
                 }
 
                 // Empty MediaContainer is valid - no special handling needed

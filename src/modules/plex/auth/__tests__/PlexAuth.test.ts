@@ -6,6 +6,8 @@
 import { PlexAuth } from '../PlexAuth';
 import { PlexAuthConfig, PlexAuthToken } from '../interfaces';
 import { PLEX_AUTH_CONSTANTS } from '../constants';
+import { PlexApiError } from '../plexAuthTransport';
+import { AppErrorCode } from '../../../../types/app-errors';
 
 // Mock localStorage
 const mockLocalStorage = (function (): Storage {
@@ -172,6 +174,19 @@ describe('PlexAuth', () => {
                 jest.useRealTimers();
             }
         });
+
+        it('throws PARSE_ERROR when a successful PIN payload is malformed', async () => {
+            const auth = new PlexAuth(mockConfig);
+            mockFetchJson({
+                id: 'not-a-number',
+                code: 'ABCD',
+                expiresAt: '2026-01-15T12:15:00Z',
+            });
+
+            await expect(auth.requestPin()).rejects.toMatchObject({
+                code: 'PARSE_ERROR',
+            });
+        });
     });
 
     describe('checkPinStatus', () => {
@@ -237,6 +252,137 @@ describe('PlexAuth', () => {
                 })
             );
             expect(auth.isAuthenticated()).toBe(true);
+        });
+
+        it('does not treat a blank authToken as a claimed PIN', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const storeCredentialsSpy = jest.spyOn(auth, 'storeCredentials');
+            mockFetchJson({
+                id: 12345,
+                code: 'ABCD',
+                expiresAt: '2026-01-15T12:15:00Z',
+                authToken: '   ',
+                clientIdentifier: mockConfig.clientIdentifier,
+            });
+
+            const pin = await auth.checkPinStatus(12345);
+
+            expect(pin.authToken).toBeNull();
+            expect(storeCredentialsSpy).not.toHaveBeenCalled();
+            expect(auth.isAuthenticated()).toBe(false);
+        });
+
+        it('throws PARSE_ERROR when a success payload is missing required PIN fields', async () => {
+            const auth = new PlexAuth(mockConfig);
+            mockFetchJson({
+                id: 12345,
+                authToken: null,
+                clientIdentifier: mockConfig.clientIdentifier,
+            });
+
+            await expect(auth.checkPinStatus(12345)).rejects.toMatchObject({
+                code: 'PARSE_ERROR',
+            });
+        });
+    });
+
+    describe('pollForPin', () => {
+        it('preserves the last retryable PlexApiError instead of collapsing to timeout auth required', async () => {
+            jest.useFakeTimers();
+            try {
+                const auth = new PlexAuth(mockConfig);
+                const retryableError = new PlexApiError(
+                    AppErrorCode.SERVER_UNREACHABLE,
+                    'Temporary network issue',
+                    undefined,
+                    true
+                );
+                jest.spyOn(auth, 'checkPinStatus').mockRejectedValue(retryableError);
+
+                const promise = auth.pollForPin(12345);
+                const rejection = expect(promise).rejects.toBe(retryableError);
+                await jest.advanceTimersByTimeAsync(PLEX_AUTH_CONSTANTS.PIN_TIMEOUT_MS + 1_000);
+
+                await rejection;
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('falls back to timeout auth required after a retryable error is followed by later unclaimed polls', async () => {
+            jest.useFakeTimers();
+            try {
+                const auth = new PlexAuth(mockConfig);
+                const retryableError = new PlexApiError(
+                    AppErrorCode.SERVER_UNREACHABLE,
+                    'Temporary network issue',
+                    undefined,
+                    true
+                );
+                const unclaimedPin = {
+                    id: 12345,
+                    code: 'ABCD',
+                    expiresAt: new Date('2026-01-15T12:15:00Z'),
+                    authToken: null,
+                    clientIdentifier: mockConfig.clientIdentifier,
+                };
+                const checkPinStatusSpy = jest
+                    .spyOn(auth, 'checkPinStatus')
+                    .mockRejectedValueOnce(retryableError)
+                    .mockResolvedValue(unclaimedPin);
+
+                const promise = auth.pollForPin(12345);
+                const rejection = expect(promise).rejects.toMatchObject({
+                    code: AppErrorCode.AUTH_REQUIRED,
+                    retryable: false,
+                });
+                await jest.advanceTimersByTimeAsync(PLEX_AUTH_CONSTANTS.PIN_TIMEOUT_MS + 1_000);
+
+                await rejection;
+                expect(checkPinStatusSpy.mock.calls.length).toBeGreaterThan(1);
+                expect(checkPinStatusSpy.mock.calls.length).toBeLessThanOrEqual(
+                    Math.ceil(
+                        PLEX_AUTH_CONSTANTS.PIN_TIMEOUT_MS /
+                            PLEX_AUTH_CONSTANTS.PIN_POLL_INTERVAL_MS
+                    )
+                );
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('still throws non-retryable PIN errors immediately', async () => {
+            jest.useFakeTimers();
+            try {
+                const auth = new PlexAuth(mockConfig);
+                const terminalError = new PlexApiError(
+                    AppErrorCode.AUTH_REQUIRED,
+                    'PIN expired',
+                    undefined,
+                    false
+                );
+                jest.spyOn(auth, 'checkPinStatus').mockRejectedValue(terminalError);
+
+                const promise = auth.pollForPin(12345);
+
+                await expect(promise).rejects.toBe(terminalError);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('rethrows non-PlexApiError polling failures immediately', async () => {
+            jest.useFakeTimers();
+            try {
+                const auth = new PlexAuth(mockConfig);
+                const terminalError = new Error('unexpected parser failure');
+                const checkPinStatusSpy = jest.spyOn(auth, 'checkPinStatus').mockRejectedValue(terminalError);
+
+                await expect(auth.pollForPin(12345)).rejects.toThrow('unexpected parser failure');
+                expect(checkPinStatusSpy).toHaveBeenCalledTimes(1);
+            } finally {
+                jest.useRealTimers();
+            }
         });
     });
 
@@ -415,7 +561,7 @@ describe('PlexAuth', () => {
     });
 
     describe('persistence', () => {
-        it('should restore credentials from localStorage on init', () => {
+        it('does not restore credentials from localStorage until startup explicitly normalizes them', async () => {
             // Pre-populate localStorage
             const storedData = {
                 version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
@@ -451,13 +597,18 @@ describe('PlexAuth', () => {
 
             const auth = new PlexAuth(mockConfig);
 
-            expect(auth.isAuthenticated()).toBe(true);
-            const currentUser = auth.getCurrentUser();
-            expect(currentUser).not.toBeNull();
-            if (currentUser !== null) {
-                expect(currentUser.token).toBe('stored-token');
-                expect(currentUser.username).toBe('storeduser');
-            }
+            expect(auth.isAuthenticated()).toBe(false);
+            expect(auth.getCurrentUser()).toBeNull();
+            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({
+                kind: 'available',
+                credentials: expect.objectContaining({
+                    activeUserId: 'user1',
+                    activeToken: expect.objectContaining({
+                        token: 'stored-token',
+                        username: 'storeduser',
+                    }),
+                }),
+            });
         });
 
         it('should clear localStorage on clearCredentials', async () => {
@@ -561,6 +712,49 @@ describe('PlexAuth', () => {
             expect(result.credentials.activeToken.expiresAt).toBeInstanceOf(Date);
             expect(result.credentials.selectedServerByUserId.user1).toBeDefined();
             expect(result.credentials.selectedServerByUserId.user1?.serverId).toBe('server1');
+        });
+
+        it('does not hydrate runtime auth state from storage before an explicit startup write', async () => {
+            const now = new Date();
+            mockLocalStorage.setItem(
+                PLEX_AUTH_CONSTANTS.STORAGE_KEY,
+                JSON.stringify({
+                    version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
+                    data: {
+                        accountToken: {
+                            token: 'account-token',
+                            userId: 'account-user',
+                            username: 'account',
+                            email: 'account@example.com',
+                            thumb: '',
+                            expiresAt: null,
+                            issuedAt: now.toISOString(),
+                        },
+                        activeToken: {
+                            token: 'active-token',
+                            userId: 'active-user',
+                            username: 'active',
+                            email: 'active@example.com',
+                            thumb: '',
+                            expiresAt: null,
+                            issuedAt: now.toISOString(),
+                        },
+                        activeUserId: 'active-user',
+                        selectedServerByUserId: {
+                            'active-user': {
+                                serverId: null,
+                                serverUri: null,
+                            },
+                        },
+                    },
+                })
+            );
+
+            const auth = new PlexAuth(mockConfig);
+
+            expect(auth.isAuthenticated()).toBe(false);
+            expect(auth.getCurrentUser()).toBeNull();
+            expect(auth.getActiveUserId()).toBeNull();
         });
 
         it('normalizes malformed persisted deviceKey payloads to null', async () => {
@@ -748,7 +942,7 @@ describe('PlexAuth', () => {
             expect(mockLocalStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBeNull();
         });
 
-        it('surfaces constructor-detected corruption once on next read', async () => {
+        it('surfaces corruption on the first explicit read and clears it for later reads', async () => {
             mockLocalStorage.setItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY, '{not-json');
             const auth = new PlexAuth(mockConfig);
 

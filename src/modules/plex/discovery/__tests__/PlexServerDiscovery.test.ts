@@ -4,75 +4,20 @@
  */
 
 import { PlexServerDiscovery } from '../PlexServerDiscovery';
-import { PlexServerDiscoveryConfig } from '../interfaces';
-import { PlexServer, PlexConnection } from '../types';
 import { PLEX_DISCOVERY_CONSTANTS } from '../constants';
 import { mockLocalStorage, installMockLocalStorage } from '../../../../__tests__/mocks/localStorage';
+import {
+    createMockConnection,
+    createMockFetchResponse,
+    createMockServer,
+    expectDefined,
+    mockConfig,
+    mockFetchFailure,
+    mockFetchJson,
+} from './discoveryTestUtils';
 
 // Install mock localStorage
 installMockLocalStorage();
-
-// Mock config
-const mockConfig: PlexServerDiscoveryConfig = {
-    getAuthHeaders: () => ({
-        'Accept': 'application/json',
-        'X-Plex-Token': 'mock-token',
-        'X-Plex-Client-Identifier': 'mock-client-id',
-    }),
-};
-
-// Mock server data
-function createMockServer(overrides: Partial<PlexServer> = {}): PlexServer {
-    return {
-        id: 'srv1',
-        name: 'Test Server',
-        sourceTitle: 'testuser',
-        ownerId: 'owner1',
-        owned: true,
-        capabilities: ['server'],
-        connections: [
-            {
-                uri: 'https://192.168.1.5:32400',
-                protocol: 'https',
-                address: '192.168.1.5',
-                port: 32400,
-                local: true,
-                relay: false,
-                latencyMs: null,
-            },
-        ],
-        preferredConnection: null,
-        ...overrides,
-    };
-}
-
-function createMockConnection(overrides: Partial<PlexConnection> = {}): PlexConnection {
-    return {
-        uri: 'https://192.168.1.5:32400',
-        protocol: 'https',
-        address: '192.168.1.5',
-        port: 32400,
-        local: true,
-        relay: false,
-        latencyMs: null,
-        ...overrides,
-    };
-}
-
-// Helper to mock fetch responses
-function mockFetchJson(json: unknown, status: number = 200): void {
-    (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
-        ok: status >= 200 && status < 300,
-        status,
-        headers: { get: () => null },
-        json: async () => json,
-        text: async () => JSON.stringify(json),
-    });
-}
-
-function mockFetchFailure(error: Error): void {
-    (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockRejectedValue(error);
-}
 
 describe('PlexServerDiscovery', () => {
     beforeEach(() => {
@@ -117,8 +62,7 @@ describe('PlexServerDiscovery', () => {
                 })
             );
             expect(result).toHaveLength(1);
-            expect(result[0]).toBeDefined();
-            expect(result[0]!.id).toBe('srv1');
+            expect(expectDefined(result[0], 'Expected discovered server')).toMatchObject({ id: 'srv1' });
         });
 
         it('should only append token query params for trusted Plex cloud discovery origins', async () => {
@@ -213,10 +157,10 @@ describe('PlexServerDiscovery', () => {
 
             const result = await discovery.discoverServers();
 
-            expect(result[0]).toBeDefined();
-            expect(result[0]!.connections[0]).toBeDefined();
-            expect(result[0]!.connections[0]!.uri).toBe('http://test:32400');
-            expect(result[0]!.connections[0]!.local).toBe(true);
+            const server = expectDefined(result[0], 'Expected parsed server');
+            const connection = expectDefined(server.connections[0], 'Expected parsed connection');
+            expect(connection.uri).toBe('http://test:32400');
+            expect(connection.local).toBe(true);
         });
 
         it('should handle empty server list', async () => {
@@ -236,7 +180,7 @@ describe('PlexServerDiscovery', () => {
                 const promise = discovery.discoverServers();
                 const rejection = expect(promise).rejects.toThrow();
 
-                await jest.advanceTimersByTimeAsync(500);
+                await jest.advanceTimersByTimeAsync(PLEX_DISCOVERY_CONSTANTS.DISCOVERY_RETRY_BACKOFF_MS);
 
                 await rejection;
             } finally {
@@ -271,7 +215,7 @@ describe('PlexServerDiscovery', () => {
             const result = await discovery.discoverServers();
 
             expect(result).toHaveLength(1);
-            expect(result[0]!.id).toBe('srv1');
+            expect(expectDefined(result[0], 'Expected server resource')).toMatchObject({ id: 'srv1' });
         });
 
         it('should return same promise for concurrent discovery calls', async () => {
@@ -369,26 +313,21 @@ describe('PlexServerDiscovery', () => {
             const freshDiscovery = discovery.discoverServers();
 
             const freshResult = await freshDiscovery;
-            expect(freshResult[0]).toBeDefined();
-            expect(freshResult[0]!.id).toBe('srv-fresh');
-
-            expect(pendingFirstFetch.resolve).toBeTruthy();
-            if (!pendingFirstFetch.resolve) {
-                throw new Error('Expected first discovery fetch resolver');
-            }
-            pendingFirstFetch.resolve({
-                ok: true,
-                status: 200,
-                headers: { get: () => null },
-                json: async () => firstResources,
-                text: async () => JSON.stringify(firstResources),
+            expect(expectDefined(freshResult[0], 'Expected fresh discovery result')).toMatchObject({
+                id: 'srv-fresh',
             });
 
+            expectDefined(pendingFirstFetch.resolve, 'Expected first discovery fetch resolver')(
+                createMockFetchResponse(firstResources)
+            );
+
             const staleResult = await staleDiscovery;
-            expect(staleResult[0]).toBeDefined();
-            expect(staleResult[0]!.id).toBe('srv-fresh');
-            expect(discovery.getServers()[0]).toBeDefined();
-            expect(discovery.getServers()[0]!.id).toBe('srv-fresh');
+            expect(expectDefined(staleResult[0], 'Expected stale discovery to preserve fresh cache')).toMatchObject({
+                id: 'srv-fresh',
+            });
+            expect(expectDefined(discovery.getServers()[0], 'Expected cached server after stale completion')).toMatchObject({
+                id: 'srv-fresh',
+            });
             expect(fetch).toHaveBeenCalledTimes(2);
         });
 
@@ -523,8 +462,9 @@ describe('PlexServerDiscovery', () => {
 
             const result = await discovery.findFastestConnection(mockServer);
 
-            expect(result.connection).not.toBeNull();
-            expect(result.connection!.uri).toBe('https://local:32400');
+            expect(expectDefined(result.connection, 'Expected local connection')).toMatchObject({
+                uri: 'https://local:32400',
+            });
         });
 
         it('should prefer remote over relay connections', async () => {
@@ -545,8 +485,9 @@ describe('PlexServerDiscovery', () => {
 
             const result = await discovery.findFastestConnection(mockServer);
 
-            expect(result.connection).not.toBeNull();
-            expect(result.connection!.uri).toBe('https://remote:32400');
+            expect(expectDefined(result.connection, 'Expected remote connection')).toMatchObject({
+                uri: 'https://remote:32400',
+            });
         });
 
         it('should fall back to relay when others fail', async () => {
@@ -572,8 +513,9 @@ describe('PlexServerDiscovery', () => {
 
             const result = await discovery.findFastestConnection(mockServer);
 
-            expect(result.connection).not.toBeNull();
-            expect(result.connection!.uri).toBe('https://relay:32400');
+            expect(expectDefined(result.connection, 'Expected relay connection')).toMatchObject({
+                uri: 'https://relay:32400',
+            });
         });
 
         it('should return null when all connections fail', async () => {
@@ -630,35 +572,39 @@ describe('PlexServerDiscovery', () => {
             expect(result.authState).toBe('auth_invalid');
         });
 
-        it('keeps authRequired false for https-upgrade success after only auth_invalid observations', async () => {
+        it('keeps authRequired false when local HTTP fallback succeeds after an auth_invalid HTTPS-upgrade probe', async () => {
             const discovery = new PlexServerDiscovery(mockConfig);
+            const localHttpConnection = createMockConnection({
+                uri: 'http://local-http:32400',
+                protocol: 'http',
+                local: true,
+                relay: false,
+            });
             const mockServer = createMockServer({
-                connections: [
-                    createMockConnection({
-                        uri: 'http://auth-invalid:32400',
-                        protocol: 'http',
-                        local: false,
-                        relay: false,
-                    }),
-                    createMockConnection({
-                        uri: 'http://local-http:32400',
-                        protocol: 'http',
-                        local: true,
-                        relay: false,
-                    }),
-                ],
+                connections: [localHttpConnection],
             });
 
-            jest.spyOn(discovery, 'testConnection')
+            const testConnectionSpy = jest.spyOn(discovery, 'testConnection')
                 .mockResolvedValueOnce('auth_invalid')
                 .mockResolvedValueOnce(42);
 
             const result = await discovery.findFastestConnection(mockServer);
 
-            expect(result.connection).toEqual(
+            expect(testConnectionSpy).toHaveBeenNthCalledWith(
+                1,
+                mockServer,
                 expect.objectContaining({
                     uri: 'https://local-http:32400',
                     protocol: 'https',
+                    local: true,
+                    relay: false,
+                })
+            );
+            expect(testConnectionSpy).toHaveBeenNthCalledWith(2, mockServer, localHttpConnection);
+            expect(result.connection).toEqual(
+                expect.objectContaining({
+                    uri: 'http://local-http:32400',
+                    protocol: 'http',
                     local: true,
                     relay: false,
                     latencyMs: 42,
@@ -668,20 +614,20 @@ describe('PlexServerDiscovery', () => {
             expect(result.authState).toBe('auth_invalid');
         });
 
-	        it('warns once when no working connections are found', async () => {
-	            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-	            try {
-	                mockFetchFailure(new Error('Connection failed'));
-	                const discovery = new PlexServerDiscovery(mockConfig);
-	                const mockServer = createMockServer({
-	                    connections: [
-	                        createMockConnection({ uri: 'https://a:32400', protocol: 'https' }),
-	                        createMockConnection({ uri: 'http://b:32400', protocol: 'http' }),
-	                    ],
-	                });
-	
-	                const result = await discovery.findFastestConnection(mockServer);
-	
+        it('warns once when no working connections are found', async () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            try {
+                mockFetchFailure(new Error('Connection failed'));
+                const discovery = new PlexServerDiscovery(mockConfig);
+                const mockServer = createMockServer({
+                    connections: [
+                        createMockConnection({ uri: 'https://a:32400', protocol: 'https' }),
+                        createMockConnection({ uri: 'http://b:32400', protocol: 'http' }),
+                    ],
+                });
+
+                const result = await discovery.findFastestConnection(mockServer);
+
                 expect(result.connection).toBeNull();
                 expect(warnSpy).toHaveBeenCalledTimes(1);
                 expect(warnSpy).toHaveBeenCalledWith(
@@ -690,45 +636,46 @@ describe('PlexServerDiscovery', () => {
                         serverId: 'srv1',
                         authRequired: false,
                         httpsCount: 1,
-	                        httpCount: 1,
-	                    })
-	                );
-	            } finally {
-	                warnSpy.mockRestore();
-	            }
-	        });
-	
-	        it('warns when HTTP is selected as last resort', async () => {
-	            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-	            try {
-	                const fetchMock = jest.fn().mockImplementation((url: string) => {
-	                    if (url.startsWith('https://')) {
-	                        return Promise.reject(new Error('HTTPS failed'));
-	                    }
-	                    return Promise.resolve({
-	                        ok: true,
-	                        status: 200,
-	                        json: async () => ({ machineIdentifier: 'test' }),
-	                    });
-	                });
-	                (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
-	
-	                const discovery = new PlexServerDiscovery(mockConfig);
-	                const mockServer = createMockServer({
-	                    connections: [
-	                        createMockConnection({
-	                            uri: 'http://local-http:32400',
-	                            protocol: 'http',
-	                            local: true,
-	                            relay: false,
-	                        }),
-	                    ],
-	                });
-	
-	                const result = await discovery.findFastestConnection(mockServer);
-	
-                expect(result.connection).not.toBeNull();
-                expect(result.connection!.protocol).toBe('http');
+                        httpCount: 1,
+                    })
+                );
+            } finally {
+                warnSpy.mockRestore();
+            }
+        });
+
+        it('warns when HTTP is selected as last resort', async () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            try {
+                const fetchMock = jest.fn().mockImplementation((url: string) => {
+                    if (url.startsWith('https://')) {
+                        return Promise.reject(new Error('HTTPS failed'));
+                    }
+                    return Promise.resolve({
+                        ok: true,
+                        status: 200,
+                        json: async () => ({ machineIdentifier: 'test' }),
+                    });
+                });
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+                const discovery = new PlexServerDiscovery(mockConfig);
+                const mockServer = createMockServer({
+                    connections: [
+                        createMockConnection({
+                            uri: 'http://local-http:32400',
+                            protocol: 'http',
+                            local: true,
+                            relay: false,
+                        }),
+                    ],
+                });
+
+                const result = await discovery.findFastestConnection(mockServer);
+
+                expect(expectDefined(result.connection, 'Expected HTTP fallback connection')).toMatchObject({
+                    protocol: 'http',
+                });
                 expect(warnSpy).toHaveBeenCalledTimes(1);
                 expect(warnSpy).toHaveBeenCalledWith(
                     'Selected HTTP connection (last resort)',
@@ -736,12 +683,12 @@ describe('PlexServerDiscovery', () => {
                         local: true,
                         relay: false,
                     })
-	                );
-	            } finally {
-	                warnSpy.mockRestore();
-	            }
-	        });
-	    });
+                );
+            } finally {
+                warnSpy.mockRestore();
+            }
+        });
+    });
 
     describe('selectServer', () => {
         it('should persist selection to localStorage', async () => {
@@ -1037,9 +984,9 @@ describe('PlexServerDiscovery', () => {
             const discovery = new PlexServerDiscovery(mockConfig);
             await discovery.initialize();
 
-            const selectedServer = discovery.getSelectedServer();
-            expect(selectedServer).not.toBeNull();
-            expect(selectedServer!.id).toBe('srv1');
+            expect(expectDefined(discovery.getSelectedServer(), 'Expected restored selected server')).toMatchObject({
+                id: 'srv1',
+            });
         });
 
         it('does not revert to a stale pending server id on subsequent initialize after selecting a new server', async () => {
@@ -1443,8 +1390,9 @@ describe('PlexServerDiscovery', () => {
             await discovery.selectServer('srv1');
 
             const httpsConn = discovery.getHttpsConnection();
-            expect(httpsConn).not.toBeNull();
-            expect(httpsConn!.protocol).toBe('https');
+            expect(expectDefined(httpsConn, 'Expected HTTPS connection')).toMatchObject({
+                protocol: 'https',
+            });
         });
 
         it('getRelayConnection returns relay connection when available', async () => {
@@ -1495,8 +1443,9 @@ describe('PlexServerDiscovery', () => {
             await discovery.selectServer('srv1');
 
             const relayConn = discovery.getRelayConnection();
-            expect(relayConn).not.toBeNull();
-            expect(relayConn!.relay).toBe(true);
+            expect(expectDefined(relayConn, 'Expected relay connection')).toMatchObject({
+                relay: true,
+            });
         });
 
         it('getActiveConnectionUri is alias for getServerUri', async () => {
@@ -1584,11 +1533,7 @@ describe('PlexServerDiscovery', () => {
                 const result = await discovery.discoverServers();
 
                 // file:// connection should be filtered out
-                const server = result[0];
-                expect(server).toBeDefined();
-                if (!server) {
-                    throw new Error('Expected server to be defined');
-                }
+                const server = expectDefined(result[0], 'Expected server to be defined');
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.uri).toBe('https://valid:32400');
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
@@ -1637,11 +1582,7 @@ describe('PlexServerDiscovery', () => {
                 const result = await discovery.discoverServers();
 
                 // Credentialed URI should be filtered out
-                const server = result[0];
-                expect(server).toBeDefined();
-                if (!server) {
-                    throw new Error('Expected server to be defined');
-                }
+                const server = expectDefined(result[0], 'Expected server to be defined');
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.uri).toBe('https://clean:32400');
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
@@ -1689,11 +1630,7 @@ describe('PlexServerDiscovery', () => {
 
                 const result = await discovery.discoverServers();
 
-                const server = result[0];
-                expect(server).toBeDefined();
-                if (!server) {
-                    throw new Error('Expected server to be defined');
-                }
+                const server = expectDefined(result[0], 'Expected server to be defined');
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.uri).toBe('https://clean:32400');
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
@@ -1750,11 +1687,7 @@ describe('PlexServerDiscovery', () => {
                 const result = await discovery.discoverServers();
 
                 // Only http:// connection should remain
-                const server = result[0];
-                expect(server).toBeDefined();
-                if (!server) {
-                    throw new Error('Expected server to be defined');
-                }
+                const server = expectDefined(result[0], 'Expected server to be defined');
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.protocol).toBe('http');
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
@@ -1806,11 +1739,7 @@ describe('PlexServerDiscovery', () => {
 
                 const result = await discovery.discoverServers();
 
-                const server = result[0];
-                expect(server).toBeDefined();
-                if (!server) {
-                    throw new Error('Expected server to be defined');
-                }
+                const server = expectDefined(result[0], 'Expected server to be defined');
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.uri).toBe('https://valid:32400');
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
@@ -1849,11 +1778,7 @@ describe('PlexServerDiscovery', () => {
             const result = await discovery.discoverServers();
 
             // URI should be normalized to origin only
-            const server = result[0];
-            expect(server).toBeDefined();
-            if (!server) {
-                throw new Error('Expected server to be defined');
-            }
+            const server = expectDefined(result[0], 'Expected server to be defined');
             expect(server.connections[0]?.uri).toBe('https://server:32400');
         });
 
@@ -1902,11 +1827,7 @@ describe('PlexServerDiscovery', () => {
                 const result = await discovery.discoverServers();
 
                 // Only valid URI should remain
-                const server = result[0];
-                expect(server).toBeDefined();
-                if (!server) {
-                    throw new Error('Expected server to be defined');
-                }
+                const server = expectDefined(result[0], 'Expected server to be defined');
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.uri).toBe('https://valid:32400');
                 expect(consoleWarnSpy).toHaveBeenCalledWith(
@@ -2055,8 +1976,9 @@ describe('PlexServerDiscovery', () => {
                 await discoverPromise;
 
                 // Should throw after max attempts (2 attempts per code)
-                expect(caughtError).not.toBeNull();
-                expect(caughtError!.message).toContain('Request failed with status 429');
+                expect(expectDefined(caughtError, 'Expected discovery failure')).toMatchObject({
+                    message: expect.stringContaining('Request failed with status 429'),
+                });
                 // Verify it tried twice (maxAttempts = 2)
                 expect(callCount).toBe(2);
             } finally {

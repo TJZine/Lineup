@@ -336,6 +336,33 @@ export class InitializationCoordinator {
         }
     }
 
+    prepareForProfileSwitchAttempt(): void {
+        this.clearServerResume();
+        this.clearProfileResume();
+    }
+
+    restorePendingServerResumeAfterProfileSwitchFailure(): void {
+        const discoveryStatus = this._callbacks.status.getModuleStatus('plex-server-discovery');
+        const libraryStatus = this._callbacks.status.getModuleStatus('plex-library');
+        const streamResolverStatus = this._callbacks.status.getModuleStatus('plex-stream-resolver');
+        if (
+            discoveryStatus !== 'pending'
+            && libraryStatus !== 'pending'
+            && streamResolverStatus !== 'pending'
+        ) {
+            return;
+        }
+
+        this._registerServerResume();
+    }
+
+    async resumeStartupAfterProfileSwitch(): Promise<void> {
+        this.clearServerResume();
+        this.clearProfileResume();
+        this._callbacks.serverStorage.configureDiscoveryStorage();
+        await this.runStartup(3);
+    }
+
     // ============================================
     // Private Methods - Initialization Phases
     // ============================================
@@ -599,7 +626,11 @@ export class InitializationCoordinator {
                     this._deps.stores.epgPreferencesStore.readNowWatchingEnabledAndClean(true),
                 debugRuntime: this._deps.epgDebugRuntime,
             });
-            this._deps.modules.epg!.initialize(epgConfigWithResolver);
+            const epg = this._deps.modules.epg;
+            if (!epg) {
+                return;
+            }
+            epg.initialize(epgConfigWithResolver);
             await this._deps.readiness.epg?.ensureReady();
             this._callbacks.status.updateModuleStatus(
                 'epg-ui',
@@ -700,28 +731,30 @@ export class InitializationCoordinator {
 
         this.clearProfileResume();
         const disposable = this._deps.modules.plexAuth.on('profileChange', () => {
-            this.clearProfileResume();
-            // Critical: ensure discovery storage keys are updated for the new activeUserId
-            // before Phase 3 runs and restores server selection from localStorage.
-            this._callbacks.serverStorage.configureDiscoveryStorage();
-            this._resumeStartupPhase(3);
+            void this.resumeStartupAfterProfileSwitch().catch((error: unknown) => {
+                this._reportResumeFailure(3, error);
+            });
         });
         this._profileResumeDisposable = disposable;
     }
 
     private _resumeStartupPhase(phase: 2 | 3): void {
         void this.runStartup(phase).catch((error: unknown) => {
-            // runStartup() already reports fatal startup failures via handleGlobalError('start').
-            // Consume the rejection here only to avoid an unhandled Promise rejection on resume.
-            try {
-                this._callbacks.diagnostics.reportRecoverableAsyncFailure(
-                    `initialization.resume.phase${phase}`,
-                    `Background startup resume failed for phase ${phase}`,
-                    error
-                );
-            } catch {
-                // Resume rejection is already consumed above; diagnostics must stay best-effort.
-            }
+            this._reportResumeFailure(phase, error);
         });
+    }
+
+    private _reportResumeFailure(phase: 2 | 3, error: unknown): void {
+        // runStartup() already reports fatal startup failures via handleGlobalError('start').
+        // Consume the rejection here only to avoid an unhandled Promise rejection on resume.
+        try {
+            this._callbacks.diagnostics.reportRecoverableAsyncFailure(
+                `initialization.resume.phase${phase}`,
+                `Background startup resume failed for phase ${phase}`,
+                error
+            );
+        } catch {
+            // Resume rejection is already consumed above; diagnostics must stay best-effort.
+        }
     }
 }

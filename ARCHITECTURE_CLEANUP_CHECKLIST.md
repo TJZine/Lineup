@@ -14,9 +14,9 @@ This checklist is not complete until an authoritative rerun on the target integr
 
 - Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
-- Current execution state: `P1-W1`, `P1-EXIT`, `P2-W1`, and `P2-EXIT` are complete on authoritative `2026-04-18` closeout evidence; `P3` remains not started, and no `P3` implementation or tracked plan doc has begun yet
-- Next safe start: `P3-W1` / `pkg_plex_contracts_identity`
-- Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to `P3-W1`
+- Current execution state: `P1-W1`, `P1-EXIT`, `P2-W1`, `P2-EXIT`, `P3-W1`, `P3-EXIT`, `P4-W1`, and `P4-EXIT` are complete on authoritative `2026-04-18` evidence; `P5-W1` is the next safe checklist start
+- Next safe start: `P5-W1` / `pkg_playback_subtitle_recovery`
+- Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to `P5-W1`
 - First action at package start: planning only; create the package-local execution-grade plan first and do not begin implementation until that planning gate is complete
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
 - Exact issue-membership surface: `docs/architecture/active-cleanup-package-map.json`
@@ -288,7 +288,7 @@ Every `P#-EXIT` must, in the same pass:
 - Follow-ups: preserve the stale-proven rows above unless future current-source changes invalidate their proof; `P3-W1` is now the next safe start
 - Handoff: `P2-EXIT` closed on authoritative `2026-04-18` final-gate evidence; proceed to `P3-W1`
 
-### [ ] `P3-W1` `pkg_plex_contracts_identity` Plex Contracts And Identity
+### [x] `P3-W1` `pkg_plex_contracts_identity` Plex Contracts And Identity
 
 - Backlog: `19 = 11 older live non-review + 6 fresh review + 2 fresh non-review`
 - Scope: normalize Plex discovery, library, auth, and identity/error seams under one Plex-owned package
@@ -298,25 +298,61 @@ Every `P#-EXIT` must, in the same pass:
   - `desloppify show src/modules/plex/library --status open --no-budget --top 150`
   - `desloppify show src/modules/plex/auth --status open --no-budget --top 150`
   - `desloppify show test_coverage --status open --no-budget --top 120`
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: Start with `P3-W1` planning, not implementation. Keep the package boundary centered on `pkg_plex_contracts_identity`: `src/modules/plex/discovery`, `src/modules/plex/library`, `src/modules/plex/auth`, plus the platform-identity seams directly owned by Plex startup or stream setup. Do not absorb startup-profile lifecycle semantics except where `PlexAuth` or Plex-owned identity seams force that boundary to be touched; coordinate with `P4` or `P5` only if those downstream boundaries are directly implicated by the current-source evidence. At package entry, rerun the package-local scoping commands listed above before writing the local execution plan so the fresh session scopes from current authoritative evidence.
+- Status: completed
+- Plan: `docs/plans/2026-04-18-p3-w1-plex-contracts-identity.md`
+- Last touched: `2026-04-18`
+- Verification: authoritative closeout evidence on `2026-04-18` reran `desloppify show src/modules/plex/discovery --status open --no-budget --top 120`, `desloppify show src/modules/plex/library --status open --no-budget --top 150`, `desloppify show src/modules/plex/auth --status open --no-budget --top 150`, and `desloppify show test_coverage --status open --no-budget --top 120`; observed passing `npm test -- --runInBand src/modules/plex/discovery/__tests__/discoveryProbe.test.ts`; observed passing `npm test -- --runInBand src/modules/plex/library/__tests__/mediaItemInternals.test.ts src/modules/plex/library/__tests__/mediaFileParser.test.ts src/modules/plex/library/__tests__/libraryResponsePayload.test.ts src/modules/plex/library/__tests__/PlexLibraryError.test.ts`; and observed passing `npm run verify`
+- Follow-ups: `P3-EXIT` must preserve the stale-proven detector rows below unless future current-source changes invalidate their proof
+- Handoff: `P3-EXIT`
 
-- [ ] `P3-EXIT`
+- [x] `P3-EXIT`
 
   - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P4`
   - required: refresh package-local commands, record mapped review dispositions from `pkg_plex_contracts_identity`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: `P4-W1`
+- Status: completed
+- Plan: `docs/plans/2026-04-18-p3-w1-plex-contracts-identity.md`
+- Last touched: `2026-04-18`
+- Verification: `P3-EXIT` evidence on `2026-04-18` reran `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, `desloppify show security --status open --no-budget --top 50`, the six exact imported-review reruns for `review::.::holistic::{api_surface_coherence::{plex_discovery_scalar_test_result,plex_library_failure_contract_drift},error_consistency::{plex_auth_pin_parsing_bypasses_typed_errors,plex_auth_poll_timeout_masks_retryable_failures,plex_library_null_results_mask_fetch_failures},initialization_coupling::platform_version_first_probe_cache}`, the package-local scoping commands for `src/modules/plex/{discovery,library,auth}` plus `test_coverage`, the exact reruns for `test_coverage::src/modules/plex/discovery/discoveryProbe.ts::transitive_only` and `smells::src/modules/plex/library/mediaItemBaseParser.ts::high_cyclomatic_complexity`, the focused Jest commands recorded in `P3-W1`, and a passing `npm run verify`
+- Entry baseline: checklist-backed package entry was `19 = 11 older live non-review + 6 fresh review + 2 fresh non-review` with the `P2-EXIT` global snapshot `overall 87.5 / objective 96.1 / strict 87.5 / verified 94.1`, `324` open in-scope, `333` open global, and `9` out-of-scope carried
+- Exit baseline: authoritative `desloppify status` rerun in this session reports `overall 87.5 / objective 96.0 / strict 87.5 / verified 94.0`, `340` open in-scope, `349` open global, and `9` out-of-scope carried; `desloppify plan queue --sort recent` is empty; `desloppify show review --status open --no-budget --top 100` returns no open review issues; and `desloppify show security --status open --no-budget --top 50` remains clean
+- Score delta: global `overall 0.0`, `objective -0.1`, `strict 0.0`, and `verified -0.1` versus the checklist-backed entry snapshot. `P3-EXIT` closes anyway because every mapped `pkg_plex_contracts_identity` review issue reran absent and every remaining discovery/library detector row is `stale-proven` on current source with no successor owner
+- Imported review dispositions: reran absent on `2026-04-18`, treated as `resolved` on current source
+  - `review::.::holistic::api_surface_coherence::plex_discovery_scalar_test_result`
+    - reason: exact issue-id rerun no longer reports an open review row after `P3-W1-S2`, and the current discovery seam keeps typed internal probe results behind the unchanged outward discovery contract
+    - revisit trigger: exact issue-id rerun plus `rg -n "testConnection\\(|findFastestConnection\\(|selectServer\\(" docs/api/plex-integration.md src/modules/plex/discovery/interfaces.ts src/modules/plex/discovery`
+  - `review::.::holistic::api_surface_coherence::plex_library_failure_contract_drift`
+    - reason: exact issue-id rerun no longer reports an open review row after `P3-W1-S3`, and current library entrypoints keep malformed/transport/server failures in typed `PlexLibraryError` paths instead of semantic empties
+    - revisit trigger: exact issue-id rerun plus `rg -n "_fetchWithRetry<|return null;|return \\[\\];|PlexLibraryError" src/modules/plex/library`
+  - `review::.::holistic::error_consistency::plex_auth_pin_parsing_bypasses_typed_errors`
+    - reason: exact issue-id rerun no longer reports an open review row after `P3-W1-S1`, and auth PIN parsing now routes malformed success payloads through typed Plex auth error handling
+    - revisit trigger: exact issue-id rerun plus `rg -n "parsePinResponse\\(" src/modules/plex/auth`
+  - `review::.::holistic::error_consistency::plex_auth_poll_timeout_masks_retryable_failures`
+    - reason: exact issue-id rerun no longer reports an open review row after `P3-W1-S1`, and `pollForPin()` no longer collapses retryable failure context into a terminal timeout-only classification
+    - revisit trigger: exact issue-id rerun plus `rg -n "pollForPin\\(" src/modules/plex/auth`
+  - `review::.::holistic::error_consistency::plex_library_null_results_mask_fetch_failures`
+    - reason: exact issue-id rerun no longer reports an open review row after `P3-W1-S3`, and current library parse/fetch helpers keep failure cases in typed error flows rather than `null`/empty sentinel returns
+    - revisit trigger: exact issue-id rerun plus `rg -n "return null;|return \\[\\];|PlexLibraryError" src/modules/plex/library`
+  - `review::.::holistic::initialization_coupling::platform_version_first_probe_cache`
+    - reason: exact issue-id rerun no longer reports an open review row after `P3-W1-S1`, and Plex startup plus stream identity now consume one platform-owned version source instead of split auth-vs-stream probing
+    - revisit trigger: exact issue-id rerun plus `rg -n "platformVersion|detectPlatformVersion\\(" src/modules/plex src/platform src/core/app-shell`
+- Detector deltas: entry mapped package counts were `review 6 / structural 6 / smells 6 / responsibility_cohesion 1`; refreshed exit reads are `review 0`, `src/modules/plex/auth` clean, `src/modules/plex/discovery` with `2` rerun-open rows, `src/modules/plex/library` with `8` rerun-open rows, and `desloppify show test_coverage --status open --no-budget --top 120` still listing the same six Plex helper transitive-only rows beside unrelated repo rows. Current-source reconciliation proves those remaining Plex rows are detector lag, not live `P3-W1` debt:
+  - `test_coverage::src/modules/plex/discovery/discoveryProbe.ts::transitive_only`
+    - reason: stale-proven; current direct test file `src/modules/plex/discovery/__tests__/discoveryProbe.test.ts` (lines `1-98`) imports `findFastestConnectionProbe` directly and exercises both mixed-content selection and auth-summary outcomes, but the rerun still reports “No direct tests”
+    - revisit trigger: rerun the exact issue id if direct `discoveryProbe` coverage is removed or remapped
+  - `smells::src/modules/plex/discovery/discoveryProbe.ts::async_no_await`
+    - reason: stale-proven; the reported anchor is current line `18`, but `src/modules/plex/discovery/discoveryProbe.ts` awaits `probeConnection(connection)` at line `33`, so the current source does not match the detector wording
+    - revisit trigger: rerun the exact issue id if `findFastestConnectionProbe()` is rewritten to a new async control-flow shape
+  - library helper `transitive_only` rows on `PlexLibraryError.ts`, `libraryResponsePayload.ts`, `mediaFileParser.ts`, `mediaItemCoreParser.ts`, and `mediaItemDetailsParser.ts`
+    - reason: stale-proven; direct tests import each helper directly via `src/modules/plex/library/__tests__/PlexLibraryError.test.ts`, `src/modules/plex/library/__tests__/libraryResponsePayload.test.ts`, `src/modules/plex/library/__tests__/mediaFileParser.test.ts`, and `src/modules/plex/library/__tests__/mediaItemInternals.test.ts`, but the reruns still report “No direct tests”
+    - revisit trigger: rerun the exact issue ids if those direct helper tests are removed or remapped
+  - `smells::src/modules/plex/library/mediaItemCoreParser.ts::high_cyclomatic_complexity`, `smells::src/modules/plex/library/mediaItemBaseParser.ts::high_cyclomatic_complexity`, and `smells::src/modules/plex/library/mediaItemParser.ts::high_cyclomatic_complexity`
+    - reason: stale-proven; `src/modules/plex/library/mediaItemCoreParser.ts` is a straight parse-build-apply pipeline, `src/modules/plex/library/mediaItemBaseParser.ts` is now a thin wrapper over `buildMediaIdentity()` and `buildMediaMetadata()`, and `src/modules/plex/library/mediaItemParser.ts` is a `parseArrayOrEmpty(...).map(...)` wrapper whose reported anchor `21` is impossible on current source
+    - revisit trigger: rerun the exact issue ids if those helpers regrow branching logic or merge back into a larger parser hotspot
+- Security triage: `desloppify show security --status open --no-budget --top 50` remained clean with no open security or cycle issues
+- Follow-ups: preserve the stale-proven discovery/library detector rows above unless future current-source changes invalidate their proof; no deferred or split successor owner remains after `P3-EXIT`
+- Handoff: `P4` remained blocked until this `P3-EXIT` record was completed. With `P3-EXIT` now complete on authoritative `2026-04-18` evidence, `P4-W1` is unblocked and is the next safe checklist start
 
-### [ ] `P4-W1` `pkg_startup_auth_lifecycle` Startup, Auth, Profile, And Lifecycle State
+### [x] `P4-W1` `pkg_startup_auth_lifecycle` Startup, Auth, Profile, And Lifecycle State
 
 - Backlog: `23 = 15 older live non-review + 6 fresh review + 2 fresh non-review`
 - Scope: make startup/session state honest across auth expiry, profile selection, initialization, error normalization, and lifecycle timing
@@ -330,22 +366,76 @@ Every `P#-EXIT` must, in the same pass:
   - `desloppify show src/modules/ui/profile-select --status open --no-budget --top 120`
   - `desloppify show src/modules/ui/server-select --status open --no-budget --top 120`
   - `desloppify show src/modules/lifecycle --status open --no-budget --top 120`
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
+- Status: completed
+- Plan: `docs/plans/2026-04-18-p4-w1-startup-auth-lifecycle.md`
+- Last touched: `2026-04-18`
+- Verification: authoritative closeout evidence on `2026-04-18` reran `desloppify scan`, `desloppify show src/core/initialization --status open --no-budget --top 150`, `desloppify show src/core/InitializationCoordinator.ts --status open --no-budget --top 80`, `desloppify show src/core/__tests__/InitializationCoordinator.test.ts --status open --no-budget --top 50`, `desloppify show src/core/error-recovery --status open --no-budget --top 80`, `desloppify show src/modules/ui/auth --status open --no-budget --top 120`, `desloppify show src/modules/ui/profile-select --status open --no-budget --top 120`, `desloppify show src/modules/ui/server-select --status open --no-budget --top 120`, and `desloppify show src/modules/lifecycle --status open --no-budget --top 120`; observed passing `npm test -- --runInBand src/core/initialization/__tests__/InitializationStartupPolicy.test.ts src/core/__tests__/InitializationCoordinator.test.ts src/modules/plex/auth/__tests__/PlexAuth.test.ts`; observed passing `npm test -- --runInBand src/core/__tests__/InitializationCoordinator.test.ts src/modules/lifecycle/__tests__/AppLifecycle.test.ts`; observed passing `npm test -- --runInBand src/core/error-recovery/__tests__/RecoveryActions.test.ts src/modules/ui/auth/__tests__/AuthScreen.test.ts src/modules/ui/profile-select/__tests__/ProfileSelectScreen.test.ts src/modules/ui/server-select/__tests__/ServerSelectScreen.test.ts src/core/initialization/__tests__/RecoverableModuleStatusError.test.ts`; observed `rg -n "console\\.error|getRecoveryActions\\(|toRecoverableModuleStatusError\\(" src/core/error-recovery src/core/initialization src/modules/ui/auth src/modules/ui/profile-select src/modules/ui/server-select`; and observed passing `npm run verify`
+- Follow-ups: `P4-EXIT` must preserve the stale-proven detector rows below unless future current-source changes invalidate their proof
 - Handoff: `P4-EXIT`
 
-- [ ] `P4-EXIT`
+- [x] `P4-EXIT`
 
   - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P5`
   - required: refresh package-local commands, record mapped review dispositions from `pkg_startup_auth_lifecycle`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
+- Status: completed
+- Plan: `docs/plans/2026-04-18-p4-w1-startup-auth-lifecycle.md`
+- Last touched: `2026-04-18`
+- Verification: `P4-EXIT` evidence on `2026-04-18` reran `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, `desloppify show security --status open --no-budget --top 50`, the six exact imported-review reruns for `review::.::holistic::{authorization_consistency::{profile_select_auth_resume_gap,startup_invalid_active_token_persisted},initialization_coupling::plex_auth_constructor_storage_side_effect,logic_clarity::lifecycle_promise_semantics_hide_real_timing,low_level_elegance::phase2_auth_gate_branch_stack,test_strategy::startup-error-normalization-gap}`, the package-local scoping commands for `src/core/{initialization,error-recovery,InitializationCoordinator.ts,__tests__/InitializationCoordinator.test.ts}`, `src/modules/ui/{auth,profile-select,server-select}`, and `src/modules/lifecycle`, the exact reruns for `responsibility_cohesion::src/modules/lifecycle/AppLifecycle.ts::cohesion::src/modules/lifecycle/AppLifecycle.ts`, `smells::src/core/InitializationCoordinator.ts::non_null_assert`, `smells::src/core/error-recovery/RecoveryActions.ts::high_cyclomatic_complexity`, `smells::src/core/initialization/InitializationStartupPolicy.ts::{console_error_no_throw,high_cyclomatic_complexity}`, `smells::src/modules/ui/{auth/AuthScreen.ts::console_error_no_throw,profile-select/styles.css::css_monolith,server-select/ServerSelectScreen.ts::console_error_no_throw}`, `test_coverage::src/core/initialization/RecoverableModuleStatusError.ts::transitive_only`, and the mapped structural ids for `InitializationCoordinator`, `AppLifecycle.test.ts`, `AuthScreen.ts`, `ProfileSelectScreen{.ts,.test.ts}`, and `ServerSelectScreen{.ts,.test.ts}`; observed the slice-targeted Jest commands recorded in `P4-W1`; observed a passing `npm run verify`; and observed fresh implementation review with no material findings on commit `f5a9f222`
+- Entry baseline: checklist-backed package entry was `23 = 15 older live non-review + 6 fresh review + 2 fresh non-review` with the `P3-EXIT` global snapshot `overall 87.5 / objective 96.0 / strict 87.5 / verified 94.0`, `340` open in-scope, `349` open global, and `9` out-of-scope carried
+- Exit baseline: authoritative `desloppify status` rerun in this session reports `overall 87.6 / objective 96.2 / strict 87.5 / verified 94.3`, `336` open in-scope, `345` open global, and `9` out-of-scope carried; `desloppify plan queue --sort recent` is empty; `desloppify show review --status open --no-budget --top 100` returns no open review issues; and `desloppify show security --status open --no-budget --top 50` remains clean
+- Score delta: global `overall +0.1`, `objective +0.2`, `strict 0.0`, and `verified +0.3` versus the checklist-backed entry snapshot. `P4-EXIT` closes because every mapped imported review, structural, and cohesion row reran absent and every remaining rerun-open startup/auth/profile/recovery row is `stale-proven` on current source with no successor owner
+- Imported review dispositions: reran absent on `2026-04-18`, treated as `resolved` on current source
+  - `review::.::holistic::authorization_consistency::profile_select_auth_resume_gap`
+    - reason: exact issue-id rerun no longer reports an open review row after `P4-W1-S2`, and current startup resume policy routes both server-select and profile-select restart paths through `InitializationCoordinator`
+    - revisit trigger: exact issue-id rerun plus `rg -n "prepareForProfileSwitchAttempt|resumeStartupAfterProfileSwitch|registerProfileResume|registerServerResume" src/core/InitializationCoordinator.ts src/core/orchestrator/AppOrchestrator.ts`
+  - `review::.::holistic::authorization_consistency::startup_invalid_active_token_persisted`
+    - reason: exact issue-id rerun no longer reports an open review row after `P4-W1-S1`, and current phase-2 auth startup rewrites persisted credentials to the validated account-owned token path instead of leaving a stale invalid active token behind
+    - revisit trigger: exact issue-id rerun plus `rg -n "persistValidated(AccountFallback|ActiveCredentials)|storeCredentials\\(" src/core/initialization/InitializationStartupPolicy.ts src/modules/plex/auth/PlexAuth.ts`
+  - `review::.::holistic::initialization_coupling::plex_auth_constructor_storage_side_effect`
+    - reason: exact issue-id rerun no longer reports an open review row after `P4-W1-S1`, and startup now owns the explicit credential-read path while `PlexAuth` no longer hydrates stored credentials in the constructor
+    - revisit trigger: exact issue-id rerun plus `rg -n "_loadStoredCredentials|readStoredCredentialsAndClearCorruption" src/modules/plex/auth/PlexAuth.ts src/core/initialization/InitializationStartupPolicy.ts`
+  - `review::.::holistic::logic_clarity::lifecycle_promise_semantics_hide_real_timing`
+    - reason: exact issue-id rerun no longer reports an open review row after `P4-W1-S2`, and lifecycle restoration now exposes the restored phase before the auth-start transition instead of masking it behind an unconditional rewrite
+    - revisit trigger: exact issue-id rerun plus `rg -n "stateRestored|authenticating|loading_data" src/modules/lifecycle/AppLifecycle.ts`
+  - `review::.::holistic::low_level_elegance::phase2_auth_gate_branch_stack`
+    - reason: exact issue-id rerun no longer reports an open review row after `P4-W1-S1`, and the phase-2 auth gate now routes through named persistence/profile helpers rather than one constructor-coupled branch stack
+    - revisit trigger: exact issue-id rerun plus `rg -n "applyPhase2AuthGatePolicy|persistValidated(AccountFallback|ActiveCredentials)|maybeRouteToProfileSelect" src/core/initialization/InitializationStartupPolicy.ts`
+  - `review::.::holistic::test_strategy::startup-error-normalization-gap`
+    - reason: exact issue-id rerun no longer reports an open review row after `P4-W1-S3`, and startup error normalization now has a direct focused test owner in `src/core/initialization/__tests__/RecoverableModuleStatusError.test.ts`
+    - revisit trigger: exact issue-id rerun plus `rg -n "toRecoverableModuleStatusError\\(" src/core/initialization src/core/error-recovery`
+- Detector deltas: entry mapped package counts were `review 6 / structural 5 / smells 5 / responsibility_cohesion 1 / test_coverage 1`; refreshed exit reads are `review 0`, `src/core/InitializationCoordinator.ts` clean, `src/core/__tests__/InitializationCoordinator.test.ts` clean, `src/modules/lifecycle` clean, `src/core/initialization` with `3` rerun-open rows, `src/core/error-recovery` with `3` rerun-open rows, `src/modules/ui/auth` with `1` rerun-open row, `src/modules/ui/profile-select` with `1` rerun-open row, and `src/modules/ui/server-select` with `1` rerun-open row. Current-source reconciliation proves those remaining startup/auth/profile/recovery rows are detector lag, not live `P4-W1` debt:
+  - mapped stale-proven rows:
+    - `smells::src/core/initialization/InitializationStartupPolicy.ts::console_error_no_throw`
+      - reason: stale-proven; `rg -n "console\\.error" src/core/initialization/InitializationStartupPolicy.ts` returns no hits, and the rerun still cites line `244`, which is now the `validateToken(...)` call inside `applyPhase2AuthGatePolicy()`
+      - revisit trigger: rerun the exact issue id if startup auth logging/error handling changes in `InitializationStartupPolicy.ts`
+    - `smells::src/core/initialization/InitializationStartupPolicy.ts::high_cyclomatic_complexity`
+      - reason: stale-proven; the rerun still anchors line `104`, which is now only `inputs.openServerSelect();`, while the current phase-2 helper set is split across `applyPhase2AuthGatePolicy()`, `maybeRouteToProfileSelect()`, and the persistence helpers instead of one hotspot branch stack
+      - revisit trigger: rerun the exact issue id if phase-2 auth gating is merged back into one larger control-flow owner
+    - `smells::src/core/error-recovery/RecoveryActions.ts::high_cyclomatic_complexity`
+      - reason: stale-proven; the rerun still anchors line `10`, but current `getRecoveryActions()` is a lookup-based helper at lines `127-140` with one guard and one table lookup, not a branch-heavy switch
+      - revisit trigger: rerun the exact issue id if `RecoveryActions.ts` regrows switch-style branching instead of the current data-driven mapping
+    - `smells::src/modules/ui/auth/AuthScreen.ts::console_error_no_throw`
+      - reason: stale-proven; `rg -n "console\\.error" src/modules/ui/auth/AuthScreen.ts` returns no hits, and the rerun still cites lines `61`, `66`, and `71`, which now only dispatch through `_runScreenAction(...)`
+      - revisit trigger: rerun the exact issue id if startup PIN request/cancel/retry handling reintroduces console-only error paths
+    - `smells::src/modules/ui/profile-select/styles.css::css_monolith`
+      - reason: stale-proven; current `src/modules/ui/profile-select/styles.css` is only a `3`-line import surface delegating to package-local partials `styles/{layout,cards,pin-modal}.css`
+      - revisit trigger: rerun the exact issue id if profile-select styles collapse back into one large stylesheet
+    - `smells::src/modules/ui/server-select/ServerSelectScreen.ts::console_error_no_throw`
+      - reason: stale-proven; `rg -n "console\\.error" src/modules/ui/server-select/ServerSelectScreen.ts` returns no hits, and the rerun still cites lines `96`, `205`, and `584`, which no longer contain console logging
+      - revisit trigger: rerun the exact issue id if startup server-select actions or load/select flows reintroduce console-only error handling
+    - `test_coverage::src/core/initialization/RecoverableModuleStatusError.ts::transitive_only`
+      - reason: stale-proven; direct focused test file `src/core/initialization/__tests__/RecoverableModuleStatusError.test.ts` imports `toRecoverableModuleStatusError()` directly and the targeted Jest command passed in this session, but the rerun still reports “No direct tests”
+      - revisit trigger: rerun the exact issue id if that direct test file is removed or the helper stops being imported directly there
+  - supplemental stale-proven rows:
+    - `smells::src/core/error-recovery/RecoveryActions.ts::monster_function`
+      - reason: stale-proven; the rerun still anchors line `10`, but current `RecoveryActions.ts` is `141` lines total and does not contain any `150+` LOC function
+      - revisit trigger: rerun the exact issue id if the recovery-action owner regrows into a large monolithic function
+    - `smells::src/core/error-recovery/RecoveryActions.ts::nested_closure`
+      - reason: stale-proven; the rerun still anchors line `10`, but the current file is a module-level mapping table plus thin helper lookup rather than the earlier nested control-flow hotspot
+      - revisit trigger: rerun the exact issue id if recovery-action construction regains nested closure-heavy control flow
+- Resolved-on-rerun groups: `review 6`, `structural 5`, and `responsibility_cohesion 1` reran absent on current source; the remaining rerun-open package-local rows were all reconciled as stale-proven detector lag during this final-gate pass
+- Security triage: `desloppify show security --status open --no-budget --top 50` remained clean with no open security or cycle issues
+- Follow-ups: preserve the stale-proven startup/auth/profile/recovery detector rows above unless future current-source changes invalidate their proof; no deferred or split successor owner remains after `P4-EXIT`
 - Handoff: `P5-W1`
 
 ### [ ] `P5-W1` `pkg_playback_subtitle_recovery` Playback And Subtitle Recovery

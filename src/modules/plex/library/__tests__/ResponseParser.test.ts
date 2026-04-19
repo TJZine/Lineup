@@ -14,6 +14,7 @@ import {
     mapMediaType,
     parseStream,
 } from '../ResponseParser';
+import { PlexLibraryErrorCode } from '../types';
 import type {
     RawLibrarySection,
     RawMediaItem,
@@ -75,6 +76,86 @@ describe('ResponseParser', () => {
 
             expect(result[0]!.art).toBeNull();
             expect(result[0]!.thumb).toBeNull();
+        });
+
+        it('preserves an explicit zero scannedAt epoch', () => {
+            const result = parseLibrarySections([
+                {
+                    key: '1',
+                    uuid: 'lib-uuid',
+                    title: 'Epoch',
+                    type: 'movie',
+                    agent: 'agent',
+                    scanner: 'scanner',
+                    scannedAt: 0,
+                },
+            ]);
+
+            expect(result[0]!.lastScannedAt.toISOString()).toBe('1970-01-01T00:00:00.000Z');
+        });
+
+        it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+            'falls back to epoch when scannedAt is non-finite (%p)',
+            (scannedAt) => {
+                const result = parseLibrarySections([
+                    {
+                        key: '1',
+                        uuid: 'lib-uuid',
+                        title: 'Broken Timestamp',
+                        type: 'movie',
+                        agent: 'agent',
+                        scanner: 'scanner',
+                        scannedAt,
+                    },
+                ]);
+
+                expect(result[0]!.lastScannedAt.toISOString()).toBe('1970-01-01T00:00:00.000Z');
+            }
+        );
+
+        it('throws a typed parse error with indexed context when a section entry is malformed', () => {
+            expect(() => parseLibrarySections([null] as unknown as RawLibrarySection[])).toThrow(
+                expect.objectContaining({
+                    code: PlexLibraryErrorCode.PARSE_ERROR,
+                    message: 'Invalid library sections[0] payload: expected an object',
+                })
+            );
+        });
+
+        it('throws a typed parse error for unknown library section types', () => {
+            expect(() =>
+                parseLibrarySections([
+                    {
+                        key: '1',
+                        uuid: 'lib-uuid',
+                        title: 'Mystery',
+                        type: 'mystery',
+                        agent: 'agent',
+                        scanner: 'scanner',
+                    },
+                ])
+            ).toThrow(
+                expect.objectContaining({
+                    code: PlexLibraryErrorCode.PARSE_ERROR,
+                    message: 'Invalid library section payload: unknown library type "mystery"',
+                })
+            );
+        });
+
+        it.each([
+            ['key', { uuid: 'lib-uuid', title: 'Movies', type: 'movie', agent: 'agent', scanner: 'scanner' }],
+            ['uuid', { key: '1', title: 'Movies', type: 'movie', agent: 'agent', scanner: 'scanner' }],
+            ['title', { key: '1', uuid: 'lib-uuid', type: 'movie', agent: 'agent', scanner: 'scanner' }],
+            ['type', { key: '1', uuid: 'lib-uuid', title: 'Movies', agent: 'agent', scanner: 'scanner' }],
+            ['agent', { key: '1', uuid: 'lib-uuid', title: 'Movies', type: 'movie', scanner: 'scanner' }],
+            ['scanner', { key: '1', uuid: 'lib-uuid', title: 'Movies', type: 'movie', agent: 'agent' }],
+        ])('throws a typed parse error when required field %s is missing', (_field, raw) => {
+            expect(() => parseLibrarySections([raw as RawLibrarySection])).toThrow(
+                expect.objectContaining({
+                    code: PlexLibraryErrorCode.PARSE_ERROR,
+                    message: expect.stringContaining('library section'),
+                })
+            );
         });
     });
 
@@ -431,9 +512,19 @@ describe('ResponseParser', () => {
             expect(mapLibraryType('photo')).toBe('photo');
         });
 
-        it('should default unknown types to movie', () => {
-            expect(mapLibraryType('unknown')).toBe('movie');
-            expect(mapLibraryType('')).toBe('movie');
+        it('throws typed parse errors for unknown library types', () => {
+            expect(() => mapLibraryType('unknown')).toThrow(
+                expect.objectContaining({
+                    code: PlexLibraryErrorCode.PARSE_ERROR,
+                    message: 'Invalid library section payload: unknown library type "unknown"',
+                })
+            );
+            expect(() => mapLibraryType('')).toThrow(
+                expect.objectContaining({
+                    code: PlexLibraryErrorCode.PARSE_ERROR,
+                    message: 'Invalid library section payload: unknown library type ""',
+                })
+            );
         });
     });
 

@@ -9,6 +9,8 @@ const verifierPath = path.resolve(process.cwd(), 'tools/verify-docs.mjs');
 type PromptInventories = {
     expectedEvalPromptFiles: string[];
     expectedSessionPromptFiles: string[];
+    requiredRepoLocalSkills: string[];
+    requiredRepoLocalSkillFiles: string[];
     skillMirrorManifestPath: string;
     sessionPromptSetStartMarker: string;
     sessionPromptSetEndMarker: string;
@@ -26,6 +28,8 @@ function loadPromptInventoriesFromHarnessDocsLib(): PromptInventories {
         'const payload = {',
         '  expectedEvalPromptFiles: lib.EXPECTED_EVAL_PROMPT_FILES,',
         '  expectedSessionPromptFiles: lib.EXPECTED_SESSION_PROMPT_FILES,',
+        '  requiredRepoLocalSkills: lib.REQUIRED_REPO_LOCAL_SKILLS,',
+        '  requiredRepoLocalSkillFiles: lib.REQUIRED_REPO_LOCAL_SKILL_FILES,',
         '  skillMirrorManifestPath: lib.SKILL_MIRROR_MANIFEST_PATH,',
         '  sessionPromptSetStartMarker: lib.SESSION_PROMPT_SET_START_MARKER,',
         '  sessionPromptSetEndMarker: lib.SESSION_PROMPT_SET_END_MARKER,',
@@ -53,6 +57,8 @@ function loadPromptInventoriesFromHarnessDocsLib(): PromptInventories {
 const {
     expectedEvalPromptFiles,
     expectedSessionPromptFiles,
+    requiredRepoLocalSkills,
+    requiredRepoLocalSkillFiles,
     skillMirrorManifestPath,
     sessionPromptSetStartMarker,
     sessionPromptSetEndMarker,
@@ -102,6 +108,25 @@ function writeRepoFile(repoRoot: string, relativePath: string, content = '# Plac
     const fullPath = path.join(repoRoot, relativePath);
     mkdirSync(path.dirname(fullPath), { recursive: true });
     writeFileSync(fullPath, content, 'utf8');
+}
+
+function writeValidRepoLocalSkillFixtures(repoRoot: string): void {
+    for (const [index, relativePath] of requiredRepoLocalSkillFiles.entries()) {
+        const skill = requiredRepoLocalSkills[index];
+        writeRepoFile(
+            repoRoot,
+            relativePath,
+            [
+                '---',
+                `name: ${skill}`,
+                'description: Test fixture repo-local skill.',
+                '---',
+                '',
+                `# ${skill}`,
+                '',
+            ].join('\n')
+        );
+    }
 }
 
 function buildChecklistLinkedPackageDecomposition({
@@ -211,11 +236,18 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             renderedSessionPromptSet,
             sessionPromptSetEndMarker,
             '',
+            'Tracked role intent:',
+            '',
+            '- run `cleanup-plan.md` and `feature-plan.md` with the tracked `planner` role',
+            '- run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role',
+            '- route Tier 3 cleanup-loop.md implementation passes through the tracked cleanup_worker role only',
+            '- keep `cleanup-review.md`, `feature-review.md`, and `workflow-harness-review.md` read-only under the tracked `reviewer` role',
+            '',
             '## Routing (Authoritative)',
             '',
             '| Task Type | Use This Path | Prompt Family | Notes |',
             '|---|---|---|---|',
-            '| cleanup/refactor | checklist cleanup | `cleanup-*` | Tier 3 uses cleanup-loop. |',
+            '| cleanup/refactor | checklist cleanup | `cleanup-*` | Tier 3 uses cleanup-loop with planner + cleanup_worker + reviewer. |',
             '| feature/design | net-new capability | `feature-plan` + `feature-implement` + `feature-review` | Tier 2 feature flow uses tracked launchers. |',
             '| mixed | split slices explicitly | route by primary intent | Keep cleanup scoped to cleanup work. |',
             '',
@@ -231,6 +263,8 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '1. confirm the current repo is Lineup',
             '2. load [`agents.md`](../../../agents.md) and [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)',
             '3. load the matching file in this directory',
+            '4. use the tracked role that matches the launcher intent (`planner` for planning, `worker` for implementation, `reviewer` for review)',
+            '   cleanup-loop is the exception: Tier 3 cleanup implementation inside that loop routes to cleanup_worker while Tier 2 cleanup and feature implementation stay on worker',
             '',
         ].join('\n')
     );
@@ -273,6 +307,8 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '- For checklist-linked package work, `ready_now_execution_unit` is required and `execution_waves` are optional unless one approved wave spans multiple slices.',
             '- `coverage_ledger` stays execution-only and wave review is the default approval gate for a coherent approved batch.',
             '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
+            '- Once a delegated `planner` pass is active, keep it authoritative for plan authoring until it finishes, explicitly blocks, fails, or is abandoned after wait/status-check/wait with no usable progress signal.',
+            '- While that delegated planner is active, limit controller-side inspection to explicit blocker or seam resolution; do not do competing local plan drafting or redundant planning discovery.',
             '',
             'A final `P#-W#` plan must include a `Priority-exit readiness` section, assign a single final owner to each deferred or split follow-up item, and record any exact `P0` security issue ids before starting or planning the next priority.',
             'No `P(n+1)` checklist item, plan, or implementation work may open while `P#-EXIT` is unresolved.',
@@ -353,6 +389,8 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
         [
             '# Cleanup Plan (Fixture)',
             '',
+            '- Run this launcher with the tracked write-capable `planner` role. The role is for bounded planning discovery, tracked plan artifacts, and execution-ready handoffs, not product-code implementation.',
+            '- Keep write activity confined to planning surfaces unless the parent explicitly narrows the task to a workflow/control-plane planning-doc edit.',
             '- Include `Priority-exit readiness` when the plan claims priority closeout.',
             '- Assign a single final owner to every deferred or split follow-up item.',
             '- Record exact `P0` security issue ids and the `P#-EXIT` checklist update.',
@@ -372,13 +410,20 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
         [
             '# Cleanup Loop (Fixture)',
             '',
+            '- For the delegated planning pass, use the tracked write-capable `planner` role.',
+            '- Once delegated planning starts, that planner is the authoritative plan author until it finishes, explicitly blocks, fails, or is abandoned only after a long wait, a direct status check, and a follow-up wait that still produces no usable progress signal.',
+            '- While that planner pass is active, the controller must not do planner-grade repo discovery, redundant package-local scoping, issue reconciliation, or tracked plan drafting locally; limit controller-side inspection to the minimum needed to answer an explicit blocker question or resolve a controller-only seam decision.',
+            '- The main thread must not author the execution-grade `checklist-linked` package plan itself just because it now has enough local context.',
             '- Use `execution-unit-select` for checklist-linked package work.',
             '- Read `ready_now_execution_unit` before implementation starts.',
+            '- For Tier 3 `cleanup-loop` implementation passes, use the tracked `cleanup_worker` role instead of `worker`.',
             '- When a wave is selected, the controller stays inside that wave until its completion condition is met.',
             '- Wave review is the default approval gate for that coherent approved batch.',
             '- Each implemented approved execution unit or standalone execution target has a clean implementation review loop.',
             '- If the completed checklist-linked execution unit closes the final planned `P#-W#` item, finish the `P#-EXIT` evidence before closeout.',
             '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
+            '- Use `planner` for bounded planning artifacts, `cleanup_worker` for Tier 3 `cleanup-loop` implementation write passes, `worker` for general implementation outside that loop, and `reviewer` for adversarial review passes.',
+            '- Do not treat planner latency, controller curiosity, or newly gathered local context as a valid reason to reclaim planning.',
             '',
         ].join('\n')
     );
@@ -412,6 +457,20 @@ function writeValidSessionPromptFixture(repoRoot: string): void {
             '- A `priority-exit review` must ensure no `P(n+1)` plan or implementation work is being approved while `P#-EXIT` is still unresolved.',
             '- Review the approved `execution_unit` and keep slice-level accounting is still mandatory inside that unit.',
             '- Confirm wave review is acting as the default approval gate for coherent approved batches.',
+            '',
+        ].join('\n')
+    );
+
+    writeRepoFile(
+        repoRoot,
+        'docs/agentic/session-prompts/feature-plan.md',
+        [
+            '# Feature Plan (Fixture)',
+            '',
+            '- Run this launcher with the tracked write-capable `planner` role. Use that role for bounded planning discovery, tracked plan artifacts, and execution-ready handoffs rather than product-code implementation.',
+            '- Keep write activity confined to planning surfaces unless the parent explicitly narrows the task to a workflow/control-plane planning-doc edit.',
+            '- Keep the authoritative execution steps aligned in `update_plan`.',
+            '- Preserve the repo verification gate expectations.',
             '',
         ].join('\n')
     );
@@ -514,6 +573,7 @@ const CODEX_MODEL_SPARK = 'gpt-5.3-codex-spark';
 const CODEX_MODEL_DEFAULT = 'gpt-5.3-codex';
 const CODEX_MODEL_FALLBACK = 'gpt-5.1-codex-max';
 const CODEX_MODEL_MONITOR_FALLBACK = 'gpt-5.1';
+const CODEX_MODEL_PLANNER = 'gpt-5.4';
 
 function writeValidCodexRoleConfigFixture(
     repoRoot: string,
@@ -544,9 +604,17 @@ function writeValidCodexRoleConfigFixture(
             'description = "Docs researcher"',
             'config_file = "agents/docs-researcher.toml"',
             '',
+            '[agents.planner]',
+            'description = "Planner"',
+            'config_file = "agents/planner.toml"',
+            '',
             '[agents.worker]',
             'description = "Worker"',
             'config_file = "agents/worker.toml"',
+            '',
+            '[agents.cleanup_worker]',
+            'description = "Cleanup-loop-specific implementer for approved Tier 3 cleanup-loop implementation passes."',
+            'config_file = "agents/cleanup-worker.toml"',
             '',
             '[agents.monitor]',
             'description = "Monitor"',
@@ -579,7 +647,35 @@ function writeValidCodexRoleConfigFixture(
         '.codex/agents/docs-researcher.toml',
         `model = "${CODEX_MODEL_DEFAULT}"\nsandbox_mode = "read-only"\n`
     );
+    writeRepoFile(
+        repoRoot,
+        '.codex/agents/planner.toml',
+        [
+            `model = "${CODEX_MODEL_PLANNER}"`,
+            'model_reasoning_effort = "high"',
+            'developer_instructions = """',
+            'Own bounded planning work, not product-code implementation.',
+            'Use write access only for planning artifacts, scoped workflow docs, and execution-ready handoffs that the parent explicitly requested.',
+            'Do the discovery needed to freeze the plan, surface unresolved seams early, and leave implementation to the worker role unless the parent narrows the scope to a planning-surface edit.',
+            '"""',
+            '',
+        ].join('\n')
+    );
     writeRepoFile(repoRoot, '.codex/agents/worker.toml', `model = "${CODEX_MODEL_DEFAULT}"\n`);
+    writeRepoFile(
+        repoRoot,
+        '.codex/agents/cleanup-worker.toml',
+        [
+            `model = "${CODEX_MODEL_PLANNER}"`,
+            'model_reasoning_effort = "high"',
+            'developer_instructions = """',
+            'Own one bounded cleanup-loop implementation write scope at a time.',
+            'Make the smallest defensible cleanup change inside the approved execution unit, avoid unrelated edits, and validate the changed behavior before returning.',
+            'Use this role only for Tier 3 cleanup-loop implementation passes; leave general implementation routing to the worker role.',
+            '"""',
+            '',
+        ].join('\n')
+    );
     writeRepoFile(
         repoRoot,
         '.codex/agents/monitor.toml',
@@ -609,6 +705,7 @@ function createRepoFixture(
     writeRepoFile(repoRoot, 'docs/development/debugging.md');
     writeRepoFile(repoRoot, 'docs/development/subtitles.md');
     writeRepoFile(repoRoot, 'docs/development/testing.md');
+    writeValidRepoLocalSkillFixtures(repoRoot);
     writeValidSkillMirrorFixture(repoRoot);
     writeValidSessionPromptFixture(repoRoot);
     writeValidEvalPromptFixture(repoRoot);
@@ -755,6 +852,8 @@ describe('verify-docs', () => {
                 '2. [`docs/agentic/document-map.md`](../document-map.md)',
                 '3. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)',
                 '',
+                '- Run this launcher with the tracked write-capable `planner` role. The role is for bounded planning discovery, tracked plan artifacts, and execution-ready handoffs, not product-code implementation.',
+                '- Keep write activity confined to planning surfaces unless the parent explicitly narrows the task to a workflow/control-plane planning-doc edit.',
                 '- Include `Priority-exit readiness` when the plan claims priority closeout.',
                 '- Assign a single final owner to every deferred or split follow-up item.',
                 '- Record exact `P0` security issue ids and the `P#-EXIT` checklist update.',
@@ -783,6 +882,8 @@ describe('verify-docs', () => {
                 'Read [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) first.',
                 'If an older inbound link mentions [`docs/agentic/document-map.md`](../document-map.md), treat it as a compatibility stub only.',
                 '',
+                '- Run this launcher with the tracked write-capable `planner` role. The role is for bounded planning discovery, tracked plan artifacts, and execution-ready handoffs, not product-code implementation.',
+                '- Keep write activity confined to planning surfaces unless the parent explicitly narrows the task to a workflow/control-plane planning-doc edit.',
                 '- Include `Priority-exit readiness` when the plan claims priority closeout.',
                 '- Assign a single final owner to every deferred or split follow-up item.',
                 '- Record exact `P0` security issue ids and the `P#-EXIT` checklist update.',
@@ -811,6 +912,8 @@ describe('verify-docs', () => {
                 'Read [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) first.',
                 'Do not load [`docs/agentic/document-map.md`](../document-map.md) in launcher read order; keep legacy links pointed there but use the workflow doc instead.',
                 '',
+                '- Run this launcher with the tracked write-capable `planner` role. The role is for bounded planning discovery, tracked plan artifacts, and execution-ready handoffs, not product-code implementation.',
+                '- Keep write activity confined to planning surfaces unless the parent explicitly narrows the task to a workflow/control-plane planning-doc edit.',
                 '- Include `Priority-exit readiness` when the plan claims priority closeout.',
                 '- Assign a single final owner to every deferred or split follow-up item.',
                 '- Record exact `P0` security issue ids and the `P#-EXIT` checklist update.',
@@ -891,6 +994,32 @@ describe('verify-docs', () => {
         expect(result.stderr).toContain('docs/agentic/evals/baselines/2026-03-06-b.md');
     });
 
+    it('fails when a tracked doc links to a concrete .agents artifact', () => {
+        const repoRoot = createRepoFixture({
+            'docs/development/testing.md': '# Testing\n\n[Local agent note](../../.agents/run-logs/session.md)\n',
+            '.agents/run-logs/session.md': '# Local agent note\n',
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Tracked doc docs/development/testing.md links to local-only artifact');
+        expect(result.stderr).toContain('../../.agents/run-logs/session.md');
+    });
+
+    it('fails when a tracked doc contains a raw .agents literal path', () => {
+        const repoRoot = createRepoFixture({
+            'docs/development/testing.md': '# Testing\n\nRaw local agent artifact: .agents/run-logs/session.md\n',
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('.agents/run-logs/session.md');
+    });
+
     it('allows placeholder local-only paths that do not point to concrete artifacts', () => {
         const repoRoot = createRepoFixture({
             'docs/development/testing.md': [
@@ -946,6 +1075,34 @@ describe('verify-docs', () => {
         expect(result.stderr).toContain('Missing required control-plane directory: docs/runs/_template');
     });
 
+    it('fails when a required repo-local canonical skill file is missing', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        rmSync(path.join(repoRoot, '.codex/skills/verification-strategy'), { recursive: true, force: true });
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Missing required repo-local canonical skill `verification-strategy`: .codex/skills/verification-strategy/SKILL.md'
+        );
+    });
+
+    it('fails when a required repo-local canonical skill file exists locally but is not tracked', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        runGit(['rm', '--cached', '--quiet', '.codex/skills/verification-strategy/SKILL.md'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Required repo-local canonical skill is not tracked: .codex/skills/verification-strategy/SKILL.md'
+        );
+    });
+
     it('fails when workflow claims tracked codex roles but .codex/config.toml is missing', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
@@ -967,9 +1124,35 @@ describe('verify-docs', () => {
         runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
 
         const result = runVerifier(repoRoot);
-
         expect(result.status).toBe(0);
         expect(result.stdout).toContain('Documentation verification passed.');
+    });
+
+    it('fails when the session prompt README drops the explicit planner/worker/reviewer role mapping', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        const readmePath = path.join(repoRoot, 'docs/agentic/session-prompts/README.md');
+        const readme = readFileSync(readmePath, 'utf8').replace(
+            [
+                'Tracked role intent:',
+                '',
+                '- run `cleanup-plan.md` and `feature-plan.md` with the tracked `planner` role',
+                '- run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role',
+                '- route Tier 3 cleanup-loop.md implementation passes through the tracked cleanup_worker role only',
+                '- keep `cleanup-review.md`, `feature-review.md`, and `workflow-harness-review.md` read-only under the tracked `reviewer` role',
+                '',
+            ].join('\n'),
+            ''
+        );
+        writeFileSync(readmePath, readme, 'utf8');
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Session prompt README must keep the tracked role intent explicit: planner for planning launchers, worker for general implementers, cleanup_worker only for Tier 3 cleanup-loop implementation passes, reviewer read-only for review launchers.'
+        );
     });
 
     it('fails when only workflow-harness-review documents tracked codex roles and .codex/config.toml is missing', () => {
@@ -1069,7 +1252,155 @@ describe('verify-docs', () => {
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('Missing required Codex agent role declarations in .codex/config.toml');
         expect(result.stderr).toContain('explorer_fallback');
+        expect(result.stderr).toContain('planner');
+        expect(result.stderr).toContain('cleanup_worker');
         expect(result.stderr).toContain('monitor_fallback');
+    });
+
+    it('fails when the planner role does not preserve the tracked gpt-5.4 high contract', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        writeRepoFile(repoRoot, '.codex/agents/planner.toml', 'model = "gpt-5.4"\nmodel_reasoning_effort = "medium"\n');
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Codex role config is missing required planner contract line (model_reasoning_effort = "high"): .codex/agents/planner.toml'
+        );
+    });
+
+    it('fails when the planner role loses its planning-only boundary instructions', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        writeRepoFile(
+            repoRoot,
+            '.codex/agents/planner.toml',
+            'model = "gpt-5.4"\nmodel_reasoning_effort = "high"\ndeveloper_instructions = """\nPlan when useful.\n"""\n'
+        );
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Codex role config is missing required planner boundary marker (not product-code implementation): .codex/agents/planner.toml'
+        );
+        expect(result.stderr).toContain(
+            'Codex role config is missing required planner boundary marker (leave implementation to the worker role): .codex/agents/planner.toml'
+        );
+    });
+
+    it('fails when the cleanup_worker role does not preserve the tracked gpt-5.4 high contract', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        writeRepoFile(
+            repoRoot,
+            '.codex/agents/cleanup-worker.toml',
+            'model = "gpt-5.4"\nmodel_reasoning_effort = "medium"\n'
+        );
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Codex role config is missing required cleanup_worker contract line (model_reasoning_effort = "high"): .codex/agents/cleanup-worker.toml'
+        );
+    });
+
+    it('fails when the cleanup_worker role loses its cleanup-loop-only boundary instructions', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        writeRepoFile(
+            repoRoot,
+            '.codex/agents/cleanup-worker.toml',
+            'model = "gpt-5.4"\nmodel_reasoning_effort = "high"\ndeveloper_instructions = """\nOwn one bounded write scope at a time.\n"""\n'
+        );
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Codex role config is missing required cleanup_worker boundary marker (tier 3 cleanup-loop implementation passes): .codex/agents/cleanup-worker.toml'
+        );
+        expect(result.stderr).toContain(
+            'Codex role config is missing required cleanup_worker boundary marker (leave general implementation routing to the worker role): .codex/agents/cleanup-worker.toml'
+        );
+    });
+
+    it('fails when the cleanup_worker declaration in .codex/config.toml widens beyond cleanup-loop implementation passes', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        writeRepoFile(
+            repoRoot,
+            '.codex/config.toml',
+            [
+                '[agents]',
+                'max_threads = 4',
+                'max_depth = 1',
+                '',
+                '[agents.explorer]',
+                'description = "Explorer"',
+                'config_file = "agents/explorer.toml"',
+                '',
+                '[agents.explorer_fallback]',
+                'description = "Explorer fallback"',
+                'config_file = "agents/explorer-fallback.toml"',
+                '',
+                '[agents.reviewer]',
+                'description = "Reviewer"',
+                'config_file = "agents/reviewer.toml"',
+                '',
+                '[agents.docs_researcher]',
+                'description = "Docs researcher"',
+                'config_file = "agents/docs-researcher.toml"',
+                '',
+                '[agents.planner]',
+                'description = "Planner"',
+                'config_file = "agents/planner.toml"',
+                '',
+                '[agents.worker]',
+                'description = "Worker"',
+                'config_file = "agents/worker.toml"',
+                '',
+                '[agents.cleanup_worker]',
+                'description = "General Tier 3 cleanup implementer"',
+                'config_file = "agents/cleanup-worker.toml"',
+                '',
+                '[agents.monitor]',
+                'description = "Monitor"',
+                'config_file = "agents/monitor.toml"',
+                '',
+                '[agents.monitor_fallback]',
+                'description = "Monitor fallback"',
+                'config_file = "agents/monitor-fallback.toml"',
+                '',
+            ].join('\n')
+        );
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Codex role declaration is missing required cleanup_worker scope marker (cleanup-loop-specific implementer) in .codex/config.toml'
+        );
+        expect(result.stderr).toContain(
+            'Codex role declaration is missing required cleanup_worker scope marker (approved tier 3 cleanup-loop implementation passes) in .codex/config.toml'
+        );
     });
 
     it('fails when a declared codex role config file exists locally but is not tracked', () => {
@@ -1272,6 +1603,93 @@ describe('verify-docs', () => {
         expect(result.stderr).not.toContain('missing required serious-plan sections');
     });
 
+    it('fails when an active tracked plan omits the verification classification marker', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRepoFile(
+            repoRoot,
+            'docs/plans/example-active.md',
+            [
+                '# Example Implementation Plan',
+                '',
+                '**Plan Status:** active',
+                '**Task family:** cleanup/refactor',
+                '**Cleanup subtype:** checklist-linked',
+                '',
+                '**Goal:** Do the thing.',
+                '',
+                '**Architecture:** Keep the boundary explicit.',
+                '',
+                '## Non-Goals',
+                '',
+                '- No routing changes.',
+                '',
+                '## Required Reading',
+                '',
+                '- `docs/AGENTIC_DEV_WORKFLOW.md`',
+                '',
+                '## Required Skills',
+                '',
+                '- `execution-plan-authoring`',
+                '',
+                '## Codanna Discovery',
+                '',
+                '- `search_documents`: confirmed the right workflow docs.',
+                '',
+                '## Evidence To Preserve',
+                '',
+                '- `docs/agentic/plan-authoring-standard.md`',
+                '',
+                '## Allowed File Changes',
+                '',
+                '- `docs/agentic/plan-authoring-standard.md`',
+                '',
+                '## Files Out Of Scope',
+                '',
+                '- `src/App.ts`',
+                '',
+                '## Planner Self-Check',
+                '',
+                '- No hidden seam remains.',
+                '',
+                '## Architecture Seam Decision Gate',
+                '',
+                '- Chosen seam is explicit.',
+                '',
+                '## Verification Commands',
+                '',
+                '- Run: `npm run verify:docs`',
+                '- Expected: `Documentation verification passed.`',
+                '',
+                '## Rollback Notes',
+                '',
+                '- Revert the doc change if the launcher contract becomes ambiguous.',
+                '',
+                '## Commit Checkpoints',
+                '',
+                '- `docs: refresh tracked plan contract`',
+                '',
+                buildChecklistLinkedPackageDecomposition(),
+                '',
+            ].join('\n')
+        );
+        writeRepoFile(
+            repoRoot,
+            'ARCHITECTURE_CLEANUP_CHECKLIST.md',
+            readFileSync(path.join(repoRoot, 'ARCHITECTURE_CLEANUP_CHECKLIST.md'), 'utf8') +
+                '\n- [ ] Active item (plan: docs/plans/example-active.md)\n'
+        );
+        runGit(['add', '.'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'verification commands section must classify verification strategy with one exact plan-standard marker'
+        );
+    });
+
     it('passes when a checklist-linked tracked plan uses the exact active marker and full serious-plan structure', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
@@ -1300,7 +1718,7 @@ describe('verify-docs', () => {
                 '',
                 '## Required Skills',
                 '',
-                '- `writing-plans`',
+                '- `execution-plan-authoring`',
                 '',
                 '## Codanna Discovery',
                 '',
@@ -1327,6 +1745,8 @@ describe('verify-docs', () => {
                 '- Chosen seam is explicit.',
                 '',
                 '## Verification Commands',
+                '',
+                '- Verification classification: `existing coverage sufficient`',
                 '',
                 '- Run: `npm run verify:docs`',
                 '- Expected: `Documentation verification passed.`',
@@ -1385,7 +1805,7 @@ describe('verify-docs', () => {
                 '',
                 '## Required Skills',
                 '',
-                '- `writing-plans`',
+                '- `execution-plan-authoring`',
                 '',
                 '## Codanna Discovery',
                 '',
@@ -1412,6 +1832,8 @@ describe('verify-docs', () => {
                 '- Chosen seam is explicit.',
                 '',
                 '## Verification Commands',
+                '',
+                '- Verification classification: `existing coverage sufficient`',
                 '',
                 '- Run: `npm run verify:docs`',
                 '- Expected: `Documentation verification passed.`',
@@ -1475,7 +1897,7 @@ describe('verify-docs', () => {
                 '',
                 '## Required Skills',
                 '',
-                '- `writing-plans`',
+                '- `execution-plan-authoring`',
                 '',
                 '## Codanna Discovery',
                 '',
@@ -1502,6 +1924,8 @@ describe('verify-docs', () => {
                 '- Chosen seam is explicit.',
                 '',
                 '## Verification Commands',
+                '',
+                '- Verification classification: `existing coverage sufficient`',
                 '',
                 '- Run: `npm run verify:docs`',
                 '- Expected: `Documentation verification passed.`',
@@ -1563,7 +1987,7 @@ describe('verify-docs', () => {
                 '',
                 '## Required Skills',
                 '',
-                '- `writing-plans`',
+                '- `execution-plan-authoring`',
                 '',
                 '## Codanna Discovery',
                 '',
@@ -1590,6 +2014,8 @@ describe('verify-docs', () => {
                 '- Chosen seam is explicit.',
                 '',
                 '## Verification Commands',
+                '',
+                '- Verification classification: `existing coverage sufficient`',
                 '',
                 '- Run: `npm run verify:docs`',
                 '- Expected: `Documentation verification passed.`',
@@ -1808,6 +2234,26 @@ describe('verify-docs', () => {
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('tracked follow-up');
         expect(result.stderr).toContain('harness-update-loop');
+    });
+
+    it('fails when feature-plan omits the planning-surface write boundary for the planner role', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/feature-plan.md': [
+                '# Feature Plan',
+                '',
+                '- Run this launcher with the tracked write-capable `planner` role. Use that role for bounded planning discovery, tracked plan artifacts, and execution-ready handoffs rather than product-code implementation.',
+                '- Keep the authoritative execution steps aligned in `update_plan`.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'feature-plan prompt doc must keep planner write scope confined to planning surfaces unless the parent explicitly narrows the task to a planning-doc edit'
+        );
     });
 
     it('fails when feature implement prompt omits the re-plan stop condition for remediation findings', () => {
@@ -2225,6 +2671,128 @@ describe('verify-docs', () => {
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('cleanup-loop prompt doc is missing required execution-unit orchestration marker');
         expect(result.stderr).toContain('each implemented approved execution unit or standalone execution target has a clean implementation review loop');
+    });
+
+    it('fails when cleanup-loop omits delegated-planner authority and no-competing-local-planning guidance', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/cleanup-loop.md': [
+                '# Cleanup Loop',
+                '',
+                '- For the delegated planning pass, use the tracked write-capable `planner` role.',
+                '- Use `execution-unit-select` for checklist-linked package work.',
+                '- Read `ready_now_execution_unit` before implementation starts.',
+                '- When a wave is selected, the controller stays inside that wave until its completion condition is met.',
+                '- Wave review is the default approval gate for that coherent approved batch.',
+                '- Each implemented approved execution unit or standalone execution target has a clean implementation review loop.',
+                '- If the completed checklist-linked execution unit closes the final planned `P#-W#` item, finish the `P#-EXIT` evidence before closeout.',
+                '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
+                '- Use `planner` for bounded planning artifacts, `worker` for implementation write passes, and `reviewer` for adversarial review passes.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('cleanup-loop prompt doc is missing required execution-unit orchestration marker');
+        expect(result.stderr).toContain('planner is the authoritative plan author until it finishes, explicitly blocks, fails, or is abandoned');
+        expect(result.stderr).toContain('must not do planner-grade repo discovery, redundant package-local scoping, issue reconciliation, or tracked plan drafting locally');
+        expect(result.stderr).toContain('minimum needed to answer an explicit blocker question or resolve a controller-only seam decision');
+    });
+
+    it('fails when cleanup-loop omits cleanup_worker routing for Tier 3 implementation passes', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/cleanup-loop.md': [
+                '# Cleanup Loop',
+                '',
+                '- For the delegated planning pass, use the tracked write-capable `planner` role.',
+                '- Once delegated planning starts, that planner is the authoritative plan author until it finishes, explicitly blocks, fails, or is abandoned only after a long wait, a direct status check, and a follow-up wait that still produces no usable progress signal.',
+                '- While that planner pass is active, the controller must not do planner-grade repo discovery, redundant package-local scoping, issue reconciliation, or tracked plan drafting locally; limit controller-side inspection to the minimum needed to answer an explicit blocker question or resolve a controller-only seam decision.',
+                '- The main thread must not author the execution-grade `checklist-linked` package plan itself just because it now has enough local context.',
+                '- Use `execution-unit-select` for checklist-linked package work.',
+                '- Read `ready_now_execution_unit` before implementation starts.',
+                '- Spawn or resume a persistent tracked `worker` implementation subagent using the approved plan and selected execution scope.',
+                '- When a wave is selected, the controller stays inside that wave until its completion condition is met.',
+                '- Wave review is the default approval gate for that coherent approved batch.',
+                '- Each implemented approved execution unit or standalone execution target has a clean implementation review loop.',
+                '- If the completed checklist-linked execution unit closes the final planned `P#-W#` item, finish the `P#-EXIT` evidence before closeout.',
+                '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
+                '- Use `planner` for bounded planning artifacts, `worker` for implementation write passes, and `reviewer` for adversarial review passes.',
+                '- Do not treat planner latency, controller curiosity, or newly gathered local context as a valid reason to reclaim planning.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('cleanup-loop prompt doc is missing required execution-unit orchestration marker');
+        expect(result.stderr).toContain('for tier 3 cleanup-loop implementation passes, use the tracked cleanup worker role instead of worker');
+    });
+
+    it('fails when cleanup-loop allows controller-side reclaim because it has enough local context', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/session-prompts/cleanup-loop.md': [
+                '# Cleanup Loop',
+                '',
+                '- For the delegated planning pass, use the tracked write-capable `planner` role.',
+                '- Once delegated planning starts, that planner is the authoritative plan author until it finishes, explicitly blocks, fails, or is abandoned only after a long wait, a direct status check, and a follow-up wait that still produces no usable progress signal.',
+                '- While that planner pass is active, the controller must not do planner-grade repo discovery, redundant package-local scoping, issue reconciliation, or tracked plan drafting locally; limit controller-side inspection to the minimum needed to answer an explicit blocker question or resolve a controller-only seam decision.',
+                '- The main thread may author the execution-grade `checklist-linked` package plan itself once it now has enough local context.',
+                '- Use `execution-unit-select` for checklist-linked package work.',
+                '- Read `ready_now_execution_unit` before implementation starts.',
+                '- When a wave is selected, the controller stays inside that wave until its completion condition is met.',
+                '- Wave review is the default approval gate for that coherent approved batch.',
+                '- Each implemented approved execution unit or standalone execution target has a clean implementation review loop.',
+                '- If the completed checklist-linked execution unit closes the final planned `P#-W#` item, finish the `P#-EXIT` evidence before closeout.',
+                '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
+                '- Use `planner` for bounded planning artifacts, `worker` for implementation write passes, and `reviewer` for adversarial review passes.',
+                '- Do not treat planner latency, controller curiosity, or newly gathered local context as a valid reason to reclaim planning.',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('cleanup-loop prompt doc is missing required execution-unit orchestration marker');
+        expect(result.stderr).toContain('must not author the execution-grade checklist-linked package plan itself just because it now has enough local context');
+    });
+
+    it('fails when workflow omits delegated-planner authority or blocker-only inspection guidance', () => {
+        const repoRoot = createRepoFixture({
+            'docs/AGENTIC_DEV_WORKFLOW.md': [
+                '# Workflow',
+                '',
+                'Route task family before choosing a tier.',
+                '',
+                '- For checklist-linked package work, `execution_unit` is the execution/review surface and `slice_table` remains the atomic ownership map.',
+                '- For checklist-linked package work, `ready_now_execution_unit` is required and `execution_waves` are optional unless one approved wave spans multiple slices.',
+                '- `coverage_ledger` stays execution-only and wave review is the default approval gate for a coherent approved batch.',
+                '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
+                '',
+                '[cleanup-plan](./agentic/session-prompts/cleanup-plan.md)',
+                '[cleanup-review](./agentic/session-prompts/cleanup-review.md)',
+                '[feature-plan](./agentic/session-prompts/feature-plan.md)',
+                '[feature-implement](./agentic/session-prompts/feature-implement.md)',
+                '[feature-review](./agentic/session-prompts/feature-review.md)',
+                '',
+                'Feature Tier 2 work should use planner (`feature-plan`) -> reviewer (`feature-review`) -> implementer (`feature-implement`) -> reviewer (`feature-review`).',
+                '',
+            ].join('\n'),
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Workflow doc is missing required execution-unit marker');
+        expect(result.stderr).toContain('delegated planner pass is active, keep it authoritative for plan authoring until it finishes, explicitly blocks, fails, or is abandoned after wait/status-check/wait with no usable progress signal');
+        expect(result.stderr).toContain('limit controller-side inspection to explicit blocker or seam resolution');
+        expect(result.stderr).toContain('do not do competing local plan drafting or redundant planning discovery');
     });
 
     it('fails when cleanup-review omits single-owner or revisit-trigger priority-exit guidance', () => {

@@ -1,0 +1,7 @@
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+developer_instructions = """
+Own one bounded cleanup-loop implementation write scope at a time.
+Make the smallest defensible cleanup change inside the approved execution unit, avoid unrelated edits, and validate the changed behavior before returning.
+Use this role only for Tier 3 cleanup-loop implementation passes; leave general implementation routing to the worker role.
+"""

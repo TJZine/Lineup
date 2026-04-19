@@ -40,7 +40,7 @@
   - `Cleanup Overlay` owns cleanup-only closeout doctrine and applicability
 - the tracked workflow now names the classification fields and points cleanup and feature launchers at the correct standard anchors
 - the checker now blocks active serious plans that omit classification fields or leave critical sections structurally empty, which reduces the chance of freezing another hidden-seam plan
-- prompt `18` now mirrors the tracked planner workflow by expecting repo-local boundary skills before `writing-plans`
+- prompt `18` now mirrors the tracked planner workflow by making `brainstorming` conditional on unresolved seams and by expecting `verification-strategy` before `execution-plan-authoring`
 - the cheaper-implementer model remains intact because:
   - the plan standard still requires the planner self-check and explicit seam-decision gate
   - planner launchers still stop when seam, routing, or out-of-scope contract assumptions are unresolved

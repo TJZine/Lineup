@@ -17,6 +17,8 @@ import {
     hasActivePlanMarker,
     parseSkillMirrorManifest,
     renderEvalPromptInventory,
+    REQUIRED_REPO_LOCAL_SKILL_FILES,
+    REQUIRED_REPO_LOCAL_SKILLS,
     renderSessionPromptSet,
     SESSION_PROMPT_SET_END_MARKER,
     SESSION_PROMPT_SET_START_MARKER,
@@ -93,7 +95,9 @@ const requiredCodexAgentRoles = [
     'explorer_fallback',
     'reviewer',
     'docs_researcher',
+    'planner',
     'worker',
+    'cleanup_worker',
     'monitor',
     'monitor_fallback',
 ];
@@ -110,6 +114,49 @@ const codexRoleWorkflowMarkerFiles = [
     'docs/agentic/skill-strategy.md',
     'docs/agentic/session-prompts/workflow-harness-review.md',
 ];
+const requiredCodexRoleContracts = new Map([
+    [
+        'planner',
+        {
+            requiredLinePatterns: [
+                { pattern: /^model\s*=\s*"gpt-5\.4"\s*(?:#.*)?$/mu, label: 'model = "gpt-5.4"' },
+                {
+                    pattern: /^model_reasoning_effort\s*=\s*"high"\s*(?:#.*)?$/mu,
+                    label: 'model_reasoning_effort = "high"',
+                },
+            ],
+            requiredMarkers: [
+                'own bounded planning work',
+                'not product-code implementation',
+                'planning artifacts',
+                'execution-ready handoffs',
+                'leave implementation to the worker role',
+            ],
+        },
+    ],
+    [
+        'cleanup_worker',
+        {
+            requiredLinePatterns: [
+                { pattern: /^model\s*=\s*"gpt-5\.4"\s*(?:#.*)?$/mu, label: 'model = "gpt-5.4"' },
+                {
+                    pattern: /^model_reasoning_effort\s*=\s*"high"\s*(?:#.*)?$/mu,
+                    label: 'model_reasoning_effort = "high"',
+                },
+            ],
+            requiredMarkers: [
+                'bounded cleanup-loop implementation write scope',
+                'smallest defensible cleanup change',
+                'approved execution unit',
+                'tier 3 cleanup-loop implementation passes',
+                'leave general implementation routing to the worker role',
+            ],
+        },
+    ],
+]);
+const requiredCodexRoleDescriptionMarkers = new Map([
+    ['cleanup_worker', ['cleanup-loop-specific implementer', 'approved tier 3 cleanup-loop implementation passes']],
+]);
 
 function recordFsError(errors, operation, targetPath, error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -120,6 +167,7 @@ const FAILED_GIT = Symbol('FAILED_GIT');
 
 let cachedTrackedPlanPaths = null;
 let cachedTrackedCodexPaths = null;
+let cachedTrackedRepoLocalSkillPaths = null;
 
 function getTrackedPlanPaths(errors) {
     if (cachedTrackedPlanPaths !== null) {
@@ -169,6 +217,30 @@ function getTrackedCodexPaths(errors) {
     }
 }
 
+function getTrackedRepoLocalSkillPaths(errors) {
+    if (cachedTrackedRepoLocalSkillPaths !== null) {
+        return cachedTrackedRepoLocalSkillPaths;
+    }
+
+    try {
+        const output = execFileSync('git', ['ls-files', '--', ...REQUIRED_REPO_LOCAL_SKILL_FILES], {
+            cwd: repoRoot,
+            encoding: 'utf8',
+        });
+        cachedTrackedRepoLocalSkillPaths = new Set(
+            output
+                .split(/\r?\n/u)
+                .map((line) => line.trim())
+                .filter((line) => line.length > 0)
+        );
+        return cachedTrackedRepoLocalSkillPaths;
+    } catch (error) {
+        recordFsError(errors, 'list tracked repo-local skill files via git', '.codex/skills', error);
+        cachedTrackedRepoLocalSkillPaths = FAILED_GIT;
+        return cachedTrackedRepoLocalSkillPaths;
+    }
+}
+
 function toRepoRelativePath(absolutePath) {
     return path.relative(repoRoot, absolutePath).split(path.sep).join('/');
 }
@@ -210,6 +282,8 @@ function isForbiddenLocalOnlyTarget(relativePath) {
     return (
         relativePath === '.agent/skills' ||
         relativePath.startsWith('.agent/skills/') ||
+        relativePath === '.agents' ||
+        relativePath.startsWith('.agents/') ||
         relativePath.startsWith('docs/agentic/evals/baselines/') ||
         relativePath === 'docs/runs' ||
         relativePath.startsWith('docs/runs/')
@@ -350,6 +424,10 @@ function checkForbiddenLiteralReferences(errors) {
             regex: /\.agent\/skills\/[a-z0-9._-]+\/SKILL\.md/giu,
         },
         {
+            description: 'local-only .agents artifact',
+            regex: /\.agents(?:\/[a-z0-9._/-]+)?/giu,
+        },
+        {
             description: 'local-only run instance',
             regex: new RegExp(`docs\\/runs\\/\\d{4}-\\d{2}-\\d{2}-[a-z0-9._-]+\\/${pathChars}`, 'giu'),
         },
@@ -463,6 +541,33 @@ function checkSessionPromptReadme(errors) {
     const expected = renderSessionPromptSet().trim();
     if (managedSection !== expected) {
         errors.push('Session prompt README managed prompt-set section is out of sync; run `npm run docs:sync`.');
+    }
+
+    const normalizedLines = normalizeDocLines(readme);
+    const hasPlannerRoleIntent = normalizedLines.some(
+        (line) => includesAllMarkers(line, ['cleanup-plan.md', 'feature-plan.md', 'planner role'])
+    );
+    const hasWorkerRoleIntent = normalizedLines.some(
+        (line) => includesAllMarkers(line, ['cleanup-implement.md', 'feature-implement.md', 'worker role'])
+    );
+    const hasCleanupWorkerRoleIntent = normalizedLines.some(
+        (line) => includesAllMarkers(line, ['cleanup-loop.md', 'cleanup worker', 'implementation passes'])
+    );
+    const hasReviewerRoleIntent = normalizedLines.some(
+        (line) =>
+            includesAllMarkers(line, [
+                'cleanup-review.md',
+                'feature-review.md',
+                'workflow-harness-review.md',
+                'read-only',
+                'reviewer role',
+            ])
+    );
+
+    if (!hasPlannerRoleIntent || !hasWorkerRoleIntent || !hasCleanupWorkerRoleIntent || !hasReviewerRoleIntent) {
+        errors.push(
+            'Session prompt README must keep the tracked role intent explicit: planner for planning launchers, worker for general implementers, cleanup_worker only for Tier 3 cleanup-loop implementation passes, reviewer read-only for review launchers.'
+        );
     }
 }
 
@@ -787,6 +892,34 @@ function hasPositiveDocumentMapAuthorityReference(content) {
 }
 
 function checkFeatureRemediationPromptContracts(errors) {
+    const featurePlan = readRepoFile('docs/agentic/session-prompts/feature-plan.md', errors);
+    if (featurePlan !== null) {
+        const normalized = normalizeDocText(featurePlan);
+        const normalizedLines = normalizeDocLines(featurePlan);
+        const hasPlannerRoleBoundary = normalizedLines.some(
+            (line) =>
+                includesAllMarkers(line, [
+                    'tracked write-capable',
+                    'planner role',
+                    'bounded planning discovery',
+                    'tracked plan artifacts',
+                    'execution-ready handoffs',
+                ]) && includesAnyMarker(line, ['not product-code implementation', 'rather than product-code implementation'])
+        );
+
+        if (!hasPlannerRoleBoundary) {
+            errors.push(
+                'feature-plan prompt doc must explicitly bind the planner role to bounded planning discovery, plan artifacts, and execution-ready handoffs rather than product-code implementation'
+            );
+        }
+
+        if (!normalized.includes('keep write activity confined to planning surfaces')) {
+            errors.push(
+                'feature-plan prompt doc must keep planner write scope confined to planning surfaces unless the parent explicitly narrows the task to a planning-doc edit'
+            );
+        }
+    }
+
     const implement = readRepoFile('docs/agentic/session-prompts/feature-implement.md', errors);
     if (implement !== null) {
         const normalized = normalizeDocText(implement);
@@ -1147,6 +1280,9 @@ function checkCleanupExecutionUnitContracts(errors) {
             'execution waves',
             'wave review is the default approval gate',
             'large-package execution should review coherent retirement batches',
+            'delegated planner pass is active, keep it authoritative for plan authoring until it finishes, explicitly blocks, fails, or is abandoned after wait/status-check/wait with no usable progress signal',
+            'limit controller-side inspection to explicit blocker or seam resolution',
+            'do not do competing local plan drafting or redundant planning discovery',
         ];
 
         for (const marker of requiredWorkflowMarkers) {
@@ -1167,6 +1303,9 @@ function checkCleanupExecutionUnitContracts(errors) {
             'replan triggers',
             'package decomposition decisions with ready now execution unit',
             'large-package execution should review coherent retirement batches',
+            'tracked write-capable planner role',
+            'not product-code implementation',
+            'write activity confined to planning surfaces',
         ];
 
         for (const marker of requiredCleanupPlanMarkers) {
@@ -1187,6 +1326,15 @@ function checkCleanupExecutionUnitContracts(errors) {
             'each implemented approved execution unit or standalone execution target has a clean implementation review loop',
             'completed checklist-linked execution unit closes the final planned',
             'large-package execution should review coherent retirement batches',
+            'tracked write-capable planner role',
+            'use planner for bounded planning artifacts, cleanup worker for tier 3 cleanup-loop implementation write passes, worker for general implementation outside that loop, and reviewer for adversarial review passes',
+            'for tier 3 cleanup-loop implementation passes, use the tracked cleanup worker role instead of worker',
+            'planner is the authoritative plan author until it finishes, explicitly blocks, fails, or is abandoned',
+            'long wait, a direct status check, and a follow-up wait',
+            'must not do planner-grade repo discovery, redundant package-local scoping, issue reconciliation, or tracked plan drafting locally',
+            'minimum needed to answer an explicit blocker question or resolve a controller-only seam decision',
+            'must not author the execution-grade checklist-linked package plan itself just because it now has enough local context',
+            'do not treat planner latency, controller curiosity, or newly gathered local context as a valid reason to reclaim planning',
         ];
 
         for (const marker of requiredCleanupLoopMarkers) {
@@ -1237,6 +1385,8 @@ function checkCleanupExecutionUnitContracts(errors) {
             'execution waves',
             'coverage ledger',
             'large-package execution should review coherent retirement batches',
+            'route tier 3 cleanup-loop.md implementation passes through the tracked cleanup worker role only',
+            'cleanup-loop is the exception: tier 3 cleanup implementation inside that loop routes to cleanup worker while tier 2 cleanup and feature implementation stay on worker',
         ];
 
         for (const marker of requiredReadmeMarkers) {
@@ -1371,6 +1521,20 @@ function checkSkillMirrorManifest(errors) {
     }
 }
 
+function checkRequiredRepoLocalSkills(errors) {
+    const trackedSkillPaths = getTrackedRepoLocalSkillPaths(errors);
+    for (const skill of REQUIRED_REPO_LOCAL_SKILLS) {
+        const relativePath = `.codex/skills/${skill}/SKILL.md`;
+        if (!existsSync(path.join(repoRoot, relativePath))) {
+            errors.push(`Missing required repo-local canonical skill \`${skill}\`: ${relativePath}`);
+            continue;
+        }
+        if (trackedSkillPaths !== FAILED_GIT && !trackedSkillPaths.has(relativePath)) {
+            errors.push(`Required repo-local canonical skill is not tracked: ${relativePath}`);
+        }
+    }
+}
+
 function isCodexRoleWorkflowTracked(errors) {
     let foundConfig = false;
     let foundAgents = false;
@@ -1391,6 +1555,7 @@ function isCodexRoleWorkflowTracked(errors) {
 function parseCodexRoleConfig(configContent) {
     const declaredRoles = new Set();
     const roleConfigFiles = new Map();
+    const roleSections = new Map();
     let currentRole = null;
     let currentSection = null;
     let maxDepth = null;
@@ -1407,6 +1572,7 @@ function parseCodexRoleConfig(configContent) {
         if (roleMatch !== null) {
             currentRole = roleMatch[1];
             declaredRoles.add(currentRole);
+            roleSections.set(currentRole, []);
             continue;
         }
 
@@ -1426,13 +1592,15 @@ function parseCodexRoleConfig(configContent) {
             continue;
         }
 
+        roleSections.get(currentRole)?.push(line);
+
         const configFileMatch = line.match(/^config_file\s*=\s*"([^"]+)"$/u);
         if (configFileMatch !== null) {
             roleConfigFiles.set(currentRole, configFileMatch[1]);
         }
     }
 
-    return { declaredRoles, roleConfigFiles, maxDepth };
+    return { declaredRoles, roleConfigFiles, roleSections, maxDepth };
 }
 
 export function checkTrackedCodexRoleConfig(errors) {
@@ -1461,7 +1629,7 @@ export function checkTrackedCodexRoleConfig(errors) {
         errors.push(`Tracked Codex role config is not tracked by git: ${configRelativePath}`);
     }
 
-    const { declaredRoles, roleConfigFiles, maxDepth } = parseCodexRoleConfig(configContent);
+    const { declaredRoles, roleConfigFiles, roleSections, maxDepth } = parseCodexRoleConfig(configContent);
     const missingRoles = requiredCodexAgentRoles.filter((role) => !declaredRoles.has(role));
     if (missingRoles.length > 0) {
         errors.push(
@@ -1480,6 +1648,17 @@ export function checkTrackedCodexRoleConfig(errors) {
 
     if (maxDepth !== 1) {
         errors.push('Tracked Codex role config must set agents.max_depth = 1 to preserve conservative nesting');
+    }
+
+    for (const [role, markers] of requiredCodexRoleDescriptionMarkers.entries()) {
+        const normalizedRoleSection = normalizeDocText((roleSections.get(role) ?? []).join('\n'));
+        for (const marker of markers) {
+            if (!normalizedRoleSection.includes(marker)) {
+                errors.push(
+                    `Codex role declaration is missing required ${role} scope marker (${marker}) in .codex/config.toml`
+                );
+            }
+        }
     }
 
     const missingRoleConfigPaths = new Set();
@@ -1536,6 +1715,41 @@ export function checkTrackedCodexRoleConfig(errors) {
 
         if (!/^sandbox_mode\s*=\s*"read-only"$/mu.test(roleConfigContent)) {
             errors.push(`Read-only Codex role config must set sandbox_mode = "read-only": ${relativePath}`);
+        }
+    }
+
+    for (const [role, contract] of requiredCodexRoleContracts.entries()) {
+        const configFile = roleConfigFiles.get(role);
+        if (configFile === undefined || !configFile.startsWith('agents/') || !configFile.endsWith('.toml')) {
+            continue;
+        }
+
+        const relativePath = `.codex/${configFile}`;
+        if (!existsSync(path.join(repoRoot, relativePath))) {
+            continue;
+        }
+
+        const roleConfigContent = readRepoFile(relativePath, errors);
+        if (roleConfigContent === null) {
+            continue;
+        }
+
+        const normalizedRoleConfig = normalizeDocText(roleConfigContent);
+
+        for (const requiredLinePattern of contract.requiredLinePatterns ?? []) {
+            if (!requiredLinePattern.pattern.test(roleConfigContent)) {
+                errors.push(
+                    `Codex role config is missing required ${role} contract line (${requiredLinePattern.label}): ${relativePath}`
+                );
+            }
+        }
+
+        for (const requiredMarker of contract.requiredMarkers ?? []) {
+            if (!normalizedRoleConfig.includes(requiredMarker)) {
+                errors.push(
+                    `Codex role config is missing required ${role} boundary marker (${requiredMarker}): ${relativePath}`
+                );
+            }
         }
     }
 }
@@ -1613,6 +1827,7 @@ function main() {
     checkPlanArchiveCoherence(errors);
     checkArchivedSectionSummaryConformance(errors);
     checkSkillMirrorManifest(errors);
+    checkRequiredRepoLocalSkills(errors);
     checkTrackedCodexRoleConfig(errors);
     checkSeriousPlanConformance(errors);
 

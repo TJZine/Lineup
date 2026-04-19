@@ -57,16 +57,19 @@ When tracked docs conflict, use this order:
 - use Codanna-first discovery for code understanding
 - prevent hotspot files from absorbing more responsibility
 - catch debt early through verification, review, and evals
+- keep the tracked role catalog conservative: `planner` for bounded planning artifacts, `worker` for general implementation, one cleanup-loop-specific `cleanup_worker` exception for approved Tier 3 cleanup-loop implementation passes, and `reviewer` for read-only review
 
 ## Default Workflow
 
 1. Start with the relevant process skills.
    - always: `using-superpowers`
-   - add `brainstorming` when shaping new functionality, behavior, or design
+   - add `brainstorming` when product intent, behavior/design direction, or the planning seam is still unresolved
    - add the matching repo-local boundary skill(s) when the task crosses that boundary
-   - for cleanup/refactor planning, the default planning order is: `using-superpowers` -> `brainstorming` -> matching repo-local boundary skill(s) -> `writing-plans`
+   - for cleanup/refactor planning, the default planning order is: `using-superpowers` -> matching repo-local boundary skill(s) -> `verification-strategy` -> `execution-plan-authoring`
+     - add `brainstorming` first only when the cleanup seam, scope, or approach is still unresolved
    - for feature/design planning, the default planning order is:
-     `using-superpowers` -> `brainstorming` -> one global UI skill when UI creation/redesign is actually in scope -> matching repo-local boundary skill(s) -> `writing-plans`
+     `using-superpowers` -> one global UI skill when UI creation/redesign is actually in scope -> matching repo-local boundary skill(s) -> `verification-strategy` -> `execution-plan-authoring`
+     - add `brainstorming` first only when product intent, UX direction, or the implementation seam is still unresolved
      - choose exactly one global UI skill:
        - `interface-design` for product interfaces (dashboards/admin/settings/tools/data-heavy UI)
        - `frontend-design` for marketing/landing pages and other brand-forward surfaces
@@ -113,8 +116,19 @@ When tracked docs conflict, use this order:
    - for checklist-linked package plans, `coverage_ledger` is execution-only and must not redefine package membership, which remains owned by the checklist companion map
    - for checklist-linked package plans, absorb now only when newly discovered residue stays within the same approved execution unit goal, same owner, same seam/files, same verification envelope, and same final-owner accounting; otherwise replan before execution continues
    - for serious tracked plans, follow [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md)
+   - use repo-local `execution-plan-authoring` as the authoritative planner skill for Lineup serious plans; do not let global `writing-plans` override the repo plan standard
+   - use repo-local `verification-strategy` to choose the proof mode before freezing verification commands or deciding whether new tests are needed
+   - serious tracked plans must be decision-complete at the seam, scope, ownership, and verification level without turning into pseudo-code master plans
+   - serious tracked plans should freeze expensive-to-get-wrong decisions and deliberately leave ordinary local coding choices delegated unless a narrow contract snippet materially reduces risk
+   - serious tracked plans must record explicit stop-and-replan conditions under the seam gate or an adjacent replan block; implementers should not invent replan policy mid-run
+   - when a weaker or cheaper implementer needs extra current-unit detail, emit a bounded current-unit execution packet rather than bloating the master plan
    - before freezing a serious tracked plan, run the planner self-check from the plan standard so unresolved seams, wrong owners, contradictory scope, or missing evidence are surfaced before execution
    - if an architecture seam or adjacent contract change is still undecided, resolve that boundary before freezing a “decision-point-free” execution plan
+   - every serious tracked plan must classify the verification strategy for the current execution surface as one of:
+     - `new regression/contract test required`
+     - `existing coverage sufficient`
+     - `broader integration/manual proof required`
+     - `no new automated test needed`
    - if a cleanup slice is the last planned `P#-W#` item for a priority, add an explicit priority-exit step before any `P(n+1)` work begins
    - a final `P#-W#` cleanup plan must use the cleanup overlay's `Priority-Exit Readiness` section and assign a single final owner to any deferred or split-follow-up residual before starting or planning the next priority
    - for final-slice cleanup closeout planning, follow [`docs/agentic/plan-authoring-standard.md#cleanup-overlay`](./agentic/plan-authoring-standard.md#cleanup-overlay) as the normative owner for imported-issue disposition, single-final-owner rules, detector-vs-source-audit reconciliation, and `Priority-Exit Readiness`
@@ -122,7 +136,7 @@ When tracked docs conflict, use this order:
    - use `docs/runs/` for local-only major-task execution bundles and run logs
    - keep path surfaces truthful across memory tiers: local run-bundle artifacts should continue to reference `docs/runs/...` until their durable lessons are promoted into tracked docs; do not relabel local artifacts as `docs/plans/...` in handoffs or required-reading sections
    - treat `docs/agentic/historical-plan-corpus-review.md` as optional calibration, not default required reading, when a serious tracked plan needs extra example-driven review context or when you are updating eval seeds
-   - for serious tracked plans, record the full Codanna evidence trail: `semantic_search_with_context`, `search_documents` when repo-doc context matters, `analyze_impact`, and any explicit fallback reads
+   - for serious tracked plans, record the Codanna evidence trail: `semantic_search_with_context`, `search_documents` when repo-doc context matters, `analyze_impact` when risky/shared edits are in scope, and any explicit fallback reads
    - record the Codanna impact snapshot for risky/shared-symbol edits
 7. Implement narrowly.
    - one work unit at a time
@@ -163,6 +177,7 @@ When tracked docs conflict, use this order:
    - when launcher invocation behavior changes, update the matching tracked launcher docs and keep cleanup vs feature ergonomics aligned unless a documented difference is intentional
    - when plan-standard section ownership changes, realign launcher/workflow references to the correct plan-standard anchors in the same pass
    - when repo-local skills change, sync the `.agent/skills/` mirror with `scripts/sync_agent_skills.sh`
+   - `.codex/skills/` is the canonical tracked source for repo-local skills; do not treat tracked docs as a steady-state skill fallback
    - when prompt inventories or managed README sections change, run `npm run docs:sync` before `npm run verify:docs`
    - when workflow, launcher, skill, or role changes trip an eval trigger, run the required manual eval prompt set named in [`docs/agentic/evals/README.md`](./agentic/evals/README.md) and record the tracked baseline summary in the same pass
    - do not claim a workflow-quality improvement from prose alone; pair the doc update with the matching verification and eval evidence
@@ -174,6 +189,7 @@ Use Codex multi-agent support only when it materially improves reliability, thro
 - Keep immediate critical-path work local when the very next action depends on it.
 - Delegate independent sidecars such as targeted exploration, adversarial review, docs verification, or long waits/polling.
 - Delegate bounded disjoint implementation slices only when `bounded-worker-execution` applies and the main session still owns integration plus final verification.
+- Use the tracked `planner` role for bounded planning/discovery artifacts and execution-ready plan handoffs; do not emulate planner routing by sending planning through `worker` plus prompt-level model overrides.
 - Use repo-local skills to keep delegation rules explicit:
   - use `parallel-sidecars` for optional read-only or monitoring sidecars
   - use `bounded-worker-execution` only for approved, disjoint worker slices with explicit write ownership
@@ -182,6 +198,9 @@ Use Codex multi-agent support only when it materially improves reliability, thro
   - `.codex/agents/*.toml`
   - `agents.md`
 - Keep read-only roles read-only; do not route edits through exploration/review/docs/monitor roles (enforced by the tracked config + verifier).
+- Keep the write-capable roles separated by purpose: `planner` owns bounded planning surfaces, `worker` owns general implementation scopes, and `cleanup_worker` is reserved for approved Tier 3 `cleanup-loop` implementation passes.
+- Once a delegated `planner` pass is active, keep it authoritative for plan authoring until it finishes, explicitly blocks, fails, or is abandoned after wait/status-check/wait with no usable progress signal.
+- While that delegated planner is active, limit controller-side inspection to explicit blocker or seam resolution; do not do competing local plan drafting or redundant planning discovery.
 - Do not spawn nested worker trees by default; keep delegation shallow (enforced by the tracked config + verifier).
 - Wait sparingly; block only when the next critical-path action truly depends on a delegated result.
 
@@ -199,6 +218,10 @@ Use Codex multi-agent support only when it materially improves reliability, thro
   - optional sidecars such as exploration, adversarial review, docs checks, and waits that should not take over the critical path
 - `bounded-worker-execution`
   - approved-plan worker slices with disjoint write scopes and controller-owned integration
+- `execution-plan-authoring`
+  - serious tracked plans and bounded execution briefs that must freeze seam/scope/verification without pseudo-code bloat
+- `verification-strategy`
+  - verification mode selection and proof-surface calibration without forcing fail-first TDD or brittle tests
 - `model-selection`
   - explicit "which model should I use?" requests and high-risk handoffs that need a model recommendation for the next session
 
@@ -226,7 +249,7 @@ Feature plans consume the [`Universal Plan Core`](./agentic/plan-authoring-stand
 
 Use the reusable launchers only when the task risk justifies them. Tier 1 work should usually stay in one session with review.
 
-For larger multi-session or hotspot work, create a task-specific run bundle in [`docs/runs/`](./runs/README.md). Use `cleanup-loop` only for Tier 3 cleanup/refactor control; keep planning/package closeout package-scoped for `checklist-linked` work, run approved execution-unit implementation/review there, keep `standalone remediation` bounded to its approved execution target unless the plan stages it further, and allow parallel execution units only when the approved plan explicitly allows them. For Tier 3 feature or mixed work, keep the same feature `feature-plan` + `feature-review` + `feature-implement` + `feature-review` workflow, use the run bundle as the task-specific context, and keep cleanup prompts scoped to the cleanup slice.
+For larger multi-session or hotspot work, create a task-specific run bundle in [`docs/runs/`](./runs/README.md). Use `cleanup-loop` only for Tier 3 cleanup/refactor control; planning there still uses `planner`, implementation there routes through `cleanup_worker`, review there stays on `reviewer`, keep planning/package closeout package-scoped for `checklist-linked` work, run approved execution-unit implementation/review there, keep `standalone remediation` bounded to its approved execution target unless the plan stages it further, and allow parallel execution units only when the approved plan explicitly allows them. For Tier 3 feature or mixed work, keep the same feature `feature-plan` + `feature-review` + `feature-implement` + `feature-review` workflow, use the run bundle as the task-specific context, and keep cleanup prompts scoped to the cleanup slice.
 
 ## Session Handoffs
 
