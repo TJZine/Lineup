@@ -10,8 +10,8 @@ This document tracks package-scoped style cleanup work for shared CSS contracts,
 
 - Last audit refresh: `2026-04-18`
 - Last structural refresh: `2026-04-19`
-- Current execution state: `S2-W1` and `S2-EXIT` are complete; `S3-W1` is now the next unblocked package
-- Next safe start: `S3-W1` / `pkg_epg_followthrough`
+- Current execution state: `S3-W1`, `S3-EXIT`, and `S4-W1` are complete; `S4-EXIT` is now the active gate, with `S5-W1` still blocked behind the same bundled Tier 2 plan
+- Next safe start: `S4-EXIT` manual runtime smoke proof and cleanup review for `pkg_runtime_overlay_parity`
 - Preferred launcher: use a local-only execution brief for Tier 2 packages; reserve `cleanup-loop` for the remaining approved Tier 3 package (`S8-W1`)
 - Authoritative evidence rule: change package status only from commands and source reads rerun in the target workspace/branch
 - Exact issue-membership surface: `docs/design/active-style-cleanup-package-map.json`
@@ -151,6 +151,12 @@ Check a box only in the same pass that updates the mini-record with current veri
     - targeted overlay source-audit commands from the active plan
     - `npm run verify`
   - exit rule: runtime theme-tint participation is explicit for the intended overlay family
+  - Status: `blocked`
+  - Plan: `docs/plans/2026-04-19-s4-s5-runtime-overlay-parity-accessibility.md`
+  - Last touched: `2026-04-19`
+  - Verification: `npm test -- --runInBand src/modules/ui/__tests__/runtime-overlay-style-contracts.test.ts src/modules/ui/channel-badge/__tests__/ChannelBadgeOverlay.test.ts src/modules/ui/channel-transition/__tests__/ChannelTransitionOverlay.test.ts src/modules/ui/channel-number-overlay/__tests__/ChannelNumberOverlay.test.ts src/modules/ui/playback-options/__tests__/PlaybackOptionsModal.test.ts` -> pass; `rg -n "theme-(glass|swiss|directv|ember-steel|slate-pine)|scrim-tint-rgb|playback-options-panel|exit-confirm-panel" src/modules/ui/channel-badge/styles.css src/modules/ui/channel-transition/styles.css src/modules/ui/channel-number-overlay/styles.css src/modules/ui/playback-options/styles.core.css src/modules/ui/playback-options/styles.theme.css src/modules/ui/exit-confirm/styles.css` -> matched the compact-overlay and modal parity selectors only in the approved runtime files; `npm run verify` -> pass; `npm run verify:docs` -> pass; manual runtime smoke proof for base/Glass/DirecTV compact overlays plus Playback Options / Exit Confirm parity has not yet been observed in this workspace
+  - Follow-ups: manual runtime smoke proof plus `lineup-cleanup-review` remain the single `S4-EXIT` owners; `S5-W1` stays blocked until that evidence is recorded
+  - Handoff: run the `S4` runtime smoke script, then request `S4-EXIT` cleanup review before starting `S5-W1`
 
 - [ ] `S5-EXIT`
   - required: the runtime forced-colors/focus coverage package is closed for the non-EPG surfaces it owns
@@ -234,18 +240,18 @@ Check a box only in the same pass that updates the mini-record with current veri
 
 ## Priority 4: Runtime Overlay Parity
 
-- [ ] `S4-W1` `pkg_runtime_overlay_parity` Runtime Overlay Parity
+- [x] `S4-W1` `pkg_runtime_overlay_parity` Runtime Overlay Parity
   - Backlog: `3` exact issues
   - Tier / effort / risk: `Tier 2` / `M` / `medium`
   - Execution shape: `2` serial execution units
   - Scope: move the intended runtime overlay family onto the shared theme-aware treatment without reopening onboarding/theme-immune surfaces
   - Exact membership: `docs/design/active-style-cleanup-package-map.json` -> `pkg_runtime_overlay_parity`
-  - Status: `not started`
-  - Plan: `none yet`
+  - Status: `completed`
+  - Plan: `docs/plans/2026-04-19-s4-s5-runtime-overlay-parity-accessibility.md`
   - Last touched: `2026-04-19`
-  - Verification: `not run`
-  - Follow-ups: `S4-EXIT` is the single exit owner
-  - Handoff: start after `S1-EXIT`
+  - Verification: `npm test -- --runInBand src/modules/ui/__tests__/runtime-overlay-style-contracts.test.ts src/modules/ui/channel-badge/__tests__/ChannelBadgeOverlay.test.ts src/modules/ui/channel-transition/__tests__/ChannelTransitionOverlay.test.ts src/modules/ui/channel-number-overlay/__tests__/ChannelNumberOverlay.test.ts src/modules/ui/playback-options/__tests__/PlaybackOptionsModal.test.ts` -> pass; `rg -n "theme-(glass|swiss|directv|ember-steel|slate-pine)|scrim-tint-rgb|playback-options-panel|exit-confirm-panel" src/modules/ui/channel-badge/styles.css src/modules/ui/channel-transition/styles.css src/modules/ui/channel-number-overlay/styles.css src/modules/ui/playback-options/styles.core.css src/modules/ui/playback-options/styles.theme.css src/modules/ui/exit-confirm/styles.css` -> matched the compact-overlay and modal parity selectors only in the approved runtime files; `npm run verify` -> pass
+  - Follow-ups: `S4-EXIT` is still the single exit owner because the required manual runtime smoke proof and cleanup review have not been recorded yet; `S5-W1` remains blocked until `S4-EXIT` clears
+  - Handoff: use the shared plan to finish `S4-EXIT`; do not start `S5-W1` until the runtime smoke proof and review close the gate
 
 ## Priority 5: Runtime Accessibility Coverage
 
@@ -255,12 +261,12 @@ Check a box only in the same pass that updates the mini-record with current veri
   - Execution shape: `2` serial execution units
   - Scope: add the missing non-EPG runtime forced-colors coverage and related accessibility follow-through
   - Exact membership: `docs/design/active-style-cleanup-package-map.json` -> `pkg_runtime_accessibility_coverage`
-  - Status: `not started`
-  - Plan: `none yet`
+  - Status: `planned`
+  - Plan: `docs/plans/2026-04-19-s4-s5-runtime-overlay-parity-accessibility.md`
   - Last touched: `2026-04-19`
-  - Verification: `not run`
-  - Follow-ups: `S5-EXIT` is the single exit owner; EPG accessibility remains owned by `S3-W1`
-  - Handoff: start after `S4-EXIT` or as an explicitly approved blocker override
+  - Verification: `planning only` - implementation must run the shared runtime-overlay contract tests, targeted `rg` source audits, `npm run verify`, and `npm run verify:docs` if checklist/plan surfaces change in the same pass
+  - Follow-ups: `S5-EXIT` is the single exit owner; EPG accessibility remains owned by `S3-W1`; execution stays blocked on `S4-EXIT` unless the user approves a blocker override
+  - Handoff: use the shared plan after `S4-EXIT`; first `S5` execution unit is `S5-W1-S1`
 
 ## Priority 6: Settings / Playback Polish
 
