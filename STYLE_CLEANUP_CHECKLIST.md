@@ -10,9 +10,9 @@ This document tracks package-scoped style cleanup work for shared CSS contracts,
 
 - Last audit refresh: `2026-04-18`
 - Last structural refresh: `2026-04-19`
-- Current execution state: `S1-W1` is planned and implementation-ready; no implementation package has started yet
+- Current execution state: `S1-W1` is planned; no implementation package has started yet and no active tracked plan is required yet
 - Next safe start: `S1-W1` / `pkg_shared_style_contracts`
-- Preferred launcher: `cleanup-implement` for `S1-W1`; reserve `cleanup-loop` for approved Tier 3 packages (`S2-W1`, `S8-W1`)
+- Preferred launcher: use a local-only execution brief for `S1-W1` when work begins; reserve `cleanup-loop` for approved Tier 3 packages (`S2-W1`, `S8-W1`)
 - Authoritative evidence rule: change package status only from commands and source reads rerun in the target workspace/branch
 - Exact issue-membership surface: `docs/design/active-style-cleanup-package-map.json`
 - Audit/reference only: `STYLE_AUDIT.md`
@@ -178,11 +178,11 @@ Check a box only in the same pass that updates the mini-record with current veri
   - Scope: lock the shared decisions that later packages depend on: overlay stack contract authority, server-select phantom status-token policy, compact `10px` radius semantics, and `--color-text-on-focus`
   - Exact membership: `docs/design/active-style-cleanup-package-map.json` -> `pkg_shared_style_contracts`
   - Status: `planned`
-  - Plan: `docs/plans/2026-04-19-s1-w1-shared-style-contracts.md`
+  - Plan: `none yet`
   - Last touched: `2026-04-19`
-  - Verification: planning-only in this pass; implementation verification is defined in the active plan
+  - Verification: planning-only in this pass; execution verification will be defined when the package starts
   - Follow-ups: `S1-EXIT` is the single exit owner; broader runtime/onboarding adoption stays with `S7-W1` and `S8-W1`
-  - Handoff: implement `S1-W1` using `docs/plans/2026-04-19-s1-w1-shared-style-contracts.md`
+  - Handoff: if execution starts, cut a local-only `S1-W1` brief first, then implement `pkg_shared_style_contracts`
 
 ## Priority 2: EPG Hotspot Decomposition
 
