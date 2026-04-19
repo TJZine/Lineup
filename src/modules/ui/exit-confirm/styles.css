@@ -107,7 +107,7 @@
 .exit-confirm-action.focused,
 .exit-confirm-action:focus-visible:not(.focused) {
   background: rgba(255, 255, 255, 0.92);
-  color: #0a0d12;
+  color: var(--color-text-on-focus);
   border-color: rgba(255, 255, 255, 0.92);
   box-shadow: 0 0 16px rgba(255, 255, 255, 0.30);
 }

@@ -15,11 +15,19 @@ It describes preferred decision-making for ongoing work. It does not imply the r
 
 Prefer tokens first for typography, spacing, radius, color, and overlay z-index when the mapping is clear and shared.
 
+The shared overlay-stack contract lives in `src/styles/tokens.css` through `--z-base`, `--z-dropdown`, `--z-modal`, `--z-overlay`, `--z-toast`, and `--z-max`. Reusing that scale locks relative ordering; it is not permission to widen a bounded package into repo-wide z-index migration.
+
 If no token fits, choose the smallest reasonable option for the work in front of you:
 
 1. Reuse an existing surface pattern or documented custom property.
 2. Keep a bounded local exception.
 3. Record a candidate for a new reusable token when the value looks shared but the repo is not ready to add it yet.
+
+Current shared style contracts that later packages may depend on:
+
+- `--radius-compact: 10px` is the intentional compact radius for smaller overlay badges, hints, and similar bounded surfaces.
+- `--color-text-on-focus` is the shared default text color for bright focused fills.
+- Theme-specific focus-text tokens may remain only as aliases or overrides beneath `--color-text-on-focus`; they should not create a competing cross-surface contract.
 
 Literals are not automatically wrong. A raw value can be valid when the semantics are local, geometry-driven, platform-constrained, intentionally theme-invariant, or otherwise clearer than forcing a weak token mapping.
 

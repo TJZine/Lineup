@@ -105,13 +105,19 @@ Check a box only in the same pass that updates the mini-record with current veri
 
 ## Priority Exit Gates
 
-- [ ] `S1-EXIT`
+- [x] `S1-EXIT`
   - required: shared contract docs and token names are explicit, server-select phantom status-token ambiguity is retired, and later packages can consume the locked contracts without inventing policy
   - verification:
     - targeted `rg` checks from the active plan
     - `npm run verify`
     - `npm run verify:docs` if docs/checklist/plan surfaces changed in the same pass
   - exit rule: `S2-W1` may start only after `S1-W1` closes with a current checklist mini-record and no unresolved shared-contract ambiguity
+  - Status: `completed`
+  - Plan: `local-only`
+  - Last touched: `2026-04-19`
+  - Verification: `rg -n 'overlay stack|z-index|stacking' docs/design/ui-design-language.md docs/design/css-governance.md src/styles/tokens.css src/styles/themes.css` -> matched `docs/design/ui-design-language.md:72`, `docs/design/css-governance.md:16,18`, `src/styles/tokens.css:169`; `rg -n -- '--color-status-(ok|error|warning)' src/styles/tokens.css src/modules/ui/server-select/styles.css` -> no matches; `rg -n -- '--radius-compact|--color-text-on-focus|--directv-focus-text' docs/design/ui-design-language.md docs/design/css-governance.md src/styles/tokens.css src/styles/themes.css src/modules/ui/player-osd/styles.actions.css src/modules/ui/exit-confirm/styles.css` -> matched docs, shared tokens/themes, and both scoped focus-text callsites; `npm run verify` -> pass; `npm run verify:docs` -> pass
+  - Follow-ups: `S7-W1` on onboarding token cleanup start and `S8-W1` on runtime token cleanup start should consume these locked shared contracts; no further `S1` owner remains
+  - Handoff: `S2-W1` or any later approved package may start from the locked shared contracts without reopening `S1`
 
 - [ ] `S2-EXIT`
   - required: the EPG stylesheet hotspot is decomposed into the approved ownership split and the barrel/import surface is stable
@@ -171,18 +177,18 @@ Check a box only in the same pass that updates the mini-record with current veri
 
 ## Priority 1: Shared Style Contracts And Decision Locks
 
-- [ ] `S1-W1` `pkg_shared_style_contracts` Shared Style Contracts And Decision Locks
+- [x] `S1-W1` `pkg_shared_style_contracts` Shared Style Contracts And Decision Locks
   - Backlog: `4` exact issues
   - Tier / effort / risk: `Tier 2` / `S-M` / `medium`
   - Execution shape: `1` serial execution unit
   - Scope: lock the shared decisions that later packages depend on: overlay stack contract authority, server-select phantom status-token policy, compact `10px` radius semantics, and `--color-text-on-focus`
   - Exact membership: `docs/design/active-style-cleanup-package-map.json` -> `pkg_shared_style_contracts`
-  - Status: `planned`
-  - Plan: `none yet`
+  - Status: `completed`
+  - Plan: `local-only`
   - Last touched: `2026-04-19`
-  - Verification: planning-only in this pass; execution verification will be defined when the package starts
-  - Follow-ups: `S1-EXIT` is the single exit owner; broader runtime/onboarding adoption stays with `S7-W1` and `S8-W1`
-  - Handoff: if execution starts, cut a local-only `S1-W1` brief first, then implement `pkg_shared_style_contracts`
+  - Verification: `rg -n 'overlay stack|z-index|stacking' docs/design/ui-design-language.md docs/design/css-governance.md src/styles/tokens.css src/styles/themes.css` -> matched `docs/design/ui-design-language.md:72`, `docs/design/css-governance.md:16,18`, `src/styles/tokens.css:169`; `rg -n -- '--color-status-(ok|error|warning)' src/styles/tokens.css src/modules/ui/server-select/styles.css` -> no matches; `rg -n -- '--radius-compact|--color-text-on-focus|--directv-focus-text' docs/design/ui-design-language.md docs/design/css-governance.md src/styles/tokens.css src/styles/themes.css src/modules/ui/player-osd/styles.actions.css src/modules/ui/exit-confirm/styles.css` -> matched docs, shared tokens/themes, and both scoped focus-text callsites; `npm run verify` -> pass; `npm run verify:docs` -> pass
+  - Follow-ups: `S7-W1` on onboarding token cleanup start and `S8-W1` on runtime token cleanup start should adopt these shared contracts more broadly; `S1-EXIT` closed in the same pass
+  - Handoff: downstream packages can now rely on the shared overlay stack, compact radius, and focus-text contracts without reopening `S1-W1`
 
 ## Priority 2: EPG Hotspot Decomposition
 

@@ -123,6 +123,7 @@
   --directv-focus-fill: #ffcc00;
   --directv-focus-border: #e5a00d;
   --directv-focus-text: #000000;
+  --color-text-on-focus: var(--directv-focus-text);
   --directv-copy-secondary: #bdd8f2;
 }
 
