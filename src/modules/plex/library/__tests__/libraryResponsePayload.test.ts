@@ -24,6 +24,10 @@ describe('libraryResponsePayload', () => {
         ).toThrow(PlexLibraryError);
     });
 
+    it('treats missing Metadata as an empty result set', () => {
+        expect(extractMetadataArray({ MediaContainer: {} } as never, 'metadata test')).toEqual([]);
+    });
+
     it('requires Directory to be an array', () => {
         expect(() =>
             extractDirectoryArray({ MediaContainer: { Directory: {} } } as never, 'directory test')

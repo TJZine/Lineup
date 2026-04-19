@@ -50,6 +50,10 @@ export function extractMetadataArray<T>(
     const mediaContainer = extractMediaContainer(response, context);
     const metadata = (mediaContainer as { Metadata?: unknown }).Metadata;
 
+    if (metadata === undefined) {
+        return [];
+    }
+
     if (!Array.isArray(metadata)) {
         throw new PlexLibraryError(
             PlexLibraryErrorCode.PARSE_ERROR,

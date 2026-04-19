@@ -349,6 +349,13 @@ describe('PlexLibrary', () => {
             expect(items).toEqual([]);
         });
 
+        it('treats missing Metadata as an empty library result', async () => {
+            mockFetchJson({ MediaContainer: {} });
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getLibraryItems('1')).resolves.toEqual([]);
+        });
+
         it('should handle single-page result', async () => {
             mockFetchJson(mockMediaItemResponse);
             const library = new PlexLibrary(mockConfig);
@@ -447,6 +454,13 @@ describe('PlexLibrary', () => {
                 code: PlexLibraryErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('item lookup'),
             });
+        });
+
+        it('returns null when item metadata is omitted from an empty success payload', async () => {
+            mockFetchJson({ MediaContainer: {} });
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getItem('12345')).resolves.toBeNull();
         });
 
         it('should redact tokens in URL logs', async () => {
