@@ -15,6 +15,10 @@
 }
 
 .channel-number-panel {
+  --runtime-overlay-scrim-fallback-rgb: 6, 8, 10;
+  --runtime-overlay-tint-rgb: var(--scrim-tint-rgb, 6 8 10);
+  --runtime-overlay-start-alpha: 30%;
+  --runtime-overlay-end-alpha: 40%;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -25,10 +29,40 @@
   border: 1px solid transparent;
   background: linear-gradient(
     135deg,
-    rgba(0, 0, 0, 0.30) 0%,
-    rgba(0, 0, 0, 0.40) 100%
+    rgba(var(--runtime-overlay-scrim-fallback-rgb), 0.30) 0%,
+    rgba(var(--runtime-overlay-scrim-fallback-rgb), 0.40) 100%
+  );
+  background: linear-gradient(
+    135deg,
+    rgb(var(--runtime-overlay-tint-rgb) / var(--runtime-overlay-start-alpha)) 0%,
+    rgb(var(--runtime-overlay-tint-rgb) / var(--runtime-overlay-end-alpha)) 100%
   );
   color: var(--color-text-primary);
+}
+
+.theme-glass .channel-number-panel {
+  --runtime-overlay-start-alpha: 38%;
+  --runtime-overlay-end-alpha: 52%;
+}
+
+.theme-slate-pine .channel-number-panel {
+  --runtime-overlay-start-alpha: 34%;
+  --runtime-overlay-end-alpha: 46%;
+}
+
+.theme-swiss .channel-number-panel {
+  --runtime-overlay-start-alpha: 34%;
+  --runtime-overlay-end-alpha: 46%;
+}
+
+.theme-directv .channel-number-panel {
+  --runtime-overlay-start-alpha: 42%;
+  --runtime-overlay-end-alpha: 56%;
+}
+
+.theme-ember-steel .channel-number-panel {
+  --runtime-overlay-start-alpha: 38%;
+  --runtime-overlay-end-alpha: 52%;
 }
 
 .channel-number-label {
