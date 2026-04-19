@@ -220,6 +220,10 @@ describe('discoveryProbe', () => {
                     uri: 'https://192.168.1.20:32400',
                     protocol: 'https',
                 },
+                outcome: 'unreachable',
+            })
+            .mockResolvedValueOnce({
+                connection: remoteHttpsConnection,
                 outcome: 'reachable',
             });
 
@@ -234,10 +238,14 @@ describe('discoveryProbe', () => {
             probeConnection,
         });
 
-        expect(probeConnection).toHaveBeenCalledTimes(1);
+        expect(probeConnection).toHaveBeenCalledTimes(2);
+        expect(probeConnection.mock.calls.map(([connection]) => connection.uri)).toEqual([
+            'http://192.168.1.20:32400',
+            'https://192.168.1.20:32400',
+        ]);
         expect(result.selectedProbe).toEqual({
             connection: expect.objectContaining({
-                uri: 'https://192.168.1.20:32400',
+                uri: 'https://plex.example:32400',
                 protocol: 'https',
             }),
             outcome: 'reachable',

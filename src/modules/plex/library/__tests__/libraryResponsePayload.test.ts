@@ -18,6 +18,12 @@ describe('libraryResponsePayload', () => {
         expect(() => extractMediaContainer({} as never, 'test')).toThrow(PlexLibraryError);
     });
 
+    it('rejects array MediaContainer payloads', () => {
+        expect(() =>
+            extractMediaContainer({ MediaContainer: [] } as never, 'test')
+        ).toThrow(PlexLibraryError);
+    });
+
     it('requires Metadata to be an array', () => {
         expect(() =>
             extractMetadataArray({ MediaContainer: { Metadata: {} } } as never, 'metadata test')

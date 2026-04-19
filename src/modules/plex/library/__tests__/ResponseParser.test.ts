@@ -113,6 +113,22 @@ describe('ResponseParser', () => {
             }
         );
 
+        it('falls back to epoch when scannedAt overflows Date range', () => {
+            const result = parseLibrarySections([
+                {
+                    key: '1',
+                    uuid: 'lib-uuid',
+                    title: 'Overflow Timestamp',
+                    type: 'movie',
+                    agent: 'agent',
+                    scanner: 'scanner',
+                    scannedAt: Number.MAX_VALUE,
+                },
+            ]);
+
+            expect(result[0]!.lastScannedAt.toISOString()).toBe('1970-01-01T00:00:00.000Z');
+        });
+
         it('throws a typed parse error with indexed context when a section entry is malformed', () => {
             expect(() => parseLibrarySections([null] as unknown as RawLibrarySection[])).toThrow(
                 expect.objectContaining({

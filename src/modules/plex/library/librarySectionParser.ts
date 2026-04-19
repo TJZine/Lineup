@@ -34,9 +34,12 @@ function parseLibrarySection(data: RawLibrarySection): PlexLibrarySection {
 }
 
 function parseLibraryScannedAt(value: unknown): Date {
-    return typeof value === 'number' && Number.isFinite(value)
-        ? new Date(value * 1000)
-        : new Date(0);
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return new Date(0);
+    }
+
+    const scannedAt = new Date(value * 1000);
+    return Number.isNaN(scannedAt.getTime()) ? new Date(0) : scannedAt;
 }
 
 function parseRequiredLibrarySectionString(value: unknown, field: string): string {

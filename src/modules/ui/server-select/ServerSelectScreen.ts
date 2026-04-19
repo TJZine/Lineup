@@ -446,12 +446,11 @@ export class ServerSelectScreen {
             return;
         }
 
-        this._isClearing = true;
-        this._activeClearGeneration = generation;
-        this._clearError();
-        this._setClearButtonDisabled(true, generation);
-
         try {
+            this._isClearing = true;
+            this._activeClearGeneration = generation;
+            this._clearError();
+            this._setClearButtonDisabled(true, generation);
             await this._ports.clearSelectedServer();
 
             if (!this._canUpdateUi(generation)) {
@@ -713,15 +712,14 @@ export class ServerSelectScreen {
             return;
         }
 
-        this._isSelecting = true;
-        this._activeSelectGeneration = generation;
-        this._setServerConnectButtonsDisabled(true);
-        this._setClearButtonDisabled(true, generation);
-        this._clearError();
-        this._setStatus(`Connecting to ${server.name}…`, '', 'loading');
-        this._detailEl.textContent = '';
-
         try {
+            this._isSelecting = true;
+            this._activeSelectGeneration = generation;
+            this._setServerConnectButtonsDisabled(true);
+            this._setClearButtonDisabled(true, generation);
+            this._clearError();
+            this._setStatus(`Connecting to ${server.name}…`, '', 'loading');
+            this._detailEl.textContent = '';
             const result = await this._ports.selectServer(server.id);
 
             if (!this._canUpdateUi(generation) || this._activeSelectGeneration !== generation) {
