@@ -105,3 +105,24 @@
     transition: none;
   }
 }
+
+@media (forced-colors: active) {
+  .channel-number-panel {
+    background: Canvas;
+    border-color: CanvasText;
+    color: CanvasText;
+  }
+
+  .channel-number-label,
+  .channel-number-digits {
+    color: CanvasText;
+  }
+
+  .channel-number-overlay.channel-number-error .channel-number-panel {
+    border-color: Highlight;
+  }
+
+  .channel-number-overlay.channel-number-error .channel-number-digits {
+    color: Highlight;
+  }
+}

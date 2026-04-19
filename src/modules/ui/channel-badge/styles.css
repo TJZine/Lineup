@@ -95,3 +95,15 @@
     transform: none;
   }
 }
+
+@media (forced-colors: active) {
+  .channel-badge-content {
+    background: Canvas;
+    border: 1px solid CanvasText;
+  }
+
+  .channel-badge-icon,
+  .channel-badge-text {
+    color: CanvasText;
+  }
+}

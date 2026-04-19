@@ -216,3 +216,53 @@
   font-size: var(--text-md);
   color: var(--color-text-muted);
 }
+
+@media (forced-colors: active) {
+  .mini-guide-panel {
+    background: Canvas;
+    border-bottom-color: CanvasText;
+  }
+
+  .mini-guide-row {
+    color: CanvasText;
+  }
+
+  .mini-guide-row:not(.focused) {
+    border-left-color: CanvasText;
+  }
+
+  .mini-guide-row.focused {
+    background: Highlight;
+    border-left-color: Highlight;
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  .mini-guide-row.focused .mini-guide-channel-num,
+  .mini-guide-row.focused .mini-guide-channel-name,
+  .mini-guide-row.focused .mini-guide-now,
+  .mini-guide-row.focused .mini-guide-next,
+  .mini-guide-row.focused .mini-guide-start-time {
+    color: HighlightText;
+  }
+
+  .mini-guide-progress {
+    background: CanvasText;
+  }
+
+  .mini-guide-row.focused .mini-guide-progress {
+    background: HighlightText;
+  }
+
+  .mini-guide-progress-fill {
+    background: Highlight;
+  }
+
+  .mini-guide-row.focused .mini-guide-progress-fill {
+    background: Canvas;
+  }
+
+  .mini-guide-footer-hint {
+    color: CanvasText;
+  }
+}

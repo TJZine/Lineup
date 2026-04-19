@@ -26,6 +26,7 @@ const OVERLAY_CONTRACTS: OverlayContract[] = [
 ];
 
 const THEME_SELECTORS = Object.values(THEME_CLASSES);
+const FORCED_COLORS_RULE = '@media (forced-colors: active)';
 
 describe('runtime overlay style contracts', () => {
     it.each(OVERLAY_CONTRACTS)(
@@ -55,6 +56,18 @@ describe('runtime overlay style contracts', () => {
             for (const themeSelector of THEME_SELECTORS) {
                 expect(css).toContain(`.${themeSelector} ${selector}`);
             }
+        }
+    );
+
+    it.each(OVERLAY_CONTRACTS)(
+        'keeps %s scoped to a package-local forced-colors fallback',
+        ({ file, selector }) => {
+            const css = read(file);
+
+            expect(css).toContain(FORCED_COLORS_RULE);
+            expect(css).toContain(selector);
+            expect(css).toContain('background: Canvas;');
+            expect(css).toContain('CanvasText');
         }
     );
 
@@ -99,5 +112,19 @@ describe('runtime overlay style contracts', () => {
         for (const themeSelector of THEME_SELECTORS) {
             expect(css).toContain(`.${themeSelector} .exit-confirm-panel`);
         }
+    });
+
+    it('keeps mini guide forced-colors coverage scoped to focused-row readability', () => {
+        const css = read('src/modules/ui/mini-guide/styles.core.css');
+
+        expect(css).toContain(FORCED_COLORS_RULE);
+        expect(css).toContain('.mini-guide-row.focused');
+        expect(css).toContain('background: Highlight;');
+        expect(css).toContain('outline: 2px solid Highlight;');
+        expect(css).toContain('.mini-guide-row.focused .mini-guide-channel-num');
+        expect(css).toContain('color: HighlightText;');
+        expect(css).toContain('.mini-guide-footer-hint');
+        expect(css).toContain('.mini-guide-progress-fill');
+        expect(css).toContain('background: Canvas;');
     });
 });

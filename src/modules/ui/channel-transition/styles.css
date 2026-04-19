@@ -142,3 +142,21 @@
     animation: none;
   }
 }
+
+@media (forced-colors: active) {
+  .channel-transition-panel {
+    background: Canvas;
+    border: 1px solid CanvasText;
+    color: CanvasText;
+  }
+
+  .channel-transition-spinner {
+    border-color: CanvasText;
+    border-top-color: Highlight;
+  }
+
+  .channel-transition-title,
+  .channel-transition-subtitle {
+    color: CanvasText;
+  }
+}
