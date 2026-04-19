@@ -15,7 +15,7 @@ Tier 2 uses this as the default implementer launcher. Tier 3 feature or mixed wo
    - handoff mode: the `NEXT_SESSION_HANDOFF` block that routed work here (from [`feature-review.md`](./feature-review.md)); then read its `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE`
    - short-follow-up mode: one short follow-up message naming the approved plan path or active run bundle plus target feature scope; then read the named plan or run bundle as the execution surface and do not wait for a handoff block
 4. [`docs/agentic/plan-authoring-standard.md#universal-plan-core`](../plan-authoring-standard.md#universal-plan-core) when the approved plan is a serious tracked feature/design plan
-5. [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) and [`docs/design/css-governance.md`](../../design/css-governance.md) when UI creation/redesign or repo-wide CSS policy decisions are in scope
+5. [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) when UI creation or redesign is in scope
 6. [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md) plus any domain docs named by the plan or run bundle
 7. any repo-local boundary skills named by the plan or run bundle
 
@@ -51,7 +51,7 @@ In short-follow-up mode, use the named approved plan or run-bundle context as th
 - if the approving review output and the tracked plan disagree, reconcile them before editing instead of picking one ad hoc
 - if repo state contradicts the plan, update the plan first instead of improvising
 - keep feature intent and cleanup intent separated; do not let cleanup-only shortcuts steer net-new behavior
-- for UI creation/redesign or repo-wide CSS policy/reuse decisions, follow [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) and [`docs/design/css-governance.md`](../../design/css-governance.md), then use the appropriate global UI skill when real UI creation/redesign is involved:
+- for UI creation/redesign, follow [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) and use the appropriate global UI skill:
   - `interface-design` for product interfaces (dashboards/admin/settings/tools/data-heavy UI)
   - `frontend-design` for marketing/landing pages and other brand-forward surfaces
 - prefer extraction and focused collaborators over growing hotspot files

@@ -14,7 +14,7 @@ This launcher supports review of either:
 3. the artifact being reviewed
 4. supporting standards that apply:
    - [`docs/agentic/plan-authoring-standard.md#universal-plan-core`](../plan-authoring-standard.md#universal-plan-core) for feature/design plan review
-   - [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) and [`docs/design/css-governance.md`](../../design/css-governance.md) for UI-heavy or CSS-governance reviews
+   - [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) for UI-heavy reviews
    - [`docs/architecture/CURRENT_STATE.md`](../../architecture/CURRENT_STATE.md) plus domain docs for architecture/boundary checks
    - [`docs/agentic/evals/rubric.md`](../evals/rubric.md) when workflow quality is in scope
 
