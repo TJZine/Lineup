@@ -4,6 +4,27 @@ import path from 'node:path';
 export const read = (relativePath: string): string =>
     fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
 
+const CSS_IMPORT_PATTERN =
+    /^\s*@import\s+(?:url\(\s*)?['"]?([^'")\s;]+)['"]?\s*\)?[^;]*;\s*$/gm;
+
+const readComposedCssFile = (filePath: string, stack: string[]): string => {
+    const css = fs.readFileSync(filePath, 'utf8');
+
+    return css.replace(CSS_IMPORT_PATTERN, (_statement, specifier: string) => {
+        const importPath = path.resolve(path.dirname(filePath), specifier);
+        if (stack.includes(importPath)) {
+            throw new Error(`Circular CSS import detected: ${[...stack, importPath].join(' -> ')}`);
+        }
+
+        return readComposedCssFile(importPath, [...stack, importPath]);
+    });
+};
+
+export const readComposedCss = (relativePath: string): string => {
+    const absolutePath = path.join(process.cwd(), relativePath);
+    return readComposedCssFile(absolutePath, [absolutePath]);
+};
+
 const escapeRegExp = (value: string): string =>
     value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
