@@ -10,9 +10,9 @@ This document tracks package-scoped style cleanup work for shared CSS contracts,
 
 - Last audit refresh: `2026-04-18`
 - Last structural refresh: `2026-04-19`
-- Current execution state: `S2-W1` is in progress locally; `EU1_foundation_shell_grid` is complete and `EU2_cells_and_info_panel` is ready now
-- Next safe start: `S2-W1` / `pkg_epg_hotspot_decomposition` -> `EU2_cells_and_info_panel`
-- Preferred launcher: use a local-only execution brief for `S1-W1` when work begins; reserve `cleanup-loop` for approved Tier 3 packages (`S2-W1`, `S8-W1`)
+- Current execution state: `S2-W1` and `S2-EXIT` are complete; `S3-W1` is now the next unblocked package
+- Next safe start: `S3-W1` / `pkg_epg_followthrough`
+- Preferred launcher: use a local-only execution brief for Tier 2 packages; reserve `cleanup-loop` for the remaining approved Tier 3 package (`S8-W1`)
 - Authoritative evidence rule: change package status only from commands and source reads rerun in the target workspace/branch
 - Exact issue-membership surface: `docs/design/active-style-cleanup-package-map.json`
 - Audit/reference only: `STYLE_AUDIT.md`
@@ -119,12 +119,18 @@ Check a box only in the same pass that updates the mini-record with current veri
   - Follow-ups: `S7-W1` on onboarding token cleanup start and `S8-W1` on runtime token cleanup start should consume these locked shared contracts; no further `S1` owner remains
   - Handoff: `S2-W1` or any later approved package may start from the locked shared contracts without reopening `S1`
 
-- [ ] `S2-EXIT`
+- [x] `S2-EXIT`
   - required: the EPG stylesheet hotspot is decomposed into the approved ownership split and the barrel/import surface is stable
   - verification:
     - targeted EPG contract/source-audit commands from the active plan
     - `npm run verify`
   - exit rule: EPG follow-through work can start without reopening monolith ownership questions
+  - Status: `completed`
+  - Plan: `local-only`
+  - Last touched: `2026-04-19`
+  - Verification: `npm test -- --runInBand src/modules/ui/epg/__tests__/epg-focused-overflow-style.test.ts src/styles/__tests__/classic-pip-alignment.test.ts` -> pass after the final EU3 ownership corrections; `npx stylelint src/modules/ui/epg/styles.css src/modules/ui/epg/styles.grid.css src/modules/ui/epg/styles.classic.css src/modules/ui/epg/styles.theme.css src/modules/ui/epg/styles.motion.css` -> pass; `rg -n "prefers-reduced-motion|forced-colors|layout-classic \\.epg-grid" src/modules/ui/epg/styles.grid.css src/modules/ui/epg/styles.classic.css src/modules/ui/epg/styles.theme.css src/modules/ui/epg/styles.motion.css src/modules/ui/epg/styles.cells.css` -> showed classic grid residue only in `styles.classic.css`, shared reduced-motion only in `styles.motion.css`, base forced-colors in `styles.cells.css`, classic forced-colors/reduced-motion in `styles.classic.css`, and theme-scoped forced-colors in `styles.theme.css`; `npm run verify` -> pass
+  - Follow-ups: `S3-W1` is now the single downstream owner for remaining EPG design-language and accessibility follow-through; no further `S2` owner remains
+  - Handoff: start `S3-W1` without reopening the EPG stylesheet ownership split
 
 - [ ] `S3-EXIT`
   - required: EPG info-panel design/accessibility follow-through is closed or explicitly deferred with one final owner
@@ -192,18 +198,18 @@ Check a box only in the same pass that updates the mini-record with current veri
 
 ## Priority 2: EPG Hotspot Decomposition
 
-- [ ] `S2-W1` `pkg_epg_hotspot_decomposition` EPG Hotspot Decomposition
+- [x] `S2-W1` `pkg_epg_hotspot_decomposition` EPG Hotspot Decomposition
   - Backlog: `1` exact issue
   - Tier / effort / risk: `Tier 3` / `L` / `high`
   - Execution shape: `3` serial execution units
   - Scope: decompose `src/modules/ui/epg/styles.css` into the approved ownership split without mixing in unrelated parity or onboarding cleanup
   - Exact membership: `docs/design/active-style-cleanup-package-map.json` -> `pkg_epg_hotspot_decomposition`
-  - Status: `in progress`
+  - Status: `completed`
   - Plan: `local-only`
   - Last touched: `2026-04-19`
-  - Verification: `wc -l src/modules/ui/epg/styles.css` -> `2065` lines confirmed hotspot size before the split; `rg -n '^/\\*|^@media|^@keyframes|^\\.epg|^\\.library-picker|^\\.show-info' src/modules/ui/epg/styles.css` -> confirmed shell/grid/cells/info-panel/classic/theme blocks were co-located in one seam before extraction; `npm test -- --runInBand src/modules/ui/epg/__tests__/epg-focused-overflow-style.test.ts src/styles/__tests__/classic-pip-alignment.test.ts` -> pass after `EU1` barrel/split-file extraction and review revision; `npx stylelint src/modules/ui/epg/styles.css src/modules/ui/epg/styles.shell.css src/modules/ui/epg/styles.grid.css` -> pass; `npm run verify` -> pass`
-  - Follow-ups: `S2-EXIT` is the single exit owner; `S3-W1` depends on this package completing first
-  - Handoff: execute `EU2_cells_and_info_panel` next by extracting `styles.cells.css` and `styles.info-panel.css`, leaving classic/theme/motion finish for `EU3`
+  - Verification: `wc -l src/modules/ui/epg/styles.css` -> `2065` lines confirmed hotspot size before the split; `rg -n '^/\\*|^@media|^@keyframes|^\\.epg|^\\.library-picker|^\\.show-info' src/modules/ui/epg/styles.css` -> confirmed shell/grid/cells/info-panel/classic/theme blocks were co-located in one seam before extraction; `npm test -- --runInBand src/modules/ui/epg/__tests__/epg-focused-overflow-style.test.ts src/styles/__tests__/classic-pip-alignment.test.ts` -> pass after the final EU3 seam-only split and ownership corrections; `npx stylelint src/modules/ui/epg/styles.css src/modules/ui/epg/styles.grid.css src/modules/ui/epg/styles.classic.css src/modules/ui/epg/styles.theme.css src/modules/ui/epg/styles.motion.css` -> pass; `rg -n "prefers-reduced-motion|forced-colors|layout-classic \\.epg-grid" src/modules/ui/epg/styles.grid.css src/modules/ui/epg/styles.classic.css src/modules/ui/epg/styles.theme.css src/modules/ui/epg/styles.motion.css src/modules/ui/epg/styles.cells.css` -> confirmed the final ownership split for classic/theme/motion and forced-colors residue; `npm run verify` -> pass
+  - Follow-ups: `S3-W1` now owns the remaining EPG design-language and accessibility follow-through; `S2-EXIT` closed in the same pass
+  - Handoff: `S3-W1` may start from the approved split-file ownership without reopening monolith decomposition
 
 ## Priority 3: EPG Follow-Through / Design-Accessibility Cleanup
 
