@@ -38,4 +38,21 @@ describe('mediaItemParser', () => {
         });
         expect(item.media[0]?.parts[0]?.streams[0]?.streamType).toBe(1);
     });
+
+    it('omits invalid optional Plex timestamps instead of synthesizing the Unix epoch', () => {
+        const item = parseMediaItem({
+            ratingKey: 'movie-2',
+            key: '/library/metadata/movie-2',
+            type: 'movie',
+            title: 'Movie 2',
+            addedAt: 1704067200,
+            updatedAt: 1704153600,
+            lastViewedAt: Number.NaN,
+            Media: [],
+        } as unknown as RawMediaItem);
+
+        expect(item.addedAt.toISOString()).toBe('2024-01-01T00:00:00.000Z');
+        expect(item.updatedAt.toISOString()).toBe('2024-01-02T00:00:00.000Z');
+        expect(item.lastViewedAt).toBeUndefined();
+    });
 });

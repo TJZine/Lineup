@@ -61,7 +61,12 @@ export function toPlexDate(value: number | undefined): Date {
 }
 
 function toPlexDateOrUndefined(value: number | undefined): Date | undefined {
-    return typeof value === 'number' ? toPlexDate(value) : undefined;
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return undefined;
+    }
+
+    const date = toPlexDate(value);
+    return date.getTime() === 0 && value !== 0 ? undefined : date;
 }
 
 function collectTagNames(tags: unknown): string[] {
