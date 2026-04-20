@@ -66,6 +66,12 @@ Treat style debt work as one of these categories and verify it accordingly:
 
 Do not mix exact-value normalization and design-contract changes under one "no visual change" claim.
 
+For cleanup accounting, a value is considered retired when it has been moved to the narrowest correct abstraction:
+
+- a shared/root token when the contract is truly cross-surface
+- a surface-scoped custom property when the value is owner-local
+- an explicit bounded exception when a raw literal is still the clearest durable choice
+
 ## Overlay Z-Index Policy
 
 Shared z-index tokens should represent durable layer semantics, not the current component inventory.
