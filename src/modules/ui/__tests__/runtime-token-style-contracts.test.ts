@@ -359,162 +359,249 @@ const SPACING_CONTRACTS: DeclarationContract[] = [
     },
 ];
 
-const BOUNDED_SPACING_EXCEPTION_CONTRACTS: DeclarationContract[] = [
+const LOCAL_SPACING_ALIAS_CONTRACTS: DeclarationContract[] = [
     {
         file: 'src/modules/ui/channel-transition/styles.css',
         selector: '.channel-transition-panel',
         property: 'padding',
-        expected: '10px 14px',
+        expected: 'var(--runtime-overlay-space-10) var(--runtime-overlay-space-14)',
     },
     {
         file: 'src/modules/ui/channel-number-overlay/styles.css',
         selector: '.channel-number-panel',
         property: 'gap',
-        expected: '10px',
+        expected: 'var(--runtime-overlay-space-10)',
     },
     {
         file: 'src/modules/ui/player-osd/styles.surface.css',
         selector: '.player-osd-info-column',
         property: 'gap',
-        expected: '6px',
+        expected: 'var(--player-osd-space-6)',
     },
     {
         file: 'src/modules/ui/player-osd/styles.surface.css',
         selector: '.player-osd-actions-column',
         property: 'gap',
-        expected: '10px',
+        expected: 'var(--player-osd-space-10)',
     },
     {
         file: 'src/modules/ui/player-osd/styles.surface.css',
         selector: '.player-osd-zone-details',
         property: 'gap',
-        expected: '6px',
+        expected: 'var(--player-osd-space-6)',
     },
     {
         file: 'src/modules/ui/player-osd/styles.actions.css',
         selector: '.player-osd-actions',
         property: 'gap',
-        expected: '10px',
+        expected: 'var(--player-osd-actions-space-10)',
     },
     {
         file: 'src/modules/ui/player-osd/styles.content.css',
         selector: '.osd-pill',
         property: 'padding',
-        expected: '4px 10px',
+        expected: 'var(--space-1) var(--player-osd-space-10)',
     },
     {
         file: 'src/modules/ui/player-osd/styles.meta-progress.css',
         selector: '.player-osd-meta-strip',
         property: 'gap',
-        expected: '18px',
+        expected: 'var(--player-osd-meta-space-18)',
     },
     {
         file: 'src/modules/ui/player-osd/styles.meta-progress.css',
         selector: '.player-osd-meta-left',
         property: 'gap',
-        expected: '18px',
+        expected: 'var(--player-osd-meta-space-18)',
     },
     {
         file: 'src/modules/ui/now-playing-info/styles.core.css',
         selector: '.now-playing-info-content',
         property: 'gap',
-        expected: '10px',
+        expected: 'var(--npi-space-10)',
     },
     {
         file: 'src/modules/ui/now-playing-info/styles.core.css',
         selector: '.now-playing-info-badge',
         property: 'padding',
-        expected: '3px 8px',
+        expected: 'var(--npi-space-3) var(--space-2)',
     },
     {
         file: 'src/modules/ui/now-playing-info/styles.css',
         selector: '.now-playing-info-actors',
         property: 'row-gap',
-        expected: '6px',
+        expected: 'var(--npi-space-6)',
     },
     {
         file: 'src/modules/ui/now-playing-info/styles.css',
         selector: '.now-playing-info-actor-more',
         property: 'padding',
-        expected: '6px 10px',
+        expected: 'var(--npi-space-6) var(--npi-space-10)',
     },
     {
         file: 'src/modules/ui/playback-options/styles.core.css',
         selector: '.playback-options-list',
         property: 'gap',
-        expected: '10px',
+        expected: 'var(--playback-options-space-10)',
     },
     {
         file: 'src/modules/ui/playback-options/styles.core.css',
         selector: '.playback-options-helper',
         property: 'margin',
-        expected: '-4px 0 12px',
+        expected: '-4px 0 var(--space-3)',
     },
     {
         file: 'src/modules/ui/exit-confirm/styles.css',
         selector: '.exit-confirm-panel',
         property: 'padding',
-        expected: '26px 40px 34px',
+        expected: 'var(--exit-confirm-space-26) var(--space-10) var(--exit-confirm-space-34)',
     },
     {
         file: 'src/modules/ui/exit-confirm/styles.css',
         selector: '.exit-confirm-inner',
         property: 'gap',
-        expected: '18px 26px',
+        expected: 'var(--exit-confirm-space-18) var(--exit-confirm-space-26)',
     },
     {
         file: 'src/modules/ui/exit-confirm/styles.css',
         selector: '.exit-confirm-action',
         property: 'padding',
-        expected: '12px 18px',
+        expected: 'var(--space-3) var(--exit-confirm-space-18)',
     },
     {
         file: 'src/modules/ui/settings/styles.core.css',
         selector: '.settings-categories',
         property: 'gap',
-        expected: '10px',
+        expected: 'var(--settings-space-10)',
     },
     {
         file: 'src/modules/ui/settings/styles.core.css',
         selector: '.settings-category-button',
         property: 'padding',
-        expected: '14px 16px',
+        expected: 'var(--settings-space-14) var(--space-4)',
     },
     {
         file: 'src/modules/ui/settings/styles.core.css',
         selector: '.settings-profile-text',
         property: 'gap',
-        expected: '2px',
+        expected: 'var(--settings-space-2)',
     },
     {
         file: 'src/modules/ui/settings/styles.core.css',
         selector: '.settings-profile-row',
         property: 'padding',
-        expected: '14px 16px',
+        expected: 'var(--settings-space-14) var(--space-4)',
     },
     {
         file: 'src/modules/ui/settings/styles.dropdown.css',
         selector: '.settings-dropdown',
         property: 'gap',
-        expected: '2px',
+        expected: 'var(--settings-space-2)',
     },
     {
         file: 'src/modules/ui/settings/styles.dropdown.css',
         selector: '.settings-dropdown',
         property: 'padding',
-        expected: '6px',
+        expected: 'var(--settings-space-6)',
     },
     {
         file: 'src/modules/ui/settings/styles.dropdown.css',
         selector: '.settings-dropdown-option',
         property: 'padding',
-        expected: '10px 14px',
+        expected: 'var(--settings-space-10) var(--settings-space-14)',
     },
     {
         file: 'src/styles/shell.chrome.css',
         selector: '.error-button',
         property: 'padding',
-        expected: '12px 18px',
+        expected: 'var(--space-3) var(--shell-space-18)',
+    },
+];
+
+const LOCAL_SPACING_VALUE_CONTRACTS: DeclarationContract[] = [
+    {
+        file: 'src/modules/ui/channel-transition/styles.css',
+        selector: '.channel-transition-panel',
+        property: '--runtime-overlay-space-10',
+        expected: '10px',
+    },
+    {
+        file: 'src/modules/ui/channel-transition/styles.css',
+        selector: '.channel-transition-panel',
+        property: '--runtime-overlay-space-14',
+        expected: '14px',
+    },
+    {
+        file: 'src/modules/ui/channel-number-overlay/styles.css',
+        selector: '.channel-number-panel',
+        property: '--runtime-overlay-space-10',
+        expected: '10px',
+    },
+    {
+        file: 'src/modules/ui/player-osd/styles.surface.css',
+        selector: '.player-osd-panel',
+        property: '--player-osd-space-6',
+        expected: '6px',
+    },
+    {
+        file: 'src/modules/ui/player-osd/styles.surface.css',
+        selector: '.player-osd-panel',
+        property: '--player-osd-space-10',
+        expected: '10px',
+    },
+    {
+        file: 'src/modules/ui/player-osd/styles.actions.css',
+        selector: '.player-osd-actions',
+        property: '--player-osd-actions-space-10',
+        expected: '10px',
+    },
+    {
+        file: 'src/modules/ui/player-osd/styles.meta-progress.css',
+        selector: '.player-osd-meta-strip',
+        property: '--player-osd-meta-space-18',
+        expected: '18px',
+    },
+    {
+        file: 'src/modules/ui/now-playing-info/styles.core.css',
+        selector: '.now-playing-info-panel',
+        property: '--npi-space-10',
+        expected: '10px',
+    },
+    {
+        file: 'src/modules/ui/now-playing-info/styles.css',
+        selector: '.now-playing-info-actors',
+        property: '--npi-space-6',
+        expected: '6px',
+    },
+    {
+        file: 'src/modules/ui/playback-options/styles.core.css',
+        selector: '.playback-options-panel',
+        property: '--playback-options-space-10',
+        expected: '10px',
+    },
+    {
+        file: 'src/modules/ui/exit-confirm/styles.css',
+        selector: '.exit-confirm-container',
+        property: '--exit-confirm-space-18',
+        expected: '18px',
+    },
+    {
+        file: 'src/modules/ui/settings/styles.core.css',
+        selector: '.settings-screen',
+        property: '--settings-space-10',
+        expected: '10px',
+    },
+    {
+        file: 'src/modules/ui/settings/styles.dropdown.css',
+        selector: '.settings-dropdown',
+        property: '--settings-space-6',
+        expected: '6px',
+    },
+    {
+        file: 'src/styles/shell.chrome.css',
+        selector: ':root',
+        property: '--shell-space-18',
+        expected: '18px',
     },
 ];
 
@@ -878,8 +965,18 @@ describe('runtime token style contracts', () => {
         }
     );
 
-    it.each(BOUNDED_SPACING_EXCEPTION_CONTRACTS)(
-        'keeps the approved bounded spacing exception $property for $selector in $file at $expected',
+    it.each(LOCAL_SPACING_ALIAS_CONTRACTS)(
+        'enforces local spacing alias $property for $selector in $file as $expected',
+        ({ file, selector, property, expected, within }) => {
+            const css = readCss(file);
+            const block = within ? blockWithin(css, within, selector) : blockForProperty(css, selector, property);
+
+            expect(declarationValue(block, property)).toBe(expected);
+        }
+    );
+
+    it.each(LOCAL_SPACING_VALUE_CONTRACTS)(
+        'pins local spacing variable $property for $selector in $file at $expected',
         ({ file, selector, property, expected, within }) => {
             const css = readCss(file);
             const block = within ? blockWithin(css, within, selector) : blockForProperty(css, selector, property);

@@ -139,7 +139,7 @@ describe('focused EPG overflow style contract', () => {
 
     it('keeps sliver cells in a compact one-line presentation contract', () => {
         const block = getBlock('.epg-cell.epg-cell-sliver');
-        expect(block).toContain('padding: 4px 6px');
+        expect(block).toContain('padding: var(--space-1) var(--space-local-6)');
         expect(block).toContain('gap: 0');
 
         const hiddenBlock = getBlock(
