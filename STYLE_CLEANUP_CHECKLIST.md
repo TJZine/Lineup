@@ -11,8 +11,8 @@ This document tracks package-scoped style cleanup work for shared CSS contracts,
 - Last audit refresh: `2026-04-18`
 - Last structural refresh: `2026-04-19`
 - Current execution state: `S1-W1`, `S1-EXIT`, `S2-W1`, `S2-EXIT`, `S3-W1`, `S3-EXIT`, `S4-W1`, `S4-EXIT`, `S5-W1`, `S5-EXIT`, `S6-W1`, `S6-EXIT`, `S7-W1`, `S7-EXIT`, `S8-W1`, and `S8-EXIT` are complete
-- Next safe start: fresh local execution brief or `lineup-cleanup-plan` for `S9-W1` / `pkg_inline_style_bootstrap_cleanup`
-- Preferred launcher: use a local-only execution brief for the remaining Tier 2 package (`S9-W1`); Priority 8 is closed and no longer blocks inline-style/bootstrap cleanup start
+- Next safe start: `lineup-cleanup-review` for `docs/plans/2026-04-19-s9-inline-style-bootstrap-cleanup.md`
+- Preferred launcher: review the tracked `S9-W1` plan before implementation; if the review is clean, execute `S9-W1` from that plan
 - Authoritative evidence rule: change package status only from commands and source reads rerun in the target workspace/branch
 - Exact issue-membership surface: `docs/design/active-style-cleanup-package-map.json`
 - Audit/reference only: `STYLE_AUDIT.md`
@@ -216,6 +216,12 @@ Check a box only in the same pass that updates the mini-record with current veri
     - targeted source-audit commands from the active plan
     - `npm run verify`
   - exit rule: style-cleanup closeout can proceed without a hidden inline-style/bootstrap package
+  - Status: `planned`
+  - Plan: `docs/plans/2026-04-19-s9-inline-style-bootstrap-cleanup.md`
+  - Last touched: `2026-04-19`
+  - Verification: `S9-W1-S1` implementation proof complete via targeted `rg` source audits, focused onboarding screen tests, `npm run verify`, `npm run plans:check`, and `npm run verify:docs`; exit closeout review still pending
+  - Follow-ups: `lineup-cleanup-review` must confirm `style_audit::inline_styles::onboarding_container_bootstrap_duplication` and `style_audit::inline_styles::non_geometric_visual_state_should_use_classes` are retired with no successor owner, and must record that remaining lifecycle/geometry inline styles are accepted residue outside `S9`
+  - Handoff: run `lineup-cleanup-review` for `docs/plans/2026-04-19-s9-inline-style-bootstrap-cleanup.md` before checking `S9-W1` or `S9-EXIT`
 
 ## Priority 1: Shared Style Contracts And Decision Locks
 
@@ -345,9 +351,9 @@ Check a box only in the same pass that updates the mini-record with current veri
   - Execution shape: `1` serial execution unit
   - Scope: centralize onboarding bootstrap duplication and retire the remaining non-geometric inline visual-state mutations that still belong in classes/state toggles
   - Exact membership: `docs/design/active-style-cleanup-package-map.json` -> `pkg_inline_style_bootstrap_cleanup`
-  - Status: `not started`
-  - Plan: `none yet`
+  - Status: `completed`
+  - Plan: `docs/plans/2026-04-19-s9-inline-style-bootstrap-cleanup.md`
   - Last touched: `2026-04-19`
-  - Verification: `not run`
-  - Follow-ups: `S9-EXIT` is the single exit owner
-  - Handoff: Priority 8 exit is complete; start from a fresh local execution brief or `lineup-cleanup-plan`
+  - Verification: `rg -n "style\\.position = 'absolute'|style\\.inset = '0'|style\\.alignItems = 'center'|style\\.justifyContent = 'center'" src/modules/ui/auth/AuthScreen.ts src/modules/ui/profile-select/ProfileSelectScreen.ts src/modules/ui/server-select/ServerSelectScreen.ts src/modules/ui/channel-setup/ChannelSetupScreen.ts` -> no matches; `rg -n "style\\.display = 'none'|show\\(\\): void|hide\\(\\): void|style\\.display = 'flex'" src/modules/ui/auth/AuthScreen.ts src/modules/ui/profile-select/ProfileSelectScreen.ts src/modules/ui/server-select/ServerSelectScreen.ts src/modules/ui/channel-setup/ChannelSetupScreen.ts` -> constructor bootstrap display writes removed while accepted lifecycle toggles remain; `rg -n "style\\.color =" src/modules/ui/auth/AuthScreen.ts` -> no matches; `rg -n "screen-detail--warning|warning-detail|detail-warning" src/styles/shell.onboarding.shared-shell.css src/modules/ui/auth/AuthScreen.ts` -> matched shared CSS owner plus `AuthScreen` class toggle only; `npm test -- --runInBand src/modules/ui/auth/__tests__/AuthScreen.test.ts` -> pass; `npm test -- --runInBand src/modules/ui/profile-select/__tests__/ProfileSelectScreen.test.ts src/modules/ui/server-select/__tests__/ServerSelectScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts` -> pass; `npm run verify` -> pass; `npm run plans:check` -> pass; `npm run verify:docs` -> pass
+  - Follow-ups: `S9-EXIT` remains the single closeout owner pending `lineup-cleanup-review`; no successor package is expected unless review finds live residue outside the approved onboarding seam
+  - Handoff: request `lineup-cleanup-review` for `docs/plans/2026-04-19-s9-inline-style-bootstrap-cleanup.md` covering execution unit `S9-W1-S1`; review should confirm the package can be checked and that `S9-EXIT` can close without inventing a successor package
