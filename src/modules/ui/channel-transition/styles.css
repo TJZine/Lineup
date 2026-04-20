@@ -9,7 +9,7 @@
   display: none;
   align-items: flex-start;
   justify-content: flex-start;
-  padding: 16px 20px;
+  padding: var(--space-4) var(--space-5);
   background: transparent;
 }
 
@@ -38,7 +38,7 @@
   --runtime-overlay-end-alpha-legacy: 0.40;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   padding: 10px 14px;
   border-radius: 10px;
   background: linear-gradient(
@@ -51,7 +51,7 @@
     rgb(var(--runtime-overlay-tint-rgb) / var(--runtime-overlay-start-alpha)) 0%,
     rgb(var(--runtime-overlay-tint-rgb) / var(--runtime-overlay-end-alpha)) 100%
   );
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--color-text-primary);
   max-width: min(520px, 70vw);
 }
 

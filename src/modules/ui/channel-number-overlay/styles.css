@@ -25,7 +25,7 @@
   align-items: center;
   gap: 10px;
   min-width: 132px;
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   border-radius: 10px;
   /* Reserve border space so error state does not cause layout shift. */
   border: 1px solid transparent;
@@ -92,12 +92,12 @@
 }
 
 .channel-number-overlay.channel-number-error .channel-number-panel {
-  border-color: rgba(255, 106, 106, 0.8);
+  border-color: var(--color-error);
 }
 
 .channel-number-overlay.channel-number-error .channel-number-digits {
   /* Avoid resizing typography on error (prevents panel height/width jitter). */
-  color: rgba(255, 106, 106, 0.95);
+  color: var(--color-error-text);
 }
 
 @media (prefers-reduced-motion: reduce) {

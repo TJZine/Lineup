@@ -4,13 +4,13 @@
 
 #dev-menu {
   background: #222;
-  color: #fff;
+  color: var(--color-text-primary);
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
 #app-toast {
   background: rgba(0, 0, 0, 0.8);
-  color: #fff;
+  color: var(--color-text-primary);
 }
 
 /* =========================================
@@ -70,13 +70,13 @@
 
 .error-title {
   margin: 0;
-  font-size: 34px;
+  font-size: var(--text-2xl);
   font-weight: 700;
 }
 
 .error-message {
-  margin: 12px 0 0;
-  font-size: 20px;
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-base);
   line-height: 1.4;
   color: var(--color-text-secondary);
 }
@@ -85,7 +85,7 @@
   margin-top: var(--space-6);
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .error-button {
@@ -94,9 +94,9 @@
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 10px;
   padding: 12px 18px;
-  font-size: 18px;
+  font-size: var(--text-md);
   font-weight: 600;
-  color: #ffffff;
+  color: var(--color-text-primary);
   background: rgba(255, 255, 255, 0.14);
   cursor: pointer;
 }

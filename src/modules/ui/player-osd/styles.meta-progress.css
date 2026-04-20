@@ -3,7 +3,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding: 8px var(--osd-safe-margin);
+  padding: var(--space-2) var(--osd-safe-margin);
   font-variant-numeric: tabular-nums;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: var(--text-md);

@@ -47,8 +47,8 @@
 .player-osd-info {
   display: flex;
   align-items: center;
-  margin-top: 4px;
-  gap: 8px;
+  margin-top: var(--space-1);
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
@@ -58,8 +58,8 @@
   align-items: center;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--osd-pill-bg);
+  border: 1px solid var(--osd-pill-border);
   color: var(--color-text-primary);
   font-size: var(--text-sm);
   font-weight: 700;
@@ -67,8 +67,8 @@
 }
 
 .osd-pill {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: var(--osd-pill-bg-strong);
+  border-color: var(--osd-pill-border-strong);
 }
 
 .player-osd-up-next {

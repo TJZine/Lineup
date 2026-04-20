@@ -77,12 +77,12 @@
   width: 22px;
   height: 22px;
   flex: 0 0 auto;
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--color-text-primary);
   opacity: 0.9;
 }
 
 .channel-badge-text {
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--color-text-primary);
   font-size: var(--text-md);
   font-weight: 600;
   letter-spacing: 0.02em;

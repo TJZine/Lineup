@@ -57,15 +57,15 @@
 }
 
 .playback-options-section + .playback-options-section {
-  margin-top: 24px;
+  margin-top: var(--space-6);
 }
 
 .playback-options-section-title {
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-3);
   font-size: var(--text-sm);
   text-transform: uppercase;
   letter-spacing: 1.4px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--color-text-muted);
 }
 
 .playback-options-helper,
@@ -76,7 +76,7 @@
 }
 
 .playback-options-helper {
-  margin: -4px 0 12px; line-height: 1.4; color: rgba(255, 255, 255, 0.7);
+  margin: -4px 0 12px; line-height: 1.4; color: var(--color-text-secondary);
 }
 
 .playback-options-list {
@@ -86,9 +86,9 @@
 }
 
 .playback-options-empty {
-  margin-top: 8px;
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.6);
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
 }
 
 .playback-options-item {
@@ -181,7 +181,7 @@
   align-self: center;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   white-space: nowrap;
 }
 

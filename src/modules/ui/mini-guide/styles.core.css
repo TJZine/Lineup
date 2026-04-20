@@ -59,7 +59,7 @@
 
 .mini-guide-row.focused {
   background: rgba(255, 255, 255, 0.10);
-  border-left: 3px solid rgba(255, 255, 255, 0.92);
+  border-left: 3px solid var(--focus-color);
 }
 
 .mini-guide-row:not(.focused) {
@@ -113,7 +113,7 @@
   content: '';
   position: absolute;
   left: 0;
-  top: 4px;
+  top: var(--space-1);
   height: 14px;
   border-radius: 4px;
   background: linear-gradient(
@@ -139,7 +139,7 @@
 
 .mini-guide-channel-num {
   flex: 0 0 clamp(40px, 3.5vw, 73px);
-  font-size: 20px;
+  font-size: var(--text-base);
   font-weight: 700;
   color: var(--color-text-primary);
   min-width: 0;
@@ -154,7 +154,7 @@
 
 .mini-guide-channel-name {
   flex: 0 0 clamp(154px, 14vw, 286px);
-  font-size: 18px;
+  font-size: var(--text-md);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -173,7 +173,7 @@
 .mini-guide-now {
   flex: 1 1 auto;
   min-width: clamp(140px, 20vw, 300px);
-  font-size: 20px;
+  font-size: var(--text-base);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -181,7 +181,7 @@
 }
 
 .mini-guide-start-time {
-  color: var(--color-text-muted, rgba(255, 255, 255, 0.5));
+  color: var(--color-text-muted);
   font-size: var(--text-xs, 14px);
   margin-right: var(--space-2, 8px);
   white-space: nowrap;
