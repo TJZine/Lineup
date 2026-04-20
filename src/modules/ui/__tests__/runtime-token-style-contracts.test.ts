@@ -229,7 +229,7 @@ const SPACING_CONTRACTS: DeclarationContract[] = [
         file: 'src/modules/ui/now-playing-info/styles.css',
         selector: '.now-playing-info-actors',
         property: 'gap',
-        expected: 'var(--actor-gap, var(--space-2))',
+        expected: 'var(--actor-gap)',
     },
     {
         file: 'src/modules/ui/now-playing-info/styles.css',
@@ -918,6 +918,12 @@ const COLOR_CONTRACTS: DeclarationContract[] = [
         selector: '.player-osd-action',
         property: '--osd-focus-outline',
         expected: '2px solid var(--color-text-primary)',
+    },
+    {
+        file: 'src/modules/ui/epg/styles.theme.css',
+        selector: '.theme-directv .epg-container.layout-classic .epg-cell-meta',
+        property: 'color',
+        expected: 'var(--epg-directv-copy-secondary)',
     },
     {
         file: 'src/modules/ui/now-playing-info/styles.core.css',
