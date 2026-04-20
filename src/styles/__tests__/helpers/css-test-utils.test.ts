@@ -22,4 +22,17 @@ describe('css-test-utils', () => {
             '.playback-options-item.selected:focus-visible'
         );
     });
+
+    it('matches grouped selectors that contain commas inside functional pseudo-classes', () => {
+        const css = `
+.settings-item:is(.focused, :focus-visible),
+.settings-item[data-state="active"] {
+  color: var(--color-text-primary);
+}
+`;
+
+        expect(blockFor(css, '.settings-item:is(.focused, :focus-visible)')).toContain(
+            '.settings-item[data-state="active"]'
+        );
+    });
 });

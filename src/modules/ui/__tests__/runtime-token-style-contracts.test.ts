@@ -2,7 +2,13 @@
  * @jest-environment node
  */
 
-import { blockFor, declarationValue, read, readComposedCss } from '../../../styles/__tests__/helpers/css-test-utils';
+import {
+    blockFor,
+    declarationValue,
+    read,
+    readComposedCss,
+    splitSelectorList,
+} from '../../../styles/__tests__/helpers/css-test-utils';
 
 type TypographyContract = {
     file: string;
@@ -1049,10 +1055,7 @@ const blockForProperty = (css: string, selector: string, property: string): stri
             continue;
         }
 
-        const selectors = selectorList
-            .split(',')
-            .map((part) => normalizeSelector(part))
-                .filter(Boolean);
+        const selectors = splitSelectorList(selectorList);
 
         if (selectors.includes(wantedSelector) && wantedProperty.test(body)) {
             return `${selectorList} {${body}}`;

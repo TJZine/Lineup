@@ -88,6 +88,59 @@ const findMatchingBrace = (css: string, openBrace: number): number => {
     throw new Error('CSS block missing closing brace');
 };
 
+export const splitSelectorList = (selectorList: string): string[] => {
+    const selectors: string[] = [];
+    let currentSelector = '';
+    let cursor = 0;
+    let parenDepth = 0;
+    let bracketDepth = 0;
+
+    while (cursor < selectorList.length) {
+        if (selectorList.startsWith('/*', cursor)) {
+            const commentEnd = skipComment(selectorList, cursor);
+            currentSelector += selectorList.slice(cursor, commentEnd);
+            cursor = commentEnd;
+            continue;
+        }
+
+        if (selectorList[cursor] === '"' || selectorList[cursor] === "'") {
+            const stringEnd = skipString(selectorList, cursor);
+            currentSelector += selectorList.slice(cursor, stringEnd);
+            cursor = stringEnd;
+            continue;
+        }
+
+        const char = selectorList[cursor];
+        if (char === '(') {
+            parenDepth += 1;
+        } else if (char === ')' && parenDepth > 0) {
+            parenDepth -= 1;
+        } else if (char === '[') {
+            bracketDepth += 1;
+        } else if (char === ']' && bracketDepth > 0) {
+            bracketDepth -= 1;
+        } else if (char === ',' && parenDepth === 0 && bracketDepth === 0) {
+            const normalizedSelector = normalizeSelector(currentSelector);
+            if (normalizedSelector.length > 0) {
+                selectors.push(normalizedSelector);
+            }
+            currentSelector = '';
+            cursor += 1;
+            continue;
+        }
+
+        currentSelector += char;
+        cursor += 1;
+    }
+
+    const normalizedSelector = normalizeSelector(currentSelector);
+    if (normalizedSelector.length > 0) {
+        selectors.push(normalizedSelector);
+    }
+
+    return selectors;
+};
+
 export const blockFor = (css: string, selector: string): string => {
     const wantedSelector = normalizeSelector(selector);
     let cursor = 0;
@@ -125,10 +178,7 @@ export const blockFor = (css: string, selector: string): string => {
                 continue;
             }
 
-            const selectors = selectorList
-                .split(',')
-                .map((part) => normalizeSelector(part))
-                .filter(Boolean);
+            const selectors = splitSelectorList(selectorList);
 
             if (selectors.includes(wantedSelector)) {
                 return css.slice(ruleStart, blockEnd).trimStart();
