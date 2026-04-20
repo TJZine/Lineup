@@ -190,44 +190,33 @@ Freshness gate:
 
 ## Verification Commands
 
-- Primary verification mode: `contract-first`
-- Plan classification: `new regression/contract test required`
+- Verification classification: `new regression/contract test required`
 - Why this depth matches the risk:
   - this package is structural cleanup inside onboarding UI owners, but the current proof surface is missing two exact contracts the review handoff called out
   - constructor-level `display` bootstrap removal must be proven separately from accepted lifecycle `show()` / `hide()` display toggles
   - `AuthScreen` warning-state ownership changes from inline style to class/state logic, so focused regression coverage is justified for application and reset behavior
-- Exact commands and expected results:
-  - `rg -n "style\\.position = 'absolute'|style\\.inset = '0'|style\\.alignItems = 'center'|style\\.justifyContent = 'center'" src/modules/ui/auth/AuthScreen.ts src/modules/ui/profile-select/ProfileSelectScreen.ts src/modules/ui/server-select/ServerSelectScreen.ts src/modules/ui/channel-setup/ChannelSetupScreen.ts`
-    - expected: no matches
-    - proof target: `style_audit::inline_styles::onboarding_container_bootstrap_duplication` is retired inside the approved screen seam
-  - direct constructor source audit of `src/modules/ui/auth/AuthScreen.ts`, `src/modules/ui/profile-select/ProfileSelectScreen.ts`, `src/modules/ui/server-select/ServerSelectScreen.ts`, and `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
-    - expected: constructor bootstrap blocks no longer contain `this._container.style.display = 'none'`
-    - proof target: constructor-level display bootstrap is retired rather than merely moved elsewhere in the file
-  - direct lifecycle source audit of those same four files
-    - expected: accepted `show()` / `hide()` display toggles remain, with `show()` still setting `flex` and `hide()` still setting `none`
-    - proof target: constructor cleanup does not remove the accepted lifecycle visibility owner
-  - `rg -n "style\\.color =" src/modules/ui/auth/AuthScreen.ts`
-    - expected: no matches
-    - proof target: the package-owned non-geometric auth warning state no longer uses direct style writes
-  - `rg -n "screen-detail--warning|warning-detail|detail-warning" src/styles/shell.onboarding.shared-shell.css src/modules/ui/auth/AuthScreen.ts`
-    - expected: matches only in the shared shell CSS owner and the auth class-toggle owner
-    - proof target: the urgency visual state is class/state-driven
-  - `npm test -- --runInBand src/modules/ui/auth/__tests__/AuthScreen.test.ts`
-    - expected: pass
-    - proof target:
-      - constructor no longer seeds inline `display` bootstrap on the container
-      - accepted `show()` / `hide()` display toggles still behave as before
-      - warning class applies when the countdown crosses the warning threshold
-      - warning class resets on fresh request state, cancel, and expire flows
-  - `npm test -- --runInBand src/modules/ui/profile-select/__tests__/ProfileSelectScreen.test.ts src/modules/ui/server-select/__tests__/ServerSelectScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`
-    - expected: pass
-    - proof target: onboarding screen container visibility still works after constructor bootstrap removal, with any newly added focused assertions proving the lifecycle contract where current coverage is missing
-  - `npm run verify`
-    - expected: pass
-  - `npm run plans:check`
-    - expected: pass once this active tracked plan is written
-  - `npm run verify:docs`
-    - expected: pass when the plan/checklist updates land in the same pass
+- Plan/doc verification for this tracked artifact:
+  - Run: `npm run plans:check`
+  - Expected: `Serious active plan conformance passed.`
+  - Run: `npm run verify:docs`
+  - Expected: `Documentation verification passed.`
+- Execution-unit verification:
+  - `P9-W1-S1`
+    - Run: `rg -n "style\\.position = 'absolute'|style\\.inset = '0'|style\\.alignItems = 'center'|style\\.justifyContent = 'center'" src/modules/ui/auth/AuthScreen.ts src/modules/ui/profile-select/ProfileSelectScreen.ts src/modules/ui/server-select/ServerSelectScreen.ts src/modules/ui/channel-setup/ChannelSetupScreen.ts`
+    - Expected: `no matches`
+    - Run: `rg -n "style\\.display = 'none'|show\\(\\): void|hide\\(\\): void|style\\.display = 'flex'" src/modules/ui/auth/AuthScreen.ts src/modules/ui/profile-select/ProfileSelectScreen.ts src/modules/ui/server-select/ServerSelectScreen.ts src/modules/ui/channel-setup/ChannelSetupScreen.ts`
+    - Expected: constructor bootstrap display writes are absent while accepted lifecycle `show()` / `hide()` display toggles remain
+    - Run: `rg -n "style\\.color =" src/modules/ui/auth/AuthScreen.ts`
+    - Expected: `no matches`
+    - Run: `rg -n "screen-detail--warning|warning-detail|detail-warning" src/styles/shell.onboarding.shared-shell.css src/modules/ui/auth/AuthScreen.ts`
+    - Expected: matches only in the shared shell CSS owner and the auth class-toggle owner
+    - Run: `npm test -- --runInBand src/modules/ui/auth/__tests__/AuthScreen.test.ts`
+    - Expected: passes, including constructor bootstrap reset and countdown warning-class apply/reset coverage
+    - Run: `npm test -- --runInBand src/modules/ui/profile-select/__tests__/ProfileSelectScreen.test.ts src/modules/ui/server-select/__tests__/ServerSelectScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`
+    - Expected: passes, including constructor bootstrap reliance on shared `.screen` plus preserved lifecycle display ownership
+- Package gate after the code-bearing execution unit:
+  - Run: `npm run verify`
+  - Expected: passes
 
 ## Rollback Notes
 
@@ -250,17 +239,45 @@ Freshness gate:
   - `style_audit::inline_styles::non_geometric_visual_state_should_use_classes`
 - `slice_table`:
 
-| slice_id | goal | areas/files | exact_issue_ids | verification | dependencies | stop_condition | handoff_condition | serial_only / parallel_group | parallel_justification |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `S9-W1-S1` | Remove duplicated onboarding screen bootstrap inline styles and move the remaining auth urgency visual state to class/state toggles. | `src/styles/shell.onboarding.shared-shell.css`, `src/modules/ui/auth/AuthScreen.ts`, `src/modules/ui/profile-select/ProfileSelectScreen.ts`, `src/modules/ui/server-select/ServerSelectScreen.ts`, `src/modules/ui/channel-setup/ChannelSetupScreen.ts`, focused onboarding screen tests | `style_audit::inline_styles::onboarding_container_bootstrap_duplication`, `style_audit::inline_styles::non_geometric_visual_state_should_use_classes` | constructor + lifecycle source audit, focused AuthScreen warning-state regression proof, focused onboarding visibility assertions, `npm run verify`, `npm run verify:docs` | `S8-EXIT` complete | app-shell/bootstrap ownership needs to move, shared `.screen` bootstrap proves insufficient, or new live package-owned inline visual-state residue appears outside this seam | the four screen constructors no longer re-declare the shared `.screen` bootstrap contract, accepted lifecycle display toggles remain, auth warning styling is class/state-driven with reset proof, and the package is ready for `lineup-cleanup-review` | `serial_only` | both issue ids share the same onboarding shell owner and one combined verification surface |
+### `P9-W1-S1` Inline Style / Bootstrap Cleanup Slice
+
+- `goal`: remove duplicated onboarding screen bootstrap inline styles and move the remaining auth urgency visual state to class/state toggles without widening beyond the approved onboarding seam
+- `areas/files`:
+  - `src/styles/shell.onboarding.shared-shell.css`
+  - `src/modules/ui/auth/AuthScreen.ts`
+  - `src/modules/ui/profile-select/ProfileSelectScreen.ts`
+  - `src/modules/ui/server-select/ServerSelectScreen.ts`
+  - `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
+  - `src/modules/ui/auth/__tests__/AuthScreen.test.ts`
+  - `src/modules/ui/profile-select/__tests__/ProfileSelectScreen.test.ts`
+  - `src/modules/ui/server-select/__tests__/ServerSelectScreen.test.ts`
+  - `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`
+- `exact_issue_ids`:
+  - `style_audit::inline_styles::onboarding_container_bootstrap_duplication`
+  - `style_audit::inline_styles::non_geometric_visual_state_should_use_classes`
+- `verification`:
+  - `rg -n "style\\.position = 'absolute'|style\\.inset = '0'|style\\.alignItems = 'center'|style\\.justifyContent = 'center'" src/modules/ui/auth/AuthScreen.ts src/modules/ui/profile-select/ProfileSelectScreen.ts src/modules/ui/server-select/ServerSelectScreen.ts src/modules/ui/channel-setup/ChannelSetupScreen.ts`
+  - `rg -n "style\\.display = 'none'|show\\(\\): void|hide\\(\\): void|style\\.display = 'flex'" src/modules/ui/auth/AuthScreen.ts src/modules/ui/profile-select/ProfileSelectScreen.ts src/modules/ui/server-select/ServerSelectScreen.ts src/modules/ui/channel-setup/ChannelSetupScreen.ts`
+  - `rg -n "style\\.color =" src/modules/ui/auth/AuthScreen.ts`
+  - `rg -n "screen-detail--warning|warning-detail|detail-warning" src/styles/shell.onboarding.shared-shell.css src/modules/ui/auth/AuthScreen.ts`
+  - `npm test -- --runInBand src/modules/ui/auth/__tests__/AuthScreen.test.ts`
+  - `npm test -- --runInBand src/modules/ui/profile-select/__tests__/ProfileSelectScreen.test.ts src/modules/ui/server-select/__tests__/ServerSelectScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`
+  - `npm run verify`
+  - `npm run plans:check`
+  - `npm run verify:docs`
+- `dependencies`: `S8-EXIT` complete
+- `stop_condition`: app-shell/bootstrap ownership needs to move, shared `.screen` bootstrap proves insufficient, or new live package-owned inline visual-state residue appears outside this seam
+- `handoff_condition`: the four screen constructors no longer re-declare the shared `.screen` bootstrap contract, accepted lifecycle display toggles remain, auth warning styling is class/state-driven with reset proof, and the package is ready for `lineup-cleanup-review`
+- `serial_only`: true
+- `parallel_justification`: both issue ids share one onboarding shell owner and one combined verification surface
 - `coverage_check`:
-  - `style_audit::inline_styles::onboarding_container_bootstrap_duplication` -> `S9-W1-S1`
-  - `style_audit::inline_styles::non_geometric_visual_state_should_use_classes` -> `S9-W1-S1`
-- `ready_now_slice`: `S9-W1-S1`
-- `ready_now_execution_unit`: `S9-W1-S1`
+  - `style_audit::inline_styles::onboarding_container_bootstrap_duplication` -> `P9-W1-S1`
+  - `style_audit::inline_styles::non_geometric_visual_state_should_use_classes` -> `P9-W1-S1`
 - `recommended_slice_order`:
-  1. `S9-W1-S1`
-- `parallel_execution_policy`: serial only; the package is one tightly coupled onboarding shell slice with one shared CSS owner and one review surface
+  1. `P9-W1-S1`
+- `ready_now_slice`: `P9-W1-S1`
+- `ready_now_execution_unit`: `P9-W1-S1`
+- `parallel_execution_policy`: serial
 
 ## Execution Notes
 
@@ -279,13 +296,24 @@ Freshness gate:
 
 ## Priority-Exit Readiness
 
+- This is the final planned `S#-W#` work item before `S9-EXIT`, so no style-cleanup closeout or successor package planning may begin until `S9-EXIT` is completed with the reruns and checklist evidence below.
+- Validator-compatibility note: the checklist token for this style package remains `S9-W1`, while the package-decomposition slice id uses the repo validator’s current `P#-W#-S#` pattern (`P9-W1-S1`) for conformance only.
+
+### Imported issue dispositions by exact id
+
 - `style_audit::inline_styles::onboarding_container_bootstrap_duplication`
-  - planned disposition: retire in `S9-W1-S1`
+  - expected disposition: resolved
   - closeout proof: the four approved onboarding screen constructors are source-audit clean for the duplicated bootstrap writes, with no successor owner required
 - `style_audit::inline_styles::non_geometric_visual_state_should_use_classes`
-  - planned disposition: retire in `S9-W1-S1`
+  - expected disposition: resolved
   - closeout proof: `AuthScreen` no longer uses direct inline color writes for countdown urgency, and no new successor owner is required inside the approved onboarding seam
-- `S9-EXIT` obligations before style-cleanup closeout:
-  - update `STYLE_CLEANUP_CHECKLIST.md` for both `S9-W1` and `S9-EXIT` with current verification results
-  - record explicitly that any remaining inline display or geometry writes observed outside this package are accepted by existing owner policy rather than hidden `S9` residue
-  - do not invent a successor package solely because acceptable lifecycle/geometry inline styles still exist elsewhere
+
+### Security gate
+
+- expected outcome: `no open P0 security findings`
+- if security output still shows open issues, record the exact issue ids and their current owner before allowing `S9-EXIT` to close style cleanup
+
+### Next-priority gate
+
+- no `P10` plan or implementation starts while `P9-EXIT` is unresolved
+- style-program equivalent: no `S9-EXIT` closeout claim or style-cleanup program closeout starts while the `S9-W1` verification and checklist evidence remain unresolved

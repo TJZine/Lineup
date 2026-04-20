@@ -345,7 +345,7 @@ Check a box only in the same pass that updates the mini-record with current veri
 
 ## Priority 9: Inline Style / Bootstrap Cleanup
 
-- [ ] `S9-W1` `pkg_inline_style_bootstrap_cleanup` Inline Style / Bootstrap Cleanup
+- [x] `S9-W1` `pkg_inline_style_bootstrap_cleanup` Inline Style / Bootstrap Cleanup
   - Backlog: `2` exact issues
   - Tier / effort / risk: `Tier 2` / `S-M` / `medium`
   - Execution shape: `1` serial execution unit
@@ -354,6 +354,21 @@ Check a box only in the same pass that updates the mini-record with current veri
   - Status: `completed`
   - Plan: `docs/plans/2026-04-19-s9-inline-style-bootstrap-cleanup.md`
   - Last touched: `2026-04-19`
-  - Verification: `rg -n "style\\.position = 'absolute'|style\\.inset = '0'|style\\.alignItems = 'center'|style\\.justifyContent = 'center'" src/modules/ui/auth/AuthScreen.ts src/modules/ui/profile-select/ProfileSelectScreen.ts src/modules/ui/server-select/ServerSelectScreen.ts src/modules/ui/channel-setup/ChannelSetupScreen.ts` -> no matches; `rg -n "style\\.display = 'none'|show\\(\\): void|hide\\(\\): void|style\\.display = 'flex'" src/modules/ui/auth/AuthScreen.ts src/modules/ui/profile-select/ProfileSelectScreen.ts src/modules/ui/server-select/ServerSelectScreen.ts src/modules/ui/channel-setup/ChannelSetupScreen.ts` -> constructor bootstrap display writes removed while accepted lifecycle toggles remain; `rg -n "style\\.color =" src/modules/ui/auth/AuthScreen.ts` -> no matches; `rg -n "screen-detail--warning|warning-detail|detail-warning" src/styles/shell.onboarding.shared-shell.css src/modules/ui/auth/AuthScreen.ts` -> matched shared CSS owner plus `AuthScreen` class toggle only; `npm test -- --runInBand src/modules/ui/auth/__tests__/AuthScreen.test.ts` -> pass; `npm test -- --runInBand src/modules/ui/profile-select/__tests__/ProfileSelectScreen.test.ts src/modules/ui/server-select/__tests__/ServerSelectScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts` -> pass; `npm run verify` -> pass; `npm run plans:check` -> pass; `npm run verify:docs` -> pass
-  - Follow-ups: `S9-EXIT` remains the single closeout owner pending `lineup-cleanup-review`; no successor package is expected unless review finds live residue outside the approved onboarding seam
-  - Handoff: request `lineup-cleanup-review` for `docs/plans/2026-04-19-s9-inline-style-bootstrap-cleanup.md` covering execution unit `S9-W1-S1`; review should confirm the package can be checked and that `S9-EXIT` can close without inventing a successor package
+  - Verification: `rg -n "style\\.position = 'absolute'|style\\.inset = '0'|style\\.alignItems = 'center'|style\\.justifyContent = 'center'" src/modules/ui/auth/AuthScreen.ts src/modules/ui/profile-select/ProfileSelectScreen.ts src/modules/ui/server-select/ServerSelectScreen.ts src/modules/ui/channel-setup/ChannelSetupScreen.ts` -> no matches; `rg -n "style\\.display = 'none'|show\\(\\): void|hide\\(\\): void|style\\.display = 'flex'" src/modules/ui/auth/AuthScreen.ts src/modules/ui/profile-select/ProfileSelectScreen.ts src/modules/ui/server-select/ServerSelectScreen.ts src/modules/ui/channel-setup/ChannelSetupScreen.ts` -> constructor bootstrap display writes removed while accepted lifecycle toggles remain; `rg -n "style\\.color =" src/modules/ui/auth/AuthScreen.ts` -> no matches; `rg -n "screen-detail--warning|warning-detail|detail-warning" src/styles/shell.onboarding.shared-shell.css src/modules/ui/auth/AuthScreen.ts` -> matched shared CSS owner plus `AuthScreen` class toggle only; `npm test -- --runInBand src/modules/ui/auth/__tests__/AuthScreen.test.ts` -> pass; `npm test -- --runInBand src/modules/ui/profile-select/__tests__/ProfileSelectScreen.test.ts src/modules/ui/server-select/__tests__/ServerSelectScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts` -> pass; `npm run plans:check` -> pass; `npm run verify:docs` -> pass; `npm run verify` -> pass
+  - Follow-ups: `S9-EXIT` is complete; no successor package was required for the approved onboarding seam
+  - Handoff: none
+
+- [x] `S9-EXIT`
+  - required: onboarding bootstrap duplication and non-geometric inline visual state drift are either retired or deferred with one final owner
+  - verification:
+    - targeted source-audit commands from the active plan
+    - `npm run verify`
+    - `npm run plans:check`
+    - `npm run verify:docs`
+  - exit rule: style-cleanup closeout can proceed without a hidden inline-style/bootstrap package
+  - Status: `completed`
+  - Plan: `docs/plans/2026-04-19-s9-inline-style-bootstrap-cleanup.md`
+  - Last touched: `2026-04-19`
+  - Verification: current-session review confirmed `style_audit::inline_styles::onboarding_container_bootstrap_duplication` and `style_audit::inline_styles::non_geometric_visual_state_should_use_classes` are retired in the approved onboarding seam with no successor package required, while remaining lifecycle/geometry inline writes are accepted residue outside `S9`; `npm run plans:check` -> pass; `npm run verify:docs` -> pass; `npm run verify` -> pass
+  - Follow-ups: Priority 9 is closed. No additional inline-style/bootstrap cleanup package is required unless a future review finds live residue outside the accepted lifecycle/geometry owner policy.
+  - Handoff: none
