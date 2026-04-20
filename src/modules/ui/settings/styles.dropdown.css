@@ -63,7 +63,7 @@
 
 .settings-dropdown-option--selected {
   background: rgba(var(--color-primary-rgb-legacy), 0.16);
-  background: rgb(var(--color-primary-rgb, 224 120 42) / 16%);
+  background: rgb(var(--color-primary-rgb) / 16%);
   color: var(--color-primary-light);
 }
 
@@ -71,7 +71,7 @@
 .settings-dropdown-option--selected:focus,
 .settings-dropdown-option--selected.focused {
   background: rgba(var(--color-primary-rgb-legacy), 0.24);
-  background: rgb(var(--color-primary-rgb, 224 120 42) / 24%);
+  background: rgb(var(--color-primary-rgb) / 24%);
 }
 
 .settings-dropdown-option-label {

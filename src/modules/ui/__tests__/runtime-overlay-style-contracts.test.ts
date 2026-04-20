@@ -207,15 +207,31 @@ describe('runtime overlay style contracts', () => {
 
     it('keeps mini guide forced-colors coverage scoped to focused-row readability', () => {
         const css = read('src/modules/ui/mini-guide/styles.core.css');
+        const focusedRowBlock = blockWithin(css, FORCED_COLORS_RULE, '.mini-guide-row.focused');
+        const channelNumBlock = blockWithin(
+            css,
+            FORCED_COLORS_RULE,
+            '.mini-guide-row.focused .mini-guide-channel-num'
+        );
+        const footerHintBlock = blockWithin(css, FORCED_COLORS_RULE, '.mini-guide-footer-hint');
+        const progressFillBlock = blockWithin(css, FORCED_COLORS_RULE, '.mini-guide-progress-fill');
+        const focusedProgressFillBlock = blockWithin(
+            css,
+            FORCED_COLORS_RULE,
+            '.mini-guide-row.focused .mini-guide-progress-fill'
+        );
 
         expect(css).toContain(FORCED_COLORS_RULE);
-        expect(css).toContain('.mini-guide-row.focused');
-        expect(css).toContain('background: Highlight;');
-        expect(css).toContain('outline: 2px solid Highlight;');
-        expect(css).toContain('.mini-guide-row.focused .mini-guide-channel-num');
-        expect(css).toContain('color: HighlightText;');
-        expect(css).toContain('.mini-guide-footer-hint');
-        expect(css).toContain('.mini-guide-progress-fill');
-        expect(css).toContain('background: Canvas;');
+        expect(focusedRowBlock).toContain('.mini-guide-row.focused');
+        expect(focusedRowBlock).toContain('background: Highlight;');
+        expect(focusedRowBlock).toContain('outline: 2px solid Highlight;');
+        expect(channelNumBlock).toContain('.mini-guide-row.focused .mini-guide-channel-num');
+        expect(channelNumBlock).toContain('color: HighlightText;');
+        expect(footerHintBlock).toContain('.mini-guide-footer-hint');
+        expect(footerHintBlock).toContain('color: CanvasText;');
+        expect(progressFillBlock).toContain('.mini-guide-progress-fill');
+        expect(progressFillBlock).toContain('background: Highlight;');
+        expect(focusedProgressFillBlock).toContain('.mini-guide-row.focused .mini-guide-progress-fill');
+        expect(focusedProgressFillBlock).toContain('background: Canvas;');
     });
 });

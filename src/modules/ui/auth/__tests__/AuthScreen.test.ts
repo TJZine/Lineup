@@ -57,6 +57,22 @@ const click = (container: HTMLElement, selector: string): void => {
     element.click();
 };
 
+type Deferred<T> = {
+    promise: Promise<T>;
+    resolve: (value: T) => void;
+    reject: (error?: unknown) => void;
+};
+
+const createDeferred = <T>(): Deferred<T> => {
+    let resolve!: (value: T) => void;
+    let reject!: (error?: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+        resolve = res;
+        reject = rej;
+    });
+    return { promise, resolve, reject };
+};
+
 describe('AuthScreen', () => {
     afterEach(() => {
         jest.useRealTimers();
@@ -361,6 +377,89 @@ describe('AuthScreen', () => {
         expect(pin).toBe('----');
         expect(qr.style.display).toBe('none');
         expect(status?.textContent ?? '').toContain('Code expired.');
+        expect(detail?.classList.contains('screen-detail--warning')).toBe(false);
+    });
+
+    it('clears the countdown warning class when polling succeeds after the warning threshold', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-02-05T00:00:00.000Z'));
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const pollDeferred = createDeferred<{
+            id: number;
+            code: string;
+            expiresAt: Date;
+            authToken: string | null;
+            clientIdentifier: string;
+        }>();
+
+        const ports = createPorts({
+            requestAuthPin: jest.fn().mockResolvedValue({
+                id: 1,
+                code: 'ABCD',
+                expiresAt: new Date(Date.now() + 90_000),
+                authToken: null,
+                clientIdentifier: 'client-id',
+            }),
+            pollForPin: jest.fn().mockImplementation(() => pollDeferred.promise),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+
+        const detail = container.querySelector('.screen-detail') as HTMLElement | null;
+        expect(detail?.classList.contains('screen-detail--warning')).toBe(true);
+
+        pollDeferred.resolve({
+            id: 1,
+            code: 'ABCD',
+            expiresAt: new Date(Date.now() + 90_000),
+            authToken: 'auth-token',
+            clientIdentifier: 'client-id',
+        });
+        await flushPromises();
+
+        expect(detail?.textContent).toContain('Continuing startup…');
+        expect(detail?.classList.contains('screen-detail--warning')).toBe(false);
+    });
+
+    it('clears the countdown warning class when polling fails after the warning threshold', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-02-05T00:00:00.000Z'));
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const pollDeferred = createDeferred<never>();
+
+        const ports = createPorts({
+            requestAuthPin: jest.fn().mockResolvedValue({
+                id: 1,
+                code: 'ABCD',
+                expiresAt: new Date(Date.now() + 90_000),
+                authToken: null,
+                clientIdentifier: 'client-id',
+            }),
+            pollForPin: jest.fn().mockImplementation(() => pollDeferred.promise),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+
+        const detail = container.querySelector('.screen-detail') as HTMLElement | null;
+        expect(detail?.classList.contains('screen-detail--warning')).toBe(true);
+
+        pollDeferred.reject(new Error('poll failed'));
+        await flushPromises();
+
         expect(detail?.classList.contains('screen-detail--warning')).toBe(false);
     });
 

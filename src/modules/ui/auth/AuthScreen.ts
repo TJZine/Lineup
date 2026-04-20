@@ -169,7 +169,6 @@ export class AuthScreen {
             });
         }
         this._unregisterFocusables();
-        this._setCountdownWarningVisible(false);
         this._container.style.display = 'none';
         this._container.classList.remove('visible');
     }
@@ -253,7 +252,6 @@ export class AuthScreen {
         this._expiresAt = null;
         this._renderPin('----');
         this._qrWrapEl.style.display = 'none';
-        this._setCountdownWarningVisible(false);
         this._setStatus('Cancelled.', 'Request a new PIN to continue.', { tone: 'neutral' });
         this._setButtons({ request: true, cancel: false, retry: false });
     }
@@ -429,6 +427,7 @@ export class AuthScreen {
             clearInterval(this._expiryTimer);
             this._expiryTimer = null;
         }
+        this._setCountdownWarningVisible(false);
     }
 
     private async _handleExpiredPin(): Promise<void> {
@@ -448,7 +447,6 @@ export class AuthScreen {
         this._expiresAt = null;
         this._renderPin('----');
         this._qrWrapEl.style.display = 'none';
-        this._setCountdownWarningVisible(false);
         this._setStatus('Code expired.', 'Request a new PIN to continue.', { tone: 'warning' });
         this._setButtons({ request: true, cancel: false, retry: false });
     }
