@@ -1,4 +1,4 @@
-import { blockFor } from './css-test-utils';
+import { blockFor, blockWithin, topLevelBlockForProperty } from './css-test-utils';
 
 describe('css-test-utils', () => {
     it('returns the full grouped selector block when the requested selector is not first', () => {
@@ -33,6 +33,49 @@ describe('css-test-utils', () => {
 
         expect(blockFor(css, '.settings-item:is(.focused, :focus-visible)')).toContain(
             '.settings-item[data-state="active"]'
+        );
+    });
+
+    it('returns a nested selector block from a specific at-rule container', () => {
+        const css = `
+.settings-item {
+  color: var(--color-text-primary);
+}
+
+@media (forced-colors: active) {
+  .settings-item {
+    color: CanvasText;
+  }
+}
+`;
+
+        expect(blockWithin(css, '@media (forced-colors: active)', '.settings-item')).toContain(
+            'color: CanvasText;'
+        );
+    });
+
+    it('keeps unscoped property lookup at the top level only', () => {
+        const css = `
+.settings-item {
+  color: var(--color-text-primary);
+}
+
+@media (forced-colors: active) {
+  .settings-item {
+    color: CanvasText;
+  }
+
+  .settings-only-mobile {
+    gap: var(--space-1);
+  }
+}
+`;
+
+        expect(topLevelBlockForProperty(css, '.settings-item', 'color')).toContain(
+            'color: var(--color-text-primary);'
+        );
+        expect(() => topLevelBlockForProperty(css, '.settings-only-mobile', 'gap')).toThrow(
+            'Top-level selector block with property not found: .settings-only-mobile -> gap'
         );
     });
 });

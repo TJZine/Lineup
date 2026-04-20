@@ -2,7 +2,12 @@
  * @jest-environment node
  */
 
-import { blockFor, declarationValue, read } from '../../../styles/__tests__/helpers/css-test-utils';
+import {
+    blockFor,
+    blockWithin,
+    declarationValue,
+    read,
+} from '../../../styles/__tests__/helpers/css-test-utils';
 import { THEME_CLASSES } from '../theme/themeDefinitions';
 
 type OverlayContract = {
@@ -27,46 +32,6 @@ const OVERLAY_CONTRACTS: OverlayContract[] = [
 
 const THEME_SELECTORS = Object.values(THEME_CLASSES);
 const FORCED_COLORS_RULE = '@media (forced-colors: active)';
-
-const blockBody = (block: string): string => {
-    const start = block.indexOf('{');
-    const end = block.lastIndexOf('}');
-    if (start === -1 || end === -1 || end <= start) {
-        throw new Error(`Malformed CSS block: ${block}`);
-    }
-
-    return block.slice(start + 1, end);
-};
-
-const blockWithin = (css: string, container: string, selector: string): string => {
-    const start = css.indexOf(container);
-    if (start === -1) {
-        throw new Error(`Container block not found: ${container}`);
-    }
-
-    const openBrace = css.indexOf('{', start);
-    if (openBrace === -1) {
-        throw new Error(`Container block missing opening brace: ${container}`);
-    }
-
-    let depth = 1;
-    let index = openBrace + 1;
-    while (depth > 0 && index < css.length) {
-        const char = css[index];
-        if (char === '{') {
-            depth += 1;
-        } else if (char === '}') {
-            depth -= 1;
-        }
-        index += 1;
-    }
-
-    if (depth !== 0) {
-        throw new Error(`Container block missing closing brace: ${container}`);
-    }
-
-    return blockFor(blockBody(css.slice(start, index)), selector);
-};
 
 describe('runtime overlay style contracts', () => {
     it.each(OVERLAY_CONTRACTS)(

@@ -4,10 +4,11 @@
 
 import {
     blockFor,
+    blockWithin,
     declarationValue,
     read,
     readComposedCss,
-    splitSelectorList,
+    topLevelBlockForProperty,
 } from '../../../styles/__tests__/helpers/css-test-utils';
 
 type TypographyContract = {
@@ -1025,84 +1026,7 @@ const BOUNDED_COLOR_EXCEPTION_CONTRACTS: DeclarationContract[] = [
     },
 ];
 
-const blockBody = (block: string): string => {
-    const start = block.indexOf('{');
-    const end = block.lastIndexOf('}');
-    if (start === -1 || end === -1 || end <= start) {
-        throw new Error(`Malformed CSS block: ${block}`);
-    }
-
-    return block.slice(start + 1, end);
-};
-
-const normalizeSelector = (selector: string): string => selector.replace(/\s+/g, ' ').trim();
-
-const escapeRegExp = (value: string): string =>
-    value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 const readCss = (file: string): string => readComposedCss(file);
-
-const blockForProperty = (css: string, selector: string, property: string): string => {
-    const wantedSelector = normalizeSelector(selector);
-    const wantedProperty = new RegExp(`(^|\\n)\\s*${escapeRegExp(property)}\\s*:`, 'm');
-    const rulePattern = /([^{}]+)\{([^{}]*)\}/g;
-
-    for (const match of css.matchAll(rulePattern)) {
-        const selectorList = match[1]?.trim();
-        const body = match[2];
-
-        if (!selectorList || !body || selectorList.startsWith('@')) {
-            continue;
-        }
-
-        const selectors = splitSelectorList(selectorList);
-
-        if (selectors.includes(wantedSelector) && wantedProperty.test(body)) {
-            return `${selectorList} {${body}}`;
-        }
-    }
-
-    try {
-        const block = blockFor(css, selector);
-        if (wantedProperty.test(block)) {
-            return block;
-        }
-    } catch {
-        // Fall through to the explicit property-aware error below.
-    }
-
-    throw new Error(`Selector block with property not found: ${selector} -> ${property}`);
-};
-
-const blockWithin = (css: string, container: string, selector: string): string => {
-    const start = css.indexOf(container);
-    if (start === -1) {
-        throw new Error(`Container block not found: ${container}`);
-    }
-
-    const openBrace = css.indexOf('{', start);
-    if (openBrace === -1) {
-        throw new Error(`Container block missing opening brace: ${container}`);
-    }
-
-    let depth = 1;
-    let index = openBrace + 1;
-    while (depth > 0 && index < css.length) {
-        const char = css[index];
-        if (char === '{') {
-            depth += 1;
-        } else if (char === '}') {
-            depth -= 1;
-        }
-        index += 1;
-    }
-
-    if (depth !== 0) {
-        throw new Error(`Container block missing closing brace: ${container}`);
-    }
-
-    return blockFor(blockBody(css.slice(start, index)), selector);
-};
 
 describe('runtime token style contracts', () => {
     it.each(TYPOGRAPHY_CONTRACTS)(
@@ -1124,7 +1048,9 @@ describe('runtime token style contracts', () => {
         'maps $property for $selector in $file to $expected',
         ({ file, selector, property, expected, within }) => {
             const css = readCss(file);
-            const block = within ? blockWithin(css, within, selector) : blockForProperty(css, selector, property);
+            const block = within
+                ? blockWithin(css, within, selector)
+                : topLevelBlockForProperty(css, selector, property);
 
             expect(declarationValue(block, property)).toBe(expected);
         }
@@ -1134,7 +1060,9 @@ describe('runtime token style contracts', () => {
         'enforces local spacing alias $property for $selector in $file as $expected',
         ({ file, selector, property, expected, within }) => {
             const css = readCss(file);
-            const block = within ? blockWithin(css, within, selector) : blockForProperty(css, selector, property);
+            const block = within
+                ? blockWithin(css, within, selector)
+                : topLevelBlockForProperty(css, selector, property);
 
             expect(declarationValue(block, property)).toBe(expected);
         }
@@ -1144,7 +1072,9 @@ describe('runtime token style contracts', () => {
         'pins local spacing variable $property for $selector in $file at $expected',
         ({ file, selector, property, expected, within }) => {
             const css = readCss(file);
-            const block = within ? blockWithin(css, within, selector) : blockForProperty(css, selector, property);
+            const block = within
+                ? blockWithin(css, within, selector)
+                : topLevelBlockForProperty(css, selector, property);
 
             expect(declarationValue(block, property)).toBe(expected);
         }
@@ -1154,7 +1084,9 @@ describe('runtime token style contracts', () => {
         'enforces local z-index alias $property for $selector in $file as $expected',
         ({ file, selector, property, expected, within }) => {
             const css = readCss(file);
-            const block = within ? blockWithin(css, within, selector) : blockForProperty(css, selector, property);
+            const block = within
+                ? blockWithin(css, within, selector)
+                : topLevelBlockForProperty(css, selector, property);
 
             expect(declarationValue(block, property)).toBe(expected);
         }
@@ -1164,7 +1096,9 @@ describe('runtime token style contracts', () => {
         'pins local z-index variable $property for $selector in $file at $expected',
         ({ file, selector, property, expected, within }) => {
             const css = readCss(file);
-            const block = within ? blockWithin(css, within, selector) : blockForProperty(css, selector, property);
+            const block = within
+                ? blockWithin(css, within, selector)
+                : topLevelBlockForProperty(css, selector, property);
 
             expect(declarationValue(block, property)).toBe(expected);
         }
@@ -1174,7 +1108,9 @@ describe('runtime token style contracts', () => {
         'pins local typography variable $property for $selector in $file at $expected',
         ({ file, selector, property, expected, within }) => {
             const css = readCss(file);
-            const block = within ? blockWithin(css, within, selector) : blockForProperty(css, selector, property);
+            const block = within
+                ? blockWithin(css, within, selector)
+                : topLevelBlockForProperty(css, selector, property);
 
             expect(declarationValue(block, property)).toBe(expected);
         }
@@ -1220,7 +1156,9 @@ describe('runtime token style contracts', () => {
         'maps $property for $selector in $file to $expected',
         ({ file, selector, property, expected, within }) => {
             const css = readCss(file);
-            const block = within ? blockWithin(css, within, selector) : blockForProperty(css, selector, property);
+            const block = within
+                ? blockWithin(css, within, selector)
+                : topLevelBlockForProperty(css, selector, property);
 
             expect(declarationValue(block, property)).toBe(expected);
         }
@@ -1252,7 +1190,9 @@ describe('runtime token style contracts', () => {
         'keeps the approved bright-focus color exception $property for $selector in $file at $expected',
         ({ file, selector, property, expected, within }) => {
             const css = readCss(file);
-            const block = within ? blockWithin(css, within, selector) : blockForProperty(css, selector, property);
+            const block = within
+                ? blockWithin(css, within, selector)
+                : topLevelBlockForProperty(css, selector, property);
 
             expect(declarationValue(block, property)).toBe(expected);
         }
