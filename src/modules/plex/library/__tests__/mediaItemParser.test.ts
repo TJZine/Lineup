@@ -40,7 +40,7 @@ describe('mediaItemParser', () => {
     });
 
     it('omits invalid optional Plex timestamps instead of synthesizing the Unix epoch', () => {
-        const item = parseMediaItem({
+        const nanItem = parseMediaItem({
             ratingKey: 'movie-2',
             key: '/library/metadata/movie-2',
             type: 'movie',
@@ -51,8 +51,20 @@ describe('mediaItemParser', () => {
             Media: [],
         } as unknown as RawMediaItem);
 
-        expect(item.addedAt.toISOString()).toBe('2024-01-01T00:00:00.000Z');
-        expect(item.updatedAt.toISOString()).toBe('2024-01-02T00:00:00.000Z');
-        expect(item.lastViewedAt).toBeUndefined();
+        const overflowItem = parseMediaItem({
+            ratingKey: 'movie-3',
+            key: '/library/metadata/movie-3',
+            type: 'movie',
+            title: 'Movie 3',
+            addedAt: 1704067200,
+            updatedAt: 1704153600,
+            lastViewedAt: Number.MAX_VALUE,
+            Media: [],
+        } as unknown as RawMediaItem);
+
+        expect(nanItem.addedAt.toISOString()).toBe('2024-01-01T00:00:00.000Z');
+        expect(nanItem.updatedAt.toISOString()).toBe('2024-01-02T00:00:00.000Z');
+        expect(nanItem.lastViewedAt).toBeUndefined();
+        expect(overflowItem.lastViewedAt).toBeUndefined();
     });
 });

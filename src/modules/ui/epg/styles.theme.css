@@ -73,14 +73,6 @@
   outline: none;
 }
 
-/* Forced-colors: restore focus outline for glass theme (higher specificity than base `.epg-cell.focused`). */
-@media (forced-colors: active) {
-  .theme-glass .epg-cell.focused {
-    outline: 3px solid CanvasText;
-    outline-offset: 2px;
-  }
-}
-
 /*
   Pills: channel rows without margins (virtualization-safe).
   Use an inset pseudo-element for the "floating pill" look without changing rowHeight.

@@ -263,10 +263,6 @@
   animation-play-state: paused;
 }
 
-.epg-info-description[data-scroll-active='true'] .epg-info-description-inner {
-  animation-play-state: paused;
-}
-
 .epg-container.visible .epg-info-description[data-scroll-active='true'] .epg-info-description-inner {
   animation-play-state: running;
 }

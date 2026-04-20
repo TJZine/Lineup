@@ -28,6 +28,46 @@ const OVERLAY_CONTRACTS: OverlayContract[] = [
 const THEME_SELECTORS = Object.values(THEME_CLASSES);
 const FORCED_COLORS_RULE = '@media (forced-colors: active)';
 
+const blockBody = (block: string): string => {
+    const start = block.indexOf('{');
+    const end = block.lastIndexOf('}');
+    if (start === -1 || end === -1 || end <= start) {
+        throw new Error(`Malformed CSS block: ${block}`);
+    }
+
+    return block.slice(start + 1, end);
+};
+
+const blockWithin = (css: string, container: string, selector: string): string => {
+    const start = css.indexOf(container);
+    if (start === -1) {
+        throw new Error(`Container block not found: ${container}`);
+    }
+
+    const openBrace = css.indexOf('{', start);
+    if (openBrace === -1) {
+        throw new Error(`Container block missing opening brace: ${container}`);
+    }
+
+    let depth = 1;
+    let index = openBrace + 1;
+    while (depth > 0 && index < css.length) {
+        const char = css[index];
+        if (char === '{') {
+            depth += 1;
+        } else if (char === '}') {
+            depth -= 1;
+        }
+        index += 1;
+    }
+
+    if (depth !== 0) {
+        throw new Error(`Container block missing closing brace: ${container}`);
+    }
+
+    return blockFor(blockBody(css.slice(start, index)), selector);
+};
+
 describe('runtime overlay style contracts', () => {
     it.each(OVERLAY_CONTRACTS)(
         'keeps %s on theme-aware compact overlay scrims',
@@ -63,11 +103,12 @@ describe('runtime overlay style contracts', () => {
         'keeps %s scoped to a package-local forced-colors fallback',
         ({ file, selector }) => {
             const css = read(file);
+            const forcedColorsBlock = blockWithin(css, FORCED_COLORS_RULE, selector);
 
             expect(css).toContain(FORCED_COLORS_RULE);
-            expect(css).toContain(selector);
-            expect(css).toContain('background: Canvas;');
-            expect(css).toContain('CanvasText');
+            expect(forcedColorsBlock).toContain(selector);
+            expect(forcedColorsBlock).toContain('background: Canvas;');
+            expect(forcedColorsBlock).toContain('CanvasText');
         }
     );
 
@@ -99,17 +140,28 @@ describe('runtime overlay style contracts', () => {
 
     it('keeps playback options forced-colors coverage scoped to focused and selected items', () => {
         const css = read('src/modules/ui/playback-options/styles.core.css');
+        const selectedBlock = blockWithin(css, FORCED_COLORS_RULE, '.playback-options-item.selected');
+        const selectedLabelBlock = blockWithin(
+            css,
+            FORCED_COLORS_RULE,
+            '.playback-options-item.selected .playback-options-item-label'
+        );
+        const focusedBlock = blockWithin(css, FORCED_COLORS_RULE, '.playback-options-item.focused');
+        const focusVisibleBlock = blockWithin(css, FORCED_COLORS_RULE, '.playback-options-item:focus-visible');
+        const selectedFocusVisibleBlock = blockWithin(
+            css,
+            FORCED_COLORS_RULE,
+            '.playback-options-item.selected:focus-visible'
+        );
 
         expect(css).toContain(FORCED_COLORS_RULE);
-        expect(css).toContain('.playback-options-item.selected');
-        expect(css).toContain('.playback-options-item.focused');
-        expect(css).toContain('.playback-options-item:focus-visible');
-        expect(css).toContain('background: Canvas;');
-        expect(css).toContain('border-color: CanvasText;');
-        expect(css).toContain('background: Highlight;');
-        expect(css).toContain('color: HighlightText;');
-        expect(css).toContain('outline: 2px solid Highlight;');
-        expect(css).toContain('outline-color: HighlightText;');
+        expect(selectedBlock).toContain('.playback-options-item.selected');
+        expect(selectedBlock).toContain('background: Highlight;');
+        expect(selectedBlock).toContain('border-color: Highlight;');
+        expect(selectedLabelBlock).toContain('color: HighlightText;');
+        expect(focusedBlock).toContain('border-color: Highlight;');
+        expect(focusVisibleBlock).toContain('outline: 2px solid Highlight;');
+        expect(selectedFocusVisibleBlock).toContain('outline-color: HighlightText;');
     });
 
     it('keeps exit confirm theme tuning local to the overlay surface', () => {
@@ -144,8 +196,13 @@ describe('runtime overlay style contracts', () => {
         );
         expect(exitConfirmCss).not.toContain('border-radius: 18px 18px 0 0;');
 
-        expect(playbackCss).toContain('.playback-options-item:nth-child(n + 6) { animation-delay: 180ms; }');
-        expect(playbackCss).not.toMatch(/animation-delay:\s*(210|240|270|300|330|360)ms;/);
+        const delayedItemsMatch = playbackCss.match(
+            /\.playback-options-item:nth-child\(n\s*\+\s*6\)\s*\{([^}]*)\}/
+        );
+
+        expect(delayedItemsMatch?.[0]).toBeDefined();
+        expect(delayedItemsMatch?.[1]).toMatch(/animation-delay:\s*180ms;/);
+        expect(delayedItemsMatch?.[1]).not.toMatch(/animation-delay:\s*(210|240|270|300|330|360)ms;/);
     });
 
     it('keeps mini guide forced-colors coverage scoped to focused-row readability', () => {

@@ -10,7 +10,7 @@ This document tracks package-scoped style cleanup work for shared CSS contracts,
 
 - Last audit refresh: `2026-04-18`
 - Last structural refresh: `2026-04-19`
-- Current execution state: `S3-W1`, `S3-EXIT`, `S4-W1`, `S4-EXIT`, `S5-W1`, `S5-EXIT`, `S6-W1`, `S6-EXIT`, `S7-W1`, and `S7-EXIT` are complete
+- Current execution state: `S1-W1`, `S1-EXIT`, `S2-W1`, `S2-EXIT`, `S3-W1`, `S3-EXIT`, `S4-W1`, `S4-EXIT`, `S5-W1`, `S5-EXIT`, `S6-W1`, `S6-EXIT`, `S7-W1`, and `S7-EXIT` are complete
 - Next safe start: fresh `lineup-cleanup-loop` for `S8-W1` / `pkg_runtime_token_cleanup`
 - Preferred launcher: use a local-only execution brief for Tier 2 packages; reserve `cleanup-loop` for the remaining approved Tier 3 package (`S8-W1`)
 - Authoritative evidence rule: change package status only from commands and source reads rerun in the target workspace/branch
@@ -141,7 +141,7 @@ Check a box only in the same pass that updates the mini-record with current veri
   - Status: `completed`
   - Plan: `local-only`
   - Last touched: `2026-04-19`
-  - Verification: `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGLibraryTabs.test.ts src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts src/modules/ui/epg/__tests__/epg-focused-overflow-style.test.ts` -> pass; `npx stylelint src/modules/ui/epg/styles.grid.css src/modules/ui/epg/styles.theme.css src/modules/ui/epg/styles.css` -> pass; `rg -n "epg-library-pill|epg-library-picker-panel|epg-library-picker-item|forced-colors|\\.theme-swiss \\\\.epg-info-panel \\\\.epg-info-(backdrop|tags)|\\.theme-swiss \\\\.epg-(cell-meta|cell-subtitle)|!important" src/modules/ui/epg/styles.grid.css src/modules/ui/epg/styles.theme.css src/modules/ui/epg/__tests__/EPGLibraryTabs.test.ts src/modules/ui/epg/__tests__/epg-focused-overflow-style.test.ts` -> matched the new library-picker forced-colors block and the narrowed Swiss info-panel selector ownership, with no remaining Swiss `!important` or stale Swiss cell-meta/subtitle selector residue in the package seam; `npm run verify` -> pass`
+  - Verification: `npm test -- --runInBand src/modules/ui/epg/__tests__/EPGLibraryTabs.test.ts src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts src/modules/ui/epg/__tests__/epg-focused-overflow-style.test.ts` -> pass; `npx stylelint src/modules/ui/epg/styles.grid.css src/modules/ui/epg/styles.theme.css src/modules/ui/epg/styles.css` -> pass; `rg -n "epg-library-pill|epg-library-picker-panel|epg-library-picker-item|forced-colors|\\.theme-swiss \\\\.epg-info-panel \\\\.epg-info-(backdrop|tags)|\\.theme-swiss \\\\.epg-(cell-meta|cell-subtitle)|!important" src/modules/ui/epg/styles.grid.css src/modules/ui/epg/styles.theme.css src/modules/ui/epg/__tests__/EPGLibraryTabs.test.ts src/modules/ui/epg/__tests__/epg-focused-overflow-style.test.ts` -> matched the new library-picker forced-colors block and the narrowed Swiss info-panel selector ownership, with no remaining Swiss `!important` or stale Swiss cell-meta/subtitle selector residue in the package seam; `npm run verify` -> pass
   - Follow-ups: `none`
   - Handoff: no further `S3` follow-through session is needed; downstream packages may proceed without reopening EPG follow-through ownership
 
