@@ -85,6 +85,29 @@ describe('ServerSelectScreen', () => {
         expect(orderedClassNames[1]).toBe('screen-title');
     });
 
+    it('relies on shared screen bootstrap while show and hide still own display lifecycle', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+
+        expect(container.style.position).toBe('');
+        expect(container.style.inset).toBe('');
+        expect(container.style.display).toBe('');
+        expect(container.style.alignItems).toBe('');
+        expect(container.style.justifyContent).toBe('');
+
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+        expect(container.style.display).toBe('flex');
+
+        screen.hide();
+        expect(container.style.display).toBe('none');
+    });
+
     it('appends latency and applies slow class for ok status', async () => {
         const orchestrator = createOrchestratorStub();
         const container = document.createElement('div');

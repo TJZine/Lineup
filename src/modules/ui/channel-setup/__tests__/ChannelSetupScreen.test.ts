@@ -41,6 +41,30 @@ describe('ChannelSetupScreen', () => {
         document.body.innerHTML = '';
     });
 
+    it('relies on shared screen bootstrap while show and hide still own display lifecycle', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+
+        expect(container.style.position).toBe('');
+        expect(container.style.inset).toBe('');
+        expect(container.style.display).toBe('');
+        expect(container.style.alignItems).toBe('');
+        expect(container.style.justifyContent).toBe('');
+
+        screen.show();
+        await flushPromises();
+        expect(container.style.display).toBe('flex');
+
+        screen.hide();
+        expect(container.style.display).toBe('none');
+    });
+
     it('shows loading state while libraries are in flight', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);

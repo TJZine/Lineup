@@ -184,11 +184,6 @@ export class ChannelSetupScreen {
         }
 
         this._container.classList.add('screen');
-        this._container.style.position = 'absolute';
-        this._container.style.inset = '0';
-        this._container.style.display = 'none';
-        this._container.style.alignItems = 'center';
-        this._container.style.justifyContent = 'center';
 
         const shell = createScreenShell(this._container, {
             title: 'Channel Setup',

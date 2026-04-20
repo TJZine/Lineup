@@ -79,11 +79,6 @@ export class ProfileSelectScreen {
         this._container = container;
         this._ports = ports;
         this._container.classList.add('screen', 'profile-select');
-        this._container.style.position = 'absolute';
-        this._container.style.inset = '0';
-        this._container.style.display = 'none';
-        this._container.style.alignItems = 'center';
-        this._container.style.justifyContent = 'center';
 
         const heroGlyph = createLineupBrandGlyph({
             variant: 'color',

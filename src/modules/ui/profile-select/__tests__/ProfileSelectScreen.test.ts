@@ -128,6 +128,32 @@ describe('ProfileSelectScreen', () => {
         expect(orderedClassNames[1]).toBe('screen-title');
     });
 
+    it('relies on shared screen bootstrap while show and hide still own display lifecycle', async () => {
+        const users = [{ id: '1', title: 'Admin', thumb: null, admin: true, protected: false }];
+        const orchestrator = createOrchestratorStub(users);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(
+            container,
+            orchestrator as unknown as ProfileSelectScreenPorts,
+            profileSessionStore
+        );
+
+        expect(container.style.position).toBe('');
+        expect(container.style.inset).toBe('');
+        expect(container.style.display).toBe('');
+        expect(container.style.alignItems).toBe('');
+        expect(container.style.justifyContent).toBe('');
+
+        screen.show();
+        await flushPromisesAndTimers();
+        expect(container.style.display).toBe('flex');
+
+        screen.hide();
+        expect(container.style.display).toBe('none');
+    });
+
     it('renders users', async () => {
         const users = [
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },

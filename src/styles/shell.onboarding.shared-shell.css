@@ -135,6 +135,10 @@
   color: var(--onboarding-text-secondary);
 }
 
+.screen-detail.screen-detail--warning {
+  color: var(--color-warning);
+}
+
 .screen-error {
   margin-top: 10px;
   font-size: calc(16px * var(--onboarding-scale));
