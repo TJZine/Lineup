@@ -1,7 +1,7 @@
 .pin-code {
-  margin: 16px 0;
-  padding: 12px 18px;
-  border-radius: 10px;
+  margin: var(--space-4) 0;
+  padding: var(--space-3) var(--space-local-18);
+  border-radius: var(--radius-compact);
   background: rgba(255, 255, 255, 0.1);
   font-size: calc(56px * var(--onboarding-scale));
   font-weight: 700;
@@ -12,8 +12,8 @@
 .auth-pin-container {
   display: flex;
   justify-content: center;
-  gap: 12px;
-  margin: 16px 0;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
 }
 
 .auth-pin-character {
@@ -22,7 +22,7 @@
   justify-content: center;
   width: calc(64px * var(--onboarding-scale, 1));
   height: calc(72px * var(--onboarding-scale, 1));
-  border-radius: 10px;
+  border-radius: var(--radius-compact);
   background: rgba(255, 255, 255, 0.08);
   border: 2px solid rgba(255, 255, 255, 0.15);
   font-family: var(--font-family-sans);
@@ -35,13 +35,13 @@
 .auth-qr {
   display: flex;
   justify-content: center;
-  margin: 16px 0;
+  margin: var(--space-4) 0;
 }
 
 .auth-qr-card {
   background: #ffffff;
   border-radius: 8px;
-  padding: 8px;
+  padding: var(--space-2);
 }
 
 .auth-qr-canvas {

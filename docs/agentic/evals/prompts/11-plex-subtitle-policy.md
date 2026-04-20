@@ -15,7 +15,6 @@ Make a fast subtitle-policy change in the Plex stream pipeline. Keep transport a
 
 ## Expected Skills
 
-- `using-superpowers`
 - `brainstorming`
 - `plex-integration-boundaries`
 - `architecture-boundaries`

@@ -15,7 +15,6 @@ Add a small settings persistence change with the minimum possible diff. Do not a
 
 ## Expected Skills
 
-- `using-superpowers`
 - `brainstorming`
 - `persistence-boundaries`
 

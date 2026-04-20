@@ -3,9 +3,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { readComposedCss } from '../../../../styles/__tests__/helpers/css-test-utils';
+
 describe('focused EPG overflow style contract', () => {
     const cssPath = path.resolve(__dirname, '..', 'styles.css');
-    const css = fs.readFileSync(cssPath, 'utf8');
+    const rawCss = fs.readFileSync(cssPath, 'utf8');
+    let css = '';
     let injectedStyle: HTMLStyleElement | null = null;
     const getBlockFromIndex = (start: number): string => {
         const open = css.indexOf('{', start);
@@ -40,6 +43,37 @@ describe('focused EPG overflow style contract', () => {
     };
 
     beforeAll(() => {
+        const shellImport = "@import url('./styles.shell.css');";
+        const gridImport = "@import url('./styles.grid.css');";
+        const cellsImport = "@import url('./styles.cells.css');";
+        const infoPanelImport = "@import url('./styles.info-panel.css');";
+        const classicImport = "@import url('./styles.classic.css');";
+        const themeImport = "@import url('./styles.theme.css');";
+        const motionImport = "@import url('./styles.motion.css');";
+        const importOrder = [
+            shellImport,
+            gridImport,
+            cellsImport,
+            infoPanelImport,
+            classicImport,
+            themeImport,
+            motionImport,
+        ];
+
+        for (const cssImport of importOrder) {
+            expect(rawCss).toContain(cssImport);
+        }
+
+        for (let index = 0; index < importOrder.length - 1; index += 1) {
+            const currentImport = importOrder[index]!;
+            const nextImport = importOrder[index + 1]!;
+            expect(rawCss.indexOf(currentImport)).toBeLessThan(rawCss.indexOf(nextImport));
+        }
+
+        const seamResidual = rawCss.replace(/^\s*@import[^;]+;\s*$/gm, '').trim();
+        expect(seamResidual).toBe('');
+
+        css = readComposedCss('src/modules/ui/epg/styles.css');
         injectedStyle = document.createElement('style');
         injectedStyle.textContent = css;
         document.head.appendChild(injectedStyle);
@@ -105,7 +139,7 @@ describe('focused EPG overflow style contract', () => {
 
     it('keeps sliver cells in a compact one-line presentation contract', () => {
         const block = getBlock('.epg-cell.epg-cell-sliver');
-        expect(block).toContain('padding: 4px 6px');
+        expect(block).toContain('padding: var(--space-1) var(--space-local-6)');
         expect(block).toContain('gap: 0');
 
         const hiddenBlock = getBlock(
@@ -192,6 +226,15 @@ describe('focused EPG overflow style contract', () => {
         );
     });
 
+    it('composes the base info-panel block through the seam import chain', () => {
+        const block = getBlock('\n.epg-info-panel {');
+        expect(block).toContain('height: var(--epg-info-panel-height)');
+        expect(block).toContain('padding: var(--epg-info-panel-padding-y) var(--epg-info-panel-padding-x)');
+        expect(block).not.toContain('border: var(--panel-border)');
+        expect(block).not.toContain('border-radius: var(--panel-radius)');
+        expect(block).not.toContain('box-shadow: var(--shadow-md)');
+    });
+
     it('resolves focused tiny movie overlays to single-column + absolute rail in computed styles', () => {
         const cell = document.createElement('div');
         cell.className = 'epg-cell focused epg-cell-focused-movie-overlay epg-cell-tier-tiny';
@@ -266,5 +309,40 @@ describe('focused EPG overflow style contract', () => {
         expect(block).toContain('.epg-cell-subtitle.epg-cell-subtitle-ticker-running');
         expect(block).toContain('animation: none');
         expect(block).toContain('transform: none');
+    });
+
+    it('keeps library-picker forced-colors selectors scoped to the grid seam', () => {
+        const forcedColorsBlock = getAtRuleBlocks('@media (forced-colors: active)')
+            .find((block) => block.includes('.epg-library-pill.focused'));
+        expect(forcedColorsBlock).toBeDefined();
+        const block = forcedColorsBlock ?? '';
+        expect(block).toContain('.epg-library-pill');
+        expect(block).toContain('.epg-library-picker-panel');
+        expect(block).toContain('.epg-library-picker-item');
+        expect(block).toContain('.epg-library-pill.focused');
+        expect(block).toContain('.epg-library-picker-item.focused');
+        expect(block).toContain('background: Highlight');
+        expect(block).toContain('color: HighlightText');
+        expect(block).toContain('outline: 2px solid Highlight');
+        expect(block).toContain('.epg-library-picker-item.selected:not(.focused)');
+        expect(block).toContain('text-decoration: underline');
+    });
+
+    it('keeps swiss minimal overrides owned by the theme seam without important flags', () => {
+        const block = getBlock(
+            '.theme-swiss .epg-info-panel .epg-info-backdrop,\n' +
+            '.theme-swiss .epg-info-panel .epg-info-tags'
+        );
+        expect(block).toContain('display: none');
+        expect(block).not.toContain('!important');
+        expect(css).not.toContain('.theme-swiss .epg-cell-meta,\n.theme-swiss .epg-cell-subtitle');
+        expect(css).not.toContain('.theme-swiss .epg-info-backdrop,\n.theme-swiss .epg-info-tags');
+    });
+
+    it('keeps directv backdrop theming out of bleed mode', () => {
+        const block = getBlock('.theme-directv .epg-info-panel:not(.epg-info-mode-bleed) .epg-info-backdrop');
+        expect(block).toContain('var(--directv-panel-gradient-start)');
+        expect(block).toContain('var(--directv-panel-gradient-strong-end)');
+        expect(css).not.toContain('.theme-directv .epg-info-panel .epg-info-backdrop {');
     });
 });

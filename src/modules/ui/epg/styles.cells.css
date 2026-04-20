@@ -1,0 +1,408 @@
+/* Program Cells */
+.epg-cell {
+  position: absolute;
+  /* NOTE: Fallback (108px) MUST match EPG_CONSTANTS.ROW_HEIGHT (modules/ui/epg/constants.ts). */
+  height: calc(var(--epg-row-height, 108px) - 6px);
+  padding: var(--space-2) var(--space-3);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: stretch;
+  overflow: hidden;
+  box-sizing: border-box;
+  margin: var(--space-local-2);
+  contain: layout paint;
+  transition: background-color 80ms ease-out;
+  cursor: pointer;
+}
+
+.epg-cell:focus,
+.epg-cell:focus-visible {
+  outline: none;
+}
+
+.epg-cell.loading {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.epg-cell.loading .epg-cell-title,
+.epg-cell.loading .epg-cell-time,
+.epg-cell.loading .epg-cell-subtitle {
+  color: transparent;
+}
+
+.epg-cell.loading::before,
+.epg-cell.loading::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  border-radius: 4px;
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0.08) 0%,
+      rgba(255, 255, 255, 0.16) 50%,
+      rgba(255, 255, 255, 0.08) 100%);
+  animation: epg-loading-shimmer 1.2s ease-in-out infinite;
+}
+
+.epg-cell.loading::before {
+  top: 18px;
+  height: 18px;
+  right: 12px;
+}
+
+.epg-cell.loading::after {
+  top: 44px;
+  height: 12px;
+  width: 40%;
+}
+
+/* Hover styling (primarily for emulator/mouse). */
+.epg-cell:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.epg-cell.focused {
+  background: var(--focus-color, #00a8e1);
+  z-index: 10;
+  box-shadow: none;
+  outline: none;
+}
+
+.epg-cell-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  pointer-events: none;
+  display: none;
+}
+
+.epg-cell-progress-fill {
+  width: 0%;
+  height: 100%;
+  background: var(--epg-build-strategy-playlists);
+}
+
+/* Windows High Contrast Mode support */
+@media (forced-colors: active) {
+
+  .epg-cell.focused {
+    background: Canvas;
+    outline: 3px solid CanvasText;
+    outline-offset: 2px;
+  }
+}
+
+.epg-cell.current {
+  border-left: 4px solid var(--color-live);
+}
+
+.epg-cell.past {
+  opacity: 0.55;
+}
+
+.epg-cell.past.focused {
+  opacity: 1;
+}
+
+.epg-cell-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.epg-cell-rail {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  align-self: stretch;
+  min-width: 0;
+}
+
+.epg-cell-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  margin-top: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.epg-cell-title-text,
+.epg-cell-subtitle-text {
+  display: inline;
+}
+
+.epg-cell-title.epg-cell-title-ticker-ready,
+.epg-cell-title.epg-cell-title-ticker-running {
+  display: block;
+  white-space: nowrap;
+  text-overflow: clip;
+}
+
+.epg-cell-title.epg-cell-title-ticker-ready .epg-cell-title-text,
+.epg-cell-title.epg-cell-title-ticker-running .epg-cell-title-text,
+.epg-cell-subtitle.epg-cell-subtitle-ticker-ready .epg-cell-subtitle-text,
+.epg-cell-subtitle.epg-cell-subtitle-ticker-running .epg-cell-subtitle-text {
+  display: inline-block;
+  min-width: max-content;
+  transform: translateX(0);
+  will-change: transform;
+}
+
+.epg-cell-title.epg-cell-title-ticker-running .epg-cell-title-text {
+  animation: epg-title-ticker var(--epg-title-ticker-duration-ms, 2400ms) linear infinite;
+}
+
+.epg-cell-meta {
+  display: none;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-local-2);
+}
+
+.epg-cell-episode {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 var(--space-2);
+  border-radius: 999px;
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04)),
+    var(--osd-pill-bg-strong);
+  border: 1px solid var(--osd-pill-border-strong);
+  color: var(--color-text-primary);
+  font-size: var(--epg-font-size-compact-meta);
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.epg-cell-episode::after {
+  content: '';
+  position: absolute;
+  inset: -60% -80%;
+  background: linear-gradient(120deg,
+      transparent 42%,
+      rgba(255, 255, 255, 0.18) 50%,
+      transparent 58%);
+  transform: translateX(-18%);
+  pointer-events: none;
+}
+
+.epg-cell-time {
+  font-size: var(--text-md);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  margin-top: auto;
+}
+
+.epg-cell-subtitle {
+  display: none;
+  font-size: var(--text-md);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: var(--space-local-2);
+}
+
+.epg-cell-subtitle.epg-cell-subtitle-ticker-ready,
+.epg-cell-subtitle.epg-cell-subtitle-ticker-running {
+  display: block;
+  white-space: nowrap;
+  text-overflow: clip;
+}
+
+.epg-cell-subtitle.epg-cell-subtitle-ticker-running .epg-cell-subtitle-text {
+  animation: epg-subtitle-ticker var(--epg-subtitle-ticker-duration-ms, 2400ms) linear infinite;
+}
+
+.epg-cell-time.epg-cell-time-compact {
+  font-size: var(--text-xs);
+}
+
+.epg-cell.focused.epg-cell-focused-compact {
+  grid-template-columns: 1fr;
+  gap: var(--space-local-6);
+}
+
+.epg-cell.focused.epg-cell-focused-compact .epg-cell-rail {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  align-self: auto;
+  pointer-events: none;
+}
+
+.epg-cell.focused.epg-cell-focused-compact .epg-cell-time {
+  display: none;
+}
+
+.epg-cell.focused.epg-cell-focused-movie-overlay {
+  grid-template-columns: 1fr;
+  gap: var(--space-local-6);
+}
+
+.epg-cell.focused.epg-cell-focused-movie-overlay.epg-cell-tier-narrow,
+.epg-cell.focused.epg-cell-focused-movie-overlay.epg-cell-tier-tiny {
+  grid-template-columns: 1fr;
+}
+
+.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-rail {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  bottom: 8px;
+  align-self: auto;
+  pointer-events: none;
+}
+
+.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-time {
+  display: block;
+  align-self: flex-end;
+  margin-top: auto;
+}
+
+.epg-cell.epg-cell-sliver {
+  padding: var(--space-1) var(--space-local-6);
+  gap: 0;
+}
+
+.epg-cell.epg-cell-sliver .epg-cell-time,
+.epg-cell.epg-cell-sliver .epg-cell-subtitle,
+.epg-cell.epg-cell-sliver .epg-cell-meta {
+  display: none;
+}
+
+.epg-cell.epg-cell-sliver .epg-cell-title {
+  display: block;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.epg-cell.text-shifted .epg-cell-content,
+.epg-cell.text-shifted .epg-cell-rail {
+  transform: translateX(var(--epg-cell-text-shift-px));
+}
+
+.epg-cell.focused.epg-cell-focused-compact .epg-cell-rail,
+.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-rail {
+  transform: none;
+}
+
+.epg-cell-tier-narrow,
+.epg-cell-tier-tiny {
+  grid-template-columns: 1fr;
+  gap: var(--space-local-6);
+}
+
+.epg-cell-tier-narrow .epg-cell-rail,
+.epg-cell-tier-tiny .epg-cell-rail {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  align-self: auto;
+  pointer-events: none;
+}
+
+.epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-narrow,
+.epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-tiny {
+  grid-template-columns: 1fr auto;
+  gap: var(--space-3);
+}
+
+.epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-narrow .epg-cell-rail,
+.epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-tiny .epg-cell-rail {
+  position: static;
+  top: auto;
+  right: auto;
+  align-self: stretch;
+  pointer-events: auto;
+}
+
+.epg-cell-tier-narrow .epg-cell-time,
+.epg-cell-tier-tiny .epg-cell-time,
+.epg-cell-tier-narrow .epg-cell-subtitle,
+.epg-cell-tier-tiny .epg-cell-subtitle {
+  display: none;
+}
+
+.epg-cell-tier-tiny .epg-cell-title {
+  font-size: var(--text-base);
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.epg-cell-tier-tiny.focused .epg-cell-title.epg-cell-title-ticker-ready,
+.epg-cell-tier-tiny.focused .epg-cell-title.epg-cell-title-ticker-running {
+  display: block;
+  white-space: nowrap;
+  text-overflow: clip;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: initial;
+}
+
+/* =========================================
+   LIVE Indicator Badge
+   ========================================= */
+.epg-live-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: var(--color-live);
+  text-transform: uppercase;
+  z-index: 2;
+  pointer-events: none;
+  line-height: 1.2;
+}
+
+.epg-live-badge.epg-live-badge-compact {
+  font-size: 0;
+  gap: 0;
+}
+
+.epg-live-badge.epg-live-badge-compact::before {
+  width: 8px;
+  height: 8px;
+}
+
+.epg-live-badge[hidden] {
+  display: none;
+}
+
+.epg-live-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-live);
+  transform-origin: center;
+  animation: live-pulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}

@@ -15,7 +15,6 @@ Refactor a channel persistence change so that channel-storage ownership remains 
 
 ## Expected Skills
 
-- `using-superpowers`
 - `brainstorming`
 - `persistence-boundaries`
 - `architecture-boundaries`

@@ -85,6 +85,29 @@ describe('ServerSelectScreen', () => {
         expect(orderedClassNames[1]).toBe('screen-title');
     });
 
+    it('relies on shared screen bootstrap while show and hide still own display lifecycle', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+
+        expect(container.style.position).toBe('');
+        expect(container.style.inset).toBe('');
+        expect(container.style.display).toBe('');
+        expect(container.style.alignItems).toBe('');
+        expect(container.style.justifyContent).toBe('');
+
+        screen.show({ allowAutoConnect: false });
+        await flushPromisesAndTimers();
+        expect(container.style.display).toBe('flex');
+
+        screen.hide();
+        expect(container.style.display).toBe('none');
+    });
+
     it('appends latency and applies slow class for ok status', async () => {
         const orchestrator = createOrchestratorStub();
         const container = document.createElement('div');
@@ -479,6 +502,38 @@ describe('ServerSelectScreen', () => {
         }
     });
 
+    it('recovers from a synchronous pre-await selectServer throw without leaving the UI locked', async () => {
+        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+        orchestrator.selectServer.mockImplementation(() => {
+            throw new Error('sync select failed');
+        });
+
+        try {
+            const screen = new ServerSelectScreen(container, orchestrator);
+            screen.show({ allowAutoConnect: false });
+            await flushPromisesAndTimers();
+
+            const connectButton = container.querySelector('.server-row button') as HTMLButtonElement;
+            const clearButton = container.querySelector('#btn-server-forget') as HTMLButtonElement;
+
+            connectButton.click();
+            await flushPromisesAndTimers();
+
+            expect(container.querySelector('.screen-status')?.textContent).toBe('Connection failed.');
+            expect(container.querySelector('.screen-error')?.textContent).toBe('sync select failed');
+            expect(connectButton.disabled).toBe(false);
+            expect(clearButton.disabled).toBe(false);
+            expect(consoleErrorSpy).not.toHaveBeenCalled();
+        } finally {
+            consoleErrorSpy.mockRestore();
+        }
+    });
+
     it('ignores concurrent manual server selection requests while one is in flight', async () => {
         const orchestrator = createOrchestratorStub();
         const container = document.createElement('div');
@@ -652,6 +707,35 @@ describe('ServerSelectScreen', () => {
         await flushPromisesAndTimers();
 
         expect(clearButton.disabled).toBe(false);
+    });
+
+    it('recovers from a synchronous pre-await clearSelectedServer throw without leaving the clear action locked', async () => {
+        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        const orchestrator = createOrchestratorStub();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+        orchestrator.clearSelectedServer.mockImplementation(() => {
+            throw new Error('sync clear failed');
+        });
+
+        try {
+            const screen = new ServerSelectScreen(container, orchestrator);
+            screen.show({ allowAutoConnect: false });
+            await flushPromisesAndTimers();
+
+            const clearButton = container.querySelector('#btn-server-forget') as HTMLButtonElement;
+            clearButton.click();
+            await flushPromisesAndTimers();
+
+            expect(container.querySelector('.screen-status')?.textContent).toBe('Selection not cleared.');
+            expect(container.querySelector('.screen-error')?.textContent).toBe('sync clear failed');
+            expect(clearButton.disabled).toBe(false);
+            expect(consoleErrorSpy).not.toHaveBeenCalled();
+        } finally {
+            consoleErrorSpy.mockRestore();
+        }
     });
 
     it('removes disabled connect buttons from the navigation focus graph during selection', async () => {

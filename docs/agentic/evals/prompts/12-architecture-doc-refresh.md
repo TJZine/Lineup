@@ -15,7 +15,6 @@ Refresh an architecture-facing doc so it matches the current code and cleanup st
 
 ## Expected Skills
 
-- `using-superpowers`
 - `brainstorming`
 - `architecture-boundaries`
 

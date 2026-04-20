@@ -1,6 +1,6 @@
 .setup-bulk-actions {
     display: flex;
-    gap: 10px;
+    gap: var(--channel-setup-space-10);
 }
 
 @keyframes setup-card-in {
@@ -57,7 +57,7 @@
 }
 
 .setup-toggle-state-icon {
-    font-size: 20px;
+    font-size: var(--text-base);
     color: var(--color-success);
 }
 

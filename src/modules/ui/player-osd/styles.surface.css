@@ -1,9 +1,10 @@
 .player-osd {
+  --player-osd-layer: 800;
   position: absolute;
   inset: 0;
   display: flex;
   align-items: flex-end;
-  z-index: 800;
+  z-index: var(--player-osd-layer);
   pointer-events: none;
   opacity: 0;
   transition: opacity 350ms ease-out;
@@ -19,6 +20,8 @@
   --player-osd-stop-1: 8%;
   --player-osd-stop-2: 30%;
   --player-osd-stop-3: 45%;
+  --player-osd-space-6: 6px;
+  --player-osd-space-10: 10px;
   width: 100%;
   margin: 0;
   padding: 0;
@@ -55,8 +58,8 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 24px;
-  padding: 40px var(--osd-safe-margin) 12px;
+  gap: var(--space-6);
+  padding: var(--space-10) var(--osd-safe-margin) var(--space-3);
 }
 
 .player-osd-info-column,
@@ -70,7 +73,7 @@
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--player-osd-space-6);
 }
 
 .player-osd-actions-column {
@@ -78,7 +81,7 @@
   flex: 0 0 auto;
   flex-direction: column;
   align-items: flex-end;
-  gap: 10px;
+  gap: var(--player-osd-space-10);
   max-width: min(46vw, 760px);
 }
 
@@ -89,9 +92,9 @@
 }
 
 .player-osd-zone-brand {
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .player-osd-zone-details {
-  gap: 6px;
+  gap: var(--player-osd-space-6);
 }

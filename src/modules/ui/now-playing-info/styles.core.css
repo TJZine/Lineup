@@ -24,6 +24,9 @@
   --npi-start-alpha: 30%;
   --npi-end-alpha: 50%;
   --npi-border-alpha: 8%;
+  --npi-space-2: 2px;
+  --npi-space-3: 3px;
+  --npi-space-10: 10px;
   margin: 0;
   display: grid;
   grid-template-columns: clamp(220px, 20vw, 300px) minmax(0, 1fr);
@@ -90,9 +93,9 @@
 .now-playing-info-content {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--npi-space-10);
   min-width: 0;
-  padding: clamp(20px, 2.5vw, 32px);
+  padding: clamp(var(--space-5), 2.5vw, var(--space-8));
   border-left: none;
   overflow: hidden;
   position: relative;
@@ -133,16 +136,16 @@
 
 .now-playing-info-badges {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
   align-items: center;
 }
 
 .now-playing-info-badge {
-  padding: 3px 8px;
+  padding: var(--npi-space-3) var(--space-2);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.14);
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--color-text-primary);
   font-size: var(--text-md);
   font-weight: 600;
   letter-spacing: 0.3px;
@@ -156,7 +159,7 @@
 .now-playing-info-playback {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--npi-space-2);
   min-height: 0;
   color: var(--color-text-muted);
 }
@@ -170,7 +173,7 @@
 .now-playing-info-meta {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   min-height: 0;
 }
 

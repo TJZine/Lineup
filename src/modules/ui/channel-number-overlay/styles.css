@@ -1,8 +1,9 @@
 .channel-number-overlay {
+  --runtime-status-priority-layer: 860;
   position: absolute;
   top: 22px;
   right: 24px;
-  z-index: 860;
+  z-index: var(--runtime-status-priority-layer);
   opacity: 0;
   pointer-events: none;
   transform: translateY(-8px);
@@ -15,20 +16,67 @@
 }
 
 .channel-number-panel {
+  --runtime-overlay-tint-rgb: var(--scrim-tint-rgb, 6 8 10);
+  --runtime-overlay-tint-rgb-legacy: var(--scrim-tint-rgb-legacy, 6, 8, 10);
+  --runtime-overlay-start-alpha: 30%;
+  --runtime-overlay-start-alpha-legacy: 0.30;
+  --runtime-overlay-end-alpha: 40%;
+  --runtime-overlay-end-alpha-legacy: 0.40;
+  --runtime-overlay-space-10: 10px;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--runtime-overlay-space-10);
   min-width: 132px;
-  padding: 8px 12px;
-  border-radius: 10px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-compact);
   /* Reserve border space so error state does not cause layout shift. */
   border: 1px solid transparent;
   background: linear-gradient(
     135deg,
-    rgba(0, 0, 0, 0.30) 0%,
-    rgba(0, 0, 0, 0.40) 100%
+    rgba(var(--runtime-overlay-tint-rgb-legacy), var(--runtime-overlay-start-alpha-legacy)) 0%,
+    rgba(var(--runtime-overlay-tint-rgb-legacy), var(--runtime-overlay-end-alpha-legacy)) 100%
+  );
+  background: linear-gradient(
+    135deg,
+    rgb(var(--runtime-overlay-tint-rgb) / var(--runtime-overlay-start-alpha)) 0%,
+    rgb(var(--runtime-overlay-tint-rgb) / var(--runtime-overlay-end-alpha)) 100%
   );
   color: var(--color-text-primary);
+}
+
+.theme-glass .channel-number-panel {
+  --runtime-overlay-start-alpha: 38%;
+  --runtime-overlay-start-alpha-legacy: 0.38;
+  --runtime-overlay-end-alpha: 52%;
+  --runtime-overlay-end-alpha-legacy: 0.52;
+}
+
+.theme-slate-pine .channel-number-panel {
+  --runtime-overlay-start-alpha: 34%;
+  --runtime-overlay-start-alpha-legacy: 0.34;
+  --runtime-overlay-end-alpha: 46%;
+  --runtime-overlay-end-alpha-legacy: 0.46;
+}
+
+.theme-swiss .channel-number-panel {
+  --runtime-overlay-start-alpha: 34%;
+  --runtime-overlay-start-alpha-legacy: 0.34;
+  --runtime-overlay-end-alpha: 46%;
+  --runtime-overlay-end-alpha-legacy: 0.46;
+}
+
+.theme-directv .channel-number-panel {
+  --runtime-overlay-start-alpha: 42%;
+  --runtime-overlay-start-alpha-legacy: 0.42;
+  --runtime-overlay-end-alpha: 56%;
+  --runtime-overlay-end-alpha-legacy: 0.56;
+}
+
+.theme-ember-steel .channel-number-panel {
+  --runtime-overlay-start-alpha: 38%;
+  --runtime-overlay-start-alpha-legacy: 0.38;
+  --runtime-overlay-end-alpha: 52%;
+  --runtime-overlay-end-alpha-legacy: 0.52;
 }
 
 .channel-number-label {
@@ -46,16 +94,37 @@
 }
 
 .channel-number-overlay.channel-number-error .channel-number-panel {
-  border-color: rgba(255, 106, 106, 0.8);
+  border-color: var(--color-error);
 }
 
 .channel-number-overlay.channel-number-error .channel-number-digits {
   /* Avoid resizing typography on error (prevents panel height/width jitter). */
-  color: rgba(255, 106, 106, 0.95);
+  color: var(--color-error-text);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .channel-number-overlay {
     transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .channel-number-panel {
+    background: Canvas;
+    border-color: CanvasText;
+    color: CanvasText;
+  }
+
+  .channel-number-label,
+  .channel-number-digits {
+    color: CanvasText;
+  }
+
+  .channel-number-overlay.channel-number-error .channel-number-panel {
+    border-color: Highlight;
+  }
+
+  .channel-number-overlay.channel-number-error .channel-number-digits {
+    color: Highlight;
   }
 }

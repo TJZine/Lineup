@@ -52,11 +52,21 @@ function assignEpisodeMetadata(item: PlexMediaItem, data: RawMediaItem): void {
 }
 
 export function toPlexDate(value: number | undefined): Date {
-    return typeof value === 'number' ? new Date(value * UNIX_TIMESTAMP_MS) : new Date(0);
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return new Date(0);
+    }
+
+    const date = new Date(value * UNIX_TIMESTAMP_MS);
+    return Number.isNaN(date.getTime()) ? new Date(0) : date;
 }
 
 function toPlexDateOrUndefined(value: number | undefined): Date | undefined {
-    return typeof value === 'number' ? toPlexDate(value) : undefined;
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return undefined;
+    }
+
+    const date = toPlexDate(value);
+    return date.getTime() === 0 && value !== 0 ? undefined : date;
 }
 
 function collectTagNames(tags: unknown): string[] {

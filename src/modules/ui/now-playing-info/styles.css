@@ -3,14 +3,17 @@
 @import url('./styles.theme.css');
 
 .now-playing-info-actors {
+  --npi-space-6: 6px;
+  --npi-space-10: 10px;
+  --actor-size: 56px;
+  --actor-gap: var(--space-2);
+
   display: flex;
   align-items: center;
-  gap: var(--actor-gap, 8px);
+  gap: var(--actor-gap, var(--space-2));
   flex-wrap: wrap;
-  row-gap: 6px;
+  row-gap: var(--npi-space-6);
   min-height: 0;
-  --actor-size: 56px;
-  --actor-gap: 8px;
 }
 
 .now-playing-info-cast {
@@ -31,7 +34,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--color-text-primary);
   font-size: var(--text-md);
   font-weight: 700;
   letter-spacing: 0.4px;
@@ -49,10 +52,10 @@
 }
 
 .now-playing-info-actor-more {
-  padding: 6px 10px;
+  padding: var(--npi-space-6) var(--npi-space-10);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--color-text-primary);
   font-size: var(--text-md);
   font-weight: 700;
   letter-spacing: 0.4px;
@@ -61,7 +64,7 @@
 .now-playing-info-progress {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
   margin-top: auto;
   color: var(--color-text-muted);
 }

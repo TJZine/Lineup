@@ -1,18 +1,29 @@
+#channel-setup-container {
+    --channel-setup-space-2: 2px;
+    --channel-setup-space-6: 6px;
+    --channel-setup-space-10: 10px;
+    --channel-setup-space-14: 14px;
+    --channel-setup-space-18: 18px;
+    --channel-setup-font-size-10: 10px;
+    --channel-setup-font-size-13: 13px;
+    --channel-setup-font-size-15: 15px;
+}
+
 .setup-preview {
     width: 100%;
-    padding: 12px 18px 12px 14px;
-    border-radius: 10px;
+    padding: var(--space-3) var(--channel-setup-space-18) var(--space-3) var(--channel-setup-space-14);
+    border-radius: var(--radius-compact);
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(200, 160, 100, 0.12);
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-2);
     min-height: 180px;
     box-sizing: border-box;
 }
 
 .setup-preview-title {
-    font-size: 14px;
+    font-size: var(--text-xs);
     text-transform: uppercase;
     letter-spacing: 1.2px;
     color: var(--onboarding-text-secondary, rgba(240, 236, 232, 0.6));
@@ -21,15 +32,15 @@
 .setup-preview-rows {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding-right: 6px;
+    gap: var(--channel-setup-space-6);
+    padding-right: var(--channel-setup-space-6);
 }
 
 .setup-preview-row {
     display: flex;
     justify-content: space-between;
-    gap: 12px;
-    font-size: 15px;
+    gap: var(--space-3);
+    font-size: var(--channel-setup-font-size-15);
     color: rgba(255, 255, 255, 0.85);
     align-items: center;
     min-width: 0;
@@ -46,7 +57,7 @@
 
 .setup-preview-value {
     display: inline-flex;
-    gap: 8px;
+    gap: var(--space-2);
     align-items: baseline;
     justify-content: flex-end;
     white-space: nowrap;
@@ -56,7 +67,7 @@
 }
 
 .setup-preview-delta {
-    font-size: 13px;
+    font-size: var(--channel-setup-font-size-13);
     font-weight: 600;
     opacity: 0.9;
 }
@@ -70,27 +81,27 @@
 }
 
 .setup-preview-warning {
-    font-size: 14px;
+    font-size: var(--text-xs);
     color: rgba(255, 196, 0, 0.9);
 }
 
 .setup-preview-loading,
 .setup-preview-empty {
-    font-size: 14px;
+    font-size: var(--text-xs);
     color: var(--onboarding-text-secondary, rgba(240, 236, 232, 0.6));
 }
 
 .setup-preview-warnings {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--space-1);
 }
 
 .setup-preview-updating {
-    font-size: 13px;
+    font-size: var(--channel-setup-font-size-13);
     color: var(--onboarding-text-secondary, rgba(240, 236, 232, 0.6));
     font-style: italic;
-    margin-top: 4px;
+    margin-top: var(--space-1);
 }
 
 .setup-dropdown {
@@ -98,11 +109,11 @@
     z-index: 10;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: 6px;
+    gap: var(--channel-setup-space-2);
+    padding: var(--channel-setup-space-6);
     background: rgba(14, 16, 23, 0.94);
     border: 1px solid rgba(200, 160, 100, 0.15);
-    border-radius: 10px;
+    border-radius: var(--radius-compact);
     box-shadow: none;
     max-height: 320px;
     overflow-y: auto;
@@ -125,15 +136,15 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: var(--space-3);
     width: 100%;
-    padding: 10px 14px;
+    padding: var(--channel-setup-space-10) var(--channel-setup-space-14);
     text-align: left;
     background: transparent;
     border: 1px solid transparent;
     border-radius: 8px;
     color: rgba(255, 255, 255, 0.85);
-    font-size: 18px;
+    font-size: var(--text-md);
     cursor: pointer;
     transition:
         background-color 120ms ease,
@@ -166,7 +177,7 @@
 
 .setup-dropdown-option-check {
     flex-shrink: 0;
-    font-size: 16px;
+    font-size: var(--text-sm);
     color: var(--onboarding-accent, rgb(200, 160, 100));
 }
 
@@ -174,10 +185,10 @@
     --_focus-inset: calc(var(--focus-ring-width) + var(--focus-ring-offset));
 
     box-sizing: border-box;
-    padding-right: calc(var(--_focus-inset) + 6px);
-    padding-left: calc(var(--_focus-inset) + 2px);
-    padding-top: calc(var(--_focus-inset) + 2px);
-    padding-bottom: calc(var(--_focus-inset) + 2px);
+    padding-right: calc(var(--_focus-inset) + var(--channel-setup-space-6));
+    padding-left: calc(var(--_focus-inset) + var(--channel-setup-space-2));
+    padding-top: calc(var(--_focus-inset) + var(--channel-setup-space-2));
+    padding-bottom: calc(var(--_focus-inset) + var(--channel-setup-space-2));
 }
 
 @media (prefers-reduced-motion: reduce) {

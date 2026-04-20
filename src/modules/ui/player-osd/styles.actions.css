@@ -1,11 +1,12 @@
 .player-osd-actions {
+  --player-osd-actions-space-10: 10px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--player-osd-actions-space-10);
 }
 
 .player-osd-action {
-  --osd-focus-outline: 2px solid rgba(255, 255, 255, 0.9);
+  --osd-focus-outline: 2px solid var(--color-text-primary);
   --osd-focus-outline-offset: 2px;
   --osd-focus-shadow: 0 0 0 3px rgba(0, 0, 0, 0.35);
   background: rgba(255, 255, 255, 0.08);
@@ -13,14 +14,14 @@
   color: var(--color-text-primary);
   font-size: var(--text-md);
   font-weight: 600;
-  padding: 8px 16px;
+  padding: var(--space-2) var(--space-4);
   border-radius: 999px;
   cursor: pointer;
 }
 
 .player-osd-action.focused {
   background: rgba(255, 255, 255, 0.92);
-  color: #0a0d12;
+  color: var(--color-text-on-focus);
   border-color: rgba(255, 255, 255, 0.98);
   box-shadow: none;
   outline: none;

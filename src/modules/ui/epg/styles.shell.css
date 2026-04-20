@@ -1,0 +1,324 @@
+/* EPG Container */
+.epg-container {
+  --epg-overlay-layer: 900;
+  --epg-font-size-classic-header: 22px;
+  --epg-font-size-classic-title: 25px;
+  --epg-font-size-compact-meta: 12px;
+  --epg-font-size-compact-aux: 13px;
+  --epg-color-muted-strong: rgba(255, 255, 255, 0.55);
+  --epg-build-strategy-collections: #00a84a;
+  --epg-build-strategy-playlists: #f0c000;
+  --epg-build-strategy-library: #e53935;
+  --space-local-6: 6px;
+  --space-local-2: 2px;
+  --space-local-1: 1px;
+  --space-local-5: 5px;
+  --space-local-10: 10px;
+  --space-local-14: 14px;
+  --space-local-18: 18px;
+  position: absolute;
+  top: 3%;
+  left: 4%;
+  width: 92%;
+  height: 94%;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: var(--epg-overlay-layer);
+  display: none;
+  flex-direction: column;
+  font-family: var(--font-family-sans);
+  color: var(--color-text-primary);
+  overflow: hidden;
+}
+
+/* Ensure `hidden` always wins even when layout-specific rules set display. */
+.epg-container [hidden] {
+  display: none !important;
+}
+
+/* Classic-only shell should never render in overlay mode. */
+.epg-classic-header,
+.epg-classic-showcase {
+  display: none;
+}
+
+.epg-container.layout-classic {
+  --classic-showcase-pip-width: var(--classic-guide-pip-width);
+  --classic-showcase-gap: var(--space-6);
+  --classic-header-height: 56px;
+  --classic-cell-radius: 4px;
+  --classic-channel-num-size: var(--epg-font-size-classic-header);
+  --classic-channel-name-size: 16px;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--color-bg-deep);
+}
+
+.epg-container.layout-classic.visible {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: var(--classic-header-height) auto 1fr;
+  grid-template-areas:
+    "header"
+    "showcase"
+    "grid";
+}
+
+.epg-container.layout-classic .epg-classic-header {
+  grid-area: header;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--classic-header-height);
+  padding: 0 var(--space-6);
+  background: transparent;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.epg-container.layout-classic.visible .epg-classic-header {
+  display: flex;
+}
+
+.epg-container.layout-classic .epg-classic-header-title {
+  font-family: var(--font-family-display);
+  font-size: var(--epg-font-size-classic-header);
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.epg-container.layout-classic .epg-classic-header-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-local-18);
+  min-width: 0;
+}
+
+.epg-container.layout-classic .epg-classic-header-glyph {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  color: var(--color-primary);
+  opacity: 0.85;
+}
+
+.epg-container.layout-classic .epg-classic-now-playing {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-local-10);
+  min-width: 0;
+}
+
+.epg-container.layout-classic .epg-classic-now-playing-label {
+  font-size: var(--epg-font-size-compact-meta);
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.epg-container.layout-classic .epg-classic-now-playing-channel {
+  min-width: 0;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.epg-container.layout-classic .epg-classic-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--epg-font-size-compact-aux);
+  color: var(--color-text-muted);
+  letter-spacing: 0.5px;
+}
+
+.epg-container.layout-classic .epg-classic-showcase {
+  grid-area: showcase;
+  display: grid;
+  grid-template-columns: var(--classic-showcase-pip-width) 1fr;
+  gap: var(--classic-showcase-gap);
+  padding: var(--space-4) var(--space-6);
+  align-items: start;
+  position: relative;
+  z-index: 0;
+}
+
+.epg-container.layout-classic .epg-classic-showcase-pip {
+  border-radius: 8px;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  background: rgba(0, 0, 0, 0.4);
+  position: relative;
+  z-index: 2;
+}
+
+.epg-container.layout-classic .epg-classic-showcase-info {
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.epg-container.layout-classic .epg-dashboard-bottom {
+  display: none;
+}
+
+.epg-watermark {
+  position: absolute;
+  right: 16px;
+  bottom: 12px;
+  width: 36px;
+  height: 36px;
+  color: var(--epg-color-muted-strong);
+  opacity: 0.18;
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+}
+
+.epg-container.layout-classic .epg-watermark {
+  display: none;
+}
+
+.epg-container.peek {
+  background: linear-gradient(to bottom,
+      rgba(0, 0, 0, 0.55) 0%,
+      rgba(0, 0, 0, 0.78) 35%,
+      rgba(0, 0, 0, 0.92) 60%,
+      rgba(0, 0, 0, 0.96) 100%);
+}
+
+.epg-container.visible {
+  display: flex;
+}
+
+/* Overlay showcase hosts top info panel in overlay mode only. */
+.epg-overlay-showcase {
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.epg-container.layout-classic .epg-overlay-showcase {
+  display: none;
+}
+
+/* Dashboard Zone */
+.epg-dashboard-bottom {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 10;
+  background: var(--panel-surface);
+  border-top: 1px solid var(--color-border-default);
+}
+
+.epg-dashboard-bottom .epg-now-watching-banner {
+  background: transparent;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+/* Now Watching Banner */
+.epg-now-watching-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-local-10) var(--space-4);
+  background: transparent;
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  flex-shrink: 0;
+}
+
+.epg-now-watching-live {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-local-6);
+  font-size: var(--epg-font-size-compact-meta);
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  flex: 0 0 auto;
+}
+
+.epg-now-watching-live::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-live);
+}
+
+.epg-now-watching-channel {
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+.epg-now-watching-program {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.epg-now-watching-time {
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Key Legend (Bottom) */
+.epg-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-local-18);
+  flex-wrap: wrap;
+  padding: var(--space-local-10) var(--space-4);
+  background: rgba(0, 0, 0, 0.72);
+  border-top: 1px solid var(--color-border-default);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.epg-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.epg-legend-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  padding: 0 var(--space-local-10);
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: var(--color-text-primary);
+  font-size: var(--epg-font-size-compact-meta);
+  font-weight: 700;
+  letter-spacing: 0.6px;
+}
+
+.epg-legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.epg-legend-swatch.green {
+  background: var(--epg-build-strategy-collections);
+}
+
+.epg-legend-swatch.yellow {
+  background: var(--epg-build-strategy-playlists);
+}
+
+.epg-legend-swatch.red {
+  background: var(--epg-build-strategy-library);
+}

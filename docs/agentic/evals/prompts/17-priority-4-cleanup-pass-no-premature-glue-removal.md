@@ -15,7 +15,6 @@ Run a cleanup pass over the Priority 4 UI surfaces to remove placeholder wrapper
 
 ## Expected Skills
 
-- `using-superpowers`
 - `brainstorming`
 - `architecture-boundaries`
 - `ui-composition-patterns`

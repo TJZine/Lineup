@@ -146,4 +146,11 @@ describe('media item internals', () => {
         expect(toPlexDate(1704067200).toISOString()).toBe('2024-01-01T00:00:00.000Z');
         expect(toPlexDate(undefined).toISOString()).toBe('1970-01-01T00:00:00.000Z');
     });
+
+    it('falls back to the Unix epoch for invalid Plex timestamps', () => {
+        expect(toPlexDate(Number.NaN).toISOString()).toBe('1970-01-01T00:00:00.000Z');
+        expect(toPlexDate(Number.POSITIVE_INFINITY).toISOString()).toBe('1970-01-01T00:00:00.000Z');
+        expect(toPlexDate(Number.NEGATIVE_INFINITY).toISOString()).toBe('1970-01-01T00:00:00.000Z');
+        expect(toPlexDate(Number.MAX_VALUE).toISOString()).toBe('1970-01-01T00:00:00.000Z');
+    });
 });

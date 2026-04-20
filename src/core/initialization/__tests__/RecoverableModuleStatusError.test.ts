@@ -39,6 +39,25 @@ describe('toRecoverableModuleStatusError', () => {
         });
     });
 
+    it('preserves valid object-shaped context when code and message fall back', () => {
+        const error = toRecoverableModuleStatusError(
+            {
+                code: 'NOT_REAL',
+                message: '   ',
+                context: { moduleId: 'plex-discovery', attempt: 3 },
+            },
+            'Module failed to start.',
+            AppErrorCode.INITIALIZATION_FAILED
+        );
+
+        expect(error).toEqual({
+            code: AppErrorCode.INITIALIZATION_FAILED,
+            message: 'Module failed to start.',
+            recoverable: true,
+            context: { moduleId: 'plex-discovery', attempt: 3 },
+        });
+    });
+
     it.each([
         [
             new Error('Network request failed'),

@@ -3,9 +3,12 @@ import type { INavigationManager } from '../../../modules/navigation';
 import type {
     IPlexAuth,
     PlexAuthDataV2,
+    PlexAuthConfig,
     PlexAuthToken,
     PlexStoredCredentialsReadResult,
 } from '../../../modules/plex/auth';
+import { PlexAuth } from '../../../modules/plex/auth/PlexAuth';
+import { PLEX_AUTH_CONSTANTS } from '../../../modules/plex/auth/constants';
 import { applyPhase2AuthGatePolicy, type Phase2AuthGateInputs } from '../InitializationStartupPolicy';
 
 type PlexAuthGateMock = Pick<
@@ -68,6 +71,46 @@ const createStoredCredentials = (): PlexAuthDataV2 => ({
     deviceKey: null,
 });
 
+const realPlexAuthConfig: PlexAuthConfig = {
+    clientIdentifier: 'test-client-id',
+    product: 'Lineup',
+    version: '1.0.0',
+    platform: 'webOS',
+    platformVersion: '6.0',
+    device: 'LG Smart TV',
+    deviceName: 'Living Room TV',
+};
+
+const mockLocalStorage = (function (): Storage {
+    let store: Record<string, string> = {};
+    return {
+        get length(): number {
+            return Object.keys(store).length;
+        },
+        key: function (index: number): string | null {
+            const keys = Object.keys(store);
+            return keys[index] !== undefined ? keys[index] : null;
+        },
+        getItem: function (key: string): string | null {
+            const value = store[key];
+            return value !== undefined ? value : null;
+        },
+        setItem: function (key: string, value: string): void {
+            store[key] = value;
+        },
+        removeItem: function (key: string): void {
+            delete store[key];
+        },
+        clear: function (): void {
+            store = {};
+        },
+    };
+})();
+
+Object.defineProperty(globalThis, 'localStorage', {
+    value: mockLocalStorage,
+});
+
 function createPlexAuthMock(
     storedCredentials: PlexAuthDataV2,
     overrides: Phase2PlexAuthOverrides = {}
@@ -127,6 +170,7 @@ function applyPolicy(inputs: Phase2AuthGateTestInputs): Promise<boolean> {
 
 describe('applyPhase2AuthGatePolicy', () => {
     beforeEach(() => {
+        mockLocalStorage.clear();
         jest.spyOn(console, 'error').mockImplementation(() => undefined);
     });
 
@@ -284,5 +328,104 @@ describe('applyPhase2AuthGatePolicy', () => {
         });
         expect(inputs.handlers.registerProfileResume).toHaveBeenCalledTimes(1);
         expect(inputs.navigation.goTo).toHaveBeenCalledWith('profile-select');
+    });
+
+    it('uses the explicit startup read path to normalize stored credentials through real PlexAuth state', async () => {
+        const previousFetch = globalThis.fetch;
+        const storedCredentials = createStoredCredentials();
+        localStorage.setItem(
+            PLEX_AUTH_CONSTANTS.STORAGE_KEY,
+            JSON.stringify({
+                version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
+                data: storedCredentials,
+            })
+        );
+
+        const plexAuth = new PlexAuth(realPlexAuthConfig);
+        const readSpy = jest.spyOn(plexAuth, 'readStoredCredentialsAndClearCorruption');
+
+        expect(plexAuth.getCurrentUser()).toBeNull();
+        expect(plexAuth.getActiveUserId()).toBeNull();
+
+        const fetchMock = jest.fn()
+            .mockResolvedValueOnce({
+                status: 401,
+                ok: false,
+                json: async () => ({}),
+            })
+            .mockResolvedValueOnce({
+                status: 200,
+                ok: true,
+                json: async () => ({
+                    id: 'account-user',
+                    username: 'validated-account',
+                    email: 'validated-account@example.com',
+                    thumb: 'https://plex.example/account.png',
+                }),
+            });
+        (globalThis as typeof globalThis & { fetch: typeof fetchMock }).fetch = fetchMock;
+
+        const navigation = createNavigationMock();
+        const lifecycle = createLifecycleMock();
+        const inputs: Phase2AuthGateInputs = {
+            startTime: Date.now() - 10,
+            plexAuth,
+            navigation,
+            lifecycle,
+            updateModuleStatus: jest.fn(),
+            configureDiscoveryStorage: jest.fn(),
+            readShowProfilePickerOnStartup: jest.fn(() => false),
+            seedSubtitleLanguageFromPlexUser: jest.fn(),
+            handlers: {
+                registerAuthResume: jest.fn(),
+                registerProfileResume: jest.fn(),
+            },
+        };
+
+        try {
+            await expect(applyPhase2AuthGatePolicy(inputs)).resolves.toBe(false);
+        } finally {
+            (globalThis as typeof globalThis & { fetch: typeof previousFetch }).fetch = previousFetch;
+        }
+
+        expect(readSpy).toHaveBeenCalledTimes(1);
+        expect(plexAuth.getCurrentUser()).toMatchObject({
+            token: 'account-token',
+            userId: 'account-user',
+            username: 'validated-account',
+            email: 'validated-account@example.com',
+            thumb: 'https://plex.example/account.png',
+        });
+        expect(plexAuth.getActiveUserId()).toBe('account-user');
+        await expect(plexAuth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({
+            kind: 'available',
+            credentials: expect.objectContaining({
+                accountToken: expect.objectContaining({
+                    token: 'account-token',
+                    userId: 'account-user',
+                    username: 'validated-account',
+                    email: 'validated-account@example.com',
+                }),
+                activeToken: expect.objectContaining({
+                    token: 'account-token',
+                    userId: 'account-user',
+                    username: 'validated-account',
+                    email: 'validated-account@example.com',
+                }),
+                activeUserId: 'account-user',
+                selectedServerByUserId: {
+                    'active-user': {
+                        serverId: null,
+                        serverUri: null,
+                    },
+                    'account-user': {
+                        serverId: null,
+                        serverUri: null,
+                    },
+                },
+            }),
+        });
+        expect(inputs.handlers.registerProfileResume).toHaveBeenCalledTimes(1);
+        expect(navigation.goTo).toHaveBeenCalledWith('profile-select');
     });
 });

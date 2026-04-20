@@ -14,7 +14,6 @@ Extract the app-shell container creation logic out of `App` into a dedicated col
 
 ## Expected Skills
 
-- `using-superpowers`
 - `brainstorming`
 - `architecture-boundaries`
 - `ui-composition-patterns`

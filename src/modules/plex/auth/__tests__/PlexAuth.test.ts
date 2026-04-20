@@ -561,7 +561,7 @@ describe('PlexAuth', () => {
     });
 
     describe('persistence', () => {
-        it('does not restore credentials from localStorage until startup explicitly normalizes them', async () => {
+        it('leaves in-memory auth state unauthenticated until stored credentials are explicitly read', async () => {
             // Pre-populate localStorage
             const storedData = {
                 version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,

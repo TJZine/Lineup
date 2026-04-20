@@ -65,11 +65,6 @@ export class ServerSelectScreen {
             serverHealthKey: this._ports.getServerHealthStorageKey(),
         }));
         this._container.classList.add('screen');
-        this._container.style.position = 'absolute';
-        this._container.style.inset = '0';
-        this._container.style.display = 'none';
-        this._container.style.alignItems = 'center';
-        this._container.style.justifyContent = 'center';
 
         const heroGlyph = createLineupBrandGlyph({
             variant: 'color',
@@ -446,12 +441,11 @@ export class ServerSelectScreen {
             return;
         }
 
-        this._isClearing = true;
-        this._activeClearGeneration = generation;
-        this._clearError();
-        this._setClearButtonDisabled(true, generation);
-
         try {
+            this._isClearing = true;
+            this._activeClearGeneration = generation;
+            this._clearError();
+            this._setClearButtonDisabled(true, generation);
             await this._ports.clearSelectedServer();
 
             if (!this._canUpdateUi(generation)) {
@@ -713,15 +707,14 @@ export class ServerSelectScreen {
             return;
         }
 
-        this._isSelecting = true;
-        this._activeSelectGeneration = generation;
-        this._setServerConnectButtonsDisabled(true);
-        this._setClearButtonDisabled(true, generation);
-        this._clearError();
-        this._setStatus(`Connecting to ${server.name}…`, '', 'loading');
-        this._detailEl.textContent = '';
-
         try {
+            this._isSelecting = true;
+            this._activeSelectGeneration = generation;
+            this._setServerConnectButtonsDisabled(true);
+            this._setClearButtonDisabled(true, generation);
+            this._clearError();
+            this._setStatus(`Connecting to ${server.name}…`, '', 'loading');
+            this._detailEl.textContent = '';
             const result = await this._ports.selectServer(server.id);
 
             if (!this._canUpdateUi(generation) || this._activeSelectGeneration !== generation) {

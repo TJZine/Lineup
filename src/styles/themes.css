@@ -75,6 +75,7 @@
   --scrim-tint-rgb: 0 0 0;
   --scrim-tint-rgb-legacy: 0, 0, 0;
   --font-family-display: "Helvetica Neue", helvetica, "Avenir Next", arial, sans-serif;
+  --theme-swiss-title-size-hero: 34px;
 }
 
 .theme-directv {
@@ -123,6 +124,7 @@
   --directv-focus-fill: #ffcc00;
   --directv-focus-border: #e5a00d;
   --directv-focus-text: #000000;
+  --color-text-on-focus: var(--directv-focus-text);
   --directv-copy-secondary: #bdd8f2;
 }
 
@@ -141,12 +143,12 @@
 }
 
 .theme-swiss .epg-info-title {
-  font-size: 34px;
+  font-size: var(--theme-swiss-title-size-hero);
 }
 
 .theme-swiss .epg-info-meta,
 .theme-swiss .epg-info-genres {
-  font-size: 16px;
+  font-size: var(--text-sm);
 }
 
 .theme-glass {

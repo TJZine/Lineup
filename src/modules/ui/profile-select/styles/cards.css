@@ -1,12 +1,16 @@
 .profile-row {
+    --profile-space-2: var(--space-local-2);
+    --profile-space-6: var(--space-local-6);
+    --profile-space-10: var(--space-local-10);
+    --profile-space-14: var(--space-local-14);
     appearance: none;
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 16px;
-    padding: calc(16px * var(--onboarding-scale, 1)) calc(12px * var(--onboarding-scale, 1)) calc(14px * var(--onboarding-scale, 1));
+    padding: calc(var(--space-4) * var(--onboarding-scale, 1)) calc(var(--space-3) * var(--onboarding-scale, 1)) calc(var(--profile-space-14) * var(--onboarding-scale, 1));
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: calc(10px * var(--onboarding-scale, 1));
+    gap: calc(var(--profile-space-10) * var(--onboarding-scale, 1));
     width: calc(140px * var(--onboarding-scale, 1));
     background: rgba(255, 255, 255, 0.03);
     color: inherit;
@@ -48,8 +52,8 @@
     margin-top: 0;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 2px 8px;
+    gap: var(--profile-space-6);
+    padding: var(--profile-space-2) var(--space-2);
     border-radius: 999px;
     border: 1px solid rgba(200, 160, 100, 0.50);
     background: rgba(200, 160, 100, 0.12);
@@ -78,7 +82,7 @@
     align-items: center;
     justify-content: center;
     font-weight: 700;
-    font-size: calc(34px * var(--onboarding-scale, 1));
+    font-size: calc(var(--text-2xl) * var(--onboarding-scale, 1));
     overflow: hidden;
     flex-shrink: 0;
 }
@@ -104,44 +108,44 @@
 
 .profile-badges {
     display: flex;
-    gap: 6px;
+    gap: var(--profile-space-6);
     justify-content: center;
     flex-wrap: wrap;
 }
 
 .profile-lock {
-    font-size: 12px;
+    font-size: calc(var(--text-xs) * var(--onboarding-scale, 1));
     font-weight: 600;
     letter-spacing: 0.04em;
-    padding: 2px 6px;
+    padding: var(--profile-space-2) var(--profile-space-6);
     border-radius: 999px;
-    border: 1px solid rgba(255, 197, 120, 0.5);
-    background: rgba(255, 176, 90, 0.16);
-    color: #ffd2a0;
+    border: 1px solid var(--onboarding-badge-lock-border);
+    background: var(--onboarding-badge-lock-bg);
+    color: var(--onboarding-badge-lock-text);
 }
 
 .profile-admin {
-    padding: 2px 8px;
+    padding: var(--profile-space-2) var(--space-2);
     border-radius: 999px;
-    font-size: 12px;
+    font-size: calc(var(--text-xs) * var(--onboarding-scale, 1));
     font-weight: 600;
-    background: rgba(76, 153, 255, 0.2);
-    color: #8cc2ff;
-    border: 1px solid rgba(76, 153, 255, 0.4);
+    background: var(--onboarding-badge-admin-bg);
+    color: var(--onboarding-badge-admin-text);
+    border: 1px solid var(--onboarding-badge-admin-border);
 }
 
 .profile-restricted {
-    padding: 2px 8px;
+    padding: var(--profile-space-2) var(--space-2);
     border-radius: 999px;
-    font-size: 12px;
+    font-size: calc(var(--text-xs) * var(--onboarding-scale, 1));
     font-weight: 600;
-    background: rgba(255, 136, 87, 0.16);
-    color: #ffd0ba;
-    border: 1px solid rgba(255, 136, 87, 0.45);
+    background: var(--onboarding-badge-restricted-bg);
+    color: var(--onboarding-badge-restricted-text);
+    border: 1px solid var(--onboarding-badge-restricted-border);
 }
 
 .profile-last-used {
-    font-size: 12px;
+    font-size: calc(var(--text-xs) * var(--onboarding-scale, 1));
     color: rgba(255, 255, 255, 0.5);
     margin-top: -4px;
 }

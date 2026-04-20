@@ -57,11 +57,46 @@ const click = (container: HTMLElement, selector: string): void => {
     element.click();
 };
 
+type Deferred<T> = {
+    promise: Promise<T>;
+    resolve: (value: T) => void;
+    reject: (error?: unknown) => void;
+};
+
+const createDeferred = <T>(): Deferred<T> => {
+    let resolve!: (value: T) => void;
+    let reject!: (error?: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+        resolve = res;
+        reject = rej;
+    });
+    return { promise, resolve, reject };
+};
+
 describe('AuthScreen', () => {
     afterEach(() => {
         jest.useRealTimers();
         jest.clearAllMocks();
         document.body.innerHTML = '';
+    });
+
+    it('relies on shared screen bootstrap while show and hide still own display lifecycle', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new AuthScreen(container, createPorts());
+
+        expect(container.style.position).toBe('');
+        expect(container.style.inset).toBe('');
+        expect(container.style.display).toBe('');
+        expect(container.style.alignItems).toBe('');
+        expect(container.style.justifyContent).toBe('');
+
+        screen.show();
+        expect(container.style.display).toBe('flex');
+
+        screen.hide();
+        expect(container.style.display).toBe('none');
     });
 
     it('hide cancels the active PIN and stops polling', async () => {
@@ -157,6 +192,50 @@ describe('AuthScreen', () => {
 
         const detail = container.querySelector('.screen-detail');
         expect(detail?.textContent ?? '').toContain('Expires in');
+    });
+
+    it('toggles the countdown warning class and clears it on fresh requests and cancel', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-02-05T00:00:00.000Z'));
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const ports = createPorts({
+            requestAuthPin: jest.fn()
+                .mockResolvedValueOnce({
+                    id: 1,
+                    code: 'ABCD',
+                    expiresAt: new Date(Date.now() + 90_000),
+                    authToken: null,
+                    clientIdentifier: 'client-id',
+                })
+                .mockResolvedValueOnce({
+                    id: 2,
+                    code: 'WXYZ',
+                    expiresAt: new Date(Date.now() + 300_000),
+                    authToken: null,
+                    clientIdentifier: 'client-id',
+                }),
+            pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+
+        const detail = container.querySelector('.screen-detail') as HTMLElement | null;
+        expect(detail?.classList.contains('screen-detail--warning')).toBe(true);
+
+        click(container, '#btn-auth-cancel');
+        await flushPromises();
+        expect(detail?.classList.contains('screen-detail--warning')).toBe(false);
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+        expect(detail?.classList.contains('screen-detail--warning')).toBe(false);
     });
 
     it('clears PIN and QR when cancel is pressed', async () => {
@@ -292,11 +371,96 @@ describe('AuthScreen', () => {
             .join('');
         const qr = container.querySelector('.auth-qr') as HTMLElement;
         const status = container.querySelector('.screen-status');
+        const detail = container.querySelector('.screen-detail') as HTMLElement | null;
 
         expect(ports.cancelPin).toHaveBeenCalledWith(77);
         expect(pin).toBe('----');
         expect(qr.style.display).toBe('none');
         expect(status?.textContent ?? '').toContain('Code expired.');
+        expect(detail?.classList.contains('screen-detail--warning')).toBe(false);
+    });
+
+    it('clears the countdown warning class when polling succeeds after the warning threshold', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-02-05T00:00:00.000Z'));
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const pollDeferred = createDeferred<{
+            id: number;
+            code: string;
+            expiresAt: Date;
+            authToken: string | null;
+            clientIdentifier: string;
+        }>();
+
+        const ports = createPorts({
+            requestAuthPin: jest.fn().mockResolvedValue({
+                id: 1,
+                code: 'ABCD',
+                expiresAt: new Date(Date.now() + 90_000),
+                authToken: null,
+                clientIdentifier: 'client-id',
+            }),
+            pollForPin: jest.fn().mockImplementation(() => pollDeferred.promise),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+
+        const detail = container.querySelector('.screen-detail') as HTMLElement | null;
+        expect(detail?.classList.contains('screen-detail--warning')).toBe(true);
+
+        pollDeferred.resolve({
+            id: 1,
+            code: 'ABCD',
+            expiresAt: new Date(Date.now() + 90_000),
+            authToken: 'auth-token',
+            clientIdentifier: 'client-id',
+        });
+        await flushPromises();
+
+        expect(detail?.textContent).toContain('Continuing startup…');
+        expect(detail?.classList.contains('screen-detail--warning')).toBe(false);
+    });
+
+    it('clears the countdown warning class when polling fails after the warning threshold', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-02-05T00:00:00.000Z'));
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const pollDeferred = createDeferred<never>();
+
+        const ports = createPorts({
+            requestAuthPin: jest.fn().mockResolvedValue({
+                id: 1,
+                code: 'ABCD',
+                expiresAt: new Date(Date.now() + 90_000),
+                authToken: null,
+                clientIdentifier: 'client-id',
+            }),
+            pollForPin: jest.fn().mockImplementation(() => pollDeferred.promise),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+
+        const detail = container.querySelector('.screen-detail') as HTMLElement | null;
+        expect(detail?.classList.contains('screen-detail--warning')).toBe(true);
+
+        pollDeferred.reject(new Error('poll failed'));
+        await flushPromises();
+
+        expect(detail?.classList.contains('screen-detail--warning')).toBe(false);
     });
 
     it('surfaces request failures through screen error UI without console logging', async () => {

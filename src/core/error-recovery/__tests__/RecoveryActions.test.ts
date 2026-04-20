@@ -196,17 +196,17 @@ describe('getRecoveryActions', () => {
     });
 
     it.each([
-        [AppErrorCode.PARSE_ERROR, 'Dismiss'],
-        [AppErrorCode.EMPTY_RESPONSE, 'Dismiss'],
-        [AppErrorCode.UI_NAVIGATION_BLOCKED, 'Dismiss'],
-        [AppErrorCode.PLAYBACK_DRM_ERROR, 'Skip'],
-        [AppErrorCode.PLAYBACK_SOURCE_NOT_FOUND, 'Skip'],
-        [AppErrorCode.TRANSCODE_FAILED, 'Skip'],
-        [AppErrorCode.SERVER_UNAUTHORIZED, 'Sign In'],
-        [AppErrorCode.LIBRARY_UNAVAILABLE, 'Select Server'],
-        [AppErrorCode.EMPTY_CHANNEL, 'Edit Channels'],
-        [AppErrorCode.MODULE_CRASH, 'Retry'],
-    ])('maps %s intentionally to %s actions', (errorCode, primaryLabel) => {
+        [AppErrorCode.PARSE_ERROR, 'Dismiss', null],
+        [AppErrorCode.EMPTY_RESPONSE, 'Dismiss', null],
+        [AppErrorCode.UI_NAVIGATION_BLOCKED, 'Dismiss', null],
+        [AppErrorCode.PLAYBACK_DRM_ERROR, 'Skip', 'skipToNext'],
+        [AppErrorCode.PLAYBACK_SOURCE_NOT_FOUND, 'Skip', 'skipToNext'],
+        [AppErrorCode.TRANSCODE_FAILED, 'Skip', 'skipToNext'],
+        [AppErrorCode.SERVER_UNAUTHORIZED, 'Sign In', 'goToAuth'],
+        [AppErrorCode.LIBRARY_UNAVAILABLE, 'Select Server', 'goToServerSelect'],
+        [AppErrorCode.EMPTY_CHANNEL, 'Edit Channels', 'goToChannelEdit'],
+        [AppErrorCode.MODULE_CRASH, 'Retry', 'retryStart'],
+    ] as const)('maps %s intentionally to %s actions', (errorCode, primaryLabel, primaryDependency) => {
         const deps = createDeps();
         const actions = getRecoveryActions(errorCode, deps);
 
@@ -214,6 +214,21 @@ describe('getRecoveryActions', () => {
             label: primaryLabel,
             isPrimary: true,
         });
+
+        actions[0]!.action();
+
+        if (primaryDependency === null) {
+            expect(deps.goToAuth).not.toHaveBeenCalled();
+            expect(deps.goToServerSelect).not.toHaveBeenCalled();
+            expect(deps.goToChannelEdit).not.toHaveBeenCalled();
+            expect(deps.goToSettings).not.toHaveBeenCalled();
+            expect(deps.retryStart).not.toHaveBeenCalled();
+            expect(deps.exitApp).not.toHaveBeenCalled();
+            expect(deps.skipToNext).not.toHaveBeenCalled();
+            return;
+        }
+
+        expect(deps[primaryDependency]).toHaveBeenCalledTimes(1);
     });
 
     it('returns at least one recovery action for every AppErrorCode', () => {

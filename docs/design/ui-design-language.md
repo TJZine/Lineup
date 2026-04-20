@@ -63,8 +63,23 @@ Glass theme variants use slightly higher opacity (darker) scrims than base surfa
 ### Border Radius
 
 - **Screen-touching corners**: `0`.
-- **Free corners**: `16px` for large panels, `10px` for small badges.
+- **Free corners**: `16px` for large panels, `10px` for compact badges and hints.
+- Shared contract: `--radius-xl` is the default large free-corner radius and `--radius-compact` is the intentional compact `10px` radius for smaller overlay surfaces.
 - Example: NowPlayingInfo → `border-radius: 0 16px 0 0` (only top-right is free).
+
+### Overlay Stack
+
+Overlay ordering is a shared contract, not a per-surface guess. The shared overlay stack is:
+
+| Layer | Token | Use |
+|------|-------|-----|
+| Base content | `--z-base` | normal document flow and local layering |
+| Dropdown / popover | `--z-dropdown` | local menus and bounded popovers |
+| Modal overlay | `--z-modal` | overlay panels that must sit above runtime content |
+| Shared shell overlay | `--z-overlay` | app-level chrome or shell surfaces that sit above modal panels |
+| Toast / last-mile status | `--z-toast` | transient notices that must clear the rest of the overlay family |
+
+`--z-max` remains a boundary token for exceptional cases only. This contract locks relative ordering for later cleanup packages; it does not imply every runtime callsite has already migrated.
 
 ### Animations
 
@@ -91,9 +106,11 @@ to ensure D-pad focus remains unmistakable on TV.
 
 /* Focused (D-pad) */
 background: rgba(255, 255, 255, 0.92);
-color: #0a0d12;
+color: var(--color-text-on-focus);
 box-shadow: 0 0 16px rgba(255, 255, 255, 0.3);
 ```
+
+`--color-text-on-focus` is the shared default focus-text token. Theme-specific tokens such as `--directv-focus-text` remain valid only as overrides or aliases under that shared contract, not as a parallel contract.
 
 ### Info Pills / Badges
 

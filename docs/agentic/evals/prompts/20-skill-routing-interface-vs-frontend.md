@@ -37,7 +37,6 @@ Report findings ordered by severity. If you find a routing ambiguity, propose a 
 
 ## Expected Skills
 
-- `using-superpowers`
 - `ui-composition-patterns`
 - `verification-before-completion`
 

@@ -16,7 +16,6 @@ Split `SettingsScreen` so storage/state ownership is separated from view and foc
 
 ## Expected Skills
 
-- `using-superpowers`
 - `brainstorming`
 - `interface-design`
 - `ui-composition-patterns`

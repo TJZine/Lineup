@@ -57,6 +57,9 @@ describe('EPGLibraryTabs', () => {
         tabs.selectFocused();
         expect(tabs.isPickerOpen()).toBe(true);
 
+        const selectedItem = gridElement.querySelector('.epg-library-picker-item.selected') as HTMLButtonElement | null;
+        expect(selectedItem?.dataset.libraryId).toBe('lib-1');
+
         tabs.moveFocus(1);
 
         const focusedItem = gridElement.querySelector('.epg-library-picker-item.focused') as HTMLButtonElement | null;

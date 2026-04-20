@@ -49,11 +49,6 @@ export class AuthScreen {
         this._container = container;
         this._ports = ports;
         this._container.classList.add('screen');
-        this._container.style.position = 'absolute';
-        this._container.style.inset = '0';
-        this._container.style.display = 'none';
-        this._container.style.alignItems = 'center';
-        this._container.style.justifyContent = 'center';
 
         this._handleRequestClick = (): void => {
             this._runScreenAction(() => this._handleRequestPin(), 'Failed to request PIN.');
@@ -185,7 +180,7 @@ export class AuthScreen {
         this._renderPin('----');
         this._qrWrapEl.style.display = 'none';
         this._detailEl.textContent = '';
-        this._detailEl.style.color = '';
+        this._setCountdownWarningVisible(false);
 
         if (this._activePinId !== null) {
             // Cancel any in-flight poll and best-effort cancel server-side PIN.
@@ -257,7 +252,6 @@ export class AuthScreen {
         this._expiresAt = null;
         this._renderPin('----');
         this._qrWrapEl.style.display = 'none';
-        this._detailEl.style.color = '';
         this._setStatus('Cancelled.', 'Request a new PIN to continue.', { tone: 'neutral' });
         this._setButtons({ request: true, cancel: false, retry: false });
     }
@@ -424,7 +418,7 @@ export class AuthScreen {
         }
 
         this._detailEl.textContent = `Expires in ${formatted}`;
-        this._detailEl.style.color = remainingMs <= 120000 ? 'var(--color-warning)' : '';
+        this._setCountdownWarningVisible(remainingMs <= 120000);
         return true;
     }
 
@@ -433,6 +427,7 @@ export class AuthScreen {
             clearInterval(this._expiryTimer);
             this._expiryTimer = null;
         }
+        this._setCountdownWarningVisible(false);
     }
 
     private async _handleExpiredPin(): Promise<void> {
@@ -452,9 +447,12 @@ export class AuthScreen {
         this._expiresAt = null;
         this._renderPin('----');
         this._qrWrapEl.style.display = 'none';
-        this._detailEl.style.color = '';
         this._setStatus('Code expired.', 'Request a new PIN to continue.', { tone: 'warning' });
         this._setButtons({ request: true, cancel: false, retry: false });
+    }
+
+    private _setCountdownWarningVisible(isVisible: boolean): void {
+        this._detailEl.classList.toggle('screen-detail--warning', isVisible);
     }
 
     private _getAppErrorCode(error: unknown): AppErrorCode | null {

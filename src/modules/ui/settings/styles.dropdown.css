@@ -3,12 +3,16 @@
    ============================================================ */
 
 .settings-dropdown {
+  --settings-space-2: 2px;
+  --settings-space-6: 6px;
+  --settings-space-10: 10px;
+  --settings-space-14: 14px;
   position: absolute;
   z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 6px;
+  gap: var(--settings-space-2);
+  padding: var(--settings-space-6);
   background: var(--panel-surface, rgba(24, 24, 24, 0.92));
   border: var(--panel-border, 1px solid rgba(255, 255, 255, 0.10));
   border-radius: var(--panel-radius, 10px);
@@ -33,15 +37,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   width: 100%;
-  padding: 10px 14px;
+  padding: var(--settings-space-10) var(--settings-space-14);
   text-align: left;
   background: transparent;
   border: 1px solid transparent;
   border-radius: calc(var(--panel-radius, 10px) - 4px);
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 18px;
+  color: var(--color-text-primary);
+  font-size: var(--text-md);
   cursor: pointer;
   transition:
     background-color 120ms ease,
@@ -63,15 +67,15 @@
 
 .settings-dropdown-option--selected {
   background: rgba(var(--color-primary-rgb-legacy), 0.16);
-  background: rgb(var(--color-primary-rgb, 224 120 42) / 16%);
-  color: var(--color-primary-light, #f0a060);
+  background: rgb(var(--color-primary-rgb) / 16%);
+  color: var(--color-primary-light);
 }
 
 .settings-dropdown-option--selected:hover,
 .settings-dropdown-option--selected:focus,
 .settings-dropdown-option--selected.focused {
   background: rgba(var(--color-primary-rgb-legacy), 0.24);
-  background: rgb(var(--color-primary-rgb, 224 120 42) / 24%);
+  background: rgb(var(--color-primary-rgb) / 24%);
 }
 
 .settings-dropdown-option-label {
@@ -81,14 +85,14 @@
 
 .settings-dropdown-option-check {
   flex-shrink: 0;
-  font-size: 16px;
-  color: var(--color-primary, #e0782a);
+  font-size: var(--text-sm);
+  color: var(--color-primary);
 }
 
 .setup-toggle-chevron {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.5);
-  margin-left: 6px;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-left: var(--settings-space-6);
 }
 
 /* Glass theme dropdown overrides */

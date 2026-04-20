@@ -14,7 +14,6 @@ Make the smallest possible diff to pull toast and blocking overlay presentation 
 
 ## Expected Skills
 
-- `using-superpowers`
 - `brainstorming`
 - `interface-design`
 - `ui-composition-patterns`

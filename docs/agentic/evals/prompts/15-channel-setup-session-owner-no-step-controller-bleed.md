@@ -15,7 +15,6 @@ Ensure no ownership bleed between `ChannelSetupScreen` and `ChannelSetupSessionC
 
 ## Expected Skills
 
-- `using-superpowers`
 - `brainstorming` only when the ownership/session seam is still unresolved after initial discovery
 - `architecture-boundaries`
 - `ui-composition-patterns`
