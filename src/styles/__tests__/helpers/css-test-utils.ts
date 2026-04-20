@@ -28,15 +28,121 @@ export const readComposedCss = (relativePath: string): string => {
 const escapeRegExp = (value: string): string =>
     value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-export const blockFor = (css: string, selector: string): string => {
-    const selectorPattern = escapeRegExp(selector);
-    // Match selector blocks even when the selector is part of a grouped selector list.
-    // Keep this resilient to formatting changes (commas/newlines/indentation).
-    const match = css.match(new RegExp(`(^|\\n)\\s*${selectorPattern}\\s*(?:,\\s*)?[^\\{]*\\{[\\s\\S]*?\\}`, 'm'));
-    if (!match) {
-        throw new Error(`Selector block not found: ${selector}`);
+const normalizeSelector = (selector: string): string => selector.replace(/\s+/g, ' ').trim();
+
+const skipComment = (css: string, index: number): number => {
+    const commentEnd = css.indexOf('*/', index + 2);
+    if (commentEnd === -1) {
+        throw new Error('Unterminated CSS comment');
     }
-    return match[0];
+
+    return commentEnd + 2;
+};
+
+const skipString = (css: string, index: number): number => {
+    const quote = css[index];
+    let cursor = index + 1;
+    while (cursor < css.length) {
+        if (css[cursor] === '\\') {
+            cursor += 2;
+            continue;
+        }
+
+        if (css[cursor] === quote) {
+            return cursor + 1;
+        }
+
+        cursor += 1;
+    }
+
+    throw new Error(`Unterminated CSS string starting at index ${index}`);
+};
+
+const findMatchingBrace = (css: string, openBrace: number): number => {
+    let depth = 1;
+    let cursor = openBrace + 1;
+
+    while (cursor < css.length) {
+        if (css.startsWith('/*', cursor)) {
+            cursor = skipComment(css, cursor);
+            continue;
+        }
+
+        if (css[cursor] === '"' || css[cursor] === "'") {
+            cursor = skipString(css, cursor);
+            continue;
+        }
+
+        if (css[cursor] === '{') {
+            depth += 1;
+        } else if (css[cursor] === '}') {
+            depth -= 1;
+            if (depth === 0) {
+                return cursor + 1;
+            }
+        }
+
+        cursor += 1;
+    }
+
+    throw new Error('CSS block missing closing brace');
+};
+
+export const blockFor = (css: string, selector: string): string => {
+    const wantedSelector = normalizeSelector(selector);
+    let cursor = 0;
+    let ruleStart = 0;
+
+    while (cursor < css.length) {
+        if (css.startsWith('/*', cursor)) {
+            cursor = skipComment(css, cursor);
+            ruleStart = cursor;
+            continue;
+        }
+
+        if (css[cursor] === '"' || css[cursor] === "'") {
+            cursor = skipString(css, cursor);
+            continue;
+        }
+
+        if (css[cursor] === '{') {
+            const selectorList = css.slice(ruleStart, cursor).trim();
+            const blockEnd = findMatchingBrace(css, cursor);
+
+            if (selectorList.startsWith('@')) {
+                const nestedBlock = css.slice(cursor + 1, blockEnd - 1);
+
+                try {
+                    return blockFor(nestedBlock, selector);
+                } catch (error) {
+                    if (!(error instanceof Error) || !error.message.startsWith('Selector block not found:')) {
+                        throw error;
+                    }
+                }
+
+                cursor = blockEnd;
+                ruleStart = cursor;
+                continue;
+            }
+
+            const selectors = selectorList
+                .split(',')
+                .map((part) => normalizeSelector(part))
+                .filter(Boolean);
+
+            if (selectors.includes(wantedSelector)) {
+                return css.slice(ruleStart, blockEnd).trimStart();
+            }
+
+            cursor = blockEnd;
+            ruleStart = cursor;
+            continue;
+        }
+
+        cursor += 1;
+    }
+
+    throw new Error(`Selector block not found: ${selector}`);
 };
 
 export const declarationValue = (block: string, property: string): string => {
