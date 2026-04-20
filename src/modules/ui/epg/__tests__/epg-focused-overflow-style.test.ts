@@ -338,4 +338,11 @@ describe('focused EPG overflow style contract', () => {
         expect(css).not.toContain('.theme-swiss .epg-cell-meta,\n.theme-swiss .epg-cell-subtitle');
         expect(css).not.toContain('.theme-swiss .epg-info-backdrop,\n.theme-swiss .epg-info-tags');
     });
+
+    it('keeps directv backdrop theming out of bleed mode', () => {
+        const block = getBlock('.theme-directv .epg-info-panel:not(.epg-info-mode-bleed) .epg-info-backdrop');
+        expect(block).toContain('var(--directv-panel-gradient-start)');
+        expect(block).toContain('var(--directv-panel-gradient-strong-end)');
+        expect(css).not.toContain('.theme-directv .epg-info-panel .epg-info-backdrop {');
+    });
 });

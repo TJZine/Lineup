@@ -314,7 +314,7 @@
   );
 }
 
-.theme-directv .epg-info-panel .epg-info-backdrop {
+.theme-directv .epg-info-panel:not(.epg-info-mode-bleed) .epg-info-backdrop {
   background: linear-gradient(
     180deg,
     var(--directv-panel-gradient-start),
