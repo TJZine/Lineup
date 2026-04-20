@@ -140,6 +140,7 @@ describe('runtime overlay style contracts', () => {
 
     it('keeps playback options forced-colors coverage scoped to focused and selected items', () => {
         const css = read('src/modules/ui/playback-options/styles.core.css');
+        const panelBlock = blockWithin(css, FORCED_COLORS_RULE, '.playback-options-panel');
         const selectedBlock = blockWithin(css, FORCED_COLORS_RULE, '.playback-options-item.selected');
         const selectedLabelBlock = blockWithin(
             css,
@@ -155,6 +156,8 @@ describe('runtime overlay style contracts', () => {
         );
 
         expect(css).toContain(FORCED_COLORS_RULE);
+        expect(panelBlock).toContain('background: Canvas;');
+        expect(panelBlock).toContain('color: CanvasText;');
         expect(selectedBlock).toContain('.playback-options-item.selected');
         expect(selectedBlock).toContain('background: Highlight;');
         expect(selectedBlock).toContain('border-color: Highlight;');
