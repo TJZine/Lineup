@@ -1,7 +1,8 @@
 .player-osd-actions {
+  --player-osd-actions-space-10: 10px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--player-osd-actions-space-10);
 }
 
 .player-osd-action {

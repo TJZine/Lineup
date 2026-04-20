@@ -2,6 +2,11 @@
    App Shell Containers
    ========================================= */
 
+:root {
+  --shell-chrome-toast-bg: rgba(0, 0, 0, 0.8);
+  --shell-space-18: 18px;
+}
+
 #dev-menu {
   background: #222;
   color: var(--color-text-primary);
@@ -9,7 +14,7 @@
 }
 
 #app-toast {
-  background: rgba(0, 0, 0, 0.8);
+  background: var(--shell-chrome-toast-bg);
   color: var(--color-text-primary);
 }
 
@@ -92,8 +97,8 @@
   appearance: none;
   position: relative;
   border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 10px;
-  padding: 12px 18px;
+  border-radius: var(--radius-compact);
+  padding: var(--space-3) var(--shell-space-18);
   font-size: var(--text-md);
   font-weight: 600;
   color: var(--color-text-primary);

@@ -1,8 +1,9 @@
 .player-osd-meta-strip {
+  --player-osd-meta-space-18: 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
+  gap: var(--player-osd-meta-space-18);
   padding: var(--space-2) var(--osd-safe-margin);
   font-variant-numeric: tabular-nums;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
@@ -15,7 +16,7 @@
   align-items: center;
   flex: 1 1 auto;
   min-width: 0;
-  gap: 18px;
+  gap: var(--player-osd-meta-space-18);
 }
 
 .player-osd-meta-right {

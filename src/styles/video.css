@@ -7,7 +7,7 @@
 }
 
 .video-container.epg-pip-active {
-  z-index: 999;
+  z-index: var(--z-overlay-video-priority);
   --classic-guide-pip-left: 24px;
   --classic-guide-pip-top: 72px;
 }

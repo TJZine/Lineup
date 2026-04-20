@@ -27,6 +27,11 @@
   z-index: 5;
 }
 
+.theme-directv .epg-container.layout-classic {
+  --epg-directv-copy-primary: #eff8ff;
+  --epg-directv-copy-secondary: #d4ebff;
+}
+
 /* Inner panels use explicit scrims for no-blur readability */
 .theme-glass .epg-channel-list,
 .theme-glass .epg-time-header,
@@ -127,7 +132,7 @@
 
 .theme-glass .epg-time-indicator::after {
   background: var(--color-primary);
-  color: #0a0d12;
+  color: var(--color-text-on-focus);
 }
 
 .theme-ember-steel .epg-cell.focused {
@@ -234,7 +239,7 @@
 }
 
 .theme-directv .epg-container.layout-classic .epg-time-header-sticky {
-  color: #eff8ff;
+  color: var(--epg-directv-copy-primary);
   background: linear-gradient(
     to right,
     rgb(0 16 32 / 98%),
@@ -243,7 +248,7 @@
 }
 
 .theme-directv .epg-container.layout-classic .epg-time-slot {
-  color: #d4ebff;
+  color: var(--epg-directv-copy-secondary);
   border-left-color: rgb(var(--color-primary-rgb) / 40%);
 }
 
@@ -284,7 +289,7 @@
 }
 
 .theme-directv .epg-container.layout-classic .epg-cell-title {
-  color: #eff8ff;
+  color: var(--epg-directv-copy-primary);
 }
 
 .theme-directv .epg-container.layout-classic .epg-cell-time,

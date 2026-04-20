@@ -2,13 +2,13 @@
     display: block;
     width: 64px;
     height: 64px;
-    margin-bottom: 2px;
+    margin-bottom: var(--space-local-2);
 }
 
 .profile-panel {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--space-3);
 }
 
 .profile-list {
@@ -16,9 +16,9 @@
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: center;
-    gap: calc(24px * var(--onboarding-scale, 1));
-    margin-top: 12px;
-    padding: 8px;
+    gap: calc(var(--space-6) * var(--onboarding-scale, 1));
+    margin-top: var(--space-3);
+    padding: var(--space-2);
     max-height: min(52vh, 560px);
     overflow-y: auto;
 }
@@ -26,5 +26,5 @@
 .profile-tip {
     font-size: var(--text-md);
     color: rgba(255, 255, 255, 0.6);
-    margin-top: 4px;
+    margin-top: var(--space-1);
 }

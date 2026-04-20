@@ -54,9 +54,10 @@
 
 .osd-pill,
 .player-osd-sleep {
+  --player-osd-space-10: 10px;
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
+  padding: var(--space-1) var(--player-osd-space-10);
   border-radius: 999px;
   background: var(--osd-pill-bg);
   border: 1px solid var(--osd-pill-border);

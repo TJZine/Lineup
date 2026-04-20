@@ -4,9 +4,9 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: calc(24px * var(--onboarding-scale, 1));
-  margin-top: 12px;
-  padding: 8px;
+  gap: calc(var(--space-6) * var(--onboarding-scale, 1));
+  margin-top: var(--space-3);
+  padding: var(--space-2);
 }
 
 .setup-toggle.audio-choice {
@@ -15,8 +15,8 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: calc(12px * var(--onboarding-scale, 1));
-  padding: calc(24px * var(--onboarding-scale, 1));
+  gap: calc(var(--space-3) * var(--onboarding-scale, 1));
+  padding: calc(var(--space-6) * var(--onboarding-scale, 1));
   min-width: calc(200px * var(--onboarding-scale, 1));
   max-width: calc(280px * var(--onboarding-scale, 1));
   flex: 1;
@@ -44,8 +44,8 @@
 }
 
 .audio-advanced-separator {
-  margin-top: calc(18px * var(--onboarding-scale, 1));
-  padding-top: calc(12px * var(--onboarding-scale, 1));
+  margin-top: calc(var(--space-local-18) * var(--onboarding-scale, 1));
+  padding-top: calc(var(--space-3) * var(--onboarding-scale, 1));
   border-top: 1px solid rgba(255, 255, 255, 0.12);
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -54,11 +54,11 @@
 }
 
 .audio-helper {
-  margin-top: calc(10px * var(--onboarding-scale, 1));
+  margin-top: calc(var(--space-local-10) * var(--onboarding-scale, 1));
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: calc(10px * var(--onboarding-scale, 1));
-  padding: calc(12px * var(--onboarding-scale, 1)) calc(14px * var(--onboarding-scale, 1));
+  padding: calc(var(--space-3) * var(--onboarding-scale, 1)) calc(var(--space-local-14) * var(--onboarding-scale, 1));
   font-size: calc(16px * var(--onboarding-scale, 1));
   color: var(--color-text-secondary);
   max-width: calc(740px * var(--onboarding-scale, 1));

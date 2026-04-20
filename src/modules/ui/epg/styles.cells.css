@@ -3,17 +3,17 @@
   position: absolute;
   /* NOTE: Fallback (108px) MUST match EPG_CONSTANTS.ROW_HEIGHT (modules/ui/epg/constants.ts). */
   height: calc(var(--epg-row-height, 108px) - 6px);
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   background: rgba(255, 255, 255, 0.1);
   border-radius: 4px;
   display: grid;
   grid-template-columns: 1fr auto;
   grid-template-rows: minmax(0, 1fr);
-  gap: 12px;
+  gap: var(--space-3);
   align-items: stretch;
   overflow: hidden;
   box-sizing: border-box;
-  margin: 2px;
+  margin: var(--space-local-2);
   contain: layout paint;
   transition: background-color 80ms ease-out;
   cursor: pointer;
@@ -85,7 +85,7 @@
 .epg-cell-progress-fill {
   width: 0%;
   height: 100%;
-  background: #f0c000;
+  background: var(--epg-build-strategy-playlists);
 }
 
 /* Windows High Contrast Mode support */
@@ -166,15 +166,15 @@
 .epg-cell-meta {
   display: none;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 2px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-local-2);
 }
 
 .epg-cell-episode {
   display: inline-flex;
   align-items: center;
   height: 18px;
-  padding: 0 8px;
+  padding: 0 var(--space-2);
   border-radius: 999px;
   position: relative;
   overflow: hidden;
@@ -183,7 +183,7 @@
     var(--osd-pill-bg-strong);
   border: 1px solid var(--osd-pill-border-strong);
   color: var(--color-text-primary);
-  font-size: 12px;
+  font-size: var(--epg-font-size-compact-meta);
   font-weight: 800;
   letter-spacing: 0.8px;
   text-transform: uppercase;
@@ -221,7 +221,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 2px;
+  margin-top: var(--space-local-2);
 }
 
 .epg-cell-subtitle.epg-cell-subtitle-ticker-ready,
@@ -236,12 +236,12 @@
 }
 
 .epg-cell-time.epg-cell-time-compact {
-  font-size: 14px;
+  font-size: var(--text-xs);
 }
 
 .epg-cell.focused.epg-cell-focused-compact {
   grid-template-columns: 1fr;
-  gap: 6px;
+  gap: var(--space-local-6);
 }
 
 .epg-cell.focused.epg-cell-focused-compact .epg-cell-rail {
@@ -258,7 +258,7 @@
 
 .epg-cell.focused.epg-cell-focused-movie-overlay {
   grid-template-columns: 1fr;
-  gap: 6px;
+  gap: var(--space-local-6);
 }
 
 .epg-cell.focused.epg-cell-focused-movie-overlay.epg-cell-tier-narrow,
@@ -282,7 +282,7 @@
 }
 
 .epg-cell.epg-cell-sliver {
-  padding: 4px 6px;
+  padding: var(--space-1) var(--space-local-6);
   gap: 0;
 }
 
@@ -313,7 +313,7 @@
 .epg-cell-tier-narrow,
 .epg-cell-tier-tiny {
   grid-template-columns: 1fr;
-  gap: 6px;
+  gap: var(--space-local-6);
 }
 
 .epg-cell-tier-narrow .epg-cell-rail,
@@ -328,7 +328,7 @@
 .epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-narrow,
 .epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-tiny {
   grid-template-columns: 1fr auto;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-narrow .epg-cell-rail,
@@ -371,7 +371,7 @@
 .epg-live-badge {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   font-size: var(--text-sm);
   font-weight: 700;
   letter-spacing: 0.6px;

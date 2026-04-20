@@ -2,7 +2,7 @@
   position: absolute;
   top: 22px;
   right: 24px;
-  z-index: 860;
+  z-index: var(--z-overlay-status-priority);
   opacity: 0;
   pointer-events: none;
   transform: translateY(-8px);
@@ -21,12 +21,13 @@
   --runtime-overlay-start-alpha-legacy: 0.30;
   --runtime-overlay-end-alpha: 40%;
   --runtime-overlay-end-alpha-legacy: 0.40;
+  --runtime-overlay-space-10: 10px;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--runtime-overlay-space-10);
   min-width: 132px;
   padding: var(--space-2) var(--space-3);
-  border-radius: 10px;
+  border-radius: var(--radius-compact);
   /* Reserve border space so error state does not cause layout shift. */
   border: 1px solid transparent;
   background: linear-gradient(

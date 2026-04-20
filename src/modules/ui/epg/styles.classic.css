@@ -10,9 +10,9 @@
 /* Classic guide fidelity phase 2: broadcast-specific overrides */
 .epg-container.layout-classic .epg-now-watching-banner {
   border-bottom: none;
-  padding: 6px 14px;
+  padding: var(--space-local-6) var(--space-local-14);
   color: var(--color-text-secondary);
-  font-size: 20px;
+  font-size: var(--text-base);
   letter-spacing: 0.2px;
 }
 
@@ -80,14 +80,14 @@
 }
 
 .epg-container.layout-classic .epg-time-header-sticky {
-  font-size: 22px;
+  font-size: var(--epg-font-size-classic-header);
   font-weight: 700;
   color: var(--color-text-primary);
   background: linear-gradient(to right, rgba(12, 15, 24, 0.97), rgba(12, 15, 24, 0));
 }
 
 .epg-container.layout-classic .epg-time-slot {
-  font-size: 24px;
+  font-size: var(--text-lg);
   font-weight: 600;
   color: var(--color-text-secondary);
   border-left: 1px solid rgba(255, 255, 255, 0.14);
@@ -99,8 +99,8 @@
 }
 
 .epg-container.layout-classic .epg-channel-row {
-  padding: 8px 14px;
-  gap: 10px;
+  padding: var(--space-2) var(--space-local-14);
+  gap: var(--space-local-10);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -122,7 +122,7 @@
   background: linear-gradient(135deg, var(--panel-surface), var(--panel-surface-2));
   border: var(--panel-border);
   border-radius: var(--classic-cell-radius);
-  margin: 1px;
+  margin: var(--space-local-1);
 }
 
 .epg-container.layout-classic .epg-cell:hover {
@@ -142,7 +142,7 @@
 }
 
 .epg-container.layout-classic .epg-cell-title {
-  font-size: 25px;
+  font-size: var(--epg-font-size-classic-title);
   font-weight: 500;
   color: var(--color-text-primary);
 }

@@ -29,6 +29,11 @@
   --onboarding-badge-restricted-bg: rgba(255, 136, 87, 0.16);
   --onboarding-badge-restricted-border: rgba(255, 136, 87, 0.45);
   --onboarding-badge-restricted-text: #ffd0ba;
+  --space-local-6: 6px;
+  --space-local-2: 2px;
+  --space-local-10: 10px;
+  --space-local-14: 14px;
+  --space-local-18: 18px;
   background: radial-gradient(circle at 20% 20%, rgba(200, 160, 100, 0.06), transparent 45%),
     radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.04), transparent 40%),
     #0e1017;
@@ -96,18 +101,18 @@
 .screen-title {
   font-size: calc(var(--text-2xl) * var(--onboarding-scale));
   font-weight: 700;
-  margin: 0 0 6px 0;
+  margin: 0 0 var(--space-local-6) 0;
 }
 
 .screen-subtitle {
-  margin: 0 0 14px 0;
+  margin: 0 0 var(--space-local-14) 0;
   font-size: calc(18px * var(--onboarding-scale));
   color: var(--onboarding-text-secondary);
 }
 
 .screen-status {
   font-size: calc(18px * var(--onboarding-scale));
-  margin: 10px 0 4px 0;
+  margin: var(--space-local-10) 0 var(--space-1) 0;
 }
 
 .screen-status--neutral {
@@ -140,7 +145,7 @@
 }
 
 .screen-error {
-  margin-top: 10px;
+  margin-top: var(--space-local-10);
   font-size: calc(16px * var(--onboarding-scale));
   color: var(--color-error-text);
 }
@@ -148,15 +153,15 @@
 .screen-error:not(:empty) {
   background: rgba(239, 68, 68, 0.08);
   border: 1px solid rgba(239, 68, 68, 0.25);
-  border-radius: 12px;
-  padding: 10px 14px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-local-10) var(--space-local-14);
 }
 
 .screen-error-title {
   font-size: calc(18px * var(--onboarding-scale));
   font-weight: 600;
   color: var(--color-error);
-  margin-bottom: 6px;
+  margin-bottom: var(--space-local-6);
 }
 
 .screen-error-message {
@@ -166,7 +171,7 @@
 }
 
 .screen-error-hint {
-  margin-top: 8px;
+  margin-top: var(--space-2);
   font-size: calc(14px * var(--onboarding-scale));
   color: var(--onboarding-text-muted);
   line-height: 1.4;
@@ -184,7 +189,7 @@
   top: 50%;
   width: 16px;
   height: 16px;
-  margin-top: -8px;
+  margin-top: calc(-1 * var(--space-2));
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.25);
   border-top-color: var(--onboarding-accent);
@@ -206,8 +211,8 @@
 .button-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 16px;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
 }
 
 .screen-button {
@@ -215,7 +220,7 @@
   position: relative;
   border: 1px solid var(--onboarding-accent-alpha-30, rgba(200, 160, 100, 0.30));
   border-radius: 999px;
-  padding: calc(12px * var(--onboarding-scale)) calc(18px * var(--onboarding-scale));
+  padding: calc(var(--space-3) * var(--onboarding-scale)) calc(var(--space-local-18) * var(--onboarding-scale));
   font-size: calc(18px * var(--onboarding-scale));
   font-weight: 600;
   color: #0e1017;

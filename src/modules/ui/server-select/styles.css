@@ -1,8 +1,12 @@
+.screen.server-selection-screen {
+    --server-select-space-2: 2px;
+}
+
 .server-select-glyph {
     display: block;
     width: 64px;
     height: 64px;
-    margin-bottom: 2px;
+    margin-bottom: var(--server-select-space-2);
 }
 
 .server-status-pill {
@@ -10,11 +14,11 @@
     --server-status-pill-color: var(--color-text-muted);
     --server-status-pill-border: var(--color-border-subtle);
     display: inline-block;
-    padding: 2px 8px;
-    border-radius: 12px;
+    padding: var(--server-select-space-2) var(--space-2);
+    border-radius: var(--radius-lg);
     font-size: var(--text-xs);
     font-weight: 500;
-    margin-top: 4px;
+    margin-top: var(--space-1);
     align-self: flex-start;
     background-color: var(--server-status-pill-bg);
     color: var(--server-status-pill-color);
@@ -56,10 +60,10 @@
 .server-autoconnect-hint {
     display: none;
     align-items: center;
-    gap: 10px;
-    margin: 8px 0 2px 0;
-    padding: 10px 12px;
-    border-radius: 10px;
+    gap: var(--space-local-10);
+    margin: var(--space-2) 0 var(--server-select-space-2) 0;
+    padding: var(--space-local-10) var(--space-3);
+    border-radius: var(--radius-compact);
     border: 1px solid rgba(200, 160, 100, 0.25);
     background: linear-gradient(180deg, rgba(200, 160, 100, 0.10), rgba(200, 160, 100, 0.04));
 }
@@ -72,7 +76,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 2px 8px;
+    padding: var(--server-select-space-2) var(--space-2);
     border-radius: 999px;
     border: 1px solid rgba(200, 160, 100, 0.45);
     background: rgba(0, 0, 0, 0.2);
@@ -94,8 +98,8 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
-    padding: 40px 20px;
-    gap: 16px;
+    padding: var(--space-10) var(--space-5);
+    gap: var(--space-4);
 }
 
 .server-empty-icon {
@@ -106,13 +110,13 @@
 }
 
 .server-empty-title {
-    font-size: 20px;
+    font-size: var(--text-base);
     font-weight: 600;
     color: var(--color-text-primary);
 }
 
 .server-empty-description {
-    font-size: 16px;
+    font-size: var(--text-sm);
     color: var(--color-text-secondary);
     max-width: 360px;
     line-height: 1.5;

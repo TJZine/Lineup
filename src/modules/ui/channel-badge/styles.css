@@ -2,7 +2,7 @@
   position: absolute;
   top: 48px;
   right: 48px;
-  z-index: 850;
+  z-index: var(--z-overlay-status);
   opacity: 0;
   transform: translateY(-6px);
   pointer-events: none;
@@ -21,11 +21,13 @@
   --runtime-overlay-start-alpha-legacy: 0.30;
   --runtime-overlay-end-alpha: 40%;
   --runtime-overlay-end-alpha-legacy: 0.40;
+  --runtime-overlay-space-6: 6px;
+  --runtime-overlay-space-14: 14px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 10px;
+  gap: var(--runtime-overlay-space-6);
+  padding: var(--runtime-overlay-space-6) var(--runtime-overlay-space-14);
+  border-radius: var(--radius-compact);
   background: linear-gradient(
     135deg,
     rgba(var(--runtime-overlay-tint-rgb-legacy), var(--runtime-overlay-start-alpha-legacy)) 0%,

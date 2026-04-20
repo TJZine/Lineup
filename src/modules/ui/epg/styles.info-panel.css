@@ -1,14 +1,17 @@
 /* Info Panel (Bottom) */
 .epg-info-panel {
+  --epg-info-text-shadow-strong: rgba(0, 0, 0, 0.8);
+  --epg-info-pill-padding: var(--space-1) var(--space-local-10);
+  --epg-info-gap-10: var(--space-local-10);
   position: relative;
   overflow: hidden;
   height: var(--epg-info-panel-height);
   background: linear-gradient(to top, var(--panel-surface-2), var(--panel-surface));
-  --epg-info-panel-padding-y: 20px;
-  --epg-info-panel-padding-x: 24px;
+  --epg-info-panel-padding-y: var(--space-5);
+  --epg-info-panel-padding-x: var(--space-6);
   padding: var(--epg-info-panel-padding-y) var(--epg-info-panel-padding-x);
   display: flex;
-  gap: 24px;
+  gap: var(--space-6);
   box-sizing: border-box;
   z-index: 10;
   flex-shrink: 0;
@@ -64,7 +67,7 @@
 .epg-info-description-inner,
 .epg-info-pill,
 .epg-info-genres {
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  text-shadow: 0 2px 4px var(--epg-info-text-shadow-strong);
 }
 
 .epg-info-backdrop-img {
@@ -131,13 +134,13 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--epg-info-gap-10);
 }
 
 .epg-info-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px 18px;
+  gap: var(--space-3) var(--space-local-18);
   align-items: start;
 }
 
@@ -145,7 +148,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-local-6);
 }
 
 .epg-info-meta-cluster {
@@ -217,19 +220,19 @@
   font-size: var(--text-md);
   color: var(--color-text-secondary);
   display: flex;
-  gap: 16px;
+  gap: var(--space-4);
   flex-wrap: wrap;
 }
 
 .epg-info-tags {
   display: flex;
-  gap: 10px;
+  gap: var(--epg-info-gap-10);
   flex-wrap: wrap;
   align-items: center;
 }
 
 .epg-info-pill {
-  padding: 4px 10px;
+  padding: var(--epg-info-pill-padding);
   border-radius: 999px;
   background: var(--osd-pill-bg);
   border: 1px solid var(--osd-pill-border);
@@ -269,14 +272,14 @@
 
 .epg-info-quality {
   display: flex;
-  gap: 10px;
+  gap: var(--epg-info-gap-10);
   flex-wrap: wrap;
   align-items: center;
 }
 
 .epg-info-quality-badge {
-  padding: 4px 10px;
-  border-radius: 12px;
+  padding: var(--epg-info-pill-padding);
+  border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.12);
   color: var(--color-text-primary);
   font-size: var(--text-md);

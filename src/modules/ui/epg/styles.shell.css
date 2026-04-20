@@ -1,12 +1,26 @@
 /* EPG Container */
 .epg-container {
+  --epg-font-size-classic-header: 22px;
+  --epg-font-size-classic-title: 25px;
+  --epg-font-size-compact-meta: 12px;
+  --epg-font-size-compact-aux: 13px;
+  --epg-color-muted-strong: rgba(255, 255, 255, 0.55);
+  --epg-build-strategy-collections: #00a84a;
+  --epg-build-strategy-playlists: #f0c000;
+  --epg-build-strategy-library: #e53935;
+  --space-local-6: 6px;
+  --space-local-2: 2px;
+  --space-local-1: 1px;
+  --space-local-10: 10px;
+  --space-local-14: 14px;
+  --space-local-18: 18px;
   position: absolute;
   top: 3%;
   left: 4%;
   width: 92%;
   height: 94%;
   background: rgba(0, 0, 0, 0.95);
-  z-index: 900;
+  z-index: var(--z-overlay-guide);
   display: none;
   flex-direction: column;
   font-family: var(--font-family-sans);
@@ -27,10 +41,10 @@
 
 .epg-container.layout-classic {
   --classic-showcase-pip-width: var(--classic-guide-pip-width);
-  --classic-showcase-gap: 24px;
+  --classic-showcase-gap: var(--space-6);
   --classic-header-height: 56px;
   --classic-cell-radius: 4px;
-  --classic-channel-num-size: 22px;
+  --classic-channel-num-size: var(--epg-font-size-classic-header);
   --classic-channel-name-size: 16px;
   top: 0;
   left: 0;
@@ -55,7 +69,7 @@
   align-items: center;
   justify-content: space-between;
   min-height: var(--classic-header-height);
-  padding: 0 24px;
+  padding: 0 var(--space-6);
   background: transparent;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -66,7 +80,7 @@
 
 .epg-container.layout-classic .epg-classic-header-title {
   font-family: var(--font-family-display);
-  font-size: 22px;
+  font-size: var(--epg-font-size-classic-header);
   font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
@@ -76,7 +90,7 @@
 .epg-container.layout-classic .epg-classic-header-brand {
   display: inline-flex;
   align-items: center;
-  gap: 18px;
+  gap: var(--space-local-18);
   min-width: 0;
 }
 
@@ -91,12 +105,12 @@
 .epg-container.layout-classic .epg-classic-now-playing {
   display: inline-flex;
   align-items: baseline;
-  gap: 10px;
+  gap: var(--space-local-10);
   min-width: 0;
 }
 
 .epg-container.layout-classic .epg-classic-now-playing-label {
-  font-size: 12px;
+  font-size: var(--epg-font-size-compact-meta);
   letter-spacing: 1.1px;
   text-transform: uppercase;
   color: var(--color-text-muted);
@@ -113,8 +127,8 @@
 .epg-container.layout-classic .epg-classic-header-actions {
   display: inline-flex;
   align-items: center;
-  gap: 16px;
-  font-size: 13px;
+  gap: var(--space-4);
+  font-size: var(--epg-font-size-compact-aux);
   color: var(--color-text-muted);
   letter-spacing: 0.5px;
 }
@@ -124,7 +138,7 @@
   display: grid;
   grid-template-columns: var(--classic-showcase-pip-width) 1fr;
   gap: var(--classic-showcase-gap);
-  padding: 16px 24px;
+  padding: var(--space-4) var(--space-6);
   align-items: start;
   position: relative;
   z-index: 0;
@@ -155,7 +169,7 @@
   bottom: 12px;
   width: 36px;
   height: 36px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--epg-color-muted-strong);
   opacity: 0.18;
   pointer-events: none;
   user-select: none;
@@ -207,8 +221,8 @@
 .epg-now-watching-banner {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 10px 16px;
+  gap: var(--space-4);
+  padding: var(--space-local-10) var(--space-4);
   background: transparent;
   font-size: var(--text-sm);
   color: var(--color-text-primary);
@@ -218,8 +232,8 @@
 .epg-now-watching-live {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: var(--space-local-6);
+  font-size: var(--epg-font-size-compact-meta);
   letter-spacing: 0.7px;
   text-transform: uppercase;
   color: var(--color-text-muted);
@@ -256,9 +270,9 @@
 .epg-legend {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: var(--space-local-18);
   flex-wrap: wrap;
-  padding: 10px 16px;
+  padding: var(--space-local-10) var(--space-4);
   background: rgba(0, 0, 0, 0.72);
   border-top: 1px solid var(--color-border-default);
   font-size: var(--text-sm);
@@ -270,7 +284,7 @@
 .epg-legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   min-width: 0;
 }
 
@@ -279,11 +293,11 @@
   align-items: center;
   justify-content: center;
   height: 22px;
-  padding: 0 10px;
+  padding: 0 var(--space-local-10);
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   color: var(--color-text-primary);
-  font-size: 12px;
+  font-size: var(--epg-font-size-compact-meta);
   font-weight: 700;
   letter-spacing: 0.6px;
 }
@@ -296,13 +310,13 @@
 }
 
 .epg-legend-swatch.green {
-  background: #00a84a;
+  background: var(--epg-build-strategy-collections);
 }
 
 .epg-legend-swatch.yellow {
-  background: #f0c000;
+  background: var(--epg-build-strategy-playlists);
 }
 
 .epg-legend-swatch.red {
-  background: #e53935;
+  background: var(--epg-build-strategy-library);
 }

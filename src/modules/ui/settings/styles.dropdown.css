@@ -3,12 +3,16 @@
    ============================================================ */
 
 .settings-dropdown {
+  --settings-space-2: 2px;
+  --settings-space-6: 6px;
+  --settings-space-10: 10px;
+  --settings-space-14: 14px;
   position: absolute;
   z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 6px;
+  gap: var(--settings-space-2);
+  padding: var(--settings-space-6);
   background: var(--panel-surface, rgba(24, 24, 24, 0.92));
   border: var(--panel-border, 1px solid rgba(255, 255, 255, 0.10));
   border-radius: var(--panel-radius, 10px);
@@ -35,7 +39,7 @@
   justify-content: space-between;
   gap: var(--space-3);
   width: 100%;
-  padding: 10px 14px;
+  padding: var(--settings-space-10) var(--settings-space-14);
   text-align: left;
   background: transparent;
   border: 1px solid transparent;
@@ -88,7 +92,7 @@
 .setup-toggle-chevron {
   font-size: var(--text-xs);
   color: var(--color-text-muted);
-  margin-left: 6px;
+  margin-left: var(--settings-space-6);
 }
 
 /* Glass theme dropdown overrides */

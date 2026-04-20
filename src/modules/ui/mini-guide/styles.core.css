@@ -9,7 +9,7 @@
   top: 0;
   left: 0;
   right: 0;
-  z-index: 780;
+  z-index: var(--z-overlay-context);
   pointer-events: none;
   opacity: 0;
   transform: translateY(-100%);
@@ -28,6 +28,7 @@
   --mini-guide-stop-2: 40%;
   --mini-guide-stop-3: 18%;
   --mini-guide-border-alpha: 8%;
+  --mini-guide-space-6: 6px;
   background: linear-gradient(
     to bottom,
     rgba(var(--mini-guide-scrim-fallback-rgb), 0.50) 0%,
@@ -165,7 +166,7 @@
 .mini-guide-row .channel-branding-icon {
   flex: 0 0 auto;
   opacity: 0.7;
-  margin-right: 6px;
+  margin-right: var(--mini-guide-space-6);
   width: 18px;
   height: 18px;
 }
@@ -183,7 +184,7 @@
 .mini-guide-start-time {
   color: var(--color-text-muted);
   font-size: var(--text-xs, 14px);
-  margin-right: var(--space-2, 8px);
+  margin-right: var(--space-2);
   white-space: nowrap;
   flex-shrink: 0;
 }
