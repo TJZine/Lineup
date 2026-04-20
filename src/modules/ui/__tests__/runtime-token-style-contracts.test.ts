@@ -1188,6 +1188,31 @@ describe('runtime token style contracts', () => {
         expect(tokensCss).not.toContain('--z-overlay-video-priority');
     });
 
+    it('keeps root z-index tokens strictly increasing', () => {
+        const tokensCss = read('src/styles/tokens.css');
+
+        const readNumericToken = (name: string): number => {
+            const match = tokensCss.match(new RegExp(`${name}:\\s*(\\d+);`));
+
+            expect(match?.[1]).toBeDefined();
+
+            return Number(match![1]);
+        };
+
+        const zBase = readNumericToken('--z-base');
+        const zDropdown = readNumericToken('--z-dropdown');
+        const zModal = readNumericToken('--z-modal');
+        const zOverlay = readNumericToken('--z-overlay');
+        const zToast = readNumericToken('--z-toast');
+        const zMax = readNumericToken('--z-max');
+
+        expect(zBase).toBeLessThan(zDropdown);
+        expect(zDropdown).toBeLessThan(zModal);
+        expect(zModal).toBeLessThan(zOverlay);
+        expect(zOverlay).toBeLessThan(zToast);
+        expect(zToast).toBeLessThan(zMax);
+    });
+
     it.each(COLOR_CONTRACTS)(
         'maps $property for $selector in $file to $expected',
         ({ file, selector, property, expected, within }) => {
