@@ -1,10 +1,11 @@
 .channel-transition {
+  --runtime-status-layer: 850;
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
   left: 0;
-  z-index: var(--z-overlay-status);
+  z-index: var(--runtime-status-layer);
   pointer-events: none;
   display: none;
   align-items: flex-start;

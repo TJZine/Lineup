@@ -5,11 +5,12 @@
    ============================================================ */
 
 .mini-guide {
+  --mini-guide-layer: 780;
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  z-index: var(--z-overlay-context);
+  z-index: var(--mini-guide-layer);
   pointer-events: none;
   opacity: 0;
   transform: translateY(-100%);

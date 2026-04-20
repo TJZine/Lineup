@@ -1,5 +1,6 @@
 /* EPG Container */
 .epg-container {
+  --epg-overlay-layer: 900;
   --epg-font-size-classic-header: 22px;
   --epg-font-size-classic-title: 25px;
   --epg-font-size-compact-meta: 12px;
@@ -11,6 +12,7 @@
   --space-local-6: 6px;
   --space-local-2: 2px;
   --space-local-1: 1px;
+  --space-local-5: 5px;
   --space-local-10: 10px;
   --space-local-14: 14px;
   --space-local-18: 18px;
@@ -20,7 +22,7 @@
   width: 92%;
   height: 94%;
   background: rgba(0, 0, 0, 0.95);
-  z-index: var(--z-overlay-guide);
+  z-index: var(--epg-overlay-layer);
   display: none;
   flex-direction: column;
   font-family: var(--font-family-sans);

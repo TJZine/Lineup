@@ -1,8 +1,9 @@
 .channel-number-overlay {
+  --runtime-status-priority-layer: 860;
   position: absolute;
   top: 22px;
   right: 24px;
-  z-index: var(--z-overlay-status-priority);
+  z-index: var(--runtime-status-priority-layer);
   opacity: 0;
   pointer-events: none;
   transform: translateY(-8px);

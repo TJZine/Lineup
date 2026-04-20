@@ -29,6 +29,7 @@
   --playback-options-space-22: 22px;
   --playback-options-space-28: 28px;
   --playback-options-space-1: 1px;
+  --playback-options-space-negative-4: -4px;
   width: min(420px, 40vw);
   height: 100%;
   background: linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.55) 100%);
@@ -83,7 +84,9 @@
 }
 
 .playback-options-helper {
-  margin: -4px 0 var(--space-3); line-height: 1.4; color: var(--color-text-secondary);
+  margin: var(--playback-options-space-negative-4) 0 var(--space-3);
+  line-height: 1.4;
+  color: var(--color-text-secondary);
 }
 
 .playback-options-list {

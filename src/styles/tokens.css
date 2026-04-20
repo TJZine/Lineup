@@ -172,12 +172,6 @@
        ========================================= */
     --z-base: 1;
     --z-dropdown: 100;
-    --z-overlay-context: 780;
-    --z-overlay-primary: 800;
-    --z-overlay-status: 850;
-    --z-overlay-status-priority: 860;
-    --z-overlay-guide: 900;
-    --z-overlay-video-priority: 999;
     --z-modal: 1000;
     --z-overlay: 5000;
     --z-toast: 9000;

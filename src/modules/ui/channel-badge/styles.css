@@ -1,8 +1,9 @@
 .channel-badge {
+  --runtime-status-layer: 850;
   position: absolute;
   top: 48px;
   right: 48px;
-  z-index: var(--z-overlay-status);
+  z-index: var(--runtime-status-layer);
   opacity: 0;
   transform: translateY(-6px);
   pointer-events: none;

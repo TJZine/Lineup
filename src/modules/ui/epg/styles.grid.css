@@ -322,6 +322,6 @@
   letter-spacing: 0.4px;
   color: var(--color-live);
   background: rgba(0, 0, 0, 0.65);
-  padding: 1px 5px;
+  padding: var(--space-local-1) var(--space-local-5);
   border-radius: 6px;
 }

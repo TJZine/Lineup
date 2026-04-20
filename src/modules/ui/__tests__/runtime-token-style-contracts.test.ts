@@ -122,6 +122,21 @@ const TYPOGRAPHY_CONTRACTS: TypographyContract[] = [
         selector: '.playback-options-empty',
         expected: 'var(--text-sm)',
     },
+    {
+        file: 'src/modules/ui/channel-setup/styles.core.css',
+        selector: '.setup-preview-row',
+        expected: 'var(--channel-setup-font-size-15)',
+    },
+    {
+        file: 'src/modules/ui/epg/styles.classic.css',
+        selector: '.epg-container.layout-classic .epg-cell-title',
+        expected: 'var(--epg-font-size-classic-title)',
+    },
+    {
+        file: 'src/styles/themes.css',
+        selector: '.theme-swiss .epg-info-title',
+        expected: 'var(--theme-swiss-title-size-hero)',
+    },
 ];
 
 const SPACING_CONTRACTS: DeclarationContract[] = [
@@ -445,12 +460,6 @@ const LOCAL_SPACING_ALIAS_CONTRACTS: DeclarationContract[] = [
         expected: 'var(--playback-options-space-10)',
     },
     {
-        file: 'src/modules/ui/playback-options/styles.core.css',
-        selector: '.playback-options-helper',
-        property: 'margin',
-        expected: '-4px 0 var(--space-3)',
-    },
-    {
         file: 'src/modules/ui/exit-confirm/styles.css',
         selector: '.exit-confirm-panel',
         property: 'padding',
@@ -515,6 +524,30 @@ const LOCAL_SPACING_ALIAS_CONTRACTS: DeclarationContract[] = [
         selector: '.error-button',
         property: 'padding',
         expected: 'var(--space-3) var(--shell-space-18)',
+    },
+    {
+        file: 'src/modules/ui/channel-setup/styles.core.css',
+        selector: '.setup-preview',
+        property: 'padding',
+        expected: 'var(--space-3) var(--channel-setup-space-18) var(--space-3) var(--channel-setup-space-14)',
+    },
+    {
+        file: 'src/modules/ui/playback-options/styles.core.css',
+        selector: '.playback-options-helper',
+        property: 'margin',
+        expected: 'var(--playback-options-space-negative-4) 0 var(--space-3)',
+    },
+    {
+        file: 'src/modules/ui/epg/styles.grid.css',
+        selector: '.epg-time-indicator::after',
+        property: 'padding',
+        expected: 'var(--space-local-1) var(--space-local-5)',
+    },
+    {
+        file: 'src/styles/shell.onboarding.shared-shell.css',
+        selector: '.sr-only',
+        property: 'margin',
+        expected: 'var(--sr-only-space-negative-1)',
     },
 ];
 
@@ -602,6 +635,135 @@ const LOCAL_SPACING_VALUE_CONTRACTS: DeclarationContract[] = [
         selector: ':root',
         property: '--shell-space-18',
         expected: '18px',
+    },
+    {
+        file: 'src/modules/ui/playback-options/styles.core.css',
+        selector: '.playback-options-panel',
+        property: '--playback-options-space-negative-4',
+        expected: '-4px',
+    },
+    {
+        file: 'src/modules/ui/epg/styles.shell.css',
+        selector: '.epg-container',
+        property: '--space-local-5',
+        expected: '5px',
+    },
+    {
+        file: 'src/styles/shell.onboarding.shared-shell.css',
+        selector: '.sr-only',
+        property: '--sr-only-space-negative-1',
+        expected: '-1px',
+    },
+];
+
+const LOCAL_Z_INDEX_ALIAS_CONTRACTS: DeclarationContract[] = [
+    {
+        file: 'src/modules/ui/mini-guide/styles.core.css',
+        selector: '.mini-guide',
+        property: 'z-index',
+        expected: 'var(--mini-guide-layer)',
+    },
+    {
+        file: 'src/modules/ui/player-osd/styles.surface.css',
+        selector: '.player-osd',
+        property: 'z-index',
+        expected: 'var(--player-osd-layer)',
+    },
+    {
+        file: 'src/modules/ui/channel-badge/styles.css',
+        selector: '.channel-badge',
+        property: 'z-index',
+        expected: 'var(--runtime-status-layer)',
+    },
+    {
+        file: 'src/modules/ui/channel-transition/styles.css',
+        selector: '.channel-transition',
+        property: 'z-index',
+        expected: 'var(--runtime-status-layer)',
+    },
+    {
+        file: 'src/modules/ui/channel-number-overlay/styles.css',
+        selector: '.channel-number-overlay',
+        property: 'z-index',
+        expected: 'var(--runtime-status-priority-layer)',
+    },
+    {
+        file: 'src/modules/ui/epg/styles.shell.css',
+        selector: '.epg-container',
+        property: 'z-index',
+        expected: 'var(--epg-overlay-layer)',
+    },
+    {
+        file: 'src/styles/video.css',
+        selector: '.video-container.epg-pip-active',
+        property: 'z-index',
+        expected: 'var(--video-epg-pip-layer)',
+    },
+];
+
+const LOCAL_Z_INDEX_VALUE_CONTRACTS: DeclarationContract[] = [
+    {
+        file: 'src/modules/ui/mini-guide/styles.core.css',
+        selector: '.mini-guide',
+        property: '--mini-guide-layer',
+        expected: '780',
+    },
+    {
+        file: 'src/modules/ui/player-osd/styles.surface.css',
+        selector: '.player-osd',
+        property: '--player-osd-layer',
+        expected: '800',
+    },
+    {
+        file: 'src/modules/ui/channel-badge/styles.css',
+        selector: '.channel-badge',
+        property: '--runtime-status-layer',
+        expected: '850',
+    },
+    {
+        file: 'src/modules/ui/channel-transition/styles.css',
+        selector: '.channel-transition',
+        property: '--runtime-status-layer',
+        expected: '850',
+    },
+    {
+        file: 'src/modules/ui/channel-number-overlay/styles.css',
+        selector: '.channel-number-overlay',
+        property: '--runtime-status-priority-layer',
+        expected: '860',
+    },
+    {
+        file: 'src/modules/ui/epg/styles.shell.css',
+        selector: '.epg-container',
+        property: '--epg-overlay-layer',
+        expected: '900',
+    },
+    {
+        file: 'src/styles/video.css',
+        selector: '.video-container.epg-pip-active',
+        property: '--video-epg-pip-layer',
+        expected: '999',
+    },
+];
+
+const LOCAL_TYPOGRAPHY_VALUE_CONTRACTS: DeclarationContract[] = [
+    {
+        file: 'src/modules/ui/channel-setup/styles.core.css',
+        selector: '#channel-setup-container',
+        property: '--channel-setup-font-size-15',
+        expected: '15px',
+    },
+    {
+        file: 'src/modules/ui/epg/styles.shell.css',
+        selector: '.epg-container',
+        property: '--epg-font-size-classic-title',
+        expected: '25px',
+    },
+    {
+        file: 'src/styles/themes.css',
+        selector: '.theme-swiss',
+        property: '--theme-swiss-title-size-hero',
+        expected: '34px',
     },
 ];
 
@@ -984,6 +1146,47 @@ describe('runtime token style contracts', () => {
             expect(declarationValue(block, property)).toBe(expected);
         }
     );
+
+    it.each(LOCAL_Z_INDEX_ALIAS_CONTRACTS)(
+        'enforces local z-index alias $property for $selector in $file as $expected',
+        ({ file, selector, property, expected, within }) => {
+            const css = readCss(file);
+            const block = within ? blockWithin(css, within, selector) : blockForProperty(css, selector, property);
+
+            expect(declarationValue(block, property)).toBe(expected);
+        }
+    );
+
+    it.each(LOCAL_Z_INDEX_VALUE_CONTRACTS)(
+        'pins local z-index variable $property for $selector in $file at $expected',
+        ({ file, selector, property, expected, within }) => {
+            const css = readCss(file);
+            const block = within ? blockWithin(css, within, selector) : blockForProperty(css, selector, property);
+
+            expect(declarationValue(block, property)).toBe(expected);
+        }
+    );
+
+    it.each(LOCAL_TYPOGRAPHY_VALUE_CONTRACTS)(
+        'pins local typography variable $property for $selector in $file at $expected',
+        ({ file, selector, property, expected, within }) => {
+            const css = readCss(file);
+            const block = within ? blockWithin(css, within, selector) : blockForProperty(css, selector, property);
+
+            expect(declarationValue(block, property)).toBe(expected);
+        }
+    );
+
+    it('keeps the root z-index token contract coarse-grained', () => {
+        const tokensCss = read('src/styles/tokens.css');
+
+        expect(tokensCss).not.toContain('--z-overlay-context');
+        expect(tokensCss).not.toContain('--z-overlay-primary');
+        expect(tokensCss).not.toContain('--z-overlay-status');
+        expect(tokensCss).not.toContain('--z-overlay-status-priority');
+        expect(tokensCss).not.toContain('--z-overlay-guide');
+        expect(tokensCss).not.toContain('--z-overlay-video-priority');
+    });
 
     it.each(COLOR_CONTRACTS)(
         'maps $property for $selector in $file to $expected',
