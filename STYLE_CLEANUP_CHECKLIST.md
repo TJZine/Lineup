@@ -10,8 +10,8 @@ This document tracks package-scoped style cleanup work for shared CSS contracts,
 
 - Last audit refresh: `2026-04-18`
 - Last structural refresh: `2026-04-19`
-- Current execution state: `S3-W1`, `S3-EXIT`, `S4-W1`, `S4-EXIT`, `S5-W1`, `S5-EXIT`, `S6-W1`, and `S6-EXIT` are complete
-- Next safe start: fresh `lineup-cleanup-plan` for `S7-W1` / `pkg_onboarding_token_cleanup`
+- Current execution state: `S3-W1`, `S3-EXIT`, `S4-W1`, `S4-EXIT`, `S5-W1`, `S5-EXIT`, `S6-W1`, `S6-EXIT`, `S7-W1`, and `S7-EXIT` are complete
+- Next safe start: fresh `lineup-cleanup-loop` for `S8-W1` / `pkg_runtime_token_cleanup`
 - Preferred launcher: use a local-only execution brief for Tier 2 packages; reserve `cleanup-loop` for the remaining approved Tier 3 package (`S8-W1`)
 - Authoritative evidence rule: change package status only from commands and source reads rerun in the target workspace/branch
 - Exact issue-membership surface: `docs/design/active-style-cleanup-package-map.json`
@@ -184,12 +184,18 @@ Check a box only in the same pass that updates the mini-record with current veri
   - Follow-ups: `S6` is fully closed with no deferred package residue; `S7-W1` is now the next owner for onboarding token cleanup and must start from a fresh planning pass
   - Handoff: start `lineup-cleanup-plan` for `S7-W1` before any Priority 7 implementation begins
 
-- [ ] `S7-EXIT`
+- [x] `S7-EXIT`
   - required: onboarding token cleanup is closed while preserving theme-immune product intent
   - verification:
     - targeted onboarding source-audit commands from the active plan
     - `npm run verify`
   - exit rule: onboarding token follow-through no longer depends on unresolved shared-contract decisions
+  - Status: `completed`
+  - Plan: `docs/plans/2026-04-19-s7-onboarding-token-cleanup.md`
+  - Last touched: `2026-04-19`
+  - Verification: `rg -n "#ffd2a0|#8cc2ff|#ffd0ba|rgba\\(255, 176, 90|rgba\\(76, 153, 255|rgba\\(255, 136, 87" src/modules/ui/profile-select/styles/cards.css` -> no matches; `rg -n "font-size: calc\\(34px|font-size: 12px|font-size: 22px|font-size: 28px|font-size: calc\\(22px|font-size: calc\\(15px|font-size: 0\\.75rem|font-size: 0\\.72rem|font-size: 0\\.94rem|font-size: 1\\.1rem|font-size: 0\\.9rem" src/styles/shell.onboarding.shared-shell.css src/styles/shell.onboarding.server-selection.css src/modules/ui/profile-select/styles/cards.css src/modules/ui/profile-select/styles/pin-modal.css src/modules/ui/server-select/styles.css src/modules/ui/channel-setup/styles.review-progress.css src/modules/ui/audio-setup/styles.css` -> no matches; `rg -n -- "--onboarding-badge-(lock|admin|restricted)-(bg|border|text)|font-size: calc\\(var\\(--text-(2xl|lg)\\)|font-size: var\\(--text-(xl|md|xs)\\)" src/styles/shell.onboarding.shared-shell.css src/styles/shell.onboarding.server-selection.css src/modules/ui/profile-select/styles/cards.css src/modules/ui/profile-select/styles/pin-modal.css src/modules/ui/server-select/styles.css src/modules/ui/channel-setup/styles.review-progress.css src/modules/ui/audio-setup/styles.css` -> matched only the approved onboarding files and shared-shell badge-token definitions; `npm test -- --runInBand src/modules/ui/profile-select/__tests__/ProfileSelectScreen.test.ts src/modules/ui/server-select/__tests__/ServerSelectScreen.test.ts src/modules/ui/channel-setup/__tests__/BuildProgressStepController.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/modules/ui/audio-setup/__tests__/AudioSetupScreen.test.ts` -> pass; `npm run verify` -> pass; `desloppify status` -> no blocking P0 ids reported (security 100.0%); `desloppify show review --status open` -> no open issues matching review; `npm run verify:docs` -> pass
+  - Follow-ups: `S8-W1` is now the next owner for runtime token cleanup; Priority 7 closed with no deferred onboarding residue
+  - Handoff: request a Priority 7 cleanup review for `pkg_onboarding_token_cleanup` before any `S8-W1` execution begins
 
 - [ ] `S8-EXIT`
   - required: runtime token migration closes the approved runtime surface family without reopening EPG/onboarding ownership
@@ -297,18 +303,18 @@ Check a box only in the same pass that updates the mini-record with current veri
 
 ## Priority 7: Onboarding Token Cleanup
 
-- [ ] `S7-W1` `pkg_onboarding_token_cleanup` Onboarding Token Cleanup
+- [x] `S7-W1` `pkg_onboarding_token_cleanup` Onboarding Token Cleanup
   - Backlog: `3` exact issues
   - Tier / effort / risk: `Tier 2` / `M` / `medium`
   - Execution shape: `2` serial execution units
   - Scope: clean up onboarding-only token drift while preserving theme-immune product intent
   - Exact membership: `docs/design/active-style-cleanup-package-map.json` -> `pkg_onboarding_token_cleanup`
-  - Status: `not started`
-  - Plan: `none yet`
+  - Status: `completed`
+  - Plan: `docs/plans/2026-04-19-s7-onboarding-token-cleanup.md`
   - Last touched: `2026-04-19`
-  - Verification: `not run (planning only)`
-  - Follow-ups: `S7-EXIT` is the single exit owner; shared contract answers remain locked by `S1-W1`; the future `S7` plan must explicitly own the live `34px` references in `src/styles/shell.onboarding.shared-shell.css:88` and `src/modules/ui/profile-select/styles/cards.css:81` under `style_audit::onboarding_tokens::off_scale_typography_values`
-  - Handoff: after `S6-EXIT` and the required cleanup review, start a fresh `lineup-cleanup-plan` pass for `S7-W1`
+  - Verification: `rg -n "#ffd2a0|#8cc2ff|#ffd0ba|rgba\\(255, 176, 90|rgba\\(76, 153, 255|rgba\\(255, 136, 87" src/modules/ui/profile-select/styles/cards.css` -> no matches; `rg -n "font-size: calc\\(34px|font-size: 12px|font-size: 22px|font-size: 28px|font-size: calc\\(22px|font-size: calc\\(15px|font-size: 0\\.75rem|font-size: 0\\.72rem|font-size: 0\\.94rem|font-size: 1\\.1rem|font-size: 0\\.9rem" src/styles/shell.onboarding.shared-shell.css src/styles/shell.onboarding.server-selection.css src/modules/ui/profile-select/styles/cards.css src/modules/ui/profile-select/styles/pin-modal.css src/modules/ui/server-select/styles.css src/modules/ui/channel-setup/styles.review-progress.css src/modules/ui/audio-setup/styles.css` -> no matches; `rg -n -- "--onboarding-badge-(lock|admin|restricted)-(bg|border|text)|font-size: calc\\(var\\(--text-(2xl|lg)\\)|font-size: var\\(--text-(xl|md|xs)\\)" src/styles/shell.onboarding.shared-shell.css src/styles/shell.onboarding.server-selection.css src/modules/ui/profile-select/styles/cards.css src/modules/ui/profile-select/styles/pin-modal.css src/modules/ui/server-select/styles.css src/modules/ui/channel-setup/styles.review-progress.css src/modules/ui/audio-setup/styles.css` -> matched only the approved onboarding files and shared-shell badge-token definitions; `npm test -- --runInBand src/modules/ui/profile-select/__tests__/ProfileSelectScreen.test.ts src/modules/ui/server-select/__tests__/ServerSelectScreen.test.ts src/modules/ui/channel-setup/__tests__/BuildProgressStepController.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/modules/ui/audio-setup/__tests__/AudioSetupScreen.test.ts` -> pass; `npm run verify` -> pass
+  - Follow-ups: `S7-EXIT` closed in the same pass; `S8-W1` is now the next owner for runtime token cleanup
+  - Handoff: request a Priority 7 cleanup review for `docs/plans/2026-04-19-s7-onboarding-token-cleanup.md` before any `S8-W1` execution begins
 
 ## Priority 8: Runtime Token Cleanup
 
