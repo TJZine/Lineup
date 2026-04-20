@@ -43,7 +43,7 @@
 }
 
 .server-name {
-  font-size: calc(22px * var(--onboarding-scale));
+  font-size: calc(var(--text-lg) * var(--onboarding-scale));
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -51,7 +51,7 @@
 }
 
 .server-meta {
-  font-size: calc(15px * var(--onboarding-scale));
+  font-size: calc(var(--text-xs) * var(--onboarding-scale));
   color: var(--onboarding-text-secondary);
 }
 

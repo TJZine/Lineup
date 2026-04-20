@@ -40,13 +40,13 @@
 }
 
 .setup-progress-task {
-    font-size: 1.1rem;
+    font-size: var(--text-md);
     font-weight: 500;
     color: var(--color-text-primary);
 }
 
 .setup-progress-detail {
-    font-size: 0.9rem;
+    font-size: var(--text-xs);
     color: var(--color-text-muted);
     min-height: 1.2em;
 }

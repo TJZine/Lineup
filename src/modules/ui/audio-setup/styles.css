@@ -39,7 +39,7 @@
 }
 
 .audio-choice-desc {
-  font-size: calc(15px * var(--onboarding-scale, 1));
+  font-size: calc(var(--text-xs) * var(--onboarding-scale, 1));
   color: var(--color-text-secondary);
 }
 

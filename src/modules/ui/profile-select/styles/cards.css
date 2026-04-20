@@ -78,7 +78,7 @@
     align-items: center;
     justify-content: center;
     font-weight: 700;
-    font-size: calc(34px * var(--onboarding-scale, 1));
+    font-size: calc(var(--text-2xl) * var(--onboarding-scale, 1));
     overflow: hidden;
     flex-shrink: 0;
 }
@@ -110,38 +110,38 @@
 }
 
 .profile-lock {
-    font-size: 12px;
+    font-size: calc(var(--text-xs) * var(--onboarding-scale, 1));
     font-weight: 600;
     letter-spacing: 0.04em;
     padding: 2px 6px;
     border-radius: 999px;
-    border: 1px solid rgba(255, 197, 120, 0.5);
-    background: rgba(255, 176, 90, 0.16);
-    color: #ffd2a0;
+    border: 1px solid var(--onboarding-badge-lock-border);
+    background: var(--onboarding-badge-lock-bg);
+    color: var(--onboarding-badge-lock-text);
 }
 
 .profile-admin {
     padding: 2px 8px;
     border-radius: 999px;
-    font-size: 12px;
+    font-size: calc(var(--text-xs) * var(--onboarding-scale, 1));
     font-weight: 600;
-    background: rgba(76, 153, 255, 0.2);
-    color: #8cc2ff;
-    border: 1px solid rgba(76, 153, 255, 0.4);
+    background: var(--onboarding-badge-admin-bg);
+    color: var(--onboarding-badge-admin-text);
+    border: 1px solid var(--onboarding-badge-admin-border);
 }
 
 .profile-restricted {
     padding: 2px 8px;
     border-radius: 999px;
-    font-size: 12px;
+    font-size: calc(var(--text-xs) * var(--onboarding-scale, 1));
     font-weight: 600;
-    background: rgba(255, 136, 87, 0.16);
-    color: #ffd0ba;
-    border: 1px solid rgba(255, 136, 87, 0.45);
+    background: var(--onboarding-badge-restricted-bg);
+    color: var(--onboarding-badge-restricted-text);
+    border: 1px solid var(--onboarding-badge-restricted-border);
 }
 
 .profile-last-used {
-    font-size: 12px;
+    font-size: calc(var(--text-xs) * var(--onboarding-scale, 1));
     color: rgba(255, 255, 255, 0.5);
     margin-top: -4px;
 }

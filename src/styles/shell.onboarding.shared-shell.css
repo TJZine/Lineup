@@ -20,6 +20,15 @@
   --onboarding-text: #f0ece8;
   --onboarding-text-secondary: rgba(240, 236, 232, 0.6);
   --onboarding-text-muted: rgba(240, 236, 232, 0.4);
+  --onboarding-badge-lock-bg: rgba(255, 176, 90, 0.16);
+  --onboarding-badge-lock-border: rgba(255, 197, 120, 0.5);
+  --onboarding-badge-lock-text: #ffd2a0;
+  --onboarding-badge-admin-bg: rgba(76, 153, 255, 0.2);
+  --onboarding-badge-admin-border: rgba(76, 153, 255, 0.4);
+  --onboarding-badge-admin-text: #8cc2ff;
+  --onboarding-badge-restricted-bg: rgba(255, 136, 87, 0.16);
+  --onboarding-badge-restricted-border: rgba(255, 136, 87, 0.45);
+  --onboarding-badge-restricted-text: #ffd0ba;
   background: radial-gradient(circle at 20% 20%, rgba(200, 160, 100, 0.06), transparent 45%),
     radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.04), transparent 40%),
     #0e1017;
@@ -85,7 +94,7 @@
 }
 
 .screen-title {
-  font-size: calc(34px * var(--onboarding-scale));
+  font-size: calc(var(--text-2xl) * var(--onboarding-scale));
   font-weight: 700;
   margin: 0 0 6px 0;
 }
