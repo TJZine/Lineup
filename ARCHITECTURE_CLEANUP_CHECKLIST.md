@@ -438,7 +438,7 @@ Every `P#-EXIT` must, in the same pass:
 - Follow-ups: preserve the stale-proven startup/auth/profile/recovery detector rows above unless future current-source changes invalidate their proof; no deferred or split successor owner remains after `P4-EXIT`
 - Handoff: `P5-W1`
 
-### [ ] `P5-W1` `pkg_playback_subtitle_recovery` Playback And Subtitle Recovery
+### [x] `P5-W1` `pkg_playback_subtitle_recovery` Playback And Subtitle Recovery
 
 - Backlog: `18 = 16 older live non-review + 2 fresh review + 0 fresh non-review`
 - Scope: separate generic playback recovery from subtitle-specific policy and keep player/stream recovery cleanup in one execution surface
@@ -446,22 +446,63 @@ Every `P#-EXIT` must, in the same pass:
 - Package-local scoping commands:
   - `desloppify show src/modules/player --status open --no-budget --top 150`
   - `desloppify show src/modules/plex/stream --status open --no-budget --top 150`
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: `P5-EXIT`
+- Status: completed
+- Plan: `docs/plans/2026-04-20-p5-w1-playback-subtitle-recovery.md`
+- Last touched: `2026-04-21`
+- Verification: observed passing focused Jest commands for `P5-W1-S1` (`src/modules/player/__tests__/PlaybackRecoveryManager.test.ts`, `src/modules/player/__tests__/PlaybackReloadController.test.ts`, `src/modules/player/__tests__/PlaybackStreamDescriptorBuilder.test.ts`), the bounded reload/player follow-up regressions (`src/modules/player/__tests__/VideoPlayer.test.ts`, `src/modules/player/__tests__/PlaybackReloadController.test.ts`, `src/modules/player/__tests__/PlaybackRecoveryManager.test.ts`), `P5-W1-S2` (`src/modules/debug/__tests__/SubtitleDebugLogger.test.ts`, `src/modules/player/__tests__/SubtitleManager.test.ts`, `src/modules/player/__tests__/VideoPlayer.test.ts`), and `P5-W1-S3` (`src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts`, `src/modules/plex/stream/__tests__/SubtitleStreamProbe.test.ts`, `src/modules/plex/stream/__tests__/SubtitleStreamProbeSupport.test.ts`, `src/modules/plex/stream/__tests__/mediaSelectionPolicy.test.ts`); and observed a passing `npm run verify` on `2026-04-21` after the final clean review gate
+- Follow-ups: preserve the stale-proven detector rows recorded in `P5-EXIT` unless future current-source changes invalidate that proof; no split successor owner remains after `P5-EXIT`
+- Handoff: `P6-W1`
 
-- [ ] `P5-EXIT`
+- [x] `P5-EXIT`
 
   - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P6`
   - required: refresh package-local commands, record mapped review dispositions from `pkg_playback_subtitle_recovery`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
+- Status: completed
+- Plan: `docs/plans/2026-04-20-p5-w1-playback-subtitle-recovery.md`
+- Last touched: `2026-04-21`
+- Verification: observed `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, `desloppify show security --status open --no-budget --top 50`, the package-local scoping commands for `src/modules/player` and `src/modules/plex/stream`, exact reruns for `review::.::holistic::{ai_generated_debt::duplicate_subtitle_debug_helpers,design_coherence::playback_recovery_manager_blends_generic_recovery_with_subtitle_policy}`, exact reruns for `logs::src/modules/player/{PlaybackRecoveryManager.ts::PlaybackRecovery,SubtitleManager.ts::SubtitleManager,VideoPlayer.ts::VideoPlayer,PlaybackReloadController.ts::PlaybackRecovery}`, exact reruns for `smells::src/modules/player/{__tests__/SubtitleManager.test.ts::as_any_cast,VideoPlayer.ts::switch_no_default,PlaybackRecoveryManager.ts::console_error_no_throw,PlaybackReloadController.ts::console_error_no_throw}`, `smells::src/modules/plex/stream/{__tests__/mediaSelectionPolicy.test.ts::non_null_assert,__tests__/PlexStreamResolver.test.ts::non_null_assert,PlexStreamResolver.ts::magic_number,SubtitleStreamProbe.ts::monster_function,SubtitleStreamProbe.ts::high_cyclomatic_complexity,SubtitleStreamProbe.ts::nested_closure}`, `test_coverage::src/modules/plex/stream/SubtitleStreamProbeSupport.ts::transitive_only`, exact reruns for the mapped structural ids `structural::src/modules/player/{__tests__/PlaybackRecoveryManager.test.ts,__tests__/SubtitleManager.test.ts,__tests__/VideoPlayer.test.ts,PlaybackRecoveryManager.ts,SubtitleManager.ts,VideoPlayer.ts}` and `structural::src/modules/plex/stream/{__tests__/PlexStreamResolver.test.ts,PlexStreamResolver.ts}`, observed the focused Jest commands recorded under `P5-W1`, and observed a passing `npm run verify`
+- Entry baseline: checklist-backed package entry was `18 = 16 older live non-review + 2 fresh review + 0 fresh non-review` with the `P4-EXIT` global snapshot `overall 87.6 / objective 96.2 / strict 87.5 / verified 94.3`, `336` open in-scope, `345` open global, and `9` out-of-scope carried
+- Exit baseline: authoritative `desloppify status` rerun in this session reports `overall 87.5 / objective 96.1 / strict 87.5 / verified 94.2`, `355` open in-scope, `364` open global, and `9` out-of-scope carried; `desloppify plan queue --sort recent` is empty; `desloppify show review --status open --no-budget --top 100` returns no open review issues; and `desloppify show security --status open --no-budget --top 50` remains clean
+- Score delta: global `overall -0.1`, `objective -0.1`, `strict 0.0`, and `verified -0.1` versus the checklist-backed entry snapshot. `P5-EXIT` closes because every mapped imported review, structural, and non-log smell row reran absent and the remaining mapped playback/player log rows are `stale-proven` on current source with no successor owner
+- Imported review dispositions: reran absent on `2026-04-21`, treated as `resolved` on current source
+  - `review::.::holistic::ai_generated_debt::duplicate_subtitle_debug_helpers`
+    - reason: exact issue-id rerun no longer reports an open review row after `P5-W1-S2`, and subtitle debug ownership now routes through shared `SubtitleDebugLogger` / `PlayerConsoleLogger` helpers instead of duplicating enablement and formatting logic across player and resolver owners
+    - revisit trigger: exact issue-id rerun plus `rg -n "SubtitleDebugLogger|PlayerConsoleLogger|_logSubtitleDebug" src/modules/player src/modules/plex/stream`
+  - `review::.::holistic::design_coherence::playback_recovery_manager_blends_generic_recovery_with_subtitle_policy`
+    - reason: exact issue-id rerun no longer reports an open review row after `P5-W1-S1`, and generic reload sequencing plus descriptor shaping now live behind `PlaybackReloadController` and `PlaybackStreamDescriptorBuilder` while `PlaybackRecoveryManager` keeps the public orchestrator-facing seam stable
+    - revisit trigger: exact issue-id rerun plus `rg -n "PlaybackReloadController|PlaybackStreamDescriptorBuilder|attempt(BurnIn|DisableBurnIn|AudioTrack)Reload" src/modules/player`
+- Detector deltas: entry mapped package counts were `review 2 / structural 8 / smells 5 / logs 3`; refreshed exit reads are `src/modules/player` with `9` rerun-open rows and `src/modules/plex/stream` with `4` rerun-open rows. Current-source reconciliation proves the remaining mapped `P5` rows are detector lag, not live package debt:
+  - mapped stale-proven rows:
+    - `logs::src/modules/player/PlaybackRecoveryManager.ts::PlaybackRecovery`
+      - reason: stale-proven; `rg -n "console\\.(warn|error)" src/modules/player/PlaybackRecoveryManager.ts src/modules/player/PlaybackReloadController.ts src/modules/player/VideoPlayer.ts src/modules/player/SubtitleManager.ts` returns no hits, and the rerun still cites line `160`, which is now only the blank line before `_readPlayerState(...)` after the S1 extraction
+      - revisit trigger: rerun the exact issue id if `PlaybackRecoveryManager.ts` regains direct recovery logging or reabsorbs reload sequencing
+    - `logs::src/modules/player/SubtitleManager.ts::SubtitleManager`
+      - reason: stale-proven; the rerun still anchors line `90`, which is now only `if (!this._videoElement) return [];`, while subtitle debug emission is routed through the shared `SubtitleDebugLogger` owner created for `P5-W1-S2`
+      - revisit trigger: rerun the exact issue id if `SubtitleManager.ts` regains direct logging or duplicates subtitle debug ownership again
+    - `logs::src/modules/player/VideoPlayer.ts::VideoPlayer`
+      - reason: stale-proven; the rerun still anchors line `992`, which is now only the media-session timestamp-map clear, while `VideoPlayer` delegates structured console writes through `src/modules/debug/PlayerConsoleLogger.ts`
+      - revisit trigger: rerun the exact issue id if `VideoPlayer.ts` regains direct player/media-session logging paths
+  - supplemental stale-proven rows:
+    - `smells::src/modules/player/PlaybackRecoveryManager.ts::console_error_no_throw`
+      - reason: stale-proven; the rerun still cites line `164`, but current source at lines `160-166` is only the `_readPlayerState(...)` return boundary and `resetPlaybackFailureGuard()` declaration with no local `console.error`
+      - revisit trigger: rerun the exact issue id if `PlaybackRecoveryManager.ts` regains direct error logging instead of delegating to shared helpers
+    - `logs::src/modules/player/PlaybackReloadController.ts::PlaybackRecovery`
+      - reason: stale-proven; the rerun still cites line `174`, which is now the method closing brace after `_getRecoveryReloadOffset(...)`, while current console writes were moved out into `src/modules/debug/PlayerConsoleLogger.ts`
+      - revisit trigger: rerun the exact issue id if `PlaybackReloadController.ts` regains direct tagged logging
+    - `smells::src/modules/player/PlaybackReloadController.ts::console_error_no_throw`
+      - reason: stale-proven; the rerun still cites impossible line `178`, but current `PlaybackReloadController.ts` ends at line `175` and contains no direct `console.error`
+      - revisit trigger: rerun the exact issue id if recovery-reload failure handling moves back into the controller body
+    - `smells::src/modules/plex/stream/SubtitleStreamProbe.ts::{monster_function,high_cyclomatic_complexity,nested_closure}`
+      - reason: stale-proven; `SubtitleStreamProbe.ts` is now `136` lines total, and the reruns still point at line `51`, which is only the `url` field inside `buildSubtitleProbeSuccessContext(...)` after the probe support split
+      - revisit trigger: rerun these exact issue ids if probe request/sample/payload shaping is merged back into one larger control-flow owner
+    - `test_coverage::src/modules/plex/stream/SubtitleStreamProbeSupport.ts::transitive_only`
+      - reason: stale-proven; direct test file `src/modules/plex/stream/__tests__/SubtitleStreamProbeSupport.test.ts` imports `buildSubtitleStreamProbeRequestContext()` and `readSubtitleProbeSample()` directly and passed in this session, but the rerun still reports “covered only via imports”
+      - revisit trigger: rerun the exact issue id if that direct support test is removed or the helper stops being imported directly there
+  - package-local non-membership note:
+    - `src/modules/player` still reports unrelated pre-existing rows in `AudioTrackManager.ts` and `subtitleFallbackPipeline.ts`, but they are outside `pkg_playback_subtitle_recovery` companion-map membership and were not changed in this pass, so `P5-EXIT` does not re-home them here
+- Resolved-on-rerun groups: `review 2`, `structural 8`, and the mapped non-log smell rows (`smells::src/modules/player/__tests__/SubtitleManager.test.ts::as_any_cast`, `smells::src/modules/player/VideoPlayer.ts::switch_no_default`, `smells::src/modules/plex/stream/__tests__/mediaSelectionPolicy.test.ts::non_null_assert`, `smells::src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts::non_null_assert`, `smells::src/modules/plex/stream/PlexStreamResolver.ts::magic_number`) reran absent on current source
+- Security triage: `desloppify show security --status open --no-budget --top 50` remained clean with no open security or cycle issues
+- Follow-ups: preserve the stale-proven playback/player/probe detector rows above unless future current-source changes invalidate their proof; no deferred or split successor owner remains after `P5-EXIT`
 - Handoff: `P6-W1`
 
 ### [ ] `P6-W1` `pkg_channel_setup_scheduler` Channel Setup And Scheduler Contracts
