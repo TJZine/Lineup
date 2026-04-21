@@ -222,4 +222,47 @@ describe('createAppContainers', () => {
             EXPECTED_RUNTIME_CHROME_HOST_CHILD_IDS
         );
     });
+
+    it('repairs runtime chrome members that exist outside #app', () => {
+        const root = document.getElementById('app') as HTMLElement;
+        const strayPlayerOsd = document.createElement('div');
+        strayPlayerOsd.id = 'player-osd-container';
+        document.body.prepend(strayPlayerOsd);
+
+        createAppContainers(root);
+
+        const runtimeChromeHost = document.getElementById(APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST) as HTMLElement;
+
+        expect(document.querySelectorAll('#player-osd-container')).toHaveLength(1);
+        expect(document.getElementById('player-osd-container')).toBe(strayPlayerOsd);
+        expect(strayPlayerOsd.parentElement).toBe(runtimeChromeHost);
+        expect(Array.from(root.children, (child) => (child as HTMLElement).id)).toEqual(EXPECTED_APP_ROOT_CHILD_IDS);
+        expect(Array.from(runtimeChromeHost.children, (child) => (child as HTMLElement).id)).toEqual(
+            EXPECTED_RUNTIME_CHROME_HOST_CHILD_IDS
+        );
+    });
+
+    it('repairs root-owned containers that exist outside #app without duplicating ids', () => {
+        const root = document.getElementById('app') as HTMLElement;
+        const strayNowPlaying = document.createElement('div');
+        strayNowPlaying.id = APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO;
+        const strayPlaybackOptions = document.createElement('div');
+        strayPlaybackOptions.id = APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS;
+        const strayExitConfirm = document.createElement('div');
+        strayExitConfirm.id = 'exit-confirm-container';
+        document.body.prepend(strayNowPlaying, strayPlaybackOptions, strayExitConfirm);
+
+        createAppContainers(root);
+
+        expect(document.querySelectorAll(`#${APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO}`)).toHaveLength(1);
+        expect(document.querySelectorAll(`#${APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS}`)).toHaveLength(1);
+        expect(document.querySelectorAll('#exit-confirm-container')).toHaveLength(1);
+        expect(document.getElementById(APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO)).toBe(strayNowPlaying);
+        expect(document.getElementById(APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS)).toBe(strayPlaybackOptions);
+        expect(document.getElementById('exit-confirm-container')).toBe(strayExitConfirm);
+        expect(strayNowPlaying.parentElement).toBe(root);
+        expect(strayPlaybackOptions.parentElement).toBe(root);
+        expect(strayExitConfirm.parentElement).toBe(root);
+        expect(Array.from(root.children, (child) => (child as HTMLElement).id)).toEqual(EXPECTED_APP_ROOT_CHILD_IDS);
+    });
 });

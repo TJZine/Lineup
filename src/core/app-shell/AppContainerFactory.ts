@@ -28,27 +28,33 @@ const RUNTIME_CHROME_CHILD_IDS = [
     CHANNEL_TRANSITION_CONTAINER_ID,
 ] as const;
 
-function ensureUniqueContainerDiv(root: HTMLElement, id: string): HTMLDivElement {
-    const matches = Array.from(root.querySelectorAll<HTMLElement>(`#${id}`));
-    const firstDiv = matches.find((match) => match.tagName.toLowerCase() === 'div') ?? null;
+function matchingElementsById(id: string): HTMLElement[] {
+    return Array.from(document.querySelectorAll<HTMLElement>(`[id="${id}"]`));
+}
 
-    if (firstDiv) {
-        for (const match of matches) {
-            if (match !== firstDiv) {
-                match.remove();
-            }
-        }
-        return firstDiv as HTMLDivElement;
+function ensureCanonicalContainerDiv(parent: HTMLElement, id: string): HTMLDivElement {
+    const matches = matchingElementsById(id);
+    const divMatches = matches.filter((match): match is HTMLDivElement => match.tagName.toLowerCase() === 'div');
+    const canonical =
+        divMatches.find((match) => match.parentElement === parent)
+        ?? divMatches[0]
+        ?? document.createElement('div');
+
+    if (!canonical.id) {
+        canonical.id = id;
     }
 
     for (const match of matches) {
-        match.remove();
+        if (match !== canonical) {
+            match.remove();
+        }
     }
 
-    const el = document.createElement('div');
-    el.id = id;
-    root.appendChild(el);
-    return el;
+    if (canonical.parentElement !== parent) {
+        parent.appendChild(canonical);
+    }
+
+    return canonical;
 }
 
 function reorderChildren(parent: HTMLElement, orderedChildren: readonly HTMLElement[]): void {
@@ -59,65 +65,65 @@ function reorderChildren(parent: HTMLElement, orderedChildren: readonly HTMLElem
 
 export function createAppContainers(root: HTMLElement): AppContainerRefs {
     // Video container
-    const videoContainer = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.VIDEO);
+    const videoContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.VIDEO);
     videoContainer.className = 'video-container';
 
-    const runtimeChromeHost = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST);
+    const runtimeChromeHost = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST);
     runtimeChromeHost.className = 'runtime-chrome-host';
 
-    const runtimeChromeChildren = RUNTIME_CHROME_CHILD_IDS.map((id) => ensureUniqueContainerDiv(root, id));
+    const runtimeChromeChildren = RUNTIME_CHROME_CHILD_IDS.map((id) => ensureCanonicalContainerDiv(runtimeChromeHost, id));
     reorderChildren(runtimeChromeHost, runtimeChromeChildren);
 
     // EPG container
-    const epgContainer = ensureUniqueContainerDiv(root, EPG_CONTAINER_ID);
+    const epgContainer = ensureCanonicalContainerDiv(root, EPG_CONTAINER_ID);
     epgContainer.className = 'epg-container';
 
     // Now Playing Info overlay container
-    void ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO);
+    const nowPlayingInfoContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO);
 
     // Playback Options modal container
-    void ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS);
+    const playbackOptionsContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS);
 
     // Exit confirmation modal container
-    void ensureUniqueContainerDiv(root, EXIT_CONFIRM_CONTAINER_ID);
+    const exitConfirmContainer = ensureCanonicalContainerDiv(root, EXIT_CONFIRM_CONTAINER_ID);
 
     // Splash container (startup screen)
-    const splashContainer = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.SPLASH);
+    const splashContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.SPLASH);
     splashContainer.className = 'screen';
 
     // Auth container (minimal screen)
-    const authContainer = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.AUTH);
+    const authContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.AUTH);
     authContainer.className = 'screen';
 
     // Profile select container (Plex Home)
-    const profileSelectContainer = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.PROFILE_SELECT);
+    const profileSelectContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.PROFILE_SELECT);
     profileSelectContainer.className = 'screen';
 
     // Server select container (minimal screen)
-    const serverSelectContainer = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.SERVER_SELECT);
+    const serverSelectContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.SERVER_SELECT);
     serverSelectContainer.className = 'screen';
 
     // Channel setup container
-    const channelSetupContainer = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.CHANNEL_SETUP);
+    const channelSetupContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.CHANNEL_SETUP);
     channelSetupContainer.className = 'screen';
 
     // Audio setup container
-    const audioSetupContainer = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.AUDIO_SETUP);
+    const audioSetupContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.AUDIO_SETUP);
     audioSetupContainer.className = 'screen';
 
     // Settings container
-    const settingsContainer = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.SETTINGS);
+    const settingsContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.SETTINGS);
     settingsContainer.className = 'settings-screen';
 
     // Error overlay container
-    const errorOverlay = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.ERROR_OVERLAY);
+    const errorOverlay = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.ERROR_OVERLAY);
     errorOverlay.className = 'error-overlay hidden';
     errorOverlay.setAttribute('role', 'dialog');
     errorOverlay.setAttribute('aria-modal', 'true');
     errorOverlay.setAttribute('aria-label', 'Error');
 
     // Dev Menu Container
-    const devMenu = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.DEV_MENU);
+    const devMenu = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.DEV_MENU);
     devMenu.style.position = 'absolute';
     devMenu.style.top = '50%';
     devMenu.style.left = '50%';
@@ -129,7 +135,7 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
     devMenu.style.minWidth = '300px';
 
     // Toast container (non-blocking warnings)
-    const toastContainer = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.TOAST);
+    const toastContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.TOAST);
     toastContainer.className = 'app-toast';
     toastContainer.setAttribute('role', 'status');
     toastContainer.setAttribute('aria-live', 'polite');
@@ -156,9 +162,9 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
         videoContainer,
         runtimeChromeHost,
         epgContainer,
-        document.getElementById(APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO) as HTMLElement,
-        document.getElementById(APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS) as HTMLElement,
-        document.getElementById(EXIT_CONFIRM_CONTAINER_ID) as HTMLElement,
+        nowPlayingInfoContainer,
+        playbackOptionsContainer,
+        exitConfirmContainer,
         splashContainer,
         authContainer,
         profileSelectContainer,
