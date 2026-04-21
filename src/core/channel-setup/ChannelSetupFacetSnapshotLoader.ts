@@ -217,7 +217,7 @@ export class ChannelSetupFacetSnapshotLoader {
     }
 
     private _buildSnapshotKey(config: ChannelSetupConfig, intent: ChannelSetupPlanningIntent): string {
-        const selectedLibraryIds = [...config.selectedLibraryIds].sort();
+        const selectedLibraryIds = [...config.selectedLibraryIds].sort((left, right) => left.localeCompare(right));
         const families = ([
             'playlists',
             'collections',

@@ -38,25 +38,11 @@ export function buildChannelSetupFacetCountFilter(
 
 export function parseChannelSetupTagFastKeyFilters(fastKey: string): Record<string, string | number> {
     try {
-        const result: Record<string, string | number> = {};
         const query = extractFastKeyQuery(fastKey);
         if (query === null) {
-            return result;
+            return {};
         }
-        const params = new URLSearchParams(query);
-        for (const [rawKey, value] of params.entries()) {
-            if (!rawKey || value === '') {
-                continue;
-            }
-            const key = rawKey.trim();
-            const lowerKey = key.toLowerCase();
-            const trimmed = value.trim();
-            if (shouldSkipFastKeyEntry(key, lowerKey, trimmed)) {
-                continue;
-            }
-            applyFastKeyFilter(result, lowerKey as ChannelSetupFastKeyParam, trimmed);
-        }
-        return result;
+        return parseFastKeyQuery(query);
     } catch {
         return {};
     }
@@ -79,31 +65,50 @@ function hasRequestedTagValue(
     return typeof requestedValue === 'string' && requestedValue.length > 0;
 }
 
-function shouldSkipFastKeyEntry(key: string, lowerKey: string, trimmedValue: string): boolean {
-    if (!trimmedValue) {
-        return true;
+function parseFastKeyQuery(query: string): Record<string, string | number> {
+    const result: Record<string, string | number> = {};
+    const params = new URLSearchParams(query);
+    for (const entry of params.entries()) {
+        const normalizedEntry = normalizeFastKeyEntry(...entry);
+        if (!normalizedEntry) {
+            continue;
+        }
+        applyFastKeyFilter(result, normalizedEntry.key, normalizedEntry.value);
     }
-    if (/token/i.test(key)) {
-        return true;
-    }
-    if (lowerKey.startsWith('x-plex-') || lowerKey.startsWith('x-plex-container-')) {
-        return true;
-    }
-    return !CHANNEL_SETUP_FAST_KEY_ALLOW_LIST.has(lowerKey as ChannelSetupFastKeyParam);
+    return result;
 }
 
-function applyFastKeyFilter(
-    result: Record<string, string | number>,
-    key: ChannelSetupFastKeyParam,
-    value: string
-): void {
-    if (key === 'type') {
-        const parsedType = Number.parseInt(value, 10);
-        if (Number.isFinite(parsedType)) {
-            result.type = parsedType;
-        }
+function normalizeFastKeyEntry(rawKey: string, rawValue: string): { key: ChannelSetupFastKeyParam; value: string } | null {
+    if (!rawKey || rawValue === '') {
+        return null;
+    }
+    const key = rawKey.trim();
+    const value = rawValue.trim();
+    if (!value || /token/i.test(key)) {
+        return null;
+    }
+    const parsedKey = parseFastKeyParam(key);
+    return parsedKey === null ? null : { key: parsedKey, value };
+}
+
+function parseFastKeyParam(rawKey: string): ChannelSetupFastKeyParam | null {
+    const lowerKey = rawKey.toLowerCase();
+    if (lowerKey.startsWith('x-plex-') || lowerKey.startsWith('x-plex-container-')) {
+        return null;
+    }
+    return CHANNEL_SETUP_FAST_KEY_ALLOW_LIST.has(lowerKey as ChannelSetupFastKeyParam)
+        ? (lowerKey as ChannelSetupFastKeyParam)
+        : null;
+}
+
+function applyFastKeyFilter(result: Record<string, string | number>, key: ChannelSetupFastKeyParam, value: string): void {
+    if (key !== 'type') {
+        result[key] = value;
         return;
     }
 
-    result[key] = value;
+    const parsedType = Number.parseInt(value, 10);
+    if (Number.isFinite(parsedType)) {
+        result.type = parsedType;
+    }
 }
