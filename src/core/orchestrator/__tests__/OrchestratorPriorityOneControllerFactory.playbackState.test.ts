@@ -42,6 +42,7 @@ const makeDeps = (
         playerOsd: null,
         nowPlayingInfo: null,
         epg: null,
+        channelTransitionActivity: null,
         channelManager: null,
         navigation: null,
         plexLibrary: null,

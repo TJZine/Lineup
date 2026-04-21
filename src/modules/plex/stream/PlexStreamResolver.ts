@@ -23,7 +23,7 @@ import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
 import { PlaybackSettingsStore } from '../../settings/PlaybackSettingsStore';
 import { DeveloperSettingsStore } from '../../settings/DeveloperSettingsStore';
 import { summarizeErrorForLog } from '../../../utils/errors';
-import { redactSensitiveTokens, redactUrlForLog, safeStringifyForLog } from '../../../utils/redact';
+import { redactSensitiveTokens } from '../../../utils/redact';
 import {
     getDirectPlayDecision,
 } from './playbackCompatibilityPolicy';
@@ -36,7 +36,6 @@ import {
     applyXPlexQueryParamsFromHeaders,
     applyXPlexTokenQueryParam,
     buildPlexUrlFromKey,
-    tryBuildPlexServerUrlFromKey,
 } from '../shared/plexUrl';
 import {
     applyPlexSessionQueryParams,
@@ -44,6 +43,8 @@ import {
     ensurePlexClientProfileName,
 } from './plexStreamUrlPolicy';
 import { logPlexWarning } from '../shared/plexLogging';
+import { SubtitleDebugLogger } from '../../debug/SubtitleDebugLogger';
+import { probeSubtitleStreamDelivery } from './SubtitleStreamProbe';
 
 // Re-export types for consumers
 export { PlexStreamErrorCode } from './types';
@@ -60,6 +61,13 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     private readonly _audioSettingsStore = new AudioSettingsStore();
     private readonly _playbackSettingsStore = new PlaybackSettingsStore();
     private readonly _developerSettingsStore = new DeveloperSettingsStore();
+    private readonly _subtitleDebugLogger = new SubtitleDebugLogger({
+        scope: 'PlexStreamResolver',
+        sink: (scope, event, payload): void => {
+            logPlexWarning('subtitle_debug', scope, event, payload);
+        },
+        settingsReader: this._developerSettingsStore,
+    });
 
     /**
      * Create a new PlexStreamResolver instance.
@@ -119,195 +127,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     }
 
     private _isSubtitleDebugEnabled(): boolean {
-        return this._developerSettingsStore.readSubtitleDebugLoggingEnabledAndClean(false);
+        return this._subtitleDebugLogger.isEnabled();
     }
 
     private _logSubtitleDebug(event: string, context: Record<string, unknown>): void {
-        if (!this._isSubtitleDebugEnabled()) return;
-        try {
-            logPlexWarning('subtitle-debug:', event, safeStringifyForLog(context));
-        } catch {
-            // Ignore logging failures.
-        }
-    }
-
-    private _detectSubtitleTextFormat(sample: string): 'webvtt' | 'srt' | 'unknown' {
-        const trimmed = sample.replace(/^\uFEFF/, '').trimStart(); // strip UTF-8 BOM
-        if (trimmed.startsWith('WEBVTT')) return 'webvtt';
-        // Heuristic: SRT has timestamps with -->
-        if (trimmed.includes('-->')) return 'srt';
-        return 'unknown';
-    }
-
-    private async _probeSubtitleStreamDelivery(options: {
-        itemKey: string;
-        subtitleStreamId: string;
-        subtitleStreamKey?: string;
-        codec?: string;
-        language?: string;
-    }): Promise<void> {
-        if (!this._isSubtitleDebugEnabled()) return;
-        const serverUri = this._config.getServerUri();
-        if (!serverUri) return;
-
-        let urlSource: 'key' | 'id_fallback' = 'id_fallback';
-        const baseUrl = ((): URL => {
-            if (typeof options.subtitleStreamKey === 'string' && options.subtitleStreamKey.length > 0) {
-                const normalized = tryBuildPlexServerUrlFromKey(serverUri, options.subtitleStreamKey);
-                if (normalized) {
-                    urlSource = 'key';
-                    return normalized;
-                }
-            }
-            return new URL(`/library/streams/${encodeURIComponent(options.subtitleStreamId)}`, serverUri);
-        })();
-
-        const tokenFromHeader = ((): string | null => {
-            try {
-                const headers = this._config.getAuthHeaders();
-                const token = headers['X-Plex-Token'];
-                return typeof token === 'string' && token.length > 0 ? token : null;
-            } catch {
-                return null;
-            }
-        })();
-
-        const authMode = 'header' as const;
-        const headers: Record<string, string> = {
-            Accept: 'text/vtt, text/plain, */*',
-            ...this._config.getAuthHeaders(),
-        };
-
-        const redactedUrl = redactUrlForLog(baseUrl.toString());
-        const redactedTrackSrcQueryAuth = ((): string | null => {
-            // NOTE: <track src="..."> cannot send X-Plex-Token headers. Prefer a blob URL
-            // created from an authenticated fetch to avoid token-in-URL and CORS issues.
-            if (!tokenFromHeader) return null;
-            try {
-                const u = new URL(baseUrl.toString());
-                applyXPlexTokenQueryParam(u.searchParams, tokenFromHeader);
-                return redactUrlForLog(u.toString());
-            } catch {
-                return null;
-            }
-        })();
-
-        try {
-            const response = await fetchWithTimeout({
-                url: baseUrl.toString(),
-                init: {
-                    method: 'GET',
-                    headers,
-                    cache: 'no-store',
-                    // Explicitly CORS so the behavior matches what the TV browser enforces.
-                    mode: 'cors',
-                    credentials: 'omit',
-                },
-                timeoutMs: 8000,
-            });
-
-            const contentType = response.headers.get('content-type');
-            const contentLength = response.headers.get('content-length');
-            const acceptRanges = response.headers.get('accept-ranges');
-            const contentRange = response.headers.get('content-range');
-            const contentDisposition = response.headers.get('content-disposition');
-            const accessControlAllowOrigin = response.headers.get('access-control-allow-origin');
-            const accessControlExposeHeaders = response.headers.get('access-control-expose-headers');
-            const responseType = response.type;
-            const redirected = response.redirected;
-            const finalUrl = redactUrlForLog(response.url);
-
-            let detected: 'webvtt' | 'srt' | 'unknown' = 'unknown';
-            let sampleLength = 0;
-            let sampleCapped = false;
-            let looksLikeHtml = false;
-            try {
-                const reader = response.body?.getReader?.();
-                if (reader) {
-                    const decoder = new TextDecoder('utf-8');
-                    let sample = '';
-                    const MAX_SAMPLE_CHARS = 2048;
-                    while (sample.length < MAX_SAMPLE_CHARS) {
-                        const { value, done } = await reader.read();
-                        if (done) break;
-                        if (value) {
-                            const chunk = decoder.decode(value, { stream: true });
-                            const remaining = MAX_SAMPLE_CHARS - sample.length;
-                            if (chunk.length > remaining) {
-                                sample += chunk.slice(0, remaining);
-                                sampleCapped = true;
-                                break;
-                            }
-                            sample += chunk;
-                        }
-                    }
-                    try {
-                        // Stop downloading if more data exists.
-                        await reader.cancel();
-                    } catch {
-                        // Ignore cancel errors.
-                    }
-                    sampleLength = sample.length;
-                    looksLikeHtml = sample.replace(/^\uFEFF/, '').trimStart().startsWith('<');
-                    detected = this._detectSubtitleTextFormat(sample);
-                } else {
-                    // Some client stacks may not expose a streaming body. Avoid downloading full subtitle
-                    // payloads in debug mode; fall back to codec-based detection.
-                    detected =
-                        ((): 'webvtt' | 'srt' | 'unknown' => {
-                            const c = (options.codec ?? '').toLowerCase();
-                            if (c === 'vtt' || c === 'webvtt') return 'webvtt';
-                            if (c === 'srt') return 'srt';
-                            return 'unknown';
-                        })();
-                }
-            } catch {
-                // Ignore read errors; still log status/headers.
-            }
-
-            this._logSubtitleDebug('subtitle_stream_probe', {
-                itemKey: options.itemKey,
-                subtitleStreamId: options.subtitleStreamId,
-                subtitleStreamKey: typeof options.subtitleStreamKey === 'string' ? redactSensitiveTokens(options.subtitleStreamKey) : null,
-                codec: options.codec ?? null,
-                language: options.language ?? null,
-                urlSource,
-                authMode,
-                url: redactedUrl,
-                trackSrcQueryAuthExample: redactedTrackSrcQueryAuth,
-                originHost: baseUrl.host,
-                originIsPlexDirect: baseUrl.hostname.endsWith('.plex.direct'),
-                responseType,
-                redirected,
-                finalUrl,
-                ok: response.ok,
-                status: response.status,
-                contentType,
-                contentLength,
-                contentDisposition,
-                accessControlAllowOrigin,
-                accessControlExposeHeaders,
-                acceptRanges,
-                contentRange,
-                detected,
-                sampleLength,
-                sampleCapped,
-                looksLikeHtml,
-            });
-        } catch (e) {
-            const message = e instanceof Error ? e.message : String(e);
-            this._logSubtitleDebug('subtitle_stream_probe_error', {
-                itemKey: options.itemKey,
-                subtitleStreamId: options.subtitleStreamId,
-                subtitleStreamKey: typeof options.subtitleStreamKey === 'string' ? redactSensitiveTokens(options.subtitleStreamKey) : null,
-                codec: options.codec ?? null,
-                language: options.language ?? null,
-                urlSource,
-                authMode,
-                url: redactedUrl,
-                error: message,
-            });
-        }
+        this._subtitleDebugLogger.log(event, context);
     }
 
     // ========================================
@@ -434,13 +258,20 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                     toProbe.push(next);
                 }
                 for (const s of toProbe) {
-                    void this._probeSubtitleStreamDelivery({
-                        itemKey: request.itemKey,
-                        subtitleStreamId: s.id,
-                        ...(typeof s.key === 'string' ? { subtitleStreamKey: s.key } : {}),
-                        codec: s.codec,
-                        ...(typeof s.language === 'string' ? { language: s.language } : {}),
-                    });
+                    void probeSubtitleStreamDelivery(
+                        {
+                            itemKey: request.itemKey,
+                            subtitleStreamId: s.id,
+                            ...(typeof s.key === 'string' ? { subtitleStreamKey: s.key } : {}),
+                            codec: s.codec,
+                            ...(typeof s.language === 'string' ? { language: s.language } : {}),
+                        },
+                        {
+                            serverUri: this._config.getServerUri(),
+                            getAuthHeaders: this._config.getAuthHeaders,
+                            logDebug: (event, context) => this._logSubtitleDebug(event, context),
+                        }
+                    );
                 }
             }
         }

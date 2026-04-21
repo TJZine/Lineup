@@ -85,20 +85,17 @@ function installFetchAndBlobMocks(): { fetchMock: jest.Mock; restore: () => void
         if (originalFetchDescriptor) {
             Object.defineProperty(globalThis, 'fetch', originalFetchDescriptor);
         } else {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            delete (globalThis as any).fetch;
+            Reflect.deleteProperty(globalThis, 'fetch');
         }
         if (originalCreateObjectUrlDescriptor) {
             Object.defineProperty(URL, 'createObjectURL', originalCreateObjectUrlDescriptor);
         } else {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            delete (URL as any).createObjectURL;
+            Reflect.deleteProperty(URL, 'createObjectURL');
         }
         if (originalRevokeObjectUrlDescriptor) {
             Object.defineProperty(URL, 'revokeObjectURL', originalRevokeObjectUrlDescriptor);
         } else {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            delete (URL as any).revokeObjectURL;
+            Reflect.deleteProperty(URL, 'revokeObjectURL');
         }
     };
 
@@ -162,7 +159,8 @@ describe('SubtitleManager', () => {
                 });
 
                 expect(warnSpy).toHaveBeenCalledWith(
-                    '[SubtitleManager] subtitle-debug:',
+                    'subtitle_debug',
+                    'SubtitleManager',
                     'subtitle_tracks_discovered',
                     expect.stringContaining('"count":1')
                 );

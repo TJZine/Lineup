@@ -1196,7 +1196,7 @@ describe('VideoPlayer', () => {
                 await Promise.resolve();
 
                 expect(warnSpy).toHaveBeenCalledWith(
-                    '[VideoPlayer] MediaSession action failed:',
+                    'video_player_media_session_action_failed',
                     expect.objectContaining({ action: 'seekto' })
                 );
             });
@@ -1220,7 +1220,7 @@ describe('VideoPlayer', () => {
                 await Promise.resolve();
 
                 expect(warnSpy).toHaveBeenCalledWith(
-                    '[VideoPlayer] MediaSession action failed:',
+                    'video_player_media_session_action_failed',
                     expect.objectContaining({ action: 'play' })
                 );
             });

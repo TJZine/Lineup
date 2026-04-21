@@ -435,8 +435,9 @@ describe('PlaybackRecoveryManager', () => {
 
         expect(result).toEqual({ outcome: 'failed' });
         expect(warnSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] audioReload.start',
+            'playback_recovery',
             expect.objectContaining({
+                event: 'audioReload.start',
                 reason: 'audio_track_change',
                 trackId: 'audio-alt',
                 itemKey: 'item-1',
@@ -444,8 +445,9 @@ describe('PlaybackRecoveryManager', () => {
             })
         );
         expect(errorSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] audioReload.failed',
+            'playback_recovery',
             expect.objectContaining({
+                event: 'audioReload.failed',
                 reason: 'audio_track_change',
                 trackId: 'audio-alt',
                 itemKey: 'item-1',
@@ -611,15 +613,17 @@ describe('PlaybackRecoveryManager', () => {
 
         expect(ok).toBe(false);
         expect(warnSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] transcodeFallback.start',
+            'playback_recovery',
             expect.objectContaining({
+                event: 'transcodeFallback.start',
                 reason: 'subtitle_decode_failed',
                 itemKey: 'item-1',
             })
         );
         expect(errorSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] transcodeFallback.failed',
+            'playback_recovery',
             expect.objectContaining({
+                event: 'transcodeFallback.failed',
                 reason: 'subtitle_decode_failed',
                 itemKey: 'item-1',
                 safeError: expect.any(Object),
@@ -836,16 +840,18 @@ describe('PlaybackRecoveryManager', () => {
 
         expect(result).toEqual({ outcome: 'failed' });
         expect(warnSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] burnInReload.start',
+            'playback_recovery',
             expect.objectContaining({
+                event: 'burnInReload.start',
                 trackId: 'sub-keyless',
                 reason: 'subtitle_extract_failed:test',
                 itemKey: 'item-1',
             })
         );
         expect(errorSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] burnInReload.failed',
+            'playback_recovery',
             expect.objectContaining({
+                event: 'burnInReload.failed',
                 trackId: 'sub-keyless',
                 reason: 'subtitle_extract_failed:test',
                 itemKey: 'item-1',
@@ -1192,12 +1198,17 @@ describe('PlaybackRecoveryManager', () => {
 
         expect(result).toEqual({ outcome: 'ignored', reason: 'program_changed' });
         expect(warnSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] disableBurnIn.start',
-            expect.objectContaining({ reason: 'subtitle_decode_stable', itemKey: 'item-1' })
+            'playback_recovery',
+            expect.objectContaining({
+                event: 'disableBurnIn.start',
+                reason: 'subtitle_decode_stable',
+                itemKey: 'item-1',
+            })
         );
         expect(warnSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] disableBurnIn.aborted',
+            'playback_recovery',
             expect.objectContaining({
+                event: 'disableBurnIn.aborted',
                 reason: 'subtitle_decode_stable',
                 itemKey: 'item-1',
                 outcome: 'program_changed',

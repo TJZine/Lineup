@@ -5,6 +5,12 @@
 import type { PlexMediaFile, PlexStream } from '../types';
 import { selectBestMedia, selectBestMediaWithSubtitleStream } from '../mediaSelectionPolicy';
 
+function requireValue<T>(value: T | null | undefined): NonNullable<T> {
+    expect(value).not.toBeNull();
+    expect(value).not.toBeUndefined();
+    return value as NonNullable<T>;
+}
+
 function createMediaPart(overrides: {
     id: string;
     container: string;
@@ -61,11 +67,10 @@ describe('mediaSelectionPolicy', () => {
             createMediaPart({ id: 'hi', container: 'mp4', width: 1920, height: 1080, bitrate: 2500 }),
         ];
 
-        const result = selectBestMedia(media);
+        const result = requireValue(selectBestMedia(media));
 
-        expect(result).not.toBeNull();
-        expect(result!.media.id).toBe('hi');
-        expect(result!.mediaIndex).toBe(1);
+        expect(result.media.id).toBe('hi');
+        expect(result.mediaIndex).toBe(1);
     });
 
     it('respects bitrate cap and ignores versions above cap while preserving resolution preference', () => {
@@ -75,11 +80,10 @@ describe('mediaSelectionPolicy', () => {
             createMediaPart({ id: 'low', container: 'mp4', width: 1280, height: 720, bitrate: 1200 }),
         ];
 
-        const result = selectBestMedia(media, 3000);
+        const result = requireValue(selectBestMedia(media, 3000));
 
-        expect(result).not.toBeNull();
-        expect(result!.media.id).toBe('mid');
-        expect(result!.mediaIndex).toBe(1);
+        expect(result.media.id).toBe('mid');
+        expect(result.mediaIndex).toBe(1);
     });
 
     it('falls back to the lowest bitrate when nothing fits the bitrate cap', () => {
@@ -89,11 +93,10 @@ describe('mediaSelectionPolicy', () => {
             createMediaPart({ id: 'mid', container: 'mp4', width: 1920, height: 1080, bitrate: 6000 }),
         ];
 
-        const result = selectBestMedia(media, 1000);
+        const result = requireValue(selectBestMedia(media, 1000));
 
-        expect(result).not.toBeNull();
-        expect(result!.media.id).toBe('low');
-        expect(result!.mediaIndex).toBe(1);
+        expect(result.media.id).toBe('low');
+        expect(result.mediaIndex).toBe(1);
     });
 
     it('filters by subtitle stream id before choosing highest bitrate-compliant media', () => {
@@ -120,11 +123,10 @@ describe('mediaSelectionPolicy', () => {
         });
         const media = [withoutSubtitle, withSubtitle, withSubtitleLow];
 
-        const result = selectBestMediaWithSubtitleStream(media, 'sub-1');
+        const result = requireValue(selectBestMediaWithSubtitleStream(media, 'sub-1'));
 
-        expect(result).not.toBeNull();
-        expect(result!.media.id).toBe('with-sub');
-        expect(result!.mediaIndex).toBe(1);
+        expect(result.media.id).toBe('with-sub');
+        expect(result.mediaIndex).toBe(1);
     });
 
     it('returns null when no media matches subtitle id', () => {
@@ -174,11 +176,10 @@ describe('mediaSelectionPolicy', () => {
             multiPart,
         ];
 
-        const result = selectBestMediaWithSubtitleStream(media, 'sub-1');
+        const result = requireValue(selectBestMediaWithSubtitleStream(media, 'sub-1'));
 
-        expect(result).not.toBeNull();
-        expect(result!.media.id).toBe('multi');
-        expect(result!.partIndex).toBe(1);
+        expect(result.media.id).toBe('multi');
+        expect(result.partIndex).toBe(1);
     });
 
     it('returns null for empty media list', () => {

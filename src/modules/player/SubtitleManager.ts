@@ -7,8 +7,7 @@
 
 import type { SubtitleTrack } from './types';
 import { BURN_IN_SUBTITLE_FORMATS } from '../../shared/subtitle-formats';
-import { DeveloperSettingsStore } from '../settings/DeveloperSettingsStore';
-import { redactSensitiveTokens, safeStringifyForLog } from '../../utils/redact';
+import { redactSensitiveTokens } from '../../utils/redact';
 import type { PlatformSubtitleService } from '../../platform';
 import { webosPlatformServices } from '../../platform';
 import {
@@ -17,6 +16,7 @@ import {
     tryBuildPlexServerUrlFromKey,
 } from '../plex/shared/plexUrl';
 import { fetchSubtitleFallbackVtt } from './subtitleFallbackPipeline';
+import { SubtitleDebugLogger } from '../debug/SubtitleDebugLogger';
 
 interface SubtitleTrackContext {
     serverUri: string | null;
@@ -41,7 +41,9 @@ interface SubtitleTrackContext {
  * Creates and controls HTMLTrackElement instances.
  */
 export class SubtitleManager {
-    private readonly _developerSettingsStore = new DeveloperSettingsStore();
+    private readonly _subtitleDebugLogger = new SubtitleDebugLogger({
+        scope: 'SubtitleManager',
+    });
     /** Reference to the video element */
     private _videoElement: HTMLVideoElement | null = null;
 
@@ -80,17 +82,8 @@ export class SubtitleManager {
         this._subtitleService = subtitleService ?? webosPlatformServices.subtitle;
     }
 
-    private _isSubtitleDebugEnabled(): boolean {
-        return this._developerSettingsStore.readSubtitleDebugLoggingEnabledAndClean(false);
-    }
-
     private _logSubtitleDebug(event: string, contextFactory: () => Record<string, unknown>): void {
-        if (!this._isSubtitleDebugEnabled()) return;
-        try {
-            console.warn('[SubtitleManager] subtitle-debug:', event, safeStringifyForLog(contextFactory()));
-        } catch {
-            // Ignore logging failures.
-        }
+        this._subtitleDebugLogger.log(event, contextFactory);
     }
 
     private _snapshotNativeTextTracks(): Array<Record<string, unknown>> {
