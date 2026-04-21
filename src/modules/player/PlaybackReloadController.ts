@@ -112,9 +112,15 @@ export class PlaybackReloadController {
         this._streamRecoveryInProgress = true;
 
         try {
-            const abortIfProgramChanged = (): RecoveryAttemptResult<TSuccess, 'program_changed'> | null => {
+            const abortIfProgramChanged = (
+                teardownLoadedStream: boolean
+            ): RecoveryAttemptResult<TSuccess, 'program_changed'> | null => {
                 if (this.deps.getCurrentProgramForPlayback() === context.program) {
                     return null;
+                }
+
+                if (teardownLoadedStream) {
+                    context.player.unloadStream();
                 }
 
                 logPlaybackRecoveryWarning(config.abortedEvent, {
@@ -126,9 +132,13 @@ export class PlaybackReloadController {
             };
 
             await config.beforeResolve?.(context);
+            const beforeResolveAbort = abortIfProgramChanged(false);
+            if (beforeResolveAbort) {
+                return beforeResolveAbort;
+            }
 
             const decision = await context.resolver.resolveStream(config.buildRequest(context));
-            const resolveAbort = abortIfProgramChanged();
+            const resolveAbort = abortIfProgramChanged(false);
             if (resolveAbort) {
                 return resolveAbort;
             }
@@ -147,20 +157,20 @@ export class PlaybackReloadController {
             }
 
             await context.player.loadStream(descriptor);
-            const loadAbort = abortIfProgramChanged();
+            const loadAbort = abortIfProgramChanged(true);
             if (loadAbort) {
                 return loadAbort;
             }
 
             await config.afterLoad?.(descriptor, descriptorContext);
-            const afterLoadAbort = abortIfProgramChanged();
+            const afterLoadAbort = abortIfProgramChanged(true);
             if (afterLoadAbort) {
                 return afterLoadAbort;
             }
 
             if (config.shouldResumeAfterReload) {
                 await context.player.play();
-                const playAbort = abortIfProgramChanged();
+                const playAbort = abortIfProgramChanged(true);
                 if (playAbort) {
                     return playAbort;
                 }

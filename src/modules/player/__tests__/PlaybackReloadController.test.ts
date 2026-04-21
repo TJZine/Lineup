@@ -52,7 +52,9 @@ const makeContext = (
 ): RecoveryReloadContext => {
     const player: IVideoPlayer = {
         loadStream: jest.fn().mockResolvedValue(undefined),
+        unloadStream: jest.fn(),
         play: jest.fn().mockResolvedValue(undefined),
+        stop: jest.fn(),
         getCurrentTimeMs: jest.fn().mockReturnValue(5000),
     } as unknown as IVideoPlayer;
     const resolver: IPlexStreamResolver = {
@@ -195,6 +197,59 @@ describe('PlaybackReloadController', () => {
         );
     });
 
+    it('does not resolve a stream when the active program changes during beforeResolve', async () => {
+        const originalProgram = makeProgram();
+        const changedProgram = makeProgram({
+            item: { ...originalProgram.item, ratingKey: 'item-2' } as ScheduledProgram['item'],
+        });
+        let currentProgram: ScheduledProgram | null = originalProgram;
+        const resolver = {
+            resolveStream: jest.fn().mockResolvedValue(makeDecision()),
+        } as unknown as IPlexStreamResolver;
+        const context = makeContext({
+            program: originalProgram,
+            resolver,
+        });
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const controller = new PlaybackReloadController({
+            getVideoPlayer: (): IVideoPlayer => context.player,
+            getStreamResolver: (): IPlexStreamResolver => resolver,
+            getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
+            getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
+            setCurrentStreamDecision: jest.fn(),
+            setCurrentStreamDescriptor: jest.fn(),
+            buildStreamDescriptor: jest.fn(),
+            resetPlaybackFailureGuard: jest.fn(),
+        });
+
+        const result = await controller.executeReload({
+            context,
+            successOutcome: 'disabled',
+            startEvent: 'disableBurnIn.start',
+            abortedEvent: 'disableBurnIn.aborted',
+            failedEvent: 'disableBurnIn.failed',
+            beforeResolve: async () => {
+                currentProgram = changedProgram;
+            },
+            buildRequest: ({ itemKey, clampedOffset }) => ({
+                itemKey,
+                startOffsetMs: clampedOffset,
+                directPlay: true,
+            }),
+        });
+
+        expect(result).toEqual({ outcome: 'ignored', reason: 'program_changed' });
+        expect(resolver.resolveStream).not.toHaveBeenCalled();
+        expect(warnSpy).toHaveBeenCalledWith(
+            'playback_recovery',
+            expect.objectContaining({
+                event: 'disableBurnIn.aborted',
+                reason: 'test_reason',
+                outcome: 'program_changed',
+            })
+        );
+    });
+
     it('keeps the previously active stream state when playback fails after load', async () => {
         const previousDecision = makeDecision({
             playbackUrl: 'http://test/previous.m3u8',
@@ -211,9 +266,16 @@ describe('PlaybackReloadController', () => {
         const previousDescriptor = { url: 'http://test/previous-video.m3u8' } as StreamDescriptor;
         let currentDescriptor = previousDescriptor;
         const nextDescriptor = { url: 'http://test/next-video.m3u8' } as StreamDescriptor;
+        let activeMediaUrl: string | null = previousDescriptor.url;
         const player: IVideoPlayer = {
-            loadStream: jest.fn().mockResolvedValue(undefined),
+            loadStream: jest.fn().mockImplementation(async (descriptor: StreamDescriptor) => {
+                activeMediaUrl = descriptor.url;
+            }),
+            unloadStream: jest.fn().mockImplementation(() => {
+                activeMediaUrl = null;
+            }),
             play: jest.fn().mockRejectedValue(new Error('play failed')),
+            stop: jest.fn(),
             getCurrentTimeMs: jest.fn().mockReturnValue(5000),
         } as unknown as IVideoPlayer;
         const resolver: IPlexStreamResolver = {
@@ -258,6 +320,8 @@ describe('PlaybackReloadController', () => {
         expect(result).toEqual({ outcome: 'failed' });
         expect(player.loadStream).toHaveBeenCalledWith(nextDescriptor);
         expect(player.play).toHaveBeenCalled();
+        expect(player.unloadStream).not.toHaveBeenCalled();
+        expect(activeMediaUrl).toBe(nextDescriptor.url);
         expect(currentDecision).toBe(previousDecision);
         expect(currentDescriptor).toBe(previousDescriptor);
         expect(errorSpy).toHaveBeenCalledWith(
@@ -291,11 +355,17 @@ describe('PlaybackReloadController', () => {
         const previousDescriptor = { url: 'http://test/previous-video.m3u8' } as StreamDescriptor;
         let currentDescriptor = previousDescriptor;
         const nextDescriptor = { url: 'http://test/next-video.m3u8' } as StreamDescriptor;
+        let activeMediaUrl: string | null = previousDescriptor.url;
         const player: IVideoPlayer = {
             loadStream: jest.fn().mockImplementation(async () => {
+                activeMediaUrl = nextDescriptor.url;
                 currentProgram = changedProgram;
             }),
+            unloadStream: jest.fn().mockImplementation(() => {
+                activeMediaUrl = null;
+            }),
             play: jest.fn().mockResolvedValue(undefined),
+            stop: jest.fn(),
             getCurrentTimeMs: jest.fn().mockReturnValue(5000),
         } as unknown as IVideoPlayer;
         const resolver: IPlexStreamResolver = {
@@ -340,6 +410,8 @@ describe('PlaybackReloadController', () => {
         expect(result).toEqual({ outcome: 'ignored', reason: 'program_changed' });
         expect(player.loadStream).toHaveBeenCalledWith(nextDescriptor);
         expect(player.play).not.toHaveBeenCalled();
+        expect(player.unloadStream).toHaveBeenCalledTimes(1);
+        expect(activeMediaUrl).toBeNull();
         expect(currentDecision).toBe(previousDecision);
         expect(currentDescriptor).toBe(previousDescriptor);
         expect(warnSpy).toHaveBeenCalledWith(
@@ -373,11 +445,21 @@ describe('PlaybackReloadController', () => {
         const previousDescriptor = { url: 'http://test/previous-video.m3u8' } as StreamDescriptor;
         let currentDescriptor = previousDescriptor;
         const nextDescriptor = { url: 'http://test/next-video.m3u8' } as StreamDescriptor;
+        let activeMediaUrl: string | null = previousDescriptor.url;
+        let playbackStarted = false;
         const player: IVideoPlayer = {
-            loadStream: jest.fn().mockResolvedValue(undefined),
+            loadStream: jest.fn().mockImplementation(async () => {
+                activeMediaUrl = nextDescriptor.url;
+            }),
+            unloadStream: jest.fn().mockImplementation(() => {
+                activeMediaUrl = null;
+                playbackStarted = false;
+            }),
             play: jest.fn().mockImplementation(async () => {
+                playbackStarted = true;
                 currentProgram = changedProgram;
             }),
+            stop: jest.fn(),
             getCurrentTimeMs: jest.fn().mockReturnValue(5000),
         } as unknown as IVideoPlayer;
         const resolver: IPlexStreamResolver = {
@@ -422,6 +504,9 @@ describe('PlaybackReloadController', () => {
         expect(result).toEqual({ outcome: 'ignored', reason: 'program_changed' });
         expect(player.loadStream).toHaveBeenCalledWith(nextDescriptor);
         expect(player.play).toHaveBeenCalled();
+        expect(player.unloadStream).toHaveBeenCalledTimes(1);
+        expect(activeMediaUrl).toBeNull();
+        expect(playbackStarted).toBe(false);
         expect(currentDecision).toBe(previousDecision);
         expect(currentDescriptor).toBe(previousDescriptor);
         expect(warnSpy).toHaveBeenCalledWith(
