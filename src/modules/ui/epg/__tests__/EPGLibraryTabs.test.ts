@@ -6,7 +6,7 @@
  * @module modules/ui/epg/__tests__/EPGLibraryTabs.test
  */
 
-import { EPGLibraryTabs } from '../EPGLibraryTabs';
+import { EPGLibraryTabs } from '../view/EPGLibraryTabs';
 
 describe('EPGLibraryTabs', () => {
     let gridElement: HTMLElement;

@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { EPGInfoPanelCoordinator, INFO_PANEL_FULL_UPDATE_DEBOUNCE_MS } from '../EPGInfoPanelCoordinator';
+import { EPGInfoPanelCoordinator, INFO_PANEL_FULL_UPDATE_DEBOUNCE_MS } from '../view/EPGInfoPanelCoordinator';
 import type { IEPGInfoPanel } from '../interfaces';
 import type { ScheduledProgram } from '../types';
 
@@ -65,7 +65,7 @@ describe('EPGInfoPanelCoordinator', () => {
         };
         coordinator = new EPGInfoPanelCoordinator({
             infoPanel,
-            getIsVisible: (): boolean => isVisible,
+            isEpgVisible: (): boolean => isVisible,
             getFocusedProgram: (): ScheduledProgram | null => focusedProgram,
         });
     });

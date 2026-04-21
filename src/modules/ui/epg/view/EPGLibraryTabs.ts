@@ -1,6 +1,6 @@
 /**
  * @fileoverview Tab bar component for filtering EPG by library.
- * @module modules/ui/epg/EPGLibraryTabs
+ * @module modules/ui/epg/view/EPGLibraryTabs
  * @version 1.0.0
  */
 

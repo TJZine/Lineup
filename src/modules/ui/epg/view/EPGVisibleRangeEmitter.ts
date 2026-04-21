@@ -1,4 +1,4 @@
-import type { EpgVisibleRange } from './types';
+import type { EpgVisibleRange } from '../types';
 
 type VisibleRangeChangeHandler = (range: EpgVisibleRange) => void;
 

@@ -2,14 +2,16 @@
 
 import { EventEmitter } from '../../../utils/EventEmitter';
 import { EPG_CONSTANTS, EPG_CLASSES, EPG_ERRORS, DEFAULT_EPG_CONFIG } from './constants';
-import { EPGVirtualizer } from './view/EPGVirtualizer';
-import { EPGInfoPanel } from './EPGInfoPanel';
-import { EPGInfoPanelCoordinator } from './EPGInfoPanelCoordinator';
-import { EPGTimeHeader } from './view/EPGTimeHeader';
-import { EPGChannelList } from './view/EPGChannelList';
-import { EPGErrorBoundary } from './EPGErrorBoundary';
-import { EPGLibraryTabs } from './EPGLibraryTabs';
-import { EPGVisibleRangeEmitter } from './EPGVisibleRangeEmitter';
+import {
+    EPGChannelList,
+    EPGErrorBoundary,
+    EPGInfoPanel,
+    EPGInfoPanelCoordinator,
+    EPGLibraryTabs,
+    EPGTimeHeader,
+    EPGVirtualizer,
+    EPGVisibleRangeEmitter,
+} from './view';
 import { rafThrottle } from './utils';
 import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from './debugRuntimeGuards';
 import { createLineupBrandGlyph } from '../common/brandGlyph';
@@ -54,7 +56,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private infoPanel: EPGInfoPanel = new EPGInfoPanel();
     private infoPanelCoordinator: EPGInfoPanelCoordinator = new EPGInfoPanelCoordinator({
         infoPanel: this.infoPanel,
-        getIsVisible: () => this.state.isVisible,
+        isEpgVisible: () => this.state.isVisible,
         getFocusedProgram: () => this.getFocusedProgram(),
     });
     private timeHeader: EPGTimeHeader = new EPGTimeHeader();

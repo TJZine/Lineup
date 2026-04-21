@@ -1,19 +1,19 @@
 /**
  * @fileoverview EPG Info Panel - Program details overlay
- * @module modules/ui/epg/EPGInfoPanel
+ * @module modules/ui/epg/view/EPGInfoPanel
  * @version 1.0.0
  */
 
-import { EPG_CLASSES } from './constants';
-import { formatTime, formatDuration } from './utils';
-import type { IEPGInfoPanel } from './interfaces';
-import type { ScheduledProgram } from './types';
-import type { EpgItemDetails } from './model/domainTypes';
-import { extractHdrLabelFromPlexMedia } from '../../plex/stream/hdr';
-import { formatContentRatingBadge } from '../../../utils/contentRating';
-import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
-import { NowPlayingDisplayStore } from '../../settings/NowPlayingDisplayStore';
-import { extractDominantColor } from '../../../utils/color/extractDominantColor';
+import { EPG_CLASSES } from '../constants';
+import { formatTime, formatDuration } from '../utils';
+import type { IEPGInfoPanel } from '../interfaces';
+import type { ScheduledProgram } from '../types';
+import type { EpgItemDetails } from '../model/domainTypes';
+import { extractHdrLabelFromPlexMedia } from '../../../plex/stream/hdr';
+import { formatContentRatingBadge } from '../../../../utils/contentRating';
+import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
+import { NowPlayingDisplayStore } from '../../../settings/NowPlayingDisplayStore';
+import { extractDominantColor } from '../../../../utils/color/extractDominantColor';
 
 const MAX_DYNAMIC_COLOR_CACHE_ENTRIES = 128;
 const DYNAMIC_COLOR_FAILURE_COOLDOWN_MS = 60_000;
@@ -1097,7 +1097,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
      *
      * @returns true if visible
      */
-    getIsVisible(): boolean {
+    isShowing(): boolean {
         return this.isVisible;
     }
 }
