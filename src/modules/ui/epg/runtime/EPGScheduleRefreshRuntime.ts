@@ -62,6 +62,48 @@ type SelectedRowSnapshotSeed = {
     orderedItems: ResolvedChannelContent['items'];
 };
 
+type RefreshPhase = 'immediate' | 'background';
+
+type RefreshMetrics = {
+    cacheHits: number;
+    staleCacheHits: number;
+    cacheMisses: number;
+    inFlightSkipped: number;
+    alreadyLoaded: number;
+    liveScheduleHits: number;
+    immediateLoadedCount: number;
+    backgroundLoadedCount: number;
+    firstVisibleScheduleReadyMs: number | null;
+};
+
+type RefreshSession = {
+    refreshId: number;
+    reason: string;
+    refreshStartedAt: number;
+    range: RangeRefreshRequest;
+    epg: IEPGComponent;
+    channelManager: IChannelManager;
+    scheduler: IChannelScheduler | null;
+    startTime: number;
+    endTime: number;
+    rangeKey: string;
+    forceRefresh: boolean;
+    debugEnabled: boolean;
+    shuffler: ShuffleGenerator;
+    liveChannelId: string | null;
+    focusedChannelId: string | null;
+    visibleRangeIds: Set<string>;
+    immediateChannels: ChannelConfig[];
+    backgroundChannels: ChannelConfig[];
+    immediateConcurrency: number;
+    backgroundConcurrency: number;
+    inFlightKept: number;
+    inFlightAborted: number;
+    bufferedRange: { start: number; end: number };
+    backgroundRange: { start: number; end: number };
+    overscan: number;
+};
+
 export interface GuideSelectionSnapshotRequest {
     channelId: string;
     ratingKey: string;
@@ -159,9 +201,8 @@ export class EPGScheduleRefreshRuntime {
                     this._deps.appendDebugLog('EPG.backgroundWarmQueue.runBatch.error', {
                         error: summarizeErrorForLog(error),
                     });
-                    return;
                 }
-                console.error('[EPG] background warm batch failed:', summarizeErrorForLog(error));
+                this._reportIssue('epg.backgroundWarmQueueFailed', error);
             },
         });
     }
@@ -275,15 +316,36 @@ export class EPGScheduleRefreshRuntime {
     }
 
     async refreshForRange(range: RangeRefreshRequest, reason: string): Promise<void> {
+        const session = this._createRefreshSession(range, reason);
+        if (!session) {
+            return;
+        }
+
+        const metrics = this._createRefreshMetrics();
+        this._initializeBackgroundDebugState(session);
+        this._logRefreshStart(session);
+        await this._refreshImmediateChannels(session, metrics);
+        this._startBackgroundRefresh(session, metrics);
+        this._logRefreshResults(session, metrics);
+        this._restoreFocusAfterRefresh(session);
+    }
+
+    private _createRefreshSession(range: RangeRefreshRequest, reason: string): RefreshSession | null {
         const refreshStartedAt = Date.now();
         const epg = this._deps.getEpg();
         const channelManager = this._deps.getChannelManager();
         const scheduler = this._deps.getScheduler();
-        if (!epg || !channelManager) return;
-        if (this._deps.getEpgUiStatus() !== 'ready') return;
+        if (!epg || !channelManager) {
+            return null;
+        }
+        if (this._deps.getEpgUiStatus() !== 'ready') {
+            return null;
+        }
 
         const scheduleRange = this._deps.getEpgScheduleRangeMs();
-        if (!scheduleRange) return;
+        if (!scheduleRange) {
+            return null;
+        }
 
         const { startTime, endTime } = scheduleRange;
         epg.setGridAnchorTime(startTime);
@@ -292,7 +354,7 @@ export class EPGScheduleRefreshRuntime {
         const { selectedId, shouldFilter } = this._deps.getLibraryFilterState(allChannels);
         const channels = this._deps.getVisibleChannels(allChannels, selectedId, shouldFilter);
         if (channels.length === 0) {
-            return;
+            return null;
         }
 
         const refreshId = ++this._scheduleLoadToken;
@@ -304,7 +366,6 @@ export class EPGScheduleRefreshRuntime {
             this.clearScheduleCaches();
         }
 
-        const shuffler = new ShuffleGenerator();
         const aggressive = this._deps.isAggressivePreloadEnabled() || reason === 'server-swap';
         this._cacheStore.setMaxEntries(this._deps.computeScheduleCacheLimit(channels.length, aggressive));
 
@@ -329,14 +390,14 @@ export class EPGScheduleRefreshRuntime {
             }
         );
 
-        const immediateChannels = partitioned.immediateChannels;
-        const backgroundChannels = partitioned.backgroundChannels;
         const visibleStart = Math.max(0, Math.min(range.channelStart, channels.length - 1));
         const visibleEnd = Math.min(channels.length, range.channelEnd + 1);
         const visibleRangeIds = new Set(channels.slice(visibleStart, visibleEnd).map((channel) => channel.id));
         this._selectedRowSnapshotSeed = null;
 
-        const neededIds = new Set([...immediateChannels, ...backgroundChannels].map((channel) => channel.id));
+        const neededIds = new Set(
+            [...partitioned.immediateChannels, ...partitioned.backgroundChannels].map((channel) => channel.id)
+        );
         const abortAll = reason === 'library-filter' || forceRefresh;
         const { kept: inFlightKept, aborted: inFlightAborted } = this._pruneInFlightSchedules(
             neededIds,
@@ -345,327 +406,407 @@ export class EPGScheduleRefreshRuntime {
         );
         this._cacheStore.prune(Date.now());
 
-        const debugEnabled = this._deps.isDebugEnabled();
-        let cacheHits = 0;
-        let staleCacheHits = 0;
-        let cacheMisses = 0;
-        let inFlightSkipped = 0;
-        let alreadyLoaded = 0;
-        let liveScheduleHits = 0;
-        let immediateLoadedCount = 0;
-        let backgroundLoadedCount = 0;
-        let firstVisibleScheduleReadyMs: number | null = null;
-        const immediateConcurrency = this._deps.getScheduleLoadConcurrency(
-            channels.length,
-            immediateChannels.length,
-            aggressive
-        );
-
-        if (debugEnabled && backgroundChannels.length > 0) {
-            this._backgroundDebugState = {
-                refreshId,
-                rangeKey,
-                refreshStartedAt,
-                logCount: 0,
-                immediateLoadedCount: 0,
-                backgroundLoadedCount: 0,
-                cacheHits: 0,
-                cacheMisses: 0,
-                firstVisibleScheduleReadyMs: null,
-            };
-        }
-
-        const applySchedule = (
-            channelId: string,
-            schedule: ScheduleWindow,
-            options?: {
-                updateCache?: boolean;
-                phase?: 'immediate' | 'background';
-                source?: AppliedScheduleSource;
-                materializationSeed?: ResolvedChannelContent['items'];
-            }
-        ): void => {
-            const phase = options?.phase ?? 'immediate';
-            const shouldApplyToUi = phase !== 'background';
-
-            if (phase === 'background') {
-                backgroundLoadedCount += 1;
-            } else {
-                immediateLoadedCount += 1;
-            }
-
-            if (shouldApplyToUi) {
-                const now = Date.now();
-                if (
-                    focusedChannelId &&
-                    channelId === focusedChannelId &&
-                    options?.source === 'resolved-immediate' &&
-                    options.materializationSeed
-                ) {
-                    this._selectedRowSnapshotSeed = {
-                        channelId,
-                        source: 'resolved-immediate',
-                        dayKey: this._getLocalDayKey(now),
-                        referenceTimeMs: now,
-                        orderedItems: this._cloneResolvedItems(options.materializationSeed),
-                    };
-                }
-                if (firstVisibleScheduleReadyMs === null && visibleRangeIds.has(channelId)) {
-                    firstVisibleScheduleReadyMs = Date.now() - refreshStartedAt;
-                }
-                const currentProgram =
-                    schedule.programs.find((program) => now >= program.scheduledStartTime && now < program.scheduledEndTime) ??
-                    null;
-                this._deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'epg.scheduleApplied', {
-                    channelId,
-                    phase,
-                    source: options?.source ?? 'resolved-immediate',
-                    rangeKey,
-                    programCount: schedule.programs.length,
-                    currentRatingKey: currentProgram?.item.ratingKey ?? null,
-                    currentScheduledStartTime: currentProgram?.scheduledStartTime ?? null,
-                    currentScheduledEndTime: currentProgram?.scheduledEndTime ?? null,
-                    sampleRatingKeys: schedule.programs.slice(0, 3).map((program) => program.item.ratingKey),
-                });
-                epg.loadScheduleForChannel(channelId, toEpgScheduleWindow(schedule));
-            }
-
-            if (phase === 'background' && debugEnabled && this._backgroundDebugState?.refreshId === refreshId) {
-                const debugState = this._backgroundDebugState;
-                debugState.immediateLoadedCount = immediateLoadedCount;
-                debugState.backgroundLoadedCount = backgroundLoadedCount;
-                debugState.cacheHits = cacheHits;
-                debugState.cacheMisses = cacheMisses;
-                debugState.firstVisibleScheduleReadyMs = firstVisibleScheduleReadyMs;
-                debugState.logCount += 1;
-
-                if (debugState.logCount % EPG_BACKGROUND_DEBUG_LOG_EVERY_N === 0) {
-                    const cacheHitRatio = cacheHits / Math.max(1, cacheHits + cacheMisses);
-                    this._deps.appendDebugLog('EPG.refreshEpgSchedulesForRange.background', {
-                        refreshId,
-                        rangeKey,
-                        rangeRefreshDurationMs: Date.now() - refreshStartedAt,
-                        immediateLoadedCount,
-                        backgroundLoadedCount,
-                        cacheHitRatio,
-                        firstVisibleScheduleReadyMs,
-                    });
-                }
-            }
-
-            if (options?.updateCache === false) {
-                return;
-            }
-
-            this._cacheStore.storeSchedule(channelId, rangeKey, schedule);
-            if (shouldApplyToUi) {
-                this._cacheStore.markScheduleLoaded(channelId, rangeKey);
-            }
+        return {
+            refreshId,
+            reason,
+            refreshStartedAt,
+            range,
+            epg,
+            channelManager,
+            scheduler,
+            startTime,
+            endTime,
+            rangeKey,
+            forceRefresh,
+            debugEnabled: this._deps.isDebugEnabled(),
+            shuffler: new ShuffleGenerator(),
+            liveChannelId,
+            focusedChannelId,
+            visibleRangeIds,
+            immediateChannels: partitioned.immediateChannels,
+            backgroundChannels: partitioned.backgroundChannels,
+            immediateConcurrency: this._deps.getScheduleLoadConcurrency(
+                channels.length,
+                partitioned.immediateChannels.length,
+                aggressive
+            ),
+            backgroundConcurrency: Math.max(
+                1,
+                Math.min(backgroundCaps.maxConcurrency, partitioned.backgroundChannels.length)
+            ),
+            inFlightKept,
+            inFlightAborted,
+            bufferedRange: partitioned.bufferedRange,
+            backgroundRange: partitioned.backgroundRange,
+            overscan: partitioned.overscan,
         };
+    }
 
-        if (debugEnabled) {
-            this._deps.appendDebugLog('EPG.refreshEpgSchedulesForRange', {
-                reason,
-                refreshId,
-                rangeKey,
-                channelCount: channels.length,
-                preloadCount: immediateChannels.length,
-                warmQueueCount: backgroundChannels.length,
-                liveChannelId,
-                focusedChannelId,
-                visibleRange: { start: range.channelStart, end: range.channelEnd },
-                bufferedRange: partitioned.bufferedRange,
-                backgroundRange: partitioned.backgroundRange,
-                overscan: partitioned.overscan,
-                inFlight: { kept: inFlightKept, aborted: inFlightAborted },
-                concurrency: immediateConcurrency,
-                backgroundConcurrency: backgroundCaps.maxConcurrency,
-                cacheSize: this._cacheStore.getSize(),
-                cacheMaxEntries: this._cacheStore.getMaxEntries(),
-            });
+    private _createRefreshMetrics(): RefreshMetrics {
+        return {
+            cacheHits: 0,
+            staleCacheHits: 0,
+            cacheMisses: 0,
+            inFlightSkipped: 0,
+            alreadyLoaded: 0,
+            liveScheduleHits: 0,
+            immediateLoadedCount: 0,
+            backgroundLoadedCount: 0,
+            firstVisibleScheduleReadyMs: null,
+        };
+    }
+
+    private _initializeBackgroundDebugState(session: RefreshSession): void {
+        if (!session.debugEnabled || session.backgroundChannels.length === 0) {
+            return;
         }
 
-        const runForChannel = async (
-            channel: ChannelConfig,
-            phase: 'immediate' | 'background'
-        ): Promise<void> => {
-            if (refreshId !== this._scheduleLoadToken) {
+        this._backgroundDebugState = {
+            refreshId: session.refreshId,
+            rangeKey: session.rangeKey,
+            refreshStartedAt: session.refreshStartedAt,
+            logCount: 0,
+            immediateLoadedCount: 0,
+            backgroundLoadedCount: 0,
+            cacheHits: 0,
+            cacheMisses: 0,
+            firstVisibleScheduleReadyMs: null,
+        };
+    }
+
+    private _logRefreshStart(session: RefreshSession): void {
+        if (!session.debugEnabled) {
+            return;
+        }
+
+        this._deps.appendDebugLog('EPG.refreshEpgSchedulesForRange', {
+            reason: session.reason,
+            refreshId: session.refreshId,
+            rangeKey: session.rangeKey,
+            channelCount: session.immediateChannels.length + session.backgroundChannels.length,
+            preloadCount: session.immediateChannels.length,
+            warmQueueCount: session.backgroundChannels.length,
+            liveChannelId: session.liveChannelId,
+            focusedChannelId: session.focusedChannelId,
+            visibleRange: { start: session.range.channelStart, end: session.range.channelEnd },
+            bufferedRange: session.bufferedRange,
+            backgroundRange: session.backgroundRange,
+            overscan: session.overscan,
+            inFlight: { kept: session.inFlightKept, aborted: session.inFlightAborted },
+            concurrency: session.immediateConcurrency,
+            backgroundConcurrency: session.backgroundConcurrency,
+            cacheSize: this._cacheStore.getSize(),
+            cacheMaxEntries: this._cacheStore.getMaxEntries(),
+        });
+    }
+
+    private _applySchedule(
+        session: RefreshSession,
+        metrics: RefreshMetrics,
+        channelId: string,
+        schedule: ScheduleWindow,
+        options?: {
+            updateCache?: boolean;
+            phase?: RefreshPhase;
+            source?: AppliedScheduleSource;
+            materializationSeed?: ResolvedChannelContent['items'];
+        }
+    ): void {
+        const phase = options?.phase ?? 'immediate';
+        const shouldApplyToUi = phase !== 'background';
+
+        if (phase === 'background') {
+            metrics.backgroundLoadedCount += 1;
+        } else {
+            metrics.immediateLoadedCount += 1;
+        }
+
+        if (shouldApplyToUi) {
+            const now = Date.now();
+            if (
+                session.focusedChannelId &&
+                channelId === session.focusedChannelId &&
+                options?.source === 'resolved-immediate' &&
+                options.materializationSeed
+            ) {
+                this._selectedRowSnapshotSeed = {
+                    channelId,
+                    source: 'resolved-immediate',
+                    dayKey: this._getLocalDayKey(now),
+                    referenceTimeMs: now,
+                    orderedItems: this._cloneResolvedItems(options.materializationSeed),
+                };
+            }
+            if (metrics.firstVisibleScheduleReadyMs === null && session.visibleRangeIds.has(channelId)) {
+                metrics.firstVisibleScheduleReadyMs = Date.now() - session.refreshStartedAt;
+            }
+            const currentProgram =
+                schedule.programs.find((program) => now >= program.scheduledStartTime && now < program.scheduledEndTime) ??
+                null;
+            this._deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'epg.scheduleApplied', {
+                channelId,
+                phase,
+                source: options?.source ?? 'resolved-immediate',
+                rangeKey: session.rangeKey,
+                programCount: schedule.programs.length,
+                currentRatingKey: currentProgram?.item.ratingKey ?? null,
+                currentScheduledStartTime: currentProgram?.scheduledStartTime ?? null,
+                currentScheduledEndTime: currentProgram?.scheduledEndTime ?? null,
+                sampleRatingKeys: schedule.programs.slice(0, 3).map((program) => program.item.ratingKey),
+            });
+            session.epg.loadScheduleForChannel(channelId, toEpgScheduleWindow(schedule));
+        }
+
+        if (phase === 'background') {
+            this._syncBackgroundDebugState(session, metrics);
+        }
+
+        if (options?.updateCache === false) {
+            return;
+        }
+
+        this._cacheStore.storeSchedule(channelId, session.rangeKey, schedule);
+        if (shouldApplyToUi) {
+            this._cacheStore.markScheduleLoaded(channelId, session.rangeKey);
+        }
+    }
+
+    private _syncBackgroundDebugState(session: RefreshSession, metrics: RefreshMetrics): void {
+        if (!session.debugEnabled || this._backgroundDebugState?.refreshId !== session.refreshId) {
+            return;
+        }
+
+        const debugState = this._backgroundDebugState;
+        debugState.immediateLoadedCount = metrics.immediateLoadedCount;
+        debugState.backgroundLoadedCount = metrics.backgroundLoadedCount;
+        debugState.cacheHits = metrics.cacheHits;
+        debugState.cacheMisses = metrics.cacheMisses;
+        debugState.firstVisibleScheduleReadyMs = metrics.firstVisibleScheduleReadyMs;
+        debugState.logCount += 1;
+
+        if (debugState.logCount % EPG_BACKGROUND_DEBUG_LOG_EVERY_N !== 0) {
+            return;
+        }
+
+        const cacheHitRatio = metrics.cacheHits / Math.max(1, metrics.cacheHits + metrics.cacheMisses);
+        this._deps.appendDebugLog('EPG.refreshEpgSchedulesForRange.background', {
+            refreshId: session.refreshId,
+            rangeKey: session.rangeKey,
+            rangeRefreshDurationMs: Date.now() - session.refreshStartedAt,
+            immediateLoadedCount: metrics.immediateLoadedCount,
+            backgroundLoadedCount: metrics.backgroundLoadedCount,
+            cacheHitRatio,
+            firstVisibleScheduleReadyMs: metrics.firstVisibleScheduleReadyMs,
+        });
+    }
+
+    private async _refreshChannelSchedule(
+        session: RefreshSession,
+        metrics: RefreshMetrics,
+        channel: ChannelConfig,
+        phase: RefreshPhase
+    ): Promise<void> {
+        if (session.refreshId !== this._scheduleLoadToken) {
+            return;
+        }
+
+        if (!session.forceRefresh && this._cacheStore.isScheduleLoadedForRange(channel.id, session.rangeKey)) {
+            metrics.alreadyLoaded += 1;
+            return;
+        }
+
+        if (session.liveChannelId && channel.id === session.liveChannelId && session.scheduler) {
+            const schedulerState = session.scheduler.getState();
+            if (schedulerState.isActive && schedulerState.channelId === channel.id) {
+                const liveWindow = session.scheduler.getScheduleWindow(session.startTime, session.endTime);
+                const liveSchedule = this._deps.cloneScheduleWindow(liveWindow);
+                if (session.refreshId !== this._scheduleLoadToken) {
+                    return;
+                }
+                this._applySchedule(session, metrics, channel.id, liveSchedule, {
+                    phase,
+                    source: 'live-scheduler',
+                });
+                metrics.liveScheduleHits += 1;
+                return;
+            }
+        }
+
+        const cached = session.forceRefresh ? null : this._cacheStore.getCachedSchedule(channel.id, session.rangeKey);
+        if (cached) {
+            const cachedSchedule = this._deps.cloneScheduleWindow(cached.schedule);
+            if (session.refreshId !== this._scheduleLoadToken) {
+                return;
+            }
+            if (cached.isStale) {
+                this._applySchedule(session, metrics, channel.id, cachedSchedule, {
+                    updateCache: false,
+                    phase,
+                    source: 'schedule-cache-stale',
+                });
+                metrics.staleCacheHits += 1;
+            } else {
+                metrics.cacheHits += 1;
+                this._applySchedule(session, metrics, channel.id, cachedSchedule, {
+                    phase,
+                    source: 'schedule-cache',
+                });
+                return;
+            }
+        }
+
+        const existing = this._inFlightByChannel.get(channel.id);
+        if (existing && existing.rangeKey === session.rangeKey) {
+            metrics.inFlightSkipped += 1;
+            return;
+        }
+        if (existing) {
+            existing.controller.abort();
+            this._inFlightByChannel.delete(channel.id);
+        }
+
+        const controller = new AbortController();
+        this._inFlightByChannel.set(channel.id, { controller, rangeKey: session.rangeKey });
+        metrics.cacheMisses += 1;
+
+        try {
+            const items =
+                phase === 'background'
+                    ? await session.channelManager.resolveChannelItemsForSchedule(channel.id, {
+                        signal: controller.signal,
+                    })
+                    : (await session.channelManager.resolveChannelContent(channel.id, {
+                        signal: controller.signal,
+                    })).items;
+            if (session.refreshId !== this._scheduleLoadToken) {
+                return;
+            }
+            const active = this._inFlightByChannel.get(channel.id);
+            if (!active || active.controller !== controller || controller.signal.aborted) {
                 return;
             }
 
-            if (!forceRefresh && this._cacheStore.isScheduleLoadedForRange(channel.id, rangeKey)) {
-                alreadyLoaded += 1;
+            const scheduleConfig = this._deps.buildDailyScheduleConfig(channel, items, session.startTime);
+            if (session.refreshId !== this._scheduleLoadToken) {
                 return;
             }
-
-            if (liveChannelId && channel.id === liveChannelId && scheduler) {
-                const schedulerState = scheduler.getState();
-                if (schedulerState.isActive && schedulerState.channelId === channel.id) {
-                    const liveWindow = scheduler.getScheduleWindow(startTime, endTime);
-                    const liveSchedule = this._deps.cloneScheduleWindow(liveWindow);
-                    if (refreshId !== this._scheduleLoadToken) {
-                        return;
-                    }
-                    applySchedule(channel.id, liveSchedule, {
-                        phase,
-                        source: 'live-scheduler',
-                    });
-                    liveScheduleHits += 1;
-                    return;
-                }
-            }
-
-            const cached = forceRefresh ? null : this._cacheStore.getCachedSchedule(channel.id, rangeKey);
-            if (cached) {
-                const cachedSchedule = this._deps.cloneScheduleWindow(cached.schedule);
-                if (refreshId !== this._scheduleLoadToken) {
-                    return;
-                }
-                if (cached.isStale) {
-                    applySchedule(channel.id, cachedSchedule, {
-                        updateCache: false,
-                        phase,
-                        source: 'schedule-cache-stale',
-                    });
-                    staleCacheHits += 1;
-                } else {
-                    cacheHits += 1;
-                    applySchedule(channel.id, cachedSchedule, {
-                        phase,
-                        source: 'schedule-cache',
-                    });
-                    return;
-                }
-            }
-
-            const existing = this._inFlightByChannel.get(channel.id);
-            if (existing && existing.rangeKey === rangeKey) {
-                inFlightSkipped += 1;
+            const index = buildScheduleIndex(scheduleConfig, session.shuffler);
+            const programs = generateScheduleWindow(
+                session.startTime,
+                session.endTime,
+                index,
+                scheduleConfig.anchorTime
+            );
+            if (session.refreshId !== this._scheduleLoadToken) {
                 return;
             }
-            if (existing) {
-                existing.controller.abort();
+            this._applySchedule(session, metrics, channel.id, { startTime: session.startTime, endTime: session.endTime, programs }, {
+                phase,
+                source: phase === 'background' ? 'resolved-background' : 'resolved-immediate',
+                ...(phase === 'background' ? {} : { materializationSeed: items }),
+            });
+        } catch (error) {
+            if (isAbortLikeError(error, controller.signal)) {
+                return;
+            }
+            if (session.debugEnabled) {
+                this._deps.appendDebugLog('EPG.refreshEpgSchedulesForRange.channelLoad.error', {
+                    channelId: channel.id,
+                    phase,
+                    error: summarizeErrorForLog(error),
+                });
+            }
+        } finally {
+            const active = this._inFlightByChannel.get(channel.id);
+            if (active && active.controller === controller) {
                 this._inFlightByChannel.delete(channel.id);
             }
+        }
+    }
 
-            const controller = new AbortController();
-            this._inFlightByChannel.set(channel.id, { controller, rangeKey });
-            cacheMisses += 1;
-
-            try {
-                const items =
-                    phase === 'background'
-                        ? await channelManager.resolveChannelItemsForSchedule(channel.id, {
-                            signal: controller.signal,
-                        })
-                        : (await channelManager.resolveChannelContent(channel.id, {
-                            signal: controller.signal,
-                        })).items;
-                if (refreshId !== this._scheduleLoadToken) {
-                    return;
-                }
-                const active = this._inFlightByChannel.get(channel.id);
-                if (!active || active.controller !== controller || controller.signal.aborted) {
-                    return;
-                }
-
-                const scheduleConfig = this._deps.buildDailyScheduleConfig(channel, items, startTime);
-                if (refreshId !== this._scheduleLoadToken) {
-                    return;
-                }
-                const index = buildScheduleIndex(scheduleConfig, shuffler);
-                const programs = generateScheduleWindow(
-                    startTime,
-                    endTime,
-                    index,
-                    scheduleConfig.anchorTime
-                );
-                if (refreshId !== this._scheduleLoadToken) {
-                    return;
-                }
-                applySchedule(channel.id, { startTime, endTime, programs }, {
-                    phase,
-                    source: phase === 'background' ? 'resolved-background' : 'resolved-immediate',
-                    ...(phase === 'background' ? {} : { materializationSeed: items }),
-                });
-            } catch (error) {
-                if (isAbortLikeError(error, controller.signal)) {
-                    return;
-                }
-                if (debugEnabled) {
-                    this._deps.appendDebugLog('EPG.refreshEpgSchedulesForRange.channelLoad.error', {
-                        channelId: channel.id,
-                        phase,
-                        error: summarizeErrorForLog(error),
-                    });
-                }
-            } finally {
-                const active = this._inFlightByChannel.get(channel.id);
-                if (active && active.controller === controller) {
-                    this._inFlightByChannel.delete(channel.id);
-                }
-            }
-        };
-
+    private async _refreshImmediateChannels(session: RefreshSession, metrics: RefreshMetrics): Promise<void> {
         let cursor = 0;
-        const workers = Array.from({ length: immediateConcurrency }, async () => {
+        const workers = Array.from({ length: session.immediateConcurrency }, async () => {
             while (true) {
-                const channel = immediateChannels[cursor++];
-                if (!channel) return;
-                await runForChannel(channel, 'immediate');
+                const channel = session.immediateChannels[cursor++];
+                if (!channel) {
+                    return;
+                }
+                await this._refreshChannelSchedule(session, metrics, channel, 'immediate');
             }
         });
         await Promise.all(workers);
+    }
 
-        if (refreshId === this._scheduleLoadToken && backgroundChannels.length > 0) {
-            this._warmQueue.start({
-                refreshId,
-                reason,
-                channels: backgroundChannels,
-                runForChannel: (channel) => runForChannel(channel, 'background'),
-                concurrency: Math.max(1, Math.min(backgroundCaps.maxConcurrency, backgroundChannels.length)),
-            });
+    private _startBackgroundRefresh(session: RefreshSession, metrics: RefreshMetrics): void {
+        if (session.refreshId !== this._scheduleLoadToken || session.backgroundChannels.length === 0) {
+            return;
         }
 
-        if (debugEnabled) {
-            const rangeRefreshDurationMs = Date.now() - refreshStartedAt;
-            const cacheHitRatio = cacheHits / Math.max(1, cacheHits + cacheMisses);
-            this._deps.appendDebugLog('EPG.refreshEpgSchedulesForRange.results', {
-                refreshId,
-                rangeKey,
-                rangeRefreshDurationMs,
-                cacheHits,
-                staleCacheHits,
-                cacheMisses,
-                cacheHitRatio,
-                inFlightSkipped,
-                alreadyLoaded,
-                liveScheduleHits,
-                immediateLoadedCount,
-                backgroundLoadedCount,
-                firstVisibleScheduleReadyMs,
-                immediateCount: immediateChannels.length,
-                backgroundQueuedCount: backgroundChannels.length,
-                concurrency: immediateConcurrency,
-                cacheSize: this._cacheStore.getSize(),
-                cacheMaxEntries: this._cacheStore.getMaxEntries(),
-            });
+        this._warmQueue.start({
+            refreshId: session.refreshId,
+            reason: session.reason,
+            channels: session.backgroundChannels,
+            refreshChannelSchedule: (channel) => this._refreshChannelSchedule(session, metrics, channel, 'background'),
+            concurrency: session.backgroundConcurrency,
+        });
+    }
+
+    private _logRefreshResults(session: RefreshSession, metrics: RefreshMetrics): void {
+        if (!session.debugEnabled) {
+            return;
         }
 
-        const focusedProgram = epg.getFocusedProgram();
-        const focusedCell = epg.getState().focusedCell;
+        const rangeRefreshDurationMs = Date.now() - session.refreshStartedAt;
+        const cacheHitRatio = metrics.cacheHits / Math.max(1, metrics.cacheHits + metrics.cacheMisses);
+        this._deps.appendDebugLog('EPG.refreshEpgSchedulesForRange.results', {
+            refreshId: session.refreshId,
+            rangeKey: session.rangeKey,
+            rangeRefreshDurationMs,
+            cacheHits: metrics.cacheHits,
+            staleCacheHits: metrics.staleCacheHits,
+            cacheMisses: metrics.cacheMisses,
+            cacheHitRatio,
+            inFlightSkipped: metrics.inFlightSkipped,
+            alreadyLoaded: metrics.alreadyLoaded,
+            liveScheduleHits: metrics.liveScheduleHits,
+            immediateLoadedCount: metrics.immediateLoadedCount,
+            backgroundLoadedCount: metrics.backgroundLoadedCount,
+            firstVisibleScheduleReadyMs: metrics.firstVisibleScheduleReadyMs,
+            immediateCount: session.immediateChannels.length,
+            backgroundQueuedCount: session.backgroundChannels.length,
+            concurrency: session.immediateConcurrency,
+            cacheSize: this._cacheStore.getSize(),
+            cacheMaxEntries: this._cacheStore.getMaxEntries(),
+        });
+    }
+
+    private _restoreFocusAfterRefresh(session: RefreshSession): void {
+        const focusedProgram = session.epg.getFocusedProgram();
+        const focusedCell = session.epg.getState().focusedCell;
         const focusedIsPlaceholder = focusedCell?.kind === 'placeholder';
         const focusedIsInvalidProgram = focusedProgram
             ? focusedProgram.scheduleIndex === -1 || focusedProgram.item.ratingKey.includes('-placeholder-')
             : false;
 
         if (
-            refreshId === this._scheduleLoadToken &&
-            epg.isVisible() &&
+            session.refreshId === this._scheduleLoadToken &&
+            session.epg.isVisible() &&
             (!focusedProgram || focusedIsPlaceholder || focusedIsInvalidProgram)
         ) {
-            epg.focusNow();
+            session.epg.focusNow();
         }
+    }
+
+    private _reportIssue(
+        event: string,
+        error: unknown,
+        payload: Record<string, unknown> = {}
+    ): void {
+        this._deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, event, {
+            ...payload,
+            safeError: summarizeErrorForLog(error),
+        });
     }
 
     private _getScheduleRangeKey(startTime: number, endTime: number): string {

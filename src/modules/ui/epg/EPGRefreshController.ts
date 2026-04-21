@@ -160,6 +160,17 @@ export class EPGRefreshController {
         appendDebugRuntimeLog(this._deps.debugRuntime, event, payload);
     }
 
+    private _reportIssue(
+        event: string,
+        error: unknown,
+        payload: Record<string, unknown> = {}
+    ): void {
+        this._deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, event, {
+            ...payload,
+            safeError: summarizeErrorForLog(error),
+        });
+    }
+
     clearScheduleCaches(): void {
         this._scheduleRefreshRuntime.clearScheduleCaches();
     }
@@ -375,7 +386,10 @@ export class EPGRefreshController {
     private refreshEpgSchedulesBestEffort(options?: { reason?: string; debounceMs?: number }): void {
         void this.refreshEpgSchedules(options).catch((error: unknown) => {
             if (isAbortLikeError(error)) return;
-            console.error('[EPGRefreshController] refreshEpgSchedules failed:', summarizeErrorForLog(error));
+            this._reportIssue('epg.refreshSchedulesBestEffortFailed', error, {
+                reason: options?.reason ?? 'manual',
+                debounceMs: options?.debounceMs ?? null,
+            });
         });
     }
 

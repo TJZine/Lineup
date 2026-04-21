@@ -67,7 +67,6 @@ export class EPGScheduleCacheStore {
         const now = Date.now();
         const ageMs = now - entry.loadedAt;
         if (ageMs > EPG_SCHEDULE_CACHE_STALE_TTL_MS) {
-            this._scheduleCache.delete(key);
             return null;
         }
 
@@ -97,11 +96,7 @@ export class EPGScheduleCacheStore {
         }
 
         const now = Date.now();
-        if (now - entry.loadedAt > EPG_SCHEDULE_CACHE_TTL_MS) {
-            this._loadedRangeKeyByChannel.delete(channelId);
-            return false;
-        }
-        return true;
+        return now - entry.loadedAt <= EPG_SCHEDULE_CACHE_TTL_MS;
     }
 
     markScheduleLoaded(channelId: string, rangeKey: string): void {

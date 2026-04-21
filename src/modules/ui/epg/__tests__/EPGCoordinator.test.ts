@@ -386,6 +386,16 @@ describe('EPGCoordinator', () => {
         expect(ensure).toHaveBeenCalled();
         expect(epg.hide).toHaveBeenCalled();
         expect(deps.reportEpgInitWarning).toHaveBeenCalledWith(error);
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.initFailed',
+            expect.objectContaining({
+                requestId: 1,
+                safeError: expect.objectContaining({
+                    message: expect.stringContaining('Init failed'),
+                }),
+            })
+        );
     });
 
     it('openEPG reports logical visibility immediately during deferred load and rolls it back on init failure', async () => {
@@ -1911,6 +1921,66 @@ describe('EPGCoordinator', () => {
         if (closeHandler) {
             expect(epg.off).toHaveBeenCalledWith('close', closeHandler);
         }
+    });
+
+    it('reports guide-triggered switch failures through EPG diagnostics', async () => {
+        const epg: IEPGComponent = {
+            on: jest.fn(),
+            off: jest.fn(),
+            hide: jest.fn(),
+            isVisible: jest.fn().mockReturnValue(false),
+            getState: jest.fn().mockReturnValue({
+                isVisible: false,
+                focusedCell: null,
+                scrollPosition: { channelOffset: 0, timeOffset: 0 },
+                viewWindow: {
+                    startTime: 0,
+                    endTime: 0,
+                    startChannelIndex: 0,
+                    endChannelIndex: 0,
+                },
+                currentTime: 0,
+            }),
+            clearSchedules: jest.fn(),
+            setCategoryColorsEnabled: jest.fn(),
+            setVisibleHours: jest.fn(),
+            setLibraryTabs: jest.fn(),
+            scrollToChannel: jest.fn(),
+            focusChannel: jest.fn(),
+        } as unknown as IEPGComponent;
+        const error = new Error('switch failed');
+        const deps = makeDeps({
+            getEpg: () => epg,
+            switchToChannel: jest.fn().mockRejectedValue(error),
+        }).deps;
+        const coordinator = new EPGCoordinator(deps);
+        jest.spyOn(Date, 'now').mockReturnValue(5_000);
+
+        coordinator.wireEpgEvents();
+
+        const handler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'channelSelected')?.[1];
+        handler?.({
+            channel: makeChannel('c1', 1),
+            program: {
+                ...baseProgram('c1', 0),
+                scheduledStartTime: 4_000,
+                scheduledEndTime: 6_000,
+            } as ScheduledProgram,
+        });
+        await flushPromises();
+        await flushPromises();
+
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.switchToChannelFailed',
+            expect.objectContaining({
+                channelId: 'c1',
+                ratingKey: 'c1-0',
+                safeError: expect.objectContaining({
+                    message: expect.stringContaining('switch failed'),
+                }),
+            })
+        );
     });
 
     it('resyncs channel badge visibility immediately on EPG open and close through the coordinator callback path', () => {

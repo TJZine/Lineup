@@ -95,10 +95,24 @@ export class EPGCoordinator {
         });
     }
 
+    private _reportIssue(
+        event: string,
+        error: unknown,
+        payload: Record<string, unknown> = {}
+    ): void {
+        this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, event, {
+            ...payload,
+            safeError: summarizeErrorForLog(error),
+        });
+    }
+
     private _refreshEpgSchedulesBestEffort(options?: { reason?: string; debounceMs?: number }): void {
         void this.refreshEpgSchedules(options).catch((error: unknown) => {
             if (isAbortLikeError(error)) return;
-            console.error('[EPGCoordinator] refreshEpgSchedules failed:', summarizeErrorForLog(error));
+            this._reportIssue('epg.refreshSchedulesBestEffortFailed', error, {
+                reason: options?.reason ?? 'manual',
+                debounceMs: options?.debounceMs ?? null,
+            });
         });
     }
 
@@ -108,7 +122,11 @@ export class EPGCoordinator {
     ): void {
         void this.refreshEpgSchedulesForRange(range, options).catch((error: unknown) => {
             if (isAbortLikeError(error)) return;
-            console.error('[EPGCoordinator] refreshEpgSchedulesForRange failed:', summarizeErrorForLog(error));
+            this._reportIssue('epg.refreshSchedulesForRangeBestEffortFailed', error, {
+                reason: options?.reason ?? 'manual',
+                debounceMs: options?.debounceMs ?? null,
+                range,
+            });
         });
     }
 
@@ -264,7 +282,9 @@ export class EPGCoordinator {
                 if (requestId !== this._openRequestId) {
                     return;
                 }
-                console.error('[EPGCoordinator] Failed to init EPG:', summarizeErrorForLog(error));
+                this._reportIssue('epg.initFailed', error, {
+                    requestId,
+                });
                 const epgForRollback = this.deps.getEpg();
                 epgForRollback?.hide();
                 this._reportVisibilityIfChanged(epgForRollback);
@@ -396,7 +416,11 @@ export class EPGCoordinator {
             this.deps.setLastChannelChangeSourceToGuide();
             void this._switchToGuideSelectedChannel(payload.channel.id, payload.program, now).catch((error: unknown) => {
                 if (isAbortLikeError(error)) return;
-                console.error('[EPG] switchToChannel failed:', summarizeErrorForLog(error));
+                this._reportIssue('epg.switchToChannelFailed', error, {
+                    channelId: payload.channel.id,
+                    ratingKey: payload.program.item.ratingKey,
+                    selectedAt: now,
+                });
             });
         };
         epg.on('channelSelected', handler);

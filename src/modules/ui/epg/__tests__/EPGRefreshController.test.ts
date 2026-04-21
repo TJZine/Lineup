@@ -120,6 +120,28 @@ describe('EPGRefreshController', () => {
         expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
     });
 
+    it('reports best-effort refresh failures through package diagnostics', async () => {
+        const { deps } = makeDeps();
+        const controller = new EPGRefreshController(deps);
+        const error = new Error('refresh failed');
+        jest.spyOn(controller, 'refreshEpgSchedules').mockRejectedValue(error);
+
+        controller.handleGuideSettingRefreshChange({ key: 'guideDensity', density: 'wide' });
+        await flushPromises();
+
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.refreshSchedulesBestEffortFailed',
+            expect.objectContaining({
+                reason: 'guide-settings',
+                debounceMs: 0,
+                safeError: expect.objectContaining({
+                    message: expect.stringContaining('refresh failed'),
+                }),
+            })
+        );
+    });
+
     it('resets list position and triggers refresh on library-filter changes', async () => {
         const { deps, epg } = makeDeps();
         const controller = new EPGRefreshController(deps);
