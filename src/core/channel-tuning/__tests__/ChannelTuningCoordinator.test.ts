@@ -272,7 +272,6 @@ describe('ChannelTuningCoordinator', () => {
 
     it('propagates ChannelError code + recoverable', async () => {
         const { coordinator, deps, channelManager, scheduler, videoPlayer } = createCoordinator();
-        const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
         channelManager.resolveChannelContent.mockRejectedValue({
             name: 'ChannelError',
@@ -288,18 +287,35 @@ describe('ChannelTuningCoordinator', () => {
                 code: 'SCHEDULER_EMPTY_CHANNEL',
                 message: 'No playable content found after filtering',
                 recoverable: false,
+                context: {
+                    channelId: 'ch1',
+                    operation: 'switchToChannel',
+                    step: 'resolveChannelContent',
+                },
             },
             'switchToChannel'
         );
         expect(videoPlayer.stop).not.toHaveBeenCalled();
         expect(scheduler.loadChannel).not.toHaveBeenCalled();
-
-        consoleSpy.mockRestore();
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'channelTuning.resolveFailed',
+            expect.objectContaining({
+                channelId: 'ch1',
+                code: 'SCHEDULER_EMPTY_CHANNEL',
+                message: 'No playable content found after filtering',
+                recoverable: false,
+                error: {
+                    name: 'ChannelError',
+                    code: 'SCHEDULER_EMPTY_CHANNEL',
+                    message: 'No playable content found after filtering',
+                },
+            })
+        );
     });
 
-    it('logs a safe error summary on resolve failures', async () => {
+    it('records a safe error summary on resolve failures', async () => {
         const { coordinator, deps, channelManager } = createCoordinator();
-        const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
         channelManager.resolveChannelContent.mockRejectedValue({
             name: 'ChannelError',
@@ -310,21 +326,33 @@ describe('ChannelTuningCoordinator', () => {
 
         await coordinator.switchToChannel('ch1');
 
-        expect(consoleSpy).toHaveBeenCalledWith('Failed to resolve channel content:', {
-            name: 'ChannelError',
-            code: 'CONTENT_UNAVAILABLE',
-            message: 'Boom',
-        });
         expect(deps.handleGlobalError).toHaveBeenCalledWith(
             {
                 code: 'CONTENT_UNAVAILABLE',
                 message: 'Boom',
-                recoverable: false,
+                recoverable: true,
+                context: {
+                    channelId: 'ch1',
+                    operation: 'switchToChannel',
+                    step: 'resolveChannelContent',
+                },
             },
             'switchToChannel'
         );
-
-        consoleSpy.mockRestore();
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'channelTuning.resolveFailed',
+            expect.objectContaining({
+                channelId: 'ch1',
+                code: 'CONTENT_UNAVAILABLE',
+                message: 'Boom',
+                error: {
+                    name: 'ChannelError',
+                    code: 'CONTENT_UNAVAILABLE',
+                    message: 'Boom',
+                },
+            })
+        );
     });
 
     it('aborts silently on AbortError', async () => {
@@ -485,7 +513,6 @@ describe('ChannelTuningCoordinator', () => {
 
     it('reports CHANNEL_NOT_FOUND when switchToChannel misses', async () => {
         const { coordinator, deps, channelManager, videoPlayer, scheduler } = createCoordinator();
-        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
         channelManager.getChannel.mockReturnValue(null);
 
         await coordinator.switchToChannel('missing');
@@ -498,9 +525,18 @@ describe('ChannelTuningCoordinator', () => {
             },
             'switchToChannel'
         );
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'channelTuning.channelMissing',
+            expect.objectContaining({
+                channelId: 'missing',
+                code: AppErrorCode.CHANNEL_NOT_FOUND,
+                message: 'Channel missing not found',
+                recoverable: true,
+            })
+        );
         expect(videoPlayer.stop).not.toHaveBeenCalled();
         expect(scheduler.loadChannel).not.toHaveBeenCalled();
-        consoleErrorSpy.mockRestore();
     });
 
     it('preserves success call order', async () => {
@@ -528,7 +564,6 @@ describe('ChannelTuningCoordinator', () => {
 
     it('clears pending now-playing channel when sync fails', async () => {
         const { coordinator, deps, scheduler } = createCoordinator();
-        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
         scheduler.syncToCurrentTime.mockImplementation(() => {
             throw new Error('sync failed');
         });
@@ -543,19 +578,40 @@ describe('ChannelTuningCoordinator', () => {
             }),
             'switchToChannel'
         );
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'channelTuning.schedulerSyncFailed',
+            expect.objectContaining({
+                channelId: 'ch1',
+                code: AppErrorCode.CONTENT_UNAVAILABLE,
+                message: 'Unable to start scheduled playback.',
+                recoverable: true,
+                error: {
+                    name: 'Error',
+                    message: 'sync failed',
+                },
+            })
+        );
         expect(scheduler.unloadChannel).toHaveBeenCalledTimes(1);
         expect(deps.setPendingNowPlayingChannelId).toHaveBeenCalledWith(null);
-        consoleErrorSpy.mockRestore();
     });
 
     it('returns switched outcome even when lifecycle save fails', async () => {
         const { coordinator, deps } = createCoordinator();
-        const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
         deps.saveLifecycleState.mockRejectedValueOnce(new Error('save failed'));
 
         await expect(coordinator.switchToChannel('ch1')).resolves.toBe('switched');
-
-        consoleWarnSpy.mockRestore();
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'channelTuning.lifecycleSaveFailed',
+            expect.objectContaining({
+                channelId: 'ch1',
+                error: {
+                    name: 'Error',
+                    message: 'save failed',
+                },
+            })
+        );
     });
 
     it('reports CHANNEL_NOT_FOUND when switchToChannelByNumber misses', async () => {
@@ -586,5 +642,62 @@ describe('ChannelTuningCoordinator', () => {
         await expect(
             coordinator.switchToChannelByNumber(1, { signal: controller.signal })
         ).resolves.toBe('aborted');
+    });
+
+    it('reports switchToChannelByNumber failures through the shared error contract', async () => {
+        const { coordinator, deps } = createCoordinator();
+        jest.spyOn(coordinator, 'switchToChannel').mockRejectedValueOnce(new Error('switch failed'));
+
+        await expect(coordinator.switchToChannelByNumber(1)).resolves.toBe('failed');
+
+        expect(deps.handleGlobalError).toHaveBeenCalledWith(
+            {
+                code: AppErrorCode.CONTENT_UNAVAILABLE,
+                message: 'switch failed',
+                recoverable: true,
+                context: {
+                    attemptedChannelNumber: 1,
+                    operation: 'switchToChannelByNumber',
+                },
+            },
+            'switchToChannelByNumber'
+        );
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'channelTuning.switchByNumberFailed',
+            expect.objectContaining({
+                attemptedChannelNumber: 1,
+                code: AppErrorCode.CONTENT_UNAVAILABLE,
+                message: 'switch failed',
+                recoverable: true,
+                error: {
+                    name: 'Error',
+                    message: 'switch failed',
+                },
+            })
+        );
+    });
+
+    it('records non-fatal channel transition arm failures and still switches', async () => {
+        const { coordinator, deps } = createCoordinator();
+        deps.armChannelTransitionForSwitch.mockImplementation(() => {
+            throw new Error('transition failed');
+        });
+
+        await expect(coordinator.switchToChannel('ch1')).resolves.toBe('switched');
+
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'channelTuning.channelTransitionArmFailed',
+            expect.objectContaining({
+                channelId: 'ch1',
+                channelPrefix: '1 Channel 1',
+                error: {
+                    name: 'Error',
+                    message: 'transition failed',
+                },
+            })
+        );
+        expect(deps.handleGlobalError).not.toHaveBeenCalled();
     });
 });

@@ -2149,15 +2149,18 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
         it('should handle non-existent channel gracefully', async () => {
             mockChannelManager.getChannel.mockReturnValue(null);
-            const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
             await expect(orchestrator.switchToChannel('invalid')).resolves.not.toThrow();
-            expect(consoleSpy).toHaveBeenCalledWith('Channel not found:', 'invalid');
+            expect(mockLifecycle.reportError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: AppErrorCode.CHANNEL_NOT_FOUND,
+                    message: 'Channel invalid not found',
+                    recoverable: true,
+                })
+            );
 
             // Verify early return - stop should not be called for invalid channel
             expect(mockVideoPlayer.stop).not.toHaveBeenCalled();
-
-            consoleSpy.mockRestore();
         });
 
         it('should resolve channel content before loading scheduler', async () => {
