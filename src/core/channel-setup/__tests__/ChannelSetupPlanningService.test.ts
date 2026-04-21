@@ -146,6 +146,60 @@ describe('ChannelSetupPlanningService', () => {
         expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - 1980s'))).toBe(true);
     });
 
+    it('sorts concurrent partial warnings deterministically before returning them', async () => {
+        const alphaCollections = createDeferred<never>();
+        const zuluCollections = createDeferred<never>();
+        const plexLibrary = {
+            getPlaylists: jest.fn(),
+            getCollections: jest.fn().mockImplementation((libraryId: string) => {
+                if (libraryId === 'lib-z') {
+                    return zuluCollections.promise;
+                }
+                if (libraryId === 'lib-a') {
+                    return alphaCollections.promise;
+                }
+                return Promise.resolve([]);
+            }),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn(),
+            getDirectors: jest.fn(),
+            getYears: jest.fn(),
+            getActors: jest.fn(),
+            getStudios: jest.fn(),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const planPromise = service.buildSetupPlan(
+            createConfig({
+                selectedLibraryIds: ['lib-z', 'lib-a'],
+                strategyConfig: {
+                    collections: { enabled: true, priority: 1, scope: 'per-library' },
+                },
+            }),
+            [
+                makeLibrary({ id: 'lib-z', title: 'Zulu', type: 'show' }),
+                makeLibrary({ id: 'lib-a', title: 'Alpha', type: 'show' }),
+            ],
+            null,
+            'preview'
+        );
+
+        zuluCollections.reject(new Error('zulu collections failed'));
+        alphaCollections.reject(new Error('alpha collections failed'));
+
+        const result = await planPromise;
+
+        expect(result.plan).not.toBeNull();
+        expect(result.warnings).toEqual([
+            'Partial setup plan (fetch_collections): fetch_collections failed for Alpha (alpha collections failed)',
+            'Partial setup plan (fetch_collections): fetch_collections failed for Zulu (zulu collections failed)',
+        ]);
+    });
+
     it('recovers missing native tag counts before applying min-items filtering', async () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),

@@ -1,14 +1,18 @@
 import type { PlexTagDirectoryItem } from '../../modules/plex/library';
 
+type ChannelSetupTagFilterType = 'actor' | 'studio';
+type ChannelSetupFacetCountFamily = 'genre' | 'director' | 'year' | ChannelSetupTagFilterType;
+type ChannelSetupFastKeyParam = ChannelSetupTagFilterType | 'type';
+
+const CHANNEL_SETUP_FAST_KEY_ALLOW_LIST = new Set<ChannelSetupFastKeyParam>(['actor', 'studio', 'type']);
+
 export function buildChannelSetupTagFilter(
     tag: PlexTagDirectoryItem,
-    type: 'actor' | 'studio'
+    type: ChannelSetupTagFilterType
 ): Record<string, string | number> {
     if (tag.fastKey) {
         const parsed = parseChannelSetupTagFastKeyFilters(tag.fastKey);
-        const hasActor = typeof parsed.actor === 'string' && parsed.actor.length > 0;
-        const hasStudio = typeof parsed.studio === 'string' && parsed.studio.length > 0;
-        if ((type === 'actor' && hasActor) || (type === 'studio' && hasStudio)) {
+        if (hasRequestedTagValue(parsed, type)) {
             return parsed;
         }
     }
@@ -17,7 +21,7 @@ export function buildChannelSetupTagFilter(
 
 export function buildChannelSetupFacetCountFilter(
     tag: PlexTagDirectoryItem,
-    family: 'genre' | 'director' | 'year' | 'actor' | 'studio',
+    family: ChannelSetupFacetCountFamily,
     mediaType: number
 ): Record<string, string | number> {
     if (family === 'actor' || family === 'studio') {
@@ -35,39 +39,71 @@ export function buildChannelSetupFacetCountFilter(
 export function parseChannelSetupTagFastKeyFilters(fastKey: string): Record<string, string | number> {
     try {
         const result: Record<string, string | number> = {};
-        const allowList = new Set(['actor', 'studio', 'type']);
-        const queryStart = fastKey.indexOf('?');
-        const hashIndex = fastKey.indexOf('#');
-        if (queryStart === -1 || (hashIndex !== -1 && queryStart > hashIndex)) {
+        const query = extractFastKeyQuery(fastKey);
+        if (query === null) {
             return result;
         }
-        const query = fastKey.slice(queryStart + 1, hashIndex === -1 ? undefined : hashIndex);
         const params = new URLSearchParams(query);
         for (const [rawKey, value] of params.entries()) {
-            if (!rawKey || value === '') continue;
-            const key = rawKey.trim();
-            const lowerKey = key.toLowerCase();
-            if (/token/i.test(key)) continue;
-            if (lowerKey.startsWith('x-plex-') || lowerKey.startsWith('x-plex-container-')) continue;
-            if (!allowList.has(lowerKey)) continue;
-            const trimmed = value.trim();
-            if (!trimmed) continue;
-            if (lowerKey === 'type') {
-                const parsedType = Number.parseInt(trimmed, 10);
-                if (Number.isFinite(parsedType)) {
-                    result.type = parsedType;
-                }
+            if (!rawKey || value === '') {
                 continue;
             }
-            if (lowerKey === 'actor') {
-                result.actor = trimmed;
+            const key = rawKey.trim();
+            const lowerKey = key.toLowerCase();
+            const trimmed = value.trim();
+            if (shouldSkipFastKeyEntry(key, lowerKey, trimmed)) {
+                continue;
             }
-            if (lowerKey === 'studio') {
-                result.studio = trimmed;
-            }
+            applyFastKeyFilter(result, lowerKey as ChannelSetupFastKeyParam, trimmed);
         }
         return result;
     } catch {
         return {};
     }
+}
+
+function extractFastKeyQuery(fastKey: string): string | null {
+    const queryStart = fastKey.indexOf('?');
+    const hashIndex = fastKey.indexOf('#');
+    if (queryStart === -1 || (hashIndex !== -1 && queryStart > hashIndex)) {
+        return null;
+    }
+    return fastKey.slice(queryStart + 1, hashIndex === -1 ? undefined : hashIndex);
+}
+
+function hasRequestedTagValue(
+    parsed: Record<string, string | number>,
+    type: ChannelSetupTagFilterType
+): boolean {
+    const requestedValue = parsed[type];
+    return typeof requestedValue === 'string' && requestedValue.length > 0;
+}
+
+function shouldSkipFastKeyEntry(key: string, lowerKey: string, trimmedValue: string): boolean {
+    if (!trimmedValue) {
+        return true;
+    }
+    if (/token/i.test(key)) {
+        return true;
+    }
+    if (lowerKey.startsWith('x-plex-') || lowerKey.startsWith('x-plex-container-')) {
+        return true;
+    }
+    return !CHANNEL_SETUP_FAST_KEY_ALLOW_LIST.has(lowerKey as ChannelSetupFastKeyParam);
+}
+
+function applyFastKeyFilter(
+    result: Record<string, string | number>,
+    key: ChannelSetupFastKeyParam,
+    value: string
+): void {
+    if (key === 'type') {
+        const parsedType = Number.parseInt(value, 10);
+        if (Number.isFinite(parsedType)) {
+            result.type = parsedType;
+        }
+        return;
+    }
+
+    result[key] = value;
 }

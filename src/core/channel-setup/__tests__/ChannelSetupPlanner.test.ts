@@ -222,6 +222,37 @@ describe('ChannelSetupPlanner', () => {
         expect(action?.contentFilters).toBeUndefined();
     });
 
+    it('orders per-library facet channels deterministically when selected libraries share the same title', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['lib-b', 'lib-a'],
+                strategyConfig: createStrategyConfig({ genres: { enabled: true } }),
+                minItemsPerChannel: 1,
+            }),
+            libraries: [
+                { id: 'lib-b', title: 'Shows', type: 'show', contentCount: 25 },
+                { id: 'lib-a', title: 'Shows', type: 'show', contentCount: 25 },
+            ] as PlexLibrarySection[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map([
+                ['lib-b', [{ key: 'beta', title: 'Beta', count: 10 }]],
+                ['lib-a', [{ key: 'zeta', title: 'Zeta', count: 10 }]],
+            ]),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(plan.pendingChannels.map((channel) => channel.name)).toEqual([
+            'Shows - Zeta',
+            'Shows - Beta',
+        ]);
+    });
+
     it('does not drop native facet channels when Plex tag directories omit counts', () => {
         const plan = buildChannelSetupPlan({
             config: createConfig({
