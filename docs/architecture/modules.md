@@ -244,7 +244,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - `src/modules/ui/common/`
 - shared shells, overlay primitives, branding helpers, and cross-surface presentation helpers such as `appShellContainerIds.ts`, `channelDisplay.ts`, and `formatTimecode.ts`
-- `src/core/app-shell/AppContainerFactory.ts` is the app-shell DOM owner that creates the bounded `runtime-chrome-host` under `#app`, canonicalizes app-shell container IDs at document scope, and keeps the approved runtime chrome members grouped there in fixed structural order
+- `src/core/app-shell/AppContainerFactory.ts` is the app-shell DOM owner that creates the bounded `runtime-chrome-host` under `#app`, canonicalizes app-shell container IDs plus app-materialized feature mount nodes at document scope, and keeps the approved runtime chrome members grouped there in fixed structural order
 
 ### Screens and Overlays
 

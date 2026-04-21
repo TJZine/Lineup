@@ -242,6 +242,42 @@ describe('createAppContainers', () => {
         );
     });
 
+    it('preserves live runtime chrome containers when repeated repair sees duplicate placeholders', () => {
+        const root = document.getElementById('app') as HTMLElement;
+        createAppContainers(root);
+
+        const duplicateHost = document.createElement('div');
+        duplicateHost.id = APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST;
+        const livePlayerOsd = document.createElement('div');
+        livePlayerOsd.id = 'player-osd-container';
+        const livePlayerOsdContent = document.createElement('span');
+        livePlayerOsdContent.textContent = 'live player osd';
+        livePlayerOsd.appendChild(livePlayerOsdContent);
+        const liveMiniGuide = document.createElement('div');
+        liveMiniGuide.id = 'mini-guide-container';
+        const liveMiniGuideContent = document.createElement('span');
+        liveMiniGuideContent.textContent = 'live mini guide';
+        liveMiniGuide.appendChild(liveMiniGuideContent);
+        duplicateHost.append(livePlayerOsd, liveMiniGuide);
+        document.body.appendChild(duplicateHost);
+
+        createAppContainers(root);
+
+        const runtimeChromeHost = document.getElementById(APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST) as HTMLElement;
+
+        expect(document.querySelectorAll(`#${APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST}`)).toHaveLength(1);
+        expect(document.getElementById('player-osd-container')).toBe(livePlayerOsd);
+        expect(document.getElementById('mini-guide-container')).toBe(liveMiniGuide);
+        expect(livePlayerOsd.parentElement).toBe(runtimeChromeHost);
+        expect(liveMiniGuide.parentElement).toBe(runtimeChromeHost);
+        expect(livePlayerOsd.textContent).toContain('live player osd');
+        expect(liveMiniGuide.textContent).toContain('live mini guide');
+        expect(Array.from(root.children, (child) => (child as HTMLElement).id)).toEqual(EXPECTED_APP_ROOT_CHILD_IDS);
+        expect(Array.from(runtimeChromeHost.children, (child) => (child as HTMLElement).id)).toEqual(
+            EXPECTED_RUNTIME_CHROME_HOST_CHILD_IDS
+        );
+    });
+
     it('repairs root-owned containers that exist outside #app without duplicating ids', () => {
         const root = document.getElementById('app') as HTMLElement;
         const strayNowPlaying = document.createElement('div');
@@ -263,6 +299,35 @@ describe('createAppContainers', () => {
         expect(strayNowPlaying.parentElement).toBe(root);
         expect(strayPlaybackOptions.parentElement).toBe(root);
         expect(strayExitConfirm.parentElement).toBe(root);
+        expect(Array.from(root.children, (child) => (child as HTMLElement).id)).toEqual(EXPECTED_APP_ROOT_CHILD_IDS);
+    });
+
+    it('preserves live root-owned containers when repeated repair sees duplicate placeholders', () => {
+        const root = document.getElementById('app') as HTMLElement;
+        createAppContainers(root);
+
+        const liveNowPlaying = document.createElement('div');
+        liveNowPlaying.id = APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO;
+        const liveNowPlayingPanel = document.createElement('section');
+        liveNowPlayingPanel.textContent = 'live now playing';
+        liveNowPlaying.appendChild(liveNowPlayingPanel);
+
+        const livePlaybackOptions = document.createElement('div');
+        livePlaybackOptions.id = APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS;
+        const livePlaybackOptionsPanel = document.createElement('section');
+        livePlaybackOptionsPanel.textContent = 'live playback options';
+        livePlaybackOptions.appendChild(livePlaybackOptionsPanel);
+
+        document.body.append(liveNowPlaying, livePlaybackOptions);
+
+        createAppContainers(root);
+
+        expect(document.getElementById(APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO)).toBe(liveNowPlaying);
+        expect(document.getElementById(APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS)).toBe(livePlaybackOptions);
+        expect(liveNowPlaying.parentElement).toBe(root);
+        expect(livePlaybackOptions.parentElement).toBe(root);
+        expect(liveNowPlaying.textContent).toContain('live now playing');
+        expect(livePlaybackOptions.textContent).toContain('live playback options');
         expect(Array.from(root.children, (child) => (child as HTMLElement).id)).toEqual(EXPECTED_APP_ROOT_CHILD_IDS);
     });
 });

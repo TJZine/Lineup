@@ -32,16 +32,57 @@ function matchingElementsById(id: string): HTMLElement[] {
     return Array.from(document.querySelectorAll<HTMLElement>(`[id="${id}"]`));
 }
 
+function hasDomContent(element: HTMLElement): boolean {
+    return element.childNodes.length > 0;
+}
+
+function preferredCanonicalContainerDiv(
+    divMatches: readonly HTMLDivElement[],
+    parent: HTMLElement
+): HTMLDivElement | null {
+    return (
+        divMatches.find((match) => match.parentElement === parent && hasDomContent(match))
+        ?? divMatches.find((match) => hasDomContent(match))
+        ?? divMatches.find((match) => match.parentElement === parent)
+        ?? divMatches[0]
+        ?? null
+    );
+}
+
+function preserveRuntimeChromeChildrenFromDuplicateHosts(
+    canonicalHost: HTMLDivElement,
+    matches: readonly HTMLElement[]
+): void {
+    for (const match of matches) {
+        if (match === canonicalHost || match.tagName.toLowerCase() !== 'div') {
+            continue;
+        }
+
+        for (const childId of RUNTIME_CHROME_CHILD_IDS) {
+            const childMatches = Array.from(match.querySelectorAll<HTMLElement>(`[id="${childId}"]`)).filter(
+                (child): child is HTMLDivElement => child.tagName.toLowerCase() === 'div'
+            );
+
+            for (const childMatch of childMatches) {
+                if (childMatch.parentElement !== canonicalHost) {
+                    canonicalHost.appendChild(childMatch);
+                }
+            }
+        }
+    }
+}
+
 function ensureCanonicalContainerDiv(parent: HTMLElement, id: string): HTMLDivElement {
     const matches = matchingElementsById(id);
     const divMatches = matches.filter((match): match is HTMLDivElement => match.tagName.toLowerCase() === 'div');
-    const canonical =
-        divMatches.find((match) => match.parentElement === parent)
-        ?? divMatches[0]
-        ?? document.createElement('div');
+    const canonical = preferredCanonicalContainerDiv(divMatches, parent) ?? document.createElement('div');
 
     if (!canonical.id) {
         canonical.id = id;
+    }
+
+    if (id === APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST) {
+        preserveRuntimeChromeChildrenFromDuplicateHosts(canonical, matches);
     }
 
     for (const match of matches) {
