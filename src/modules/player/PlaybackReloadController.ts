@@ -112,16 +112,25 @@ export class PlaybackReloadController {
         this._streamRecoveryInProgress = true;
 
         try {
-            await config.beforeResolve?.(context);
+            const abortIfProgramChanged = (): RecoveryAttemptResult<TSuccess, 'program_changed'> | null => {
+                if (this.deps.getCurrentProgramForPlayback() === context.program) {
+                    return null;
+                }
 
-            const decision = await context.resolver.resolveStream(config.buildRequest(context));
-            if (this.deps.getCurrentProgramForPlayback() !== context.program) {
                 logPlaybackRecoveryWarning(config.abortedEvent, {
                     reason: context.safeReason,
                     outcome: 'program_changed',
                     ...(config.startData?.(context) ?? {}),
                 });
                 return { outcome: 'ignored', reason: 'program_changed' };
+            };
+
+            await config.beforeResolve?.(context);
+
+            const decision = await context.resolver.resolveStream(config.buildRequest(context));
+            const resolveAbort = abortIfProgramChanged();
+            if (resolveAbort) {
+                return resolveAbort;
             }
 
             let descriptor = this.deps.buildStreamDescriptor(
@@ -138,9 +147,23 @@ export class PlaybackReloadController {
             }
 
             await context.player.loadStream(descriptor);
+            const loadAbort = abortIfProgramChanged();
+            if (loadAbort) {
+                return loadAbort;
+            }
+
             await config.afterLoad?.(descriptor, descriptorContext);
+            const afterLoadAbort = abortIfProgramChanged();
+            if (afterLoadAbort) {
+                return afterLoadAbort;
+            }
+
             if (config.shouldResumeAfterReload) {
                 await context.player.play();
+                const playAbort = abortIfProgramChanged();
+                if (playAbort) {
+                    return playAbort;
+                }
             }
             this.deps.setCurrentStreamDecision(decision);
             this.deps.setCurrentStreamDescriptor(descriptor);
