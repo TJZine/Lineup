@@ -97,9 +97,11 @@ describe('StrategyStepController', () => {
 
     it('routes category-rail selection callbacks through the active category buttons', () => {
         const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
         const deps = createDeps();
+        const controller = new StrategyStepController();
 
-        new StrategyStepController().render(ctx, deps);
+        controller.render(ctx, deps);
         (ctx.contentEl.querySelector('#category-advanced-sources') as HTMLButtonElement).click();
 
         expect(deps.applyCategoryChange).toHaveBeenCalledWith('advanced-sources', 'category-advanced-sources');
@@ -107,14 +109,16 @@ describe('StrategyStepController', () => {
 
     it('keeps block-size controls disabled when series mode and variant mode are not block', () => {
         const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
         const deps = createDeps({
             state: {
                 ...createDeps().state,
                 activeStrategyCategory: 'series-ordering',
             },
         });
+        const controller = new StrategyStepController();
 
-        new StrategyStepController().render(ctx, deps);
+        controller.render(ctx, deps);
 
         expect((ctx.contentEl.querySelector('#setup-series-base-block-size') as HTMLButtonElement).disabled).toBe(true);
         expect((ctx.contentEl.querySelector('#setup-series-variant-block-size') as HTMLButtonElement).disabled).toBe(true);
@@ -122,6 +126,7 @@ describe('StrategyStepController', () => {
 
     it('toggles the preview strip details in place', () => {
         const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
         const deps = createDeps({
             state: {
                 ...createDeps().state,
@@ -142,8 +147,9 @@ describe('StrategyStepController', () => {
                 },
             },
         });
+        const controller = new StrategyStepController();
 
-        new StrategyStepController().render(ctx, deps);
+        controller.render(ctx, deps);
         const toggle = ctx.contentEl.querySelector('#setup-preview-toggle') as HTMLButtonElement;
         const previewPanel = ctx.contentEl.querySelector('#preview-panel') as HTMLElement;
 
@@ -155,14 +161,16 @@ describe('StrategyStepController', () => {
 
     it('routes adjustable controls through the interaction owner hook', () => {
         const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
         const deps = createDeps({
             state: {
                 ...createDeps().state,
                 activeStrategyCategory: 'build-options',
             },
         });
+        const controller = new StrategyStepController();
 
-        new StrategyStepController().render(ctx, deps);
+        controller.render(ctx, deps);
         (ctx.contentEl.querySelector('#setup-build-mode') as HTMLButtonElement).click();
 
         expect(deps.openAdjustableControl).toHaveBeenCalledWith('setup-build-mode');
@@ -185,5 +193,22 @@ describe('StrategyStepController', () => {
         expect(row?.classList.contains('selected')).toBe(false);
         expect(row?.getAttribute('aria-pressed')).toBe('false');
         expect(row?.getAttribute('aria-label')).toContain('Off');
+    });
+
+    it('renders mixed-scope controls only for supported strategies', () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const deps = createDeps({
+            state: {
+                ...createDeps().state,
+                activeStrategyCategory: 'advanced-sources',
+            },
+        });
+        const controller = new StrategyStepController();
+
+        controller.render(ctx, deps);
+
+        expect(ctx.contentEl.querySelector('#scope-genres')).not.toBeNull();
+        expect(ctx.contentEl.querySelector('#scope-collections')).toBeNull();
     });
 });

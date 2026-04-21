@@ -17,13 +17,11 @@ import {
 export class ChannelSetupSessionController {
     private readonly _state: ChannelSetupSessionState;
     private readonly _runtime: ChannelSetupSessionRuntime;
-    private readonly _workflowPort: ChannelSetupWorkflowPort;
 
     constructor(deps: {
         workflowPort: ChannelSetupWorkflowPort;
         getSelectedServerId: () => string | null;
     }) {
-        this._workflowPort = deps.workflowPort;
         this._state = new ChannelSetupSessionState();
         this._runtime = new ChannelSetupSessionRuntime({
             workflowPort: deps.workflowPort,
@@ -61,36 +59,23 @@ export class ChannelSetupSessionController {
     }
 
     selectAllLibraries(): void {
-        this._state.selectedLibraryIds = new Set(this._state.libraries.map((library) => library.id));
-        this._workflowPort.invalidateFacetSnapshot();
-        this.clearReviewForEdits();
+        this._runtime.selectAllLibraries();
     }
 
     clearAllLibraries(): void {
-        this._state.selectedLibraryIds = new Set();
-        this._workflowPort.invalidateFacetSnapshot();
-        this.clearReviewForEdits();
+        this._runtime.clearAllLibraries();
     }
 
     toggleLibrary(libraryId: string): boolean {
-        const wasSelected = this._state.selectedLibraryIds.has(libraryId);
-        if (wasSelected) {
-            this._state.selectedLibraryIds.delete(libraryId);
-        } else {
-            this._state.selectedLibraryIds.add(libraryId);
-        }
-        this._workflowPort.invalidateFacetSnapshot();
-        this.clearReviewForEdits();
-        return !wasSelected;
+        return this._runtime.toggleLibrary(libraryId);
     }
 
     updateStrategyState(mutate: (draft: StrategyStepMutableState) => void): void {
-        this._state.updateStrategyState(mutate);
-        this.clearReviewForEdits();
+        this._runtime.updateStrategyState(mutate);
     }
 
     clearReviewForEdits(): void {
-        this._state.clearReviewForEdits();
+        this._runtime.clearReviewForEdits();
     }
 
     clearReviewAndReturnToStep2(): void {

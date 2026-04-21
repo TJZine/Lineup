@@ -44,9 +44,11 @@ describe('BuildReviewStepController', () => {
 
     it('shows the loading state before the review is ready', () => {
         const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
         const deps = createDeps();
+        const controller = new BuildReviewStepController();
 
-        new BuildReviewStepController().render(ctx, deps);
+        controller.render(ctx, deps);
 
         expect(ctx.contentEl.querySelector('.setup-preview-loading')?.textContent).toContain('Preparing your review');
         expect(deps.registerLinearFocusables).toHaveBeenCalled();
@@ -54,6 +56,7 @@ describe('BuildReviewStepController', () => {
 
     it('renders blocked review messaging and keeps confirmation disabled', () => {
         const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
         const deps = createDeps({
             state: {
                 buildMode: 'append',
@@ -87,8 +90,9 @@ describe('BuildReviewStepController', () => {
                 recordApplied: true,
             },
         });
+        const controller = new BuildReviewStepController();
 
-        new BuildReviewStepController().render(ctx, deps);
+        controller.render(ctx, deps);
 
         expect(ctx.contentEl.querySelector('.setup-preview-error')?.textContent).toContain('Action required');
         expect((ctx.contentEl.querySelector('#setup-confirm') as HTMLButtonElement).disabled).toBe(true);
@@ -96,6 +100,7 @@ describe('BuildReviewStepController', () => {
 
     it('routes the replace-confirm callback id and only confirms when enabled', () => {
         const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
         const deps = createDeps({
             state: {
                 buildMode: 'replace',
@@ -127,13 +132,59 @@ describe('BuildReviewStepController', () => {
                 recordApplied: true,
             },
         });
+        const controller = new BuildReviewStepController();
 
-        new BuildReviewStepController().render(ctx, deps);
+        controller.render(ctx, deps);
 
         (ctx.contentEl.querySelector('#setup-replace-confirm') as HTMLButtonElement).click();
         (ctx.contentEl.querySelector('#setup-confirm') as HTMLButtonElement).click();
 
         expect(deps.onToggleReplaceConfirm).toHaveBeenCalledWith('setup-replace-confirm');
         expect(deps.onConfirmBuild).toHaveBeenCalledTimes(1);
+    });
+
+    it('renders slow-review messaging and keeps replace builds disabled until review is ready', () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const deps = createDeps({
+            state: {
+                buildMode: 'replace',
+                review: {
+                    preview: {
+                        estimates: {
+                            total: 5,
+                            collections: 1,
+                            playlists: 1,
+                            genres: 1,
+                            directors: 1,
+                            decades: 0,
+                            recentlyAdded: 1,
+                            studios: 0,
+                            actors: 0,
+                        },
+                        warnings: [],
+                        reachedMaxChannels: false,
+                        status: 'slow',
+                        message: 'Preview timed out.',
+                    },
+                    diff: {
+                        summary: { created: 5, removed: 0, unchanged: 0 },
+                        samples: { created: ['News'], removed: [], unchanged: [] },
+                    },
+                },
+                reviewError: null,
+                isReviewLoading: false,
+                replaceConfirm: false,
+                isBuilding: false,
+                recordApplied: true,
+            },
+        });
+        const controller = new BuildReviewStepController();
+
+        controller.render(ctx, deps);
+
+        expect(ctx.contentEl.querySelector('.setup-preview-error')?.textContent).toContain('Review timed out');
+        expect((ctx.contentEl.querySelector('#setup-confirm') as HTMLButtonElement).disabled).toBe(true);
+        expect(ctx.contentEl.querySelector('#setup-replace-confirm')).not.toBeNull();
     });
 });

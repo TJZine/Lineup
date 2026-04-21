@@ -211,6 +211,52 @@ describe('ChannelSetupSessionController', () => {
         expect(after.strategies.playlists.enabled).toBe(false);
     });
 
+    it('library selection edits invalidate facet snapshots while keeping workflow access inside the runtime owner', async (): Promise<void> => {
+        const libraries: PlexLibraryModel[] = [makeLibrary({ id: 'movies' }), makeLibrary({ id: 'shows' })];
+        const workflowPort = createWorkflowPort({
+            getLibrariesForSetup: jest.fn().mockResolvedValue(libraries),
+        });
+        const controller = new ChannelSetupSessionController({
+            workflowPort,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        await controller.loadLibraries();
+
+        controller.toggleReplaceConfirm();
+        controller.clearAllLibraries();
+        expect(controller.getSnapshot().replaceConfirm).toBe(false);
+
+        controller.toggleReplaceConfirm();
+        controller.selectAllLibraries();
+        expect(controller.getSnapshot().replaceConfirm).toBe(false);
+
+        controller.toggleReplaceConfirm();
+        controller.toggleLibrary('movies');
+        expect(controller.getSnapshot().replaceConfirm).toBe(false);
+
+        expect(workflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(5);
+    });
+
+    it('updateStrategyState() clears review state without invalidating facet snapshots', (): void => {
+        const workflowPort = createWorkflowPort();
+        const controller = new ChannelSetupSessionController({
+            workflowPort,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        controller.toggleReplaceConfirm();
+        controller.updateStrategyState((draft) => {
+            draft.maxChannels = 75;
+        });
+
+        expect(controller.getSnapshot().replaceConfirm).toBe(false);
+        expect(controller.getSnapshot().maxChannels).toBe(75);
+        expect(workflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(1);
+    });
+
     it('loadLibraries() applies setup record when present', async (): Promise<void> => {
         const libraries: PlexLibraryModel[] = [makeLibrary({ id: 'movies' }), makeLibrary({ id: 'shows' })];
         const record: ChannelSetupRecord = {

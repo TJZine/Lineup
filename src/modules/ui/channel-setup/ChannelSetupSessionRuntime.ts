@@ -9,6 +9,7 @@ import type {
     ChannelSetupBuildHandlers,
     ChannelSetupBuildOutcome,
     EstimateKey,
+    StrategyStepMutableState,
 } from './ChannelSetupSessionContracts';
 import type { ChannelSetupSessionState } from './ChannelSetupSessionState';
 
@@ -139,6 +140,31 @@ export class ChannelSetupSessionRuntime {
         state.reviewError = null;
         state.replaceConfirm = false;
         state.step = 2;
+    }
+
+    selectAllLibraries(): void {
+        this._deps.state.selectAllLibraries();
+        this._handleLibrarySelectionEdit();
+    }
+
+    clearAllLibraries(): void {
+        this._deps.state.clearAllLibraries();
+        this._handleLibrarySelectionEdit();
+    }
+
+    toggleLibrary(libraryId: string): boolean {
+        const nextSelected = this._deps.state.toggleLibrarySelection(libraryId);
+        this._handleLibrarySelectionEdit();
+        return nextSelected;
+    }
+
+    updateStrategyState(mutate: (draft: StrategyStepMutableState) => void): void {
+        this._deps.state.updateStrategyState(mutate);
+        this.clearReviewForEdits();
+    }
+
+    clearReviewForEdits(): void {
+        this._deps.state.clearReviewForEdits();
     }
 
     schedulePreview(onStateChange: () => void): void {
@@ -312,6 +338,11 @@ export class ChannelSetupSessionRuntime {
         }
         this._buildAbortController.abort();
         return true;
+    }
+
+    private _handleLibrarySelectionEdit(): void {
+        this._deps.workflowPort.invalidateFacetSnapshot();
+        this.clearReviewForEdits();
     }
 
     private async _refreshPreview(onStateChange: () => void): Promise<void> {
