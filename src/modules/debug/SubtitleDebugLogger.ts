@@ -34,7 +34,11 @@ export class SubtitleDebugLogger {
     }
 
     isEnabled(): boolean {
-        return this._settingsReader.readSubtitleDebugLoggingEnabledAndClean(false);
+        try {
+            return this._settingsReader.readSubtitleDebugLoggingEnabledAndClean(false);
+        } catch {
+            return false;
+        }
     }
 
     log(event: string, context: SubtitleDebugContextInput): void {

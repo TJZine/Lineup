@@ -45,6 +45,18 @@ interface PlaybackReloadControllerDeps {
     resetPlaybackFailureGuard: () => void;
 }
 
+function programsMatchIdentity(
+    current: ScheduledProgram | null,
+    expected: ScheduledProgram
+): boolean {
+    if (!current) {
+        return false;
+    }
+
+    return current.item.ratingKey === expected.item.ratingKey
+        && current.scheduledStartTime === expected.scheduledStartTime;
+}
+
 export class PlaybackReloadController {
     private _streamRecoveryInProgress = false;
 
@@ -117,7 +129,7 @@ export class PlaybackReloadController {
         };
         const playerCurrentDescriptorMatches = (descriptor: StreamDescriptor): boolean => {
             if (typeof context.player.getCurrentDescriptor !== 'function') {
-                return true;
+                return false;
             }
 
             return context.player.getCurrentDescriptor() === descriptor;
@@ -139,7 +151,7 @@ export class PlaybackReloadController {
             const abortIfProgramChanged = (
                 teardownDescriptor: StreamDescriptor | null
             ): RecoveryAttemptResult<TSuccess, 'program_changed'> | null => {
-                if (this.deps.getCurrentProgramForPlayback() === context.program) {
+                if (programsMatchIdentity(this.deps.getCurrentProgramForPlayback(), context.program)) {
                     return null;
                 }
 

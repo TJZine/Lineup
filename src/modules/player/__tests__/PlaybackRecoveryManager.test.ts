@@ -247,6 +247,26 @@ describe('PlaybackRecoveryManager', () => {
         );
     });
 
+    it('sanitizes stream resolver auth error messages before surfacing them', () => {
+        const { manager, deps } = setup();
+        const handleGlobalError = deps.handleGlobalError as jest.Mock;
+
+        manager.tryHandleStreamResolverAuthError({
+            code: 'AUTH_REQUIRED',
+            message: 'Auth required for token secret-token',
+            recoverable: true,
+        });
+
+        expect(handleGlobalError).toHaveBeenCalledWith(
+            {
+                code: AppErrorCode.AUTH_REQUIRED,
+                message: expect.not.stringContaining('secret-token'),
+                recoverable: true,
+            },
+            'plex-stream'
+        );
+    });
+
     it('resolves stream for program and records decision', async () => {
         const { manager, resolver, deps } = setup({
             getCurrentProgramForPlayback: () => makeProgram({ elapsedMs: 999999 }),
@@ -470,6 +490,25 @@ describe('PlaybackRecoveryManager', () => {
             {
                 code: AppErrorCode.ACCESS_DENIED,
                 message: 'profile lacks access',
+                recoverable: false,
+            },
+            'plex-stream'
+        );
+    });
+
+    it('sanitizes ACCESS_DENIED resolver messages before surfacing them', () => {
+        const { manager, deps } = setup();
+        const handleGlobalError = deps.handleGlobalError as jest.Mock;
+
+        manager.tryHandleStreamResolverPermissionError({
+            code: 'ACCESS_DENIED',
+            message: 'profile lacks access for X-Plex-Token=secret-token',
+        });
+
+        expect(handleGlobalError).toHaveBeenCalledWith(
+            {
+                code: AppErrorCode.ACCESS_DENIED,
+                message: expect.not.stringContaining('secret-token'),
                 recoverable: false,
             },
             'plex-stream'
@@ -913,6 +952,38 @@ describe('PlaybackRecoveryManager', () => {
         releaseStop();
         await pending;
 
+        expect(resolver.resolveStream).toHaveBeenCalledTimes(1);
+    });
+
+    it('continues disable-burn-in recovery when stopping the prior transcode session fails', async () => {
+        const { manager, resolver } = setup({
+            getCurrentStreamDecision: () =>
+                makeDecision({
+                    protocol: 'hls',
+                    isDirectPlay: false,
+                    isTranscoding: true,
+                    sessionId: 'sess-burn',
+                    transcodeRequest: {
+                        sessionId: 'sess-burn',
+                        maxBitrate: 2000,
+                        subtitleStreamId: 'burn-1',
+                        subtitleMode: 'burn',
+                    },
+                } as Partial<StreamDecision>),
+        });
+        (resolver.stopTranscodeSession as jest.Mock).mockRejectedValue(new Error('stop failed'));
+        (resolver.resolveStream as jest.Mock).mockResolvedValue(
+            makeDecision({
+                protocol: 'http',
+                isDirectPlay: true,
+                isTranscoding: false,
+            })
+        );
+
+        const result = await manager.attemptDisableBurnInSubtitlesForCurrentProgram('test');
+
+        expect(result).toEqual({ outcome: 'disabled' });
+        expect(resolver.stopTranscodeSession).toHaveBeenCalledWith('sess-burn');
         expect(resolver.resolveStream).toHaveBeenCalledTimes(1);
     });
 

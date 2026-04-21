@@ -88,4 +88,17 @@ describe('SubtitleDebugLogger', () => {
         }).not.toThrow();
         expect(sink).not.toHaveBeenCalled();
     });
+
+    it('returns false when the settings reader throws during isEnabled()', () => {
+        const logger = new SubtitleDebugLogger({
+            scope: 'SubtitleManager',
+            settingsReader: {
+                readSubtitleDebugLoggingEnabledAndClean: (): boolean => {
+                    throw new Error('storage unavailable');
+                },
+            },
+        });
+
+        expect(logger.isEnabled()).toBe(false);
+    });
 });

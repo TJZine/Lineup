@@ -87,8 +87,8 @@ export function buildSubtitleStreamProbeRequestContext(
         authMode: 'header',
         baseUrl,
         headers: {
-            Accept: 'text/vtt, text/plain, */*',
             ...input.authHeaders,
+            Accept: 'text/vtt, text/plain, */*',
         },
         redactedTrackSrcQueryAuth: buildRedactedTrackSrcQueryAuth(
             baseUrl,
@@ -165,7 +165,7 @@ export async function readSubtitleProbeSample(
 ): Promise<SubtitleStreamProbeReadResult> {
     try {
         const streamedResult = await readSubtitleProbeSampleFromStream(response, maxSampleChars);
-        if (streamedResult) {
+        if (streamedResult && streamedResult.sampleLength > 0) {
             return streamedResult;
         }
     } catch {

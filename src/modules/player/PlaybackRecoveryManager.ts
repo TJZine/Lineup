@@ -158,6 +158,24 @@ export class PlaybackRecoveryManager {
         };
     }
 
+    private _sanitizeResolverMessage(message: unknown, fallback: string): string {
+        if (typeof message !== 'string') {
+            return fallback;
+        }
+
+        const sanitized = redactSensitiveTokens(message).trim();
+        if (!sanitized) {
+            return fallback;
+        }
+        if (sanitized !== message.trim()) {
+            return sanitized;
+        }
+        if (/\b(token|authorization|cookie|session)\b/i.test(message)) {
+            return fallback;
+        }
+        return sanitized;
+    }
+
     private _readPlayerState(player: IVideoPlayer): ReturnType<IVideoPlayer['getState']> | null {
         return player.getState();
     }
@@ -251,7 +269,7 @@ export class PlaybackRecoveryManager {
             this.deps.handleGlobalError(
                 {
                     code: mapped,
-                    message: maybe.message,
+                    message: this._sanitizeResolverMessage(maybe.message, 'Authentication is required.'),
                     recoverable: Boolean(maybe.recoverable),
                 },
                 'plex-stream'
@@ -360,7 +378,7 @@ export class PlaybackRecoveryManager {
         this.deps.handleGlobalError(
             {
                 code: AppErrorCode.ACCESS_DENIED,
-                message: maybe.message,
+                message: this._sanitizeResolverMessage(maybe.message, 'Access denied.'),
                 recoverable: false,
             },
             'plex-stream'
@@ -449,11 +467,14 @@ export class PlaybackRecoveryManager {
                 itemKey,
                 burnedInTrackId,
             }),
-            beforeResolve: () => {
+            beforeResolve: async () => {
                 if (currentDecision.isTranscoding && currentDecision.sessionId) {
-                    return context.resolver.stopTranscodeSession(currentDecision.sessionId);
+                    try {
+                        await context.resolver.stopTranscodeSession(currentDecision.sessionId);
+                    } catch {
+                        // Best-effort cleanup; the recovery should still continue.
+                    }
                 }
-                return undefined;
             },
             buildRequest: ({ itemKey, clampedOffset, player }) => {
                 const activeAudioId = this._readPlayerState(player)?.activeAudioId ?? null;

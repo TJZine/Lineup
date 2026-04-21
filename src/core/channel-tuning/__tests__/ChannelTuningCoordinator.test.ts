@@ -283,16 +283,21 @@ describe('ChannelTuningCoordinator', () => {
         await coordinator.switchToChannel('ch1');
 
         expect(deps.handleGlobalError).toHaveBeenCalledWith(
-            {
+            expect.objectContaining({
                 code: 'SCHEDULER_EMPTY_CHANNEL',
                 message: 'No playable content found after filtering',
                 recoverable: false,
-                context: {
+                context: expect.objectContaining({
                     channelId: 'ch1',
                     operation: 'switchToChannel',
                     step: 'resolveChannelContent',
-                },
-            },
+                    errorSummary: expect.objectContaining({
+                        name: 'ChannelError',
+                        code: 'SCHEDULER_EMPTY_CHANNEL',
+                        message: 'No playable content found after filtering',
+                    }),
+                }),
+            }),
             'switchToChannel'
         );
         expect(videoPlayer.stop).not.toHaveBeenCalled();
@@ -327,16 +332,21 @@ describe('ChannelTuningCoordinator', () => {
         await coordinator.switchToChannel('ch1');
 
         expect(deps.handleGlobalError).toHaveBeenCalledWith(
-            {
+            expect.objectContaining({
                 code: 'CONTENT_UNAVAILABLE',
                 message: 'Boom',
                 recoverable: true,
-                context: {
+                context: expect.objectContaining({
                     channelId: 'ch1',
                     operation: 'switchToChannel',
                     step: 'resolveChannelContent',
-                },
-            },
+                    errorSummary: expect.objectContaining({
+                        name: 'ChannelError',
+                        code: 'CONTENT_UNAVAILABLE',
+                        message: 'Boom',
+                    }),
+                }),
+            }),
             'switchToChannel'
         );
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
@@ -396,6 +406,31 @@ describe('ChannelTuningCoordinator', () => {
 
         consoleErrorSpy.mockRestore();
         consoleWarnSpy.mockRestore();
+    });
+
+    it('honors an already-aborted signal before dependency validation', async () => {
+        const controller = new AbortController();
+        controller.abort();
+        const handleGlobalError = jest.fn();
+        const coordinator = new ChannelTuningCoordinator({
+            getChannelManager: (): null => null,
+            getScheduler: (): null => null,
+            getVideoPlayer: (): null => null,
+            buildDailyScheduleConfig: jest.fn(),
+            getLocalDayKey: jest.fn().mockReturnValue(0),
+            setActiveScheduleDayKey: jest.fn(),
+            setPendingNowPlayingChannelId: jest.fn(),
+            getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
+            resetPlaybackGuardsForNewChannel: jest.fn(),
+            stopActiveTranscodeSession: jest.fn(),
+            armChannelTransitionForSwitch: jest.fn(),
+            appendIssueDiagnostic: jest.fn(),
+            handleGlobalError,
+            saveLifecycleState: jest.fn().mockResolvedValue(undefined),
+        });
+
+        await expect(coordinator.switchToChannel('ch1', { signal: controller.signal })).resolves.toBe('aborted');
+        expect(handleGlobalError).not.toHaveBeenCalled();
     });
 
     it('returns silently when aborted after content resolution', async () => {
@@ -602,16 +637,20 @@ describe('ChannelTuningCoordinator', () => {
 
         await expect(coordinator.switchToChannel('ch1')).resolves.toBe('switched');
         expect(deps.handleGlobalError).toHaveBeenCalledWith(
-            {
+            expect.objectContaining({
                 code: AppErrorCode.STORAGE_CORRUPTED,
                 message: 'save failed',
                 recoverable: true,
-                context: {
+                context: expect.objectContaining({
                     channelId: 'ch1',
                     operation: 'switchToChannel',
                     step: 'saveLifecycleState',
-                },
-            },
+                    errorSummary: expect.objectContaining({
+                        name: 'Error',
+                        message: 'save failed',
+                    }),
+                }),
+            }),
             'switchToChannel'
         );
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
@@ -647,15 +686,15 @@ describe('ChannelTuningCoordinator', () => {
             })
         );
         expect(deps.handleGlobalError).toHaveBeenCalledWith(
-            {
+            expect.objectContaining({
                 code: AppErrorCode.CHANNEL_NOT_FOUND,
                 message: 'Channel 999 not found',
                 recoverable: true,
-                context: {
+                context: expect.objectContaining({
                     operation: 'switchToChannelByNumber',
                     attemptedChannelNumber: 999,
-                },
-            },
+                }),
+            }),
             'switchToChannelByNumber'
         );
     });
@@ -670,6 +709,35 @@ describe('ChannelTuningCoordinator', () => {
         ).resolves.toBe('aborted');
     });
 
+    it('still reports the normalized app error when diagnostics append fails', async () => {
+        const { coordinator, deps, channelManager } = createCoordinator();
+        deps.appendIssueDiagnostic.mockImplementation(() => {
+            throw new Error('diagnostic failed');
+        });
+        channelManager.resolveChannelContent.mockRejectedValue({
+            code: 'NOT_A_REAL_CODE',
+            message: 'foreign error',
+            recoverable: false,
+        });
+
+        await expect(coordinator.switchToChannel('ch1')).resolves.toBe('failed');
+
+        expect(deps.handleGlobalError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                code: AppErrorCode.CONTENT_UNAVAILABLE,
+                message: 'foreign error',
+                recoverable: false,
+                context: expect.objectContaining({
+                    errorSummary: expect.objectContaining({
+                        code: 'NOT_A_REAL_CODE',
+                        message: 'foreign error',
+                    }),
+                }),
+            }),
+            'switchToChannel'
+        );
+    });
+
     it('reports switchToChannelByNumber failures through the shared error contract', async () => {
         const { coordinator, deps } = createCoordinator();
         jest.spyOn(coordinator, 'switchToChannel').mockRejectedValueOnce(new Error('switch failed'));
@@ -677,15 +745,19 @@ describe('ChannelTuningCoordinator', () => {
         await expect(coordinator.switchToChannelByNumber(1)).resolves.toBe('failed');
 
         expect(deps.handleGlobalError).toHaveBeenCalledWith(
-            {
+            expect.objectContaining({
                 code: AppErrorCode.CONTENT_UNAVAILABLE,
                 message: 'switch failed',
                 recoverable: true,
-                context: {
+                context: expect.objectContaining({
                     attemptedChannelNumber: 1,
                     operation: 'switchToChannelByNumber',
-                },
-            },
+                    errorSummary: expect.objectContaining({
+                        name: 'Error',
+                        message: 'switch failed',
+                    }),
+                }),
+            }),
             'switchToChannelByNumber'
         );
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
@@ -728,17 +800,21 @@ describe('ChannelTuningCoordinator', () => {
             })
         );
         expect(deps.handleGlobalError).toHaveBeenCalledWith(
-            {
+            expect.objectContaining({
                 code: AppErrorCode.UI_RENDER_ERROR,
                 message: 'transition failed',
                 recoverable: true,
-                context: {
+                context: expect.objectContaining({
                     channelId: 'ch1',
                     channelPrefix: '1 Channel 1',
                     operation: 'switchToChannel',
                     step: 'armChannelTransitionForSwitch',
-                },
-            },
+                    errorSummary: expect.objectContaining({
+                        name: 'Error',
+                        message: 'transition failed',
+                    }),
+                }),
+            }),
             'switchToChannel'
         );
     });
@@ -770,16 +846,20 @@ describe('ChannelTuningCoordinator', () => {
             })
         );
         expect(deps.handleGlobalError).toHaveBeenCalledWith(
-            {
+            expect.objectContaining({
                 code: AppErrorCode.PLAYBACK_FAILED,
                 message: 'unload failed',
                 recoverable: true,
-                context: {
+                context: expect.objectContaining({
                     channelId: 'ch1',
                     failedStep: 'scheduler.syncToCurrentTime',
                     operation: 'switchToChannel',
-                },
-            },
+                    errorSummary: expect.objectContaining({
+                        name: 'Error',
+                        message: 'unload failed',
+                    }),
+                }),
+            }),
             'switchToChannel'
         );
     });

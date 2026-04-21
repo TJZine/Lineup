@@ -197,6 +197,48 @@ describe('PlaybackReloadController', () => {
         );
     });
 
+    it('does not treat a refreshed equivalent program instance as changed', async () => {
+        const originalProgram = makeProgram({ scheduledStartTime: 30_000 });
+        const refreshedProgram = makeProgram({
+            item: { ...originalProgram.item } as ScheduledProgram['item'],
+            scheduledStartTime: 30_000,
+        });
+        let currentProgram: ScheduledProgram | null = originalProgram;
+        const context = makeContext({ program: originalProgram });
+        const descriptor = { url: 'http://test/video.m3u8' } as StreamDescriptor;
+        const resolver = {
+            resolveStream: jest.fn().mockImplementation(async () => {
+                currentProgram = refreshedProgram;
+                return makeDecision();
+            }),
+        } as unknown as IPlexStreamResolver;
+        const controller = new PlaybackReloadController({
+            getVideoPlayer: (): IVideoPlayer => context.player,
+            getStreamResolver: (): IPlexStreamResolver => resolver,
+            getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
+            getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
+            setCurrentStreamDecision: jest.fn(),
+            setCurrentStreamDescriptor: jest.fn(),
+            buildStreamDescriptor: jest.fn().mockReturnValue(descriptor),
+            resetPlaybackFailureGuard: jest.fn(),
+        });
+
+        const result = await controller.executeReload({
+            context: { ...context, resolver },
+            successOutcome: 'reloaded',
+            startEvent: 'disableBurnIn.start',
+            abortedEvent: 'disableBurnIn.aborted',
+            failedEvent: 'disableBurnIn.failed',
+            buildRequest: ({ itemKey, clampedOffset }) => ({
+                itemKey,
+                startOffsetMs: clampedOffset,
+                directPlay: true,
+            }),
+        });
+
+        expect(result).toEqual({ outcome: 'reloaded' });
+    });
+
     it('does not resolve a stream when the active program changes during beforeResolve', async () => {
         const originalProgram = makeProgram();
         const changedProgram = makeProgram({
@@ -320,10 +362,10 @@ describe('PlaybackReloadController', () => {
         expect(result).toEqual({ outcome: 'failed' });
         expect(player.loadStream).toHaveBeenCalledWith(nextDescriptor);
         expect(player.play).toHaveBeenCalled();
-        expect(player.unloadStream).toHaveBeenCalledTimes(1);
-        expect(activeMediaUrl).toBeNull();
-        expect(currentDecision).toBeNull();
-        expect(currentDescriptor).toBeNull();
+        expect(player.unloadStream).not.toHaveBeenCalled();
+        expect(activeMediaUrl).toBe(nextDescriptor.url);
+        expect(currentDecision).toBe(previousDecision);
+        expect(currentDescriptor).toBe(previousDescriptor);
         expect(errorSpy).toHaveBeenCalledWith(
             'playback_recovery',
             expect.objectContaining({
@@ -486,10 +528,10 @@ describe('PlaybackReloadController', () => {
         expect(result).toEqual({ outcome: 'ignored', reason: 'program_changed' });
         expect(player.loadStream).toHaveBeenCalledWith(nextDescriptor);
         expect(player.play).not.toHaveBeenCalled();
-        expect(player.unloadStream).toHaveBeenCalledTimes(1);
-        expect(activeMediaUrl).toBeNull();
-        expect(currentDecision).toBeNull();
-        expect(currentDescriptor).toBeNull();
+        expect(player.unloadStream).not.toHaveBeenCalled();
+        expect(activeMediaUrl).toBe(nextDescriptor.url);
+        expect(currentDecision).toBe(previousDecision);
+        expect(currentDescriptor).toBe(previousDescriptor);
         expect(warnSpy).toHaveBeenCalledWith(
             'playback_recovery',
             expect.objectContaining({
@@ -580,11 +622,11 @@ describe('PlaybackReloadController', () => {
         expect(result).toEqual({ outcome: 'ignored', reason: 'program_changed' });
         expect(player.loadStream).toHaveBeenCalledWith(nextDescriptor);
         expect(player.play).toHaveBeenCalled();
-        expect(player.unloadStream).toHaveBeenCalledTimes(1);
-        expect(activeMediaUrl).toBeNull();
-        expect(playbackStarted).toBe(false);
-        expect(currentDecision).toBeNull();
-        expect(currentDescriptor).toBeNull();
+        expect(player.unloadStream).not.toHaveBeenCalled();
+        expect(activeMediaUrl).toBe(nextDescriptor.url);
+        expect(playbackStarted).toBe(true);
+        expect(currentDecision).toBe(previousDecision);
+        expect(currentDescriptor).toBe(previousDescriptor);
         expect(warnSpy).toHaveBeenCalledWith(
             'playback_recovery',
             expect.objectContaining({
@@ -681,6 +723,52 @@ describe('PlaybackReloadController', () => {
                 outcome: 'program_changed',
             })
         );
+    });
+
+    it('does not unload when the player cannot confirm descriptor ownership', async () => {
+        const originalProgram = makeProgram();
+        const changedProgram = makeProgram({
+            item: { ...originalProgram.item, ratingKey: 'item-2' } as ScheduledProgram['item'],
+        });
+        let currentProgram: ScheduledProgram | null = originalProgram;
+        const descriptor = { url: 'http://test/stale-video.m3u8' } as StreamDescriptor;
+        const player: IVideoPlayer = {
+            loadStream: jest.fn().mockImplementation(async () => {
+                currentProgram = changedProgram;
+            }),
+            unloadStream: jest.fn(),
+            play: jest.fn().mockResolvedValue(undefined),
+            stop: jest.fn(),
+            getCurrentTimeMs: jest.fn().mockReturnValue(5000),
+        } as unknown as IVideoPlayer;
+        const context = makeContext({ program: originalProgram, player });
+        const controller = new PlaybackReloadController({
+            getVideoPlayer: (): IVideoPlayer => player,
+            getStreamResolver: (): IPlexStreamResolver => context.resolver,
+            getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
+            getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
+            setCurrentStreamDecision: jest.fn(),
+            setCurrentStreamDescriptor: jest.fn(),
+            buildStreamDescriptor: jest.fn().mockReturnValue(descriptor),
+            resetPlaybackFailureGuard: jest.fn(),
+        });
+
+        const result = await controller.executeReload({
+            context,
+            successOutcome: 'reloaded',
+            startEvent: 'audioReload.start',
+            abortedEvent: 'audioReload.aborted',
+            failedEvent: 'audioReload.failed',
+            buildRequest: ({ itemKey, clampedOffset }) => ({
+                itemKey,
+                startOffsetMs: clampedOffset,
+                directPlay: false,
+            }),
+            shouldResumeAfterReload: true,
+        });
+
+        expect(result).toEqual({ outcome: 'ignored', reason: 'program_changed' });
+        expect(player.unloadStream).not.toHaveBeenCalled();
     });
 
     it('logs failures and returns failed when resolution throws', async () => {

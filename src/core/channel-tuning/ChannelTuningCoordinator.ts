@@ -6,6 +6,7 @@
 
 import type { AppError } from '../../modules/lifecycle';
 import { AppErrorCode } from '../../modules/lifecycle';
+import { getAppErrorCode } from '../../types/app-errors';
 
 import type { IVideoPlayer } from '../../modules/player';
 import type {
@@ -20,6 +21,7 @@ import type {
 } from '../../modules/scheduler/scheduler';
 import type { AppendIssueDiagnostic } from '../../modules/debug/IssueDiagnosticsStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
+import { redactSensitiveTokens } from '../../utils/redact';
 import type { GuideSelectionSnapshot } from './GuideSelectionSnapshot';
 
 export type { ChannelSwitchOutcome } from '../../types/channelSwitch';
@@ -103,6 +105,10 @@ export class ChannelTuningCoordinator {
         channelId: string,
         options?: ChannelSwitchOptions
     ): Promise<ChannelSwitchOutcome> {
+        if (options?.signal?.aborted) {
+            return 'aborted';
+        }
+
         const channelManager = this.deps.getChannelManager();
         const scheduler = this.deps.getScheduler();
         const videoPlayer = this.deps.getVideoPlayer();
@@ -124,10 +130,6 @@ export class ChannelTuningCoordinator {
                 { channelId }
             );
             return 'failed';
-        }
-
-        if (options?.signal?.aborted) {
-            return 'aborted';
         }
 
         const request = this._createSwitchRequest(channelId, options);
@@ -278,7 +280,7 @@ export class ChannelTuningCoordinator {
             let scheduleReferenceTimeMs = snapshotValidationReferenceTimeMs;
             if (snapshotValidation.valid && snapshotValidation.snapshot) {
                 scheduleItems = [...snapshotValidation.snapshot.orderedItems];
-                this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'channelTuning.guideSnapshotApplied', {
+                this._appendIssueDiagnosticSafely('channelTuning.guideSnapshotApplied', {
                     channelId,
                     source: snapshotValidation.snapshot.source,
                     dayKey: snapshotValidation.snapshot.dayKey,
@@ -289,7 +291,7 @@ export class ChannelTuningCoordinator {
                     sampleRatingKeys: scheduleItems.slice(0, 5).map((item) => item.ratingKey),
                 });
             } else if (snapshotValidation.reason) {
-                this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'channelTuning.guideSnapshotRejected', {
+                this._appendIssueDiagnosticSafely('channelTuning.guideSnapshotRejected', {
                     channelId,
                     reason: snapshotValidation.reason,
                 });
@@ -305,7 +307,7 @@ export class ChannelTuningCoordinator {
                     });
                     scheduleItems = content.items;
                     scheduleReferenceTimeMs = Date.now();
-                    this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'channelTuning.resolveChannelContent', {
+                    this._appendIssueDiagnosticSafely('channelTuning.resolveChannelContent', {
                         channelId,
                         resolvedAt: content.resolvedAt,
                         fromCache: content.fromCache ?? false,
@@ -395,7 +397,7 @@ export class ChannelTuningCoordinator {
             this.deps.setPendingNowPlayingChannelId(channelId);
             scheduler.loadChannel(scheduleConfig);
             this.deps.setActiveScheduleDayKey(this.deps.getLocalDayKey(scheduleReferenceTimeMs));
-            this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'channelTuning.schedulerLoaded', {
+            this._appendIssueDiagnosticSafely('channelTuning.schedulerLoaded', {
                 channelId,
                 referenceTimeMs: scheduleReferenceTimeMs,
                 anchorTime: scheduleConfig.anchorTime,
@@ -491,6 +493,10 @@ export class ChannelTuningCoordinator {
         number: number,
         options?: { signal?: AbortSignal }
     ): Promise<ChannelSwitchOutcome> {
+        if (options?.signal?.aborted) {
+            return 'aborted';
+        }
+
         const channelManager = this.deps.getChannelManager();
         if (!channelManager) {
             this._reportHandledError(
@@ -569,13 +575,21 @@ export class ChannelTuningCoordinator {
         return appError;
     }
 
+    private _appendIssueDiagnosticSafely(stage: string, details: Record<string, unknown>): void {
+        try {
+            this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, stage, details);
+        } catch {
+            // Diagnostics are best-effort and must never break switch control flow.
+        }
+    }
+
     private _reportHandledError(
         stage: string,
         error: AppError,
         operation: ChannelTuningOperation,
         details: Record<string, unknown> = {}
     ): void {
-        this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, stage, {
+        this._appendIssueDiagnosticSafely(stage, {
             ...details,
             code: error.code,
             message: error.message,
@@ -615,23 +629,22 @@ export class ChannelTuningCoordinator {
             context?: unknown;
         };
 
-        const code = typeof maybeError.code === 'string'
-            ? maybeError.code as AppErrorCode
-            : fallback.code;
-        const message = typeof maybeError.message === 'string' && maybeError.message.length > 0
-            ? maybeError.message
+        const code = getAppErrorCode(maybeError.code) ?? fallback.code;
+        const message = typeof maybeError.message === 'string'
+            ? redactSensitiveTokens(maybeError.message).trim() || fallback.message
             : fallback.message;
         const recoverable = typeof maybeError.recoverable === 'boolean'
             ? maybeError.recoverable
             : fallback.recoverable;
-        const context =
-            maybeError.context && typeof maybeError.context === 'object'
-                ? { ...(fallback.context ?? {}), ...maybeError.context as Record<string, unknown> }
-                : fallback.context;
+        const context = {
+            ...(fallback.context ?? {}),
+            ...(maybeError.context && typeof maybeError.context === 'object'
+                ? maybeError.context as Record<string, unknown>
+                : {}),
+            errorSummary: summarizeErrorForLog(error),
+        };
 
-        return context
-            ? { code, message, recoverable, context }
-            : { code, message, recoverable };
+        return { code, message, recoverable, context };
     }
 
     private _validateGuideSelectionSnapshot(

@@ -27,6 +27,19 @@ describe('SubtitleStreamProbeSupport', () => {
         expect(context.redactedTrackSrcQueryAuth).toContain('REDACTED');
     });
 
+    it('keeps the probe Accept header authoritative over incoming auth headers', () => {
+        const context = buildSubtitleStreamProbeRequestContext({
+            authHeaders: {
+                Accept: 'application/json',
+                'X-Plex-Token': 'secret-token',
+            },
+            serverUri: 'http://192.168.1.100:32400',
+            subtitleStreamId: 'sub-1',
+        });
+
+        expect(context.headers.Accept).toBe('text/vtt, text/plain, */*');
+    });
+
     it('reads and classifies a streamed subtitle sample', async () => {
         const result = await readSubtitleProbeSample(
             new Response('WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nTest', {
@@ -58,6 +71,24 @@ describe('SubtitleStreamProbeSupport', () => {
         );
 
         expect(result.detected).toBe('unknown');
+    });
+
+    it('falls back to codec detection when the streamed sample is empty', async () => {
+        const result = await readSubtitleProbeSample(
+            new Response('', {
+                status: 200,
+                headers: { 'content-type': 'text/plain' },
+            }),
+            'srt',
+            2048
+        );
+
+        expect(result).toEqual(
+            expect.objectContaining({
+                detected: 'srt',
+                sampleLength: 0,
+            })
+        );
     });
 
     it('flushes split utf-8 characters before returning the sample', async () => {
