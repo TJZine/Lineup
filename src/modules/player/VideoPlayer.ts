@@ -69,6 +69,7 @@ export class VideoPlayer implements IVideoPlayer {
     private readonly _subtitleDebugLogger = new SubtitleDebugLogger({
         scope: 'VideoPlayer',
     });
+    private _loadGeneration = 0;
     private _emitter: EventEmitter<PlayerEventMap> = new EventEmitter();
     private _videoElement: HTMLVideoElement | null = null;
     private _subtitleManager: SubtitleManager;
@@ -279,6 +280,7 @@ export class VideoPlayer implements IVideoPlayer {
 
         // Unload any existing stream
         this.unloadStream();
+        const loadGeneration = ++this._loadGeneration;
 
         // Ensure video element is visible once we start loading media.
         this._videoElement.style.display = 'block';
@@ -329,6 +331,9 @@ export class VideoPlayer implements IVideoPlayer {
 
         if (descriptor.preferredSubtitleTrackId !== undefined) {
             await this.setSubtitleTrack(descriptor.preferredSubtitleTrackId ?? null);
+            if (!this._isActiveLoad(loadGeneration, descriptor)) {
+                return;
+            }
         }
 
         // Load audio tracks
@@ -347,6 +352,9 @@ export class VideoPlayer implements IVideoPlayer {
         // Wait for canplay event with timeout (30s default)
         // Uses VideoPlayerEvents.waitForCanPlay() to avoid code duplication
         await this._eventManager.waitForCanPlay();
+        if (!this._isActiveLoad(loadGeneration, descriptor)) {
+            return;
+        }
 
         this._logSubtitleDebug('canplay', () => ({
             nativeTextTracks: this._snapshotNativeTextTracks(),
@@ -366,6 +374,7 @@ export class VideoPlayer implements IVideoPlayer {
         if (!this._videoElement) {
             return;
         }
+        this._loadGeneration++;
 
         // Mark stream as unloaded early so any teardown-related events (e.g. spurious 'ended' on webOS)
         // don't propagate as "real" playback completion.
@@ -678,6 +687,10 @@ export class VideoPlayer implements IVideoPlayer {
 
     public getCurrentDescriptor(): StreamDescriptor | null {
         return this._state.currentDescriptor;
+    }
+
+    private _isActiveLoad(loadGeneration: number, descriptor: StreamDescriptor): boolean {
+        return this._loadGeneration === loadGeneration && this._state.currentDescriptor === descriptor;
     }
 
     // ========================================
