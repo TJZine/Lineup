@@ -2,9 +2,11 @@
  * @jest-environment jsdom
  */
 
+import { MAX_CHANNELS } from '../../../../scheduler/channel-manager/constants';
 import { createDefaultStrategyOrder, createDefaultStrategyState } from '../../ChannelSetupSessionState';
 import type { EstimateKey, StrategyStepMutableState } from '../../ChannelSetupSessionContracts';
 import { StrategyStepController } from '../StrategyStepController';
+import { STEP2_CONTROL_IDS } from '../constants';
 import type {
     StrategyStepDeps,
     StepRenderContext,
@@ -88,6 +90,17 @@ const createDeps = (overrides: Partial<StrategyStepDeps> = {}): StrategyStepDeps
     schedulePreview: jest.fn(),
     ...overrides,
 });
+
+const renderController = (
+    overrides: Partial<StrategyStepDeps> = {}
+): { ctx: StepRenderContext; deps: StrategyStepDeps; controller: StrategyStepController } => {
+    const ctx = createContext();
+    document.body.appendChild(ctx.contentEl);
+    const deps = createDeps(overrides);
+    const controller = new StrategyStepController();
+    controller.render(ctx, deps);
+    return { ctx, deps, controller };
+};
 
 describe('StrategyStepController', () => {
     afterEach(() => {
@@ -196,19 +209,388 @@ describe('StrategyStepController', () => {
     });
 
     it('renders mixed-scope controls only for supported strategies', () => {
-        const ctx = createContext();
-        document.body.appendChild(ctx.contentEl);
-        const deps = createDeps({
+        const { ctx } = renderController({
             state: {
                 ...createDeps().state,
                 activeStrategyCategory: 'advanced-sources',
             },
         });
-        const controller = new StrategyStepController();
-
-        controller.render(ctx, deps);
 
         expect(ctx.contentEl.querySelector('#scope-genres')).not.toBeNull();
         expect(ctx.contentEl.querySelector('#scope-collections')).toBeNull();
+    });
+
+    it('renders active-category dots, footer actions, and first-time next label', () => {
+        const baseState = createDeps().state;
+        const strategies = createDefaultStrategyState();
+        strategies.collections.enabled = true;
+        strategies.genres.enabled = true;
+
+        const { ctx, deps } = renderController({
+            state: {
+                ...baseState,
+                setupContext: 'first-time',
+                strategies,
+            },
+        });
+
+        expect(
+            ctx.contentEl.querySelector('#category-content-sources .setup-category-dot')
+        ).not.toBeNull();
+        expect(
+            ctx.contentEl.querySelector('#category-advanced-sources .setup-category-dot')
+        ).not.toBeNull();
+        expect((ctx.contentEl.querySelector('#setup-next') as HTMLButtonElement).textContent).toBe('Build Channels');
+
+        (ctx.contentEl.querySelector('#setup-back') as HTMLButtonElement).click();
+        (ctx.contentEl.querySelector('#setup-next') as HTMLButtonElement).click();
+
+        expect(deps.onBack).toHaveBeenCalledTimes(1);
+        expect(deps.onNext).toHaveBeenCalledTimes(1);
+        expect(deps.registerStep2Focusables).toHaveBeenCalledTimes(1);
+        expect(deps.schedulePreview).toHaveBeenCalledTimes(1);
+        expect(ctx.detailEl.textContent).toBe('Detail text');
+    });
+
+    it('routes strategy and scope toggles through applySettingChange mutations', () => {
+        const { ctx: contentCtx, deps: contentDeps } = renderController();
+
+        (contentCtx.contentEl.querySelector('#strategy-playlists') as HTMLButtonElement).click();
+
+        const contentApplySettingChange = contentDeps.applySettingChange as jest.Mock;
+        const disablePlaylists = contentApplySettingChange.mock.calls[0]?.[1] as
+            | ((state: StrategyStepMutableState) => void)
+            | undefined;
+        const contentDraft: StrategyStepMutableState = {
+            strategies: createDefaultStrategyState(),
+            strategyOrder: createDefaultStrategyOrder(),
+            channelExpansion: {
+                addAlternateLineups: false,
+                alternateLineupCopies: 1,
+                variantType: 'none',
+                variantBlockSize: 3,
+            },
+            seriesOrdering: {
+                basePlaybackMode: 'shuffle',
+                baseBlockSize: 3,
+            },
+            buildMode: 'replace',
+            actorStudioCombineMode: 'separate',
+            maxChannels: 200,
+            minItems: 1,
+        };
+        disablePlaylists?.(contentDraft);
+        expect(contentDraft.strategies.playlists.enabled).toBe(false);
+
+        const strategies = createDefaultStrategyState();
+        strategies.genres.scope = 'cross-library';
+        const { ctx: advancedCtx, deps: advancedDeps } = renderController({
+            state: {
+                ...createDeps().state,
+                activeStrategyCategory: 'advanced-sources',
+                strategies,
+            },
+        });
+
+        (advancedCtx.contentEl.querySelector('#scope-genres') as HTMLButtonElement).click();
+
+        const advancedApplySettingChange = advancedDeps.applySettingChange as jest.Mock;
+        const toggleGenresScope = advancedApplySettingChange.mock.calls[0]?.[1] as
+            | ((state: StrategyStepMutableState) => void)
+            | undefined;
+        const advancedDraft: StrategyStepMutableState = {
+            strategies,
+            strategyOrder: createDefaultStrategyOrder(),
+            channelExpansion: {
+                addAlternateLineups: false,
+                alternateLineupCopies: 1,
+                variantType: 'none',
+                variantBlockSize: 3,
+            },
+            seriesOrdering: {
+                basePlaybackMode: 'shuffle',
+                baseBlockSize: 3,
+            },
+            buildMode: 'replace',
+            actorStudioCombineMode: 'separate',
+            maxChannels: 200,
+            minItems: 1,
+        };
+        toggleGenresScope?.(advancedDraft);
+        expect(advancedDraft.strategies.genres.scope).toBe('per-library');
+    });
+
+    it('routes adjustable and quick-action controls through the strategy interaction hooks', () => {
+        const { ctx, deps } = renderController({
+            state: {
+                ...createDeps().state,
+                activeStrategyCategory: 'build-options',
+                channelExpansion: {
+                    addAlternateLineups: true,
+                    alternateLineupCopies: 2,
+                    variantType: 'none',
+                    variantBlockSize: 3,
+                },
+            },
+        });
+
+        (ctx.contentEl.querySelector(`#${STEP2_CONTROL_IDS.combineMode}`) as HTMLButtonElement).click();
+        (ctx.contentEl.querySelector(`#${STEP2_CONTROL_IDS.addAlternateLineups}`) as HTMLButtonElement).click();
+        (ctx.contentEl.querySelector(`#${STEP2_CONTROL_IDS.alternateLineupCopies}`) as HTMLButtonElement).click();
+
+        expect(deps.openAdjustableControl).toHaveBeenCalledWith(STEP2_CONTROL_IDS.combineMode);
+        expect(deps.openAdjustableControl).toHaveBeenCalledWith(STEP2_CONTROL_IDS.alternateLineupCopies);
+
+        const buildApplySettingChange = deps.applySettingChange as jest.Mock;
+        const toggleAlternateLineups = buildApplySettingChange.mock.calls[0]?.[1] as
+            | ((state: StrategyStepMutableState) => void)
+            | undefined;
+        const buildDraft: StrategyStepMutableState = {
+            strategies: createDefaultStrategyState(),
+            strategyOrder: createDefaultStrategyOrder(),
+            channelExpansion: {
+                addAlternateLineups: true,
+                alternateLineupCopies: 2,
+                variantType: 'none',
+                variantBlockSize: 3,
+            },
+            seriesOrdering: {
+                basePlaybackMode: 'shuffle',
+                baseBlockSize: 3,
+            },
+            buildMode: 'replace',
+            actorStudioCombineMode: 'separate',
+            maxChannels: 200,
+            minItems: 1,
+        };
+        toggleAlternateLineups?.(buildDraft);
+        expect(buildDraft.channelExpansion.addAlternateLineups).toBe(false);
+
+        const { ctx: disabledCtx, deps: disabledDeps } = renderController({
+            state: {
+                ...createDeps().state,
+                activeStrategyCategory: 'build-options',
+            },
+        });
+        const disabledCopies = disabledCtx.contentEl.querySelector(
+            `#${STEP2_CONTROL_IDS.alternateLineupCopies}`
+        ) as HTMLButtonElement;
+        disabledCopies.disabled = false;
+        disabledCopies.click();
+        expect(disabledDeps.openAdjustableControl).not.toHaveBeenCalled();
+
+        const { ctx: seriesCtx, deps: seriesDeps } = renderController({
+            state: {
+                ...createDeps().state,
+                activeStrategyCategory: 'series-ordering',
+                seriesOrdering: {
+                    basePlaybackMode: 'block',
+                    baseBlockSize: 4,
+                },
+                channelExpansion: {
+                    addAlternateLineups: false,
+                    alternateLineupCopies: 1,
+                    variantType: 'block',
+                    variantBlockSize: 5,
+                },
+            },
+        });
+
+        (seriesCtx.contentEl.querySelector(`#${STEP2_CONTROL_IDS.seriesBaseMode}`) as HTMLButtonElement).click();
+        (seriesCtx.contentEl.querySelector(`#${STEP2_CONTROL_IDS.seriesBaseBlockSize}`) as HTMLButtonElement).click();
+        (seriesCtx.contentEl.querySelector(`#${STEP2_CONTROL_IDS.seriesVariantType}`) as HTMLButtonElement).click();
+        (seriesCtx.contentEl.querySelector(`#${STEP2_CONTROL_IDS.seriesVariantBlockSize}`) as HTMLButtonElement).click();
+
+        expect(seriesDeps.openAdjustableControl).toHaveBeenCalledWith(STEP2_CONTROL_IDS.seriesBaseMode);
+        expect(seriesDeps.openAdjustableControl).toHaveBeenCalledWith(STEP2_CONTROL_IDS.seriesBaseBlockSize);
+        expect(seriesDeps.openAdjustableControl).toHaveBeenCalledWith(STEP2_CONTROL_IDS.seriesVariantType);
+        expect(seriesDeps.openAdjustableControl).toHaveBeenCalledWith(STEP2_CONTROL_IDS.seriesVariantBlockSize);
+
+        const { ctx: disabledSeriesCtx, deps: disabledSeriesDeps } = renderController({
+            state: {
+                ...createDeps().state,
+                activeStrategyCategory: 'series-ordering',
+            },
+        });
+        const disabledBase = disabledSeriesCtx.contentEl.querySelector(
+            `#${STEP2_CONTROL_IDS.seriesBaseBlockSize}`
+        ) as HTMLButtonElement;
+        disabledBase.disabled = false;
+        disabledBase.click();
+        const disabledVariant = disabledSeriesCtx.contentEl.querySelector(
+            `#${STEP2_CONTROL_IDS.seriesVariantBlockSize}`
+        ) as HTMLButtonElement;
+        disabledVariant.disabled = false;
+        disabledVariant.click();
+        expect(disabledSeriesDeps.openAdjustableControl).not.toHaveBeenCalled();
+
+        const { ctx: limitsCtx, deps: limitsDeps } = renderController({
+            state: {
+                ...createDeps().state,
+                activeStrategyCategory: 'limits',
+            },
+        });
+
+        (limitsCtx.contentEl.querySelector(`#${STEP2_CONTROL_IDS.maxChannels}`) as HTMLButtonElement).click();
+        (limitsCtx.contentEl.querySelector(`#${STEP2_CONTROL_IDS.minItems}`) as HTMLButtonElement).click();
+        (limitsCtx.contentEl.querySelector(`#${STEP2_CONTROL_IDS.expandLineup}`) as HTMLButtonElement).click();
+
+        expect(limitsDeps.openAdjustableControl).toHaveBeenCalledWith(STEP2_CONTROL_IDS.maxChannels);
+        expect(limitsDeps.openAdjustableControl).toHaveBeenCalledWith(STEP2_CONTROL_IDS.minItems);
+
+        const limitsApplySettingChange = limitsDeps.applySettingChange as jest.Mock;
+        const expandLineup = limitsApplySettingChange.mock.calls[0]?.[1] as
+            | ((state: StrategyStepMutableState) => void)
+            | undefined;
+        const limitsDraft: StrategyStepMutableState = {
+            strategies: createDefaultStrategyState(),
+            strategyOrder: createDefaultStrategyOrder(),
+            channelExpansion: {
+                addAlternateLineups: false,
+                alternateLineupCopies: 1,
+                variantType: 'none',
+                variantBlockSize: 3,
+            },
+            seriesOrdering: {
+                basePlaybackMode: 'shuffle',
+                baseBlockSize: 3,
+            },
+            buildMode: 'replace',
+            actorStudioCombineMode: 'separate',
+            maxChannels: 100,
+            minItems: 5,
+        };
+        expandLineup?.(limitsDraft);
+        expect(limitsDraft.maxChannels).toBe(MAX_CHANNELS);
+        expect(limitsDraft.minItems).toBe(1);
+    });
+
+    it('renders preview warnings, loading states, and detailed estimate rows', () => {
+        const { ctx: blockedCtx } = renderController({
+            state: {
+                ...createDeps().state,
+                previewError: 'Select at least one source',
+                previewStatus: 'blocked',
+            },
+        });
+        expect(blockedCtx.contentEl.querySelector('.setup-preview-warning')?.textContent).toContain('Action required');
+
+        const { ctx: slowCtx } = renderController({
+            state: {
+                ...createDeps().state,
+                previewError: 'Timed out',
+                previewStatus: 'slow',
+            },
+        });
+        expect(slowCtx.contentEl.querySelector('.setup-preview-warning')?.textContent).toContain('Preview timed out');
+
+        const warnings = ['Warning one'];
+        const { ctx: previewCtx, deps: previewDeps } = renderController({
+            state: {
+                ...createDeps().state,
+                isPreviewLoading: true,
+                preview: {
+                    estimates: {
+                        total: 8,
+                        collections: 1,
+                        playlists: 1,
+                        genres: 1,
+                        directors: 1,
+                        decades: 1,
+                        recentlyAdded: 1,
+                        studios: 1,
+                        actors: 1,
+                    },
+                    warnings,
+                    reachedMaxChannels: true,
+                },
+            },
+        });
+
+        expect(previewDeps.buildPreviewRow).toHaveBeenCalledTimes(9);
+        expect(previewDeps.renderCappedWarnings).toHaveBeenCalledWith(
+            warnings,
+            expect.any(HTMLDivElement)
+        );
+        expect(previewCtx.contentEl.querySelector('.setup-preview-updating')?.textContent).toContain('Updating');
+        expect(previewCtx.contentEl.querySelectorAll('.setup-preview-warning')).toHaveLength(1);
+        expect(previewCtx.contentEl.querySelector('.setup-preview-strip-summary-text')?.textContent).toBe('Est. 8 channels');
+
+        const { ctx: loadingCtx } = renderController({
+            state: {
+                ...createDeps().state,
+                isPreviewLoading: true,
+                preview: null,
+            },
+        });
+        expect(loadingCtx.contentEl.querySelector('.setup-preview-loading')?.textContent).toContain('Estimating');
+    });
+
+    it('renders priority row move states and updates row buttons in place', () => {
+        const { ctx: upCtx, deps: upDeps, controller: upController } = renderController({
+            state: {
+                ...createDeps().state,
+                activeStrategyCategory: 'priority-order',
+            },
+            lastReorder: { key: 'collections', dir: 'up' },
+        });
+        const priorityOrder = createDefaultStrategyOrder();
+        const firstPriority = priorityOrder[0];
+        const lastPriority = priorityOrder[priorityOrder.length - 1];
+
+        expect(
+            upCtx.contentEl.querySelector('#priority-collections')?.classList.contains('setup-priority-row--move-up')
+        ).toBe(true);
+        expect(
+            upCtx.contentEl.querySelector(`#priority-${firstPriority} .setup-priority-arrow-up`)?.classList.contains(
+                'setup-priority-arrow--hidden'
+            )
+        ).toBe(true);
+
+        (upCtx.contentEl.querySelector('#priority-playlists') as HTMLButtonElement).click();
+        const priorityApplySettingChange = upDeps.applySettingChange as jest.Mock;
+        const togglePriority = priorityApplySettingChange.mock.calls[0]?.[1] as
+            | ((state: StrategyStepMutableState) => void)
+            | undefined;
+        const draft: StrategyStepMutableState = {
+            strategies: createDefaultStrategyState(),
+            strategyOrder: createDefaultStrategyOrder(),
+            channelExpansion: {
+                addAlternateLineups: false,
+                alternateLineupCopies: 1,
+                variantType: 'none',
+                variantBlockSize: 3,
+            },
+            seriesOrdering: {
+                basePlaybackMode: 'shuffle',
+                baseBlockSize: 3,
+            },
+            buildMode: 'replace',
+            actorStudioCombineMode: 'separate',
+            maxChannels: 200,
+            minItems: 1,
+        };
+        togglePriority?.(draft);
+        expect(draft.strategies.playlists.enabled).toBe(false);
+
+        const updated = upController.updatePriorityRowState(upCtx.contentEl, 'priority-playlists', true);
+        expect(updated?.getAttribute('aria-pressed')).toBe('true');
+        expect(updated?.getAttribute('aria-label')).toContain('On');
+
+        const { ctx: downCtx } = renderController({
+            state: {
+                ...createDeps().state,
+                activeStrategyCategory: 'priority-order',
+            },
+            lastReorder: { key: 'playlists', dir: 'down' },
+        });
+        expect(
+            downCtx.contentEl.querySelector('#priority-playlists')?.classList.contains('setup-priority-row--move-down')
+        ).toBe(true);
+        expect(
+            downCtx.contentEl.querySelector(`#priority-${lastPriority} .setup-priority-arrow-down`)?.classList.contains(
+                'setup-priority-arrow--hidden'
+            )
+        ).toBe(true);
     });
 });
