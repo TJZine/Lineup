@@ -601,11 +601,27 @@ describe('ChannelTuningCoordinator', () => {
         deps.saveLifecycleState.mockRejectedValueOnce(new Error('save failed'));
 
         await expect(coordinator.switchToChannel('ch1')).resolves.toBe('switched');
+        expect(deps.handleGlobalError).toHaveBeenCalledWith(
+            {
+                code: AppErrorCode.STORAGE_CORRUPTED,
+                message: 'save failed',
+                recoverable: true,
+                context: {
+                    channelId: 'ch1',
+                    operation: 'switchToChannel',
+                    step: 'saveLifecycleState',
+                },
+            },
+            'switchToChannel'
+        );
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
             'channelTuning.lifecycleSaveFailed',
             expect.objectContaining({
                 channelId: 'ch1',
+                code: AppErrorCode.STORAGE_CORRUPTED,
+                message: 'save failed',
+                recoverable: true,
                 error: {
                     name: 'Error',
                     message: 'save failed',
@@ -620,6 +636,16 @@ describe('ChannelTuningCoordinator', () => {
 
         await expect(coordinator.switchToChannelByNumber(999)).resolves.toBe('failed');
 
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'channelTuning.channelMissingByNumber',
+            expect.objectContaining({
+                attemptedChannelNumber: 999,
+                code: AppErrorCode.CHANNEL_NOT_FOUND,
+                message: 'Channel 999 not found',
+                recoverable: true,
+            })
+        );
         expect(deps.handleGlobalError).toHaveBeenCalledWith(
             {
                 code: AppErrorCode.CHANNEL_NOT_FOUND,
@@ -692,12 +718,69 @@ describe('ChannelTuningCoordinator', () => {
             expect.objectContaining({
                 channelId: 'ch1',
                 channelPrefix: '1 Channel 1',
+                code: AppErrorCode.UI_RENDER_ERROR,
+                message: 'transition failed',
+                recoverable: true,
                 error: {
                     name: 'Error',
                     message: 'transition failed',
                 },
             })
         );
-        expect(deps.handleGlobalError).not.toHaveBeenCalled();
+        expect(deps.handleGlobalError).toHaveBeenCalledWith(
+            {
+                code: AppErrorCode.UI_RENDER_ERROR,
+                message: 'transition failed',
+                recoverable: true,
+                context: {
+                    channelId: 'ch1',
+                    channelPrefix: '1 Channel 1',
+                    operation: 'switchToChannel',
+                    step: 'armChannelTransitionForSwitch',
+                },
+            },
+            'switchToChannel'
+        );
+    });
+
+    it('reports scheduler cleanup failures through the shared error contract', async () => {
+        const { coordinator, deps, scheduler } = createCoordinator();
+        scheduler.syncToCurrentTime.mockImplementation(() => {
+            throw new Error('sync failed');
+        });
+        scheduler.unloadChannel.mockImplementation(() => {
+            throw new Error('unload failed');
+        });
+
+        await expect(coordinator.switchToChannel('ch1')).resolves.toBe('failed');
+
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'channelTuning.schedulerUnloadFailed',
+            expect.objectContaining({
+                channelId: 'ch1',
+                failedStep: 'scheduler.syncToCurrentTime',
+                code: AppErrorCode.PLAYBACK_FAILED,
+                message: 'unload failed',
+                recoverable: true,
+                error: {
+                    name: 'Error',
+                    message: 'unload failed',
+                },
+            })
+        );
+        expect(deps.handleGlobalError).toHaveBeenCalledWith(
+            {
+                code: AppErrorCode.PLAYBACK_FAILED,
+                message: 'unload failed',
+                recoverable: true,
+                context: {
+                    channelId: 'ch1',
+                    failedStep: 'scheduler.syncToCurrentTime',
+                    operation: 'switchToChannel',
+                },
+            },
+            'switchToChannel'
+        );
     });
 });

@@ -359,13 +359,30 @@ export class ChannelTuningCoordinator {
                 }
                 return '';
             })();
-            try {
+            const transitionArmError = this._captureSyncError(() => {
                 this.deps.armChannelTransitionForSwitch(channelPrefix);
-            } catch (error: unknown) {
-                this._recordNonFatalError('channelTuning.channelTransitionArmFailed', error, {
-                    channelId,
-                    channelPrefix,
-                });
+            });
+            if (transitionArmError) {
+                this._reportHandledUnknownError(
+                    'channelTuning.channelTransitionArmFailed',
+                    transitionArmError,
+                    {
+                        code: AppErrorCode.UI_RENDER_ERROR,
+                        message: 'Unable to prepare the channel transition overlay.',
+                        recoverable: true,
+                        context: {
+                            operation: 'switchToChannel',
+                            channelId,
+                            channelPrefix,
+                            step: 'armChannelTransitionForSwitch',
+                        },
+                    },
+                    'switchToChannel',
+                    {
+                        channelId,
+                        channelPrefix,
+                    }
+                );
             }
             videoPlayer.stop();
 
@@ -410,13 +427,29 @@ export class ChannelTuningCoordinator {
                     'switchToChannel',
                     { channelId, error: summary }
                 );
-                try {
+                const schedulerUnloadError = this._captureSyncError(() => {
                     scheduler.unloadChannel();
-                } catch (cleanupError: unknown) {
-                    this._recordNonFatalError('channelTuning.schedulerUnloadFailed', cleanupError, {
-                        channelId,
-                        failedStep: 'scheduler.syncToCurrentTime',
-                    });
+                });
+                if (schedulerUnloadError) {
+                    this._reportHandledUnknownError(
+                        'channelTuning.schedulerUnloadFailed',
+                        schedulerUnloadError,
+                        {
+                            code: AppErrorCode.PLAYBACK_FAILED,
+                            message: 'Unable to clean up the failed channel switch.',
+                            recoverable: true,
+                            context: {
+                                operation: 'switchToChannel',
+                                channelId,
+                                failedStep: 'scheduler.syncToCurrentTime',
+                            },
+                        },
+                        'switchToChannel',
+                        {
+                            channelId,
+                            failedStep: 'scheduler.syncToCurrentTime',
+                        }
+                    );
                 }
                 return 'failed';
             }
@@ -425,12 +458,26 @@ export class ChannelTuningCoordinator {
             channelManager.setCurrentChannel(channelId);
 
             // Save state
-            try {
-                await this.deps.saveLifecycleState();
-            } catch (error: unknown) {
-                this._recordNonFatalError('channelTuning.lifecycleSaveFailed', error, {
-                    channelId,
-                });
+            const lifecycleSaveError = await this._captureAsyncError(() =>
+                this.deps.saveLifecycleState()
+            );
+            if (lifecycleSaveError) {
+                this._reportHandledUnknownError(
+                    'channelTuning.lifecycleSaveFailed',
+                    lifecycleSaveError,
+                    {
+                        code: AppErrorCode.STORAGE_CORRUPTED,
+                        message: 'Unable to persist lifecycle state after switching channels.',
+                        recoverable: true,
+                        context: {
+                            operation: 'switchToChannel',
+                            channelId,
+                            step: 'saveLifecycleState',
+                        },
+                    },
+                    'switchToChannel',
+                    { channelId }
+                );
             }
             return 'switched';
         } finally {
@@ -465,7 +512,8 @@ export class ChannelTuningCoordinator {
 
         const channel = channelManager.getChannelByNumber(number);
         if (!channel) {
-            this.deps.handleGlobalError(
+            this._reportHandledError(
+                'channelTuning.channelMissingByNumber',
                 {
                     code: AppErrorCode.CHANNEL_NOT_FOUND,
                     message: `Channel ${number} not found`,
@@ -475,7 +523,8 @@ export class ChannelTuningCoordinator {
                         attemptedChannelNumber: number,
                     },
                 },
-                'switchToChannelByNumber'
+                'switchToChannelByNumber',
+                { attemptedChannelNumber: number }
             );
             return 'failed';
         }
@@ -536,15 +585,22 @@ export class ChannelTuningCoordinator {
         this.deps.handleGlobalError(error, operation);
     }
 
-    private _recordNonFatalError(
-        stage: string,
-        error: unknown,
-        details: Record<string, unknown> = {}
-    ): void {
-        this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, stage, {
-            ...details,
-            error: summarizeErrorForLog(error),
-        });
+    private _captureSyncError(operation: () => void): unknown | null {
+        try {
+            operation();
+            return null;
+        } catch (error: unknown) {
+            return error;
+        }
+    }
+
+    private async _captureAsyncError(operation: () => Promise<void>): Promise<unknown | null> {
+        try {
+            await operation();
+            return null;
+        } catch (error: unknown) {
+            return error;
+        }
     }
 
     private _normalizeAppError(error: unknown, fallback: ChannelTuningErrorFallback): AppError {
