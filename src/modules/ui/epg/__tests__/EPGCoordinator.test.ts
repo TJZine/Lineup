@@ -2491,6 +2491,39 @@ describe('EPGCoordinator', () => {
         expect(refreshSpy).toHaveBeenCalledWith(range, { reason: 'visible-range' });
     });
 
+    it('handleVisibleRangeChange reports best-effort range failures through diagnostics', async () => {
+        const { deps, epg } = makeDeps();
+        const coordinator = new EPGCoordinator(deps);
+        const error = new Error('visible range failed');
+        const range = {
+            channelStart: 1,
+            channelEnd: 4,
+            timeStartMs: 1000,
+            timeEndMs: 2000,
+        };
+        jest
+            .spyOn(coordinator, 'refreshEpgSchedulesForRange')
+            .mockRejectedValue(error);
+
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+
+        coordinator.handleVisibleRangeChange(range);
+        await flushPromises();
+
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.refreshSchedulesForRangeBestEffortFailed',
+            expect.objectContaining({
+                reason: 'visible-range',
+                debounceMs: null,
+                range,
+                safeError: expect.objectContaining({
+                    message: expect.stringContaining('visible range failed'),
+                }),
+            })
+        );
+    });
+
     it('handleVisibleRangeChange does not enqueue refresh work when the guide is hidden', async () => {
         const { deps, epg } = makeDeps();
         const coordinator = new EPGCoordinator(deps);

@@ -48,6 +48,29 @@ const createResolvedContent = (channelId: string): ResolvedChannelContent => {
     };
 };
 
+const createScheduleWindow = (channelId: string): ScheduleWindow => ({
+    startTime: 0,
+    endTime: 60_000,
+    programs: [
+        {
+            item: makeResolvedItems(channelId)[0]!,
+            scheduledStartTime: 0,
+            scheduledEndTime: 60_000,
+            elapsedMs: 0,
+            remainingMs: 60_000,
+            scheduleIndex: 0,
+            loopNumber: 0,
+            streamDescriptor: null,
+            isCurrent: false,
+        },
+    ],
+});
+
+const flushPromises = async (): Promise<void> => {
+    await Promise.resolve();
+    await Promise.resolve();
+};
+
 const createRuntime = (
     overrides: Partial<EPGScheduleRefreshRuntimeDeps> & {
         channelManager?: Partial<IChannelManager>;
@@ -184,6 +207,78 @@ describe('EPGScheduleRefreshRuntime', () => {
                 source: 'resolved-immediate',
             })
         );
+    });
+
+    it('reports background warm queue batch failures through issue diagnostics', async () => {
+        jest.useFakeTimers();
+        const idleScheduler = globalThis as unknown as {
+            requestIdleCallback?: typeof globalThis.requestIdleCallback;
+            cancelIdleCallback?: typeof globalThis.cancelIdleCallback;
+        };
+        const priorRequestIdleCallback = idleScheduler.requestIdleCallback;
+        const priorCancelIdleCallback = idleScheduler.cancelIdleCallback;
+        delete idleScheduler.requestIdleCallback;
+        delete idleScheduler.cancelIdleCallback;
+
+        const channels = Array.from({ length: 20 }, (_, index) => makeChannel(`c${index + 1}`, index + 1));
+        const cloneFailure = new Error('cache clone failed');
+        const { runtime, deps } = createRuntime({
+            channelManager: {
+                getAllChannels: jest.fn(() => channels),
+                getChannel: jest.fn((channelId: string) => (
+                    channels.find((channel) => channel.id === channelId) ?? null
+                )),
+                resolveChannelContent: jest.fn(async (channelId: string) => createResolvedContent(channelId)),
+                resolveChannelItemsForSchedule: jest.fn(async (channelId: string) => makeResolvedItems(channelId)),
+            },
+            getScheduleLoadConcurrency: () => 1,
+            cloneScheduleWindow: (window: ScheduleWindow): ScheduleWindow => {
+                if (window.programs[0]?.item.ratingKey === 'c20-0') {
+                    throw cloneFailure;
+                }
+                return { ...window, programs: [...window.programs] };
+            },
+        });
+
+        (
+            runtime as unknown as {
+                _cacheStore: { storeSchedule: (channelId: string, rangeKey: string, schedule: ScheduleWindow) => void };
+            }
+        )._cacheStore.storeSchedule('c20', '0-60000', createScheduleWindow('c20'));
+
+        try {
+            await runtime.refreshForRange(
+                { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+                'visible-range'
+            );
+
+            for (let i = 0; i < 20; i += 1) {
+                jest.advanceTimersByTime(50);
+                await flushPromises();
+            }
+
+            expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+                'QA-003b',
+                'epg.backgroundWarmQueueFailed',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        message: expect.stringContaining('cache clone failed'),
+                    }),
+                })
+            );
+        } finally {
+            jest.useRealTimers();
+            if (priorRequestIdleCallback) {
+                idleScheduler.requestIdleCallback = priorRequestIdleCallback;
+            } else {
+                delete idleScheduler.requestIdleCallback;
+            }
+            if (priorCancelIdleCallback) {
+                idleScheduler.cancelIdleCallback = priorCancelIdleCallback;
+            } else {
+                delete idleScheduler.cancelIdleCallback;
+            }
+        }
     });
 
     it('aborts stale in-flight loads when a force-refresh request arrives', async () => {
