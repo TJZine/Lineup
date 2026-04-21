@@ -17,6 +17,7 @@ describe('subtitle format constants', () => {
 
     it('classifies text subtitle format aliases case-insensitively', () => {
         expect(isTextSubtitleFormat('SRT')).toBe(true);
+        expect(isTextSubtitleFormat('  SRT  ')).toBe(true);
         expect(isTextSubtitleFormat('subrip')).toBe(true);
         expect(isTextSubtitleFormat('pgs')).toBe(false);
         expect(isTextSubtitleFormat(null)).toBe(false);

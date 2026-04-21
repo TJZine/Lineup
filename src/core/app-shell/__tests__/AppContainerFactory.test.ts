@@ -206,6 +206,18 @@ describe('createAppContainers', () => {
         expect(hostMatches[0]).toBe(first);
     });
 
+    it('throws in development when unmanaged non-element nodes remain under the runtime chrome host', () => {
+        const root = document.getElementById('app') as HTMLElement;
+        const runtimeChromeHost = document.createElement('div');
+        runtimeChromeHost.id = APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST;
+        runtimeChromeHost.appendChild(document.createTextNode(' stray '));
+        root.appendChild(runtimeChromeHost);
+
+        expect(() => createAppContainers(root)).toThrow(
+            'AppContainerFactory runtime chrome host has unmanaged children: #text'
+        );
+    });
+
     it('repairs runtime chrome members that drift outside the host', () => {
         const root = document.getElementById('app') as HTMLElement;
         const strayPlayerOsd = document.createElement('div');

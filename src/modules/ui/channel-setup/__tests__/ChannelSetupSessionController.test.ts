@@ -974,6 +974,43 @@ describe('ChannelSetupSessionController', () => {
         expect(controller.getSnapshot().review).toEqual(DEFAULT_REVIEW);
     });
 
+    it('clearReviewForEdits() retires in-flight preview and review work so stale results cannot repopulate state', async (): Promise<void> => {
+        const preview = createDeferred<typeof DEFAULT_PREVIEW>();
+        const review = createDeferred<typeof DEFAULT_REVIEW>();
+        const workflowPort = createWorkflowPort({
+            getSetupPreview: jest.fn().mockImplementation(() => preview.promise),
+            getSetupReview: jest.fn().mockImplementation(() => review.promise),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+        const controller = new ChannelSetupSessionController({
+            workflowPort,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        await controller.loadLibraries();
+        controller.setStep(2);
+
+        controller.schedulePreview(jest.fn());
+        await jest.advanceTimersByTimeAsync(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
+        await flushPromises();
+        const reviewPromise = controller.ensureReviewLoaded(jest.fn());
+        await flushPromises();
+        expect(controller.getSnapshot().isPreviewLoading).toBe(true);
+        expect(controller.getSnapshot().isReviewLoading).toBe(true);
+
+        controller.clearReviewForEdits();
+        expect(controller.getSnapshot().isPreviewLoading).toBe(false);
+        expect(controller.getSnapshot().isReviewLoading).toBe(false);
+
+        preview.resolve(DEFAULT_PREVIEW);
+        review.resolve(DEFAULT_REVIEW);
+        await Promise.all([reviewPromise, flushPromises()]);
+
+        expect(controller.getSnapshot().preview).toBeNull();
+        expect(controller.getSnapshot().review).toBeNull();
+    });
+
     it('ensureReviewLoaded() propagates onStateChange errors after cleanup without leaking loading state', async (): Promise<void> => {
         const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
         const workflowPort = createWorkflowPort({ getSetupReview });

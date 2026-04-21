@@ -54,6 +54,20 @@ describe('css-test-utils', () => {
         );
     });
 
+    it('normalizes container selector whitespace before matching nested blocks', () => {
+        const css = `
+@media   (forced-colors: active) {
+  .settings-item {
+    color: CanvasText;
+  }
+}
+`;
+
+        expect(blockWithin(css, '@media (forced-colors: active)', '.settings-item')).toContain(
+            'color: CanvasText;'
+        );
+    });
+
     it('ignores container text that appears inside comments before the real at-rule', () => {
         const css = `
 /* @media (forced-colors: active) { .settings-item { color: bogus; } } */

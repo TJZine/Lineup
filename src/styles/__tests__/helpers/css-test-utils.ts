@@ -250,6 +250,7 @@ export const topLevelBlockForProperty = (css: string, selector: string, property
 };
 
 export const blockWithin = (css: string, container: string, selector: string): string => {
+    const wantedContainer = normalizeSelector(container);
     let cursor = 0;
     let ruleStart = 0;
 
@@ -269,7 +270,7 @@ export const blockWithin = (css: string, container: string, selector: string): s
             const selectorList = css.slice(ruleStart, cursor).trim();
             const blockEnd = findMatchingBrace(css, cursor);
 
-            if (selectorList === container) {
+            if (normalizeSelector(selectorList) === wantedContainer) {
                 return blockFor(blockBody(css.slice(ruleStart, blockEnd)), selector);
             }
 

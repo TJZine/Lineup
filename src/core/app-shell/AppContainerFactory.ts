@@ -114,14 +114,24 @@ function assertManagedChildren(
     }
 
     const expected = new Set(expectedChildren);
-    const unexpected = Array.from(parent.children).filter((child) => !expected.has(child as HTMLElement));
+    const unexpected = Array.from(parent.childNodes).filter((child) =>
+        !(child instanceof HTMLElement && expected.has(child))
+    );
     if (unexpected.length === 0) {
         return;
     }
 
     const unexpectedLabels = unexpected.map((child) => {
-        const element = child as HTMLElement;
-        return element.id ? `#${element.id}` : element.tagName.toLowerCase();
+        if (child.nodeType === Node.TEXT_NODE) {
+            return '#text';
+        }
+        if (child.nodeType === Node.COMMENT_NODE) {
+            return '<!-- -->';
+        }
+        if (child instanceof HTMLElement) {
+            return child.id ? `#${child.id}` : child.tagName.toLowerCase();
+        }
+        return `nodeType:${child.nodeType}`;
     });
     throw new Error(`${scope} has unmanaged children: ${unexpectedLabels.join(', ')}`);
 }

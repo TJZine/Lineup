@@ -164,6 +164,7 @@ export class ChannelSetupSessionRuntime {
     }
 
     clearReviewForEdits(): void {
+        this._retirePlanningRequests();
         this._deps.state.clearReviewForEdits();
     }
 
@@ -233,10 +234,12 @@ export class ChannelSetupSessionRuntime {
                     signal: reviewAbortController.signal,
                 });
                 if (token !== state.sessionToken) return;
+                if (this._reviewAbortController !== reviewAbortController) return;
                 state.review = review;
             }
         } catch (error) {
             if (token !== state.sessionToken) return;
+            if (this._reviewAbortController !== reviewAbortController) return;
             if (isAbortLikeError(error, reviewAbortController.signal)) {
                 return;
             }
@@ -343,6 +346,11 @@ export class ChannelSetupSessionRuntime {
     private _handleLibrarySelectionEdit(): void {
         this._deps.workflowPort.invalidateFacetSnapshot();
         this.clearReviewForEdits();
+    }
+
+    private _retirePlanningRequests(): void {
+        this._deps.state.sessionToken += 1;
+        this._cleanupPlanningAsyncState();
     }
 
     private async _refreshPreview(onStateChange: () => void): Promise<void> {
