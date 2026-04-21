@@ -570,6 +570,9 @@ export function buildChannelTransitionCoordinator(
         getOverlay: (): IChannelTransitionOverlay | null => input.overlays.channelTransitionOverlay,
         getNavigation: (): INavigationManager | null => input.modules.navigation,
         getVideoPlayer: (): IVideoPlayer | null => input.modules.videoPlayer,
+        onActivityChange: (active: boolean): void => {
+            input.actions.onChannelTransitionActivityChange(active);
+        },
     });
 }
 

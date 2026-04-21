@@ -97,6 +97,9 @@ const makeInput = (
             epg: {
                 isVisible: jest.fn().mockReturnValue(false),
             },
+            channelTransitionActivity: {
+                isActive: jest.fn().mockReturnValue(false),
+            },
             channelManager: {
                 getCurrentChannel: jest.fn().mockReturnValue({ number: 7, name: 'Movies' }),
                 on: jest.fn(),
@@ -181,6 +184,34 @@ describe('PriorityOneControllerCollaborators', () => {
             channelNumber: 7,
             channelName: 'Movies',
         });
+    });
+
+    it('creates an overlay runtime controller that suppresses the badge while transition activity is active', () => {
+        const playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors> = {
+            getCurrentProgramForPlayback: jest.fn().mockReturnValue(makeProgram()),
+            setCurrentProgramForPlayback: jest.fn(),
+            getCurrentStreamDescriptor: jest.fn().mockReturnValue(null),
+            setCurrentStreamDescriptor: jest.fn(),
+            getCurrentStreamDecision: jest.fn().mockReturnValue(null),
+            setCurrentStreamDecision: jest.fn(),
+            getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
+            setPendingNowPlayingChannelId: jest.fn(),
+            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
+            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
+        };
+        const input = makeInput(playbackState);
+        (
+            input.surfaces as PriorityOneAssemblyInput['surfaces'] & {
+                channelTransitionActivity: { isActive: jest.Mock<boolean, []> };
+            }
+        ).channelTransitionActivity = {
+            isActive: jest.fn().mockReturnValue(true),
+        };
+
+        createOverlayRuntimePolicyController(input).syncChannelBadgeOverlay();
+
+        expect(input.surfaces.channelBadgeOverlay?.hide).toHaveBeenCalledTimes(1);
+        expect(input.surfaces.channelBadgeOverlay?.show).not.toHaveBeenCalled();
     });
 
     it('creates playback collaborators that drive program-start and runtime state through the assembly input', async () => {
