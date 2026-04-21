@@ -676,6 +676,10 @@ export class VideoPlayer implements IVideoPlayer {
         return this._audioTrackManager.getTracks();
     }
 
+    public getCurrentDescriptor(): StreamDescriptor | null {
+        return this._state.currentDescriptor;
+    }
+
     // ========================================
     // State
     // ========================================

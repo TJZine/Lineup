@@ -519,6 +519,94 @@ describe('PlaybackReloadController', () => {
         );
     });
 
+    it('does not unload a newer stream that took over before a stale late abort', async () => {
+        const originalProgram = makeProgram();
+        const changedProgram = makeProgram({
+            item: { ...originalProgram.item, ratingKey: 'item-2' } as ScheduledProgram['item'],
+        });
+        let currentProgram: ScheduledProgram | null = originalProgram;
+        const previousDecision = makeDecision({
+            playbackUrl: 'http://test/previous.m3u8',
+            sessionId: 'sess-prev',
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+        });
+        let currentDecision = previousDecision;
+        const previousDescriptor = { url: 'http://test/previous-video.m3u8' } as StreamDescriptor;
+        let currentDescriptor = previousDescriptor;
+        const staleDescriptor = { url: 'http://test/stale-video.m3u8' } as StreamDescriptor;
+        const newerDescriptor = { url: 'http://test/newer-video.m3u8' } as StreamDescriptor;
+        let activeDescriptor: StreamDescriptor | null = previousDescriptor;
+        const player: IVideoPlayer = {
+            loadStream: jest.fn().mockImplementation(async (descriptor: StreamDescriptor) => {
+                activeDescriptor = descriptor;
+                activeDescriptor = newerDescriptor;
+                currentProgram = changedProgram;
+            }),
+            unloadStream: jest.fn().mockImplementation(() => {
+                activeDescriptor = null;
+            }),
+            play: jest.fn().mockResolvedValue(undefined),
+            stop: jest.fn(),
+            getCurrentDescriptor: jest.fn().mockImplementation(() => activeDescriptor),
+            getCurrentTimeMs: jest.fn().mockReturnValue(5000),
+        } as unknown as IVideoPlayer;
+        const resolver: IPlexStreamResolver = {
+            resolveStream: jest.fn().mockResolvedValue(makeDecision()),
+        } as unknown as IPlexStreamResolver;
+        const context = makeContext({
+            program: originalProgram,
+            player,
+            resolver,
+            currentDecision: previousDecision,
+        });
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const controller = new PlaybackReloadController({
+            getVideoPlayer: (): IVideoPlayer => player,
+            getStreamResolver: (): IPlexStreamResolver => resolver,
+            getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
+            getCurrentStreamDecision: (): StreamDecision | null => currentDecision,
+            setCurrentStreamDecision: (decision): void => {
+                currentDecision = decision;
+            },
+            setCurrentStreamDescriptor: (descriptor): void => {
+                currentDescriptor = descriptor;
+            },
+            buildStreamDescriptor: jest.fn().mockReturnValue(staleDescriptor),
+            resetPlaybackFailureGuard: jest.fn(),
+        });
+
+        const result = await controller.executeReload({
+            context,
+            successOutcome: 'reloaded',
+            startEvent: 'audioReload.start',
+            abortedEvent: 'audioReload.aborted',
+            failedEvent: 'audioReload.failed',
+            buildRequest: ({ itemKey, clampedOffset }) => ({
+                itemKey,
+                startOffsetMs: clampedOffset,
+                directPlay: false,
+            }),
+            shouldResumeAfterReload: true,
+        });
+
+        expect(result).toEqual({ outcome: 'ignored', reason: 'program_changed' });
+        expect(player.loadStream).toHaveBeenCalledWith(staleDescriptor);
+        expect(player.unloadStream).not.toHaveBeenCalled();
+        expect(activeDescriptor).toBe(newerDescriptor);
+        expect(currentDecision).toBe(previousDecision);
+        expect(currentDescriptor).toBe(previousDescriptor);
+        expect(warnSpy).toHaveBeenCalledWith(
+            'playback_recovery',
+            expect.objectContaining({
+                event: 'audioReload.aborted',
+                reason: 'test_reason',
+                outcome: 'program_changed',
+            })
+        );
+    });
+
     it('logs failures and returns failed when resolution throws', async () => {
         const context = makeContext({
             resolver: {

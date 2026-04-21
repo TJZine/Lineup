@@ -36,6 +36,7 @@ export interface IVideoPlayer {
 
     getAvailableSubtitles(): SubtitleTrack[];
     getAvailableAudio(): AudioTrack[];
+    getCurrentDescriptor?(): StreamDescriptor | null;
     getState(): PlaybackState;
     getCurrentTimeMs(): number;
     getDurationMs(): number;

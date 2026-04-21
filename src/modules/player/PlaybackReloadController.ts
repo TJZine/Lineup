@@ -113,13 +113,17 @@ export class PlaybackReloadController {
 
         try {
             const abortIfProgramChanged = (
-                teardownLoadedStream: boolean
+                teardownDescriptor: StreamDescriptor | null
             ): RecoveryAttemptResult<TSuccess, 'program_changed'> | null => {
                 if (this.deps.getCurrentProgramForPlayback() === context.program) {
                     return null;
                 }
 
-                if (teardownLoadedStream) {
+                if (
+                    teardownDescriptor &&
+                    (!context.player.getCurrentDescriptor ||
+                        context.player.getCurrentDescriptor() === teardownDescriptor)
+                ) {
                     context.player.unloadStream();
                 }
 
@@ -132,13 +136,13 @@ export class PlaybackReloadController {
             };
 
             await config.beforeResolve?.(context);
-            const beforeResolveAbort = abortIfProgramChanged(false);
+            const beforeResolveAbort = abortIfProgramChanged(null);
             if (beforeResolveAbort) {
                 return beforeResolveAbort;
             }
 
             const decision = await context.resolver.resolveStream(config.buildRequest(context));
-            const resolveAbort = abortIfProgramChanged(false);
+            const resolveAbort = abortIfProgramChanged(null);
             if (resolveAbort) {
                 return resolveAbort;
             }
@@ -157,20 +161,20 @@ export class PlaybackReloadController {
             }
 
             await context.player.loadStream(descriptor);
-            const loadAbort = abortIfProgramChanged(true);
+            const loadAbort = abortIfProgramChanged(descriptor);
             if (loadAbort) {
                 return loadAbort;
             }
 
             await config.afterLoad?.(descriptor, descriptorContext);
-            const afterLoadAbort = abortIfProgramChanged(true);
+            const afterLoadAbort = abortIfProgramChanged(descriptor);
             if (afterLoadAbort) {
                 return afterLoadAbort;
             }
 
             if (config.shouldResumeAfterReload) {
                 await context.player.play();
-                const playAbort = abortIfProgramChanged(true);
+                const playAbort = abortIfProgramChanged(descriptor);
                 if (playAbort) {
                     return playAbort;
                 }
