@@ -505,9 +505,9 @@ Every `P#-EXIT` must, in the same pass:
 - Follow-ups: preserve the stale-proven playback/player/probe detector rows above unless future current-source changes invalidate their proof; no deferred or split successor owner remains after `P5-EXIT`
 - Handoff: `P6-W1`
 
-### [ ] `P6-W1` `pkg_channel_setup_scheduler` Channel Setup And Scheduler Contracts
+### [x] `P6-W1` `pkg_channel_setup_scheduler` Channel Setup And Scheduler Contracts
 
-- Backlog: `38 = 34 older live non-review + 2 fresh review + 2 fresh non-review`
+- Backlog: `41 = 37 older live non-review + 2 fresh review + 2 fresh non-review`
 - Scope: keep channel-setup workflow cleanup, scheduler/channel-manager contracts, and channel-tuning residue in one domain-owned package
 - Exact membership: `docs/architecture/active-cleanup-package-map.json` -> `pkg_channel_setup_scheduler`
 - Package-local scoping commands:
@@ -516,22 +516,84 @@ Every `P#-EXIT` must, in the same pass:
   - `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150`
   - `desloppify show src/modules/scheduler/scheduler --status open --no-budget --top 150`
   - `desloppify show src/modules/ui/channel-setup --status open --no-budget --top 150`
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
+- Status: completed
+- Plan: `docs/plans/2026-04-21-p6-w1-channel-setup-scheduler-contracts.md`
+- Last touched: `2026-04-21`
+- Verification: observed passing focused Jest envelopes for `P6-W1-S1` (`src/core/channel-setup/__tests__/ChannelSetupBuildCommitter.test.ts`, `src/core/channel-setup/__tests__/ChannelSetupBuildExecutor.test.ts`, `src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts`, `src/core/channel-setup/__tests__/ChannelSetupWorkflow.test.ts`, `src/core/channel-setup/__tests__/createChannelSetupWorkflowPort.test.ts`), `P6-W1-S2` (`src/core/channel-setup/__tests__/ChannelSetupPlanner.test.ts`, `src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts`, `src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoader.test.ts`, `src/core/channel-setup/__tests__/ChannelSetupTagFilters.test.ts`), `P6-W1-S3` (`src/core/channel-tuning/__tests__/ChannelTuningCoordinator.test.ts`, `src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts`, `src/modules/scheduler/channel-manager/__tests__/ContentResolver.test.ts`, `src/modules/scheduler/scheduler/__tests__/ChannelScheduler.test.ts`, `src/modules/scheduler/scheduler/__tests__/ScheduleCalculator.test.ts`), and the final `P6-W1-S4` UI/controller surface (`src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`, `src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts`, `src/modules/ui/channel-setup/__tests__/ChannelSetupSessionRuntime.test.ts`, `src/modules/ui/channel-setup/steps/__tests__/BuildReviewStepController.test.ts`, `src/modules/ui/channel-setup/steps/__tests__/LibraryStepController.test.ts`, `src/modules/ui/channel-setup/steps/__tests__/StrategyStepController.test.ts`, `src/modules/ui/channel-setup/steps/__tests__/StrategyStepInteractionController.test.ts`); observed focused direct-controller coverage of `BuildReviewStepController` `91.08 / 81.35 / 75`, `LibraryStepController` `91.17 / 80 / 75`, `StrategyStepController` `99.39 / 88.02 / 100`, and `StrategyStepInteractionController` `90.18 / 86.81 / 86.95`; and observed a passing `npm run verify` after the final clean `S4` review gate
+- Follow-ups: preserve the stale-proven detector rows recorded in `P6-EXIT`; no split successor owner remains after `P6-EXIT`
 - Handoff: `P6-EXIT`
 
-- [ ] `P6-EXIT`
+- [x] `P6-EXIT`
 
   - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P7`
   - required: refresh package-local commands, record mapped review dispositions from `pkg_channel_setup_scheduler`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
+- Status: completed
+- Plan: `docs/plans/2026-04-21-p6-w1-channel-setup-scheduler-contracts.md`
+- Last touched: `2026-04-21`
+- Verification: observed `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, `desloppify show security --status open --no-budget --top 50`, the package-local scoping commands for `src/core/channel-setup`, `src/core/channel-tuning`, `src/modules/scheduler/channel-manager`, `src/modules/scheduler/scheduler`, and `src/modules/ui/channel-setup`, exact reruns for the mapped review ids `review::.::holistic::contract_coherence::{channel_manager_error_contract_docs_lag_runtime,channel_setup_port_absence_contract_split}`, exact reruns for the mapped detector rows `facade::src/core/channel-tuning/index.ts`, `flat_dirs::src/core/channel-setup`, `logs::src/core/channel-setup/{ChannelSetupBuildCommitter.ts::ChannelSetup,ChannelSetupBuildExecutor.ts::ChannelSetup}`, `smells::src/core/channel-setup/{ChannelSetupBuildCommitter.ts::console_error_no_throw,ChannelSetupBuildCommitter.ts::swallowed_error,ChannelSetupBuildExecutor.ts::catch_return_default,ChannelSetupBuildExecutor.ts::swallowed_error,ChannelSetupFacetSnapshotLoader.ts::sort_no_comparator,ChannelSetupPlanner.ts::sort_no_comparator,ChannelSetupPlanningService.ts::catch_return_default,ChannelSetupTagFilters.ts::high_cyclomatic_complexity}`, `smells::src/core/channel-tuning/ChannelTuningCoordinator.ts::{console_error_no_throw,swallowed_error}`, `smells::src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts::{non_null_assert,stub_function}`, `smells::src/modules/scheduler/scheduler/ChannelScheduler.ts::non_null_assert`, the mapped structural ids under `src/core/channel-setup`, `src/core/channel-tuning`, `src/modules/scheduler/{channel-manager,scheduler}`, and `src/modules/ui/channel-setup`, and the four mapped `test_coverage::src/modules/ui/channel-setup/steps/{BuildReviewStepController,LibraryStepController,StrategyStepController,StrategyStepInteractionController}.ts::transitive_only` ids; observed the focused Jest envelopes recorded under `P6-W1`; and observed a passing `npm run verify`
+- Entry baseline: checklist-backed package entry was `41 = 37 older live non-review + 2 fresh review + 2 fresh non-review` with the `P5-EXIT` global snapshot `overall 87.5 / objective 96.1 / strict 87.5 / verified 94.2`, `355` open in-scope, `364` open global, and `9` out-of-scope carried
+- Exit baseline: authoritative `desloppify status` rerun in this session reports `overall 87.5 / objective 96.0 / strict 87.5 / verified 94.2`, `361` open in-scope, `370` open global, and `9` out-of-scope carried; `desloppify plan queue --sort recent` is empty; `desloppify show review --status open --no-budget --top 100` returns no open review rows for this package closeout surface; and `desloppify show security --status open --no-budget --top 50` remains clean
+- Score delta: global `overall 0.0`, `objective -0.1`, `strict 0.0`, and `verified 0.0` versus the checklist-backed entry snapshot. `P6-EXIT` closes because every mapped review and structural row reran absent and the remaining mapped logs, smells, and direct-test detector rows are all `stale-proven` on current source with no successor owner
+- Imported review dispositions: reran absent on `2026-04-21`, treated as `resolved` on current source
+  - `review::.::holistic::contract_coherence::channel_manager_error_contract_docs_lag_runtime`
+    - reason: exact issue-id rerun no longer reports an open review row after `P6-W1-S3`, and the channel-manager / scheduler path now resolves channel lineup and failure normalization through the tightened scheduler contract surface instead of drifting from the current runtime behavior
+    - revisit trigger: exact issue-id rerun plus `rg -n "ChannelManager|ChannelScheduler|schedule" src/modules/scheduler`
+  - `review::.::holistic::contract_coherence::channel_setup_port_absence_contract_split`
+    - reason: exact issue-id rerun no longer reports an open review row after `P6-W1-S4`, and `ChannelSetupSessionController` now stays wrapper-only over state/runtime while the workflow-edit seam remains bounded behind the channel-setup runtime/state owners
+    - revisit trigger: exact issue-id rerun plus `rg -n "workflowPort|updateWorkflow" src/modules/ui/channel-setup`
+- Detector deltas: entry mapped package counts were `review 2 / structural 18 / smells 13 / test_coverage 4 / logs 2 / facade 1 / flat_dirs 1`; refreshed exit reads are `review 0 / structural 0 / facade 0 / flat_dirs 0`, `src/modules/scheduler/channel-manager` clean, `src/modules/scheduler/scheduler` clean, and the remaining package-local rerun-open rows all disagree with current source rather than exposing live package debt:
+  - mapped stale-proven rows:
+    - `logs::src/core/channel-setup/ChannelSetupBuildCommitter.ts::ChannelSetup`
+      - reason: stale-proven; `ChannelSetupBuildCommitter.ts` now routes failures into `addWarning(...)` and `logger.error(...)` with no direct `console` writes, but the rerun still points at legacy tagged-log wording
+      - revisit trigger: rerun the exact issue id if `ChannelSetupBuildCommitter.ts` regains direct `[ChannelSetup]` console logging
+    - `logs::src/core/channel-setup/ChannelSetupBuildExecutor.ts::ChannelSetup`
+      - reason: stale-proven; the current executor only records recoverable progress-callback warnings and explicit cancel summaries with no direct `console` writes, but the rerun still points at legacy tagged-log wording
+      - revisit trigger: rerun the exact issue id if `ChannelSetupBuildExecutor.ts` regains direct `[ChannelSetup]` console logging
+    - `smells::src/core/channel-setup/ChannelSetupBuildCommitter.ts::console_error_no_throw`
+      - reason: stale-proven; current source uses `logger.error(...)` plus warning accumulation rather than `console.error`, and the rerun-open smell no longer matches the owner body
+      - revisit trigger: rerun the exact issue id if the committer regains direct error logging without surfacing that error through its current warning/result contract
+    - `smells::src/core/channel-setup/ChannelSetupBuildCommitter.ts::swallowed_error`
+      - reason: stale-proven; current cleanup and refresh failures are converted into explicit warnings returned in the summary contract, not silently discarded
+      - revisit trigger: rerun the exact issue id if committer-side failures stop surfacing through returned workflow warnings
+    - `smells::src/core/channel-setup/ChannelSetupBuildExecutor.ts::catch_return_default`
+      - reason: stale-proven; the current executor rethrows non-abort failures and only returns explicit canceled summaries when the abort signal is set, so the detector wording is lagging older default-return behavior
+      - revisit trigger: rerun the exact issue id if non-abort execution failures start collapsing back into default summaries
+    - `smells::src/core/channel-setup/ChannelSetupBuildExecutor.ts::swallowed_error`
+      - reason: stale-proven; non-abort failures now rethrow and progress-callback failures are surfaced as workflow warnings instead of disappearing locally
+      - revisit trigger: rerun the exact issue id if build execution paths start suppressing non-abort failures again
+    - `smells::src/core/channel-setup/ChannelSetupFacetSnapshotLoader.ts::sort_no_comparator`
+      - reason: stale-proven; `_buildSnapshotKey(...)` currently sorts `selectedLibraryIds` with `localeCompare`, and the smell rerun no longer matches current source
+      - revisit trigger: rerun the exact issue id if snapshot key construction regresses to comparator-free sorting
+    - `smells::src/core/channel-setup/ChannelSetupPlanner.ts::sort_no_comparator`
+      - reason: stale-proven; current `stableStringify(...)` sorts object keys with an explicit `localeCompare` comparator, not a bare default sort
+      - revisit trigger: rerun the exact issue id if planner determinism regresses to comparator-free key sorting
+    - `smells::src/core/channel-setup/ChannelSetupPlanningService.ts::catch_return_default`
+      - reason: stale-proven; the current catch block only returns an explicit canceled-plan result when the abort signal is set and otherwise rethrows
+      - revisit trigger: rerun the exact issue id if planning failures begin returning default/canceled results outside the abort contract
+    - `smells::src/core/channel-setup/ChannelSetupTagFilters.ts::high_cyclomatic_complexity`
+      - reason: stale-proven; the fast-key parsing/filter path is now split across focused helpers instead of one branch-heavy owner
+      - revisit trigger: rerun the exact issue id if tag-filter parsing logic recombines into one large control-flow owner
+    - `smells::src/core/channel-tuning/ChannelTuningCoordinator.ts::console_error_no_throw`
+      - reason: stale-proven; current source uses `console.warn` in the remaining diagnostics path and the rerun-open row still points at older console-error wording
+      - revisit trigger: rerun the exact issue id if tuning coordination regains direct `console.error`-without-throw behavior
+    - `smells::src/core/channel-tuning/ChannelTuningCoordinator.ts::swallowed_error`
+      - reason: stale-proven; the rerun-open anchors no longer describe the current diagnostics/reporting helpers and no live catch-only suppression remains on current source
+      - revisit trigger: rerun the exact issue id if tuning coordination reintroduces catch-only suppression without surfaced failure state
+    - `test_coverage::src/modules/ui/channel-setup/steps/BuildReviewStepController.ts::transitive_only`
+      - reason: stale-proven; direct-import suite `BuildReviewStepController.test.ts` exists and focused coverage observed `91.08 / 81.35 / 75`, but the rerun still reports stale “covered only via imports” wording
+      - revisit trigger: rerun the exact issue id if the direct step-controller suite is removed or stops importing the owner directly
+    - `test_coverage::src/modules/ui/channel-setup/steps/LibraryStepController.ts::transitive_only`
+      - reason: stale-proven; direct-import suite `LibraryStepController.test.ts` exists and focused coverage observed `91.17 / 80 / 75`, but the rerun still reports stale “covered only via imports” wording
+      - revisit trigger: rerun the exact issue id if the direct step-controller suite is removed or stops importing the owner directly
+    - `test_coverage::src/modules/ui/channel-setup/steps/StrategyStepController.ts::transitive_only`
+      - reason: stale-proven; direct-import suite `StrategyStepController.test.ts` exists and focused coverage observed `99.39 / 88.02 / 100`, but the rerun still reports stale “covered only via imports” wording
+      - revisit trigger: rerun the exact issue id if the direct strategy-step controller suite is removed or stops importing the owner directly
+    - `test_coverage::src/modules/ui/channel-setup/steps/StrategyStepInteractionController.ts::transitive_only`
+      - reason: stale-proven; direct-import suite `StrategyStepInteractionController.test.ts` exists and focused coverage observed `90.18 / 86.81 / 86.95`, but the rerun still reports stale “covered only via imports” wording
+      - revisit trigger: rerun the exact issue id if the direct strategy-step interaction suite is removed or stops importing the owner directly
+- Resolved-on-rerun groups: `review 2`, `structural 18`, `facade 1`, `flat_dirs 1`, and the mapped scheduler/core non-log smell rows (`smells::src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts::{non_null_assert,stub_function}` and `smells::src/modules/scheduler/scheduler/ChannelScheduler.ts::non_null_assert`) reran absent on current source
+- Security triage: `desloppify show security --status open --no-budget --top 50` remained clean with no open security or cycle issues
+- Follow-ups: preserve the stale-proven channel-setup, channel-tuning, and direct-test detector rows above unless future current-source changes invalidate their proof; no deferred or split successor owner remains after `P6-EXIT`
 - Handoff: `P7-W1`
 
 ### [ ] `P7-W1` `pkg_epg_runtime_surfaces` EPG Runtime And Package Surfaces
@@ -542,14 +604,15 @@ Every `P#-EXIT` must, in the same pass:
 - Package-local scoping commands:
   - `desloppify show src/modules/ui/epg --status open --no-budget --top 180`
   - `desloppify show src/modules/ui/epg/runtime --status open --no-budget --top 120`
-  - `desloppify show facade --status open --no-budget --top 100`
-  - `desloppify show structural --status open --no-budget --top 150`
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: `P7-EXIT`
+  - `desloppify show src/modules/ui/epg/view --status open --no-budget --top 120`
+  - `desloppify show security --status open --no-budget --top 50`
+- Exact-id review scope required at entry/exit: the mapped review, facade, and structural rows in `pkg_epg_runtime_surfaces` are closed only by exact issue-id checks plus package-local path reruns, because broad facade/structural queries no longer isolate this package in the current CLI
+- Status: blocked
+- Plan: `docs/plans/2026-04-21-p7-w1-epg-runtime-surfaces.md`
+- Last touched: `2026-04-21`
+- Verification: observed planning evidence via package-map/current-state reads, Codanna symbol/impact checks, package-local `desloppify` scoping, `desloppify show security --status open --no-budget --top 50`, and the plan-review loop documented from this planning pass
+- Follow-ups: this plan is a user-directed forward-planning exception only; fresh sessions must still treat `P7-W1` as blocked until `P6-EXIT` closes and `lineup-cleanup-review` approves the tracked plan. Entry scoping also surfaced unmapped same-owner EPG residue that `P7-EXIT` must either absorb through a same-pass package-map refresh or assign one exact owner for before `P8`
+- Handoff: `lineup-cleanup-review`
 
 - [ ] `P7-EXIT`
 
