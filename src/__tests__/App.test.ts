@@ -10,10 +10,15 @@ import { AppThemeController } from '../core/app-shell/AppThemeController';
 import type { ChannelSetupConfig } from '../core/channel-setup/types';
 import { AppOrchestrator, type PlaybackInfoSnapshot } from '../core/orchestrator/AppOrchestrator';
 import { PLEX_AUTH_CONSTANTS } from '../modules/plex/auth';
+import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
 import { webosPlatformServices } from '../platform';
 
 import { flushPromises } from './helpers';
-import { EXPECTED_CONTAINER_IDS } from './fixtures/appShellContainerIds';
+import {
+    EXPECTED_APP_ROOT_CHILD_IDS,
+    EXPECTED_CONTAINER_IDS,
+    EXPECTED_RUNTIME_CHROME_HOST_CHILD_IDS,
+} from './fixtures/appShellContainerIds';
 
 jest.mock('../modules/ui/splash', () => ({
     SplashScreen: class SplashScreen {
@@ -312,6 +317,15 @@ describe('App bootstrap smoke', () => {
         for (const id of EXPECTED_CONTAINER_IDS) {
             expect(document.getElementById(id)).not.toBeNull();
         }
+        expect(Array.from((document.getElementById('app') as HTMLElement).children, (child) => (child as HTMLElement).id)).toEqual(
+            EXPECTED_APP_ROOT_CHILD_IDS
+        );
+        expect(
+            Array.from(
+                (document.getElementById(APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST) as HTMLElement).children,
+                (child) => (child as HTMLElement).id
+            )
+        ).toEqual(EXPECTED_RUNTIME_CHROME_HOST_CHILD_IDS);
     });
 
     it('defers the first platform version probe until plex auth config consumers read it', () => {

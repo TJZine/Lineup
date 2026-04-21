@@ -196,6 +196,8 @@ describe('bootstrap seam', () => {
 
         const overlay = document.getElementById('global-error-overlay');
         expect(overlay).not.toBeNull();
+        expect(overlay?.parentElement).toBe(document.body);
+        expect(document.getElementById('app')?.contains(overlay as Node)).toBe(false);
         expect(overlay?.classList.contains('error-overlay')).toBe(true);
         expect(overlay?.classList.contains('error-overlay-fatal')).toBe(true);
         expect((overlay as HTMLElement).style.position).toBe('fixed');

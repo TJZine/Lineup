@@ -20,6 +20,14 @@ export interface AppContainerRefs {
     toastContainer: HTMLElement;
 }
 
+const RUNTIME_CHROME_CHILD_IDS = [
+    PLAYER_OSD_CONTAINER_ID,
+    CHANNEL_NUMBER_OVERLAY_CONTAINER_ID,
+    CHANNEL_BADGE_CONTAINER_ID,
+    MINI_GUIDE_CONTAINER_ID,
+    CHANNEL_TRANSITION_CONTAINER_ID,
+] as const;
+
 function ensureUniqueContainerDiv(root: HTMLElement, id: string): HTMLDivElement {
     const matches = Array.from(root.querySelectorAll<HTMLElement>(`#${id}`));
     const firstDiv = matches.find((match) => match.tagName.toLowerCase() === 'div') ?? null;
@@ -43,20 +51,22 @@ function ensureUniqueContainerDiv(root: HTMLElement, id: string): HTMLDivElement
     return el;
 }
 
+function reorderChildren(parent: HTMLElement, orderedChildren: readonly HTMLElement[]): void {
+    for (const child of orderedChildren) {
+        parent.appendChild(child);
+    }
+}
+
 export function createAppContainers(root: HTMLElement): AppContainerRefs {
     // Video container
     const videoContainer = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.VIDEO);
     videoContainer.className = 'video-container';
 
-    void ensureUniqueContainerDiv(root, PLAYER_OSD_CONTAINER_ID);
+    const runtimeChromeHost = ensureUniqueContainerDiv(root, APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST);
+    runtimeChromeHost.className = 'runtime-chrome-host';
 
-    void ensureUniqueContainerDiv(root, CHANNEL_NUMBER_OVERLAY_CONTAINER_ID);
-
-    void ensureUniqueContainerDiv(root, CHANNEL_BADGE_CONTAINER_ID);
-
-    void ensureUniqueContainerDiv(root, MINI_GUIDE_CONTAINER_ID);
-
-    void ensureUniqueContainerDiv(root, CHANNEL_TRANSITION_CONTAINER_ID);
+    const runtimeChromeChildren = RUNTIME_CHROME_CHILD_IDS.map((id) => ensureUniqueContainerDiv(root, id));
+    reorderChildren(runtimeChromeHost, runtimeChromeChildren);
 
     // EPG container
     const epgContainer = ensureUniqueContainerDiv(root, EPG_CONTAINER_ID);
@@ -141,6 +151,25 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
     toastContainer.style.pointerEvents = 'none';
     toastContainer.style.zIndex = '9999';
     toastContainer.style.display = 'none';
+
+    reorderChildren(root, [
+        videoContainer,
+        runtimeChromeHost,
+        epgContainer,
+        document.getElementById(APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO) as HTMLElement,
+        document.getElementById(APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS) as HTMLElement,
+        document.getElementById(EXIT_CONFIRM_CONTAINER_ID) as HTMLElement,
+        splashContainer,
+        authContainer,
+        profileSelectContainer,
+        serverSelectContainer,
+        channelSetupContainer,
+        audioSetupContainer,
+        settingsContainer,
+        errorOverlay,
+        devMenu,
+        toastContainer,
+    ]);
 
     return {
         splashContainer,

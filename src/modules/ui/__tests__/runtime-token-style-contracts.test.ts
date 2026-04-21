@@ -1158,6 +1158,16 @@ describe('runtime token style contracts', () => {
         expect(zToast).toBeLessThan(zMax);
     });
 
+    it('keeps the runtime chrome host plane structure-only', () => {
+        const css = readCss('src/styles/shell.player-runtime-chrome.css');
+        const block = topLevelBlockForProperty(css, '.runtime-chrome-host', 'pointer-events');
+
+        expect(declarationValue(block, 'position')).toBe('absolute');
+        expect(declarationValue(block, 'inset')).toBe('0');
+        expect(declarationValue(block, 'pointer-events')).toBe('none');
+        expect(block).not.toContain('z-index');
+    });
+
     it.each(COLOR_CONTRACTS)(
         'maps $property for $selector in $file to $expected',
         ({ file, selector, property, expected, within }) => {

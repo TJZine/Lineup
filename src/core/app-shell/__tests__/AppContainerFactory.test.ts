@@ -3,7 +3,11 @@
  */
 
 import { createAppContainers } from '../AppContainerFactory';
-import { EXPECTED_CONTAINER_IDS } from '../../../__tests__/fixtures/appShellContainerIds';
+import {
+    EXPECTED_APP_ROOT_CHILD_IDS,
+    EXPECTED_CONTAINER_IDS,
+    EXPECTED_RUNTIME_CHROME_HOST_CHILD_IDS,
+} from '../../../__tests__/fixtures/appShellContainerIds';
 import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
 
 const SCREEN_CONTAINER_IDS = [
@@ -34,7 +38,13 @@ describe('createAppContainers', () => {
         createAppContainers(root);
         createAppContainers(root);
 
-        expect(Array.from(root.children, (child) => (child as HTMLElement).id)).toEqual(EXPECTED_CONTAINER_IDS);
+        expect(Array.from(root.children, (child) => (child as HTMLElement).id)).toEqual(EXPECTED_APP_ROOT_CHILD_IDS);
+        expect(
+            Array.from(
+                (document.getElementById(APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST) as HTMLElement).children,
+                (child) => (child as HTMLElement).id
+            )
+        ).toEqual(EXPECTED_RUNTIME_CHROME_HOST_CHILD_IDS);
     });
 
     it('is idempotent when called repeatedly (no duplicate IDs)', () => {
@@ -57,9 +67,11 @@ describe('createAppContainers', () => {
 
         const refs = createAppContainers(root);
         const errorOverlay = document.getElementById(APP_SHELL_CONTAINER_IDS.ERROR_OVERLAY) as HTMLElement;
+        const runtimeChromeHost = document.getElementById(APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST) as HTMLElement;
         const toastContainer = document.getElementById(APP_SHELL_CONTAINER_IDS.TOAST) as HTMLElement;
 
         expect((document.getElementById(APP_SHELL_CONTAINER_IDS.VIDEO) as HTMLElement).className).toBe('video-container');
+        expect(runtimeChromeHost.className).toBe('runtime-chrome-host');
         expect((document.getElementById('epg-container') as HTMLElement).className).toBe('epg-container');
 
         for (const id of SCREEN_CONTAINER_IDS) {
@@ -173,5 +185,41 @@ describe('createAppContainers', () => {
         expect(toastMatches[0]).toBe(validDiv);
         expect(root.contains(wrongTag)).toBe(false);
         expect(refs.toastContainer).toBe(validDiv);
+    });
+
+    it('repairs duplicate runtime chrome hosts and keeps the first matching div', () => {
+        const root = document.getElementById('app') as HTMLElement;
+        const first = document.createElement('div');
+        first.id = APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST;
+        const duplicate = document.createElement('div');
+        duplicate.id = APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST;
+        root.append(first, duplicate);
+
+        createAppContainers(root);
+
+        const hostMatches = root.querySelectorAll(`#${APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST}`);
+
+        expect(hostMatches).toHaveLength(1);
+        expect(hostMatches[0]).toBe(first);
+    });
+
+    it('repairs runtime chrome members that drift outside the host', () => {
+        const root = document.getElementById('app') as HTMLElement;
+        const strayPlayerOsd = document.createElement('div');
+        strayPlayerOsd.id = 'player-osd-container';
+        const strayMiniGuide = document.createElement('div');
+        strayMiniGuide.id = 'mini-guide-container';
+        root.append(strayPlayerOsd, strayMiniGuide);
+
+        createAppContainers(root);
+
+        const runtimeChromeHost = document.getElementById(APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST) as HTMLElement;
+
+        expect(strayPlayerOsd.parentElement).toBe(runtimeChromeHost);
+        expect(strayMiniGuide.parentElement).toBe(runtimeChromeHost);
+        expect(Array.from(root.children, (child) => (child as HTMLElement).id)).toEqual(EXPECTED_APP_ROOT_CHILD_IDS);
+        expect(Array.from(runtimeChromeHost.children, (child) => (child as HTMLElement).id)).toEqual(
+            EXPECTED_RUNTIME_CHROME_HOST_CHILD_IDS
+        );
     });
 });

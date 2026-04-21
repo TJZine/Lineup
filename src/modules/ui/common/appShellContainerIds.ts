@@ -5,6 +5,7 @@
 
 export const APP_SHELL_CONTAINER_IDS = {
     VIDEO: 'video-container',
+    RUNTIME_CHROME_HOST: 'runtime-chrome-host',
     NOW_PLAYING_INFO: 'now-playing-info-container',
     PLAYBACK_OPTIONS: 'playback-options-container',
     SPLASH: 'splash-container',
