@@ -319,6 +319,9 @@ describe('ChannelSetupBuildCommitter', () => {
         });
 
         expect(result.summary.lastTask).toBe('done');
+        expect(result.summary.warnings).toEqual([
+            '[ChannelSetup] EPG refresh failed after commit: refresh failed',
+        ]);
         expect(progress.at(-1)).toEqual({
             task: 'done',
             label: 'Done!',

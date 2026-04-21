@@ -47,6 +47,43 @@ export class ChannelSetupBuildCommitter {
     constructor(private readonly _deps: ChannelSetupBuildCommitterDeps) {}
 
     async commitBuild(request: ChannelSetupBuildCommitRequest): Promise<ChannelSetupBuildCommitResult> {
+        const warnings: string[] = [];
+        const addWarning = (message: string, ...details: unknown[]): void => {
+            warnings.push(formatChannelSetupWarning(message, ...details));
+        };
+        const tempKeys = this._deps.scratchStore.createTempKeys();
+        const builder = new ChannelManager({
+            plexLibrary: this._deps.plexLibrary,
+            storageKey: tempKeys.channelsKey,
+            currentChannelKey: tempKeys.currentChannelKey,
+            logger: {
+                warn: (message, ...details): void => addWarning(message, ...details),
+                error: (message, ...details): void => addWarning(message, ...details),
+            },
+        });
+        const result = await this._commitBuildWithBuilder(request, builder, addWarning)
+            .finally(() => {
+                this._safeCleanup(
+                    'builder.dispose',
+                    () => builder.dispose(),
+                    addWarning
+                );
+                this._safeCleanup(
+                    'scratchStore.cleanupKeys',
+                    () => this._deps.scratchStore.cleanupKeys(tempKeys),
+                    addWarning
+                );
+            });
+        return warnings.length > 0
+            ? { ...result, summary: { ...result.summary, warnings: [...warnings] } }
+            : result;
+    }
+
+    private async _commitBuildWithBuilder(
+        request: ChannelSetupBuildCommitRequest,
+        builder: Pick<IChannelManager, 'createChannel' | 'getAllChannels' | 'dispose'>,
+        addWarning: (message: string, ...details: unknown[]) => void
+    ): Promise<ChannelSetupBuildCommitResult> {
         const {
             buildMode,
             existingChannels,
@@ -58,26 +95,7 @@ export class ChannelSetupBuildCommitter {
             signal,
             reportProgress,
         } = request;
-
         const checkCanceled = (): boolean => signal?.aborted ?? false;
-        const tempKeys = this._deps.scratchStore.createTempKeys();
-        const builder = new ChannelManager({
-            plexLibrary: this._deps.plexLibrary,
-            storageKey: tempKeys.channelsKey,
-            currentChannelKey: tempKeys.currentChannelKey,
-            logger: {
-                warn: (msg, ...args): void => console.warn(msg, ...args.map(summarizeErrorForLog)),
-                error: (msg, ...args): void => console.error(msg, ...args.map(summarizeErrorForLog)),
-            },
-        });
-
-        const safeCleanup = (label: string, fn: () => void): void => {
-            try {
-                fn();
-            } catch (error: unknown) {
-                console.warn(`[ChannelSetup] cleanup failed (${label}):`, summarizeErrorForLog(error));
-            }
-        };
 
         let epgRefreshFailed = false;
         let reachedMax = initialReachedMaxChannels;
@@ -90,137 +108,130 @@ export class ChannelSetupBuildCommitter {
             lastTask: 'create_channels',
         };
 
-        try {
-            let pendingIndex = 0;
-            let attemptedCount = 0;
-            const computeSkipped = (): number => skippedCount + Math.max(0, pendingToCreate.length - attemptedCount);
-            const availableNumbers = buildMode === 'replace'
-                ? []
-                : this._getAvailableChannelNumbers(existingChannels);
+        let pendingIndex = 0;
+        let attemptedCount = 0;
+        const computeSkipped = (): number => skippedCount + Math.max(0, pendingToCreate.length - attemptedCount);
+        const availableNumbers = buildMode === 'replace'
+            ? []
+            : this._getAvailableChannelNumbers(existingChannels);
 
-            if (buildMode !== 'replace' && pendingToCreate.length > availableNumbers.length) {
-                reachedMax = true;
+        if (buildMode !== 'replace' && pendingToCreate.length > availableNumbers.length) {
+            reachedMax = true;
+        }
+
+        const maxCreates = buildMode === 'replace'
+            ? pendingToCreate.length
+            : Math.min(pendingToCreate.length, availableNumbers.length);
+
+        for (const pending of pendingToCreate) {
+            pendingIndex++;
+            if (summary.created >= maxCreates) {
+                break;
             }
 
-            const maxCreates = buildMode === 'replace'
-                ? pendingToCreate.length
-                : Math.min(pendingToCreate.length, availableNumbers.length);
+            if (checkCanceled()) {
+                summary.skipped = computeSkipped();
+                summary.reachedMaxChannels = reachedMax;
+                summary.canceled = true;
+                summary.lastTask = 'create_channels';
+                return { summary, epgRefreshFailed };
+            }
 
-            for (const pending of pendingToCreate) {
-                pendingIndex++;
-                if (summary.created >= maxCreates) {
-                    break;
+            if (pendingIndex % 5 === 0) {
+                reportProgress('create_channels', 'Creating channels...', `Channel ${summary.created + 1}`, pendingIndex, pendingToCreate.length);
+            }
+
+            try {
+                attemptedCount++;
+                const channelParams: Partial<ChannelConfig> = {
+                    name: pending.name,
+                    contentSource: pending.contentSource,
+                    playbackMode: pending.playbackMode,
+                    shuffleSeed: pending.shuffleSeed,
+                    isAutoGenerated: pending.isAutoGenerated === true,
+                };
+                if (pending.lineupReplicaIndex !== undefined) {
+                    channelParams.lineupReplicaIndex = pending.lineupReplicaIndex;
+                }
+                if (pending.isPlaybackModeVariant !== undefined) {
+                    channelParams.isPlaybackModeVariant = pending.isPlaybackModeVariant;
+                }
+                if (pending.contentFilters) {
+                    channelParams.contentFilters = pending.contentFilters;
+                }
+                if (pending.sortOrder) {
+                    channelParams.sortOrder = pending.sortOrder;
+                }
+                if (typeof pending.blockSize === 'number' && Number.isFinite(pending.blockSize)) {
+                    channelParams.blockSize = pending.blockSize;
+                }
+                if (pending.buildStrategy !== undefined) channelParams.buildStrategy = pending.buildStrategy;
+                if (pending.sourceLibraryId !== undefined) channelParams.sourceLibraryId = pending.sourceLibraryId;
+                if (pending.sourceLibraryName !== undefined) channelParams.sourceLibraryName = pending.sourceLibraryName;
+
+                let pendingNumberReserved = false;
+                if (buildMode !== 'replace') {
+                    const nextNumber = availableNumbers[0];
+                    if (nextNumber === undefined) {
+                        reachedMax = true;
+                        break;
+                    }
+                    channelParams.number = nextNumber;
+                    pendingNumberReserved = true;
                 }
 
-                if (checkCanceled()) {
+                await builder.createChannel(channelParams, { signal });
+                if (pendingNumberReserved) {
+                    availableNumbers.shift();
+                }
+                summary.created++;
+            } catch (error) {
+                if (isSignalAborted(signal ?? undefined)) {
                     summary.skipped = computeSkipped();
                     summary.reachedMaxChannels = reachedMax;
                     summary.canceled = true;
                     summary.lastTask = 'create_channels';
                     return { summary, epgRefreshFailed };
                 }
-
-                if (pendingIndex % 5 === 0) {
-                    reportProgress('create_channels', 'Creating channels...', `Channel ${summary.created + 1}`, pendingIndex, pendingToCreate.length);
-                }
-
-                try {
-                    attemptedCount++;
-                    const channelParams: Partial<ChannelConfig> = {
-                        name: pending.name,
-                        contentSource: pending.contentSource,
-                        playbackMode: pending.playbackMode,
-                        shuffleSeed: pending.shuffleSeed,
-                        isAutoGenerated: pending.isAutoGenerated === true,
-                    };
-                    if (pending.lineupReplicaIndex !== undefined) {
-                        channelParams.lineupReplicaIndex = pending.lineupReplicaIndex;
-                    }
-                    if (pending.isPlaybackModeVariant !== undefined) {
-                        channelParams.isPlaybackModeVariant = pending.isPlaybackModeVariant;
-                    }
-                    if (pending.contentFilters) {
-                        channelParams.contentFilters = pending.contentFilters;
-                    }
-                    if (pending.sortOrder) {
-                        channelParams.sortOrder = pending.sortOrder;
-                    }
-                    if (typeof pending.blockSize === 'number' && Number.isFinite(pending.blockSize)) {
-                        channelParams.blockSize = pending.blockSize;
-                    }
-                    if (pending.buildStrategy !== undefined) channelParams.buildStrategy = pending.buildStrategy;
-                    if (pending.sourceLibraryId !== undefined) channelParams.sourceLibraryId = pending.sourceLibraryId;
-                    if (pending.sourceLibraryName !== undefined) channelParams.sourceLibraryName = pending.sourceLibraryName;
-
-                    let pendingNumberReserved = false;
-                    if (buildMode !== 'replace') {
-                        const nextNumber = availableNumbers[0];
-                        if (nextNumber === undefined) {
-                            reachedMax = true;
-                            break;
-                        }
-                        channelParams.number = nextNumber;
-                        pendingNumberReserved = true;
-                    }
-
-                    await builder.createChannel(channelParams, { signal });
-                    if (pendingNumberReserved) {
-                        availableNumbers.shift();
-                    }
-                    summary.created++;
-                } catch (error) {
-                    if (isSignalAborted(signal ?? undefined)) {
-                        summary.skipped = computeSkipped();
-                        summary.reachedMaxChannels = reachedMax;
-                        summary.canceled = true;
-                        summary.lastTask = 'create_channels';
-                        return { summary, epgRefreshFailed };
-                    }
-                    console.warn(`Failed to create channel ${pending.name}:`, summarizeErrorForLog(error));
-                    summary.errorCount++;
-                }
+                addWarning(`Failed to create channel ${pending.name}`, error);
+                summary.errorCount++;
             }
+        }
 
-            summary.skipped = computeSkipped();
-            summary.reachedMaxChannels = reachedMax;
+        summary.skipped = computeSkipped();
+        summary.reachedMaxChannels = reachedMax;
 
-            if (checkCanceled()) {
-                summary.canceled = true;
-                summary.lastTask = 'apply_channels';
-                return { summary, epgRefreshFailed };
-            }
-
-            reportProgress('apply_channels', 'Saving...', 'Saving library', summary.created, summary.created);
+        if (checkCanceled()) {
+            summary.canceled = true;
             summary.lastTask = 'apply_channels';
-            const builtChannels = builder.getAllChannels();
-            const currentChannelId = this._deps.channelManager.getCurrentChannel()?.id ?? null;
-            let finalChannels = builtChannels;
-            if (buildMode === 'append') {
-                finalChannels = [...existingChannels, ...builtChannels].sort(compareChannelsByNumber);
-            } else if (buildMode === 'merge') {
-                const mergedExisting = this._mergeExistingChannels(existingChannels, diff);
-                finalChannels = [...mergedExisting, ...builtChannels].sort(compareChannelsByNumber);
-            }
+            return { summary, epgRefreshFailed };
+        }
 
-            await this._deps.channelManager.replaceAllChannels(finalChannels, { currentChannelId });
+        reportProgress('apply_channels', 'Saving...', 'Saving library', summary.created, summary.created);
+        summary.lastTask = 'apply_channels';
+        const builtChannels = builder.getAllChannels();
+        const currentChannelId = this._deps.channelManager.getCurrentChannel()?.id ?? null;
+        let finalChannels = builtChannels;
+        if (buildMode === 'append') {
+            finalChannels = [...existingChannels, ...builtChannels].sort(compareChannelsByNumber);
+        } else if (buildMode === 'merge') {
+            const mergedExisting = this._mergeExistingChannels(existingChannels, diff);
+            finalChannels = [...mergedExisting, ...builtChannels].sort(compareChannelsByNumber);
+        }
 
-            reportProgress('refresh_epg', 'Refreshing guide...', 'Loading schedules', 0, null);
-            summary.lastTask = 'refresh_epg';
-            try {
-                this._deps.clearSelectedChannelScheduleSnapshot();
-                await this._deps.ensureEpgInitialized();
-                this._deps.primeEpgChannels();
-                await this._deps.refreshEpgSchedules({ reason: 'channel-setup', debounceMs: 0 });
-            } catch (error: unknown) {
-                epgRefreshFailed = true;
-                console.warn('[ChannelSetup] EPG refresh failed after commit:', summarizeErrorForLog(error));
-                reportProgress('refresh_epg', 'Refreshing guide...', 'Guide refresh failed (channels saved)', 0, null);
-            }
-        } catch (error) {
-            throw error;
-        } finally {
-            safeCleanup('builder.dispose', () => builder.dispose());
-            safeCleanup('scratchStore.cleanupKeys', () => this._deps.scratchStore.cleanupKeys(tempKeys));
+        await this._deps.channelManager.replaceAllChannels(finalChannels, { currentChannelId });
+
+        reportProgress('refresh_epg', 'Refreshing guide...', 'Loading schedules', 0, null);
+        summary.lastTask = 'refresh_epg';
+        try {
+            this._deps.clearSelectedChannelScheduleSnapshot();
+            await this._deps.ensureEpgInitialized();
+            this._deps.primeEpgChannels();
+            await this._deps.refreshEpgSchedules({ reason: 'channel-setup', debounceMs: 0 });
+        } catch (error: unknown) {
+            epgRefreshFailed = true;
+            addWarning('[ChannelSetup] EPG refresh failed after commit', error);
+            reportProgress('refresh_epg', 'Refreshing guide...', 'Guide refresh failed (channels saved)', 0, null);
         }
 
         const finalDetail = epgRefreshFailed
@@ -230,6 +241,18 @@ export class ChannelSetupBuildCommitter {
         reportProgress('done', 'Done!', finalDetail, summary.created, summary.created);
 
         return { summary, epgRefreshFailed };
+    }
+
+    private _safeCleanup(
+        label: string,
+        fn: () => void,
+        addWarning: (message: string, ...details: unknown[]) => void
+    ): void {
+        try {
+            fn();
+        } catch (error: unknown) {
+            addWarning(`[ChannelSetup] cleanup failed (${label})`, error);
+        }
     }
 
     private _getAvailableChannelNumbers(existingChannels: ChannelConfig[]): number[] {
@@ -330,4 +353,30 @@ export class ChannelSetupBuildCommitter {
 
 function compareChannelsByNumber(left: ChannelConfig, right: ChannelConfig): number {
     return left.number - right.number;
+}
+
+function formatChannelSetupWarning(message: string, ...details: unknown[]): string {
+    if (details.length === 0) {
+        return message;
+    }
+
+    const suffix = details
+        .map(formatChannelSetupWarningDetail)
+        .join('; ');
+
+    return `${message}: ${suffix}`;
+}
+
+function formatChannelSetupWarningDetail(detail: unknown): string {
+    const summary = summarizeErrorForLog(detail);
+    if (typeof summary === 'string') {
+        return summary;
+    }
+    if (summary && typeof summary === 'object') {
+        if ('message' in summary && typeof summary.message === 'string') {
+            return summary.message;
+        }
+        return JSON.stringify(summary);
+    }
+    return String(summary);
 }
