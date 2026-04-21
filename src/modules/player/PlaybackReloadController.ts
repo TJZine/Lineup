@@ -124,8 +124,6 @@ export class PlaybackReloadController {
                 return { outcome: 'ignored', reason: 'program_changed' };
             }
 
-            this.deps.setCurrentStreamDecision(decision);
-
             let descriptor = this.deps.buildStreamDescriptor(
                 context.program,
                 decision,
@@ -138,13 +136,14 @@ export class PlaybackReloadController {
             if (config.customizeDescriptor) {
                 descriptor = config.customizeDescriptor(descriptor, descriptorContext);
             }
-            this.deps.setCurrentStreamDescriptor(descriptor);
 
             await context.player.loadStream(descriptor);
             await config.afterLoad?.(descriptor, descriptorContext);
             if (config.shouldResumeAfterReload) {
                 await context.player.play();
             }
+            this.deps.setCurrentStreamDecision(decision);
+            this.deps.setCurrentStreamDescriptor(descriptor);
             this.deps.resetPlaybackFailureGuard();
             config.onSuccess?.(descriptorContext);
             return { outcome: config.successOutcome };
