@@ -150,6 +150,21 @@ describe('ChannelTransitionCoordinator', () => {
         expect(onActivityChange).toHaveBeenNthCalledWith(2, false);
     });
 
+    it('ends transition activity when playback reaches paused', () => {
+        const { coordinator, overlay, onActivityChange } = setup(makeState('loading'));
+
+        coordinator.armForChannelSwitch('12 Comedy');
+        jest.advanceTimersByTime(CHANNEL_TRANSITION_SHOW_DELAY_MS);
+        expect(overlay.show).toHaveBeenCalled();
+
+        coordinator.onPlayerStateChange(makeState('paused'));
+
+        expect(overlay.hide).toHaveBeenCalled();
+        expect(getIsActive(coordinator)).toBe(false);
+        expect(onActivityChange).toHaveBeenNthCalledWith(1, true);
+        expect(onActivityChange).toHaveBeenNthCalledWith(2, false);
+    });
+
     it('keeps transition activity continuously true across repeated arms', () => {
         const { coordinator, overlay, onActivityChange } = setup(makeState('loading'));
 
@@ -204,6 +219,21 @@ describe('ChannelTransitionCoordinator', () => {
         coordinator.armForChannelSwitch('12 Comedy');
         coordinator.onPlayerStateChange(makeState('error'));
 
+        expect(getIsActive(coordinator)).toBe(false);
+        expect(onActivityChange).toHaveBeenNthCalledWith(1, true);
+        expect(onActivityChange).toHaveBeenNthCalledWith(2, false);
+    });
+
+    it('ends transition activity when hide is called explicitly', () => {
+        const { coordinator, overlay, onActivityChange } = setup(makeState('loading'));
+
+        coordinator.armForChannelSwitch('12 Comedy');
+        jest.advanceTimersByTime(CHANNEL_TRANSITION_SHOW_DELAY_MS);
+        expect(overlay.show).toHaveBeenCalled();
+
+        coordinator.hide();
+
+        expect(overlay.hide).toHaveBeenCalled();
         expect(getIsActive(coordinator)).toBe(false);
         expect(onActivityChange).toHaveBeenNthCalledWith(1, true);
         expect(onActivityChange).toHaveBeenNthCalledWith(2, false);
