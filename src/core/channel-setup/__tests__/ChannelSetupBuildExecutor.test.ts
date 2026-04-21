@@ -143,4 +143,128 @@ describe('ChannelSetupBuildExecutor', () => {
 
         warnSpy.mockRestore();
     });
+
+    it('preserves planning warnings on successful builds', async () => {
+        const planningService = {
+            getLibrariesForSetup: jest.fn().mockResolvedValue([]),
+            buildSetupPlan: jest.fn().mockResolvedValue({
+                plan: {
+                    pendingChannels: [],
+                    skipped: 0,
+                    reachedMaxChannels: false,
+                    warnings: [],
+                    estimates: {
+                        total: 0,
+                        collections: 0,
+                        playlists: 0,
+                        genres: 0,
+                        directors: 0,
+                        decades: 0,
+                        recentlyAdded: 0,
+                        studios: 0,
+                        actors: 0,
+                    },
+                },
+                warnings: ['recovered missing tag counts'],
+                canceled: false,
+                errorsTotal: 0,
+                playlistMs: 0,
+                collectionsMs: 0,
+                libraryQueryMs: 0,
+            }),
+            getPendingChannelsForMode: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<ChannelSetupPlanningService>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const buildCommitter = {
+            commitBuild: jest.fn().mockResolvedValue({
+                summary: {
+                    created: 1,
+                    skipped: 0,
+                    reachedMaxChannels: false,
+                    errorCount: 0,
+                    canceled: false,
+                    lastTask: 'done',
+                },
+                epgRefreshFailed: false,
+            }),
+        } as unknown as jest.Mocked<ChannelSetupBuildCommitter>;
+        const executor = new ChannelSetupBuildExecutor({
+            channelManager,
+            planningService,
+            buildCommitter,
+        });
+
+        const result = await executor.createChannelsFromSetup(createConfig());
+
+        expect(result.warnings).toEqual(['recovered missing tag counts']);
+    });
+
+    it('formats object-only progress callback failures with a structured fallback', async () => {
+        const planningService = {
+            getLibrariesForSetup: jest.fn().mockResolvedValue([]),
+            buildSetupPlan: jest.fn().mockResolvedValue({
+                plan: {
+                    pendingChannels: [],
+                    skipped: 0,
+                    reachedMaxChannels: false,
+                    warnings: [],
+                    estimates: {
+                        total: 0,
+                        collections: 0,
+                        playlists: 0,
+                        genres: 0,
+                        directors: 0,
+                        decades: 0,
+                        recentlyAdded: 0,
+                        studios: 0,
+                        actors: 0,
+                    },
+                },
+                warnings: [],
+                canceled: false,
+                errorsTotal: 0,
+                playlistMs: 0,
+                collectionsMs: 0,
+                libraryQueryMs: 0,
+            }),
+            getPendingChannelsForMode: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<ChannelSetupPlanningService>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const buildCommitter = {
+            commitBuild: jest.fn().mockResolvedValue({
+                summary: {
+                    created: 0,
+                    skipped: 0,
+                    reachedMaxChannels: false,
+                    errorCount: 0,
+                    canceled: false,
+                    lastTask: 'done',
+                },
+                epgRefreshFailed: false,
+            }),
+        } as unknown as jest.Mocked<ChannelSetupBuildCommitter>;
+        const executor = new ChannelSetupBuildExecutor({
+            channelManager,
+            planningService,
+            buildCommitter,
+        });
+        let hasThrown = false;
+
+        const result = await executor.createChannelsFromSetup(createConfig(), {
+            onProgress: (): void => {
+                if (!hasThrown) {
+                    hasThrown = true;
+                    throw { summary: { reason: 'bad-progress' } };
+                }
+            },
+        });
+
+        expect(result.warnings).toEqual([
+            '[ChannelSetup] progress callback failed: {}',
+        ]);
+    });
 });

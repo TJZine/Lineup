@@ -1,6 +1,5 @@
 import type { IChannelManager } from '../../modules/scheduler/channel-manager';
 import type { PlexLibrarySection } from '../../modules/plex/library';
-import { summarizeErrorForLog } from '../../utils/errors';
 import type {
     ChannelBuildProgress,
     ChannelBuildSummary,
@@ -11,6 +10,7 @@ import type { ChannelSetupPlanBuildResult, ChannelSetupPlanningService } from '.
 import type { ChannelSetupBuildCommitter } from './ChannelSetupBuildCommitter';
 import { isSignalAborted } from './utils';
 import { normalizeChannelSetupConfig } from './normalizeChannelSetupConfig';
+import { formatChannelSetupWarning } from './formatChannelSetupWarning';
 
 export interface ChannelSetupBuildExecutorDeps {
     channelManager: IChannelManager;
@@ -37,7 +37,7 @@ export class ChannelSetupBuildExecutor {
             try {
                 options?.onProgress?.({ task, label, detail, current, total });
             } catch (error: unknown) {
-                workflowWarnings.push(formatChannelSetupBuildWarning('[ChannelSetup] progress callback failed', error));
+                workflowWarnings.push(formatChannelSetupWarning('[ChannelSetup] progress callback failed', error));
             }
         };
 
@@ -80,6 +80,8 @@ export class ChannelSetupBuildExecutor {
             throw e;
         }
 
+        workflowWarnings.push(...planResult.warnings);
+
         if (planResult.canceled || !planResult.plan) {
             return appendBuildWarnings({
                 created: 0,
@@ -89,7 +91,6 @@ export class ChannelSetupBuildExecutor {
                 canceled: planResult.canceled,
                 lastTask: planResult.lastTask ?? 'build_pending',
                 ...(planResult.blockedMessage !== undefined ? { blockedMessage: planResult.blockedMessage } : {}),
-                ...(planResult.warnings.length > 0 ? { warnings: [...planResult.warnings] } : {}),
             }, workflowWarnings);
         }
 
@@ -153,15 +154,4 @@ function appendBuildWarnings(
         ...summary,
         warnings: [...existingWarnings, ...warnings],
     };
-}
-
-function formatChannelSetupBuildWarning(message: string, error: unknown): string {
-    const summary = summarizeErrorForLog(error);
-    if (typeof summary === 'string') {
-        return `${message}: ${summary}`;
-    }
-    if (summary && typeof summary === 'object' && 'message' in summary && typeof summary.message === 'string') {
-        return `${message}: ${summary.message}`;
-    }
-    return `${message}: ${String(summary)}`;
 }

@@ -107,8 +107,12 @@ function applyFastKeyFilter(result: Record<string, string | number>, key: Channe
         return;
     }
 
-    const parsedType = Number.parseInt(value, 10);
-    if (Number.isFinite(parsedType)) {
+    if (!/^\d+$/.test(value)) {
+        return;
+    }
+
+    const parsedType = Number(value);
+    if (Number.isInteger(parsedType)) {
         result.type = parsedType;
     }
 }

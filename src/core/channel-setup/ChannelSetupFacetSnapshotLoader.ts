@@ -654,15 +654,19 @@ export class ChannelSetupFacetSnapshotLoader {
             try {
                 const tagStart = performance.now();
                 let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
-                const tags = await definition.fetchTags({
-                    signal: librarySignal,
-                    requireEntries,
-                    requestIntent: plexRequestIntent,
-                    onUnsupported: (reason) => {
-                        unsupportedReason = reason;
-                    },
-                });
-                libraryQueryMs += performance.now() - tagStart;
+                let tags: PlexTagDirectoryItem[];
+                try {
+                    tags = await definition.fetchTags({
+                        signal: librarySignal,
+                        requireEntries,
+                        requestIntent: plexRequestIntent,
+                        onUnsupported: (reason) => {
+                            unsupportedReason = reason;
+                        },
+                    });
+                } finally {
+                    libraryQueryMs += performance.now() - tagStart;
+                }
                 if (unsupportedReason === 'empty') {
                     definition.tagsByLibraryId.set(libraryId, tags);
                     deferEmptyTagDirectoryFailure(definition.family, definition.label, libraryTitle, definition.mediaType);
@@ -887,25 +891,30 @@ export class ChannelSetupFacetSnapshotLoader {
                             );
                             const pendingFacetIndexes = new Set(settledFacetTasks.map((_, facetIndex) => facetIndex));
                             let libraryFailure: ChannelSetupFacetSnapshot | null = null;
-                            while (pendingFacetIndexes.size > 0) {
-                                const settled = await Promise.race(
-                                    Array.from(pendingFacetIndexes, (facetIndex) => settledFacetTasks[facetIndex])
-                                );
-                                if (requestSignal.aborted && !failureAbortActive) {
-                                    throw createAbortError(lastTask);
+                            try {
+                                while (pendingFacetIndexes.size > 0) {
+                                    const settled = await Promise.race(
+                                        Array.from(pendingFacetIndexes, (facetIndex) => settledFacetTasks[facetIndex])
+                                    );
+                                    if (requestSignal.aborted && !failureAbortActive) {
+                                        throw createAbortError(lastTask);
+                                    }
+                                    if (!settled) {
+                                        break;
+                                    }
+                                    pendingFacetIndexes.delete(settled.facetIndex);
+                                    if (settled.result) {
+                                        libraryFailure = settled.result;
+                                        abortLibraryFacetRequests();
+                                        break;
+                                    }
                                 }
-                                if (!settled) {
-                                    break;
-                                }
-                                pendingFacetIndexes.delete(settled.facetIndex);
-                                if (settled.result) {
-                                    libraryFailure = settled.result;
-                                    abortLibraryFacetRequests();
-                                    break;
-                                }
+                            } catch (error) {
+                                await Promise.allSettled(nativeFacetTasks);
+                                throw error;
                             }
                             if (libraryFailure) {
-                                void Promise.allSettled(nativeFacetTasks);
+                                await Promise.allSettled(nativeFacetTasks);
                                 firstFailure = firstFailure ?? libraryFailure;
                                 abortSiblingRequests();
                                 return libraryFailure;

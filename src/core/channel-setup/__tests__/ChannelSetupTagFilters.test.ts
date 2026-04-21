@@ -64,4 +64,10 @@ describe('ChannelSetupTagFilters', () => {
             )
         ).toEqual({ type: 4, studio: 'Studio A' });
     });
+
+    it('rejects partially numeric type values instead of truncating them', () => {
+        expect(
+            parseChannelSetupTagFastKeyFilters('/library/sections/1/actor?type=4abc&actor=Alex%20Star')
+        ).toEqual({ actor: 'Alex Star' });
+    });
 });

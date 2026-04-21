@@ -14,9 +14,9 @@ This checklist is not complete until an authoritative rerun on the target integr
 
 - Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
-- Current execution state: `P1-W1`, `P1-EXIT`, `P2-W1`, `P2-EXIT`, `P3-W1`, `P3-EXIT`, `P4-W1`, and `P4-EXIT` are complete on authoritative `2026-04-18` evidence; `P5-W1` is the next safe checklist start
-- Next safe start: `P5-W1` / `pkg_playback_subtitle_recovery`
-- Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to `P5-W1`
+- Current execution state: `P1-W1` through `P6-EXIT` are complete on authoritative `2026-04-21` evidence; `P7-W1` is the next safe checklist start
+- Next safe start: `P7-W1` / `pkg_epg_runtime_surfaces`
+- Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to `P7-W1`
 - First action at package start: planning only; create the package-local execution-grade plan first and do not begin implementation until that planning gate is complete
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
 - Exact issue-membership surface: `docs/architecture/active-cleanup-package-map.json`
@@ -607,12 +607,12 @@ Every `P#-EXIT` must, in the same pass:
   - `desloppify show src/modules/ui/epg/view --status open --no-budget --top 120`
   - `desloppify show security --status open --no-budget --top 50`
 - Exact-id review scope required at entry/exit: the mapped review, facade, and structural rows in `pkg_epg_runtime_surfaces` are closed only by exact issue-id checks plus package-local path reruns, because broad facade/structural queries no longer isolate this package in the current CLI
-- Status: blocked
+- Status: not started
 - Plan: `docs/plans/2026-04-21-p7-w1-epg-runtime-surfaces.md`
 - Last touched: `2026-04-21`
 - Verification: observed planning evidence via package-map/current-state reads, Codanna symbol/impact checks, package-local `desloppify` scoping, `desloppify show security --status open --no-budget --top 50`, and the plan-review loop documented from this planning pass
-- Follow-ups: this plan is a user-directed forward-planning exception only; fresh sessions must still treat `P7-W1` as blocked until `P6-EXIT` closes and `lineup-cleanup-review` approves the tracked plan. Entry scoping also surfaced unmapped same-owner EPG residue that `P7-EXIT` must either absorb through a same-pass package-map refresh or assign one exact owner for before `P8`
-- Handoff: `lineup-cleanup-review`
+- Follow-ups: the tracked plan is reviewed and implementation-ready; entry scoping also surfaced unmapped same-owner EPG residue that `P7-EXIT` must either absorb through a same-pass package-map refresh or assign one exact owner for before `P8`
+- Handoff: `P7-W1` is now the next safe checklist implementation start; begin with `P7-W1-S1`
 
 - [ ] `P7-EXIT`
 

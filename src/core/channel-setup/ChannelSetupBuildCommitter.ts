@@ -2,11 +2,11 @@ import { ChannelManager } from '../../modules/scheduler/channel-manager';
 import type { IChannelManager, ChannelConfig } from '../../modules/scheduler/channel-manager';
 import { MAX_CHANNEL_NUMBER } from '../../modules/scheduler/channel-manager/constants';
 import type { IPlexLibrary } from '../../modules/plex/library';
-import { summarizeErrorForLog } from '../../utils/errors';
 import type { ChannelBuildProgress, ChannelBuildSummary, ChannelSetupConfig } from './types';
 import type { PendingChannel, ChannelDiffResult } from './ChannelSetupPlanner';
 import type { ChannelSetupBuildScratchStore } from './ChannelSetupBuildScratchStore';
 import { isSignalAborted } from './utils';
+import { formatChannelSetupWarning } from './formatChannelSetupWarning';
 
 type BuildProgressReporter = (
     task: ChannelBuildProgress['task'],
@@ -353,30 +353,4 @@ export class ChannelSetupBuildCommitter {
 
 function compareChannelsByNumber(left: ChannelConfig, right: ChannelConfig): number {
     return left.number - right.number;
-}
-
-function formatChannelSetupWarning(message: string, ...details: unknown[]): string {
-    if (details.length === 0) {
-        return message;
-    }
-
-    const suffix = details
-        .map(formatChannelSetupWarningDetail)
-        .join('; ');
-
-    return `${message}: ${suffix}`;
-}
-
-function formatChannelSetupWarningDetail(detail: unknown): string {
-    const summary = summarizeErrorForLog(detail);
-    if (typeof summary === 'string') {
-        return summary;
-    }
-    if (summary && typeof summary === 'object') {
-        if ('message' in summary && typeof summary.message === 'string') {
-            return summary.message;
-        }
-        return JSON.stringify(summary);
-    }
-    return String(summary);
 }
