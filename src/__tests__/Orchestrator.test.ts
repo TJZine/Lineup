@@ -2451,7 +2451,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
         it('routes channel transition activity callbacks through overlay badge recompute wiring', async () => {
             const originalFactory = orchestratorCoordinatorFactory.createOrchestratorCoordinators;
-            let capturedFactoryInput: any = null;
+            let capturedFactoryInput: unknown = null;
             const factorySpy = jest
                 .spyOn(orchestratorCoordinatorFactory, 'createOrchestratorCoordinators')
                 .mockImplementation((deps) => {
@@ -2467,8 +2467,12 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 await orchestrator.initialize(mockConfig);
                 syncSpy.mockClear();
 
-                (capturedFactoryInput?.actions as { onChannelTransitionActivityChange?: (active: boolean) => void } | undefined)
-                    ?.onChannelTransitionActivityChange?.(true);
+                const actions = (
+                    capturedFactoryInput as
+                        | { actions?: { onChannelTransitionActivityChange?: (active: boolean) => void } }
+                        | null
+                )?.actions;
+                actions?.onChannelTransitionActivityChange?.(true);
 
                 expect(syncSpy).toHaveBeenCalledTimes(1);
             } finally {

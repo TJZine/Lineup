@@ -185,6 +185,7 @@ const makeDeps = (
             switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue('failed'),
             toggleEPG: jest.fn(),
             onOverlayVisibilityChange: jest.fn(),
+            onChannelTransitionActivityChange: jest.fn(),
             toggleNowPlayingInfoOverlay: jest.fn(),
         },
         errors: {

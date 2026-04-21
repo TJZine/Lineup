@@ -1944,6 +1944,7 @@ describe('EPGCoordinator', () => {
             getPlayerOsdVisible: jest.fn().mockReturnValue(true),
             getNowPlayingInfoVisible: jest.fn().mockReturnValue(false),
             getEpgVisible: jest.fn().mockImplementation(() => epgVisible),
+            isChannelTransitionActive: jest.fn().mockReturnValue(false),
             getCurrentChannel: jest.fn().mockReturnValue({ number: 55, name: 'Drama' }),
             showChannelBadge: jest.fn(),
             hideChannelBadge: jest.fn(),
