@@ -208,14 +208,14 @@ function getPlaybackRecoveryCurrentStreamDecision(input: OrchestratorCoordinator
 
 function setPlaybackRecoveryCurrentStreamDecision(
     input: OrchestratorCoordinatorFactoryDeps,
-    decision: StreamDecision
+    decision: StreamDecision | null
 ): void {
     input.playback.state.setCurrentStreamDecision(decision);
 }
 
 function setPlaybackRecoveryCurrentStreamDescriptor(
     input: OrchestratorCoordinatorFactoryDeps,
-    descriptor: StreamDescriptor
+    descriptor: StreamDescriptor | null
 ): void {
     input.playback.state.setCurrentStreamDescriptor(descriptor);
 }

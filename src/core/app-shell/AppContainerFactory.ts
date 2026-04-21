@@ -104,6 +104,28 @@ function reorderChildren(parent: HTMLElement, orderedChildren: readonly HTMLElem
     }
 }
 
+function assertManagedChildren(
+    parent: HTMLElement,
+    expectedChildren: readonly HTMLElement[],
+    scope: string
+): void {
+    if (process.env.NODE_ENV === 'production') {
+        return;
+    }
+
+    const expected = new Set(expectedChildren);
+    const unexpected = Array.from(parent.children).filter((child) => !expected.has(child as HTMLElement));
+    if (unexpected.length === 0) {
+        return;
+    }
+
+    const unexpectedLabels = unexpected.map((child) => {
+        const element = child as HTMLElement;
+        return element.id ? `#${element.id}` : element.tagName.toLowerCase();
+    });
+    throw new Error(`${scope} has unmanaged children: ${unexpectedLabels.join(', ')}`);
+}
+
 export function createAppContainers(root: HTMLElement): AppContainerRefs {
     // Video container
     const videoContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.VIDEO);
@@ -113,6 +135,7 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
     runtimeChromeHost.className = 'runtime-chrome-host';
 
     const runtimeChromeChildren = RUNTIME_CHROME_CHILD_IDS.map((id) => ensureCanonicalContainerDiv(runtimeChromeHost, id));
+    assertManagedChildren(runtimeChromeHost, runtimeChromeChildren, 'AppContainerFactory runtime chrome host');
     reorderChildren(runtimeChromeHost, runtimeChromeChildren);
 
     // EPG container
@@ -199,7 +222,7 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
     toastContainer.style.zIndex = '9999';
     toastContainer.style.display = 'none';
 
-    reorderChildren(root, [
+    const rootChildren = [
         videoContainer,
         runtimeChromeHost,
         epgContainer,
@@ -216,7 +239,9 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
         errorOverlay,
         devMenu,
         toastContainer,
-    ]);
+    ] as const;
+    assertManagedChildren(root, rootChildren, 'AppContainerFactory root');
+    reorderChildren(root, rootChildren);
 
     return {
         splashContainer,

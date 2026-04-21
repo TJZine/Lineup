@@ -70,4 +70,22 @@ describe('SubtitleDebugLogger', () => {
             expect.stringContaining('"ok":true')
         );
     });
+
+    it('swallows settings-reader failures when checking whether logging is enabled', () => {
+        const sink = jest.fn();
+        const logger = new SubtitleDebugLogger({
+            scope: 'SubtitleManager',
+            sink,
+            settingsReader: {
+                readSubtitleDebugLoggingEnabledAndClean: (): boolean => {
+                    throw new Error('storage unavailable');
+                },
+            },
+        });
+
+        expect(() => {
+            logger.log('subtitle_tracks_discovered', { count: 1 });
+        }).not.toThrow();
+        expect(sink).not.toHaveBeenCalled();
+    });
 });

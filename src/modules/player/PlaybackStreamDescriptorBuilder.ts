@@ -1,4 +1,4 @@
-import { TEXT_SUBTITLE_FORMATS } from '../../shared/subtitle-formats';
+import { isTextSubtitleFormat } from '../../shared/subtitle-formats';
 import { subtitleModeIsDirectOnly, type SubtitleMode } from '../../shared/subtitle-mode';
 import type { PlexStream, StreamDecision } from '../plex/stream';
 import type { ScheduledProgram } from '../scheduler/scheduler';
@@ -197,7 +197,7 @@ export class PlaybackStreamDescriptorBuilder {
             const format = (stream.format ?? stream.codec ?? 'unknown').toLowerCase();
             const languageCode = (stream.languageCode ?? '').toLowerCase();
             const language = (stream.language ?? languageCode) || 'Unknown';
-            const isTextCandidate = TEXT_SUBTITLE_FORMATS.includes(codec);
+            const isTextCandidate = isTextSubtitleFormat(format) || isTextSubtitleFormat(codec);
             const fetchableViaKey = typeof stream.key === 'string' && stream.key.length > 0;
             const codecLabel = codec ? codec.toUpperCase() : 'Unknown';
             const languageLabel = language || 'Unknown';

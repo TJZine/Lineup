@@ -250,7 +250,7 @@ describe('PlaybackReloadController', () => {
         );
     });
 
-    it('keeps the previously active stream state when playback fails after load', async () => {
+    it('tears down the new stream and clears committed state when playback fails after load', async () => {
         const previousDecision = makeDecision({
             playbackUrl: 'http://test/previous.m3u8',
             sessionId: 'sess-prev',
@@ -262,9 +262,9 @@ describe('PlaybackReloadController', () => {
             playbackUrl: 'http://test/next.m3u8',
             sessionId: 'sess-next',
         });
-        let currentDecision = previousDecision;
+        let currentDecision: StreamDecision | null = previousDecision;
         const previousDescriptor = { url: 'http://test/previous-video.m3u8' } as StreamDescriptor;
-        let currentDescriptor = previousDescriptor;
+        let currentDescriptor: StreamDescriptor | null = previousDescriptor;
         const nextDescriptor = { url: 'http://test/next-video.m3u8' } as StreamDescriptor;
         let activeMediaUrl: string | null = previousDescriptor.url;
         const player: IVideoPlayer = {
@@ -320,10 +320,10 @@ describe('PlaybackReloadController', () => {
         expect(result).toEqual({ outcome: 'failed' });
         expect(player.loadStream).toHaveBeenCalledWith(nextDescriptor);
         expect(player.play).toHaveBeenCalled();
-        expect(player.unloadStream).not.toHaveBeenCalled();
-        expect(activeMediaUrl).toBe(nextDescriptor.url);
-        expect(currentDecision).toBe(previousDecision);
-        expect(currentDescriptor).toBe(previousDescriptor);
+        expect(player.unloadStream).toHaveBeenCalledTimes(1);
+        expect(activeMediaUrl).toBeNull();
+        expect(currentDecision).toBeNull();
+        expect(currentDescriptor).toBeNull();
         expect(errorSpy).toHaveBeenCalledWith(
             'playback_recovery',
             expect.objectContaining({
@@ -332,6 +332,82 @@ describe('PlaybackReloadController', () => {
                 safeError: expect.any(Object),
             })
         );
+    });
+
+    it('tears down the new stream and clears committed state when afterLoad fails', async () => {
+        const previousDecision = makeDecision({
+            playbackUrl: 'http://test/previous.m3u8',
+            sessionId: 'sess-prev',
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+        });
+        let currentDecision: StreamDecision | null = previousDecision;
+        const previousDescriptor = { url: 'http://test/previous-video.m3u8' } as StreamDescriptor;
+        let currentDescriptor: StreamDescriptor | null = previousDescriptor;
+        const nextDescriptor = { url: 'http://test/next-video.m3u8' } as StreamDescriptor;
+        let activeDescriptor: StreamDescriptor | null = previousDescriptor;
+        const player: IVideoPlayer = {
+            loadStream: jest.fn().mockImplementation(async (descriptor: StreamDescriptor) => {
+                activeDescriptor = descriptor;
+            }),
+            unloadStream: jest.fn().mockImplementation(() => {
+                activeDescriptor = null;
+            }),
+            play: jest.fn().mockResolvedValue(undefined),
+            stop: jest.fn(),
+            getCurrentDescriptor: jest.fn().mockImplementation(() => activeDescriptor),
+            getCurrentTimeMs: jest.fn().mockReturnValue(5000),
+        } as unknown as IVideoPlayer;
+        const resolver: IPlexStreamResolver = {
+            resolveStream: jest.fn().mockResolvedValue(makeDecision()),
+        } as unknown as IPlexStreamResolver;
+        const context = makeContext({
+            player,
+            resolver,
+            currentDecision: previousDecision,
+        });
+        jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        const controller = new PlaybackReloadController({
+            getVideoPlayer: (): IVideoPlayer => player,
+            getStreamResolver: (): IPlexStreamResolver => resolver,
+            getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
+            getCurrentStreamDecision: (): StreamDecision | null => currentDecision,
+            setCurrentStreamDecision: (decision): void => {
+                currentDecision = decision;
+            },
+            setCurrentStreamDescriptor: (descriptor): void => {
+                currentDescriptor = descriptor;
+            },
+            buildStreamDescriptor: jest.fn().mockReturnValue(nextDescriptor),
+            resetPlaybackFailureGuard: jest.fn(),
+        });
+
+        const result = await controller.executeReload({
+            context,
+            successOutcome: 'reloaded',
+            startEvent: 'audioReload.start',
+            abortedEvent: 'audioReload.aborted',
+            failedEvent: 'audioReload.failed',
+            buildRequest: ({ itemKey, clampedOffset }) => ({
+                itemKey,
+                startOffsetMs: clampedOffset,
+                directPlay: false,
+            }),
+            afterLoad: async () => {
+                throw new Error('subtitle attach failed');
+            },
+            shouldResumeAfterReload: true,
+        });
+
+        expect(result).toEqual({ outcome: 'failed' });
+        expect(player.loadStream).toHaveBeenCalledWith(nextDescriptor);
+        expect(player.unloadStream).toHaveBeenCalledTimes(1);
+        expect(player.play).not.toHaveBeenCalled();
+        expect(activeDescriptor).toBeNull();
+        expect(currentDecision).toBeNull();
+        expect(currentDescriptor).toBeNull();
     });
 
     it('ignores reload when the active program changes during load before state commit', async () => {
@@ -351,9 +427,9 @@ describe('PlaybackReloadController', () => {
             playbackUrl: 'http://test/next.m3u8',
             sessionId: 'sess-next',
         });
-        let currentDecision = previousDecision;
+        let currentDecision: StreamDecision | null = previousDecision;
         const previousDescriptor = { url: 'http://test/previous-video.m3u8' } as StreamDescriptor;
-        let currentDescriptor = previousDescriptor;
+        let currentDescriptor: StreamDescriptor | null = previousDescriptor;
         const nextDescriptor = { url: 'http://test/next-video.m3u8' } as StreamDescriptor;
         let activeMediaUrl: string | null = previousDescriptor.url;
         const player: IVideoPlayer = {
@@ -412,8 +488,8 @@ describe('PlaybackReloadController', () => {
         expect(player.play).not.toHaveBeenCalled();
         expect(player.unloadStream).toHaveBeenCalledTimes(1);
         expect(activeMediaUrl).toBeNull();
-        expect(currentDecision).toBe(previousDecision);
-        expect(currentDescriptor).toBe(previousDescriptor);
+        expect(currentDecision).toBeNull();
+        expect(currentDescriptor).toBeNull();
         expect(warnSpy).toHaveBeenCalledWith(
             'playback_recovery',
             expect.objectContaining({
@@ -441,9 +517,9 @@ describe('PlaybackReloadController', () => {
             playbackUrl: 'http://test/next.m3u8',
             sessionId: 'sess-next',
         });
-        let currentDecision = previousDecision;
+        let currentDecision: StreamDecision | null = previousDecision;
         const previousDescriptor = { url: 'http://test/previous-video.m3u8' } as StreamDescriptor;
-        let currentDescriptor = previousDescriptor;
+        let currentDescriptor: StreamDescriptor | null = previousDescriptor;
         const nextDescriptor = { url: 'http://test/next-video.m3u8' } as StreamDescriptor;
         let activeMediaUrl: string | null = previousDescriptor.url;
         let playbackStarted = false;
@@ -507,8 +583,8 @@ describe('PlaybackReloadController', () => {
         expect(player.unloadStream).toHaveBeenCalledTimes(1);
         expect(activeMediaUrl).toBeNull();
         expect(playbackStarted).toBe(false);
-        expect(currentDecision).toBe(previousDecision);
-        expect(currentDescriptor).toBe(previousDescriptor);
+        expect(currentDecision).toBeNull();
+        expect(currentDescriptor).toBeNull();
         expect(warnSpy).toHaveBeenCalledWith(
             'playback_recovery',
             expect.objectContaining({
@@ -532,9 +608,9 @@ describe('PlaybackReloadController', () => {
             isDirectPlay: true,
             isTranscoding: false,
         });
-        let currentDecision = previousDecision;
+        let currentDecision: StreamDecision | null = previousDecision;
         const previousDescriptor = { url: 'http://test/previous-video.m3u8' } as StreamDescriptor;
-        let currentDescriptor = previousDescriptor;
+        let currentDescriptor: StreamDescriptor | null = previousDescriptor;
         const staleDescriptor = { url: 'http://test/stale-video.m3u8' } as StreamDescriptor;
         const newerDescriptor = { url: 'http://test/newer-video.m3u8' } as StreamDescriptor;
         let activeDescriptor: StreamDescriptor | null = previousDescriptor;

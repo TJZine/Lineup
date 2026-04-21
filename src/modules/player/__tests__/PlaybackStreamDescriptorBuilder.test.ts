@@ -204,4 +204,53 @@ describe('PlaybackStreamDescriptorBuilder', () => {
             reason: 'subtitle_text_fetch_failed',
         });
     });
+
+    it('treats format-declared text subtitles as text candidates when codec is vendor-specific', () => {
+        const builder = new PlaybackStreamDescriptorBuilder({
+            buildPlexResourceUrl: (pathOrUrl): string => pathOrUrl,
+            getMimeType: (): string => 'video/mp4',
+            getAuthHeaders: (): Record<string, string> => ({ 'X-Plex-Token': 'token' }),
+            getServerUri: (): string => 'http://example.com',
+            getPreferredSubtitleLanguage: (): string => 'en',
+            getPlexPreferredSubtitleLanguage: (): null => null,
+            notifySubtitleUnavailable: jest.fn(),
+            readSubtitleMode: (): 'full' => 'full',
+            preferForcedSubtitles: (): boolean => false,
+            shouldHandleSubtitleDeactivation: (): boolean => true,
+            recoverSubtitleDeactivation: jest.fn().mockResolvedValue('handled'),
+        });
+
+        const descriptor = builder.build(
+            makeProgram(),
+            makeDecision({
+                availableSubtitleStreams: [
+                    {
+                        id: 'subrip-en',
+                        streamType: 3,
+                        language: 'English',
+                        languageCode: 'en',
+                        codec: 'eia_608',
+                        format: 'subrip',
+                        key: '/library/streams/subrip-en',
+                        forced: false,
+                        default: true,
+                        title: 'English SubRip',
+                    },
+                ],
+            }),
+            5000
+        );
+
+        expect(descriptor.subtitleTracks).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    id: 'subrip-en',
+                    isTextCandidate: true,
+                    format: 'subrip',
+                    codec: 'eia_608',
+                }),
+            ])
+        );
+        expect(descriptor.preferredSubtitleTrackId).toBe('subrip-en');
+    });
 });

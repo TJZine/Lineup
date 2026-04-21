@@ -38,11 +38,11 @@ export class SubtitleDebugLogger {
     }
 
     log(event: string, context: SubtitleDebugContextInput): void {
-        if (!this.isEnabled()) {
-            return;
-        }
-
         try {
+            if (!this.isEnabled()) {
+                return;
+            }
+
             const resolvedContext = typeof context === 'function' ? context() : context;
             this._sink(this._scope, event, safeStringifyForLog(resolvedContext));
         } catch {

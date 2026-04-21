@@ -46,4 +46,43 @@ describe('SubtitleStreamProbeSupport', () => {
         );
         expect(result.sampleLength).toBeGreaterThan(0);
     });
+
+    it('does not classify non-timestamp arrow text as SRT', async () => {
+        const result = await readSubtitleProbeSample(
+            new Response('caption --> pending review', {
+                status: 200,
+                headers: { 'content-type': 'text/plain' },
+            }),
+            'unknown',
+            2048
+        );
+
+        expect(result.detected).toBe('unknown');
+    });
+
+    it('flushes split utf-8 characters before returning the sample', async () => {
+        const encoder = new TextEncoder();
+        const firstChunk = encoder.encode('WEBVTT\n\n00:00:00.000 --> 00:00:01.000\ncaf');
+        const finalChar = encoder.encode('é');
+        const stream = new ReadableStream<Uint8Array>({
+            start(controller): void {
+                controller.enqueue(firstChunk);
+                controller.enqueue(finalChar.slice(0, 1));
+                controller.enqueue(finalChar.slice(1));
+                controller.close();
+            },
+        });
+
+        const result = await readSubtitleProbeSample(
+            new Response(stream, {
+                status: 200,
+                headers: { 'content-type': 'text/vtt' },
+            }),
+            'vtt',
+            2048
+        );
+
+        expect(result.detected).toBe('webvtt');
+        expect(result.sampleLength).toBeGreaterThan('WEBVTT\n\n00:00:00.000 --> 00:00:01.000\ncaf'.length);
+    });
 });

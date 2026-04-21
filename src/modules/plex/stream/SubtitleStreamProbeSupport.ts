@@ -1,7 +1,11 @@
+import {
+    detectSubtitleTextContentFormat,
+    type SubtitleTextContentFormat,
+} from '../../../shared/subtitleTextFormatDetection';
 import { redactUrlForLog } from '../../../utils/redact';
 import { applyXPlexTokenQueryParam, tryBuildPlexServerUrlFromKey } from '../shared/plexUrl';
 
-export type SubtitleTextFormat = 'webvtt' | 'srt' | 'unknown';
+export type SubtitleTextFormat = SubtitleTextContentFormat;
 export type SubtitleProbeUrlSource = 'key' | 'id_fallback';
 
 export interface SubtitleStreamProbeRequestInput {
@@ -27,23 +31,12 @@ export interface SubtitleStreamProbeReadResult {
     sampleLength: number;
 }
 
-function detectSubtitleTextFormat(sample: string): SubtitleTextFormat {
-    const trimmed = sample.replace(/^\uFEFF/, '').trimStart();
-    if (trimmed.startsWith('WEBVTT')) {
-        return 'webvtt';
-    }
-    if (trimmed.includes('-->')) {
-        return 'srt';
-    }
-    return 'unknown';
-}
-
 function detectSubtitleCodecFormat(codec?: string): SubtitleTextFormat {
     const normalized = (codec ?? '').toLowerCase();
     if (normalized === 'vtt' || normalized === 'webvtt') {
         return 'webvtt';
     }
-    if (normalized === 'srt') {
+    if (normalized === 'srt' || normalized === 'subrip') {
         return 'srt';
     }
     return 'unknown';
@@ -138,6 +131,17 @@ async function readSubtitleProbeSampleFromStream(
             }
             sample += chunk;
         }
+
+        if (sample.length < maxSampleChars) {
+            const flushed = decoder.decode();
+            if (flushed.length > 0) {
+                const remaining = maxSampleChars - sample.length;
+                sample += flushed.slice(0, remaining);
+                if (flushed.length > remaining) {
+                    sampleCapped = true;
+                }
+            }
+        }
     } finally {
         try {
             await reader.cancel();
@@ -147,7 +151,7 @@ async function readSubtitleProbeSampleFromStream(
     }
 
     return {
-        detected: detectSubtitleTextFormat(sample),
+        detected: detectSubtitleTextContentFormat(sample),
         looksLikeHtml: sample.replace(/^\uFEFF/, '').trimStart().startsWith('<'),
         sampleCapped,
         sampleLength: sample.length,

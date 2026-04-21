@@ -250,18 +250,38 @@ export const topLevelBlockForProperty = (css: string, selector: string, property
 };
 
 export const blockWithin = (css: string, container: string, selector: string): string => {
-    const start = css.indexOf(container);
-    if (start === -1) {
-        throw new Error(`Container block not found: ${container}`);
+    let cursor = 0;
+    let ruleStart = 0;
+
+    while (cursor < css.length) {
+        if (css.startsWith('/*', cursor)) {
+            cursor = skipComment(css, cursor);
+            ruleStart = cursor;
+            continue;
+        }
+
+        if (css[cursor] === '"' || css[cursor] === "'") {
+            cursor = skipString(css, cursor);
+            continue;
+        }
+
+        if (css[cursor] === '{') {
+            const selectorList = css.slice(ruleStart, cursor).trim();
+            const blockEnd = findMatchingBrace(css, cursor);
+
+            if (selectorList === container) {
+                return blockFor(blockBody(css.slice(ruleStart, blockEnd)), selector);
+            }
+
+            cursor = blockEnd;
+            ruleStart = cursor;
+            continue;
+        }
+
+        cursor += 1;
     }
 
-    const openBrace = css.indexOf('{', start);
-    if (openBrace === -1) {
-        throw new Error(`Container block missing opening brace: ${container}`);
-    }
-
-    const blockEnd = findMatchingBrace(css, openBrace);
-    return blockFor(blockBody(css.slice(start, blockEnd)), selector);
+    throw new Error(`Container block not found: ${container}`);
 };
 
 export const declarationValue = (block: string, property: string): string => {

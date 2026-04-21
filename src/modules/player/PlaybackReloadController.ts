@@ -35,8 +35,8 @@ interface PlaybackReloadControllerDeps {
     getStreamResolver: () => IPlexStreamResolver | null;
     getCurrentProgramForPlayback: () => ScheduledProgram | null;
     getCurrentStreamDecision?: () => StreamDecision | null;
-    setCurrentStreamDecision: (decision: StreamDecision) => void;
-    setCurrentStreamDescriptor: (descriptor: StreamDescriptor) => void;
+    setCurrentStreamDecision: (decision: StreamDecision | null) => void;
+    setCurrentStreamDescriptor: (descriptor: StreamDescriptor | null) => void;
     buildStreamDescriptor: (
         program: ScheduledProgram,
         decision: StreamDecision,
@@ -110,6 +110,30 @@ export class PlaybackReloadController {
             ...(config.startData?.(context) ?? {}),
         });
         this._streamRecoveryInProgress = true;
+        let teardownDescriptor: StreamDescriptor | null = null;
+        const clearCommittedState = (): void => {
+            this.deps.setCurrentStreamDecision(null);
+            this.deps.setCurrentStreamDescriptor(null);
+        };
+        const playerCurrentDescriptorMatches = (descriptor: StreamDescriptor): boolean => {
+            if (typeof context.player.getCurrentDescriptor !== 'function') {
+                return true;
+            }
+
+            return context.player.getCurrentDescriptor() === descriptor;
+        };
+        const teardownLoadedStreamIfStillActive = (descriptor: StreamDescriptor | null): void => {
+            if (!descriptor || !playerCurrentDescriptorMatches(descriptor)) {
+                return;
+            }
+
+            try {
+                context.player.unloadStream();
+            } catch {
+                // Preserve the original reload failure/abort path.
+            }
+            clearCommittedState();
+        };
 
         try {
             const abortIfProgramChanged = (
@@ -119,13 +143,7 @@ export class PlaybackReloadController {
                     return null;
                 }
 
-                if (
-                    teardownDescriptor &&
-                    (!context.player.getCurrentDescriptor ||
-                        context.player.getCurrentDescriptor() === teardownDescriptor)
-                ) {
-                    context.player.unloadStream();
-                }
+                teardownLoadedStreamIfStillActive(teardownDescriptor);
 
                 logPlaybackRecoveryWarning(config.abortedEvent, {
                     reason: context.safeReason,
@@ -160,6 +178,7 @@ export class PlaybackReloadController {
                 descriptor = config.customizeDescriptor(descriptor, descriptorContext);
             }
 
+            teardownDescriptor = descriptor;
             await context.player.loadStream(descriptor);
             const loadAbort = abortIfProgramChanged(descriptor);
             if (loadAbort) {
@@ -185,6 +204,7 @@ export class PlaybackReloadController {
             config.onSuccess?.(descriptorContext);
             return { outcome: config.successOutcome };
         } catch (error) {
+            teardownLoadedStreamIfStillActive(teardownDescriptor);
             logPlaybackRecoveryError(
                 config.failedEvent,
                 {

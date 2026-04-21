@@ -23,6 +23,15 @@ describe('subtitleConversion', () => {
         expect(detectSubtitleFormat(vtt)).toBe('webvtt');
     });
 
+    it('does not misclassify arbitrary arrow text as SRT', () => {
+        expect(detectSubtitleFormat('Narration --> translated later')).toBe('unknown');
+    });
+
+    it('prefers a WEBVTT header over later cue arrows', () => {
+        const vtt = `\uFEFFNOTE intro\nWEBVTT\n\n00:00:00.000 --> 00:00:01.000\nHi`;
+        expect(detectSubtitleFormat(vtt)).toBe('webvtt');
+    });
+
     it('normalizes BOM and line endings', () => {
         const srt = `\uFEFF1\r\n00:00:01,000 --> 00:00:02,000\r\nHello`;
         const normalized = normalizeSubtitleToVtt(srt);

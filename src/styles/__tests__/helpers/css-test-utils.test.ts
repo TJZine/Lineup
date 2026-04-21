@@ -54,6 +54,22 @@ describe('css-test-utils', () => {
         );
     });
 
+    it('ignores container text that appears inside comments before the real at-rule', () => {
+        const css = `
+/* @media (forced-colors: active) { .settings-item { color: bogus; } } */
+
+@media (forced-colors: active) {
+  .settings-item {
+    color: CanvasText;
+  }
+}
+`;
+
+        expect(blockWithin(css, '@media (forced-colors: active)', '.settings-item')).toContain(
+            'color: CanvasText;'
+        );
+    });
+
     it('keeps unscoped property lookup at the top level only', () => {
         const css = `
 .settings-item {

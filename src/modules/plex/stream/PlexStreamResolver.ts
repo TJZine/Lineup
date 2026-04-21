@@ -17,7 +17,7 @@ import type {
     HlsOptions,
 } from './types';
 import { PlexStreamErrorCode } from './types';
-import { DEFAULT_HLS_OPTIONS } from './constants';
+import { DEFAULT_HLS_OPTIONS, isTextSubtitleFormat } from './constants';
 import { generatePlexSessionId } from './plexSessionId';
 import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
 import { PlaybackSettingsStore } from '../../settings/PlaybackSettingsStore';
@@ -199,8 +199,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
         if (this._isSubtitleDebugEnabled()) {
             const isTextCandidate = (s: PlexStream): boolean => {
-                const c = (s.codec ?? '').toLowerCase();
-                return c === 'srt' || c === 'vtt' || c === 'webvtt';
+                return isTextSubtitleFormat(s.codec) || isTextSubtitleFormat(s.format);
             };
             const hasKey = (s: PlexStream): boolean => typeof s.key === 'string' && s.key.length > 0;
             const codecCounts = availableSubtitleStreams.reduce<Record<string, number>>((acc, stream) => {

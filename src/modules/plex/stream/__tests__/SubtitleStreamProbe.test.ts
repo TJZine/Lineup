@@ -103,6 +103,7 @@ describe('SubtitleStreamProbe', () => {
             }
         );
 
+        expect(mockFetch).toHaveBeenCalledTimes(1);
         expect(mockFetch).not.toHaveBeenCalledWith(
             'https://malicious.example/library/streams/sub-foreign',
             expect.anything()

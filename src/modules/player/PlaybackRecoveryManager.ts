@@ -44,8 +44,8 @@ export interface PlaybackRecoveryDeps {
     getCurrentStreamDescriptor: () => StreamDescriptor | null;
     getCurrentStreamDecision?: () => StreamDecision | null;
 
-    setCurrentStreamDecision: (d: StreamDecision) => void;
-    setCurrentStreamDescriptor: (d: StreamDescriptor) => void;
+    setCurrentStreamDecision: (d: StreamDecision | null) => void;
+    setCurrentStreamDescriptor: (d: StreamDescriptor | null) => void;
 
     buildPlexResourceUrl: (pathOrUrl: string) => string | null;
     getMimeType: (decision: StreamDecision) => string;
