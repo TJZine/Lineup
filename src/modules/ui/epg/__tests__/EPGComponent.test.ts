@@ -851,6 +851,20 @@ describe('EPGComponent', () => {
             );
         });
 
+        it('keeps epg styles.css as an import-only stylesheet seam', () => {
+            const css = readFileSync('src/modules/ui/epg/styles.css', 'utf8').trim();
+
+            expect(css).toBe([
+                "@import url('./styles.shell.css');",
+                "@import url('./styles.grid.css');",
+                "@import url('./styles.cells.css');",
+                "@import url('./styles.info-panel.css');",
+                "@import url('./styles.classic.css');",
+                "@import url('./styles.theme.css');",
+                "@import url('./styles.motion.css');",
+            ].join('\n'));
+        });
+
         it('updates layout class when setLayoutMode is called while visible', () => {
             const { epg: localEpg, container: localContainer } = createEpgInstance({
                 containerId: 'epg-container-layout-setter',

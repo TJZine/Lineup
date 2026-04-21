@@ -136,6 +136,13 @@ describe('EPGInfoPanel', () => {
         expect(panel.getPresentationMode()).toBe('overlay');
     });
 
+    it('preallocates hidden quality badge slots during initialization', () => {
+        const badges = Array.from(container.querySelectorAll('.epg-info-quality-badge')) as HTMLElement[];
+
+        expect(badges).toHaveLength(5);
+        expect(badges.every((badge) => badge.style.display === 'none')).toBe(true);
+    });
+
     describe('thumb resolver', () => {
         it('should call resolver callback for relative Plex paths', () => {
             const resolver = jest.fn().mockReturnValue('https://server/library/thumb?token=xxx');

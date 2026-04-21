@@ -17,6 +17,23 @@ import { extractDominantColor } from '../../../../utils/color/extractDominantCol
 
 const MAX_DYNAMIC_COLOR_CACHE_ENTRIES = 128;
 const DYNAMIC_COLOR_FAILURE_COOLDOWN_MS = 60_000;
+const QUALITY_BADGE_SLOT_COUNT = 5;
+
+type InfoPanelTemplateBindings = {
+    backdrop: HTMLImageElement | null;
+    gradientA: HTMLElement | null;
+    gradientB: HTMLElement | null;
+    poster: HTMLImageElement | null;
+    showTitle: HTMLElement | null;
+    title: HTMLElement | null;
+    clearLogo: HTMLImageElement | null;
+    meta: HTMLElement | null;
+    tags: HTMLElement | null;
+    genres: HTMLElement | null;
+    description: HTMLElement | null;
+    descriptionInner: HTMLElement | null;
+    qualityContainer: HTMLElement | null;
+};
 
 /**
  * EPG Info Panel class.
@@ -96,64 +113,74 @@ export class EPGInfoPanel implements IEPGInfoPanel {
      * @param parentElement - Parent element to append info panel to
      */
     initialize(parentElement: HTMLElement): void {
-        this.containerElement = document.createElement('div');
-        this.containerElement.className = EPG_CLASSES.INFO_PANEL;
-        this.containerElement.replaceChildren(this.createTemplateElement());
-        this.containerElement.style.display = 'flex';
-        this.containerElement.style.visibility = 'hidden';
-        this.containerElement.style.opacity = '0';
-        parentElement.appendChild(this.containerElement);
+        const container = this.createContainerElement();
+        parentElement.appendChild(container);
+        this.containerElement = container;
 
-        this.backdropElement = this.containerElement.querySelector(
-            `.${EPG_CLASSES.INFO_BACKDROP_IMG}`
-        ) as HTMLImageElement | null;
-        this.gradientAElement = this.containerElement.querySelector(
-            `.${EPG_CLASSES.INFO_GRADIENT_A}`
-        ) as HTMLElement | null;
-        this.gradientBElement = this.containerElement.querySelector(
-            `.${EPG_CLASSES.INFO_GRADIENT_B}`
-        ) as HTMLElement | null;
-        this.posterElement = this.containerElement.querySelector(
-            `.${EPG_CLASSES.INFO_POSTER}`
-        ) as HTMLImageElement | null;
-        this.showTitleElement = this.containerElement.querySelector(
-            `.${EPG_CLASSES.INFO_SHOW}`
-        ) as HTMLElement | null;
-        this.titleElement = this.containerElement.querySelector(
-            `.${EPG_CLASSES.INFO_TITLE}`
-        ) as HTMLElement | null;
-        this.clearLogoElement = this.containerElement.querySelector(
-            `.${EPG_CLASSES.INFO_CLEAR_LOGO}`
-        ) as HTMLImageElement | null;
-        this.metaElement = this.containerElement.querySelector(
-            `.${EPG_CLASSES.INFO_META}`
-        ) as HTMLElement | null;
-        this.tagsElement = this.containerElement.querySelector(
-            `.${EPG_CLASSES.INFO_TAGS}`
-        ) as HTMLElement | null;
-        this.genresElement = this.containerElement.querySelector(
-            `.${EPG_CLASSES.INFO_GENRES}`
-        ) as HTMLElement | null;
-        this.descriptionElement = this.containerElement.querySelector(
-            `.${EPG_CLASSES.INFO_DESCRIPTION}`
-        ) as HTMLElement | null;
-        this.descriptionInnerElement = this.containerElement.querySelector(
-            `.${EPG_CLASSES.INFO_DESCRIPTION_INNER}`
-        ) as HTMLElement | null;
+        const bindings = this.bindTemplateElements(container);
+        this.backdropElement = bindings.backdrop;
+        this.gradientAElement = bindings.gradientA;
+        this.gradientBElement = bindings.gradientB;
+        this.posterElement = bindings.poster;
+        this.showTitleElement = bindings.showTitle;
+        this.titleElement = bindings.title;
+        this.clearLogoElement = bindings.clearLogo;
+        this.metaElement = bindings.meta;
+        this.tagsElement = bindings.tags;
+        this.genresElement = bindings.genres;
+        this.descriptionElement = bindings.description;
+        this.descriptionInnerElement = bindings.descriptionInner;
+        this.initializeQualityBadges(bindings.qualityContainer);
+    }
 
-        const qualityContainer = this.containerElement.querySelector(
-            `.${EPG_CLASSES.INFO_QUALITY}`
-        ) as HTMLElement | null;
-        if (qualityContainer) {
-            this.qualityBadges = [];
-            // Rating + up to 4 media quality badges (resolution/HDR/audio codec/channels).
-            for (let i = 0; i < 5; i++) {
-                const badge = document.createElement('span');
-                badge.className = EPG_CLASSES.INFO_QUALITY_BADGE;
-                badge.style.display = 'none';
-                qualityContainer.appendChild(badge);
-                this.qualityBadges.push(badge);
-            }
+    private createContainerElement(): HTMLElement {
+        const container = document.createElement('div');
+        container.className = EPG_CLASSES.INFO_PANEL;
+        container.replaceChildren(this.createTemplateElement());
+        container.style.display = 'flex';
+        container.style.visibility = 'hidden';
+        container.style.opacity = '0';
+        return container;
+    }
+
+    private bindTemplateElements(container: HTMLElement): InfoPanelTemplateBindings {
+        return {
+            backdrop: this.queryTemplateElement<HTMLImageElement>(container, EPG_CLASSES.INFO_BACKDROP_IMG),
+            gradientA: this.queryTemplateElement<HTMLElement>(container, EPG_CLASSES.INFO_GRADIENT_A),
+            gradientB: this.queryTemplateElement<HTMLElement>(container, EPG_CLASSES.INFO_GRADIENT_B),
+            poster: this.queryTemplateElement<HTMLImageElement>(container, EPG_CLASSES.INFO_POSTER),
+            showTitle: this.queryTemplateElement<HTMLElement>(container, EPG_CLASSES.INFO_SHOW),
+            title: this.queryTemplateElement<HTMLElement>(container, EPG_CLASSES.INFO_TITLE),
+            clearLogo: this.queryTemplateElement<HTMLImageElement>(container, EPG_CLASSES.INFO_CLEAR_LOGO),
+            meta: this.queryTemplateElement<HTMLElement>(container, EPG_CLASSES.INFO_META),
+            tags: this.queryTemplateElement<HTMLElement>(container, EPG_CLASSES.INFO_TAGS),
+            genres: this.queryTemplateElement<HTMLElement>(container, EPG_CLASSES.INFO_GENRES),
+            description: this.queryTemplateElement<HTMLElement>(container, EPG_CLASSES.INFO_DESCRIPTION),
+            descriptionInner: this.queryTemplateElement<HTMLElement>(container, EPG_CLASSES.INFO_DESCRIPTION_INNER),
+            qualityContainer: this.queryTemplateElement<HTMLElement>(container, EPG_CLASSES.INFO_QUALITY),
+        };
+    }
+
+    private queryTemplateElement<T extends HTMLElement>(
+        container: HTMLElement,
+        className: string
+    ): T | null {
+        return container.querySelector(`.${className}`) as T | null;
+    }
+
+    private initializeQualityBadges(qualityContainer: HTMLElement | null): void {
+        this.qualityBadges = [];
+        if (!qualityContainer) {
+            return;
+        }
+
+        // Rating + up to 4 media quality badges (resolution/HDR/audio codec/channels).
+        for (let i = 0; i < QUALITY_BADGE_SLOT_COUNT; i++) {
+            const badge = document.createElement('span');
+            badge.className = EPG_CLASSES.INFO_QUALITY_BADGE;
+            badge.style.display = 'none';
+            qualityContainer.appendChild(badge);
+            this.qualityBadges.push(badge);
         }
     }
 
