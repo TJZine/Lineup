@@ -1,12 +1,12 @@
 /**
  * @fileoverview EPG Error Boundary - Centralized error handling for EPG component
- * @module modules/ui/epg/EPGErrorBoundary
+ * @module modules/ui/epg/view/EPGErrorBoundary
  * @version 1.0.0
  */
 
-import { EventEmitter } from '../../../utils/EventEmitter';
-import { redactSensitiveTokens } from '../../../utils/redact';
-import type { EPGErrorType } from './types';
+import { EventEmitter } from '../../../../utils/EventEmitter';
+import { redactSensitiveTokens } from '../../../../utils/redact';
+import type { EPGErrorType } from '../types';
 
 /**
  * Events emitted by EPGErrorBoundary.

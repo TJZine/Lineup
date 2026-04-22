@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { EPGErrorBoundary } from '../EPGErrorBoundary';
+import { EPGErrorBoundary } from '../view/EPGErrorBoundary';
 
 describe('EPGErrorBoundary', () => {
     let errorBoundary: EPGErrorBoundary;

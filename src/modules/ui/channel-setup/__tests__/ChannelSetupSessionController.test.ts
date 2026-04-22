@@ -211,6 +211,52 @@ describe('ChannelSetupSessionController', () => {
         expect(after.strategies.playlists.enabled).toBe(false);
     });
 
+    it('library selection edits invalidate facet snapshots while keeping workflow access inside the runtime owner', async (): Promise<void> => {
+        const libraries: PlexLibraryModel[] = [makeLibrary({ id: 'movies' }), makeLibrary({ id: 'shows' })];
+        const workflowPort = createWorkflowPort({
+            getLibrariesForSetup: jest.fn().mockResolvedValue(libraries),
+        });
+        const controller = new ChannelSetupSessionController({
+            workflowPort,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        await controller.loadLibraries();
+
+        controller.toggleReplaceConfirm();
+        controller.clearAllLibraries();
+        expect(controller.getSnapshot().replaceConfirm).toBe(false);
+
+        controller.toggleReplaceConfirm();
+        controller.selectAllLibraries();
+        expect(controller.getSnapshot().replaceConfirm).toBe(false);
+
+        controller.toggleReplaceConfirm();
+        controller.toggleLibrary('movies');
+        expect(controller.getSnapshot().replaceConfirm).toBe(false);
+
+        expect(workflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(5);
+    });
+
+    it('updateStrategyState() clears review state without invalidating facet snapshots', (): void => {
+        const workflowPort = createWorkflowPort();
+        const controller = new ChannelSetupSessionController({
+            workflowPort,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        controller.toggleReplaceConfirm();
+        controller.updateStrategyState((draft) => {
+            draft.maxChannels = 75;
+        });
+
+        expect(controller.getSnapshot().replaceConfirm).toBe(false);
+        expect(controller.getSnapshot().maxChannels).toBe(75);
+        expect(workflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(1);
+    });
+
     it('loadLibraries() applies setup record when present', async (): Promise<void> => {
         const libraries: PlexLibraryModel[] = [makeLibrary({ id: 'movies' }), makeLibrary({ id: 'shows' })];
         const record: ChannelSetupRecord = {
@@ -926,6 +972,43 @@ describe('ChannelSetupSessionController', () => {
         await flushPromises();
         expect(controller.getSnapshot().isReviewLoading).toBe(false);
         expect(controller.getSnapshot().review).toEqual(DEFAULT_REVIEW);
+    });
+
+    it('clearReviewForEdits() retires in-flight preview and review work so stale results cannot repopulate state', async (): Promise<void> => {
+        const preview = createDeferred<typeof DEFAULT_PREVIEW>();
+        const review = createDeferred<typeof DEFAULT_REVIEW>();
+        const workflowPort = createWorkflowPort({
+            getSetupPreview: jest.fn().mockImplementation(() => preview.promise),
+            getSetupReview: jest.fn().mockImplementation(() => review.promise),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+        const controller = new ChannelSetupSessionController({
+            workflowPort,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        await controller.loadLibraries();
+        controller.setStep(2);
+
+        controller.schedulePreview(jest.fn());
+        await jest.advanceTimersByTimeAsync(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
+        await flushPromises();
+        const reviewPromise = controller.ensureReviewLoaded(jest.fn());
+        await flushPromises();
+        expect(controller.getSnapshot().isPreviewLoading).toBe(true);
+        expect(controller.getSnapshot().isReviewLoading).toBe(true);
+
+        controller.clearReviewForEdits();
+        expect(controller.getSnapshot().isPreviewLoading).toBe(false);
+        expect(controller.getSnapshot().isReviewLoading).toBe(false);
+
+        preview.resolve(DEFAULT_PREVIEW);
+        review.resolve(DEFAULT_REVIEW);
+        await Promise.all([reviewPromise, flushPromises()]);
+
+        expect(controller.getSnapshot().preview).toBeNull();
+        expect(controller.getSnapshot().review).toBeNull();
     });
 
     it('ensureReviewLoaded() propagates onStateChange errors after cleanup without leaking loading state', async (): Promise<void> => {

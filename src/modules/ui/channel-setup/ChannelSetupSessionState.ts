@@ -219,6 +219,24 @@ export class ChannelSetupSessionState {
         this.minItems = draft.minItems;
     }
 
+    selectAllLibraries(): void {
+        this.selectedLibraryIds = new Set(this.libraries.map((library) => library.id));
+    }
+
+    clearAllLibraries(): void {
+        this.selectedLibraryIds = new Set();
+    }
+
+    toggleLibrarySelection(libraryId: string): boolean {
+        const wasSelected = this.selectedLibraryIds.has(libraryId);
+        if (wasSelected) {
+            this.selectedLibraryIds.delete(libraryId);
+        } else {
+            this.selectedLibraryIds.add(libraryId);
+        }
+        return !wasSelected;
+    }
+
     clearReviewForEdits(): void {
         this.review = null;
         this.reviewError = null;

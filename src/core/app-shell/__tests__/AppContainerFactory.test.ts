@@ -3,7 +3,14 @@
  */
 
 import { createAppContainers } from '../AppContainerFactory';
-import { EXPECTED_CONTAINER_IDS } from '../../../__tests__/fixtures/appShellContainerIds';
+import {
+    EXPECTED_APP_ROOT_CHILD_IDS,
+    EXPECTED_CONTAINER_IDS,
+    EXPECTED_RUNTIME_CHROME_HOST_CHILD_IDS,
+} from '../../../__tests__/fixtures/appShellContainerIds';
+import { EXIT_CONFIRM_CONTAINER_ID } from '../../../modules/ui/exit-confirm';
+import { MINI_GUIDE_CONTAINER_ID } from '../../../modules/ui/mini-guide';
+import { PLAYER_OSD_CONTAINER_ID } from '../../../modules/ui/player-osd';
 import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
 
 const SCREEN_CONTAINER_IDS = [
@@ -34,7 +41,13 @@ describe('createAppContainers', () => {
         createAppContainers(root);
         createAppContainers(root);
 
-        expect(Array.from(root.children, (child) => (child as HTMLElement).id)).toEqual(EXPECTED_CONTAINER_IDS);
+        expect(Array.from(root.children, (child) => (child as HTMLElement).id)).toEqual(EXPECTED_APP_ROOT_CHILD_IDS);
+        expect(
+            Array.from(
+                (document.getElementById(APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST) as HTMLElement).children,
+                (child) => (child as HTMLElement).id
+            )
+        ).toEqual(EXPECTED_RUNTIME_CHROME_HOST_CHILD_IDS);
     });
 
     it('is idempotent when called repeatedly (no duplicate IDs)', () => {
@@ -57,9 +70,11 @@ describe('createAppContainers', () => {
 
         const refs = createAppContainers(root);
         const errorOverlay = document.getElementById(APP_SHELL_CONTAINER_IDS.ERROR_OVERLAY) as HTMLElement;
+        const runtimeChromeHost = document.getElementById(APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST) as HTMLElement;
         const toastContainer = document.getElementById(APP_SHELL_CONTAINER_IDS.TOAST) as HTMLElement;
 
         expect((document.getElementById(APP_SHELL_CONTAINER_IDS.VIDEO) as HTMLElement).className).toBe('video-container');
+        expect(runtimeChromeHost.className).toBe('runtime-chrome-host');
         expect((document.getElementById('epg-container') as HTMLElement).className).toBe('epg-container');
 
         for (const id of SCREEN_CONTAINER_IDS) {
@@ -173,5 +188,187 @@ describe('createAppContainers', () => {
         expect(toastMatches[0]).toBe(validDiv);
         expect(root.contains(wrongTag)).toBe(false);
         expect(refs.toastContainer).toBe(validDiv);
+    });
+
+    it('repairs duplicate runtime chrome hosts and keeps the first matching div', () => {
+        const root = document.getElementById('app') as HTMLElement;
+        const first = document.createElement('div');
+        first.id = APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST;
+        const duplicate = document.createElement('div');
+        duplicate.id = APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST;
+        root.append(first, duplicate);
+
+        createAppContainers(root);
+
+        const hostMatches = root.querySelectorAll(`#${APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST}`);
+
+        expect(hostMatches).toHaveLength(1);
+        expect(hostMatches[0]).toBe(first);
+    });
+
+    it('throws in development when unmanaged non-element nodes remain under the runtime chrome host', () => {
+        const root = document.getElementById('app') as HTMLElement;
+        const runtimeChromeHost = document.createElement('div');
+        runtimeChromeHost.id = APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST;
+        runtimeChromeHost.appendChild(document.createTextNode(' stray '));
+        root.appendChild(runtimeChromeHost);
+
+        expect(() => createAppContainers(root)).toThrow(
+            'AppContainerFactory runtime chrome host has unmanaged children: #text'
+        );
+    });
+
+    it('repairs runtime chrome members that drift outside the host', () => {
+        const root = document.getElementById('app') as HTMLElement;
+        const strayPlayerOsd = document.createElement('div');
+        strayPlayerOsd.id = PLAYER_OSD_CONTAINER_ID;
+        const strayMiniGuide = document.createElement('div');
+        strayMiniGuide.id = MINI_GUIDE_CONTAINER_ID;
+        root.append(strayPlayerOsd, strayMiniGuide);
+
+        createAppContainers(root);
+
+        const runtimeChromeHost = document.getElementById(APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST) as HTMLElement;
+
+        expect(strayPlayerOsd.parentElement).toBe(runtimeChromeHost);
+        expect(strayMiniGuide.parentElement).toBe(runtimeChromeHost);
+        expect(Array.from(root.children, (child) => (child as HTMLElement).id)).toEqual(EXPECTED_APP_ROOT_CHILD_IDS);
+        expect(Array.from(runtimeChromeHost.children, (child) => (child as HTMLElement).id)).toEqual(
+            EXPECTED_RUNTIME_CHROME_HOST_CHILD_IDS
+        );
+    });
+
+    it('repairs runtime chrome members that exist outside #app', () => {
+        const root = document.getElementById('app') as HTMLElement;
+        const strayPlayerOsd = document.createElement('div');
+        strayPlayerOsd.id = PLAYER_OSD_CONTAINER_ID;
+        document.body.prepend(strayPlayerOsd);
+
+        createAppContainers(root);
+
+        const runtimeChromeHost = document.getElementById(APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST) as HTMLElement;
+
+        expect(document.querySelectorAll(`#${PLAYER_OSD_CONTAINER_ID}`)).toHaveLength(1);
+        expect(document.getElementById(PLAYER_OSD_CONTAINER_ID)).toBe(strayPlayerOsd);
+        expect(strayPlayerOsd.parentElement).toBe(runtimeChromeHost);
+        expect(Array.from(root.children, (child) => (child as HTMLElement).id)).toEqual(EXPECTED_APP_ROOT_CHILD_IDS);
+        expect(Array.from(runtimeChromeHost.children, (child) => (child as HTMLElement).id)).toEqual(
+            EXPECTED_RUNTIME_CHROME_HOST_CHILD_IDS
+        );
+    });
+
+    it('preserves live runtime chrome containers when repeated repair sees duplicate placeholders', () => {
+        const root = document.getElementById('app') as HTMLElement;
+        createAppContainers(root);
+
+        const duplicateHost = document.createElement('div');
+        duplicateHost.id = APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST;
+        const livePlayerOsd = document.createElement('div');
+        livePlayerOsd.id = PLAYER_OSD_CONTAINER_ID;
+        const livePlayerOsdContent = document.createElement('span');
+        livePlayerOsdContent.textContent = 'live player osd';
+        livePlayerOsd.appendChild(livePlayerOsdContent);
+        const liveMiniGuide = document.createElement('div');
+        liveMiniGuide.id = MINI_GUIDE_CONTAINER_ID;
+        const liveMiniGuideContent = document.createElement('span');
+        liveMiniGuideContent.textContent = 'live mini guide';
+        liveMiniGuide.appendChild(liveMiniGuideContent);
+        duplicateHost.append(livePlayerOsd, liveMiniGuide);
+        document.body.appendChild(duplicateHost);
+
+        createAppContainers(root);
+
+        const runtimeChromeHost = document.getElementById(APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST) as HTMLElement;
+
+        expect(document.querySelectorAll(`#${APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST}`)).toHaveLength(1);
+        expect(document.getElementById(PLAYER_OSD_CONTAINER_ID)).toBe(livePlayerOsd);
+        expect(document.getElementById(MINI_GUIDE_CONTAINER_ID)).toBe(liveMiniGuide);
+        expect(livePlayerOsd.parentElement).toBe(runtimeChromeHost);
+        expect(liveMiniGuide.parentElement).toBe(runtimeChromeHost);
+        expect(livePlayerOsd.textContent).toContain('live player osd');
+        expect(liveMiniGuide.textContent).toContain('live mini guide');
+        expect(Array.from(root.children, (child) => (child as HTMLElement).id)).toEqual(EXPECTED_APP_ROOT_CHILD_IDS);
+        expect(Array.from(runtimeChromeHost.children, (child) => (child as HTMLElement).id)).toEqual(
+            EXPECTED_RUNTIME_CHROME_HOST_CHILD_IDS
+        );
+    });
+
+    it('repairs root-owned containers that exist outside #app without duplicating ids', () => {
+        const root = document.getElementById('app') as HTMLElement;
+        const strayNowPlaying = document.createElement('div');
+        strayNowPlaying.id = APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO;
+        const strayPlaybackOptions = document.createElement('div');
+        strayPlaybackOptions.id = APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS;
+        const strayExitConfirm = document.createElement('div');
+        strayExitConfirm.id = EXIT_CONFIRM_CONTAINER_ID;
+        document.body.prepend(strayNowPlaying, strayPlaybackOptions, strayExitConfirm);
+
+        createAppContainers(root);
+
+        expect(document.querySelectorAll(`#${APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO}`)).toHaveLength(1);
+        expect(document.querySelectorAll(`#${APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS}`)).toHaveLength(1);
+        expect(document.querySelectorAll(`#${EXIT_CONFIRM_CONTAINER_ID}`)).toHaveLength(1);
+        expect(document.getElementById(APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO)).toBe(strayNowPlaying);
+        expect(document.getElementById(APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS)).toBe(strayPlaybackOptions);
+        expect(document.getElementById(EXIT_CONFIRM_CONTAINER_ID)).toBe(strayExitConfirm);
+        expect(strayNowPlaying.parentElement).toBe(root);
+        expect(strayPlaybackOptions.parentElement).toBe(root);
+        expect(strayExitConfirm.parentElement).toBe(root);
+        expect(Array.from(root.children, (child) => (child as HTMLElement).id)).toEqual(EXPECTED_APP_ROOT_CHILD_IDS);
+    });
+
+    it('throws when #app contains an unmanaged child after canonical containers are assembled', () => {
+        const root = document.getElementById('app') as HTMLElement;
+        const rogue = document.createElement('div');
+        rogue.id = 'rogue-shell-child';
+
+        createAppContainers(root);
+        root.prepend(rogue);
+
+        expect(() => createAppContainers(root)).toThrow('AppContainerFactory root has unmanaged children');
+    });
+
+    it('throws when the runtime chrome host contains an unmanaged child', () => {
+        const root = document.getElementById('app') as HTMLElement;
+
+        createAppContainers(root);
+
+        const runtimeChromeHost = document.getElementById(APP_SHELL_CONTAINER_IDS.RUNTIME_CHROME_HOST) as HTMLElement;
+        const rogue = document.createElement('div');
+        rogue.id = 'rogue-runtime-chrome-child';
+        runtimeChromeHost.prepend(rogue);
+
+        expect(() => createAppContainers(root)).toThrow(
+            'AppContainerFactory runtime chrome host has unmanaged children'
+        );
+    });
+
+    it('preserves live root-owned containers when repeated repair sees duplicate placeholders', () => {
+        const root = document.getElementById('app') as HTMLElement;
+        createAppContainers(root);
+
+        const liveNowPlaying = document.createElement('div');
+        liveNowPlaying.id = APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO;
+        const liveNowPlayingPanel = document.createElement('section');
+        liveNowPlayingPanel.textContent = 'live now playing';
+        liveNowPlaying.appendChild(liveNowPlayingPanel);
+
+        const livePlaybackOptions = document.createElement('div');
+        livePlaybackOptions.id = APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS;
+        const livePlaybackOptionsPanel = document.createElement('section');
+        livePlaybackOptionsPanel.textContent = 'live playback options';
+        livePlaybackOptions.appendChild(livePlaybackOptionsPanel);
+
+        document.body.append(liveNowPlaying, livePlaybackOptions);
+
+        createAppContainers(root);
+
+        expect(document.getElementById(APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO)).toBe(liveNowPlaying);
+        expect(document.getElementById(APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS)).toBe(livePlaybackOptions);
+        expect(liveNowPlaying.parentElement).toBe(root);
+        expect(livePlaybackOptions.parentElement).toBe(root);
+        expect(liveNowPlaying.textContent).toContain('live now playing');
+        expect(livePlaybackOptions.textContent).toContain('live playback options');
+        expect(Array.from(root.children, (child) => (child as HTMLElement).id)).toEqual(EXPECTED_APP_ROOT_CHILD_IDS);
     });
 });

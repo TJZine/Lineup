@@ -196,6 +196,7 @@ Use Codex multi-agent support only when it materially improves reliability, thro
   - `.codex/config.toml`
   - `.codex/agents/*.toml`
   - `agents.md`
+- When delegating with tracked roles such as `planner`, `reviewer`, or `cleanup_worker`, spawn fresh role-based threads with bounded context instead of using full-history forks. The current Codex runtime rejects full-history forked launches when `agent_type`, `model`, or `reasoning_effort` overrides are present, and the tracked role selection relies on those role-bound settings.
 - Keep read-only roles read-only; do not route edits through exploration/review/docs/monitor roles (enforced by the tracked config + verifier).
 - Keep the write-capable roles separated by purpose: `planner` owns bounded planning surfaces, `worker` owns general implementation scopes, and `cleanup_worker` is reserved for approved Tier 3 `cleanup-loop` implementation passes.
 - Once a delegated `planner` pass is active, keep it authoritative for plan authoring until it finishes, explicitly blocks, fails, or is abandoned after wait/status-check/wait with no usable progress signal.

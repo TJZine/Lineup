@@ -778,6 +778,9 @@ export class AppOrchestrator {
                 onOverlayVisibilityChange: (visible: boolean): void => {
                     this._requireOverlayRuntimePolicyController().handleOverlayVisibilityChange(visible);
                 },
+                onChannelTransitionActivityChange: (_active: boolean): void => {
+                    this._requireOverlayRuntimePolicyController().syncChannelBadgeOverlay();
+                },
                 toggleNowPlayingInfoOverlay: (): void => {
                     this._requireOverlayRuntimePolicyController().toggleNowPlayingInfoOverlay();
                 },
@@ -2145,6 +2148,10 @@ export class AppOrchestrator {
                         playerOsd: this._playerOsd,
                         nowPlayingInfo: this._nowPlayingInfo,
                         epg: this._epg,
+                        channelTransitionActivity: {
+                            isActive: (): boolean =>
+                                this._channelTransitionCoordinator?.isActive() ?? false,
+                        },
                         channelManager: this._channelManager,
                         navigation: this._navigation,
                         plexLibrary: this._plexLibrary,

@@ -131,12 +131,12 @@ function buildWaveScopedPackageDecomposition() {
 test('parseSkillMirrorManifest reads tracked allowlist entries and ignores comments', () => {
     const entries = parseSkillMirrorManifest(`
 # comment
-superpowers:brainstorming
+global:brainstorming
 global:frontend-design
     `);
 
     assert.deepEqual(entries, [
-        { source: 'superpowers', skill: 'brainstorming' },
+        { source: 'global', skill: 'brainstorming' },
         { source: 'global', skill: 'frontend-design' },
     ]);
 });
@@ -1363,7 +1363,12 @@ Do the cleanup.
   - reason: one broader residual package remains outside this slice
   - revisit trigger: rerun the exact residual audit before \`P10-EXIT\`
 - \`review::.::holistic::api_surface_coherence::storage_write_contract_fragmentation\`
-  - expected disposition: resolved
+  - expected disposition: stale-proven
+  - reason: the detector wording no longer matches current source
+- \`review::.::holistic::workflow_coherence::accepted-cleanup-residue\`
+  - expected disposition: accepted residue
+  - reason: the remaining residue is low-value on current source
+  - revisit trigger: rerun if the owner seam changes before \`P6-EXIT\`
 
 ### Security gate
 
@@ -1380,6 +1385,110 @@ ${buildSingleSlicePackageDecomposition()}
 
     assert.equal(result.isSerious, true);
     assert.deepEqual(result.errors, []);
+});
+
+test('checkPlanConformance rejects priority-exit dispositions that add suffix text beyond exact tokens', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+        content: `# Cleanup Example
+
+**Plan Status:** active
+**Task family:** cleanup/refactor
+**Cleanup subtype:** checklist-linked
+
+## Goal
+
+Do the cleanup.
+
+## Non-Goals
+
+- No runtime changes.
+
+## Parent Architecture Alignment
+
+- Keep the control plane small.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`execution-plan-authoring\`
+
+## Codanna Discovery
+
+- fallback: direct reads only.
+
+## Impact Snapshot
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files In Scope
+
+- \`docs/agentic/plan-authoring-standard.md\`
+
+## Files Out Of Scope
+
+- \`src/App.ts\`
+
+## Planner Self-Check
+
+- resolved.
+
+## Architecture Seam Decision Gate
+
+- explicit.
+
+## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
+
+1. Run: \`npm run verify:docs\`
+1. Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- revert.
+
+## Commit Checkpoints
+
+- \`docs: update plan rules\`
+
+## Priority-Exit Readiness
+
+### Imported issue dispositions by exact id
+
+- \`review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes\`
+  - expected disposition: split follow-up later
+  - residual final owner: \`P10-W1 residual mechanical detector owner\`
+  - reason: one broader residual package remains outside this slice
+  - revisit trigger: rerun the exact residual audit before \`P10-EXIT\`
+- \`review::.::holistic::api_surface_coherence::storage_write_contract_fragmentation\`
+  - expected disposition: stale-proven-extra
+  - reason: the detector wording no longer matches current source
+- \`review::.::holistic::workflow_coherence::accepted-cleanup-residue\`
+  - expected disposition: accepted residue later
+  - reason: the remaining residue is low-value on current source
+  - revisit trigger: rerun if the owner seam changes before \`P6-EXIT\`
+
+### Security gate
+
+- expected outcome: \`no open P0 security findings\`
+- if security output still shows open issues, record the exact issue ids and their current owner before allowing \`P6\`
+
+### Next-priority gate
+
+- no \`P6\` plan or implementation starts while \`P5-EXIT\` is unresolved
+
+${buildSingleSlicePackageDecomposition()}
+`,
+    });
+
+    assert.equal(result.isSerious, true);
+    assert.deepEqual(result.errors, [
+        'priority-exit readiness section must record exact disposition tokens for mapped imported issues',
+    ]);
 });
 
 test('checkPlanConformance accepts priority-exit readiness sections with tab-indented nested bullets', () => {

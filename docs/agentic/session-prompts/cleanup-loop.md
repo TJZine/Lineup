@@ -52,6 +52,7 @@ Run the loop as an explicit state machine:
 - `plan`
   - keep initial routing and seam decisions local, but for `checklist-linked` Tier 3 cleanup delegate the primary execution-grade plan-writing pass by default after `scope-load`
   - for that primary `checklist-linked` planning pass, use the tracked write-capable `planner` role for the bounded plan artifact and rely on the tracked planner defaults instead of prompt-level model overrides
+  - spawn that tracked-role planner as a fresh bounded-context thread, not a full-history fork; current Codex forked launches cannot also change `agent_type`, `model`, or `reasoning_effort`, and tracked role routing depends on those role-bound settings
   - once delegated planning starts, that planner is the authoritative plan author until it finishes, explicitly blocks, fails, or is abandoned only after a long wait, a direct status check, and a follow-up wait that still produces no usable progress signal
   - while that planner pass is active, the controller may wait, poll status, answer blocker questions, and keep `update_plan` current, but must not do planner-grade repo discovery, redundant package-local scoping, issue reconciliation, or tracked plan drafting locally; limit controller-side inspection to the minimum needed to answer an explicit blocker question or resolve a controller-only seam decision
   - the main thread must not author the execution-grade `checklist-linked` package plan itself just because it now has enough local context; reclaim planning only when delegated planning explicitly blocks, fails, the user explicitly asks the main thread to plan locally, a controller-only seam decision must be resolved before planning can continue, or the narrow long-wait/direct-status-check/follow-up-wait abandonment test is met
@@ -62,6 +63,7 @@ Run the loop as an explicit state machine:
   - for `standalone remediation`, require one explicit bounded execution target in the approved plan and do not invent package slices or checklist linkage
 - `plan-review`
   - run an adversarial plan review using a fresh tracked `reviewer` pass
+  - launch that reviewer as a fresh bounded-context tracked-role thread instead of a full-history fork for the same role-selection reason
   - keep that reviewer thread alive for follow-up closure checks on the same plan artifact when findings come back
   - treat the plan as implementation-ready only when there are no material findings
   - treat slice parallelism as unavailable unless the approved plan explicitly authorizes it and explains the boundary and verification split
@@ -83,6 +85,7 @@ Run the loop as an explicit state machine:
 - `implement`
   - spawn or resume a persistent tracked `cleanup_worker` implementation subagent using the approved plan and selected execution scope
   - for Tier 3 `cleanup-loop` implementation passes, use the tracked `cleanup_worker` role instead of `worker`; keep Tier 2 implementers and feature implementers on the general `worker` role
+  - when starting that tracked-role implementer, pass the approved plan/execution-unit context explicitly and avoid full-history forking; the runtime rejects forked launches when role/model/reasoning overrides are attached
   - follow the tracked role defaults and any explicit `MODEL_SUGGESTION` guidance already present in the approved handoff rather than inventing ad hoc controller-side role/model routing
   - execute one approved execution unit by default for `checklist-linked` work; package-wide implementation is not the default loop unit there
   - absorb now only when newly discovered residue stays within the same approved execution unit goal, same owner, same seam/files, same verification envelope, and same final-owner accounting already approved by the plan
@@ -92,6 +95,7 @@ Run the loop as an explicit state machine:
   - keep active tracked plan docs from `docs/plans/` out of delegated implementation commits; plan-progress updates may stay in the working tree for orchestrator handling or a separate tracked-doc commit
 - `implementation-review`
   - run an adversarial implementation review using a fresh tracked `reviewer` pass for the implemented execution unit or bounded execution target
+  - launch that reviewer as a fresh bounded-context tracked-role thread instead of a full-history fork for the same role-selection reason
   - keep that reviewer thread alive for follow-up closure checks on the same execution-unit artifact when findings come back
   - after a clean review, return to `execution-unit-select` for remaining checklist-linked work or proceed to `closeout` when the subtype-matched exit conditions are satisfied
 - `implementation-revise`

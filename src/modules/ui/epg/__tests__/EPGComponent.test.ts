@@ -15,6 +15,12 @@ import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import { readFileSync } from 'node:fs';
 
 describe('EPGComponent', () => {
+    const expectPresent = <T,>(value: T | null | undefined): T => {
+        expect(value).not.toBeNull();
+        expect(value).not.toBeUndefined();
+        return value as T;
+    };
+
     let epg: EPGComponent;
     let container: HTMLElement;
     let gridAnchorTime = 0;
@@ -93,14 +99,16 @@ describe('EPGComponent', () => {
         });
 
         try {
-            const dashboard = localContainer.querySelector(`.${EPG_CLASSES.DASHBOARD_BOTTOM}`) as HTMLElement | null;
-            const overlayShowcase = localContainer.querySelector(`.${EPG_CLASSES.OVERLAY_SHOWCASE}`) as HTMLElement | null;
+            const dashboard = expectPresent(
+                localContainer.querySelector(`.${EPG_CLASSES.DASHBOARD_BOTTOM}`) as HTMLElement | null
+            );
+            const overlayShowcase = expectPresent(
+                localContainer.querySelector(`.${EPG_CLASSES.OVERLAY_SHOWCASE}`) as HTMLElement | null
+            );
             const watermark = localContainer.querySelector('.epg-watermark');
-            expect(dashboard).not.toBeNull();
-            expect(overlayShowcase).not.toBeNull();
-            expect(dashboard!.querySelector(`.${EPG_CLASSES.NOW_WATCHING_BANNER}`)).not.toBeNull();
-            expect(overlayShowcase!.querySelector(`.${EPG_CLASSES.INFO_PANEL}`)).not.toBeNull();
-            expect(dashboard!.querySelector(`.${EPG_CLASSES.INFO_PANEL}`)).toBeNull();
+            expect(dashboard.querySelector(`.${EPG_CLASSES.NOW_WATCHING_BANNER}`)).not.toBeNull();
+            expect(overlayShowcase.querySelector(`.${EPG_CLASSES.INFO_PANEL}`)).not.toBeNull();
+            expect(dashboard.querySelector(`.${EPG_CLASSES.INFO_PANEL}`)).toBeNull();
             expect(watermark).not.toBeNull();
             expect(watermark?.querySelector('svg')).not.toBeNull();
         } finally {
@@ -720,14 +728,12 @@ describe('EPGComponent', () => {
 
             try {
                 localEpg.show();
-                const header = localContainer.querySelector('.epg-classic-header') as HTMLElement | null;
-                const showcase = localContainer.querySelector('.epg-classic-showcase') as HTMLElement | null;
-                expect(header).not.toBeNull();
-                expect(showcase).not.toBeNull();
-                expect(header!.hidden).toBe(true);
-                expect(showcase!.hidden).toBe(true);
-                expect(header!.getAttribute('aria-hidden')).toBe('true');
-                expect(showcase!.getAttribute('aria-hidden')).toBe('true');
+                const header = expectPresent(localContainer.querySelector('.epg-classic-header') as HTMLElement | null);
+                const showcase = expectPresent(localContainer.querySelector('.epg-classic-showcase') as HTMLElement | null);
+                expect(header.hidden).toBe(true);
+                expect(showcase.hidden).toBe(true);
+                expect(header.getAttribute('aria-hidden')).toBe('true');
+                expect(showcase.getAttribute('aria-hidden')).toBe('true');
             } finally {
                 localEpg.destroy();
                 localContainer.remove();
@@ -747,22 +753,20 @@ describe('EPGComponent', () => {
                 localEpg.show();
                 expect(localContainer.classList.contains(EPG_CLASSES.CONTAINER_CLASSIC)).toBe(true);
                 expect(onLayoutModeChange).toHaveBeenCalledWith('classic');
-                const header = localContainer.querySelector('.epg-classic-header') as HTMLElement | null;
-                const showcase = localContainer.querySelector('.epg-classic-showcase') as HTMLElement | null;
-                expect(header).not.toBeNull();
-                expect(showcase).not.toBeNull();
-                expect(header!.hidden).toBe(false);
-                expect(showcase!.hidden).toBe(false);
-                expect(header!.getAttribute('aria-hidden')).toBeNull();
-                expect(showcase!.getAttribute('aria-hidden')).toBeNull();
+                const header = expectPresent(localContainer.querySelector('.epg-classic-header') as HTMLElement | null);
+                const showcase = expectPresent(localContainer.querySelector('.epg-classic-showcase') as HTMLElement | null);
+                expect(header.hidden).toBe(false);
+                expect(showcase.hidden).toBe(false);
+                expect(header.getAttribute('aria-hidden')).toBeNull();
+                expect(showcase.getAttribute('aria-hidden')).toBeNull();
 
                 localEpg.hide();
                 expect(localContainer.classList.contains(EPG_CLASSES.CONTAINER_CLASSIC)).toBe(false);
                 expect(onLayoutModeChange).toHaveBeenCalledWith('overlay');
-                expect(header!.hidden).toBe(true);
-                expect(showcase!.hidden).toBe(true);
-                expect(header!.getAttribute('aria-hidden')).toBe('true');
-                expect(showcase!.getAttribute('aria-hidden')).toBe('true');
+                expect(header.hidden).toBe(true);
+                expect(showcase.hidden).toBe(true);
+                expect(header.getAttribute('aria-hidden')).toBe('true');
+                expect(showcase.getAttribute('aria-hidden')).toBe('true');
             } finally {
                 localEpg.destroy();
                 localContainer.remove();
@@ -849,6 +853,20 @@ describe('EPGComponent', () => {
             expect(ruleBody).toMatch(
                 /\bheight:\s*calc\(var\(--classic-guide-pip-width\)\s*\*\s*9\s*\/\s*16\)\s*!important;/
             );
+        });
+
+        it('keeps epg styles.css as an import-only stylesheet seam', () => {
+            const css = readFileSync('src/modules/ui/epg/styles.css', 'utf8').trim();
+
+            expect(css).toBe([
+                "@import url('./styles.shell.css');",
+                "@import url('./styles.grid.css');",
+                "@import url('./styles.cells.css');",
+                "@import url('./styles.info-panel.css');",
+                "@import url('./styles.classic.css');",
+                "@import url('./styles.theme.css');",
+                "@import url('./styles.motion.css');",
+            ].join('\n'));
         });
 
         it('updates layout class when setLayoutMode is called while visible', () => {
@@ -1127,16 +1145,13 @@ describe('EPGComponent', () => {
 
         it('should move focus right to next program', () => {
             epg.focusProgram(0, 0);
-            const initialFocus = epg.getFocusedProgram();
+            const initialFocus = expectPresent(epg.getFocusedProgram());
 
             const moved = epg.handleNavigation('right');
-            const newFocus = epg.getFocusedProgram();
+            const newFocus = expectPresent(epg.getFocusedProgram());
 
             expect(moved).toBe(true);
-            expect(newFocus).not.toBeNull();
-            expect(newFocus!.scheduledStartTime).toBeGreaterThanOrEqual(
-                initialFocus!.scheduledEndTime
-            );
+            expect(newFocus.scheduledStartTime).toBeGreaterThanOrEqual(initialFocus.scheduledEndTime);
         });
 
         it('should move focus left to previous program', () => {
@@ -1157,25 +1172,25 @@ describe('EPGComponent', () => {
 
             const movedUp = epg.handleNavigation('up');
             expect(movedUp).toBe(true);
-            expect(epg.getState().focusedCell!.channelIndex).toBe(0);
+            expect(expectPresent(epg.getState().focusedCell).channelIndex).toBe(0);
 
             const movedDown = epg.handleNavigation('down');
             expect(movedDown).toBe(true);
-            expect(epg.getState().focusedCell!.channelIndex).toBe(1);
+            expect(expectPresent(epg.getState().focusedCell).channelIndex).toBe(1);
         });
 
         it('should wrap to last channel when navigating up from top', () => {
             epg.focusProgram(0, 0); // First channel
             const moved = epg.handleNavigation('up');
             expect(moved).toBe(true);
-            expect(epg.getState().focusedCell!.channelIndex).toBe(2);
+            expect(expectPresent(epg.getState().focusedCell).channelIndex).toBe(2);
         });
 
         it('should wrap to first channel when navigating down from bottom', () => {
             epg.focusProgram(2, 0); // Last channel (index 2)
             const moved = epg.handleNavigation('down');
             expect(moved).toBe(true);
-            expect(epg.getState().focusedCell!.channelIndex).toBe(0);
+            expect(expectPresent(epg.getState().focusedCell).channelIndex).toBe(0);
         });
 
         it('should emit focusChange event', () => {

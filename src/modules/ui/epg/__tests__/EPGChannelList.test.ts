@@ -11,6 +11,8 @@ import type { ChannelConfig, EPGConfig } from '../types';
 import type { BuildStrategy } from '../../../scheduler/channel-manager/types';
 
 describe('EPGChannelList', () => {
+    const VALID_CUSTOM_COLOR = 'red';
+
     const createMockChannel = (index: number): ChannelConfig => ({
         id: `ch${index}`,
         number: index + 1,
@@ -136,7 +138,7 @@ describe('EPGChannelList', () => {
             {
                 ...createMockChannel(0),
                 buildStrategy: 'actors' as BuildStrategy,
-                color: '#ff0000',
+                color: VALID_CUSTOM_COLOR,
             },
         ];
         list.updateChannels(channels);

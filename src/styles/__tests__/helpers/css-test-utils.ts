@@ -30,6 +30,16 @@ const escapeRegExp = (value: string): string =>
 
 const normalizeSelector = (selector: string): string => selector.replace(/\s+/g, ' ').trim();
 
+const blockBody = (block: string): string => {
+    const start = block.indexOf('{');
+    const end = block.lastIndexOf('}');
+    if (start === -1 || end === -1 || end <= start) {
+        throw new Error(`Malformed CSS block: ${block}`);
+    }
+
+    return block.slice(start + 1, end);
+};
+
 const skipComment = (css: string, index: number): number => {
     const commentEnd = css.indexOf('*/', index + 2);
     if (commentEnd === -1) {
@@ -193,6 +203,86 @@ export const blockFor = (css: string, selector: string): string => {
     }
 
     throw new Error(`Selector block not found: ${selector}`);
+};
+
+export const topLevelBlockForProperty = (css: string, selector: string, property: string): string => {
+    const wantedSelector = normalizeSelector(selector);
+    const wantedProperty = new RegExp(`(^|\\n)\\s*${escapeRegExp(property)}\\s*:`, 'm');
+    let cursor = 0;
+    let ruleStart = 0;
+
+    while (cursor < css.length) {
+        if (css.startsWith('/*', cursor)) {
+            cursor = skipComment(css, cursor);
+            ruleStart = cursor;
+            continue;
+        }
+
+        if (css[cursor] === '"' || css[cursor] === "'") {
+            cursor = skipString(css, cursor);
+            continue;
+        }
+
+        if (css[cursor] === '{') {
+            const selectorList = css.slice(ruleStart, cursor).trim();
+            const blockEnd = findMatchingBrace(css, cursor);
+
+            if (!selectorList.startsWith('@')) {
+                const block = css.slice(ruleStart, blockEnd).trimStart();
+
+                if (
+                    splitSelectorList(selectorList).includes(wantedSelector) &&
+                    wantedProperty.test(blockBody(block))
+                ) {
+                    return block;
+                }
+            }
+
+            cursor = blockEnd;
+            ruleStart = cursor;
+            continue;
+        }
+
+        cursor += 1;
+    }
+
+    throw new Error(`Top-level selector block with property not found: ${selector} -> ${property}`);
+};
+
+export const blockWithin = (css: string, container: string, selector: string): string => {
+    const wantedContainer = normalizeSelector(container);
+    let cursor = 0;
+    let ruleStart = 0;
+
+    while (cursor < css.length) {
+        if (css.startsWith('/*', cursor)) {
+            cursor = skipComment(css, cursor);
+            ruleStart = cursor;
+            continue;
+        }
+
+        if (css[cursor] === '"' || css[cursor] === "'") {
+            cursor = skipString(css, cursor);
+            continue;
+        }
+
+        if (css[cursor] === '{') {
+            const selectorList = css.slice(ruleStart, cursor).trim();
+            const blockEnd = findMatchingBrace(css, cursor);
+
+            if (normalizeSelector(selectorList) === wantedContainer) {
+                return blockFor(blockBody(css.slice(ruleStart, blockEnd)), selector);
+            }
+
+            cursor = blockEnd;
+            ruleStart = cursor;
+            continue;
+        }
+
+        cursor += 1;
+    }
+
+    throw new Error(`Container block not found: ${container}`);
 };
 
 export const declarationValue = (block: string, property: string): string => {

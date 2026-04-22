@@ -45,6 +45,7 @@ export interface PriorityOneOptionalRuntimeSurfaces {
     playerOsd: { isVisible: () => boolean } | null;
     nowPlayingInfo: { isVisible: () => boolean } | null;
     epg: { isVisible: () => boolean } | null;
+    channelTransitionActivity: { isActive: () => boolean } | null;
     channelManager: IChannelManager | null;
     navigation: INavigationManager | null;
     plexLibrary: IPlexLibrary | null;

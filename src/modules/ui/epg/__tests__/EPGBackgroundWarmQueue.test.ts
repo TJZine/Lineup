@@ -37,7 +37,7 @@ describe('EPGBackgroundWarmQueue', () => {
     it('runs queued channels and cancels with warm-queue-complete', async () => {
         let activeRefreshId = 1;
         const onCancel = jest.fn();
-        const runForChannel = jest.fn().mockResolvedValue(undefined);
+        const refreshChannelSchedule = jest.fn().mockResolvedValue(undefined);
 
         const queue = new EPGBackgroundWarmQueue({
             getActiveRefreshId: (): number => activeRefreshId,
@@ -51,7 +51,7 @@ describe('EPGBackgroundWarmQueue', () => {
             refreshId: 1,
             reason: 'visible-range',
             channels: [makeChannel('c1', 1), makeChannel('c2', 2)],
-            runForChannel,
+            refreshChannelSchedule,
             concurrency: 1,
         });
 
@@ -61,14 +61,14 @@ describe('EPGBackgroundWarmQueue', () => {
         await flushPromises();
         await flushPromises();
 
-        expect(runForChannel).toHaveBeenCalledTimes(2);
+        expect(refreshChannelSchedule).toHaveBeenCalledTimes(2);
         expect(onCancel).toHaveBeenCalledWith('warm-queue-complete', expect.any(Object));
     });
 
     it('cancels stale refresh queues before any channel work starts', async () => {
         let activeRefreshId = 2;
         const onCancel = jest.fn();
-        const runForChannel = jest.fn().mockResolvedValue(undefined);
+        const refreshChannelSchedule = jest.fn().mockResolvedValue(undefined);
 
         const queue = new EPGBackgroundWarmQueue({
             getActiveRefreshId: (): number => activeRefreshId,
@@ -82,21 +82,21 @@ describe('EPGBackgroundWarmQueue', () => {
             refreshId: 1,
             reason: 'visible-range',
             channels: [makeChannel('c1', 1)],
-            runForChannel,
+            refreshChannelSchedule,
             concurrency: 1,
         });
 
         jest.advanceTimersByTime(200);
         await flushPromises();
 
-        expect(runForChannel).not.toHaveBeenCalled();
+        expect(refreshChannelSchedule).not.toHaveBeenCalled();
         expect(onCancel).toHaveBeenCalledWith('stale-refresh-token', expect.any(Object));
     });
 
     it('backs off when warm-queue policy reports backpressure', async () => {
         let activeRefreshId = 1;
         let calls = 0;
-        const runForChannel = jest.fn().mockResolvedValue(undefined);
+        const refreshChannelSchedule = jest.fn().mockResolvedValue(undefined);
 
         const queue = new EPGBackgroundWarmQueue({
             getActiveRefreshId: (): number => activeRefreshId,
@@ -121,17 +121,17 @@ describe('EPGBackgroundWarmQueue', () => {
             refreshId: 1,
             reason: 'visible-range',
             channels: [makeChannel('c1', 1)],
-            runForChannel,
+            refreshChannelSchedule,
             concurrency: 1,
         });
 
         jest.advanceTimersByTime(100);
         await flushPromises();
-        expect(runForChannel).not.toHaveBeenCalled();
+        expect(refreshChannelSchedule).not.toHaveBeenCalled();
 
         jest.advanceTimersByTime(200);
         await flushPromises();
-        expect(runForChannel).toHaveBeenCalledTimes(1);
+        expect(refreshChannelSchedule).toHaveBeenCalledTimes(1);
     });
 
     describe('when requestIdleCallback is unavailable', () => {
@@ -173,7 +173,7 @@ describe('EPGBackgroundWarmQueue', () => {
             const onCancel = jest.fn();
             const onError = jest.fn();
             const failure = new Error('warm failed');
-            const runForChannel = jest.fn().mockImplementation(async (channel: ChannelConfig) => {
+            const refreshChannelSchedule = jest.fn().mockImplementation(async (channel: ChannelConfig) => {
                 if (channel.id === 'c1') {
                     throw failure;
                 }
@@ -192,7 +192,7 @@ describe('EPGBackgroundWarmQueue', () => {
                 refreshId: 1,
                 reason: 'visible-range',
                 channels: [makeChannel('c1', 1), makeChannel('c2', 2), makeChannel('c3', 3)],
-                runForChannel,
+                refreshChannelSchedule,
                 concurrency: 1,
             });
 
@@ -201,7 +201,7 @@ describe('EPGBackgroundWarmQueue', () => {
                 await flushPromises();
             }
 
-            expect(runForChannel).toHaveBeenCalledTimes(3);
+            expect(refreshChannelSchedule).toHaveBeenCalledTimes(3);
             expect(onError).toHaveBeenCalledWith(failure);
             expect(onCancel).toHaveBeenCalledWith('warm-queue-complete', expect.any(Object));
         });
@@ -210,7 +210,7 @@ describe('EPGBackgroundWarmQueue', () => {
     it('cancels the prior queue when replacement channels are empty', async () => {
         let activeRefreshId = 1;
         const onCancel = jest.fn();
-        const runForChannel = jest.fn().mockResolvedValue(undefined);
+        const refreshChannelSchedule = jest.fn().mockResolvedValue(undefined);
 
         const queue = new EPGBackgroundWarmQueue({
             getActiveRefreshId: (): number => activeRefreshId,
@@ -224,7 +224,7 @@ describe('EPGBackgroundWarmQueue', () => {
             refreshId: 1,
             reason: 'visible-range',
             channels: [makeChannel('c1', 1)],
-            runForChannel,
+            refreshChannelSchedule,
             concurrency: 1,
         });
 
@@ -234,7 +234,7 @@ describe('EPGBackgroundWarmQueue', () => {
             refreshId: 2,
             reason: 'visible-range',
             channels: [],
-            runForChannel,
+            refreshChannelSchedule,
             concurrency: 1,
         });
 
@@ -242,6 +242,6 @@ describe('EPGBackgroundWarmQueue', () => {
         await flushPromises();
 
         expect(onCancel).toHaveBeenCalledWith('replace-background-warm-queue', expect.any(Object));
-        expect(runForChannel).not.toHaveBeenCalled();
+        expect(refreshChannelSchedule).not.toHaveBeenCalled();
     });
 });

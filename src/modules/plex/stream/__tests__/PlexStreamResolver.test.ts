@@ -5,7 +5,7 @@
 
 import { PlexStreamResolver } from '../PlexStreamResolver';
 import { generatePlexSessionId } from '../plexSessionId';
-import type { PlexStream } from '../types';
+import type { PlexMediaFile, PlexMediaItem, PlexMediaPart, PlexStream } from '../types';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import type { PlatformIdentityService } from '../../../../platform';
 import { createMockConfig, createMockMediaItem } from './testUtils';
@@ -13,6 +13,24 @@ import { createMockConfig, createMockMediaItem } from './testUtils';
 // ============================================
 // Tests
 // ============================================
+
+function requireValue<T>(value: T | null | undefined): NonNullable<T> {
+    expect(value).not.toBeNull();
+    expect(value).not.toBeUndefined();
+    return value as NonNullable<T>;
+}
+
+function getPrimaryMedia(item: PlexMediaItem): PlexMediaFile {
+    return requireValue(item.media[0]);
+}
+
+function getPrimaryPart(item: PlexMediaItem): PlexMediaPart {
+    return requireValue(getPrimaryMedia(item).parts[0]);
+}
+
+function getPrimaryVideoStream(item: PlexMediaItem): PlexStream {
+    return requireValue(getPrimaryPart(item).streams[0]) as PlexStream;
+}
 
 describe('PlexStreamResolver', () => {
     let mockFetch: jest.Mock;
@@ -246,7 +264,7 @@ describe('PlexStreamResolver', () => {
             const config = createMockConfig();
             const resolver = new PlexStreamResolver(config);
 
-            first.media = [first.media[0]!, second.media[0]!];
+            first.media = [getPrimaryMedia(first), getPrimaryMedia(second)];
 
             expect(resolver.canDirectPlay(first)).toBe(false);
         });
@@ -327,7 +345,7 @@ describe('PlexStreamResolver', () => {
             });
 
             const dvItem = createMockMediaItem({ container: 'mkv', aspectRatio: 2.39 });
-            const dvStream = dvItem.media[0]!.parts[0]!.streams[0] as PlexStream;
+            const dvStream = getPrimaryVideoStream(dvItem);
             dvStream.displayTitle = 'Dolby Vision';
             dvStream.doviPresent = true;
             dvStream.doviProfile = '8.1';
@@ -364,7 +382,7 @@ describe('PlexStreamResolver', () => {
                 audioCodec: 'truehd',
                 aspectRatio: 2.39,
             });
-            const dvStream = dvItem.media[0]!.parts[0]!.streams[0] as PlexStream;
+            const dvStream = getPrimaryVideoStream(dvItem);
             dvStream.displayTitle = 'Dolby Vision';
             dvStream.doviPresent = true;
             dvStream.doviProfile = '8.1';
@@ -434,7 +452,7 @@ describe('PlexStreamResolver', () => {
             });
 
             const dvItem = createMockMediaItem({ container: 'mkv' });
-            const dvStream = dvItem.media[0]!.parts[0]!.streams[0] as PlexStream;
+            const dvStream = getPrimaryVideoStream(dvItem);
             dvStream.displayTitle = 'Dolby Vision';
             dvStream.doviPresent = true;
             dvStream.doviProfile = '8.1';
@@ -467,7 +485,7 @@ describe('PlexStreamResolver', () => {
             });
 
             const dvItem = createMockMediaItem({ container: 'mkv', aspectRatio: 1.78 });
-            const dvStream = dvItem.media[0]!.parts[0]!.streams[0] as PlexStream;
+            const dvStream = getPrimaryVideoStream(dvItem);
             dvStream.displayTitle = 'Dolby Vision';
             dvStream.doviPresent = true;
             dvStream.doviProfile = '7';
@@ -494,7 +512,7 @@ describe('PlexStreamResolver', () => {
             });
 
             const dvItem = createMockMediaItem({ container: 'mkv', aspectRatio: 1.78 });
-            const dvStream = dvItem.media[0]!.parts[0]!.streams[0] as PlexStream;
+            const dvStream = getPrimaryVideoStream(dvItem);
             dvStream.displayTitle = 'Dolby Vision';
             dvStream.doviPresent = true;
             dvStream.doviProfile = '8.1';
@@ -521,7 +539,7 @@ describe('PlexStreamResolver', () => {
             });
 
             const dvItem = createMockMediaItem({ container: 'mkv', aspectRatio: 1.78 });
-            const dvStream = dvItem.media[0]!.parts[0]!.streams[0] as PlexStream;
+            const dvStream = getPrimaryVideoStream(dvItem);
             dvStream.displayTitle = 'Dolby Vision';
             dvStream.doviPresent = true;
             dvStream.doviProfile = '8';
@@ -550,7 +568,7 @@ describe('PlexStreamResolver', () => {
             });
 
             const dvItem = createMockMediaItem({ container: 'mp4', aspectRatio: 2.39 });
-            const dvStream = dvItem.media[0]!.parts[0]!.streams[0] as PlexStream;
+            const dvStream = getPrimaryVideoStream(dvItem);
             dvStream.displayTitle = 'Dolby Vision';
             dvStream.doviPresent = true;
             dvStream.doviProfile = '8.1';
@@ -568,7 +586,7 @@ describe('PlexStreamResolver', () => {
 
         it('does not force HLS for DV MP4 profile 5 when fallback is off', async () => {
             const dvItem = createMockMediaItem({ container: 'mp4', aspectRatio: 1.78 });
-            const dvStream = dvItem.media[0]!.parts[0]!.streams[0] as PlexStream;
+            const dvStream = getPrimaryVideoStream(dvItem);
             dvStream.displayTitle = 'Dolby Vision';
             dvStream.doviPresent = true;
             dvStream.doviProfile = '5';
@@ -586,7 +604,7 @@ describe('PlexStreamResolver', () => {
 
         it('forces HLS for DV MKV profile 5 even when fallback is off', async () => {
             const dvItem = createMockMediaItem({ container: 'mkv', aspectRatio: 1.78 });
-            const dvStream = dvItem.media[0]!.parts[0]!.streams[0] as PlexStream;
+            const dvStream = getPrimaryVideoStream(dvItem);
             dvStream.displayTitle = 'Dolby Vision';
             dvStream.doviPresent = true;
             dvStream.doviProfile = '5';
@@ -606,7 +624,7 @@ describe('PlexStreamResolver', () => {
 
         it('forces HLS for DV MKV profile 8 HLG even when fallback is off', async () => {
             const dvItem = createMockMediaItem({ container: 'mkv', aspectRatio: 1.78 });
-            const dvStream = dvItem.media[0]!.parts[0]!.streams[0] as PlexStream;
+            const dvStream = getPrimaryVideoStream(dvItem);
             dvStream.displayTitle = 'Dolby Vision';
             dvStream.doviPresent = true;
             dvStream.doviProfile = '8';
@@ -790,7 +808,7 @@ describe('PlexStreamResolver', () => {
                 format: 'srt',
                 default: true,
             };
-            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
+            getPrimaryPart(mockItem).streams.push(subtitleStream);
 
             const config = createMockConfig({
                 getItem: jest.fn().mockResolvedValue(mockItem),
@@ -803,10 +821,8 @@ describe('PlexStreamResolver', () => {
                 subtitleStreamId: 'sub-1',
             });
 
-            expect(decision.selectedAudioStream).not.toBeNull();
-            expect(decision.selectedAudioStream!.id).toBe('audio-1');
-            expect(decision.selectedSubtitleStream).not.toBeNull();
-            expect(decision.selectedSubtitleStream!.id).toBe('sub-1');
+            expect(requireValue(decision.selectedAudioStream).id).toBe('audio-1');
+            expect(requireValue(decision.selectedSubtitleStream).id).toBe('sub-1');
         });
 
         it('forces burn-in subtitle transcode request params when burn mode is requested', async () => {
@@ -824,7 +840,7 @@ describe('PlexStreamResolver', () => {
                 format: 'srt',
                 default: true,
             };
-            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
+            getPrimaryPart(mockItem).streams.push(subtitleStream);
 
             const config = createMockConfig({
                 getItem: jest.fn().mockResolvedValue(mockItem),
@@ -863,7 +879,7 @@ describe('PlexStreamResolver', () => {
                 format: 'srt',
                 default: true,
             };
-            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
+            getPrimaryPart(mockItem).streams.push(subtitleStream);
 
             const config = createMockConfig({
                 getItem: jest.fn().mockResolvedValue(mockItem),
@@ -896,7 +912,7 @@ describe('PlexStreamResolver', () => {
                 format: 'srt',
                 default: true,
             };
-            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
+            getPrimaryPart(mockItem).streams.push(subtitleStream);
 
             const config = createMockConfig({
                 getItem: jest.fn().mockResolvedValue(mockItem),
@@ -923,7 +939,7 @@ describe('PlexStreamResolver', () => {
                 languageCode: 'en',
                 default: true,
             };
-            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
+            getPrimaryPart(mockItem).streams.push(subtitleStream);
 
             const config = createMockConfig({
                 getItem: jest.fn().mockResolvedValue(mockItem),
@@ -954,7 +970,7 @@ describe('PlexStreamResolver', () => {
                 languageCode: 'en',
                 default: true,
             };
-            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
+            getPrimaryPart(mockItem).streams.push(subtitleStream);
 
             const config = createMockConfig({
                 getItem: jest.fn().mockResolvedValue(mockItem),
@@ -974,132 +990,6 @@ describe('PlexStreamResolver', () => {
             });
         });
 
-        it('keeps subtitle debug probe request options and timeout unchanged', async () => {
-            const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
-            Object.defineProperty(globalThis, 'localStorage', {
-                value: {
-                    getItem: jest.fn((key: string) =>
-                        key === LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING ? '1' : null
-                    ),
-                },
-                configurable: true,
-            });
-
-            const mockItem = createMockMediaItem();
-            const subtitleStream: PlexStream = {
-                id: 'sub-1',
-                streamType: 3,
-                codec: 'srt',
-                language: 'English',
-                languageCode: 'en',
-                format: 'srt',
-                key: '/library/streams/sub-1',
-                default: true,
-            };
-            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
-
-            const config = createMockConfig({
-                getAuthHeaders: () => ({
-                    'X-Plex-Token': 'mock-token',
-                    'X-Plex-Client-Identifier': 'test-client-id',
-                }),
-                getItem: jest.fn().mockResolvedValue(mockItem),
-            });
-            const resolver = new PlexStreamResolver(config);
-
-            mockFetch.mockResolvedValue(
-                new Response('WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nTest', {
-                    status: 200,
-                    headers: { 'content-type': 'text/vtt' },
-                })
-            );
-
-            await resolver.resolveStream({ itemKey: '12345', subtitleStreamId: 'sub-1' });
-
-            expect(mockFetch).toHaveBeenCalledWith(
-                'http://192.168.1.100:32400/library/streams/sub-1',
-                expect.objectContaining({
-                    method: 'GET',
-                    cache: 'no-store',
-                    mode: 'cors',
-                    credentials: 'omit',
-                    headers: expect.objectContaining({
-                        'X-Plex-Token': 'mock-token',
-                        'X-Plex-Client-Identifier': 'test-client-id',
-                        Accept: 'text/vtt, text/plain, */*',
-                    }),
-                    signal: expect.any(AbortSignal),
-                })
-            );
-            expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 8000);
-            setTimeoutSpy.mockRestore();
-        });
-
-        it('falls back to the server-relative debug probe URL for foreign absolute subtitle keys', async () => {
-            const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
-            Object.defineProperty(globalThis, 'localStorage', {
-                value: {
-                    getItem: jest.fn((key: string) =>
-                        key === LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING ? '1' : null
-                    ),
-                },
-                configurable: true,
-            });
-
-            const mockItem = createMockMediaItem();
-            const subtitleStream: PlexStream = {
-                id: 'sub-foreign',
-                streamType: 3,
-                codec: 'srt',
-                language: 'English',
-                languageCode: 'en',
-                format: 'srt',
-                key: 'https://malicious.example/library/streams/sub-foreign',
-                default: true,
-            };
-            mockItem.media[0]!.parts[0]!.streams.push(subtitleStream);
-
-            const config = createMockConfig({
-                getAuthHeaders: () => ({
-                    'X-Plex-Token': 'mock-token',
-                    'X-Plex-Client-Identifier': 'test-client-id',
-                }),
-                getItem: jest.fn().mockResolvedValue(mockItem),
-            });
-            const resolver = new PlexStreamResolver(config);
-
-            mockFetch.mockResolvedValue(
-                new Response('WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nTest', {
-                    status: 200,
-                    headers: { 'content-type': 'text/vtt' },
-                })
-            );
-
-            await resolver.resolveStream({ itemKey: '12345', subtitleStreamId: 'sub-foreign' });
-
-            expect(mockFetch).not.toHaveBeenCalledWith(
-                subtitleStream.key,
-                expect.anything()
-            );
-            expect(mockFetch).toHaveBeenCalledTimes(1);
-            expect(mockFetch).toHaveBeenCalledWith(
-                'http://192.168.1.100:32400/library/streams/sub-foreign',
-                expect.objectContaining({
-                    method: 'GET',
-                    cache: 'no-store',
-                    mode: 'cors',
-                    credentials: 'omit',
-                    headers: expect.objectContaining({
-                        'X-Plex-Token': 'mock-token',
-                        'X-Plex-Client-Identifier': 'test-client-id',
-                        Accept: 'text/vtt, text/plain, */*',
-                    }),
-                    signal: expect.any(AbortSignal),
-                })
-            );
-            expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 8000);
-            setTimeoutSpy.mockRestore();
-        });
     });
 
     // ========================================

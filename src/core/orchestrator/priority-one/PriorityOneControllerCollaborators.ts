@@ -102,6 +102,10 @@ class OverlayRuntimePolicyControllerDepsAdapter
         return this._input.surfaces.epg?.isVisible() ?? false;
     }
 
+    public isChannelTransitionActive(): boolean {
+        return this._input.surfaces.channelTransitionActivity?.isActive() ?? false;
+    }
+
     public getCurrentChannel(): { number: number; name: string } | null {
         return getCurrentChannelSnapshot(this._input.surfaces);
     }

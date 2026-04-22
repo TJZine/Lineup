@@ -32,6 +32,13 @@ const createWindow = (channelId: string): ScheduleWindow => ({
     ],
 });
 
+const getLoadedMarkerCount = (store: EPGScheduleCacheStore): number =>
+    (
+        store as unknown as {
+            _loadedRangeKeyByChannel: Map<string, unknown>;
+        }
+    )._loadedRangeKeyByChannel.size;
+
 describe('EPGScheduleCacheStore', () => {
     beforeEach(() => {
         jest.useFakeTimers();
@@ -66,6 +73,20 @@ describe('EPGScheduleCacheStore', () => {
         expect(removed).toBeNull();
     });
 
+    it('keeps expired cache entries intact until an explicit prune runs', () => {
+        const store = new EPGScheduleCacheStore();
+        store.storeSchedule('c1', '0-60000', createWindow('c1'));
+
+        jest.advanceTimersByTime(EPG_SCHEDULE_CACHE_STALE_TTL_MS + 1);
+
+        expect(store.getSize()).toBe(1);
+        expect(store.getCachedSchedule('c1', '0-60000')).toBeNull();
+        expect(store.getSize()).toBe(1);
+
+        store.prune(Date.now());
+        expect(store.getSize()).toBe(0);
+    });
+
     it('prunes old entries when max cache size is reduced', () => {
         const store = new EPGScheduleCacheStore();
         store.setMaxEntries(2);
@@ -86,5 +107,19 @@ describe('EPGScheduleCacheStore', () => {
         expect(store.isScheduleLoadedForRange('c1', '0-60000')).toBe(true);
         jest.advanceTimersByTime(EPG_SCHEDULE_CACHE_TTL_MS + 1);
         expect(store.isScheduleLoadedForRange('c1', '0-60000')).toBe(false);
+    });
+
+    it('keeps expired loaded-range markers intact until an explicit prune runs', () => {
+        const store = new EPGScheduleCacheStore();
+        store.markScheduleLoaded('c1', '0-60000');
+
+        jest.advanceTimersByTime(EPG_SCHEDULE_CACHE_TTL_MS + 1);
+
+        expect(getLoadedMarkerCount(store)).toBe(1);
+        expect(store.isScheduleLoadedForRange('c1', '0-60000')).toBe(false);
+        expect(getLoadedMarkerCount(store)).toBe(1);
+
+        store.prune(Date.now());
+        expect(getLoadedMarkerCount(store)).toBe(0);
     });
 });

@@ -7,7 +7,7 @@
  */
 
 import { PlayerOsdOverlay } from '../PlayerOsdOverlay';
-import { PLAYER_OSD_CLASSES } from '../constants';
+import { PLAYER_OSD_CLASSES, PLAYER_OSD_CONTAINER_ID } from '../constants';
 import type { PlayerOsdConfig, PlayerOsdViewModel } from '../types';
 
 describe('PlayerOsdOverlay', () => {
@@ -37,10 +37,10 @@ describe('PlayerOsdOverlay', () => {
 
     beforeEach(() => {
         container = document.createElement('div');
-        container.id = 'player-osd-container';
+        container.id = PLAYER_OSD_CONTAINER_ID;
         document.body.appendChild(container);
         overlay = new PlayerOsdOverlay();
-        const config: PlayerOsdConfig = { containerId: 'player-osd-container' };
+        const config: PlayerOsdConfig = { containerId: PLAYER_OSD_CONTAINER_ID };
         overlay.initialize(config);
     });
 

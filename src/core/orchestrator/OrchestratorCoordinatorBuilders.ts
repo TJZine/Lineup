@@ -208,14 +208,14 @@ function getPlaybackRecoveryCurrentStreamDecision(input: OrchestratorCoordinator
 
 function setPlaybackRecoveryCurrentStreamDecision(
     input: OrchestratorCoordinatorFactoryDeps,
-    decision: StreamDecision
+    decision: StreamDecision | null
 ): void {
     input.playback.state.setCurrentStreamDecision(decision);
 }
 
 function setPlaybackRecoveryCurrentStreamDescriptor(
     input: OrchestratorCoordinatorFactoryDeps,
-    descriptor: StreamDescriptor
+    descriptor: StreamDescriptor | null
 ): void {
     input.playback.state.setCurrentStreamDescriptor(descriptor);
 }
@@ -570,6 +570,9 @@ export function buildChannelTransitionCoordinator(
         getOverlay: (): IChannelTransitionOverlay | null => input.overlays.channelTransitionOverlay,
         getNavigation: (): INavigationManager | null => input.modules.navigation,
         getVideoPlayer: (): IVideoPlayer | null => input.modules.videoPlayer,
+        onActivityChange: (active: boolean): void => {
+            input.actions.onChannelTransitionActivityChange(active);
+        },
     });
 }
 

@@ -1,12 +1,12 @@
-import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
-import type { IEPGInfoPanel } from './interfaces';
-import type { ScheduledProgram } from './types';
+import type { EpgLayoutMode } from '../../../settings/EpgPreferencesStore';
+import type { IEPGInfoPanel } from '../interfaces';
+import type { ScheduledProgram } from '../types';
 
 export const INFO_PANEL_FULL_UPDATE_DEBOUNCE_MS = 200;
 
 interface EPGInfoPanelCoordinatorDeps {
     infoPanel: IEPGInfoPanel;
-    getIsVisible: () => boolean;
+    isEpgVisible: () => boolean;
     getFocusedProgram: () => ScheduledProgram | null;
 }
 
@@ -18,7 +18,7 @@ interface EPGInfoPanelHosts {
 
 export class EPGInfoPanelCoordinator {
     private readonly infoPanel: IEPGInfoPanel;
-    private readonly getIsVisible: () => boolean;
+    private readonly isEpgVisible: () => boolean;
     private readonly getFocusedProgram: () => ScheduledProgram | null;
     private infoPanelElement: HTMLElement | null = null;
     private overlayShowcaseElement: HTMLElement | null = null;
@@ -30,7 +30,7 @@ export class EPGInfoPanelCoordinator {
 
     constructor(deps: EPGInfoPanelCoordinatorDeps) {
         this.infoPanel = deps.infoPanel;
-        this.getIsVisible = deps.getIsVisible;
+        this.isEpgVisible = deps.isEpgVisible;
         this.getFocusedProgram = deps.getFocusedProgram;
     }
 
@@ -62,7 +62,7 @@ export class EPGInfoPanelCoordinator {
             return;
         }
 
-        if (!this.getIsVisible()) {
+        if (!this.isEpgVisible()) {
             this.clearFullUpdateTimer();
             this.pendingProgramKey = null;
             return;
@@ -83,7 +83,7 @@ export class EPGInfoPanelCoordinator {
 
             const focusedProgram = this.getFocusedProgram();
             if (this.destroyed) return;
-            if (!this.getIsVisible()) return;
+            if (!this.isEpgVisible()) return;
             if (focusedProgram === null) return;
 
             const focusedKey = `${focusedProgram.item.ratingKey}::${focusedProgram.scheduledStartTime}`;

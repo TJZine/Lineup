@@ -295,7 +295,7 @@
 .theme-directv .epg-container.layout-classic .epg-cell-time,
 .theme-directv .epg-container.layout-classic .epg-cell-subtitle,
 .theme-directv .epg-container.layout-classic .epg-cell-meta {
-  color: var(--directv-copy-secondary);
+  color: var(--epg-directv-copy-secondary);
 }
 
 .theme-directv .epg-container.layout-classic .epg-cell.focused .epg-cell-title,

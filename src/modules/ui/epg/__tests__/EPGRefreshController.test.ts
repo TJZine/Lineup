@@ -1,7 +1,7 @@
 import { EPGRefreshController, type EPGRefreshControllerDeps } from '../EPGRefreshController';
 import type { IEPGComponent } from '../interfaces';
 import type { ChannelConfig, IChannelManager, PlaybackMode, ResolvedChannelContent } from '../../../scheduler/channel-manager';
-import type { IChannelScheduler, ScheduleConfig } from '../../../scheduler/scheduler';
+import type { IChannelScheduler, ScheduleConfig, ScheduleWindow, SchedulerState } from '../../../scheduler/scheduler';
 import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
 import type { EPGConfig } from '../types';
 import { flushPromises } from '../../../../__tests__/helpers';
@@ -22,10 +22,70 @@ const makeChannel = (id: string, number: number): ChannelConfig => ({
     totalDurationMs: 0,
 });
 
-const makeDeps = (): {
+const makeResolvedItems = (channelId: string): ResolvedChannelContent['items'] => [
+    {
+        ratingKey: `${channelId}-0`,
+        type: 'movie',
+        title: `${channelId}-program`,
+        fullTitle: `${channelId}-program`,
+        durationMs: 60_000,
+        thumb: null,
+        year: 2024,
+        scheduledIndex: 0,
+    },
+];
+
+const makeScheduleWindow = (ratingKey: string): ScheduleWindow => ({
+    startTime: 0,
+    endTime: 60_000,
+    programs: [
+        {
+            item: {
+                ratingKey,
+                type: 'movie',
+                title: ratingKey,
+                fullTitle: ratingKey,
+                durationMs: 60_000,
+                thumb: null,
+                year: 2024,
+                scheduledIndex: 0,
+            },
+            scheduledStartTime: 0,
+            scheduledEndTime: 60_000,
+            elapsedMs: 0,
+            remainingMs: 60_000,
+            scheduleIndex: 0,
+            loopNumber: 0,
+            streamDescriptor: null,
+            isCurrent: false,
+        },
+    ],
+});
+
+const makeSchedulerState = (channelId: string | null, isActive: boolean): SchedulerState => ({
+    channelId: channelId ?? 'inactive-channel',
+    isActive,
+    currentProgram: null,
+    nextProgram: null,
+    schedulePosition: {
+        loopNumber: 0,
+        itemIndex: 0,
+        offsetMs: 0,
+    },
+    lastSyncTime: 0,
+});
+
+const makeDeps = (
+    overrides: Partial<EPGRefreshControllerDeps> & {
+        epg?: Partial<IEPGComponent>;
+        channelManager?: Partial<IChannelManager>;
+        scheduler?: Partial<IChannelScheduler>;
+    } = {}
+): {
     deps: EPGRefreshControllerDeps;
     epg: IEPGComponent;
     channelManager: IChannelManager;
+    scheduler: IChannelScheduler;
 } => {
     const channels = [makeChannel('c1', 1)];
     const epg: IEPGComponent = {
@@ -47,26 +107,24 @@ const makeDeps = (): {
         focusChannel: jest.fn(),
         setGridAnchorTime: jest.fn(),
         loadScheduleForChannel: jest.fn(),
+        getFocusedProgram: jest.fn().mockReturnValue(null),
+        focusNow: jest.fn(),
     } as unknown as IEPGComponent;
     const channelManager: IChannelManager = {
         getAllChannels: jest.fn(() => channels),
         getCurrentChannel: jest.fn(() => channels[0] ?? null),
-        resolveChannelContent: jest.fn(async (_id: string) => ({
-            channelId: 'c1',
+        resolveChannelContent: jest.fn(async (id: string) => ({
+            channelId: id,
             resolvedAt: Date.now(),
-            items: [],
-            totalDurationMs: 0,
-            orderedItems: [],
+            items: makeResolvedItems(id),
+            totalDurationMs: 60_000,
+            orderedItems: makeResolvedItems(id),
         } as ResolvedChannelContent)),
-        resolveChannelItemsForSchedule: jest.fn(async () => []),
+        resolveChannelItemsForSchedule: jest.fn(async (id: string) => makeResolvedItems(id)),
     } as unknown as IChannelManager;
     const scheduler: IChannelScheduler = {
         getState: jest.fn(() => ({ isActive: true, channelId: 'c1' })),
-        getScheduleWindow: jest.fn(() => ({
-            startTime: 0,
-            endTime: 60_000,
-            programs: [],
-        })),
+        getScheduleWindow: jest.fn(() => makeScheduleWindow('live-program')),
     } as unknown as IChannelScheduler;
 
     const deps: EPGRefreshControllerDeps = {
@@ -101,9 +159,14 @@ const makeDeps = (): {
         appendIssueDiagnostic: jest.fn(),
         epgPreferencesStore: new EpgPreferencesStore(),
         primeEpgChannels: jest.fn(),
+        ...(overrides as Partial<EPGRefreshControllerDeps>),
     };
 
-    return { deps, epg, channelManager };
+    Object.assign(epg, overrides.epg);
+    Object.assign(channelManager, overrides.channelManager);
+    Object.assign(scheduler, overrides.scheduler);
+
+    return { deps, epg, channelManager, scheduler };
 };
 
 describe('EPGRefreshController', () => {
@@ -118,6 +181,28 @@ describe('EPGRefreshController', () => {
         expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
         expect(deps.primeEpgChannels).toHaveBeenCalledTimes(1);
         expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
+    });
+
+    it('reports best-effort refresh failures through package diagnostics', async () => {
+        const { deps } = makeDeps();
+        const controller = new EPGRefreshController(deps);
+        const error = new Error('refresh failed');
+        jest.spyOn(controller, 'refreshEpgSchedules').mockRejectedValue(error);
+
+        controller.handleGuideSettingRefreshChange({ key: 'guideDensity', density: 'wide' });
+        await flushPromises();
+
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.refreshSchedulesBestEffortFailed',
+            expect.objectContaining({
+                reason: 'guide-settings',
+                debounceMs: 0,
+                safeError: expect.objectContaining({
+                    message: expect.stringContaining('refresh failed'),
+                }),
+            })
+        );
     });
 
     it('resets list position and triggers refresh on library-filter changes', async () => {
@@ -174,5 +259,95 @@ describe('EPGRefreshController', () => {
         expect('invalidateGuideSelection' in controller).toBe(false);
         expect('_guideSelectionController' in controller).toBe(false);
         expect('_guideSelectionRequestId' in controller).toBe(false);
+    });
+
+    it('does not persist a direct live-row overwrite as loaded state for the next non-live range refresh', async () => {
+        const liveState: { isActive: boolean; channelId: string | null } = { isActive: true, channelId: 'c1' };
+        const resolveChannelContent = jest.fn(async (id: string) => ({
+            channelId: id,
+            resolvedAt: Date.now(),
+            items: makeResolvedItems(id),
+            totalDurationMs: 60_000,
+            orderedItems: makeResolvedItems(id),
+        } as ResolvedChannelContent));
+        const { deps, epg } = makeDeps({
+            channelManager: {
+                resolveChannelContent,
+            },
+            scheduler: {
+                getState: jest.fn(() => makeSchedulerState(liveState.channelId, liveState.isActive)),
+                getScheduleWindow: jest.fn(() => makeScheduleWindow('live-program')),
+            },
+        });
+        const controller = new EPGRefreshController(deps);
+
+        controller.refreshEpgScheduleForLiveChannel();
+
+        liveState.isActive = false;
+        liveState.channelId = null;
+        (epg.loadScheduleForChannel as jest.Mock).mockClear();
+        (deps.appendIssueDiagnostic as jest.Mock).mockClear();
+        resolveChannelContent.mockClear();
+
+        await controller.refreshEpgSchedulesForRangeNow(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        expect(resolveChannelContent).toHaveBeenCalledTimes(1);
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleApplied',
+            expect.objectContaining({
+                channelId: 'c1',
+                source: 'resolved-immediate',
+            })
+        );
+        expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not persist a preseeded live row as loaded state for the next non-live range refresh', async () => {
+        const liveState: { isActive: boolean; channelId: string | null } = { isActive: true, channelId: 'c1' };
+        const resolveChannelContent = jest.fn(async (id: string) => ({
+            channelId: id,
+            resolvedAt: Date.now(),
+            items: makeResolvedItems(id),
+            totalDurationMs: 60_000,
+            orderedItems: makeResolvedItems(id),
+        } as ResolvedChannelContent));
+        const { deps, epg } = makeDeps({
+            channelManager: {
+                resolveChannelContent,
+            },
+            scheduler: {
+                getState: jest.fn(() => makeSchedulerState(liveState.channelId, liveState.isActive)),
+                getScheduleWindow: jest.fn(() => makeScheduleWindow('preseed-live-program')),
+            },
+        });
+        const controller = new EPGRefreshController(deps);
+
+        controller.preseedCurrentChannelSchedule();
+
+        liveState.isActive = false;
+        liveState.channelId = null;
+        (epg.loadScheduleForChannel as jest.Mock).mockClear();
+        (deps.appendIssueDiagnostic as jest.Mock).mockClear();
+        resolveChannelContent.mockClear();
+
+        await controller.refreshEpgSchedulesForRangeNow(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        expect(resolveChannelContent).toHaveBeenCalledTimes(1);
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleApplied',
+            expect.objectContaining({
+                channelId: 'c1',
+                source: 'resolved-immediate',
+            })
+        );
+        expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(1);
     });
 });

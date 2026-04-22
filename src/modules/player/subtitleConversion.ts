@@ -4,7 +4,12 @@
  * @version 1.0.0
  */
 
-type SubtitleInputFormat = 'webvtt' | 'srt' | 'unknown';
+import {
+    detectSubtitleTextContentFormat,
+    type SubtitleTextContentFormat,
+} from '../../shared/subtitleTextFormatDetection';
+
+type SubtitleInputFormat = SubtitleTextContentFormat;
 
 function stripBom(text: string): string {
     return text.replace(/^\uFEFF/, '');
@@ -15,10 +20,7 @@ function normalizeLineEndings(text: string): string {
 }
 
 export function detectSubtitleFormat(text: string): SubtitleInputFormat {
-    const trimmed = stripBom(text).trimStart();
-    if (trimmed.startsWith('WEBVTT')) return 'webvtt';
-    if (trimmed.includes('-->')) return 'srt';
-    return 'unknown';
+    return detectSubtitleTextContentFormat(stripBom(text).trimStart());
 }
 
 export function convertSrtToVtt(text: string): string {

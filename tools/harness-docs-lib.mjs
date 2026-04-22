@@ -194,9 +194,9 @@ const CHECKLIST_SLICE_ID_RE = /^P\d+-W\d+-S\d+$/u;
 const PRIORITY_EXIT_ISSUE_HEADER_RE =
     /^\s*(?:[-*]|\d+\.)\s+`?([A-Za-z0-9/._:-]*[._:-][A-Za-z0-9/._:-]*)`?\s*$/iu;
 const PRIORITY_EXIT_DISPOSITION_RE =
-    /(?:expected|planned)?\s*disposition(?:\s+(?:after\s+this\s+plan|at\s+[^:]+))?\s*:\s*`?(?:resolved(?:\s+(?:on|by)\s+[^`\n]+)?|deferred|split follow-up|owned follow-up|retired)`?/iu;
+    /(?:expected|planned)?\s*disposition(?:\s+(?:after\s+this\s+plan|at\s+[^:]+))?\s*:\s*`?(?:resolved(?:\s+(?:on|by)\s+[^`\n]+)?|deferred|split follow-up|owned follow-up|stale-proven|accepted residue|retired)`?[ \t]*(?:\r?\n|$)/iu;
 const PRIORITY_EXIT_DEFERRED_RE =
-    /(?:expected|planned)?\s*disposition(?:\s+(?:after\s+this\s+plan|at\s+[^:]+))?\s*:\s*`?(?:deferred|split follow-up|owned follow-up)`?/iu;
+    /(?:expected|planned)?\s*disposition(?:\s+(?:after\s+this\s+plan|at\s+[^:]+))?\s*:\s*`?(?:deferred|split follow-up|owned follow-up)`?[ \t]*(?:\r?\n|$)/iu;
 const PRIORITY_EXIT_FINAL_OWNER_RE =
     /(?:exact\s+)?(?:current\s+or\s+follow-up\s+owner|current\s+owner|final\s+owner|residual\s+final\s+owner|exact\s+final\s+owner|owned\s+follow-up)(?:\s+if\s+[^:]+)?\s*:\s*`?[^`\n]+`?/giu;
 const PRIORITY_EXIT_REVISIT_TRIGGER_RE = /revisit trigger:\s*.+/iu;

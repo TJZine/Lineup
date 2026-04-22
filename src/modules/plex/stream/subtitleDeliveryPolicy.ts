@@ -3,7 +3,7 @@
  */
 
 import type { PlexStream } from './types';
-import { BURN_IN_SUBTITLE_FORMATS, TEXT_SUBTITLE_FORMATS } from './constants';
+import { BURN_IN_SUBTITLE_FORMATS, isTextSubtitleFormat } from './constants';
 
 export type SubtitleDelivery = 'embed' | 'sidecar' | 'burn' | 'none';
 
@@ -30,7 +30,7 @@ export function getSubtitleDelivery(
     }
 
     // Text-based subtitles can be delivered as a sidecar track.
-    if (TEXT_SUBTITLE_FORMATS.includes(formatOrCodec)) {
+    if (isTextSubtitleFormat(formatOrCodec)) {
         return 'sidecar';
     }
 

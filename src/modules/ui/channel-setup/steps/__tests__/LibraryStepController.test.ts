@@ -43,9 +43,11 @@ describe('LibraryStepController', () => {
 
     it('renders the empty-library state and disables the next action', () => {
         const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
         const deps = createDeps();
+        const controller = new LibraryStepController();
 
-        new LibraryStepController().render(ctx, deps);
+        controller.render(ctx, deps);
 
         expect(ctx.contentEl.querySelector('.setup-empty')?.textContent).toContain('No movie or show libraries found');
         expect((ctx.contentEl.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(true);
@@ -53,12 +55,14 @@ describe('LibraryStepController', () => {
 
     it('routes select-all and clear-all callbacks toward the first library focus target', () => {
         const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
         const deps = createDeps({
             libraries: [makeLibrary({ id: 'movies' }), makeLibrary({ id: 'shows', type: 'show' })],
             selectedLibraryIds: new Set(['movies']),
         });
+        const controller = new LibraryStepController();
 
-        new LibraryStepController().render(ctx, deps);
+        controller.render(ctx, deps);
 
         (ctx.contentEl.querySelector('#setup-select-all') as HTMLButtonElement).click();
         (ctx.contentEl.querySelector('#setup-clear-all') as HTMLButtonElement).click();
@@ -70,6 +74,7 @@ describe('LibraryStepController', () => {
 
     it('updateLibraryToggle mutates aria state, classes, and text in place', () => {
         const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
         const deps = createDeps({
             libraries: [makeLibrary({ id: 'movies' })],
             selectedLibraryIds: new Set(),
@@ -88,5 +93,21 @@ describe('LibraryStepController', () => {
         expect(button?.classList.contains('selected')).toBe(false);
         expect(button?.getAttribute('aria-pressed')).toBe('false');
         expect(button?.querySelector('.setup-toggle-state')?.textContent).toBe('Off');
+    });
+
+    it('routes individual library toggles through the generated control id', () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const deps = createDeps({
+            libraries: [makeLibrary({ id: 'Movies & More' })],
+            selectedLibraryIds: new Set(),
+        });
+        const controller = new LibraryStepController();
+
+        controller.render(ctx, deps);
+
+        (ctx.contentEl.querySelector('#setup-lib-Movies-More') as HTMLButtonElement).click();
+
+        expect(deps.onToggleLibrary).toHaveBeenCalledWith('Movies & More', 'setup-lib-Movies-More');
     });
 });

@@ -12,11 +12,13 @@ interface ChannelTransitionCoordinatorDeps {
     getOverlay: () => IChannelTransitionOverlay | null;
     getNavigation: () => INavigationManager | null;
     getVideoPlayer: () => IVideoPlayer | null;
+    onActivityChange?: (active: boolean) => void;
 }
 
 export class ChannelTransitionCoordinator {
     private _armedToken = 0;
     private _showTimer: number | null = null;
+    private _isActive = false;
     private _isVisible = false;
     private _pendingSubtitle: string | null = null;
 
@@ -25,7 +27,8 @@ export class ChannelTransitionCoordinator {
     armForChannelSwitch(channelPrefix: string | null): void {
         this._armedToken += 1;
         this._pendingSubtitle = channelPrefix ?? null;
-        this.hide();
+        this._setActive(true);
+        this._resetPresentationForRearm();
 
         const token = this._armedToken;
         this._showTimer = globalThis.setTimeout(() => {
@@ -36,13 +39,16 @@ export class ChannelTransitionCoordinator {
 
             const navigation = this.deps.getNavigation();
             if (!navigation || navigation.getCurrentScreen() !== 'player') {
+                this._endActivity();
                 return;
             }
             if (navigation.isModalOpen()) {
+                this._endActivity();
                 return;
             }
 
             if (this._isPlayerReady()) {
+                this._endActivity();
                 return;
             }
 
@@ -51,29 +57,38 @@ export class ChannelTransitionCoordinator {
     }
 
     onPlayerStateChange(state: PlaybackState): void {
-        if (state.status === 'playing' || state.status === 'paused') {
-            this._clearTimer();
-            if (this._isVisible) {
-                this.hide();
-            }
+        if (
+            state.status === 'playing'
+            || state.status === 'paused'
+            || state.status === 'ended'
+        ) {
+            this._endActivity();
             return;
         }
         if (state.status === 'error') {
-            this.hide();
+            this._endActivity();
             return;
         }
         if (state.status === 'idle' && this._isVisible) {
-            this.hide();
+            this._endActivity();
         }
     }
 
     onScreenChange(to: Screen): void {
         if (to !== 'player') {
-            this.hide();
+            this._endActivity();
         }
     }
 
     hide(): void {
+        this._endActivity();
+    }
+
+    isActive(): boolean {
+        return this._isActive;
+    }
+
+    private _resetPresentationForRearm(): void {
         this._clearTimer();
         if (this._isVisible) {
             this.deps.getOverlay()?.hide();
@@ -101,6 +116,23 @@ export class ChannelTransitionCoordinator {
         const state = player.getState();
         if (!state) return false;
         return state.status === 'playing' || state.status === 'paused';
+    }
+
+    private _endActivity(): void {
+        this._clearTimer();
+        if (this._isVisible) {
+            this.deps.getOverlay()?.hide();
+            this._isVisible = false;
+        }
+        this._setActive(false);
+    }
+
+    private _setActive(active: boolean): void {
+        if (this._isActive === active) {
+            return;
+        }
+        this._isActive = active;
+        this.deps.onActivityChange?.(active);
     }
 
     private _clearTimer(): void {

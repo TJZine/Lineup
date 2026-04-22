@@ -14,9 +14,9 @@ This checklist is not complete until an authoritative rerun on the target integr
 
 - Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
-- Current execution state: `P1-W1`, `P1-EXIT`, `P2-W1`, `P2-EXIT`, `P3-W1`, `P3-EXIT`, `P4-W1`, and `P4-EXIT` are complete on authoritative `2026-04-18` evidence; `P5-W1` is the next safe checklist start
-- Next safe start: `P5-W1` / `pkg_playback_subtitle_recovery`
-- Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to `P5-W1`
+- Current execution state: `P1-W1` through `P7-EXIT` are complete on authoritative `2026-04-22` evidence; `P8-W1` is now the safe start
+- Next safe start: `P8-W1` / `pkg_shared_hygiene_migration`
+- Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to the active package or exit row
 - First action at package start: planning only; create the package-local execution-grade plan first and do not begin implementation until that planning gate is complete
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
 - Exact issue-membership surface: `docs/architecture/active-cleanup-package-map.json`
@@ -64,7 +64,7 @@ Every `P#-EXIT` must, in the same pass:
 - record mapped review dispositions from the tracked companion map rather than inline checklist ids
 - refresh the package-local scoping commands and record detector-count deltas that matter for that package
 - refresh `desloppify show security --status open --no-budget --top 50` as security triage
-- record entry baseline, exit baseline, and delta; if neither `overall` nor `strict` improves, keep the exit open unless every survivor has one exact later owner
+- record entry baseline, exit baseline, and delta; if neither `overall` nor `strict` improves, keep the exit open unless every survivor has one exact later owner or an explicit `accepted residue` disposition with rationale and revisit trigger
 - keep exact residual ownership in the companion map and this checklist synchronized
 
 ## Execution Hygiene
@@ -72,12 +72,14 @@ Every `P#-EXIT` must, in the same pass:
 - Disposition vocabulary:
   - `stale-proven`: the exact mapped issue is absent on current source, and the rerun evidence plus current-source inspection prove the tracked complaint was stale rather than silently dropped.
   - `resolved`: the exact mapped issue or package-owned rationale is retired on current source and backed by fresh rerun evidence.
+  - `accepted residue`: the issue still reruns open, but current-source review shows the detector hit is intentionally accepted with explicit rationale and revisit trigger because implementation work is low-value or unjustified on current source.
   - `deferred`: the issue stays open, but the record names the exact current owner, reason, and revisit trigger.
   - `split follow-up`: the current package is not the final owner; the remaining live gap is handed to one exact successor owner.
   - `owned follow-up`: the exact successor owner named by a `split follow-up` record; every deferred or split item must have one single final owner.
   - `priority-exit review`: the blocking review run after the package work item and before any `P(n+1)` work, plan, or checklist progress begins.
 - Ownership rule:
   - keep one single final owner for every deferred or split follow-up item.
+  - `accepted residue` closes locally and does not require a successor owner, but it must keep one explicit rationale and revisit trigger.
   - detector lag alone is not a reason to invent a new successor owner.
 - Cleanup slice execution template:
   - `priority/work units`: exact `P#-W#` items in scope for the slice
@@ -93,7 +95,7 @@ Every `P#-EXIT` must, in the same pass:
   - rerun `desloppify show security --status open --no-budget --top 50`
   - rerun the package-local scoping commands for the closing priority
   - rerun the strongest task-specific verification used by the closing work item
-  - confirm every mapped imported issue or package-owned rationale for the priority is either retired here or explicitly deferred or split with one single final owner, reason, and revisit trigger
+- confirm every mapped imported issue or package-owned rationale for the priority is either retired here, `accepted residue` with rationale and revisit trigger, or explicitly deferred or split with one single final owner, reason, and revisit trigger
   - do not mark progress on `P(n+1)` work until the current priority-exit review is complete and the `P#-EXIT` record is complete
 
 ## Fresh Evidence Snapshot
@@ -438,7 +440,7 @@ Every `P#-EXIT` must, in the same pass:
 - Follow-ups: preserve the stale-proven startup/auth/profile/recovery detector rows above unless future current-source changes invalidate their proof; no deferred or split successor owner remains after `P4-EXIT`
 - Handoff: `P5-W1`
 
-### [ ] `P5-W1` `pkg_playback_subtitle_recovery` Playback And Subtitle Recovery
+### [x] `P5-W1` `pkg_playback_subtitle_recovery` Playback And Subtitle Recovery
 
 - Backlog: `18 = 16 older live non-review + 2 fresh review + 0 fresh non-review`
 - Scope: separate generic playback recovery from subtitle-specific policy and keep player/stream recovery cleanup in one execution surface
@@ -446,27 +448,68 @@ Every `P#-EXIT` must, in the same pass:
 - Package-local scoping commands:
   - `desloppify show src/modules/player --status open --no-budget --top 150`
   - `desloppify show src/modules/plex/stream --status open --no-budget --top 150`
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: `P5-EXIT`
+- Status: completed
+- Plan: `docs/plans/2026-04-20-p5-w1-playback-subtitle-recovery.md`
+- Last touched: `2026-04-21`
+- Verification: observed passing focused Jest commands for `P5-W1-S1` (`src/modules/player/__tests__/PlaybackRecoveryManager.test.ts`, `src/modules/player/__tests__/PlaybackReloadController.test.ts`, `src/modules/player/__tests__/PlaybackStreamDescriptorBuilder.test.ts`), the bounded reload/player follow-up regressions (`src/modules/player/__tests__/VideoPlayer.test.ts`, `src/modules/player/__tests__/PlaybackReloadController.test.ts`, `src/modules/player/__tests__/PlaybackRecoveryManager.test.ts`), `P5-W1-S2` (`src/modules/debug/__tests__/SubtitleDebugLogger.test.ts`, `src/modules/player/__tests__/SubtitleManager.test.ts`, `src/modules/player/__tests__/VideoPlayer.test.ts`), and `P5-W1-S3` (`src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts`, `src/modules/plex/stream/__tests__/SubtitleStreamProbe.test.ts`, `src/modules/plex/stream/__tests__/SubtitleStreamProbeSupport.test.ts`, `src/modules/plex/stream/__tests__/mediaSelectionPolicy.test.ts`); and observed a passing `npm run verify` on `2026-04-21` after the final clean review gate
+- Follow-ups: preserve the stale-proven detector rows recorded in `P5-EXIT` unless future current-source changes invalidate that proof; no split successor owner remains after `P5-EXIT`
+- Handoff: `P6-W1`
 
-- [ ] `P5-EXIT`
+- [x] `P5-EXIT`
 
   - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P6`
   - required: refresh package-local commands, record mapped review dispositions from `pkg_playback_subtitle_recovery`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
+- Status: completed
+- Plan: `docs/plans/2026-04-20-p5-w1-playback-subtitle-recovery.md`
+- Last touched: `2026-04-21`
+- Verification: observed `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, `desloppify show security --status open --no-budget --top 50`, the package-local scoping commands for `src/modules/player` and `src/modules/plex/stream`, exact reruns for `review::.::holistic::{ai_generated_debt::duplicate_subtitle_debug_helpers,design_coherence::playback_recovery_manager_blends_generic_recovery_with_subtitle_policy}`, exact reruns for `logs::src/modules/player/{PlaybackRecoveryManager.ts::PlaybackRecovery,SubtitleManager.ts::SubtitleManager,VideoPlayer.ts::VideoPlayer,PlaybackReloadController.ts::PlaybackRecovery}`, exact reruns for `smells::src/modules/player/{__tests__/SubtitleManager.test.ts::as_any_cast,VideoPlayer.ts::switch_no_default,PlaybackRecoveryManager.ts::console_error_no_throw,PlaybackReloadController.ts::console_error_no_throw}`, `smells::src/modules/plex/stream/{__tests__/mediaSelectionPolicy.test.ts::non_null_assert,__tests__/PlexStreamResolver.test.ts::non_null_assert,PlexStreamResolver.ts::magic_number,SubtitleStreamProbe.ts::monster_function,SubtitleStreamProbe.ts::high_cyclomatic_complexity,SubtitleStreamProbe.ts::nested_closure}`, `test_coverage::src/modules/plex/stream/SubtitleStreamProbeSupport.ts::transitive_only`, exact reruns for the mapped structural ids `structural::src/modules/player/{__tests__/PlaybackRecoveryManager.test.ts,__tests__/SubtitleManager.test.ts,__tests__/VideoPlayer.test.ts,PlaybackRecoveryManager.ts,SubtitleManager.ts,VideoPlayer.ts}` and `structural::src/modules/plex/stream/{__tests__/PlexStreamResolver.test.ts,PlexStreamResolver.ts}`, observed the focused Jest commands recorded under `P5-W1`, and observed a passing `npm run verify`
+- Entry baseline: checklist-backed package entry was `18 = 16 older live non-review + 2 fresh review + 0 fresh non-review` with the `P4-EXIT` global snapshot `overall 87.6 / objective 96.2 / strict 87.5 / verified 94.3`, `336` open in-scope, `345` open global, and `9` out-of-scope carried
+- Exit baseline: authoritative `desloppify status` rerun in this session reports `overall 87.5 / objective 96.1 / strict 87.5 / verified 94.2`, `355` open in-scope, `364` open global, and `9` out-of-scope carried; `desloppify plan queue --sort recent` is empty; `desloppify show review --status open --no-budget --top 100` returns no open review issues; and `desloppify show security --status open --no-budget --top 50` remains clean
+- Score delta: global `overall -0.1`, `objective -0.1`, `strict 0.0`, and `verified -0.1` versus the checklist-backed entry snapshot. `P5-EXIT` closes because every mapped imported review, structural, and non-log smell row reran absent and the remaining mapped playback/player log rows are `stale-proven` on current source with no successor owner
+- Imported review dispositions: reran absent on `2026-04-21`, treated as `resolved` on current source
+  - `review::.::holistic::ai_generated_debt::duplicate_subtitle_debug_helpers`
+    - reason: exact issue-id rerun no longer reports an open review row after `P5-W1-S2`, and subtitle debug ownership now routes through shared `SubtitleDebugLogger` / `PlayerConsoleLogger` helpers instead of duplicating enablement and formatting logic across player and resolver owners
+    - revisit trigger: exact issue-id rerun plus `rg -n "SubtitleDebugLogger|PlayerConsoleLogger|_logSubtitleDebug" src/modules/player src/modules/plex/stream`
+  - `review::.::holistic::design_coherence::playback_recovery_manager_blends_generic_recovery_with_subtitle_policy`
+    - reason: exact issue-id rerun no longer reports an open review row after `P5-W1-S1`, and generic reload sequencing plus descriptor shaping now live behind `PlaybackReloadController` and `PlaybackStreamDescriptorBuilder` while `PlaybackRecoveryManager` keeps the public orchestrator-facing seam stable
+    - revisit trigger: exact issue-id rerun plus `rg -n "PlaybackReloadController|PlaybackStreamDescriptorBuilder|attempt(BurnIn|DisableBurnIn|AudioTrack)Reload" src/modules/player`
+- Detector deltas: entry mapped package counts were `review 2 / structural 8 / smells 5 / logs 3`; refreshed exit reads are `src/modules/player` with `9` rerun-open rows and `src/modules/plex/stream` with `4` rerun-open rows. Current-source reconciliation proves the remaining mapped `P5` rows are detector lag, not live package debt:
+  - mapped stale-proven rows:
+    - `logs::src/modules/player/PlaybackRecoveryManager.ts::PlaybackRecovery`
+      - reason: stale-proven; `rg -n "console\\.(warn|error)" src/modules/player/PlaybackRecoveryManager.ts src/modules/player/PlaybackReloadController.ts src/modules/player/VideoPlayer.ts src/modules/player/SubtitleManager.ts` returns no hits, and the rerun still cites line `160`, which is now only the blank line before `_readPlayerState(...)` after the S1 extraction
+      - revisit trigger: rerun the exact issue id if `PlaybackRecoveryManager.ts` regains direct recovery logging or reabsorbs reload sequencing
+    - `logs::src/modules/player/SubtitleManager.ts::SubtitleManager`
+      - reason: stale-proven; the rerun still anchors line `90`, which is now only `if (!this._videoElement) return [];`, while subtitle debug emission is routed through the shared `SubtitleDebugLogger` owner created for `P5-W1-S2`
+      - revisit trigger: rerun the exact issue id if `SubtitleManager.ts` regains direct logging or duplicates subtitle debug ownership again
+    - `logs::src/modules/player/VideoPlayer.ts::VideoPlayer`
+      - reason: stale-proven; the rerun still anchors line `992`, which is now only the media-session timestamp-map clear, while `VideoPlayer` delegates structured console writes through `src/modules/debug/PlayerConsoleLogger.ts`
+      - revisit trigger: rerun the exact issue id if `VideoPlayer.ts` regains direct player/media-session logging paths
+  - supplemental stale-proven rows:
+    - `smells::src/modules/player/PlaybackRecoveryManager.ts::console_error_no_throw`
+      - reason: stale-proven; the rerun still cites line `164`, but current source at lines `160-166` is only the `_readPlayerState(...)` return boundary and `resetPlaybackFailureGuard()` declaration with no local `console.error`
+      - revisit trigger: rerun the exact issue id if `PlaybackRecoveryManager.ts` regains direct error logging instead of delegating to shared helpers
+    - `logs::src/modules/player/PlaybackReloadController.ts::PlaybackRecovery`
+      - reason: stale-proven; the rerun still cites line `174`, which is now the method closing brace after `_getRecoveryReloadOffset(...)`, while current console writes were moved out into `src/modules/debug/PlayerConsoleLogger.ts`
+      - revisit trigger: rerun the exact issue id if `PlaybackReloadController.ts` regains direct tagged logging
+    - `smells::src/modules/player/PlaybackReloadController.ts::console_error_no_throw`
+      - reason: stale-proven; the rerun still cites impossible line `178`, but current `PlaybackReloadController.ts` ends at line `175` and contains no direct `console.error`
+      - revisit trigger: rerun the exact issue id if recovery-reload failure handling moves back into the controller body
+    - `smells::src/modules/plex/stream/SubtitleStreamProbe.ts::{monster_function,high_cyclomatic_complexity,nested_closure}`
+      - reason: stale-proven; `SubtitleStreamProbe.ts` is now `136` lines total, and the reruns still point at line `51`, which is only the `url` field inside `buildSubtitleProbeSuccessContext(...)` after the probe support split
+      - revisit trigger: rerun these exact issue ids if probe request/sample/payload shaping is merged back into one larger control-flow owner
+    - `test_coverage::src/modules/plex/stream/SubtitleStreamProbeSupport.ts::transitive_only`
+      - reason: stale-proven; direct test file `src/modules/plex/stream/__tests__/SubtitleStreamProbeSupport.test.ts` imports `buildSubtitleStreamProbeRequestContext()` and `readSubtitleProbeSample()` directly and passed in this session, but the rerun still reports “covered only via imports”
+      - revisit trigger: rerun the exact issue id if that direct support test is removed or the helper stops being imported directly there
+  - package-local non-membership note:
+    - `src/modules/player` still reports unrelated pre-existing rows in `AudioTrackManager.ts` and `subtitleFallbackPipeline.ts`, but they are outside `pkg_playback_subtitle_recovery` companion-map membership and were not changed in this pass, so `P5-EXIT` does not re-home them here
+- Resolved-on-rerun groups: `review 2`, `structural 8`, and the mapped non-log smell rows (`smells::src/modules/player/__tests__/SubtitleManager.test.ts::as_any_cast`, `smells::src/modules/player/VideoPlayer.ts::switch_no_default`, `smells::src/modules/plex/stream/__tests__/mediaSelectionPolicy.test.ts::non_null_assert`, `smells::src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts::non_null_assert`, `smells::src/modules/plex/stream/PlexStreamResolver.ts::magic_number`) reran absent on current source
+- Security triage: `desloppify show security --status open --no-budget --top 50` remained clean with no open security or cycle issues
+- Follow-ups: preserve the stale-proven playback/player/probe detector rows above unless future current-source changes invalidate their proof; no deferred or split successor owner remains after `P5-EXIT`
 - Handoff: `P6-W1`
 
-### [ ] `P6-W1` `pkg_channel_setup_scheduler` Channel Setup And Scheduler Contracts
+### [x] `P6-W1` `pkg_channel_setup_scheduler` Channel Setup And Scheduler Contracts
 
-- Backlog: `38 = 34 older live non-review + 2 fresh review + 2 fresh non-review`
+- Backlog: `41 = 37 older live non-review + 2 fresh review + 2 fresh non-review`
 - Scope: keep channel-setup workflow cleanup, scheduler/channel-manager contracts, and channel-tuning residue in one domain-owned package
 - Exact membership: `docs/architecture/active-cleanup-package-map.json` -> `pkg_channel_setup_scheduler`
 - Package-local scoping commands:
@@ -475,51 +518,193 @@ Every `P#-EXIT` must, in the same pass:
   - `desloppify show src/modules/scheduler/channel-manager --status open --no-budget --top 150`
   - `desloppify show src/modules/scheduler/scheduler --status open --no-budget --top 150`
   - `desloppify show src/modules/ui/channel-setup --status open --no-budget --top 150`
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
+- Status: completed
+- Plan: `docs/plans/2026-04-21-p6-w1-channel-setup-scheduler-contracts.md`
+- Last touched: `2026-04-21`
+- Verification: observed passing focused Jest envelopes for `P6-W1-S1` (`src/core/channel-setup/__tests__/ChannelSetupBuildCommitter.test.ts`, `src/core/channel-setup/__tests__/ChannelSetupBuildExecutor.test.ts`, `src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts`, `src/core/channel-setup/__tests__/ChannelSetupWorkflow.test.ts`, `src/core/channel-setup/__tests__/createChannelSetupWorkflowPort.test.ts`), `P6-W1-S2` (`src/core/channel-setup/__tests__/ChannelSetupPlanner.test.ts`, `src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts`, `src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoader.test.ts`, `src/core/channel-setup/__tests__/ChannelSetupTagFilters.test.ts`), `P6-W1-S3` (`src/core/channel-tuning/__tests__/ChannelTuningCoordinator.test.ts`, `src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts`, `src/modules/scheduler/channel-manager/__tests__/ContentResolver.test.ts`, `src/modules/scheduler/scheduler/__tests__/ChannelScheduler.test.ts`, `src/modules/scheduler/scheduler/__tests__/ScheduleCalculator.test.ts`), and the final `P6-W1-S4` UI/controller surface (`src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`, `src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts`, `src/modules/ui/channel-setup/__tests__/ChannelSetupSessionRuntime.test.ts`, `src/modules/ui/channel-setup/steps/__tests__/BuildReviewStepController.test.ts`, `src/modules/ui/channel-setup/steps/__tests__/LibraryStepController.test.ts`, `src/modules/ui/channel-setup/steps/__tests__/StrategyStepController.test.ts`, `src/modules/ui/channel-setup/steps/__tests__/StrategyStepInteractionController.test.ts`); observed focused direct-controller coverage of `BuildReviewStepController` `91.08 / 81.35 / 75`, `LibraryStepController` `91.17 / 80 / 75`, `StrategyStepController` `99.39 / 88.02 / 100`, and `StrategyStepInteractionController` `90.18 / 86.81 / 86.95`; and observed a passing `npm run verify` after the final clean `S4` review gate
+- Follow-ups: preserve the stale-proven detector rows recorded in `P6-EXIT`; no split successor owner remains after `P6-EXIT`
 - Handoff: `P6-EXIT`
 
-- [ ] `P6-EXIT`
+- [x] `P6-EXIT`
 
   - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P7`
   - required: refresh package-local commands, record mapped review dispositions from `pkg_channel_setup_scheduler`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
+- Status: completed
+- Plan: `docs/plans/2026-04-21-p6-w1-channel-setup-scheduler-contracts.md`
+- Last touched: `2026-04-21`
+- Verification: observed `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, `desloppify show security --status open --no-budget --top 50`, the package-local scoping commands for `src/core/channel-setup`, `src/core/channel-tuning`, `src/modules/scheduler/channel-manager`, `src/modules/scheduler/scheduler`, and `src/modules/ui/channel-setup`, exact reruns for the mapped review ids `review::.::holistic::contract_coherence::{channel_manager_error_contract_docs_lag_runtime,channel_setup_port_absence_contract_split}`, exact reruns for the mapped detector rows `facade::src/core/channel-tuning/index.ts`, `flat_dirs::src/core/channel-setup`, `logs::src/core/channel-setup/{ChannelSetupBuildCommitter.ts::ChannelSetup,ChannelSetupBuildExecutor.ts::ChannelSetup}`, `smells::src/core/channel-setup/{ChannelSetupBuildCommitter.ts::console_error_no_throw,ChannelSetupBuildCommitter.ts::swallowed_error,ChannelSetupBuildExecutor.ts::catch_return_default,ChannelSetupBuildExecutor.ts::swallowed_error,ChannelSetupFacetSnapshotLoader.ts::sort_no_comparator,ChannelSetupPlanner.ts::sort_no_comparator,ChannelSetupPlanningService.ts::catch_return_default,ChannelSetupTagFilters.ts::high_cyclomatic_complexity}`, `smells::src/core/channel-tuning/ChannelTuningCoordinator.ts::{console_error_no_throw,swallowed_error}`, `smells::src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts::{non_null_assert,stub_function}`, `smells::src/modules/scheduler/scheduler/ChannelScheduler.ts::non_null_assert`, the mapped structural ids under `src/core/channel-setup`, `src/core/channel-tuning`, `src/modules/scheduler/{channel-manager,scheduler}`, and `src/modules/ui/channel-setup`, and the four mapped `test_coverage::src/modules/ui/channel-setup/steps/{BuildReviewStepController,LibraryStepController,StrategyStepController,StrategyStepInteractionController}.ts::transitive_only` ids; observed the focused Jest envelopes recorded under `P6-W1`; and observed a passing `npm run verify`
+- Entry baseline: checklist-backed package entry was `41 = 37 older live non-review + 2 fresh review + 2 fresh non-review` with the `P5-EXIT` global snapshot `overall 87.5 / objective 96.1 / strict 87.5 / verified 94.2`, `355` open in-scope, `364` open global, and `9` out-of-scope carried
+- Exit baseline: authoritative `desloppify status` rerun in this session reports `overall 87.5 / objective 96.0 / strict 87.5 / verified 94.2`, `361` open in-scope, `370` open global, and `9` out-of-scope carried; `desloppify plan queue --sort recent` is empty; `desloppify show review --status open --no-budget --top 100` returns no open review rows for this package closeout surface; and `desloppify show security --status open --no-budget --top 50` remains clean
+- Score delta: global `overall 0.0`, `objective -0.1`, `strict 0.0`, and `verified 0.0` versus the checklist-backed entry snapshot. `P6-EXIT` closes because every mapped review and structural row reran absent and the remaining mapped logs, smells, and direct-test detector rows are all `stale-proven` on current source with no successor owner
+- Imported review dispositions: reran absent on `2026-04-21`, treated as `resolved` on current source
+  - `review::.::holistic::contract_coherence::channel_manager_error_contract_docs_lag_runtime`
+    - reason: exact issue-id rerun no longer reports an open review row after `P6-W1-S3`, and the channel-manager / scheduler path now resolves channel lineup and failure normalization through the tightened scheduler contract surface instead of drifting from the current runtime behavior
+    - revisit trigger: exact issue-id rerun plus `rg -n "ChannelManager|ChannelScheduler|schedule" src/modules/scheduler`
+  - `review::.::holistic::contract_coherence::channel_setup_port_absence_contract_split`
+    - reason: exact issue-id rerun no longer reports an open review row after `P6-W1-S4`, and `ChannelSetupSessionController` now stays wrapper-only over state/runtime while the workflow-edit seam remains bounded behind the channel-setup runtime/state owners
+    - revisit trigger: exact issue-id rerun plus `rg -n "workflowPort|updateWorkflow" src/modules/ui/channel-setup`
+- Detector deltas: entry mapped package counts were `review 2 / structural 18 / smells 13 / test_coverage 4 / logs 2 / facade 1 / flat_dirs 1`; refreshed exit reads are `review 0 / structural 0 / facade 0 / flat_dirs 0`, `src/modules/scheduler/channel-manager` clean, `src/modules/scheduler/scheduler` clean, and the remaining package-local rerun-open rows all disagree with current source rather than exposing live package debt:
+  - mapped stale-proven rows:
+    - `logs::src/core/channel-setup/ChannelSetupBuildCommitter.ts::ChannelSetup`
+      - reason: stale-proven; `ChannelSetupBuildCommitter.ts` now routes failures into `addWarning(...)` and `logger.error(...)` with no direct `console` writes, but the rerun still points at legacy tagged-log wording
+      - revisit trigger: rerun the exact issue id if `ChannelSetupBuildCommitter.ts` regains direct `[ChannelSetup]` console logging
+    - `logs::src/core/channel-setup/ChannelSetupBuildExecutor.ts::ChannelSetup`
+      - reason: stale-proven; the current executor only records recoverable progress-callback warnings and explicit cancel summaries with no direct `console` writes, but the rerun still points at legacy tagged-log wording
+      - revisit trigger: rerun the exact issue id if `ChannelSetupBuildExecutor.ts` regains direct `[ChannelSetup]` console logging
+    - `smells::src/core/channel-setup/ChannelSetupBuildCommitter.ts::console_error_no_throw`
+      - reason: stale-proven; current source uses `logger.error(...)` plus warning accumulation rather than `console.error`, and the rerun-open smell no longer matches the owner body
+      - revisit trigger: rerun the exact issue id if the committer regains direct error logging without surfacing that error through its current warning/result contract
+    - `smells::src/core/channel-setup/ChannelSetupBuildCommitter.ts::swallowed_error`
+      - reason: stale-proven; current cleanup and refresh failures are converted into explicit warnings returned in the summary contract, not silently discarded
+      - revisit trigger: rerun the exact issue id if committer-side failures stop surfacing through returned workflow warnings
+    - `smells::src/core/channel-setup/ChannelSetupBuildExecutor.ts::catch_return_default`
+      - reason: stale-proven; the current executor rethrows non-abort failures and only returns explicit canceled summaries when the abort signal is set, so the detector wording is lagging older default-return behavior
+      - revisit trigger: rerun the exact issue id if non-abort execution failures start collapsing back into default summaries
+    - `smells::src/core/channel-setup/ChannelSetupBuildExecutor.ts::swallowed_error`
+      - reason: stale-proven; non-abort failures now rethrow and progress-callback failures are surfaced as workflow warnings instead of disappearing locally
+      - revisit trigger: rerun the exact issue id if build execution paths start suppressing non-abort failures again
+    - `smells::src/core/channel-setup/ChannelSetupFacetSnapshotLoader.ts::sort_no_comparator`
+      - reason: stale-proven; `_buildSnapshotKey(...)` currently sorts `selectedLibraryIds` with `localeCompare`, and the smell rerun no longer matches current source
+      - revisit trigger: rerun the exact issue id if snapshot key construction regresses to comparator-free sorting
+    - `smells::src/core/channel-setup/ChannelSetupPlanner.ts::sort_no_comparator`
+      - reason: stale-proven; current `stableStringify(...)` sorts object keys with an explicit `localeCompare` comparator, not a bare default sort
+      - revisit trigger: rerun the exact issue id if planner determinism regresses to comparator-free key sorting
+    - `smells::src/core/channel-setup/ChannelSetupPlanningService.ts::catch_return_default`
+      - reason: stale-proven; the current catch block only returns an explicit canceled-plan result when the abort signal is set and otherwise rethrows
+      - revisit trigger: rerun the exact issue id if planning failures begin returning default/canceled results outside the abort contract
+    - `smells::src/core/channel-setup/ChannelSetupTagFilters.ts::high_cyclomatic_complexity`
+      - reason: stale-proven; the fast-key parsing/filter path is now split across focused helpers instead of one branch-heavy owner
+      - revisit trigger: rerun the exact issue id if tag-filter parsing logic recombines into one large control-flow owner
+    - `smells::src/core/channel-tuning/ChannelTuningCoordinator.ts::console_error_no_throw`
+      - reason: stale-proven; current source uses `console.warn` in the remaining diagnostics path and the rerun-open row still points at older console-error wording
+      - revisit trigger: rerun the exact issue id if tuning coordination regains direct `console.error`-without-throw behavior
+    - `smells::src/core/channel-tuning/ChannelTuningCoordinator.ts::swallowed_error`
+      - reason: stale-proven; the rerun-open anchors no longer describe the current diagnostics/reporting helpers and no live catch-only suppression remains on current source
+      - revisit trigger: rerun the exact issue id if tuning coordination reintroduces catch-only suppression without surfaced failure state
+    - `test_coverage::src/modules/ui/channel-setup/steps/BuildReviewStepController.ts::transitive_only`
+      - reason: stale-proven; direct-import suite `BuildReviewStepController.test.ts` exists and focused coverage observed `91.08 / 81.35 / 75`, but the rerun still reports stale “covered only via imports” wording
+      - revisit trigger: rerun the exact issue id if the direct step-controller suite is removed or stops importing the owner directly
+    - `test_coverage::src/modules/ui/channel-setup/steps/LibraryStepController.ts::transitive_only`
+      - reason: stale-proven; direct-import suite `LibraryStepController.test.ts` exists and focused coverage observed `91.17 / 80 / 75`, but the rerun still reports stale “covered only via imports” wording
+      - revisit trigger: rerun the exact issue id if the direct step-controller suite is removed or stops importing the owner directly
+    - `test_coverage::src/modules/ui/channel-setup/steps/StrategyStepController.ts::transitive_only`
+      - reason: stale-proven; direct-import suite `StrategyStepController.test.ts` exists and focused coverage observed `99.39 / 88.02 / 100`, but the rerun still reports stale “covered only via imports” wording
+      - revisit trigger: rerun the exact issue id if the direct strategy-step controller suite is removed or stops importing the owner directly
+    - `test_coverage::src/modules/ui/channel-setup/steps/StrategyStepInteractionController.ts::transitive_only`
+      - reason: stale-proven; direct-import suite `StrategyStepInteractionController.test.ts` exists and focused coverage observed `90.18 / 86.81 / 86.95`, but the rerun still reports stale “covered only via imports” wording
+      - revisit trigger: rerun the exact issue id if the direct strategy-step interaction suite is removed or stops importing the owner directly
+- Resolved-on-rerun groups: `review 2`, `structural 18`, `facade 1`, `flat_dirs 1`, and the mapped scheduler/core non-log smell rows (`smells::src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts::{non_null_assert,stub_function}` and `smells::src/modules/scheduler/scheduler/ChannelScheduler.ts::non_null_assert`) reran absent on current source
+- Security triage: `desloppify show security --status open --no-budget --top 50` remained clean with no open security or cycle issues
+- Follow-ups: preserve the stale-proven channel-setup, channel-tuning, and direct-test detector rows above unless future current-source changes invalidate their proof; no deferred or split successor owner remains after `P6-EXIT`
 - Handoff: `P7-W1`
 
-### [ ] `P7-W1` `pkg_epg_runtime_surfaces` EPG Runtime And Package Surfaces
+### [x] `P7-W1` `pkg_epg_runtime_surfaces` EPG Runtime And Package Surfaces
 
-- Backlog: `28 = 23 older live non-review + 5 fresh review + 0 fresh non-review`
+- Backlog at package entry: `28 = 23 older live non-review + 5 fresh review + 0 fresh non-review`
 - Scope: retire the remaining EPG runtime, view-package, naming, and test hotspot residue under one EPG-owned package
 - Exact membership: `docs/architecture/active-cleanup-package-map.json` -> `pkg_epg_runtime_surfaces`
+- Current canonical membership after the same-pass companion-map refresh: `32 = 23 older live non-review + 5 fresh review + 4 fresh non-review`
 - Package-local scoping commands:
   - `desloppify show src/modules/ui/epg --status open --no-budget --top 180`
   - `desloppify show src/modules/ui/epg/runtime --status open --no-budget --top 120`
-  - `desloppify show facade --status open --no-budget --top 100`
-  - `desloppify show structural --status open --no-budget --top 150`
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: `P7-EXIT`
+  - `desloppify show src/modules/ui/epg/view --status open --no-budget --top 120`
+  - `desloppify show security --status open --no-budget --top 50`
+- Exact-id review scope required at entry/exit: the mapped review, facade, and structural rows in `pkg_epg_runtime_surfaces` are closed only by exact issue-id checks plus package-local path reruns, because broad facade/structural queries no longer isolate this package in the current CLI
+- Status: completed
+- Plan: `docs/plans/2026-04-21-p7-w1-epg-runtime-surfaces.md`
+- Last touched: `2026-04-21`
+- Verification: planning evidence via package-map/current-state reads, Codanna symbol/impact checks, package-local `desloppify` scoping, `desloppify show security --status open --no-budget --top 50`, and the plan-review loop were observed on `2026-04-21`; `P7-W1-S1` passed the slice Jest command for 8 suites / 164 tests, the slice `rg` import/naming audit, exact-id reruns for `review::.::holistic::package_organization::epg_view_leaves_in_root`, `review::.::holistic::naming_quality::boolean_accessor_get_is_drift`, `facade::src/modules/ui/epg/index.ts`, and `facade::src/modules/ui/epg/view/index.ts`, plus `npm run verify`, and review returned clean on `43ad7076b3e4ac904a953f9683e05bde76ddd3bd`; `P7-W1-S2` passed its targeted runtime Jest reruns and `npm run verify`, reran the mapped review/facade ids clean, then passed a non-clean review round, a focused regression-test revision on `16b0540cf2dc451b7a16dbf041036d27f4b90e18`, and a fresh final approval gate on top of `6701df83f12e36d7ffdc5c7290e2469210625b9d`; `P7-W1-S3` passed the targeted component/view Jest reruns, exact-id structural reruns, `npm run verify`, and review clean on `eb0861a7`; `P7-W1-S4` passed the targeted test Jest reruns, exact-id reruns for `flat_dirs::src/modules/ui/epg/__tests__`, `signature::src/modules/ui/epg/__tests__/DeferredEpgComponent.test.ts::signature_variance::makeChannel`, `smells::src/modules/ui/epg/__tests__/EPGChannelList.test.ts::hardcoded_color`, and `smells::src/modules/ui/epg/__tests__/EPGComponent.test.ts::non_null_assert`, then passed review clean on `2c8ee23e`
+- Follow-ups: mapped package work is complete. The `2026-04-22` closeout sequence left the remaining rerun-open EPG rows only as current-source-proven detector residue (`buildEpgStartupConfig.ts`, `EPGStartupConfigRuntime.ts`, `domainTypes.ts`, queue `voided_symbol`, existing console-error residues) plus the accepted CSS no-action residue set
+- Handoff: `P8-W1`
 
-- [ ] `P7-EXIT`
+- [x] `P7-EXIT`
 
   - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P8`
   - required: refresh package-local commands, record mapped review dispositions from `pkg_epg_runtime_surfaces`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: `P8-W1`
+- Status: completed
+- Plan: `docs/plans/2026-04-21-p7-w1-epg-runtime-surfaces.md`
+- Last touched: `2026-04-22`
+- Verification: final-gate evidence was refreshed on `2026-04-21` via `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, `desloppify show security --status open --no-budget --top 50`, `desloppify show src/modules/ui/epg --status open --no-budget --top 180`, `desloppify show src/modules/ui/epg/runtime --status open --no-budget --top 120`, `desloppify show src/modules/ui/epg/view --status open --no-budget --top 120`, and exact-id reruns for all `28` mapped `pkg_epg_runtime_surfaces` issue ids plus the unmapped EPG watchlist ids surfaced at package entry. The first `2026-04-22` closeout pass then passed `npx jest --runInBand src/modules/ui/epg/__tests__/buildEpgStartupConfig.test.ts src/modules/ui/epg/__tests__/EPGVisibleRangeRefreshQueue.test.ts src/modules/ui/epg/__tests__/domainTypes.test.ts`, `npm run verify`, `desloppify scan --skip-slow --no-badge`, refreshed `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, `desloppify show security --status open --no-budget --top 50`, `desloppify show src/modules/ui/epg --status open --no-budget --top 180`, exact-id reruns for the four canonical non-style rows plus the four EPG CSS watchlist rows, and `npm run verify:docs`. The revision pass on `2026-04-22` then passed `npx jest --runInBand src/modules/ui/epg/__tests__/buildEpgStartupConfig.test.ts src/modules/ui/epg/__tests__/EPGStartupConfigRuntime.test.ts`, reran `desloppify scan --skip-slow --no-badge` twice while tightening `buildEpgStartupConfig.ts`, reran the four non-style exact ids, refreshed `desloppify show src/modules/ui/epg --status open --no-budget --top 180`, and passed `npm run verify`. This final closeout pass on `2026-04-22` reran the five remaining startup/runtime exact ids, refreshed `desloppify show src/modules/ui/epg --status open --no-budget --top 180`, refreshed `desloppify status`, source-audited the cited anchors, and passed `npm run verify:docs`
+- Entry baseline: historical checklist-backed package entry scope was `28 = 23 older live non-review + 5 fresh review + 0 fresh non-review` with the pre-package snapshot `overall 87.7 / objective 96.6 / strict 87.6 / verified 94.2`, `209` open
+- Exit baseline: the latest `2026-04-22` scan still reports `overall 87.5 / objective 96.0 / strict 87.4 / verified 94.1`; the package-local rerun still reports `14` open EPG rows, but each surviving row is now either exact-rerun clean, stale-proven with current-source proof, or `accepted residue`
+- Score delta: global `overall -0.2`, `objective -0.6`, `strict -0.2`, and `verified -0.1` versus the historical checklist-backed entry snapshot. The package-local rerun does not go numerically clean, but `P7-EXIT` closes because every remaining open EPG row now has an explicit `resolved`, `stale-proven`, or `accepted residue` disposition with current-source evidence and no unresolved owner gap
+- Imported review dispositions: all five mapped review ids reran absent on `2026-04-21` and are treated as `resolved` on current source
+  - `review::.::holistic::contract_coherence::epg_cache_queries_hide_cleanup_side_effects`
+    - reason: exact-id rerun is clean after the `EPGScheduleCacheStore` read-contract cleanup and follow-up regression coverage
+    - revisit trigger: rerun the exact id if cache-read methods regain hidden cleanup side effects
+  - `review::.::holistic::low_level_elegance::epg_refresh_session_too_dense`
+    - reason: exact-id rerun is clean after `EPGScheduleRefreshRuntime.refreshForRange()` decomposition
+    - revisit trigger: rerun the exact id if runtime refresh orchestration regrows into one dense owner
+  - `review::.::holistic::naming_quality::boolean_accessor_get_is_drift`
+    - reason: exact-id rerun is clean after the EPG-owned `getIsVisible` rename landed in `P7-W1-S1`; no remaining non-EPG remainder is open on the current rerun
+    - revisit trigger: rerun the exact id if boolean-accessor naming drift reappears on current source
+  - `review::.::holistic::naming_quality::epg_run_for_channel_callback`
+    - reason: exact-id rerun is clean after renaming the runtime callback to `refreshChannelSchedule`
+    - revisit trigger: rerun the exact id if the runtime warm/refresh seam regains generic callback naming
+  - `review::.::holistic::package_organization::epg_view_leaves_in_root`
+    - reason: exact-id rerun is clean after moving the view-only leaves under `src/modules/ui/epg/view/`
+    - revisit trigger: rerun the exact id if root EPG files regain direct view-leaf ownership
+- Detector/survivor summary:
+  - stale-proven detector-lag residue with strong current-source proof:
+    - `smells::src/modules/ui/epg/buildEpgStartupConfig.ts::high_cyclomatic_complexity`
+      - reason: exact-id rerun still reports `lines: 26`, but current source `src/modules/ui/epg/buildEpgStartupConfig.ts:1` is only a seven-line re-export seam; the reported anchor is impossible on current source and no high-complexity owner remains in that file
+      - revisit trigger: rerun the exact id if `buildEpgStartupConfig.ts` regains local behavioral ownership beyond the re-export seam
+    - `smells::src/modules/ui/epg/buildEpgStartupConfig.ts::nested_closure`
+      - reason: exact-id rerun still reports `lines: 26`, but the file is the same seven-line re-export seam; there are no nested closures in current source for that file
+      - revisit trigger: rerun the exact id if `buildEpgStartupConfig.ts` regains local closure-heavy behavior instead of re-exporting the runtime seam
+    - `test_coverage::src/modules/ui/epg/EPGStartupConfigRuntime.ts::transitive_only`
+      - reason: current source has a direct runtime test in `src/modules/ui/epg/__tests__/EPGStartupConfigRuntime.test.ts:27` and `src/modules/ui/epg/__tests__/EPGStartupConfigRuntime.test.ts:36`, exercising the runtime seam directly rather than only through importers
+      - revisit trigger: rerun the exact id if the direct runtime test is removed or narrowed back to importer-only coverage
+    - `test_coverage::src/modules/ui/epg/model/domainTypes.ts::transitive_only`
+      - reason: current source has a direct test in `src/modules/ui/epg/__tests__/domainTypes.test.ts:10` and `src/modules/ui/epg/__tests__/domainTypes.test.ts:14`, importing the module directly and pinning representative contract shapes
+      - revisit trigger: rerun the exact id if direct `domainTypes.ts` coverage is removed or narrowed back to transitive-only use
+    - `smells::src/modules/ui/epg/runtime/EPGVisibleRangeRefreshQueue.ts::voided_symbol`
+      - reason: exact-id rerun still reports `lines: 108`, but current source `src/modules/ui/epg/runtime/EPGVisibleRangeRefreshQueue.ts:108` is `resolvePending?.();`; the old `void`-suppressed promise chain is absent after the explicit `async`/`await` rewrite
+      - revisit trigger: rerun the exact id if immediate/queued refresh orchestration regains a void-suppressed promise path
+  - mapped ids now clean on exact reruns:
+    - `facade::src/modules/ui/epg/index.ts`
+    - `facade::src/modules/ui/epg/runtime/index.ts`
+    - `facade::src/modules/ui/epg/view/index.ts`
+    - `flat_dirs::src/modules/ui/epg`
+    - `flat_dirs::src/modules/ui/epg/__tests__`
+    - `signature::src/modules/ui/epg/__tests__/DeferredEpgComponent.test.ts::signature_variance::makeChannel`
+    - `smells::src/modules/ui/epg/__tests__/EPGChannelList.test.ts::hardcoded_color`
+    - `smells::src/modules/ui/epg/__tests__/EPGComponent.test.ts::non_null_assert`
+    - `structural::src/modules/ui/epg/__tests__/EPGComponent.test.ts`
+    - `structural::src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`
+    - `structural::src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts`
+    - `structural::src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts`
+    - `structural::src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts`
+    - `structural::src/modules/ui/epg/EPGComponent.ts`
+    - `structural::src/modules/ui/epg/EPGCoordinator.ts`
+    - `structural::src/modules/ui/epg/EPGInfoPanel.ts`
+    - `structural::src/modules/ui/epg/runtime/EPGScheduleRefreshRuntime.ts`
+    - `structural::src/modules/ui/epg/view/EPGVirtualizer.ts`
+  - mapped stale-proven rows still rerun open but disagree with current source:
+    - `smells::src/modules/ui/epg/EPGCoordinator.ts::console_error_no_throw`
+      - reason: rerun-open anchors `101/111/267/399` now land on `_reportIssue(...)` call sites and guided-channel failure diagnostics; there is no `console.error` on current source
+      - revisit trigger: rerun the exact id if coordinator best-effort/init/channel-switch paths regain direct `console.error`
+    - `smells::src/modules/ui/epg/EPGRefreshController.ts::console_error_no_throw`
+      - reason: rerun-open anchor `378` now lands in `refreshEpgSchedulesBestEffort(...)`, which reports through `_reportIssue(...)`; current source contains no `console.error`
+      - revisit trigger: rerun the exact id if refresh-controller best-effort handling regains direct `console.error`
+    - `smells::src/modules/ui/epg/runtime/EPGBackgroundWarmQueue.ts::console_error_no_throw`
+      - reason: rerun-open anchor `98` now lands inside `_reportBatchError(...)`, which only forwards to `onError`; current source contains no `console.error`
+      - revisit trigger: rerun the exact id if warm-queue batch failures regain direct `console.error`
+    - `smells::src/modules/ui/epg/runtime/EPGScheduleRefreshRuntime.ts::console_error_no_throw`
+      - reason: rerun-open anchor `164` now lands on the runtime warm-queue `onError` handler, which appends debug log / issue diagnostics and contains no `console.error`
+      - revisit trigger: rerun the exact id if runtime warm-queue failures regain direct `console.error`
+    - `smells::src/modules/ui/epg/styles.css::css_monolith`
+      - reason: rerun-open anchor `1` lands on a seven-line import-only aggregator file; current source is only `@import` statements for the split EPG stylesheets and the import-seam role is pinned by `EPGComponent.test.ts`
+      - revisit trigger: rerun the exact id if `styles.css` regrows beyond the import-only aggregator seam
+  - `accepted residue` / low-value CSS detector residue:
+    - `smells::src/modules/ui/epg/styles.cells.css::css_monolith`
+    - `smells::src/modules/ui/epg/styles.grid.css::css_monolith`
+    - `smells::src/modules/ui/epg/styles.shell.css::css_monolith`
+    - `smells::src/modules/ui/epg/styles.theme.css::css_monolith`
+      - reason: these are threshold-only monolith hits on the stable split EPG stylesheet set; recent CSS cleanup already created churn on this surface, no concrete EPG bug cluster points at these files, and further slicing has higher revert risk than value without a narrow seam
+      - revisit trigger: reopen only if a concrete EPG CSS bug cluster or a narrow extraction seam appears on current source
+- Follow-ups: none
+- Handoff: `P8-W1` is now a safe start; if future reruns still report these five startup/runtime detector-lag rows without source changes, treat them as recorded detector-lag residue unless current-source evidence changes
 
 ### [ ] `P8-W1` `pkg_shared_hygiene_migration` Shared Hygiene And Migration Residue
 

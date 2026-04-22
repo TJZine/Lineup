@@ -1,6 +1,5 @@
 import type { ChannelConfig } from '../../../scheduler/channel-manager';
 import { getBackgroundWarmQueueAction } from '../EPGCoordinatorPolicies';
-import { summarizeErrorForLog } from '../../../../utils/errors';
 
 export const EPG_BACKGROUND_WARM_IDLE_TIMEOUT_MS = 120;
 export const EPG_BACKGROUND_WARM_TIMER_DELAY_MS = 24;
@@ -23,7 +22,7 @@ export interface EPGBackgroundWarmQueueStartOptions {
     refreshId: number;
     reason: string;
     channels: ChannelConfig[];
-    runForChannel: (channel: ChannelConfig) => Promise<void>;
+    refreshChannelSchedule: (channel: ChannelConfig) => Promise<void>;
     concurrency: number;
 }
 
@@ -87,16 +86,13 @@ export class EPGBackgroundWarmQueue {
             refreshId: previousState.refreshId,
             reason: previousState.reason,
             channels: previousState.channels,
-            runForChannel: previousState.runForChannel,
+            refreshChannelSchedule: previousState.refreshChannelSchedule,
             concurrency: previousState.concurrency,
         } : null);
     }
 
     private _reportBatchError(error: unknown): void {
         this._deps.onError?.(error);
-        if (!this._deps.onError) {
-            console.error('[EPG] background warm batch failed:', summarizeErrorForLog(error));
-        }
     }
 
     private _scheduleNextBatch(): void {
@@ -156,7 +152,7 @@ export class EPGBackgroundWarmQueue {
                         const channel = batch[cursor++];
                         if (!channel) return;
                         try {
-                            await state.runForChannel(channel);
+                            await state.refreshChannelSchedule(channel);
                         } catch (error) {
                             this._reportBatchError(error);
                         }

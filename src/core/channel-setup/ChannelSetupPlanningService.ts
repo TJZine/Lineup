@@ -85,7 +85,7 @@ export class ChannelSetupPlanningService {
                 warnings: [...planResult.warnings],
                 reachedMaxChannels: false,
                 ...(planResult.previewStatus ? { status: planResult.previewStatus } : {}),
-                ...(planResult.blockedMessage ? { message: planResult.blockedMessage } : {}),
+                ...(planResult.blockedMessage !== undefined ? { message: planResult.blockedMessage } : {}),
                 ...(planResult.failureReason ? { failureReason: planResult.failureReason } : {}),
             };
         }
@@ -116,7 +116,7 @@ export class ChannelSetupPlanningService {
                     warnings: [...planResult.warnings],
                     reachedMaxChannels: false,
                     ...(planResult.previewStatus ? { status: planResult.previewStatus } : {}),
-                    ...(planResult.blockedMessage ? { message: planResult.blockedMessage } : {}),
+                    ...(planResult.blockedMessage !== undefined ? { message: planResult.blockedMessage } : {}),
                     ...(planResult.failureReason ? { failureReason: planResult.failureReason } : {}),
                 },
                 diff: { summary: { created: 0, removed: 0, unchanged: 0 }, samples: { created: [], removed: [], unchanged: [] } },
@@ -214,16 +214,7 @@ export class ChannelSetupPlanningService {
                     throw error;
                 }
                 const abortedTask = getAbortErrorTask(error);
-                return {
-                    plan: null,
-                    warnings: [],
-                    canceled: true,
-                    lastTask: abortedTask ?? 'scan_library_items',
-                    errorsTotal: 0,
-                    playlistMs: 0,
-                    collectionsMs: 0,
-                    libraryQueryMs: 0,
-                };
+                return createCanceledPlanBuildResult(abortedTask ?? 'scan_library_items');
             }
             throw error;
         }
@@ -353,4 +344,19 @@ function getAbortErrorTask(error: unknown): ChannelBuildProgress['task'] | undef
     }
     const { lastTask } = error as { lastTask?: unknown };
     return typeof lastTask === 'string' ? lastTask as ChannelBuildProgress['task'] : undefined;
+}
+
+function createCanceledPlanBuildResult(
+    lastTask: ChannelBuildProgress['task']
+): ChannelSetupPlanBuildResult {
+    return {
+        plan: null,
+        warnings: [],
+        canceled: true,
+        lastTask,
+        errorsTotal: 0,
+        playlistMs: 0,
+        collectionsMs: 0,
+        libraryQueryMs: 0,
+    };
 }

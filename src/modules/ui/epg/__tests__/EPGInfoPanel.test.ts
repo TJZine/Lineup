@@ -6,7 +6,7 @@
  * @module modules/ui/epg/__tests__/EPGInfoPanel.test
  */
 
-import { EPGInfoPanel } from '../EPGInfoPanel';
+import { EPGInfoPanel } from '../view/EPGInfoPanel';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import { flushPromises } from '../../../../__tests__/helpers';
 import { extractDominantColor } from '../../../../utils/color/extractDominantColor';
@@ -134,6 +134,13 @@ describe('EPGInfoPanel', () => {
 
         panel.setPresentationMode('overlay');
         expect(panel.getPresentationMode()).toBe('overlay');
+    });
+
+    it('preallocates hidden quality badge slots during initialization', () => {
+        const badges = Array.from(container.querySelectorAll('.epg-info-quality-badge')) as HTMLElement[];
+
+        expect(badges).toHaveLength(5);
+        expect(badges.every((badge) => badge.style.display === 'none')).toBe(true);
     });
 
     describe('thumb resolver', () => {
@@ -482,16 +489,16 @@ describe('EPGInfoPanel', () => {
         });
 
         it('should initialize without errors', () => {
-            expect(panel.getIsVisible()).toBe(false);
+            expect(panel.isShowing()).toBe(false);
         });
 
         it('should show and hide correctly', () => {
             const program = createMockProgram(null);
             panel.show(program);
-            expect(panel.getIsVisible()).toBe(true);
+            expect(panel.isShowing()).toBe(true);
 
             panel.hide();
-            expect(panel.getIsVisible()).toBe(false);
+            expect(panel.isShowing()).toBe(false);
         });
 
         it('should display program title', () => {

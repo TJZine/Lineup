@@ -1,4 +1,4 @@
-import { EPGVisibleRangeEmitter } from '../EPGVisibleRangeEmitter';
+import { EPGVisibleRangeEmitter } from '../view/EPGVisibleRangeEmitter';
 import type { EpgVisibleRange } from '../types';
 
 describe('EPGVisibleRangeEmitter', () => {

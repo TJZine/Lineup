@@ -247,6 +247,26 @@ describe('PlaybackRecoveryManager', () => {
         );
     });
 
+    it('sanitizes stream resolver auth error messages before surfacing them', () => {
+        const { manager, deps } = setup();
+        const handleGlobalError = deps.handleGlobalError as jest.Mock;
+
+        manager.tryHandleStreamResolverAuthError({
+            code: 'AUTH_REQUIRED',
+            message: 'Auth required for token secret-token',
+            recoverable: true,
+        });
+
+        expect(handleGlobalError).toHaveBeenCalledWith(
+            {
+                code: AppErrorCode.AUTH_REQUIRED,
+                message: expect.not.stringContaining('secret-token'),
+                recoverable: true,
+            },
+            'plex-stream'
+        );
+    });
+
     it('resolves stream for program and records decision', async () => {
         const { manager, resolver, deps } = setup({
             getCurrentProgramForPlayback: () => makeProgram({ elapsedMs: 999999 }),
@@ -435,8 +455,9 @@ describe('PlaybackRecoveryManager', () => {
 
         expect(result).toEqual({ outcome: 'failed' });
         expect(warnSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] audioReload.start',
+            'playback_recovery',
             expect.objectContaining({
+                event: 'audioReload.start',
                 reason: 'audio_track_change',
                 trackId: 'audio-alt',
                 itemKey: 'item-1',
@@ -444,8 +465,9 @@ describe('PlaybackRecoveryManager', () => {
             })
         );
         expect(errorSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] audioReload.failed',
+            'playback_recovery',
             expect.objectContaining({
+                event: 'audioReload.failed',
                 reason: 'audio_track_change',
                 trackId: 'audio-alt',
                 itemKey: 'item-1',
@@ -468,6 +490,25 @@ describe('PlaybackRecoveryManager', () => {
             {
                 code: AppErrorCode.ACCESS_DENIED,
                 message: 'profile lacks access',
+                recoverable: false,
+            },
+            'plex-stream'
+        );
+    });
+
+    it('sanitizes ACCESS_DENIED resolver messages before surfacing them', () => {
+        const { manager, deps } = setup();
+        const handleGlobalError = deps.handleGlobalError as jest.Mock;
+
+        manager.tryHandleStreamResolverPermissionError({
+            code: 'ACCESS_DENIED',
+            message: 'profile lacks access for X-Plex-Token=secret-token',
+        });
+
+        expect(handleGlobalError).toHaveBeenCalledWith(
+            {
+                code: AppErrorCode.ACCESS_DENIED,
+                message: expect.not.stringContaining('secret-token'),
                 recoverable: false,
             },
             'plex-stream'
@@ -611,15 +652,17 @@ describe('PlaybackRecoveryManager', () => {
 
         expect(ok).toBe(false);
         expect(warnSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] transcodeFallback.start',
+            'playback_recovery',
             expect.objectContaining({
+                event: 'transcodeFallback.start',
                 reason: 'subtitle_decode_failed',
                 itemKey: 'item-1',
             })
         );
         expect(errorSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] transcodeFallback.failed',
+            'playback_recovery',
             expect.objectContaining({
+                event: 'transcodeFallback.failed',
                 reason: 'subtitle_decode_failed',
                 itemKey: 'item-1',
                 safeError: expect.any(Object),
@@ -836,16 +879,18 @@ describe('PlaybackRecoveryManager', () => {
 
         expect(result).toEqual({ outcome: 'failed' });
         expect(warnSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] burnInReload.start',
+            'playback_recovery',
             expect.objectContaining({
+                event: 'burnInReload.start',
                 trackId: 'sub-keyless',
                 reason: 'subtitle_extract_failed:test',
                 itemKey: 'item-1',
             })
         );
         expect(errorSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] burnInReload.failed',
+            'playback_recovery',
             expect.objectContaining({
+                event: 'burnInReload.failed',
                 trackId: 'sub-keyless',
                 reason: 'subtitle_extract_failed:test',
                 itemKey: 'item-1',
@@ -907,6 +952,38 @@ describe('PlaybackRecoveryManager', () => {
         releaseStop();
         await pending;
 
+        expect(resolver.resolveStream).toHaveBeenCalledTimes(1);
+    });
+
+    it('continues disable-burn-in recovery when stopping the prior transcode session fails', async () => {
+        const { manager, resolver } = setup({
+            getCurrentStreamDecision: () =>
+                makeDecision({
+                    protocol: 'hls',
+                    isDirectPlay: false,
+                    isTranscoding: true,
+                    sessionId: 'sess-burn',
+                    transcodeRequest: {
+                        sessionId: 'sess-burn',
+                        maxBitrate: 2000,
+                        subtitleStreamId: 'burn-1',
+                        subtitleMode: 'burn',
+                    },
+                } as Partial<StreamDecision>),
+        });
+        (resolver.stopTranscodeSession as jest.Mock).mockRejectedValue(new Error('stop failed'));
+        (resolver.resolveStream as jest.Mock).mockResolvedValue(
+            makeDecision({
+                protocol: 'http',
+                isDirectPlay: true,
+                isTranscoding: false,
+            })
+        );
+
+        const result = await manager.attemptDisableBurnInSubtitlesForCurrentProgram('test');
+
+        expect(result).toEqual({ outcome: 'disabled' });
+        expect(resolver.stopTranscodeSession).toHaveBeenCalledWith('sess-burn');
         expect(resolver.resolveStream).toHaveBeenCalledTimes(1);
     });
 
@@ -1192,12 +1269,17 @@ describe('PlaybackRecoveryManager', () => {
 
         expect(result).toEqual({ outcome: 'ignored', reason: 'program_changed' });
         expect(warnSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] disableBurnIn.start',
-            expect.objectContaining({ reason: 'subtitle_decode_stable', itemKey: 'item-1' })
+            'playback_recovery',
+            expect.objectContaining({
+                event: 'disableBurnIn.start',
+                reason: 'subtitle_decode_stable',
+                itemKey: 'item-1',
+            })
         );
         expect(warnSpy).toHaveBeenCalledWith(
-            '[PlaybackRecovery] disableBurnIn.aborted',
+            'playback_recovery',
             expect.objectContaining({
+                event: 'disableBurnIn.aborted',
                 reason: 'subtitle_decode_stable',
                 itemKey: 'item-1',
                 outcome: 'program_changed',

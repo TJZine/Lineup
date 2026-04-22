@@ -48,6 +48,29 @@ const createResolvedContent = (channelId: string): ResolvedChannelContent => {
     };
 };
 
+const createScheduleWindow = (channelId: string): ScheduleWindow => ({
+    startTime: 0,
+    endTime: 60_000,
+    programs: [
+        {
+            item: makeResolvedItems(channelId)[0]!,
+            scheduledStartTime: 0,
+            scheduledEndTime: 60_000,
+            elapsedMs: 0,
+            remainingMs: 60_000,
+            scheduleIndex: 0,
+            loopNumber: 0,
+            streamDescriptor: null,
+            isCurrent: false,
+        },
+    ],
+});
+
+const flushPromises = async (): Promise<void> => {
+    await Promise.resolve();
+    await Promise.resolve();
+};
+
 const createRuntime = (
     overrides: Partial<EPGScheduleRefreshRuntimeDeps> & {
         channelManager?: Partial<IChannelManager>;
@@ -186,6 +209,111 @@ describe('EPGScheduleRefreshRuntime', () => {
         );
     });
 
+    it('reports background warm queue batch failures through issue diagnostics', async () => {
+        jest.useFakeTimers();
+        const idleScheduler = globalThis as unknown as {
+            requestIdleCallback?: typeof globalThis.requestIdleCallback;
+            cancelIdleCallback?: typeof globalThis.cancelIdleCallback;
+        };
+        const priorRequestIdleCallback = idleScheduler.requestIdleCallback;
+        const priorCancelIdleCallback = idleScheduler.cancelIdleCallback;
+        try {
+            delete idleScheduler.requestIdleCallback;
+            delete idleScheduler.cancelIdleCallback;
+
+            const channels = Array.from({ length: 20 }, (_, index) => makeChannel(`c${index + 1}`, index + 1));
+            const cloneFailure = new Error('cache clone failed');
+            const { runtime, deps } = createRuntime({
+                channelManager: {
+                    getAllChannels: jest.fn(() => channels),
+                    getChannel: jest.fn((channelId: string) => (
+                        channels.find((channel) => channel.id === channelId) ?? null
+                    )),
+                    resolveChannelContent: jest.fn(async (channelId: string) => createResolvedContent(channelId)),
+                    resolveChannelItemsForSchedule: jest.fn(async (channelId: string) => makeResolvedItems(channelId)),
+                },
+                getScheduleLoadConcurrency: () => 1,
+                cloneScheduleWindow: (window: ScheduleWindow): ScheduleWindow => {
+                    if (window.programs[0]?.item.ratingKey === 'c8-0') {
+                        throw cloneFailure;
+                    }
+                    return { ...window, programs: [...window.programs] };
+                },
+            });
+
+            (
+                runtime as unknown as {
+                    _cacheStore: { storeSchedule: (channelId: string, rangeKey: string, schedule: ScheduleWindow) => void };
+                }
+            )._cacheStore.storeSchedule('c8', '0-60000', createScheduleWindow('c8'));
+
+            await runtime.refreshForRange(
+                { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+                'visible-range'
+            );
+
+            for (let i = 0; i < 20; i += 1) {
+                jest.advanceTimersByTime(50);
+                await flushPromises();
+            }
+
+            expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+                'QA-003b',
+                'epg.backgroundWarmQueueFailed',
+                expect.objectContaining({
+                    channelId: 'c8',
+                    phase: 'background',
+                    safeError: expect.objectContaining({
+                        message: expect.stringContaining('cache clone failed'),
+                    }),
+                })
+            );
+        } finally {
+            jest.useRealTimers();
+            if (priorRequestIdleCallback) {
+                idleScheduler.requestIdleCallback = priorRequestIdleCallback;
+            } else {
+                delete idleScheduler.requestIdleCallback;
+            }
+            if (priorCancelIdleCallback) {
+                idleScheduler.cancelIdleCallback = priorCancelIdleCallback;
+            } else {
+                delete idleScheduler.cancelIdleCallback;
+            }
+        }
+    });
+
+    it('reports immediate schedule load failures through issue diagnostics', async () => {
+        const channel = makeChannel('c1', 1);
+        const failure = new Error('resolve failed');
+        const { runtime, deps } = createRuntime({
+            channelManager: {
+                getAllChannels: jest.fn(() => [channel]),
+                getChannel: jest.fn((channelId: string) => (channelId === channel.id ? channel : null)),
+                resolveChannelContent: jest.fn(async () => {
+                    throw failure;
+                }),
+            },
+        });
+
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleLoadFailed',
+            expect.objectContaining({
+                channelId: 'c1',
+                phase: 'immediate',
+                safeError: expect.objectContaining({
+                    message: expect.stringContaining('resolve failed'),
+                }),
+            })
+        );
+    });
+
     it('aborts stale in-flight loads when a force-refresh request arrives', async () => {
         const channel = makeChannel('c1', 1);
         const deferred = {
@@ -231,6 +359,44 @@ describe('EPGScheduleRefreshRuntime', () => {
         expect(firstRequestAborted).toBe(true);
         expect((channelManager.resolveChannelContent as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(2);
         expect(epg.loadScheduleForChannel).toHaveBeenCalled();
+    });
+
+    it('invalidates in-flight refresh work when no visible channels remain', async () => {
+        const channel = makeChannel('c1', 1);
+        let visibleChannels: ChannelConfig[] = [channel];
+        let resolveFirstRequest: ((value: ResolvedChannelContent) => void) | null = null;
+
+        const { runtime, epg } = createRuntime({
+            channelManager: {
+                getAllChannels: jest.fn(() => [channel]),
+                getChannel: jest.fn((channelId: string) => (channelId === channel.id ? channel : null)),
+                resolveChannelContent: jest.fn(async () => new Promise<ResolvedChannelContent>((resolve) => {
+                    resolveFirstRequest = resolve;
+                })),
+            },
+            getVisibleChannels: () => visibleChannels,
+        });
+
+        const firstRefresh = runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+        await Promise.resolve();
+
+        visibleChannels = [];
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        if (!resolveFirstRequest) {
+            throw new Error('Expected the first refresh request to remain in flight');
+        }
+        const releaseFirstRequest = resolveFirstRequest as (value: ResolvedChannelContent) => void;
+        releaseFirstRequest(createResolvedContent(channel.id));
+        await firstRefresh;
+
+        expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
     });
 
     it('skips duplicate schedule loads for channels already loaded in range', async () => {
@@ -590,5 +756,121 @@ describe('EPGScheduleRefreshRuntime', () => {
 
         expect(snapshot?.source).toBe('on-demand-materialized');
         expect(resolveChannelItemsForSchedule).toHaveBeenCalledWith('c20', { signal: null });
+    });
+
+    it('prefers the live scheduler over the loaded-range short-circuit for the active live channel', async () => {
+        const channel = makeChannel('c1', 1);
+        const liveSchedule: ScheduleWindow = {
+            startTime: 0,
+            endTime: 60_000,
+            programs: [
+                {
+                    ...createScheduleWindow(channel.id).programs[0]!,
+                    item: {
+                        ...makeResolvedItems(channel.id)[0]!,
+                        ratingKey: 'live-program',
+                    },
+                },
+            ],
+        };
+        const schedulerState = { isActive: false, channelId: null as string | null };
+        const scheduler = {
+            getState: jest.fn(() => schedulerState),
+            getScheduleWindow: jest.fn(() => liveSchedule),
+        } as unknown as IChannelScheduler;
+
+        const { runtime, deps, epg } = createRuntime({
+            channelManager: {
+                getAllChannels: jest.fn(() => [channel]),
+                getChannel: jest.fn((channelId: string) => (channelId === channel.id ? channel : null)),
+                getCurrentChannel: jest.fn(() => channel),
+            },
+            getScheduler: () => scheduler,
+        });
+
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+        (deps.appendIssueDiagnostic as jest.Mock).mockClear();
+        (epg.loadScheduleForChannel as jest.Mock).mockClear();
+        schedulerState.isActive = true;
+        schedulerState.channelId = channel.id;
+
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleApplied',
+            expect.objectContaining({
+                channelId: channel.id,
+                source: 'live-scheduler',
+                sampleRatingKeys: ['live-program'],
+            })
+        );
+        expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not let a live-scheduler apply mark the row loaded for a later non-live refresh', async () => {
+        const channel = makeChannel('c1', 1);
+        const liveSchedule: ScheduleWindow = {
+            startTime: 0,
+            endTime: 60_000,
+            programs: [
+                {
+                    ...createScheduleWindow(channel.id).programs[0]!,
+                    item: {
+                        ...makeResolvedItems(channel.id)[0]!,
+                        ratingKey: 'live-program',
+                    },
+                },
+            ],
+        };
+        const schedulerState: { isActive: boolean; channelId: string | null } = { isActive: true, channelId: channel.id };
+        const getScheduleWindow = jest.fn(() => liveSchedule);
+        const resolveChannelContent = jest.fn(async (channelId: string) => createResolvedContent(channelId));
+        const { runtime, deps, epg } = createRuntime({
+            channelManager: {
+                getAllChannels: jest.fn(() => [channel]),
+                getChannel: jest.fn((channelId: string) => (channelId === channel.id ? channel : null)),
+                getCurrentChannel: jest.fn(() => channel),
+                resolveChannelContent,
+            },
+            getScheduler: () => ({
+                getState: jest.fn(() => schedulerState),
+                getScheduleWindow,
+            } as unknown as IChannelScheduler),
+        });
+
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        schedulerState.isActive = false;
+        schedulerState.channelId = null;
+        (deps.appendIssueDiagnostic as jest.Mock).mockClear();
+        (epg.loadScheduleForChannel as jest.Mock).mockClear();
+        resolveChannelContent.mockClear();
+
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        expect(resolveChannelContent).toHaveBeenCalledTimes(1);
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleApplied',
+            expect.objectContaining({
+                channelId: channel.id,
+                source: 'resolved-immediate',
+            })
+        );
+        expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(1);
+        expect(getScheduleWindow).toHaveBeenCalledTimes(1);
     });
 });

@@ -27,6 +27,7 @@ import { AudioSettingsStore } from '../modules/settings/AudioSettingsStore';
 import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
 import { PlaybackRecoveryManager } from '../modules/player/PlaybackRecoveryManager';
 import * as orchestratorCoordinatorFactory from '../core/orchestrator/OrchestratorCoordinatorFactory';
+import { OverlayRuntimePolicyController } from '../core/orchestrator/OverlayRuntimePolicyController';
 import * as recoverableRuntimeReporterModule from '../core/orchestrator/OrchestratorRecoverableRuntimeReporter';
 
 // Mock localStorage
@@ -2148,15 +2149,18 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
         it('should handle non-existent channel gracefully', async () => {
             mockChannelManager.getChannel.mockReturnValue(null);
-            const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
             await expect(orchestrator.switchToChannel('invalid')).resolves.not.toThrow();
-            expect(consoleSpy).toHaveBeenCalledWith('Channel not found:', 'invalid');
+            expect(mockLifecycle.reportError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: AppErrorCode.CHANNEL_NOT_FOUND,
+                    message: 'Channel invalid not found',
+                    recoverable: true,
+                })
+            );
 
             // Verify early return - stop should not be called for invalid channel
             expect(mockVideoPlayer.stop).not.toHaveBeenCalled();
-
-            consoleSpy.mockRestore();
         });
 
         it('should resolve channel content before loading scheduler', async () => {
@@ -2445,6 +2449,38 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             } finally {
                 factorySpy.mockRestore();
                 ensureEpgInitializedSpy.mockRestore();
+            }
+        });
+
+        it('routes channel transition activity callbacks through overlay badge recompute wiring', async () => {
+            const originalFactory = orchestratorCoordinatorFactory.createOrchestratorCoordinators;
+            let capturedFactoryInput: unknown = null;
+            const factorySpy = jest
+                .spyOn(orchestratorCoordinatorFactory, 'createOrchestratorCoordinators')
+                .mockImplementation((deps) => {
+                    capturedFactoryInput = deps;
+                    return originalFactory(deps);
+                });
+            const syncSpy = jest.spyOn(
+                OverlayRuntimePolicyController.prototype,
+                'syncChannelBadgeOverlay'
+            );
+
+            try {
+                await orchestrator.initialize(mockConfig);
+                syncSpy.mockClear();
+
+                const actions = (
+                    capturedFactoryInput as
+                        | { actions?: { onChannelTransitionActivityChange?: (active: boolean) => void } }
+                        | null
+                )?.actions;
+                actions?.onChannelTransitionActivityChange?.(true);
+
+                expect(syncSpy).toHaveBeenCalledTimes(1);
+            } finally {
+                syncSpy.mockRestore();
+                factorySpy.mockRestore();
             }
         });
 

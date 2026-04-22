@@ -70,7 +70,11 @@ export const MAX_RESOLUTION = {
 
 // Re-export from shared module so Plex stream policy code and its tests can import from a single
 // local boundary (`modules/plex/stream/constants`) instead of reaching into shared internals.
-export { BURN_IN_SUBTITLE_FORMATS, TEXT_SUBTITLE_FORMATS } from '../../../shared/subtitle-formats';
+export {
+    BURN_IN_SUBTITLE_FORMATS,
+    isTextSubtitleFormat,
+    TEXT_SUBTITLE_FORMATS,
+} from '../../../shared/subtitle-formats';
 
 // ============================================
 // Client Profile

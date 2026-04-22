@@ -248,4 +248,9 @@ export interface IEPGInfoPanel {
      * @param program - Program to display
      */
     updateFull(program: ScheduledProgram): void;
+
+    /**
+     * Check if the info panel is currently visible.
+     */
+    isShowing(): boolean;
 }

@@ -4,13 +4,12 @@
 
 .now-playing-info-actors {
   --npi-space-6: 6px;
-  --npi-space-10: 10px;
   --actor-size: 56px;
   --actor-gap: var(--space-2);
 
   display: flex;
   align-items: center;
-  gap: var(--actor-gap, var(--space-2));
+  gap: var(--actor-gap);
   flex-wrap: wrap;
   row-gap: var(--npi-space-6);
   min-height: 0;

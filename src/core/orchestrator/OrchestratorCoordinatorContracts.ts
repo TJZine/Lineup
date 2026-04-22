@@ -147,6 +147,7 @@ export interface OrchestratorCoordinatorFactoryDeps {
         switchToChannelByNumberWithOutcome: (n: number) => Promise<import('../../types/channelSwitch').ChannelSwitchOutcome>;
         toggleEPG: () => void;
         onOverlayVisibilityChange: (visible: boolean) => void;
+        onChannelTransitionActivityChange: (active: boolean) => void;
         toggleNowPlayingInfoOverlay: () => void;
     };
     errors: {

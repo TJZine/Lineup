@@ -401,6 +401,45 @@ describe('VideoPlayer', () => {
                 injectedPlayer.destroy();
             }
         });
+
+        it('does not apply stale seek offsets when overlapping loads resolve on a newer stream', async () => {
+            const videoElement = container.querySelector('video') as HTMLVideoElement;
+            let readyStateValue = 0;
+            const seekCalls: number[] = [];
+
+            Object.defineProperty(videoElement, 'readyState', {
+                get: (): number => readyStateValue,
+                configurable: true,
+            });
+            Object.defineProperty(videoElement, 'currentTime', {
+                get: (): number => seekCalls.at(-1) ?? 0,
+                set: (value: number): void => {
+                    seekCalls.push(value);
+                },
+                configurable: true,
+            });
+
+            const staleDescriptor = createMockDescriptor({
+                url: 'http://example.com/stale.m3u8',
+                startPositionMs: 60000,
+            });
+            const newerDescriptor = createMockDescriptor({
+                url: 'http://example.com/newer.m3u8',
+                startPositionMs: 10000,
+            });
+
+            const staleLoad = player.loadStream(staleDescriptor);
+            const newerLoad = player.loadStream(newerDescriptor);
+
+            readyStateValue = 4;
+            videoElement.dispatchEvent(new Event('canplay'));
+
+            await Promise.all([staleLoad, newerLoad]);
+
+            expect(player.getCurrentDescriptor()).toBe(newerDescriptor);
+            expect(videoElement.src).toContain('newer.m3u8');
+            expect(seekCalls).toEqual([10]);
+        });
     });
 
     // ========================================
@@ -1196,7 +1235,7 @@ describe('VideoPlayer', () => {
                 await Promise.resolve();
 
                 expect(warnSpy).toHaveBeenCalledWith(
-                    '[VideoPlayer] MediaSession action failed:',
+                    'video_player_media_session_action_failed',
                     expect.objectContaining({ action: 'seekto' })
                 );
             });
@@ -1220,7 +1259,7 @@ describe('VideoPlayer', () => {
                 await Promise.resolve();
 
                 expect(warnSpy).toHaveBeenCalledWith(
-                    '[VideoPlayer] MediaSession action failed:',
+                    'video_player_media_session_action_failed',
                     expect.objectContaining({ action: 'play' })
                 );
             });

@@ -54,6 +54,7 @@ export interface ChannelBuildSummary {
     errorCount: number;
     canceled: boolean;
     blockedMessage?: string;
+    warnings?: string[];
     lastTask?: ChannelBuildProgress['task'] | 'init';
 }
 

@@ -7,7 +7,7 @@
  */
 
 import { MiniGuideOverlay } from '../MiniGuideOverlay';
-import { MINI_GUIDE_CLASSES } from '../constants';
+import { MINI_GUIDE_CLASSES, MINI_GUIDE_CONTAINER_ID } from '../constants';
 import type { MiniGuideConfig, MiniGuideViewModel } from '../types';
 
 const makeViewModel = (): MiniGuideViewModel => ({
@@ -61,10 +61,10 @@ describe('MiniGuideOverlay', () => {
 
     beforeEach(() => {
         container = document.createElement('div');
-        container.id = 'mini-guide-container';
+        container.id = MINI_GUIDE_CONTAINER_ID;
         document.body.appendChild(container);
         overlay = new MiniGuideOverlay();
-        const config: MiniGuideConfig = { containerId: 'mini-guide-container' };
+        const config: MiniGuideConfig = { containerId: MINI_GUIDE_CONTAINER_ID };
         overlay.initialize(config);
     });
 

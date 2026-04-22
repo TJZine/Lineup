@@ -26,3 +26,11 @@ export const TEXT_SUBTITLE_FORMATS: readonly string[] = [
     'webvtt',
     'subrip',
 ] as const;
+
+export function isTextSubtitleFormat(value: string | null | undefined): boolean {
+    if (typeof value !== 'string') {
+        return false;
+    }
+
+    return TEXT_SUBTITLE_FORMATS.includes(value.trim().toLowerCase());
+}

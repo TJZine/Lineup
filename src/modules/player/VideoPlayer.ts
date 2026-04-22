@@ -22,12 +22,15 @@ import {
     VIDEO_ELEMENT_STYLES,
     DEFAULT_CONFIG,
 } from './constants';
-import { DeveloperSettingsStore } from '../settings/DeveloperSettingsStore';
 import { AudioSettingsStore } from '../settings/AudioSettingsStore';
-import { redactSensitiveTokens, safeStringifyForLog } from '../../utils/redact';
-import { summarizeErrorForLog } from '../../utils/errors';
+import { redactSensitiveTokens } from '../../utils/redact';
+import {
+    logVideoPlayerMediaSessionActionFailure,
+    logVideoPlayerPlayFailure,
+} from '../debug/PlayerConsoleLogger';
 import type { PlatformPlaybackService, PlatformSubtitleService } from '../../platform';
 import { webosPlatformServices } from '../../platform';
+import { SubtitleDebugLogger } from '../debug/SubtitleDebugLogger';
 
 type MediaSessionPlaybackStateLike = 'none' | 'paused' | 'playing';
 
@@ -57,8 +60,16 @@ const MEDIA_SESSION_ACTIONS: MediaSessionActionLike[] = [
     'seekforward',
 ];
 
+type SubtitleDeactivation = {
+    trackId: string;
+    reason: string;
+};
+
 export class VideoPlayer implements IVideoPlayer {
-    private readonly _developerSettingsStore = new DeveloperSettingsStore();
+    private readonly _subtitleDebugLogger = new SubtitleDebugLogger({
+        scope: 'VideoPlayer',
+    });
+    private _loadGeneration = 0;
     private _emitter: EventEmitter<PlayerEventMap> = new EventEmitter();
     private _videoElement: HTMLVideoElement | null = null;
     private _subtitleManager: SubtitleManager;
@@ -84,24 +95,13 @@ export class VideoPlayer implements IVideoPlayer {
         this._subtitleManager = new SubtitleManager(services?.subtitleService);
     }
 
-    private _isSubtitleDebugEnabled(): boolean {
-        return this._developerSettingsStore.readSubtitleDebugLoggingEnabledAndClean(false);
-    }
-
     private _logSubtitleDebug(event: string, contextFactory: () => Record<string, unknown>): void {
-        if (!this._isSubtitleDebugEnabled()) return;
-        try {
-            console.warn('[VideoPlayer] subtitle-debug:', event, safeStringifyForLog(contextFactory()));
-        } catch {
-            // Ignore logging failures.
-        }
+        this._subtitleDebugLogger.log(event, contextFactory);
     }
 
     private _subtitleSelectionInProgress: boolean = false;
     private _subtitleSelectionRequestedId: string | null = null;
-    private _subtitleSelectionDeferredDeactivation:
-        | { trackId: string; reason: string }
-        | null = null;
+    private _subtitleSelectionDeferredDeactivation: SubtitleDeactivation | null = null;
 
     private _handleSubtitleDeactivated(trackId: string, reason: string): void {
         if (this._state.activeSubtitleId === null) {
@@ -142,6 +142,47 @@ export class VideoPlayer implements IVideoPlayer {
             });
         }
         return result;
+    }
+
+    private _handleSubtitleDeactivateRequest(
+        args: SubtitleDeactivation,
+        onDeactivate?: NonNullable<StreamDescriptor['subtitleContext']>['onDeactivate']
+    ): boolean {
+        let handled = false;
+        try {
+            handled = onDeactivate?.(args) === true;
+        } catch (error) {
+            this._logSubtitleDebug('subtitle_onDeactivate_error', () => ({
+                trackId: args.trackId,
+                reason: args.reason,
+                error: String(error),
+            }));
+        }
+
+        const deferDeactivation =
+            this._subtitleSelectionInProgress &&
+            this._subtitleSelectionRequestedId === args.trackId;
+        if (deferDeactivation) {
+            this._subtitleSelectionDeferredDeactivation = { ...args };
+            return handled;
+        }
+
+        this._handleSubtitleDeactivated(args.trackId, args.reason);
+        return handled;
+    }
+
+    private _createSubtitleContext(
+        descriptor: StreamDescriptor
+    ): StreamDescriptor['subtitleContext'] | undefined {
+        if (!descriptor.subtitleContext) {
+            return undefined;
+        }
+
+        return {
+            ...descriptor.subtitleContext,
+            onDeactivate: (args: SubtitleDeactivation): boolean =>
+                this._handleSubtitleDeactivateRequest(args, descriptor.subtitleContext?.onDeactivate),
+        };
     }
 
     public async initialize(config: VideoPlayerConfig): Promise<void> {
@@ -239,6 +280,7 @@ export class VideoPlayer implements IVideoPlayer {
 
         // Unload any existing stream
         this.unloadStream();
+        const loadGeneration = ++this._loadGeneration;
 
         // Ensure video element is visible once we start loading media.
         this._videoElement.style.display = 'block';
@@ -277,34 +319,7 @@ export class VideoPlayer implements IVideoPlayer {
         }));
 
         // Load subtitle tracks
-        const subtitleContext = descriptor.subtitleContext
-            ? {
-                ...descriptor.subtitleContext,
-                onDeactivate: (args: { trackId: string; reason: string }): boolean => {
-                    let handled = false;
-                    try {
-                        handled = descriptor.subtitleContext?.onDeactivate?.(args) === true;
-                    } catch (error) {
-                        this._logSubtitleDebug('subtitle_onDeactivate_error', () => ({
-                            trackId: args.trackId,
-                            reason: args.reason,
-                            error: String(error),
-                        }));
-                    }
-
-                    const deferDeactivation =
-                        this._subtitleSelectionInProgress &&
-                        this._subtitleSelectionRequestedId === args.trackId;
-                    if (deferDeactivation) {
-                        this._subtitleSelectionDeferredDeactivation = { ...args };
-                        return handled;
-                    }
-
-                    this._handleSubtitleDeactivated(args.trackId, args.reason);
-                    return handled;
-                },
-            }
-            : undefined;
+        const subtitleContext = this._createSubtitleContext(descriptor);
         const burnInTracks = this._subtitleManager.loadTracks(
             descriptor.subtitleTracks,
             subtitleContext
@@ -316,6 +331,9 @@ export class VideoPlayer implements IVideoPlayer {
 
         if (descriptor.preferredSubtitleTrackId !== undefined) {
             await this.setSubtitleTrack(descriptor.preferredSubtitleTrackId ?? null);
+            if (!this._isActiveLoad(loadGeneration, descriptor)) {
+                return;
+            }
         }
 
         // Load audio tracks
@@ -334,6 +352,9 @@ export class VideoPlayer implements IVideoPlayer {
         // Wait for canplay event with timeout (30s default)
         // Uses VideoPlayerEvents.waitForCanPlay() to avoid code duplication
         await this._eventManager.waitForCanPlay();
+        if (!this._isActiveLoad(loadGeneration, descriptor)) {
+            return;
+        }
 
         this._logSubtitleDebug('canplay', () => ({
             nativeTextTracks: this._snapshotNativeTextTracks(),
@@ -353,6 +374,7 @@ export class VideoPlayer implements IVideoPlayer {
         if (!this._videoElement) {
             return;
         }
+        this._loadGeneration++;
 
         // Mark stream as unloaded early so any teardown-related events (e.g. spurious 'ended' on webOS)
         // don't propagate as "real" playback completion.
@@ -415,7 +437,7 @@ export class VideoPlayer implements IVideoPlayer {
             }
             await this._videoElement.play();
         } catch (error) {
-            console.error('[VideoPlayer] Play failed:', summarizeErrorForLog(error));
+            logVideoPlayerPlayFailure(error);
             throw error;
         }
     }
@@ -661,6 +683,14 @@ export class VideoPlayer implements IVideoPlayer {
      */
     public getAvailableAudio(): AudioTrack[] {
         return this._audioTrackManager.getTracks();
+    }
+
+    public getCurrentDescriptor(): StreamDescriptor | null {
+        return this._state.currentDescriptor;
+    }
+
+    private _isActiveLoad(loadGeneration: number, descriptor: StreamDescriptor): boolean {
+        return this._loadGeneration === loadGeneration && this._state.currentDescriptor === descriptor;
     }
 
     // ========================================
@@ -961,6 +991,9 @@ export class VideoPlayer implements IVideoPlayer {
                     });
                     break;
                 }
+
+                default:
+                    return;
             }
         };
     }
@@ -976,10 +1009,7 @@ export class VideoPlayer implements IVideoPlayer {
             this._mediaSessionFailureTimestamps.clear();
         }
         this._mediaSessionFailureTimestamps.set(key, now);
-        console.warn('[VideoPlayer] MediaSession action failed:', {
-            action,
-            error: summarizeErrorForLog(error),
-        });
+        logVideoPlayerMediaSessionActionFailure(action, error);
     }
 
     /**

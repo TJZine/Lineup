@@ -2,14 +2,16 @@
 
 import { EventEmitter } from '../../../utils/EventEmitter';
 import { EPG_CONSTANTS, EPG_CLASSES, EPG_ERRORS, DEFAULT_EPG_CONFIG } from './constants';
-import { EPGVirtualizer } from './view/EPGVirtualizer';
-import { EPGInfoPanel } from './EPGInfoPanel';
-import { EPGInfoPanelCoordinator } from './EPGInfoPanelCoordinator';
-import { EPGTimeHeader } from './view/EPGTimeHeader';
-import { EPGChannelList } from './view/EPGChannelList';
-import { EPGErrorBoundary } from './EPGErrorBoundary';
-import { EPGLibraryTabs } from './EPGLibraryTabs';
-import { EPGVisibleRangeEmitter } from './EPGVisibleRangeEmitter';
+import {
+    EPGChannelList,
+    EPGErrorBoundary,
+    EPGInfoPanel,
+    EPGInfoPanelCoordinator,
+    EPGLibraryTabs,
+    EPGTimeHeader,
+    EPGVirtualizer,
+    EPGVisibleRangeEmitter,
+} from './view';
 import { rafThrottle } from './utils';
 import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from './debugRuntimeGuards';
 import { createLineupBrandGlyph } from '../common/brandGlyph';
@@ -26,6 +28,23 @@ import type {
     ScheduleWindow,
     ChannelConfig,
 } from './types';
+
+type EpgShellStructure = {
+    classicHeader: HTMLElement;
+    classicNowPlaying: HTMLElement;
+    classicNowPlayingChannel: HTMLElement;
+    classicShowcase: HTMLElement;
+    classicShowcaseInfo: HTMLElement;
+    overlayShowcase: HTMLElement;
+    grid: HTMLElement;
+    programArea: HTMLElement;
+    dashboardBottom: HTMLElement;
+    nowWatchingBanner: HTMLElement;
+    nowWatchingChannel: HTMLElement;
+    nowWatchingProgram: HTMLElement;
+    nowWatchingTime: HTMLElement;
+    watermark: HTMLSpanElement;
+};
 
 /**
  * EPG Component class.
@@ -54,7 +73,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private infoPanel: EPGInfoPanel = new EPGInfoPanel();
     private infoPanelCoordinator: EPGInfoPanelCoordinator = new EPGInfoPanelCoordinator({
         infoPanel: this.infoPanel,
-        getIsVisible: () => this.state.isVisible,
+        isEpgVisible: () => this.state.isVisible,
         getFocusedProgram: () => this.getFocusedProgram(),
     });
     private timeHeader: EPGTimeHeader = new EPGTimeHeader();
@@ -67,6 +86,9 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private classicNowPlayingElement: HTMLElement | null = null;
     private classicNowPlayingChannelElement: HTMLElement | null = null;
     private classicShowcaseElement: HTMLElement | null = null;
+    private classicShowcaseInfoElement: HTMLElement | null = null;
+    private overlayShowcaseElement: HTMLElement | null = null;
+    private dashboardBottomElement: HTMLElement | null = null;
     private gridElement: HTMLElement | null = null;
     private programAreaElement: HTMLElement | null = null;
     private timeIndicatorElement: HTMLElement | null = null;
@@ -133,37 +155,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.createDOMStructure();
 
         // Initialize sub-components
-        if (this.gridElement && this.programAreaElement) {
-            this.virtualizer.initialize(this.programAreaElement, this.config, this.state.gridAnchorTime);
-            this.timeHeader.initialize(this.gridElement, this.config, this.state.gridAnchorTime);
-            this.channelList.initialize(this.gridElement, this.config);
-            const dashboard = this.containerElement.querySelector(`.${EPG_CLASSES.DASHBOARD_BOTTOM}`) as HTMLElement | null;
-            const overlayShowcase = this.containerElement.querySelector(
-                `.${EPG_CLASSES.OVERLAY_SHOWCASE}`
-            ) as HTMLElement | null;
-            if (!dashboard) {
-                throw new Error(EPG_ERRORS.DASHBOARD_CONTAINER_NOT_FOUND);
-            }
-            if (!overlayShowcase) {
-                throw new Error(EPG_ERRORS.OVERLAY_SHOWCASE_CONTAINER_NOT_FOUND);
-            }
-            this.infoPanel.initialize(overlayShowcase);
-            const infoPanelElement = this.containerElement.querySelector(`.${EPG_CLASSES.INFO_PANEL}`) as HTMLElement | null;
-            const classicShowcaseInfoElement = this.containerElement.querySelector('.epg-classic-showcase-info') as HTMLElement | null;
-
-            // Wire thumb resolver to info panel
-            if (this.config.resolveThumbUrl) {
-                this.infoPanel.setThumbResolver(this.config.resolveThumbUrl);
-            }
-            if (this.config.fetchItemDetails) {
-                this.infoPanel.setFetchItemDetails(this.config.fetchItemDetails);
-            }
-            this.infoPanelCoordinator.attachHosts({
-                infoPanelElement,
-                overlayShowcaseElement: overlayShowcase,
-                classicShowcaseInfoElement,
-            });
-        }
+        this.initializeViewChildren();
 
         // Create time indicator
         this.createTimeIndicator();
@@ -213,6 +205,9 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.classicNowPlayingElement = null;
         this.classicNowPlayingChannelElement = null;
         this.classicShowcaseElement = null;
+        this.classicShowcaseInfoElement = null;
+        this.overlayShowcaseElement = null;
+        this.dashboardBottomElement = null;
         this.gridElement = null;
         this.programAreaElement = null;
         this.timeIndicatorElement = null;
@@ -287,6 +282,23 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         this.containerElement.className = EPG_CLASSES.CONTAINER;
 
+        const shell = this._buildShellStructure();
+        this.containerElement.replaceChildren(
+            shell.classicHeader,
+            shell.classicShowcase,
+            shell.overlayShowcase,
+            shell.grid,
+            shell.dashboardBottom
+        );
+        this.containerElement.appendChild(shell.watermark);
+        this._cacheShellElements(shell);
+        this.initializeProgramAreaOverlays();
+        if (this.nowWatchingBannerElement) {
+            this.nowWatchingBannerElement.hidden = true;
+        }
+    }
+
+    private _buildShellStructure(): EpgShellStructure {
         const classicHeader = document.createElement('div');
         classicHeader.className = 'epg-classic-header';
         classicHeader.hidden = true;
@@ -379,34 +391,82 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         nowWatchingTime.className = EPG_CLASSES.NOW_WATCHING_TIME;
         nowWatchingBanner.appendChild(nowWatchingTime);
 
-        this.containerElement.replaceChildren(
-            classicHeader,
-            classicShowcase,
-            overlayShowcase,
-            grid,
-            dashboardBottom
-        );
-
         const watermark = createLineupBrandGlyph({
             variant: 'monochrome',
             className: 'epg-watermark',
         });
-        this.containerElement.appendChild(watermark);
 
-        this.gridElement = grid;
-        this.programAreaElement = programArea;
-        this.classicHeaderElement = classicHeader;
-        this.classicNowPlayingElement = classicNowPlaying;
-        this.classicNowPlayingChannelElement = classicNowPlayingChannel;
-        this.classicShowcaseElement = classicShowcase;
-        this.nowWatchingBannerElement = nowWatchingBanner;
-        this.nowWatchingChannelElement = nowWatchingChannel;
-        this.nowWatchingProgramElement = nowWatchingProgram;
-        this.nowWatchingTimeElement = nowWatchingTime;
-        this.initializeProgramAreaOverlays();
-        if (this.nowWatchingBannerElement) {
-            this.nowWatchingBannerElement.hidden = true;
+        return {
+            classicHeader,
+            classicNowPlaying,
+            classicNowPlayingChannel,
+            classicShowcase,
+            classicShowcaseInfo,
+            overlayShowcase,
+            grid,
+            programArea,
+            dashboardBottom,
+            nowWatchingBanner,
+            nowWatchingChannel,
+            nowWatchingProgram,
+            nowWatchingTime,
+            watermark,
+        };
+    }
+
+    private initializeViewChildren(): void {
+        const grid = this.gridElement;
+        const programArea = this.programAreaElement;
+        if (!grid || !programArea) {
+            return;
         }
+
+        this.virtualizer.initialize(programArea, this.config, this.state.gridAnchorTime);
+        this.timeHeader.initialize(grid, this.config, this.state.gridAnchorTime);
+        this.channelList.initialize(grid, this.config);
+        this.initializeInfoPanelHosts();
+    }
+
+    private initializeInfoPanelHosts(): void {
+        const dashboard = this.dashboardBottomElement;
+        const overlayShowcase = this.overlayShowcaseElement;
+        if (!dashboard) {
+            throw new Error(EPG_ERRORS.DASHBOARD_CONTAINER_NOT_FOUND);
+        }
+        if (!overlayShowcase) {
+            throw new Error(EPG_ERRORS.OVERLAY_SHOWCASE_CONTAINER_NOT_FOUND);
+        }
+
+        this.infoPanel.initialize(overlayShowcase);
+        const infoPanelElement = overlayShowcase.querySelector(`.${EPG_CLASSES.INFO_PANEL}`) as HTMLElement | null;
+
+        if (this.config.resolveThumbUrl) {
+            this.infoPanel.setThumbResolver(this.config.resolveThumbUrl);
+        }
+        if (this.config.fetchItemDetails) {
+            this.infoPanel.setFetchItemDetails(this.config.fetchItemDetails);
+        }
+        this.infoPanelCoordinator.attachHosts({
+            infoPanelElement,
+            overlayShowcaseElement: overlayShowcase,
+            classicShowcaseInfoElement: this.classicShowcaseInfoElement,
+        });
+    }
+
+    private _cacheShellElements(shell: EpgShellStructure): void {
+        this.gridElement = shell.grid;
+        this.programAreaElement = shell.programArea;
+        this.classicHeaderElement = shell.classicHeader;
+        this.classicNowPlayingElement = shell.classicNowPlaying;
+        this.classicNowPlayingChannelElement = shell.classicNowPlayingChannel;
+        this.classicShowcaseElement = shell.classicShowcase;
+        this.classicShowcaseInfoElement = shell.classicShowcaseInfo;
+        this.overlayShowcaseElement = shell.overlayShowcase;
+        this.dashboardBottomElement = shell.dashboardBottom;
+        this.nowWatchingBannerElement = shell.nowWatchingBanner;
+        this.nowWatchingChannelElement = shell.nowWatchingChannel;
+        this.nowWatchingProgramElement = shell.nowWatchingProgram;
+        this.nowWatchingTimeElement = shell.nowWatchingTime;
     }
 
     private setAriaHidden(element: HTMLElement, hidden: boolean): void {

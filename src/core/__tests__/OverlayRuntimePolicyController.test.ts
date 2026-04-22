@@ -16,6 +16,7 @@ const makeOverlayHarness = (
         getPlayerOsdVisible: jest.fn<boolean, []>().mockReturnValue(false),
         getNowPlayingInfoVisible: jest.fn<boolean, []>().mockReturnValue(false),
         getEpgVisible: jest.fn<boolean, []>().mockReturnValue(false),
+        isChannelTransitionActive: jest.fn<boolean, []>().mockReturnValue(false),
         getCurrentChannel: jest.fn<
             { number: number; name: string } | null,
             []
@@ -31,7 +32,7 @@ const makeOverlayHarness = (
         closeModal: jest.fn<void, [string]>(),
         nowPlayingModalId: 'now-playing-info',
         ...overrides,
-    } as jest.Mocked<OverlayRuntimePolicyControllerDeps>;
+    } as unknown as jest.Mocked<OverlayRuntimePolicyControllerDeps>;
 
     return {
         controller: new OverlayRuntimePolicyController(deps),
@@ -97,6 +98,21 @@ describe('OverlayRuntimePolicyController', () => {
             channelNumber: 7,
             channelName: 'Movies',
         });
+    });
+
+    it('hides the badge while channel transition activity is active even if the usual visibility inputs would show it', () => {
+        const { controller, deps } = makeOverlayHarness({
+            getPlayerOsdVisible: jest.fn().mockReturnValue(true),
+            getNowPlayingInfoVisible: jest.fn().mockReturnValue(true),
+            getCurrentChannel: jest.fn().mockReturnValue({ number: 12, name: 'Comedy' }),
+            isChannelTransitionActive: jest.fn().mockReturnValue(true),
+        } as unknown as Partial<OverlayRuntimePolicyControllerDeps>);
+
+        controller.syncChannelBadgeOverlay();
+
+        expect(deps.hideChannelBadge).toHaveBeenCalledTimes(1);
+        expect(deps.getCurrentChannel).not.toHaveBeenCalled();
+        expect(deps.showChannelBadge).not.toHaveBeenCalled();
     });
 
     it.each([true, false])(

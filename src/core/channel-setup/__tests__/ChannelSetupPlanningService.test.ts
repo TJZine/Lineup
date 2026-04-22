@@ -146,6 +146,60 @@ describe('ChannelSetupPlanningService', () => {
         expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - 1980s'))).toBe(true);
     });
 
+    it('sorts concurrent partial warnings deterministically before returning them', async () => {
+        const alphaCollections = createDeferred<never>();
+        const zuluCollections = createDeferred<never>();
+        const plexLibrary = {
+            getPlaylists: jest.fn(),
+            getCollections: jest.fn().mockImplementation((libraryId: string) => {
+                if (libraryId === 'lib-z') {
+                    return zuluCollections.promise;
+                }
+                if (libraryId === 'lib-a') {
+                    return alphaCollections.promise;
+                }
+                return Promise.resolve([]);
+            }),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn(),
+            getDirectors: jest.fn(),
+            getYears: jest.fn(),
+            getActors: jest.fn(),
+            getStudios: jest.fn(),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const planPromise = service.buildSetupPlan(
+            createConfig({
+                selectedLibraryIds: ['lib-z', 'lib-a'],
+                strategyConfig: {
+                    collections: { enabled: true, priority: 1, scope: 'per-library' },
+                },
+            }),
+            [
+                makeLibrary({ id: 'lib-z', title: 'Zulu', type: 'show' }),
+                makeLibrary({ id: 'lib-a', title: 'Alpha', type: 'show' }),
+            ],
+            null,
+            'preview'
+        );
+
+        zuluCollections.reject(new Error('zulu collections failed'));
+        alphaCollections.reject(new Error('alpha collections failed'));
+
+        const result = await planPromise;
+
+        expect(result.plan).not.toBeNull();
+        expect(result.warnings).toEqual([
+            'Partial setup plan (fetch_collections): fetch_collections failed for Alpha (alpha collections failed)',
+            'Partial setup plan (fetch_collections): fetch_collections failed for Zulu (zulu collections failed)',
+        ]);
+    });
+
     it('recovers missing native tag counts before applying min-items filtering', async () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
@@ -1686,5 +1740,52 @@ describe('ChannelSetupPlanningService', () => {
         expect(result.previewStatus).toBe('blocked');
         expect(result.blockedMessage).toContain('Mixed Library');
         expect(result.blockedMessage).toContain('unsupported');
+    });
+
+    it('preserves empty blocked messages in preview and review fallbacks', async () => {
+        const plexLibrary = {
+            getLibraries: jest.fn().mockResolvedValue([
+                makeLibrary({ id: 'shows', title: 'Shows', type: 'show' }),
+            ]),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const facetSnapshotLoader = (
+            service as unknown as {
+                _facetSnapshotLoader: { loadSnapshot: (...args: unknown[]) => Promise<unknown> };
+            }
+        )._facetSnapshotLoader;
+        jest.spyOn(facetSnapshotLoader, 'loadSnapshot').mockResolvedValue({
+            status: 'blocked',
+            warnings: ['timed out during genre scan'],
+            message: '',
+            failureReason: 'timeout',
+            errorsTotal: 1,
+            playlistMs: 0,
+            collectionsMs: 0,
+            libraryQueryMs: 0,
+        });
+
+        const preview = await service.getSetupPreview(createConfig({
+            selectedLibraryIds: ['shows'],
+        }));
+        const review = await service.getSetupReview(createConfig({
+            selectedLibraryIds: ['shows'],
+        }));
+
+        expect(preview).toEqual(expect.objectContaining({
+            status: 'blocked',
+            message: '',
+            failureReason: 'timeout',
+            warnings: ['timed out during genre scan'],
+        }));
+        expect(review.preview).toEqual(expect.objectContaining({
+            status: 'blocked',
+            message: '',
+            failureReason: 'timeout',
+            warnings: ['timed out during genre scan'],
+        }));
     });
 });

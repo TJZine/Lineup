@@ -10,10 +10,10 @@
     "assignment_rule": "Each package owns one checklist work item and one matching priority-exit token, keyed by recommended_execution_order."
   },
   "verified_counts": {
-    "total_open": 209,
-    "older_live_non_review": 158,
+    "total_open": 216,
+    "older_live_non_review": 161,
     "fresh_review": 41,
-    "fresh_non_review": 10
+    "fresh_non_review": 14
   },
   "validation": {
     "every_open_issue_assigned_once": true,
@@ -22,8 +22,8 @@
     "no_reconciled_closed_issue_included": true
   },
   "validation_details": {
-    "total_open_issues": 209,
-    "assigned_open_issues": 209,
+    "total_open_issues": 216,
+    "assigned_open_issues": 216,
     "unassigned_issue_ids": [],
     "duplicate_assignments": [],
     "closed_audit_ids_included": []
@@ -563,10 +563,13 @@
         "review::.::holistic::contract_coherence::channel_setup_port_absence_contract_split",
         "smells::src/core/channel-setup/ChannelSetupBuildCommitter.ts::console_error_no_throw",
         "smells::src/core/channel-setup/ChannelSetupBuildCommitter.ts::swallowed_error",
+        "smells::src/core/channel-setup/ChannelSetupBuildExecutor.ts::catch_return_default",
         "smells::src/core/channel-setup/ChannelSetupBuildExecutor.ts::swallowed_error",
         "smells::src/core/channel-setup/ChannelSetupFacetSnapshotLoader.ts::sort_no_comparator",
         "smells::src/core/channel-setup/ChannelSetupPlanner.ts::sort_no_comparator",
+        "smells::src/core/channel-setup/ChannelSetupPlanningService.ts::catch_return_default",
         "smells::src/core/channel-setup/ChannelSetupTagFilters.ts::high_cyclomatic_complexity",
+        "smells::src/core/channel-tuning/ChannelTuningCoordinator.ts::console_error_no_throw",
         "smells::src/core/channel-tuning/ChannelTuningCoordinator.ts::swallowed_error",
         "smells::src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts::non_null_assert",
         "smells::src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts::stub_function",
@@ -613,8 +616,8 @@
       "recommended_scope_boundary": "Keep this package on channel-setup workflow seams, scheduler/channel-manager contracts, and channel-tuning behavior. Do not absorb EPG runtime/package cleanup beyond documented contract handoffs.",
       "recommended_execution_order": 6,
       "estimated_backlog_size": {
-        "total_open": 38,
-        "older_live_non_review": 34,
+        "total_open": 41,
+        "older_live_non_review": 37,
         "fresh_review": 2,
         "fresh_non_review": 2
       },
@@ -633,13 +636,13 @@
       },
       "verified_package_size": {
         "package_name": "Channel Setup And Scheduler Contracts",
-        "total_open": 38,
-        "older_live_non_review": 34,
+        "total_open": 41,
+        "older_live_non_review": 37,
         "fresh_review": 2,
         "fresh_non_review": 2,
         "by_detector": {
           "structural": 18,
-          "smells": 10,
+          "smells": 13,
           "test_coverage": 4,
           "logs": 2,
           "review": 2,
@@ -664,7 +667,8 @@
         "review",
         "signature",
         "smells",
-        "structural"
+        "structural",
+        "test_coverage"
       ],
       "includes_issue_ids": [
         "facade::src/modules/ui/epg/index.ts",
@@ -680,10 +684,13 @@
         "signature::src/modules/ui/epg/__tests__/DeferredEpgComponent.test.ts::signature_variance::makeChannel",
         "smells::src/modules/ui/epg/__tests__/EPGChannelList.test.ts::hardcoded_color",
         "smells::src/modules/ui/epg/__tests__/EPGComponent.test.ts::non_null_assert",
+        "smells::src/modules/ui/epg/buildEpgStartupConfig.ts::high_cyclomatic_complexity",
+        "smells::src/modules/ui/epg/buildEpgStartupConfig.ts::nested_closure",
         "smells::src/modules/ui/epg/EPGCoordinator.ts::console_error_no_throw",
         "smells::src/modules/ui/epg/EPGRefreshController.ts::console_error_no_throw",
         "smells::src/modules/ui/epg/runtime/EPGBackgroundWarmQueue.ts::console_error_no_throw",
         "smells::src/modules/ui/epg/runtime/EPGScheduleRefreshRuntime.ts::console_error_no_throw",
+        "smells::src/modules/ui/epg/runtime/EPGVisibleRangeRefreshQueue.ts::voided_symbol",
         "smells::src/modules/ui/epg/styles.css::css_monolith",
         "structural::src/modules/ui/epg/__tests__/EPGComponent.test.ts",
         "structural::src/modules/ui/epg/__tests__/EPGCoordinator.test.ts",
@@ -694,7 +701,8 @@
         "structural::src/modules/ui/epg/EPGCoordinator.ts",
         "structural::src/modules/ui/epg/EPGInfoPanel.ts",
         "structural::src/modules/ui/epg/runtime/EPGScheduleRefreshRuntime.ts",
-        "structural::src/modules/ui/epg/view/EPGVirtualizer.ts"
+        "structural::src/modules/ui/epg/view/EPGVirtualizer.ts",
+        "test_coverage::src/modules/ui/epg/model/domainTypes.ts::transitive_only"
       ],
       "includes_review_issue_ids": [
         "review::.::holistic::contract_coherence::epg_cache_queries_hide_cleanup_side_effects",
@@ -703,7 +711,12 @@
         "review::.::holistic::naming_quality::epg_run_for_channel_callback",
         "review::.::holistic::package_organization::epg_view_leaves_in_root"
       ],
-      "includes_fresh_non_review_issue_ids": [],
+      "includes_fresh_non_review_issue_ids": [
+        "smells::src/modules/ui/epg/buildEpgStartupConfig.ts::high_cyclomatic_complexity",
+        "smells::src/modules/ui/epg/buildEpgStartupConfig.ts::nested_closure",
+        "smells::src/modules/ui/epg/runtime/EPGVisibleRangeRefreshQueue.ts::voided_symbol",
+        "test_coverage::src/modules/ui/epg/model/domainTypes.ts::transitive_only"
+      ],
       "entry_criteria": [
         "Refresh EPG scoping commands and confirm the active cleanup package map still matches the live open set.",
         "Confirm any contract handoffs from `pkg_channel_setup_scheduler` before implementation starts."
@@ -715,10 +728,10 @@
       "recommended_scope_boundary": "Stay inside EPG runtime, EPG tests, EPG view packaging, and EPG naming/query side effects. Do not absorb general shared UI shell cleanup or channel-setup contract work except through explicit handoffs.",
       "recommended_execution_order": 7,
       "estimated_backlog_size": {
-        "total_open": 28,
+        "total_open": 32,
         "older_live_non_review": 23,
         "fresh_review": 5,
-        "fresh_non_review": 0
+        "fresh_non_review": 4
       },
       "risk_level": "high",
       "why_this_grouping": "EPG already behaves like its own execution area. Keeping it separate avoids a 66-issue mega-package and preserves one clear owner for EPG runtime and package-surface work.",
@@ -734,17 +747,18 @@
       },
       "verified_package_size": {
         "package_name": "EPG Runtime And Package Surfaces",
-        "total_open": 28,
+        "total_open": 32,
         "older_live_non_review": 23,
         "fresh_review": 5,
-        "fresh_non_review": 0,
+        "fresh_non_review": 4,
         "by_detector": {
           "structural": 10,
-          "smells": 7,
+          "smells": 10,
           "review": 5,
           "facade": 3,
           "flat_dirs": 2,
-          "signature": 1
+          "signature": 1,
+          "test_coverage": 1
         }
       }
     },

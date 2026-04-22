@@ -177,7 +177,7 @@ function buildChecklistLinkedPackageDecomposition({
 }
 
 function writeValidSkillMirrorFixture(repoRoot: string): void {
-    writeRepoFile(repoRoot, skillMirrorManifestPath, 'superpowers:brainstorming\n');
+    writeRepoFile(repoRoot, skillMirrorManifestPath, 'global:brainstorming\n');
     writeRepoFile(
         repoRoot,
         'docs/agentic/skill-strategy.md',

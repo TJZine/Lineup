@@ -38,6 +38,7 @@ import {
 import {
     bindEpgVisibleRangeChange,
     buildChannelSetupOwners,
+    buildChannelTransitionCoordinator,
     buildMiniGuideCoordinator,
     buildNavigationCoordinator,
     buildPlayerOsdCoordinator,
@@ -114,6 +115,7 @@ const createInput = (): OrchestratorCoordinatorFactoryDeps => {
             switchToChannelByNumberWithOutcome: jest.fn(),
             toggleEPG: jest.fn(),
             onOverlayVisibilityChange: jest.fn(),
+            onChannelTransitionActivityChange: jest.fn(),
             toggleNowPlayingInfoOverlay: jest.fn(),
         } as unknown as OrchestratorCoordinatorFactoryDeps['actions'],
         errors: {
@@ -353,6 +355,37 @@ describe('OrchestratorCoordinatorBuilders', () => {
         expect(navigationDeps.playback.getSeekIncrementMs()).toBe(10_000);
         expect(navigationDeps.readKeepPlayingInSettings()).toBe(false);
         expect(navigationDeps.readDebugLoggingEnabled()).toBe(true);
+    });
+
+    it('buildChannelTransitionCoordinator routes transition activity changes through the named orchestrator callback path', () => {
+        jest.useFakeTimers();
+        const input = createInput();
+        input.modules.navigation = {
+            getCurrentScreen: jest.fn(() => 'player'),
+            isModalOpen: jest.fn(() => false),
+        } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['navigation'];
+        input.modules.videoPlayer = {
+            getState: jest.fn(() => ({ status: 'loading' })),
+        } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['videoPlayer'];
+
+        try {
+            const coordinator = buildChannelTransitionCoordinator(input);
+            const onChannelTransitionActivityChange = (
+                input.actions as OrchestratorCoordinatorFactoryDeps['actions'] & {
+                    onChannelTransitionActivityChange: jest.Mock<void, [boolean]>;
+                }
+            ).onChannelTransitionActivityChange;
+
+            coordinator.armForChannelSwitch('12 Comedy');
+            coordinator.armForChannelSwitch('24 News');
+            coordinator.onScreenChange('guide');
+
+            expect(onChannelTransitionActivityChange).toHaveBeenCalledTimes(2);
+            expect(onChannelTransitionActivityChange).toHaveBeenNthCalledWith(1, true);
+            expect(onChannelTransitionActivityChange).toHaveBeenNthCalledWith(2, false);
+        } finally {
+            jest.useRealTimers();
+        }
     });
 
     it('buildMiniGuideCoordinator routes select-failure toasts through input.nowPlaying.handler()', async () => {

@@ -1,6 +1,5 @@
 import type { IChannelManager } from '../../modules/scheduler/channel-manager';
 import type { PlexLibrarySection } from '../../modules/plex/library';
-import { summarizeErrorForLog } from '../../utils/errors';
 import type {
     ChannelBuildProgress,
     ChannelBuildSummary,
@@ -11,6 +10,7 @@ import type { ChannelSetupPlanBuildResult, ChannelSetupPlanningService } from '.
 import type { ChannelSetupBuildCommitter } from './ChannelSetupBuildCommitter';
 import { isSignalAborted } from './utils';
 import { normalizeChannelSetupConfig } from './normalizeChannelSetupConfig';
+import { formatChannelSetupWarning } from './formatChannelSetupWarning';
 
 export interface ChannelSetupBuildExecutorDeps {
     channelManager: IChannelManager;
@@ -26,6 +26,7 @@ export class ChannelSetupBuildExecutor {
         options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }
     ): Promise<ChannelBuildSummary> {
         const signal = options?.signal;
+        const workflowWarnings: string[] = [];
         const reportProgress = (
             task: ChannelBuildProgress['task'],
             label: string,
@@ -36,7 +37,7 @@ export class ChannelSetupBuildExecutor {
             try {
                 options?.onProgress?.({ task, label, detail, current, total });
             } catch (error: unknown) {
-                console.warn('[ChannelSetup] progress callback failed:', summarizeErrorForLog(error));
+                workflowWarnings.push(formatChannelSetupWarning('[ChannelSetup] progress callback failed', error));
             }
         };
 
@@ -45,7 +46,7 @@ export class ChannelSetupBuildExecutor {
         };
 
         if (checkCanceled()) {
-            return { created: 0, skipped: 0, reachedMaxChannels: false, errorCount: 0, canceled: true, lastTask: 'init' };
+            return appendBuildWarnings(createCanceledBuildSummary('init'), workflowWarnings);
         }
 
         reportProgress('fetch_playlists', 'Preparing...', 'Loading libraries', 0, null);
@@ -56,7 +57,7 @@ export class ChannelSetupBuildExecutor {
         } catch (e) {
             if (isSignalAborted(signal ?? undefined)) {
                 reportProgress('fetch_playlists', 'Preparing...', 'Canceled', 0, null);
-                return { created: 0, skipped: 0, reachedMaxChannels: false, errorCount: 0, canceled: true, lastTask: 'fetch_playlists' };
+                return appendBuildWarnings(createCanceledBuildSummary('fetch_playlists'), workflowWarnings);
             }
             throw e;
         }
@@ -74,24 +75,23 @@ export class ChannelSetupBuildExecutor {
         } catch (e) {
             if (isSignalAborted(signal ?? undefined)) {
                 reportProgress('build_pending', 'Preparing...', 'Canceled', 0, null);
-                return { created: 0, skipped: 0, reachedMaxChannels: false, errorCount: 0, canceled: true, lastTask: 'build_pending' };
+                return appendBuildWarnings(createCanceledBuildSummary('build_pending'), workflowWarnings);
             }
             throw e;
         }
 
+        workflowWarnings.push(...planResult.warnings);
+
         if (planResult.canceled || !planResult.plan) {
-            const blockedSummary = planResult.blockedMessage !== undefined
-                ? { blockedMessage: planResult.blockedMessage }
-                : {};
-            return {
+            return appendBuildWarnings({
                 created: 0,
                 skipped: 0,
                 reachedMaxChannels: false,
                 errorCount: planResult.errorsTotal,
                 canceled: planResult.canceled,
                 lastTask: planResult.lastTask ?? 'build_pending',
-                ...blockedSummary,
-            };
+                ...(planResult.blockedMessage !== undefined ? { blockedMessage: planResult.blockedMessage } : {}),
+            }, workflowWarnings);
         }
 
         const pending = planResult.plan.pendingChannels;
@@ -99,7 +99,12 @@ export class ChannelSetupBuildExecutor {
         let reachedMax = planResult.plan.reachedMaxChannels;
 
         if (checkCanceled()) {
-            return { created: 0, skipped: skippedCount, reachedMaxChannels: reachedMax, errorCount: planResult.errorsTotal, canceled: true, lastTask: 'build_pending' };
+            return appendBuildWarnings({
+                ...createCanceledBuildSummary('build_pending'),
+                skipped: skippedCount,
+                reachedMaxChannels: reachedMax,
+                errorCount: planResult.errorsTotal,
+            }, workflowWarnings);
         }
 
         const existingChannels = this._deps.channelManager.getAllChannels();
@@ -108,22 +113,45 @@ export class ChannelSetupBuildExecutor {
 
         reportProgress('create_channels', 'Shuffling...', 'Setting up lineup', 0, pendingToCreate.length);
 
-        try {
-            const buildResult = await this._deps.buildCommitter.commitBuild({
-                buildMode: normalizedConfig.buildMode ?? 'replace',
-                existingChannels,
-                pendingToCreate,
-                skippedCount,
-                reachedMaxChannels: reachedMax,
-                errorCount: planResult.errorsTotal,
-                diff,
-                signal: signal ?? null,
-                reportProgress,
-            });
-            return buildResult.summary;
-        } catch (e) {
-            console.error('[ChannelSetup] Channel build failed:', summarizeErrorForLog(e));
-            throw e;
-        }
+        const buildResult = await this._deps.buildCommitter.commitBuild({
+            buildMode: normalizedConfig.buildMode ?? 'replace',
+            existingChannels,
+            pendingToCreate,
+            skippedCount,
+            reachedMaxChannels: reachedMax,
+            errorCount: planResult.errorsTotal,
+            diff,
+            signal: signal ?? null,
+            reportProgress,
+        });
+        return appendBuildWarnings(buildResult.summary, workflowWarnings);
     }
+}
+
+function createCanceledBuildSummary(
+    lastTask: NonNullable<ChannelBuildSummary['lastTask']>
+): ChannelBuildSummary {
+    return {
+        created: 0,
+        skipped: 0,
+        reachedMaxChannels: false,
+        errorCount: 0,
+        canceled: true,
+        lastTask,
+    };
+}
+
+function appendBuildWarnings(
+    summary: ChannelBuildSummary,
+    warnings: string[]
+): ChannelBuildSummary {
+    if (warnings.length === 0) {
+        return summary;
+    }
+
+    const existingWarnings = summary.warnings ?? [];
+    return {
+        ...summary,
+        warnings: [...existingWarnings, ...warnings],
+    };
 }

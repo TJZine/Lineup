@@ -47,21 +47,27 @@ const setup = (state: PlaybackState): {
     overlay: IChannelTransitionOverlay & { _visible: boolean };
     navigation: INavigationManager;
     videoPlayer: IVideoPlayer;
+    onActivityChange: jest.Mock<void, [boolean]>;
 } => {
     const overlay = makeOverlay();
     const navigation = makeNavigation();
     const videoPlayer = {
         getState: jest.fn(() => state),
     } as unknown as IVideoPlayer;
+    const onActivityChange = jest.fn<void, [boolean]>();
 
     const coordinator = new ChannelTransitionCoordinator({
         getOverlay: (): IChannelTransitionOverlay => overlay,
         getNavigation: (): INavigationManager => navigation,
         getVideoPlayer: (): IVideoPlayer => videoPlayer,
-    });
+        onActivityChange,
+    } as unknown as ConstructorParameters<typeof ChannelTransitionCoordinator>[0]);
 
-    return { coordinator, overlay, navigation, videoPlayer };
+    return { coordinator, overlay, navigation, videoPlayer, onActivityChange };
 };
+
+const getIsActive = (coordinator: ChannelTransitionCoordinator): boolean | undefined =>
+    (coordinator as unknown as { isActive?: () => boolean }).isActive?.();
 
 describe('ChannelTransitionCoordinator', () => {
     beforeEach(() => {
@@ -95,14 +101,28 @@ describe('ChannelTransitionCoordinator', () => {
         });
     });
 
+    it('marks transition activity active immediately on arm before the delayed show runs', () => {
+        const { coordinator, overlay, onActivityChange } = setup(makeState('loading'));
+
+        coordinator.armForChannelSwitch('12 Comedy');
+
+        expect(getIsActive(coordinator)).toBe(true);
+        expect(onActivityChange).toHaveBeenCalledTimes(1);
+        expect(onActivityChange).toHaveBeenCalledWith(true);
+        expect(overlay.show).not.toHaveBeenCalled();
+    });
+
     it('never shows if ready before delay', () => {
-        const { coordinator, overlay } = setup(makeState('loading'));
+        const { coordinator, overlay, onActivityChange } = setup(makeState('loading'));
 
         coordinator.armForChannelSwitch('12 Comedy');
         coordinator.onPlayerStateChange(makeState('playing'));
         jest.advanceTimersByTime(CHANNEL_TRANSITION_SHOW_DELAY_MS + 10);
 
         expect(overlay.show).not.toHaveBeenCalled();
+        expect(getIsActive(coordinator)).toBe(false);
+        expect(onActivityChange).toHaveBeenNthCalledWith(1, true);
+        expect(onActivityChange).toHaveBeenNthCalledWith(2, false);
     });
 
     it('still shows if idle before delay', () => {
@@ -116,7 +136,7 @@ describe('ChannelTransitionCoordinator', () => {
     });
 
     it('hides immediately on ready', () => {
-        const { coordinator, overlay } = setup(makeState('loading'));
+        const { coordinator, overlay, onActivityChange } = setup(makeState('loading'));
 
         coordinator.armForChannelSwitch('12 Comedy');
         jest.advanceTimersByTime(CHANNEL_TRANSITION_SHOW_DELAY_MS);
@@ -125,5 +145,110 @@ describe('ChannelTransitionCoordinator', () => {
         coordinator.onPlayerStateChange(makeState('playing'));
 
         expect(overlay.hide).toHaveBeenCalled();
+        expect(getIsActive(coordinator)).toBe(false);
+        expect(onActivityChange).toHaveBeenNthCalledWith(1, true);
+        expect(onActivityChange).toHaveBeenNthCalledWith(2, false);
+    });
+
+    it('ends transition activity when playback reaches paused', () => {
+        const { coordinator, overlay, onActivityChange } = setup(makeState('loading'));
+
+        coordinator.armForChannelSwitch('12 Comedy');
+        jest.advanceTimersByTime(CHANNEL_TRANSITION_SHOW_DELAY_MS);
+        expect(overlay.show).toHaveBeenCalled();
+
+        coordinator.onPlayerStateChange(makeState('paused'));
+
+        expect(overlay.hide).toHaveBeenCalled();
+        expect(getIsActive(coordinator)).toBe(false);
+        expect(onActivityChange).toHaveBeenNthCalledWith(1, true);
+        expect(onActivityChange).toHaveBeenNthCalledWith(2, false);
+    });
+
+    it('ends transition activity when playback reaches ended before the delayed show runs', () => {
+        const { coordinator, overlay, onActivityChange } = setup(makeState('loading'));
+
+        coordinator.armForChannelSwitch('12 Comedy');
+        coordinator.onPlayerStateChange(makeState('ended'));
+        jest.advanceTimersByTime(CHANNEL_TRANSITION_SHOW_DELAY_MS + 10);
+
+        expect(overlay.show).not.toHaveBeenCalled();
+        expect(getIsActive(coordinator)).toBe(false);
+        expect(onActivityChange).toHaveBeenNthCalledWith(1, true);
+        expect(onActivityChange).toHaveBeenNthCalledWith(2, false);
+    });
+
+    it('keeps transition activity continuously true across repeated arms', () => {
+        const { coordinator, overlay, onActivityChange } = setup(makeState('loading'));
+
+        coordinator.armForChannelSwitch('12 Comedy');
+        jest.advanceTimersByTime(CHANNEL_TRANSITION_SHOW_DELAY_MS);
+        coordinator.armForChannelSwitch('24 News');
+
+        expect(getIsActive(coordinator)).toBe(true);
+        expect(overlay.hide).toHaveBeenCalledTimes(1);
+        expect(onActivityChange).toHaveBeenCalledTimes(1);
+        expect(onActivityChange).toHaveBeenCalledWith(true);
+        expect(onActivityChange).not.toHaveBeenCalledWith(false);
+
+        jest.advanceTimersByTime(CHANNEL_TRANSITION_SHOW_DELAY_MS);
+
+        expect(overlay.show).toHaveBeenCalledTimes(2);
+        expect(overlay.setViewModel).toHaveBeenLastCalledWith({
+            title: 'Tuning…',
+            subtitle: '24 News',
+            showSpinner: true,
+        });
+    });
+
+    it('ends transition activity through the shared terminal path when the delayed show is abandoned by a modal guard', () => {
+        const { coordinator, overlay, navigation, onActivityChange } = setup(makeState('loading'));
+        jest.spyOn(navigation, 'isModalOpen').mockReturnValue(true);
+
+        coordinator.armForChannelSwitch('12 Comedy');
+        jest.advanceTimersByTime(CHANNEL_TRANSITION_SHOW_DELAY_MS);
+
+        expect(overlay.show).not.toHaveBeenCalled();
+        expect(getIsActive(coordinator)).toBe(false);
+        expect(onActivityChange).toHaveBeenNthCalledWith(1, true);
+        expect(onActivityChange).toHaveBeenNthCalledWith(2, false);
+    });
+
+    it('ends transition activity when the player screen is no longer active before the delayed show runs', () => {
+        const { coordinator, overlay, onActivityChange } = setup(makeState('loading'));
+
+        coordinator.armForChannelSwitch('12 Comedy');
+        coordinator.onScreenChange('guide');
+
+        expect(overlay.show).not.toHaveBeenCalled();
+        expect(getIsActive(coordinator)).toBe(false);
+        expect(onActivityChange).toHaveBeenNthCalledWith(1, true);
+        expect(onActivityChange).toHaveBeenNthCalledWith(2, false);
+    });
+
+    it('ends transition activity when an error cancels the transition', () => {
+        const { coordinator, onActivityChange } = setup(makeState('loading'));
+
+        coordinator.armForChannelSwitch('12 Comedy');
+        coordinator.onPlayerStateChange(makeState('error'));
+
+        expect(getIsActive(coordinator)).toBe(false);
+        expect(onActivityChange).toHaveBeenNthCalledWith(1, true);
+        expect(onActivityChange).toHaveBeenNthCalledWith(2, false);
+    });
+
+    it('ends transition activity when hide is called explicitly', () => {
+        const { coordinator, overlay, onActivityChange } = setup(makeState('loading'));
+
+        coordinator.armForChannelSwitch('12 Comedy');
+        jest.advanceTimersByTime(CHANNEL_TRANSITION_SHOW_DELAY_MS);
+        expect(overlay.show).toHaveBeenCalled();
+
+        coordinator.hide();
+
+        expect(overlay.hide).toHaveBeenCalled();
+        expect(getIsActive(coordinator)).toBe(false);
+        expect(onActivityChange).toHaveBeenNthCalledWith(1, true);
+        expect(onActivityChange).toHaveBeenNthCalledWith(2, false);
     });
 });

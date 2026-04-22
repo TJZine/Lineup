@@ -9,6 +9,7 @@ import type {
     ChannelSetupBuildHandlers,
     ChannelSetupBuildOutcome,
     EstimateKey,
+    StrategyStepMutableState,
 } from './ChannelSetupSessionContracts';
 import type { ChannelSetupSessionState } from './ChannelSetupSessionState';
 
@@ -141,6 +142,32 @@ export class ChannelSetupSessionRuntime {
         state.step = 2;
     }
 
+    selectAllLibraries(): void {
+        this._deps.state.selectAllLibraries();
+        this._handleLibrarySelectionEdit();
+    }
+
+    clearAllLibraries(): void {
+        this._deps.state.clearAllLibraries();
+        this._handleLibrarySelectionEdit();
+    }
+
+    toggleLibrary(libraryId: string): boolean {
+        const nextSelected = this._deps.state.toggleLibrarySelection(libraryId);
+        this._handleLibrarySelectionEdit();
+        return nextSelected;
+    }
+
+    updateStrategyState(mutate: (draft: StrategyStepMutableState) => void): void {
+        this._deps.state.updateStrategyState(mutate);
+        this.clearReviewForEdits();
+    }
+
+    clearReviewForEdits(): void {
+        this._retirePlanningRequests();
+        this._deps.state.clearReviewForEdits();
+    }
+
     schedulePreview(onStateChange: () => void): void {
         const state = this._deps.state;
         if (state.step !== 2) {
@@ -207,10 +234,12 @@ export class ChannelSetupSessionRuntime {
                     signal: reviewAbortController.signal,
                 });
                 if (token !== state.sessionToken) return;
+                if (this._reviewAbortController !== reviewAbortController) return;
                 state.review = review;
             }
         } catch (error) {
             if (token !== state.sessionToken) return;
+            if (this._reviewAbortController !== reviewAbortController) return;
             if (isAbortLikeError(error, reviewAbortController.signal)) {
                 return;
             }
@@ -312,6 +341,16 @@ export class ChannelSetupSessionRuntime {
         }
         this._buildAbortController.abort();
         return true;
+    }
+
+    private _handleLibrarySelectionEdit(): void {
+        this._deps.workflowPort.invalidateFacetSnapshot();
+        this.clearReviewForEdits();
+    }
+
+    private _retirePlanningRequests(): void {
+        this._deps.state.sessionToken += 1;
+        this._cleanupPlanningAsyncState();
     }
 
     private async _refreshPreview(onStateChange: () => void): Promise<void> {

@@ -6,6 +6,7 @@
 
 import type { AppError } from '../../modules/lifecycle';
 import { AppErrorCode } from '../../modules/lifecycle';
+import { getAppErrorCode } from '../../types/app-errors';
 
 import type { IVideoPlayer } from '../../modules/player';
 import type {
@@ -20,6 +21,7 @@ import type {
 } from '../../modules/scheduler/scheduler';
 import type { AppendIssueDiagnostic } from '../../modules/debug/IssueDiagnosticsStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
+import { redactSensitiveTokens } from '../../utils/redact';
 import type { GuideSelectionSnapshot } from './GuideSelectionSnapshot';
 
 export type { ChannelSwitchOutcome } from '../../types/channelSwitch';
@@ -63,6 +65,15 @@ export interface ChannelSwitchOptions {
     guideSelectionSnapshot?: GuideSelectionSnapshot;
 }
 
+type ChannelTuningOperation = 'switchToChannel' | 'switchToChannelByNumber';
+
+type ChannelTuningErrorFallback = {
+    code: AppErrorCode;
+    message: string;
+    recoverable: boolean;
+    context?: Record<string, unknown>;
+};
+
 function createAbortLikeError(message: string): Error {
     if (typeof DOMException !== 'undefined') {
         return new DOMException(message, 'AbortError');
@@ -94,16 +105,31 @@ export class ChannelTuningCoordinator {
         channelId: string,
         options?: ChannelSwitchOptions
     ): Promise<ChannelSwitchOutcome> {
+        if (options?.signal?.aborted) {
+            return 'aborted';
+        }
+
         const channelManager = this.deps.getChannelManager();
         const scheduler = this.deps.getScheduler();
         const videoPlayer = this.deps.getVideoPlayer();
         if (!channelManager || !scheduler || !videoPlayer) {
-            console.error('Modules not initialized');
+            this._reportHandledError(
+                'channelTuning.dependenciesMissing',
+                {
+                    code: AppErrorCode.CONTENT_UNAVAILABLE,
+                    message: 'Channel tuning dependencies are not available.',
+                    recoverable: true,
+                    context: {
+                        channelId,
+                        hasChannelManager: Boolean(channelManager),
+                        hasScheduler: Boolean(scheduler),
+                        hasVideoPlayer: Boolean(videoPlayer),
+                    },
+                },
+                'switchToChannel',
+                { channelId }
+            );
             return 'failed';
-        }
-
-        if (options?.signal?.aborted) {
-            return 'aborted';
         }
 
         const request = this._createSwitchRequest(channelId, options);
@@ -231,14 +257,15 @@ export class ChannelTuningCoordinator {
         try {
             const channel = channelManager.getChannel(channelId);
             if (!channel) {
-                console.error('Channel not found:', channelId);
-                this.deps.handleGlobalError(
+                this._reportHandledError(
+                    'channelTuning.channelMissing',
                     {
                         code: AppErrorCode.CHANNEL_NOT_FOUND,
                         message: `Channel ${channelId} not found`,
                         recoverable: true,
                     },
-                    'switchToChannel'
+                    'switchToChannel',
+                    { channelId }
                 );
                 return 'failed';
             }
@@ -253,7 +280,7 @@ export class ChannelTuningCoordinator {
             let scheduleReferenceTimeMs = snapshotValidationReferenceTimeMs;
             if (snapshotValidation.valid && snapshotValidation.snapshot) {
                 scheduleItems = [...snapshotValidation.snapshot.orderedItems];
-                this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'channelTuning.guideSnapshotApplied', {
+                this._appendIssueDiagnosticSafely('channelTuning.guideSnapshotApplied', {
                     channelId,
                     source: snapshotValidation.snapshot.source,
                     dayKey: snapshotValidation.snapshot.dayKey,
@@ -264,7 +291,7 @@ export class ChannelTuningCoordinator {
                     sampleRatingKeys: scheduleItems.slice(0, 5).map((item) => item.ratingKey),
                 });
             } else if (snapshotValidation.reason) {
-                this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'channelTuning.guideSnapshotRejected', {
+                this._appendIssueDiagnosticSafely('channelTuning.guideSnapshotRejected', {
                     channelId,
                     reason: snapshotValidation.reason,
                 });
@@ -280,7 +307,7 @@ export class ChannelTuningCoordinator {
                     });
                     scheduleItems = content.items;
                     scheduleReferenceTimeMs = Date.now();
-                    this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'channelTuning.resolveChannelContent', {
+                    this._appendIssueDiagnosticSafely('channelTuning.resolveChannelContent', {
                         channelId,
                         resolvedAt: content.resolvedAt,
                         fromCache: content.fromCache ?? false,
@@ -294,35 +321,22 @@ export class ChannelTuningCoordinator {
                         return 'aborted';
                     }
 
-                    console.error('Failed to resolve channel content:', summarizeErrorForLog(error));
-
-                    if (
-                        error &&
-                        typeof error === 'object' &&
-                        'code' in error &&
-                        typeof (error as { code?: unknown }).code === 'string' &&
-                        'message' in error &&
-                        typeof (error as { message?: unknown }).message === 'string'
-                    ) {
-                        const errWithCode = error as { code: string; message: string; recoverable?: boolean };
-                        this.deps.handleGlobalError(
-                            {
-                                code: errWithCode.code as AppErrorCode,
-                                message: errWithCode.message,
-                                recoverable: Boolean(errWithCode.recoverable),
+                    this._reportHandledUnknownError(
+                        'channelTuning.resolveFailed',
+                        error,
+                        {
+                            code: AppErrorCode.CONTENT_UNAVAILABLE,
+                            message: `Failed to switch to channel: ${channel.name}`,
+                            recoverable: true,
+                            context: {
+                                channelId,
+                                operation: 'switchToChannel',
+                                step: 'resolveChannelContent',
                             },
-                            'switchToChannel'
-                        );
-                    } else {
-                        this.deps.handleGlobalError(
-                            {
-                                code: AppErrorCode.CONTENT_UNAVAILABLE,
-                                message: `Failed to switch to channel: ${channel.name}`,
-                                recoverable: true,
-                            },
-                            'switchToChannel'
-                        );
-                    }
+                        },
+                        'switchToChannel',
+                        { channelId }
+                    );
                     return 'failed';
                 }
             }
@@ -347,10 +361,30 @@ export class ChannelTuningCoordinator {
                 }
                 return '';
             })();
-            try {
+            const transitionArmError = this._captureSyncError(() => {
                 this.deps.armChannelTransitionForSwitch(channelPrefix);
-            } catch (error: unknown) {
-                console.warn('Failed to arm channel transition:', summarizeErrorForLog(error));
+            });
+            if (transitionArmError) {
+                this._reportHandledUnknownError(
+                    'channelTuning.channelTransitionArmFailed',
+                    transitionArmError,
+                    {
+                        code: AppErrorCode.UI_RENDER_ERROR,
+                        message: 'Unable to prepare the channel transition overlay.',
+                        recoverable: true,
+                        context: {
+                            operation: 'switchToChannel',
+                            channelId,
+                            channelPrefix,
+                            step: 'armChannelTransitionForSwitch',
+                        },
+                    },
+                    'switchToChannel',
+                    {
+                        channelId,
+                        channelPrefix,
+                    }
+                );
             }
             videoPlayer.stop();
 
@@ -363,7 +397,7 @@ export class ChannelTuningCoordinator {
             this.deps.setPendingNowPlayingChannelId(channelId);
             scheduler.loadChannel(scheduleConfig);
             this.deps.setActiveScheduleDayKey(this.deps.getLocalDayKey(scheduleReferenceTimeMs));
-            this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'channelTuning.schedulerLoaded', {
+            this._appendIssueDiagnosticSafely('channelTuning.schedulerLoaded', {
                 channelId,
                 referenceTimeMs: scheduleReferenceTimeMs,
                 anchorTime: scheduleConfig.anchorTime,
@@ -379,8 +413,8 @@ export class ChannelTuningCoordinator {
                 didRequestProgramStart = true;
             } catch (error: unknown) {
                 const summary = summarizeErrorForLog(error);
-                console.error('Failed to sync schedule time:', summary);
-                this.deps.handleGlobalError(
+                this._reportHandledError(
+                    'channelTuning.schedulerSyncFailed',
                     {
                         code: AppErrorCode.CONTENT_UNAVAILABLE,
                         message: 'Unable to start scheduled playback.',
@@ -392,14 +426,31 @@ export class ChannelTuningCoordinator {
                             error: summary,
                         },
                     },
-                    'switchToChannel'
+                    'switchToChannel',
+                    { channelId, error: summary }
                 );
-                try {
+                const schedulerUnloadError = this._captureSyncError(() => {
                     scheduler.unloadChannel();
-                } catch (cleanupError: unknown) {
-                    console.warn(
-                        'Failed to unload schedule after sync failure:',
-                        summarizeErrorForLog(cleanupError)
+                });
+                if (schedulerUnloadError) {
+                    this._reportHandledUnknownError(
+                        'channelTuning.schedulerUnloadFailed',
+                        schedulerUnloadError,
+                        {
+                            code: AppErrorCode.PLAYBACK_FAILED,
+                            message: 'Unable to clean up the failed channel switch.',
+                            recoverable: true,
+                            context: {
+                                operation: 'switchToChannel',
+                                channelId,
+                                failedStep: 'scheduler.syncToCurrentTime',
+                            },
+                        },
+                        'switchToChannel',
+                        {
+                            channelId,
+                            failedStep: 'scheduler.syncToCurrentTime',
+                        }
                     );
                 }
                 return 'failed';
@@ -409,10 +460,26 @@ export class ChannelTuningCoordinator {
             channelManager.setCurrentChannel(channelId);
 
             // Save state
-            try {
-                await this.deps.saveLifecycleState();
-            } catch (error: unknown) {
-                console.warn('Failed to save lifecycle state:', summarizeErrorForLog(error));
+            const lifecycleSaveError = await this._captureAsyncError(() =>
+                this.deps.saveLifecycleState()
+            );
+            if (lifecycleSaveError) {
+                this._reportHandledUnknownError(
+                    'channelTuning.lifecycleSaveFailed',
+                    lifecycleSaveError,
+                    {
+                        code: AppErrorCode.STORAGE_CORRUPTED,
+                        message: 'Unable to persist lifecycle state after switching channels.',
+                        recoverable: true,
+                        context: {
+                            operation: 'switchToChannel',
+                            channelId,
+                            step: 'saveLifecycleState',
+                        },
+                    },
+                    'switchToChannel',
+                    { channelId }
+                );
             }
             return 'switched';
         } finally {
@@ -426,15 +493,33 @@ export class ChannelTuningCoordinator {
         number: number,
         options?: { signal?: AbortSignal }
     ): Promise<ChannelSwitchOutcome> {
+        if (options?.signal?.aborted) {
+            return 'aborted';
+        }
+
         const channelManager = this.deps.getChannelManager();
         if (!channelManager) {
-            console.error('Channel manager not initialized');
+            this._reportHandledError(
+                'channelTuning.channelManagerMissing',
+                {
+                    code: AppErrorCode.CONTENT_UNAVAILABLE,
+                    message: 'Channel manager not initialized',
+                    recoverable: true,
+                    context: {
+                        attemptedChannelNumber: number,
+                        operation: 'switchToChannelByNumber',
+                    },
+                },
+                'switchToChannelByNumber',
+                { attemptedChannelNumber: number }
+            );
             return 'failed';
         }
 
         const channel = channelManager.getChannelByNumber(number);
         if (!channel) {
-            this.deps.handleGlobalError(
+            this._reportHandledError(
+                'channelTuning.channelMissingByNumber',
                 {
                     code: AppErrorCode.CHANNEL_NOT_FOUND,
                     message: `Channel ${number} not found`,
@@ -444,7 +529,8 @@ export class ChannelTuningCoordinator {
                         attemptedChannelNumber: number,
                     },
                 },
-                'switchToChannelByNumber'
+                'switchToChannelByNumber',
+                { attemptedChannelNumber: number }
             );
             return 'failed';
         }
@@ -455,9 +541,110 @@ export class ChannelTuningCoordinator {
             if (isAbortLikeError(error, options?.signal)) {
                 return 'aborted';
             }
-            console.error('Failed to switch by channel number:', summarizeErrorForLog(error));
+            this._reportHandledUnknownError(
+                'channelTuning.switchByNumberFailed',
+                error,
+                {
+                    code: AppErrorCode.CONTENT_UNAVAILABLE,
+                    message: `Failed to switch to channel ${number}`,
+                    recoverable: true,
+                    context: {
+                        attemptedChannelNumber: number,
+                        operation: 'switchToChannelByNumber',
+                    },
+                },
+                'switchToChannelByNumber',
+                { attemptedChannelNumber: number }
+            );
             return 'failed';
         }
+    }
+
+    private _reportHandledUnknownError(
+        stage: string,
+        error: unknown,
+        fallback: ChannelTuningErrorFallback,
+        operation: ChannelTuningOperation,
+        details: Record<string, unknown> = {}
+    ): AppError {
+        const appError = this._normalizeAppError(error, fallback);
+        this._reportHandledError(stage, appError, operation, {
+            ...details,
+            error: summarizeErrorForLog(error),
+        });
+        return appError;
+    }
+
+    private _appendIssueDiagnosticSafely(stage: string, details: Record<string, unknown>): void {
+        try {
+            this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, stage, details);
+        } catch {
+            // Diagnostics are best-effort and must never break switch control flow.
+        }
+    }
+
+    private _reportHandledError(
+        stage: string,
+        error: AppError,
+        operation: ChannelTuningOperation,
+        details: Record<string, unknown> = {}
+    ): void {
+        this._appendIssueDiagnosticSafely(stage, {
+            ...details,
+            code: error.code,
+            message: error.message,
+            recoverable: error.recoverable,
+            context: error.context ?? null,
+        });
+        this.deps.handleGlobalError(error, operation);
+    }
+
+    private _captureSyncError(operation: () => void): unknown | null {
+        try {
+            operation();
+            return null;
+        } catch (error: unknown) {
+            return error;
+        }
+    }
+
+    private async _captureAsyncError(operation: () => Promise<void>): Promise<unknown | null> {
+        try {
+            await operation();
+            return null;
+        } catch (error: unknown) {
+            return error;
+        }
+    }
+
+    private _normalizeAppError(error: unknown, fallback: ChannelTuningErrorFallback): AppError {
+        if (!error || typeof error !== 'object') {
+            return { ...fallback };
+        }
+
+        const maybeError = error as {
+            code?: unknown;
+            message?: unknown;
+            recoverable?: unknown;
+            context?: unknown;
+        };
+
+        const code = getAppErrorCode(maybeError.code) ?? fallback.code;
+        const message = typeof maybeError.message === 'string'
+            ? redactSensitiveTokens(maybeError.message).trim() || fallback.message
+            : fallback.message;
+        const recoverable = typeof maybeError.recoverable === 'boolean'
+            ? maybeError.recoverable
+            : fallback.recoverable;
+        const context = {
+            ...(fallback.context ?? {}),
+            ...(maybeError.context && typeof maybeError.context === 'object'
+                ? maybeError.context as Record<string, unknown>
+                : {}),
+            errorSummary: summarizeErrorForLog(error),
+        };
+
+        return { code, message, recoverable, context };
     }
 
     private _validateGuideSelectionSnapshot(
