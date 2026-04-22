@@ -4,15 +4,15 @@
 >
 > Refreshed 2026-04-22 against the current workspace with live commands and targeted source inspection.
 
-This document is the active backlog for test-suite cleanup work that materially improves production-quality engineering practices in Lineup: maintainability, deterministic behavior, architectural seams, and test signal quality.
+This document is the active backlog for test-suite-specific cleanup work that materially improves production-quality engineering practices in Lineup: maintainability, deterministic behavior, architectural seams, and test signal quality.
 
 This is not a generic "make tests prettier" list. If an item does not clearly reduce suite noise, reduce coupling, improve ownership, or make failures easier to trust, it should not stay active here.
 
 ## Fresh-Session Handoff
 
 - Last audit refresh: `2026-04-22`
-- Current execution state: `T1` closed on `2026-04-22`; `T2-W1` + `T2-W2` closed on `2026-04-22` after current-workspace exit verification
-- Next safe start: `T2-EXIT`
+- Current execution state: `T1` closed on `2026-04-22`; `T2-W1` + `T2-W2` and `T2-EXIT` closed on `2026-04-22` after current-workspace exit verification
+- Next safe start: `T3-W1` + `T3-W2`
 - Authoritative evidence rule: update status only from commands rerun in the target workspace or integration branch
 - Discovery note: Codanna was not available in this session; repo discovery fell back to `rg`, direct file inspection, and executable commands
 - Explicit user decision: do not add a coverage threshold
@@ -68,7 +68,8 @@ This checklist is a real cleanup backlog, but it is not a native `checklist-link
 
 Use the workflow this way:
 
-- default to Tier 2 cleanup flow: `cleanup-plan` -> `cleanup-review` -> `cleanup-implement` -> `cleanup-review`
+- for this temporary checklist, default to a higher-scrutiny cleanup flow: `cleanup-plan` -> `cleanup-review` -> `cleanup-implement` -> `cleanup-review`
+- treat that extra pre-implementation review as a checklist-local safety rule, not as a replacement for the repo's default Tier 2 cleanup sequencing elsewhere
 - treat most active work here as `standalone remediation`, not native `checklist-linked` package retirement
 - promote a cluster to Tier 3 only when the scope becomes multi-session, cross-cutting, or too risky for one normal implement/review loop
 - use `cleanup-loop` only after an approved plan exists and only when the work truly needs Tier 3 orchestration
@@ -168,10 +169,10 @@ Use these as defaults unless fresh evidence shows a better seam:
   - Test health: `94.5%`
   - Test strategy: `84.0%`
 
-### Current Baseline Results After T1 Split Validation
+### Current Baseline Results After T1/T2 Validation
 
-- Product/runtime Jest surface: `254` suites passed, `3,240` tests passed, `11.735s` in-band via `npm run test:timings`
-- Tooling/docs Jest surface: `4` suites passed, `96` tests passed, `14.393s` in-band via `npm run test:timings:tools`
+- Product/runtime Jest surface: `254` suites passed, `3,248` tests passed, `1` skipped, `13.020s` in-band via `npm run test:timings`
+- Tooling/docs Jest surface: `4` suites passed, `96` tests passed, `14.594s` in-band via `npm run test:timings:tools`
 
 ### Current Structural Facts
 
@@ -184,31 +185,31 @@ Use these as defaults unless fresh evidence shows a better seam:
 
 ### Largest Current Test Files
 
-- `src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts`: `3,862` lines, `77` tests
-- `src/__tests__/tools/verifyDocs.test.ts`: `3,447` lines, `88` tests
-- `src/__tests__/Orchestrator.test.ts`: `3,413` lines, `108` tests
-- `src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`: `2,690` lines
-- `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`: `2,215` lines, `71` tests
+- `src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts`: `3,861` lines
+- `src/__tests__/Orchestrator.test.ts`: `3,451` lines
+- `src/__tests__/tools/verifyDocs.test.ts`: `3,446` lines
+- `src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`: `2,689` lines
+- `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`: `2,214` lines
 
 ### Slowest Current Suites From `npm run test:timings` (unit surface)
 
-- `src/modules/plex/library/__tests__/PlexLibrary.test.ts`: `1,732ms`, `83` tests
-- `src/modules/ui/epg/__tests__/EPGComponent.test.ts`: `958ms`, `85` tests
-- `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`: `553ms`, `71` tests
-- `src/modules/ui/server-select/__tests__/ServerSelectScreen.test.ts`: `418ms`, `45` tests
-- `src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts`: `372ms`, `77` tests
-- `src/__tests__/Orchestrator.test.ts`: `302ms`, `108` tests
-- `src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`: `286ms`, `69` tests
-- `src/__tests__/App.test.ts`: `207ms`, `27` tests
-- `src/modules/ui/profile-select/__tests__/ProfileSelectScreen.test.ts`: `203ms`, `22` tests
-- `src/modules/player/__tests__/AudioTrackManager.test.ts`: `144ms`, `31` tests
+- `src/modules/plex/library/__tests__/PlexLibrary.test.ts`: `2,440ms`, `83` tests
+- `src/modules/ui/epg/__tests__/EPGComponent.test.ts`: `907ms`, `85` tests
+- `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`: `531ms`, `71` tests
+- `src/modules/ui/server-select/__tests__/ServerSelectScreen.test.ts`: `446ms`, `45` tests
+- `src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts`: `357ms`, `77` tests
+- `src/__tests__/App.test.ts`: `289ms`, `27` tests
+- `src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`: `282ms`, `69` tests
+- `src/__tests__/bootstrap.test.ts`: `233ms`, `17` tests
+- `src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts`: `210ms`, `69` tests
+- `src/modules/ui/profile-select/__tests__/ProfileSelectScreen.test.ts`: `202ms`, `22` tests
 
 ### Slowest Current Suites From `npm run test:timings:tools` (tools surface)
 
-- `src/__tests__/tools/verifyDocs.test.ts`: `13,738ms`, `88` tests
-- `src/__tests__/tools/syncAgentSkills.test.ts`: `461ms`, `2` tests
-- `src/__tests__/tools/reportStalePlans.test.ts`: `45ms`, `1` test
-- `src/__tests__/tools/plexIntegrationDocs.test.ts`: `16ms`, `5` tests
+- `src/__tests__/tools/verifyDocs.test.ts`: `13,954ms`, `88` tests
+- `src/__tests__/tools/syncAgentSkills.test.ts`: `440ms`, `2` tests
+- `src/__tests__/tools/reportStalePlans.test.ts`: `47ms`, `1` test
+- `src/__tests__/tools/plexIntegrationDocs.test.ts`: `17ms`, `5` tests
 
 ### Pattern Counts Worth Acting On
 
@@ -216,12 +217,12 @@ Use these as defaults unless fresh evidence shows a better seam:
 - files with `jest.useRealTimers`: `50`
 - files with raw `setTimeout(` in tests: `6`
 - files with `new Promise(...setTimeout...)` in tests: `2`
-- files with `as unknown as`: `80`
+- files with `as unknown as`: `81`
 - files with `as any`: `2`
-- files with explicit `jest.spyOn(console, 'warn'|'error')`: `24`
+- files with explicit `jest.spyOn(console, 'warn'|'error')`: `16`
 - files with direct `localStorage.` calls: `37`
-- files with global descriptor mutations: `27`
-- test files importing shared `__tests__/helpers`: `28`
+- files with global descriptor mutations: `36`
+- test files importing shared `__tests__/helpers`: `31`
 - jsdom test files: `97`
 
 ## Adversarial Review Outcome
@@ -247,7 +248,7 @@ Use these as defaults unless fresh evidence shows a better seam:
 - Subtitle direct-track URL private-probe cleanup as a primary debt item
   - stale: current `SubtitleManager.test.ts` no longer probes `_buildDirectTrackUrl`
 - machine-readable coverage-summary work as its own priority
-  - low ROI: useful if free, but not worth backlog priority while the suite still mixes tooling with product tests and emits pages of expected warnings
+  - low ROI: useful if free, but not worth backlog priority while the higher-value work is suite signal, anti-pattern coverage, and hotspot cleanup
 
 ### Coverage Policy After This Review
 
@@ -281,13 +282,19 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
   - Follow-ups: `none`
   - Handoff: start `T2-W1` + `T2-W2` when ready; Priority 1 no longer blocks later test-suite cleanup work.
 
-- [ ] `T2-EXIT`
+- [x] `T2-EXIT`
   - required: unexpected `console.warn` and `console.error` output is actionable
   - verification:
     - representative expected-log suites pass
     - helper self-tests prove unexpected logs fail
     - `npm run test:unit`
   - exit rule: passing output is quiet enough that a new warning/error is visible immediately
+  - Status: `completed`
+  - Plan: `none needed`
+  - Last touched: `2026-04-22`
+  - Verification: representative expected-log suites passed; `npm run test:unit -- --runInBand src/__tests__/helpers.test.ts` passed; `npm run test:unit` passed (`254` suites, `3,248` tests, `1` skipped); `npm run verify` passed through typecheck, architecture lint, CSS lint, product coverage, tools, contracts, docs verification, and build.
+  - Follow-ups: `none`
+  - Handoff: start `T3-W1` + `T3-W2` when ready; Priority 2 no longer blocks anti-pattern enforcement follow-up work.
 
 - [ ] `T3-EXIT`
   - required: anti-pattern policy protects the intended suite scope with explicit baselines and owner notes
@@ -434,7 +441,7 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 - `jest.setup.ts` now installs the shared warn/error guard while keeping `LINEUP_TEST_CONSOLE=1` as the explicit local debugging escape hatch.
 - `helpers.ts` and `helpers.test.ts` now provide direct contract coverage for expected warn/error matching, readable failure formatting, and shared-guard setup behavior.
-- the approved first migration wave landed, but the full `test:unit` run still exposes additional out-of-scope suites that require a separate replan before Priority 2 can close.
+- the approved second migration wave landed, and the full `test:unit` run now passes under the shared guard.
 
 **Implementation constraints:**
 
@@ -470,7 +477,7 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 - `src/modules/ui/now-playing-info/__tests__/NowPlayingInfoCoordinator.test.ts`
 - `src/utils/__tests__/EventEmitter.test.ts`
 
-**Blocked follow-up owners exposed by the full guarded unit run:**
+**Second-wave migrations that resolved the previously exposed follow-up owners:**
 
 - `src/modules/plex/library/__tests__/PlexLibrary.test.ts`
 - `src/modules/lifecycle/__tests__/AppLifecycle.test.ts`
@@ -506,7 +513,7 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 - frozen-scope policy still exists
 - whole-suite scans still show `6` test files with raw `setTimeout(` and `2` with `new Promise(...setTimeout...)`
-- whole-suite scans still show `80` files with `as unknown as`
+- whole-suite scans still show `81` files with `as unknown as`
 
 **Required outcomes:**
 
@@ -597,7 +604,7 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 **Current evidence:**
 
-- `EPGVirtualizer.test.ts` is still the largest suite in the repo at `3,862` lines
+- `EPGVirtualizer.test.ts` is still the largest suite in the repo at `3,861` lines
 - it still spies on internal `updateCellPosition` and `updateCellContent`
 
 **Preferred assertion styles:**
@@ -621,7 +628,7 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 **Current evidence:**
 
-- `as unknown as` still appears in `80` test files
+- `as unknown as` still appears in `81` test files
 - previously stale targets around Plex stream URL policy and subtitle direct-track URL policy are no longer the right lead items
 
 **Implementation rule:**
@@ -652,18 +659,26 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 - keep real jsdom `localStorage` behavior available when a suite actually needs it
 
-### [ ] `T6-W2` Add A Safe Global Descriptor Helper
+### [ ] `T6-W2` Standardize Repeated Global Descriptor Setup Only Where Cleanup Semantics Repeat
 
-**Goal:** stop making every suite reinvent global mutation cleanup.
+**Goal:** reduce repeated descriptor-mutation boilerplate only where the setup and restore contract is genuinely the same.
 
 **Primary files:**
 
-- Modify: `src/__tests__/helpers.ts`
-- Modify: `src/__tests__/helpers.test.ts`
+- Modify if justified: `src/__tests__/helpers.ts`
+- Modify if justified: `src/__tests__/helpers.test.ts`
+- Prefer migrating repeated suites before widening helper scope
 
 **Current evidence:**
 
-- `27` test files still mutate globals with `Object.defineProperty(...)`
+- `36` test files still mutate globals with `Object.defineProperty(...)`
+- many of those mutations are not the same seam, so raw count alone is not a justification for a generic helper
+
+**Implementation constraints:**
+
+- do not add a catch-all wrapper around every `Object.defineProperty(...)`
+- only extract a helper when the repeated pattern has the same lifecycle, cleanup, and readability needs
+- prefer small seam-specific helpers or local `beforeEach` / `afterEach` cleanup over a generic abstraction
 
 ### [ ] `T6-W3` Standardize DOM Container Setup Only In Repeated UI Hotspots
 
@@ -690,13 +705,19 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 **Default plan shape:** one bounded plan per hotspot suite or tightly coupled hotspot pair
 
-### [ ] `T7-W1` Split `verifyDocs.test.ts` By Tooling Contract
+### [ ] `T7-W1` Shrink `verifyDocs.test.ts` Without Weakening Its Orchestration Role
 
-**Goal:** make docs/tooling failures easier to localize and reduce one giant suite that still dominates the tooling/docs timing surface.
+**Goal:** reduce one giant tooling suite while keeping the targeted docs-verification proof easy to trust.
 
 **Current evidence:**
 
-- `verifyDocs.test.ts` is `3,447` lines and still costs `13.738s` on `npm run test:timings:tools`
+- `verifyDocs.test.ts` is `3,446` lines and still costs `13.954s` on `npm run test:timings:tools`
+
+**Preferred shape:**
+
+- keep `verifyDocs.test.ts` as the docs-verification orchestration file
+- extract bulky fixture builders, repo-fixture writers, and repetitive assertion helpers into sibling test-only modules when that materially improves readability
+- split the suite into multiple top-level files only if the contracts are truly distinct and `verify:docs` remains equally explicit and trustworthy
 
 ### [ ] `T7-W2` Retire Or Shrink The Legacy Orchestrator Umbrella Suite
 
@@ -704,7 +725,7 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 **Current evidence:**
 
-- `Orchestrator.test.ts` is `3,413` lines and `1.821s`
+- `Orchestrator.test.ts` is `3,451` lines
 - focused suites already exist under `src/__tests__/orchestrator/` and `src/core/orchestrator/__tests__/`
 
 ### [ ] `T7-W3` Split `EPGVirtualizer.test.ts` Only If It Improves Ownership Alongside `T5-W1`
