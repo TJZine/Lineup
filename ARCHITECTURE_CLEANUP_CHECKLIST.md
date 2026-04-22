@@ -16,7 +16,7 @@ This checklist is not complete until an authoritative rerun on the target integr
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
 - Current execution state: `P1-W1` through `P7-EXIT` are complete on authoritative `2026-04-22` evidence; `P8-W1` is now the safe start
 - Next safe start: `P8-W1` / `pkg_shared_hygiene_migration`
-- Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to `P7-W1`
+- Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to the active package or exit row
 - First action at package start: planning only; create the package-local execution-grade plan first and do not begin implementation until that planning gate is complete
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
 - Exact issue-membership surface: `docs/architecture/active-cleanup-package-map.json`
@@ -64,7 +64,7 @@ Every `P#-EXIT` must, in the same pass:
 - record mapped review dispositions from the tracked companion map rather than inline checklist ids
 - refresh the package-local scoping commands and record detector-count deltas that matter for that package
 - refresh `desloppify show security --status open --no-budget --top 50` as security triage
-- record entry baseline, exit baseline, and delta; if neither `overall` nor `strict` improves, keep the exit open unless every survivor has one exact later owner
+- record entry baseline, exit baseline, and delta; if neither `overall` nor `strict` improves, keep the exit open unless every survivor has one exact later owner or an explicit `accepted residue` disposition with rationale and revisit trigger
 - keep exact residual ownership in the companion map and this checklist synchronized
 
 ## Execution Hygiene
@@ -72,12 +72,14 @@ Every `P#-EXIT` must, in the same pass:
 - Disposition vocabulary:
   - `stale-proven`: the exact mapped issue is absent on current source, and the rerun evidence plus current-source inspection prove the tracked complaint was stale rather than silently dropped.
   - `resolved`: the exact mapped issue or package-owned rationale is retired on current source and backed by fresh rerun evidence.
+  - `accepted residue`: the issue still reruns open, but current-source review shows the detector hit is intentionally accepted with explicit rationale and revisit trigger because implementation work is low-value or unjustified on current source.
   - `deferred`: the issue stays open, but the record names the exact current owner, reason, and revisit trigger.
   - `split follow-up`: the current package is not the final owner; the remaining live gap is handed to one exact successor owner.
   - `owned follow-up`: the exact successor owner named by a `split follow-up` record; every deferred or split item must have one single final owner.
   - `priority-exit review`: the blocking review run after the package work item and before any `P(n+1)` work, plan, or checklist progress begins.
 - Ownership rule:
   - keep one single final owner for every deferred or split follow-up item.
+  - `accepted residue` closes locally and does not require a successor owner, but it must keep one explicit rationale and revisit trigger.
   - detector lag alone is not a reason to invent a new successor owner.
 - Cleanup slice execution template:
   - `priority/work units`: exact `P#-W#` items in scope for the slice
@@ -93,7 +95,7 @@ Every `P#-EXIT` must, in the same pass:
   - rerun `desloppify show security --status open --no-budget --top 50`
   - rerun the package-local scoping commands for the closing priority
   - rerun the strongest task-specific verification used by the closing work item
-  - confirm every mapped imported issue or package-owned rationale for the priority is either retired here or explicitly deferred or split with one single final owner, reason, and revisit trigger
+- confirm every mapped imported issue or package-owned rationale for the priority is either retired here, `accepted residue` with rationale and revisit trigger, or explicitly deferred or split with one single final owner, reason, and revisit trigger
   - do not mark progress on `P(n+1)` work until the current priority-exit review is complete and the `P#-EXIT` record is complete
 
 ## Fresh Evidence Snapshot
@@ -624,8 +626,8 @@ Every `P#-EXIT` must, in the same pass:
 - Last touched: `2026-04-22`
 - Verification: final-gate evidence was refreshed on `2026-04-21` via `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, `desloppify show security --status open --no-budget --top 50`, `desloppify show src/modules/ui/epg --status open --no-budget --top 180`, `desloppify show src/modules/ui/epg/runtime --status open --no-budget --top 120`, `desloppify show src/modules/ui/epg/view --status open --no-budget --top 120`, and exact-id reruns for all `28` mapped `pkg_epg_runtime_surfaces` issue ids plus the unmapped EPG watchlist ids surfaced at package entry. The first `2026-04-22` closeout pass then passed `npx jest --runInBand src/modules/ui/epg/__tests__/buildEpgStartupConfig.test.ts src/modules/ui/epg/__tests__/EPGVisibleRangeRefreshQueue.test.ts src/modules/ui/epg/__tests__/domainTypes.test.ts`, `npm run verify`, `desloppify scan --skip-slow --no-badge`, refreshed `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, `desloppify show security --status open --no-budget --top 50`, `desloppify show src/modules/ui/epg --status open --no-budget --top 180`, exact-id reruns for the four canonical non-style rows plus the four EPG CSS watchlist rows, and `npm run verify:docs`. The revision pass on `2026-04-22` then passed `npx jest --runInBand src/modules/ui/epg/__tests__/buildEpgStartupConfig.test.ts src/modules/ui/epg/__tests__/EPGStartupConfigRuntime.test.ts`, reran `desloppify scan --skip-slow --no-badge` twice while tightening `buildEpgStartupConfig.ts`, reran the four non-style exact ids, refreshed `desloppify show src/modules/ui/epg --status open --no-budget --top 180`, and passed `npm run verify`. This final closeout pass on `2026-04-22` reran the five remaining startup/runtime exact ids, refreshed `desloppify show src/modules/ui/epg --status open --no-budget --top 180`, refreshed `desloppify status`, source-audited the cited anchors, and passed `npm run verify:docs`
 - Entry baseline: historical checklist-backed package entry scope was `28 = 23 older live non-review + 5 fresh review + 0 fresh non-review` with the pre-package snapshot `overall 87.7 / objective 96.6 / strict 87.6 / verified 94.2`, `209` open
-- Exit baseline: the latest `2026-04-22` scan still reports `overall 87.5 / objective 96.0 / strict 87.4 / verified 94.1`; the package-local rerun still reports `14` open EPG rows, but each surviving row is now either exact-rerun clean, stale-proven with current-source proof, or accepted no-action CSS residue
-- Score delta: global `overall -0.2`, `objective -0.6`, `strict -0.2`, and `verified -0.1` versus the historical checklist-backed entry snapshot. The package-local rerun does not go numerically clean, but `P7-EXIT` closes because every remaining open EPG row now has an explicit resolved, stale-proven, or accepted no-action disposition with current-source evidence and no unresolved owner gap
+- Exit baseline: the latest `2026-04-22` scan still reports `overall 87.5 / objective 96.0 / strict 87.4 / verified 94.1`; the package-local rerun still reports `14` open EPG rows, but each surviving row is now either exact-rerun clean, stale-proven with current-source proof, or `accepted residue`
+- Score delta: global `overall -0.2`, `objective -0.6`, `strict -0.2`, and `verified -0.1` versus the historical checklist-backed entry snapshot. The package-local rerun does not go numerically clean, but `P7-EXIT` closes because every remaining open EPG row now has an explicit `resolved`, `stale-proven`, or `accepted residue` disposition with current-source evidence and no unresolved owner gap
 - Imported review dispositions: all five mapped review ids reran absent on `2026-04-21` and are treated as `resolved` on current source
   - `review::.::holistic::contract_coherence::epg_cache_queries_hide_cleanup_side_effects`
     - reason: exact-id rerun is clean after the `EPGScheduleCacheStore` read-contract cleanup and follow-up regression coverage
@@ -694,7 +696,7 @@ Every `P#-EXIT` must, in the same pass:
     - `smells::src/modules/ui/epg/styles.css::css_monolith`
       - reason: rerun-open anchor `1` lands on a seven-line import-only aggregator file; current source is only `@import` statements for the split EPG stylesheets and the import-seam role is pinned by `EPGComponent.test.ts`
       - revisit trigger: rerun the exact id if `styles.css` regrows beyond the import-only aggregator seam
-  - accepted no-action / low-value CSS detector residue:
+  - `accepted residue` / low-value CSS detector residue:
     - `smells::src/modules/ui/epg/styles.cells.css::css_monolith`
     - `smells::src/modules/ui/epg/styles.grid.css::css_monolith`
     - `smells::src/modules/ui/epg/styles.shell.css::css_monolith`
@@ -702,7 +704,7 @@ Every `P#-EXIT` must, in the same pass:
       - reason: these are threshold-only monolith hits on the stable split EPG stylesheet set; recent CSS cleanup already created churn on this surface, no concrete EPG bug cluster points at these files, and further slicing has higher revert risk than value without a narrow seam
       - revisit trigger: reopen only if a concrete EPG CSS bug cluster or a narrow extraction seam appears on current source
 - Follow-ups: none
-- Handoff: `P8-W1` is now a safe start; if future reruns still report these five rows without source changes, treat them as recorded detector-lag residue unless current-source evidence changes
+- Handoff: `P8-W1` is now a safe start; if future reruns still report these five startup/runtime detector-lag rows without source changes, treat them as recorded detector-lag residue unless current-source evidence changes
 
 ### [ ] `P8-W1` `pkg_shared_hygiene_migration` Shared Hygiene And Migration Residue
 
