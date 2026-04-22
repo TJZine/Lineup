@@ -16,15 +16,27 @@ function formatReportedError(summary: unknown): string {
     return String(summary);
 }
 
+function warnHandlerError(event: PropertyKey, summary: unknown): void {
+    globalThis.console?.warn?.call(
+        globalThis.console,
+        "[EventEmitter] Handler error for event '" + String(event) + "':",
+        summary
+    );
+}
+
 function reportHandlerError(event: PropertyKey, error: unknown): void {
-    if (typeof globalThis.reportError !== 'function') {
-        return;
+    const summary = summarizeErrorForLog(error);
+    if (typeof globalThis.reportError === 'function') {
+        const prefix = "[EventEmitter] Handler error for event '" + String(event) + "':";
+        try {
+            globalThis.reportError(new Error(prefix + ' ' + formatReportedError(summary)));
+            return;
+        } catch {
+            // Fall through to the warning path below.
+        }
     }
 
-    const summary = summarizeErrorForLog(error);
-    const prefix = "[EventEmitter] Handler error for event '" + String(event) + "':";
-
-    globalThis.reportError(new Error(prefix + ' ' + formatReportedError(summary)));
+    warnHandlerError(event, summary);
 }
 
 export class EventEmitter<TEventMap extends Record<string, unknown>>
