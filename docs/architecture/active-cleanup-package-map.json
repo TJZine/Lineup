@@ -667,7 +667,8 @@
         "review",
         "signature",
         "smells",
-        "structural"
+        "structural",
+        "test_coverage"
       ],
       "includes_issue_ids": [
         "facade::src/modules/ui/epg/index.ts",
@@ -683,10 +684,13 @@
         "signature::src/modules/ui/epg/__tests__/DeferredEpgComponent.test.ts::signature_variance::makeChannel",
         "smells::src/modules/ui/epg/__tests__/EPGChannelList.test.ts::hardcoded_color",
         "smells::src/modules/ui/epg/__tests__/EPGComponent.test.ts::non_null_assert",
+        "smells::src/modules/ui/epg/buildEpgStartupConfig.ts::high_cyclomatic_complexity",
+        "smells::src/modules/ui/epg/buildEpgStartupConfig.ts::nested_closure",
         "smells::src/modules/ui/epg/EPGCoordinator.ts::console_error_no_throw",
         "smells::src/modules/ui/epg/EPGRefreshController.ts::console_error_no_throw",
         "smells::src/modules/ui/epg/runtime/EPGBackgroundWarmQueue.ts::console_error_no_throw",
         "smells::src/modules/ui/epg/runtime/EPGScheduleRefreshRuntime.ts::console_error_no_throw",
+        "smells::src/modules/ui/epg/runtime/EPGVisibleRangeRefreshQueue.ts::voided_symbol",
         "smells::src/modules/ui/epg/styles.css::css_monolith",
         "structural::src/modules/ui/epg/__tests__/EPGComponent.test.ts",
         "structural::src/modules/ui/epg/__tests__/EPGCoordinator.test.ts",
@@ -697,7 +701,8 @@
         "structural::src/modules/ui/epg/EPGCoordinator.ts",
         "structural::src/modules/ui/epg/EPGInfoPanel.ts",
         "structural::src/modules/ui/epg/runtime/EPGScheduleRefreshRuntime.ts",
-        "structural::src/modules/ui/epg/view/EPGVirtualizer.ts"
+        "structural::src/modules/ui/epg/view/EPGVirtualizer.ts",
+        "test_coverage::src/modules/ui/epg/model/domainTypes.ts::transitive_only"
       ],
       "includes_review_issue_ids": [
         "review::.::holistic::contract_coherence::epg_cache_queries_hide_cleanup_side_effects",
@@ -706,7 +711,12 @@
         "review::.::holistic::naming_quality::epg_run_for_channel_callback",
         "review::.::holistic::package_organization::epg_view_leaves_in_root"
       ],
-      "includes_fresh_non_review_issue_ids": [],
+      "includes_fresh_non_review_issue_ids": [
+        "smells::src/modules/ui/epg/buildEpgStartupConfig.ts::high_cyclomatic_complexity",
+        "smells::src/modules/ui/epg/buildEpgStartupConfig.ts::nested_closure",
+        "smells::src/modules/ui/epg/runtime/EPGVisibleRangeRefreshQueue.ts::voided_symbol",
+        "test_coverage::src/modules/ui/epg/model/domainTypes.ts::transitive_only"
+      ],
       "entry_criteria": [
         "Refresh EPG scoping commands and confirm the active cleanup package map still matches the live open set.",
         "Confirm any contract handoffs from `pkg_channel_setup_scheduler` before implementation starts."
@@ -718,10 +728,10 @@
       "recommended_scope_boundary": "Stay inside EPG runtime, EPG tests, EPG view packaging, and EPG naming/query side effects. Do not absorb general shared UI shell cleanup or channel-setup contract work except through explicit handoffs.",
       "recommended_execution_order": 7,
       "estimated_backlog_size": {
-        "total_open": 28,
+        "total_open": 32,
         "older_live_non_review": 23,
         "fresh_review": 5,
-        "fresh_non_review": 0
+        "fresh_non_review": 4
       },
       "risk_level": "high",
       "why_this_grouping": "EPG already behaves like its own execution area. Keeping it separate avoids a 66-issue mega-package and preserves one clear owner for EPG runtime and package-surface work.",
@@ -737,17 +747,18 @@
       },
       "verified_package_size": {
         "package_name": "EPG Runtime And Package Surfaces",
-        "total_open": 28,
+        "total_open": 32,
         "older_live_non_review": 23,
         "fresh_review": 5,
-        "fresh_non_review": 0,
+        "fresh_non_review": 4,
         "by_detector": {
           "structural": 10,
-          "smells": 7,
+          "smells": 10,
           "review": 5,
           "facade": 3,
           "flat_dirs": 2,
-          "signature": 1
+          "signature": 1,
+          "test_coverage": 1
         }
       }
     },
