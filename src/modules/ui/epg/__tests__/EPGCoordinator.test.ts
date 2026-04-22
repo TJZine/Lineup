@@ -1617,7 +1617,7 @@ describe('EPGCoordinator', () => {
         }
     });
 
-    it('server-swap refresh bypasses loaded-range short-circuit after schedules were previously loaded', async () => {
+    it('visible-range refresh still reapplies the live scheduler row after schedules were previously loaded', async () => {
         const { deps, epg } = makeDeps();
         const coordinator = new EPGCoordinator(deps);
         const range = { channelStart: 0, channelEnd: 3, timeStartMs: 0, timeEndMs: 0 };
@@ -1626,8 +1626,17 @@ describe('EPGCoordinator', () => {
         expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBeGreaterThan(0);
 
         (epg.loadScheduleForChannel as jest.Mock).mockClear();
+        (deps.appendIssueDiagnostic as jest.Mock).mockClear();
         await coordinator.refreshEpgSchedulesForRange(range, { debounceMs: 0, reason: 'visible-range' });
-        expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBe(0);
+        expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBe(1);
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleApplied',
+            expect.objectContaining({
+                channelId: 'c0',
+                source: 'live-scheduler',
+            })
+        );
 
         (epg.loadScheduleForChannel as jest.Mock).mockClear();
         await coordinator.refreshEpgSchedulesForRange(range, { debounceMs: 0, reason: 'server-swap' });
@@ -1791,7 +1800,7 @@ describe('EPGCoordinator', () => {
         expect(getCaps(260, true)).toEqual({ maxQueuedChannels: 140, maxConcurrency: 2 });
     });
 
-    it('keeps loaded-range short-circuit unchanged across overlay/classic layout mode flips', async () => {
+    it('keeps non-live loaded rows short-circuited across overlay/classic layout mode flips while refreshing the live row', async () => {
         const range = { channelStart: 0, channelEnd: 2, timeStartMs: 0, timeEndMs: 0 };
         const resolveChannelContent = jest.fn().mockImplementation(async (id: string) => {
             const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
@@ -1812,10 +1821,19 @@ describe('EPGCoordinator', () => {
 
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, 'classic');
         (epg.loadScheduleForChannel as jest.Mock).mockClear();
+        (deps.appendIssueDiagnostic as jest.Mock).mockClear();
         await coordinator.refreshEpgSchedulesForRange(range, { debounceMs: 0, reason: 'visible-range' });
 
         expect(resolveChannelContent.mock.calls.length).toBe(firstResolveCount);
-        expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBe(0);
+        expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBe(1);
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleApplied',
+            expect.objectContaining({
+                channelId: 'c0',
+                source: 'live-scheduler',
+            })
+        );
     });
 
     it('wireEpgEvents returns unsubscribers, forwards visibility changes, and triggers switch when program eligible', async () => {
@@ -1978,6 +1996,74 @@ describe('EPGCoordinator', () => {
                 ratingKey: 'c1-0',
                 safeError: expect.objectContaining({
                     message: expect.stringContaining('switch failed'),
+                }),
+            })
+        );
+    });
+
+    it('reports guide snapshot build failures through the shared issue helper path', async () => {
+        const epg: IEPGComponent = {
+            on: jest.fn(),
+            off: jest.fn(),
+            hide: jest.fn(),
+            isVisible: jest.fn().mockReturnValue(false),
+            getState: jest.fn().mockReturnValue({
+                isVisible: false,
+                focusedCell: null,
+                scrollPosition: { channelOffset: 0, timeOffset: 0 },
+                viewWindow: {
+                    startTime: 0,
+                    endTime: 0,
+                    startChannelIndex: 0,
+                    endChannelIndex: 0,
+                },
+                currentTime: 0,
+            }),
+            clearSchedules: jest.fn(),
+            setCategoryColorsEnabled: jest.fn(),
+            setVisibleHours: jest.fn(),
+            setLibraryTabs: jest.fn(),
+            scrollToChannel: jest.fn(),
+            focusChannel: jest.fn(),
+        } as unknown as IEPGComponent;
+        const error = new Error('snapshot failed');
+        const failingChannelManager = makeDeps().channelManager;
+        const deps = makeDeps({
+            getEpg: () => epg,
+            getChannelManager: () =>
+                ({
+                    ...failingChannelManager,
+                    resolveChannelItemsForSchedule: jest.fn(async () => {
+                        throw error;
+                    }),
+                } as unknown as IChannelManager),
+        }).deps;
+        const coordinator = new EPGCoordinator(deps);
+        jest.spyOn(Date, 'now').mockReturnValue(5_000);
+
+        coordinator.wireEpgEvents();
+
+        const handler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'channelSelected')?.[1];
+        handler?.({
+            channel: makeChannel('c1', 1),
+            program: {
+                ...baseProgram('c1', 0),
+                scheduledStartTime: 4_000,
+                scheduledEndTime: 6_000,
+            } as ScheduledProgram,
+        });
+        await flushPromises();
+        await flushPromises();
+
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.guideSnapshotBuildFailed',
+            expect.objectContaining({
+                channelId: 'c1',
+                ratingKey: 'c1-0',
+                selectedAt: 5_000,
+                safeError: expect.objectContaining({
+                    message: expect.stringContaining('snapshot failed'),
                 }),
             })
         );

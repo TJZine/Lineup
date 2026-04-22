@@ -536,11 +536,10 @@ export class EPGCoordinator {
             if (isAbortLikeError(error, controller.signal)) {
                 return;
             }
-            this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'epg.guideSnapshotBuildFailed', {
+            this._reportIssue('epg.guideSnapshotBuildFailed', error, {
                 channelId,
                 ratingKey: program.item.ratingKey,
                 selectedAt,
-                safeError: summarizeErrorForLog(error),
             });
         } finally {
             if (this._guideSelectionController === controller) {
