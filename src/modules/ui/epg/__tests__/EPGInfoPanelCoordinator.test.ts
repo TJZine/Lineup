@@ -62,6 +62,7 @@ describe('EPGInfoPanelCoordinator', () => {
             update: jest.fn(),
             updateFast: jest.fn(),
             updateFull: jest.fn(),
+            isShowing: jest.fn(() => false),
         };
         coordinator = new EPGInfoPanelCoordinator({
             infoPanel,

@@ -1363,7 +1363,12 @@ Do the cleanup.
   - reason: one broader residual package remains outside this slice
   - revisit trigger: rerun the exact residual audit before \`P10-EXIT\`
 - \`review::.::holistic::api_surface_coherence::storage_write_contract_fragmentation\`
-  - expected disposition: resolved
+  - expected disposition: stale-proven
+  - reason: the detector wording no longer matches current source
+- \`review::.::holistic::workflow_coherence::accepted-cleanup-residue\`
+  - expected disposition: accepted residue
+  - reason: the remaining residue is low-value on current source
+  - revisit trigger: rerun if the owner seam changes before \`P6-EXIT\`
 
 ### Security gate
 
