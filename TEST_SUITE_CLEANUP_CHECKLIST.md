@@ -179,8 +179,8 @@ Use these as defaults unless fresh evidence shows a better seam:
 - `jest.config.js` is now product-only and excludes `src/__tests__/tools/**`; `jest.tools.config.js` owns the tooling/docs surface, so tool suites no longer distort the default product timing lane.
 - `src/__tests__/policy/AntiPatterns.policy.test.ts` still enforces only a frozen-suite list.
 - `src/__tests__/policy/baselines/private-probes.allowlist.txt` still declares `# maxCount=0`, but that ratchet only protects the frozen-scope files.
-- `src/__tests__/jest.setup.ts` still silences `debug`, `log`, and `info`, while `warn` / `error` stay noisy unless `LINEUP_TEST_CONSOLE_SILENT=1` is set.
-- `src/__tests__/helpers.ts` already contains the core async helpers (`flushPromises`, `flushPromisesAndMacrotask`, `flushPromisesAndTimers`, `advanceTimersUntil`, `createDeferred`), but helper coverage and enforcement are still narrow.
+- `src/__tests__/jest.setup.ts` now silences `debug`, `log`, and `info`, and it fails unexpected `console.warn` / `console.error` by default through the shared guard unless `LINEUP_TEST_CONSOLE=1` is set.
+- `src/__tests__/helpers.ts` now owns the shared expected-log contract (`TestConsoleOutputGuard`, `expectConsoleWarn`, `expectConsoleError`) alongside the existing async helpers, and `src/__tests__/helpers.test.ts` directly covers that guard contract.
 
 ### Largest Current Test Files
 
@@ -432,9 +432,9 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 **Current evidence:**
 
-- `jest.setup.ts` still only silences `debug`, `log`, and `info`.
-- `npm run test:timings` still emits large volumes of expected `warn` / `error` output from `Orchestrator`, `PlexServerDiscovery`, `ChannelSetupFacetSnapshotLoader`, `ChannelManager`, `PlaybackReloadController`, `NowPlayingInfoCoordinator`, `EventEmitter`, and others.
-- `24` files already contain explicit console warn/error spies, proving there is enough existing intent to migrate toward a shared policy.
+- `jest.setup.ts` now installs the shared warn/error guard while keeping `LINEUP_TEST_CONSOLE=1` as the explicit local debugging escape hatch.
+- `helpers.ts` and `helpers.test.ts` now provide direct contract coverage for expected warn/error matching, readable failure formatting, and shared-guard setup behavior.
+- the approved first migration wave landed, but the full `test:unit` run still exposes additional out-of-scope suites that require a separate replan before Priority 2 can close.
 
 **Implementation constraints:**
 
@@ -460,7 +460,7 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 **Goal:** replace scattered ad hoc console spies with one house style.
 
-**Priority candidates from live output:**
+**Approved first-wave migrations already landed:**
 
 - `src/__tests__/Orchestrator.test.ts`
 - `src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts`
@@ -469,6 +469,18 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 - `src/modules/player/__tests__/PlaybackReloadController.test.ts`
 - `src/modules/ui/now-playing-info/__tests__/NowPlayingInfoCoordinator.test.ts`
 - `src/utils/__tests__/EventEmitter.test.ts`
+
+**Blocked follow-up owners exposed by the full guarded unit run:**
+
+- `src/modules/plex/library/__tests__/PlexLibrary.test.ts`
+- `src/modules/lifecycle/__tests__/AppLifecycle.test.ts`
+- `src/modules/scheduler/channel-manager/__tests__/ContentResolver.test.ts`
+- `src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts`
+- `src/modules/player/__tests__/PlaybackRecoveryManager.test.ts`
+- `src/__tests__/bootstrap.test.ts`
+- `src/__tests__/orchestrator/playback-flow.test.ts`
+- `src/modules/player/__tests__/VideoPlayer.test.ts`
+- `src/core/orchestrator/__tests__/OrchestratorRecoverableRuntimeReporter.test.ts`
 
 ## Priority 3: Expand Anti-Pattern Enforcement
 

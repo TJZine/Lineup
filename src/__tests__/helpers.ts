@@ -163,7 +163,7 @@ const matchesConsoleCall = (matcher: ConsoleCallMatcher, args: readonly unknown[
     }
 
     if (matcher instanceof RegExp) {
-        return matcher.test(formatCallArgs(args));
+        return new RegExp(matcher.source, matcher.flags).test(formatCallArgs(args));
     }
 
     if (typeof matcher === 'function') {

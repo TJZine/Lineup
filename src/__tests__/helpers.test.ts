@@ -140,6 +140,32 @@ describe('TestConsoleOutputGuard', () => {
         guard.uninstall();
     });
 
+    it.each([
+        ['global', /stateful warning/g],
+        ['sticky', /'stateful warning'/y],
+    ])('matches repeated console calls with a %s regex without stateful false negatives', (_label, matcher) => {
+        const localConsole = {
+            warn: jest.fn(),
+            error: jest.fn(),
+        };
+        const guard = new TestConsoleOutputGuard(localConsole);
+        guard.install();
+        guard.resetForTest();
+
+        const warning = guard.expect('warn', matcher, { times: 2 });
+
+        localConsole.warn('stateful warning');
+        localConsole.warn('stateful warning');
+
+        expect(warning.getCalls()).toEqual([
+            ['stateful warning'],
+            ['stateful warning'],
+        ]);
+        expect(matcher.lastIndex).toBe(0);
+        expect(() => guard.finalizeForTest()).not.toThrow();
+        guard.uninstall();
+    });
+
     it('fails with readable output when console.warn or console.error is unexpected', () => {
         const localConsole = {
             warn: jest.fn(),
