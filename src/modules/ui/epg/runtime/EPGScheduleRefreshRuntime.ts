@@ -202,7 +202,7 @@ export class EPGScheduleRefreshRuntime {
                         error: summarizeErrorForLog(error),
                     });
                 }
-                this._reportIssue('epg.backgroundWarmQueueFailed', error);
+                this._reportBackgroundWarmQueueFailure(error, { phase: 'background' });
             },
         });
     }
@@ -290,14 +290,7 @@ export class EPGScheduleRefreshRuntime {
     }
 
     dispose(reason = 'shutdown'): void {
-        this._scheduleLoadToken += 1;
-        this._warmQueue.cancel(reason);
-        for (const entry of this._inFlightByChannel.values()) {
-            entry.controller.abort(reason);
-        }
-        this._inFlightByChannel.clear();
-        this._backgroundDebugState = null;
-        this._selectedRowSnapshotSeed = null;
+        this._invalidateRefreshWork(reason, { abortInFlight: true });
     }
 
     abortAllInFlightSchedules(reason = 'abort-all-inflight'): void {
@@ -354,6 +347,7 @@ export class EPGScheduleRefreshRuntime {
         const { selectedId, shouldFilter } = this._deps.getLibraryFilterState(allChannels);
         const channels = this._deps.getVisibleChannels(allChannels, selectedId, shouldFilter);
         if (channels.length === 0) {
+            this._invalidateRefreshWork('no-visible-channels', { abortInFlight: true });
             return null;
         }
 
@@ -610,66 +604,68 @@ export class EPGScheduleRefreshRuntime {
             return;
         }
 
-        if (!session.forceRefresh && this._cacheStore.isScheduleLoadedForRange(channel.id, session.rangeKey)) {
-            metrics.alreadyLoaded += 1;
-            return;
-        }
+        let controller: AbortController | null = null;
 
-        if (session.liveChannelId && channel.id === session.liveChannelId && session.scheduler) {
-            const schedulerState = session.scheduler.getState();
-            if (schedulerState.isActive && schedulerState.channelId === channel.id) {
-                const liveWindow = session.scheduler.getScheduleWindow(session.startTime, session.endTime);
-                const liveSchedule = this._deps.cloneScheduleWindow(liveWindow);
+        try {
+            if (session.liveChannelId && channel.id === session.liveChannelId && session.scheduler) {
+                const schedulerState = session.scheduler.getState();
+                if (schedulerState.isActive && schedulerState.channelId === channel.id) {
+                    const liveWindow = session.scheduler.getScheduleWindow(session.startTime, session.endTime);
+                    const liveSchedule = this._deps.cloneScheduleWindow(liveWindow);
+                    if (session.refreshId !== this._scheduleLoadToken) {
+                        return;
+                    }
+                    this._applySchedule(session, metrics, channel.id, liveSchedule, {
+                        phase,
+                        source: 'live-scheduler',
+                    });
+                    metrics.liveScheduleHits += 1;
+                    return;
+                }
+            }
+
+            if (!session.forceRefresh && this._cacheStore.isScheduleLoadedForRange(channel.id, session.rangeKey)) {
+                metrics.alreadyLoaded += 1;
+                return;
+            }
+
+            const cached = session.forceRefresh ? null : this._cacheStore.getCachedSchedule(channel.id, session.rangeKey);
+            if (cached) {
+                const cachedSchedule = this._deps.cloneScheduleWindow(cached.schedule);
                 if (session.refreshId !== this._scheduleLoadToken) {
                     return;
                 }
-                this._applySchedule(session, metrics, channel.id, liveSchedule, {
-                    phase,
-                    source: 'live-scheduler',
-                });
-                metrics.liveScheduleHits += 1;
+                if (cached.isStale) {
+                    this._applySchedule(session, metrics, channel.id, cachedSchedule, {
+                        updateCache: false,
+                        phase,
+                        source: 'schedule-cache-stale',
+                    });
+                    metrics.staleCacheHits += 1;
+                } else {
+                    metrics.cacheHits += 1;
+                    this._applySchedule(session, metrics, channel.id, cachedSchedule, {
+                        phase,
+                        source: 'schedule-cache',
+                    });
+                    return;
+                }
+            }
+
+            const existing = this._inFlightByChannel.get(channel.id);
+            if (existing && existing.rangeKey === session.rangeKey) {
+                metrics.inFlightSkipped += 1;
                 return;
             }
-        }
-
-        const cached = session.forceRefresh ? null : this._cacheStore.getCachedSchedule(channel.id, session.rangeKey);
-        if (cached) {
-            const cachedSchedule = this._deps.cloneScheduleWindow(cached.schedule);
-            if (session.refreshId !== this._scheduleLoadToken) {
-                return;
+            if (existing) {
+                existing.controller.abort();
+                this._inFlightByChannel.delete(channel.id);
             }
-            if (cached.isStale) {
-                this._applySchedule(session, metrics, channel.id, cachedSchedule, {
-                    updateCache: false,
-                    phase,
-                    source: 'schedule-cache-stale',
-                });
-                metrics.staleCacheHits += 1;
-            } else {
-                metrics.cacheHits += 1;
-                this._applySchedule(session, metrics, channel.id, cachedSchedule, {
-                    phase,
-                    source: 'schedule-cache',
-                });
-                return;
-            }
-        }
 
-        const existing = this._inFlightByChannel.get(channel.id);
-        if (existing && existing.rangeKey === session.rangeKey) {
-            metrics.inFlightSkipped += 1;
-            return;
-        }
-        if (existing) {
-            existing.controller.abort();
-            this._inFlightByChannel.delete(channel.id);
-        }
+            controller = new AbortController();
+            this._inFlightByChannel.set(channel.id, { controller, rangeKey: session.rangeKey });
+            metrics.cacheMisses += 1;
 
-        const controller = new AbortController();
-        this._inFlightByChannel.set(channel.id, { controller, rangeKey: session.rangeKey });
-        metrics.cacheMisses += 1;
-
-        try {
             const items =
                 phase === 'background'
                     ? await session.channelManager.resolveChannelItemsForSchedule(channel.id, {
@@ -706,7 +702,7 @@ export class EPGScheduleRefreshRuntime {
                 ...(phase === 'background' ? {} : { materializationSeed: items }),
             });
         } catch (error) {
-            if (isAbortLikeError(error, controller.signal)) {
+            if (isAbortLikeError(error, controller?.signal ?? undefined)) {
                 return;
             }
             if (session.debugEnabled) {
@@ -716,10 +712,13 @@ export class EPGScheduleRefreshRuntime {
                     error: summarizeErrorForLog(error),
                 });
             }
+            this._reportChannelLoadFailure(session, channel.id, phase, error);
         } finally {
-            const active = this._inFlightByChannel.get(channel.id);
-            if (active && active.controller === controller) {
-                this._inFlightByChannel.delete(channel.id);
+            if (controller) {
+                const active = this._inFlightByChannel.get(channel.id);
+                if (active && active.controller === controller) {
+                    this._inFlightByChannel.delete(channel.id);
+                }
             }
         }
     }
@@ -807,6 +806,49 @@ export class EPGScheduleRefreshRuntime {
             ...payload,
             safeError: summarizeErrorForLog(error),
         });
+    }
+
+    private _reportBackgroundWarmQueueFailure(
+        error: unknown,
+        payload: Record<string, unknown> = {}
+    ): void {
+        this._reportIssue('epg.backgroundWarmQueueFailed', error, payload);
+    }
+
+    private _reportChannelLoadFailure(
+        session: RefreshSession,
+        channelId: string,
+        phase: RefreshPhase,
+        error: unknown
+    ): void {
+        const payload = {
+            channelId,
+            phase,
+            refreshId: session.refreshId,
+            rangeKey: session.rangeKey,
+            reason: session.reason,
+        };
+        if (phase === 'background') {
+            this._reportBackgroundWarmQueueFailure(error, payload);
+            return;
+        }
+        this._reportIssue('epg.scheduleLoadFailed', error, payload);
+    }
+
+    private _invalidateRefreshWork(
+        reason: string,
+        options?: { abortInFlight?: boolean }
+    ): void {
+        this._scheduleLoadToken += 1;
+        this._warmQueue.cancel(reason);
+        if (options?.abortInFlight) {
+            for (const entry of this._inFlightByChannel.values()) {
+                entry.controller.abort(reason);
+            }
+            this._inFlightByChannel.clear();
+        }
+        this._backgroundDebugState = null;
+        this._selectedRowSnapshotSeed = null;
     }
 
     private _getScheduleRangeKey(startTime: number, endTime: number): string {
