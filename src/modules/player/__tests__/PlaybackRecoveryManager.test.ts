@@ -759,8 +759,6 @@ describe('PlaybackRecoveryManager', () => {
         });
 
         expect(handled).toBe(false);
-        await new Promise((resolve) => setTimeout(resolve, 0));
-
         expect(resolver.resolveStream).toHaveBeenCalledTimes(1);
         expect(notifyToast).not.toHaveBeenCalled();
     });

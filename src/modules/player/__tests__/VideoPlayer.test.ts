@@ -5,7 +5,10 @@
  */
 
 import { AppErrorCode } from '../../../types/app-errors';
+import { flushPromises } from '../../../__tests__/helpers';
 import { VideoPlayer } from '../VideoPlayer';
+import { SubtitleManager } from '../SubtitleManager';
+import { AudioTrackManager } from '../AudioTrackManager';
 import type { VideoPlayerConfig, StreamDescriptor } from '../types';
 import type { PlatformPlaybackService, PlatformSubtitleService } from '../../../platform';
 import { APP_SHELL_CONTAINER_IDS } from '../../ui/common/appShellContainerIds';
@@ -471,7 +474,16 @@ describe('VideoPlayer', () => {
 
             const fakeSubtitleManager = createFakeSubtitleManager([selectedTrack], { clearActiveOnDeactivate: true });
 
-            (player as unknown as { _subtitleManager: unknown })._subtitleManager = fakeSubtitleManager;
+            jest.spyOn(SubtitleManager.prototype, 'loadTracks').mockImplementation(fakeSubtitleManager.loadTracks);
+            jest.spyOn(SubtitleManager.prototype, 'getTracks').mockImplementation(
+                () => fakeSubtitleManager.getTracks() as ReturnType<SubtitleManager['getTracks']>
+            );
+            jest.spyOn(SubtitleManager.prototype, 'getActiveTrackId').mockImplementation(
+                fakeSubtitleManager.getActiveTrackId
+            );
+            jest.spyOn(SubtitleManager.prototype, 'setActiveTrack').mockImplementation(
+                fakeSubtitleManager.setActiveTrack
+            );
 
             const descriptor = createMockDescriptor({
                 subtitleTracks: [selectedTrack] as unknown as StreamDescriptor['subtitleTracks'],
@@ -516,7 +528,16 @@ describe('VideoPlayer', () => {
 
             const fakeSubtitleManager = createFakeSubtitleManager([selectedTrack], { clearActiveOnDeactivate: false });
 
-            (player as unknown as { _subtitleManager: unknown })._subtitleManager = fakeSubtitleManager;
+            jest.spyOn(SubtitleManager.prototype, 'loadTracks').mockImplementation(fakeSubtitleManager.loadTracks);
+            jest.spyOn(SubtitleManager.prototype, 'getTracks').mockImplementation(
+                () => fakeSubtitleManager.getTracks() as ReturnType<SubtitleManager['getTracks']>
+            );
+            jest.spyOn(SubtitleManager.prototype, 'getActiveTrackId').mockImplementation(
+                fakeSubtitleManager.getActiveTrackId
+            );
+            jest.spyOn(SubtitleManager.prototype, 'setActiveTrack').mockImplementation(
+                fakeSubtitleManager.setActiveTrack
+            );
 
             const descriptor = createMockDescriptor({
                 subtitleTracks: [selectedTrack] as unknown as StreamDescriptor['subtitleTracks'],
@@ -568,29 +589,18 @@ describe('VideoPlayer', () => {
             const player = new VideoPlayer();
             await player.initialize(createMockConfig());
 
-            const switchTrack = jest.fn().mockRejectedValue({
+            const switchTrackSpy = jest.spyOn(AudioTrackManager.prototype, 'switchTrack').mockRejectedValue({
                 code,
                 message: `audio failure: ${code}`,
                 recoverable: false,
                 retryCount: 1,
             });
-            (
-                player as unknown as {
-                    _audioTrackManager: {
-                        switchTrack: (trackId: string) => Promise<void>;
-                        destroy: () => void;
-                    };
-                }
-            )._audioTrackManager = {
-                switchTrack,
-                destroy: jest.fn(),
-            };
 
             await expect(player.setAudioTrack('track-1')).rejects.toMatchObject({
                 code,
                 message: expect.stringContaining(String(code)),
             });
-            expect(switchTrack).toHaveBeenCalledWith('track-1');
+            expect(switchTrackSpy).toHaveBeenCalledWith('track-1');
 
             player.destroy();
         });
@@ -700,10 +710,9 @@ describe('VideoPlayer', () => {
                 get: () => currentTimeValue,
                 set: (val: number) => {
                     currentTimeValue = val;
-                    // Dispatch seeked event
-                    setTimeout(() => {
+                    void Promise.resolve().then(() => {
                         videoElement.dispatchEvent(new Event('seeked'));
-                    }, 0);
+                    });
                 },
                 configurable: true,
             });
@@ -717,8 +726,7 @@ describe('VideoPlayer', () => {
         it('should seek to absolute position', async () => {
             const seekPromise = player.seekTo(120000);
 
-            // Advance timers to trigger seeked event
-            jest.advanceTimersByTime(10);
+            await flushPromises();
             await seekPromise;
 
             expect(currentTimeValue).toBe(120);
@@ -727,7 +735,7 @@ describe('VideoPlayer', () => {
         it('should clamp seek to valid range', async () => {
             const seekPromise = player.seekTo(-5000);
 
-            jest.advanceTimersByTime(10);
+            await flushPromises();
             await seekPromise;
 
             expect(currentTimeValue).toBe(0);
@@ -739,7 +747,7 @@ describe('VideoPlayer', () => {
 
             const seekPromise = player.seekRelative(10000);
 
-            jest.advanceTimersByTime(10);
+            await flushPromises();
             await seekPromise;
 
             // 60s + 10s = 70s
@@ -752,7 +760,7 @@ describe('VideoPlayer', () => {
 
             const seekPromise = player.seekRelative(-10000);
 
-            jest.advanceTimersByTime(10);
+            await flushPromises();
             await seekPromise;
 
             // 60s - 10s = 50s
@@ -1161,10 +1169,9 @@ describe('VideoPlayer', () => {
                     get: () => currentTimeValue,
                     set: (val: number) => {
                         currentTimeValue = val;
-                        // Dispatch seeked event
-                        setTimeout(() => {
+                        void Promise.resolve().then(() => {
                             videoElement.dispatchEvent(new Event('seeked'));
-                        }, 0);
+                        });
                     },
                     configurable: true,
                 });
@@ -1196,7 +1203,7 @@ describe('VideoPlayer', () => {
                 if (seektoHandler) {
                     seektoHandler({ seekTime: 12 });
                 }
-                jest.advanceTimersByTime(10);
+                await flushPromises();
                 // currentTime should be set (12 seconds = 12000ms / 1000)
                 expect(currentTimeValue).toBe(12);
 
@@ -1206,7 +1213,7 @@ describe('VideoPlayer', () => {
                 if (seekforwardHandler) {
                     seekforwardHandler({ seekOffset: 5 });
                 }
-                jest.advanceTimersByTime(10);
+                await flushPromises();
                 expect(currentTimeValue).toBe(55); // 50 + 5
 
                 // Test seekbackward handler
@@ -1215,7 +1222,7 @@ describe('VideoPlayer', () => {
                 if (seekbackwardHandler) {
                     seekbackwardHandler({ seekOffset: 5 });
                 }
-                jest.advanceTimersByTime(10);
+                await flushPromises();
                 expect(currentTimeValue).toBe(45); // 50 - 5
             });
 

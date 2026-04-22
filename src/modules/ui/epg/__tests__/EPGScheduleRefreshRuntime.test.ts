@@ -7,6 +7,7 @@ import type {
 } from '../../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduleConfig, ScheduleWindow } from '../../../scheduler/scheduler';
 import type { IEPGComponent } from '../interfaces';
+import { flushPromises } from '../../../../__tests__/helpers';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,
@@ -65,11 +66,6 @@ const createScheduleWindow = (channelId: string): ScheduleWindow => ({
         },
     ],
 });
-
-const flushPromises = async (): Promise<void> => {
-    await Promise.resolve();
-    await Promise.resolve();
-};
 
 const createRuntime = (
     overrides: Partial<EPGScheduleRefreshRuntimeDeps> & {
@@ -223,6 +219,7 @@ describe('EPGScheduleRefreshRuntime', () => {
 
             const channels = Array.from({ length: 20 }, (_, index) => makeChannel(`c${index + 1}`, index + 1));
             const cloneFailure = new Error('cache clone failed');
+            let failCachedClone = false;
             const { runtime, deps } = createRuntime({
                 channelManager: {
                     getAllChannels: jest.fn(() => channels),
@@ -234,18 +231,26 @@ describe('EPGScheduleRefreshRuntime', () => {
                 },
                 getScheduleLoadConcurrency: () => 1,
                 cloneScheduleWindow: (window: ScheduleWindow): ScheduleWindow => {
-                    if (window.programs[0]?.item.ratingKey === 'c8-0') {
+                    if (failCachedClone && window.programs[0]?.item.ratingKey === 'c8-0') {
                         throw cloneFailure;
                     }
                     return { ...window, programs: [...window.programs] };
                 },
             });
 
-            (
-                runtime as unknown as {
-                    _cacheStore: { storeSchedule: (channelId: string, rangeKey: string, schedule: ScheduleWindow) => void };
-                }
-            )._cacheStore.storeSchedule('c8', '0-60000', createScheduleWindow('c8'));
+            await runtime.refreshForRange(
+                { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+                'visible-range'
+            );
+
+            for (let i = 0; i < 20; i += 1) {
+                jest.advanceTimersByTime(50);
+                await flushPromises();
+            }
+
+            runtime.clearLoadedScheduleMarkers();
+            (deps.appendIssueDiagnostic as jest.Mock).mockClear();
+            failCachedClone = true;
 
             await runtime.refreshForRange(
                 { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },

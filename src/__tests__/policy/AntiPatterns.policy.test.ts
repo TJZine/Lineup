@@ -12,11 +12,22 @@ import {
 
 const FROZEN_SUITES = [
     'src/__tests__/Orchestrator.test.ts',
+    'src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts',
     'src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts',
+    'src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts',
     'src/modules/ui/auth/__tests__/AuthScreen.test.ts',
     'src/modules/ui/epg/__tests__/EPGComponent.test.ts',
+    'src/modules/ui/epg/__tests__/EPGBackgroundWarmQueue.test.ts',
+    'src/modules/ui/epg/__tests__/EPGCoordinator.test.ts',
+    'src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts',
     'src/modules/navigation/__tests__/NavigationCoordinator.test.ts',
     'src/modules/navigation/__tests__/RemoteHandler.test.ts',
+    'src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts',
+    'src/modules/player/__tests__/PlaybackRecoveryManager.test.ts',
+    'src/modules/player/__tests__/SubtitleManager.test.ts',
+    'src/modules/player/__tests__/VideoPlayer.test.ts',
+    'src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts',
+    'src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts',
 ];
 
 const CURRENT_PRIVATE_REPORT = path.join(os.tmpdir(), 'current-private-probes.json');

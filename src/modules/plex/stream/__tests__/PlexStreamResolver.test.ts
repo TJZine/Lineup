@@ -1283,18 +1283,29 @@ describe('PlexStreamResolver', () => {
         });
     });
 
-    describe('_buildUrlWithToken', () => {
-        it('should include default identity params when auth headers are minimal', () => {
-            const config = createMockConfig();
-            const resolver = new PlexStreamResolver(config);
+    describe('direct-play url construction', () => {
+        it('includes default identity params when auth headers are minimal', async () => {
+            const item = createMockMediaItem({
+                container: 'mp4',
+                videoCodec: 'h264',
+                audioCodec: 'aac',
+            });
+            const resolver = new PlexStreamResolver(
+                createMockConfig({
+                    getAuthHeaders: () => ({
+                        'X-Plex-Token': 'mock-token',
+                    }),
+                    getItem: jest.fn().mockResolvedValue(item),
+                })
+            );
 
-            const url = (resolver as unknown as {
-                _buildUrlWithToken: (baseUri: string, partKey: string, sessionId: string) => string;
-            })._buildUrlWithToken('http://192.168.1.100:32400', '/library/parts/12345/file.mp4', 'sess-1');
+            const decision = await resolver.resolveStream({ itemKey: '12345' });
+            const parsed = new URL(decision.playbackUrl);
 
-            const parsed = new URL(url);
             expect(parsed.searchParams.get('X-Plex-Token')).toBe('mock-token');
-            expect(parsed.searchParams.get('X-Plex-Session-Identifier')).toBe('sess-1');
+            expect(parsed.searchParams.get('X-Plex-Session-Identifier')).toMatch(
+                /^[a-f0-9-]{36}$/i
+            );
             expect(parsed.searchParams.get('X-Plex-Client-Identifier')).toBe('test-client-id');
             expect(parsed.searchParams.get('X-Plex-Platform')).toBe('webOS');
             expect(parsed.searchParams.get('X-Plex-Product')).toBeTruthy();
@@ -1305,49 +1316,61 @@ describe('PlexStreamResolver', () => {
             expect(parsed.searchParams.get('X-Plex-Platform-Version')).toBeTruthy();
         });
 
-        it('keeps computed direct-play capabilities even when headers supply a different value', () => {
+        it('keeps computed direct-play capabilities even when headers supply a different value', async () => {
+            const item = createMockMediaItem({
+                container: 'mp4',
+                videoCodec: 'h264',
+                audioCodec: 'aac',
+            });
             const resolver = new PlexStreamResolver(
                 createMockConfig({
                     getAuthHeaders: () => ({
                         'X-Plex-Token': 'mock-token',
                         'X-Plex-Client-Capabilities': 'overrides-from-header',
                     }),
+                    getItem: jest.fn().mockResolvedValue(item),
                 })
             );
 
-            const url = (resolver as unknown as {
-                _buildUrlWithToken: (baseUri: string, partKey: string, sessionId: string) => string;
-                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
-            })._buildUrlWithToken('http://192.168.1.100:32400', '/library/parts/12345/file.mp4', 'sess-1');
+            const decision = await resolver.resolveStream({ itemKey: '12345' });
+            const parsed = new URL(decision.playbackUrl);
 
-            const expectedCapabilities = (resolver as unknown as {
-                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
-            })._buildClientCapabilities({ hideDolbyVision: false });
-            const parsed = new URL(url);
-            expect(parsed.searchParams.get('X-Plex-Client-Capabilities')).toBe(expectedCapabilities);
+            expect(parsed.searchParams.get('X-Plex-Client-Capabilities')).not.toBe('overrides-from-header');
+            expect(parsed.searchParams.get('X-Plex-Client-Capabilities')).toContain(
+                'protocols=http-live-streaming'
+            );
         });
 
-        it('normalizes absolute direct-play keys to the selected playback origin', () => {
-            const config = createMockConfig();
-            const resolver = new PlexStreamResolver(config);
-
-            const url = (resolver as unknown as {
-                _buildUrlWithToken: (baseUri: string, partKey: string, sessionId: string) => string;
-            })._buildUrlWithToken(
-                'http://192.168.1.100:32400',
-                'http://evil.example/library/parts/12345/file.mp4?audioStreamID=audio-1',
-                'sess-1'
+        it('normalizes absolute direct-play keys to the selected playback origin', async () => {
+            const item = createMockMediaItem(
+                {
+                    container: 'mp4',
+                    videoCodec: 'h264',
+                    audioCodec: 'aac',
+                },
+                {
+                    partKey: 'http://evil.example/library/parts/12345/file.mp4?audioStreamID=audio-1',
+                }
+            );
+            const resolver = new PlexStreamResolver(
+                createMockConfig({
+                    getItem: jest.fn().mockResolvedValue(item),
+                })
             );
 
-            const parsed = new URL(url);
+            const decision = await resolver.resolveStream({ itemKey: '12345' });
+            const parsed = new URL(decision.playbackUrl);
+
             expect(parsed.origin).toBe('http://192.168.1.100:32400');
             expect(parsed.pathname).toBe('/library/parts/12345/file.mp4');
             expect(parsed.searchParams.get('audioStreamID')).toBe('audio-1');
-            expect(parsed.searchParams.get('X-Plex-Session-Identifier')).toBe('sess-1');
+            expect(parsed.searchParams.get('X-Plex-Session-Identifier')).toMatch(
+                /^[a-f0-9-]{36}$/i
+            );
         });
     });
 
-    describe('_buildClientCapabilities', () => {
+    describe('transcode capability advertising', () => {
         it('advertises DTS codecs only when user-enabled and Chrome is modern', () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: { getItem: jest.fn().mockReturnValue('1') },
@@ -1357,9 +1380,10 @@ describe('PlexStreamResolver', () => {
                 value: { userAgent: 'Mozilla/5.0 (Web0S) AppleWebKit/537.36 Chrome/108.0.0.0 Safari/537.36' },
                 configurable: true,
             });
-            const capabilities = (new PlexStreamResolver(createMockConfig()) as unknown as {
-                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
-            })._buildClientCapabilities();
+
+            const capabilities = new URL(
+                new PlexStreamResolver(createMockConfig()).getTranscodeUrl('12345', {})
+            ).searchParams.get('X-Plex-Client-Capabilities');
 
             expect(capabilities).toContain('dts{bitrate:1536000}');
             expect(capabilities).toContain('dca{bitrate:1536000}');
@@ -1376,9 +1400,9 @@ describe('PlexStreamResolver', () => {
                 configurable: true,
             });
 
-            const capabilities = (new PlexStreamResolver(createMockConfig()) as unknown as {
-                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
-            })._buildClientCapabilities();
+            const capabilities = new URL(
+                new PlexStreamResolver(createMockConfig()).getTranscodeUrl('12345', {})
+            ).searchParams.get('X-Plex-Client-Capabilities');
 
             expect(capabilities).not.toContain('dts{bitrate:1536000}');
             expect(capabilities).not.toContain('dca{bitrate:1536000}');
@@ -1395,9 +1419,9 @@ describe('PlexStreamResolver', () => {
                 configurable: true,
             });
 
-            const capabilities = (new PlexStreamResolver(createMockConfig()) as unknown as {
-                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
-            })._buildClientCapabilities();
+            const capabilities = new URL(
+                new PlexStreamResolver(createMockConfig()).getTranscodeUrl('12345', {})
+            ).searchParams.get('X-Plex-Client-Capabilities');
 
             expect(capabilities).not.toContain('dts{bitrate:1536000}');
             expect(capabilities).not.toContain('dca{bitrate:1536000}');

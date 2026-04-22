@@ -3,6 +3,7 @@
  */
 
 import { ChannelSetupPlanningService } from '../ChannelSetupPlanningService';
+import { ChannelSetupFacetSnapshotLoader } from '../ChannelSetupFacetSnapshotLoader';
 import type { ChannelSetupConfig, SetupStrategyConfig, SetupStrategyKey } from '../types';
 import { DEFAULT_STRATEGY_PRIORITIES, MIXED_SCOPE_STRATEGY_KEYS, SETUP_STRATEGY_KEYS } from '../constants';
 import { PLEX_MEDIA_TYPES } from '../../../modules/plex/library';
@@ -13,6 +14,7 @@ import type {
     PlexTagDirectoryUnsupportedReason,
 } from '../../../modules/plex/library';
 import type { IChannelManager } from '../../../modules/scheduler/channel-manager';
+import { flushPromisesAndMacrotask } from '../../../__tests__/helpers';
 
 const makeLibrary = (overrides: Partial<PlexLibrarySection>): PlexLibrarySection => ({
     id: 'lib1',
@@ -50,6 +52,11 @@ const createDeferred = <T>(): {
         throw new Error('Failed to create deferred promise');
     }
     return { promise, resolve, reject };
+};
+
+const resolvePendingAfterMacrotask = async (): Promise<'pending'> => {
+    await flushPromisesAndMacrotask();
+    return 'pending';
 };
 
 const createConfig = (
@@ -946,9 +953,7 @@ describe('ChannelSetupPlanningService', () => {
             signal: new AbortController().signal,
         });
         const previewRejected = expect(previewPromise).rejects.toThrow();
-        await new Promise<void>((resolve) => {
-            setTimeout(resolve, 0);
-        });
+        await flushPromisesAndMacrotask();
 
         expect(plexLibrary.getGenres).toHaveBeenCalledTimes(2);
         expect(signalByLibraryId.get('old-1')?.aborted).toBe(false);
@@ -1225,9 +1230,7 @@ describe('ChannelSetupPlanningService', () => {
         buildAbortController.abort();
         const buildResult = await Promise.race([
             buildPromise,
-            new Promise<'pending'>((resolve) => {
-                setTimeout(() => resolve('pending'), 0);
-            }),
+            resolvePendingAfterMacrotask(),
         ]);
 
         expect(buildResult).toEqual(expect.objectContaining({
@@ -1327,9 +1330,7 @@ describe('ChannelSetupPlanningService', () => {
         expect(plexLibrary.getGenres).toHaveBeenNthCalledWith(2, 's2', expect.any(Object));
 
         deferredByLibraryId.get('s1')?.resolve([makeTag({ title: 'Comedy', count: 10 })]);
-        await new Promise<void>((resolve) => {
-            setTimeout(resolve, 0);
-        });
+        await flushPromisesAndMacrotask();
 
         expect(plexLibrary.getGenres).toHaveBeenCalledTimes(3);
         expect(plexLibrary.getGenres).toHaveBeenNthCalledWith(3, 's3', expect.any(Object));
@@ -1389,9 +1390,7 @@ describe('ChannelSetupPlanningService', () => {
             signal: new AbortController().signal,
         });
         const oldPreviewRejected = expect(oldPreviewPromise).rejects.toThrow();
-        await new Promise<void>((resolve) => {
-            setTimeout(resolve, 0);
-        });
+        await flushPromisesAndMacrotask();
         expect(plexLibrary.getGenres).toHaveBeenCalledTimes(2);
 
         service.invalidateFacetSnapshot();
@@ -1415,9 +1414,7 @@ describe('ChannelSetupPlanningService', () => {
         );
 
         deferredByLibraryId.get('old-1')?.resolve([makeTag({ title: 'Comedy', count: 10 })]);
-        await new Promise<void>((resolve) => {
-            setTimeout(resolve, 0);
-        });
+        await flushPromisesAndMacrotask();
 
         expect(reportProgress.mock.calls).toEqual([
             ['scan_library_items', 'Resolving filters...', 'New 1', 0, 1],
@@ -1481,9 +1478,7 @@ describe('ChannelSetupPlanningService', () => {
         const resultPromise = service.buildSetupPlan(config, libraries, null, 'preview');
         const result = await Promise.race([
             resultPromise,
-            new Promise<'pending'>((resolve) => {
-                setTimeout(() => resolve('pending'), 0);
-            }),
+            resolvePendingAfterMacrotask(),
         ]);
 
         expect(result).not.toBe('pending');
@@ -1565,9 +1560,7 @@ describe('ChannelSetupPlanningService', () => {
         const resultPromise = service.buildSetupPlan(config, libraries, null, 'preview');
         const result = await Promise.race([
             resultPromise,
-            new Promise<'pending'>((resolve) => {
-                setTimeout(() => resolve('pending'), 0);
-            }),
+            resolvePendingAfterMacrotask(),
         ]);
 
         expect(result).not.toBe('pending');
@@ -1629,9 +1622,7 @@ describe('ChannelSetupPlanningService', () => {
         }));
 
         const resultPromise = service.buildSetupPlan(config, libraries, null, 'preview');
-        await new Promise<void>((resolve) => {
-            setTimeout(resolve, 0);
-        });
+        await flushPromisesAndMacrotask();
         workerZeroGenre.resolve([]);
         const result = await resultPromise;
 
@@ -1752,40 +1743,48 @@ describe('ChannelSetupPlanningService', () => {
             getAllChannels: jest.fn().mockReturnValue([]),
         } as unknown as jest.Mocked<IChannelManager>;
         const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
-        const facetSnapshotLoader = (
-            service as unknown as {
-                _facetSnapshotLoader: { loadSnapshot: (...args: unknown[]) => Promise<unknown> };
-            }
-        )._facetSnapshotLoader;
-        jest.spyOn(facetSnapshotLoader, 'loadSnapshot').mockResolvedValue({
-            status: 'blocked',
-            warnings: ['timed out during genre scan'],
-            message: '',
-            failureReason: 'timeout',
-            errorsTotal: 1,
-            playlistMs: 0,
-            collectionsMs: 0,
-            libraryQueryMs: 0,
-        });
+        const loadSnapshotSpy = jest.spyOn(ChannelSetupFacetSnapshotLoader.prototype, 'loadSnapshot');
+        try {
+            loadSnapshotSpy.mockResolvedValue({
+                status: 'blocked',
+                playlists: [],
+                collectionsByLibraryId: new Map(),
+                genresByLibraryId: new Map(),
+                directorsByLibraryId: new Map(),
+                yearsByLibraryId: new Map(),
+                actorsByLibraryId: new Map(),
+                studiosByLibraryId: new Map(),
+                warnings: ['timed out during genre scan'],
+                hasTransientLoadFailure: false,
+                message: '',
+                failureReason: 'timeout',
+                errorsTotal: 1,
+                playlistMs: 0,
+                collectionsMs: 0,
+                libraryQueryMs: 0,
+            });
 
-        const preview = await service.getSetupPreview(createConfig({
-            selectedLibraryIds: ['shows'],
-        }));
-        const review = await service.getSetupReview(createConfig({
-            selectedLibraryIds: ['shows'],
-        }));
+            const preview = await service.getSetupPreview(createConfig({
+                selectedLibraryIds: ['shows'],
+            }));
+            const review = await service.getSetupReview(createConfig({
+                selectedLibraryIds: ['shows'],
+            }));
 
-        expect(preview).toEqual(expect.objectContaining({
-            status: 'blocked',
-            message: '',
-            failureReason: 'timeout',
-            warnings: ['timed out during genre scan'],
-        }));
-        expect(review.preview).toEqual(expect.objectContaining({
-            status: 'blocked',
-            message: '',
-            failureReason: 'timeout',
-            warnings: ['timed out during genre scan'],
-        }));
+            expect(preview).toEqual(expect.objectContaining({
+                status: 'blocked',
+                message: '',
+                failureReason: 'timeout',
+                warnings: ['timed out during genre scan'],
+            }));
+            expect(review.preview).toEqual(expect.objectContaining({
+                status: 'blocked',
+                message: '',
+                failureReason: 'timeout',
+                warnings: ['timed out during genre scan'],
+            }));
+        } finally {
+            loadSnapshotSpy.mockRestore();
+        }
     });
 });

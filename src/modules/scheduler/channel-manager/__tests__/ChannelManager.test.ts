@@ -5,8 +5,9 @@
 
 import { ChannelManager } from '../ChannelManager';
 import { ChannelRepository } from '../ChannelRepository';
+import { ContentResolver } from '../ContentResolver';
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
-import type { ChannelConfig, LibraryContentSource, ResolvedChannelContent } from '../types';
+import type { ChannelConfig, LibraryContentSource } from '../types';
 import { AppErrorCode } from '../../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../../lifecycle/constants';
 import {
@@ -303,8 +304,7 @@ describe('ChannelManager', () => {
         });
 
         it('clears resolver source cache when replacing full lineup', async () => {
-            const resolver = (manager as unknown as { _contentResolver: { clearCaches: () => void } })._contentResolver;
-            const clearCachesSpy = jest.spyOn(resolver, 'clearCaches');
+            const clearCachesSpy = jest.spyOn(ContentResolver.prototype, 'clearCaches');
 
             await manager.replaceAllChannels([createBaseChannel({ id: 'replace-1', number: 10 })]);
 
@@ -343,8 +343,7 @@ describe('ChannelManager', () => {
 
     describe('storage key updates', () => {
         it('clears resolver source cache when ChannelManager storage scope changes', () => {
-            const resolver = (manager as unknown as { _contentResolver: { clearCaches: () => void } })._contentResolver;
-            const clearCachesSpy = jest.spyOn(resolver, 'clearCaches');
+            const clearCachesSpy = jest.spyOn(ContentResolver.prototype, 'clearCaches');
 
             manager.setStorageKeys('lineup_channels_new_scope', 'lineup_current_channel_new_scope');
 
@@ -473,56 +472,47 @@ describe('ChannelManager', () => {
         });
 
         it('resolveChannelItemsForSchedule returns deep-cloned cached items', async () => {
+            mockLibrary.getLibraryItems.mockResolvedValue([
+                {
+                    ...createMockItem({
+                        ratingKey: 'nested-1',
+                        title: 'Nested One',
+                        durationMs: 6000,
+                    }),
+                    genres: ['Drama'],
+                    directors: ['Director A'],
+                    media: [{
+                        videoResolution: '4k',
+                        audioCodec: 'aac',
+                        audioChannels: 6,
+                        parts: [],
+                    }],
+                } as unknown as PlexMediaItemMinimal,
+                {
+                    ...createMockItem({
+                        ratingKey: 'nested-2',
+                        title: 'Nested Two',
+                        year: 2025,
+                        durationMs: 6000,
+                    }),
+                    genres: ['Comedy'],
+                    directors: ['Director B'],
+                    media: [{
+                        videoResolution: '1080p',
+                        audioCodec: 'ac3',
+                        audioChannels: 2,
+                        parts: [],
+                    }],
+                } as unknown as PlexMediaItemMinimal,
+            ]);
             const channel = await manager.createChannel({
                 contentSource: createMockContentSource(),
             });
-            const cacheSeed: ResolvedChannelContent = {
-                channelId: channel.id,
-                resolvedAt: Date.now(),
-                totalDurationMs: 12_000,
-                items: [
-                    {
-                        ratingKey: 'nested-1',
-                        type: 'movie',
-                        title: 'Nested One',
-                        fullTitle: 'Nested One',
-                        durationMs: 6000,
-                        thumb: null,
-                        year: 2024,
-                        scheduledIndex: 0,
-                        genres: ['Drama'],
-                        directors: ['Director A'],
-                        mediaInfo: {
-                            resolution: '4k',
-                            audioCodec: 'aac',
-                            audioChannels: 6,
-                        },
-                    },
-                    {
-                        ratingKey: 'nested-2',
-                        type: 'movie',
-                        title: 'Nested Two',
-                        fullTitle: 'Nested Two',
-                        durationMs: 6000,
-                        thumb: null,
-                        year: 2025,
-                        scheduledIndex: 1,
-                        genres: ['Comedy'],
-                        directors: ['Director B'],
-                        mediaInfo: {
-                            resolution: '1080p',
-                            audioCodec: 'ac3',
-                            audioChannels: 2,
-                        },
-                    },
-                ],
-                orderedItems: [],
-            };
-            cacheSeed.orderedItems = cacheSeed.items.map((item) => ({ ...item }));
-            (manager as unknown as { _state: { resolvedContent: Map<string, ResolvedChannelContent> } })
-                ._state.resolvedContent.set(channel.id, cacheSeed);
+            mockLibrary.getLibraryItems.mockClear();
 
             const first = await manager.resolveChannelItemsForSchedule(channel.id);
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(0);
+
             first[0]!.title = 'Mutated Title';
             first[0]!.genres?.push('Mutated Genre');
             first[0]!.directors?.push('Mutated Director');
@@ -532,13 +522,14 @@ describe('ChannelManager', () => {
 
             const second = await manager.resolveChannelItemsForSchedule(channel.id);
 
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(0);
             expect(second).not.toBe(first);
             expect(second[0]).not.toBe(first[0]);
             expect(second[0]!.title).toBe('Nested One');
             expect(second[0]!.genres).toEqual(['Drama']);
             expect(second[0]!.directors).toEqual(['Director A']);
             expect(second[0]!.mediaInfo).toEqual({
-                resolution: '4k',
+                resolution: '4K',
                 audioCodec: 'aac',
                 audioChannels: 6,
             });
@@ -548,8 +539,7 @@ describe('ChannelManager', () => {
             const channel = await manager.createChannel({
                 contentSource: createMockContentSource(),
             });
-            const resolver = (manager as unknown as { _contentResolver: { clearCaches: () => void } })._contentResolver;
-            const clearCachesSpy = jest.spyOn(resolver, 'clearCaches');
+            const clearCachesSpy = jest.spyOn(ContentResolver.prototype, 'clearCaches');
 
             await manager.refreshChannelContent(channel.id);
 
@@ -589,61 +579,67 @@ describe('ChannelManager', () => {
             }
         });
 
-        it('clears resolved content cache and pending retry on ACCESS_DENIED', async () => {
+        it('invalidates the source, cancels pending retries, and does not serve stale cache after ACCESS_DENIED', async () => {
             const logger = { warn: jest.fn(), error: jest.fn() };
             const localManager = new ChannelManager({ plexLibrary: mockLibrary, logger });
+            const invalidateSourceSpy = jest.spyOn(ContentResolver.prototype, 'invalidateSource');
+            const baseNow = Date.now();
+            const nowSpy = jest.spyOn(Date, 'now');
+            nowSpy.mockReturnValue(baseNow);
 
             try {
                 const channel = await localManager.createChannel({
                     contentSource: createMockContentSource(),
                 });
 
-                const state = (localManager as unknown as { _state: { resolvedContent: Map<string, unknown> } })._state;
-                state.resolvedContent.set(channel.id, {
-                    channelId: channel.id,
-                    resolvedAt: Date.now() - CACHE_TTL_MS - 1,
-                    items: [],
-                    orderedItems: [],
-                    totalDurationMs: 0,
+                nowSpy.mockReturnValue(baseNow + CACHE_TTL_MS + 1);
+                mockLibrary.getLibraryItems.mockRejectedValueOnce(
+                    Object.assign(new Error('Network timeout'), {
+                        code: AppErrorCode.NETWORK_TIMEOUT,
+                    })
+                );
+
+                const staleResult = await localManager.resolveChannelContent(channel.id);
+                expect(staleResult.items).toHaveLength(2);
+
+                const accessDeniedError = Object.assign(new Error('Access denied'), {
+                    code: AppErrorCode.ACCESS_DENIED,
+                    httpStatus: 403,
                 });
+                mockLibrary.getLibraryItems.mockRejectedValueOnce(accessDeniedError);
 
-                const resolver = (localManager as unknown as { _contentResolver: { invalidateSource: (s: unknown) => void } })
-                    ._contentResolver;
-                resolver.invalidateSource(channel.contentSource);
+                await expect(localManager.resolveChannelContent(channel.id)).rejects.toHaveProperty(
+                    'code',
+                    AppErrorCode.ACCESS_DENIED
+                );
 
-                const timeout = setTimeout(() => { }, 60_000);
-                try {
-                    (localManager as unknown as { _pendingRetries: Map<string, ReturnType<typeof setTimeout>> })
-                        ._pendingRetries.set(channel.id, timeout);
+                expect(invalidateSourceSpy).toHaveBeenCalledWith(channel.contentSource);
 
-                    const accessDeniedError = Object.assign(new Error('Access denied'), {
-                        code: AppErrorCode.ACCESS_DENIED,
+                mockLibrary.getLibraryItems.mockRejectedValueOnce(
+                    Object.assign(new Error('Network timeout after 403'), {
+                        code: AppErrorCode.NETWORK_TIMEOUT,
+                    })
+                );
+
+                await expect(localManager.resolveChannelContent(channel.id)).rejects.toHaveProperty(
+                    'code',
+                    AppErrorCode.NETWORK_TIMEOUT
+                );
+
+                jest.advanceTimersByTime(30_000);
+                await Promise.resolve();
+
+                expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(4);
+                expect(logger.warn).toHaveBeenCalledWith(
+                    'Access denied resolving channel content',
+                    expect.objectContaining({
+                        channelId: channel.id,
                         httpStatus: 403,
-                    });
-                    mockLibrary.getLibraryItems.mockRejectedValue(accessDeniedError);
-
-                    await expect(localManager.resolveChannelContent(channel.id)).rejects.toHaveProperty(
-                        'code',
-                        AppErrorCode.ACCESS_DENIED
-                    );
-
-                    expect(state.resolvedContent.has(channel.id)).toBe(false);
-                    expect(
-                        (localManager as unknown as { _pendingRetries: Map<string, unknown> })._pendingRetries.has(channel.id)
-                    ).toBe(false);
-
-                    expect(logger.warn).toHaveBeenCalledWith(
-                        'Access denied resolving channel content',
-                        expect.objectContaining({
-                            channelId: channel.id,
-                            httpStatus: 403,
-                            contentSource: { type: 'library', id: 'lib1' },
-                        })
-                    );
-                } finally {
-                    clearTimeout(timeout);
-                }
+                        contentSource: { type: 'library', id: 'lib1' },
+                    })
+                );
             } finally {
+                nowSpy.mockRestore();
                 await localManager.flushSaves().catch(() => undefined);
                 localManager.dispose();
             }
