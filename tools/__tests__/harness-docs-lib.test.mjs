@@ -131,12 +131,12 @@ function buildWaveScopedPackageDecomposition() {
 test('parseSkillMirrorManifest reads tracked allowlist entries and ignores comments', () => {
     const entries = parseSkillMirrorManifest(`
 # comment
-superpowers:brainstorming
+global:brainstorming
 global:frontend-design
     `);
 
     assert.deepEqual(entries, [
-        { source: 'superpowers', skill: 'brainstorming' },
+        { source: 'global', skill: 'brainstorming' },
         { source: 'global', skill: 'frontend-design' },
     ]);
 });

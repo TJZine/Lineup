@@ -91,6 +91,7 @@ Local-only by default:
 - `plex-integration-boundaries`: keeps Plex transport/policy complexity out of unrelated modules.
 - `parallel-sidecars`: keeps optional multi-agent usage shallow, role-disciplined, and off the immediate critical path.
 - `model-selection`: keeps Lineup session-to-session model advice explicit, cheap by default, and only auto-emitted for high-risk handoffs.
+- `brainstorming`: lightweight ambiguity-resolution across projects without inheriting the old superpowers spec-writing and planner-coupling workflow.
 - `frontend-design`: marketing/brand-forward UI generation (landing pages, posters, high-aesthetic surfaces) aligned with anti-slop goals.
 - `interface-design`: product interface design skill for dashboards/admin/settings/tools and other data-heavy UIs.
 - `desloppify`: useful for recurring debt audits and cleanup planning as the architecture cleanup continues.

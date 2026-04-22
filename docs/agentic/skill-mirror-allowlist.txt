@@ -1,7 +1,7 @@
 # Source-of-truth allowlist for external `superpowers` and `global` skills mirrored into `.agent/skills/`.
 # Format: <source>:<skill>
 
-superpowers:brainstorming
+global:brainstorming
 superpowers:test-driven-development
 superpowers:verification-before-completion
 superpowers:requesting-code-review
