@@ -6,11 +6,7 @@ export async function fetchWithTimeoutCore(
 ): Promise<Response> {
     const controller = new AbortController();
     const onAbort = (): void => {
-        try {
-            controller.abort();
-        } catch {
-            // ignore
-        }
+        controller.abort();
     };
 
     if (upstreamSignal) {
@@ -28,12 +24,7 @@ export async function fetchWithTimeoutCore(
     } finally {
         clearTimeout(timeoutId);
         if (upstreamSignal) {
-            try {
-                upstreamSignal.removeEventListener('abort', onAbort);
-            } catch {
-                // ignore
-            }
+            upstreamSignal.removeEventListener('abort', onAbort);
         }
     }
 }
-

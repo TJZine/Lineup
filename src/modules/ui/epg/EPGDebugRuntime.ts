@@ -33,11 +33,7 @@ export class EPGDebugRuntime implements IEPGDebugRuntime {
     constructor(debugOverridesStore: DebugOverridesStore = new DebugOverridesStore()) {
         this._debugOverridesStore = debugOverridesStore;
         if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-            try {
-                window.addEventListener('storage', this._onStorage);
-            } catch {
-                // ignore
-            }
+            window.addEventListener('storage', this._onStorage);
         }
     }
 
@@ -72,22 +68,14 @@ export class EPGDebugRuntime implements IEPGDebugRuntime {
 
     destroy(): void {
         if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
-            try {
-                window.removeEventListener('storage', this._onStorage);
-            } catch {
-                // ignore
-            }
+            window.removeEventListener('storage', this._onStorage);
         }
         if (this._flushTimer) {
             clearTimeout(this._flushTimer);
             this._flushTimer = null;
         }
         if (this._entries && this._entries.length > 0) {
-            try {
-                this._flushEntries();
-            } catch {
-                // ignore
-            }
+            this._flushEntries();
         }
         this._entries = null;
         this._enabledCache = null;
@@ -110,12 +98,13 @@ export class EPGDebugRuntime implements IEPGDebugRuntime {
     }
 
     private _flushEntries(): void {
+        let serialized = '[]';
         try {
-            const serialized = JSON.stringify(this._entries ?? []);
-            safeLocalStorageSet(EPG_DEBUG_LOG_STORAGE_KEY, serialized);
+            serialized = JSON.stringify(this._entries ?? []);
         } catch {
-            safeLocalStorageSet(EPG_DEBUG_LOG_STORAGE_KEY, '[]');
+            // Persist an empty list when an entry payload cannot be serialized.
         }
+        safeLocalStorageSet(EPG_DEBUG_LOG_STORAGE_KEY, serialized);
     }
 
     private _scheduleFlush(): void {

@@ -34,25 +34,13 @@ function mergeAbortSignals(
             return;
         }
         cleanedUp = true;
-        try {
-            optionsSignal.removeEventListener('abort', abortCombined);
-        } catch {
-            // ignore
-        }
-        try {
-            upstreamSignal.removeEventListener('abort', abortCombined);
-        } catch {
-            // ignore
-        }
+        optionsSignal.removeEventListener('abort', abortCombined);
+        upstreamSignal.removeEventListener('abort', abortCombined);
     };
 
     const abortCombined = (): void => {
         cleanup();
-        try {
-            controller.abort();
-        } catch {
-            // ignore
-        }
+        controller.abort();
     };
 
     if (optionsSignal.aborted || upstreamSignal.aborted) {
