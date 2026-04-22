@@ -4,6 +4,7 @@
  * @version 1.0.0
  */
 
+import { expectConsoleWarn } from '../../__tests__/helpers';
 import { EventEmitter } from '../EventEmitter';
 
 describe('EventEmitter', () => {
@@ -63,6 +64,13 @@ describe('EventEmitter', () => {
 
     describe('error isolation', () => {
         it('should continue calling handlers after one throws', () => {
+            expectConsoleWarn([
+                expect.stringContaining("Handler error for event 'test'"),
+                expect.objectContaining({
+                    name: 'Error',
+                    message: 'Handler error',
+                }),
+            ]);
             const emitter = new EventEmitter<{ test: void }>();
             const errorHandler = jest.fn(() => {
                 throw new Error('Handler error');
@@ -83,7 +91,6 @@ describe('EventEmitter', () => {
         it('reports handler errors through reportError when available', () => {
             const emitter = new EventEmitter<{ test: void }>();
             const reportError = jest.fn();
-            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
             (
                 globalThis as typeof globalThis & {
@@ -101,12 +108,14 @@ describe('EventEmitter', () => {
                     message: expect.stringContaining('Handler error'),
                 })
             );
-            expect(consoleSpy).not.toHaveBeenCalled();
         });
 
         it('falls back to console.warn with redacted details when reportError is unavailable', () => {
             const emitter = new EventEmitter<{ test: void }>();
-            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+            const warning = expectConsoleWarn([
+                expect.stringContaining('Handler error for event'),
+                expect.any(Object),
+            ]);
             const secret = 'super-secret';
 
             emitter.on('test', () => {
@@ -114,11 +123,7 @@ describe('EventEmitter', () => {
             });
             emitter.emit('test', undefined);
 
-            expect(consoleSpy).toHaveBeenCalledWith(
-                expect.stringContaining('Handler error for event'),
-                expect.any(Object)
-            );
-            const warningPayload = consoleSpy.mock.calls[0]?.[1] as { message?: string } | undefined;
+            const warningPayload = warning.getLastCall()?.[1] as { message?: string } | undefined;
             expect(warningPayload).toBeDefined();
             const message = warningPayload?.message ?? '';
             expect(message).toContain('REDACTED');
@@ -127,7 +132,13 @@ describe('EventEmitter', () => {
 
         it('falls back to console.warn when reportError throws', () => {
             const emitter = new EventEmitter<{ test: void }>();
-            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+            expectConsoleWarn([
+                expect.stringContaining('Handler error for event'),
+                expect.objectContaining({
+                    name: 'Error',
+                    message: 'Handler error',
+                }),
+            ]);
             (
                 globalThis as typeof globalThis & {
                     reportError?: (error: unknown) => void;
@@ -144,13 +155,6 @@ describe('EventEmitter', () => {
 
             expect(() => emitter.emit('test', undefined)).not.toThrow();
             expect(successHandler).toHaveBeenCalled();
-            expect(consoleSpy).toHaveBeenCalledWith(
-                expect.stringContaining('Handler error for event'),
-                expect.objectContaining({
-                    name: 'Error',
-                    message: 'Handler error',
-                })
-            );
         });
 
         it('keeps emit non-throwing even when the fallback warning path throws', () => {

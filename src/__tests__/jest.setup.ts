@@ -1,13 +1,12 @@
 /* eslint-disable no-console */
+import { sharedConsoleOutputGuard } from './helpers';
+
 const shouldAllowConsoleOutput = process.env.LINEUP_TEST_CONSOLE === '1';
-const shouldSilenceWarningsAndErrors = process.env.LINEUP_TEST_CONSOLE_SILENT === '1';
 
 const originalConsole = {
     debug: console.debug,
     log: console.log,
     info: console.info,
-    warn: console.warn,
-    error: console.error,
 };
 
 const noop = (): void => undefined;
@@ -17,19 +16,22 @@ if (!shouldAllowConsoleOutput) {
         console.debug = noop;
         console.log = noop;
         console.info = noop;
+        sharedConsoleOutputGuard.install();
+    });
 
-        if (shouldSilenceWarningsAndErrors) {
-            console.warn = noop;
-            console.error = noop;
-        }
+    beforeEach(() => {
+        sharedConsoleOutputGuard.resetForTest();
+    });
+
+    afterEach(() => {
+        sharedConsoleOutputGuard.finalizeForTest();
     });
 
     afterAll(() => {
+        sharedConsoleOutputGuard.uninstall();
         console.debug = originalConsole.debug;
         console.log = originalConsole.log;
         console.info = originalConsole.info;
-        console.warn = originalConsole.warn;
-        console.error = originalConsole.error;
     });
 }
 /* eslint-enable no-console */

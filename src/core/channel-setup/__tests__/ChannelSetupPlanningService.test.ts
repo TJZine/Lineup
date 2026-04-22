@@ -14,7 +14,7 @@ import type {
     PlexTagDirectoryUnsupportedReason,
 } from '../../../modules/plex/library';
 import type { IChannelManager } from '../../../modules/scheduler/channel-manager';
-import { flushPromisesAndMacrotask } from '../../../__tests__/helpers';
+import { expectConsoleWarn, flushPromisesAndMacrotask } from '../../../__tests__/helpers';
 
 const makeLibrary = (overrides: Partial<PlexLibrarySection>): PlexLibrarySection => ({
     id: 'lib1',
@@ -154,6 +154,14 @@ describe('ChannelSetupPlanningService', () => {
     });
 
     it('sorts concurrent partial warnings deterministically before returning them', async () => {
+        expectConsoleWarn([
+            'Failed to fetch collections for library Zulu:',
+            expect.objectContaining({ message: 'zulu collections failed' }),
+        ]);
+        expectConsoleWarn([
+            'Failed to fetch collections for library Alpha:',
+            expect.objectContaining({ message: 'alpha collections failed' }),
+        ]);
         const alphaCollections = createDeferred<never>();
         const zuluCollections = createDeferred<never>();
         const plexLibrary = {
@@ -354,6 +362,13 @@ describe('ChannelSetupPlanningService', () => {
     });
 
     it('counts failed fallback tag recovery time in libraryQueryMs', async () => {
+        expectConsoleWarn([
+            'Failed to recover genre counts for Shows:',
+            expect.objectContaining({
+                code: 'SERVER_ERROR',
+                message: 'count endpoint failed',
+            }),
+        ]);
         const performanceNowSpy = jest.spyOn(performance, 'now')
             .mockReturnValueOnce(10)
             .mockReturnValueOnce(11)
@@ -458,6 +473,13 @@ describe('ChannelSetupPlanningService', () => {
     });
 
     it('stops planning when a required tag directory fetch fails', async () => {
+        expectConsoleWarn([
+            'Failed to fetch directors for Shows:',
+            expect.objectContaining({
+                code: 'SERVER_ERROR',
+                message: 'director endpoint failed',
+            }),
+        ]);
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
@@ -829,6 +851,13 @@ describe('ChannelSetupPlanningService', () => {
     });
 
     it('does not cache timeout snapshots', async () => {
+        expectConsoleWarn([
+            'Failed to fetch genres for Shows:',
+            expect.objectContaining({
+                code: 'NETWORK_TIMEOUT',
+                message: 'timed out',
+            }),
+        ]);
         const libraries = [
             makeLibrary({
                 id: 'shows',
@@ -872,6 +901,13 @@ describe('ChannelSetupPlanningService', () => {
     });
 
     it('classifies Error instances with NETWORK_TIMEOUT code as timeout failures', async () => {
+        expectConsoleWarn([
+            'Failed to fetch genres for Shows:',
+            expect.objectContaining({
+                code: 'NETWORK_TIMEOUT',
+                message: 'timed out',
+            }),
+        ]);
         const libraries = [
             makeLibrary({
                 id: 'shows',
@@ -1014,6 +1050,13 @@ describe('ChannelSetupPlanningService', () => {
     });
 
     it('does not cache a ready snapshot degraded by transient playlist failure', async () => {
+        expectConsoleWarn([
+            'Failed to fetch playlists:',
+            expect.objectContaining({
+                code: 'NETWORK_TIMEOUT',
+                message: 'playlist timed out',
+            }),
+        ]);
         const getPlaylists = jest.fn()
             .mockRejectedValueOnce({ name: 'Error', code: 'NETWORK_TIMEOUT', message: 'playlist timed out' })
             .mockResolvedValueOnce([
@@ -1577,6 +1620,13 @@ describe('ChannelSetupPlanningService', () => {
     });
 
     it('returns the first observed library failure instead of worker index order under concurrent failure races', async () => {
+        expectConsoleWarn([
+            'Failed to fetch genres for Worker One:',
+            expect.objectContaining({
+                code: 'NETWORK_TIMEOUT',
+                message: 'worker one timed out first',
+            }),
+        ]);
         const libraries = [
             makeLibrary({ id: 'worker-0', title: 'Worker Zero', type: 'show', contentCount: 1200 }),
             makeLibrary({ id: 'worker-1', title: 'Worker One', type: 'show', contentCount: 1200 }),
@@ -1634,6 +1684,13 @@ describe('ChannelSetupPlanningService', () => {
     });
 
     it('returns the first observed facet failure within one library when multiple facets fail differently', async () => {
+        expectConsoleWarn([
+            'Failed to fetch actors for Mixed Library:',
+            expect.objectContaining({
+                code: 'NETWORK_TIMEOUT',
+                message: 'actors timed out first',
+            }),
+        ]);
         const libraries = [
             makeLibrary({ id: 'mixed', title: 'Mixed Library', type: 'show', contentCount: 1200 }),
         ];
@@ -1684,6 +1741,13 @@ describe('ChannelSetupPlanningService', () => {
     });
 
     it('returns the first observed unsupported facet failure within one library even when another facet times out later', async () => {
+        expectConsoleWarn([
+            'Failed to fetch actors for Mixed Library:',
+            expect.objectContaining({
+                code: 'NETWORK_TIMEOUT',
+                message: 'actors timed out second',
+            }),
+        ]);
         const libraries = [
             makeLibrary({ id: 'mixed', title: 'Mixed Library', type: 'show', contentCount: 1200 }),
         ];

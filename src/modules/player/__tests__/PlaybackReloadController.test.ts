@@ -6,6 +6,7 @@ import type { IPlexStreamResolver, StreamDecision } from '../../plex/stream';
 import type { ScheduledProgram } from '../../scheduler/scheduler';
 import type { IVideoPlayer } from '../interfaces';
 import type { StreamDescriptor } from '../types';
+import { expectConsoleError, expectConsoleWarn } from '../../../__tests__/helpers';
 
 const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgram =>
     ({
@@ -77,6 +78,38 @@ const makeContext = (
     };
 };
 
+const expectPlaybackRecoveryStart = (event: string): void => {
+    expectConsoleWarn([
+        'playback_recovery',
+        expect.objectContaining({
+            event,
+            reason: 'test_reason',
+        }),
+    ]);
+};
+
+const expectPlaybackRecoveryAborted = (event: string): void => {
+    expectConsoleWarn([
+        'playback_recovery',
+        expect.objectContaining({
+            event,
+            reason: 'test_reason',
+            outcome: 'program_changed',
+        }),
+    ]);
+};
+
+const expectPlaybackRecoveryFailed = (event: string): void => {
+    expectConsoleError([
+        'playback_recovery',
+        expect.objectContaining({
+            event,
+            reason: 'test_reason',
+            safeError: expect.any(Object),
+        }),
+    ]);
+};
+
 describe('PlaybackReloadController', () => {
     it('prepares reload context from the current program and player time', () => {
         const program = makeProgram({ elapsedMs: 10_000 });
@@ -108,6 +141,7 @@ describe('PlaybackReloadController', () => {
     });
 
     it('executes reload, updates decision and descriptor, and resumes playback when requested', async () => {
+        expectPlaybackRecoveryStart('audioReload.start');
         const context = makeContext();
         const descriptor = { url: 'http://test/video.m3u8' } as StreamDescriptor;
         const setCurrentStreamDecision = jest.fn();
@@ -161,7 +195,8 @@ describe('PlaybackReloadController', () => {
                 return makeDecision();
             }),
         } as unknown as IPlexStreamResolver;
-        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        expectPlaybackRecoveryStart('disableBurnIn.start');
+        expectPlaybackRecoveryAborted('disableBurnIn.aborted');
         const controller = new PlaybackReloadController({
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
@@ -187,14 +222,6 @@ describe('PlaybackReloadController', () => {
         });
 
         expect(result).toEqual({ outcome: 'ignored', reason: 'program_changed' });
-        expect(warnSpy).toHaveBeenCalledWith(
-            'playback_recovery',
-            expect.objectContaining({
-                event: 'disableBurnIn.aborted',
-                reason: 'test_reason',
-                outcome: 'program_changed',
-            })
-        );
     });
 
     it('does not treat a refreshed equivalent program instance as changed', async () => {
@@ -212,6 +239,7 @@ describe('PlaybackReloadController', () => {
                 return makeDecision();
             }),
         } as unknown as IPlexStreamResolver;
+        expectPlaybackRecoveryStart('disableBurnIn.start');
         const controller = new PlaybackReloadController({
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
@@ -252,7 +280,8 @@ describe('PlaybackReloadController', () => {
             program: originalProgram,
             resolver,
         });
-        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        expectPlaybackRecoveryStart('disableBurnIn.start');
+        expectPlaybackRecoveryAborted('disableBurnIn.aborted');
         const controller = new PlaybackReloadController({
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
@@ -282,14 +311,6 @@ describe('PlaybackReloadController', () => {
 
         expect(result).toEqual({ outcome: 'ignored', reason: 'program_changed' });
         expect(resolver.resolveStream).not.toHaveBeenCalled();
-        expect(warnSpy).toHaveBeenCalledWith(
-            'playback_recovery',
-            expect.objectContaining({
-                event: 'disableBurnIn.aborted',
-                reason: 'test_reason',
-                outcome: 'program_changed',
-            })
-        );
     });
 
     it('tears down the new stream and clears committed state when playback fails after load', async () => {
@@ -328,8 +349,8 @@ describe('PlaybackReloadController', () => {
             resolver,
             currentDecision: previousDecision,
         });
-        jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        expectPlaybackRecoveryStart('audioReload.start');
+        expectPlaybackRecoveryFailed('audioReload.failed');
         const controller = new PlaybackReloadController({
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
@@ -366,14 +387,6 @@ describe('PlaybackReloadController', () => {
         expect(activeMediaUrl).toBe(nextDescriptor.url);
         expect(currentDecision).toBe(previousDecision);
         expect(currentDescriptor).toBe(previousDescriptor);
-        expect(errorSpy).toHaveBeenCalledWith(
-            'playback_recovery',
-            expect.objectContaining({
-                event: 'audioReload.failed',
-                reason: 'test_reason',
-                safeError: expect.any(Object),
-            })
-        );
     });
 
     it('tears down the new stream and clears committed state when afterLoad fails', async () => {
@@ -409,8 +422,8 @@ describe('PlaybackReloadController', () => {
             resolver,
             currentDecision: previousDecision,
         });
-        jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-        jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        expectPlaybackRecoveryStart('audioReload.start');
+        expectPlaybackRecoveryFailed('audioReload.failed');
         const controller = new PlaybackReloadController({
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
@@ -495,7 +508,8 @@ describe('PlaybackReloadController', () => {
             resolver,
             currentDecision: previousDecision,
         });
-        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        expectPlaybackRecoveryStart('audioReload.start');
+        expectPlaybackRecoveryAborted('audioReload.aborted');
         const controller = new PlaybackReloadController({
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
@@ -532,14 +546,6 @@ describe('PlaybackReloadController', () => {
         expect(activeMediaUrl).toBe(nextDescriptor.url);
         expect(currentDecision).toBe(previousDecision);
         expect(currentDescriptor).toBe(previousDescriptor);
-        expect(warnSpy).toHaveBeenCalledWith(
-            'playback_recovery',
-            expect.objectContaining({
-                event: 'audioReload.aborted',
-                reason: 'test_reason',
-                outcome: 'program_changed',
-            })
-        );
     });
 
     it('ignores reload when the active program changes during play before state commit', async () => {
@@ -589,7 +595,8 @@ describe('PlaybackReloadController', () => {
             resolver,
             currentDecision: previousDecision,
         });
-        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        expectPlaybackRecoveryStart('audioReload.start');
+        expectPlaybackRecoveryAborted('audioReload.aborted');
         const controller = new PlaybackReloadController({
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
@@ -627,14 +634,6 @@ describe('PlaybackReloadController', () => {
         expect(playbackStarted).toBe(true);
         expect(currentDecision).toBe(previousDecision);
         expect(currentDescriptor).toBe(previousDescriptor);
-        expect(warnSpy).toHaveBeenCalledWith(
-            'playback_recovery',
-            expect.objectContaining({
-                event: 'audioReload.aborted',
-                reason: 'test_reason',
-                outcome: 'program_changed',
-            })
-        );
     });
 
     it('does not unload a newer stream that took over before a stale late abort', async () => {
@@ -679,7 +678,8 @@ describe('PlaybackReloadController', () => {
             resolver,
             currentDecision: previousDecision,
         });
-        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        expectPlaybackRecoveryStart('audioReload.start');
+        expectPlaybackRecoveryAborted('audioReload.aborted');
         const controller = new PlaybackReloadController({
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
@@ -715,17 +715,11 @@ describe('PlaybackReloadController', () => {
         expect(activeDescriptor).toBe(newerDescriptor);
         expect(currentDecision).toBe(previousDecision);
         expect(currentDescriptor).toBe(previousDescriptor);
-        expect(warnSpy).toHaveBeenCalledWith(
-            'playback_recovery',
-            expect.objectContaining({
-                event: 'audioReload.aborted',
-                reason: 'test_reason',
-                outcome: 'program_changed',
-            })
-        );
     });
 
     it('does not unload when the player cannot confirm descriptor ownership', async () => {
+        expectPlaybackRecoveryStart('audioReload.start');
+        expectPlaybackRecoveryAborted('audioReload.aborted');
         const originalProgram = makeProgram();
         const changedProgram = makeProgram({
             item: { ...originalProgram.item, ratingKey: 'item-2' } as ScheduledProgram['item'],
@@ -777,7 +771,8 @@ describe('PlaybackReloadController', () => {
                 resolveStream: jest.fn().mockRejectedValue(new Error('reload failed')),
             } as unknown as IPlexStreamResolver,
         });
-        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        expectPlaybackRecoveryStart('transcodeFallback.start');
+        expectPlaybackRecoveryFailed('transcodeFallback.failed');
         const controller = new PlaybackReloadController({
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => context.resolver,
@@ -803,13 +798,5 @@ describe('PlaybackReloadController', () => {
         });
 
         expect(result).toEqual({ outcome: 'failed' });
-        expect(errorSpy).toHaveBeenCalledWith(
-            'playback_recovery',
-            expect.objectContaining({
-                event: 'transcodeFallback.failed',
-                reason: 'test_reason',
-                safeError: expect.any(Object),
-            })
-        );
     });
 });

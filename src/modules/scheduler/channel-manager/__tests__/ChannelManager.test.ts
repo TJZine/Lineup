@@ -10,6 +10,7 @@ import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
 import type { ChannelConfig, LibraryContentSource } from '../types';
 import { AppErrorCode } from '../../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../../lifecycle/constants';
+import { expectConsoleWarn } from '../../../../__tests__/helpers';
 import {
     STORAGE_KEY,
     CURRENT_CHANNEL_KEY,
@@ -97,6 +98,28 @@ Object.defineProperty(globalThis, 'localStorage', {
     value: mockLocalStorage,
     configurable: true,
 });
+
+const expectPersistCurrentChannelWarning = (times: number = 1): void => {
+    expectConsoleWarn([
+        'Failed to persist current channel',
+        expect.objectContaining({
+            name: 'ChannelError',
+            code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+            message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+        }),
+    ], { times });
+};
+
+const expectDebouncedSaveQuotaWarning = (times: number = 1): void => {
+    expectConsoleWarn([
+        'Debounced save failed (quota)',
+        expect.objectContaining({
+            name: 'ChannelError',
+            code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+            message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+        }),
+    ], { times });
+};
 
 // ============================================
 // Tests
@@ -321,6 +344,7 @@ describe('ChannelManager', () => {
         });
 
         it('emits quota-specific persistenceWarning when replaceAllChannels current-channel write hits quota', async () => {
+            expectPersistCurrentChannelWarning();
             const warningHandler = jest.fn();
             manager.on('persistenceWarning', warningHandler);
             jest
@@ -364,6 +388,14 @@ describe('ChannelManager', () => {
         });
 
         it('emits persistenceWarning and does not throw when pending save flush fails during key switch', async () => {
+            expectConsoleWarn([
+                'ChannelManager.setStorageKeys failed while flushing pending saves',
+                expect.objectContaining({
+                    name: 'ChannelError',
+                    code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+                    message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                }),
+            ]);
             const warningHandler = jest.fn();
             manager.on('persistenceWarning', warningHandler);
             await manager.createChannel({ contentSource: createMockContentSource() });
@@ -547,6 +579,10 @@ describe('ChannelManager', () => {
         });
 
         it('should handle library deleted gracefully', async () => {
+            expectConsoleWarn([
+                expect.stringContaining('Failed initial content resolution for channel'),
+                expect.objectContaining({ message: '404' }),
+            ]);
             mockLibrary.getLibraryItems.mockRejectedValue(new Error('404'));
 
             const channel = await manager.createChannel({
@@ -558,6 +594,20 @@ describe('ChannelManager', () => {
         });
 
         it('should throw ACCESS_DENIED when library returns ACCESS_DENIED (403)', async () => {
+            expectConsoleWarn([
+                'Access denied resolving channel content',
+                expect.objectContaining({
+                    channelId: expect.any(String),
+                    contentSource: expect.objectContaining({
+                        type: 'library',
+                        id: 'lib1',
+                    }),
+                    error: expect.objectContaining({
+                        code: AppErrorCode.ACCESS_DENIED,
+                        message: 'Access denied',
+                    }),
+                }),
+            ]);
             // First create a channel successfully
             const channel = await manager.createChannel({
                 contentSource: createMockContentSource(),
@@ -704,6 +754,7 @@ describe('ChannelManager', () => {
         });
 
         it('emits quota-specific persistenceWarning when current-channel write hits quota', async () => {
+            expectPersistCurrentChannelWarning();
             const ch1 = await manager.createChannel({ name: 'Ch1', contentSource: createMockContentSource() });
             const warningHandler = jest.fn();
             manager.on('persistenceWarning', warningHandler);
@@ -723,6 +774,7 @@ describe('ChannelManager', () => {
         });
 
         it('resets persistence warning backoff after a successful current-channel save', async () => {
+            expectPersistCurrentChannelWarning(2);
             const ch1 = await manager.createChannel({ name: 'Ch1', contentSource: createMockContentSource() });
             const ch2 = await manager.createChannel({ name: 'Ch2', contentSource: createMockContentSource() });
             const warningHandler = jest.fn();
@@ -881,6 +933,7 @@ describe('ChannelManager', () => {
         });
 
         it('saveChannels reuses one pending promise for burst saves', async () => {
+            expectDebouncedSaveQuotaWarning();
             await manager.createChannel({ contentSource: createMockContentSource() });
 
             mockLocalStorage.setItem.mockImplementation(() => {
@@ -917,6 +970,7 @@ describe('ChannelManager', () => {
         });
 
         it('emits throttled persistenceWarning for debounced background save failures', async () => {
+            expectDebouncedSaveQuotaWarning();
             const warningHandler = jest.fn();
             manager.on('persistenceWarning', warningHandler);
 
@@ -943,6 +997,7 @@ describe('ChannelManager', () => {
         });
 
         it('saveChannels should reject when debounced persistence fails', async () => {
+            expectDebouncedSaveQuotaWarning();
             await manager.createChannel({ contentSource: createMockContentSource() });
 
             mockLocalStorage.setItem.mockImplementation(() => {
@@ -958,6 +1013,7 @@ describe('ChannelManager', () => {
         });
 
         it('flushSaves should propagate persistence failure when pending save exists', async () => {
+            expectDebouncedSaveQuotaWarning();
             await manager.createChannel({ contentSource: createMockContentSource() });
 
             mockLocalStorage.setItem.mockImplementation(() => {

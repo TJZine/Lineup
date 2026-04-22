@@ -111,9 +111,11 @@ npm run test:timings:tools
 ### Console output during tests
 
 By default, Jest setup silences `console.debug`, `console.log`, and `console.info` to keep test output readable.
+Unexpected `console.warn` and `console.error` now fail the owning test by default.
 
-- `LINEUP_TEST_CONSOLE=1` enables normal console output.
-- `LINEUP_TEST_CONSOLE_SILENT=1` additionally silences `console.warn` and `console.error`.
+- Register expected warn/error output with `expectConsoleWarn(...)` or `expectConsoleError(...)` from `src/__tests__/helpers.ts`.
+- Matchers can be string fragments, `RegExp`, predicates, or exact-argument arrays with Jest asymmetric matchers such as `expect.objectContaining(...)`.
+- `LINEUP_TEST_CONSOLE=1` disables the warn/error guard and restores live console output for local debugging.
 
 *Manual and integration verification still complement unit tests, especially for webOS device behavior.*
 

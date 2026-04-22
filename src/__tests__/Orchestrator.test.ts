@@ -29,6 +29,7 @@ import { PlaybackRecoveryManager } from '../modules/player/PlaybackRecoveryManag
 import * as orchestratorCoordinatorFactory from '../core/orchestrator/OrchestratorCoordinatorFactory';
 import { OverlayRuntimePolicyController } from '../core/orchestrator/OverlayRuntimePolicyController';
 import * as recoverableRuntimeReporterModule from '../core/orchestrator/OrchestratorRecoverableRuntimeReporter';
+import { expectConsoleWarn } from './helpers';
 
 // Mock localStorage
 const mockLocalStorage = {
@@ -1049,7 +1050,15 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             await orchestrator.initialize(mockConfig);
 
             const refreshError = new Error('refresh failed');
-            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            expectConsoleWarn([
+                'Post-selection EPG refresh failed',
+                expect.objectContaining({
+                    step: 'refreshEpgSchedules',
+                    safeError: expect.objectContaining({
+                        message: 'refresh failed',
+                    }),
+                }),
+            ]);
             const refreshSpy = jest
                 .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
                 .mockRejectedValue(refreshError);
@@ -1069,17 +1078,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
                 expect(runStartupSpy).toHaveBeenCalledWith(3);
                 expect(refreshSpy).toHaveBeenCalledWith({ reason: 'server-swap' });
-                expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    'Post-selection EPG refresh failed',
-                    expect.objectContaining({
-                        step: 'refreshEpgSchedules',
-                        safeError: expect.objectContaining({
-                            message: 'refresh failed',
-                        }),
-                    })
-                );
             } finally {
-                consoleWarnSpy.mockRestore();
                 refreshSpy.mockRestore();
                 runStartupSpy.mockRestore();
             }
@@ -1856,31 +1855,26 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('shows a warning toast when setSubtitleTrack fails', async () => {
-            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-            try {
-                const toastSpy = jest.fn();
+            expectConsoleWarn([
+                'setSubtitleTrack failed',
+                expect.objectContaining({
+                    trackId: null,
+                    safeError: expect.objectContaining({
+                        name: 'Error',
+                        message: 'boom',
+                    }),
+                }),
+            ]);
+            const toastSpy = jest.fn();
 
-                mockVideoPlayer.setSubtitleTrack.mockRejectedValueOnce(new Error('boom'));
-                orchestrator.setNowPlayingHandler(toastSpy);
+            mockVideoPlayer.setSubtitleTrack.mockRejectedValueOnce(new Error('boom'));
+            orchestrator.setNowPlayingHandler(toastSpy);
 
-                await orchestrator.setSubtitleTrack(null);
+            await orchestrator.setSubtitleTrack(null);
 
-                expect(warnSpy).toHaveBeenCalledWith(
-                    'setSubtitleTrack failed',
-                    expect.objectContaining({
-                        trackId: null,
-                        safeError: expect.objectContaining({
-                            name: 'Error',
-                            message: 'boom',
-                        }),
-                    })
-                );
-                expect(toastSpy).toHaveBeenCalledWith(
-                    expect.objectContaining({ type: 'warning', message: expect.any(String) })
-                );
-            } finally {
-                warnSpy.mockRestore();
-            }
+            expect(toastSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ type: 'warning', message: expect.any(String) })
+            );
         });
 
         it('uses subtitle mode policy to block burn-in subtitle tracks when mode disallows burn-in', async () => {
@@ -1944,6 +1938,16 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('reloads stream when audio track changes during direct play', async () => {
+            expectConsoleWarn([
+                'playback_recovery',
+                expect.objectContaining({
+                    event: 'audioReload.start',
+                    reason: 'audio_track_change',
+                    trackId: 'audio-2',
+                    itemKey: 'item-1',
+                    preserveDirectPlayPreference: true,
+                }),
+            ]);
             mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
@@ -2057,33 +2061,28 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('logs the specific missing modules when channel tuning is unavailable', async () => {
-            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const warning = expectConsoleWarn([
+                'switchToChannel: channel tuning unavailable',
+                expect.objectContaining({
+                    missingModules: expect.arrayContaining([
+                        '_channelTuning',
+                        '_channelManager',
+                        '_scheduler',
+                    ]),
+                }),
+            ]);
 
-            try {
-                Reflect.set(orchestrator as object, '_channelTuning', null);
-                Reflect.set(orchestrator as object, '_channelManager', null);
-                Reflect.set(orchestrator as object, '_scheduler', null);
+            Reflect.set(orchestrator as object, '_channelTuning', null);
+            Reflect.set(orchestrator as object, '_channelManager', null);
+            Reflect.set(orchestrator as object, '_scheduler', null);
 
-                await expect(orchestrator.switchToChannel('ch1')).resolves.toBeUndefined();
+            await expect(orchestrator.switchToChannel('ch1')).resolves.toBeUndefined();
 
-                expect(consoleSpy).toHaveBeenCalledWith(
-                    'switchToChannel: channel tuning unavailable',
-                    expect.objectContaining({
-                        missingModules: expect.arrayContaining([
-                            '_channelTuning',
-                            '_channelManager',
-                            '_scheduler',
-                        ]),
-                    })
-                );
-                const switchPayload = (consoleSpy.mock.calls.at(-1) ?? [])[1] as {
-                    missingModules: string[];
-                };
-                expect(switchPayload.missingModules).toHaveLength(3);
-                expect(mockVideoPlayer.stop).not.toHaveBeenCalled();
-            } finally {
-                consoleSpy.mockRestore();
-            }
+            const switchPayload = warning.getLastCall()?.[1] as {
+                missingModules: string[];
+            };
+            expect(switchPayload.missingModules).toHaveLength(3);
+            expect(mockVideoPlayer.stop).not.toHaveBeenCalled();
         });
 
         it('should stop current playback', async () => {
@@ -2128,6 +2127,15 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('should handle non-existent channel gracefully', async () => {
+            expectConsoleWarn([
+                'Global error in switchToChannel',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        code: AppErrorCode.CHANNEL_NOT_FOUND,
+                        message: 'Channel invalid not found',
+                    }),
+                }),
+            ]);
             mockChannelManager.getChannel.mockReturnValue(null);
 
             await expect(orchestrator.switchToChannel('invalid')).resolves.not.toThrow();
@@ -2181,14 +2189,11 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             const switch1 = orchestrator.switchToChannel('ch1');
 
             // Attempt second switch while first is in progress
-            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+            expectConsoleWarn(/already in progress/);
             const switch2 = orchestrator.switchToChannel('ch2');
 
             // Second switch should remain pending while first is still in-flight.
             await Promise.resolve();
-            expect(consoleSpy).toHaveBeenCalledWith(
-                expect.stringContaining('already in progress')
-            );
             expect(mockChannelManager.resolveChannelContent).toHaveBeenCalledTimes(1);
             expect(mockScheduler.loadChannel).not.toHaveBeenCalled();
 
@@ -2200,8 +2205,6 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             expect(mockScheduler.loadChannel).toHaveBeenCalledTimes(2);
             expect(mockChannelManager.setCurrentChannel).toHaveBeenNthCalledWith(1, 'ch1');
             expect(mockChannelManager.setCurrentChannel).toHaveBeenNthCalledWith(2, 'ch2');
-
-            consoleSpy.mockRestore();
         });
 
         it('should allow sequential channel switches', async () => {
@@ -2229,30 +2232,25 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('logs the specific missing modules when numeric channel tuning is unavailable', async () => {
-            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const warning = expectConsoleWarn([
+                'switchToChannelByNumber: channel tuning unavailable',
+                expect.objectContaining({
+                    missingModules: expect.arrayContaining([
+                        '_channelTuning',
+                        '_videoPlayer',
+                    ]),
+                }),
+            ]);
 
-            try {
-                Reflect.set(orchestrator as object, '_channelTuning', null);
-                Reflect.set(orchestrator as object, '_videoPlayer', null);
+            Reflect.set(orchestrator as object, '_channelTuning', null);
+            Reflect.set(orchestrator as object, '_videoPlayer', null);
 
-                await expect(orchestrator.switchToChannelByNumber(5)).resolves.toBeUndefined();
+            await expect(orchestrator.switchToChannelByNumber(5)).resolves.toBeUndefined();
 
-                expect(consoleSpy).toHaveBeenCalledWith(
-                    'switchToChannelByNumber: channel tuning unavailable',
-                    expect.objectContaining({
-                        missingModules: expect.arrayContaining([
-                            '_channelTuning',
-                            '_videoPlayer',
-                        ]),
-                    })
-                );
-                const switchByNumberPayload = (consoleSpy.mock.calls.at(-1) ?? [])[1] as {
-                    missingModules: string[];
-                };
-                expect(switchByNumberPayload.missingModules).toHaveLength(2);
-            } finally {
-                consoleSpy.mockRestore();
-            }
+            const switchByNumberPayload = warning.getLastCall()?.[1] as {
+                missingModules: string[];
+            };
+            expect(switchByNumberPayload.missingModules).toHaveLength(2);
         });
 
         it('should find channel by number and switch', async () => {
@@ -2268,6 +2266,15 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('should handle invalid channel number', async () => {
+            expectConsoleWarn([
+                'Global error in switchToChannelByNumber',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        code: AppErrorCode.CHANNEL_NOT_FOUND,
+                        message: 'Channel 999 not found',
+                    }),
+                }),
+            ]);
             mockChannelManager.getChannelByNumber.mockReturnValue(null);
 
             await orchestrator.switchToChannelByNumber(999);
@@ -2660,6 +2667,19 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('should call module-specific handler first', () => {
+            expectConsoleWarn([
+                'Global error in test-context',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        code: AppErrorCode.NETWORK_TIMEOUT,
+                        message: 'test',
+                    }),
+                }),
+            ]);
+            expectConsoleWarn([
+                'Global error handled by module',
+                expect.objectContaining({ moduleId: 'test-module' }),
+            ]);
             const moduleHandler = jest.fn().mockReturnValue(true);
             orchestrator.registerErrorHandler('test-module', moduleHandler);
 
@@ -2671,6 +2691,15 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('should report to lifecycle if handler returns false', () => {
+            expectConsoleWarn([
+                'Global error in test-context',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        code: AppErrorCode.NETWORK_TIMEOUT,
+                        message: 'test',
+                    }),
+                }),
+            ]);
             const moduleHandler = jest.fn().mockReturnValue(false);
             orchestrator.registerErrorHandler('test-module', moduleHandler);
 
@@ -2682,27 +2711,24 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('redacts tokenized message values in global error logs', () => {
-            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-            try {
-                const secret = 'secret-token';
-                const error = {
-                    code: AppErrorCode.NETWORK_TIMEOUT,
-                    message: `http://x?X-Plex-Token=${secret}`,
-                    recoverable: true,
-                };
+            const warning = expectConsoleWarn([
+                expect.stringContaining('Global error in test-context'),
+                expect.any(Object),
+            ]);
+            const secret = 'secret-token';
+            const error = {
+                code: AppErrorCode.NETWORK_TIMEOUT,
+                message: `http://x?X-Plex-Token=${secret}`,
+                recoverable: true,
+            };
 
-                orchestrator.handleGlobalError(error, 'test-context');
+            orchestrator.handleGlobalError(error, 'test-context');
 
-                const globalErrorCall = consoleSpy.mock.calls.find((call) =>
-                    typeof call[0] === 'string' && call[0].includes('Global error in test-context')
-                );
-                expect(globalErrorCall).toBeDefined();
-                const logged = JSON.stringify(globalErrorCall);
-                expect(logged).toContain('REDACTED');
-                expect(logged).not.toContain(secret);
-            } finally {
-                consoleSpy.mockRestore();
-            }
+            const globalErrorCall = warning.getLastCall();
+            expect(globalErrorCall).toBeDefined();
+            const logged = JSON.stringify(globalErrorCall);
+            expect(logged).toContain('REDACTED');
+            expect(logged).not.toContain(secret);
         });
 
         it('keeps recoverable reporter failures inside the reporter collaborator during global error handling', () => {
@@ -2740,6 +2766,24 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('defers reentrant global errors until the active handling pass completes', () => {
+            expectConsoleWarn([
+                'Global error in outer-context',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        code: AppErrorCode.NETWORK_TIMEOUT,
+                        message: 'first error',
+                    }),
+                }),
+            ]);
+            expectConsoleWarn([
+                'Global error in nested-context',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        code: AppErrorCode.UNKNOWN,
+                        message: 'nested error',
+                    }),
+                }),
+            ]);
             const firstError = {
                 code: AppErrorCode.NETWORK_TIMEOUT,
                 message: 'first error',
@@ -2775,6 +2819,24 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('clears the global error reentrancy guard after a handling pass', () => {
+            expectConsoleWarn([
+                'Global error in first-context',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        code: AppErrorCode.NETWORK_TIMEOUT,
+                        message: 'first error',
+                    }),
+                }),
+            ]);
+            expectConsoleWarn([
+                'Global error in second-context',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        code: AppErrorCode.UNKNOWN,
+                        message: 'second error',
+                    }),
+                }),
+            ]);
             const firstError = {
                 code: AppErrorCode.NETWORK_TIMEOUT,
                 message: 'first error',
@@ -2978,7 +3040,17 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('continues teardown and logs aggregated warnings when shutdown steps fail', async () => {
-            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            expectConsoleWarn([
+                'Shutdown teardown failures',
+                expect.objectContaining({
+                    teardownFailures: expect.arrayContaining([
+                        expect.objectContaining({ step: 'lifecycle.shutdown' }),
+                        expect.objectContaining({ step: 'videoPlayer.stop' }),
+                        expect.objectContaining({ step: 'scheduler.pauseSyncTimer' }),
+                        expect.objectContaining({ step: 'epg.destroy' }),
+                    ]),
+                }),
+            ]);
             try {
                 (mockLifecycle.shutdown as jest.Mock).mockRejectedValueOnce(new Error('lifecycle failed'));
                 (mockVideoPlayer.stop as jest.Mock).mockImplementationOnce(() => {
@@ -2994,17 +3066,6 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 await expect(orchestrator.shutdown()).resolves.toBeUndefined();
 
                 expect(mockNavigation.destroy).toHaveBeenCalled();
-                expect(warnSpy).toHaveBeenCalledWith(
-                    'Shutdown teardown failures',
-                    expect.objectContaining({
-                        teardownFailures: expect.arrayContaining([
-                            expect.objectContaining({ step: 'lifecycle.shutdown' }),
-                            expect.objectContaining({ step: 'videoPlayer.stop' }),
-                            expect.objectContaining({ step: 'scheduler.pauseSyncTimer' }),
-                            expect.objectContaining({ step: 'epg.destroy' }),
-                        ]),
-                    })
-                );
             } finally {
                 (mockLifecycle.shutdown as jest.Mock).mockResolvedValue(undefined);
                 (mockVideoPlayer.stop as jest.Mock).mockImplementation(() => undefined);
@@ -3014,36 +3075,39 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('stops the video player during shutdown when active transcode cleanup fails', async () => {
-            const errorSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            expectConsoleWarn([
+                'stopActiveTranscodeSession failed during playback stop',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        name: 'Error',
+                        message: 'transcode cleanup failed',
+                    }),
+                }),
+            ]);
             const stopActiveTranscodeSession = jest.fn(() => {
                 throw new Error('transcode cleanup failed');
             });
 
-            try {
-                Reflect.set(orchestrator as object, '_playbackRuntimeController', {
-                    stopActiveTranscodeSession,
-                });
+            Reflect.set(orchestrator as object, '_playbackRuntimeController', {
+                stopActiveTranscodeSession,
+            });
 
-                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+            await expect(orchestrator.shutdown()).resolves.toBeUndefined();
 
-                expect(stopActiveTranscodeSession).toHaveBeenCalledTimes(1);
-                expect(mockVideoPlayer.stop).toHaveBeenCalledTimes(1);
-                expect(errorSpy).toHaveBeenCalledWith(
-                    'stopActiveTranscodeSession failed during playback stop',
-                    expect.objectContaining({
-                        safeError: expect.objectContaining({
-                            name: 'Error',
-                            message: 'transcode cleanup failed',
-                        }),
-                    })
-                );
-            } finally {
-                errorSpy.mockRestore();
-            }
+            expect(stopActiveTranscodeSession).toHaveBeenCalledTimes(1);
+            expect(mockVideoPlayer.stop).toHaveBeenCalledTimes(1);
         });
 
         it('records channel overlay teardown failures and continues shutdown', async () => {
-            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            expectConsoleWarn([
+                'Shutdown teardown failures',
+                expect.objectContaining({
+                    teardownFailures: expect.arrayContaining([
+                        expect.objectContaining({ step: 'channelNumberOverlay.destroy' }),
+                        expect.objectContaining({ step: 'channelBadgeOverlay.destroy' }),
+                    ]),
+                }),
+            ]);
 
             (mockChannelNumberOverlay.destroy as jest.Mock).mockImplementationOnce(() => {
                 throw new Error('channel number destroy failed');
@@ -3056,85 +3120,72 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 await expect(orchestrator.shutdown()).resolves.toBeUndefined();
 
                 expect(mockNavigation.destroy).toHaveBeenCalled();
-                expect(warnSpy).toHaveBeenCalledWith(
-                    'Shutdown teardown failures',
-                    expect.objectContaining({
-                        teardownFailures: expect.arrayContaining([
-                            expect.objectContaining({ step: 'channelNumberOverlay.destroy' }),
-                            expect.objectContaining({ step: 'channelBadgeOverlay.destroy' }),
-                        ]),
-                    })
-                );
             } finally {
                 (mockChannelNumberOverlay.destroy as jest.Mock).mockImplementation(() => undefined);
                 (mockChannelBadgeOverlay.destroy as jest.Mock).mockImplementation(() => undefined);
-                warnSpy.mockRestore();
             }
         });
 
         it('records event cleanup failures under events.unsubscribe and continues shutdown', async () => {
-            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            expectConsoleWarn([
+                'Shutdown teardown failures',
+                expect.objectContaining({
+                    teardownFailures: expect.arrayContaining([
+                        expect.objectContaining({ step: 'events.unsubscribe' }),
+                    ]),
+                }),
+            ]);
             const pauseDispose = jest.fn(() => {
                 throw new Error('pause cleanup failed');
             });
 
-            try {
-                mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
-                mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
 
-                (mockLifecycle.onPause as jest.Mock).mockImplementationOnce(
-                    (handler: () => void | Promise<void>) => {
-                        pauseHandler = handler;
-                        return { dispose: pauseDispose };
-                    }
-                );
+            (mockLifecycle.onPause as jest.Mock).mockImplementationOnce(
+                (handler: () => void | Promise<void>) => {
+                    pauseHandler = handler;
+                    return { dispose: pauseDispose };
+                }
+            );
 
-                await orchestrator.start();
-                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+            await orchestrator.start();
+            await expect(orchestrator.shutdown()).resolves.toBeUndefined();
 
-                expect(pauseDispose).toHaveBeenCalledTimes(1);
-                expect(mockNavigation.destroy).toHaveBeenCalled();
-                expect(warnSpy).toHaveBeenCalledWith(
-                    'Shutdown teardown failures',
-                    expect.objectContaining({
-                        teardownFailures: expect.arrayContaining([
-                            expect.objectContaining({ step: 'events.unsubscribe' }),
-                        ]),
-                    })
-                );
-            } finally {
-                warnSpy.mockRestore();
-            }
+            expect(pauseDispose).toHaveBeenCalledTimes(1);
+            expect(mockNavigation.destroy).toHaveBeenCalled();
         });
 
         it('records event binder dispose failures and continues shutdown', async () => {
-            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            expectConsoleWarn([
+                'Shutdown teardown failures',
+                expect.objectContaining({
+                    teardownFailures: expect.arrayContaining([
+                        expect.objectContaining({ step: 'events.unsubscribe' }),
+                    ]),
+                }),
+            ]);
             const dispose = jest.fn(() => {
                 throw new Error('event binder dispose failed');
             });
 
             Reflect.set(orchestrator as object, '_eventBinder', { dispose });
 
-            try {
-                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+            await expect(orchestrator.shutdown()).resolves.toBeUndefined();
 
-                expect(dispose).toHaveBeenCalledTimes(1);
-                expect(mockNavigation.destroy).toHaveBeenCalled();
-                expect(warnSpy).toHaveBeenCalledWith(
-                    'Shutdown teardown failures',
-                    expect.objectContaining({
-                        teardownFailures: expect.arrayContaining([
-                            expect.objectContaining({ step: 'events.unsubscribe' }),
-                        ]),
-                    })
-                );
-            } finally {
-                warnSpy.mockRestore();
-            }
+            expect(dispose).toHaveBeenCalledTimes(1);
+            expect(mockNavigation.destroy).toHaveBeenCalled();
         });
 
         it('records schedule day rollover disposal failures and continues shutdown', async () => {
-            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            expectConsoleWarn([
+                'Shutdown teardown failures',
+                expect.objectContaining({
+                    teardownFailures: expect.arrayContaining([
+                        expect.objectContaining({ step: 'scheduleDayRolloverController.dispose' }),
+                    ]),
+                }),
+            ]);
 
             Reflect.set(orchestrator as object, '_scheduleDayRolloverController', {
                 dispose: jest.fn(() => {
@@ -3142,21 +3193,9 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 }),
             });
 
-            try {
-                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+            await expect(orchestrator.shutdown()).resolves.toBeUndefined();
 
-                expect(mockNavigation.destroy).toHaveBeenCalled();
-                expect(warnSpy).toHaveBeenCalledWith(
-                    'Shutdown teardown failures',
-                    expect.objectContaining({
-                        teardownFailures: expect.arrayContaining([
-                            expect.objectContaining({ step: 'scheduleDayRolloverController.dispose' }),
-                        ]),
-                    })
-                );
-            } finally {
-                warnSpy.mockRestore();
-            }
+            expect(mockNavigation.destroy).toHaveBeenCalled();
         });
 
         it('should set ready to false after shutdown', async () => {
