@@ -230,33 +230,55 @@ export class EPGRefreshController {
         await this._refreshEpgSchedulesForRange(range, reason);
     }
 
-    refreshEpgScheduleForLiveChannel(): void {
-        const epg = this._deps.getEpg();
+    private _resolveLiveSchedulerRow(options?: {
+        epgOverride?: IEPGComponent | undefined;
+        requireVisible?: boolean;
+    }): {
+        epg: IEPGComponent;
+        current: SchedulerChannelConfig;
+        range: { startTime: number; endTime: number };
+        schedule: SchedulerScheduleWindow;
+    } | null {
+        const epg = options?.epgOverride ?? this._deps.getEpg();
         const channelManager = this._deps.getChannelManager();
         const scheduler = this._deps.getScheduler();
-        if (!epg || !channelManager || !scheduler) return;
-        if (this._deps.getEpgUiStatus() !== 'ready') return;
-        if (!epg.isVisible()) return;
+        if (!epg || !channelManager || !scheduler) return null;
+        if (this._deps.getEpgUiStatus() !== 'ready') return null;
+        if (options?.requireVisible !== false && !epg.isVisible()) return null;
 
         const range = this._getEpgScheduleRangeMs();
-        if (!range) return;
+        if (!range) return null;
 
         const current = channelManager.getCurrentChannel();
-        if (!current) return;
+        if (!current) return null;
 
         const all = channelManager.getAllChannels();
         const { selectedId, shouldFilter } = this._readAppliedLibraryFilterState(all);
         const visible = selectVisibleChannelsForLibraryFilter(all, selectedId, shouldFilter);
-        if (!visible.some((c) => c.id === current.id)) return;
+        if (!visible.some((channel) => channel.id === current.id)) return null;
 
         const state = scheduler.getState();
         if (!state.isActive || state.channelId !== current.id) {
-            return;
+            return null;
         }
 
+        const window = scheduler.getScheduleWindow(range.startTime, range.endTime);
+        return {
+            epg,
+            current,
+            range,
+            schedule: this._cloneScheduleWindow(window),
+        };
+    }
+
+    refreshEpgScheduleForLiveChannel(): void {
         try {
-            const window = scheduler.getScheduleWindow(range.startTime, range.endTime);
-            const schedule = this._cloneScheduleWindow(window);
+            const liveRow = this._resolveLiveSchedulerRow();
+            if (!liveRow) {
+                return;
+            }
+
+            const { epg, current, range, schedule } = liveRow;
             const now = Date.now();
             const currentProgram =
                 schedule.programs.find((program) => now >= program.scheduledStartTime && now < program.scheduledEndTime) ??
@@ -272,12 +294,6 @@ export class EPGRefreshController {
                 programCount: schedule.programs.length,
             });
             epg.loadScheduleForChannel(current.id, toEpgScheduleWindow(schedule));
-            this._scheduleRefreshRuntime.cacheScheduleForRange(
-                current.id,
-                range.startTime,
-                range.endTime,
-                schedule
-            );
         } catch (error) {
             if (this._isDebugEnabled()) {
                 this._appendDebugLog('EPG.refreshEpgScheduleForLiveChannel.error', {
@@ -288,38 +304,16 @@ export class EPGRefreshController {
     }
 
     preseedCurrentChannelSchedule(epgOverride?: IEPGComponent): void {
-        const epg = epgOverride ?? this._deps.getEpg();
-        const channelManager = this._deps.getChannelManager();
-        const scheduler = this._deps.getScheduler();
-        if (!epg || !channelManager || !scheduler) return;
-        if (this._deps.getEpgUiStatus() !== 'ready') return;
-
-        const range = this._getEpgScheduleRangeMs();
-        if (!range) return;
-
-        const current = channelManager.getCurrentChannel();
-        if (!current) return;
-
-        const all = channelManager.getAllChannels();
-        const { selectedId, shouldFilter } = this._readAppliedLibraryFilterState(all);
-        const visible = selectVisibleChannelsForLibraryFilter(all, selectedId, shouldFilter);
-        if (!visible.some((c) => c.id === current.id)) return;
-
-        const state = scheduler.getState();
-        if (!state.isActive || state.channelId !== current.id) {
-            return;
-        }
-
         try {
-            const window = scheduler.getScheduleWindow(range.startTime, range.endTime);
-            const schedule = this._cloneScheduleWindow(window);
-            epg.loadScheduleForChannel(current.id, toEpgScheduleWindow(schedule));
-            this._scheduleRefreshRuntime.cacheScheduleForRange(
-                current.id,
-                range.startTime,
-                range.endTime,
-                schedule
-            );
+            const liveRow = this._resolveLiveSchedulerRow({
+                epgOverride,
+                requireVisible: false,
+            });
+            if (!liveRow) {
+                return;
+            }
+
+            liveRow.epg.loadScheduleForChannel(liveRow.current.id, toEpgScheduleWindow(liveRow.schedule));
         } catch (error) {
             if (this._isDebugEnabled()) {
                 this._appendDebugLog('EPG.preseedCurrentChannelSchedule.error', {

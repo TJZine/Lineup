@@ -773,6 +773,11 @@ describe('EPGScheduleRefreshRuntime', () => {
                 },
             ],
         };
+        const schedulerState = { isActive: false, channelId: null as string | null };
+        const scheduler = {
+            getState: jest.fn(() => schedulerState),
+            getScheduleWindow: jest.fn(() => liveSchedule),
+        } as unknown as IChannelScheduler;
 
         const { runtime, deps, epg } = createRuntime({
             channelManager: {
@@ -780,15 +785,17 @@ describe('EPGScheduleRefreshRuntime', () => {
                 getChannel: jest.fn((channelId: string) => (channelId === channel.id ? channel : null)),
                 getCurrentChannel: jest.fn(() => channel),
             },
-            getScheduler: () => ({
-                getState: jest.fn(() => ({ isActive: true, channelId: channel.id })),
-                getScheduleWindow: jest.fn(() => liveSchedule),
-            } as unknown as IChannelScheduler),
+            getScheduler: () => scheduler,
         });
 
-        runtime.cacheScheduleForRange(channel.id, 0, 60_000, createScheduleWindow(channel.id));
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
         (deps.appendIssueDiagnostic as jest.Mock).mockClear();
         (epg.loadScheduleForChannel as jest.Mock).mockClear();
+        schedulerState.isActive = true;
+        schedulerState.channelId = channel.id;
 
         await runtime.refreshForRange(
             { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
@@ -805,5 +812,65 @@ describe('EPGScheduleRefreshRuntime', () => {
             })
         );
         expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not let a live-scheduler apply mark the row loaded for a later non-live refresh', async () => {
+        const channel = makeChannel('c1', 1);
+        const liveSchedule: ScheduleWindow = {
+            startTime: 0,
+            endTime: 60_000,
+            programs: [
+                {
+                    ...createScheduleWindow(channel.id).programs[0]!,
+                    item: {
+                        ...makeResolvedItems(channel.id)[0]!,
+                        ratingKey: 'live-program',
+                    },
+                },
+            ],
+        };
+        const schedulerState: { isActive: boolean; channelId: string | null } = { isActive: true, channelId: channel.id };
+        const getScheduleWindow = jest.fn(() => liveSchedule);
+        const resolveChannelContent = jest.fn(async (channelId: string) => createResolvedContent(channelId));
+        const { runtime, deps, epg } = createRuntime({
+            channelManager: {
+                getAllChannels: jest.fn(() => [channel]),
+                getChannel: jest.fn((channelId: string) => (channelId === channel.id ? channel : null)),
+                getCurrentChannel: jest.fn(() => channel),
+                resolveChannelContent,
+            },
+            getScheduler: () => ({
+                getState: jest.fn(() => schedulerState),
+                getScheduleWindow,
+            } as unknown as IChannelScheduler),
+        });
+
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        schedulerState.isActive = false;
+        schedulerState.channelId = null;
+        (deps.appendIssueDiagnostic as jest.Mock).mockClear();
+        (epg.loadScheduleForChannel as jest.Mock).mockClear();
+        resolveChannelContent.mockClear();
+
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        expect(resolveChannelContent).toHaveBeenCalledTimes(1);
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleApplied',
+            expect.objectContaining({
+                channelId: channel.id,
+                source: 'resolved-immediate',
+            })
+        );
+        expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(1);
+        expect(getScheduleWindow).toHaveBeenCalledTimes(1);
     });
 });

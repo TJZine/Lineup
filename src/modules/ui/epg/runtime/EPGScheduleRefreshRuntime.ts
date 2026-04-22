@@ -63,6 +63,7 @@ type SelectedRowSnapshotSeed = {
 };
 
 type RefreshPhase = 'immediate' | 'background';
+type ScheduleCachePolicy = 'persist' | 'skip';
 
 type RefreshMetrics = {
     cacheHits: number;
@@ -297,17 +298,6 @@ export class EPGScheduleRefreshRuntime {
         this.dispose(reason);
     }
 
-    cacheScheduleForRange(
-        channelId: string,
-        startTime: number,
-        endTime: number,
-        schedule: ScheduleWindow
-    ): void {
-        const rangeKey = this._getScheduleRangeKey(startTime, endTime);
-        this._cacheStore.markScheduleLoaded(channelId, rangeKey);
-        this._cacheStore.storeSchedule(channelId, rangeKey, schedule);
-    }
-
     async refreshForRange(range: RangeRefreshRequest, reason: string): Promise<void> {
         const session = this._createRefreshSession(range, reason);
         if (!session) {
@@ -500,7 +490,7 @@ export class EPGScheduleRefreshRuntime {
         channelId: string,
         schedule: ScheduleWindow,
         options?: {
-            updateCache?: boolean;
+            cachePolicy?: ScheduleCachePolicy;
             phase?: RefreshPhase;
             source?: AppliedScheduleSource;
             materializationSeed?: ResolvedChannelContent['items'];
@@ -555,7 +545,7 @@ export class EPGScheduleRefreshRuntime {
             this._syncBackgroundDebugState(session, metrics);
         }
 
-        if (options?.updateCache === false) {
+        if ((options?.cachePolicy ?? 'persist') === 'skip') {
             return;
         }
 
@@ -616,6 +606,7 @@ export class EPGScheduleRefreshRuntime {
                         return;
                     }
                     this._applySchedule(session, metrics, channel.id, liveSchedule, {
+                        cachePolicy: 'skip',
                         phase,
                         source: 'live-scheduler',
                     });
@@ -637,7 +628,7 @@ export class EPGScheduleRefreshRuntime {
                 }
                 if (cached.isStale) {
                     this._applySchedule(session, metrics, channel.id, cachedSchedule, {
-                        updateCache: false,
+                        cachePolicy: 'skip',
                         phase,
                         source: 'schedule-cache-stale',
                     });
