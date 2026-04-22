@@ -14,8 +14,8 @@ This checklist is not complete until an authoritative rerun on the target integr
 
 - Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
-- Current execution state: `P1-W1` through `P7-W1` are complete on authoritative `2026-04-21` evidence; `P7-EXIT` is the active gate and `P8` is not yet a safe start
-- Next safe start: none; finish `P7-EXIT` watchlist ownership before any `P8` work opens
+- Current execution state: `P1-W1` through `P7-EXIT` are complete on authoritative `2026-04-22` evidence; `P8-W1` is now the safe start
+- Next safe start: `P8-W1` / `pkg_shared_hygiene_migration`
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to `P7-W1`
 - First action at package start: planning only; create the package-local execution-grade plan first and do not begin implementation until that planning gate is complete
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
@@ -612,20 +612,20 @@ Every `P#-EXIT` must, in the same pass:
 - Plan: `docs/plans/2026-04-21-p7-w1-epg-runtime-surfaces.md`
 - Last touched: `2026-04-21`
 - Verification: planning evidence via package-map/current-state reads, Codanna symbol/impact checks, package-local `desloppify` scoping, `desloppify show security --status open --no-budget --top 50`, and the plan-review loop were observed on `2026-04-21`; `P7-W1-S1` passed the slice Jest command for 8 suites / 164 tests, the slice `rg` import/naming audit, exact-id reruns for `review::.::holistic::package_organization::epg_view_leaves_in_root`, `review::.::holistic::naming_quality::boolean_accessor_get_is_drift`, `facade::src/modules/ui/epg/index.ts`, and `facade::src/modules/ui/epg/view/index.ts`, plus `npm run verify`, and review returned clean on `43ad7076b3e4ac904a953f9683e05bde76ddd3bd`; `P7-W1-S2` passed its targeted runtime Jest reruns and `npm run verify`, reran the mapped review/facade ids clean, then passed a non-clean review round, a focused regression-test revision on `16b0540cf2dc451b7a16dbf041036d27f4b90e18`, and a fresh final approval gate on top of `6701df83f12e36d7ffdc5c7290e2469210625b9d`; `P7-W1-S3` passed the targeted component/view Jest reruns, exact-id structural reruns, `npm run verify`, and review clean on `eb0861a7`; `P7-W1-S4` passed the targeted test Jest reruns, exact-id reruns for `flat_dirs::src/modules/ui/epg/__tests__`, `signature::src/modules/ui/epg/__tests__/DeferredEpgComponent.test.ts::signature_variance::makeChannel`, `smells::src/modules/ui/epg/__tests__/EPGChannelList.test.ts::hardcoded_color`, and `smells::src/modules/ui/epg/__tests__/EPGComponent.test.ts::non_null_assert`, then passed review clean on `2c8ee23e`
-- Follow-ups: mapped package work is complete, and the earlier ownership-update pass already refreshed companion-map membership so `smells::src/modules/ui/epg/buildEpgStartupConfig.ts::{high_cyclomatic_complexity,nested_closure}`, `test_coverage::src/modules/ui/epg/model/domainTypes.ts::transitive_only`, and `smells::src/modules/ui/epg/runtime/EPGVisibleRangeRefreshQueue.ts::voided_symbol` are canonical `pkg_epg_runtime_surfaces` ids. The `2026-04-22` exact-id reruns still show those four rows live, so this audit revision only clarifies accounting/wording around already-recorded ownership; `P7-EXIT` remains responsible for their open disposition alongside the remaining CSS watchlist rows before any `P8` work opens
-- Handoff: `P7-EXIT`
+- Follow-ups: mapped package work is complete. The earlier ownership-update pass already refreshed companion-map membership for `smells::src/modules/ui/epg/buildEpgStartupConfig.ts::{high_cyclomatic_complexity,nested_closure}`, `test_coverage::src/modules/ui/epg/model/domainTypes.ts::transitive_only`, and `smells::src/modules/ui/epg/runtime/EPGVisibleRangeRefreshQueue.ts::voided_symbol`; the `2026-04-22` closeout pass then retired those current-source surfaces in code/tests and recorded the remaining rerun-open EPG CSS rows as explicit low-value detector residue under `P7-EXIT`
+- Handoff: `P8-W1`
 
-- [ ] `P7-EXIT`
+- [x] `P7-EXIT`
 
   - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P8`
   - required: refresh package-local commands, record mapped review dispositions from `pkg_epg_runtime_surfaces`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
-- Status: blocked
+- Status: completed
 - Plan: `docs/plans/2026-04-21-p7-w1-epg-runtime-surfaces.md`
 - Last touched: `2026-04-22`
-- Verification: final-gate evidence refreshed on `2026-04-21` via `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, `desloppify show security --status open --no-budget --top 50`, `desloppify show src/modules/ui/epg --status open --no-budget --top 180`, `desloppify show src/modules/ui/epg/runtime --status open --no-budget --top 120`, `desloppify show src/modules/ui/epg/view --status open --no-budget --top 120`, and exact-id reruns for all `28` mapped `pkg_epg_runtime_surfaces` issue ids plus the unmapped EPG watchlist ids surfaced at package entry. This ownership-audit revision pass on `2026-04-22` revalidated companion-map accounting against the current `216` unique `includes_issue_ids`, reran the four already-canonical non-style exact ids, and passed `npm run verify:docs`
+- Verification: final-gate evidence was refreshed on `2026-04-21` via `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, `desloppify show security --status open --no-budget --top 50`, `desloppify show src/modules/ui/epg --status open --no-budget --top 180`, `desloppify show src/modules/ui/epg/runtime --status open --no-budget --top 120`, `desloppify show src/modules/ui/epg/view --status open --no-budget --top 120`, and exact-id reruns for all `28` mapped `pkg_epg_runtime_surfaces` issue ids plus the unmapped EPG watchlist ids surfaced at package entry. This closeout pass on `2026-04-22` then passed `npx jest --runInBand src/modules/ui/epg/__tests__/buildEpgStartupConfig.test.ts src/modules/ui/epg/__tests__/EPGVisibleRangeRefreshQueue.test.ts src/modules/ui/epg/__tests__/domainTypes.test.ts`, `npm run verify`, `desloppify scan --skip-slow --no-badge`, refreshed `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, `desloppify show security --status open --no-budget --top 50`, `desloppify show src/modules/ui/epg --status open --no-budget --top 180`, exact-id reruns for the four canonical non-style rows plus the four EPG CSS watchlist rows, and `npm run verify:docs`
 - Entry baseline: historical checklist-backed package entry scope was `28 = 23 older live non-review + 5 fresh review + 0 fresh non-review` with the pre-package snapshot `overall 87.7 / objective 96.6 / strict 87.6 / verified 94.2`, `209` open
-- Exit baseline: `desloppify status` now reports `overall 87.5 / objective 96.0 / strict 87.5 / verified 94.2`, `361` open in-scope, `370` open global, and `9` out-of-scope carried; `desloppify plan queue --sort recent` is empty; `desloppify show review --status open --no-budget --top 100` is clean; `desloppify show security --status open --no-budget --top 50` remains clean
-- Score delta: global `overall -0.2`, `objective -0.6`, `strict -0.1`, and `verified 0.0` versus the historical checklist-backed entry snapshot. The mapped `P7-W1` package itself is closed on current source, and the earlier ownership-update pass already captured the four live non-style EPG watchlist rows as canonical package membership; those exact ids still rerun open and therefore remain part of the blocked `P7-EXIT` surface alongside the remaining EPG CSS watchlist rows
+- Exit baseline: `desloppify status` now reports `overall 87.5 / objective 96.0 / strict 87.4 / verified 94.1`, `365` open in-scope, `374` open global, and `9` out-of-scope carried; `desloppify plan queue --sort recent` is empty; `desloppify show review --status open --no-budget --top 100` is clean; `desloppify show security --status open --no-budget --top 50` remains clean
+- Score delta: global `overall -0.2`, `objective -0.6`, `strict -0.2`, and `verified -0.1` versus the historical checklist-backed entry snapshot. The package-local rerun still reports `13` open EPG rows, but every remaining row now has an explicit current-source or no-action residue disposition, so `P7-EXIT` closes with no unresolved package owner gap and no remaining actionable `P7` implementation target
 - Imported review dispositions: all five mapped review ids reran absent on `2026-04-21` and are treated as `resolved` on current source
   - `review::.::holistic::contract_coherence::epg_cache_queries_hide_cleanup_side_effects`
     - reason: exact-id rerun is clean after the `EPGScheduleCacheStore` read-contract cleanup and follow-up regression coverage
@@ -643,11 +643,19 @@ Every `P#-EXIT` must, in the same pass:
     - reason: exact-id rerun is clean after moving the view-only leaves under `src/modules/ui/epg/view/`
     - revisit trigger: rerun the exact id if root EPG files regain direct view-leaf ownership
 - Detector/survivor summary:
-  - the earlier ownership-update pass already moved the live non-style watchlist residue into canonical `pkg_epg_runtime_surfaces` membership; the `2026-04-22` exact-id reruns still show each row open, so this audit revision changes accounting/wording only and does not close them:
+  - current-source retirements still rerun open after the `2026-04-22` scan, so they are treated as detector-lag residue rather than live `P7` implementation blockers:
     - `smells::src/modules/ui/epg/buildEpgStartupConfig.ts::high_cyclomatic_complexity`
+      - reason: rerun-open anchor `26` now lands on `type EpgCurrentChannelInfo = { ... }`; `buildEPGStartupConfig()` is now a thin composition function with module-level helpers for item-details fetch, thumb resolution, current-channel assembly, and layout-mode callback chaining
+      - revisit trigger: rerun the exact id if startup-config composition regrows into one dense owner or nested callback seam
     - `smells::src/modules/ui/epg/buildEpgStartupConfig.ts::nested_closure`
+      - reason: rerun-open anchor `26` now lands on the same type alias rather than a nested closure owner; the previous callback chaining moved into module helpers without behavior change
+      - revisit trigger: rerun the exact id if layout-mode / callback chaining regains nested closure sprawl on current source
     - `test_coverage::src/modules/ui/epg/model/domainTypes.ts::transitive_only`
+      - reason: `src/modules/ui/epg/__tests__/domainTypes.test.ts` now imports the module directly and pins the runtime export seam plus representative contract types; the rerun-open result no longer matches current-source coverage
+      - revisit trigger: rerun the exact id if direct coverage for `domainTypes.ts` is removed or narrowed back to transitive-only use
     - `smells::src/modules/ui/epg/runtime/EPGVisibleRangeRefreshQueue.ts::voided_symbol`
+      - reason: rerun-open anchor `108` now lands on `resolvePending?.();`; current source contains no `void`-suppressed promise chain after the explicit `async`/`await` `try/catch` rewrite, and the targeted queue tests still pass
+      - revisit trigger: rerun the exact id if immediate/queued refresh orchestration regains a voided promise-suppression path
   - mapped ids now clean on exact reruns:
     - `facade::src/modules/ui/epg/index.ts`
     - `facade::src/modules/ui/epg/runtime/index.ts`
@@ -683,8 +691,15 @@ Every `P#-EXIT` must, in the same pass:
     - `smells::src/modules/ui/epg/styles.css::css_monolith`
       - reason: rerun-open anchor `1` lands on a seven-line import-only aggregator file; current source is only `@import` statements for the split EPG stylesheets and the import-seam role is pinned by `EPGComponent.test.ts`
       - revisit trigger: rerun the exact id if `styles.css` regrows beyond the import-only aggregator seam
-- Follow-ups: the four live non-style watchlist rows were already canonical `pkg_epg_runtime_surfaces` membership from the earlier ownership-update pass, and the `2026-04-22` exact-id reruns still show them open. The remaining `P7-EXIT` watchlist rows still open on current reruns are `smells::src/modules/ui/epg/styles.{cells,grid,shell,theme}.css::css_monolith`. All eight rows remain pending `P7-EXIT` disposition/assessment on current source
-- Handoff: blocked pending `P7-EXIT` disposition for the four canonicalized non-style rows plus assessment/decision for the remaining EPG CSS watchlist rows; `P8-W1` is not a safe start until that is recorded
+  - accepted no-action / low-value CSS detector residue:
+    - `smells::src/modules/ui/epg/styles.cells.css::css_monolith`
+    - `smells::src/modules/ui/epg/styles.grid.css::css_monolith`
+    - `smells::src/modules/ui/epg/styles.shell.css::css_monolith`
+    - `smells::src/modules/ui/epg/styles.theme.css::css_monolith`
+      - reason: these are threshold-only monolith hits on the stable split EPG stylesheet set; recent CSS cleanup already created churn on this surface, no concrete EPG bug cluster points at these files, and further slicing has higher revert risk than value without a narrow seam
+      - revisit trigger: reopen only if a concrete EPG CSS bug cluster or a narrow extraction seam appears on current source
+- Follow-ups: none
+- Handoff: `P8-W1` is now a safe start; if future `desloppify` reruns still report the closed `P7` non-style ids or the accepted EPG CSS monolith rows, treat them as recorded detector residue unless current-source evidence changes
 
 ### [ ] `P8-W1` `pkg_shared_hygiene_migration` Shared Hygiene And Migration Residue
 
