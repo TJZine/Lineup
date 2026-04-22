@@ -3,6 +3,7 @@
  * @module modules/ui/mini-guide/MiniGuideOverlay
  */
 
+import type { BuildStrategy } from '../../scheduler/channel-manager/types';
 import { MINI_GUIDE_CLASSES, MINI_GUIDE_TEXT } from './constants';
 import type { IMiniGuideOverlay } from './interfaces';
 import type { MiniGuideConfig, MiniGuideViewModel } from './types';
@@ -25,7 +26,7 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
     private containerElement: HTMLElement | null = null;
     private isVisibleFlag = false;
     private rows: MiniGuideRowElements[] = [];
-    private processedBrandingStrategyByRow: Array<string | null> = [];
+    private processedBrandingStrategyByRow: Array<BuildStrategy | null> = [];
 
     initialize(config: MiniGuideConfig): void {
         const container = document.getElementById(config.containerId);

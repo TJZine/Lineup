@@ -370,7 +370,7 @@ describe('MiniGuideCoordinator', () => {
         });
         ready.coordinator.show();
         const readyVm = (ready.overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
-        expect((readyVm.channels[2] as { buildStrategy?: string | null }).buildStrategy).toBe('genres');
+        expect(readyVm.channels[2].buildStrategy).toBe('genres');
 
         const loading = setup({
             channels: [
@@ -383,7 +383,7 @@ describe('MiniGuideCoordinator', () => {
         });
         loading.coordinator.show();
         const loadingVm = (loading.overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
-        expect((loadingVm.channels[0] as { buildStrategy?: string | null }).buildStrategy).toBe('collections');
+        expect(loadingVm.channels[0].buildStrategy).toBe('collections');
 
         const unavailableChannel = makeChannel('ch9', 9, 'actors');
         const unavailable = setup({
@@ -393,7 +393,7 @@ describe('MiniGuideCoordinator', () => {
         });
         unavailable.coordinator.show();
         const unavailableVm = (unavailable.overlay.setViewModel as jest.Mock).mock.calls[0]?.[0];
-        expect((unavailableVm.channels[2] as { buildStrategy?: string | null }).buildStrategy).toBe('actors');
+        expect(unavailableVm.channels[2].buildStrategy).toBe('actors');
     });
 
     it('dedupes resolve for duplicate non-current channels', () => {
