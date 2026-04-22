@@ -1,5 +1,3 @@
-/** Application bootstrap wiring. */
-
 import { App } from './App';
 import { LINEUP_EVENT_NAMES } from './config/events';
 import { LINEUP_STORAGE_KEYS } from './config/storageKeys';
@@ -205,13 +203,6 @@ function syncWindowDebugApi(currentApp: App | null): void {
     win.__LINEUP__ = createLineupDebugApi(currentApp);
 }
 
-// ============================================
-// Global Error Handling
-// ============================================
-
-/**
- * Handle uncaught errors.
- */
 function handleGlobalError(event: ErrorEvent): void {
     const raw = event.error ?? event.message;
     logSanitizedError('Uncaught error:', raw);
@@ -219,9 +210,6 @@ function handleGlobalError(event: ErrorEvent): void {
     event.preventDefault();
 }
 
-/**
- * Handle unhandled promise rejections.
- */
 function handleUnhandledRejection(event: PromiseRejectionEvent): void {
     logSanitizedError('Unhandled promise rejection:', event.reason);
     const message = toSafeErrorMessage(event.reason);
@@ -295,12 +283,6 @@ function applyGlobalErrorContentFallbackStyles(content: HTMLElement): void {
     content.style.width = 'min(760px, 92vw)';
 }
 
-// Register global error handlers
-
-// ============================================
-// Application Bootstrap
-// ============================================
-
 function describeElement(el: Element | null): unknown {
     if (!el) return null;
     const element = el as HTMLElement;
@@ -346,9 +328,6 @@ function describeElementRect(
     return { x: rect.x, y: rect.y, w: rect.width, h: rect.height };
 }
 
-/**
- * Initialize the application when DOM is ready.
- */
 async function bootstrap(): Promise<void> {
     logLifecycle('[Lineup] Starting...');
     app = new App();
@@ -357,9 +336,6 @@ async function bootstrap(): Promise<void> {
     logLifecycle('[Lineup] Started successfully');
 }
 
-/**
- * Cleanup when page unloads.
- */
 async function cleanup(): Promise<void> {
     const currentApp = app;
     if (!currentApp) {

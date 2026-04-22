@@ -1,9 +1,3 @@
-/**
- * @fileoverview Interface definitions for Plex Server Discovery module.
- * @module modules/plex/discovery/interfaces
- * @version 1.0.0
- */
-
 import { PlexServer, PlexConnection } from './types';
 import { IDisposable } from '../../../utils/interfaces';
 
@@ -14,14 +8,6 @@ export type PlexServerSelectionResult =
     | { kind: 'server_not_found' }
     | { kind: 'connection_unavailable'; reason: PlexServerSelectionFailureReason };
 
-// ============================================
-// Main Interface
-// ============================================
-
-/**
- * Plex Server Discovery Interface.
- * Manages server discovery, connection testing, and selection.
- */
 export interface IPlexServerDiscovery {
     // Discovery
 
@@ -165,9 +151,6 @@ export interface IPlexServerDiscovery {
     on(event: 'connectionChange', handler: (uri: string | null) => void): IDisposable;
 }
 
-/**
- * Configuration for PlexServerDiscovery constructor.
- */
 export interface PlexServerDiscoveryConfig {
     /**
      * Function to get auth headers for Plex API requests.

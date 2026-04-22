@@ -1,9 +1,3 @@
-/**
- * @fileoverview Core module exports.
- * @module core
- * @version 1.0.0
- */
-
 export { ChannelTuningCoordinator } from './channel-tuning';
 export type { ChannelTuningCoordinatorDeps } from './channel-tuning';
 export { ChannelSetupCoordinator } from './channel-setup';

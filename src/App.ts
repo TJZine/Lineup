@@ -1,5 +1,3 @@
-/** Application shell that creates root containers and initializes the orchestrator. */
-
 import { AppErrorCode } from './modules/lifecycle';
 import type {
     AppShellAuthRuntimePort,
@@ -48,13 +46,6 @@ const NON_BLOCKING_LIFECYCLE_CODES = new Set<AppErrorCode>(
 
 const ERROR_OVERLAY_MODAL_ID = 'modal:error-overlay';
 
-// ============================================
-// App Class
-// ============================================
-
-/**
- * Application shell that creates containers and manages orchestrator.
- */
 export class App {
     private _orchestrator: AppOrchestrator | null = null;
     private readonly _debugOverridesStore = new DebugOverridesStore();
@@ -86,9 +77,6 @@ export class App {
     private _screenUnsubscribe: (() => void) | null = null;
     private _phaseUnsubscribe: (() => void) | null = null;
 
-    /**
-     * Initialize and start the application.
-     */
     async start(): Promise<void> {
         try {
             this._themeController = new AppThemeController();
@@ -128,9 +116,6 @@ export class App {
         }
     }
 
-    /**
-     * Subscribe to lifecycle error events to display overlay.
-     */
     private _subscribeToLifecycleErrors(): void {
         if (!this._orchestrator) return;
 
@@ -178,9 +163,6 @@ export class App {
         return error.userMessage?.trim() || 'Something went wrong.';
     }
 
-    /**
-     * Subscribe to lifecycle warning events to display non-blocking toasts.
-     */
     private _subscribeToLifecycleWarnings(): void {
         if (!this._orchestrator) return;
 
@@ -193,9 +175,6 @@ export class App {
         });
     }
 
-    /**
-     * Shutdown the application.
-     */
     async shutdown(): Promise<void> {
         if (this._screenUnsubscribe) {
             this._screenUnsubscribe();
@@ -224,20 +203,10 @@ export class App {
         }
     }
 
-    /**
-     * Get the orchestrator instance.
-     */
     getOrchestrator(): AppOrchestrator | null {
         return this._orchestrator;
     }
 
-    // ============================================
-    // Private Methods
-    // ============================================
-
-    /**
-     * Create DOM containers for modules that need them.
-     */
     private _createContainers(): AppContainerRefs {
         const root = document.getElementById('app');
         if (!root) {

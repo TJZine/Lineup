@@ -1,13 +1,3 @@
-/**
- * @fileoverview Canonical application error taxonomy and base error shape.
- * @module types/app-errors
- * @version 1.0.0
- */
-
-/**
- * Unified error codes for consistent error handling across the app.
- * Canonical error taxonomy (kept in src for runtime use).
- */
 export enum AppErrorCode {
     // Authentication Errors (1xx)
     AUTH_REQUIRED = 'AUTH_REQUIRED',
@@ -124,16 +114,9 @@ export function getMappedAppErrorCode<TCode extends string>(
     return isAppErrorCode(mapped) ? mapped : null;
 }
 
-/**
- * Base application error structure.
- */
 export interface AppError {
-    /** Error code from canonical taxonomy */
     code: AppErrorCode;
-    /** Technical error message */
     message: string;
-    /** Whether recovery might succeed */
     recoverable: boolean;
-    /** Additional context for debugging */
     context?: Record<string, unknown>;
 }
