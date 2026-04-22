@@ -5,21 +5,45 @@
 We use **Jest** for unit testing.
 
 ```bash
-# Run all tests
+# Run product/runtime tests (default Jest surface)
 npm test
+
+# Run the same product/runtime surface explicitly
+npm run test:unit
+
+# Run tooling/docs Jest suites under src/__tests__/tools
+npm run test:tools
 
 # Run governance suites (contracts/policy/types)
 npm run test:contracts
 
-# Run fast + governance (what `npm run verify` uses)
+# Run every Jest surface
 npm run test:all
 
-# Run tests in watch mode
+# Run product/runtime tests in watch mode
 npm run test:watch
 
-# Generate coverage report
+# Generate product/runtime coverage
 npm run test:coverage
+
+# Report the slowest product/runtime suites
+npm run test:timings
+
+# Report the slowest tooling/docs suites
+npm run test:timings:tools
 ```
+
+`npm test`, `npm run test:unit`, `npm run test:watch`, `npm run test:coverage`, and `npm run test:timings` all answer the product/runtime question only.
+
+`npm run test:tools` owns Jest-based tooling and docs suites in `src/__tests__/tools/**`.
+
+`npm run test:contracts` remains the separate governance surface for contract, policy, and type tests.
+
+`npm run test:all` is the comprehensive Jest aggregate: unit + tools + contracts.
+
+`npm run verify` remains broader than `test:all`: it still includes typecheck, architecture lint, CSS lint, product/runtime coverage, tooling/docs suites, contracts, docs verification, and the production build.
+
+`npm run verify:docs` intentionally overlaps with `npm run test:tools`. It still runs the targeted `src/__tests__/tools/verifyDocs.test.ts` proof through `jest.tools.config.js`, even though `verify` also executes the broader tools surface.
 
 ### What to Test
 
@@ -69,8 +93,8 @@ Avoid refactors when:
 Measure slow suites before/after changes:
 
 ```bash
-npx jest --maxWorkers=50% --json --outputFile=/tmp/jest-results.json
-node docs/qa/scripts/print_slowest_suites.mjs
+npm run test:timings
+npm run test:timings:tools
 ```
 
 ## Anti-Pattern Policy (Frozen Suites)

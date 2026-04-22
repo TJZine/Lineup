@@ -3,12 +3,7 @@ import sharedConfig from './jest.shared.config.js';
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 const config = {
     ...sharedConfig,
-    testMatch: [
-        '**/*.contract.test.ts',
-        '**/*.contracts.test.ts',
-        '**/*.policy.test.ts',
-        '**/types.test.ts',
-    ],
+    testMatch: ['**/__tests__/tools/**/*.test.ts'],
 };
 
 export default config;
