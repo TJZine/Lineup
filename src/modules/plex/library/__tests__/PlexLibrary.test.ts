@@ -1,5 +1,5 @@
 import { AppErrorCode } from '../../../../types/app-errors';
-import { PlexLibrary, PlexLibraryError, PlexLibraryErrorCode } from '../PlexLibrary';
+import { PlexLibrary, PlexLibraryError } from '../PlexLibrary';
 import type { PlexLibraryConfig, PlexTagDirectoryQueryOptions } from '../interfaces';
 import { mockLocalStorage, installMockLocalStorage } from '../../../../__tests__/mocks/localStorage';
 import { PLEX_LIBRARY_CONSTANTS, PLEX_MEDIA_TYPES } from '../constants';
@@ -176,7 +176,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.getLibraries()).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('Invalid library sections payload'),
             });
         });
@@ -186,7 +186,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.getLibraries()).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('Invalid library sections payload'),
             });
         });
@@ -196,7 +196,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.getLibraries()).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('expected a top-level JSON object'),
             });
         });
@@ -206,7 +206,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.getLibraries()).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('expected a top-level JSON object'),
             });
         });
@@ -216,7 +216,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.getLibraries()).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.SERVER_ERROR,
+                code: AppErrorCode.SERVER_ERROR,
                 message: 'Library sections unavailable',
             });
         });
@@ -295,7 +295,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.getLibrary('1')).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.SERVER_ERROR,
+                code: AppErrorCode.SERVER_ERROR,
             });
         });
 
@@ -304,7 +304,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.getLibrary('1')).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('Invalid library sections payload'),
             });
         });
@@ -417,7 +417,7 @@ describe('PlexLibrary', () => {
             // Limit must not be specified so it defaults to pageSize=100 which matches pageItems length
             await expect(library.getLibraryItems('infinite-lib')).rejects.toMatchObject({
                 message: expect.stringContaining('Pagination guard tripped'),
-                code: PlexLibraryErrorCode.PAGINATION_LIMIT_EXCEEDED,
+                code: AppErrorCode.PAGINATION_LIMIT_EXCEEDED,
             });
 
             expect(fetch).toHaveBeenCalledTimes(1000);
@@ -451,7 +451,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.getItem('12345')).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('item lookup'),
             });
         });
@@ -632,7 +632,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary({ ...mockConfig, logger: { warn, error: console.error } });
             await expect(library.getShowEpisodes('infinite-show')).rejects.toMatchObject({
                 message: expect.stringContaining('Pagination guard tripped'),
-                code: PlexLibraryErrorCode.PAGINATION_LIMIT_EXCEEDED,
+                code: AppErrorCode.PAGINATION_LIMIT_EXCEEDED,
             });
 
             expect(fetch).toHaveBeenCalledTimes(1000);
@@ -771,7 +771,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.search('broken')).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('search hub "movie"'),
             });
         });
@@ -810,7 +810,7 @@ describe('PlexLibrary', () => {
             const searchPromise = library.search('null hub');
 
             await expect(searchPromise).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
             });
             await searchPromise.catch((error: unknown) => {
                 expect(error).toBeInstanceOf(PlexLibraryError);
@@ -832,7 +832,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.search('null metadata')).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('Invalid search hub "movie" for query "null metadata"'),
             });
         });
@@ -851,7 +851,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.search('broken metadata')).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('Invalid search hub "movie" for query "broken metadata"'),
             });
         });
@@ -884,7 +884,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.getCollections('1')).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('Empty response body'),
             });
         });
@@ -1093,7 +1093,7 @@ describe('PlexLibrary', () => {
 
             await expect(request).rejects.toBeInstanceOf(PlexLibraryError);
             await expect(request).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.AUTH_EXPIRED,
+                code: AppErrorCode.AUTH_EXPIRED,
             });
         });
 
@@ -1106,7 +1106,7 @@ describe('PlexLibrary', () => {
                 throw new Error('Expected getLibraries() to throw');
             } catch (error) {
                 expect(error).toBeInstanceOf(PlexLibraryError);
-                expect((error as PlexLibraryError).code).toBe(PlexLibraryErrorCode.AUTH_EXPIRED);
+                expect((error as PlexLibraryError).code).toBe(AppErrorCode.AUTH_EXPIRED);
                 expect((error as PlexLibraryError).code).toBe(AppErrorCode.AUTH_EXPIRED);
             }
         });
@@ -1156,7 +1156,7 @@ describe('PlexLibrary', () => {
                 const library = new PlexLibrary(mockConfig);
                 const request = library.getLibraries();
                 const rejection = expect(request).rejects.toMatchObject({
-                    code: PlexLibraryErrorCode.NETWORK_TIMEOUT,
+                    code: AppErrorCode.NETWORK_TIMEOUT,
                 });
                 await jest.runAllTimersAsync();
 
@@ -1204,7 +1204,7 @@ describe('PlexLibrary', () => {
                 await Promise.resolve();
 
                 expect(settled).toHaveBeenCalledWith(
-                    expect.objectContaining({ code: PlexLibraryErrorCode.NETWORK_TIMEOUT })
+                    expect.objectContaining({ code: AppErrorCode.NETWORK_TIMEOUT })
                 );
                 expect(fetchMock).toHaveBeenCalled();
             } finally {
@@ -1262,7 +1262,7 @@ describe('PlexLibrary', () => {
 
             await expect(request).rejects.toBeInstanceOf(PlexLibraryError);
             await expect(request).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.ACCESS_DENIED,
+                code: AppErrorCode.ACCESS_DENIED,
                 httpStatus: 403,
             });
         });

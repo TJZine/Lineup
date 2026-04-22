@@ -1,5 +1,5 @@
+import { AppErrorCode } from '../../../../types/app-errors';
 import { PlexLibraryError } from '../PlexLibraryError';
-import { PlexLibraryErrorCode } from '../types';
 import {
     parseArrayOrEmpty,
     parseRequiredArray,
@@ -29,7 +29,7 @@ describe('parserValidation', () => {
     it('rejects arrays passed to parseRequiredObject with a typed parse error', () => {
         expect(() => parseRequiredObject<string[]>([], 'object')).toThrow(
             expect.objectContaining({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: 'Invalid object payload: expected an object',
             })
         );

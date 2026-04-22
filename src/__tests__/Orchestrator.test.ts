@@ -491,26 +491,6 @@ const mockVideoPlayer = {
 
 jest.mock('../modules/player', () => ({
     VideoPlayer: jest.fn(() => mockVideoPlayer),
-    mapPlayerErrorCodeToAppErrorCode: jest.fn((code) => {
-        switch (code) {
-            case 'NETWORK_TIMEOUT':
-                return AppErrorCode.NETWORK_TIMEOUT;
-            case 'PLAYBACK_DECODE_ERROR':
-                return AppErrorCode.PLAYBACK_DECODE_ERROR;
-            case 'PLAYBACK_FORMAT_UNSUPPORTED':
-                return AppErrorCode.PLAYBACK_FORMAT_UNSUPPORTED;
-            case 'TRACK_NOT_FOUND':
-                return AppErrorCode.TRACK_NOT_FOUND;
-            case 'TRACK_SWITCH_FAILED':
-                return AppErrorCode.TRACK_SWITCH_FAILED;
-            case 'TRACK_SWITCH_TIMEOUT':
-                return AppErrorCode.TRACK_SWITCH_TIMEOUT;
-            case 'CODEC_UNSUPPORTED':
-                return AppErrorCode.CODEC_UNSUPPORTED;
-            default:
-                return AppErrorCode.UNKNOWN;
-        }
-    }),
 }));
 
 // Mock EPGComponent

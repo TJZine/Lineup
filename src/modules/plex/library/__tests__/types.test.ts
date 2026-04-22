@@ -1,11 +1,12 @@
 import { AppErrorCode } from '../../../../types/app-errors';
-import { PlexLibraryErrorCode, mapPlexLibraryErrorCodeToAppErrorCode } from '../types';
+import * as libraryTypes from '../types';
 
-describe('mapPlexLibraryErrorCodeToAppErrorCode', () => {
-    it('maps PAGINATION_LIMIT_EXCEEDED to a dedicated AppErrorCode', () => {
-        expect(
-            mapPlexLibraryErrorCodeToAppErrorCode(PlexLibraryErrorCode.PAGINATION_LIMIT_EXCEEDED)
-        ).toBe(AppErrorCode.PAGINATION_LIMIT_EXCEEDED);
+describe('plex library types', () => {
+    it('does not re-export a shadow error taxonomy', () => {
+        const removedMapperKey = ['mapPlexLibrary', 'ErrorCodeToAppErrorCode'].join('');
+
+        expect('PlexLibraryErrorCode' in libraryTypes).toBe(false);
+        expect(removedMapperKey in libraryTypes).toBe(false);
+        expect(AppErrorCode.PARSE_ERROR).toBe('PARSE_ERROR');
     });
 });
-

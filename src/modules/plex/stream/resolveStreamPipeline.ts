@@ -1,3 +1,4 @@
+import { AppErrorCode } from '../../../types/app-errors';
 import type { StreamResolverError } from './interfaces';
 import {
     getDirectPlayDecision,
@@ -12,10 +13,10 @@ import type {
     HlsOptions,
     PlexMediaItem,
     PlexStream,
-    PlexStreamErrorCode,
     StreamDecision,
     StreamRequest,
 } from './types';
+import { PlexStreamErrorCode } from './types';
 
 type CreateResolverError = (
     code: PlexStreamErrorCode,
@@ -74,7 +75,7 @@ export function resolveStreamPipeline({
 }: ResolveStreamPipelineArgs): ResolveStreamPipelineResult {
     if (request.subtitleMode === 'burn' && !request.subtitleStreamId) {
         throw createError(
-            'SUBTITLE_STREAM_NOT_FOUND' as PlexStreamErrorCode,
+            PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND,
             'Subtitle stream id is required for burn-in',
             true,
             undefined,
@@ -88,7 +89,7 @@ export function resolveStreamPipeline({
 
     if (request.subtitleStreamId && !selectedMedia) {
         throw createError(
-            'SUBTITLE_STREAM_NOT_FOUND' as PlexStreamErrorCode,
+            PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND,
             `Subtitle stream not found: ${request.subtitleStreamId}`,
             true,
             undefined,
@@ -97,7 +98,7 @@ export function resolveStreamPipeline({
     }
     if (!selectedMedia) {
         throw createError(
-            'PLAYBACK_FORMAT_UNSUPPORTED' as PlexStreamErrorCode,
+            AppErrorCode.PLAYBACK_FORMAT_UNSUPPORTED,
             'No compatible media version found',
             false
         );
@@ -107,7 +108,7 @@ export function resolveStreamPipeline({
     const part = media.parts[partIndex];
     if (!part) {
         throw createError(
-            'PLAYBACK_SOURCE_NOT_FOUND' as PlexStreamErrorCode,
+            AppErrorCode.PLAYBACK_SOURCE_NOT_FOUND,
             'No media parts available',
             false
         );
@@ -122,7 +123,7 @@ export function resolveStreamPipeline({
 
     if (request.subtitleMode === 'burn' && request.subtitleStreamId && !subtitleStream) {
         throw createError(
-            'SUBTITLE_STREAM_NOT_FOUND' as PlexStreamErrorCode,
+            PlexStreamErrorCode.SUBTITLE_STREAM_NOT_FOUND,
             `Subtitle stream not found for burn-in: ${request.subtitleStreamId}`,
             true,
             undefined,

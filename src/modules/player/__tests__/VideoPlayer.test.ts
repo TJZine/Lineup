@@ -4,8 +4,8 @@
  * @jest-environment jsdom
  */
 
+import { AppErrorCode } from '../../../types/app-errors';
 import { VideoPlayer } from '../VideoPlayer';
-import { PlayerErrorCode } from '../types';
 import type { VideoPlayerConfig, StreamDescriptor } from '../types';
 import type { PlatformPlaybackService, PlatformSubtitleService } from '../../../platform';
 import { APP_SHELL_CONTAINER_IDS } from '../../ui/common/appShellContainerIds';
@@ -543,7 +543,7 @@ describe('VideoPlayer', () => {
             const player = new VideoPlayer();
 
             await expect(player.setAudioTrack('track-1')).rejects.toMatchObject({
-                code: PlayerErrorCode.TRACK_NOT_FOUND,
+                code: AppErrorCode.TRACK_NOT_FOUND,
                 message: expect.stringContaining('not initialized'),
             });
         });
@@ -553,7 +553,7 @@ describe('VideoPlayer', () => {
             await player.initialize(createMockConfig());
 
             await expect(player.setAudioTrack('missing-track')).rejects.toMatchObject({
-                code: PlayerErrorCode.TRACK_NOT_FOUND,
+                code: AppErrorCode.TRACK_NOT_FOUND,
                 message: expect.stringContaining('missing-track'),
             });
 
@@ -561,9 +561,9 @@ describe('VideoPlayer', () => {
         });
 
         it.each([
-            PlayerErrorCode.CODEC_UNSUPPORTED,
-            PlayerErrorCode.TRACK_SWITCH_TIMEOUT,
-            PlayerErrorCode.TRACK_SWITCH_FAILED,
+            AppErrorCode.CODEC_UNSUPPORTED,
+            AppErrorCode.TRACK_SWITCH_TIMEOUT,
+            AppErrorCode.TRACK_SWITCH_FAILED,
         ])('preserves delegated %s playback errors', async (code) => {
             const player = new VideoPlayer();
             await player.initialize(createMockConfig());
@@ -869,7 +869,7 @@ describe('VideoPlayer', () => {
 
             expect(errorHandler).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    code: PlayerErrorCode.PLAYBACK_DECODE_ERROR,
+                    code: AppErrorCode.PLAYBACK_DECODE_ERROR,
                     recoverable: false,
                 })
             );
@@ -909,7 +909,7 @@ describe('VideoPlayer', () => {
 
             expect(errorHandler).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    code: PlayerErrorCode.NETWORK_TIMEOUT,
+                    code: AppErrorCode.NETWORK_TIMEOUT,
                     recoverable: false,
                     retryCount: 3,
                 })

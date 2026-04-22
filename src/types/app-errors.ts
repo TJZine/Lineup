@@ -98,22 +98,6 @@ export function getAppErrorCode(
     return null;
 }
 
-export function getMappedAppErrorCode<TCode extends string>(
-    value: unknown,
-    mapString: (candidate: TCode) => unknown
-): AppErrorCode | null {
-    if (isAppErrorCode(value)) {
-        return value;
-    }
-
-    if (typeof value !== 'string') {
-        return null;
-    }
-
-    const mapped = mapString(value as TCode);
-    return isAppErrorCode(mapped) ? mapped : null;
-}
-
 export interface AppError {
     code: AppErrorCode;
     message: string;

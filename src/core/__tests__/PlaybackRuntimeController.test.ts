@@ -1,7 +1,6 @@
 import { AppErrorCode } from '../../types/app-errors';
 import { createDeferred } from '../../__tests__/helpers';
 import {
-    PlayerErrorCode,
     type PlaybackError,
     type PlaybackState,
     type TimeRange,
@@ -100,7 +99,7 @@ describe('PlaybackRuntimeController', () => {
 
     it('routes recoverable player errors through handleGlobalError and skips playback failure handling', () => {
         const error: PlaybackError = {
-            code: PlayerErrorCode.NETWORK_TIMEOUT,
+            code: AppErrorCode.NETWORK_TIMEOUT,
             message: 'recoverable',
             recoverable: true,
             retryCount: 0,
@@ -123,7 +122,7 @@ describe('PlaybackRuntimeController', () => {
 
     it('routes non-recoverable player errors through handlePlaybackFailure', () => {
         const error: PlaybackError = {
-            code: PlayerErrorCode.PLAYBACK_DECODE_ERROR,
+            code: AppErrorCode.PLAYBACK_DECODE_ERROR,
             message: 'fatal',
             recoverable: false,
             retryCount: 0,

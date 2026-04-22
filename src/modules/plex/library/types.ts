@@ -4,7 +4,6 @@
  * @version 1.0.0
  */
 
-import { AppErrorCode } from '../../../types/app-errors';
 import type { PlexMediaFile, PlexMediaType } from '../shared/types';
 
 // ============================================
@@ -144,31 +143,6 @@ export interface SearchOptions {
     types?: PlexMediaType[];
     libraryId?: string;
     limit?: number;
-}
-
-/**
- * Unified error codes
- */
-export const PlexLibraryErrorCode = {
-    AUTH_REQUIRED: AppErrorCode.AUTH_REQUIRED,
-    AUTH_EXPIRED: AppErrorCode.AUTH_EXPIRED,
-    AUTH_INVALID: AppErrorCode.AUTH_INVALID,
-    ACCESS_DENIED: AppErrorCode.ACCESS_DENIED,
-    NETWORK_TIMEOUT: AppErrorCode.NETWORK_TIMEOUT,
-    SERVER_UNREACHABLE: AppErrorCode.SERVER_UNREACHABLE,
-    SERVER_ERROR: AppErrorCode.SERVER_ERROR,
-    ITEM_NOT_FOUND: AppErrorCode.ITEM_NOT_FOUND,
-    RATE_LIMITED: AppErrorCode.RATE_LIMITED,
-    PARSE_ERROR: AppErrorCode.PARSE_ERROR,
-    PAGINATION_LIMIT_EXCEEDED: AppErrorCode.PAGINATION_LIMIT_EXCEEDED,
-} as const;
-
-export type PlexLibraryErrorCode = typeof PlexLibraryErrorCode[keyof typeof PlexLibraryErrorCode];
-
-export function mapPlexLibraryErrorCodeToAppErrorCode(
-    code: PlexLibraryErrorCode
-): AppErrorCode {
-    return code;
 }
 
 // ============================================

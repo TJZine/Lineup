@@ -1,30 +1,14 @@
 import { AppErrorCode } from '../../types/app-errors';
-export const PlayerErrorCode = {
-    NETWORK_TIMEOUT: AppErrorCode.NETWORK_TIMEOUT,
-    PLAYBACK_DECODE_ERROR: AppErrorCode.PLAYBACK_DECODE_ERROR,
-    PLAYBACK_FORMAT_UNSUPPORTED: AppErrorCode.PLAYBACK_FORMAT_UNSUPPORTED,
-    TRACK_NOT_FOUND: AppErrorCode.TRACK_NOT_FOUND,
-    TRACK_SWITCH_FAILED: AppErrorCode.TRACK_SWITCH_FAILED,
-    TRACK_SWITCH_TIMEOUT: AppErrorCode.TRACK_SWITCH_TIMEOUT,
-    CODEC_UNSUPPORTED: AppErrorCode.CODEC_UNSUPPORTED,
-    UNKNOWN: AppErrorCode.UNKNOWN,
-} as const;
-
-export type PlayerErrorCode = typeof PlayerErrorCode[keyof typeof PlayerErrorCode];
 
 interface PlayerError {
-    /** Player-module error code (maps to AppErrorCode via mapPlayerErrorCodeToAppErrorCode) */
-    code: PlayerErrorCode;
+    /** Canonical playback error code. */
+    code: AppErrorCode;
     /** Technical error message */
     message: string;
     /** Whether recovery might succeed */
     recoverable: boolean;
     /** Additional context for debugging */
     context?: Record<string, unknown>;
-}
-
-export function mapPlayerErrorCodeToAppErrorCode(code: PlayerErrorCode): AppErrorCode {
-    return code;
 }
 
 export interface VideoPlayerConfig {

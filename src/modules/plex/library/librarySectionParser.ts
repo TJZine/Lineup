@@ -1,6 +1,6 @@
+import { AppErrorCode } from '../../../types/app-errors';
 import { PlexLibraryError } from './PlexLibraryError';
 import { parseRequiredObject } from './parserValidation';
-import { PlexLibraryErrorCode } from './types';
 import type { PlexLibrarySection, PlexLibrarySectionType, RawLibrarySection } from './types';
 
 export function parseLibrarySections(directories: RawLibrarySection[]): PlexLibrarySection[] {
@@ -51,7 +51,7 @@ function parseRequiredLibrarySectionString(value: unknown, field: string): strin
     }
 
     throw new PlexLibraryError(
-        PlexLibraryErrorCode.PARSE_ERROR,
+        AppErrorCode.PARSE_ERROR,
         `Invalid library section payload: ${field} is required`
     );
 }
@@ -68,7 +68,7 @@ export function mapLibraryType(type: string): PlexLibrarySectionType {
             return 'photo';
         default:
             throw new PlexLibraryError(
-                PlexLibraryErrorCode.PARSE_ERROR,
+                AppErrorCode.PARSE_ERROR,
                 `Invalid library section payload: unknown library type "${type}"`
             );
     }
