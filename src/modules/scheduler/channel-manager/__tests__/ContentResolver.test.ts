@@ -17,6 +17,7 @@ import type {
 } from '../types';
 import { PLEX_MEDIA_TYPES } from '../../../plex/library/constants';
 import type { PlexMediaFile, PlexStream } from '../../../plex/library';
+import { expectConsoleWarn } from '../../../../__tests__/helpers';
 import { shuffleWithSeed } from '../../shared/prng';
 
 // ============================================
@@ -947,6 +948,10 @@ describe('ContentResolver', () => {
             const episodes = [createMockEpisode(1, 1, { ratingKey: 'ep1', grandparentRatingKey: 'show1' })];
             const shows = [createMockItem({ ratingKey: 'show1', type: 'show', genres: ['Drama'] })];
             let showCallCount = 0;
+            expectConsoleWarn([
+                'Show list fetch failed, using cached show list',
+                expect.any(Error),
+            ]);
             mockLibrary.getLibraryItems.mockImplementation((_, options) => {
                 if (options?.filter?.type === PLEX_MEDIA_TYPES.EPISODE) {
                     return Promise.resolve(episodes);

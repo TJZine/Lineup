@@ -11,8 +11,8 @@ This is not a generic "make tests prettier" list. If an item does not clearly re
 ## Fresh-Session Handoff
 
 - Last audit refresh: `2026-04-22`
-- Current execution state: `T1` closed on `2026-04-22` after current-workspace exit verification; `T2` is the next open priority
-- Next safe start: `T2-W1` + `T2-W2`
+- Current execution state: `T1` closed on `2026-04-22`; `T2-W1` + `T2-W2` closed on `2026-04-22` after current-workspace exit verification
+- Next safe start: `T2-EXIT`
 - Authoritative evidence rule: update status only from commands rerun in the target workspace or integration branch
 - Discovery note: Codanna was not available in this session; repo discovery fell back to `rg`, direct file inspection, and executable commands
 - Explicit user decision: do not add a coverage threshold
@@ -412,14 +412,14 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 **Default plan shape:** one grouped plan covering `T2-W1` + `T2-W2`
 
-### [ ] `T2-W1` Add A Failing Default For Unexpected Warn/Error Output
+### [x] `T2-W1` Add A Failing Default For Unexpected Warn/Error Output
 
-- Status: `blocked`
+- Status: `completed`
 - Plan: `docs/plans/2026-04-22-t2-w1-w2-console-output-policy.md`
 - Last touched: `2026-04-22`
-- Verification: `npm run test:unit -- --runInBand src/__tests__/helpers.test.ts` passed; `LINEUP_TEST_CONSOLE=1 npm run test:unit -- --runInBand src/__tests__/helpers.test.ts --testNamePattern "LINEUP_TEST_CONSOLE"` passed; `npm run test:unit -- --runInBand src/utils/__tests__/EventEmitter.test.ts src/modules/ui/now-playing-info/__tests__/NowPlayingInfoCoordinator.test.ts src/modules/player/__tests__/PlaybackReloadController.test.ts` passed; `npm run test:unit -- --runInBand src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts src/__tests__/Orchestrator.test.ts` passed; `npm run test:tools` passed; `npm run test:contracts` passed; `npm run test:unit` failed because the new shared guard surfaced additional expected warn/error owners outside the approved batch (`src/modules/plex/library/__tests__/PlexLibrary.test.ts`, `src/modules/lifecycle/__tests__/AppLifecycle.test.ts`, `src/modules/scheduler/channel-manager/__tests__/ContentResolver.test.ts`, `src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts`, `src/modules/player/__tests__/PlaybackRecoveryManager.test.ts`, `src/__tests__/bootstrap.test.ts`, `src/__tests__/orchestrator/playback-flow.test.ts`, `src/modules/player/__tests__/VideoPlayer.test.ts`, `src/core/orchestrator/__tests__/OrchestratorRecoverableRuntimeReporter.test.ts`); `npm run verify` failed in `npm run test:coverage` for the same out-of-scope warn/error owners after `npm run typecheck`, `npm run verify:architecture`, and `npm run lint:css` passed.
-- Follow-ups: `cleanup-plan`, trigger = replan Priority 2 around the newly exposed suite owners before the shared guard can be considered repo-wide complete.
-- Handoff: replan `T2-W1`/`T2-W2` as a wider migration wave or staged rollout before retrying checklist closeout.
+- Verification: `npm run test:unit -- --runInBand src/__tests__/helpers.test.ts` passed; `npm run test:unit -- --runInBand src/__tests__/orchestrator/playback-flow.test.ts src/core/orchestrator/__tests__/OrchestratorRecoverableRuntimeReporter.test.ts src/modules/lifecycle/__tests__/AppLifecycle.test.ts src/__tests__/bootstrap.test.ts` passed; `npm run test:unit -- --runInBand src/modules/plex/library/__tests__/PlexLibrary.test.ts src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts` passed; `npm run test:unit -- --runInBand src/modules/player/__tests__/PlaybackRecoveryManager.test.ts src/modules/player/__tests__/VideoPlayer.test.ts src/modules/scheduler/channel-manager/__tests__/ContentResolver.test.ts` passed; `npm run test:unit` passed (`254` suites, `3,248` tests, `1` skipped); `npm run verify` passed through typecheck, architecture lint, CSS lint, product coverage, tools, contracts, docs verification, and build.
+- Follow-ups: `cleanup-review`, trigger = confirm the second-wave expected-log migration and decide whether `T2-EXIT` can close.
+- Handoff: review `docs/plans/2026-04-22-t2-w1-w2-console-output-policy.md` execution unit `T2-W1W2-B2`, then decide `T2-EXIT`.
 
 **Goal:** stop normalizing pages of expected warnings/errors in passing runs.
 
@@ -449,14 +449,14 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 - representative noisy suites pass under the new policy
 - `npm run test:unit`
 
-### [ ] `T2-W2` Migrate The Noisiest Expected-Log Suites First
+### [x] `T2-W2` Migrate The Noisiest Expected-Log Suites First
 
-- Status: `blocked`
+- Status: `completed`
 - Plan: `docs/plans/2026-04-22-t2-w1-w2-console-output-policy.md`
 - Last touched: `2026-04-22`
-- Verification: the approved migration wave landed in `src/__tests__/Orchestrator.test.ts`, `src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts`, `src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts`, `src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts`, `src/modules/player/__tests__/PlaybackReloadController.test.ts`, `src/modules/ui/now-playing-info/__tests__/NowPlayingInfoCoordinator.test.ts`, and `src/utils/__tests__/EventEmitter.test.ts`; both representative `test:unit` commands plus `test:tools` and `test:contracts` passed; `npm run test:unit` and `npm run verify` still failed because the new default guard exposed additional out-of-scope suites that were not part of the approved wave.
-- Follow-ups: `cleanup-plan`, trigger = approve the next Priority 2 migration slice for the newly exposed suites before widening this helper rollout.
-- Handoff: keep `T2-W2` grouped with `T2-W1`, but replan the next batch instead of widening ad hoc beyond the approved suite list.
+- Verification: the approved second-wave migrations landed in `src/modules/plex/library/__tests__/PlexLibrary.test.ts`, `src/modules/lifecycle/__tests__/AppLifecycle.test.ts`, `src/modules/scheduler/channel-manager/__tests__/ContentResolver.test.ts`, `src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts`, `src/modules/player/__tests__/PlaybackRecoveryManager.test.ts`, `src/__tests__/bootstrap.test.ts`, `src/__tests__/orchestrator/playback-flow.test.ts`, `src/modules/player/__tests__/VideoPlayer.test.ts`, and `src/core/orchestrator/__tests__/OrchestratorRecoverableRuntimeReporter.test.ts`; `npm run test:unit -- --runInBand src/__tests__/helpers.test.ts` passed; all three approved suite-batch commands passed; `npm run test:unit` passed (`254` suites, `3,248` tests, `1` skipped); `npm run verify` passed through typecheck, architecture lint, CSS lint, product coverage, tools, contracts, docs verification, and build.
+- Follow-ups: `cleanup-review`, trigger = confirm the nine-suite migration is review-clean before opening `T2-EXIT`.
+- Handoff: send `T2-W1W2-B2` to `cleanup-review`, then use that review outcome to decide `T2-EXIT`.
 
 **Goal:** replace scattered ad hoc console spies with one house style.
 

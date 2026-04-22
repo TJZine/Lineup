@@ -5,7 +5,7 @@
  */
 
 import { AppErrorCode } from '../../../types/app-errors';
-import { flushPromises } from '../../../__tests__/helpers';
+import { expectConsoleError, expectConsoleWarn, flushPromises } from '../../../__tests__/helpers';
 import { VideoPlayer } from '../VideoPlayer';
 import { SubtitleManager } from '../SubtitleManager';
 import { AudioTrackManager } from '../AudioTrackManager';
@@ -1227,7 +1227,10 @@ describe('VideoPlayer', () => {
             });
 
             it('logs a warning when Media Session seek handlers reject', async () => {
-                const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+                expectConsoleWarn([
+                    'video_player_media_session_action_failed',
+                    expect.objectContaining({ action: 'seekto' }),
+                ]);
                 await player.loadStream(createMockDescriptor());
                 player.requestMediaSession();
 
@@ -1240,15 +1243,17 @@ describe('VideoPlayer', () => {
 
                 seektoHandler({ seekTime: 12 });
                 await Promise.resolve();
-
-                expect(warnSpy).toHaveBeenCalledWith(
-                    'video_player_media_session_action_failed',
-                    expect.objectContaining({ action: 'seekto' })
-                );
             });
 
             it('logs a warning when the Media Session play handler rejects', async () => {
-                const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+                expectConsoleError([
+                    'video_player_play_failed',
+                    expect.objectContaining({ message: 'play failed' }),
+                ]);
+                expectConsoleWarn([
+                    'video_player_media_session_action_failed',
+                    expect.objectContaining({ action: 'play' }),
+                ]);
                 await player.loadStream(createMockDescriptor());
 
                 const videoElement = container.querySelector('video')!;
@@ -1264,11 +1269,6 @@ describe('VideoPlayer', () => {
                 playHandler({});
                 await Promise.resolve();
                 await Promise.resolve();
-
-                expect(warnSpy).toHaveBeenCalledWith(
-                    'video_player_media_session_action_failed',
-                    expect.objectContaining({ action: 'play' })
-                );
             });
 
             it('should clear handlers and metadata on releaseMediaSession', async () => {

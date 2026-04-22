@@ -11,7 +11,7 @@ import { NETWORK_CHECK_PROBE_URL } from '../constants';
 import { AppErrorCode, PersistentState } from '../types';
 import type { IAppLifecycle } from '../interfaces';
 import type { PlatformLifecycleService } from '../../../platform';
-import { flushPromisesAndTimers } from '../../../__tests__/helpers';
+import { expectConsoleWarn, flushPromisesAndTimers } from '../../../__tests__/helpers';
 
 describe('AppLifecycle', () => {
     let lifecycle: AppLifecycle;
@@ -616,6 +616,7 @@ describe('AppLifecycle', () => {
             // Follow valid transition path: authenticating -> loading_data
             lifecycle.setPhase('loading_data');
             await flushPromisesAndTimers();
+            expectConsoleWarn('Invalid phase transition');
 
             const handler = jest.fn();
             lifecycle.on('phaseChange', handler);
@@ -651,7 +652,7 @@ describe('AppLifecycle', () => {
             // Should be in 'authenticating' phase
             expect(lifecycle.getPhase()).toBe('authenticating');
 
-            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+            expectConsoleWarn('Invalid phase transition');
 
             // Try to jump directly to 'ready' (invalid: should go through loading_data)
             lifecycle.setPhase('ready');
@@ -659,11 +660,6 @@ describe('AppLifecycle', () => {
 
             // Phase should NOT have changed
             expect(lifecycle.getPhase()).toBe('authenticating');
-            expect(consoleWarnSpy).toHaveBeenCalledWith(
-                expect.stringContaining('Invalid phase transition')
-            );
-
-            consoleWarnSpy.mockRestore();
         });
 
         it('should reject invalid phase transition from ready to authenticating', async () => {
@@ -676,7 +672,7 @@ describe('AppLifecycle', () => {
 
             expect(lifecycle.getPhase()).toBe('ready');
 
-            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+            expectConsoleWarn('Invalid phase transition');
 
             // Try to go back to 'authenticating' (invalid transition)
             lifecycle.setPhase('authenticating');
@@ -684,11 +680,6 @@ describe('AppLifecycle', () => {
 
             // Phase should NOT have changed
             expect(lifecycle.getPhase()).toBe('ready');
-            expect(consoleWarnSpy).toHaveBeenCalledWith(
-                expect.stringContaining('Invalid phase transition')
-            );
-
-            consoleWarnSpy.mockRestore();
         });
 
         it('should reject transition from loading_data to authenticating', async () => {
@@ -698,16 +689,13 @@ describe('AppLifecycle', () => {
 
             expect(lifecycle.getPhase()).toBe('loading_data');
 
-            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+            expectConsoleWarn('Invalid phase transition');
 
             // Try invalid backward transition
             lifecycle.setPhase('authenticating');
             await Promise.resolve();
 
             expect(lifecycle.getPhase()).toBe('loading_data');
-            expect(consoleWarnSpy).toHaveBeenCalled();
-
-            consoleWarnSpy.mockRestore();
         });
     });
 });

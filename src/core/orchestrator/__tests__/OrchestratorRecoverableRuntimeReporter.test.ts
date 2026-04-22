@@ -4,6 +4,7 @@ import {
     safelyReportCleanupFailures,
 } from '../OrchestratorRecoverableRuntimeReporter';
 import type { OrchestratorEventCleanupFailure } from '../OrchestratorEventCleanupReporter';
+import { expectConsoleWarn } from '../../../__tests__/helpers';
 
 describe('OrchestratorRecoverableRuntimeReporter', () => {
     it('routes appendIssueDiagnostic failures through the optional runtime warning sink', () => {
@@ -35,6 +36,13 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
         const warn = jest.fn(() => {
             throw new Error('warn failed');
         });
+        expectConsoleWarn([
+            '[RecoverableRuntimeWarning] injected warn failed:',
+            expect.objectContaining({
+                warning: { message: 'Recoverable failure', data: { detail: 'x' } },
+                error: { name: 'Error', message: 'warn failed' },
+            }),
+        ]);
         const reporter = createRecoverableRuntimeIssueReporter({
             issueId: 'qa-1',
             appendIssueDiagnostic,
