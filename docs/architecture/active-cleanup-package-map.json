@@ -10,10 +10,10 @@
     "assignment_rule": "Each package owns one checklist work item and one matching priority-exit token, keyed by recommended_execution_order."
   },
   "verified_counts": {
-    "total_open": 209,
-    "older_live_non_review": 158,
+    "total_open": 216,
+    "older_live_non_review": 161,
     "fresh_review": 41,
-    "fresh_non_review": 10
+    "fresh_non_review": 14
   },
   "validation": {
     "every_open_issue_assigned_once": true,
@@ -22,8 +22,8 @@
     "no_reconciled_closed_issue_included": true
   },
   "validation_details": {
-    "total_open_issues": 209,
-    "assigned_open_issues": 209,
+    "total_open_issues": 216,
+    "assigned_open_issues": 216,
     "unassigned_issue_ids": [],
     "duplicate_assignments": [],
     "closed_audit_ids_included": []

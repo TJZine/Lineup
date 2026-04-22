@@ -598,9 +598,10 @@ Every `P#-EXIT` must, in the same pass:
 
 ### [x] `P7-W1` `pkg_epg_runtime_surfaces` EPG Runtime And Package Surfaces
 
-- Backlog: `28 = 23 older live non-review + 5 fresh review + 0 fresh non-review`
+- Backlog at package entry: `28 = 23 older live non-review + 5 fresh review + 0 fresh non-review`
 - Scope: retire the remaining EPG runtime, view-package, naming, and test hotspot residue under one EPG-owned package
 - Exact membership: `docs/architecture/active-cleanup-package-map.json` -> `pkg_epg_runtime_surfaces`
+- Current canonical membership after the same-pass companion-map refresh: `32 = 23 older live non-review + 5 fresh review + 4 fresh non-review`
 - Package-local scoping commands:
   - `desloppify show src/modules/ui/epg --status open --no-budget --top 180`
   - `desloppify show src/modules/ui/epg/runtime --status open --no-budget --top 120`
@@ -611,7 +612,7 @@ Every `P#-EXIT` must, in the same pass:
 - Plan: `docs/plans/2026-04-21-p7-w1-epg-runtime-surfaces.md`
 - Last touched: `2026-04-21`
 - Verification: planning evidence via package-map/current-state reads, Codanna symbol/impact checks, package-local `desloppify` scoping, `desloppify show security --status open --no-budget --top 50`, and the plan-review loop were observed on `2026-04-21`; `P7-W1-S1` passed the slice Jest command for 8 suites / 164 tests, the slice `rg` import/naming audit, exact-id reruns for `review::.::holistic::package_organization::epg_view_leaves_in_root`, `review::.::holistic::naming_quality::boolean_accessor_get_is_drift`, `facade::src/modules/ui/epg/index.ts`, and `facade::src/modules/ui/epg/view/index.ts`, plus `npm run verify`, and review returned clean on `43ad7076b3e4ac904a953f9683e05bde76ddd3bd`; `P7-W1-S2` passed its targeted runtime Jest reruns and `npm run verify`, reran the mapped review/facade ids clean, then passed a non-clean review round, a focused regression-test revision on `16b0540cf2dc451b7a16dbf041036d27f4b90e18`, and a fresh final approval gate on top of `6701df83f12e36d7ffdc5c7290e2469210625b9d`; `P7-W1-S3` passed the targeted component/view Jest reruns, exact-id structural reruns, `npm run verify`, and review clean on `eb0861a7`; `P7-W1-S4` passed the targeted test Jest reruns, exact-id reruns for `flat_dirs::src/modules/ui/epg/__tests__`, `signature::src/modules/ui/epg/__tests__/DeferredEpgComponent.test.ts::signature_variance::makeChannel`, `smells::src/modules/ui/epg/__tests__/EPGChannelList.test.ts::hardcoded_color`, and `smells::src/modules/ui/epg/__tests__/EPGComponent.test.ts::non_null_assert`, then passed review clean on `2c8ee23e`
-- Follow-ups: mapped package work is complete, and this same-pass companion-map refresh now makes `smells::src/modules/ui/epg/buildEpgStartupConfig.ts::{high_cyclomatic_complexity,nested_closure}`, `test_coverage::src/modules/ui/epg/model/domainTypes.ts::transitive_only`, and `smells::src/modules/ui/epg/runtime/EPGVisibleRangeRefreshQueue.ts::voided_symbol` canonical `pkg_epg_runtime_surfaces` membership; `P7-EXIT` still must record the stale-proven detector-lag rows for the mapped EPG runtime/style ids and assess the remaining CSS watchlist rows before any `P8` work opens
+- Follow-ups: mapped package work is complete, and this same-pass companion-map refresh now makes `smells::src/modules/ui/epg/buildEpgStartupConfig.ts::{high_cyclomatic_complexity,nested_closure}`, `test_coverage::src/modules/ui/epg/model/domainTypes.ts::transitive_only`, and `smells::src/modules/ui/epg/runtime/EPGVisibleRangeRefreshQueue.ts::voided_symbol` canonical `pkg_epg_runtime_surfaces` membership. The `2026-04-22` exact-id reruns still show those four rows live, so the refresh records ownership only; `P7-EXIT` remains responsible for their open disposition alongside the remaining CSS watchlist rows before any `P8` work opens
 - Handoff: `P7-EXIT`
 
 - [ ] `P7-EXIT`
@@ -620,11 +621,11 @@ Every `P#-EXIT` must, in the same pass:
   - required: refresh package-local commands, record mapped review dispositions from `pkg_epg_runtime_surfaces`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
 - Status: blocked
 - Plan: `docs/plans/2026-04-21-p7-w1-epg-runtime-surfaces.md`
-- Last touched: `2026-04-21`
-- Verification: final-gate evidence refreshed on `2026-04-21` via `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, `desloppify show security --status open --no-budget --top 50`, `desloppify show src/modules/ui/epg --status open --no-budget --top 180`, `desloppify show src/modules/ui/epg/runtime --status open --no-budget --top 120`, `desloppify show src/modules/ui/epg/view --status open --no-budget --top 120`, and exact-id reruns for all `28` mapped `pkg_epg_runtime_surfaces` issue ids plus the unmapped EPG watchlist ids surfaced at package entry
-- Entry baseline: checklist-backed package entry was `28 = 23 older live non-review + 5 fresh review + 0 fresh non-review` with the pre-package snapshot `overall 87.7 / objective 96.6 / strict 87.6 / verified 94.2`, `209` open
+- Last touched: `2026-04-22`
+- Verification: final-gate evidence refreshed on `2026-04-21` via `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, `desloppify show security --status open --no-budget --top 50`, `desloppify show src/modules/ui/epg --status open --no-budget --top 180`, `desloppify show src/modules/ui/epg/runtime --status open --no-budget --top 120`, `desloppify show src/modules/ui/epg/view --status open --no-budget --top 120`, and exact-id reruns for all `28` mapped `pkg_epg_runtime_surfaces` issue ids plus the unmapped EPG watchlist ids surfaced at package entry. This ownership-audit revision pass on `2026-04-22` revalidated companion-map accounting against the current `216` unique `includes_issue_ids`, reran the four newly canonical non-style exact ids, and passed `npm run verify:docs`
+- Entry baseline: historical checklist-backed package entry scope was `28 = 23 older live non-review + 5 fresh review + 0 fresh non-review` with the pre-package snapshot `overall 87.7 / objective 96.6 / strict 87.6 / verified 94.2`, `209` open
 - Exit baseline: `desloppify status` now reports `overall 87.5 / objective 96.0 / strict 87.5 / verified 94.2`, `361` open in-scope, `370` open global, and `9` out-of-scope carried; `desloppify plan queue --sort recent` is empty; `desloppify show review --status open --no-budget --top 100` is clean; `desloppify show security --status open --no-budget --top 50` remains clean
-- Score delta: global `overall -0.2`, `objective -0.6`, `strict -0.1`, and `verified 0.0` versus the checklist-backed entry snapshot. The mapped `P7-W1` package itself is closed on current source, and this same-pass companion-map refresh now captures the four live non-style EPG watchlist rows as canonical package membership, but `P7-EXIT` cannot clear the gate yet because the remaining EPG CSS watchlist residue still needs `P7-EXIT` assessment/decision
+- Score delta: global `overall -0.2`, `objective -0.6`, `strict -0.1`, and `verified 0.0` versus the historical checklist-backed entry snapshot. The mapped `P7-W1` package itself is closed on current source, and this same-pass companion-map refresh now captures the four live non-style EPG watchlist rows as canonical package membership, but those exact ids still rerun open and therefore remain part of the blocked `P7-EXIT` surface alongside the remaining EPG CSS watchlist rows
 - Imported review dispositions: all five mapped review ids reran absent on `2026-04-21` and are treated as `resolved` on current source
   - `review::.::holistic::contract_coherence::epg_cache_queries_hide_cleanup_side_effects`
     - reason: exact-id rerun is clean after the `EPGScheduleCacheStore` read-contract cleanup and follow-up regression coverage
@@ -642,7 +643,7 @@ Every `P#-EXIT` must, in the same pass:
     - reason: exact-id rerun is clean after moving the view-only leaves under `src/modules/ui/epg/view/`
     - revisit trigger: rerun the exact id if root EPG files regain direct view-leaf ownership
 - Detector/survivor summary:
-  - same-pass companion-map refresh moved the live non-style watchlist residue into canonical `pkg_epg_runtime_surfaces` membership:
+  - same-pass companion-map refresh moved the live non-style watchlist residue into canonical `pkg_epg_runtime_surfaces` membership; the `2026-04-22` exact-id reruns still show each row open, so this refresh changes ownership only and does not close them:
     - `smells::src/modules/ui/epg/buildEpgStartupConfig.ts::high_cyclomatic_complexity`
     - `smells::src/modules/ui/epg/buildEpgStartupConfig.ts::nested_closure`
     - `test_coverage::src/modules/ui/epg/model/domainTypes.ts::transitive_only`
@@ -682,8 +683,8 @@ Every `P#-EXIT` must, in the same pass:
     - `smells::src/modules/ui/epg/styles.css::css_monolith`
       - reason: rerun-open anchor `1` lands on a seven-line import-only aggregator file; current source is only `@import` statements for the split EPG stylesheets and the import-seam role is pinned by `EPGComponent.test.ts`
       - revisit trigger: rerun the exact id if `styles.css` regrows beyond the import-only aggregator seam
-- Follow-ups: the four live non-style watchlist rows are now canonical `pkg_epg_runtime_surfaces` membership via same-pass companion-map refresh. The remaining `P7-EXIT` watchlist rows still open on current reruns are `smells::src/modules/ui/epg/styles.{cells,grid,shell,theme}.css::css_monolith`, and they stay pending `P7-EXIT` assessment/decision on current source
-- Handoff: blocked pending `P7-EXIT` assessment/decision for the remaining EPG CSS watchlist rows; `P8-W1` is not a safe start until that is recorded
+- Follow-ups: the four live non-style watchlist rows are now canonical `pkg_epg_runtime_surfaces` membership via same-pass companion-map refresh, and the `2026-04-22` exact-id reruns still show them open. The remaining `P7-EXIT` watchlist rows still open on current reruns are `smells::src/modules/ui/epg/styles.{cells,grid,shell,theme}.css::css_monolith`. All eight rows remain pending `P7-EXIT` disposition/assessment on current source
+- Handoff: blocked pending `P7-EXIT` disposition for the four canonicalized non-style rows plus assessment/decision for the remaining EPG CSS watchlist rows; `P8-W1` is not a safe start until that is recorded
 
 ### [ ] `P8-W1` `pkg_shared_hygiene_migration` Shared Hygiene And Migration Residue
 
