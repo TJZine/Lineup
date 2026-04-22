@@ -14,8 +14,8 @@ This checklist is not complete until an authoritative rerun on the target integr
 
 - Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
-- Current execution state: `P1-W1` through `P7-EXIT` are complete on authoritative `2026-04-22` evidence; `P8-W1` is now the safe start
-- Next safe start: `P8-W1` / `pkg_shared_hygiene_migration`
+- Current execution state: `P1-W1` through `P8-EXIT` are complete on authoritative `2026-04-22` evidence; `P9-W1` is now the safe start
+- Next safe start: `P9-W1` / `pkg_type_safety_test_guardrails`
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to the active package or exit row
 - First action at package start: planning only; create the package-local execution-grade plan first and do not begin implementation until that planning gate is complete
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
@@ -706,7 +706,7 @@ Every `P#-EXIT` must, in the same pass:
 - Follow-ups: none
 - Handoff: `P8-W1` is now a safe start; if future reruns still report these five startup/runtime detector-lag rows without source changes, treat them as recorded detector-lag residue unless current-source evidence changes
 
-### [ ] `P8-W1` `pkg_shared_hygiene_migration` Shared Hygiene And Migration Residue
+### [x] `P8-W1` `pkg_shared_hygiene_migration` Shared Hygiene And Migration Residue
 
 - Backlog: `5 = 2 older live non-review + 3 fresh review + 0 fresh non-review`
 - Scope: isolate the truly cross-cutting AI-debt, wrapper-sprawl, and dead migration residue so domain packages do not inherit repo-wide cleanup noise
@@ -715,22 +715,53 @@ Every `P#-EXIT` must, in the same pass:
   - `desloppify show src --status open --no-budget --top 80`
   - `desloppify show src/utils --status open --no-budget --top 80`
 - Exact-id review scope required at entry/exit: the cross-cutting review items in `pkg_shared_hygiene_migration` are closed only by companion-map issue-id review, because the AI-debt and migration-residue findings are broader than any one area command
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
+- Status: completed
+- Plan: `docs/plans/2026-04-22-p8-w1-shared-hygiene-migration.md`
+- Last touched: `2026-04-22`
+- Verification: planning evidence via package-map/current-state reads, package-local `desloppify` scoping, subjective/comment-noise baselines, and the plan-review loop were observed on `2026-04-22`; `P8-W1-S1` then passed `npm test -- --runInBand src/modules/ui/toast/__tests__/types.test.ts src/core/app-shell/__tests__/AppToastPresenter.test.ts src/__tests__/App.test.ts src/__tests__/Orchestrator.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorBuilders.test.ts`, the playback-recovery `rg` audit for `handler(type ? { message, type } : message)` returned no matches, and `npm run verify` passed on `82048a83`; `P8-W1-S2` passed `npm test -- --runInBand src/core/orchestrator/__tests__/OrchestratorRecoverableRuntimeReporter.test.ts src/core/orchestrator/__tests__/OrchestratorRecoverableRuntimeWarnings.test.ts src/modules/plex/shared/__tests__/fetchWithTimeoutCore.test.ts src/modules/plex/stream/__tests__/fetchWithTimeout.test.ts src/modules/ui/epg/__tests__/EPGDebugRuntime.test.ts` and `npm run verify` on `46ed1e80`, then the fail-open revision reran the same targeted test envelope plus `npm run verify` on `afef15a8`; `P8-W1-S3` passed `npm test -- --runInBand src/utils/__tests__/EventEmitter.test.ts`, `desloppify show src --status open --no-budget --top 80`, `desloppify show src/utils --status open --no-budget --top 80`, and `npm run verify` on `c8886a1e`, then the EventEmitter warning-fallback revision reran `npm test -- --runInBand src/utils/__tests__/EventEmitter.test.ts` plus `npm run verify` on `d2f7f479`
+- Follow-ups: package implementation is complete. `P8-EXIT` owns the final closeout matrix for the surviving same-package review/mechanical residue and the stale exact-id state rows recorded below
 - Handoff: `P8-EXIT`
 
-- [ ] `P8-EXIT`
+- [x] `P8-EXIT`
 
   - required: record every mapped imported issue with an exact disposition, assign one single final owner for every deferred or split follow-up, and record the package score delta before moving to `P9`
   - required: refresh package-local commands, record mapped review dispositions from `pkg_shared_hygiene_migration`, record detector deltas and security triage, and either post a score delta or assign one exact later owner for every survivor
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
+- Status: completed
+- Plan: `docs/plans/2026-04-22-p8-w1-shared-hygiene-migration.md`
+- Last touched: `2026-04-22`
+- Verification: final-gate evidence was refreshed on `2026-04-22` via `desloppify status`, `desloppify show review --status open --no-budget --top 120`, `desloppify show subjective --no-budget --top 40`, `desloppify show security --status open --no-budget --top 50`, `desloppify show src --status open --no-budget --top 80`, `desloppify show src/utils --status open --no-budget --top 80`, `desloppify show "smells::src/utils/EventEmitter.ts::console_error_no_throw" --status open --no-budget`, the exact issue-id extraction command for all five mapped ids, the comment-count delta audit command, source audits confirming the root entry/composition files still match `CURRENT_STATE` and the playback-recovery raw-string toast path is absent, and a passing `npm run verify`; after these same-pass checklist updates, `npm run verify:docs` passed
+- Entry baseline: planning-entry evidence recorded `desloppify show src --status open --no-budget --top 80` -> `95` open rows, `desloppify show src/utils --status open --no-budget --top 80` -> `2` open rows, `desloppify show subjective --no-budget --top 40` -> `AI generated debt 78.0%, Abstraction fit 80.0%, API coherence 81.0%`, and the comment-noise audit baseline `152 @fileoverview / 93 @version 1.0.0 / 439 docblock openings`
+- Exit baseline: `desloppify status` now reports `overall 87.5 / objective 96.0 / strict 87.4 / verified 94.1`; `desloppify show src --status open --no-budget --top 80` now reports `94` open rows and `desloppify show src/utils --status open --no-budget --top 80` now reports `1` open row; `desloppify show subjective --no-budget --top 40` is unchanged at `AI generated debt 78.0%, Abstraction fit 80.0%, API coherence 81.0%`; the comment-count audit now reports `142 @fileoverview / 83 @version 1.0.0 / 404 docblock openings`
+- Detector delta summary:
+  - package-local `src` scoping improved from `95` to `94` open rows, with the package-owned `EventEmitter` smell retired and no new package-owned `src` rows introduced
+  - package-local `src/utils` scoping improved from `2` to `1` open row, leaving only unrelated `smells::src/utils/color/extractDominantColor.ts::high_cyclomatic_complexity`
+  - exact-id rerun for `smells::src/utils/EventEmitter.ts::console_error_no_throw` is now `fixed`
+  - comment-count delta versus planning baseline: `@fileoverview -10`, `@version 1.0.0 -10`, `docblock openings -35`
+- Score delta: subjective package scores are unchanged versus entry baseline: `AI generated debt 78.0 -> 78.0`, `Abstraction fit 80.0 -> 80.0`, `API coherence 81.0 -> 81.0`
+- Security triage: `desloppify show security --status open --no-budget --top 50` reported no open security issues and no `P0` survivors block `P9`
+- Imported review dispositions:
+  - stale-proven exact-id residue with strong current-source proof:
+    - `review::.::holistic::incomplete_migration::toast_string_back_compat_dead`
+      - reason: the broad review refresh returned no open review rows, `src/modules/ui/toast/types.ts` now keeps `ToastInput` payload-only with object-only `normalizeToastInput(...)`, `src/core/app-shell/AppToastPresenter.ts` still normalizes only structured payloads, and `src/core/orchestrator/OrchestratorCoordinatorBuilders.ts:270` now emits `{ message }` instead of a raw string on the no-type playback-recovery path; the exact-id state row remains open, but current source no longer carries the old compatibility branch
+      - revisit trigger: rerun the exact id if toast normalization regains a string branch or any production caller under `src/` starts emitting raw-string toasts again
+  - same-package survivors that remain materially live on current source; `P8-EXIT` is the single final owner:
+    - `review::.::holistic::ai_generated_debt::defensive_nonfatal_wrapper_sprawl`
+      - reason: `P8-W1-S2` removed the stacked reporter helper hops and restored fail-open behavior only where runtime ownership warrants it, but the exact review row still reruns open and the shared fail-open/reporting surface still owns the remaining judgment call
+      - revisit trigger: revisit only if a future approved fail-open policy rewrite or package-map revision proves the remaining wrapper-sprawl rationale belongs to a different owner
+    - `review::.::holistic::ai_generated_debt::template_docblock_noise`
+      - reason: `P8-W1-S3` materially reduced the shared/root template scaffold counts within the approved manifest, but the comment-count audit still shows `142/83/404`, so the broad rationale remains materially live on current source even after the scoped sweep
+      - revisit trigger: revisit only if a future approved `comment_sweep_manifest` expansion or package-map revision proves the remaining template-comment residue belongs to a different owner
+- Mechanical/disposition summary:
+  - resolved:
+    - `smells::src/utils/EventEmitter.ts::console_error_no_throw`
+      - reason: `src/utils/EventEmitter.ts` now preserves redacted, non-fatal handler-failure reporting without direct `console.error`, the targeted Jest envelope covers `reportError` present/absent/throwing plus fallback-throws behavior, and the exact-id rerun is `fixed`
+      - revisit trigger: rerun the exact id if handler isolation regains direct `console.error` or loses its non-throwing reporting fallback
+  - same-package mechanical residue with truthful current-source proof; `P8-EXIT` is the single final owner:
+    - `flat_dirs::src`
+      - reason: the row still reruns open, but current source and `docs/architecture/CURRENT_STATE.md` both keep `src/bootstrap.ts`, `src/App.ts`, `src/Orchestrator.ts`, and `src/index.ts` as intentional root entry/composition surfaces, so this closeout does not game the detector by burying those files
+      - revisit trigger: revisit only if the root ownership model changes or a future package-map revision proves a different live owner
+- Broad review refresh note: `desloppify show review --status open --no-budget --top 120` returned no open rows on this pass, so exact-id extraction remained the authoritative imported-review evidence surface for `pkg_shared_hygiene_migration`
+- Follow-ups: same-package survivors remain recorded at `P8-EXIT` only for `flat_dirs::src`, `review::.::holistic::ai_generated_debt::defensive_nonfatal_wrapper_sprawl`, and `review::.::holistic::ai_generated_debt::template_docblock_noise`; no later package owner is assigned
 - Handoff: `P9-W1`
 
 ### [ ] `P9-W1` `pkg_type_safety_test_guardrails` Type Safety And Test Guardrails
