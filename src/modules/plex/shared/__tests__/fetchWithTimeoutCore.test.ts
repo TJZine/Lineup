@@ -45,4 +45,47 @@ describe('fetchWithTimeoutCore', () => {
         await jest.advanceTimersByTimeAsync(5_001);
         await expect(rejection).resolves.toMatchObject({ name: 'AbortError' });
     });
+
+    it('keeps listener wiring and cleanup fail-open when upstream signal APIs throw', async () => {
+        const upstreamController = new AbortController();
+        jest.spyOn(upstreamController.signal, 'addEventListener').mockImplementation(() => {
+            throw new Error('add failed');
+        });
+        jest.spyOn(upstreamController.signal, 'removeEventListener').mockImplementation(() => {
+            throw new Error('remove failed');
+        });
+        const response = { ok: true, status: 200 } as Response;
+        mockFetch.mockResolvedValue(response);
+
+        await expect(
+            fetchWithTimeoutCore(
+                'http://example.test/core-listener-fail-open',
+                { method: 'GET' },
+                5_000,
+                upstreamController.signal
+            )
+        ).resolves.toBe(response);
+    });
+
+    it('keeps the abort path fail-open when AbortController.abort throws', async () => {
+        const abortSpy = jest.spyOn(AbortController.prototype, 'abort').mockImplementation(() => {
+            throw new Error('abort failed');
+        });
+        const upstreamController = new AbortController();
+        const response = { ok: true, status: 200 } as Response;
+        mockFetch.mockResolvedValue(response);
+
+        try {
+            await expect(
+                fetchWithTimeoutCore(
+                    'http://example.test/core-abort-fail-open',
+                    { method: 'GET' },
+                    5_000,
+                    upstreamController.signal
+                )
+            ).resolves.toBe(response);
+        } finally {
+            abortSpy.mockRestore();
+        }
+    });
 });

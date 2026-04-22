@@ -6,14 +6,22 @@ export async function fetchWithTimeoutCore(
 ): Promise<Response> {
     const controller = new AbortController();
     const onAbort = (): void => {
-        controller.abort();
+        try {
+            controller.abort();
+        } catch {
+            // Abort cleanup must remain fail-open.
+        }
     };
 
     if (upstreamSignal) {
         if (upstreamSignal.aborted) {
             onAbort();
         } else {
-            upstreamSignal.addEventListener('abort', onAbort, { once: true });
+            try {
+                upstreamSignal.addEventListener('abort', onAbort, { once: true });
+            } catch {
+                // Listener wiring must remain fail-open.
+            }
         }
     }
 
@@ -24,7 +32,11 @@ export async function fetchWithTimeoutCore(
     } finally {
         clearTimeout(timeoutId);
         if (upstreamSignal) {
-            upstreamSignal.removeEventListener('abort', onAbort);
+            try {
+                upstreamSignal.removeEventListener('abort', onAbort);
+            } catch {
+                // Listener cleanup must remain fail-open.
+            }
         }
     }
 }

@@ -272,4 +272,68 @@ describe('fetchWithTimeout', () => {
         optionsRemoveSpy.mockRestore();
         upstreamRemoveSpy.mockRestore();
     });
+
+    it('keeps merged listener wiring fail-open when signal addEventListener throws', async () => {
+        const optionsController = new AbortController();
+        const upstreamController = new AbortController();
+        jest.spyOn(optionsController.signal, 'addEventListener').mockImplementation(() => {
+            throw new Error('add failed');
+        });
+        const response = { ok: true, status: 200 } as Response;
+        mockFetch.mockResolvedValue(response);
+
+        await expect(
+            fetchWithTimeout({
+                url: 'http://example.test/listener-add-fail-open',
+                init: { method: 'GET', signal: optionsController.signal },
+                timeoutMs: 200,
+                upstreamSignal: upstreamController.signal,
+            })
+        ).resolves.toBe(response);
+    });
+
+    it('keeps merged listener cleanup fail-open when signal removeEventListener throws', async () => {
+        const optionsController = new AbortController();
+        const upstreamController = new AbortController();
+        jest.spyOn(optionsController.signal, 'removeEventListener').mockImplementation(() => {
+            throw new Error('remove failed');
+        });
+        jest.spyOn(upstreamController.signal, 'removeEventListener').mockImplementation(() => {
+            throw new Error('remove failed');
+        });
+        const response = { ok: true, status: 200 } as Response;
+        mockFetch.mockResolvedValue(response);
+
+        await expect(
+            fetchWithTimeout({
+                url: 'http://example.test/listener-remove-fail-open',
+                init: { method: 'GET', signal: optionsController.signal },
+                timeoutMs: 200,
+                upstreamSignal: upstreamController.signal,
+            })
+        ).resolves.toBe(response);
+    });
+
+    it('keeps the merged abort path fail-open when AbortController.abort throws', async () => {
+        const abortSpy = jest.spyOn(AbortController.prototype, 'abort').mockImplementation(() => {
+            throw new Error('abort failed');
+        });
+        const optionsController = new AbortController();
+        const upstreamController = new AbortController();
+        const response = { ok: true, status: 200 } as Response;
+        mockFetch.mockResolvedValue(response);
+
+        try {
+            await expect(
+                fetchWithTimeout({
+                    url: 'http://example.test/abort-fail-open',
+                    init: { method: 'GET', signal: optionsController.signal },
+                    timeoutMs: 200,
+                    upstreamSignal: upstreamController.signal,
+                })
+            ).resolves.toBe(response);
+        } finally {
+            abortSpy.mockRestore();
+        }
+    });
 });

@@ -136,6 +136,24 @@ describe('EPGDebugRuntime', () => {
         expect(setSpy).toHaveBeenCalled();
     });
 
+    it('keeps storage-event wiring fail-open when window listener APIs throw', () => {
+        const addSpy = jest.spyOn(window, 'addEventListener').mockImplementation(() => {
+            throw new Error('add failed');
+        });
+        const removeSpy = jest.spyOn(window, 'removeEventListener').mockImplementation(() => {
+            throw new Error('remove failed');
+        });
+        let runtime: EPGDebugRuntime | null = null;
+
+        expect(() => {
+            runtime = createRuntime();
+            runtime.destroy();
+        }).not.toThrow();
+
+        expect(addSpy).toHaveBeenCalledWith('storage', expect.any(Function));
+        expect(removeSpy).toHaveBeenCalledWith('storage', expect.any(Function));
+    });
+
     it('flushes pending entries immediately on destroy and cancels the timer', () => {
         jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabledAndClean').mockReturnValue(true);
         const setSpy = jest.spyOn(storageHelpers, 'safeLocalStorageSet');
@@ -178,5 +196,19 @@ describe('EPGDebugRuntime', () => {
         }).not.toThrow();
 
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG_LOG)).toBe('[]');
+    });
+
+    it('keeps destroy fail-open when the flush path throws unexpectedly', () => {
+        jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabledAndClean').mockReturnValue(true);
+        jest.spyOn(storageHelpers, 'safeLocalStorageSet').mockImplementation(() => {
+            throw new Error('write exploded');
+        });
+        const runtime = createRuntime();
+
+        runtime.append('event:flush-throws', { ok: true });
+
+        expect(() => {
+            runtime.destroy();
+        }).not.toThrow();
     });
 });
