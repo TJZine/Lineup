@@ -57,7 +57,11 @@ export class ChannelTransitionCoordinator {
     }
 
     onPlayerStateChange(state: PlaybackState): void {
-        if (state.status === 'playing' || state.status === 'paused') {
+        if (
+            state.status === 'playing'
+            || state.status === 'paused'
+            || state.status === 'ended'
+        ) {
             this._endActivity();
             return;
         }

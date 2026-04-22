@@ -165,6 +165,19 @@ describe('ChannelTransitionCoordinator', () => {
         expect(onActivityChange).toHaveBeenNthCalledWith(2, false);
     });
 
+    it('ends transition activity when playback reaches ended before the delayed show runs', () => {
+        const { coordinator, overlay, onActivityChange } = setup(makeState('loading'));
+
+        coordinator.armForChannelSwitch('12 Comedy');
+        coordinator.onPlayerStateChange(makeState('ended'));
+        jest.advanceTimersByTime(CHANNEL_TRANSITION_SHOW_DELAY_MS + 10);
+
+        expect(overlay.show).not.toHaveBeenCalled();
+        expect(getIsActive(coordinator)).toBe(false);
+        expect(onActivityChange).toHaveBeenNthCalledWith(1, true);
+        expect(onActivityChange).toHaveBeenNthCalledWith(2, false);
+    });
+
     it('keeps transition activity continuously true across repeated arms', () => {
         const { coordinator, overlay, onActivityChange } = setup(makeState('loading'));
 
