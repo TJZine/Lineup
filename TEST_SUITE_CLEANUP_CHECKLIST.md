@@ -296,12 +296,18 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
   - Follow-ups: `none`
   - Handoff: start `T3-W1` + `T3-W2` when ready; Priority 2 no longer blocks anti-pattern enforcement follow-up work.
 
-- [ ] `T3-EXIT`
+- [x] `T3-EXIT`
   - required: anti-pattern policy protects the intended suite scope with explicit baselines and owner notes
   - verification:
     - `npm run test:contracts`
     - generated temp reports inspected when scanner fails
   - exit rule: new raw sleeps and new private probes cannot spread quietly outside approved exceptions
+  - Status: `completed`
+  - Plan: `none needed`
+  - Last touched: `2026-04-22`
+  - Verification: `npm run test:contracts -- --runInBand src/__tests__/policy/antiPatternsScanner.test.ts src/__tests__/policy/AntiPatterns.policy.test.ts` passed; `npm run verify` passed through typecheck, architecture lint, CSS lint, product coverage, tools, contracts, docs verification, and build; review of commit `8061b8c5` found no material implementation issues.
+  - Follow-ups: keep `T4-W1` + `T4-W2` as the async/timer helper cleanup lane, and keep `T5-W2` as the owner for the six documented private-probe exceptions in `src/__tests__/policy/baselines/private-probes.owner-notes.md`.
+  - Handoff: start `T4-W1` + `T4-W2` when ready; Priority 3 no longer blocks the documented async/timer follow-up lane.
 
 - [ ] `T4-EXIT`
   - required: async/timer helper usage is documented, tested, and enforced where it matters
