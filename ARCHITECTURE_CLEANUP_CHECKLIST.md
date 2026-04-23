@@ -16,8 +16,8 @@ The live post-reset follow-on queue is defined by `docs/architecture/p11-fresh-b
 
 - Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
-- Current execution state: `P1-W1` through `P10-W1` are now historical evidence for the retired `2026-04-16` lineage; `P11-W1` is complete and `P11-W2` is the next live fresh-baseline package from the authoritative `2026-04-23` rerun
-- Next safe start: `P11-W2` / `pkg_plex_contract_surface_alignment`
+- Current execution state: `P1-W1` through `P10-W1` are now historical evidence for the retired `2026-04-16` lineage; `P11-W1` and `P11-W2` are complete and `P11-W3` is the next live fresh-baseline package from the authoritative `2026-04-23` rerun
+- Next safe start: `P11-W3` / `pkg_channel_setup_scheduler_contract_cleanup`
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to the active package or exit row
 - First action at package start: planning only; create the package-local execution-grade plan first and do not begin implementation until that planning gate is complete
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
@@ -924,7 +924,7 @@ Default scoping rule for this queue:
 - Follow-ups: none for `P11-W1`; continue fresh-baseline queue at `P11-W2`
 - Handoff: `P11-W2`
 
-### [ ] `P11-W2` `pkg_plex_contract_surface_alignment` Plex Contract, Auth, And Error Surface Alignment
+### [x] `P11-W2` `pkg_plex_contract_surface_alignment` Plex Contract, Auth, And Error Surface Alignment
 
 - Backlog: `seed 12 = 7 fresh review + 5 candidate mechanical hotspots`
 - Scope: align Plex auth/library/discovery/stream contracts, make error handling and auth semantics consistent across sibling Plex surfaces, and reduce the flat parser-heavy library seam
@@ -936,11 +936,12 @@ Default scoping rule for this queue:
   - `desloppify show src/modules/plex/stream/PlexStreamResolver.ts --status open --no-budget --top 80`
 - Cleanup-loop fit: Tier 3 checklist-linked package; drive execution from the exact Plex review ids, use the candidate mechanical ids only as same-seam secondary evidence, and do not absorb unrelated test-only Plex residue by default
 - Likely first slice: start with auth/library contract and error-policy alignment before absorbing any parser/package reorganization work
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Progress: `P11-W2-EU1` auth/error contract wave complete; `P11-W2-EU2` parser package organization complete
+- Plan: local cleanup-loop plan artifact; not tracked
 - Last touched: `2026-04-23`
-- Verification: not run for package-local scoping yet; seed evidence comes from the authoritative `2026-04-23T07:32:05+00:00` rerun and `docs/architecture/p11-fresh-baseline-package-map.json`
-- Follow-ups: none yet
+- Verification: `P11-W2-EU1` reviewed clean and committed as `3749a2fd`; `P11-W2-EU2` reviewed clean and committed as `fd05556a`; `npm run verify` passed after each implementation unit; closeout reran the four package-local scoping commands and all report no open issues for `PlexLibrary.ts`, `PlexAuth.ts`, `PlexServerDiscovery.ts`, and `PlexStreamResolver.ts`. Exact review-id `desloppify show` commands still report the seven seed ids as open, but reviewed current-source proof retires the package-owned rationale: auth interface failure contracts are documented, auth storage methods are synchronous, transport wrapping preserves sanitized cause, discovery startup auth failures route through global recovery, `403` semantics are endpoint-aware, `getLibrary()` accepts cancellation options, and parser internals now live under `src/modules/plex/library/parsing/` with public exports preserved through `src/modules/plex/library/index.ts`.
+- Follow-ups: none for `P11-W2`; continue fresh-baseline queue at `P11-W3`
 - Handoff: `P11-W3`
 
 ### [ ] `P11-W3` `pkg_channel_setup_scheduler_contract_cleanup` Channel Setup And Scheduler Contract Cleanup
