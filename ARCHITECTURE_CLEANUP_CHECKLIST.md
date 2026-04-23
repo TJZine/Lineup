@@ -16,8 +16,8 @@ The live post-reset follow-on queue is defined by `docs/architecture/p11-fresh-b
 
 - Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
-- Current execution state: `P1-W1` through `P10-W1` are now historical evidence for the retired `2026-04-16` lineage; `P11-W1` starts the live fresh-baseline follow-on queue from the authoritative `2026-04-23` rerun
-- Next safe start: `P11-W1` / `pkg_orchestrator_boundary_simplification`
+- Current execution state: `P1-W1` through `P10-W1` are now historical evidence for the retired `2026-04-16` lineage; `P11-W1` is complete and `P11-W2` is the next live fresh-baseline package from the authoritative `2026-04-23` rerun
+- Next safe start: `P11-W2` / `pkg_plex_contract_surface_alignment`
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to the active package or exit row
 - First action at package start: planning only; create the package-local execution-grade plan first and do not begin implementation until that planning gate is complete
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
@@ -903,7 +903,7 @@ Default scoping rule for this queue:
 - overlapping production-file mechanical hotspots may be absorbed when they reinforce the same seam
 - do not spend cleanup-loop time on default non-active buckets from the companion map and follow-on queue rationale doc unless current-source evidence shows a concrete same-seam defect
 
-### [ ] `P11-W1` `pkg_orchestrator_boundary_simplification` Orchestrator, App-Shell, And Priority-One Boundary Simplification
+### [x] `P11-W1` `pkg_orchestrator_boundary_simplification` Orchestrator, App-Shell, And Priority-One Boundary Simplification
 
 - Backlog: `seed 19 = 13 fresh review + 6 candidate mechanical hotspots`
 - Scope: retire the fresh orchestrator/app-shell/priority-one pass-through sprawl, shrink the orchestrator blast radius, and tighten the public/root boundary so the main runtime no longer depends on oversized assembly and delegation warehouses
@@ -912,17 +912,17 @@ Default scoping rule for this queue:
   - `desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 80`
   - `desloppify show src/core/orchestrator/OrchestratorCoordinatorBuilders.ts --status open --no-budget --top 80`
   - `desloppify show src/core/orchestrator/priority-one/PriorityOneControllerCollaborators.ts --status open --no-budget --top 80`
-  - `desloppify show src/core/InitializationCoordinator.ts --status open --no-budget --top 80`
+  - `desloppify show src/core/orchestrator/InitializationCoordinator.ts --status open --no-budget --top 80`
   - `desloppify show src/__tests__/Orchestrator.test.ts --status open --no-budget --top 80`
 - Cleanup-loop fit: Tier 3 checklist-linked package; use the exact review ids as the primary scope selector, use the companion-map candidate files only as bounded scoping aids, and do not absorb cross-cutting hygiene ids or default non-active buckets
 - Likely first slice: inventory AppOrchestrator, coordinator builders, and priority-one collaborator seams before deciding whether the first execution unit is assembly relocation, contract narrowing, or boundary slimming
-- Status: in progress
-- Progress: `P11-W1-S1` / contract narrowing complete; `P11-W1-S2` through `P11-W1-S4` pending
+- Status: completed
+- Progress: `P11-W1-S1` contract narrowing complete; `P11-W1-S2` coordinator assembly relocation complete; `P11-W1-S3` priority-one startup ownership seam complete; `P11-W1-S4` sequencing-test cleanup complete
 - Plan: `docs/runs/2026-04-p11-plans/2026-04-23-p11-w1-orchestrator-boundary-simplification-plan.md`
 - Last touched: `2026-04-23`
-- Verification: `P11-W1-S1` reviewed clean; `npm test -- --runInBand src/__tests__/App.test.ts src/__tests__/startup-integration.test.ts src/__tests__/Orchestrator.test.ts` passed with `136` tests, boundary `rg` checks for internal app-shell/App orchestrator imports and stale root-barrel exports produced no matches, `git diff --check` passed for scoped files, `npm run build` passed, and `npm run verify:docs` passed after removing the obsolete hard-coded planner/cleanup_worker model pin from the docs verifier
-- Follow-ups: continue approved serial package plan at `P11-W1-S2` / coordinator assembly relocation; do not mark `P11-W1` complete until S2-S4 close or receive explicit residual reassignment
-- Handoff: `P11-W1-S2`
+- Verification: `P11-W1-S1` reviewed clean and committed as `56809c0d`; `P11-W1-S2` reviewed clean after closure/final review and committed as `384bd1d1`; `P11-W1-S3` reviewed/verified and committed as `a2626811`; `P11-W1-S4` reviewed clean and committed as `6c0cac5f`; `npm run verify` passed after S4 with typecheck, architecture lint, CSS lint, coverage tests (`252` suites, `3075` passed, `1` skipped), tools tests (`5` suites, `98` tests), contracts (`7` suites, `201` tests), docs verification, and build
+- Follow-ups: none for `P11-W1`; continue fresh-baseline queue at `P11-W2`
+- Handoff: `P11-W2`
 
 ### [ ] `P11-W2` `pkg_plex_contract_surface_alignment` Plex Contract, Auth, And Error Surface Alignment
 

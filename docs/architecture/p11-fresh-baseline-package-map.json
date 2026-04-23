@@ -44,7 +44,7 @@
       "candidate_mechanical_issue_ids": [
         "structural::src/core/orchestrator/AppOrchestrator.ts",
         "structural::src/core/orchestrator/OrchestratorCoordinatorBuilders.ts",
-        "structural::src/core/InitializationCoordinator.ts",
+        "structural::src/core/orchestrator/InitializationCoordinator.ts",
         "responsibility_cohesion::src/core/orchestrator/priority-one/PriorityOneControllerCollaborators.ts::cohesion::src/core/orchestrator/priority-one/PriorityOneControllerCollaborators.ts",
         "responsibility_cohesion::src/core/orchestrator/OrchestratorCoordinatorBuilders.ts::cohesion::src/core/orchestrator/OrchestratorCoordinatorBuilders.ts",
         "flat_dirs::src/core/orchestrator"
@@ -53,7 +53,7 @@
         "src/core/orchestrator/AppOrchestrator.ts",
         "src/core/orchestrator/OrchestratorCoordinatorBuilders.ts",
         "src/core/orchestrator/priority-one/PriorityOneControllerCollaborators.ts",
-        "src/core/InitializationCoordinator.ts",
+        "src/core/orchestrator/InitializationCoordinator.ts",
         "src/__tests__/Orchestrator.test.ts",
         "src/core/channel-tuning/__tests__/ChannelTuningCoordinator.test.ts"
       ],
@@ -68,7 +68,7 @@
         "desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 80",
         "desloppify show src/core/orchestrator/OrchestratorCoordinatorBuilders.ts --status open --no-budget --top 80",
         "desloppify show src/core/orchestrator/priority-one/PriorityOneControllerCollaborators.ts --status open --no-budget --top 80",
-        "desloppify show src/core/InitializationCoordinator.ts --status open --no-budget --top 80",
+        "desloppify show src/core/orchestrator/InitializationCoordinator.ts --status open --no-budget --top 80",
         "desloppify show src/__tests__/Orchestrator.test.ts --status open --no-budget --top 80"
       ],
       "likely_first_slice": "Inventory AppOrchestrator, coordinator builders, and priority-one collaborator seams first; decide whether the first execution unit is boundary slimming, assembly relocation, or contract narrowing before absorbing any sequencing-test work.",
@@ -78,18 +78,25 @@
         "priority_exit": "P11-EXIT"
       },
       "execution_status": {
-        "status": "in_progress",
+        "status": "completed",
         "completed_execution_units": [
-          "P11-W1-S1"
+          "P11-W1-S1",
+          "P11-W1-S2",
+          "P11-W1-S3",
+          "P11-W1-S4"
         ],
-        "current_or_next_execution_unit": "P11-W1-S2",
+        "current_or_next_execution_unit": "P11-W2",
         "evidence": [
           "P11-W1-S1 contract narrowing implemented in src/App.ts, src/Orchestrator.ts, src/core/app-shell/AppShellRuntimeContracts.ts, src/__tests__/App.test.ts, and src/__tests__/Orchestrator.test.ts.",
           "Implementation review found no material findings and approved P11-W1-S1 for closeout.",
           "npm test -- --runInBand src/__tests__/App.test.ts src/__tests__/startup-integration.test.ts src/__tests__/Orchestrator.test.ts passed with 136 tests.",
           "rg -n \"core/orchestrator/AppOrchestrator|../orchestrator/AppOrchestrator\" src/App.ts src/core/app-shell src/__tests__/App.test.ts produced no matches.",
           "rg -n \"ChannelSetup|OrchestratorConfig|ErrorRecoveryAction\" src/Orchestrator.ts produced no matches.",
-          "npm run build passed; npm run verify:docs passed after removing the obsolete hard-coded planner/cleanup_worker model pin from the docs verifier."
+          "npm run build passed; npm run verify:docs passed after removing the obsolete hard-coded planner/cleanup_worker model pin from the docs verifier.",
+          "P11-W1-S2 coordinator assembly relocation deleted the coordinator factory shim, moved coordinator construction ownership to OrchestratorCoordinatorAssembly.ts, narrowed coordinator builder inputs, and passed focused coordinator/orchestrator tests before commit 384bd1d1.",
+          "P11-W1-S3 priority-one startup ownership moved InitializationCoordinator under src/core/orchestrator, deleted the priority-one factory shim, slimmed priority-one collaborator adapters, updated architecture ownership docs, and passed npm run verify before commit a2626811.",
+          "P11-W1-S4 sequencing-test cleanup removed global invocationCallOrder coupling from src/__tests__/Orchestrator.test.ts, retained behavior-focused sequencing proof, reviewed clean, and passed npm run verify before commit 6c0cac5f.",
+          "Final package closeout keeps the exact review-id membership unchanged while updating moved scoping aids to src/core/orchestrator/InitializationCoordinator.ts."
         ],
         "last_touched": "2026-04-23"
       }
