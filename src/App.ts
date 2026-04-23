@@ -8,11 +8,10 @@ import type {
     AppShellServerSelectionRuntimePort,
     AppShellSettingsRuntimePort,
 } from './core/app-shell/AppShellRuntimeContracts';
-import type { LifecycleAppError, AppPhase } from './modules/lifecycle/types';
+import type { AppError, LifecycleAppError, AppPhase, LifecycleEventMap } from './modules/lifecycle/types';
 import type { INavigationManager } from './modules/navigation';
 import { createAppContainers, type AppContainerRefs } from './core/app-shell/AppContainerFactory';
-import { AppOrchestrator } from './core/orchestrator/AppOrchestrator';
-import type { OrchestratorConfig } from './core/orchestrator/OrchestratorTypes';
+import { AppOrchestrator, type AppOrchestratorRuntime } from './Orchestrator';
 import {
     AppLazyScreenRegistry,
 } from './core/app-shell/AppLazyScreenRegistry';
@@ -31,6 +30,7 @@ import { SplashScreen } from './modules/ui/splash';
 import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';
 import type { ChannelSetupConfig } from './core/channel-setup/types';
 import { getAppErrorCode } from './types/app-errors';
+import type { IDisposable } from './utils/interfaces';
 import { summarizeErrorForLog } from './utils/errors';
 
 const NON_BLOCKING_TOAST_MESSAGES: Partial<Record<AppErrorCode, string>> = {
@@ -46,8 +46,31 @@ const NON_BLOCKING_LIFECYCLE_CODES = new Set<AppErrorCode>(
 
 const ERROR_OVERLAY_MODAL_ID = 'modal:error-overlay';
 
+type AppRuntimeLifecycleEvents = Pick<LifecycleEventMap, 'networkWarning' | 'persistenceWarning' | 'phaseChange'>;
+
+interface AppShellOrchestratorRuntime
+    extends AppOrchestratorRuntime,
+    AppShellAuthRuntimePort,
+    AppShellChannelSetupRuntimePort,
+    AppShellDiagnosticsRuntimePort,
+    AppShellNavigationRuntimePort,
+    AppShellProfileRuntimePort,
+    AppShellServerSelectionRuntimePort,
+    Pick<AppShellSettingsRuntimePort, 'getActiveUsername' | 'onGuideSettingChange' | 'setSubtitleTrack'> {
+    shutdown(): Promise<void>;
+    registerErrorHandler(moduleId: string, handler: (error: AppError) => boolean): void;
+    toLifecycleAppError(error: AppError): LifecycleAppError;
+    onScreenChange(handler: (from: string, to: string) => void): IDisposable;
+    onLifecycleEvent<K extends keyof AppRuntimeLifecycleEvents>(
+        event: K,
+        handler: (payload: AppRuntimeLifecycleEvents[K]) => void
+    ): IDisposable;
+    getRecoveryActions(errorCode: AppErrorCode): BlockingErrorOverlayAction[];
+    setNowPlayingHandler(handler: ((toast: Parameters<AppToastPresenter['show']>[0]) => void) | null): void;
+}
+
 export class App {
-    private _orchestrator: AppOrchestrator | null = null;
+    private _orchestrator: AppShellOrchestratorRuntime | null = null;
     private readonly _debugOverridesStore = new DebugOverridesStore();
     private readonly _profileSessionStore = new ProfileSessionStore();
     private readonly _blockingErrorOverlayPresenter = new AppBlockingErrorOverlayPresenter({
@@ -89,8 +112,9 @@ export class App {
             const config = this._buildConfig();
 
             // Create and initialize orchestrator
-            this._orchestrator = new AppOrchestrator();
-            await this._orchestrator.initialize(config);
+            const orchestrator = new AppOrchestrator();
+            this._orchestrator = orchestrator;
+            await orchestrator.initialize(config);
 
             // Initialize minimal auth/server screens before startup
             this._initializeScreens(containerRefs);
@@ -104,7 +128,7 @@ export class App {
             });
 
             // Start the orchestrator
-            await this._orchestrator.start();
+            await orchestrator.start();
         } catch (error) {
             console.error('App startup failed:', summarizeErrorForLog(error));
             try {
@@ -203,7 +227,7 @@ export class App {
         }
     }
 
-    getOrchestrator(): AppOrchestrator | null {
+    getOrchestrator(): AppOrchestratorRuntime | null {
         return this._orchestrator;
     }
 
@@ -306,7 +330,7 @@ export class App {
     /**
      * Build orchestrator configuration.
      */
-    private _buildConfig(): OrchestratorConfig {
+    private _buildConfig(): ReturnType<typeof createAppOrchestratorConfig> {
         return createAppOrchestratorConfig();
     }
 

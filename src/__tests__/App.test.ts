@@ -8,7 +8,7 @@ import { createAppOrchestratorConfig } from '../core/app-shell/AppOrchestratorCo
 import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../core/app-shell/constants';
 import { AppThemeController } from '../core/app-shell/AppThemeController';
 import type { ChannelSetupConfig } from '../core/channel-setup/types';
-import { AppOrchestrator, type PlaybackInfoSnapshot } from '../core/orchestrator/AppOrchestrator';
+import { AppOrchestrator, type PlaybackInfoSnapshot } from '../Orchestrator';
 import { PLEX_AUTH_CONSTANTS } from '../modules/plex/auth';
 import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
 import { webosPlatformServices } from '../platform';

@@ -6,7 +6,8 @@
  */
 
 
-import { AppOrchestrator, type OrchestratorConfig, AppErrorCode } from '../Orchestrator';
+import { AppOrchestrator, AppErrorCode } from '../Orchestrator';
+import type { OrchestratorConfig } from '../core/orchestrator/OrchestratorTypes';
 import {
     NowPlayingInfoCoordinator,
 } from '../modules/ui/now-playing-info';
