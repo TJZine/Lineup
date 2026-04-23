@@ -27,7 +27,7 @@ import type { StreamDecision } from '../modules/plex/stream';
 import { AudioSettingsStore } from '../modules/settings/AudioSettingsStore';
 import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
 import { PlaybackRecoveryManager } from '../modules/player/PlaybackRecoveryManager';
-import * as orchestratorCoordinatorFactory from '../core/orchestrator/OrchestratorCoordinatorFactory';
+import * as orchestratorCoordinatorAssembly from '../core/orchestrator/OrchestratorCoordinatorAssembly';
 import { OverlayRuntimePolicyController } from '../core/orchestrator/OverlayRuntimePolicyController';
 import * as recoverableRuntimeReporterModule from '../core/orchestrator/OrchestratorRecoverableRuntimeReporter';
 import { expectConsoleWarn } from './helpers';
@@ -2418,16 +2418,16 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('wires ensureEpgInitialized through the real InitializationCoordinator before coordinator assembly', async () => {
-            const originalFactory = orchestratorCoordinatorFactory.createOrchestratorCoordinators;
+            const originalAssembly = orchestratorCoordinatorAssembly.createOrchestratorCoordinators;
             const earlyEnsureCalls: Array<Promise<void>> = [];
             const ensureEpgInitializedSpy = jest
                 .spyOn(InitializationCoordinator.prototype, 'ensureEPGInitialized')
                 .mockResolvedValue(undefined);
-            const factorySpy = jest
-                .spyOn(orchestratorCoordinatorFactory, 'createOrchestratorCoordinators')
+            const assemblySpy = jest
+                .spyOn(orchestratorCoordinatorAssembly, 'createOrchestratorCoordinators')
                 .mockImplementation((deps) => {
                     earlyEnsureCalls.push(deps.init.ensureEpgInitialized());
-                    return originalFactory(deps);
+                    return originalAssembly(deps);
                 });
 
             try {
@@ -2439,19 +2439,19 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 expect(ensureEpgInitializedSpy).toHaveBeenCalled();
                 expect(mockLifecycle.reportError).not.toHaveBeenCalled();
             } finally {
-                factorySpy.mockRestore();
+                assemblySpy.mockRestore();
                 ensureEpgInitializedSpy.mockRestore();
             }
         });
 
         it('routes channel transition activity callbacks through overlay badge recompute wiring', async () => {
-            const originalFactory = orchestratorCoordinatorFactory.createOrchestratorCoordinators;
-            let capturedFactoryInput: unknown = null;
-            const factorySpy = jest
-                .spyOn(orchestratorCoordinatorFactory, 'createOrchestratorCoordinators')
+            const originalAssembly = orchestratorCoordinatorAssembly.createOrchestratorCoordinators;
+            let capturedAssemblyInput: unknown = null;
+            const assemblySpy = jest
+                .spyOn(orchestratorCoordinatorAssembly, 'createOrchestratorCoordinators')
                 .mockImplementation((deps) => {
-                    capturedFactoryInput = deps;
-                    return originalFactory(deps);
+                    capturedAssemblyInput = deps;
+                    return originalAssembly(deps);
                 });
             const syncSpy = jest.spyOn(
                 OverlayRuntimePolicyController.prototype,
@@ -2463,7 +2463,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 syncSpy.mockClear();
 
                 const actions = (
-                    capturedFactoryInput as
+                    capturedAssemblyInput as
                         | { actions?: { onChannelTransitionActivityChange?: (active: boolean) => void } }
                         | null
                 )?.actions;
@@ -2472,7 +2472,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 expect(syncSpy).toHaveBeenCalledTimes(1);
             } finally {
                 syncSpy.mockRestore();
-                factorySpy.mockRestore();
+                assemblySpy.mockRestore();
             }
         });
 

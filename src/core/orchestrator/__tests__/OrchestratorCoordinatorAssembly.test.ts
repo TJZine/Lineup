@@ -1,4 +1,4 @@
-import type { OrchestratorCoordinatorFactoryDeps } from '../OrchestratorCoordinatorContracts';
+import type { OrchestratorCoordinatorAssemblyInput } from '../OrchestratorCoordinatorContracts';
 import type { PlaybackOptionsSectionId } from '../../../modules/ui/playback-options';
 
 const buildEpgCoordinator = jest.fn();
@@ -42,7 +42,7 @@ type PreparePlaybackOptionsModal = (
     preferredSection?: PlaybackOptionsSectionId
 ) => PlaybackOptionsPreparationResult;
 
-const createCoordinatorFactoryDeps = (): OrchestratorCoordinatorFactoryDeps => ({
+const createCoordinatorAssemblyInput = (): OrchestratorCoordinatorAssemblyInput => ({
     epgDebugRuntime: null,
     config: null,
     moduleStatus: new Map(),
@@ -50,41 +50,41 @@ const createCoordinatorFactoryDeps = (): OrchestratorCoordinatorFactoryDeps => (
         ensureEpgInitialized: jest.fn(async () => undefined),
     },
     modules: {
-        navigation: {} as OrchestratorCoordinatorFactoryDeps['modules']['navigation'],
-        plexAuth: {} as OrchestratorCoordinatorFactoryDeps['modules']['plexAuth'],
-        plexDiscovery: {} as OrchestratorCoordinatorFactoryDeps['modules']['plexDiscovery'],
-        plexLibrary: {} as OrchestratorCoordinatorFactoryDeps['modules']['plexLibrary'],
-        plexStreamResolver: {} as OrchestratorCoordinatorFactoryDeps['modules']['plexStreamResolver'],
-        channelManager: {} as OrchestratorCoordinatorFactoryDeps['modules']['channelManager'],
-        scheduler: {} as OrchestratorCoordinatorFactoryDeps['modules']['scheduler'],
-        videoPlayer: {} as OrchestratorCoordinatorFactoryDeps['modules']['videoPlayer'],
-        lifecycle: {} as OrchestratorCoordinatorFactoryDeps['modules']['lifecycle'],
-        epg: {} as OrchestratorCoordinatorFactoryDeps['modules']['epg'],
+        navigation: {} as OrchestratorCoordinatorAssemblyInput['modules']['navigation'],
+        plexAuth: {} as OrchestratorCoordinatorAssemblyInput['modules']['plexAuth'],
+        plexDiscovery: {} as OrchestratorCoordinatorAssemblyInput['modules']['plexDiscovery'],
+        plexLibrary: {} as OrchestratorCoordinatorAssemblyInput['modules']['plexLibrary'],
+        plexStreamResolver: {} as OrchestratorCoordinatorAssemblyInput['modules']['plexStreamResolver'],
+        channelManager: {} as OrchestratorCoordinatorAssemblyInput['modules']['channelManager'],
+        scheduler: {} as OrchestratorCoordinatorAssemblyInput['modules']['scheduler'],
+        videoPlayer: {} as OrchestratorCoordinatorAssemblyInput['modules']['videoPlayer'],
+        lifecycle: {} as OrchestratorCoordinatorAssemblyInput['modules']['lifecycle'],
+        epg: {} as OrchestratorCoordinatorAssemblyInput['modules']['epg'],
     },
     overlays: {
-        nowPlayingInfo: {} as OrchestratorCoordinatorFactoryDeps['overlays']['nowPlayingInfo'],
-        playerOsd: {} as OrchestratorCoordinatorFactoryDeps['overlays']['playerOsd'],
-        channelNumberOverlay: {} as OrchestratorCoordinatorFactoryDeps['overlays']['channelNumberOverlay'],
-        miniGuide: {} as OrchestratorCoordinatorFactoryDeps['overlays']['miniGuide'],
-        channelTransitionOverlay: {} as OrchestratorCoordinatorFactoryDeps['overlays']['channelTransitionOverlay'],
-        playbackOptionsModal: {} as OrchestratorCoordinatorFactoryDeps['overlays']['playbackOptionsModal'],
-        exitConfirmModal: {} as OrchestratorCoordinatorFactoryDeps['overlays']['exitConfirmModal'],
-        sleepTimer: {} as OrchestratorCoordinatorFactoryDeps['overlays']['sleepTimer'],
+        nowPlayingInfo: {} as OrchestratorCoordinatorAssemblyInput['overlays']['nowPlayingInfo'],
+        playerOsd: {} as OrchestratorCoordinatorAssemblyInput['overlays']['playerOsd'],
+        channelNumberOverlay: {} as OrchestratorCoordinatorAssemblyInput['overlays']['channelNumberOverlay'],
+        miniGuide: {} as OrchestratorCoordinatorAssemblyInput['overlays']['miniGuide'],
+        channelTransitionOverlay: {} as OrchestratorCoordinatorAssemblyInput['overlays']['channelTransitionOverlay'],
+        playbackOptionsModal: {} as OrchestratorCoordinatorAssemblyInput['overlays']['playbackOptionsModal'],
+        exitConfirmModal: {} as OrchestratorCoordinatorAssemblyInput['overlays']['exitConfirmModal'],
+        sleepTimer: {} as OrchestratorCoordinatorAssemblyInput['overlays']['sleepTimer'],
     },
     stores: {
-        developerSettingsStore: {} as OrchestratorCoordinatorFactoryDeps['stores']['developerSettingsStore'],
-        debugOverridesStore: {} as OrchestratorCoordinatorFactoryDeps['stores']['debugOverridesStore'],
-        subtitlePreferencesStore: {} as OrchestratorCoordinatorFactoryDeps['stores']['subtitlePreferencesStore'],
-        epgPreferencesStore: {} as OrchestratorCoordinatorFactoryDeps['stores']['epgPreferencesStore'],
-        nowPlayingDisplayStore: {} as OrchestratorCoordinatorFactoryDeps['stores']['nowPlayingDisplayStore'],
-        profileSessionStore: {} as OrchestratorCoordinatorFactoryDeps['stores']['profileSessionStore'],
+        developerSettingsStore: {} as OrchestratorCoordinatorAssemblyInput['stores']['developerSettingsStore'],
+        debugOverridesStore: {} as OrchestratorCoordinatorAssemblyInput['stores']['debugOverridesStore'],
+        subtitlePreferencesStore: {} as OrchestratorCoordinatorAssemblyInput['stores']['subtitlePreferencesStore'],
+        epgPreferencesStore: {} as OrchestratorCoordinatorAssemblyInput['stores']['epgPreferencesStore'],
+        nowPlayingDisplayStore: {} as OrchestratorCoordinatorAssemblyInput['stores']['nowPlayingDisplayStore'],
+        profileSessionStore: {} as OrchestratorCoordinatorAssemblyInput['stores']['profileSessionStore'],
     },
     diagnostics: {
         appendIssueDiagnostic: jest.fn(),
         reportRecoverableAsyncFailure: jest.fn(),
     },
     playback: {
-        state: {} as OrchestratorCoordinatorFactoryDeps['playback']['state'],
+        state: {} as OrchestratorCoordinatorAssemblyInput['playback']['state'],
         getPlaybackInfoSnapshot: () => null,
         refreshPlaybackInfoSnapshot: async (): Promise<never> => {
             throw new Error('refreshPlaybackInfoSnapshot should not be called in this test');
@@ -131,7 +131,7 @@ describe('createOrchestratorCoordinators', () => {
     });
 
     it('assembles the final coordinator bundle from focused owners', () => {
-        const deps = createCoordinatorFactoryDeps();
+        const deps = createCoordinatorAssemblyInput();
         const epgCoordinator = { kind: 'epg' };
         const channelSetup = { kind: 'channel-setup' };
         const channelSetupWorkflow = { kind: 'channel-setup-workflow' };
@@ -164,10 +164,55 @@ describe('createOrchestratorCoordinators', () => {
 
         const coordinators = createOrchestratorCoordinators(deps);
 
-        expect(buildEpgCoordinator).toHaveBeenCalledWith(deps);
-        expect(bindEpgVisibleRangeChange).toHaveBeenCalledWith(deps, epgCoordinator);
-        expect(buildChannelSetupOwners).toHaveBeenCalledWith(deps, epgCoordinator);
+        const epgBuilderInput = buildEpgCoordinator.mock.calls[0]?.[0];
+        expect(epgBuilderInput).toEqual({
+            epgDebugRuntime: deps.epgDebugRuntime,
+            config: deps.config,
+            moduleStatus: deps.moduleStatus,
+            init: deps.init,
+            modules: {
+                epg: deps.modules.epg,
+                channelManager: deps.modules.channelManager,
+                scheduler: deps.modules.scheduler,
+            },
+            stores: {
+                epgPreferencesStore: deps.stores.epgPreferencesStore,
+            },
+            diagnostics: {
+                appendIssueDiagnostic: deps.diagnostics.appendIssueDiagnostic,
+            },
+            schedule: {
+                lastChannelChangeSource: deps.schedule.lastChannelChangeSource,
+                setLastChannelChangeSource: deps.schedule.setLastChannelChangeSource,
+                getLocalMidnightMs: deps.schedule.getLocalMidnightMs,
+                buildDailyScheduleConfig: deps.schedule.buildDailyScheduleConfig,
+            },
+            actions: {
+                switchToChannel: deps.actions.switchToChannel,
+                onOverlayVisibilityChange: deps.actions.onOverlayVisibilityChange,
+            },
+            nowPlaying: deps.nowPlaying,
+        });
+        expect(epgBuilderInput).not.toHaveProperty('overlays');
+        expect(bindEpgVisibleRangeChange).toHaveBeenCalledWith(epgBuilderInput, epgCoordinator);
+
+        const channelSetupInput = buildChannelSetupOwners.mock.calls[0]?.[0];
+        expect(channelSetupInput).toEqual({
+            init: deps.init,
+            modules: {
+                navigation: deps.modules.navigation,
+                plexLibrary: deps.modules.plexLibrary,
+                channelManager: deps.modules.channelManager,
+            },
+            schedule: {
+                getSelectedServerId: deps.schedule.getSelectedServerId,
+            },
+        });
+        expect(channelSetupInput).not.toHaveProperty('overlays');
+        expect(buildChannelSetupOwners).toHaveBeenCalledWith(channelSetupInput, epgCoordinator);
         expect(buildNowPlayingInfoCoordinator).toHaveBeenCalledWith(deps, nowPlayingDebugManager);
+        expect(buildPlaybackRecovery.mock.calls[0]?.[0]).not.toHaveProperty('config');
+        expect(buildChannelTuningCoordinator.mock.calls[0]?.[0]).not.toHaveProperty('overlays');
         expect(buildNavigationCoordinator).toHaveBeenCalledWith(
             {
                 config: deps.config,
@@ -234,7 +279,7 @@ describe('createOrchestratorCoordinators', () => {
     });
 
     it('keeps the deferred playback-options preparation seam wired through the assembled callback', () => {
-        const deps = createCoordinatorFactoryDeps();
+        const deps = createCoordinatorAssemblyInput();
         const prepareModal = jest.fn().mockReturnValue({
             focusableIds: ['audio-track'],
             preferredFocusId: 'audio-track',

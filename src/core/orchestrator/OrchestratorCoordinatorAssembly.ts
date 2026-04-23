@@ -1,9 +1,13 @@
 import type { NowPlayingInfoCoordinator } from '../../modules/ui/now-playing-info';
 import type { PlaybackOptionsCoordinator } from '../../modules/ui/playback-options';
 import type {
-    OrchestratorCoordinatorFactoryDeps,
+    OrchestratorChannelSetupBuilderInput,
+    OrchestratorChannelTuningBuilderInput,
+    OrchestratorCoordinatorAssemblyInput,
     OrchestratorCoordinators,
+    OrchestratorEpgCoordinatorBuilderInput,
     OrchestratorNavigationCoordinatorBuilderInput,
+    OrchestratorPlaybackRecoveryBuilderInput,
 } from './OrchestratorCoordinatorContracts';
 import {
     buildChannelSetupOwners,
@@ -21,8 +25,115 @@ import {
     buildPlayerOsdCoordinator,
 } from './OrchestratorCoordinatorBuilders';
 
+export type {
+    OrchestratorCoordinatorAssemblyInput,
+    OrchestratorCoordinators,
+} from './OrchestratorCoordinatorContracts';
+
+function buildEpgCoordinatorInput(
+    input: OrchestratorCoordinatorAssemblyInput
+): OrchestratorEpgCoordinatorBuilderInput {
+    return {
+        epgDebugRuntime: input.epgDebugRuntime,
+        config: input.config,
+        moduleStatus: input.moduleStatus,
+        init: input.init,
+        modules: {
+            epg: input.modules.epg,
+            channelManager: input.modules.channelManager,
+            scheduler: input.modules.scheduler,
+        },
+        stores: {
+            epgPreferencesStore: input.stores.epgPreferencesStore,
+        },
+        diagnostics: {
+            appendIssueDiagnostic: input.diagnostics.appendIssueDiagnostic,
+        },
+        schedule: {
+            lastChannelChangeSource: input.schedule.lastChannelChangeSource,
+            setLastChannelChangeSource: input.schedule.setLastChannelChangeSource,
+            getLocalMidnightMs: input.schedule.getLocalMidnightMs,
+            buildDailyScheduleConfig: input.schedule.buildDailyScheduleConfig,
+        },
+        actions: {
+            switchToChannel: input.actions.switchToChannel,
+            onOverlayVisibilityChange: input.actions.onOverlayVisibilityChange,
+        },
+        nowPlaying: input.nowPlaying,
+    };
+}
+
+function buildChannelSetupInput(
+    input: OrchestratorCoordinatorAssemblyInput
+): OrchestratorChannelSetupBuilderInput {
+    return {
+        init: input.init,
+        modules: {
+            navigation: input.modules.navigation,
+            plexLibrary: input.modules.plexLibrary,
+            channelManager: input.modules.channelManager,
+        },
+        schedule: {
+            getSelectedServerId: input.schedule.getSelectedServerId,
+        },
+    };
+}
+
+function buildPlaybackRecoveryInput(
+    input: OrchestratorCoordinatorAssemblyInput
+): OrchestratorPlaybackRecoveryBuilderInput {
+    return {
+        modules: {
+            videoPlayer: input.modules.videoPlayer,
+            plexStreamResolver: input.modules.plexStreamResolver,
+            scheduler: input.modules.scheduler,
+            plexAuth: input.modules.plexAuth,
+            plexDiscovery: input.modules.plexDiscovery,
+        },
+        stores: {
+            subtitlePreferencesStore: input.stores.subtitlePreferencesStore,
+        },
+        diagnostics: {
+            appendIssueDiagnostic: input.diagnostics.appendIssueDiagnostic,
+        },
+        playback: {
+            state: input.playback.state,
+            buildPlexResourceUrl: input.playback.buildPlexResourceUrl,
+            getMimeType: input.playback.getMimeType,
+        },
+        errors: input.errors,
+        nowPlaying: input.nowPlaying,
+    };
+}
+
+function buildChannelTuningInput(
+    input: OrchestratorCoordinatorAssemblyInput
+): OrchestratorChannelTuningBuilderInput {
+    return {
+        modules: {
+            channelManager: input.modules.channelManager,
+            scheduler: input.modules.scheduler,
+            videoPlayer: input.modules.videoPlayer,
+            lifecycle: input.modules.lifecycle,
+        },
+        diagnostics: {
+            appendIssueDiagnostic: input.diagnostics.appendIssueDiagnostic,
+        },
+        playback: {
+            state: input.playback.state,
+            stopActiveTranscodeSession: input.playback.stopActiveTranscodeSession,
+        },
+        schedule: {
+            buildDailyScheduleConfig: input.schedule.buildDailyScheduleConfig,
+            getLocalDayKey: input.schedule.getLocalDayKey,
+            setActiveScheduleDayKey: input.schedule.setActiveScheduleDayKey,
+        },
+        errors: input.errors,
+    };
+}
+
 function buildNavigationCoordinatorInput(
-    input: OrchestratorCoordinatorFactoryDeps
+    input: OrchestratorCoordinatorAssemblyInput
 ): OrchestratorNavigationCoordinatorBuilderInput {
     return {
         config: input.config,
@@ -63,12 +174,13 @@ function buildNavigationCoordinatorInput(
 }
 
 export function createOrchestratorCoordinators(
-    input: OrchestratorCoordinatorFactoryDeps
+    input: OrchestratorCoordinatorAssemblyInput
 ): OrchestratorCoordinators {
-    const epgCoordinator = buildEpgCoordinator(input);
-    bindEpgVisibleRangeChange(input, epgCoordinator);
+    const epgInput = buildEpgCoordinatorInput(input);
+    const epgCoordinator = buildEpgCoordinator(epgInput);
+    bindEpgVisibleRangeChange(epgInput, epgCoordinator);
 
-    const channelSetupOwners = buildChannelSetupOwners(input, epgCoordinator);
+    const channelSetupOwners = buildChannelSetupOwners(buildChannelSetupInput(input), epgCoordinator);
 
     let nowPlayingInfoCoordinator: NowPlayingInfoCoordinator | null = null;
     const nowPlayingDebugManager = buildNowPlayingDebugManager(
@@ -88,11 +200,11 @@ export function createOrchestratorCoordinators(
 
     const miniGuideCoordinator = buildMiniGuideCoordinator(input);
     const channelTransitionCoordinator = buildChannelTransitionCoordinator(input);
-    const playbackRecovery = buildPlaybackRecovery(input);
+    const playbackRecovery = buildPlaybackRecovery(buildPlaybackRecoveryInput(input));
     playbackOptionsCoordinator = buildPlaybackOptionsCoordinator(input, playbackRecovery);
     const exitConfirmCoordinator = buildExitConfirmCoordinator(input);
     const channelTuning = buildChannelTuningCoordinator(
-        input,
+        buildChannelTuningInput(input),
         playbackRecovery,
         channelTransitionCoordinator
     );
