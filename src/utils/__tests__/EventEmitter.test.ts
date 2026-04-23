@@ -119,9 +119,34 @@ describe('EventEmitter', () => {
             expect(message).not.toContain(secret);
         });
 
+        it('reports handler errors through reportError with redacted details when available', () => {
+            const emitter = new EventEmitter<{ test: void }>();
+            const reportError = jest.fn();
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const secret = 'super-secret';
+
+            (
+                globalThis as typeof globalThis & {
+                    reportError?: (error: unknown) => void;
+                }
+            ).reportError = reportError;
+
+            emitter.on('test', () => {
+                throw new Error(`http://x?X-Plex-Token=${secret}`);
+            });
+            emitter.emit('test', undefined);
+
+            expect(reportError).toHaveBeenCalledWith(expect.any(Error));
+            const reported = reportError.mock.calls[0]?.[0] as Error | undefined;
+            expect(reported?.message).toContain('Handler error');
+            expect(reported?.message).toContain('REDACTED');
+            expect(reported?.message).not.toContain(secret);
+            expect(warnSpy).not.toHaveBeenCalled();
+        });
+
         it('keeps emit isolated even when reportError exists on the global scope', () => {
             const emitter = new EventEmitter<{ test: void }>();
-            expectConsoleWarn([
+            const warning = expectConsoleWarn([
                 expect.stringContaining('Handler error for event'),
                 expect.objectContaining({
                     name: 'Error',
@@ -132,7 +157,9 @@ describe('EventEmitter', () => {
                 globalThis as typeof globalThis & {
                     reportError?: (error: unknown) => void;
                 }
-            ).reportError = jest.fn();
+            ).reportError = (): void => {
+                throw new Error('reportError failed');
+            };
             const successHandler = jest.fn();
 
             emitter.on('test', () => {
@@ -142,6 +169,7 @@ describe('EventEmitter', () => {
 
             expect(() => emitter.emit('test', undefined)).not.toThrow();
             expect(successHandler).toHaveBeenCalled();
+            expect(warning.getCalls()).toHaveLength(1);
         });
 
         it('keeps emit non-throwing even when the fallback warning path throws', () => {
