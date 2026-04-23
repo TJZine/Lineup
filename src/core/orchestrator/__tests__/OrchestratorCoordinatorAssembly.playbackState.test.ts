@@ -11,8 +11,8 @@ import type { StreamDecision } from '../../../modules/plex/stream';
 import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
 import {
     createOrchestratorCoordinators,
-    type OrchestratorCoordinatorFactoryDeps,
-} from '../OrchestratorCoordinatorFactory';
+    type OrchestratorCoordinatorAssemblyInput,
+} from '../OrchestratorCoordinatorAssembly';
 import type { OrchestratorPlaybackStateAccessors } from '../OrchestratorPlaybackStateAccessors';
 
 const makeProgram = (): ScheduledProgram =>
@@ -84,7 +84,7 @@ const setupStorage = (): void => {
 
 const makeDeps = (
     playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors>
-): OrchestratorCoordinatorFactoryDeps => {
+): OrchestratorCoordinatorAssemblyInput => {
     const debugOverridesStore = new DebugOverridesStore();
     const developerSettingsStore = new DeveloperSettingsStore();
     const subtitlePreferencesStore = new SubtitlePreferencesStore();
@@ -98,7 +98,7 @@ const makeDeps = (
     return {
         epgDebugRuntime: null,
         config: null,
-        moduleStatus: moduleStatus as OrchestratorCoordinatorFactoryDeps['moduleStatus'],
+        moduleStatus: moduleStatus as OrchestratorCoordinatorAssemblyInput['moduleStatus'],
         init: {
             ensureEpgInitialized: (): Promise<void> => Promise.resolve(),
         },
@@ -106,47 +106,47 @@ const makeDeps = (
             navigation: {
                 isModalOpen: jest.fn().mockReturnValue(false),
                 getCurrentScreen: jest.fn().mockReturnValue('player'),
-            } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['navigation'],
+            } as unknown as OrchestratorCoordinatorAssemblyInput['modules']['navigation'],
             plexAuth: {
                 getAuthHeaders: jest.fn().mockReturnValue({}),
                 getCurrentUser: jest.fn().mockReturnValue(null),
-            } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['plexAuth'],
+            } as unknown as OrchestratorCoordinatorAssemblyInput['modules']['plexAuth'],
             plexDiscovery: {
                 getServerUri: jest.fn().mockReturnValue('https://example.invalid'),
-            } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['plexDiscovery'],
-            plexLibrary: {} as OrchestratorCoordinatorFactoryDeps['modules']['plexLibrary'],
-            plexStreamResolver: {} as OrchestratorCoordinatorFactoryDeps['modules']['plexStreamResolver'],
+            } as unknown as OrchestratorCoordinatorAssemblyInput['modules']['plexDiscovery'],
+            plexLibrary: {} as OrchestratorCoordinatorAssemblyInput['modules']['plexLibrary'],
+            plexStreamResolver: {} as OrchestratorCoordinatorAssemblyInput['modules']['plexStreamResolver'],
             channelManager: {
                 getCurrentChannel: jest.fn().mockReturnValue(null),
-            } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['channelManager'],
+            } as unknown as OrchestratorCoordinatorAssemblyInput['modules']['channelManager'],
             scheduler: {
                 getCurrentProgram: jest.fn().mockReturnValue(null),
                 getNextProgram: jest.fn().mockReturnValue(null),
-            } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['scheduler'],
-            videoPlayer: {} as OrchestratorCoordinatorFactoryDeps['modules']['videoPlayer'],
+            } as unknown as OrchestratorCoordinatorAssemblyInput['modules']['scheduler'],
+            videoPlayer: {} as OrchestratorCoordinatorAssemblyInput['modules']['videoPlayer'],
             lifecycle: {
                 saveState: jest.fn().mockResolvedValue(undefined),
-            } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['lifecycle'],
-            epg: {} as OrchestratorCoordinatorFactoryDeps['modules']['epg'],
+            } as unknown as OrchestratorCoordinatorAssemblyInput['modules']['lifecycle'],
+            epg: {} as OrchestratorCoordinatorAssemblyInput['modules']['epg'],
         },
         overlays: {
             nowPlayingInfo: {
                 resetAutoHideTimer: jest.fn(),
-            } as unknown as OrchestratorCoordinatorFactoryDeps['overlays']['nowPlayingInfo'],
+            } as unknown as OrchestratorCoordinatorAssemblyInput['overlays']['nowPlayingInfo'],
             playerOsd: {
                 isVisible: jest.fn().mockReturnValue(false),
-            } as unknown as OrchestratorCoordinatorFactoryDeps['overlays']['playerOsd'],
-            channelNumberOverlay: {} as OrchestratorCoordinatorFactoryDeps['overlays']['channelNumberOverlay'],
+            } as unknown as OrchestratorCoordinatorAssemblyInput['overlays']['playerOsd'],
+            channelNumberOverlay: {} as OrchestratorCoordinatorAssemblyInput['overlays']['channelNumberOverlay'],
             miniGuide: {
                 isVisible: jest.fn().mockReturnValue(false),
-            } as unknown as OrchestratorCoordinatorFactoryDeps['overlays']['miniGuide'],
-            channelTransitionOverlay: {} as OrchestratorCoordinatorFactoryDeps['overlays']['channelTransitionOverlay'],
-            playbackOptionsModal: {} as OrchestratorCoordinatorFactoryDeps['overlays']['playbackOptionsModal'],
-            exitConfirmModal: {} as OrchestratorCoordinatorFactoryDeps['overlays']['exitConfirmModal'],
+            } as unknown as OrchestratorCoordinatorAssemblyInput['overlays']['miniGuide'],
+            channelTransitionOverlay: {} as OrchestratorCoordinatorAssemblyInput['overlays']['channelTransitionOverlay'],
+            playbackOptionsModal: {} as OrchestratorCoordinatorAssemblyInput['overlays']['playbackOptionsModal'],
+            exitConfirmModal: {} as OrchestratorCoordinatorAssemblyInput['overlays']['exitConfirmModal'],
             sleepTimer: {
                 cyclePreset: jest.fn().mockReturnValue(15),
                 getRemainingMs: jest.fn().mockReturnValue(0),
-            } as unknown as OrchestratorCoordinatorFactoryDeps['overlays']['sleepTimer'],
+            } as unknown as OrchestratorCoordinatorAssemblyInput['overlays']['sleepTimer'],
         },
         stores: {
             developerSettingsStore,
@@ -265,7 +265,7 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
         const deps = makeDeps(playbackState);
         deps.config = {
             epgConfig: originalEpgConfig,
-        } as OrchestratorCoordinatorFactoryDeps['config'];
+        } as OrchestratorCoordinatorAssemblyInput['config'];
         const visibleRange = {
             channelStart: 0,
             channelEnd: 2,
@@ -325,7 +325,7 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
             setLayoutMode: jest.fn(),
             setNowWatchingBannerEnabled: jest.fn(),
             setVisibleHours: jest.fn(),
-        } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['epg'];
+        } as unknown as OrchestratorCoordinatorAssemblyInput['modules']['epg'];
 
         const coordinators = createOrchestratorCoordinators(deps);
         coordinators.epgCoordinator.openEPG();

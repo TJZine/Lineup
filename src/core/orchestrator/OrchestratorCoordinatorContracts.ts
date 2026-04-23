@@ -74,7 +74,7 @@ import type { PlaybackOptionsCoordinator } from '../../modules/ui/playback-optio
 import type { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryManager';
 import type { ChannelTuningCoordinator } from '../channel-tuning';
 import type { NavigationCoordinator } from '../../modules/navigation/NavigationCoordinator';
-export interface OrchestratorCoordinatorFactoryDeps {
+export interface OrchestratorCoordinatorAssemblyInput {
     epgDebugRuntime: IEPGDebugRuntime | null;
     config: OrchestratorConfig | null;
     moduleStatus: Map<string, ModuleStatus>;
@@ -158,34 +158,90 @@ export interface OrchestratorCoordinatorFactoryDeps {
     };
 }
 
-export interface OrchestratorNavigationCoordinatorBuilderInput {
-    config: OrchestratorCoordinatorFactoryDeps['config'];
+type CoordinatorModules = OrchestratorCoordinatorAssemblyInput['modules'];
+type CoordinatorStores = OrchestratorCoordinatorAssemblyInput['stores'];
+type CoordinatorPlayback = OrchestratorCoordinatorAssemblyInput['playback'];
+type CoordinatorSchedule = OrchestratorCoordinatorAssemblyInput['schedule'];
+type CoordinatorActions = OrchestratorCoordinatorAssemblyInput['actions'];
+
+export interface OrchestratorEpgCoordinatorBuilderInput {
+    epgDebugRuntime: OrchestratorCoordinatorAssemblyInput['epgDebugRuntime'];
+    config: OrchestratorCoordinatorAssemblyInput['config'];
+    moduleStatus: OrchestratorCoordinatorAssemblyInput['moduleStatus'];
+    init: OrchestratorCoordinatorAssemblyInput['init'];
+    modules: Pick<CoordinatorModules, 'epg' | 'channelManager' | 'scheduler'>;
+    stores: Pick<CoordinatorStores, 'epgPreferencesStore'>;
+    diagnostics: Pick<OrchestratorCoordinatorAssemblyInput['diagnostics'], 'appendIssueDiagnostic'>;
+    schedule: Pick<
+        CoordinatorSchedule,
+        'lastChannelChangeSource' | 'setLastChannelChangeSource' | 'getLocalMidnightMs' | 'buildDailyScheduleConfig'
+    >;
+    actions: Pick<CoordinatorActions, 'switchToChannel' | 'onOverlayVisibilityChange'>;
+    nowPlaying: OrchestratorCoordinatorAssemblyInput['nowPlaying'];
+}
+
+export interface OrchestratorChannelSetupBuilderInput {
+    init: OrchestratorCoordinatorAssemblyInput['init'];
+    modules: Pick<CoordinatorModules, 'navigation' | 'plexLibrary' | 'channelManager'>;
+    schedule: Pick<CoordinatorSchedule, 'getSelectedServerId'>;
+}
+
+export interface OrchestratorPlaybackRecoveryBuilderInput {
     modules: Pick<
-        OrchestratorCoordinatorFactoryDeps['modules'],
+        CoordinatorModules,
+        'videoPlayer' | 'plexStreamResolver' | 'scheduler' | 'plexAuth' | 'plexDiscovery'
+    >;
+    stores: Pick<CoordinatorStores, 'subtitlePreferencesStore'>;
+    diagnostics: Pick<OrchestratorCoordinatorAssemblyInput['diagnostics'], 'appendIssueDiagnostic'>;
+    playback: Pick<
+        CoordinatorPlayback,
+        | 'state'
+        | 'buildPlexResourceUrl'
+        | 'getMimeType'
+    >;
+    errors: OrchestratorCoordinatorAssemblyInput['errors'];
+    nowPlaying: OrchestratorCoordinatorAssemblyInput['nowPlaying'];
+}
+
+export interface OrchestratorChannelTuningBuilderInput {
+    modules: Pick<CoordinatorModules, 'channelManager' | 'scheduler' | 'videoPlayer' | 'lifecycle'>;
+    diagnostics: Pick<OrchestratorCoordinatorAssemblyInput['diagnostics'], 'appendIssueDiagnostic'>;
+    playback: Pick<CoordinatorPlayback, 'state' | 'stopActiveTranscodeSession'>;
+    schedule: Pick<
+        CoordinatorSchedule,
+        'buildDailyScheduleConfig' | 'getLocalDayKey' | 'setActiveScheduleDayKey'
+    >;
+    errors: OrchestratorCoordinatorAssemblyInput['errors'];
+}
+
+export interface OrchestratorNavigationCoordinatorBuilderInput {
+    config: OrchestratorCoordinatorAssemblyInput['config'];
+    modules: Pick<
+        OrchestratorCoordinatorAssemblyInput['modules'],
         'navigation' | 'epg' | 'plexAuth' | 'videoPlayer'
     >;
     overlays: Pick<
-        OrchestratorCoordinatorFactoryDeps['overlays'],
+        OrchestratorCoordinatorAssemblyInput['overlays'],
         'playerOsd' | 'miniGuide' | 'nowPlayingInfo' | 'channelNumberOverlay'
     >;
     stores: Pick<
-        OrchestratorCoordinatorFactoryDeps['stores'],
+        OrchestratorCoordinatorAssemblyInput['stores'],
         'developerSettingsStore' | 'profileSessionStore'
     >;
     diagnostics: {
         reportRecoverableAsyncFailure: NavigationAsyncFailureReporter;
     };
-    playback: Pick<OrchestratorCoordinatorFactoryDeps['playback'], 'stopPlayback'>;
-    schedule: Pick<OrchestratorCoordinatorFactoryDeps['schedule'], 'setLastChannelChangeSource'>;
+    playback: Pick<OrchestratorCoordinatorAssemblyInput['playback'], 'stopPlayback'>;
+    schedule: Pick<OrchestratorCoordinatorAssemblyInput['schedule'], 'setLastChannelChangeSource'>;
     actions: Pick<
-        OrchestratorCoordinatorFactoryDeps['actions'],
+        OrchestratorCoordinatorAssemblyInput['actions'],
         | 'switchToNextChannel'
         | 'switchToPreviousChannel'
         | 'switchToChannelByNumberWithOutcome'
         | 'toggleEPG'
         | 'toggleNowPlayingInfoOverlay'
     >;
-    nowPlaying: OrchestratorCoordinatorFactoryDeps['nowPlaying'];
+    nowPlaying: OrchestratorCoordinatorAssemblyInput['nowPlaying'];
 }
 
 export interface OrchestratorCoordinators {

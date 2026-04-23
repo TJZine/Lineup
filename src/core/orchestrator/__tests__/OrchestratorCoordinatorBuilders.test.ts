@@ -1,7 +1,7 @@
 import type { EPGConfig } from '../../../modules/ui/epg';
 import type { EpgVisibleRange } from '../../../modules/ui/epg/types';
 import type {
-    OrchestratorCoordinatorFactoryDeps,
+    OrchestratorCoordinatorAssemblyInput,
     OrchestratorNavigationCoordinatorBuilderInput,
 } from '../OrchestratorCoordinatorContracts';
 
@@ -44,7 +44,7 @@ import {
     buildPlayerOsdCoordinator,
 } from '../OrchestratorCoordinatorBuilders';
 
-const createInput = (): OrchestratorCoordinatorFactoryDeps => {
+const createInput = (): OrchestratorCoordinatorAssemblyInput => {
     const channelManager = {
         getAllChannels: jest.fn(() => [{ id: 'channel-1' }, { id: 'channel-2' }]),
     };
@@ -67,7 +67,7 @@ const createInput = (): OrchestratorCoordinatorFactoryDeps => {
             videoPlayer: { kind: 'video-player' },
             lifecycle: { kind: 'lifecycle' },
             epg: { kind: 'epg' },
-        } as unknown as OrchestratorCoordinatorFactoryDeps['modules'],
+        } as unknown as OrchestratorCoordinatorAssemblyInput['modules'],
         overlays: {
             nowPlayingInfo: { kind: 'now-playing' },
             playerOsd: { kind: 'player-osd' },
@@ -77,7 +77,7 @@ const createInput = (): OrchestratorCoordinatorFactoryDeps => {
             playbackOptionsModal: { kind: 'playback-options-modal' },
             exitConfirmModal: { kind: 'exit-confirm-modal' },
             sleepTimer: { kind: 'sleep-timer' },
-        } as unknown as OrchestratorCoordinatorFactoryDeps['overlays'],
+        } as unknown as OrchestratorCoordinatorAssemblyInput['overlays'],
         stores: {
             developerSettingsStore: { kind: 'developer-settings-store' },
             debugOverridesStore: { kind: 'debug-overrides-store' },
@@ -85,7 +85,7 @@ const createInput = (): OrchestratorCoordinatorFactoryDeps => {
             epgPreferencesStore: { kind: 'epg-preferences-store' },
             nowPlayingDisplayStore: { kind: 'now-playing-display-store' },
             profileSessionStore: { kind: 'profile-session-store' },
-        } as unknown as OrchestratorCoordinatorFactoryDeps['stores'],
+        } as unknown as OrchestratorCoordinatorAssemblyInput['stores'],
         diagnostics: {
             appendIssueDiagnostic: jest.fn(),
             reportRecoverableAsyncFailure: jest.fn(),
@@ -98,7 +98,7 @@ const createInput = (): OrchestratorCoordinatorFactoryDeps => {
             stopActiveTranscodeSession: jest.fn(),
             getMimeType: jest.fn(),
             buildPlexResourceUrl: jest.fn(),
-        } as unknown as OrchestratorCoordinatorFactoryDeps['playback'],
+        } as unknown as OrchestratorCoordinatorAssemblyInput['playback'],
         schedule: {
             lastChannelChangeSource: jest.fn(() => null),
             setLastChannelChangeSource: jest.fn(),
@@ -117,7 +117,7 @@ const createInput = (): OrchestratorCoordinatorFactoryDeps => {
             onOverlayVisibilityChange: jest.fn(),
             onChannelTransitionActivityChange: jest.fn(),
             toggleNowPlayingInfoOverlay: jest.fn(),
-        } as unknown as OrchestratorCoordinatorFactoryDeps['actions'],
+        } as unknown as OrchestratorCoordinatorAssemblyInput['actions'],
         errors: {
             handleGlobalError: jest.fn(),
         },
@@ -162,7 +162,7 @@ describe('OrchestratorCoordinatorBuilders', () => {
         };
         const config = {
             epgConfig: originalConfig,
-        } as unknown as NonNullable<OrchestratorCoordinatorFactoryDeps['config']>;
+        } as unknown as NonNullable<OrchestratorCoordinatorAssemblyInput['config']>;
         input.config = config;
 
         bindEpgVisibleRangeChange(input, {
@@ -246,7 +246,7 @@ describe('OrchestratorCoordinatorBuilders', () => {
                 channelNumberOverlayConfig: {
                     completeHideDelayMs: 900,
                 },
-            } as OrchestratorCoordinatorFactoryDeps['config'],
+            } as OrchestratorCoordinatorAssemblyInput['config'],
             modules: {
                 navigation: { kind: 'navigation' },
                 epg: { kind: 'epg' },
@@ -363,15 +363,15 @@ describe('OrchestratorCoordinatorBuilders', () => {
         input.modules.navigation = {
             getCurrentScreen: jest.fn(() => 'player'),
             isModalOpen: jest.fn(() => false),
-        } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['navigation'];
+        } as unknown as OrchestratorCoordinatorAssemblyInput['modules']['navigation'];
         input.modules.videoPlayer = {
             getState: jest.fn(() => ({ status: 'loading' })),
-        } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['videoPlayer'];
+        } as unknown as OrchestratorCoordinatorAssemblyInput['modules']['videoPlayer'];
 
         try {
             const coordinator = buildChannelTransitionCoordinator(input);
             const onChannelTransitionActivityChange = (
-                input.actions as OrchestratorCoordinatorFactoryDeps['actions'] & {
+                input.actions as OrchestratorCoordinatorAssemblyInput['actions'] & {
                     onChannelTransitionActivityChange: jest.Mock<void, [boolean]>;
                 }
             ).onChannelTransitionActivityChange;
@@ -398,7 +398,7 @@ describe('OrchestratorCoordinatorBuilders', () => {
             hide: jest.fn(),
             isVisible: jest.fn(() => true),
         };
-        input.overlays.miniGuide = overlay as unknown as OrchestratorCoordinatorFactoryDeps['overlays']['miniGuide'];
+        input.overlays.miniGuide = overlay as unknown as OrchestratorCoordinatorAssemblyInput['overlays']['miniGuide'];
         input.modules.channelManager = {
             getAllChannels: jest.fn(() => [
                 { id: 'channel-1', number: 1, name: 'One' },
@@ -408,10 +408,10 @@ describe('OrchestratorCoordinatorBuilders', () => {
                 { id: 'channel-5', number: 5, name: 'Five' },
             ]),
             getCurrentChannel: jest.fn(() => ({ id: 'channel-3', number: 3, name: 'Three' })),
-        } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['channelManager'];
+        } as unknown as OrchestratorCoordinatorAssemblyInput['modules']['channelManager'];
         input.modules.scheduler = {
             getCurrentProgram: jest.fn(() => null),
-        } as unknown as OrchestratorCoordinatorFactoryDeps['modules']['scheduler'];
+        } as unknown as OrchestratorCoordinatorAssemblyInput['modules']['scheduler'];
         input.actions.switchToChannel = jest.fn().mockRejectedValue(new Error('switch failed'));
         input.nowPlaying.handler = jest.fn(() => reportToast);
 
@@ -462,7 +462,7 @@ describe('OrchestratorCoordinatorBuilders', () => {
                 showCurrentTimeIndicator: true,
                 autoScrollToNow: false,
             },
-        } as OrchestratorCoordinatorFactoryDeps['config'];
+        } as OrchestratorCoordinatorAssemblyInput['config'];
 
         const coordinator = buildPlayerOsdCoordinator(input, () => ({
             focusableIds: [],

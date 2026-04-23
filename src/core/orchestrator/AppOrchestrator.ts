@@ -108,7 +108,11 @@ import type {
     OrchestratorConfig,
 } from './OrchestratorTypes';
 import { createOrchestratorModules } from './OrchestratorModuleFactory';
-import { createOrchestratorCoordinators } from './OrchestratorCoordinatorFactory';
+import { createOrchestratorCoordinators } from './OrchestratorCoordinatorAssembly';
+import type {
+    OrchestratorCoordinatorAssemblyInput,
+    OrchestratorCoordinators,
+} from './OrchestratorCoordinatorContracts';
 import { createPriorityOneControllersAndBinder } from './OrchestratorPriorityOneControllerFactory';
 import { createPriorityOneAssemblyInput } from './priority-one/PriorityOneAssemblyInput';
 import type { OrchestratorEventCleanupFailure } from './OrchestratorEventCleanupReporter';
@@ -695,7 +699,53 @@ export class AppOrchestrator {
             this._issueDiagnosticsStore.append(issue, event, data);
         };
 
-        const coordinators = createOrchestratorCoordinators({
+        this._assignCoordinators(
+            createOrchestratorCoordinators(
+                this._buildCoordinatorAssemblyInput(initCoordinator, appendIssueDiagnostic)
+            )
+        );
+        this._scheduleDayRolloverController = new ScheduleDayRolloverController({
+            now: (): number => Date.now(),
+            getChannelManager: (): IChannelManager | null => this._channelManager,
+            getScheduler: (): IChannelScheduler | null => this._scheduler,
+            getEpgCoordinator: (): EPGCoordinator | null => this._epgCoordinator,
+            getLocalMidnightMs: (timeMs: number): number => this._schedulePolicy.getLocalMidnightMs(timeMs),
+            getLocalDayKey: (timeMs: number): number => this._schedulePolicy.getLocalDayKey(timeMs),
+            buildDailyScheduleConfig: (
+                channel: ChannelConfig,
+                items: ResolvedChannelContent['items'],
+                referenceTimeMs: number
+            ): ScheduleConfig => this._schedulePolicy.buildDailyScheduleConfig(channel, items, referenceTimeMs),
+            reportError: (message: string, error: unknown): void => {
+                this._warnRecoverableRuntimeError(
+                    'orchestrator.scheduleDayRollover',
+                    message,
+                    error
+                );
+            },
+        });
+        this._subtitleTrackRecoveryController = new SubtitleTrackRecoveryController({
+            getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
+            getPlaybackRecovery: (): PlaybackRecoveryManager | null => this._playbackRecovery,
+            readSubtitleMode: (): import('../../shared/subtitle-mode').SubtitleMode =>
+                this._subtitlePreferencesStore.readSubtitleModeAndClean('full'),
+            setSubtitleTrack: (trackId: string | null): Promise<void> => this.setSubtitleTrack(trackId),
+            nowPlayingWarn: (message: string): void => {
+                this._nowPlayingHandler?.({ message, type: 'warning' });
+            },
+            getCurrentStreamDecision: (): StreamDecision | null => this._currentStreamDecision,
+            getCurrentStreamDescriptor: (): StreamDescriptor | null => this._currentStreamDescriptor,
+            appendIssueDiagnostic: ({ key, data }): void => {
+                appendIssueDiagnostic(QA_003B_ISSUE_ID, key, data);
+            },
+        });
+    }
+
+    private _buildCoordinatorAssemblyInput(
+        initCoordinator: InitializationCoordinator,
+        appendIssueDiagnostic: AppendIssueDiagnostic
+    ): OrchestratorCoordinatorAssemblyInput {
+        return {
             epgDebugRuntime: this._epgDebugRuntime,
             config: this._config,
             moduleStatus: this._moduleStatus,
@@ -704,26 +754,26 @@ export class AppOrchestrator {
                     initCoordinator.ensureEPGInitialized(),
             },
             modules: {
-                navigation: this._navigation,
-                plexAuth: this._plexAuth,
-                plexDiscovery: this._plexDiscovery,
-                plexLibrary: this._plexLibrary,
-                plexStreamResolver: this._plexStreamResolver,
-                channelManager: this._channelManager,
-                scheduler: this._scheduler,
-                videoPlayer: this._videoPlayer,
-                lifecycle: this._lifecycle,
-                epg: this._epg,
+                navigation: this._navigation!,
+                plexAuth: this._plexAuth!,
+                plexDiscovery: this._plexDiscovery!,
+                plexLibrary: this._plexLibrary!,
+                plexStreamResolver: this._plexStreamResolver!,
+                channelManager: this._channelManager!,
+                scheduler: this._scheduler!,
+                videoPlayer: this._videoPlayer!,
+                lifecycle: this._lifecycle!,
+                epg: this._epg!,
             },
             overlays: {
-                nowPlayingInfo: this._nowPlayingInfo,
-                playerOsd: this._playerOsd,
-                channelNumberOverlay: this._channelNumberOverlay,
-                miniGuide: this._miniGuide,
-                channelTransitionOverlay: this._channelTransitionOverlay,
-                playbackOptionsModal: this._playbackOptionsModal,
-                exitConfirmModal: this._exitConfirmModal,
-                sleepTimer: this._sleepTimer,
+                nowPlayingInfo: this._nowPlayingInfo!,
+                playerOsd: this._playerOsd!,
+                channelNumberOverlay: this._channelNumberOverlay!,
+                miniGuide: this._miniGuide!,
+                channelTransitionOverlay: this._channelTransitionOverlay!,
+                playbackOptionsModal: this._playbackOptionsModal!,
+                exitConfirmModal: this._exitConfirmModal!,
+                sleepTimer: this._sleepTimer!,
             },
             stores: {
                 developerSettingsStore: this._developerSettingsStore,
@@ -792,8 +842,10 @@ export class AppOrchestrator {
             nowPlaying: {
                 handler: (): ((toast: ToastInput) => void) | null => this._nowPlayingHandler,
             },
-        });
+        };
+    }
 
+    private _assignCoordinators(coordinators: OrchestratorCoordinators): void {
         this._epgCoordinator = coordinators.epgCoordinator;
         this._channelSetup = coordinators.channelSetup;
         this._channelSetupWorkflow = coordinators.channelSetupWorkflow;
@@ -807,41 +859,6 @@ export class AppOrchestrator {
         this._playbackRecovery = coordinators.playbackRecovery;
         this._channelTuning = coordinators.channelTuning;
         this._navigationCoordinator = coordinators.navigationCoordinator;
-        this._scheduleDayRolloverController = new ScheduleDayRolloverController({
-            now: (): number => Date.now(),
-            getChannelManager: (): IChannelManager | null => this._channelManager,
-            getScheduler: (): IChannelScheduler | null => this._scheduler,
-            getEpgCoordinator: (): EPGCoordinator | null => this._epgCoordinator,
-            getLocalMidnightMs: (timeMs: number): number => this._schedulePolicy.getLocalMidnightMs(timeMs),
-            getLocalDayKey: (timeMs: number): number => this._schedulePolicy.getLocalDayKey(timeMs),
-            buildDailyScheduleConfig: (
-                channel: ChannelConfig,
-                items: ResolvedChannelContent['items'],
-                referenceTimeMs: number
-            ): ScheduleConfig => this._schedulePolicy.buildDailyScheduleConfig(channel, items, referenceTimeMs),
-            reportError: (message: string, error: unknown): void => {
-                this._warnRecoverableRuntimeError(
-                    'orchestrator.scheduleDayRollover',
-                    message,
-                    error
-                );
-            },
-        });
-        this._subtitleTrackRecoveryController = new SubtitleTrackRecoveryController({
-            getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
-            getPlaybackRecovery: (): PlaybackRecoveryManager | null => this._playbackRecovery,
-            readSubtitleMode: (): import('../../shared/subtitle-mode').SubtitleMode =>
-                this._subtitlePreferencesStore.readSubtitleModeAndClean('full'),
-            setSubtitleTrack: (trackId: string | null): Promise<void> => this.setSubtitleTrack(trackId),
-            nowPlayingWarn: (message: string): void => {
-                this._nowPlayingHandler?.({ message, type: 'warning' });
-            },
-            getCurrentStreamDecision: (): StreamDecision | null => this._currentStreamDecision,
-            getCurrentStreamDescriptor: (): StreamDescriptor | null => this._currentStreamDescriptor,
-            appendIssueDiagnostic: ({ key, data }): void => {
-                appendIssueDiagnostic(QA_003B_ISSUE_ID, key, data);
-            },
-        });
     }
 
     /**
