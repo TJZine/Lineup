@@ -210,6 +210,22 @@
       "checklist_tokens": {
         "work_item": "P11-W3",
         "priority_exit": "P11-EXIT"
+      },
+      "execution_status": {
+        "status": "completed",
+        "completed_execution_units": [
+          "P11-W3-EU1"
+        ],
+        "current_or_next_execution_unit": "P11-W4",
+        "evidence": [
+          "P11-W3-EU1 tightened channel-manager create/update contracts in commit 5596f684: production create/update signatures now use explicit writable input types, channel setup pending/build commits consume the typed create surface, and runtime-owned channel fields remain manager-owned.",
+          "P11-W3-EU1 centralized legacy isSequentialVariant cleanup at the channel repository load-normalization boundary; ChannelManager save/load/export and StoredChannelDataCodec encode no longer repeat the legacy scrub while persisted legacy records still load and repersist without the field.",
+          "P11-W3-EU1 made ChannelSetupWorkflowPort unavailable-workflow behavior uniform by routing all port methods through a strict unavailable-workflow contract, with ChannelSetupSessionRuntime owning UI-safe defaults for unavailable setup-record/context reads and facet invalidation.",
+          "Implementation review found no material findings and approved P11-W3-EU1 for closeout; focused channel-manager/channel-setup/app diagnostics tests, npm run typecheck, source audits, and npm run verify passed.",
+          "Closeout reran the five package-local scoping commands for src/modules/scheduler/channel-manager/ChannelManager.ts, src/modules/scheduler/channel-manager/ContentResolver.ts, src/core/channel-setup/ChannelSetupPlanner.ts, src/modules/scheduler/scheduler/ChannelScheduler.ts, and src/modules/ui/channel-setup/ChannelSetupScreen.ts; all reported no open issues matching those files.",
+          "Exact review-id desloppify checks still reported the three P11-W3 seed ids as open, but reviewed current-source proof shows detector lag/stale wording against the completed package-owned rationale."
+        ],
+        "last_touched": "2026-04-23"
       }
     },
     {
