@@ -12,6 +12,8 @@ import type { ProfileSwitchCleanupController } from '../ProfileSwitchCleanupCont
 import type { PlaybackRuntimeController } from './PlaybackRuntimeController';
 import type { PlaybackStartController } from './PlaybackStartController';
 
+export type { PriorityOneAssemblyInput } from './PriorityOneAssemblyInput';
+
 export interface PriorityOneControllersAndBinder {
     overlayRuntimePolicyController: OverlayRuntimePolicyController;
     playbackStartController: PlaybackStartController;

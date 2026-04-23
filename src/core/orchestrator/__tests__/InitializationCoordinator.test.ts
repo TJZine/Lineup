@@ -4,13 +4,13 @@
 
 import { InitializationCoordinator } from '../InitializationCoordinator';
 import type { InitializationDependencies, InitializationCallbacks } from '../InitializationCoordinator';
-import { CLASSIC_EPG_PIP_CLASS } from '../../modules/ui/epg/buildEpgStartupConfig';
-import type { PlexAuthDataV2, PlexStoredCredentialsReadResult } from '../../modules/plex/auth';
-import { CHANNEL_BADGE_CONTAINER_ID } from '../../modules/ui/channel-badge';
-import { EpgPreferencesStore, type EpgLayoutMode } from '../../modules/settings/EpgPreferencesStore';
-import { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
-import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
-import { APP_SHELL_CONTAINER_IDS } from '../../modules/ui/common/appShellContainerIds';
+import { CLASSIC_EPG_PIP_CLASS } from '../../../modules/ui/epg/buildEpgStartupConfig';
+import type { PlexAuthDataV2, PlexStoredCredentialsReadResult } from '../../../modules/plex/auth';
+import { CHANNEL_BADGE_CONTAINER_ID } from '../../../modules/ui/channel-badge';
+import { EpgPreferencesStore, type EpgLayoutMode } from '../../../modules/settings/EpgPreferencesStore';
+import { ProfileSessionStore } from '../../../modules/settings/ProfileSessionStore';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
 
 const createStoredCredentials = (
     activeToken: string,
