@@ -1,21 +1,6 @@
 import { IEventEmitter, IDisposable } from './interfaces';
 import { summarizeErrorForLog } from './errors';
 
-function formatReportedError(summary: unknown): string {
-    if (typeof summary === 'string') {
-        return summary;
-    }
-    try {
-        const serialized = JSON.stringify(summary);
-        if (serialized) {
-            return serialized;
-        }
-    } catch {
-        // Fall through to the generic string conversion below.
-    }
-    return String(summary);
-}
-
 function warnHandlerError(event: PropertyKey, summary: unknown): void {
     globalThis.console?.warn?.call(
         globalThis.console,
@@ -25,18 +10,7 @@ function warnHandlerError(event: PropertyKey, summary: unknown): void {
 }
 
 function reportHandlerError(event: PropertyKey, error: unknown): void {
-    const summary = summarizeErrorForLog(error);
-    if (typeof globalThis.reportError === 'function') {
-        const prefix = "[EventEmitter] Handler error for event '" + String(event) + "':";
-        try {
-            globalThis.reportError(new Error(prefix + ' ' + formatReportedError(summary)));
-            return;
-        } catch {
-            // Fall through to the warning path below.
-        }
-    }
-
-    warnHandlerError(event, summary);
+    warnHandlerError(event, summarizeErrorForLog(error));
 }
 
 export class EventEmitter<TEventMap extends Record<string, unknown>>
