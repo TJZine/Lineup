@@ -12,7 +12,11 @@ describe('verify-docs', () => {
 
     afterEach(() => {
         for (const tempRoot of tempRoots.splice(0)) {
-            chmodSync(path.join(tempRoot, 'docs/AGENTIC_DEV_WORKFLOW.md'), 0o644);
+            try {
+                chmodSync(path.join(tempRoot, 'docs/AGENTIC_DEV_WORKFLOW.md'), 0o755);
+            } catch {
+                // Best-effort permission normalization before removing the temp repo.
+            }
             rmSync(tempRoot, { recursive: true, force: true });
         }
     });

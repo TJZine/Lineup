@@ -1,4 +1,4 @@
-import { chmodSync, rmSync } from 'node:fs';
+import { mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
 import {
@@ -128,7 +128,9 @@ export function registerVerifyDocsRequiredFilesAssertions({ tempRoots }: VerifyD
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
 
-        chmodSync(path.join(repoRoot, 'docs/AGENTIC_DEV_WORKFLOW.md'), 0);
+        const workflowPath = path.join(repoRoot, 'docs/AGENTIC_DEV_WORKFLOW.md');
+        rmSync(workflowPath, { force: true });
+        mkdirSync(workflowPath, { recursive: true });
 
         const result = runVerifier(repoRoot);
 

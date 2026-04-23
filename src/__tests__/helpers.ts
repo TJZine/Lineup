@@ -106,6 +106,17 @@ export const createDeferred = <T>(): Deferred<T> => {
 };
 
 type RestoreTestOverride = () => void;
+const activeTestOverrides = new Set<RestoreTestOverride>();
+
+if (typeof afterEach === 'function') {
+    afterEach(() => {
+        const restores = Array.from(activeTestOverrides).reverse();
+        activeTestOverrides.clear();
+        for (const restore of restores) {
+            restore();
+        }
+    });
+}
 
 const overrideOwnPropertyForTest = (
     target: object,
@@ -114,13 +125,20 @@ const overrideOwnPropertyForTest = (
 ): RestoreTestOverride => {
     const hadOwnProperty = Object.prototype.hasOwnProperty.call(target, property);
     const originalDescriptor = Object.getOwnPropertyDescriptor(target, property);
+    let restored = false;
 
     Object.defineProperty(target, property, {
         configurable: true,
         ...descriptor,
     });
 
-    return (): void => {
+    const restore = (): void => {
+        if (restored) {
+            return;
+        }
+        restored = true;
+        activeTestOverrides.delete(restore);
+
         if (hadOwnProperty && originalDescriptor) {
             Object.defineProperty(target, property, originalDescriptor);
             return;
@@ -128,6 +146,9 @@ const overrideOwnPropertyForTest = (
 
         delete (target as Record<string, unknown>)[property];
     };
+
+    activeTestOverrides.add(restore);
+    return restore;
 };
 
 export const setDevBuildForTest = (value: boolean): RestoreTestOverride =>

@@ -127,14 +127,12 @@ describe('flushPromisesAndTimers', () => {
 
     it('flushes promise work on both sides of a fake-timer pass', async () => {
         const steps: string[] = [];
-        const firstSignal = AbortSignal.timeout(0);
-
-        firstSignal.addEventListener('abort', () => {
+        setTimeout(() => {
             steps.push('timer-pass');
             void Promise.resolve().then(() => {
                 steps.push('post-timer-pass');
             });
-        });
+        }, 0);
 
         void Promise.resolve().then(() => {
             steps.push('pre-pass');

@@ -1,10 +1,29 @@
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
 const verifierPath = path.resolve(process.cwd(), 'tools/verify-docs.mjs');
+const VERIFY_DOCS_SYNC_TIMEOUT_MS = 15_000;
+const VERIFY_DOCS_SYNC_MAX_BUFFER = 10 * 1024 * 1024;
+
+function formatSyncFailure(
+    command: string,
+    args: string[],
+    result: ReturnType<typeof spawnSync>
+): string {
+    const status = result.status ?? 'unknown';
+    const stdout = String(result.stdout ?? '').trim();
+    const stderr = String(result.stderr ?? '').trim();
+
+    if (result.error) {
+        return `${command} ${args.join(' ')} failed before exit (status=${status}): ${result.error.message}\nstdout:\n${stdout}\n\nstderr:\n${stderr}`;
+    }
+
+    const errorOutput = stderr || stdout || `exit ${status}`;
+    return `${command} ${args.join(' ')} failed (status=${status}): ${errorOutput}`;
+}
 
 type PromptInventories = {
     expectedEvalPromptFiles: string[];
@@ -47,11 +66,18 @@ export function loadPromptInventoriesFromHarnessDocsLib(): PromptInventories {
 
     const result = spawnSync(process.execPath, ['--input-type=module', '--eval', script], {
         encoding: 'utf8',
+        timeout: VERIFY_DOCS_SYNC_TIMEOUT_MS,
+        maxBuffer: VERIFY_DOCS_SYNC_MAX_BUFFER,
     });
 
-    if (result.status !== 0) {
-        const errorOutput = result.stderr.trim() || result.stdout.trim() || `exit ${result.status}`;
-        throw new Error(`Failed to load expected prompt inventories from harness-docs-lib.mjs: ${errorOutput}`);
+    if (result.error || result.status !== 0) {
+        throw new Error(
+            `Failed to load expected prompt inventories from harness-docs-lib.mjs: ${formatSyncFailure(
+                process.execPath,
+                ['--input-type=module', '--eval', script],
+                result
+            )}`
+        );
     }
 
     return JSON.parse(result.stdout) as PromptInventories;
@@ -693,38 +719,42 @@ export function writeValidCodexRoleConfigFixture(
 
 export function createRepoFixture(overrides: Partial<Record<string, string>> = {}): string {
     const repoRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-verify-docs-'));
+    try {
+        for (const file of requiredFiles) {
+            writeRepoFile(repoRoot, file);
+        }
 
-    for (const file of requiredFiles) {
-        writeRepoFile(repoRoot, file);
+        writeRepoFile(repoRoot, 'docs/runs/_template/Plan.md');
+        writeRepoFile(repoRoot, 'docs/runs/_template/Prompt.md');
+        writeRepoFile(repoRoot, 'docs/runs/_template/Implement.md');
+        writeRepoFile(repoRoot, 'docs/runs/_template/Documentation.md');
+        writeRepoFile(repoRoot, 'docs/development/setup.md');
+        writeRepoFile(repoRoot, 'docs/development/debugging.md');
+        writeRepoFile(repoRoot, 'docs/development/subtitles.md');
+        writeRepoFile(repoRoot, 'docs/development/testing.md');
+        writeValidRepoLocalSkillFixtures(repoRoot);
+        writeValidSkillMirrorFixture(repoRoot);
+        writeValidSessionPromptFixture(repoRoot);
+        writeValidEvalPromptFixture(repoRoot);
+
+        for (const prompt of expectedEvalPromptFiles) {
+            writeRepoFile(repoRoot, `docs/agentic/evals/prompts/${prompt}`);
+        }
+
+        for (const [relativePath, content] of Object.entries(overrides)) {
+            writeRepoFile(repoRoot, relativePath, content);
+        }
+
+        runGit(['init', '-q'], repoRoot);
+        runGit(['config', 'user.email', 'verify-docs@test.local'], repoRoot);
+        runGit(['config', 'user.name', 'Verify Docs Test'], repoRoot);
+        runGit(['add', '.'], repoRoot);
+
+        return repoRoot;
+    } catch (error) {
+        rmSync(repoRoot, { recursive: true, force: true });
+        throw error;
     }
-
-    writeRepoFile(repoRoot, 'docs/runs/_template/Plan.md');
-    writeRepoFile(repoRoot, 'docs/runs/_template/Prompt.md');
-    writeRepoFile(repoRoot, 'docs/runs/_template/Implement.md');
-    writeRepoFile(repoRoot, 'docs/runs/_template/Documentation.md');
-    writeRepoFile(repoRoot, 'docs/development/setup.md');
-    writeRepoFile(repoRoot, 'docs/development/debugging.md');
-    writeRepoFile(repoRoot, 'docs/development/subtitles.md');
-    writeRepoFile(repoRoot, 'docs/development/testing.md');
-    writeValidRepoLocalSkillFixtures(repoRoot);
-    writeValidSkillMirrorFixture(repoRoot);
-    writeValidSessionPromptFixture(repoRoot);
-    writeValidEvalPromptFixture(repoRoot);
-
-    for (const prompt of expectedEvalPromptFiles) {
-        writeRepoFile(repoRoot, `docs/agentic/evals/prompts/${prompt}`);
-    }
-
-    for (const [relativePath, content] of Object.entries(overrides)) {
-        writeRepoFile(repoRoot, relativePath, content);
-    }
-
-    runGit(['init', '-q'], repoRoot);
-    runGit(['config', 'user.email', 'verify-docs@test.local'], repoRoot);
-    runGit(['config', 'user.name', 'Verify Docs Test'], repoRoot);
-    runGit(['add', '.'], repoRoot);
-
-    return repoRoot;
 }
 
 export function runVerifier(
@@ -732,19 +762,28 @@ export function runVerifier(
     args: string[] = [],
     env: NodeJS.ProcessEnv | undefined = undefined
 ): ReturnType<typeof spawnSync> {
-    return spawnSync(process.execPath, [verifierPath, ...args], {
+    const result = spawnSync(process.execPath, [verifierPath, ...args], {
         cwd: repoRoot,
         encoding: 'utf8',
         env,
+        timeout: VERIFY_DOCS_SYNC_TIMEOUT_MS,
+        maxBuffer: VERIFY_DOCS_SYNC_MAX_BUFFER,
     });
+    if (result.error) {
+        throw new Error(formatSyncFailure(process.execPath, [verifierPath, ...args], result));
+    }
+    return result;
 }
 
 export function runGit(args: string[], repoRoot: string, env: NodeJS.ProcessEnv | undefined = undefined): void {
-    const result = spawnSync('git', args, { cwd: repoRoot, encoding: 'utf8', env });
+    const result = spawnSync('git', args, {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        env,
+        timeout: VERIFY_DOCS_SYNC_TIMEOUT_MS,
+        maxBuffer: VERIFY_DOCS_SYNC_MAX_BUFFER,
+    });
     if (result.error || result.status !== 0) {
-        throw new Error(
-            `git ${args.join(' ')} failed (status=${result.status ?? 'unknown'}):\n` +
-            `stdout:\n${String(result.stdout)}\n\nstderr:\n${String(result.stderr)}`
-        );
+        throw new Error(formatSyncFailure('git', args, result));
     }
 }

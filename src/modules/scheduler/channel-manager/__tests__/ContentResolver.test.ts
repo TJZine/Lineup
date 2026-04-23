@@ -948,10 +948,11 @@ describe('ContentResolver', () => {
             const episodes = [createMockEpisode(1, 1, { ratingKey: 'ep1', grandparentRatingKey: 'show1' })];
             const shows = [createMockItem({ ratingKey: 'show1', type: 'show', genres: ['Drama'] })];
             let showCallCount = 0;
-            expectConsoleWarn([
-                'Show list fetch failed, using cached show list',
-                expect.any(Error),
-            ]);
+            expectConsoleWarn((args) =>
+                typeof args[0] === 'string'
+                && args[0].includes('Show list fetch failed, using cached show list')
+                && args.some((arg) => arg instanceof Error)
+            );
             mockLibrary.getLibraryItems.mockImplementation((_, options) => {
                 if (options?.filter?.type === PLEX_MEDIA_TYPES.EPISODE) {
                     return Promise.resolve(episodes);

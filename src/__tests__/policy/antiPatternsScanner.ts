@@ -306,7 +306,7 @@ export const scanSourceText = (
                 ? jestScopePath.join(' > ')
                 : namedScopePath.length > 0
                     ? namedScopePath.join(' > ')
-                    : '<anonymous>';
+                    : `<anonymous>@L${line}:C${column}`;
             const ordinalKey = [args.file, kind, scopePath].join('\0');
             const ordinal = (sleepOrdinals.get(ordinalKey) ?? 0) + 1;
             sleepOrdinals.set(ordinalKey, ordinal);
@@ -325,6 +325,8 @@ export const scanSourceText = (
         const jestScopeCall = ts.isCallExpression(node) ? node : null;
         const jestScopeFrame = jestScopeCall ? getJestScopeFrame(jestScopeCall) : null;
         if (jestScopeCall && jestScopeFrame) {
+            // This scanner only inspects executable test nodes, so we intentionally
+            // leave CallExpression.typeArguments out of the Jest-scope traversal.
             const nextJestScopePath = [...jestScopePath, jestScopeFrame.title];
             visit(jestScopeFrame.callback.body ?? jestScopeFrame.callback, nextJestScopePath, namedScopePath);
             for (const argument of jestScopeCall.arguments) {

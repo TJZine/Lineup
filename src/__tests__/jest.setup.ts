@@ -12,12 +12,10 @@ const originalConsole = {
 const noop = (): void => undefined;
 
 if (!shouldAllowConsoleOutput) {
-    beforeAll(() => {
-        console.debug = noop;
-        console.log = noop;
-        console.info = noop;
-        sharedConsoleOutputGuard.install();
-    });
+    console.debug = noop;
+    console.log = noop;
+    console.info = noop;
+    sharedConsoleOutputGuard.install();
 
     beforeEach(() => {
         sharedConsoleOutputGuard.resetForTest();

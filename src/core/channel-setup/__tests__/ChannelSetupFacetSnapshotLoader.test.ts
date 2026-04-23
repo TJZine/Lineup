@@ -106,22 +106,24 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
                 }),
             }),
         });
+        try {
+            const snapshot = await loader.loadSnapshot(
+                createConfig(),
+                [createLibrary()],
+                'preview',
+                {
+                    signal: null,
+                    requestIntent: 'preview',
+                    detachFromSignal: false,
+                }
+            );
 
-        const snapshot = await loader.loadSnapshot(
-            createConfig(),
-            [createLibrary()],
-            'preview',
-            {
-                signal: null,
-                requestIntent: 'preview',
-                detachFromSignal: false,
-            }
-        );
-
-        expect(snapshot.status).toBe('blocked');
-        expect(snapshot.libraryQueryMs).toBeGreaterThan(0);
-        warnSpy.mockRestore();
-        performanceNowSpy.mockRestore();
+            expect(snapshot.status).toBe('blocked');
+            expect(snapshot.libraryQueryMs).toBeGreaterThan(0);
+        } finally {
+            warnSpy.mockRestore();
+            performanceNowSpy.mockRestore();
+        }
     });
 
     it('waits for sibling native facet tasks to settle before propagating cancellation', async () => {

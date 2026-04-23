@@ -4,20 +4,20 @@
 import type { BuildStrategy } from '../../../scheduler/channel-manager/types';
 import { getChannelBrandingIcon, getAvailableStrategies } from '../channelBrandingIcons';
 
+const strategies: BuildStrategy[] = [
+    'collections',
+    'playlists',
+    'genres',
+    'directors',
+    'decades',
+    'recentlyAdded',
+    'studios',
+    'actors',
+    'libraryFallback',
+];
+
 describe('channelBrandingIcons', () => {
     it('returns SVG for each supported build strategy', () => {
-        const strategies: BuildStrategy[] = [
-            'collections',
-            'playlists',
-            'genres',
-            'directors',
-            'decades',
-            'recentlyAdded',
-            'studios',
-            'actors',
-            'libraryFallback',
-        ];
-
         for (const strategy of strategies) {
             const icon = getChannelBrandingIcon(strategy);
             expect(icon).not.toBeNull();
@@ -27,17 +27,6 @@ describe('channelBrandingIcons', () => {
     });
 
     it('lists all available strategies', () => {
-        const strategies = getAvailableStrategies();
-        expect(strategies).toEqual([
-            'collections',
-            'playlists',
-            'genres',
-            'directors',
-            'decades',
-            'recentlyAdded',
-            'studios',
-            'actors',
-            'libraryFallback',
-        ]);
+        expect(getAvailableStrategies()).toEqual(strategies);
     });
 });
