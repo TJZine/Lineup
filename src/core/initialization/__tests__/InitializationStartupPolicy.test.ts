@@ -15,11 +15,11 @@ type PlexAuthGateMock = Pick<
     IPlexAuth,
     'readStoredCredentialsAndClearCorruption' | 'validateToken' | 'getCurrentUser' | 'storeCredentials' | 'getHomeUsers'
 > & {
-    readStoredCredentialsAndClearCorruption: jest.MockedFunction<IPlexAuth['readStoredCredentialsAndClearCorruption']>;
-    validateToken: jest.MockedFunction<IPlexAuth['validateToken']>;
-    getCurrentUser: jest.MockedFunction<IPlexAuth['getCurrentUser']>;
-    storeCredentials: jest.MockedFunction<IPlexAuth['storeCredentials']>;
-    getHomeUsers: jest.MockedFunction<IPlexAuth['getHomeUsers']>;
+    readStoredCredentialsAndClearCorruption: jest.Mock;
+    validateToken: jest.Mock;
+    getCurrentUser: jest.Mock;
+    storeCredentials: jest.Mock;
+    getHomeUsers: jest.Mock;
 };
 
 type NavigationGateMock = Pick<INavigationManager, 'getCurrentScreen' | 'goTo'> & {
@@ -122,8 +122,8 @@ function createPlexAuthMock(
     return {
         validateToken: jest.fn().mockResolvedValue(true),
         getHomeUsers: jest.fn().mockResolvedValue([]),
-        readStoredCredentialsAndClearCorruption: jest.fn().mockResolvedValue(storedReadResult),
-        storeCredentials: jest.fn().mockResolvedValue(undefined),
+        readStoredCredentialsAndClearCorruption: jest.fn().mockReturnValue(storedReadResult),
+        storeCredentials: jest.fn(() => undefined),
         getCurrentUser: jest.fn().mockReturnValue(storedCredentials.activeToken),
         ...overrides,
     };
@@ -252,7 +252,7 @@ describe('applyPhase2AuthGatePolicy', () => {
 
     it('routes corrupted stored credentials to auth with STORAGE_CORRUPTED status', async () => {
         const inputs = createInputs({
-            readStoredCredentialsAndClearCorruption: jest.fn().mockResolvedValue({
+            readStoredCredentialsAndClearCorruption: jest.fn().mockReturnValue({
                 kind: 'corrupted',
                 reason: 'invalid-json',
             }),
@@ -272,7 +272,7 @@ describe('applyPhase2AuthGatePolicy', () => {
 
     it('treats missing stored credentials as normal pending-auth startup', async () => {
         const inputs = createInputs({
-            readStoredCredentialsAndClearCorruption: jest.fn().mockResolvedValue({ kind: 'missing' }),
+            readStoredCredentialsAndClearCorruption: jest.fn().mockReturnValue({ kind: 'missing' }),
         });
 
         await expect(applyPolicy(inputs)).resolves.toBe(false);
@@ -397,7 +397,7 @@ describe('applyPhase2AuthGatePolicy', () => {
             thumb: 'https://plex.example/account.png',
         });
         expect(plexAuth.getActiveUserId()).toBe('account-user');
-        await expect(plexAuth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({
+        expect(plexAuth.readStoredCredentialsAndClearCorruption()).toEqual({
             kind: 'available',
             credentials: expect.objectContaining({
                 accountToken: expect.objectContaining({

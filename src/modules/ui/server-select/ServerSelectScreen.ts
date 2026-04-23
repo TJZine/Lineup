@@ -596,14 +596,14 @@ export class ServerSelectScreen {
                 health?.status === 'ok'
                 || health?.status === 'unreachable'
                 || health?.status === 'auth_required'
-                || health?.status === 'auth_invalid'
+                || health?.status === 'access_denied'
                     ? health.status
                     : 'unknown';
             const statusClass =
                 normalizedStatus === 'auth_required'
                     ? 'auth-required'
-                    : normalizedStatus === 'auth_invalid'
-                        ? 'auth-invalid'
+                    : normalizedStatus === 'access_denied'
+                        ? 'access-denied'
                         : normalizedStatus;
             pill.className = `server-status-pill ${statusClass}`;
 
@@ -611,7 +611,7 @@ export class ServerSelectScreen {
             if (normalizedStatus === 'ok') statusText = 'OK';
             else if (normalizedStatus === 'unreachable') statusText = 'Unreachable';
             else if (normalizedStatus === 'auth_required') statusText = 'Auth Required';
-            else if (normalizedStatus === 'auth_invalid') statusText = 'Auth Invalid';
+            else if (normalizedStatus === 'access_denied') statusText = 'Access Denied';
 
             if (normalizedStatus === 'ok' && typeof health?.latencyMs === 'number' && Number.isFinite(health.latencyMs)) {
                 const ms = Math.round(health.latencyMs);
@@ -764,15 +764,15 @@ export class ServerSelectScreen {
     }
 
     private _selectionFailureMessage(
-        reason: 'server_not_found' | 'unreachable' | 'auth_required' | 'auth_invalid'
+        reason: 'server_not_found' | 'unreachable' | 'auth_required' | 'access_denied'
     ): string {
         switch (reason) {
             case 'server_not_found':
                 return 'Selected server is no longer available.';
             case 'auth_required':
                 return 'Authentication required. Sign in to Plex and try again.';
-            case 'auth_invalid':
-                return 'Stored Plex credentials are invalid. Sign in again.';
+            case 'access_denied':
+                return 'This Plex profile does not have access to that server. Choose another profile or update Plex sharing.';
             case 'unreachable':
                 return 'Selected server is unreachable right now.';
         }

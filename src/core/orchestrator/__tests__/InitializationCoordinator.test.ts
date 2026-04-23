@@ -778,6 +778,37 @@ describe('InitializationCoordinator (Plex Home)', () => {
             expect(plexDiscovery.on).not.toHaveBeenCalled();
         });
 
+        it('routes discovery auth failures through global auth recovery instead of server-select', async () => {
+            const { coordinator, deps, callbacks } = makeCoordinator();
+            const navigation = deps.navigation as unknown as { goTo: jest.Mock };
+            const plexDiscovery = deps.plexDiscovery as unknown as {
+                initialize: jest.Mock;
+                on: jest.Mock;
+            };
+            const authError = {
+                code: 'AUTH_INVALID',
+                message: 'cloud discovery credentials rejected',
+                recoverable: true,
+            };
+
+            plexDiscovery.initialize.mockRejectedValue(authError);
+
+            await coordinator.runStartup(3);
+
+            expect(callbacks.updateModuleStatus).toHaveBeenCalledWith(
+                'plex-server-discovery',
+                'error',
+                expect.objectContaining({
+                    code: 'AUTH_INVALID',
+                    message: 'cloud discovery credentials rejected',
+                    recoverable: true,
+                })
+            );
+            expect(callbacks.handleGlobalError).toHaveBeenCalledWith(authError, 'plex-server-discovery');
+            expect(navigation.goTo).not.toHaveBeenCalledWith('server-select');
+            expect(plexDiscovery.on).not.toHaveBeenCalled();
+        });
+
         it('marks statuses pending, registers server resume, and navigates to server-select when discovery is disconnected', async () => {
             const { coordinator, deps, callbacks } = makeCoordinator();
             const navigation = deps.navigation as unknown as { goTo: jest.Mock };

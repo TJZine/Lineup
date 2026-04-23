@@ -67,7 +67,10 @@ export interface IPlexLibrary {
      * @param libraryId - Library section ID
      * @returns Promise resolving to library or null when the id is not present in a valid section list
      */
-    getLibrary(libraryId: string): Promise<PlexLibrarySection | null>;
+    getLibrary(
+        libraryId: string,
+        options?: { signal?: AbortSignal | null }
+    ): Promise<PlexLibrarySection | null>;
 
     // Content Browsing
 

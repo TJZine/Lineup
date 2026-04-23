@@ -169,7 +169,7 @@ describe('ServerSelectScreen', () => {
         expect(localStorage.getItem(orchestrator.getServerHealthStorageKey())).toBeNull();
     });
 
-    it('renders auth_invalid health state explicitly', async () => {
+    it('renders access_denied health state explicitly', async () => {
         const orchestrator = createOrchestratorStub();
         const container = createBodyAppendedTestContainer();
 
@@ -178,7 +178,7 @@ describe('ServerSelectScreen', () => {
         localStorage.setItem(
             orchestrator.getServerHealthStorageKey(),
             JSON.stringify({
-                'srv-1': { status: 'auth_invalid', testedAt: Date.now() },
+                'srv-1': { status: 'access_denied', testedAt: Date.now() },
             })
         );
 
@@ -187,8 +187,8 @@ describe('ServerSelectScreen', () => {
         await flushPromisesAndTimers();
 
         const pill = container.querySelector('.server-status-pill') as HTMLElement;
-        expect(pill.textContent).toContain('Auth Invalid');
-        expect(pill.classList.contains('auth-invalid')).toBe(true);
+        expect(pill.textContent).toContain('Access Denied');
+        expect(pill.classList.contains('access-denied')).toBe(true);
     });
 
     it('does not mutate persisted selection/health keys during show/refresh when storage is empty', async () => {
@@ -400,12 +400,12 @@ describe('ServerSelectScreen', () => {
         expect(error.textContent ?? '').toContain('Authentication required');
     });
 
-    it('shows explicit auth-invalid guidance when selection fails with auth_invalid', async () => {
+    it('shows explicit access-denied guidance when selection fails with access_denied', async () => {
         const orchestrator = createOrchestratorStub();
         const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
-        orchestrator.selectServer.mockResolvedValue({ kind: 'selection_failed', reason: 'auth_invalid' });
+        orchestrator.selectServer.mockResolvedValue({ kind: 'selection_failed', reason: 'access_denied' });
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
@@ -416,7 +416,7 @@ describe('ServerSelectScreen', () => {
         await flushPromisesAndTimers();
 
         const error = container.querySelector('.screen-error') as HTMLElement;
-        expect(error.textContent ?? '').toContain('credentials are invalid');
+        expect(error.textContent ?? '').toContain('does not have access to that server');
     });
 
     it('surfaces discovery failures through screen error UI without console logging', async () => {

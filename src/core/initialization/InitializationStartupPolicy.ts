@@ -128,6 +128,15 @@ function resolveValidatedToken<TToken extends Phase2StoredCredentials['activeTok
     return fallbackToken;
 }
 
+function isDiscoveryAuthRecoveryError(error: unknown): boolean {
+    const code = (error as { code?: string } | null)?.code;
+    return (
+        code === AppErrorCode.AUTH_REQUIRED
+        || code === AppErrorCode.AUTH_INVALID
+        || code === AppErrorCode.AUTH_EXPIRED
+    );
+}
+
 function markAuthReady(inputs: Phase2AuthGateInputs): void {
     inputs.updateModuleStatus(
         'plex-auth',
@@ -282,6 +291,9 @@ export async function applyPhase3ServerGatePolicy(inputs: Phase3ServerGateInputs
     try {
         await inputs.plexDiscovery.initialize();
     } catch (error) {
+        if (isDiscoveryAuthRecoveryError(error)) {
+            throw error;
+        }
         inputs.updateModuleStatus(
             'plex-server-discovery',
             'error',

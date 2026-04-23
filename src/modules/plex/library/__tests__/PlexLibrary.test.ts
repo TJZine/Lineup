@@ -343,6 +343,32 @@ describe('PlexLibrary', () => {
                 message: expect.stringContaining('Invalid library sections payload'),
             });
         });
+
+        it('threads getLibrary cancellation through the section lookup request', async () => {
+            const controller = new AbortController();
+            controller.abort();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                async (_url: string, options: RequestInit): Promise<{
+                    ok: boolean;
+                    status: number;
+                    headers: { get: () => string | null };
+                    text: () => Promise<string>;
+                }> => {
+                    if ((options.signal as AbortSignal | undefined)?.aborted) {
+                        throw new DOMException('Aborted', 'AbortError');
+                    }
+                    return {
+                        ok: true,
+                        status: 200,
+                        headers: { get: (): string | null => 'application/json' },
+                        text: async (): Promise<string> => JSON.stringify(mockLibrarySectionsResponse),
+                    };
+                }
+            );
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getLibrary('1', { signal: controller.signal })).rejects.toThrow('Aborted');
+        });
     });
 
     describe('getLibraryItemCount', () => {

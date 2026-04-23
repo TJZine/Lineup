@@ -32,7 +32,7 @@
 }
 
 .server-status-pill.unreachable,
-.server-status-pill.auth-invalid {
+.server-status-pill.access-denied {
     --server-status-pill-bg: rgba(239, 68, 68, 0.16);
     --server-status-pill-color: var(--color-error);
     --server-status-pill-border: rgba(239, 68, 68, 0.28);

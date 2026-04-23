@@ -1,7 +1,10 @@
 import { PlexServer, PlexConnection } from './types';
 import { IDisposable } from '../../../utils/interfaces';
 
-export type PlexServerSelectionFailureReason = 'unreachable' | 'auth_required' | 'auth_invalid';
+export type PlexServerSelectionFailureReason =
+    | 'unreachable'
+    | 'auth_required'
+    | 'access_denied';
 
 export type PlexServerSelectionResult =
     | { kind: 'selected' }
@@ -47,7 +50,7 @@ export interface IPlexServerDiscovery {
     testConnection(
         server: PlexServer,
         connection: PlexConnection
-    ): Promise<number | 'auth_required' | 'auth_invalid' | null>;
+    ): Promise<number | 'auth_required' | 'access_denied' | null>;
 
     /**
      * Find the fastest working connection for a server.
@@ -59,7 +62,7 @@ export interface IPlexServerDiscovery {
     findFastestConnection(server: PlexServer): Promise<{
         connection: PlexConnection | null;
         authRequired: boolean;
-        authState: 'auth_required' | 'auth_invalid' | null;
+        authState: 'auth_required' | 'access_denied' | null;
     }>;
 
     // Server Selection
