@@ -119,7 +119,6 @@ const requiredCodexRoleContracts = new Map([
         'planner',
         {
             requiredLinePatterns: [
-                { pattern: /^model\s*=\s*"gpt-5\.4"\s*(?:#.*)?$/mu, label: 'model = "gpt-5.4"' },
                 {
                     pattern: /^model_reasoning_effort\s*=\s*"high"\s*(?:#.*)?$/mu,
                     label: 'model_reasoning_effort = "high"',
@@ -138,7 +137,6 @@ const requiredCodexRoleContracts = new Map([
         'cleanup_worker',
         {
             requiredLinePatterns: [
-                { pattern: /^model\s*=\s*"gpt-5\.4"\s*(?:#.*)?$/mu, label: 'model = "gpt-5.4"' },
                 {
                     pattern: /^model_reasoning_effort\s*=\s*"high"\s*(?:#.*)?$/mu,
                     label: 'model_reasoning_effort = "high"',
