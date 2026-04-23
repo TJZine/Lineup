@@ -2,7 +2,7 @@
 
 > Established 2026-04-13.
 >
-> Refreshed 2026-04-22 against the current workspace with live commands and targeted source inspection.
+> Refreshed 2026-04-23 against the current workspace with live commands and targeted source inspection.
 
 This document is the active backlog for test-suite-specific cleanup work that materially improves production-quality engineering practices in Lineup: maintainability, deterministic behavior, architectural seams, and test signal quality.
 
@@ -10,11 +10,11 @@ This is not a generic "make tests prettier" list. If an item does not clearly re
 
 ## Fresh-Session Handoff
 
-- Last audit refresh: `2026-04-22`
-- Current execution state: `T1` closed on `2026-04-22`; `T2-W1` + `T2-W2` and `T2-EXIT` closed on `2026-04-22`; `T3-W1` + `T3-W2`, `T3-EXIT`, `T4-W1` + `T4-W2`, and `T4-EXIT` closed on `2026-04-22` after current-workspace verification; `T5-W1` + `T5-W2`, `T6-W1` + `T6-W2` + `T6-W3`, and `T7-W1` + `T7-W2` + `T7-W3` + `T7-W4` + `T7-EXIT` closed on `2026-04-22` after current-workspace verification
-- Next safe start: `T5-EXIT`
+- Last audit refresh: `2026-04-23`
+- Current execution state: `T1` closed on `2026-04-22`; `T2-W1` + `T2-W2` and `T2-EXIT` closed on `2026-04-22`; `T3-W1` + `T3-W2`, `T3-EXIT`, `T4-W1` + `T4-W2`, and `T4-EXIT` closed on `2026-04-22` after current-workspace verification; `T5-W1` + `T5-W2`, `T6-W1` + `T6-W2` + `T6-W3`, and `T7-W1` + `T7-W2` + `T7-W3` + `T7-W4` + `T7-EXIT` closed on `2026-04-22`; `T5-EXIT`, `T6-EXIT`, `T8-W1`, `T8-W2`, and `T8-EXIT` closed on `2026-04-23` after current-workspace verification
+- Next safe start: `none`; the test-suite cleanup checklist is closed and can stay as a completed record or be archived in a separate follow-up
 - Authoritative evidence rule: update status only from commands rerun in the target workspace or integration branch
-- Discovery note: Codanna was not available in this session; repo discovery fell back to `rg`, direct file inspection, and executable commands
+- Discovery note: final closeout used current tracked docs, owner-note files, direct source inspection, and executable commands in the current workspace; no additional discovery pass was needed beyond the approved plan inputs
 - Explicit user decision: do not add a coverage threshold
 
 ## Goal
@@ -324,20 +324,34 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
   - Follow-ups: start `T5-W1` when ready, and keep `T5-W2` as the owner for the remaining documented private-probe exceptions.
   - Handoff: begin `T5-W1` for `EPGVirtualizer.test.ts` behavior-first cleanup without reopening the verified `T4` helper/policy lane.
 
-- [ ] `T5-EXIT`
+- [x] `T5-EXIT`
   - required: highest-value remaining implementation-detail tests use public outcomes or named policy/test seams
   - verification:
     - targeted hotspot suites
     - `npm run verify` if production code changed
   - exit rule: remaining deep probes are intentional, documented, and owned
+  - Status: `completed`
+  - Plan: `docs/plans/2026-04-23-t8-w1-w2-test-suite-closeout.md`
+  - Last touched: `2026-04-23`
+  - Verification: current-source audit of `src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts`, `src/__tests__/policy/baselines/private-probes.allowlist.txt`, and `src/__tests__/policy/baselines/private-probes.owner-notes.md` confirmed the lone retained private probe is still the loaded-range marker check with one explicit owner/rationale/revisit trigger; `npm run test:contracts` passed (`4` suites, `10` tests); `npm run verify` passed through typecheck, architecture lint, CSS lint, product coverage, tools, contracts, docs verification, and build.
+  - Result: the remaining private probe is intentional, documented, and still owned by `src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts`; no new T5 implementation slice is required for current closeout.
+  - Follow-ups: none
+  - Handoff: `T6-EXIT` and `T8-W1` + `T8-W2` can close on the same current-workspace proof surface.
 
-- [ ] `T6-EXIT`
+- [x] `T6-EXIT`
   - required: repeated storage/global/DOM setup uses focused helpers where that actually lowers churn
   - verification:
     - helper self-tests
     - targeted migrated suites
     - `npm run test:unit`
   - exit rule: bespoke environment setup is the exception, not the default
+  - Status: `completed`
+  - Plan: `docs/plans/2026-04-23-t8-w1-w2-test-suite-closeout.md`
+  - Last touched: `2026-04-23`
+  - Verification: current-source audit confirmed the shared helper seams remain the right owners for `installMockLocalStorage()` / `restoreOriginalLocalStorage()`, `setDevBuildForTest()`, `setDocumentReadyStateForTest()`, and `createBodyAppendedTestContainer()`, while intentionally different seams remain local in `src/utils/__tests__/storage.test.ts`, `src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts`, `src/core/initialization/__tests__/InitializationStartupPolicy.test.ts`, `src/modules/plex/auth/__tests__/PlexAuth.test.ts`, `src/modules/ui/now-playing-info/__tests__/getNowPlayingInfoAutoHideMs.test.ts`, `src/modules/ui/settings/__tests__/SettingsScreen.test.ts`, `src/modules/ui/epg/__tests__/EPGComponent.test.ts`, and `src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts`; `npm run test:timings` passed (`255` suites, `3,263` passed, `1` skipped); `npm run test:coverage -- --runInBand --silent` passed (`255` suites, `3,263` passed, `1` skipped); `npm run verify` passed.
+  - Result: repeated storage/global/DOM setup now uses focused helpers only where churn-reduction was real, and the remaining local seams are still owner-honest rather than newly duplicated helper candidates.
+  - Follow-ups: none
+  - Handoff: use the same closeout evidence to finish `T8-W1`, `T8-W2`, and `T8-EXIT`.
 
 - [x] `T7-EXIT`
   - required: only the suites that still distort ownership or timing have been decomposed
@@ -356,12 +370,19 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
   - Follow-ups: Priority 7 is closed; carry the retained-suite rationale forward only if a future production-owned seam appears that changes the ownership analysis for `Orchestrator.test.ts`, `EPGVirtualizer.test.ts`, or `ChannelSetupScreen.test.ts`.
   - Handoff: Priority 7 is complete; move to the next checklist priority or close the broader cleanup effort using the refreshed timing and verification evidence from this exit pass
 
-- [ ] `T8-EXIT`
+- [x] `T8-EXIT`
   - required: docs and workflow reflect the new suite layout and cleanup policy
   - verification:
     - `npm run verify:docs`
     - `npm run verify`
   - exit rule: this checklist can either remain active with residual owners or be archived cleanly
+  - Status: `completed`
+  - Plan: `docs/plans/2026-04-23-t8-w1-w2-test-suite-closeout.md`
+  - Last touched: `2026-04-23`
+  - Verification: `npm run verify:docs` passed; `npm run verify` passed through typecheck, architecture lint, CSS lint, product coverage, tools, contracts, docs verification, and build.
+  - Result: the testing guide, exit bookkeeping, residual-owner notes, and retained-suite rationale now align on current workspace proof, so this checklist is closed with no unnamed residual owner.
+  - Follow-ups: none
+  - Handoff: no additional cleanup session is required; archive this checklist only if a separate docs-maintenance pass wants a historical surface instead of an active closed record.
 
 ## Priority 1: Split Product Unit Tests From Tooling And Governance Tests
 
@@ -866,7 +887,7 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 **Default plan shape:** one final closeout plan or one local-only closeout pass covering `T8-W1` + `T8-W2`
 
-### [ ] `T8-W1` Update The Testing Guide
+### [x] `T8-W1` Update The Testing Guide
 
 **Goal:** make the new conventions discoverable without requiring developers to reverse-engineer old suites.
 
@@ -884,12 +905,21 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 - storage/global helper guidance
 - explicit statement that coverage is telemetry, not a gate
 
-### [ ] `T8-W2` Final Test Suite Cleanup Exit Review
+- Status: `completed`
+- Plan: `docs/plans/2026-04-23-t8-w1-w2-test-suite-closeout.md`
+- Last touched: `2026-04-23`
+- Verification: `npm run verify:docs` passed; `npm run verify` passed.
+- Result: `docs/development/testing.md` now explicitly documents the approved storage/global helper seams (`installMockLocalStorage`, `restoreOriginalLocalStorage`, `setDevBuildForTest`, `setDocumentReadyStateForTest`, `createBodyAppendedTestContainer`) and states that `npm run test:coverage` is telemetry rather than a gating threshold; `README.md` did not need a follow-up wording change because its top-level testing summary remained truthful once the guide was refreshed.
+- Follow-ups: none
+- Handoff: use the same evidence pass to record `T8-W2` and close the remaining exit items.
+
+### [x] `T8-W2` Final Test Suite Cleanup Exit Review
 
 **Required commands:**
 
 - `desloppify status`
 - `npm run test:timings`
+- `npm run test:timings:tools`
 - `npm run test:contracts`
 - `npm run test:coverage -- --runInBand --silent`
 - `npm run verify:docs`
@@ -904,3 +934,17 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 - remaining anti-pattern exceptions with owners
 - largest remaining test files and written reason retained
 - residual follow-up owners
+
+- Status: `completed`
+- Plan: `docs/plans/2026-04-23-t8-w1-w2-test-suite-closeout.md`
+- Last touched: `2026-04-23`
+- Verification: `desloppify status` passed (overall `87.5`, objective `96.0`, strict `87.4`, verified `94.0`, test health `94.5%`, test strategy `84.0%`); `npm run test:timings` passed (`255` suites, `3,263` passed, `1` skipped, `12.125s`) with `EPGComponent.test.ts` (`1602ms`), `PlexLibrary.test.ts` (`883ms`), `Orchestrator.test.ts` (`875ms`), `ChannelSetupScreen.test.ts` (`520ms`), `ServerSelectScreen.test.ts` (`389ms`), and `EPGVirtualizer.test.ts` (`359ms`) as the slowest product/runtime suites; `npm run test:timings:tools` passed (`4` suites, `96` tests, `14.728s`) with `verifyDocs.test.ts` at `14072ms`; `npm run test:contracts` passed (`4` suites, `10` tests); `npm run test:coverage -- --runInBand --silent` passed (`255` suites, `3,263` passed, `1` skipped) with telemetry `86.19%` statements, `73.51%` branches, `86.62%` functions, `87.63%` lines; `npm run verify:docs` passed; `npm run verify` passed.
+- Product/runtime timing: `npm run test:timings` now measures the product/runtime surface only, and the current slowest suites are the product-owned hotspots listed above rather than tooling/docs spillover.
+- Tool/governance timing: `npm run test:timings:tools` now measures the tooling/docs surface separately, with `src/__tests__/tools/verifyDocs.test.ts` remaining the dominant tool-side cost at `14072ms`.
+- Contract/policy result: the contracts surface is green, and the anti-pattern gate still records exactly one approved private-probe key plus one approved helper-self-test sleep id.
+- Coverage telemetry: current product/runtime coverage remains non-gating telemetry at `86.19%` statements, `73.51%` branches, `86.62%` functions, and `87.63%` lines.
+- Remaining anti-pattern exceptions with owners: `src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts|store|_loadedRangeKeyByChannel` remains owned by `src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts`; `src/__tests__/helpers.test.ts|timer-call|advanceTimersUntil > resolves when the assertion becomes true exactly at the timeout boundary|1` remains owned by `src/__tests__/helpers.test.ts`.
+- Largest intentionally retained suites with written reasons: `src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts` (`3884` lines) remains a single-owner virtualizer API suite with shared lifecycle/setup and chained rendering/focus/timing assertions; `src/__tests__/Orchestrator.test.ts` (`3455` lines) remains the frozen-production umbrella smoke surface even after focused suites covered the prior removal candidates; `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts` (`2144` lines) remains one screen/workflow-owner suite while sibling tests already own the non-UI controller/runtime/state seams.
+- Residual follow-up owners: `none`; `T5-EXIT`, `T6-EXIT`, and `T8-EXIT` all close on current-workspace proof.
+- Follow-ups: none
+- Handoff: no additional test-suite cleanup unit is required; use this checklist as the closed historical record unless a later docs/archive pass chooses to relocate it.

@@ -73,6 +73,22 @@ Prefer the shared helpers in `src/__tests__/helpers.ts` before adding local asyn
 
 `flushPromisesAndMacrotask()` is the opt-in escape hatch for real-timer integration coverage only. Do not introduce new raw `setTimeout(...)` waits in suites when one of the existing helpers or a directly awaited production promise can express the same behavior.
 
+### Storage And Global Helper Guidance
+
+Use the shared environment helpers only where multiple suites genuinely share the same setup and restore contract.
+
+- `installMockLocalStorage()` and `restoreOriginalLocalStorage()` in `src/__tests__/mocks/localStorage.ts` own the shared mock-storage seam for suites that need a spy-friendly in-memory `localStorage`.
+- `setDevBuildForTest()` and `setDocumentReadyStateForTest()` in `src/__tests__/helpers.ts` own the repeated `__LINEUP_DEV_BUILD__` and `document.readyState` override seams.
+- `createBodyAppendedTestContainer()` in `src/__tests__/helpers.ts` owns the narrow "fresh anonymous div appended to document.body" seam for repeated UI screen-root setup.
+
+Keep setup local when the suite is intentionally different:
+
+- real jsdom `localStorage` coverage that should exercise `Storage.prototype`
+- mixed restore contracts that pair `localStorage` with `navigator` or another global
+- suite-local container IDs, wrapper structure, RAF wiring, or per-instance teardown rules
+
+The goal is lower churn, not one helper for every test environment mutation. If a helper would need options, extra wrapper nodes, or cross-suite restore semantics just to fit a new caller, keep that seam local until repetition becomes real.
+
 ## Agent Eval Regression Set
 
 The repo also maintains a small agent-workflow regression set in [`docs/agentic/evals-roadmap.md`](../agentic/evals-roadmap.md) and the tracked harness definition under [`docs/agentic/evals/`](../agentic/evals/README.md).
@@ -110,6 +126,10 @@ Measure slow suites before/after changes:
 npm run test:timings
 npm run test:timings:tools
 ```
+
+## Coverage Telemetry
+
+`npm run test:coverage` is a reporting surface, not a release gate. Use coverage numbers as telemetry to spot blind spots or compare alternative test investments, not as a reason to keep low-value tests, add threshold policing, or claim a cleanup succeeded on metrics alone.
 
 ## Anti-Pattern Policy
 
