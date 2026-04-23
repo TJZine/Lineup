@@ -33,17 +33,15 @@ npm run test:timings
 npm run test:timings:tools
 ```
 
-`npm test`, `npm run test:unit`, `npm run test:watch`, `npm run test:coverage`, and `npm run test:timings` all answer the product/runtime question only.
-
-`npm run test:tools` owns Jest-based tooling and docs suites in `src/__tests__/tools/**`.
-
-`npm run test:contracts` remains the separate governance surface for contract, policy, and type tests.
-
-`npm run test:all` is the comprehensive Jest aggregate: unit + tools + contracts.
-
-`npm run verify` remains broader than `test:all`: it still includes typecheck, architecture lint, CSS lint, product/runtime coverage, tooling/docs suites, contracts, docs verification, and the production build.
-
-`npm run verify:docs` intentionally overlaps with `npm run test:tools`. It still runs the targeted `src/__tests__/tools/verifyDocs.test.ts` proof through `jest.tools.config.js`, even though `verify` also executes the broader tools surface.
+| Script | Surface | Included suites / notes |
+| --- | --- | --- |
+| `npm test`, `npm run test:unit`, `npm run test:watch`, `npm run test:coverage`, `npm run test:timings` | Product/runtime only | These commands answer the product/runtime question only. |
+| `npm run test:timings:tools` | Tooling/docs timings | Reports the slowest tooling/docs Jest suites. |
+| `npm run test:tools` | Tooling/docs | Owns Jest-based tooling and docs suites in `src/__tests__/tools/**`. |
+| `npm run test:contracts` | Governance | Separate contract, policy, and type test surface. |
+| `npm run test:all` | Comprehensive Jest | Unit + tools + contracts. |
+| `npm run verify` | Full verification | Broader than `test:all`: typecheck, architecture lint, CSS lint, product/runtime coverage, tooling/docs suites, contracts, docs verification, and the production build. |
+| `npm run verify:docs` | Docs-specific verification | Intentionally overlaps with `npm run test:tools`: it still runs the targeted `src/__tests__/tools/verifyDocs.test.ts` proof through `jest.tools.config.js`, even though `verify` also executes the broader tools surface. |
 
 ### What to Test
 

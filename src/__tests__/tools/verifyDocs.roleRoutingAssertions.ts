@@ -4,17 +4,21 @@ import path from 'node:path';
 import {
     type VerifyDocsTestContext,
     createRepoFixture,
-    renderedSessionPromptSet,
+    getRenderedSessionPromptSet,
     runGit,
     runVerifier,
-    sessionPromptSetEndMarker,
-    sessionPromptSetStartMarker,
+    getSessionPromptSetEndMarker,
+    getSessionPromptSetStartMarker,
     writeRepoFile,
     writeRoleWorkflowClaimFixture,
     writeValidCodexRoleConfigFixture,
 } from './verifyDocsTestHelpers';
 
 export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDocsTestContext): void {
+    const renderedSessionPromptSet = getRenderedSessionPromptSet();
+    const sessionPromptSetStartMarker = getSessionPromptSetStartMarker();
+    const sessionPromptSetEndMarker = getSessionPromptSetEndMarker();
+
     it('fails when agents.md routes authority back through document-map.md', () => {
         const repoRoot = createRepoFixture({
             'agents.md': [

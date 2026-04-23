@@ -8,21 +8,25 @@ const verifierPath = path.resolve(process.cwd(), 'tools/verify-docs.mjs');
 const VERIFY_DOCS_SYNC_TIMEOUT_MS = 15_000;
 const VERIFY_DOCS_SYNC_MAX_BUFFER = 10 * 1024 * 1024;
 
-function formatSyncFailure(
+export function formatSyncFailure(
     command: string,
     args: string[],
     result: ReturnType<typeof spawnSync>
 ): string {
-    const status = result.status ?? 'unknown';
+    const status = typeof result.status === 'number'
+        ? `status=${result.status}`
+        : result.signal
+            ? `signal=${result.signal}`
+            : 'status=unknown';
     const stdout = String(result.stdout ?? '').trim();
     const stderr = String(result.stderr ?? '').trim();
 
     if (result.error) {
-        return `${command} ${args.join(' ')} failed before exit (status=${status}): ${result.error.message}\nstdout:\n${stdout}\n\nstderr:\n${stderr}`;
+        return `${command} ${args.join(' ')} failed before exit (${status}): ${result.error.message}\nstdout:\n${stdout}\n\nstderr:\n${stderr}`;
     }
 
     const errorOutput = stderr || stdout || `exit ${status}`;
-    return `${command} ${args.join(' ')} failed (status=${status}): ${errorOutput}`;
+    return `${command} ${args.join(' ')} failed (${status}): ${errorOutput}`;
 }
 
 type PromptInventories = {
@@ -83,55 +87,98 @@ export function loadPromptInventoriesFromHarnessDocsLib(): PromptInventories {
     return JSON.parse(result.stdout) as PromptInventories;
 }
 
-export const promptInventories = loadPromptInventoriesFromHarnessDocsLib();
+let cachedPromptInventories: PromptInventories | null = null;
 
-export const expectedEvalPromptFiles = promptInventories.expectedEvalPromptFiles;
-export const expectedSessionPromptFiles = promptInventories.expectedSessionPromptFiles;
-export const requiredRepoLocalSkills = promptInventories.requiredRepoLocalSkills;
-export const requiredRepoLocalSkillFiles = promptInventories.requiredRepoLocalSkillFiles;
-export const skillMirrorManifestPath = promptInventories.skillMirrorManifestPath;
-export const sessionPromptSetStartMarker = promptInventories.sessionPromptSetStartMarker;
-export const sessionPromptSetEndMarker = promptInventories.sessionPromptSetEndMarker;
-export const evalPromptInventoryStartMarker = promptInventories.evalPromptInventoryStartMarker;
-export const evalPromptInventoryEndMarker = promptInventories.evalPromptInventoryEndMarker;
-export const renderedSessionPromptSet = promptInventories.renderedSessionPromptSet;
-export const renderedEvalPromptInventory = promptInventories.renderedEvalPromptInventory;
+export function getPromptInventories(): PromptInventories {
+    if (cachedPromptInventories) {
+        return cachedPromptInventories;
+    }
 
-export const requiredFiles = [
-    'agents.md',
-    'ARCHITECTURE_CLEANUP_CHECKLIST.md',
-    'docs/AGENTIC_DEV_WORKFLOW.md',
-    'docs/agentic/document-map.md',
-    'docs/agentic/codanna-playbook.md',
-    'docs/agentic/doc-gardening-checklist.md',
-    'docs/agentic/evals/README.md',
-    'docs/agentic/evals/baselines/README.md',
-    'docs/agentic/evals/baseline-summaries/README.md',
-    'docs/agentic/evals/baseline-summary-template.md',
-    'docs/agentic/evals/rubric.md',
-    'docs/agentic/evals/scorecard-template.md',
-    'docs/agentic/historical-plan-corpus-review.md',
-    'docs/agentic/plan-authoring-standard.md',
-    'docs/agentic/session-prompts/README.md',
-    'docs/agentic/session-prompts/cleanup-plan.md',
-    'docs/agentic/session-prompts/cleanup-implement.md',
-    'docs/agentic/session-prompts/cleanup-review.md',
-    'docs/agentic/session-prompts/cleanup-loop.md',
-    'docs/agentic/session-prompts/feature-plan.md',
-    'docs/agentic/session-prompts/feature-review.md',
-    'docs/agentic/session-prompts/workflow-harness-review.md',
-    'docs/agentic/skill-strategy.md',
-    'docs/agentic/evals-roadmap.md',
-    'docs/agentic/phase-2-steady-state-plan.md',
-    'docs/architecture/README.md',
-    'docs/architecture/CURRENT_STATE.md',
-    'docs/architecture/modules.md',
-    'docs/decisions/README.md',
-    'docs/plans/README.md',
-    'docs/archive/plans/README.md',
-    'docs/runs/README.md',
-    skillMirrorManifestPath,
-];
+    cachedPromptInventories = loadPromptInventoriesFromHarnessDocsLib();
+    return cachedPromptInventories;
+}
+
+export function getExpectedEvalPromptFiles(): string[] {
+    return getPromptInventories().expectedEvalPromptFiles;
+}
+
+export function getExpectedSessionPromptFiles(): string[] {
+    return getPromptInventories().expectedSessionPromptFiles;
+}
+
+export function getRequiredRepoLocalSkills(): string[] {
+    return getPromptInventories().requiredRepoLocalSkills;
+}
+
+export function getRequiredRepoLocalSkillFiles(): string[] {
+    return getPromptInventories().requiredRepoLocalSkillFiles;
+}
+
+export function getSkillMirrorManifestPath(): string {
+    return getPromptInventories().skillMirrorManifestPath;
+}
+
+export function getSessionPromptSetStartMarker(): string {
+    return getPromptInventories().sessionPromptSetStartMarker;
+}
+
+export function getSessionPromptSetEndMarker(): string {
+    return getPromptInventories().sessionPromptSetEndMarker;
+}
+
+export function getEvalPromptInventoryStartMarker(): string {
+    return getPromptInventories().evalPromptInventoryStartMarker;
+}
+
+export function getEvalPromptInventoryEndMarker(): string {
+    return getPromptInventories().evalPromptInventoryEndMarker;
+}
+
+export function getRenderedSessionPromptSet(): string {
+    return getPromptInventories().renderedSessionPromptSet;
+}
+
+export function getRenderedEvalPromptInventory(): string {
+    return getPromptInventories().renderedEvalPromptInventory;
+}
+
+export function getRequiredFiles(): string[] {
+    return [
+        'agents.md',
+        'ARCHITECTURE_CLEANUP_CHECKLIST.md',
+        'docs/AGENTIC_DEV_WORKFLOW.md',
+        'docs/agentic/document-map.md',
+        'docs/agentic/codanna-playbook.md',
+        'docs/agentic/doc-gardening-checklist.md',
+        'docs/agentic/evals/README.md',
+        'docs/agentic/evals/baselines/README.md',
+        'docs/agentic/evals/baseline-summaries/README.md',
+        'docs/agentic/evals/baseline-summary-template.md',
+        'docs/agentic/evals/rubric.md',
+        'docs/agentic/evals/scorecard-template.md',
+        'docs/agentic/historical-plan-corpus-review.md',
+        'docs/agentic/plan-authoring-standard.md',
+        'docs/agentic/session-prompts/README.md',
+        'docs/agentic/session-prompts/cleanup-plan.md',
+        'docs/agentic/session-prompts/cleanup-implement.md',
+        'docs/agentic/session-prompts/cleanup-review.md',
+        'docs/agentic/session-prompts/cleanup-loop.md',
+        'docs/agentic/session-prompts/feature-plan.md',
+        'docs/agentic/session-prompts/feature-review.md',
+        'docs/agentic/session-prompts/workflow-harness-review.md',
+        'docs/agentic/skill-strategy.md',
+        'docs/agentic/evals-roadmap.md',
+        'docs/agentic/phase-2-steady-state-plan.md',
+        'docs/architecture/README.md',
+        'docs/architecture/CURRENT_STATE.md',
+        'docs/architecture/modules.md',
+        'docs/decisions/README.md',
+        'docs/plans/README.md',
+        'docs/archive/plans/README.md',
+        'docs/runs/README.md',
+        getSkillMirrorManifestPath(),
+    ];
+}
 
 export function writeRepoFile(repoRoot: string, relativePath: string, content = '# Placeholder\n'): void {
     const fullPath = path.join(repoRoot, relativePath);
@@ -140,6 +187,9 @@ export function writeRepoFile(repoRoot: string, relativePath: string, content = 
 }
 
 export function writeValidRepoLocalSkillFixtures(repoRoot: string): void {
+    const requiredRepoLocalSkillFiles = getRequiredRepoLocalSkillFiles();
+    const requiredRepoLocalSkills = getRequiredRepoLocalSkills();
+
     for (const [index, relativePath] of requiredRepoLocalSkillFiles.entries()) {
         const skill = requiredRepoLocalSkills[index];
         writeRepoFile(
@@ -206,6 +256,8 @@ export function buildChecklistLinkedPackageDecomposition({
 }
 
 export function writeValidSkillMirrorFixture(repoRoot: string): void {
+    const skillMirrorManifestPath = getSkillMirrorManifestPath();
+
     writeRepoFile(repoRoot, skillMirrorManifestPath, 'global:brainstorming\n');
     writeRepoFile(
         repoRoot,
@@ -227,6 +279,11 @@ export function writeValidSkillMirrorFixture(repoRoot: string): void {
 }
 
 export function writeValidSessionPromptFixture(repoRoot: string): void {
+    const sessionPromptSetStartMarker = getSessionPromptSetStartMarker();
+    const renderedSessionPromptSet = getRenderedSessionPromptSet();
+    const sessionPromptSetEndMarker = getSessionPromptSetEndMarker();
+    const expectedSessionPromptFiles = getExpectedSessionPromptFiles();
+
     writeRepoFile(
         repoRoot,
         'agents.md',
@@ -533,6 +590,10 @@ export function writeValidSessionPromptFixture(repoRoot: string): void {
 }
 
 export function writeValidEvalPromptFixture(repoRoot: string): void {
+    const evalPromptInventoryStartMarker = getEvalPromptInventoryStartMarker();
+    const renderedEvalPromptInventory = getRenderedEvalPromptInventory();
+    const evalPromptInventoryEndMarker = getEvalPromptInventoryEndMarker();
+
     writeRepoFile(
         repoRoot,
         'docs/agentic/evals/README.md',
@@ -550,6 +611,9 @@ export function writeValidEvalPromptFixture(repoRoot: string): void {
 }
 
 export function writeMutatedEvalPromptFixture(repoRoot: string): void {
+    const renderedEvalPromptInventory = getRenderedEvalPromptInventory();
+    const evalPromptInventoryStartMarker = getEvalPromptInventoryStartMarker();
+    const evalPromptInventoryEndMarker = getEvalPromptInventoryEndMarker();
     const mutatedEvalPromptInventory = renderedEvalPromptInventory.replace(
         /11 Plex Subtitle Policy/u,
         '11 Plex Subtitle Policy (MUTATED)'
@@ -719,6 +783,8 @@ export function writeValidCodexRoleConfigFixture(
 
 export function createRepoFixture(overrides: Partial<Record<string, string>> = {}): string {
     const repoRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-verify-docs-'));
+    const requiredFiles = getRequiredFiles();
+    const expectedEvalPromptFiles = getExpectedEvalPromptFiles();
     try {
         for (const file of requiredFiles) {
             writeRepoFile(repoRoot, file);
