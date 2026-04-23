@@ -916,12 +916,13 @@ Default scoping rule for this queue:
   - `desloppify show src/__tests__/Orchestrator.test.ts --status open --no-budget --top 80`
 - Cleanup-loop fit: Tier 3 checklist-linked package; use the exact review ids as the primary scope selector, use the companion-map candidate files only as bounded scoping aids, and do not absorb cross-cutting hygiene ids or default non-active buckets
 - Likely first slice: inventory AppOrchestrator, coordinator builders, and priority-one collaborator seams before deciding whether the first execution unit is assembly relocation, contract narrowing, or boundary slimming
-- Status: not started
-- Plan: none yet
+- Status: in progress
+- Progress: `P11-W1-S1` / contract narrowing complete; `P11-W1-S2` through `P11-W1-S4` pending
+- Plan: `docs/runs/2026-04-p11-plans/2026-04-23-p11-w1-orchestrator-boundary-simplification-plan.md`
 - Last touched: `2026-04-23`
-- Verification: not run for package-local scoping yet; seed evidence comes from the authoritative `2026-04-23T07:32:05+00:00` rerun, `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, and `docs/architecture/p11-fresh-baseline-package-map.json`
-- Follow-ups: none yet
-- Handoff: `P11-W2`
+- Verification: `P11-W1-S1` reviewed clean; `npm test -- --runInBand src/__tests__/App.test.ts src/__tests__/startup-integration.test.ts src/__tests__/Orchestrator.test.ts` passed with `136` tests, boundary `rg` checks for internal app-shell/App orchestrator imports and stale root-barrel exports produced no matches, `git diff --check` passed for scoped files, `npm run build` passed, and `npm run verify:docs` passed after removing the obsolete hard-coded planner/cleanup_worker model pin from the docs verifier
+- Follow-ups: continue approved serial package plan at `P11-W1-S2` / coordinator assembly relocation; do not mark `P11-W1` complete until S2-S4 close or receive explicit residual reassignment
+- Handoff: `P11-W1-S2`
 
 ### [ ] `P11-W2` `pkg_plex_contract_surface_alignment` Plex Contract, Auth, And Error Surface Alignment
 

@@ -666,7 +666,7 @@ const CODEX_MODEL_SPARK = 'gpt-5.3-codex-spark';
 const CODEX_MODEL_DEFAULT = 'gpt-5.3-codex';
 const CODEX_MODEL_FALLBACK = 'gpt-5.1-codex-max';
 const CODEX_MODEL_MONITOR_FALLBACK = 'gpt-5.1';
-const CODEX_MODEL_PLANNER = 'gpt-5.4';
+const CODEX_MODEL_PLANNER = 'gpt-5.5';
 
 export function writeValidCodexRoleConfigFixture(
     repoRoot: string,
