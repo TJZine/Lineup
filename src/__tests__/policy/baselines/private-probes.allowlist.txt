@@ -1,3 +1,2 @@
-# maxCount=2
-src/modules/navigation/__tests__/NavigationManager.test.ts|nav|_focusManager
+# maxCount=1
 src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts|store|_loadedRangeKeyByChannel
