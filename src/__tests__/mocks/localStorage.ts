@@ -45,7 +45,7 @@ function createMockLocalStorage(): MockLocalStorage {
         },
         key: jest.fn((index: number): string | null => {
             const keys = Object.keys(store);
-            return index < keys.length ? keys[index]! : null;
+            return index >= 0 && index < keys.length ? keys[index]! : null;
         }),
         getItem: jest.fn((key: string): string | null => readStoredValue(key)),
         setItem: jest.fn((key: string, value: string): void => {
@@ -70,7 +70,7 @@ export function resetMockLocalStorage(): void {
     mockLocalStorage.key.mockReset();
     mockLocalStorage.key.mockImplementation((index: number): string | null => {
         const keys = Object.keys(store);
-        return index < keys.length ? keys[index]! : null;
+        return index >= 0 && index < keys.length ? keys[index]! : null;
     });
     mockLocalStorage.getItem.mockReset();
     mockLocalStorage.getItem.mockImplementation((key: string): string | null => readStoredValue(key));

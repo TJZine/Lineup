@@ -63,4 +63,11 @@ describe('shared localStorage mock owner', () => {
 
         originalLocalStorage.clear();
     });
+
+    it('returns null for negative key indexes like real Storage', () => {
+        installMockLocalStorage();
+        mockLocalStorage.setItem('theme', 'ember-steel');
+
+        expect(mockLocalStorage.key(-1)).toBeNull();
+    });
 });
