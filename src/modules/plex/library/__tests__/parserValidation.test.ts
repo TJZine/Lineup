@@ -4,7 +4,7 @@ import {
     parseArrayOrEmpty,
     parseRequiredArray,
     parseRequiredObject,
-} from '../parserValidation';
+} from '../parsing/parserValidation';
 
 describe('parserValidation', () => {
     it('returns objects and required arrays unchanged when the payload shape is valid', () => {

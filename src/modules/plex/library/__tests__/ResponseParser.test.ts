@@ -14,7 +14,7 @@ import {
     mapLibraryType,
     mapMediaType,
     parseStream,
-} from '../ResponseParser';
+} from '../parsing/ResponseParser';
 import type {
     RawLibrarySection,
     RawMediaItem,

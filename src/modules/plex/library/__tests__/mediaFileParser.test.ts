@@ -1,5 +1,5 @@
 import { PlexLibraryError } from '../PlexLibraryError';
-import { parseMediaFiles } from '../mediaFileParser';
+import { parseMediaFiles } from '../parsing/mediaFileParser';
 
 describe('mediaFileParser', () => {
     it('normalizes codecs and preserves stream details', () => {

@@ -1,7 +1,7 @@
 import type {
     RawMediaItem,
     PlexMediaItem,
-} from './types';
+} from '../types';
 import { applyMediaItemDetails } from './mediaItemDetailsParser';
 import { buildBaseMediaItem } from './mediaItemBaseParser';
 import { mapMediaType } from './mediaTypeParser';

@@ -46,7 +46,7 @@ import {
     parseCollections,
     parsePlaylists,
     parseDirectoryTags,
-} from './ResponseParser';
+} from './parsing/ResponseParser';
 import {
     extractDirectoryArray,
     extractLibrarySectionDirectories,
@@ -54,7 +54,7 @@ import {
     extractMetadataArray,
     extractSearchHubMetadata,
     extractSearchHubs,
-} from './libraryResponsePayload';
+} from './parsing/libraryResponsePayload';
 import { PLEX_LIBRARY_CONSTANTS, PLEX_ENDPOINTS, PLEX_MEDIA_TYPES } from './constants';
 import { fetchWithTimeoutCore } from '../shared/fetchWithTimeoutCore';
 import {

@@ -1,4 +1,4 @@
-import type { RawMediaItem, PlexMediaItem } from './types';
+import type { RawMediaItem, PlexMediaItem } from '../types';
 export { parseMediaItem, mapMediaType } from './mediaItemCoreParser';
 import { parseMediaItem } from './mediaItemCoreParser';
 import { parseArrayOrEmpty, parseRequiredObject } from './parserValidation';

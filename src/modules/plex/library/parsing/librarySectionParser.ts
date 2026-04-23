@@ -1,7 +1,7 @@
-import { AppErrorCode } from '../../../types/app-errors';
-import { PlexLibraryError } from './PlexLibraryError';
+import { AppErrorCode } from '../../../../types/app-errors';
+import { PlexLibraryError } from '../PlexLibraryError';
 import { parseRequiredObject } from './parserValidation';
-import type { PlexLibrarySection, PlexLibrarySectionType, RawLibrarySection } from './types';
+import type { PlexLibrarySection, PlexLibrarySectionType, RawLibrarySection } from '../types';
 
 export function parseLibrarySections(directories: RawLibrarySection[]): PlexLibrarySection[] {
     return directories.map((directory, index) =>

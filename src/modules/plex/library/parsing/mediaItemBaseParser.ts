@@ -1,4 +1,4 @@
-import type { PlexMediaItem, RawMediaItem } from './types';
+import type { PlexMediaItem, RawMediaItem } from '../types';
 import { parseMediaFiles } from './mediaFileParser';
 import { toPlexDate } from './mediaItemDetailsParser';
 import { mapMediaType } from './mediaTypeParser';

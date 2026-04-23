@@ -1,4 +1,4 @@
-import type { PlexMediaItem, RawMediaItem } from './types';
+import type { PlexMediaItem, RawMediaItem } from '../types';
 import { parseArrayOrEmpty, parseRequiredObject } from './parserValidation';
 
 const UNIX_TIMESTAMP_MS = 1000;
