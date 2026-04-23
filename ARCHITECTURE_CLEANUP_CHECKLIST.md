@@ -4,28 +4,32 @@
 >
 > Supersedes the pre-package-migration draft archived at `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-v5-pre-package-migration.md`.
 >
-> Exact issue membership belongs to the tracked companion surface `docs/architecture/active-cleanup-package-map.json`. Local planning bundles under `docs/runs/` are historical planning context only and are not authority.
+> Historical `2026-04-16` exact issue membership belongs to `docs/architecture/active-cleanup-package-map.json`. The live `2026-04-23` fresh-baseline queue uses `docs/architecture/p11-fresh-baseline-package-map.json`. Local planning bundles under `docs/runs/` are historical planning context only and are not authority.
 
-This document is the live cleanup queue for the reconciled `2026-04-16` backlog. It stays concise at the package layer while preserving checklist-resident gate scaffolding, mini-record expectations, and `P#-W#` / `P#-EXIT` execution discipline.
+This document preserves the historical `2026-04-16` cleanup closeout record and now carries the live `2026-04-23` fresh-baseline follow-on queue. It stays concise at the package layer while preserving checklist-resident gate scaffolding, mini-record expectations, and `P#-W#` / `P#-EXIT` execution discipline.
 
-This checklist is not complete until an authoritative rerun on the target integration branch proves the live `2026-04-16` review and mechanical backlog is retired or stale-proven with current-source evidence, `strict > 87.2`, `overall > 87.2`, and no issue was dropped without an explicit disposition.
+As of `2026-04-23`, the original `2026-04-16` no-drop closeout path has been operationally superseded by a full `.desloppify` reset and a ground-up rerun. The fresh baseline record is `docs/runs/2026-04-p10-plans/2026-04-23-p10-w1-fresh-baseline-reset-and-ground-up-rerun.md`; the old companion-map/no-drop proof remains historical evidence only unless this checklist is explicitly rewritten back onto the old lineage.
+
+The live post-reset follow-on queue is defined by `docs/architecture/p11-fresh-baseline-package-map.json`, with supporting rationale and mechanical adjudication recorded in `docs/runs/2026-04-p11-plans/2026-04-23-p11-fresh-baseline-follow-on-queue.md`.
 
 ## Fresh-Session Handoff
 
 - Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
-- Current execution state: `P1-W1` through `P9-EXIT` are complete on authoritative `2026-04-22` evidence; `P10-W1` is now the safe start
-- Next safe start: `P10-W1` / `Authoritative Rerun And No-Drop Proof`
+- Current execution state: `P1-W1` through `P10-W1` are now historical evidence for the retired `2026-04-16` lineage; `P11-W1` starts the live fresh-baseline follow-on queue from the authoritative `2026-04-23` rerun
+- Next safe start: `P11-W1` / `pkg_orchestrator_boundary_simplification`
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to the active package or exit row
 - First action at package start: planning only; create the package-local execution-grade plan first and do not begin implementation until that planning gate is complete
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
-- Exact issue-membership surface: `docs/architecture/active-cleanup-package-map.json`
+- Historical exact issue-membership surface: `docs/architecture/active-cleanup-package-map.json`
+- Active fresh-baseline exact issue-membership surface: `docs/architecture/p11-fresh-baseline-package-map.json`
 - Historical planning context only: local run bundles under `docs/runs/`
 
 ## Goals
 
-- retire every live reconciled backlog item from the `2026-04-16` baseline
-- keep one explicit owner package for every mapped review issue and every remaining detector residue
+- retire every live `2026-04-23` fresh-baseline review issue and the highest-value overlapping mechanical hotspots
+- keep one explicit owner package for every active fresh-baseline review issue and every mechanical hotspot intentionally absorbed into the same seam
+- keep the `2026-04-16` no-drop lineage available as historical evidence without letting it drive active scope
 - preserve checklist-resident gates while keeping the live backlog readable
 
 ## Non-Goals
@@ -40,7 +44,7 @@ This checklist is not complete until an authoritative rerun on the target integr
 - work top to bottom unless explicit maintainer direction says otherwise
 - keep the authoritative execution state in Codex `update_plan`
 - before code changes begin, create an execution-grade plan for the selected `P#-W#`; keep it local by default and promote it to `docs/plans/*` only when durable handoff memory is needed
-- the checklist owns package rows and gate records; the companion map owns exact issue membership
+- the checklist owns package rows and gate records; the active companion map owns exact review-id membership and bounded candidate scoping files for the live queue
 - refresh the listed authoritative `desloppify` commands at package entry and exit on the integration branch
 - no `P(n+1)` work, tracked plan, or checklist progress starts before the current `P#-EXIT` is complete
 
@@ -100,23 +104,30 @@ Every `P#-EXIT` must, in the same pass:
 
 ## Fresh Evidence Snapshot
 
-### Reconciled Backlog Counts
+### Active `2026-04-23` Baseline
+
+- `276` total open
+- `39` fresh review
+- `237` raw non-review
+- estimated meaningful mechanical backlog: roughly `30-40`, with roughly `10-15` likely worth fixing soon
+- active package count: `6` fresh-baseline work units under `P11`
+
+### Commands Observed In This Session
+
+- `desloppify status`: `overall 85.9 / objective 97.2 / strict 85.9 / verified 97.2`; `276` open; `Review: 39 issues open`; `Queue: 1 item (54 stale tracked · 1 subjective)`
+- `desloppify plan queue --sort recent`: `Queue: 1 item (54 planned · 1 subjective)` with one residual subjective placeholder row
+- `desloppify show review --status open --no-budget --top 100`: `39` open review issues
+- `desloppify show security --status open --no-budget --top 50`: no open security/cycles issues
+- `.desloppify/state-typescript.json` non-review detector split: `smells 108`, `structural 85`, `facade 8`, `signature 8`, `stale_exclude 7`, `responsibility_cohesion 6`, `flat_dirs 5`, `single_use 4`, `test_coverage 3`, `boilerplate_duplication 2`, `naming 1`
+- active-queue conclusion for this pass: the `2026-04-23` reset rerun is the live backlog model; the old `2026-04-16` queue-trust numbers are archival only
+
+### Historical `2026-04-16` Snapshot
 
 - `216` total open
 - `161` older live non-review
 - `41` fresh review
 - `14` fresh non-review
-- package count: `9` backlog work units, with queue-trust preflight and final rerun/no-drop proof kept outside the package count
-
-### Commands Observed In This Session
-
-- `desloppify status`: `overall 87.7 / objective 96.6 / strict 87.6 / verified 94.2`; `209` open; living plan signal still reports `Queue: 54 items (54 planned · 2 skipped)`
-- `desloppify plan`: `54` user-ordered queue items, `143` backlog items, `2` skipped stale placeholders; next command reported as `desloppify next --count 20`
-- `desloppify plan queue --sort recent`: `Queue: 0 items (54 planned · 2 skipped)`; queue is empty
-- `desloppify next`: `Queue: 0 items`; `Nothing to do! Strict score: 87.6/100`
-- `desloppify show review --status open --no-budget --top 100`: `41` open review issues
-- `desloppify show security --status open --no-budget --top 50`: no open security/cycles issues
-- queue-trust conclusion for this migration pass: the queue-order surface is stale and is not authoritative backlog truth; the package-backed checklist plus the tracked companion map are the live backlog model until a fresh integration-branch rerun says otherwise
+- historical package count: `9` backlog work units, with queue-trust preflight and final rerun/no-drop proof outside that package count
 
 ### Current-Source Guardrails
 
@@ -848,19 +859,174 @@ Every `P#-EXIT` must, in the same pass:
   - remaining open review issues
   - no-drop proof for every removed, stale-proven, deferred, or still-open mapped issue
   - exact-id before/after proof for any `pkg_type_safety_test_guardrails` issue carried from `P9-EXIT` into `P10-W1`
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
+- Status: blocked
+- Plan: `docs/runs/2026-04-p10-plans/2026-04-23-p10-w1-fresh-baseline-reset-and-ground-up-rerun.md`
+- Last touched: `2026-04-23`
+- Verification: a full reset-to-config-only proof was observed on `2026-04-23`, followed by `desloppify scan --path .`, `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, `desloppify show security --status open --no-budget --top 50`, raw-state inspection of `.desloppify/state-typescript.json`, and the fresh subjective rerun `desloppify review --run-batches --runner codex --parallel --no-retrospective --force-review-rerun --scan-after-import`
+- Previous baseline: the last pre-reset tracked baseline observed before deleting historical `.desloppify` state was `2026-04-23T06:57:49+00:00` with `open 387`, `raw issues 235`, `overall 87.5`, `objective 96.0`, `strict 87.4`, and `verified 94.0`
+- New baseline: the authoritative fresh-baseline rerun now ends at `2026-04-23T07:32:05+00:00` with `open 276`, `raw issues 237`, `overall 85.9`, `objective 97.2`, `strict 85.9`, `verified 97.2`, `Review: 39 issues open`, and no open security rows
+- Delta:
+  - the clean reset removed all prior `.desloppify` issue state, review cache, plan history, packets, subagent runs, and the old scorecard before the new scan
+  - the first post-reset scan rebuilt a blank-history baseline at `2026-04-23T07:11:06+00:00` with `overall 24.3`, `objective 97.2`, `strict 24.3`, `verified 97.2`, and `open 257` because all `20` subjective dimensions were intentionally unassessed
+  - the fresh subjective rerun then imported `39` review issues and raised the final post-review baseline to `overall 85.9` / `strict 85.9`
+- Remaining open review issues:
+  - the fresh rerun now has a trustworthy live review queue: `desloppify show review --status open --no-budget --top 100` returns `39` open review issues
+  - top drag dimensions on the new baseline are `Design coherence 71.0`, `AI generated debt 76.0`, `Error consistency 76.0`, `Cross-module arch 78.0`, and `Mid elegance 78.0`
+- No-drop proof status:
+  - intentionally superseded by maintainer-approved full reset on `2026-04-23`
+  - the old `2026-04-16` companion-map disposition matrix is now historical rather than authoritative for the current backlog
+- Exact-id before/after proof for the inherited `pkg_type_safety_test_guardrails` carry:
+  - retired with the old lineage at reset time; the fresh `2026-04-23` rerun carries no inherited raw issue state from `P9-EXIT`
+- Follow-ups:
+  - either archive this checklist and companion map as completed historical closeout evidence for the retired `2026-04-16` lineage, or rewrite the final gate against the `2026-04-23` fresh baseline
+  - if cleanup continues on the fresh baseline, start with the `39` live review issues from `desloppify show review --status open --no-budget --top 100`
+  - if desired, clean up the single residual subjective queue artifact shown by `desloppify plan queue --sort recent` (`Dep health 96.0% [baseline]`) so the plan queue reflects only live work
 - Handoff: `P10-EXIT`
 
 - [ ] `P10-EXIT`
 
 - Close only if: `overall > 87.2`, `strict > 87.2`, the final record captures previous baseline, new baseline, delta, remaining open review issues, and no-drop proof, every mapped review item has a recorded disposition, every surviving detector residue has one exact owner or stale-proven disposition, the companion map and checklist agree, and the final detector table is fully accounted for
+- Status: blocked
+- Plan: none yet
+- Last touched: `2026-04-23`
+- Verification: blocked because the original close condition still references the retired `2026-04-16` no-drop lineage; the fresh-baseline rerun itself is complete and recorded in `docs/runs/2026-04-p10-plans/2026-04-23-p10-w1-fresh-baseline-reset-and-ground-up-rerun.md`
+- Follow-ups: do not close this checklist as written unless it is first rewritten against the `2026-04-23` fresh baseline or explicitly archived as a historical `2026-04-16` lineage record
+- Handoff: checklist complete only when this gate is satisfied
+
+## Fresh-Baseline Follow-On Queue
+
+Use the `2026-04-23` reset baseline as the active source of truth for this queue. Exact fresh review-id membership and bounded scoping guidance live in `docs/architecture/p11-fresh-baseline-package-map.json`. Supporting rationale and mechanical adjudication live in `docs/runs/2026-04-p11-plans/2026-04-23-p11-fresh-baseline-follow-on-queue.md`.
+
+Default scoping rule for this queue:
+
+- the fresh review ids listed in `docs/architecture/p11-fresh-baseline-package-map.json` are the primary ownership surface
+- overlapping production-file mechanical hotspots may be absorbed when they reinforce the same seam
+- do not spend cleanup-loop time on default non-active buckets from the companion map and follow-on queue rationale doc unless current-source evidence shows a concrete same-seam defect
+
+### [ ] `P11-W1` `pkg_orchestrator_boundary_simplification` Orchestrator, App-Shell, And Priority-One Boundary Simplification
+
+- Backlog: `seed 19 = 13 fresh review + 6 candidate mechanical hotspots`
+- Scope: retire the fresh orchestrator/app-shell/priority-one pass-through sprawl, shrink the orchestrator blast radius, and tighten the public/root boundary so the main runtime no longer depends on oversized assembly and delegation warehouses
+- Exact seed membership: `docs/architecture/p11-fresh-baseline-package-map.json` -> `pkg_orchestrator_boundary_simplification`
+- Package-local scoping commands:
+  - `desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 80`
+  - `desloppify show src/core/orchestrator/OrchestratorCoordinatorBuilders.ts --status open --no-budget --top 80`
+  - `desloppify show src/core/orchestrator/priority-one/PriorityOneControllerCollaborators.ts --status open --no-budget --top 80`
+  - `desloppify show src/core/InitializationCoordinator.ts --status open --no-budget --top 80`
+  - `desloppify show src/__tests__/Orchestrator.test.ts --status open --no-budget --top 80`
+- Cleanup-loop fit: Tier 3 checklist-linked package; use the exact review ids as the primary scope selector, use the companion-map candidate files only as bounded scoping aids, and do not absorb cross-cutting hygiene ids or default non-active buckets
+- Likely first slice: inventory AppOrchestrator, coordinator builders, and priority-one collaborator seams before deciding whether the first execution unit is assembly relocation, contract narrowing, or boundary slimming
 - Status: not started
 - Plan: none yet
-- Last touched: not started
+- Last touched: `2026-04-23`
+- Verification: not run for package-local scoping yet; seed evidence comes from the authoritative `2026-04-23T07:32:05+00:00` rerun, `desloppify status`, `desloppify plan queue --sort recent`, `desloppify show review --status open --no-budget --top 100`, and `docs/architecture/p11-fresh-baseline-package-map.json`
+- Follow-ups: none yet
+- Handoff: `P11-W2`
+
+### [ ] `P11-W2` `pkg_plex_contract_surface_alignment` Plex Contract, Auth, And Error Surface Alignment
+
+- Backlog: `seed 12 = 7 fresh review + 5 candidate mechanical hotspots`
+- Scope: align Plex auth/library/discovery/stream contracts, make error handling and auth semantics consistent across sibling Plex surfaces, and reduce the flat parser-heavy library seam
+- Exact seed membership: `docs/architecture/p11-fresh-baseline-package-map.json` -> `pkg_plex_contract_surface_alignment`
+- Package-local scoping commands:
+  - `desloppify show src/modules/plex/library/PlexLibrary.ts --status open --no-budget --top 80`
+  - `desloppify show src/modules/plex/auth/PlexAuth.ts --status open --no-budget --top 80`
+  - `desloppify show src/modules/plex/discovery/PlexServerDiscovery.ts --status open --no-budget --top 80`
+  - `desloppify show src/modules/plex/stream/PlexStreamResolver.ts --status open --no-budget --top 80`
+- Cleanup-loop fit: Tier 3 checklist-linked package; drive execution from the exact Plex review ids, use the candidate mechanical ids only as same-seam secondary evidence, and do not absorb unrelated test-only Plex residue by default
+- Likely first slice: start with auth/library contract and error-policy alignment before absorbing any parser/package reorganization work
+- Status: not started
+- Plan: none yet
+- Last touched: `2026-04-23`
+- Verification: not run for package-local scoping yet; seed evidence comes from the authoritative `2026-04-23T07:32:05+00:00` rerun and `docs/architecture/p11-fresh-baseline-package-map.json`
+- Follow-ups: none yet
+- Handoff: `P11-W3`
+
+### [ ] `P11-W3` `pkg_channel_setup_scheduler_contract_cleanup` Channel Setup And Scheduler Contract Cleanup
+
+- Backlog: `seed 13 = 3 fresh review + 10 candidate mechanical hotspots`
+- Scope: tighten the channel-manager/channel-setup contract surface, retire repeated legacy-field scrub logic, and reduce the oversized scheduler/channel-setup coordination seam
+- Exact seed membership: `docs/architecture/p11-fresh-baseline-package-map.json` -> `pkg_channel_setup_scheduler_contract_cleanup`
+- Package-local scoping commands:
+  - `desloppify show src/modules/scheduler/channel-manager/ChannelManager.ts --status open --no-budget --top 80`
+  - `desloppify show src/modules/scheduler/channel-manager/ContentResolver.ts --status open --no-budget --top 80`
+  - `desloppify show src/core/channel-setup/ChannelSetupPlanner.ts --status open --no-budget --top 80`
+  - `desloppify show src/modules/scheduler/scheduler/ChannelScheduler.ts --status open --no-budget --top 80`
+  - `desloppify show src/modules/ui/channel-setup/ChannelSetupScreen.ts --status open --no-budget --top 80`
+- Cleanup-loop fit: Tier 3 checklist-linked package; the review ids define the owner seam, the candidate mechanical ids are scoping aids only, and EPG/navigation or cross-cutting hygiene residue stays out unless current-source proof re-homes it here
+- Likely first slice: begin with ChannelManager input types, legacy field scrub duplication, and channel-setup planner interfaces before widening into UI controllers
+- Status: not started
+- Plan: none yet
+- Last touched: `2026-04-23`
+- Verification: not run for package-local scoping yet; seed evidence comes from the authoritative `2026-04-23T07:32:05+00:00` rerun and `docs/architecture/p11-fresh-baseline-package-map.json`
+- Follow-ups: none yet
+- Handoff: `P11-W4`
+
+### [ ] `P11-W4` `pkg_epg_navigation_runtime_cleanup` EPG, Navigation, And UI Runtime Cleanup
+
+- Backlog: `seed 18 = 7 fresh review + 11 candidate mechanical hotspots`
+- Scope: reduce navigation/EPG runtime complexity, fix the stale route/state contract drift, and replace the most fragile EPG/server-select async coordination seams with clearer ownership and testable completion boundaries
+- Exact seed membership: `docs/architecture/p11-fresh-baseline-package-map.json` -> `pkg_epg_navigation_runtime_cleanup`
+- Package-local scoping commands:
+  - `desloppify show src/modules/ui/epg/view/EPGVirtualizer.ts --status open --no-budget --top 80`
+  - `desloppify show src/modules/ui/epg/EPGComponent.ts --status open --no-budget --top 80`
+  - `desloppify show src/modules/ui/epg/runtime/EPGScheduleRefreshRuntime.ts --status open --no-budget --top 80`
+  - `desloppify show src/modules/navigation/NavigationManager.ts --status open --no-budget --top 80`
+  - `desloppify show src/modules/ui/server-select/ServerSelectScreen.ts --status open --no-budget --top 80`
+- Cleanup-loop fit: Tier 3 checklist-linked package; use the exact review ids as the execution anchor, treat the candidate mechanical ids as bounded scoping aids only, and keep player/Plex/cross-cutting hygiene residue out by default
+- Likely first slice: start with the stale server-select state contract and the EPG/navigation async completion seam before widening into larger EPG decomposition
+- Status: not started
+- Plan: none yet
+- Last touched: `2026-04-23`
+- Verification: not run for package-local scoping yet; seed evidence comes from the authoritative `2026-04-23T07:32:05+00:00` rerun and `docs/architecture/p11-fresh-baseline-package-map.json`
+- Follow-ups: none yet
+- Handoff: `P11-W5`
+
+### [ ] `P11-W5` `pkg_player_recovery_contract_cleanup` Player, Subtitle, And Recovery Contract Cleanup
+
+- Backlog: `seed 6 = 2 fresh review + 4 candidate mechanical hotspots`
+- Scope: align player/subtitle/runtime failure contracts, retire the remaining playback-recovery cohesion hotspot, and reduce the coupling between player behavior and brittle sequence-sensitive tests
+- Exact seed membership: `docs/architecture/p11-fresh-baseline-package-map.json` -> `pkg_player_recovery_contract_cleanup`
+- Package-local scoping commands:
+  - `desloppify show src/modules/player/VideoPlayer.ts --status open --no-budget --top 80`
+  - `desloppify show src/modules/player/SubtitleManager.ts --status open --no-budget --top 80`
+  - `desloppify show src/modules/player/PlaybackRecoveryManager.ts --status open --no-budget --top 80`
+  - `desloppify show src/modules/player/AudioTrackManager.ts --status open --no-budget --top 80`
+- Cleanup-loop fit: Tier 3 checklist-linked package; drive execution from the exact player/recovery review ids, use the candidate mechanical ids only as same-seam evidence, and keep orchestrator/channel-tuning sequencing review work out of this package
+- Likely first slice: start with the audio-track error contract and subtitle failure-mode split, then absorb playback-recovery cohesion only if the same runtime contract cleanup needs it
+- Status: not started
+- Plan: none yet
+- Last touched: `2026-04-23`
+- Verification: not run for package-local scoping yet; seed evidence comes from the authoritative `2026-04-23T07:32:05+00:00` rerun and `docs/architecture/p11-fresh-baseline-package-map.json`
+- Follow-ups: none yet
+- Handoff: `P11-W6`
+
+### [ ] `P11-W6` `pkg_cross_cutting_contract_hygiene` Cross-Cutting Contract And Hygiene Cleanup
+
+- Backlog: `seed 11 = 7 fresh review + 4 candidate mechanical hotspots`
+- Scope: own the explicitly cross-cutting fresh review ids that do not cleanly belong to one architectural package without becoming a default residue sink for unrelated cleanup work
+- Exact seed membership: `docs/architecture/p11-fresh-baseline-package-map.json` -> `pkg_cross_cutting_contract_hygiene`
+- Package-local scoping commands:
+  - `desloppify show src/modules/lifecycle/AppLifecycle.ts --status open --no-budget --top 80`
+  - `desloppify show src/modules/ui/settings/SettingsScreen.ts --status open --no-budget --top 80`
+  - `desloppify show src/modules/ui/auth/AuthScreen.ts --status open --no-budget --top 80`
+  - `desloppify show src/core/app-shell/AppDiagnosticsSurface.ts --status open --no-budget --top 80`
+  - `desloppify show src/core/channel-setup/ChannelSetupWorkflow.ts --status open --no-budget --top 80`
+- Cleanup-loop fit: Tier 3 checklist-linked package; exact review ids are the only authoritative membership surface here, candidate files are bounded scoping aids only, and no unrelated residue may be absorbed just because it feels “shared”
+- Likely first slice: start with a per-id ownership inventory across lifecycle, settings, toast, and pass-through facade surfaces before choosing the first execution unit
+- Status: not started
+- Plan: none yet
+- Last touched: `2026-04-23`
+- Verification: not run for package-local scoping yet; seed evidence comes from the authoritative `2026-04-23T07:32:05+00:00` rerun and `docs/architecture/p11-fresh-baseline-package-map.json`
+- Follow-ups: none yet
+- Handoff: `P11-EXIT`
+
+- [ ] `P11-EXIT`
+
+- Close only if: every fresh `2026-04-23` review issue has one checklist owner, every overlapping mechanical hotspot retired under `P11` has one exact package owner or an explicit `accepted residue`, `deferred`, or `stale-proven` disposition recorded from current-source evidence, `docs/architecture/p11-fresh-baseline-package-map.json`, the follow-on queue rationale doc, and this checklist agree on package seed membership, and the final fresh-baseline backlog is re-rerun from the integration branch before claiming completion
+- Status: not started
+- Plan: none yet
+- Last touched: `2026-04-23`
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: checklist complete only when this gate is satisfied
+- Handoff: continue through `P11` until the fresh-baseline queue is fully drained or explicitly archived
