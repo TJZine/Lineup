@@ -11,8 +11,8 @@ This is not a generic "make tests prettier" list. If an item does not clearly re
 ## Fresh-Session Handoff
 
 - Last audit refresh: `2026-04-22`
-- Current execution state: `T1` closed on `2026-04-22`; `T2-W1` + `T2-W2` and `T2-EXIT` closed on `2026-04-22`; `T3-W1` + `T3-W2`, `T3-EXIT`, `T4-W1` + `T4-W2`, and `T4-EXIT` closed on `2026-04-22` after current-workspace verification
-- Next safe start: `T5-W1`
+- Current execution state: `T1` closed on `2026-04-22`; `T2-W1` + `T2-W2` and `T2-EXIT` closed on `2026-04-22`; `T3-W1` + `T3-W2`, `T3-EXIT`, `T4-W1` + `T4-W2`, and `T4-EXIT` closed on `2026-04-22` after current-workspace verification; `T5-W1` + `T5-W2`, `T6-W1` + `T6-W2` + `T6-W3`, and `T7-W1` + `T7-W2` + `T7-W3` + `T7-W4` + `T7-EXIT` closed on `2026-04-22` after current-workspace verification
+- Next safe start: `T5-EXIT`
 - Authoritative evidence rule: update status only from commands rerun in the target workspace or integration branch
 - Discovery note: Codanna was not available in this session; repo discovery fell back to `rg`, direct file inspection, and executable commands
 - Explicit user decision: do not add a coverage threshold
@@ -339,12 +339,22 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
     - `npm run test:unit`
   - exit rule: bespoke environment setup is the exception, not the default
 
-- [ ] `T7-EXIT`
+- [x] `T7-EXIT`
   - required: only the suites that still distort ownership or timing have been decomposed
   - verification:
     - split-suite commands
     - `npm run test:timings`
   - exit rule: large remaining suites are intentionally retained and have a written reason
+  - retained oversized suites with written reasons:
+    - `src/__tests__/Orchestrator.test.ts`: focused suites now cover the three previously reverted removal candidates, but removing those umbrella tests would still fail the thin lifecycle/composition smoke gate under the frozen-production orchestrator seam
+    - `src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts`: remains a single-owner virtualizer API suite with shared lifecycle/setup and chained `calculateVisibleRange` -> `renderVisibleCells` -> focus/overlay/timing assertions, and no sibling EPG suite already owns the core API seam
+    - `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`: remains one screen/workflow-owner suite with one shared ownership shell across Step 1/2/3 behavior, while sibling tests already own the non-UI controller/runtime/state seams
+  - Status: `completed`
+  - Plan: `docs/plans/2026-04-22-t7-priority-oversized-suite-decomposition.md`
+  - Last touched: `2026-04-22`
+  - Verification: `npm run test:verify-docs-contracts` passed (`1` suite, `88` tests); `npm run test:unit -- --runInBand src/__tests__/Orchestrator.test.ts src/__tests__/orchestrator/playback-flow.test.ts src/core/orchestrator/__tests__/OrchestratorRecoverableRuntimeReporter.test.ts` passed (`3` suites, `117` tests); `npm run test:timings` passed (`255` suites, `3,263` tests, `1` skipped) and refreshed the unit timing surface with `PlexLibrary.test.ts` (`2615ms`), `EPGComponent.test.ts` (`1043ms`), `ChannelSetupScreen.test.ts` (`933ms`), `EPGVirtualizer.test.ts` (`841ms`), and `Orchestrator.test.ts` (`338ms`) still among the slowest retained suites; `npm run verify:docs` passed; `npm run verify` passed.
+  - Follow-ups: Priority 7 is closed; carry the retained-suite rationale forward only if a future production-owned seam appears that changes the ownership analysis for `Orchestrator.test.ts`, `EPGVirtualizer.test.ts`, or `ChannelSetupScreen.test.ts`.
+  - Handoff: Priority 7 is complete; move to the next checklist priority or close the broader cleanup effort using the refreshed timing and verification evidence from this exit pass
 
 - [ ] `T8-EXIT`
   - required: docs and workflow reflect the new suite layout and cleanup policy
@@ -779,21 +789,28 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 **Default plan shape:** one bounded plan per hotspot suite or tightly coupled hotspot pair
 
-### [ ] `T7-W1` Shrink `verifyDocs.test.ts` Without Weakening Its Orchestration Role
+### [x] `T7-W1` Shrink `verifyDocs.test.ts` Without Weakening Its Orchestration Role
 
 **Goal:** reduce one giant tooling suite while keeping the targeted docs-verification proof easy to trust.
 
 **Current evidence:**
 
-- `verifyDocs.test.ts` is `3,446` lines and still costs `13.954s` on `npm run test:timings:tools`
+- `verifyDocs.test.ts` now stays the sole Jest entrypoint at `23` lines, while extracted helper/assertion modules under `src/__tests__/tools/` keep the full `88`-test docs-verification contract registered from that file
+- `npm run test:verify-docs-contracts`, `npm run verify:docs`, and `npm run verify` all passed on the current workspace after the split
 
 **Preferred shape:**
 
 - keep `verifyDocs.test.ts` as the docs-verification orchestration file
 - extract bulky fixture builders, repo-fixture writers, and repetitive assertion helpers into sibling test-only modules when that materially improves readability
 - split the suite into multiple top-level files only if the contracts are truly distinct and `verify:docs` remains equally explicit and trustworthy
+- Status: `completed`
+- Plan: `docs/plans/2026-04-22-t7-priority-oversized-suite-decomposition.md`
+- Last touched: `2026-04-22`
+- Verification: `npm run test:verify-docs-contracts` passed; `npm run verify:docs` passed; `npm run verify` passed.
+- Follow-ups: `T7-W2-B1` is the next serial execution unit; keep `package.json`, Jest config, and `tools/verify-docs.mjs` frozen unless a replan explicitly widens scope.
+- Handoff: continue `cleanup-loop` at `T7-W2-B1` to reduce duplicate seam-level coverage while retaining one thin smoke-suite owner for `Orchestrator.test.ts`
 
-### [ ] `T7-W2` Retire Or Shrink The Legacy Orchestrator Umbrella Suite
+### [x] `T7-W2` Retire Or Shrink The Legacy Orchestrator Umbrella Suite
 
 **Goal:** reduce the cost of the remaining legacy umbrella while preserving unique startup/composition behavior coverage.
 
@@ -801,14 +818,47 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 - `Orchestrator.test.ts` is `3,451` lines
 - focused suites already exist under `src/__tests__/orchestrator/` and `src/core/orchestrator/__tests__/`
+- focused suites now cover the three previously reverted removal candidates:
+  - `switchToChannel` partial-missing-module diagnostic, including best-effort early return without stopping playback
+  - `switchToChannelByNumber` partial-missing-module diagnostic
+  - `handleGlobalError()` -> recoverable reporter `reportError(...)` failure path through `AppOrchestrator.handleGlobalError(...)`
+- a fresh read-only source audit still says removing those three umbrella tests would not leave `src/__tests__/Orchestrator.test.ts` as a coherent thin lifecycle/composition smoke suite
+- Status: `completed`
+- Plan: `docs/plans/2026-04-22-t7-priority-oversized-suite-decomposition.md`
+- Last touched: `2026-04-22`
+- Verification: `npm run test:unit -- --runInBand src/__tests__/Orchestrator.test.ts src/__tests__/orchestrator/orchestrator-preconditions.test.ts src/__tests__/orchestrator/playback-flow.test.ts src/__tests__/orchestrator/startup-routing.test.ts src/__tests__/orchestrator/platform-wiring.test.ts src/__tests__/orchestrator/orchestrator-module-factory-wiring.test.ts src/__tests__/orchestrator/storage-keys.test.ts src/__tests__/orchestrator/event-wiring.test.ts src/__tests__/orchestrator/lifecycle-resume-race.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorAssembly.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorBuilders.test.ts src/core/orchestrator/__tests__/OrchestratorRecoverableRuntimeReporter.test.ts src/core/orchestrator/__tests__/OrchestratorEventBinder.test.ts` passed during `T7-W2-B1`; `npm run verify` passed during `T7-W2-B2`.
+- Follow-ups: `T7-W3-B1` owner, trigger = continue Priority 7 with the next audit-gated oversized-suite decision; keep production orchestrator files and `src/__tests__/Orchestrator.test.ts` frozen unless a future replan explicitly widens scope.
+- Handoff: `T7-W2` closes as intentional retention under the current plan; resume `cleanup-loop` at `T7-W3-B1` and audit `EPGVirtualizer.test.ts` for a real ownership split or another explicit retention decision
 
-### [ ] `T7-W3` Split `EPGVirtualizer.test.ts` Only If It Improves Ownership Alongside `T5-W1`
+### [x] `T7-W3` Split `EPGVirtualizer.test.ts` Only If It Improves Ownership Alongside `T5-W1`
 
 **Goal:** avoid a cosmetic file split while still allowing a real cleanup if the internal-spy work exposes clean behavior families.
+- Current evidence:
 
-### [ ] `T7-W4` Split `ChannelSetupScreen.test.ts` Only If Workflow-Based Ownership Falls Out Naturally
+- `src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts` does not currently expose a real ownership-honest split seam
+- the suite remains a single-owner `EPGVirtualizer` API surface with one shared lifecycle/setup and many tests that chain `calculateVisibleRange` -> `renderVisibleCells` -> focus/overlay/timing assertions across any potential split boundary
+- no sibling EPG test file already owns the core `EPGVirtualizer` API contract
+- Status: `completed`
+- Plan: `docs/plans/2026-04-22-t7-priority-oversized-suite-decomposition.md`
+- Last touched: `2026-04-22`
+- Verification: `npm run verify:docs` passed during `T7-W3-B1`.
+- Follow-ups: `T7-W4-B1` owner, trigger = continue Priority 7 with the next audit-gated oversized-suite decision; keep `src/modules/ui/epg/view/EPGVirtualizer.ts` and `src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts` frozen unless a future production-owned seam appears.
+- Handoff: `T7-W3` closes as intentional retention under the current plan; resume `cleanup-loop` at `T7-W4-B1` and audit `ChannelSetupScreen.test.ts` for a real workflow split or another explicit retention decision
+
+### [x] `T7-W4` Split `ChannelSetupScreen.test.ts` Only If Workflow-Based Ownership Falls Out Naturally
 
 **Goal:** do not create more helper sprawl than the split removes.
+- Current evidence:
+
+- `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts` does not currently expose a natural workflow-based split seam
+- the suite remains one screen/workflow-owner surface with one top-level `describe`, a shared `enterStep2` progression helper, and Step 1/2/3 behavior all living in the same ownership shell
+- existing sibling tests already cover the non-UI ownership seams (`session controller`, `runtime`, and `state`), so splitting this file by workflow phase would overlap current seams instead of revealing a new one
+- Status: `completed`
+- Plan: `docs/plans/2026-04-22-t7-priority-oversized-suite-decomposition.md`
+- Last touched: `2026-04-22`
+- Verification: `npm run verify:docs` passed during `T7-W4-B1`.
+- Follow-ups: `T7-EXIT-B1` owner, trigger = refresh Priority 7 timing and verification evidence, then close the priority if the remaining large suites are now all either intentionally retained or already decomposed; keep `src/modules/ui/channel-setup/ChannelSetupScreen.ts` and `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts` frozen unless a future ownership seam appears naturally.
+- Handoff: `T7-W4` closes as intentional retention under the current plan; resume `cleanup-loop` at `T7-EXIT-B1` and complete the Priority 7 closeout evidence pass
 
 ## Priority 8: Documentation And Final Exit
 
