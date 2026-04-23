@@ -4,9 +4,10 @@ import * as libraryTypes from '../types';
 describe('plex library types', () => {
     it('does not re-export a shadow error taxonomy', () => {
         const removedMapperKey = ['mapPlexLibrary', 'ErrorCodeToAppErrorCode'].join('');
+        const assertType = <T>(_value?: T): void => undefined;
 
         // @ts-expect-error removed export must stay absent from the type surface
-        type _RemovedPlexLibraryErrorCode = libraryTypes.PlexLibraryErrorCode;
+        assertType<libraryTypes.PlexLibraryErrorCode>();
         // @ts-expect-error removed export must stay absent from the type surface
         libraryTypes.mapPlexLibraryErrorCodeToAppErrorCode;
 
