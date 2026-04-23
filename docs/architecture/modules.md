@@ -22,10 +22,6 @@ This document is directory-oriented and lists file-level owners where the canoni
 - thin public runtime entry barrel
 - re-exports `AppOrchestrator` and runtime-facing types for app/test import stability
 
-### `src/core/InitializationCoordinator.ts`
-
-- startup sequencing collaborator between app shell and orchestrator
-
 ### `src/core/app-shell/AppThemeController.ts`
 
 - app-shell runtime owner for active theme state
@@ -37,7 +33,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - app-shell startup UI initializer owner
 - initializes now-playing-info, playback-options, and exit-confirm overlays during startup
-- consumed through a narrow startup-UI port by `src/core/InitializationCoordinator.ts`
+- consumed through a narrow startup-UI port by `src/core/orchestrator/InitializationCoordinator.ts`
 
 ### `src/core/`
 
@@ -58,7 +54,8 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/core/orchestrator/OrchestratorTypes.ts` is the durable owner of `OrchestratorConfig` and `ModuleStatus`
 - `src/core/orchestrator/OrchestratorModuleFactory.ts` owns runtime module constructor/config assembly for `AppOrchestrator.initialize()`
 - `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts` owns coordinator construction and dependency assembly previously in `AppOrchestrator._createCoordinators()`
-- `src/core/orchestrator/OrchestratorPriorityOneControllerFactory.ts` owns Priority-1 controller and `OrchestratorEventBinder` construction previously in `AppOrchestrator._initializePriorityOneControllers()`
+- `src/core/orchestrator/InitializationCoordinator.ts` owns orchestrator startup sequencing for the app-shell/orchestrator startup path
+- `src/core/orchestrator/priority-one/PriorityOneControllerFactory.ts` owns Priority-1 controller and `OrchestratorEventBinder` construction previously in `AppOrchestrator._initializePriorityOneControllers()`
 - `src/Orchestrator.ts` remains the public re-export surface for external callers (including `src/App.ts` and tests)
 
 ### `src/core/initialization/`

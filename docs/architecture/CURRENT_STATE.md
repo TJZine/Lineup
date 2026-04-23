@@ -57,9 +57,9 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - app-shell-owned startup UI initializer
 - owns startup-time initialization calls for now-playing-info, playback-options, and exit-confirm overlays
-- keeps startup UI readiness sequencing explicit through `InitializationCoordinator`'s narrow startup-UI port
+- keeps startup UI readiness sequencing explicit through `src/core/orchestrator/InitializationCoordinator.ts`'s narrow startup-UI port
 
-### `src/core/InitializationCoordinator.ts`
+### `src/core/orchestrator/InitializationCoordinator.ts`
 
 - focused startup sequencing collaborator between app shell and orchestrator
 
@@ -78,14 +78,13 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - central runtime coordinator implementation owner
 - owns composition-root diagnostics append wiring (`AppendIssueDiagnostic`) for runtime collaborators while `IssueDiagnosticsStore` remains the storage/debug owner
-- constructs `InitializationCoordinator` before coordinator assembly so `ensureEpgInitialized` callbacks always bind the real startup owner (no fake no-op readiness path)
+- constructs orchestrator-local `InitializationCoordinator` before coordinator assembly so `ensureEpgInitialized` callbacks always bind the real startup owner (no fake no-op readiness path)
 - delegates priority-one runtime assembly through `src/core/orchestrator/priority-one/PriorityOneAssemblyInput.ts` so the orchestrator stays at composition wiring rather than rebuilding the full controller/binder bag inline
 
 ### `src/core/orchestrator/priority-one/`
 
 - focused owner for priority-one runtime assembly input shaping plus controller/binder composition
 - `PriorityOneControllerFactory.ts` now owns playback start/runtime, overlay runtime policy, profile-switch cleanup, and event-binder assembly for the priority-one path
-- `OrchestratorPriorityOneControllerFactory.ts` remains only as a thin compatibility re-export surface for the extracted priority-one assembly owner
 
 ### `src/core/orchestrator/OrchestratorSchedulePolicy.ts`
 
@@ -166,7 +165,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - `src/modules/ui/common/` owns cross-surface UI presentation helpers such as `appShellContainerIds`, `channelDisplay`, and the pure `formatTimecode` helper shared by overlay owners
 - `src/modules/ui/common/appShellContainerIds.ts` is the shared owner for app-shell-owned container IDs created by `src/core/app-shell/AppContainerFactory.ts` and consumed by app-shell/runtime wiring, including the bounded `runtime-chrome-host`; feature-owned mount container IDs such as EPG, player OSD, mini guide, channel badge, channel transition, and exit confirm remain with their feature modules even though `AppContainerFactory` may canonicalize their materialized DOM nodes at document scope
 - `src/modules/ui/epg/EPGCoordinator.ts` owns EPG runtime policy entrypoints (open/close/toggle/guide-setting handling and schedule-policy orchestration), while `src/Orchestrator.ts` remains a delegation surface that wires this owner
-- `src/modules/ui/epg/buildEpgStartupConfig.ts` owns EPG startup-config shaping consumed by `src/core/InitializationCoordinator.ts`
+- `src/modules/ui/epg/buildEpgStartupConfig.ts` owns EPG startup-config shaping consumed by `src/core/orchestrator/InitializationCoordinator.ts`
 - `src/modules/ui/epg/index.ts` is a bounded cross-module seam and no longer re-exports EPG view/util leaf symbols
 - `src/modules/ui/epg/EPGCoordinatorPolicies.ts` keeps library-filter normalization pure, while `EPGCoordinator` and `EPGRefreshController` own explicit persisted-selection cleanup writes through `EpgPreferencesStore`
 - `src/modules/ui/epg/view/index.ts` is package-local for view-layer exports; `src/modules/ui/epg/view/EPGVirtualizer.ts` remains the current virtualized-grid owner, and the EPG package split continues to stage leaf owners under `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/`

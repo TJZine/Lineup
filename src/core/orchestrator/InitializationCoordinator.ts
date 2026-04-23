@@ -1,6 +1,6 @@
 /**
  * @fileoverview Initialization Coordinator - Manages the 5-phase startup sequence.
- * @module core/InitializationCoordinator
+ * @module core/orchestrator/InitializationCoordinator
  * @version 1.0.0
  *
  * Extracted from Orchestrator to reduce complexity and improve modularity.
@@ -12,35 +12,35 @@
  * - Phase 5: EPG initialization
  */
 
-import { AppErrorCode, type IAppLifecycle, type AppError } from '../modules/lifecycle';
-import type { INavigationManager } from '../modules/navigation';
-import type { IPlexAuth } from '../modules/plex/auth';
-import type { IPlexServerDiscovery } from '../modules/plex/discovery';
-import type { IPlexLibrary } from '../modules/plex/library';
-import type { IPlexStreamResolver } from '../modules/plex/stream';
-import type { IChannelManager } from '../modules/scheduler/channel-manager';
-import type { IChannelScheduler } from '../modules/scheduler/scheduler';
-import type { IVideoPlayer } from '../modules/player';
-import type { IEPGComponent, IEPGReadinessPort, IEPGDebugRuntime } from '../modules/ui/epg';
-import { buildEPGStartupConfig } from '../modules/ui/epg';
-import type { IPlayerOsdOverlay } from '../modules/ui/player-osd';
-import type { IMiniGuideOverlay } from '../modules/ui/mini-guide';
-import type { IChannelTransitionOverlay } from '../modules/ui/channel-transition';
-import type { IDisposable } from '../utils/interfaces';
-import type { OrchestratorConfig, ModuleStatus } from './orchestrator/OrchestratorTypes';
+import { AppErrorCode, type IAppLifecycle, type AppError } from '../../modules/lifecycle';
+import type { INavigationManager } from '../../modules/navigation';
+import type { IPlexAuth } from '../../modules/plex/auth';
+import type { IPlexServerDiscovery } from '../../modules/plex/discovery';
+import type { IPlexLibrary } from '../../modules/plex/library';
+import type { IPlexStreamResolver } from '../../modules/plex/stream';
+import type { IChannelManager } from '../../modules/scheduler/channel-manager';
+import type { IChannelScheduler } from '../../modules/scheduler/scheduler';
+import type { IVideoPlayer } from '../../modules/player';
+import type { IEPGComponent, IEPGReadinessPort, IEPGDebugRuntime } from '../../modules/ui/epg';
+import { buildEPGStartupConfig } from '../../modules/ui/epg';
+import type { IPlayerOsdOverlay } from '../../modules/ui/player-osd';
+import type { IMiniGuideOverlay } from '../../modules/ui/mini-guide';
+import type { IChannelTransitionOverlay } from '../../modules/ui/channel-transition';
+import type { IDisposable } from '../../utils/interfaces';
+import type { OrchestratorConfig, ModuleStatus } from './OrchestratorTypes';
 import type {
     ChannelBadgeOverlayInitPort,
     ChannelNumberOverlayInitPort,
-} from './orchestrator/OverlayPorts';
-import { EpgPreferencesStore, type EpgLayoutMode } from '../modules/settings/EpgPreferencesStore';
-import { ProfileSessionStore } from '../modules/settings/ProfileSessionStore';
+} from './OverlayPorts';
+import { EpgPreferencesStore, type EpgLayoutMode } from '../../modules/settings/EpgPreferencesStore';
+import { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
 import {
     applyPhase2AuthGatePolicy,
     applyPhase3ServerGatePolicy,
     applyPostReadyRoutingPolicy,
-} from './initialization/InitializationStartupPolicy';
-import { toRecoverableModuleStatusError } from './initialization/RecoverableModuleStatusError';
-import type { RecoverableAsyncFailureReporter } from './orchestrator/OrchestratorRuntimeSeams';
+} from '../initialization/InitializationStartupPolicy';
+import { toRecoverableModuleStatusError } from '../initialization/RecoverableModuleStatusError';
+import type { RecoverableAsyncFailureReporter } from './OrchestratorRuntimeSeams';
 
 // ============================================
 // Types
