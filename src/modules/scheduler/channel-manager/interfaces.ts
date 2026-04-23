@@ -1,8 +1,10 @@
 import type {
     ChannelConfig,
+    ChannelCreateInput,
     ResolvedChannelContent,
     ImportResult,
     ChannelManagerEventMap,
+    ChannelUpdateInput,
 } from './types';
 import type { PlexMediaFile } from '../../plex/library';
 import type { PlexMediaType } from '../../plex/shared/types';
@@ -13,20 +15,20 @@ export interface IChannelManager {
 
     /**
      * Create a new channel with default values for missing fields.
-     * @param config - Partial channel configuration
+     * @param config - Writable channel configuration
      * @returns Promise resolving to complete channel config
      * @throws Error if content source is missing
      */
-    createChannel(config: Partial<ChannelConfig>, options?: { signal?: AbortSignal | null }): Promise<ChannelConfig>;
+    createChannel(config: ChannelCreateInput, options?: { signal?: AbortSignal | null }): Promise<ChannelConfig>;
 
     /**
      * Update an existing channel.
      * @param id - Channel ID
-     * @param updates - Partial updates to apply
+     * @param updates - Writable updates to apply
      * @returns Promise resolving to updated channel config
      * @throws Error if channel not found
      */
-    updateChannel(id: string, updates: Partial<ChannelConfig>): Promise<ChannelConfig>;
+    updateChannel(id: string, updates: ChannelUpdateInput): Promise<ChannelConfig>;
 
     /**
      * Delete a channel.
