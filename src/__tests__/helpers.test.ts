@@ -5,6 +5,8 @@
 import {
     advanceTimersUntil,
     createDeferred,
+    setDevBuildForTest,
+    setDocumentReadyStateForTest,
     expectConsoleWarn,
     flushPromises,
     flushPromisesAndMacrotask,
@@ -48,6 +50,44 @@ describe('createDeferred', () => {
 
         expect(state).toBe('resolved');
         await expect(deferred.promise).resolves.toBe('resolved');
+    });
+});
+
+describe('test environment descriptor helpers', () => {
+    it('sets and restores __LINEUP_DEV_BUILD__ without leaving an own-property override behind', () => {
+        const hadOwnProperty = Object.prototype.hasOwnProperty.call(globalThis, '__LINEUP_DEV_BUILD__');
+        const originalDescriptor = Object.getOwnPropertyDescriptor(globalThis, '__LINEUP_DEV_BUILD__');
+
+        const restore = setDevBuildForTest(false);
+
+        expect((globalThis as typeof globalThis & { __LINEUP_DEV_BUILD__?: boolean }).__LINEUP_DEV_BUILD__).toBe(false);
+
+        restore();
+
+        if (hadOwnProperty && originalDescriptor) {
+            expect(Object.getOwnPropertyDescriptor(globalThis, '__LINEUP_DEV_BUILD__')).toEqual(originalDescriptor);
+        } else {
+            expect(Object.prototype.hasOwnProperty.call(globalThis, '__LINEUP_DEV_BUILD__')).toBe(false);
+        }
+    });
+
+    it('sets and restores document.readyState without changing the suite-level descriptor owner', () => {
+        const hadOwnProperty = Object.prototype.hasOwnProperty.call(document, 'readyState');
+        const originalDescriptor = Object.getOwnPropertyDescriptor(document, 'readyState');
+        const originalReadyState = document.readyState;
+
+        const restore = setDocumentReadyStateForTest('loading');
+
+        expect(document.readyState).toBe('loading');
+
+        restore();
+
+        expect(document.readyState).toBe(originalReadyState);
+        if (hadOwnProperty && originalDescriptor) {
+            expect(Object.getOwnPropertyDescriptor(document, 'readyState')).toEqual(originalDescriptor);
+        } else {
+            expect(Object.prototype.hasOwnProperty.call(document, 'readyState')).toBe(false);
+        }
     });
 });
 

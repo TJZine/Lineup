@@ -6,39 +6,29 @@
 import { StateManager } from '../StateManager';
 import { PersistentState } from '../types';
 import { STORAGE_CONFIG } from '../constants';
+import {
+    installMockLocalStorage,
+    mockLocalStorage,
+    resetMockLocalStorage,
+    restoreOriginalLocalStorage,
+} from '../../../__tests__/mocks/localStorage';
+
+installMockLocalStorage();
 
 describe('StateManager', () => {
     let stateManager: StateManager;
-    let mockLocalStorage: Record<string, string>;
 
     beforeEach(() => {
-        // Mock localStorage
-        mockLocalStorage = {};
-        Object.defineProperty(global, 'localStorage', {
-            value: {
-                getItem: jest.fn((key: string) => {
-                    const val = mockLocalStorage[key];
-                    return val !== undefined ? val : null;
-                }),
-                setItem: jest.fn((key: string, value: string) => {
-                    mockLocalStorage[key] = value;
-                }),
-                removeItem: jest.fn((key: string) => {
-                    delete mockLocalStorage[key];
-                }),
-                clear: jest.fn(() => {
-                    mockLocalStorage = {};
-                }),
-            },
-            writable: true,
-            configurable: true,
-        });
-
+        resetMockLocalStorage();
         stateManager = new StateManager();
     });
 
     afterEach(() => {
         jest.clearAllMocks();
+    });
+
+    afterAll(() => {
+        restoreOriginalLocalStorage();
     });
 
     describe('synchronous helper contract', () => {
@@ -55,7 +45,7 @@ describe('StateManager', () => {
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
-            mockLocalStorage[STORAGE_CONFIG.STATE_KEY] = JSON.stringify(state);
+            mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, JSON.stringify(state));
 
             const loaded = stateManager.load() as unknown as PersistentState | null;
 
@@ -64,7 +54,7 @@ describe('StateManager', () => {
         });
 
         it('clear returns synchronously', () => {
-            mockLocalStorage[STORAGE_CONFIG.STATE_KEY] = '{}';
+            mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, '{}');
 
             const result = stateManager.clear();
 
@@ -84,7 +74,7 @@ describe('StateManager', () => {
                 expect.any(String)
             );
 
-            const saved = JSON.parse(mockLocalStorage[STORAGE_CONFIG.STATE_KEY] as string);
+            const saved = JSON.parse(mockLocalStorage.getItem(STORAGE_CONFIG.STATE_KEY) as string);
             expect(saved.version).toBe(STORAGE_CONFIG.STATE_VERSION);
         });
 
@@ -93,7 +83,7 @@ describe('StateManager', () => {
 
             await stateManager.save(state);
 
-            const saved = JSON.parse(mockLocalStorage[STORAGE_CONFIG.STATE_KEY] as string);
+            const saved = JSON.parse(mockLocalStorage.getItem(STORAGE_CONFIG.STATE_KEY) as string);
             expect(saved.version).toBe(STORAGE_CONFIG.STATE_VERSION);
             expect(saved.lastUpdated).toBeGreaterThan(0);
         });
@@ -102,14 +92,15 @@ describe('StateManager', () => {
             const state = stateManager.createDefaultState();
 
             // First call throws QuotaExceededError, second succeeds
+            const defaultSetItemImplementation = mockLocalStorage.setItem.getMockImplementation();
             let callCount = 0;
-            (localStorage.setItem as jest.Mock).mockImplementation((key: string, value: string) => {
+            mockLocalStorage.setItem.mockImplementation((key: string, value: string) => {
                 callCount++;
                 if (callCount === 1) {
                     const error = new DOMException('Quota exceeded', 'QuotaExceededError');
                     throw error;
                 }
-                mockLocalStorage[key] = value;
+                defaultSetItemImplementation?.(key, value);
             });
 
             await stateManager.save(state);
@@ -126,7 +117,7 @@ describe('StateManager', () => {
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
-            mockLocalStorage[STORAGE_CONFIG.STATE_KEY] = JSON.stringify(state);
+            mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, JSON.stringify(state));
 
             const loaded = await stateManager.load();
 
@@ -140,21 +131,21 @@ describe('StateManager', () => {
         });
 
         it('should return null for invalid JSON', async () => {
-            mockLocalStorage[STORAGE_CONFIG.STATE_KEY] = '{invalid json';
+            mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, '{invalid json');
 
             const loaded = await stateManager.load();
             expect(loaded).toBeNull();
         });
 
         it('should return null for invalid state format', async () => {
-            mockLocalStorage[STORAGE_CONFIG.STATE_KEY] = '{"foo": "bar"}';
+            mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, '{"foo": "bar"}');
 
             const loaded = await stateManager.load();
             expect(loaded).toBeNull();
         });
 
         it('should handle missing version gracefully', async () => {
-            mockLocalStorage[STORAGE_CONFIG.STATE_KEY] = '{"plexAuth": null, "lastUpdated": 123}';
+            mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, '{"plexAuth": null, "lastUpdated": 123}');
 
             const loaded = await stateManager.load();
             expect(loaded).toBeNull();
@@ -166,7 +157,7 @@ describe('StateManager', () => {
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
-            mockLocalStorage[STORAGE_CONFIG.STATE_KEY] = JSON.stringify(futureState);
+            mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, JSON.stringify(futureState));
 
             const loaded = await stateManager.load();
 
@@ -181,7 +172,7 @@ describe('StateManager', () => {
                 userPreferences: { theme: 'light', volume: 50, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
-            mockLocalStorage[STORAGE_CONFIG.STATE_KEY] = JSON.stringify(state);
+            mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, JSON.stringify(state));
 
             const loaded = await stateManager.load();
 
@@ -200,7 +191,7 @@ describe('StateManager', () => {
                 userPreferences: { theme: 'dark', volume: 60, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
-            mockLocalStorage[STORAGE_CONFIG.STATE_KEY] = JSON.stringify(state);
+            mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, JSON.stringify(state));
 
             const loaded = await stateManager.load();
 
@@ -213,7 +204,7 @@ describe('StateManager', () => {
                 userPreferences: { theme: 'nope', volume: 999 },
                 lastUpdated: Date.now(),
             };
-            mockLocalStorage[STORAGE_CONFIG.STATE_KEY] = JSON.stringify(state);
+            mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, JSON.stringify(state));
 
             const loaded = await stateManager.load();
 
@@ -232,7 +223,7 @@ describe('StateManager', () => {
                 userPreferences: { theme: 'dark', volume: 70, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
-            mockLocalStorage[STORAGE_CONFIG.STATE_KEY] = JSON.stringify(state);
+            mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, JSON.stringify(state));
 
             const loaded = await stateManager.load();
 
@@ -245,7 +236,7 @@ describe('StateManager', () => {
 
         it('should repair minimal state after migration', async () => {
             const state = { version: 1 };
-            mockLocalStorage[STORAGE_CONFIG.STATE_KEY] = JSON.stringify(state);
+            mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, JSON.stringify(state));
 
             const loaded = await stateManager.load();
 
@@ -256,7 +247,7 @@ describe('StateManager', () => {
 
     describe('clear', () => {
         it('should remove stored state', async () => {
-            mockLocalStorage[STORAGE_CONFIG.STATE_KEY] = '{}';
+            mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, '{}');
 
             await stateManager.clear();
 

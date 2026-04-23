@@ -30,15 +30,14 @@ import * as orchestratorCoordinatorFactory from '../core/orchestrator/Orchestrat
 import { OverlayRuntimePolicyController } from '../core/orchestrator/OverlayRuntimePolicyController';
 import * as recoverableRuntimeReporterModule from '../core/orchestrator/OrchestratorRecoverableRuntimeReporter';
 import { expectConsoleWarn } from './helpers';
+import {
+    installMockLocalStorage,
+    mockLocalStorage,
+    resetMockLocalStorage,
+    restoreOriginalLocalStorage,
+} from './mocks/localStorage';
 
-// Mock localStorage
-const mockLocalStorage = {
-    getItem: jest.fn(),
-    setItem: jest.fn(),
-    removeItem: jest.fn(),
-    clear: jest.fn(),
-};
-Object.defineProperty(global, 'localStorage', { value: mockLocalStorage, configurable: true });
+installMockLocalStorage();
 
 
 // ============================================
@@ -597,6 +596,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
     beforeEach(() => {
         jest.clearAllMocks();
+        resetMockLocalStorage();
 
         mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReset();
         mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue({ kind: 'missing' });
@@ -734,6 +734,10 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         }
 
         ownedOrchestrators.clear();
+    });
+
+    afterAll(() => {
+        restoreOriginalLocalStorage();
     });
 
     describe('initialize', () => {

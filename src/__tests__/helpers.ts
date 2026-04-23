@@ -105,6 +105,42 @@ export const createDeferred = <T>(): Deferred<T> => {
     return { promise, resolve, reject };
 };
 
+type RestoreTestOverride = () => void;
+
+const overrideOwnPropertyForTest = (
+    target: object,
+    property: string,
+    descriptor: PropertyDescriptor
+): RestoreTestOverride => {
+    const hadOwnProperty = Object.prototype.hasOwnProperty.call(target, property);
+    const originalDescriptor = Object.getOwnPropertyDescriptor(target, property);
+
+    Object.defineProperty(target, property, {
+        configurable: true,
+        ...descriptor,
+    });
+
+    return (): void => {
+        if (hadOwnProperty && originalDescriptor) {
+            Object.defineProperty(target, property, originalDescriptor);
+            return;
+        }
+
+        delete (target as Record<string, unknown>)[property];
+    };
+};
+
+export const setDevBuildForTest = (value: boolean): RestoreTestOverride =>
+    overrideOwnPropertyForTest(globalThis, '__LINEUP_DEV_BUILD__', {
+        value,
+        writable: true,
+    });
+
+export const setDocumentReadyStateForTest = (value: DocumentReadyState): RestoreTestOverride =>
+    overrideOwnPropertyForTest(document, 'readyState', {
+        value,
+    });
+
 type ConsoleLevel = 'warn' | 'error';
 
 type CapturedConsoleCall = {

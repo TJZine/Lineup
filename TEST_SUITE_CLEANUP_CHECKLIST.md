@@ -695,16 +695,16 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 **Default plan shape:** one grouped plan covering `T6-W1` + `T6-W2`; keep `T6-W3` separate unless it stays inside the same helper seam
 
-### [ ] `T6-W1` Standardize Local Storage Setup Where Duplication Is Still Expensive
+### [x] `T6-W1` Standardize Local Storage Setup Where Duplication Is Still Expensive
 
 **Goal:** reduce hand-rolled storage mocks and inconsistent restore behavior.
 
-- `Status:` `planned`
+- `Status:` `completed`
 - `Plan:` `docs/plans/2026-04-22-t6-w1-w2-test-environment-helper-standardization.md`
 - `Last touched:` `2026-04-22`
-- `Verification:` planning only; implementation verification not run yet
-- `Follow-ups:` `T6-W2` shares the same tracked plan and review gate; `T6-W3` remains separate
-- `Handoff:` send the grouped `T6-W1` / `T6-W2` plan to `lineup-cleanup-review`; do not start implementation until that review is clean
+- `Verification:` `npm run test:unit -- --runInBand src/__tests__/helpers.test.ts src/__tests__/mocks/localStorage.test.ts` (passed), `npm run test:unit -- --runInBand src/modules/lifecycle/__tests__/StateManager.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts src/__tests__/Orchestrator.test.ts` (passed), `npm run test:unit -- --runInBand src/__tests__/bootstrap.test.ts src/__tests__/startup-integration.test.ts src/__tests__/App.test.ts src/core/app-shell/__tests__/AppDiagnosticsSurface.test.ts` (passed), `npm run verify` (passed)
+- `Follow-ups:` `T6-W3` remains the separate next owner for DOM container setup; intentionally different localStorage restore seams stay local to their suites
+- `Handoff:` send execution unit `T6-W1W2-B1` to `lineup-cleanup-review`; if approved, plan `T6-W3` separately
 
 **Primary files:**
 
@@ -720,16 +720,16 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 - keep real jsdom `localStorage` behavior available when a suite actually needs it
 
-### [ ] `T6-W2` Standardize Repeated Global Descriptor Setup Only Where Cleanup Semantics Repeat
+### [x] `T6-W2` Standardize Repeated Global Descriptor Setup Only Where Cleanup Semantics Repeat
 
 **Goal:** reduce repeated descriptor-mutation boilerplate only where the setup and restore contract is genuinely the same.
 
-- `Status:` `planned`
+- `Status:` `completed`
 - `Plan:` `docs/plans/2026-04-22-t6-w1-w2-test-environment-helper-standardization.md`
 - `Last touched:` `2026-04-22`
-- `Verification:` planning only; implementation verification not run yet
-- `Follow-ups:` keep `T6-W3` as the next separate owner for DOM container setup unless review proves it belongs in the same helper seam
-- `Handoff:` send the grouped `T6-W1` / `T6-W2` plan to `lineup-cleanup-review`; keep descriptor helper scope bounded to the approved seams in review
+- `Verification:` `npm run test:unit -- --runInBand src/__tests__/helpers.test.ts src/__tests__/mocks/localStorage.test.ts` (passed), `npm run test:unit -- --runInBand src/modules/lifecycle/__tests__/StateManager.test.ts src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts src/__tests__/Orchestrator.test.ts` (passed), `npm run test:unit -- --runInBand src/__tests__/bootstrap.test.ts src/__tests__/startup-integration.test.ts src/__tests__/App.test.ts src/core/app-shell/__tests__/AppDiagnosticsSurface.test.ts` (passed), `npm run verify` (passed)
+- `Follow-ups:` keep `T6-W3` as the next separate owner for DOM container setup; leave non-approved descriptor seams local unless a new plan proves shared lifecycle and restore semantics
+- `Handoff:` send execution unit `T6-W1W2-B1` to `lineup-cleanup-review`; keep helper scope limited to `__LINEUP_DEV_BUILD__` and `document.readyState`
 
 **Primary files:**
 

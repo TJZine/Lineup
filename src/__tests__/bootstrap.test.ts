@@ -8,15 +8,13 @@ import path from 'node:path';
 import { LINEUP_EVENT_NAMES } from '../config/events';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 
-import { expectConsoleError, expectConsoleWarn, flushPromises } from './helpers';
-
-const setDevBuild = (value: boolean): void => {
-    Object.defineProperty(globalThis, '__LINEUP_DEV_BUILD__', {
-        value,
-        configurable: true,
-        writable: true,
-    });
-};
+import {
+    expectConsoleError,
+    expectConsoleWarn,
+    flushPromises,
+    setDevBuildForTest,
+    setDocumentReadyStateForTest,
+} from './helpers';
 
 type BootstrapModule = typeof import('../bootstrap');
 
@@ -33,6 +31,18 @@ type DebugApi = {
 type LineupWindow = Window & { __LINEUP__?: DebugApi };
 
 let installedModule: BootstrapModule | null = null;
+let restoreDevBuild: (() => void) | null = null;
+let restoreDocumentReadyState: (() => void) | null = null;
+
+const setDevBuild = (value: boolean): void => {
+    restoreDevBuild?.();
+    restoreDevBuild = setDevBuildForTest(value);
+};
+
+const setDocumentReadyState = (value: DocumentReadyState): void => {
+    restoreDocumentReadyState?.();
+    restoreDocumentReadyState = setDocumentReadyStateForTest(value);
+};
 
 const expectBootstrapStartLogs = (times: number = 1): void => {
     expectConsoleWarn('[Lineup] Starting...', { times });
@@ -148,6 +158,10 @@ describe('bootstrap seam', () => {
             jest.restoreAllMocks();
             document.body.innerHTML = '';
             localStorage.clear();
+            restoreDocumentReadyState?.();
+            restoreDocumentReadyState = null;
+            restoreDevBuild?.();
+            restoreDevBuild = null;
         }
     });
 
@@ -186,30 +200,20 @@ describe('bootstrap seam', () => {
     });
 
     it('shows fatal overlay and clears app/debug state when DOMContentLoaded bootstrap fails', async () => {
-        Object.defineProperty(document, 'readyState', {
-            value: 'loading',
-            configurable: true,
-        });
+        setDocumentReadyState('loading');
         const start = jest.fn().mockRejectedValue(new Error('start failed'));
 
-        try {
-            expectBootstrapStartLogs();
-            expectBootstrapFailureLog();
-            const { module } = await importBootstrapModule({
-                start,
-                autoDispatchDomReady: false,
-                expectLifecycleSuccess: false,
-            });
-            document.dispatchEvent(new Event('DOMContentLoaded'));
-            await flushPromises();
+        expectBootstrapStartLogs();
+        expectBootstrapFailureLog();
+        const { module } = await importBootstrapModule({
+            start,
+            autoDispatchDomReady: false,
+            expectLifecycleSuccess: false,
+        });
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+        await flushPromises();
 
-            expectBootstrapFailureState(module);
-        } finally {
-            Object.defineProperty(document, 'readyState', {
-                value: 'complete',
-                configurable: true,
-            });
-        }
+        expectBootstrapFailureState(module);
     });
 
     it('shows fatal overlay and clears app/debug state when immediate bootstrap fails', async () => {
@@ -442,7 +446,7 @@ describe('bootstrap seam', () => {
         const legacyKey = 'lineup_debug_transcode';
         localStorage.setItem(legacyKey, '1');
 
-        Object.defineProperty(document, 'readyState', { value: 'loading', configurable: true });
+        setDocumentReadyState('loading');
         jest.doMock('../utils/storage', () => {
             const actual = jest.requireActual('../utils/storage') as typeof import('../utils/storage');
             return {
@@ -466,7 +470,6 @@ describe('bootstrap seam', () => {
             expect(storage.safeLocalStorageRemove).not.toHaveBeenCalled();
         } finally {
             jest.unmock('../utils/storage');
-            Object.defineProperty(document, 'readyState', { value: 'complete', configurable: true });
         }
     });
 
@@ -504,26 +507,15 @@ describe('bootstrap seam', () => {
     });
 
     it('waits for DOMContentLoaded when document is loading', async () => {
-        Object.defineProperty(document, 'readyState', {
-            value: 'loading',
-            configurable: true,
+        setDocumentReadyState('loading');
+        const { start } = await importBootstrapModule({
+            autoDispatchDomReady: false,
+            expectLifecycleSuccess: false,
         });
+        expect(start).not.toHaveBeenCalled();
 
-        try {
-            const { start } = await importBootstrapModule({
-                autoDispatchDomReady: false,
-                expectLifecycleSuccess: false,
-            });
-            expect(start).not.toHaveBeenCalled();
-
-            document.dispatchEvent(new Event('DOMContentLoaded'));
-            await flushPromises();
-            expect(start).toHaveBeenCalledTimes(1);
-        } finally {
-            Object.defineProperty(document, 'readyState', {
-                value: 'complete',
-                configurable: true,
-            });
-        }
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+        await flushPromises();
+        expect(start).toHaveBeenCalledTimes(1);
     });
 });

@@ -12,6 +12,12 @@ import { AppErrorCode } from '../../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../../lifecycle/constants';
 import { expectConsoleWarn } from '../../../../__tests__/helpers';
 import {
+    installMockLocalStorage,
+    mockLocalStorage,
+    resetMockLocalStorage,
+    restoreOriginalLocalStorage,
+} from '../../../../__tests__/mocks/localStorage';
+import {
     STORAGE_KEY,
     CURRENT_CHANNEL_KEY,
     CACHE_TTL_MS,
@@ -75,29 +81,7 @@ function createBaseChannel(overrides: Partial<ChannelConfig> = {}): ChannelConfi
     };
 }
 
-// localStorage mock
-const mockStorage: Record<string, string> = {};
-const mockLocalStorage = {
-    getItem: jest.fn((key: string) => mockStorage[key] || null),
-    setItem: jest.fn((key: string, value: string) => {
-        mockStorage[key] = value;
-    }),
-    removeItem: jest.fn((key: string) => {
-        delete mockStorage[key];
-    }),
-    clear: jest.fn(() => {
-        Object.keys(mockStorage).forEach((key) => delete mockStorage[key]);
-    }),
-    get length(): number {
-        return Object.keys(mockStorage).length;
-    },
-    key: jest.fn((index: number) => Object.keys(mockStorage)[index] || null),
-};
-
-Object.defineProperty(globalThis, 'localStorage', {
-    value: mockLocalStorage,
-    configurable: true,
-});
+installMockLocalStorage();
 
 const expectPersistCurrentChannelWarning = (times: number = 1): void => {
     expectConsoleWarn([
@@ -131,15 +115,8 @@ describe('ChannelManager', () => {
 
     beforeEach(() => {
         jest.useFakeTimers();
-        mockLocalStorage.clear();
         jest.clearAllMocks();
-        mockLocalStorage.getItem.mockImplementation((key: string) => mockStorage[key] || null);
-        mockLocalStorage.setItem.mockImplementation((key: string, value: string) => {
-            mockStorage[key] = value;
-        });
-        mockLocalStorage.removeItem.mockImplementation((key: string) => {
-            delete mockStorage[key];
-        });
+        resetMockLocalStorage();
 
         mockLibrary = createMockLibrary();
         mockLibrary.getLibraryItems.mockResolvedValue([
@@ -156,6 +133,10 @@ describe('ChannelManager', () => {
         }
         jest.clearAllTimers();
         jest.restoreAllMocks();
+    });
+
+    afterAll(() => {
+        restoreOriginalLocalStorage();
     });
 
     describe('CRUD operations', () => {
@@ -854,13 +835,13 @@ describe('ChannelManager', () => {
                 name: 'Persisted Channel',
             });
 
-            mockStorage[STORAGE_KEY] = JSON.stringify({
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
                 channels: [persistedChannel],
                 channelOrder: [persistedChannel.id],
                 currentChannelId: persistedChannel.id,
                 savedAt: Date.now(),
-            });
-            mockStorage[CURRENT_CHANNEL_KEY] = persistedChannel.id;
+            }));
+            mockLocalStorage.setItem(CURRENT_CHANNEL_KEY, persistedChannel.id);
 
             const loadSpy = jest.spyOn(ChannelRepository.prototype, 'loadNormalized');
 
@@ -884,13 +865,13 @@ describe('ChannelManager', () => {
                 isSequentialVariant: true,
             };
 
-            mockStorage[STORAGE_KEY] = JSON.stringify({
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
                 channels: [persistedLegacy],
                 channelOrder: [persistedLegacy.id],
                 currentChannelId: persistedLegacy.id,
                 savedAt: Date.now(),
-            });
-            mockStorage[CURRENT_CHANNEL_KEY] = persistedLegacy.id;
+            }));
+            mockLocalStorage.setItem(CURRENT_CHANNEL_KEY, persistedLegacy.id);
 
             await manager.loadChannels();
             await manager.flushSaves();
@@ -902,7 +883,7 @@ describe('ChannelManager', () => {
             const exported = JSON.parse(manager.exportChannels()) as Array<Record<string, unknown>>;
             expect(exported[0]?.isSequentialVariant).toBeUndefined();
 
-            const persisted = JSON.parse(mockStorage[STORAGE_KEY] ?? '{}') as {
+            const persisted = JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}') as {
                 channels?: Array<Record<string, unknown>>;
             };
             expect(persisted.channels?.[0]?.isSequentialVariant).toBeUndefined();
@@ -915,13 +896,13 @@ describe('ChannelManager', () => {
                 name: 'Persisted Channel',
             });
 
-            mockStorage[STORAGE_KEY] = JSON.stringify({
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
                 channels: [persistedChannel],
                 channelOrder: [persistedChannel.id],
                 currentChannelId: 'different-current-id',
                 savedAt: Date.now(),
-            });
-            mockStorage[CURRENT_CHANNEL_KEY] = persistedChannel.id;
+            }));
+            mockLocalStorage.setItem(CURRENT_CHANNEL_KEY, persistedChannel.id);
 
             const loadManager = new ChannelManager({ plexLibrary: mockLibrary });
             const queueSaveSpy = jest.spyOn(loadManager as unknown as { _queueSave: () => void }, '_queueSave');
@@ -1089,12 +1070,12 @@ describe('ChannelManager', () => {
             const channel = manager.getAllChannels()[0]!;
 
             mockLocalStorage.clear();
-            mockStorage[STORAGE_KEY] = JSON.stringify({
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
                 channels: [{ ...channel, contentSource: null }],
                 channelOrder: [channel.id],
                 currentChannelId: channel.id,
                 savedAt: Date.now(),
-            });
+            }));
 
             const newManager = new ChannelManager({ plexLibrary: mockLibrary });
             await expect(newManager.loadChannels()).resolves.toBeUndefined();
@@ -1109,7 +1090,7 @@ describe('ChannelManager', () => {
             const channel = manager.getAllChannels()[0]!;
 
             mockLocalStorage.clear();
-            mockStorage[STORAGE_KEY] = JSON.stringify({
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
                 channels: [{
                     ...channel,
                     contentSource: {
@@ -1123,7 +1104,7 @@ describe('ChannelManager', () => {
                 channelOrder: [channel.id],
                 currentChannelId: channel.id,
                 savedAt: Date.now(),
-            });
+            }));
 
             const newManager = new ChannelManager({ plexLibrary: mockLibrary });
             await newManager.loadChannels();
@@ -1138,12 +1119,12 @@ describe('ChannelManager', () => {
             const channel = manager.getAllChannels()[0]!;
 
             mockLocalStorage.clear();
-            mockStorage[STORAGE_KEY] = JSON.stringify({
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
                 channels: [null, 'bad', 123, channel],
                 channelOrder: [channel.id],
                 currentChannelId: channel.id,
                 savedAt: Date.now(),
-            });
+            }));
 
             const newManager = new ChannelManager({ plexLibrary: mockLibrary });
             await expect(newManager.loadChannels()).resolves.toBeUndefined();
@@ -1164,12 +1145,12 @@ describe('ChannelManager', () => {
             });
 
             mockLocalStorage.clear();
-            mockStorage[STORAGE_KEY] = JSON.stringify({
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
                 channels: [ch1, ch2],
                 channelOrder: [],
                 currentChannelId: 'missing',
                 savedAt: Date.now(),
-            });
+            }));
 
             const newManager = new ChannelManager({ plexLibrary: mockLibrary });
             await newManager.loadChannels();
