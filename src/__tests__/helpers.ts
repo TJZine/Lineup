@@ -141,6 +141,16 @@ export const setDocumentReadyStateForTest = (value: DocumentReadyState): Restore
         value,
     });
 
+/**
+ * Use when a UI test needs a plain disposable root in document.body without
+ * adding suite-specific IDs or shell structure to the shared helper seam.
+ */
+export const createBodyAppendedTestContainer = (): HTMLDivElement => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    return container;
+};
+
 type ConsoleLevel = 'warn' | 'error';
 
 type CapturedConsoleCall = {

@@ -5,6 +5,7 @@
 import {
     advanceTimersUntil,
     createDeferred,
+    createBodyAppendedTestContainer,
     setDevBuildForTest,
     setDocumentReadyStateForTest,
     expectConsoleWarn,
@@ -88,6 +89,30 @@ describe('test environment descriptor helpers', () => {
         } else {
             expect(Object.prototype.hasOwnProperty.call(document, 'readyState')).toBe(false);
         }
+    });
+});
+
+describe('createBodyAppendedTestContainer', () => {
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    it('creates a fresh anonymous div and appends it to document.body', () => {
+        const container = createBodyAppendedTestContainer();
+
+        expect(container.tagName).toBe('DIV');
+        expect(container.id).toBe('');
+        expect(container.className).toBe('');
+        expect(document.body.lastElementChild).toBe(container);
+    });
+
+    it('returns a distinct appended div on each call', () => {
+        const first = createBodyAppendedTestContainer();
+        const second = createBodyAppendedTestContainer();
+
+        expect(second).not.toBe(first);
+        expect(document.body.children).toHaveLength(2);
+        expect(Array.from(document.body.children)).toEqual([first, second]);
     });
 });
 

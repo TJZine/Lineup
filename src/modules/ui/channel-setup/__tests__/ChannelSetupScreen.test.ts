@@ -9,7 +9,7 @@ import type { INavigationManager } from '../../../navigation/interfaces';
 import { MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
 import { DEFAULT_MIN_ITEMS_PER_CHANNEL, SETUP_STRATEGY_KEYS } from '../../../../core/channel-setup/constants';
 
-import { flushPromises } from '../../../../__tests__/helpers';
+import { createBodyAppendedTestContainer, flushPromises } from '../../../../__tests__/helpers';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
 import {
     clickButton,
@@ -42,8 +42,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('relies on shared screen bootstrap while show and hide still own display lifecycle', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -66,8 +65,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('shows loading state while libraries are in flight', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         let resolveLibraries: (libraries: PlexLibrarySection[]) => void = () => undefined;
         const librariesPromise = new Promise<PlexLibrarySection[]>((resolve) => {
@@ -94,8 +92,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('shows library-load failure state when libraries cannot be fetched', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockRejectedValue(new Error('library load failed')),
@@ -111,8 +108,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('renders bulk actions and formatted library metadata', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([
@@ -142,8 +138,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('applies stagger class and delay to library cards', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([
@@ -164,8 +159,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('supports clear-all and select-all toggles', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([
@@ -188,8 +182,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('updates library toggle in place without replacing the button node', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([
@@ -213,8 +206,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('wires bulk-action focus neighbors to each other and first tile', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -239,8 +231,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('cleans up keyPress handlers and focus registrations across show/hide/destroy cycles', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -273,8 +264,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('clears grabbed priority visuals before a reopened session reloads libraries', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         let resolveSecondLoad: ((libraries: PlexLibrarySection[]) => void) | undefined;
         const secondLoad = new Promise<PlexLibrarySection[]>((resolve) => {
@@ -314,8 +304,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('does not re-register focusables if library loading settles after hide', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         let resolveLibraries: ((libraries: PlexLibrarySection[]) => void) | undefined;
         const librariesPromise = new Promise<PlexLibrarySection[]>((resolve) => {
@@ -343,8 +332,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('does not re-render or re-register focusables when library loading resolves after hide', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         let resolveLibraries: ((libraries: PlexLibrarySection[]) => void) | undefined;
         const librariesPromise = new Promise<PlexLibrarySection[]>((resolve) => {
@@ -373,8 +361,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('renders Step 2 category rail in fixed order', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -402,8 +389,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('renders only controls for the active Step 2 category', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -423,8 +409,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('registers Step 2 focusables in deterministic category-detail-footer order', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -450,8 +435,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('handles category-to-detail right transfer and remembers last focused control per category', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -482,8 +466,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('right transfer activates the focused category before moving to detail controls', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -507,8 +490,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('right transfer skips remembered disabled detail controls', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -541,8 +523,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('moves left from non-adjustable detail controls back to active category', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -563,8 +544,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('cycles an adjustable control with right/left keys without opening the dropdown', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -599,8 +579,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('steps off-preset block-size controls from the nearest preset during inline left/right navigation', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -680,8 +659,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('returns focus to the category rail when left is pressed at the first inline option', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -709,8 +687,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('still opens the dropdown on OK for adjustable controls', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -733,8 +710,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('updates adjustable values through dropdown selection', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -770,8 +746,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('returns the active unsaved planner diagnostics config', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -796,8 +771,7 @@ describe('ChannelSetupScreen', () => {
 
     describe('Step 2 dropdown menus', () => {
         it('opens a dropdown when a multi-value control is clicked', async () => {
-            const container = document.createElement('div');
-            document.body.appendChild(container);
+            const container = createBodyAppendedTestContainer();
 
             const { workflowPort, screenPorts } = createSplitScreenPorts({
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -815,8 +789,7 @@ describe('ChannelSetupScreen', () => {
         });
 
         it('sets focus to the current-value option on dropdown open', async () => {
-            const container = document.createElement('div');
-            document.body.appendChild(container);
+            const container = createBodyAppendedTestContainer();
 
             const nav = createNavigationMock();
             const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -836,8 +809,7 @@ describe('ChannelSetupScreen', () => {
         });
 
         it('calls applySettingChange and closes dropdown on option select', async () => {
-            const container = document.createElement('div');
-            document.body.appendChild(container);
+            const container = createBodyAppendedTestContainer();
 
             const { workflowPort, screenPorts } = createSplitScreenPorts({
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -858,8 +830,7 @@ describe('ChannelSetupScreen', () => {
         });
 
         it('restores focus to the originating control after dismiss', async () => {
-            const container = document.createElement('div');
-            document.body.appendChild(container);
+            const container = createBodyAppendedTestContainer();
 
             const nav = createNavigationMock();
             const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -882,8 +853,7 @@ describe('ChannelSetupScreen', () => {
         });
 
         it('dismisses dropdown on Back key press', async () => {
-            const container = document.createElement('div');
-            document.body.appendChild(container);
+            const container = createBodyAppendedTestContainer();
 
             const nav = createNavigationMock();
             const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -907,8 +877,7 @@ describe('ChannelSetupScreen', () => {
         });
 
         it('closes the previous dropdown when a new one is opened', async () => {
-            const container = document.createElement('div');
-            document.body.appendChild(container);
+            const container = createBodyAppendedTestContainer();
 
             const { workflowPort, screenPorts } = createSplitScreenPorts({
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -930,8 +899,7 @@ describe('ChannelSetupScreen', () => {
         });
 
         it('does not open a dropdown for disabled block-size controls', async () => {
-            const container = document.createElement('div');
-            document.body.appendChild(container);
+            const container = createBodyAppendedTestContainer();
 
             const { workflowPort, screenPorts } = createSplitScreenPorts({
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -953,8 +921,7 @@ describe('ChannelSetupScreen', () => {
 
     it('updates preview after selection and supports inline left decrement', async () => {
             jest.useFakeTimers();
-            const container = document.createElement('div');
-            document.body.appendChild(container);
+            const container = createBodyAppendedTestContainer();
 
             const nav = createNavigationMock();
             const getSetupPreview = jest.fn().mockResolvedValue(DEFAULT_PREVIEW);
@@ -992,8 +959,7 @@ describe('ChannelSetupScreen', () => {
 
         it('keeps dropdown open while preview refresh state changes are emitted', async () => {
             jest.useFakeTimers();
-            const container = document.createElement('div');
-            document.body.appendChild(container);
+            const container = createBodyAppendedTestContainer();
 
             let resolvePreview: ((value: typeof DEFAULT_PREVIEW) => void) | undefined;
             const previewPromise = new Promise<typeof DEFAULT_PREVIEW>((resolve) => {
@@ -1031,8 +997,7 @@ describe('ChannelSetupScreen', () => {
 
         it('surfaces a slow preview state on Step 2 instead of leaving the estimate spinner active', async () => {
             jest.useFakeTimers();
-            const container = document.createElement('div');
-            document.body.appendChild(container);
+            const container = createBodyAppendedTestContainer();
 
             const { workflowPort, screenPorts } = createSplitScreenPorts({
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -1060,8 +1025,7 @@ describe('ChannelSetupScreen', () => {
         });
 
         it('cleans up dropdown on hide', async () => {
-            const container = document.createElement('div');
-            document.body.appendChild(container);
+            const container = createBodyAppendedTestContainer();
 
             const nav = createNavigationMock();
             const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -1086,8 +1050,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('renders preview strip below split and collapsed by default', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -1116,8 +1079,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('toggles preview strip details with the preview toggle button', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -1148,8 +1110,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('keeps preview strip expanded across Step 2 re-renders', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -1175,8 +1136,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('registers preview toggle in Step 2 focusables', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -1195,8 +1155,7 @@ describe('ChannelSetupScreen', () => {
 
     it('caps preview warnings with stable class output and singular/plural remainder copy', async () => {
         jest.useFakeTimers();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const previews = [
             { ...DEFAULT_PREVIEW, warnings: ['A', 'B', 'C', 'D', 'E', 'F', 'G'] },
@@ -1236,8 +1195,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('shows category activity dots only for strategy categories with enabled strategies', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -1260,8 +1218,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('uses Build Channels fast-path for first-time setup without loading review', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
         const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
@@ -1290,8 +1247,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('uses Review route for existing setup context', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -1318,8 +1274,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('starts build progress after confirming review for existing setup context', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         let resolveBuild: ((value: typeof DEFAULT_BUILD_RESULT | PromiseLike<typeof DEFAULT_BUILD_RESULT>) => void) | undefined;
         const createChannelsFromSetup = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_BUILD_RESULT>((resolve) => {
@@ -1357,8 +1312,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('uses Review route for unknown setup context', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -1375,8 +1329,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('treats abort-like build failures as canceled (not error)', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const createChannelsFromSetup = jest.fn().mockRejectedValue(new DOMException('Aborted', 'AbortError'));
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -1401,8 +1354,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('renders blocked build outcomes as actionable setup errors, not cancellations', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const createChannelsFromSetup = jest.fn().mockResolvedValue({
             ...DEFAULT_BUILD_RESULT,
@@ -1435,8 +1387,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('disables Confirm & Replace until replace confirmation is toggled', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -1475,8 +1426,7 @@ describe('ChannelSetupScreen', () => {
             expectedPrefix: 'Review timed out:',
         },
     ] as const)('disables confirm when Step 3 review is %s', async ({ status, message, expectedPrefix }) => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const getSetupReview = jest.fn().mockResolvedValue({
             ...DEFAULT_REVIEW,
@@ -1509,8 +1459,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('shows review loading state before review payload resolves', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         let resolveReview: ((value: typeof DEFAULT_REVIEW | PromiseLike<typeof DEFAULT_REVIEW>) => void) | undefined;
         const getSetupReview = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_REVIEW>((resolve) => {
@@ -1541,8 +1490,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('does not re-trigger review loading on simple rerenders while pending', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         let resolveReview: ((value: typeof DEFAULT_REVIEW | PromiseLike<typeof DEFAULT_REVIEW>) => void) | undefined;
         const getSetupReview = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_REVIEW>((resolve) => {
@@ -1579,8 +1527,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('does not start review loading when backing out before deferred kickoff runs', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -1605,8 +1552,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('does not start review loading after hide before deferred kickoff runs', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -1631,8 +1577,7 @@ describe('ChannelSetupScreen', () => {
 
     it('keeps build progress stable when a delayed preview resolves after fast-path transition', async () => {
         jest.useFakeTimers();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         let resolvePreview: ((value: typeof DEFAULT_PREVIEW | PromiseLike<typeof DEFAULT_PREVIEW>) => void) | undefined;
         const getSetupPreview = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_PREVIEW>((resolve) => {
@@ -1681,8 +1626,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('renders scope controls only for strategies that support mixed sources', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -1712,8 +1656,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('updates priority row enabled state when toggled from the priority list', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -1742,8 +1685,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('refreshes category activity dots after priority-row toggles', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -1766,8 +1708,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('drops grabbed priority state when moving left back to the category rail', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -1812,8 +1753,7 @@ describe('ChannelSetupScreen', () => {
 
     it('does not snap focus back to a stale priority row during preview rerenders', async () => {
         jest.useFakeTimers();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
         const getSetupPreview = jest.fn().mockResolvedValue(DEFAULT_PREVIEW);
@@ -1845,8 +1785,7 @@ describe('ChannelSetupScreen', () => {
 
     it('preserves grabbed priority visuals across click-triggered and preview-triggered rerenders', async () => {
         jest.useFakeTimers();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
         const getSetupPreview = jest.fn().mockResolvedValue(DEFAULT_PREVIEW);
@@ -1892,8 +1831,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('renders strategy toggles and priority rows for every setup strategy key with no extras', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -1932,8 +1870,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('reorders priority rows only while grabbed with OK + up/down', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -1983,8 +1920,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('clears grabbed priority state when leaving and re-entering priority category', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -2024,8 +1960,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('clears grabbed priority state when leaving Step 2 with Back and returning', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -2059,8 +1994,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('clears grabbed priority state when leaving Step 2 with Next and returning', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -2097,8 +2031,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('applies Expand Lineup values only after successful build completion', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
         const markSetupComplete = jest.fn();
@@ -2131,8 +2064,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('transitions cancel button to Canceling during in-flight build abort', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         let resolveBuild: ((value: typeof DEFAULT_BUILD_RESULT | PromiseLike<typeof DEFAULT_BUILD_RESULT>) => void) | undefined;
         const createChannelsFromSetup = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_BUILD_RESULT>((resolve) => {
@@ -2164,8 +2096,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('shows no-server-selected error when entering build without server id', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
@@ -2185,8 +2116,7 @@ describe('ChannelSetupScreen', () => {
     });
 
     it('returns to Step 2 when backing out of build progress with no server selected', async () => {
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),

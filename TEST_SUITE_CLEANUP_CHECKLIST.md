@@ -748,7 +748,7 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 - only extract a helper when the repeated pattern has the same lifecycle, cleanup, and readability needs
 - prefer small seam-specific helpers or local `beforeEach` / `afterEach` cleanup over a generic abstraction
 
-### [ ] `T6-W3` Standardize DOM Container Setup Only In Repeated UI Hotspots
+### [x] `T6-W3` Standardize DOM Container Setup Only In Repeated UI Hotspots
 
 **Goal:** remove boilerplate without hiding required app-shell/container semantics.
 
@@ -764,6 +764,12 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 - `src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts`
 - `src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts`
 - `src/modules/ui/settings/__tests__/SettingsScreen.test.ts`
+- `Status:` `completed`
+- `Plan:` `docs/plans/2026-04-22-t6-w3-dom-container-hotspots.md`
+- `Last touched:` `2026-04-22`
+- `Verification:` `npm run test:unit -- --runInBand src/__tests__/helpers.test.ts` passed; `npm run test:unit -- --runInBand src/modules/ui/server-select/__tests__/ServerSelectScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts` passed; `npm run verify` passed through typecheck, architecture lint, CSS lint, product coverage, tools, contracts, docs verification, and build.
+- `Follow-ups:` keep `src/modules/ui/settings/__tests__/SettingsScreen.test.ts`, `src/modules/ui/epg/__tests__/EPGComponent.test.ts`, and `src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts` local because their container seams are already adequately owned; no further DOM-helper widening is approved without a new plan.
+- `Handoff:` send `T6-W3` to `lineup-cleanup-review`; if approved, `T6-EXIT` is the next safe action.
 
 ## Priority 7: Decompose Oversized Suites Where It Pays Off
 
