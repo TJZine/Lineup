@@ -5,6 +5,8 @@ import {
 } from '../OrchestratorRecoverableRuntimeReporter';
 import type { OrchestratorEventCleanupFailure } from '../OrchestratorEventCleanupReporter';
 import { expectConsoleWarn } from '../../../__tests__/helpers';
+import { AppOrchestrator } from '../../../Orchestrator';
+import { AppErrorCode } from '../../../modules/lifecycle';
 
 describe('OrchestratorRecoverableRuntimeReporter', () => {
     it('routes appendIssueDiagnostic failures through the optional runtime warning sink', () => {
@@ -29,6 +31,40 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
             })
         );
         expect(warn).toHaveBeenNthCalledWith(2, 'Recoverable failure', { detail: 'x' });
+    });
+
+    it('keeps recoverable reporter failures inside the reporter collaborator during global error handling', () => {
+        const warn = jest.fn();
+        const orchestrator = new AppOrchestrator();
+        Reflect.set(
+            orchestrator as object,
+            '_recoverableRuntimeReporter',
+            createRecoverableRuntimeIssueReporter({
+                issueId: 'qa-1',
+                appendIssueDiagnostic: () => {
+                    throw new Error('append failed');
+                },
+                warn,
+            })
+        );
+
+        expect(() => {
+            orchestrator.handleGlobalError(
+                {
+                    code: AppErrorCode.NETWORK_TIMEOUT,
+                    message: 'test',
+                    recoverable: true,
+                },
+                'test-context'
+            );
+        }).not.toThrow();
+
+        expect(warn).toHaveBeenCalledWith(
+            '[RecoverableRuntimeReporter] reportError failed:',
+            expect.objectContaining({
+                message: 'append failed',
+            })
+        );
     });
 
     it('swallows warn failures without introducing a second fallback path', () => {
