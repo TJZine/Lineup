@@ -7,6 +7,7 @@ import {
     ChannelSetupFacetSnapshotLoader,
     ChannelSetupPlanningError,
 } from '../ChannelSetupFacetSnapshotLoader';
+import { flushPromises } from '../../../__tests__/helpers';
 import type { ChannelSetupConfig } from '../types';
 import type { IPlexLibrary, PlexLibrarySection, PlexTagDirectoryItem } from '../../../modules/plex/library';
 
@@ -92,10 +93,15 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
 
     it('accounts for native facet query time even when tag fetches fail', async () => {
         const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        let currentNow = 1_000;
+        const performanceNowSpy = jest.spyOn(performance, 'now').mockImplementation(() => {
+            currentNow += 5;
+            return currentNow;
+        });
         const loader = new ChannelSetupFacetSnapshotLoader({
             plexLibrary: createPlexLibrary({
                 getGenres: jest.fn().mockImplementation(async () => {
-                    await new Promise((resolve) => setTimeout(resolve, 10));
+                    await Promise.resolve();
                     throw new Error('genre fetch failed');
                 }),
             }),
@@ -115,6 +121,7 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
         expect(snapshot.status).toBe('blocked');
         expect(snapshot.libraryQueryMs).toBeGreaterThan(0);
         warnSpy.mockRestore();
+        performanceNowSpy.mockRestore();
     });
 
     it('waits for sibling native facet tasks to settle before propagating cancellation', async () => {
@@ -141,10 +148,10 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
                     resolveDirectorsStarted?.();
                     return new Promise<PlexTagDirectoryItem[]>((_, reject) => {
                         options.signal?.addEventListener('abort', () => {
-                            setTimeout(() => {
+                            void Promise.resolve().then(() => {
                                 secondSettled = true;
                                 reject(new DOMException('Aborted', 'AbortError'));
-                            }, 0);
+                            });
                         }, { once: true });
                     });
                 }),
@@ -172,7 +179,7 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
         controller.abort();
 
         await expect(loadPromise).rejects.toMatchObject({ name: 'AbortError' });
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await flushPromises();
         expect(secondSettled).toBe(true);
     });
 });

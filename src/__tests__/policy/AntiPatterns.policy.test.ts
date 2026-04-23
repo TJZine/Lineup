@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -35,17 +36,84 @@ const CURRENT_SLEEP_REPORT = path.join(os.tmpdir(), 'current-sleeps.txt');
 const CURRENT_PRIVATE_ALLOWLIST = path.join(os.tmpdir(), 'current-private-probes.allowlist.txt');
 const BASELINE_PRIVATE_ALLOWLIST = path.join(process.cwd(), 'src/__tests__/policy/baselines/private-probes.allowlist.txt');
 const BASELINE_SLEEP_REPORT = path.join(process.cwd(), 'src/__tests__/policy/baselines/sleeps-ast.txt');
+const PRIVATE_OWNER_NOTES = path.join(process.cwd(), 'src/__tests__/policy/baselines/private-probes.owner-notes.md');
+const SLEEP_OWNER_NOTES = path.join(process.cwd(), 'src/__tests__/policy/baselines/sleeps.owner-notes.md');
 
-const toAbsolute = (file: string): string => path.join(process.cwd(), file);
+// Keep these mirrors explicit when Jest ownership changes:
+// - `jest.config.js`
+// - `jest.contracts.config.js`
+const WHOLE_SUITE_UNIT_PATH_MATCHERS = [
+    /\.test\.ts$/,
+];
+const WHOLE_SUITE_UNIT_PATH_EXCLUDES = [
+    /^src\/__tests__\/tools\//,
+    /\.(?:contract|contracts|policy)\.test\.ts$/,
+    /\/types\.test\.ts$/,
+];
+const WHOLE_SUITE_CONTRACTS_PATH_MATCHERS = [
+    /\.contract\.test\.ts$/,
+    /\.contracts\.test\.ts$/,
+    /\.policy\.test\.ts$/,
+    /\/types\.test\.ts$/,
+];
 
 type PrivateProbeBaseline = {
     allowlist: Set<string>;
     maxCount: number;
 };
 
-const readPrivateBaseline = (): PrivateProbeBaseline | null => {
+type OwnerNoteRow = {
+    id: string;
+    owner: string;
+    rationale: string;
+    revisitTrigger: string;
+    cleanupLane: string;
+};
+
+const toAbsolute = (file: string): string => path.join(process.cwd(), file);
+
+const stripCodeTicks = (value: string): string => {
+    const trimmed = value.trim();
+    return trimmed.startsWith('`') && trimmed.endsWith('`')
+        ? trimmed.slice(1, -1)
+        : trimmed;
+};
+
+const splitMarkdownRow = (line: string): string[] => {
+    const cells: string[] = [];
+    let current = '';
+
+    for (let i = 0; i < line.length; i += 1) {
+        const character = line[i];
+        if (character === '\\' && line[i + 1] === '|') {
+            current += '|';
+            i += 1;
+            continue;
+        }
+
+        if (character === '|') {
+            cells.push(current.trim());
+            current = '';
+            continue;
+        }
+
+        current += character;
+    }
+
+    cells.push(current.trim());
+    return cells;
+};
+
+const readPrivateBaseline = (): PrivateProbeBaseline => {
     if (!fs.existsSync(BASELINE_PRIVATE_ALLOWLIST)) {
-        return null;
+        throw new Error(
+            'Missing policy baseline file. Expected:\n' +
+            `- ${BASELINE_PRIVATE_ALLOWLIST}\n` +
+            'Re-generate baselines by running:\n' +
+            '  npm run test:contracts -- --runInBand src/__tests__/policy/AntiPatterns.policy.test.ts\n' +
+            'Then copy the generated allowlist from:\n' +
+            `- ${CURRENT_PRIVATE_ALLOWLIST}`
+        );
     }
 
     const allowlist: Set<string> = new Set();
@@ -72,73 +140,169 @@ const readPrivateBaseline = (): PrivateProbeBaseline | null => {
     return { allowlist, maxCount };
 };
 
-describe('AntiPatterns policy (frozen suites)', () => {
-    it('tracks private probes and sleep-based waits', () => {
-        const privateProbes: PrivateProbe[] = [];
-        const sleepProbes: SleepProbe[] = [];
-
-        for (const file of FROZEN_SUITES) {
-            const sourceText = fs.readFileSync(toAbsolute(file), 'utf8');
-            const scan = scanSourceText({ file, sourceText });
-            privateProbes.push(...scan.privateProbes);
-            sleepProbes.push(...scan.sleepProbes);
-        }
-
-        const sortedPrivateProbes = sortPrivateProbes(privateProbes);
-        const sortedSleepProbes = sortSleepProbes(sleepProbes);
-
-        const privateReport = {
-            probes: sortedPrivateProbes,
-            count: sortedPrivateProbes.length,
-        };
-        fs.writeFileSync(CURRENT_PRIVATE_REPORT, JSON.stringify(privateReport, null, 2));
-
-        const currentKeys = Array.from(
-            new Set(sortedPrivateProbes.map((probe) => `${probe.file}|${probe.receiver}|${probe.property}`))
-        ).sort();
-        fs.writeFileSync(
-            CURRENT_PRIVATE_ALLOWLIST,
-            `# maxCount=${sortedPrivateProbes.length}\n` + currentKeys.join('\n')
+const readTextBaseline = (baselinePath: string, label: string): Set<string> => {
+    if (!fs.existsSync(baselinePath)) {
+        throw new Error(
+            `Missing ${label} baseline file. Expected:\n` +
+            `- ${baselinePath}\n` +
+            'Re-generate baselines by running:\n' +
+            '  npm run test:contracts -- --runInBand src/__tests__/policy/AntiPatterns.policy.test.ts'
         );
+    }
 
-        const sleepLines = sortedSleepProbes.map(
-            (probe) => `${probe.file}:${probe.line}:${probe.column} [${probe.kind}] ${probe.snippet}`
-        );
-        fs.writeFileSync(CURRENT_SLEEP_REPORT, sleepLines.join('\n'));
+    return new Set(
+        fs.readFileSync(baselinePath, 'utf8')
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean)
+    );
+};
 
-        const baseline = readPrivateBaseline();
-        if (!baseline) {
-            throw new Error(
-                'Missing policy baseline file. Expected:\n' +
-                `- ${BASELINE_PRIVATE_ALLOWLIST}\n` +
-                'Re-generate baselines by running:\n' +
-                '  npm run test:contracts -- src/__tests__/policy/AntiPatterns.policy.test.ts\n' +
-                'Then copy the generated allowlist from:\n' +
-                `- ${CURRENT_PRIVATE_ALLOWLIST}`
-            );
-        }
+const readOwnerNotes = (notesPath: string, label: string): OwnerNoteRow[] => {
+    if (!fs.existsSync(notesPath)) {
+        throw new Error(`Missing ${label} owner-notes file: ${notesPath}`);
+    }
 
-        // Equality is permitted: we ratchet by disallowing count increases and by asserting
-        // that no new probe keys were introduced (see `newProbes` below).
-        expect(sortedPrivateProbes.length).toBeLessThanOrEqual(baseline.maxCount);
+    const tableLines = fs.readFileSync(notesPath, 'utf8')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith('|'));
 
-        const newProbes = sortedPrivateProbes.filter(
-            (probe) => !baseline.allowlist.has(`${probe.file}|${probe.receiver}|${probe.property}`)
-        );
-        expect(newProbes).toEqual([]);
+    if (tableLines.length < 3) {
+        throw new Error(`Expected a Markdown owner-notes table in ${notesPath}`);
+    }
 
-        if (!fs.existsSync(BASELINE_SLEEP_REPORT)) {
-            throw new Error(
-                'Missing sleep-probes baseline file. Expected:\n' +
-                `- ${BASELINE_SLEEP_REPORT}\n` +
-                'Re-generate baselines by running:\n' +
-                '  npm run test:contracts -- src/__tests__/policy/AntiPatterns.policy.test.ts\n' +
-                'Then copy the generated report from:\n' +
-                `- ${CURRENT_SLEEP_REPORT}`
-            );
-        }
-        // Sleep-based waits are zero-tolerance once a baseline is established.
-        // (Unlike private probes, which are ratcheted by baseline comparison + new-probe detection.)
-        expect(sortedSleepProbes.length).toBe(0);
+    const rows = tableLines
+        .slice(2)
+        .filter((line) => !/^\|\s*-/.test(line))
+        .map((line) => {
+            const cells = splitMarkdownRow(line)
+                .slice(1, -1)
+                .map((cell) => stripCodeTicks(cell));
+
+            if (cells.length < 5 || cells.slice(0, 5).some((cell) => cell.length === 0)) {
+                throw new Error(`Invalid ${label} owner-notes row in ${notesPath}: ${line}`);
+            }
+
+            return {
+                id: cells[0]!,
+                owner: cells[1]!,
+                rationale: cells[2]!,
+                revisitTrigger: cells[3]!,
+                cleanupLane: cells[4]!,
+            };
+        });
+
+    const uniqueIds = new Set(rows.map((row) => row.id));
+    if (uniqueIds.size !== rows.length) {
+        throw new Error(`Duplicate ${label} owner-notes rows found in ${notesPath}`);
+    }
+
+    return rows;
+};
+
+const listTrackedSrcFiles = (): string[] => {
+    return execFileSync('git', ['ls-files', '--', 'src'], {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+    })
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+};
+
+const isWholeSuiteFile = (file: string): boolean => {
+    if (!file.startsWith('src/')) {
+        return false;
+    }
+
+    const inUnitSurface = WHOLE_SUITE_UNIT_PATH_MATCHERS.some((pattern) => pattern.test(file))
+        && !WHOLE_SUITE_UNIT_PATH_EXCLUDES.some((pattern) => pattern.test(file));
+    const inContractsSurface = WHOLE_SUITE_CONTRACTS_PATH_MATCHERS.some((pattern) => pattern.test(file));
+    return inUnitSurface || inContractsSurface;
+};
+
+const listTrackedWholeSuiteFiles = (): string[] => {
+    return listTrackedSrcFiles().filter(isWholeSuiteFile).sort();
+};
+
+const scanFiles = (files: string[]): { privateProbes: PrivateProbe[]; sleepProbes: SleepProbe[] } => {
+    const privateProbes: PrivateProbe[] = [];
+    const sleepProbes: SleepProbe[] = [];
+
+    for (const file of files) {
+        const sourceText = fs.readFileSync(toAbsolute(file), 'utf8');
+        const scan = scanSourceText({ file, sourceText });
+        privateProbes.push(...scan.privateProbes);
+        sleepProbes.push(...scan.sleepProbes);
+    }
+
+    return {
+        privateProbes: sortPrivateProbes(privateProbes),
+        sleepProbes: sortSleepProbes(sleepProbes),
+    };
+};
+
+const toPrivateProbeKey = (probe: PrivateProbe): string => `${probe.file}|${probe.receiver}|${probe.property}`;
+
+const writeWholeSuiteDebugReports = (privateProbes: PrivateProbe[], sleepProbes: SleepProbe[]): void => {
+    fs.writeFileSync(CURRENT_PRIVATE_REPORT, JSON.stringify({
+        probes: privateProbes,
+        count: privateProbes.length,
+    }, null, 2));
+
+    const privateKeys = Array.from(new Set(privateProbes.map(toPrivateProbeKey))).sort();
+    fs.writeFileSync(
+        CURRENT_PRIVATE_ALLOWLIST,
+        `# maxCount=${privateKeys.length}\n` + privateKeys.join('\n')
+    );
+
+    const sleepLines = sleepProbes.map(
+        (probe) => `${probe.id} ${probe.file}:${probe.line}:${probe.column} [${probe.kind}] ${probe.snippet}`
+    );
+    fs.writeFileSync(CURRENT_SLEEP_REPORT, sleepLines.join('\n'));
+};
+
+describe('AntiPatterns policy', () => {
+    it('keeps the frozen suites at zero private probes and zero sleep probes', () => {
+        const scan = scanFiles(FROZEN_SUITES);
+
+        expect(scan.privateProbes).toEqual([]);
+        expect(scan.sleepProbes).toEqual([]);
+    });
+
+    it('discovers the tracked whole-suite surface from the unit + contracts Jest ownership rules', () => {
+        const files = listTrackedWholeSuiteFiles();
+
+        expect(files.length).toBeGreaterThan(0);
+        expect(files.every((file) => file.startsWith('src/'))).toBe(true);
+        expect(files).toContain('src/__tests__/policy/AntiPatterns.policy.test.ts');
+        expect(files).toContain('src/__tests__/helpers.test.ts');
+        expect(files).toContain('src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoader.test.ts');
+        expect(files).toContain('src/modules/player/__tests__/subtitleFallbackPipeline.test.ts');
+        expect(files).not.toContain('src/__tests__/tools/verifyDocs.test.ts');
+    });
+
+    it('ratchets whole-suite private probes and approved sleep ids with synchronized owner notes', () => {
+        const files = listTrackedWholeSuiteFiles();
+        const scan = scanFiles(files);
+        writeWholeSuiteDebugReports(scan.privateProbes, scan.sleepProbes);
+
+        const privateKeys = Array.from(new Set(scan.privateProbes.map(toPrivateProbeKey))).sort();
+        const sleepIds = scan.sleepProbes.map((probe) => probe.id);
+        const sleepOwnerFiles = Array.from(new Set(scan.sleepProbes.map((probe) => probe.file))).sort();
+
+        const privateBaseline = readPrivateBaseline();
+        const privateOwnerNotes = readOwnerNotes(PRIVATE_OWNER_NOTES, 'private-probe');
+        const sleepBaseline = Array.from(readTextBaseline(BASELINE_SLEEP_REPORT, 'sleep-id')).sort();
+        const sleepOwnerNotes = readOwnerNotes(SLEEP_OWNER_NOTES, 'sleep');
+
+        expect(privateKeys.length).toBeLessThanOrEqual(privateBaseline.maxCount);
+        expect(privateKeys).toEqual(Array.from(privateBaseline.allowlist).sort());
+        expect(privateOwnerNotes.map((row) => row.id).sort()).toEqual(privateKeys);
+
+        expect(sleepIds).toEqual(sleepBaseline);
+        expect(sleepOwnerNotes.map((row) => row.id).sort()).toEqual(sleepBaseline);
+        expect(sleepOwnerFiles).toEqual(['src/__tests__/helpers.test.ts']);
     });
 });

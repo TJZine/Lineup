@@ -10,10 +10,13 @@ export type PrivateProbe = {
 };
 
 export type SleepProbe = {
+    id: string;
     file: string;
     line: number;
     column: number;
     kind: 'timer-call' | 'await-wait' | 'promise-timeout';
+    scopePath: string;
+    ordinal: number;
     snippet: string;
 };
 
@@ -110,6 +113,105 @@ const inferScriptKind = (file: string): ts.ScriptKind => {
     return ts.ScriptKind.TS;
 };
 
+const getPropertyNameText = (name: ts.PropertyName | ts.BindingName): string | null => {
+    if (ts.isIdentifier(name)) {
+        return name.text;
+    }
+    if (ts.isStringLiteral(name) || ts.isNoSubstitutionTemplateLiteral(name) || ts.isNumericLiteral(name)) {
+        return name.text;
+    }
+    return null;
+};
+
+const getNamedFunctionLabel = (node: ts.Node): string | null => {
+    if (ts.isFunctionDeclaration(node) && node.name) {
+        return node.name.text;
+    }
+
+    if (ts.isMethodDeclaration(node) || ts.isMethodSignature(node) || ts.isGetAccessorDeclaration(node) || ts.isSetAccessorDeclaration(node)) {
+        return getPropertyNameText(node.name);
+    }
+
+    if (ts.isConstructorDeclaration(node)) {
+        return 'constructor';
+    }
+
+    if (ts.isFunctionExpression(node) || ts.isArrowFunction(node)) {
+        if (node.parent && ts.isVariableDeclaration(node.parent) && ts.isIdentifier(node.parent.name)) {
+            return node.parent.name.text;
+        }
+
+        if (node.parent && ts.isPropertyAssignment(node.parent)) {
+            return getPropertyNameText(node.parent.name);
+        }
+    }
+
+    return null;
+};
+
+const getLiteralScopeLabel = (expr: ts.Expression | undefined): string | null => {
+    if (!expr) {
+        return null;
+    }
+
+    const current = stripParens(expr);
+    if (ts.isStringLiteral(current) || ts.isNoSubstitutionTemplateLiteral(current)) {
+        const label = current.text.trim();
+        return label.length > 0 ? label : '<anonymous>';
+    }
+
+    return null;
+};
+
+const getJestScopeKind = (expr: ts.Expression): 'describe' | 'it' | 'test' | null => {
+    const current = stripParens(expr);
+
+    if (ts.isIdentifier(current)) {
+        if (current.text === 'describe' || current.text === 'it' || current.text === 'test') {
+            return current.text;
+        }
+        return null;
+    }
+
+    if (ts.isPropertyAccessExpression(current)) {
+        const property = current.name.text;
+        if (property === 'only' || property === 'skip' || property === 'concurrent' || property === 'each') {
+            return getJestScopeKind(current.expression);
+        }
+        return null;
+    }
+
+    if (ts.isCallExpression(current)) {
+        return getJestScopeKind(current.expression);
+    }
+
+    return null;
+};
+
+const getJestScopeFrame = (
+    node: ts.CallExpression,
+): { callback: ts.FunctionLikeDeclaration; title: string } | null => {
+    const kind = getJestScopeKind(node.expression);
+    if (!kind) {
+        return null;
+    }
+
+    const title = getLiteralScopeLabel(node.arguments[0]);
+    if (!title) {
+        return null;
+    }
+
+    const callback = node.arguments.find((argument) =>
+        ts.isArrowFunction(argument) || ts.isFunctionExpression(argument)
+    );
+
+    if (!callback || !ts.isFunctionLike(callback)) {
+        return null;
+    }
+
+    return { callback, title };
+};
+
 export const scanSourceText = (
     args: { file: string; sourceText: string }
 ): { privateProbes: PrivateProbe[]; sleepProbes: SleepProbe[] } => {
@@ -143,7 +245,7 @@ export const scanSourceText = (
     const privateProbes: PrivateProbe[] = [];
     const sleepProbes: SleepProbe[] = [];
     const privateProbeKeys = new Set<string>();
-    const sleepProbeKeys = new Set<string>();
+    const sleepOrdinals = new Map<string, number>();
 
     const registerProbe = (probe: PrivateProbe): void => {
         const key = [probe.file, probe.line, probe.column, probe.receiver, probe.property].join('\0');
@@ -153,9 +255,6 @@ export const scanSourceText = (
     };
 
     const registerSleep = (probe: SleepProbe): void => {
-        const key = [probe.file, probe.line, probe.column, probe.kind].join('\0');
-        if (sleepProbeKeys.has(key)) return;
-        sleepProbeKeys.add(key);
         sleepProbes.push(probe);
     };
 
@@ -179,7 +278,7 @@ export const scanSourceText = (
     };
     discoverWrappers(sourceFile);
 
-    const visit = (node: ts.Node): void => {
+    const visit = (node: ts.Node, jestScopePath: string[], namedScopePath: string[]): void => {
         const tryRegisterPrivateProbe = (
             next: ts.Node,
             receiverExpr: ts.Expression,
@@ -200,6 +299,45 @@ export const scanSourceText = (
                 snippet: getSnippet(sourceFile, next),
             });
         };
+
+        const registerSleepProbe = (next: ts.Node, kind: SleepProbe['kind']): void => {
+            const { line, column } = getLineColumn(sourceFile, next);
+            const scopePath = jestScopePath.length > 0
+                ? jestScopePath.join(' > ')
+                : namedScopePath.length > 0
+                    ? namedScopePath.join(' > ')
+                    : '<anonymous>';
+            const ordinalKey = [args.file, kind, scopePath].join('\0');
+            const ordinal = (sleepOrdinals.get(ordinalKey) ?? 0) + 1;
+            sleepOrdinals.set(ordinalKey, ordinal);
+            registerSleep({
+                id: `${args.file}|${kind}|${scopePath}|${ordinal}`,
+                file: args.file,
+                line,
+                column,
+                kind,
+                scopePath,
+                ordinal,
+                snippet: getSnippet(sourceFile, next),
+            });
+        };
+
+        const jestScopeCall = ts.isCallExpression(node) ? node : null;
+        const jestScopeFrame = jestScopeCall ? getJestScopeFrame(jestScopeCall) : null;
+        if (jestScopeCall && jestScopeFrame) {
+            const nextJestScopePath = [...jestScopePath, jestScopeFrame.title];
+            visit(jestScopeFrame.callback.body ?? jestScopeFrame.callback, nextJestScopePath, namedScopePath);
+            for (const argument of jestScopeCall.arguments) {
+                if (argument !== jestScopeFrame.callback) {
+                    visit(argument, jestScopePath, namedScopePath);
+                }
+            }
+            visit(jestScopeCall.expression, jestScopePath, namedScopePath);
+            return;
+        }
+
+        const namedFunctionLabel = getNamedFunctionLabel(node);
+        const nextNamedScopePath = namedFunctionLabel ? [...namedScopePath, namedFunctionLabel] : namedScopePath;
 
         if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
             if (node.type && (node.type.kind === ts.SyntaxKind.AnyKeyword || node.type.kind === ts.SyntaxKind.UnknownKeyword)) {
@@ -226,27 +364,13 @@ export const scanSourceText = (
         }
 
         if (ts.isCallExpression(node) && isTimerCallee(node.expression)) {
-            const { line, column } = getLineColumn(sourceFile, node);
-            registerSleep({
-                file: args.file,
-                line,
-                column,
-                kind: 'timer-call',
-                snippet: getSnippet(sourceFile, node),
-            });
+            registerSleepProbe(node, 'timer-call');
         }
 
         if (ts.isAwaitExpression(node) && ts.isCallExpression(node.expression) && ts.isIdentifier(node.expression.expression)) {
             const callee = node.expression.expression.text;
             if (waitWrappers.has(callee)) {
-                const { line, column } = getLineColumn(sourceFile, node);
-                registerSleep({
-                    file: args.file,
-                    line,
-                    column,
-                    kind: 'await-wait',
-                    snippet: getSnippet(sourceFile, node),
-                });
+                registerSleepProbe(node, 'await-wait');
             }
         }
 
@@ -254,21 +378,14 @@ export const scanSourceText = (
             if (node.expression.expression.text === 'Promise') {
                 const [executor] = node.expression.arguments ?? [];
                 if (executor && (ts.isArrowFunction(executor) || ts.isFunctionExpression(executor)) && containsTimerCall(executor.body)) {
-                    const { line, column } = getLineColumn(sourceFile, node);
-                    registerSleep({
-                        file: args.file,
-                        line,
-                        column,
-                        kind: 'promise-timeout',
-                        snippet: getSnippet(sourceFile, node),
-                    });
+                    registerSleepProbe(node, 'promise-timeout');
                 }
             }
         }
 
-        ts.forEachChild(node, visit);
+        ts.forEachChild(node, (child) => visit(child, jestScopePath, nextNamedScopePath));
     };
-    visit(sourceFile);
+    visit(sourceFile, [], []);
 
     return { privateProbes, sleepProbes };
 };
@@ -287,9 +404,11 @@ export const sortPrivateProbes = (probes: PrivateProbe[]): PrivateProbe[] => {
 export const sortSleepProbes = (probes: SleepProbe[]): SleepProbe[] => {
     return [...probes].sort((a, b) => {
         if (a.file !== b.file) return a.file.localeCompare(b.file);
+        if (a.scopePath !== b.scopePath) return a.scopePath.localeCompare(b.scopePath);
+        if (a.kind !== b.kind) return a.kind.localeCompare(b.kind);
+        if (a.ordinal !== b.ordinal) return a.ordinal - b.ordinal;
         if (a.line !== b.line) return a.line - b.line;
         if (a.column !== b.column) return a.column - b.column;
-        if (a.kind !== b.kind) return a.kind.localeCompare(b.kind);
         return a.snippet.localeCompare(b.snippet);
     });
 };

@@ -97,13 +97,15 @@ npm run test:timings
 npm run test:timings:tools
 ```
 
-## Anti-Pattern Policy (Frozen Suites)
+## Anti-Pattern Policy
 
-- Do not probe private members on the SUT (no underscore-field pokes via casted internals).
-- Do not use real-time wait helpers based on `setTimeout`/`setInterval` in tests.
-- Use `jest.useFakeTimers()` with explicit advancement (`advanceTimersByTime`, `runOnlyPendingTimers`) for timing assertions.
+- Frozen suites remain the strict gate: zero private probes and zero sleep-based waits.
+- Whole-suite enforcement scans tracked `src/` files that belong to the unit + contracts Jest surfaces, and it intentionally excludes `src/__tests__/tools/**`.
+- New private-probe keys anywhere in that tracked whole-suite surface fail the policy; the current exceptions live in `src/__tests__/policy/baselines/private-probes.allowlist.txt` and must stay synchronized with `src/__tests__/policy/baselines/private-probes.owner-notes.md`.
+- Raw sleep usage is not allowed outside explicitly approved helper coverage; the remaining approved sleep ids live in `src/__tests__/policy/baselines/sleeps-ast.txt` and must stay synchronized with `src/__tests__/policy/baselines/sleeps.owner-notes.md`.
+- Sleep exceptions use stable ids in the form `<file>|<kind>|<scope_path>|<ordinal>` so surrounding line churn does not invalidate the machine baseline.
+- Use `jest.useFakeTimers()` with explicit advancement (`advanceTimersByTime`, `runOnlyPendingTimers`) or existing async helpers before considering any new wait pattern.
 - Policy enforcement runs via `src/__tests__/policy/AntiPatterns.policy.test.ts`.
-- Baselines live in `src/__tests__/policy/baselines/` (`private-probes.allowlist.txt`, `sleeps-ast.txt`).
 - The policy test also writes debug reports to your OS temp directory:
   - `current-private-probes.json`
   - `current-sleeps.txt`

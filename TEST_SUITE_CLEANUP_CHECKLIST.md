@@ -497,7 +497,7 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 **Default plan shape:** one grouped plan covering `T3-W1` + `T3-W2`
 
-### [ ] `T3-W1` Expand Scanner Scope Beyond Frozen Suites
+### [x] `T3-W1` Expand Scanner Scope Beyond Frozen Suites
 
 **Goal:** stop pretending the suite is protected when only a frozen subset is ratcheted.
 
@@ -521,7 +521,15 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 - add a whole-suite or tiered-suite ratchet for new private probes
 - keep raw sleep usage zero-tolerance outside explicitly approved helper files
 
-### [ ] `T3-W2` Add Owner Notes For Remaining Exceptions
+- Status: `completed`
+- Plan: `docs/plans/2026-04-22-t3-w1-w2-anti-pattern-enforcement.md`
+- Last touched: `2026-04-22`
+- Verification: `npm run test:contracts -- --runInBand src/__tests__/policy/antiPatternsScanner.test.ts src/__tests__/policy/AntiPatterns.policy.test.ts` passed; `npm run test:unit -- --runInBand src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoader.test.ts src/modules/ui/epg/__tests__/DeferredEpgComponent.test.ts src/modules/player/__tests__/subtitleFallbackPipeline.test.ts` passed; `npm run test:unit -- --runInBand src/__tests__/helpers.test.ts` passed; `npm run verify` passed through typecheck, architecture lint, CSS lint, product coverage, tools, contracts, docs verification, and build.
+- Result: frozen suites remain at zero private probes and zero sleep probes; the tracked whole-suite ratchet now scans the unit + contracts Jest surfaces from tracked `src/` files only; the final private-probe baseline is `6` unique keys in `src/__tests__/policy/baselines/private-probes.allowlist.txt`; the only approved remaining sleep id is `src/__tests__/helpers.test.ts|timer-call|advanceTimersUntil > resolves when the assertion becomes true exactly at the timeout boundary|1` in `src/__tests__/policy/baselines/sleeps-ast.txt`; no sleep exception remains outside `src/__tests__/helpers.test.ts`.
+- Follow-ups: `cleanup-review`, trigger = confirm the grouped `T3-W1W2-B1` implementation is review-clean before deciding `T3-EXIT`.
+- Handoff: send `docs/plans/2026-04-22-t3-w1-w2-anti-pattern-enforcement.md` execution unit `T3-W1W2-B1` to `cleanup-review`, then use that outcome to decide `T3-EXIT`.
+
+### [x] `T3-W2` Add Owner Notes For Remaining Exceptions
 
 **Goal:** make remaining baseline exceptions reviewable instead of anonymous debt.
 
@@ -535,6 +543,14 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 - every remaining exception has an owner, rationale, and revisit trigger
 - resolved exceptions are removed instead of silently carried forward
+
+- Status: `completed`
+- Plan: `docs/plans/2026-04-22-t3-w1-w2-anti-pattern-enforcement.md`
+- Last touched: `2026-04-22`
+- Verification: `npm run test:contracts -- --runInBand src/__tests__/policy/antiPatternsScanner.test.ts src/__tests__/policy/AntiPatterns.policy.test.ts` passed; `npm run verify` passed through typecheck, architecture lint, CSS lint, product coverage, tools, contracts, docs verification, and build.
+- Result: `src/__tests__/policy/baselines/private-probes.owner-notes.md` now mirrors all `6` allowlisted private-probe keys with owner, rationale, revisit trigger, and cleanup lane metadata; `src/__tests__/policy/baselines/sleeps.owner-notes.md` now mirrors the lone approved helper self-test sleep id; the policy contract fails if the baselines and owner-note files drift apart.
+- Follow-ups: `cleanup-review`, trigger = confirm the owner-note synchronization and grouped anti-pattern ratchet behavior before deciding `T3-EXIT`.
+- Handoff: review the `T3-W1W2-B1` implementation bundle, then carry the verified owner-note surfaces into `T3-EXIT`.
 
 ## Priority 4: Standardize Async And Timer Testing
 
