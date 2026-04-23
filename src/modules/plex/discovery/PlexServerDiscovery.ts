@@ -248,7 +248,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     public async testConnection(
         _server: PlexServer,
         connection: PlexConnection
-    ): Promise<number | 'auth_required' | 'auth_invalid' | null> {
+    ): Promise<number | 'auth_required' | 'access_denied' | null> {
         const probe = await this._probeConnection(connection);
         return this._mapProbeToPublicTestResult(probe);
     }
@@ -276,7 +276,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                 return { connection, outcome: 'auth_required' };
             }
             if (response.status === 403) {
-                return { connection, outcome: 'auth_invalid' };
+                return { connection, outcome: 'access_denied' };
             }
             if (!response.ok) {
                 return { connection, outcome: 'unreachable' };
@@ -298,7 +298,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     ): Promise<{
         connection: PlexConnection | null;
         authRequired: boolean;
-        authState: 'auth_required' | 'auth_invalid' | null;
+        authState: 'auth_required' | 'access_denied' | null;
     }> {
         const probeSummary = await findFastestConnectionProbe({
             server,
@@ -315,11 +315,11 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
     private _mapProbeToPublicTestResult(
         probe: PlexConnectionProbeResult
-    ): number | 'auth_required' | 'auth_invalid' | null {
+    ): number | 'auth_required' | 'access_denied' | null {
         if (probe.outcome === 'reachable') {
             return probe.connection.latencyMs;
         }
-        if (probe.outcome === 'auth_required' || probe.outcome === 'auth_invalid') {
+        if (probe.outcome === 'auth_required' || probe.outcome === 'access_denied') {
             return probe.outcome;
         }
         return null;
@@ -337,7 +337,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                 outcome: 'reachable',
             };
         }
-        if (publicResult === 'auth_required' || publicResult === 'auth_invalid') {
+        if (publicResult === 'auth_required' || publicResult === 'access_denied') {
             return {
                 connection,
                 outcome: publicResult,
@@ -729,7 +729,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
     private _persistServerHealth(
         serverId: string,
-        status: 'ok' | 'unreachable' | 'auth_required' | 'auth_invalid',
+        status: 'ok' | 'unreachable' | 'auth_required' | 'access_denied',
         details?: { connection?: PlexConnection; latency?: number }
     ): void {
         const input = {

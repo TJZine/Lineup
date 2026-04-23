@@ -160,11 +160,15 @@ describe('PlexAuth', () => {
             jest.useFakeTimers();
             try {
                 const auth = new PlexAuth(mockConfig);
-                mockFetchFailure(new Error('Network error'));
+                mockFetchFailure(new Error('Network error X-Plex-Token=super-secret'));
 
                 const promise = auth.requestPin();
                 const rejection = expect(promise).rejects.toMatchObject({
                     code: 'SERVER_UNREACHABLE',
+                    cause: {
+                        name: 'Error',
+                        message: 'Network error X-Plex-Token=REDACTED',
+                    },
                 });
 
                 await jest.runAllTimersAsync();
@@ -599,7 +603,7 @@ describe('PlexAuth', () => {
 
             expect(auth.isAuthenticated()).toBe(false);
             expect(auth.getCurrentUser()).toBeNull();
-            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual({
                 kind: 'available',
                 credentials: expect.objectContaining({
                     activeUserId: 'user1',
@@ -772,7 +776,7 @@ describe('PlexAuth', () => {
                 })
             );
 
-            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual({
                 kind: 'available',
                 credentials: expect.objectContaining({
                     activeUserId: 'user-1',
@@ -809,7 +813,7 @@ describe('PlexAuth', () => {
                 })
             );
 
-            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual({
                 kind: 'available',
                 credentials: expect.objectContaining({
                     activeUserId: 'user-1',
@@ -855,7 +859,7 @@ describe('PlexAuth', () => {
                 })
             );
 
-            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual({
                 kind: 'available',
                 credentials: expect.objectContaining({
                     activeUserId: 'user-1',
@@ -870,7 +874,7 @@ describe('PlexAuth', () => {
             });
             const auth = new PlexAuth(mockConfig);
 
-            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({ kind: 'missing' });
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual({ kind: 'missing' });
         });
 
         it('returns corrupted invalid-json and clears stored key', async () => {
@@ -881,7 +885,7 @@ describe('PlexAuth', () => {
 
             expect(result).toEqual({ kind: 'corrupted', reason: 'invalid-json' });
             expect(mockLocalStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBeNull();
-            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({ kind: 'missing' });
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual({ kind: 'missing' });
         });
 
         it('returns corrupted invalid-shape for malformed payloads', async () => {
@@ -946,11 +950,11 @@ describe('PlexAuth', () => {
             mockLocalStorage.setItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY, '{not-json');
             const auth = new PlexAuth(mockConfig);
 
-            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual({
                 kind: 'corrupted',
                 reason: 'invalid-json',
             });
-            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({ kind: 'missing' });
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual({ kind: 'missing' });
         });
     });
 
@@ -966,7 +970,7 @@ describe('PlexAuth', () => {
 
             expect(auth.isAuthenticated()).toBe(true);
             expect(auth.getCurrentUser()?.token).toBe('blocked-storage-token');
-            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({ kind: 'missing' });
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual({ kind: 'missing' });
         });
     });
 

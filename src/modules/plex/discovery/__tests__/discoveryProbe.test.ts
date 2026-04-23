@@ -93,7 +93,7 @@ describe('discoveryProbe', () => {
 
         const probeConnection = jest.fn<Promise<PlexConnectionProbeResult>, [typeof firstConnection]>()
             .mockResolvedValueOnce({ connection: firstConnection, outcome: 'auth_required' })
-            .mockResolvedValueOnce({ connection: secondConnection, outcome: 'auth_invalid' });
+            .mockResolvedValueOnce({ connection: secondConnection, outcome: 'access_denied' });
 
         const result = await findFastestConnectionProbe({
             server,
@@ -109,7 +109,7 @@ describe('discoveryProbe', () => {
         expect(result).toEqual({
             selectedProbe: null,
             authRequired: true,
-            authState: 'auth_invalid',
+            authState: 'access_denied',
         });
     });
 

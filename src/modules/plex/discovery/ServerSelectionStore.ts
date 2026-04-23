@@ -5,7 +5,11 @@ import {
 } from '../../../utils/storage';
 import { PLEX_DISCOVERY_CONSTANTS } from './constants';
 
-export type ServerHealthStatus = 'ok' | 'unreachable' | 'auth_required' | 'auth_invalid';
+export type ServerHealthStatus =
+    | 'ok'
+    | 'unreachable'
+    | 'auth_required'
+    | 'access_denied';
 export type ServerHealthType = 'local' | 'remote' | 'relay' | 'unknown';
 
 export type ServerHealthRecord = {
@@ -218,7 +222,7 @@ export class ServerSelectionStore {
             status !== 'ok'
             && status !== 'unreachable'
             && status !== 'auth_required'
-            && status !== 'auth_invalid'
+            && status !== 'access_denied'
         ) {
             return null;
         }

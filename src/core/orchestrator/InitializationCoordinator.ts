@@ -465,17 +465,43 @@ export class InitializationCoordinator {
             return false;
         }
 
-        return applyPhase3ServerGatePolicy({
-            startTime,
-            plexDiscovery: this._deps.modules.plexDiscovery,
-            plexLibrary: this._deps.modules.plexLibrary,
-            plexStreamResolver: this._deps.modules.plexStreamResolver,
-            navigation: this._deps.modules.navigation,
-            updateModuleStatus: this._callbacks.status.updateModuleStatus,
-            handlers: {
-                registerServerResume: () => this._registerServerResume(),
-            },
-        });
+        try {
+            return await applyPhase3ServerGatePolicy({
+                startTime,
+                plexDiscovery: this._deps.modules.plexDiscovery,
+                plexLibrary: this._deps.modules.plexLibrary,
+                plexStreamResolver: this._deps.modules.plexStreamResolver,
+                navigation: this._deps.modules.navigation,
+                updateModuleStatus: this._callbacks.status.updateModuleStatus,
+                handlers: {
+                    registerServerResume: () => this._registerServerResume(),
+                },
+            });
+        } catch (error) {
+            if (!this._isDiscoveryAuthRecoveryError(error)) {
+                throw error;
+            }
+
+            this._callbacks.status.updateModuleStatus(
+                'plex-server-discovery',
+                'error',
+                toRecoverableModuleStatusError(
+                    error,
+                    'Server discovery authentication failed during startup.'
+                )
+            );
+            this._callbacks.errors.handleGlobalError(error, 'plex-server-discovery');
+            return false;
+        }
+    }
+
+    private _isDiscoveryAuthRecoveryError(error: unknown): error is AppError {
+        const code = (error as { code?: string } | null)?.code;
+        return (
+            code === AppErrorCode.AUTH_REQUIRED
+            || code === AppErrorCode.AUTH_INVALID
+            || code === AppErrorCode.AUTH_EXPIRED
+        );
     }
 
     /**

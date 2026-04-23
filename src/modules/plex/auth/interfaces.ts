@@ -132,8 +132,20 @@ export interface IPlexAuth {
      */
     validateToken(token: string): Promise<boolean>;
 
+    /**
+     * Fetch Plex Home profiles using the account token.
+     * @returns [] only when Plex Home is unsupported or no profiles are available
+     * @throws PlexApiError AUTH_REQUIRED/AUTH_INVALID for explicit credential failures
+     * @throws PlexApiError PARSE_ERROR when Plex returns a malformed success payload
+     */
     getHomeUsers(options?: { signal?: AbortSignal | null }): Promise<PlexHomeUser[]>;
 
+    /**
+     * Switch the active Plex Home profile.
+     * @throws PlexApiError AUTH_REQUIRED/AUTH_INVALID for credential failures
+     * @throws PlexApiError AUTH_FAILED when the supplied PIN is incorrect
+     * @throws PlexApiError RESOURCE_NOT_FOUND when Plex Home switching is unavailable
+     */
     switchHomeUser(userId: string, options?: { pin?: string | null; signal?: AbortSignal | null }): Promise<void>;
 
     getActiveUserId(): string | null;
@@ -144,13 +156,20 @@ export interface IPlexAuth {
 
     /**
      * Get stored credentials from localStorage.
+     * This is a synchronous local storage read/cleanup operation.
      * @returns Explicit stored-read classification
      */
-    readStoredCredentialsAndClearCorruption(): Promise<PlexStoredCredentialsReadResult>;
+    readStoredCredentialsAndClearCorruption(): PlexStoredCredentialsReadResult;
 
-    storeCredentials(auth: PlexAuthData): Promise<void>;
+    /**
+     * Persist credentials to localStorage and update in-memory auth state synchronously.
+     */
+    storeCredentials(auth: PlexAuthData): void;
 
-    clearCredentials(): Promise<void>;
+    /**
+     * Clear persisted credentials and in-memory auth state synchronously.
+     */
+    clearCredentials(): void;
 
     isAuthenticated(): boolean;
 

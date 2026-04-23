@@ -925,8 +925,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
         if (response.status === 403) {
             throw this._createError(
-                AppErrorCode.AUTH_INVALID,
-                'Authentication invalid',
+                AppErrorCode.ACCESS_DENIED,
+                'Access denied',
                 false
             );
         }
