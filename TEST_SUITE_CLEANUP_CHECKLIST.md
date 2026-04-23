@@ -11,8 +11,8 @@ This is not a generic "make tests prettier" list. If an item does not clearly re
 ## Fresh-Session Handoff
 
 - Last audit refresh: `2026-04-22`
-- Current execution state: `T1` closed on `2026-04-22`; `T2-W1` + `T2-W2` and `T2-EXIT` closed on `2026-04-22` after current-workspace exit verification
-- Next safe start: `T3-W1` + `T3-W2`
+- Current execution state: `T1` closed on `2026-04-22`; `T2-W1` + `T2-W2` and `T2-EXIT` closed on `2026-04-22`; `T3-W1` + `T3-W2`, `T3-EXIT`, `T4-W1` + `T4-W2`, and `T4-EXIT` closed on `2026-04-22` after current-workspace verification
+- Next safe start: `T5-W1`
 - Authoritative evidence rule: update status only from commands rerun in the target workspace or integration branch
 - Discovery note: Codanna was not available in this session; repo discovery fell back to `rg`, direct file inspection, and executable commands
 - Explicit user decision: do not add a coverage threshold
@@ -309,13 +309,20 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
   - Follow-ups: keep `T4-W1` + `T4-W2` as the async/timer helper cleanup lane, and keep `T5-W2` as the owner for the six documented private-probe exceptions in `src/__tests__/policy/baselines/private-probes.owner-notes.md`.
   - Handoff: start `T4-W1` + `T4-W2` when ready; Priority 3 no longer blocks the documented async/timer follow-up lane.
 
-- [ ] `T4-EXIT`
+- [x] `T4-EXIT`
   - required: async/timer helper usage is documented, tested, and enforced where it matters
   - verification:
     - helper self-tests
     - targeted timer suites
     - `npm run test:contracts`
   - exit rule: timer tests prefer explicit fake-time advancement or approved deferred/promise helpers
+  - Status: `completed`
+  - Plan: `none needed`
+  - Last touched: `2026-04-22`
+  - Verification: `npm run test:unit -- --runInBand src/__tests__/helpers.test.ts` passed; `npm run test:unit -- --runInBand src/__tests__/startup-integration.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts src/modules/player/__tests__/SubtitleManager.test.ts src/modules/navigation/__tests__/NavigationCoordinator.test.ts` passed; `npm run test:contracts -- --runInBand src/__tests__/policy/antiPatternsScanner.test.ts src/__tests__/policy/AntiPatterns.policy.test.ts` passed; `npm run verify` passed through typecheck, architecture lint, CSS lint, product coverage, tools, contracts, docs verification, and build.
+  - Result: helper usage guidance and self-tests now match the approved async/timer house style, and `T4-W2` plus the sleep owner notes explicitly record that the lone helper self-test timer call is intentional approved residual coverage rather than unfinished raw-sleep migration debt.
+  - Follow-ups: start `T5-W1` when ready, and keep `T5-W2` as the owner for the remaining documented private-probe exceptions.
+  - Handoff: begin `T5-W1` for `EPGVirtualizer.test.ts` behavior-first cleanup without reopening the verified `T4` helper/policy lane.
 
 - [ ] `T5-EXIT`
   - required: highest-value remaining implementation-detail tests use public outcomes or named policy/test seams
@@ -564,7 +571,7 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 **Default plan shape:** one grouped plan covering `T4-W1` + `T4-W2`
 
-### [ ] `T4-W1` Make The Existing Async Helper Set The Explicit House Style
+### [x] `T4-W1` Make The Existing Async Helper Set The Explicit House Style
 
 **Goal:** use the helper set that already exists instead of letting each suite improvise.
 
@@ -586,20 +593,23 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 - add helper self-tests for the supported patterns that matter
 - make `flushPromisesAndMacrotask` explicitly opt-in for real-timer integration boundaries only
 
-### [ ] `T4-W2` Remove Or Justify Remaining Raw Macrotask Sleeps
+- Status: `completed`
+- Plan: `docs/plans/2026-04-22-t4-w1-w2-async-timer-house-style.md`
+- Last touched: `2026-04-22`
+- Verification: `npm run test:unit -- --runInBand src/__tests__/helpers.test.ts` passed; `npm run test:unit -- --runInBand src/__tests__/startup-integration.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts src/modules/player/__tests__/SubtitleManager.test.ts src/modules/navigation/__tests__/NavigationCoordinator.test.ts` passed; `npm run test:contracts -- --runInBand src/__tests__/policy/antiPatternsScanner.test.ts src/__tests__/policy/AntiPatterns.policy.test.ts` passed; `npm run verify` passed through typecheck, architecture lint, CSS lint, product coverage, tools, contracts, docs verification, and build.
+- Result: `src/__tests__/helpers.ts` and `docs/development/testing.md` now define the async-helper house style explicitly, and `src/__tests__/helpers.test.ts` now covers promise-only flushing, explicit deferred control, fake-timer advancement sequencing, the real-macrotask helper contract, and the retained timeout-boundary proof for `advanceTimersUntil`.
+- Follow-ups: `none`
+- Handoff: use `T4-EXIT` to confirm the helper guidance, helper coverage, and approved residual sleep metadata all stay aligned.
+
+### [x] `T4-W2` Remove Or Justify Remaining Raw Macrotask Sleeps
 
 **Goal:** cut the last obvious flake bait.
 
 **Current evidence:**
 
-- current `setTimeout(` test files include:
-  - `src/modules/player/__tests__/subtitleFallbackPipeline.test.ts`
-  - `src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoader.test.ts`
-  - `src/__tests__/startup-integration.test.ts`
-  - `src/modules/ui/epg/__tests__/DeferredEpgComponent.test.ts`
-- current `new Promise(...setTimeout...)` test files include:
-  - `src/modules/ui/epg/__tests__/DeferredEpgComponent.test.ts`
-  - `src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoader.test.ts`
+- current raw `setTimeout(` usage in tracked whole-suite tests is down to the helper self-test in `src/__tests__/helpers.test.ts`
+- `src/__tests__/startup-integration.test.ts` still uses `jest.setTimeout(15000)` as a suite timeout, but it no longer contributes raw sleep debt
+- contract fixtures in `src/__tests__/policy/antiPatternsScanner.test.ts` still exercise scanner detection logic by design
 
 **Preferred replacements:**
 
@@ -608,6 +618,14 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 - `flushPromisesAndTimers`
 - `jest.advanceTimersByTimeAsync(...)`
 - await the specific production promise under test
+
+- Status: `completed`
+- Plan: `docs/plans/2026-04-22-t4-w1-w2-async-timer-house-style.md`
+- Last touched: `2026-04-22`
+- Verification: `npm run test:unit -- --runInBand src/__tests__/helpers.test.ts` passed; `npm run test:unit -- --runInBand src/__tests__/startup-integration.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts src/modules/player/__tests__/SubtitleManager.test.ts src/modules/navigation/__tests__/NavigationCoordinator.test.ts` passed; `npm run test:contracts -- --runInBand src/__tests__/policy/antiPatternsScanner.test.ts src/__tests__/policy/AntiPatterns.policy.test.ts` passed; `npm run verify` passed through typecheck, architecture lint, CSS lint, product coverage, tools, contracts, docs verification, and build.
+- Result: the remaining helper self-test sleep is now explicitly documented as intentional approved residual helper coverage, with `T4-W2` owning that reviewed retention decision instead of treating it as unfinished cleanup debt.
+- Follow-ups: `none`
+- Handoff: keep the retained helper sleep synchronized with `src/__tests__/policy/baselines/sleeps-ast.txt` and `src/__tests__/policy/baselines/sleeps.owner-notes.md`; no additional raw-sleep cleanup lane remains open after this pass.
 
 ## Priority 5: Reduce Remaining Implementation Coupling
 

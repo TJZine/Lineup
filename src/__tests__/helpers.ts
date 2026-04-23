@@ -1,5 +1,9 @@
 import { inspect } from 'node:util';
 
+/**
+ * Use for promise-only async boundaries when no timer advancement or extra
+ * macrotask turn is part of the behavior under test.
+ */
 export const flushPromises = async (rounds: number = 2): Promise<void> => {
     // Two microtask ticks is a pragmatic default for many "await one promise chain" situations.
     // If a test starts under-flushing due to additional microtask layers, prefer awaiting the
@@ -24,6 +28,10 @@ export const flushPromisesAndMacrotask = async (promiseRounds: number = 2): Prom
     await flushPromises(promiseRounds);
 };
 
+/**
+ * Use in fake-timer suites when queued timer callbacks also schedule promise
+ * work that should settle before the next assertion.
+ */
 export const flushPromisesAndTimers = async (
     promiseRounds: number = 2,
     timerPasses: number = 1
@@ -35,6 +43,10 @@ export const flushPromisesAndTimers = async (
     await flushPromises(promiseRounds);
 };
 
+/**
+ * Use in fake-timer suites when an assertion should become true after bounded
+ * timer advancement rather than after a fixed sleep.
+ */
 export const advanceTimersUntil = async (
     assertNow: () => void,
     options: { stepMs?: number; timeoutMs?: number } = {}
@@ -79,6 +91,10 @@ export type Deferred<T> = {
     reject: (reason?: unknown) => void;
 };
 
+/**
+ * Use when the test should control exactly when an async dependency settles
+ * instead of waiting on ad hoc timers or implicit promise ordering.
+ */
 export const createDeferred = <T>(): Deferred<T> => {
     let resolve!: (value: T | PromiseLike<T>) => void;
     let reject!: (reason?: unknown) => void;

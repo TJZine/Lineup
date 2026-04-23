@@ -4,10 +4,120 @@
 
 import {
     advanceTimersUntil,
+    createDeferred,
     expectConsoleWarn,
+    flushPromises,
+    flushPromisesAndMacrotask,
+    flushPromisesAndTimers,
     sharedConsoleOutputGuard,
     TestConsoleOutputGuard,
 } from './helpers';
+
+describe('flushPromises', () => {
+    it('drains nested promise work with the default rounds', async () => {
+        const steps: string[] = [];
+
+        void Promise.resolve()
+            .then(() => {
+                steps.push('first');
+                return Promise.resolve().then(() => {
+                    steps.push('second');
+                });
+            });
+
+        await flushPromises();
+
+        expect(steps).toEqual(['first', 'second']);
+    });
+});
+
+describe('createDeferred', () => {
+    it('lets tests control when async work resolves', async () => {
+        const deferred = createDeferred<string>();
+        let state = 'pending';
+
+        void deferred.promise.then((value) => {
+            state = value;
+        });
+
+        await flushPromises();
+        expect(state).toBe('pending');
+
+        deferred.resolve('resolved');
+        await flushPromises();
+
+        expect(state).toBe('resolved');
+        await expect(deferred.promise).resolves.toBe('resolved');
+    });
+});
+
+describe('flushPromisesAndTimers', () => {
+    beforeEach(() => {
+        jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+        jest.useRealTimers();
+    });
+
+    it('flushes promise work on both sides of a fake-timer pass', async () => {
+        const steps: string[] = [];
+        const firstSignal = AbortSignal.timeout(0);
+
+        firstSignal.addEventListener('abort', () => {
+            steps.push('timer-pass');
+            void Promise.resolve().then(() => {
+                steps.push('post-timer-pass');
+            });
+        });
+
+        void Promise.resolve().then(() => {
+            steps.push('pre-pass');
+        });
+
+        await flushPromisesAndTimers(2, 1);
+
+        expect(steps).toEqual([
+            'pre-pass',
+            'timer-pass',
+            'post-timer-pass',
+        ]);
+    });
+});
+
+describe('flushPromisesAndMacrotask', () => {
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
+    it('flushes promise work on both sides of the macrotask turn', async () => {
+        const steps: string[] = [];
+
+        jest.spyOn(globalThis, 'setTimeout').mockImplementation(((handler: TimerHandler, _delay?: number) => {
+            steps.push('macrotask');
+            if (typeof handler === 'function') {
+                handler();
+            }
+            void Promise.resolve().then(() => {
+                steps.push('post-macrotask-promise');
+            });
+            return 0 as unknown as ReturnType<typeof setTimeout>;
+        }) as unknown as typeof globalThis.setTimeout);
+
+        void Promise.resolve().then(() => {
+            steps.push('pre-macrotask-promise');
+        });
+
+        await flushPromisesAndMacrotask();
+
+        expect(globalThis.setTimeout).toHaveBeenCalledWith(expect.any(Function), 0);
+        expect(steps).toEqual([
+            'pre-macrotask-promise',
+            'macrotask',
+            'post-macrotask-promise',
+        ]);
+    });
+});
 
 describe('advanceTimersUntil', () => {
     beforeEach(() => {

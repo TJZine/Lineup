@@ -59,6 +59,20 @@ npm run test:timings:tools
 - Mock network/platform boundaries, but keep module wiring realistic (constructor/startup paths should still execute).
 - Add targeted smoke coverage for app/bootstrap startup seams so regressions in initialization are caught early.
 
+### Async Helper House Style
+
+Prefer the shared helpers in `src/__tests__/helpers.ts` before adding local async wait code:
+
+| Need | Preferred helper | Use when | Avoid when |
+| --- | --- | --- | --- |
+| Flush promise-only work | `flushPromises()` | the code under test only needs microtask turns | a timer or DOM-task turn is part of the contract |
+| Control async completion directly | `createDeferred()` | the test owns when an async dependency resolves or rejects | the production code already exposes a concrete promise you can await directly |
+| Advance fake timers and settle follow-up promise work | `flushPromisesAndTimers()` | fake-timer callbacks schedule more promise work before the next assertion | the suite uses real timers |
+| Poll a fake-timer condition with an explicit timeout budget | `advanceTimersUntil()` | the assertion should become true after bounded timer advancement | a single direct timer advance or awaited promise is enough |
+| Cross one real macrotask turn after promise work | `flushPromisesAndMacrotask()` | a real-timer integration boundary only becomes observable after promises and one queued macrotask both complete | the suite uses fake timers or just needs a generic wait |
+
+`flushPromisesAndMacrotask()` is the opt-in escape hatch for real-timer integration coverage only. Do not introduce new raw `setTimeout(...)` waits in suites when one of the existing helpers or a directly awaited production promise can express the same behavior.
+
 ## Agent Eval Regression Set
 
 The repo also maintains a small agent-workflow regression set in [`docs/agentic/evals-roadmap.md`](../agentic/evals-roadmap.md) and the tracked harness definition under [`docs/agentic/evals/`](../agentic/evals/README.md).
@@ -103,6 +117,7 @@ npm run test:timings:tools
 - Whole-suite enforcement scans tracked `src/` files that belong to the unit + contracts Jest surfaces, and it intentionally excludes `src/__tests__/tools/**`.
 - New private-probe keys anywhere in that tracked whole-suite surface fail the policy; the current exceptions live in `src/__tests__/policy/baselines/private-probes.allowlist.txt` and must stay synchronized with `src/__tests__/policy/baselines/private-probes.owner-notes.md`.
 - Raw sleep usage is not allowed outside explicitly approved helper coverage; the remaining approved sleep ids live in `src/__tests__/policy/baselines/sleeps-ast.txt` and must stay synchronized with `src/__tests__/policy/baselines/sleeps.owner-notes.md`.
+- The current approved sleep exception is a helper self-test for `advanceTimersUntil`; treat it as harness coverage, not as permission to add raw timer waits elsewhere.
 - Sleep exceptions use stable ids in the form `<file>|<kind>|<scope_path>|<ordinal>` so surrounding line churn does not invalidate the machine baseline.
 - Use `jest.useFakeTimers()` with explicit advancement (`advanceTimersByTime`, `runOnlyPendingTimers`) or existing async helpers before considering any new wait pattern.
 - Policy enforcement runs via `src/__tests__/policy/AntiPatterns.policy.test.ts`.
