@@ -1225,8 +1225,19 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             mockPlexDiscovery.isConnected.mockReturnValue(true);
             await orchestrator.start();
 
-            const clearSelectedSnapshotSpy = jest.spyOn(EPGCoordinator.prototype, 'clearSelectedChannelScheduleSnapshot');
-            const refreshSpy = jest.spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules').mockResolvedValue(undefined);
+            const epgRefreshSequence: string[] = [];
+            const originalClearSelectedSnapshot = EPGCoordinator.prototype.clearSelectedChannelScheduleSnapshot;
+            const clearSelectedSnapshotSpy = jest
+                .spyOn(EPGCoordinator.prototype, 'clearSelectedChannelScheduleSnapshot')
+                .mockImplementation(function (this: EPGCoordinator) {
+                    epgRefreshSequence.push('clearSelectedChannelScheduleSnapshot');
+                    return originalClearSelectedSnapshot.call(this);
+                });
+            const refreshSpy = jest
+                .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
+                .mockImplementation(async () => {
+                    epgRefreshSequence.push('refreshEpgSchedules');
+                });
             const nowSpy = jest.spyOn(Date, 'now');
             try {
                 nowSpy.mockReturnValue(new Date('2026-03-18T12:00:00.000Z').getTime());
@@ -1249,11 +1260,10 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 expect(mockChannelManager.resolveChannelContent).toHaveBeenCalledWith(mockChannel.id);
                 expect(mockScheduler.loadChannel).toHaveBeenCalled();
                 expect(refreshSpy).toHaveBeenCalledTimes(1);
-                const clearOrder = clearSelectedSnapshotSpy.mock.invocationCallOrder[0];
-                const refreshOrder = refreshSpy.mock.invocationCallOrder[0];
-                expect(clearOrder).toBeDefined();
-                expect(refreshOrder).toBeDefined();
-                expect(clearOrder as number).toBeLessThan(refreshOrder as number);
+                expect(epgRefreshSequence).toEqual([
+                    'clearSelectedChannelScheduleSnapshot',
+                    'refreshEpgSchedules',
+                ]);
             } finally {
                 nowSpy.mockRestore();
                 clearSelectedSnapshotSpy.mockRestore();
@@ -1269,11 +1279,22 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             mockPlexStreamResolver.stopTranscodeSession.mockClear();
         });
 
-        it('clears profile resume listener before explicit switchHomeUser startup', async () => {
+        it('prepares the coordinator for switchHomeUser before the auth mutation and resumes startup afterward', async () => {
             await orchestrator.initialize(mockConfig);
 
-            const clearProfileResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearProfileResume');
-            const runStartupSpy = jest.spyOn(InitializationCoordinator.prototype, 'runStartup');
+            const profileSwitchSequence: string[] = [];
+            const originalPrepareForProfileSwitchAttempt = InitializationCoordinator.prototype.prepareForProfileSwitchAttempt;
+            const prepareForProfileSwitchAttemptSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'prepareForProfileSwitchAttempt')
+                .mockImplementation(function (this: InitializationCoordinator) {
+                    profileSwitchSequence.push('prepareForProfileSwitchAttempt');
+                    return originalPrepareForProfileSwitchAttempt.call(this);
+                });
+            const resumeStartupAfterProfileSwitchSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'resumeStartupAfterProfileSwitch')
+                .mockImplementation(async () => {
+                    profileSwitchSequence.push('resumeStartupAfterProfileSwitch');
+                });
 
             try {
                 mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
@@ -1283,12 +1304,16 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 await orchestrator.start();
 
                 expect(schedulerHandlers.programStart).toBeDefined();
-                clearProfileResumeSpy.mockClear();
-                runStartupSpy.mockClear();
+                prepareForProfileSwitchAttemptSpy.mockClear();
+                resumeStartupAfterProfileSwitchSpy.mockClear();
+                profileSwitchSequence.length = 0;
                 mockPlexAuth.switchHomeUser.mockClear();
                 mockVideoPlayer.stop.mockClear();
                 mockScheduler.unloadChannel.mockClear();
                 mockPlexStreamResolver.stopTranscodeSession.mockClear();
+                mockPlexAuth.switchHomeUser.mockImplementationOnce(async () => {
+                    profileSwitchSequence.push('switchHomeUser');
+                });
 
                 mockPlexStreamResolver.resolveStream.mockResolvedValueOnce(
                     makeDecision({ isTranscoding: true, sessionId: 'profile-switch-session' })
@@ -1317,35 +1342,21 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
                 await orchestrator.switchHomeUser('user-2', '1234');
 
-                expect(clearProfileResumeSpy).toHaveBeenCalled();
+                expect(prepareForProfileSwitchAttemptSpy).toHaveBeenCalledTimes(1);
                 expect(mockPlexAuth.switchHomeUser).toHaveBeenCalledWith('user-2', { pin: '1234' });
                 expect(mockNavigation.goTo).toHaveBeenCalledWith('splash');
-                expect(runStartupSpy).toHaveBeenCalledWith(3);
+                expect(resumeStartupAfterProfileSwitchSpy).toHaveBeenCalledTimes(1);
                 expect(mockVideoPlayer.stop).toHaveBeenCalled();
                 expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
                 expect(mockPlexStreamResolver.stopTranscodeSession).toHaveBeenCalledWith('profile-switch-session');
-
-                const clearOrder = clearProfileResumeSpy.mock.invocationCallOrder[0];
-                const switchOrder = mockPlexAuth.switchHomeUser.mock.invocationCallOrder[0];
-                const splashOrder = mockNavigation.goTo.mock.invocationCallOrder[0];
-                const startupOrder = runStartupSpy.mock.invocationCallOrder[0];
-                expect(clearOrder).toBeDefined();
-                expect(splashOrder).toBeDefined();
-                expect(startupOrder).toBeDefined();
-                expect(switchOrder).toBeDefined();
-                if (
-                    clearOrder !== undefined
-                    && switchOrder !== undefined
-                    && splashOrder !== undefined
-                    && startupOrder !== undefined
-                ) {
-                    expect(clearOrder).toBeLessThan(switchOrder);
-                    expect(switchOrder).toBeLessThan(splashOrder);
-                    expect(splashOrder).toBeLessThan(startupOrder);
-                }
+                expect(profileSwitchSequence).toEqual([
+                    'prepareForProfileSwitchAttempt',
+                    'switchHomeUser',
+                    'resumeStartupAfterProfileSwitch',
+                ]);
             } finally {
-                clearProfileResumeSpy.mockRestore();
-                runStartupSpy.mockRestore();
+                prepareForProfileSwitchAttemptSpy.mockRestore();
+                resumeStartupAfterProfileSwitchSpy.mockRestore();
             }
         });
 
@@ -1375,11 +1386,22 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             });
         });
 
-        it('clears profile resume listener before explicit useMainAccountProfile startup', async () => {
+        it('prepares the coordinator for useMainAccountProfile before logout and resumes startup afterward', async () => {
             await orchestrator.initialize(mockConfig);
 
-            const clearProfileResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearProfileResume');
-            const runStartupSpy = jest.spyOn(InitializationCoordinator.prototype, 'runStartup');
+            const profileSwitchSequence: string[] = [];
+            const originalPrepareForProfileSwitchAttempt = InitializationCoordinator.prototype.prepareForProfileSwitchAttempt;
+            const prepareForProfileSwitchAttemptSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'prepareForProfileSwitchAttempt')
+                .mockImplementation(function (this: InitializationCoordinator) {
+                    profileSwitchSequence.push('prepareForProfileSwitchAttempt');
+                    return originalPrepareForProfileSwitchAttempt.call(this);
+                });
+            const resumeStartupAfterProfileSwitchSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'resumeStartupAfterProfileSwitch')
+                .mockImplementation(async () => {
+                    profileSwitchSequence.push('resumeStartupAfterProfileSwitch');
+                });
 
             try {
                 mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
@@ -1389,12 +1411,16 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 await orchestrator.start();
 
                 expect(schedulerHandlers.programStart).toBeDefined();
-                clearProfileResumeSpy.mockClear();
-                runStartupSpy.mockClear();
+                prepareForProfileSwitchAttemptSpy.mockClear();
+                resumeStartupAfterProfileSwitchSpy.mockClear();
+                profileSwitchSequence.length = 0;
                 mockPlexAuth.logoutActiveUser.mockClear();
                 mockVideoPlayer.stop.mockClear();
                 mockScheduler.unloadChannel.mockClear();
                 mockPlexStreamResolver.stopTranscodeSession.mockClear();
+                mockPlexAuth.logoutActiveUser.mockImplementationOnce(async () => {
+                    profileSwitchSequence.push('logoutActiveUser');
+                });
 
                 mockPlexStreamResolver.resolveStream.mockResolvedValueOnce(
                     makeDecision({ isTranscoding: true, sessionId: 'main-profile-session' })
@@ -1423,35 +1449,21 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
                 await orchestrator.useMainAccountProfile();
 
-                expect(clearProfileResumeSpy).toHaveBeenCalled();
+                expect(prepareForProfileSwitchAttemptSpy).toHaveBeenCalledTimes(1);
                 expect(mockPlexAuth.logoutActiveUser).toHaveBeenCalledTimes(1);
                 expect(mockNavigation.goTo).toHaveBeenCalledWith('splash');
-                expect(runStartupSpy).toHaveBeenCalledWith(3);
+                expect(resumeStartupAfterProfileSwitchSpy).toHaveBeenCalledTimes(1);
                 expect(mockVideoPlayer.stop).toHaveBeenCalled();
                 expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
                 expect(mockPlexStreamResolver.stopTranscodeSession).toHaveBeenCalledWith('main-profile-session');
-
-                const clearOrder = clearProfileResumeSpy.mock.invocationCallOrder[0];
-                const logoutOrder = mockPlexAuth.logoutActiveUser.mock.invocationCallOrder[0];
-                const splashOrder = mockNavigation.goTo.mock.invocationCallOrder[0];
-                const startupOrder = runStartupSpy.mock.invocationCallOrder[0];
-                expect(clearOrder).toBeDefined();
-                expect(splashOrder).toBeDefined();
-                expect(startupOrder).toBeDefined();
-                expect(logoutOrder).toBeDefined();
-                if (
-                    clearOrder !== undefined
-                    && logoutOrder !== undefined
-                    && splashOrder !== undefined
-                    && startupOrder !== undefined
-                ) {
-                    expect(clearOrder).toBeLessThan(logoutOrder);
-                    expect(logoutOrder).toBeLessThan(splashOrder);
-                    expect(splashOrder).toBeLessThan(startupOrder);
-                }
+                expect(profileSwitchSequence).toEqual([
+                    'prepareForProfileSwitchAttempt',
+                    'logoutActiveUser',
+                    'resumeStartupAfterProfileSwitch',
+                ]);
             } finally {
-                clearProfileResumeSpy.mockRestore();
-                runStartupSpy.mockRestore();
+                prepareForProfileSwitchAttemptSpy.mockRestore();
+                resumeStartupAfterProfileSwitchSpy.mockRestore();
             }
         });
 
@@ -1459,22 +1471,25 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             await orchestrator.initialize(mockConfig);
 
             mockPlexAuth.switchHomeUser.mockRejectedValueOnce(new Error('switch failed'));
-            const clearProfileResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearProfileResume');
-            const runStartupSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'runStartup')
+            const prepareForProfileSwitchAttemptSpy = jest.spyOn(
+                InitializationCoordinator.prototype,
+                'prepareForProfileSwitchAttempt'
+            );
+            const resumeStartupAfterProfileSwitchSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'resumeStartupAfterProfileSwitch')
                 .mockResolvedValue(undefined);
 
             try {
                 await expect(orchestrator.switchHomeUser('user-2')).rejects.toThrow('switch failed');
 
-                expect(clearProfileResumeSpy).toHaveBeenCalledTimes(1);
+                expect(prepareForProfileSwitchAttemptSpy).toHaveBeenCalledTimes(1);
                 expect(mockNavigation.goTo).not.toHaveBeenCalledWith('splash');
-                expect(runStartupSpy).not.toHaveBeenCalled();
+                expect(resumeStartupAfterProfileSwitchSpy).not.toHaveBeenCalled();
                 expect(mockVideoPlayer.stop).toHaveBeenCalledTimes(1);
                 expect(mockScheduler.unloadChannel).not.toHaveBeenCalled();
             } finally {
-                clearProfileResumeSpy.mockRestore();
-                runStartupSpy.mockRestore();
+                prepareForProfileSwitchAttemptSpy.mockRestore();
+                resumeStartupAfterProfileSwitchSpy.mockRestore();
             }
         });
 
@@ -1528,21 +1543,24 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             await orchestrator.initialize(mockConfig);
 
             mockPlexAuth.logoutActiveUser.mockRejectedValueOnce(new Error('logout failed'));
-            const clearProfileResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearProfileResume');
-            const runStartupSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'runStartup')
+            const prepareForProfileSwitchAttemptSpy = jest.spyOn(
+                InitializationCoordinator.prototype,
+                'prepareForProfileSwitchAttempt'
+            );
+            const resumeStartupAfterProfileSwitchSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'resumeStartupAfterProfileSwitch')
                 .mockResolvedValue(undefined);
 
             try {
                 await expect(orchestrator.useMainAccountProfile()).rejects.toThrow('logout failed');
 
-                expect(clearProfileResumeSpy).toHaveBeenCalledTimes(1);
+                expect(prepareForProfileSwitchAttemptSpy).toHaveBeenCalledTimes(1);
                 expect(mockNavigation.goTo).not.toHaveBeenCalledWith('splash');
-                expect(runStartupSpy).not.toHaveBeenCalled();
+                expect(resumeStartupAfterProfileSwitchSpy).not.toHaveBeenCalled();
                 expect(mockScheduler.unloadChannel).not.toHaveBeenCalled();
             } finally {
-                clearProfileResumeSpy.mockRestore();
-                runStartupSpy.mockRestore();
+                prepareForProfileSwitchAttemptSpy.mockRestore();
+                resumeStartupAfterProfileSwitchSpy.mockRestore();
             }
         });
 
@@ -1724,19 +1742,24 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
 
-            await orchestrator.start();
+            let releasePlayerInitialization = (): void => undefined;
+            mockVideoPlayer.initialize.mockImplementationOnce(
+                async () =>
+                    new Promise<void>((resolve) => {
+                        releasePlayerInitialization = resolve;
+                    })
+            );
 
-            // Verify requestMediaSession called exactly once
+            const startPromise = orchestrator.start();
+            await new Promise((resolve) => setImmediate(resolve));
+
+            expect(mockVideoPlayer.initialize).toHaveBeenCalledTimes(1);
+            expect(mockVideoPlayer.requestMediaSession).not.toHaveBeenCalled();
+
+            releasePlayerInitialization();
+            await startPromise;
+
             expect(mockVideoPlayer.requestMediaSession).toHaveBeenCalledTimes(1);
-
-            // Verify initialize was called before requestMediaSession
-            const initOrder = mockVideoPlayer.initialize.mock.invocationCallOrder[0];
-            const mediaSessionOrder = mockVideoPlayer.requestMediaSession.mock.invocationCallOrder[0];
-            expect(initOrder).toBeDefined();
-            expect(mediaSessionOrder).toBeDefined();
-            if (initOrder !== undefined && mediaSessionOrder !== undefined) {
-                expect(initOrder).toBeLessThan(mediaSessionOrder);
-            }
         });
 
         it('should proceed without auth UI when stored credentials exist', async () => {
