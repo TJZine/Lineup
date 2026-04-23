@@ -633,7 +633,7 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 **Default plan shape:** one bounded plan per hotspot seam, not one plan for all coupling cleanup
 
-### [ ] `T5-W1` Replace EPG Virtualizer Internal Spies With Observable Outcomes
+### [x] `T5-W1` Replace EPG Virtualizer Internal Spies With Observable Outcomes
 
 **Goal:** keep high-value virtualization protections without anchoring the suite to method names.
 
@@ -653,6 +653,13 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 - DOM-visible state and style stability
 - public render results
 - explicit public instrumentation only if a real seam already exists
+
+- Status: `completed`
+- Plan: `docs/plans/2026-04-22-t5-w1-epg-virtualizer-observable-outcomes.md`
+- Last touched: `2026-04-22`
+- Verification: `npm run test:unit -- --runInBand src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts` PASS; `npm run verify` PASS.
+- Follow-ups: `T5-W2` remains the next owner for the broader cast/probe hotspot audit after this bounded EPG Virtualizer seam lands.
+- Handoff: send the `T5-W1` implementation diff to `lineup-cleanup-review`; keep `T5-W2` untouched unless review finds a stop-and-replan issue.
 
 ### [ ] `T5-W2` Audit The Remaining High-Value Cast/Probe Hotspots
 
