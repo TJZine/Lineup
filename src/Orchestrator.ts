@@ -1,14 +1,16 @@
+import type { ModuleStatus } from './core/orchestrator/OrchestratorTypes';
+import type { Screen } from './modules/navigation';
+
 export { AppOrchestrator, type PlaybackInfoSnapshot } from './core/orchestrator/AppOrchestrator';
-export type { ModuleStatus, OrchestratorConfig } from './core/orchestrator/OrchestratorTypes';
-export type {
-    ChannelSetupConfig,
-    ChannelSetupContext,
-    ChannelBuildSummary,
-    ChannelBuildProgress,
-    ChannelSetupRecord,
-    ChannelSetupPreview,
-    ChannelSetupReview,
-} from './core/channel-setup/types';
+export type { ModuleStatus } from './core/orchestrator/OrchestratorTypes';
 export type { OrchestratorServerSelectionResult } from './core/server-selection/ServerSelectionTypes';
-export type { ErrorRecoveryAction } from './core/error-recovery/types';
 export { AppErrorCode } from './modules/lifecycle';
+
+export interface AppOrchestratorRuntime {
+    getModuleStatus(): Map<string, ModuleStatus>;
+    isReady(): boolean;
+    getCurrentScreen(): Screen | null;
+    openEPG(): void;
+    closeEPG(): void;
+    toggleEPG(): void;
+}
