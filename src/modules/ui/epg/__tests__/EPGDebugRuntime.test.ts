@@ -136,6 +136,24 @@ describe('EPGDebugRuntime', () => {
         expect(setSpy).toHaveBeenCalled();
     });
 
+    it('keeps storage-event wiring fail-open when window listener APIs throw', () => {
+        const addSpy = jest.spyOn(window, 'addEventListener').mockImplementation(() => {
+            throw new Error('add failed');
+        });
+        const removeSpy = jest.spyOn(window, 'removeEventListener').mockImplementation(() => {
+            throw new Error('remove failed');
+        });
+        let runtime: EPGDebugRuntime | null = null;
+
+        expect(() => {
+            runtime = createRuntime();
+            runtime.destroy();
+        }).not.toThrow();
+
+        expect(addSpy).toHaveBeenCalledWith('storage', expect.any(Function));
+        expect(removeSpy).toHaveBeenCalledWith('storage', expect.any(Function));
+    });
+
     it('flushes pending entries immediately on destroy and cancels the timer', () => {
         jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabledAndClean').mockReturnValue(true);
         const setSpy = jest.spyOn(storageHelpers, 'safeLocalStorageSet');
@@ -165,7 +183,7 @@ describe('EPGDebugRuntime', () => {
         }).not.toThrow();
     });
 
-    it('falls back to an empty persisted log when entry serialization throws', () => {
+    it('falls back to an empty persisted log and clears poisoned entries when serialization throws', () => {
         jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabledAndClean').mockReturnValue(true);
         const runtime = createRuntime();
 
@@ -178,5 +196,29 @@ describe('EPGDebugRuntime', () => {
         }).not.toThrow();
 
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG_LOG)).toBe('[]');
+
+        expect(() => {
+            runtime.append('event:recovered', { ok: true });
+            jest.advanceTimersByTime(300);
+        }).not.toThrow();
+
+        const stored = localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_DEBUG_LOG);
+        expect(stored).toBeTruthy();
+        const parsed = JSON.parse(stored as string) as Array<{ event: string }>;
+        expect(parsed).toEqual([{ event: 'event:recovered', data: { ok: true }, ts: expect.any(Number) }]);
+    });
+
+    it('keeps destroy fail-open when the flush path throws unexpectedly', () => {
+        jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabledAndClean').mockReturnValue(true);
+        const runtime = createRuntime();
+        jest.spyOn(runtime as unknown as { _flushEntries(): void }, '_flushEntries').mockImplementation(() => {
+            throw new Error('flush exploded');
+        });
+
+        runtime.append('event:flush-throws', { ok: true });
+
+        expect(() => {
+            runtime.destroy();
+        }).not.toThrow();
     });
 });

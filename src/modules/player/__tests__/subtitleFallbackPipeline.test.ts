@@ -253,7 +253,7 @@ Hello`;
             overrideMimeType = jest.fn();
             abort = jest.fn();
             send = jest.fn(() => {
-                setTimeout(() => this.onload?.(), 0);
+                void Promise.resolve().then(() => this.onload?.());
             });
         }
 

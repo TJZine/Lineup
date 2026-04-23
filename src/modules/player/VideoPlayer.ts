@@ -16,7 +16,7 @@ import type {
     VideoPlayerInternalState,
     PlaybackError,
 } from './types';
-import { PlayerErrorCode } from './types';
+import { AppErrorCode } from '../../types/app-errors';
 import {
     VIDEO_ELEMENT_ID,
     VIDEO_ELEMENT_STYLES,
@@ -654,7 +654,7 @@ export class VideoPlayer implements IVideoPlayer {
     public async setAudioTrack(trackId: string): Promise<void> {
         if (!this._videoElement) {
             const error: PlaybackError = {
-                code: PlayerErrorCode.TRACK_NOT_FOUND,
+                code: AppErrorCode.TRACK_NOT_FOUND,
                 message: 'Video player not initialized',
                 recoverable: false,
                 retryCount: 0,

@@ -10,6 +10,7 @@ import { createOverlayPrimitives } from '../common/OverlayPrimitives';
 import { getChannelBrandingIcon } from '../common/channelBrandingIcons';
 
 const ROW_COUNT = 5;
+type MiniGuideBrandingStrategy = MiniGuideViewModel['channels'][number]['buildStrategy'];
 
 type MiniGuideRowElements = {
     row: HTMLElement | null;
@@ -25,7 +26,7 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
     private containerElement: HTMLElement | null = null;
     private isVisibleFlag = false;
     private rows: MiniGuideRowElements[] = [];
-    private processedBrandingStrategyByRow: Array<string | null> = [];
+    private processedBrandingStrategyByRow: Array<MiniGuideBrandingStrategy> = [];
 
     initialize(config: MiniGuideConfig): void {
         const container = document.getElementById(config.containerId);

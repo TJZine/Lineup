@@ -1,26 +1,17 @@
+import sharedConfig from './jest.shared.config.js';
+
 /** @type {import('ts-jest').JestConfigWithTsJest} */
-export default {
-    preset: 'ts-jest',
-    testEnvironment: 'node',
-    setupFilesAfterEnv: ['<rootDir>/src/__tests__/jest.setup.ts'],
-    roots: ['<rootDir>/src'],
+const config = {
+    ...sharedConfig,
     testMatch: [
         '**/*.contract.test.ts',
         '**/*.contracts.test.ts',
+        '**/*-contract.test.ts',
+        '**/*-contracts.test.ts',
         '**/*.policy.test.ts',
+        '**/*-policy.test.ts',
         '**/types.test.ts',
     ],
-    transform: {
-        '^.+\\.tsx?$': ['ts-jest', {
-            useESM: true,
-        }],
-    },
-    moduleNameMapper: {
-        '^@types/(.*)$': '<rootDir>/src/types/$1',
-        '^@modules/(.*)$': '<rootDir>/src/modules/$1',
-        '^@utils/(.*)$': '<rootDir>/src/utils/$1',
-        '^@core/(.*)$': '<rootDir>/src/core/$1',
-        '^@config/(.*)$': '<rootDir>/src/config/$1',
-    },
-    extensionsToTreatAsEsm: ['.ts'],
 };
+
+export default config;

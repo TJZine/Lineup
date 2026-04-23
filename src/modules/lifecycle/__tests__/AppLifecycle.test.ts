@@ -11,7 +11,7 @@ import { NETWORK_CHECK_PROBE_URL } from '../constants';
 import { AppErrorCode, PersistentState } from '../types';
 import type { IAppLifecycle } from '../interfaces';
 import type { PlatformLifecycleService } from '../../../platform';
-import { flushPromisesAndTimers } from '../../../__tests__/helpers';
+import { expectConsoleWarn, flushPromisesAndTimers } from '../../../__tests__/helpers';
 
 describe('AppLifecycle', () => {
     let lifecycle: AppLifecycle;
@@ -310,25 +310,36 @@ describe('AppLifecycle', () => {
     });
 
     describe('visibility', () => {
-        it('removes the exact lifecycle subscription instance on dispose', () => {
+        it('removes duplicate pause subscriptions independently via the public pause lifecycle', async () => {
+            await lifecycle.initialize();
+            lifecycle.setPhase('loading_data');
+            await flushPromisesAndTimers();
+            lifecycle.setPhase('ready');
+            await flushPromisesAndTimers();
+
             const pauseCallback = jest.fn();
             const first = lifecycle.onPause(pauseCallback) as unknown as { dispose?: () => void };
             const second = lifecycle.onPause(pauseCallback) as unknown as { dispose?: () => void };
 
-            const callbacks = (lifecycle as unknown as { _pauseCallbacks: Array<() => unknown> })._pauseCallbacks;
-            expect(callbacks).toHaveLength(2);
-            expect(callbacks[0]).not.toBe(callbacks[1]);
-
-            const firstWrapped = callbacks[0];
-            const secondWrapped = callbacks[1];
-
             second.dispose?.();
-            expect(callbacks).toHaveLength(1);
-            expect(callbacks[0]).toBe(firstWrapped);
-            expect(callbacks).not.toContain(secondWrapped);
+
+            Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            await flushPromisesAndTimers();
+
+            expect(pauseCallback).toHaveBeenCalledTimes(1);
 
             first.dispose?.();
-            expect(callbacks).toHaveLength(0);
+
+            Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            await flushPromisesAndTimers();
+
+            Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            await flushPromisesAndTimers();
+
+            expect(pauseCallback).toHaveBeenCalledTimes(1);
         });
 
         it('should call pause callbacks when hidden', async () => {
@@ -616,6 +627,7 @@ describe('AppLifecycle', () => {
             // Follow valid transition path: authenticating -> loading_data
             lifecycle.setPhase('loading_data');
             await flushPromisesAndTimers();
+            expectConsoleWarn('Invalid phase transition');
 
             const handler = jest.fn();
             lifecycle.on('phaseChange', handler);
@@ -651,7 +663,7 @@ describe('AppLifecycle', () => {
             // Should be in 'authenticating' phase
             expect(lifecycle.getPhase()).toBe('authenticating');
 
-            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+            expectConsoleWarn('Invalid phase transition');
 
             // Try to jump directly to 'ready' (invalid: should go through loading_data)
             lifecycle.setPhase('ready');
@@ -659,11 +671,6 @@ describe('AppLifecycle', () => {
 
             // Phase should NOT have changed
             expect(lifecycle.getPhase()).toBe('authenticating');
-            expect(consoleWarnSpy).toHaveBeenCalledWith(
-                expect.stringContaining('Invalid phase transition')
-            );
-
-            consoleWarnSpy.mockRestore();
         });
 
         it('should reject invalid phase transition from ready to authenticating', async () => {
@@ -676,7 +683,7 @@ describe('AppLifecycle', () => {
 
             expect(lifecycle.getPhase()).toBe('ready');
 
-            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+            expectConsoleWarn('Invalid phase transition');
 
             // Try to go back to 'authenticating' (invalid transition)
             lifecycle.setPhase('authenticating');
@@ -684,11 +691,6 @@ describe('AppLifecycle', () => {
 
             // Phase should NOT have changed
             expect(lifecycle.getPhase()).toBe('ready');
-            expect(consoleWarnSpy).toHaveBeenCalledWith(
-                expect.stringContaining('Invalid phase transition')
-            );
-
-            consoleWarnSpy.mockRestore();
         });
 
         it('should reject transition from loading_data to authenticating', async () => {
@@ -698,16 +700,13 @@ describe('AppLifecycle', () => {
 
             expect(lifecycle.getPhase()).toBe('loading_data');
 
-            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+            expectConsoleWarn('Invalid phase transition');
 
             // Try invalid backward transition
             lifecycle.setPhase('authenticating');
             await Promise.resolve();
 
             expect(lifecycle.getPhase()).toBe('loading_data');
-            expect(consoleWarnSpy).toHaveBeenCalled();
-
-            consoleWarnSpy.mockRestore();
         });
     });
 });

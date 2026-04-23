@@ -5,7 +5,7 @@
 import { ServerSelectScreen, type ServerSelectScreenPorts } from '../ServerSelectScreen';
 import type { ServerSelectScreenNavigationPort } from '../../../navigation';
 import type { PlexServer } from '../../../plex/discovery/types';
-import { createDeferred, flushPromisesAndTimers } from '../../../../__tests__/helpers';
+import { createBodyAppendedTestContainer, createDeferred, flushPromisesAndTimers } from '../../../../__tests__/helpers';
 
 type NavigationStub = ServerSelectScreenNavigationPort & {
     registerFocusable: jest.Mock;
@@ -70,8 +70,7 @@ describe('ServerSelectScreen', () => {
 
     it('renders the branded hero glyph above the title', () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         new ServerSelectScreen(container, orchestrator);
 
@@ -87,8 +86,7 @@ describe('ServerSelectScreen', () => {
 
     it('relies on shared screen bootstrap while show and hide still own display lifecycle', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
@@ -110,8 +108,7 @@ describe('ServerSelectScreen', () => {
 
     it('appends latency and applies slow class for ok status', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
@@ -134,8 +131,7 @@ describe('ServerSelectScreen', () => {
 
     it('applies very-slow class for >=500ms latency', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
@@ -158,8 +154,7 @@ describe('ServerSelectScreen', () => {
 
     it('ignores malformed persisted health payload when rendering server list', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
@@ -176,8 +171,7 @@ describe('ServerSelectScreen', () => {
 
     it('renders auth_invalid health state explicitly', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
@@ -199,8 +193,7 @@ describe('ServerSelectScreen', () => {
 
     it('does not mutate persisted selection/health keys during show/refresh when storage is empty', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
         const setSpy = jest.spyOn(Storage.prototype, 'setItem');
@@ -225,8 +218,7 @@ describe('ServerSelectScreen', () => {
 
     it('marks saved server row as active and keeps reconnect enabled when healthy', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
@@ -268,8 +260,7 @@ describe('ServerSelectScreen', () => {
     it('disambiguates colliding sanitized server ids with deterministic suffixes', async () => {
         const orchestrator = createOrchestratorStub();
         const nav = orchestrator.navigation;
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([
             makeServer('srv/1', 'Server One'),
@@ -291,8 +282,7 @@ describe('ServerSelectScreen', () => {
 
     it('does not auto-connect saved server by default', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
         orchestrator.selectServer.mockResolvedValue({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
@@ -311,8 +301,7 @@ describe('ServerSelectScreen', () => {
 
     it('shows auto-connect hint only when explicitly requested', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         let resolveDiscovery: (servers: PlexServer[]) => void = () => {};
         orchestrator.discoverServers.mockImplementation(
@@ -340,8 +329,7 @@ describe('ServerSelectScreen', () => {
 
     it('hides auto-connect hint before showing connected state after saved-server auto-select succeeds', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
         orchestrator.selectServer.mockResolvedValue({
@@ -367,8 +355,7 @@ describe('ServerSelectScreen', () => {
 
     it('keeps reconnect enabled when saved server auto-select fails', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
         orchestrator.selectServer.mockResolvedValue({ kind: 'selection_failed', reason: 'unreachable' });
@@ -396,8 +383,7 @@ describe('ServerSelectScreen', () => {
 
     it('shows explicit auth-required guidance when selection fails with auth_required', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
         orchestrator.selectServer.mockResolvedValue({ kind: 'selection_failed', reason: 'auth_required' });
@@ -416,8 +402,7 @@ describe('ServerSelectScreen', () => {
 
     it('shows explicit auth-invalid guidance when selection fails with auth_invalid', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
         orchestrator.selectServer.mockResolvedValue({ kind: 'selection_failed', reason: 'auth_invalid' });
@@ -437,8 +422,7 @@ describe('ServerSelectScreen', () => {
     it('surfaces discovery failures through screen error UI without console logging', async () => {
         const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockRejectedValueOnce(new Error('discovery failed'));
 
@@ -458,8 +442,7 @@ describe('ServerSelectScreen', () => {
     it('surfaces initial show-load failures thrown before async discovery starts through screen error UI', async () => {
         const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.getSelectedServerStorageKey.mockReturnValue('');
 
@@ -479,8 +462,7 @@ describe('ServerSelectScreen', () => {
     it('surfaces thrown selection failures through screen error UI without console logging', async () => {
         const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
         orchestrator.selectServer.mockRejectedValueOnce(new Error('select failed'));
@@ -505,8 +487,7 @@ describe('ServerSelectScreen', () => {
     it('recovers from a synchronous pre-await selectServer throw without leaving the UI locked', async () => {
         const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
         orchestrator.selectServer.mockImplementation(() => {
@@ -536,8 +517,7 @@ describe('ServerSelectScreen', () => {
 
     it('ignores concurrent manual server selection requests while one is in flight', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const selectDeferred = createDeferred<Awaited<ReturnType<ServerSelectScreenPorts['selectServer']>>>();
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
@@ -566,8 +546,7 @@ describe('ServerSelectScreen', () => {
 
     it('does not update hidden UI when manual server selection completes after hide', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const selectDeferred = createDeferred<Awaited<ReturnType<ServerSelectScreenPorts['selectServer']>>>();
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
@@ -592,8 +571,7 @@ describe('ServerSelectScreen', () => {
 
     it('keeps re-shown server buttons disabled while a previous manual selection is pending and re-enables after it settles', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const server = makeServer('srv-1', 'Server One');
         const selectDeferred = createDeferred<Awaited<ReturnType<ServerSelectScreenPorts['selectServer']>>>();
@@ -638,8 +616,7 @@ describe('ServerSelectScreen', () => {
 
     it('does not auto-connect a saved server while a previous manual selection is pending', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const server = makeServer('srv-1', 'Server One');
         const selectDeferred = createDeferred<Awaited<ReturnType<ServerSelectScreenPorts['selectServer']>>>();
@@ -678,8 +655,7 @@ describe('ServerSelectScreen', () => {
 
     it('does not clear the saved server while server selection is in flight', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const server = makeServer('srv-1', 'Server One');
         const selectDeferred = createDeferred<Awaited<ReturnType<ServerSelectScreenPorts['selectServer']>>>();
@@ -712,8 +688,7 @@ describe('ServerSelectScreen', () => {
     it('recovers from a synchronous pre-await clearSelectedServer throw without leaving the clear action locked', async () => {
         const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
         orchestrator.clearSelectedServer.mockImplementation(() => {
@@ -741,8 +716,7 @@ describe('ServerSelectScreen', () => {
     it('removes disabled connect buttons from the navigation focus graph during selection', async () => {
         const orchestrator = createOrchestratorStub();
         const nav = orchestrator.navigation;
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const server = makeServer('srv-1', 'Server One');
         const selectDeferred = createDeferred<Awaited<ReturnType<ServerSelectScreenPorts['selectServer']>>>();
@@ -785,8 +759,7 @@ describe('ServerSelectScreen', () => {
 
         try {
             const orchestrator = createOrchestratorStub();
-            const container = document.createElement('div');
-            document.body.appendChild(container);
+            const container = createBodyAppendedTestContainer();
 
             const selectDeferred = createDeferred<Awaited<ReturnType<ServerSelectScreenPorts['selectServer']>>>();
             orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
@@ -813,8 +786,7 @@ describe('ServerSelectScreen', () => {
 
     it('shows saved server unavailable state when saved server is missing from discovery results', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-2', 'Server Two')]);
         localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
@@ -832,8 +804,7 @@ describe('ServerSelectScreen', () => {
     it('renders empty state and removes down neighbors when list is empty', async () => {
         const orchestrator = createOrchestratorStub();
         const nav = orchestrator.navigation;
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([]);
 
@@ -862,8 +833,7 @@ describe('ServerSelectScreen', () => {
     it('does not unregister static focusables when updating static neighbors', async () => {
         const orchestrator = createOrchestratorStub();
         const nav = orchestrator.navigation;
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([
             makeServer('srv-1', 'Server One'),
@@ -885,8 +855,7 @@ describe('ServerSelectScreen', () => {
     it('unregisters stale server focusables before rendering refreshed server list', async () => {
         const orchestrator = createOrchestratorStub();
         const nav = orchestrator.navigation;
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers
             .mockResolvedValueOnce([
@@ -912,8 +881,7 @@ describe('ServerSelectScreen', () => {
     it('restores focus to refresh after clearing saved server', async () => {
         const orchestrator = createOrchestratorStub();
         const nav = orchestrator.navigation;
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
@@ -944,8 +912,7 @@ describe('ServerSelectScreen', () => {
 
         try {
             const orchestrator = createOrchestratorStub();
-            const container = document.createElement('div');
-            document.body.appendChild(container);
+            const container = createBodyAppendedTestContainer();
 
             orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
             orchestrator.clearSelectedServer.mockRejectedValueOnce(new Error('store failed'));
@@ -978,8 +945,7 @@ describe('ServerSelectScreen', () => {
 
     it('ignores concurrent clear saved server requests while one is in flight', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const deferred = createDeferred<void>();
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
@@ -1005,8 +971,7 @@ describe('ServerSelectScreen', () => {
 
     it('disables the clear saved server button while clear is in flight and reenables it after success', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const clearDeferred = createDeferred<void>();
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
@@ -1037,8 +1002,7 @@ describe('ServerSelectScreen', () => {
 
         try {
             const orchestrator = createOrchestratorStub();
-            const container = document.createElement('div');
-            document.body.appendChild(container);
+            const container = createBodyAppendedTestContainer();
 
             const clearDeferred = createDeferred<void>();
             orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
@@ -1071,8 +1035,7 @@ describe('ServerSelectScreen', () => {
 
     it('does not let a stale clear completion reenable clear while the current visibility generation is loading', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const clearDeferred = createDeferred<void>();
         const secondDiscovery = createDeferred<PlexServer[]>();
@@ -1118,8 +1081,7 @@ describe('ServerSelectScreen', () => {
 
     it('keeps clear disabled when current discovery finishes before a stale clear settles', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const clearDeferred = createDeferred<void>();
         const secondDiscovery = createDeferred<PlexServer[]>();
@@ -1165,8 +1127,7 @@ describe('ServerSelectScreen', () => {
     it('does not update hidden UI or re-register focusables when clear completes after hide', async () => {
         const orchestrator = createOrchestratorStub();
         const nav = orchestrator.navigation;
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const deferred = createDeferred<void>();
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
@@ -1199,8 +1160,7 @@ describe('ServerSelectScreen', () => {
 
         try {
             const orchestrator = createOrchestratorStub();
-            const container = document.createElement('div');
-            document.body.appendChild(container);
+            const container = createBodyAppendedTestContainer();
 
             const deferred = createDeferred<void>();
             orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
@@ -1229,8 +1189,7 @@ describe('ServerSelectScreen', () => {
     it('does not update hidden UI or restore focus when discovery resolves after hide', async () => {
         const orchestrator = createOrchestratorStub();
         const nav = orchestrator.navigation;
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const deferred = createDeferred<PlexServer[]>();
         orchestrator.discoverServers.mockReturnValue(deferred.promise);
@@ -1256,8 +1215,7 @@ describe('ServerSelectScreen', () => {
     it('ignores stale discovery results from a previous visibility session after hide and show', async () => {
         const orchestrator = createOrchestratorStub();
         const nav = orchestrator.navigation;
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const firstDiscovery = createDeferred<PlexServer[]>();
         const secondServer = makeServer('srv-2', 'Second Server');
@@ -1291,8 +1249,7 @@ describe('ServerSelectScreen', () => {
 
         try {
             const orchestrator = createOrchestratorStub();
-            const container = document.createElement('div');
-            document.body.appendChild(container);
+            const container = createBodyAppendedTestContainer();
 
             const deferred = createDeferred<PlexServer[]>();
             orchestrator.discoverServers.mockReturnValue(deferred.promise);
@@ -1315,8 +1272,7 @@ describe('ServerSelectScreen', () => {
 
     it('ignores stale clear results from a previous visibility session after hide and show', async () => {
         const orchestrator = createOrchestratorStub();
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         const clearDeferred = createDeferred<void>();
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
@@ -1348,8 +1304,7 @@ describe('ServerSelectScreen', () => {
         const orchestrator = createOrchestratorStub();
         const nav = orchestrator.navigation;
         nav.restoreFocusForCurrentScreen.mockReturnValue(true);
-        const container = document.createElement('div');
-        document.body.appendChild(container);
+        const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 

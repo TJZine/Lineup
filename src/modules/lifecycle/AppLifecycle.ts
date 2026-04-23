@@ -1,9 +1,3 @@
-/**
- * @fileoverview Application Lifecycle Manager for webOS.
- * @module modules/lifecycle/AppLifecycle
- * @version 1.0.0
- */
-
 import { IAppLifecycle } from './interfaces';
 import {
     AppPhase,
@@ -29,11 +23,6 @@ import {
 import type { PlatformLifecycleService } from '../../platform';
 import { webosPlatformServices } from '../../platform';
 
-/**
- * Application Lifecycle Manager.
- * Manages app phases, visibility, network monitoring, memory tracking,
- * state persistence, and error reporting for webOS applications.
- */
 export class AppLifecycle implements IAppLifecycle {
     // Dependencies
     private readonly _emitter: EventEmitter<LifecycleEventMap>;

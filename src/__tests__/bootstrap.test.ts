@@ -8,15 +8,13 @@ import path from 'node:path';
 import { LINEUP_EVENT_NAMES } from '../config/events';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 
-import { flushPromises } from './helpers';
-
-const setDevBuild = (value: boolean): void => {
-    Object.defineProperty(globalThis, '__LINEUP_DEV_BUILD__', {
-        value,
-        configurable: true,
-        writable: true,
-    });
-};
+import {
+    expectConsoleError,
+    expectConsoleWarn,
+    flushPromises,
+    setDevBuildForTest,
+    setDocumentReadyStateForTest,
+} from './helpers';
 
 type BootstrapModule = typeof import('../bootstrap');
 
@@ -33,6 +31,51 @@ type DebugApi = {
 type LineupWindow = Window & { __LINEUP__?: DebugApi };
 
 let installedModule: BootstrapModule | null = null;
+let restoreDevBuild: (() => void) | null = null;
+let restoreDocumentReadyState: (() => void) | null = null;
+
+const setDevBuild = (value: boolean): void => {
+    restoreDevBuild?.();
+    restoreDevBuild = setDevBuildForTest(value);
+};
+
+const setDocumentReadyState = (value: DocumentReadyState): void => {
+    restoreDocumentReadyState?.();
+    restoreDocumentReadyState = setDocumentReadyStateForTest(value);
+};
+
+const expectBootstrapStartLogs = (times: number = 1): void => {
+    expectConsoleWarn('[Lineup] Starting...', { times });
+};
+
+const expectBootstrapStartedLogs = (times: number = 1): void => {
+    expectConsoleWarn('[Lineup] Started successfully', { times });
+};
+
+const expectBootstrapShutdownLogs = (times: number = 1): void => {
+    expectConsoleWarn('[Lineup] Shutting down...', { times });
+};
+
+const expectBootstrapShutdownCompleteLogs = (times: number = 1): void => {
+    expectConsoleWarn('[Lineup] Shut down complete', { times });
+};
+
+const expectBootstrapFailureLog = (
+    prefix: string = '[Lineup] bootstrap failed:',
+    message: string = 'start failed'
+): void => {
+    expectConsoleError([
+        prefix,
+        expect.objectContaining({ message }),
+    ]);
+};
+
+const expectBootstrapLifecycleSuccess = (): void => {
+    expectBootstrapStartLogs();
+    expectBootstrapStartedLogs();
+    expectBootstrapShutdownLogs();
+    expectBootstrapShutdownCompleteLogs();
+};
 
 const getWindowListener = (
     spy: jest.SpyInstance,
@@ -53,12 +96,17 @@ const importBootstrapModule = async (options?: {
     shutdown?: jest.Mock;
     getOrchestrator?: jest.Mock;
     autoDispatchDomReady?: boolean;
+    expectLifecycleSuccess?: boolean;
 }): Promise<{
     module: BootstrapModule;
     start: jest.Mock;
     shutdown: jest.Mock;
     getOrchestrator: jest.Mock;
 }> => {
+    if (options?.expectLifecycleSuccess !== false) {
+        expectBootstrapLifecycleSuccess();
+    }
+
     const start = options?.start ?? jest.fn().mockResolvedValue(undefined);
     const shutdown = options?.shutdown ?? jest.fn().mockResolvedValue(undefined);
     const getOrchestrator = options?.getOrchestrator ?? jest.fn(() => null);
@@ -110,6 +158,10 @@ describe('bootstrap seam', () => {
             jest.restoreAllMocks();
             document.body.innerHTML = '';
             localStorage.clear();
+            restoreDocumentReadyState?.();
+            restoreDocumentReadyState = null;
+            restoreDevBuild?.();
+            restoreDevBuild = null;
         }
     });
 
@@ -134,36 +186,42 @@ describe('bootstrap seam', () => {
 
     it('rejects from bootstrap() when App.start fails', async () => {
         const start = jest.fn().mockRejectedValue(new Error('start failed'));
-        const { module } = await importBootstrapModule({ start, autoDispatchDomReady: false });
+        expectBootstrapStartLogs(2);
+        expectBootstrapFailureLog();
+        expectBootstrapShutdownLogs();
+        expectBootstrapShutdownCompleteLogs();
+        const { module } = await importBootstrapModule({
+            start,
+            autoDispatchDomReady: false,
+            expectLifecycleSuccess: false,
+        });
 
         await expect(module.bootstrap()).rejects.toThrow('start failed');
     });
 
     it('shows fatal overlay and clears app/debug state when DOMContentLoaded bootstrap fails', async () => {
-        Object.defineProperty(document, 'readyState', {
-            value: 'loading',
-            configurable: true,
-        });
+        setDocumentReadyState('loading');
         const start = jest.fn().mockRejectedValue(new Error('start failed'));
 
-        try {
-            const { module } = await importBootstrapModule({ start, autoDispatchDomReady: false });
-            document.dispatchEvent(new Event('DOMContentLoaded'));
-            await flushPromises();
+        expectBootstrapStartLogs();
+        expectBootstrapFailureLog();
+        const { module } = await importBootstrapModule({
+            start,
+            autoDispatchDomReady: false,
+            expectLifecycleSuccess: false,
+        });
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+        await flushPromises();
 
-            expectBootstrapFailureState(module);
-        } finally {
-            Object.defineProperty(document, 'readyState', {
-                value: 'complete',
-                configurable: true,
-            });
-        }
+        expectBootstrapFailureState(module);
     });
 
     it('shows fatal overlay and clears app/debug state when immediate bootstrap fails', async () => {
         const start = jest.fn().mockRejectedValue(new Error('start failed'));
+        expectBootstrapStartLogs();
+        expectBootstrapFailureLog();
 
-        const { module } = await importBootstrapModule({ start });
+        const { module } = await importBootstrapModule({ start, expectLifecycleSuccess: false });
 
         expectBootstrapFailureState(module);
     });
@@ -171,8 +229,10 @@ describe('bootstrap seam', () => {
     it('uses modal alertdialog semantics for the fatal bootstrap overlay', async () => {
         const focusSpy = jest.spyOn(HTMLElement.prototype, 'focus');
         const start = jest.fn().mockRejectedValue(new Error('start failed'));
+        expectBootstrapStartLogs();
+        expectBootstrapFailureLog();
 
-        await importBootstrapModule({ start });
+        await importBootstrapModule({ start, expectLifecycleSuccess: false });
 
         const overlay = document.getElementById('global-error-overlay');
         expect(overlay).not.toBeNull();
@@ -191,8 +251,10 @@ describe('bootstrap seam', () => {
         document.body.appendChild(shellSurface);
 
         const start = jest.fn().mockRejectedValue(new Error('start failed'));
+        expectBootstrapStartLogs();
+        expectBootstrapFailureLog();
 
-        await importBootstrapModule({ start });
+        await importBootstrapModule({ start, expectLifecycleSuccess: false });
 
         const overlay = document.getElementById('global-error-overlay');
         expect(overlay).not.toBeNull();
@@ -218,8 +280,13 @@ describe('bootstrap seam', () => {
             .fn()
             .mockResolvedValueOnce(undefined)
             .mockRejectedValueOnce(new Error('start failed'));
+        expectBootstrapStartLogs(2);
+        expectBootstrapStartedLogs();
+        expectBootstrapShutdownLogs();
+        expectBootstrapShutdownCompleteLogs();
+        expectBootstrapFailureLog('[Lineup] bootstrap (pageshow) failed:');
 
-        const { module } = await importBootstrapModule({ start });
+        const { module } = await importBootstrapModule({ start, expectLifecycleSuccess: false });
         await module.cleanup();
 
         window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
@@ -230,8 +297,15 @@ describe('bootstrap seam', () => {
 
     it('clears app state and debug surface even when shutdown fails', async () => {
         const shutdown = jest.fn().mockRejectedValueOnce(new Error('shutdown failed'));
+        expectBootstrapStartLogs();
+        expectBootstrapStartedLogs();
+        expectBootstrapShutdownLogs();
+        expectConsoleError([
+            '[Lineup] shutdown failed:',
+            expect.objectContaining({ message: 'shutdown failed' }),
+        ]);
 
-        const { module } = await importBootstrapModule({ shutdown });
+        const { module } = await importBootstrapModule({ shutdown, expectLifecycleSuccess: false });
 
         await expect(module.cleanup()).rejects.toThrow('shutdown failed');
         expect(module.app).toBeNull();
@@ -302,8 +376,20 @@ describe('bootstrap seam', () => {
     it('drives error and unhandledrejection handlers through installed listeners', async () => {
         const addEventListenerSpy = jest.spyOn(window, 'addEventListener');
         const preventDefault = jest.spyOn(Event.prototype, 'preventDefault');
+        expectConsoleError([
+            'Uncaught error:',
+            expect.objectContaining({ message: 'X-Plex-Token=REDACTED' }),
+        ]);
+        expectConsoleError([
+            'Uncaught error:',
+            expect.objectContaining({ message: 'second error' }),
+        ]);
+        expectConsoleError([
+            'Unhandled promise rejection:',
+            'token=REDACTED',
+        ]);
 
-        await importBootstrapModule();
+        await importBootstrapModule({ expectLifecycleSuccess: false });
 
         const errorEvent = new ErrorEvent('error', {
             message: 'X-Plex-Token=abc123',
@@ -360,7 +446,7 @@ describe('bootstrap seam', () => {
         const legacyKey = 'lineup_debug_transcode';
         localStorage.setItem(legacyKey, '1');
 
-        Object.defineProperty(document, 'readyState', { value: 'loading', configurable: true });
+        setDocumentReadyState('loading');
         jest.doMock('../utils/storage', () => {
             const actual = jest.requireActual('../utils/storage') as typeof import('../utils/storage');
             return {
@@ -371,7 +457,7 @@ describe('bootstrap seam', () => {
         });
 
         try {
-            await importBootstrapModule({ autoDispatchDomReady: false });
+            await importBootstrapModule({ autoDispatchDomReady: false, expectLifecycleSuccess: false });
 
             expect(localStorage.getItem(primaryKey)).toBeNull();
             expect(localStorage.getItem(legacyKey)).toBe('1');
@@ -384,12 +470,11 @@ describe('bootstrap seam', () => {
             expect(storage.safeLocalStorageRemove).not.toHaveBeenCalled();
         } finally {
             jest.unmock('../utils/storage');
-            Object.defineProperty(document, 'readyState', { value: 'complete', configurable: true });
         }
     });
 
     it('includes element identity and computed metadata in debug dom snapshots', async () => {
-        await importBootstrapModule();
+        await importBootstrapModule({ expectLifecycleSuccess: false });
 
         const target = document.createElement('div');
         target.id = 'target';
@@ -411,7 +496,7 @@ describe('bootstrap seam', () => {
         setDevBuild(false);
         localStorage.removeItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING);
 
-        await importBootstrapModule();
+        await importBootstrapModule({ expectLifecycleSuccess: false });
         const suppressedLog = (globalThis as { console: { log: (...args: unknown[]) => void } }).console.log;
 
         localStorage.setItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, 'true');
@@ -422,23 +507,15 @@ describe('bootstrap seam', () => {
     });
 
     it('waits for DOMContentLoaded when document is loading', async () => {
-        Object.defineProperty(document, 'readyState', {
-            value: 'loading',
-            configurable: true,
+        setDocumentReadyState('loading');
+        const { start } = await importBootstrapModule({
+            autoDispatchDomReady: false,
+            expectLifecycleSuccess: false,
         });
+        expect(start).not.toHaveBeenCalled();
 
-        try {
-            const { start } = await importBootstrapModule({ autoDispatchDomReady: false });
-            expect(start).not.toHaveBeenCalled();
-
-            document.dispatchEvent(new Event('DOMContentLoaded'));
-            await flushPromises();
-            expect(start).toHaveBeenCalledTimes(1);
-        } finally {
-            Object.defineProperty(document, 'readyState', {
-                value: 'complete',
-                configurable: true,
-            });
-        }
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+        await flushPromises();
+        expect(start).toHaveBeenCalledTimes(1);
     });
 });

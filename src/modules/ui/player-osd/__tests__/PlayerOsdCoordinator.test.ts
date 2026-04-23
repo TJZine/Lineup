@@ -27,20 +27,20 @@ const makeState = (status: PlaybackState['status']): PlaybackState => ({
     errorInfo: null,
 });
 
-const makeOverlay = (): IPlayerOsdOverlay & { _visible: boolean } => {
+const makeOverlay = (): IPlayerOsdOverlay => {
+    let visible = false;
     const overlay = {
-        _visible: false,
         initialize: jest.fn(),
         destroy: jest.fn(),
         show: jest.fn(() => {
-            overlay._visible = true;
+            visible = true;
         }),
         hide: jest.fn(() => {
-            overlay._visible = false;
+            visible = false;
         }),
-        isVisible: jest.fn(() => overlay._visible),
+        isVisible: jest.fn(() => visible),
         setViewModel: jest.fn(),
-    } as unknown as IPlayerOsdOverlay & { _visible: boolean };
+    } as unknown as IPlayerOsdOverlay;
     return overlay;
 };
 
@@ -111,7 +111,7 @@ function makeCoordinatorOptions(
 
 const setup = (): {
     coordinator: PlayerOsdCoordinator;
-    overlay: IPlayerOsdOverlay & { _visible: boolean };
+    overlay: IPlayerOsdOverlay;
     videoPlayer: IVideoPlayer;
     navigation: INavigationManager;
 } => {
@@ -126,7 +126,7 @@ const setup = (): {
     document.body.appendChild(audio);
 
     const options = makeCoordinatorOptions();
-    const overlay = options.getOverlay() as IPlayerOsdOverlay & { _visible: boolean };
+    const overlay = options.getOverlay() as IPlayerOsdOverlay;
     const navigation = options.getNavigation() as INavigationManager;
     const videoPlayer = options.getVideoPlayer() as IVideoPlayer;
 
@@ -245,7 +245,7 @@ describe('PlayerOsdCoordinator', () => {
 
     it('timeUpdate ignored when hidden', () => {
         const { coordinator, overlay } = setup();
-        overlay._visible = false;
+        expect(overlay.isVisible()).toBe(false);
 
         coordinator.onTimeUpdate({ currentTimeMs: 1000, durationMs: 10_000 });
 

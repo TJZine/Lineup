@@ -7,6 +7,7 @@
 
 import { EventEmitter } from '../../../utils/EventEmitter';
 import type { IDisposable } from '../../../utils/interfaces';
+import { AppErrorCode } from '../../../types/app-errors';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { fnv1a32Hex } from '../../../utils/hash';
 import { redactUrlForLog } from '../../../utils/redact';
@@ -36,7 +37,6 @@ import type {
     RawPlaylist,
     RawDirectoryTag,
 } from './types';
-import { PlexLibraryErrorCode } from './types';
 import { PlexLibraryError } from './PlexLibraryError';
 import {
     parseLibrarySections,
@@ -66,7 +66,6 @@ import { createPlexConsoleLogger } from '../shared/plexLogging';
 
 // Re-export for consumers
 export { PlexLibraryError } from './PlexLibraryError';
-export { PlexLibraryErrorCode };
 
 const INTERACTIVE_REQUEST_POLICY = {
     timeoutMs: 5000,
@@ -179,7 +178,7 @@ export class PlexLibrary implements IPlexLibrary {
             return {
                 kind: 'unavailable',
                 error: new PlexLibraryError(
-                    PlexLibraryErrorCode.SERVER_ERROR,
+                    AppErrorCode.SERVER_ERROR,
                     `Library section lookup unavailable while resolving ${libraryId}`
                 ),
             };
@@ -201,7 +200,7 @@ export class PlexLibrary implements IPlexLibrary {
                 error: error instanceof PlexLibraryError
                     ? error
                     : new PlexLibraryError(
-                        PlexLibraryErrorCode.PARSE_ERROR,
+                        AppErrorCode.PARSE_ERROR,
                         `Invalid library section payload while resolving ${libraryId}: ${message}`
                     ),
             };
@@ -227,7 +226,7 @@ export class PlexLibrary implements IPlexLibrary {
 
         if (!response) {
             throw new PlexLibraryError(
-                PlexLibraryErrorCode.SERVER_ERROR,
+                AppErrorCode.SERVER_ERROR,
                 'Library sections unavailable'
             );
         }
@@ -365,7 +364,7 @@ export class PlexLibrary implements IPlexLibrary {
                     `[PlexLibrary] Pagination guard tripped in getLibraryItems ` +
                     `(libraryId=${libraryId}, fetched=${items.length}, pageSize=${pageSize}, maxIterations=${PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS})`;
                 this._logger.error(message);
-                throw new PlexLibraryError(PlexLibraryErrorCode.PAGINATION_LIMIT_EXCEEDED, message);
+                throw new PlexLibraryError(AppErrorCode.PAGINATION_LIMIT_EXCEEDED, message);
             }
             const params: Record<string, string | number> = {
                 'X-Plex-Container-Start': offset,
@@ -547,7 +546,7 @@ export class PlexLibrary implements IPlexLibrary {
                     `[PlexLibrary] Pagination guard tripped in getShowEpisodes ` +
                     `(showKey=${showKey}, fetched=${allEpisodes.length}, offset=${offset}, pageSize=${PLEX_LIBRARY_CONSTANTS.ALL_LEAVES_PAGE_SIZE}, maxIterations=${PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS})`;
                 this._logger.error(message);
-                throw new PlexLibraryError(PlexLibraryErrorCode.PAGINATION_LIMIT_EXCEEDED, message);
+                throw new PlexLibraryError(AppErrorCode.PAGINATION_LIMIT_EXCEEDED, message);
             }
             const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_METADATA_ALL_LEAVES(showKey), {
                 'X-Plex-Container-Start': offset,
@@ -947,7 +946,7 @@ export class PlexLibrary implements IPlexLibrary {
         const serverUri = this._config.getServerUri();
         if (!serverUri) {
             throw new PlexLibraryError(
-                PlexLibraryErrorCode.SERVER_UNREACHABLE,
+                AppErrorCode.SERVER_UNREACHABLE,
                 'No server URI available'
             );
         }
@@ -1046,7 +1045,7 @@ export class PlexLibrary implements IPlexLibrary {
                 if (response.status === 401) {
                     this._emitter.emit('authExpired', undefined);
                     throw new PlexLibraryError(
-                        PlexLibraryErrorCode.AUTH_EXPIRED,
+                        AppErrorCode.AUTH_EXPIRED,
                         'Authentication expired',
                         401
                     );
@@ -1056,7 +1055,7 @@ export class PlexLibrary implements IPlexLibrary {
                 // (e.g. managed user profile lacks access to this library section)
                 if (response.status === 403) {
                     throw new PlexLibraryError(
-                        PlexLibraryErrorCode.ACCESS_DENIED,
+                        AppErrorCode.ACCESS_DENIED,
                         `Access denied: profile does not have permission for this resource (403)`,
                         403
                     );
@@ -1066,7 +1065,7 @@ export class PlexLibrary implements IPlexLibrary {
                 if (response.status === 429) {
                     if (rateLimitRetries >= requestPolicy.maxTimeoutRetries) {
                         throw new PlexLibraryError(
-                            PlexLibraryErrorCode.RATE_LIMITED,
+                            AppErrorCode.RATE_LIMITED,
                             'Rate limited after max retries',
                             429
                         );
@@ -1106,7 +1105,7 @@ export class PlexLibrary implements IPlexLibrary {
                         continue;
                     }
                     throw new PlexLibraryError(
-                        PlexLibraryErrorCode.SERVER_ERROR,
+                        AppErrorCode.SERVER_ERROR,
                         `HTTP ${response.status}`,
                         response.status
                     );
@@ -1115,7 +1114,7 @@ export class PlexLibrary implements IPlexLibrary {
                 // Handle other non-OK responses
                 if (!response.ok) {
                     throw new PlexLibraryError(
-                        PlexLibraryErrorCode.SERVER_ERROR,
+                        AppErrorCode.SERVER_ERROR,
                         `HTTP ${response.status}`,
                         response.status
                     );
@@ -1129,7 +1128,7 @@ export class PlexLibrary implements IPlexLibrary {
 
                     if (!text || text.trim() === '') {
                         throw new PlexLibraryError(
-                            PlexLibraryErrorCode.PARSE_ERROR,
+                            AppErrorCode.PARSE_ERROR,
                             `Empty response body from ${this._redactUrlForLog(url)}`
                         );
                     }
@@ -1138,7 +1137,7 @@ export class PlexLibrary implements IPlexLibrary {
 
                     if (typeof data !== 'object' || data === null || Array.isArray(data)) {
                         throw new PlexLibraryError(
-                            PlexLibraryErrorCode.PARSE_ERROR,
+                            AppErrorCode.PARSE_ERROR,
                             `Invalid JSON response from ${this._redactUrlForLog(url)}: expected a top-level JSON object but received ${describeTopLevelJsonValue(data)}`
                         );
                     }
@@ -1159,7 +1158,7 @@ export class PlexLibrary implements IPlexLibrary {
                     );
                     const message = parseError instanceof Error ? parseError.message : String(parseError);
                     throw new PlexLibraryError(
-                        PlexLibraryErrorCode.PARSE_ERROR,
+                        AppErrorCode.PARSE_ERROR,
                         `Invalid JSON response from ${this._redactUrlForLog(url)}: ${message}`
                     );
                 }
@@ -1192,7 +1191,7 @@ export class PlexLibrary implements IPlexLibrary {
                         continue;
                     }
                     throw new PlexLibraryError(
-                        PlexLibraryErrorCode.NETWORK_TIMEOUT,
+                        AppErrorCode.NETWORK_TIMEOUT,
                         'Network timeout after max retries'
                     );
                 }
@@ -1200,8 +1199,8 @@ export class PlexLibrary implements IPlexLibrary {
                 // Don't retry auth or access-denied errors
                 if (
                     error instanceof PlexLibraryError &&
-                    (error.code === PlexLibraryErrorCode.AUTH_EXPIRED ||
-                        error.code === PlexLibraryErrorCode.ACCESS_DENIED)
+                    (error.code === AppErrorCode.AUTH_EXPIRED ||
+                        error.code === AppErrorCode.ACCESS_DENIED)
                 ) {
                     throw error;
                 }
@@ -1210,7 +1209,7 @@ export class PlexLibrary implements IPlexLibrary {
                 if (error instanceof TypeError) {
                     this._config.onServerUnreachable?.();
                     throw new PlexLibraryError(
-                        PlexLibraryErrorCode.SERVER_UNREACHABLE,
+                        AppErrorCode.SERVER_UNREACHABLE,
                         error.message
                     );
                 }
@@ -1223,7 +1222,7 @@ export class PlexLibrary implements IPlexLibrary {
                 // Unknown error - trigger re-discovery and throw
                 this._config.onServerUnreachable?.();
                 throw new PlexLibraryError(
-                    PlexLibraryErrorCode.SERVER_UNREACHABLE,
+                    AppErrorCode.SERVER_UNREACHABLE,
                     error instanceof Error ? error.message : 'Unknown error'
                 );
             }

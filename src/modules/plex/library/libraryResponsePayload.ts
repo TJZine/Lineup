@@ -1,6 +1,6 @@
+import { AppErrorCode } from '../../../types/app-errors';
 import { PlexLibraryError } from './PlexLibraryError';
 import { parseRequiredArray, parseRequiredObject } from './parserValidation';
-import { PlexLibraryErrorCode } from './types';
 import type {
     PlexMediaContainer,
     RawMediaItem,
@@ -28,7 +28,7 @@ export function extractMediaContainer<T>(
 
     if (!isObject(mediaContainer)) {
         throw new PlexLibraryError(
-            PlexLibraryErrorCode.PARSE_ERROR,
+            AppErrorCode.PARSE_ERROR,
             `Invalid ${context} payload: missing MediaContainer object`
         );
     }
@@ -56,7 +56,7 @@ export function extractMetadataArray<T>(
 
     if (!Array.isArray(metadata)) {
         throw new PlexLibraryError(
-            PlexLibraryErrorCode.PARSE_ERROR,
+            AppErrorCode.PARSE_ERROR,
             `Invalid ${context} payload: Metadata must be an array`
         );
     }
@@ -73,7 +73,7 @@ export function extractDirectoryArray<T>(
 
     if (!Array.isArray(directory)) {
         throw new PlexLibraryError(
-            PlexLibraryErrorCode.PARSE_ERROR,
+            AppErrorCode.PARSE_ERROR,
             `Invalid ${context} payload: Directory must be an array`
         );
     }

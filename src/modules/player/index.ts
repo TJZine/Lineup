@@ -24,7 +24,3 @@ export type {
     TimeRange,
     PlayerEventMap,
 } from './types';
-
-// Re-export PlayerErrorCode for convenience
-export { PlayerErrorCode } from './types';
-export { mapPlayerErrorCodeToAppErrorCode } from './types';

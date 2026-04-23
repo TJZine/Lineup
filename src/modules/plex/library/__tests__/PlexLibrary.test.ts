@@ -1,5 +1,6 @@
 import { AppErrorCode } from '../../../../types/app-errors';
-import { PlexLibrary, PlexLibraryError, PlexLibraryErrorCode } from '../PlexLibrary';
+import { expectConsoleError, expectConsoleWarn } from '../../../../__tests__/helpers';
+import { PlexLibrary, PlexLibraryError } from '../PlexLibrary';
 import type { PlexLibraryConfig, PlexTagDirectoryQueryOptions } from '../interfaces';
 import { mockLocalStorage, installMockLocalStorage } from '../../../../__tests__/mocks/localStorage';
 import { PLEX_LIBRARY_CONSTANTS, PLEX_MEDIA_TYPES } from '../constants';
@@ -21,6 +22,14 @@ import {
 // ============================================
 
 installMockLocalStorage();
+
+const expectPlexLibraryWarn = (...args: readonly unknown[]): void => {
+    expectConsoleWarn(args);
+};
+
+const expectPlexLibraryError = (...args: readonly unknown[]): void => {
+    expectConsoleError(args);
+};
 
 // ============================================
 // Tests
@@ -70,6 +79,10 @@ describe('PlexLibrary', () => {
         it('does not reset contentCount when episodeCount fetch fails', async () => {
             mockFetchJson(mockLibrarySectionsResponse);
             const library = new PlexLibrary(mockConfig);
+            expectPlexLibraryWarn(
+                '[PlexLibrary] Failed to fetch episode count for library TV Shows:',
+                expect.objectContaining({ message: 'episode count failed' })
+            );
 
             const spy = jest.spyOn(library, 'getLibraryItemCount');
             spy.mockImplementation(async (_libraryId, options) => {
@@ -90,6 +103,10 @@ describe('PlexLibrary', () => {
         it('preserves unknown contentCount when item-count fetch fails', async () => {
             mockFetchJson(mockLibrarySectionsResponse);
             const library = new PlexLibrary(mockConfig);
+            expectPlexLibraryWarn(
+                '[PlexLibrary] Failed to fetch item count for library TV Shows:',
+                expect.objectContaining({ message: 'item count failed' })
+            );
 
             const spy = jest.spyOn(library, 'getLibraryItemCount');
             spy.mockImplementation(async (_libraryId, options) => {
@@ -176,7 +193,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.getLibraries()).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('Invalid library sections payload'),
             });
         });
@@ -186,7 +203,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.getLibraries()).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('Invalid library sections payload'),
             });
         });
@@ -194,9 +211,17 @@ describe('PlexLibrary', () => {
         it('rejects top-level null JSON payloads before caller parsing', async () => {
             mockFetchTextResponse('null');
             const library = new PlexLibrary(mockConfig);
+            expectPlexLibraryError(
+                '[PlexLibrary] Parse error for http://192.168.1.100:32400/library/sections:',
+                expect.objectContaining({
+                    code: AppErrorCode.PARSE_ERROR,
+                    message: expect.stringContaining('received null'),
+                }),
+                'Response body: null'
+            );
 
             await expect(library.getLibraries()).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('expected a top-level JSON object'),
             });
         });
@@ -204,9 +229,17 @@ describe('PlexLibrary', () => {
         it('rejects top-level primitive JSON payloads before caller parsing', async () => {
             mockFetchTextResponse('false');
             const library = new PlexLibrary(mockConfig);
+            expectPlexLibraryError(
+                '[PlexLibrary] Parse error for http://192.168.1.100:32400/library/sections:',
+                expect.objectContaining({
+                    code: AppErrorCode.PARSE_ERROR,
+                    message: expect.stringContaining('received boolean'),
+                }),
+                'Response body: false'
+            );
 
             await expect(library.getLibraries()).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('expected a top-level JSON object'),
             });
         });
@@ -214,9 +247,10 @@ describe('PlexLibrary', () => {
         it('throws typed error when library sections are unavailable', async () => {
             mockFetchJson({ error: 'Not found' }, 404);
             const library = new PlexLibrary(mockConfig);
+            expectPlexLibraryWarn('[PlexLibrary] 404 Not Found: http://192.168.1.100:32400/library/sections');
 
             await expect(library.getLibraries()).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.SERVER_ERROR,
+                code: AppErrorCode.SERVER_ERROR,
                 message: 'Library sections unavailable',
             });
         });
@@ -293,9 +327,10 @@ describe('PlexLibrary', () => {
         it('throws typed error when section lookup is unavailable', async () => {
             mockFetchJson({ error: 'Not found' }, 404);
             const library = new PlexLibrary(mockConfig);
+            expectPlexLibraryWarn('[PlexLibrary] 404 Not Found: http://192.168.1.100:32400/library/sections');
 
             await expect(library.getLibrary('1')).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.SERVER_ERROR,
+                code: AppErrorCode.SERVER_ERROR,
             });
         });
 
@@ -304,7 +339,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.getLibrary('1')).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('Invalid library sections payload'),
             });
         });
@@ -314,6 +349,9 @@ describe('PlexLibrary', () => {
         it('returns null when getLibraryItemCount receives no response', async () => {
             mockFetchJson({ error: 'Not found' }, 404);
             const library = new PlexLibrary(mockConfig);
+            expectPlexLibraryWarn(
+                '[PlexLibrary] 404 Not Found: http://192.168.1.100:32400/library/sections/1/all?X-Plex-Container-Start=0&X-Plex-Container-Size=0'
+            );
 
             await expect(library.getLibraryItemCount('1')).resolves.toBeNull();
         });
@@ -395,6 +433,9 @@ describe('PlexLibrary', () => {
         });
 
         it('should throw when pagination guard is exceeded in getLibraryItems', async () => {
+            expectPlexLibraryError(
+                '[PlexLibrary] Pagination guard tripped in getLibraryItems (libraryId=infinite-lib, fetched=100000, pageSize=100, maxIterations=1000)'
+            );
             const page = {
                 MediaContainer: {
                     // Return exactly matching the default page size (100) to keep hasMore=true
@@ -417,7 +458,7 @@ describe('PlexLibrary', () => {
             // Limit must not be specified so it defaults to pageSize=100 which matches pageItems length
             await expect(library.getLibraryItems('infinite-lib')).rejects.toMatchObject({
                 message: expect.stringContaining('Pagination guard tripped'),
-                code: PlexLibraryErrorCode.PAGINATION_LIMIT_EXCEEDED,
+                code: AppErrorCode.PAGINATION_LIMIT_EXCEEDED,
             });
 
             expect(fetch).toHaveBeenCalledTimes(1000);
@@ -440,6 +481,7 @@ describe('PlexLibrary', () => {
         it('should return null for 404', async () => {
             mockFetchJson({ error: 'Not found' }, 404);
             const library = new PlexLibrary(mockConfig);
+            expectPlexLibraryWarn('[PlexLibrary] 404 Not Found: http://192.168.1.100:32400/library/metadata/99999');
 
             const item = await library.getItem('99999');
 
@@ -451,7 +493,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.getItem('12345')).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('item lookup'),
             });
         });
@@ -540,6 +582,9 @@ describe('PlexLibrary', () => {
         });
 
         it('should sort episodes when allLeaves mid-pagination fetch returns null', async () => {
+            expectPlexLibraryWarn(
+                '[PlexLibrary] 404 Not Found: http://192.168.1.100:32400/library/metadata/show1/allLeaves?X-Plex-Container-Start=2&X-Plex-Container-Size=5000'
+            );
             // Arrange
             const page1 = {
                 MediaContainer: {
@@ -565,6 +610,9 @@ describe('PlexLibrary', () => {
 
         it('should return empty array when allLeaves returns null', async () => {
             mockFetchJson({ error: 'Not found' }, 404);
+            expectPlexLibraryWarn(
+                '[PlexLibrary] 404 Not Found: http://192.168.1.100:32400/library/metadata/nonexistent/allLeaves?X-Plex-Container-Start=0&X-Plex-Container-Size=5000'
+            );
 
             const library = new PlexLibrary(mockConfig);
             const episodes = await library.getShowEpisodes('nonexistent');
@@ -609,6 +657,9 @@ describe('PlexLibrary', () => {
         });
 
         it('should throw when pagination guard is exceeded in getShowEpisodes', async () => {
+            expectPlexLibraryError(
+                '[PlexLibrary] Pagination guard tripped in getShowEpisodes (showKey=infinite-show, fetched=2000, offset=2000, pageSize=5000, maxIterations=1000)'
+            );
             const page = {
                 MediaContainer: {
                     totalSize: 5000,
@@ -632,7 +683,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary({ ...mockConfig, logger: { warn, error: console.error } });
             await expect(library.getShowEpisodes('infinite-show')).rejects.toMatchObject({
                 message: expect.stringContaining('Pagination guard tripped'),
-                code: PlexLibraryErrorCode.PAGINATION_LIMIT_EXCEEDED,
+                code: AppErrorCode.PAGINATION_LIMIT_EXCEEDED,
             });
 
             expect(fetch).toHaveBeenCalledTimes(1000);
@@ -771,7 +822,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.search('broken')).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('search hub "movie"'),
             });
         });
@@ -810,7 +861,7 @@ describe('PlexLibrary', () => {
             const searchPromise = library.search('null hub');
 
             await expect(searchPromise).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
             });
             await searchPromise.catch((error: unknown) => {
                 expect(error).toBeInstanceOf(PlexLibraryError);
@@ -832,7 +883,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.search('null metadata')).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('Invalid search hub "movie" for query "null metadata"'),
             });
         });
@@ -851,7 +902,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await expect(library.search('broken metadata')).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('Invalid search hub "movie" for query "broken metadata"'),
             });
         });
@@ -882,9 +933,17 @@ describe('PlexLibrary', () => {
         it('throws typed parse error when collections response is empty-success noise', async () => {
             mockFetchTextResponse('');
             const library = new PlexLibrary(mockConfig);
+            expectPlexLibraryError(
+                '[PlexLibrary] Parse error for http://192.168.1.100:32400/library/sections/1/all?type=18&includeGuids=1&includeMeta=1:',
+                expect.objectContaining({
+                    code: AppErrorCode.PARSE_ERROR,
+                    message: expect.stringContaining('Empty response body'),
+                }),
+                'Response body: '
+            );
 
             await expect(library.getCollections('1')).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.PARSE_ERROR,
+                code: AppErrorCode.PARSE_ERROR,
                 message: expect.stringContaining('Empty response body'),
             });
         });
@@ -1015,6 +1074,8 @@ describe('PlexLibrary', () => {
         it('should return [] and invoke callback when genres endpoint is unavailable and requireEntries is true', async () => {
             mockFetchJson({ error: 'Not found' }, 404);
             const onUnsupported = jest.fn();
+            expectPlexLibraryWarn('[PlexLibrary] 404 Not Found: http://192.168.1.100:32400/library/sections/1/genre?type=2');
+            expectPlexLibraryWarn('[PlexLibrary] Genres endpoint unavailable for library 1');
             const library = new PlexLibrary(mockConfig);
 
             const genres = await library.getGenres('1', { type: PLEX_MEDIA_TYPES.SHOW, onUnsupported, requireEntries: true });
@@ -1027,6 +1088,8 @@ describe('PlexLibrary', () => {
         it('should return [] and invoke callback when directors endpoint is unavailable and requireEntries is true', async () => {
             mockFetchJson({ error: 'Not found' }, 404);
             const onUnsupported = jest.fn();
+            expectPlexLibraryWarn('[PlexLibrary] 404 Not Found: http://192.168.1.100:32400/library/sections/1/director?type=4');
+            expectPlexLibraryWarn('[PlexLibrary] Directors endpoint unavailable for library 1');
             const library = new PlexLibrary(mockConfig);
 
             const directors = await library.getDirectors('1', { type: PLEX_MEDIA_TYPES.EPISODE, onUnsupported, requireEntries: true });
@@ -1039,6 +1102,8 @@ describe('PlexLibrary', () => {
         it('should return [] and invoke callback when years endpoint is unavailable and requireEntries is true', async () => {
             mockFetchJson({ error: 'Not found' }, 404);
             const onUnsupported = jest.fn();
+            expectPlexLibraryWarn('[PlexLibrary] 404 Not Found: http://192.168.1.100:32400/library/sections/1/year?type=4');
+            expectPlexLibraryWarn('[PlexLibrary] Years endpoint unavailable for library 1');
             const library = new PlexLibrary(mockConfig);
 
             const years = await library.getYears('1', { type: PLEX_MEDIA_TYPES.EPISODE, onUnsupported, requireEntries: true });
@@ -1051,6 +1116,7 @@ describe('PlexLibrary', () => {
         it('should return [] and NOT invoke callback when genres endpoint is unavailable but requireEntries is false', async () => {
             mockFetchJson({ error: 'Not found' }, 404);
             const onUnsupported = jest.fn();
+            expectPlexLibraryWarn('[PlexLibrary] 404 Not Found: http://192.168.1.100:32400/library/sections/1/genre?type=2');
             const library = new PlexLibrary(mockConfig);
 
             const genres = await library.getGenres('1', { type: PLEX_MEDIA_TYPES.SHOW, onUnsupported }); // requireEntries defaults to false
@@ -1062,6 +1128,7 @@ describe('PlexLibrary', () => {
         it('should invoke callback when required genres endpoint returns no directory entries', async () => {
             mockFetchJson({ MediaContainer: { Directory: [] } });
             const onUnsupported = jest.fn();
+            expectPlexLibraryWarn('[PlexLibrary] Genres returned no directory entries for library 1');
             const library = new PlexLibrary(mockConfig);
 
             const genres = await library.getGenres('1', {
@@ -1093,7 +1160,7 @@ describe('PlexLibrary', () => {
 
             await expect(request).rejects.toBeInstanceOf(PlexLibraryError);
             await expect(request).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.AUTH_EXPIRED,
+                code: AppErrorCode.AUTH_EXPIRED,
             });
         });
 
@@ -1106,7 +1173,7 @@ describe('PlexLibrary', () => {
                 throw new Error('Expected getLibraries() to throw');
             } catch (error) {
                 expect(error).toBeInstanceOf(PlexLibraryError);
-                expect((error as PlexLibraryError).code).toBe(PlexLibraryErrorCode.AUTH_EXPIRED);
+                expect((error as PlexLibraryError).code).toBe(AppErrorCode.AUTH_EXPIRED);
                 expect((error as PlexLibraryError).code).toBe(AppErrorCode.AUTH_EXPIRED);
             }
         });
@@ -1114,6 +1181,7 @@ describe('PlexLibrary', () => {
         it('should throw SERVER_ERROR on 500', async () => {
             jest.useFakeTimers();
             try {
+                expectPlexLibraryWarn('[PlexLibrary] Server error 500, retrying after 2s...');
                 const fetchMock = jest.fn().mockResolvedValue({
                     ok: false,
                     status: 500,
@@ -1137,6 +1205,9 @@ describe('PlexLibrary', () => {
         it('should throw NETWORK_TIMEOUT after exhausting timeout retries', async () => {
             jest.useFakeTimers();
             try {
+                expectPlexLibraryWarn('[PlexLibrary] Network timeout, retry 1/3 after 1000ms');
+                expectPlexLibraryWarn('[PlexLibrary] Network timeout, retry 2/3 after 2000ms');
+                expectPlexLibraryWarn('[PlexLibrary] Network timeout, retry 3/3 after 4000ms');
                 (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
                     (_url: string, options?: RequestInit) =>
                         new Promise((_resolve, reject) => {
@@ -1156,7 +1227,7 @@ describe('PlexLibrary', () => {
                 const library = new PlexLibrary(mockConfig);
                 const request = library.getLibraries();
                 const rejection = expect(request).rejects.toMatchObject({
-                    code: PlexLibraryErrorCode.NETWORK_TIMEOUT,
+                    code: AppErrorCode.NETWORK_TIMEOUT,
                 });
                 await jest.runAllTimersAsync();
 
@@ -1170,6 +1241,7 @@ describe('PlexLibrary', () => {
         it('should fail interactive tag-directory requests within 15 seconds instead of using the default timeout budget', async () => {
             jest.useFakeTimers();
             try {
+                expectPlexLibraryWarn('[PlexLibrary] Network timeout, retry 1/1 after 1000ms');
                 const fetchMock = jest.fn().mockImplementation(
                     (_url: string, options?: RequestInit) =>
                         new Promise((_resolve, reject) => {
@@ -1204,7 +1276,7 @@ describe('PlexLibrary', () => {
                 await Promise.resolve();
 
                 expect(settled).toHaveBeenCalledWith(
-                    expect.objectContaining({ code: PlexLibraryErrorCode.NETWORK_TIMEOUT })
+                    expect.objectContaining({ code: AppErrorCode.NETWORK_TIMEOUT })
                 );
                 expect(fetchMock).toHaveBeenCalled();
             } finally {
@@ -1262,7 +1334,7 @@ describe('PlexLibrary', () => {
 
             await expect(request).rejects.toBeInstanceOf(PlexLibraryError);
             await expect(request).rejects.toMatchObject({
-                code: PlexLibraryErrorCode.ACCESS_DENIED,
+                code: AppErrorCode.ACCESS_DENIED,
                 httpStatus: 403,
             });
         });

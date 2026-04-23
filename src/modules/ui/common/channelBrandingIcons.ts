@@ -1,6 +1,8 @@
+import type { BuildStrategy } from '../../scheduler/channel-manager/types';
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-const ICON_PATHS: Record<string, string> = {
+const ICON_PATHS = {
     collections: 'M4 6h16v4H4zM4 14h10v4H4z',
     playlists: 'M4 7h12v2H4zm0 4h12v2H4zm0 4h8v2H4zm12-8 4 2-4 2z',
     genres: 'M5 5h6v6H5zM13 5h6v6h-6zM5 13h6v6H5zM13 13h6v6h-6z',
@@ -10,11 +12,11 @@ const ICON_PATHS: Record<string, string> = {
     studios: 'M4 18h16v2H4zm2-2V8l6-4 6 4v8',
     actors: 'M12 4a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm-6 14c0-3 2.5-5 6-5s6 2 6 5',
     libraryFallback: 'M5 5h14v14H5zM8 9h8v2H8zm0 4h8v2H8z',
-};
+} satisfies Record<BuildStrategy, string>;
 
-const ICON_SVG_CACHE = new Map<string, SVGElement>();
+const ICON_SVG_CACHE = new Map<BuildStrategy, SVGElement>();
 
-export function getChannelBrandingIcon(buildStrategy: string): SVGElement | null {
+export function getChannelBrandingIcon(buildStrategy: BuildStrategy): SVGElement | null {
     const cached = ICON_SVG_CACHE.get(buildStrategy);
     if (cached) {
         return cached.cloneNode(true) as SVGElement;
@@ -35,6 +37,6 @@ export function getChannelBrandingIcon(buildStrategy: string): SVGElement | null
     return svg.cloneNode(true) as SVGElement;
 }
 
-export function getAvailableStrategies(): string[] {
-    return Object.keys(ICON_PATHS);
+export function getAvailableStrategies(): BuildStrategy[] {
+    return Object.keys(ICON_PATHS) as BuildStrategy[];
 }

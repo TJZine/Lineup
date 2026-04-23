@@ -487,15 +487,13 @@ describe('src/index', () => {
         jest.clearAllMocks();
     });
 
-    it('installs the lineup bootstrap exactly once on module import', () => {
+    it('installs the lineup bootstrap exactly once on direct module import', async () => {
         mockIndexStylesheetImports();
 
         let installLineupBootstrap!: jest.Mock;
-        jest.isolateModules(() => {
-            installLineupBootstrap = (require('../bootstrap') as {
-                installLineupBootstrap: jest.Mock;
-            }).installLineupBootstrap;
-            require('../index');
+        await jest.isolateModulesAsync(async () => {
+            installLineupBootstrap = (await import('../bootstrap')).installLineupBootstrap as jest.Mock;
+            await import('../index');
         });
         expect(installLineupBootstrap).toHaveBeenCalledTimes(1);
     });

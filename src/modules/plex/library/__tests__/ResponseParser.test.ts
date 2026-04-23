@@ -3,6 +3,7 @@
  * @module modules/plex/library/__tests__/ResponseParser.test
  */
 
+import { AppErrorCode } from '../../../../types/app-errors';
 import {
     parseLibrarySections,
     parseMediaItem,
@@ -14,7 +15,6 @@ import {
     mapMediaType,
     parseStream,
 } from '../ResponseParser';
-import { PlexLibraryErrorCode } from '../types';
 import type {
     RawLibrarySection,
     RawMediaItem,
@@ -132,7 +132,7 @@ describe('ResponseParser', () => {
         it('throws a typed parse error with indexed context when a section entry is malformed', () => {
             expect(() => parseLibrarySections([null] as unknown as RawLibrarySection[])).toThrow(
                 expect.objectContaining({
-                    code: PlexLibraryErrorCode.PARSE_ERROR,
+                    code: AppErrorCode.PARSE_ERROR,
                     message: 'Invalid library sections[0] payload: expected an object',
                 })
             );
@@ -152,7 +152,7 @@ describe('ResponseParser', () => {
                 ])
             ).toThrow(
                 expect.objectContaining({
-                    code: PlexLibraryErrorCode.PARSE_ERROR,
+                    code: AppErrorCode.PARSE_ERROR,
                     message: 'Invalid library section payload: unknown library type "mystery"',
                 })
             );
@@ -168,7 +168,7 @@ describe('ResponseParser', () => {
         ])('throws a typed parse error when required field %s is missing', (_field, raw) => {
             expect(() => parseLibrarySections([raw as RawLibrarySection])).toThrow(
                 expect.objectContaining({
-                    code: PlexLibraryErrorCode.PARSE_ERROR,
+                    code: AppErrorCode.PARSE_ERROR,
                     message: expect.stringContaining('library section'),
                 })
             );
@@ -531,13 +531,13 @@ describe('ResponseParser', () => {
         it('throws typed parse errors for unknown library types', () => {
             expect(() => mapLibraryType('unknown')).toThrow(
                 expect.objectContaining({
-                    code: PlexLibraryErrorCode.PARSE_ERROR,
+                    code: AppErrorCode.PARSE_ERROR,
                     message: 'Invalid library section payload: unknown library type "unknown"',
                 })
             );
             expect(() => mapLibraryType('')).toThrow(
                 expect.objectContaining({
-                    code: PlexLibraryErrorCode.PARSE_ERROR,
+                    code: AppErrorCode.PARSE_ERROR,
                     message: 'Invalid library section payload: unknown library type ""',
                 })
             );

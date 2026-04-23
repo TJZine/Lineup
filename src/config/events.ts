@@ -1,9 +1,3 @@
-/**
- * @fileoverview Shared browser event names and helpers.
- * @module config/events
- * @version 1.0.0
- */
-
 export const LINEUP_EVENT_NAMES = {
     DEBUG_LOGGING_CHANGED: 'lineup:debug-logging-changed',
 } as const;

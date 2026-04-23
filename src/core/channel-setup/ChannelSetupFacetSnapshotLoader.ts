@@ -10,6 +10,7 @@ import {
     getPlexRequestIntentForChannelSetup,
     getTagDirectoryMediaTypesForLibraryType,
 } from '../../modules/plex/library';
+import { AppErrorCode, getAppErrorCode } from '../../types/app-errors';
 import { summarizeErrorForLog } from '../../utils/errors';
 import type { ChannelBuildProgress, ChannelSetupConfig, ChannelSetupPreviewFailureReason } from './types';
 import { isSignalAborted } from './utils';
@@ -475,7 +476,7 @@ export class ChannelSetupFacetSnapshotLoader {
                     : summaryObject.code !== undefined
                         ? String(summaryObject.code)
                         : 'unknown error';
-                if (summaryObject.code === 'NETWORK_TIMEOUT') {
+                if (getAppErrorCode(summaryObject.code) === AppErrorCode.NETWORK_TIMEOUT) {
                     return buildFailureSnapshot(
                         'slow',
                         `Required ${baseLabel} tag directory (type=${type}) timed out for ${libraryTitle}; try again after Plex responds.`,
@@ -512,7 +513,7 @@ export class ChannelSetupFacetSnapshotLoader {
                 : summaryObject.code !== undefined
                     ? String(summaryObject.code)
                     : 'unknown error';
-            if (summaryObject.code === 'NETWORK_TIMEOUT') {
+            if (getAppErrorCode(summaryObject.code) === AppErrorCode.NETWORK_TIMEOUT) {
                 return buildFailureSnapshot(
                     'slow',
                     `Required ${baseLabel} item counts (type=${type}) timed out for ${libraryTitle}; try again after Plex responds.`,

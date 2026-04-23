@@ -23,6 +23,7 @@ import {
     partitionPrefetchChannels,
 } from '../EPGCoordinatorPolicies';
 import * as EPGCoordinatorPolicies from '../EPGCoordinatorPolicies';
+import { flushPromises } from '../../../../__tests__/helpers';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,
@@ -70,11 +71,6 @@ const baseProgram = (channelId: string, idx: number): ScheduledProgram =>
     streamDescriptor: null,
     isCurrent: false,
 } as ScheduledProgram);
-
-const flushPromises = async (): Promise<void> => {
-    await Promise.resolve();
-    await Promise.resolve();
-};
 
 const readScheduleRange = (deps: EPGCoordinatorDeps): { startTime: number; endTime: number } | null =>
     computeEpgScheduleRangeMs(

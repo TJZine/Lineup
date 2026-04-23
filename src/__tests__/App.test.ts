@@ -13,7 +13,7 @@ import { PLEX_AUTH_CONSTANTS } from '../modules/plex/auth';
 import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
 import { webosPlatformServices } from '../platform';
 
-import { flushPromises } from './helpers';
+import { flushPromises, setDevBuildForTest } from './helpers';
 import {
     EXPECTED_APP_ROOT_CHILD_IDS,
     EXPECTED_CONTAINER_IDS,
@@ -178,6 +178,7 @@ jest.mock('../modules/ui/audio-setup', () => {
 
 describe('App bootstrap smoke', () => {
     let app: App | null = null;
+    let restoreDevBuild: (() => void) | null = null;
     let initializeSpy: jest.SpyInstance;
     let startSpy: jest.SpyInstance;
     let refreshPlaybackInfoSnapshotSpy: jest.SpyInstance;
@@ -191,11 +192,8 @@ describe('App bootstrap smoke', () => {
     beforeEach(() => {
         localStorage.clear();
         document.body.innerHTML = '<div id="app"></div>';
-        Object.defineProperty(globalThis, '__LINEUP_DEV_BUILD__', {
-            value: true,
-            configurable: true,
-            writable: true,
-        });
+        restoreDevBuild?.();
+        restoreDevBuild = setDevBuildForTest(true);
 
         authScreenChunkLoaded.mockClear();
         authScreenConstructed.mockClear();
@@ -288,6 +286,8 @@ describe('App bootstrap smoke', () => {
         jest.restoreAllMocks();
         document.body.innerHTML = '';
         localStorage.clear();
+        restoreDevBuild?.();
+        restoreDevBuild = null;
     });
 
     it('creates root containers and starts orchestrator', async () => {
@@ -817,11 +817,8 @@ describe('App bootstrap smoke', () => {
     });
 
     it('does not expose debug helpers when debug surface is disabled', async () => {
-        Object.defineProperty(globalThis, '__LINEUP_DEV_BUILD__', {
-            value: false,
-            configurable: true,
-            writable: true,
-        });
+        restoreDevBuild?.();
+        restoreDevBuild = setDevBuildForTest(false);
         localStorage.removeItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING);
         await bootstrapApp();
 

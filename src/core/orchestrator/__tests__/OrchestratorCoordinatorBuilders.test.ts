@@ -429,6 +429,25 @@ describe('OrchestratorCoordinatorBuilders', () => {
         });
     });
 
+    it('buildMiniGuideCoordinator keeps no-type toast routing object-shaped', () => {
+        const reportToast = jest.fn();
+        const input = createInput();
+        input.nowPlaying.handler = jest.fn(() => reportToast);
+
+        const coordinator = buildMiniGuideCoordinator(input);
+        const miniGuideDeps = (
+            coordinator as unknown as {
+                deps: {
+                    notifyToast?: (message: string, type?: 'warning' | 'error' | 'info' | 'success') => void;
+                };
+            }
+        ).deps;
+
+        miniGuideDeps.notifyToast?.('Recovered without explicit type');
+
+        expect(reportToast).toHaveBeenCalledWith({ message: 'Recovered without explicit type' });
+    });
+
     it('buildPlayerOsdCoordinator falls back to the default auto-hide duration when playerConfig is absent', () => {
         const input = createInput();
         input.config = {

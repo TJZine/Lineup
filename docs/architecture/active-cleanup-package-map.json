@@ -868,8 +868,8 @@
         "Confirm whether any domain package needs to land first before tightening shared error or test guardrails."
       ],
       "exit_criteria": [
-        "All mapped type-safety/test issues are closed on current source or explicitly re-homed by an approved package-map revision in the same pass.",
-        "Type-safety/test scoping commands and mapped review issues are refreshed with current counts after the package work lands."
+        "All mapped type-safety/test issues are closed on current source or explicitly carried by `pkg_type_safety_test_guardrails` itself into `P10-W1` with exact-id proof in the same pass; do not invent a successor package owner for survivors.",
+        "Type-safety/test scoping commands, exact-id mapped review proof, and any same-package carry records are refreshed with current counts after the package work lands."
       ],
       "recommended_scope_boundary": "Keep this package on typed surface cleanup, shared test helpers, and fragility-guardrail expansion. Do not absorb broad repo-wide prose/template cleanup or domain runtime decomposition.",
       "recommended_execution_order": 9,

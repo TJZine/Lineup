@@ -1,9 +1,3 @@
-/**
- * @fileoverview Interface definitions for Channel Manager module.
- * @module modules/scheduler/channel-manager/interfaces
- * @version 1.0.0
- */
-
 import type {
     ChannelConfig,
     ResolvedChannelContent,
@@ -14,14 +8,6 @@ import type { PlexMediaFile } from '../../plex/library';
 import type { PlexMediaType } from '../../plex/shared/types';
 import type { IDisposable } from '../../../utils/interfaces';
 
-// ============================================
-// Main Interface
-// ============================================
-
-/**
- * Channel Manager Interface.
- * Manages virtual TV channel CRUD operations.
- */
 export interface IChannelManager {
     // Channel CRUD
 
@@ -201,13 +187,6 @@ export interface IChannelManager {
     ): IDisposable;
 }
 
-// ============================================
-// Configuration
-// ============================================
-
-/**
- * Configuration for ChannelManager constructor.
- */
 export interface ChannelManagerConfig {
     /**
      * PlexLibrary instance for content resolution.
@@ -234,10 +213,6 @@ export interface ChannelManagerConfig {
     currentChannelKey?: string;
 }
 
-/**
- * Minimal PlexLibrary interface needed by ChannelManager.
- * Decouples from full IPlexLibrary for testability.
- */
 export interface IPlexLibraryMinimal {
     getLibraryItems(
         libraryId: string,
@@ -253,9 +228,6 @@ export interface IPlexLibraryMinimal {
     getItem(ratingKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItemMinimal | null>;
 }
 
-/**
- * Minimal PlexMediaItem interface for content resolution.
- */
 export interface PlexMediaItemMinimal {
     ratingKey: string;
     type: PlexMediaType;

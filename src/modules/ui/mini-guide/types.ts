@@ -3,6 +3,8 @@
  * @module modules/ui/mini-guide/types
  */
 
+import type { BuildStrategy } from '../../scheduler/channel-manager/types';
+
 export interface MiniGuideConfig {
     containerId: string;
     autoHideMs?: number;
@@ -12,7 +14,7 @@ export interface MiniGuideChannelViewModel {
     channelId: string;
     channelNumber: number;
     channelName: string;
-    buildStrategy?: import('../../scheduler/channel-manager/types').BuildStrategy | null;
+    buildStrategy?: BuildStrategy | null;
     /** True when buildStrategy icon should be shown (only when channel.icon is not set). */
     showBrandingIcon?: boolean;
     /**

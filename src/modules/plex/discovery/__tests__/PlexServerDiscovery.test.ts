@@ -5,6 +5,7 @@
 
 import { PlexServerDiscovery } from '../PlexServerDiscovery';
 import { PLEX_DISCOVERY_CONSTANTS } from '../constants';
+import { expectConsoleError, expectConsoleWarn } from '../../../../__tests__/helpers';
 import { mockLocalStorage, installMockLocalStorage } from '../../../../__tests__/mocks/localStorage';
 import {
     createMockConnection,
@@ -173,6 +174,7 @@ describe('PlexServerDiscovery', () => {
         });
 
         it('should handle network errors gracefully', async () => {
+            expectConsoleError('Server error: 500');
             jest.useFakeTimers();
             try {
                 mockFetchJson({ error: 'Server Error' }, 500);
@@ -332,6 +334,7 @@ describe('PlexServerDiscovery', () => {
         });
 
         it('classifies malformed discovery payloads as PARSE_ERROR without retrying', async () => {
+            expectConsoleError('Failed to parse server discovery response');
             (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
                 ok: true,
                 status: 200,
@@ -519,6 +522,15 @@ describe('PlexServerDiscovery', () => {
         });
 
         it('should return null when all connections fail', async () => {
+            expectConsoleWarn([
+                'No working connections found',
+                expect.objectContaining({
+                    serverId: 'srv1',
+                    authRequired: false,
+                    httpsCount: 2,
+                    httpCount: 0,
+                }),
+            ]);
             mockFetchFailure(new Error('Connection failed'));
             const discovery = new PlexServerDiscovery(mockConfig);
             const mockServer = createMockServer({
@@ -534,6 +546,15 @@ describe('PlexServerDiscovery', () => {
         });
 
         it('tracks auth_invalid as the most severe auth state when probes mix 401 and 403', async () => {
+            expectConsoleWarn([
+                'No working connections found',
+                expect.objectContaining({
+                    serverId: 'srv1',
+                    authRequired: true,
+                    httpsCount: 2,
+                    httpCount: 0,
+                }),
+            ]);
             const discovery = new PlexServerDiscovery(mockConfig);
             const mockServer = createMockServer({
                 connections: [
@@ -553,6 +574,15 @@ describe('PlexServerDiscovery', () => {
         });
 
         it('keeps authRequired false when probes only return auth_invalid', async () => {
+            expectConsoleWarn([
+                'No working connections found',
+                expect.objectContaining({
+                    serverId: 'srv1',
+                    authRequired: false,
+                    httpsCount: 2,
+                    httpCount: 0,
+                }),
+            ]);
             const discovery = new PlexServerDiscovery(mockConfig);
             const mockServer = createMockServer({
                 connections: [
@@ -573,6 +603,13 @@ describe('PlexServerDiscovery', () => {
         });
 
         it('keeps authRequired false when local HTTP fallback succeeds after an auth_invalid HTTPS-upgrade probe', async () => {
+            expectConsoleWarn([
+                'Selected HTTP connection (last resort)',
+                expect.objectContaining({
+                    local: true,
+                    relay: false,
+                }),
+            ]);
             const discovery = new PlexServerDiscovery(mockConfig);
             const localHttpConnection = createMockConnection({
                 uri: 'http://local-http:32400',
@@ -615,78 +652,66 @@ describe('PlexServerDiscovery', () => {
         });
 
         it('warns once when no working connections are found', async () => {
-            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-            try {
-                mockFetchFailure(new Error('Connection failed'));
-                const discovery = new PlexServerDiscovery(mockConfig);
-                const mockServer = createMockServer({
-                    connections: [
-                        createMockConnection({ uri: 'https://a:32400', protocol: 'https' }),
-                        createMockConnection({ uri: 'http://b:32400', protocol: 'http' }),
-                    ],
-                });
+            expectConsoleWarn([
+                'No working connections found',
+                expect.objectContaining({
+                    serverId: 'srv1',
+                    authRequired: false,
+                    httpsCount: 1,
+                    httpCount: 1,
+                }),
+            ]);
+            mockFetchFailure(new Error('Connection failed'));
+            const discovery = new PlexServerDiscovery(mockConfig);
+            const mockServer = createMockServer({
+                connections: [
+                    createMockConnection({ uri: 'https://a:32400', protocol: 'https' }),
+                    createMockConnection({ uri: 'http://b:32400', protocol: 'http' }),
+                ],
+            });
 
-                const result = await discovery.findFastestConnection(mockServer);
+            const result = await discovery.findFastestConnection(mockServer);
 
-                expect(result.connection).toBeNull();
-                expect(warnSpy).toHaveBeenCalledTimes(1);
-                expect(warnSpy).toHaveBeenCalledWith(
-                    'No working connections found',
-                    expect.objectContaining({
-                        serverId: 'srv1',
-                        authRequired: false,
-                        httpsCount: 1,
-                        httpCount: 1,
-                    })
-                );
-            } finally {
-                warnSpy.mockRestore();
-            }
+            expect(result.connection).toBeNull();
         });
 
         it('warns when HTTP is selected as last resort', async () => {
-            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-            try {
-                const fetchMock = jest.fn().mockImplementation((url: string) => {
-                    if (url.startsWith('https://')) {
-                        return Promise.reject(new Error('HTTPS failed'));
-                    }
-                    return Promise.resolve({
-                        ok: true,
-                        status: 200,
-                        json: async () => ({ machineIdentifier: 'test' }),
-                    });
+            expectConsoleWarn([
+                'Selected HTTP connection (last resort)',
+                expect.objectContaining({
+                    local: true,
+                    relay: false,
+                }),
+            ]);
+            const fetchMock = jest.fn().mockImplementation((url: string) => {
+                if (url.startsWith('https://')) {
+                    return Promise.reject(new Error('HTTPS failed'));
+                }
+                return Promise.resolve({
+                    ok: true,
+                    status: 200,
+                    json: async () => ({ machineIdentifier: 'test' }),
                 });
-                (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+            });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
 
-                const discovery = new PlexServerDiscovery(mockConfig);
-                const mockServer = createMockServer({
-                    connections: [
-                        createMockConnection({
-                            uri: 'http://local-http:32400',
-                            protocol: 'http',
-                            local: true,
-                            relay: false,
-                        }),
-                    ],
-                });
-
-                const result = await discovery.findFastestConnection(mockServer);
-
-                expect(expectDefined(result.connection, 'Expected HTTP fallback connection')).toMatchObject({
-                    protocol: 'http',
-                });
-                expect(warnSpy).toHaveBeenCalledTimes(1);
-                expect(warnSpy).toHaveBeenCalledWith(
-                    'Selected HTTP connection (last resort)',
-                    expect.objectContaining({
+            const discovery = new PlexServerDiscovery(mockConfig);
+            const mockServer = createMockServer({
+                connections: [
+                    createMockConnection({
+                        uri: 'http://local-http:32400',
+                        protocol: 'http',
                         local: true,
                         relay: false,
-                    })
-                );
-            } finally {
-                warnSpy.mockRestore();
-            }
+                    }),
+                ],
+            });
+
+            const result = await discovery.findFastestConnection(mockServer);
+
+            expect(expectDefined(result.connection, 'Expected HTTP fallback connection')).toMatchObject({
+                protocol: 'http',
+            });
         });
     });
 
@@ -1497,57 +1522,54 @@ describe('PlexServerDiscovery', () => {
 
     describe('connection URI sanitization', () => {
         it('should reject file:// URIs', async () => {
-            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
-            try {
-                const mockServers = [
-                    {
-                        clientIdentifier: 'srv1',
-                        name: 'Test Server',
-                        sourceTitle: 'testuser',
-                        ownerId: 'owner1',
-                        owned: true,
-                        provides: 'server',
-                        connections: [
-                            {
-                                uri: 'file:///etc/passwd',
-                                protocol: 'file',
-                                address: 'localhost',
-                                port: 0,
-                                local: true,
-                                relay: false,
-                            },
-                            {
-                                uri: 'https://valid:32400',
-                                protocol: 'https',
-                                address: 'valid',
-                                port: 32400,
-                                local: true,
-                                relay: false,
-                            },
-                        ],
-                    },
-                ];
-                mockFetchJson(mockServers);
-                const discovery = new PlexServerDiscovery(mockConfig);
+            expectConsoleWarn([
+                'Skipping invalid Plex connection URI:',
+                'file:///etc/passwd',
+            ]);
+            const mockServers = [
+                {
+                    clientIdentifier: 'srv1',
+                    name: 'Test Server',
+                    sourceTitle: 'testuser',
+                    ownerId: 'owner1',
+                    owned: true,
+                    provides: 'server',
+                    connections: [
+                        {
+                            uri: 'file:///etc/passwd',
+                            protocol: 'file',
+                            address: 'localhost',
+                            port: 0,
+                            local: true,
+                            relay: false,
+                        },
+                        {
+                            uri: 'https://valid:32400',
+                            protocol: 'https',
+                            address: 'valid',
+                            port: 32400,
+                            local: true,
+                            relay: false,
+                        },
+                    ],
+                },
+            ];
+            mockFetchJson(mockServers);
+            const discovery = new PlexServerDiscovery(mockConfig);
 
-                const result = await discovery.discoverServers();
+            const result = await discovery.discoverServers();
 
-                // file:// connection should be filtered out
-                const server = expectDefined(result[0], 'Expected server to be defined');
-                expect(server.connections).toHaveLength(1);
-                expect(server.connections[0]?.uri).toBe('https://valid:32400');
-                expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    'Skipping invalid Plex connection URI:',
-                    'file:///etc/passwd'
-                );
-            } finally {
-                consoleWarnSpy.mockRestore();
-            }
+            // file:// connection should be filtered out
+            const server = expectDefined(result[0], 'Expected server to be defined');
+            expect(server.connections).toHaveLength(1);
+            expect(server.connections[0]?.uri).toBe('https://valid:32400');
         });
 
         it('should reject URIs with embedded credentials', async () => {
-            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
-            try {
+            expectConsoleWarn([
+                'Skipping invalid Plex connection URI:',
+                'https://server:32400/',
+            ]);
                 const mockServers = [
                     {
                         clientIdentifier: 'srv1',
@@ -1585,18 +1607,13 @@ describe('PlexServerDiscovery', () => {
                 const server = expectDefined(result[0], 'Expected server to be defined');
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.uri).toBe('https://clean:32400');
-                expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    'Skipping invalid Plex connection URI:',
-                    'https://server:32400/'
-                );
-            } finally {
-                consoleWarnSpy.mockRestore();
-            }
         });
 
         it('redacts sensitive fragments when logging invalid credentialed connection URIs', async () => {
-            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
-            try {
+            expectConsoleWarn([
+                'Skipping invalid Plex connection URI:',
+                'https://server:32400/#REDACTED_FRAGMENT',
+            ]);
                 const mockServers = [
                     {
                         clientIdentifier: 'srv1',
@@ -1633,18 +1650,17 @@ describe('PlexServerDiscovery', () => {
                 const server = expectDefined(result[0], 'Expected server to be defined');
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.uri).toBe('https://clean:32400');
-                expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    'Skipping invalid Plex connection URI:',
-                    'https://server:32400/#REDACTED_FRAGMENT'
-                );
-            } finally {
-                consoleWarnSpy.mockRestore();
-            }
         });
 
         it('should reject non-standard protocol schemes', async () => {
-            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
-            try {
+            expectConsoleWarn([
+                'Skipping invalid Plex connection URI:',
+                'ftp://server/',
+            ]);
+            expectConsoleWarn([
+                'Skipping invalid Plex connection URI:',
+                'javascript:alert(1)',
+            ]);
                 const mockServers = [
                     {
                         clientIdentifier: 'srv1',
@@ -1690,22 +1706,13 @@ describe('PlexServerDiscovery', () => {
                 const server = expectDefined(result[0], 'Expected server to be defined');
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.protocol).toBe('http');
-                expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    'Skipping invalid Plex connection URI:',
-                    'ftp://server/'
-                );
-                expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    'Skipping invalid Plex connection URI:',
-                    'javascript:alert(1)'
-                );
-            } finally {
-                consoleWarnSpy.mockRestore();
-            }
         });
 
         it('should reject data: URIs', async () => {
-            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
-            try {
+            expectConsoleWarn([
+                'Skipping invalid Plex connection URI:',
+                'data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==',
+            ]);
                 const mockServers = [
                     {
                         clientIdentifier: 'srv1',
@@ -1742,13 +1749,6 @@ describe('PlexServerDiscovery', () => {
                 const server = expectDefined(result[0], 'Expected server to be defined');
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.uri).toBe('https://valid:32400');
-                expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    'Skipping invalid Plex connection URI:',
-                    'data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg=='
-                );
-            } finally {
-                consoleWarnSpy.mockRestore();
-            }
         });
 
         it('should normalize URIs to origin (strip paths and query strings)', async () => {
@@ -1783,8 +1783,14 @@ describe('PlexServerDiscovery', () => {
         });
 
         it('should handle malformed URIs gracefully', async () => {
-            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
-            try {
+            expectConsoleWarn([
+                'Skipping invalid Plex connection URI:',
+                'not-a-valid-uri',
+            ]);
+            expectConsoleWarn([
+                'Skipping invalid Plex connection URI:',
+                '://missing-protocol',
+            ]);
                 const mockServers = [
                     {
                         clientIdentifier: 'srv1',
@@ -1830,17 +1836,6 @@ describe('PlexServerDiscovery', () => {
                 const server = expectDefined(result[0], 'Expected server to be defined');
                 expect(server.connections).toHaveLength(1);
                 expect(server.connections[0]?.uri).toBe('https://valid:32400');
-                expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    'Skipping invalid Plex connection URI:',
-                    'not-a-valid-uri'
-                );
-                expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    'Skipping invalid Plex connection URI:',
-                    '://missing-protocol'
-                );
-            } finally {
-                consoleWarnSpy.mockRestore();
-            }
         });
     });
 
@@ -1951,6 +1946,7 @@ describe('PlexServerDiscovery', () => {
         });
 
         it('should fail after max retries on persistent 429', async () => {
+            expectConsoleError('Request failed with status 429');
             jest.useFakeTimers();
             try {
                 let callCount = 0;

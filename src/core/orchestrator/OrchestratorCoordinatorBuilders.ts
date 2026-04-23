@@ -267,7 +267,7 @@ function notifyPlaybackRecoveryToast(
     if (!handler) {
         return;
     }
-    handler(type ? { message, type } : message);
+    handler(type ? { message, type } : { message });
 }
 
 function handleCoordinatorGlobalError(

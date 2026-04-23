@@ -5,10 +5,18 @@
 
 import { ChannelManager } from '../ChannelManager';
 import { ChannelRepository } from '../ChannelRepository';
+import { ContentResolver } from '../ContentResolver';
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
-import type { ChannelConfig, LibraryContentSource, ResolvedChannelContent } from '../types';
+import type { ChannelConfig, LibraryContentSource } from '../types';
 import { AppErrorCode } from '../../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../../lifecycle/constants';
+import { expectConsoleWarn } from '../../../../__tests__/helpers';
+import {
+    installMockLocalStorage,
+    mockLocalStorage,
+    resetMockLocalStorage,
+    restoreOriginalLocalStorage,
+} from '../../../../__tests__/mocks/localStorage';
 import {
     STORAGE_KEY,
     CURRENT_CHANNEL_KEY,
@@ -73,29 +81,29 @@ function createBaseChannel(overrides: Partial<ChannelConfig> = {}): ChannelConfi
     };
 }
 
-// localStorage mock
-const mockStorage: Record<string, string> = {};
-const mockLocalStorage = {
-    getItem: jest.fn((key: string) => mockStorage[key] || null),
-    setItem: jest.fn((key: string, value: string) => {
-        mockStorage[key] = value;
-    }),
-    removeItem: jest.fn((key: string) => {
-        delete mockStorage[key];
-    }),
-    clear: jest.fn(() => {
-        Object.keys(mockStorage).forEach((key) => delete mockStorage[key]);
-    }),
-    get length(): number {
-        return Object.keys(mockStorage).length;
-    },
-    key: jest.fn((index: number) => Object.keys(mockStorage)[index] || null),
+installMockLocalStorage();
+
+const expectPersistCurrentChannelWarning = (times: number = 1): void => {
+    expectConsoleWarn([
+        'Failed to persist current channel',
+        expect.objectContaining({
+            name: 'ChannelError',
+            code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+            message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+        }),
+    ], { times });
 };
 
-Object.defineProperty(globalThis, 'localStorage', {
-    value: mockLocalStorage,
-    configurable: true,
-});
+const expectDebouncedSaveQuotaWarning = (times: number = 1): void => {
+    expectConsoleWarn([
+        'Debounced save failed (quota)',
+        expect.objectContaining({
+            name: 'ChannelError',
+            code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+            message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+        }),
+    ], { times });
+};
 
 // ============================================
 // Tests
@@ -107,15 +115,8 @@ describe('ChannelManager', () => {
 
     beforeEach(() => {
         jest.useFakeTimers();
-        mockLocalStorage.clear();
         jest.clearAllMocks();
-        mockLocalStorage.getItem.mockImplementation((key: string) => mockStorage[key] || null);
-        mockLocalStorage.setItem.mockImplementation((key: string, value: string) => {
-            mockStorage[key] = value;
-        });
-        mockLocalStorage.removeItem.mockImplementation((key: string) => {
-            delete mockStorage[key];
-        });
+        resetMockLocalStorage();
 
         mockLibrary = createMockLibrary();
         mockLibrary.getLibraryItems.mockResolvedValue([
@@ -132,6 +133,10 @@ describe('ChannelManager', () => {
         }
         jest.clearAllTimers();
         jest.restoreAllMocks();
+    });
+
+    afterAll(() => {
+        restoreOriginalLocalStorage();
     });
 
     describe('CRUD operations', () => {
@@ -303,8 +308,7 @@ describe('ChannelManager', () => {
         });
 
         it('clears resolver source cache when replacing full lineup', async () => {
-            const resolver = (manager as unknown as { _contentResolver: { clearCaches: () => void } })._contentResolver;
-            const clearCachesSpy = jest.spyOn(resolver, 'clearCaches');
+            const clearCachesSpy = jest.spyOn(ContentResolver.prototype, 'clearCaches');
 
             await manager.replaceAllChannels([createBaseChannel({ id: 'replace-1', number: 10 })]);
 
@@ -321,6 +325,7 @@ describe('ChannelManager', () => {
         });
 
         it('emits quota-specific persistenceWarning when replaceAllChannels current-channel write hits quota', async () => {
+            expectPersistCurrentChannelWarning();
             const warningHandler = jest.fn();
             manager.on('persistenceWarning', warningHandler);
             jest
@@ -343,8 +348,7 @@ describe('ChannelManager', () => {
 
     describe('storage key updates', () => {
         it('clears resolver source cache when ChannelManager storage scope changes', () => {
-            const resolver = (manager as unknown as { _contentResolver: { clearCaches: () => void } })._contentResolver;
-            const clearCachesSpy = jest.spyOn(resolver, 'clearCaches');
+            const clearCachesSpy = jest.spyOn(ContentResolver.prototype, 'clearCaches');
 
             manager.setStorageKeys('lineup_channels_new_scope', 'lineup_current_channel_new_scope');
 
@@ -365,6 +369,14 @@ describe('ChannelManager', () => {
         });
 
         it('emits persistenceWarning and does not throw when pending save flush fails during key switch', async () => {
+            expectConsoleWarn([
+                'ChannelManager.setStorageKeys failed while flushing pending saves',
+                expect.objectContaining({
+                    name: 'ChannelError',
+                    code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+                    message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                }),
+            ]);
             const warningHandler = jest.fn();
             manager.on('persistenceWarning', warningHandler);
             await manager.createChannel({ contentSource: createMockContentSource() });
@@ -473,56 +485,47 @@ describe('ChannelManager', () => {
         });
 
         it('resolveChannelItemsForSchedule returns deep-cloned cached items', async () => {
+            mockLibrary.getLibraryItems.mockResolvedValue([
+                {
+                    ...createMockItem({
+                        ratingKey: 'nested-1',
+                        title: 'Nested One',
+                        durationMs: 6000,
+                    }),
+                    genres: ['Drama'],
+                    directors: ['Director A'],
+                    media: [{
+                        videoResolution: '4k',
+                        audioCodec: 'aac',
+                        audioChannels: 6,
+                        parts: [],
+                    }],
+                } as unknown as PlexMediaItemMinimal,
+                {
+                    ...createMockItem({
+                        ratingKey: 'nested-2',
+                        title: 'Nested Two',
+                        year: 2025,
+                        durationMs: 6000,
+                    }),
+                    genres: ['Comedy'],
+                    directors: ['Director B'],
+                    media: [{
+                        videoResolution: '1080p',
+                        audioCodec: 'ac3',
+                        audioChannels: 2,
+                        parts: [],
+                    }],
+                } as unknown as PlexMediaItemMinimal,
+            ]);
             const channel = await manager.createChannel({
                 contentSource: createMockContentSource(),
             });
-            const cacheSeed: ResolvedChannelContent = {
-                channelId: channel.id,
-                resolvedAt: Date.now(),
-                totalDurationMs: 12_000,
-                items: [
-                    {
-                        ratingKey: 'nested-1',
-                        type: 'movie',
-                        title: 'Nested One',
-                        fullTitle: 'Nested One',
-                        durationMs: 6000,
-                        thumb: null,
-                        year: 2024,
-                        scheduledIndex: 0,
-                        genres: ['Drama'],
-                        directors: ['Director A'],
-                        mediaInfo: {
-                            resolution: '4k',
-                            audioCodec: 'aac',
-                            audioChannels: 6,
-                        },
-                    },
-                    {
-                        ratingKey: 'nested-2',
-                        type: 'movie',
-                        title: 'Nested Two',
-                        fullTitle: 'Nested Two',
-                        durationMs: 6000,
-                        thumb: null,
-                        year: 2025,
-                        scheduledIndex: 1,
-                        genres: ['Comedy'],
-                        directors: ['Director B'],
-                        mediaInfo: {
-                            resolution: '1080p',
-                            audioCodec: 'ac3',
-                            audioChannels: 2,
-                        },
-                    },
-                ],
-                orderedItems: [],
-            };
-            cacheSeed.orderedItems = cacheSeed.items.map((item) => ({ ...item }));
-            (manager as unknown as { _state: { resolvedContent: Map<string, ResolvedChannelContent> } })
-                ._state.resolvedContent.set(channel.id, cacheSeed);
+            mockLibrary.getLibraryItems.mockClear();
 
             const first = await manager.resolveChannelItemsForSchedule(channel.id);
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(0);
+
             first[0]!.title = 'Mutated Title';
             first[0]!.genres?.push('Mutated Genre');
             first[0]!.directors?.push('Mutated Director');
@@ -532,13 +535,14 @@ describe('ChannelManager', () => {
 
             const second = await manager.resolveChannelItemsForSchedule(channel.id);
 
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(0);
             expect(second).not.toBe(first);
             expect(second[0]).not.toBe(first[0]);
             expect(second[0]!.title).toBe('Nested One');
             expect(second[0]!.genres).toEqual(['Drama']);
             expect(second[0]!.directors).toEqual(['Director A']);
             expect(second[0]!.mediaInfo).toEqual({
-                resolution: '4k',
+                resolution: '4K',
                 audioCodec: 'aac',
                 audioChannels: 6,
             });
@@ -548,8 +552,7 @@ describe('ChannelManager', () => {
             const channel = await manager.createChannel({
                 contentSource: createMockContentSource(),
             });
-            const resolver = (manager as unknown as { _contentResolver: { clearCaches: () => void } })._contentResolver;
-            const clearCachesSpy = jest.spyOn(resolver, 'clearCaches');
+            const clearCachesSpy = jest.spyOn(ContentResolver.prototype, 'clearCaches');
 
             await manager.refreshChannelContent(channel.id);
 
@@ -557,6 +560,10 @@ describe('ChannelManager', () => {
         });
 
         it('should handle library deleted gracefully', async () => {
+            expectConsoleWarn([
+                expect.stringContaining('Failed initial content resolution for channel'),
+                expect.objectContaining({ message: '404' }),
+            ]);
             mockLibrary.getLibraryItems.mockRejectedValue(new Error('404'));
 
             const channel = await manager.createChannel({
@@ -568,6 +575,20 @@ describe('ChannelManager', () => {
         });
 
         it('should throw ACCESS_DENIED when library returns ACCESS_DENIED (403)', async () => {
+            expectConsoleWarn([
+                'Access denied resolving channel content',
+                expect.objectContaining({
+                    channelId: expect.any(String),
+                    contentSource: expect.objectContaining({
+                        type: 'library',
+                        id: 'lib1',
+                    }),
+                    error: expect.objectContaining({
+                        code: AppErrorCode.ACCESS_DENIED,
+                        message: 'Access denied',
+                    }),
+                }),
+            ]);
             // First create a channel successfully
             const channel = await manager.createChannel({
                 contentSource: createMockContentSource(),
@@ -589,61 +610,67 @@ describe('ChannelManager', () => {
             }
         });
 
-        it('clears resolved content cache and pending retry on ACCESS_DENIED', async () => {
+        it('invalidates the source, cancels pending retries, and does not serve stale cache after ACCESS_DENIED', async () => {
             const logger = { warn: jest.fn(), error: jest.fn() };
             const localManager = new ChannelManager({ plexLibrary: mockLibrary, logger });
+            const invalidateSourceSpy = jest.spyOn(ContentResolver.prototype, 'invalidateSource');
+            const baseNow = Date.now();
+            const nowSpy = jest.spyOn(Date, 'now');
+            nowSpy.mockReturnValue(baseNow);
 
             try {
                 const channel = await localManager.createChannel({
                     contentSource: createMockContentSource(),
                 });
 
-                const state = (localManager as unknown as { _state: { resolvedContent: Map<string, unknown> } })._state;
-                state.resolvedContent.set(channel.id, {
-                    channelId: channel.id,
-                    resolvedAt: Date.now() - CACHE_TTL_MS - 1,
-                    items: [],
-                    orderedItems: [],
-                    totalDurationMs: 0,
+                nowSpy.mockReturnValue(baseNow + CACHE_TTL_MS + 1);
+                mockLibrary.getLibraryItems.mockRejectedValueOnce(
+                    Object.assign(new Error('Network timeout'), {
+                        code: AppErrorCode.NETWORK_TIMEOUT,
+                    })
+                );
+
+                const staleResult = await localManager.resolveChannelContent(channel.id);
+                expect(staleResult.items).toHaveLength(2);
+
+                const accessDeniedError = Object.assign(new Error('Access denied'), {
+                    code: AppErrorCode.ACCESS_DENIED,
+                    httpStatus: 403,
                 });
+                mockLibrary.getLibraryItems.mockRejectedValueOnce(accessDeniedError);
 
-                const resolver = (localManager as unknown as { _contentResolver: { invalidateSource: (s: unknown) => void } })
-                    ._contentResolver;
-                resolver.invalidateSource(channel.contentSource);
+                await expect(localManager.resolveChannelContent(channel.id)).rejects.toHaveProperty(
+                    'code',
+                    AppErrorCode.ACCESS_DENIED
+                );
 
-                const timeout = setTimeout(() => { }, 60_000);
-                try {
-                    (localManager as unknown as { _pendingRetries: Map<string, ReturnType<typeof setTimeout>> })
-                        ._pendingRetries.set(channel.id, timeout);
+                expect(invalidateSourceSpy).toHaveBeenCalledWith(channel.contentSource);
 
-                    const accessDeniedError = Object.assign(new Error('Access denied'), {
-                        code: AppErrorCode.ACCESS_DENIED,
+                mockLibrary.getLibraryItems.mockRejectedValueOnce(
+                    Object.assign(new Error('Network timeout after 403'), {
+                        code: AppErrorCode.NETWORK_TIMEOUT,
+                    })
+                );
+
+                await expect(localManager.resolveChannelContent(channel.id)).rejects.toHaveProperty(
+                    'code',
+                    AppErrorCode.NETWORK_TIMEOUT
+                );
+
+                jest.advanceTimersByTime(30_000);
+                await Promise.resolve();
+
+                expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(4);
+                expect(logger.warn).toHaveBeenCalledWith(
+                    'Access denied resolving channel content',
+                    expect.objectContaining({
+                        channelId: channel.id,
                         httpStatus: 403,
-                    });
-                    mockLibrary.getLibraryItems.mockRejectedValue(accessDeniedError);
-
-                    await expect(localManager.resolveChannelContent(channel.id)).rejects.toHaveProperty(
-                        'code',
-                        AppErrorCode.ACCESS_DENIED
-                    );
-
-                    expect(state.resolvedContent.has(channel.id)).toBe(false);
-                    expect(
-                        (localManager as unknown as { _pendingRetries: Map<string, unknown> })._pendingRetries.has(channel.id)
-                    ).toBe(false);
-
-                    expect(logger.warn).toHaveBeenCalledWith(
-                        'Access denied resolving channel content',
-                        expect.objectContaining({
-                            channelId: channel.id,
-                            httpStatus: 403,
-                            contentSource: { type: 'library', id: 'lib1' },
-                        })
-                    );
-                } finally {
-                    clearTimeout(timeout);
-                }
+                        contentSource: { type: 'library', id: 'lib1' },
+                    })
+                );
             } finally {
+                nowSpy.mockRestore();
                 await localManager.flushSaves().catch(() => undefined);
                 localManager.dispose();
             }
@@ -708,6 +735,7 @@ describe('ChannelManager', () => {
         });
 
         it('emits quota-specific persistenceWarning when current-channel write hits quota', async () => {
+            expectPersistCurrentChannelWarning();
             const ch1 = await manager.createChannel({ name: 'Ch1', contentSource: createMockContentSource() });
             const warningHandler = jest.fn();
             manager.on('persistenceWarning', warningHandler);
@@ -727,6 +755,7 @@ describe('ChannelManager', () => {
         });
 
         it('resets persistence warning backoff after a successful current-channel save', async () => {
+            expectPersistCurrentChannelWarning(2);
             const ch1 = await manager.createChannel({ name: 'Ch1', contentSource: createMockContentSource() });
             const ch2 = await manager.createChannel({ name: 'Ch2', contentSource: createMockContentSource() });
             const warningHandler = jest.fn();
@@ -806,13 +835,13 @@ describe('ChannelManager', () => {
                 name: 'Persisted Channel',
             });
 
-            mockStorage[STORAGE_KEY] = JSON.stringify({
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
                 channels: [persistedChannel],
                 channelOrder: [persistedChannel.id],
                 currentChannelId: persistedChannel.id,
                 savedAt: Date.now(),
-            });
-            mockStorage[CURRENT_CHANNEL_KEY] = persistedChannel.id;
+            }));
+            mockLocalStorage.setItem(CURRENT_CHANNEL_KEY, persistedChannel.id);
 
             const loadSpy = jest.spyOn(ChannelRepository.prototype, 'loadNormalized');
 
@@ -836,13 +865,13 @@ describe('ChannelManager', () => {
                 isSequentialVariant: true,
             };
 
-            mockStorage[STORAGE_KEY] = JSON.stringify({
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
                 channels: [persistedLegacy],
                 channelOrder: [persistedLegacy.id],
                 currentChannelId: persistedLegacy.id,
                 savedAt: Date.now(),
-            });
-            mockStorage[CURRENT_CHANNEL_KEY] = persistedLegacy.id;
+            }));
+            mockLocalStorage.setItem(CURRENT_CHANNEL_KEY, persistedLegacy.id);
 
             await manager.loadChannels();
             await manager.flushSaves();
@@ -854,7 +883,7 @@ describe('ChannelManager', () => {
             const exported = JSON.parse(manager.exportChannels()) as Array<Record<string, unknown>>;
             expect(exported[0]?.isSequentialVariant).toBeUndefined();
 
-            const persisted = JSON.parse(mockStorage[STORAGE_KEY] ?? '{}') as {
+            const persisted = JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}') as {
                 channels?: Array<Record<string, unknown>>;
             };
             expect(persisted.channels?.[0]?.isSequentialVariant).toBeUndefined();
@@ -867,13 +896,13 @@ describe('ChannelManager', () => {
                 name: 'Persisted Channel',
             });
 
-            mockStorage[STORAGE_KEY] = JSON.stringify({
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
                 channels: [persistedChannel],
                 channelOrder: [persistedChannel.id],
                 currentChannelId: 'different-current-id',
                 savedAt: Date.now(),
-            });
-            mockStorage[CURRENT_CHANNEL_KEY] = persistedChannel.id;
+            }));
+            mockLocalStorage.setItem(CURRENT_CHANNEL_KEY, persistedChannel.id);
 
             const loadManager = new ChannelManager({ plexLibrary: mockLibrary });
             const queueSaveSpy = jest.spyOn(loadManager as unknown as { _queueSave: () => void }, '_queueSave');
@@ -885,6 +914,7 @@ describe('ChannelManager', () => {
         });
 
         it('saveChannels reuses one pending promise for burst saves', async () => {
+            expectDebouncedSaveQuotaWarning();
             await manager.createChannel({ contentSource: createMockContentSource() });
 
             mockLocalStorage.setItem.mockImplementation(() => {
@@ -921,6 +951,7 @@ describe('ChannelManager', () => {
         });
 
         it('emits throttled persistenceWarning for debounced background save failures', async () => {
+            expectDebouncedSaveQuotaWarning();
             const warningHandler = jest.fn();
             manager.on('persistenceWarning', warningHandler);
 
@@ -947,6 +978,7 @@ describe('ChannelManager', () => {
         });
 
         it('saveChannels should reject when debounced persistence fails', async () => {
+            expectDebouncedSaveQuotaWarning();
             await manager.createChannel({ contentSource: createMockContentSource() });
 
             mockLocalStorage.setItem.mockImplementation(() => {
@@ -962,6 +994,7 @@ describe('ChannelManager', () => {
         });
 
         it('flushSaves should propagate persistence failure when pending save exists', async () => {
+            expectDebouncedSaveQuotaWarning();
             await manager.createChannel({ contentSource: createMockContentSource() });
 
             mockLocalStorage.setItem.mockImplementation(() => {
@@ -1037,12 +1070,12 @@ describe('ChannelManager', () => {
             const channel = manager.getAllChannels()[0]!;
 
             mockLocalStorage.clear();
-            mockStorage[STORAGE_KEY] = JSON.stringify({
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
                 channels: [{ ...channel, contentSource: null }],
                 channelOrder: [channel.id],
                 currentChannelId: channel.id,
                 savedAt: Date.now(),
-            });
+            }));
 
             const newManager = new ChannelManager({ plexLibrary: mockLibrary });
             await expect(newManager.loadChannels()).resolves.toBeUndefined();
@@ -1057,7 +1090,7 @@ describe('ChannelManager', () => {
             const channel = manager.getAllChannels()[0]!;
 
             mockLocalStorage.clear();
-            mockStorage[STORAGE_KEY] = JSON.stringify({
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
                 channels: [{
                     ...channel,
                     contentSource: {
@@ -1071,7 +1104,7 @@ describe('ChannelManager', () => {
                 channelOrder: [channel.id],
                 currentChannelId: channel.id,
                 savedAt: Date.now(),
-            });
+            }));
 
             const newManager = new ChannelManager({ plexLibrary: mockLibrary });
             await newManager.loadChannels();
@@ -1086,12 +1119,12 @@ describe('ChannelManager', () => {
             const channel = manager.getAllChannels()[0]!;
 
             mockLocalStorage.clear();
-            mockStorage[STORAGE_KEY] = JSON.stringify({
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
                 channels: [null, 'bad', 123, channel],
                 channelOrder: [channel.id],
                 currentChannelId: channel.id,
                 savedAt: Date.now(),
-            });
+            }));
 
             const newManager = new ChannelManager({ plexLibrary: mockLibrary });
             await expect(newManager.loadChannels()).resolves.toBeUndefined();
@@ -1112,12 +1145,12 @@ describe('ChannelManager', () => {
             });
 
             mockLocalStorage.clear();
-            mockStorage[STORAGE_KEY] = JSON.stringify({
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
                 channels: [ch1, ch2],
                 channelOrder: [],
                 currentChannelId: 'missing',
                 savedAt: Date.now(),
-            });
+            }));
 
             const newManager = new ChannelManager({ plexLibrary: mockLibrary });
             await newManager.loadChannels();

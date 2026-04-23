@@ -1,6 +1,7 @@
 /**
  * @jest-environment jsdom
  */
+import { expectConsoleWarn } from '../../../../__tests__/helpers';
 import { NowPlayingInfoCoordinator } from '../NowPlayingInfoCoordinator';
 import { NOW_PLAYING_INFO_DEFAULTS } from '../constants';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
@@ -129,6 +130,12 @@ const setup = (
 
 describe('NowPlayingInfoCoordinator', () => {
     it('handleModalOpen closes modal if no program is available', () => {
+        expectConsoleWarn([
+            '[NowPlayingInfoCoordinator] Scheduler unavailable, using fallback:',
+            expect.objectContaining({
+                message: 'boom',
+            }),
+        ]);
         const scheduler = makeScheduler({
             getCurrentProgram: jest.fn(() => {
                 throw new Error('boom');
@@ -464,7 +471,12 @@ describe('NowPlayingInfoCoordinator', () => {
     });
 
     it('logs playback summary refresh failures through the background task wrapper', async () => {
-        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        expectConsoleWarn([
+            '[NowPlayingInfoCoordinator] Failed to refresh playback summary:',
+            expect.objectContaining({
+                message: 'snapshot failed',
+            }),
+        ]);
         const { coordinator, deps } = setup({
             refreshPlaybackInfoSnapshot: jest.fn().mockRejectedValue(new Error('snapshot failed')),
         });
@@ -474,14 +486,6 @@ describe('NowPlayingInfoCoordinator', () => {
         await Promise.resolve();
 
         expect(deps.refreshPlaybackInfoSnapshot).toHaveBeenCalled();
-        expect(warnSpy).toHaveBeenCalledWith(
-            '[NowPlayingInfoCoordinator] Failed to refresh playback summary:',
-            expect.objectContaining({
-                message: 'snapshot failed',
-            })
-        );
-
-        warnSpy.mockRestore();
     });
 
     it('handleModalClose stops live updates', () => {
@@ -598,26 +602,20 @@ describe('NowPlayingInfoCoordinator', () => {
     });
 
     it('logs and suppresses debug hud refresh failures during modal open', async () => {
-        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-        try {
-            const { coordinator } = setup({
-                maybeFetchStreamDecisionForDebugHud: jest.fn().mockRejectedValue(new Error('debug boom')),
-            });
+        expectConsoleWarn([
+            '[NowPlayingInfoCoordinator] Failed to refresh stream debug HUD:',
+            expect.objectContaining({
+                name: 'Error',
+                message: 'debug boom',
+            }),
+        ]);
+        const { coordinator } = setup({
+            maybeFetchStreamDecisionForDebugHud: jest.fn().mockRejectedValue(new Error('debug boom')),
+        });
 
-            coordinator.handleModalOpen(modalId);
-            await Promise.resolve();
-            await Promise.resolve();
-
-            expect(warnSpy).toHaveBeenCalledWith(
-                '[NowPlayingInfoCoordinator] Failed to refresh stream debug HUD:',
-                expect.objectContaining({
-                    name: 'Error',
-                    message: 'debug boom',
-                })
-            );
-        } finally {
-            warnSpy.mockRestore();
-        }
+        coordinator.handleModalOpen(modalId);
+        await Promise.resolve();
+        await Promise.resolve();
     });
 
     it('omits clearLogoUrl when prefer clear logos is disabled', () => {

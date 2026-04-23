@@ -9,7 +9,7 @@ export async function fetchWithTimeoutCore(
         try {
             controller.abort();
         } catch {
-            // ignore
+            // Abort cleanup must remain fail-open.
         }
     };
 
@@ -17,7 +17,14 @@ export async function fetchWithTimeoutCore(
         if (upstreamSignal.aborted) {
             onAbort();
         } else {
-            upstreamSignal.addEventListener('abort', onAbort, { once: true });
+            try {
+                upstreamSignal.addEventListener('abort', onAbort, { once: true });
+                if (upstreamSignal.aborted) {
+                    onAbort();
+                }
+            } catch {
+                // Listener wiring must remain fail-open.
+            }
         }
     }
 
@@ -31,9 +38,8 @@ export async function fetchWithTimeoutCore(
             try {
                 upstreamSignal.removeEventListener('abort', onAbort);
             } catch {
-                // ignore
+                // Listener cleanup must remain fail-open.
             }
         }
     }
 }
-

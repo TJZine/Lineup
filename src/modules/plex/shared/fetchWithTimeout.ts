@@ -37,12 +37,12 @@ function mergeAbortSignals(
         try {
             optionsSignal.removeEventListener('abort', abortCombined);
         } catch {
-            // ignore
+            // Listener cleanup must remain fail-open.
         }
         try {
             upstreamSignal.removeEventListener('abort', abortCombined);
         } catch {
-            // ignore
+            // Listener cleanup must remain fail-open.
         }
     };
 
@@ -51,7 +51,7 @@ function mergeAbortSignals(
         try {
             controller.abort();
         } catch {
-            // ignore
+            // Abort cleanup must remain fail-open.
         }
     };
 
@@ -60,8 +60,19 @@ function mergeAbortSignals(
         return { signal: controller.signal, cleanup };
     }
 
-    optionsSignal.addEventListener('abort', abortCombined, { once: true });
-    upstreamSignal.addEventListener('abort', abortCombined, { once: true });
+    try {
+        optionsSignal.addEventListener('abort', abortCombined, { once: true });
+    } catch {
+        // Listener wiring must remain fail-open.
+    }
+    try {
+        upstreamSignal.addEventListener('abort', abortCombined, { once: true });
+    } catch {
+        // Listener wiring must remain fail-open.
+    }
+    if (optionsSignal.aborted || upstreamSignal.aborted) {
+        abortCombined();
+    }
 
     return { signal: controller.signal, cleanup };
 }

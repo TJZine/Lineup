@@ -1,10 +1,10 @@
+import { AppErrorCode } from '../../../types/app-errors';
 import { PlexLibraryError } from './PlexLibraryError';
-import { PlexLibraryErrorCode } from './types';
 
 export function parseRequiredObject<T>(value: unknown, context: string): T {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
         throw new PlexLibraryError(
-            PlexLibraryErrorCode.PARSE_ERROR,
+            AppErrorCode.PARSE_ERROR,
             `Invalid ${context} payload: expected an object`
         );
     }
@@ -18,7 +18,7 @@ export function parseArrayOrEmpty<T>(value: unknown, context: string): T[] {
     }
     if (!Array.isArray(value)) {
         throw new PlexLibraryError(
-            PlexLibraryErrorCode.PARSE_ERROR,
+            AppErrorCode.PARSE_ERROR,
             `Invalid ${context} payload: expected an array`
         );
     }
@@ -28,7 +28,7 @@ export function parseArrayOrEmpty<T>(value: unknown, context: string): T[] {
 export function parseRequiredArray<T>(value: unknown, context: string): T[] {
     if (!Array.isArray(value)) {
         throw new PlexLibraryError(
-            PlexLibraryErrorCode.PARSE_ERROR,
+            AppErrorCode.PARSE_ERROR,
             `Invalid ${context} payload: expected an array`
         );
     }

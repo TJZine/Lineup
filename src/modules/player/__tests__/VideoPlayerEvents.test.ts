@@ -2,10 +2,10 @@
  * @jest-environment jsdom
  */
 
+import { AppErrorCode } from '../../../types/app-errors';
 import type { EventEmitter } from '../../../utils/EventEmitter';
 import { SYNTHETIC_MEDIA_ERROR_CODE_KEY } from '../constants';
 import type { RetryManager } from '../RetryManager';
-import { PlayerErrorCode } from '../types';
 import type { PlaybackError, PlayerEventMap, VideoPlayerInternalState } from '../types';
 import { VideoPlayerEvents } from '../VideoPlayerEvents';
 
@@ -236,13 +236,13 @@ describe('VideoPlayerEvents', () => {
     it('handles recoverable and unrecoverable media errors', () => {
         const { video, emitter, callbacks, retryManager } = createFixture();
         const recoverableError: PlaybackError = {
-            code: PlayerErrorCode.NETWORK_TIMEOUT,
+            code: AppErrorCode.NETWORK_TIMEOUT,
             message: 'retrying',
             recoverable: true,
             retryCount: 1,
         };
         const terminalError: PlaybackError = {
-            code: PlayerErrorCode.UNKNOWN,
+            code: AppErrorCode.UNKNOWN,
             message: 'fatal',
             recoverable: false,
             retryCount: 3,

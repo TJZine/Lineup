@@ -8,6 +8,7 @@ import { generatePlexSessionId } from '../plexSessionId';
 import type { PlexMediaFile, PlexMediaItem, PlexMediaPart, PlexStream } from '../types';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import type { PlatformIdentityService } from '../../../../platform';
+import { expectConsoleWarn } from '../../../../__tests__/helpers';
 import { createMockConfig, createMockMediaItem } from './testUtils';
 
 // ============================================
@@ -402,7 +403,22 @@ describe('PlexStreamResolver', () => {
         });
 
         it('logs a warning when PMS universal decision fetch fails in debug mode', async () => {
-            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            expectConsoleWarn([
+                'Transcode URL (compat=0):',
+                expect.stringContaining('X-Plex-Token=REDACTED'),
+            ], { times: 2 });
+            expectConsoleWarn([
+                'HDR10 fallback applied:',
+                expect.objectContaining({ itemKey: '12345', reason: expect.any(String) }),
+            ]);
+            expectConsoleWarn([
+                'Stream decision:',
+                expect.objectContaining({ itemKey: '12345', mode: 'transcode' }),
+            ]);
+            expectConsoleWarn([
+                'PMS universal decision fetch failed:',
+                expect.objectContaining({ itemKey: '12345' }),
+            ]);
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: jest.fn((key: string) =>
@@ -425,14 +441,25 @@ describe('PlexStreamResolver', () => {
             const decision = await resolver.resolveStream({ itemKey: '12345' });
 
             expect(decision.isTranscoding).toBe(true);
-            expect(warnSpy).toHaveBeenCalledWith(
-                'PMS universal decision fetch failed:',
-                expect.objectContaining({ itemKey: '12345' })
-            );
         });
 
         it('logs debug stream decision summary and HDR10 fallback reason', async () => {
-            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            expectConsoleWarn([
+                'Transcode URL (compat=0):',
+                expect.stringContaining('X-Plex-Token=REDACTED'),
+            ], { times: 2 });
+            expectConsoleWarn([
+                'HDR10 fallback applied:',
+                expect.objectContaining({ itemKey: '12345', reason: expect.any(String) }),
+            ]);
+            expectConsoleWarn([
+                'Stream decision:',
+                expect.objectContaining({ itemKey: '12345', mode: 'transcode' }),
+            ]);
+            expectConsoleWarn([
+                'PMS universal decision fetch failed:',
+                expect.objectContaining({ itemKey: '12345' }),
+            ]);
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: jest.fn((key: string) => {
@@ -464,14 +491,6 @@ describe('PlexStreamResolver', () => {
             const decision = await resolver.resolveStream({ itemKey: '12345' });
 
             expect(decision.isTranscoding).toBe(true);
-            expect(warnSpy).toHaveBeenCalledWith(
-                'HDR10 fallback applied:',
-                expect.objectContaining({ itemKey: '12345', reason: expect.any(String) })
-            );
-            expect(warnSpy).toHaveBeenCalledWith(
-                'Stream decision:',
-                expect.objectContaining({ itemKey: '12345', mode: 'transcode' })
-            );
         });
 
         it('allows direct play for DV MKV when Smart is enabled but not letterbox', async () => {
@@ -1088,7 +1107,10 @@ describe('PlexStreamResolver', () => {
         });
 
         it('redacts X-Plex-Token in transcode debug logs', () => {
-            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const transcodeLog = expectConsoleWarn([
+                'Transcode URL (compat=0):',
+                expect.stringContaining('X-Plex-Token=REDACTED'),
+            ]);
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: jest.fn((key: string) =>
@@ -1102,14 +1124,9 @@ describe('PlexStreamResolver', () => {
             const url = resolver.getTranscodeUrl('12345', {});
 
             expect(url).toContain('X-Plex-Token=mock-token');
-            expect(warnSpy).toHaveBeenCalledWith(
-                'Transcode URL (compat=0):',
-                expect.stringContaining('X-Plex-Token=REDACTED')
+            expect(transcodeLog.getLastCall()?.[1]).toEqual(
+                expect.not.stringContaining('X-Plex-Token=mock-token')
             );
-            expect(warnSpy.mock.calls.some((call) =>
-                typeof call[1] === 'string' && call[1].includes('X-Plex-Token=mock-token')
-            )).toBe(false);
-            warnSpy.mockRestore();
         });
 
         it('should respect bitrate limits', () => {
@@ -1283,18 +1300,29 @@ describe('PlexStreamResolver', () => {
         });
     });
 
-    describe('_buildUrlWithToken', () => {
-        it('should include default identity params when auth headers are minimal', () => {
-            const config = createMockConfig();
-            const resolver = new PlexStreamResolver(config);
+    describe('direct-play url construction', () => {
+        it('includes default identity params when auth headers are minimal', async () => {
+            const item = createMockMediaItem({
+                container: 'mp4',
+                videoCodec: 'h264',
+                audioCodec: 'aac',
+            });
+            const resolver = new PlexStreamResolver(
+                createMockConfig({
+                    getAuthHeaders: () => ({
+                        'X-Plex-Token': 'mock-token',
+                    }),
+                    getItem: jest.fn().mockResolvedValue(item),
+                })
+            );
 
-            const url = (resolver as unknown as {
-                _buildUrlWithToken: (baseUri: string, partKey: string, sessionId: string) => string;
-            })._buildUrlWithToken('http://192.168.1.100:32400', '/library/parts/12345/file.mp4', 'sess-1');
+            const decision = await resolver.resolveStream({ itemKey: '12345' });
+            const parsed = new URL(decision.playbackUrl);
 
-            const parsed = new URL(url);
             expect(parsed.searchParams.get('X-Plex-Token')).toBe('mock-token');
-            expect(parsed.searchParams.get('X-Plex-Session-Identifier')).toBe('sess-1');
+            expect(parsed.searchParams.get('X-Plex-Session-Identifier')).toMatch(
+                /^[a-f0-9-]{36}$/i
+            );
             expect(parsed.searchParams.get('X-Plex-Client-Identifier')).toBe('test-client-id');
             expect(parsed.searchParams.get('X-Plex-Platform')).toBe('webOS');
             expect(parsed.searchParams.get('X-Plex-Product')).toBeTruthy();
@@ -1305,50 +1333,66 @@ describe('PlexStreamResolver', () => {
             expect(parsed.searchParams.get('X-Plex-Platform-Version')).toBeTruthy();
         });
 
-        it('keeps computed direct-play capabilities even when headers supply a different value', () => {
+        it('keeps computed direct-play capabilities even when headers supply a different value', async () => {
+            const item = createMockMediaItem({
+                container: 'mp4',
+                videoCodec: 'h264',
+                audioCodec: 'aac',
+            });
             const resolver = new PlexStreamResolver(
                 createMockConfig({
                     getAuthHeaders: () => ({
                         'X-Plex-Token': 'mock-token',
                         'X-Plex-Client-Capabilities': 'overrides-from-header',
                     }),
+                    getItem: jest.fn().mockResolvedValue(item),
                 })
             );
 
-            const url = (resolver as unknown as {
-                _buildUrlWithToken: (baseUri: string, partKey: string, sessionId: string) => string;
-                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
-            })._buildUrlWithToken('http://192.168.1.100:32400', '/library/parts/12345/file.mp4', 'sess-1');
+            const decision = await resolver.resolveStream({ itemKey: '12345' });
+            const parsed = new URL(decision.playbackUrl);
 
-            const expectedCapabilities = (resolver as unknown as {
-                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
-            })._buildClientCapabilities({ hideDolbyVision: false });
-            const parsed = new URL(url);
-            expect(parsed.searchParams.get('X-Plex-Client-Capabilities')).toBe(expectedCapabilities);
+            expect(parsed.searchParams.get('X-Plex-Client-Capabilities')).not.toBe('overrides-from-header');
+            expect(parsed.searchParams.get('X-Plex-Client-Capabilities')).toContain(
+                'protocols=http-live-streaming'
+            );
         });
 
-        it('normalizes absolute direct-play keys to the selected playback origin', () => {
-            const config = createMockConfig();
-            const resolver = new PlexStreamResolver(config);
-
-            const url = (resolver as unknown as {
-                _buildUrlWithToken: (baseUri: string, partKey: string, sessionId: string) => string;
-            })._buildUrlWithToken(
-                'http://192.168.1.100:32400',
-                'http://evil.example/library/parts/12345/file.mp4?audioStreamID=audio-1',
-                'sess-1'
+        it('normalizes absolute direct-play keys to the selected playback origin', async () => {
+            const item = createMockMediaItem(
+                {
+                    container: 'mp4',
+                    videoCodec: 'h264',
+                    audioCodec: 'aac',
+                },
+                {
+                    partKey: 'http://evil.example/library/parts/12345/file.mp4?audioStreamID=audio-1',
+                }
+            );
+            const resolver = new PlexStreamResolver(
+                createMockConfig({
+                    getItem: jest.fn().mockResolvedValue(item),
+                })
             );
 
-            const parsed = new URL(url);
+            const decision = await resolver.resolveStream({ itemKey: '12345' });
+            const parsed = new URL(decision.playbackUrl);
+
             expect(parsed.origin).toBe('http://192.168.1.100:32400');
             expect(parsed.pathname).toBe('/library/parts/12345/file.mp4');
             expect(parsed.searchParams.get('audioStreamID')).toBe('audio-1');
-            expect(parsed.searchParams.get('X-Plex-Session-Identifier')).toBe('sess-1');
+            expect(parsed.searchParams.get('X-Plex-Session-Identifier')).toMatch(
+                /^[a-f0-9-]{36}$/i
+            );
         });
     });
 
-    describe('_buildClientCapabilities', () => {
+    describe('transcode capability advertising', () => {
         it('advertises DTS codecs only when user-enabled and Chrome is modern', () => {
+            expectConsoleWarn([
+                'Transcode URL (compat=1):',
+                expect.stringContaining('X-Plex-Token=REDACTED'),
+            ]);
             Object.defineProperty(globalThis, 'localStorage', {
                 value: { getItem: jest.fn().mockReturnValue('1') },
                 configurable: true,
@@ -1357,9 +1401,10 @@ describe('PlexStreamResolver', () => {
                 value: { userAgent: 'Mozilla/5.0 (Web0S) AppleWebKit/537.36 Chrome/108.0.0.0 Safari/537.36' },
                 configurable: true,
             });
-            const capabilities = (new PlexStreamResolver(createMockConfig()) as unknown as {
-                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
-            })._buildClientCapabilities();
+
+            const capabilities = new URL(
+                new PlexStreamResolver(createMockConfig()).getTranscodeUrl('12345', {})
+            ).searchParams.get('X-Plex-Client-Capabilities');
 
             expect(capabilities).toContain('dts{bitrate:1536000}');
             expect(capabilities).toContain('dca{bitrate:1536000}');
@@ -1367,6 +1412,10 @@ describe('PlexStreamResolver', () => {
         });
 
         it('does not advertise DTS codecs when Chrome is below 108', () => {
+            expectConsoleWarn([
+                'Transcode URL (compat=1):',
+                expect.stringContaining('X-Plex-Token=REDACTED'),
+            ]);
             Object.defineProperty(globalThis, 'localStorage', {
                 value: { getItem: jest.fn().mockReturnValue('1') },
                 configurable: true,
@@ -1376,9 +1425,9 @@ describe('PlexStreamResolver', () => {
                 configurable: true,
             });
 
-            const capabilities = (new PlexStreamResolver(createMockConfig()) as unknown as {
-                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
-            })._buildClientCapabilities();
+            const capabilities = new URL(
+                new PlexStreamResolver(createMockConfig()).getTranscodeUrl('12345', {})
+            ).searchParams.get('X-Plex-Client-Capabilities');
 
             expect(capabilities).not.toContain('dts{bitrate:1536000}');
             expect(capabilities).not.toContain('dca{bitrate:1536000}');
@@ -1395,9 +1444,9 @@ describe('PlexStreamResolver', () => {
                 configurable: true,
             });
 
-            const capabilities = (new PlexStreamResolver(createMockConfig()) as unknown as {
-                _buildClientCapabilities: (options?: { hideDolbyVision?: boolean }) => string;
-            })._buildClientCapabilities();
+            const capabilities = new URL(
+                new PlexStreamResolver(createMockConfig()).getTranscodeUrl('12345', {})
+            ).searchParams.get('X-Plex-Client-Capabilities');
 
             expect(capabilities).not.toContain('dts{bitrate:1536000}');
             expect(capabilities).not.toContain('dca{bitrate:1536000}');
@@ -1481,21 +1530,19 @@ describe('PlexStreamResolver', () => {
         });
 
         it('logs a warning with session context when stopTranscodeSession fails', async () => {
-            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            expectConsoleWarn([
+                'stopTranscodeSession failed:',
+                expect.objectContaining({
+                    sessionId: 'sess-1',
+                    error: expect.anything(),
+                }),
+            ]);
             const config = createMockConfig();
             const resolver = new PlexStreamResolver(config);
 
             mockFetch.mockRejectedValueOnce(new Error('network down'));
 
             await resolver.stopTranscodeSession('sess-1');
-
-            expect(warnSpy).toHaveBeenCalledWith(
-                'stopTranscodeSession failed:',
-                expect.objectContaining({
-                    sessionId: 'sess-1',
-                    error: expect.anything(),
-                })
-            );
         });
     });
 
@@ -1533,7 +1580,7 @@ describe('PlexStreamResolver', () => {
 
         it('should use relay connection as fallback', async () => {
             const mockItem = createMockMediaItem();
-            const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+            expectConsoleWarn('Using Plex relay due to mixed content restrictions');
             const config = createMockConfig({
                 getItem: jest.fn().mockResolvedValue(mockItem),
                 getServerUri: () => 'http://192.168.1.100:32400',
@@ -1545,10 +1592,6 @@ describe('PlexStreamResolver', () => {
             const decision = await resolver.resolveStream({ itemKey: '12345' });
 
             expect(decision.playbackUrl).toContain('https://relay.plex.direct');
-            expect(consoleWarnSpy).toHaveBeenCalledWith(
-                'Using Plex relay due to mixed content restrictions'
-            );
-            consoleWarnSpy.mockRestore();
         });
 
         it('should throw MIXED_CONTENT_BLOCKED when no fallback available', async () => {

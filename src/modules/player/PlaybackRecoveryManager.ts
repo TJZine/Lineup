@@ -7,7 +7,6 @@
 import {
     AppErrorCode,
     getAppErrorCode,
-    getMappedAppErrorCode,
     type AppError,
 } from '../../types/app-errors';
 import {
@@ -260,7 +259,7 @@ export class PlaybackRecoveryManager {
         if (typeof maybe.message !== 'string') {
             return false;
         }
-        const mapped = getMappedAppErrorCode(maybe.code, mapPlexStreamErrorCodeToAppErrorCode);
+        const mapped = mapPlexStreamErrorCodeToAppErrorCode(maybe.code);
         if (
             mapped === AppErrorCode.AUTH_REQUIRED ||
             mapped === AppErrorCode.AUTH_EXPIRED ||

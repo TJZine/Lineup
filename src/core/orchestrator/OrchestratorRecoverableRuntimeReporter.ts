@@ -27,51 +27,33 @@ interface RecoverableRuntimeIssueReporterInput {
     warningSink?: RecoverableRuntimeWarningSink;
 }
 
-function emitRecoverableRuntimeWarning(
-    warningSink: RecoverableRuntimeWarningSink,
-    message: string,
-    data: unknown
-): void {
-    warningSink.emit({ message, data });
-}
-
-function safeAppendIssueDiagnostic(
-    input: RecoverableRuntimeIssueReporterInput,
-    event: string,
-    data: Record<string, unknown>,
-    scope: 'reportIssue' | 'reportError'
-): void {
-    try {
-        input.appendIssueDiagnostic(input.issueId, event, data);
-    } catch (error) {
-        emitRecoverableRuntimeWarning(
-            input.warningSink ?? createRecoverableRuntimeWarningSink({ warn: input.warn }),
-            `[RecoverableRuntimeReporter] ${scope} failed:`,
-            summarizeErrorForLog(error)
-        );
-    }
-}
-
-function safeWarn(
-    warningSink: RecoverableRuntimeWarningSink,
-    message: string,
-    data: Record<string, unknown>
-): void {
-    emitRecoverableRuntimeWarning(warningSink, message, data);
-}
-
 export function createRecoverableRuntimeIssueReporter(
     input: RecoverableRuntimeIssueReporterInput
 ): RecoverableRuntimeIssueReporter {
     const warningSink = input.warningSink ?? createRecoverableRuntimeWarningSink({ warn: input.warn });
+    const appendDiagnostic = (
+        event: string,
+        data: Record<string, unknown>,
+        scope: 'reportIssue' | 'reportError'
+    ): void => {
+        try {
+            input.appendIssueDiagnostic(input.issueId, event, data);
+        } catch (error) {
+            warningSink.emit({
+                message: `[RecoverableRuntimeReporter] ${scope} failed:`,
+                data: summarizeErrorForLog(error),
+            });
+        }
+    };
+
     const reportIssue = (
         event: string,
         message: string,
         data: Record<string, unknown> = {}
     ): void => {
         const payload = { message, ...data };
-        safeAppendIssueDiagnostic(input, event, payload, 'reportIssue');
-        safeWarn(warningSink, message, data);
+        appendDiagnostic(event, payload, 'reportIssue');
+        warningSink.emit({ message, data });
     };
 
     return {
@@ -86,8 +68,8 @@ export function createRecoverableRuntimeIssueReporter(
                 ...data,
                 safeError: summarizeErrorForLog(error),
             };
-            safeAppendIssueDiagnostic(input, event, { message, ...payload }, 'reportError');
-            emitRecoverableRuntimeWarning(warningSink, message, payload);
+            appendDiagnostic(event, { message, ...payload }, 'reportError');
+            warningSink.emit({ message, data: payload });
         },
     };
 }
@@ -111,36 +93,30 @@ export function observeRecoverableAsyncFailure(
     warn?: RecoverableRuntimeIssueReporterInput['warn']
 ): Promise<void> {
     const warningSink = createRecoverableRuntimeWarningSink({ warn });
+    const reportFailure = (error: unknown): void => {
+        try {
+            reportRecoverableAsyncFailure(event, message, error);
+        } catch (reporterError) {
+            warningSink.emit({
+                message: '[RecoverableRuntimeReporter] observeRecoverableAsyncFailure failed:',
+                data: summarizeErrorForLog(reporterError),
+            });
+        }
+    };
     let promise: Promise<unknown>;
     try {
         promise = typeof promiseOrFactory === 'function'
             ? promiseOrFactory()
             : promiseOrFactory;
     } catch (error: unknown) {
-        try {
-            reportRecoverableAsyncFailure(event, message, error);
-        } catch (reporterError) {
-            emitRecoverableRuntimeWarning(
-                warningSink,
-                '[RecoverableRuntimeReporter] observeRecoverableAsyncFailure failed:',
-                summarizeErrorForLog(reporterError)
-            );
-        }
+        reportFailure(error);
         return Promise.resolve();
     }
 
     return promise.then(
         () => undefined,
         (error: unknown) => {
-            try {
-                reportRecoverableAsyncFailure(event, message, error);
-            } catch (reporterError) {
-                emitRecoverableRuntimeWarning(
-                    warningSink,
-                    '[RecoverableRuntimeReporter] observeRecoverableAsyncFailure failed:',
-                    summarizeErrorForLog(reporterError)
-                );
-            }
+            reportFailure(error);
         }
     );
 }

@@ -5,8 +5,8 @@
  * @version 1.0.0
  */
 
-import type { PlaybackError, PlayerErrorCode } from './types';
-import { PlayerErrorCode as ErrorCode } from './types';
+import { AppErrorCode } from '../../types/app-errors';
+import type { PlaybackError } from './types';
 import { RETRY_BASE_DELAY_MS } from './constants';
 
 const MAX_BACKOFF_MS = 30000;
@@ -27,38 +27,38 @@ export function mapMediaErrorCodeToPlaybackError(
     retryAttempts: number,
     retryDelayMs: number = RETRY_BASE_DELAY_MS
 ): PlaybackError {
-    let code: PlayerErrorCode;
+    let code: AppErrorCode;
     let message: string;
     let recoverable: boolean;
 
     switch (mediaErrorCode) {
         case 1: // MEDIA_ERR_ABORTED
-            code = ErrorCode.UNKNOWN;
+            code = AppErrorCode.UNKNOWN;
             message = 'Media loading aborted';
             recoverable = false;
             break;
 
         case 2: // MEDIA_ERR_NETWORK
-            code = ErrorCode.NETWORK_TIMEOUT;
+            code = AppErrorCode.NETWORK_TIMEOUT;
             message = 'Network error during playback';
             // Recoverable only if we haven't exhausted retries
             recoverable = retryCount < retryAttempts;
             break;
 
         case 3: // MEDIA_ERR_DECODE
-            code = ErrorCode.PLAYBACK_DECODE_ERROR;
+            code = AppErrorCode.PLAYBACK_DECODE_ERROR;
             message = 'Media decode error';
             recoverable = false;
             break;
 
         case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
-            code = ErrorCode.PLAYBACK_FORMAT_UNSUPPORTED;
+            code = AppErrorCode.PLAYBACK_FORMAT_UNSUPPORTED;
             message = 'Media format not supported';
             recoverable = false;
             break;
 
         default:
-            code = ErrorCode.UNKNOWN;
+            code = AppErrorCode.UNKNOWN;
             message = `Unknown media error (code: ${mediaErrorCode})`;
             recoverable = false;
     }

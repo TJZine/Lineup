@@ -1,16 +1,10 @@
 import { AppErrorCode } from '../../../../types/app-errors';
-import { PlexLibraryErrorCode, mapPlexLibraryErrorCodeToAppErrorCode } from '../types';
+import { PlexLibraryError } from '../PlexLibraryError';
 
 describe('plex library error taxonomy exports', () => {
-    it('reuses canonical AppErrorCode values', () => {
-        expect(PlexLibraryErrorCode.AUTH_REQUIRED).toBe(AppErrorCode.AUTH_REQUIRED);
-        expect(PlexLibraryErrorCode.SERVER_ERROR).toBe(AppErrorCode.SERVER_ERROR);
-        expect(PlexLibraryErrorCode.PAGINATION_LIMIT_EXCEEDED).toBe(AppErrorCode.PAGINATION_LIMIT_EXCEEDED);
-    });
+    it('uses AppErrorCode directly for library errors', () => {
+        const error = new PlexLibraryError(AppErrorCode.PARSE_ERROR, 'bad payload');
 
-    it('keeps the library mapping helper as a stable passthrough surface', () => {
-        expect(
-            mapPlexLibraryErrorCodeToAppErrorCode(PlexLibraryErrorCode.PAGINATION_LIMIT_EXCEEDED)
-        ).toBe(AppErrorCode.PAGINATION_LIMIT_EXCEEDED);
+        expect(error.code).toBe(AppErrorCode.PARSE_ERROR);
     });
 });

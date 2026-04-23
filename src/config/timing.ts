@@ -1,12 +1,3 @@
-/**
- * @fileoverview Shared timing constants across modules.
- * @module config/timing
- * @version 1.0.0
- */
-
-/**
- * Timing configuration used by lifecycle, persistence, and network monitoring.
- */
 export const TIMING_CONFIG = {
     /** Maximum time to wait for pause callbacks (ms) */
     CALLBACK_TIMEOUT_MS: 5000,

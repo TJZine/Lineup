@@ -2,7 +2,11 @@
  * @jest-environment jsdom
  */
 
-import { flushPromisesAndMacrotask } from './helpers';
+import {
+    flushPromisesAndMacrotask,
+    setDevBuildForTest,
+    setDocumentReadyStateForTest,
+} from './helpers';
 
 jest.mock('../modules/ui/splash', () => ({
     SplashScreen: class SplashScreen {
@@ -25,12 +29,17 @@ type LineupWindow = Window & { __LINEUP__?: DebugApi };
 
 jest.setTimeout(15000);
 
+let restoreDevBuild: (() => void) | null = null;
+let restoreDocumentReadyState: (() => void) | null = null;
+
 const setDevBuild = (value: boolean): void => {
-    Object.defineProperty(globalThis, '__LINEUP_DEV_BUILD__', {
-        value,
-        configurable: true,
-        writable: true,
-    });
+    restoreDevBuild?.();
+    restoreDevBuild = setDevBuildForTest(value);
+};
+
+const setDocumentReadyState = (value: DocumentReadyState): void => {
+    restoreDocumentReadyState?.();
+    restoreDocumentReadyState = setDocumentReadyStateForTest(value);
 };
 
 const waitForBoot = async (module: BootstrapModule): Promise<void> => {
@@ -92,10 +101,10 @@ describe('startup integration', () => {
             delete (window as LineupWindow).__LINEUP__;
             localStorage.clear();
             document.body.innerHTML = '';
-            Object.defineProperty(document, 'readyState', {
-                value: 'complete',
-                configurable: true,
-            });
+            restoreDocumentReadyState?.();
+            restoreDocumentReadyState = null;
+            restoreDevBuild?.();
+            restoreDevBuild = null;
             consoleWarnSpy?.mockRestore();
             consoleWarnSpy = null;
         }
@@ -103,10 +112,7 @@ describe('startup integration', () => {
 
     it('boots through installLineupBootstrap and routes unauthenticated startup to auth without invalid lifecycle transitions', async () =>
     {
-        Object.defineProperty(document, 'readyState', {
-            value: 'loading',
-            configurable: true,
-        });
+        setDocumentReadyState('loading');
 
         const module = await import('../bootstrap');
         bootstrapModule = module;

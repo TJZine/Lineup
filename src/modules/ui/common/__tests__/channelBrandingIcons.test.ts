@@ -1,22 +1,32 @@
 /**
  * @jest-environment jsdom
  */
+import type { BuildStrategy } from '../../../scheduler/channel-manager/types';
 import { getChannelBrandingIcon, getAvailableStrategies } from '../channelBrandingIcons';
 
-describe('channelBrandingIcons', () => {
-    it('returns SVG for known build strategies', () => {
-        const icon = getChannelBrandingIcon('collections');
-        expect(icon).not.toBeNull();
-        expect(icon?.tagName.toLowerCase()).toBe('svg');
-        expect(icon?.querySelector('path')).not.toBeNull();
-    });
+const strategies: BuildStrategy[] = [
+    'collections',
+    'playlists',
+    'genres',
+    'directors',
+    'decades',
+    'recentlyAdded',
+    'studios',
+    'actors',
+    'libraryFallback',
+];
 
-    it('returns null for unknown strategies', () => {
-        expect(getChannelBrandingIcon('nonexistent')).toBeNull();
+describe('channelBrandingIcons', () => {
+    it('returns SVG for each supported build strategy', () => {
+        for (const strategy of strategies) {
+            const icon = getChannelBrandingIcon(strategy);
+            expect(icon).not.toBeNull();
+            expect(icon?.tagName.toLowerCase()).toBe('svg');
+            expect(icon?.querySelector('path')).not.toBeNull();
+        }
     });
 
     it('lists all available strategies', () => {
-        const strategies = getAvailableStrategies();
-        expect(strategies.length).toBeGreaterThanOrEqual(8);
+        expect(getAvailableStrategies()).toEqual(strategies);
     });
 });

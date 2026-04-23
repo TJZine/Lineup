@@ -8,6 +8,7 @@ import { SubtitleManager } from '../SubtitleManager';
 import type { SubtitleTrack } from '../types';
 import type { PlatformSubtitleService } from '../../../platform';
 import { DeveloperSettingsStore } from '../../settings/DeveloperSettingsStore';
+import { flushPromisesAndMacrotask } from '../../../__tests__/helpers';
 
 // ============================================
 // Test Helpers
@@ -102,12 +103,7 @@ function installFetchAndBlobMocks(): { fetchMock: jest.Mock; restore: () => void
     return { fetchMock, restore };
 }
 
-async function flushAsync(rounds: number = 5): Promise<void> {
-    for (let i = 0; i < rounds; i += 1) {
-        await Promise.resolve();
-    }
-    await new Promise((resolve) => setTimeout(resolve, 0));
-}
+const flushSubtitleAsync = (): Promise<void> => flushPromisesAndMacrotask(5);
 
 const developerSettingsStore = new DeveloperSettingsStore();
 
@@ -348,7 +344,7 @@ Hello`,
                 expect(manager.getActiveTrackId()).toBe('embedded-srt');
                 expect(onDeactivate).not.toHaveBeenCalled();
 
-                await new Promise((resolve) => setTimeout(resolve, 0));
+                await flushSubtitleAsync();
                 expect(fetchMock).toHaveBeenCalled();
             } finally {
                 restore();
@@ -385,7 +381,7 @@ Hello`,
                 });
 
                 manager.setActiveTrack('embedded-srt');
-                await flushAsync();
+                await flushSubtitleAsync();
 
                 expect(onDeactivate).toHaveBeenCalledWith({
                     trackId: 'embedded-srt',
@@ -431,7 +427,7 @@ Hello`,
                 });
 
                 manager.setActiveTrack('embedded-srt');
-                await flushAsync();
+                await flushSubtitleAsync();
 
                 expect(onDeactivateRecovery).toHaveBeenCalledWith({
                     trackId: 'embedded-srt',
@@ -475,7 +471,7 @@ Hello`,
                 });
 
                 manager.setActiveTrack('embedded-srt');
-                await flushAsync();
+                await flushSubtitleAsync();
 
                 expect(onDeactivateRecovery).toHaveBeenCalledWith({
                     trackId: 'embedded-srt',
@@ -536,7 +532,7 @@ Hello`,
                 });
 
                 manager.setActiveTrack('embedded-srt');
-                await flushAsync();
+                await flushSubtitleAsync();
 
                 manager.loadTracks([replacementTrack], {
                     serverUri: 'http://example.com',
@@ -545,7 +541,7 @@ Hello`,
                 });
 
                 recoveryDeferred.resolve('failed');
-                await flushAsync();
+                await flushSubtitleAsync();
 
                 expect(originalUnavailable).toHaveBeenCalledTimes(1);
                 expect(replacementUnavailable).not.toHaveBeenCalled();
@@ -619,7 +615,7 @@ Hello`,
                 });
 
                 injectedManager.setActiveTrack('srt-1');
-                await flushAsync();
+                await flushSubtitleAsync();
 
                 expect(subtitleService.deriveLanHttpSubtitleUrl).toHaveBeenCalledTimes(1);
                 expect(fetchMock.mock.calls[1]?.[0]).toBe('http://10.0.0.1:32400/library/streams/1?X-Plex-Token=token');
@@ -681,7 +677,7 @@ Hello`,
                     authHeaders: { 'X-Plex-Token': 'token' },
                 });
                 manager.setActiveTrack('embedded-srt');
-                await flushAsync();
+                await flushSubtitleAsync();
 
                 manager.unloadTracks();
 

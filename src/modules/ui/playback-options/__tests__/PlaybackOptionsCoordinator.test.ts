@@ -6,6 +6,7 @@ import type { ScheduledProgram } from '../../../scheduler/scheduler';
 import type { SubtitleTrack, AudioTrack } from '../../../player/types';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import type { StreamDescriptor } from '../../../player/types';
+import { flushPromises as flushSharedPromises } from '../../../../__tests__/helpers';
 
 const makeProgram = (ratingKey = 'item-1'): ScheduledProgram =>
     ({
@@ -66,11 +67,7 @@ const getViewModel = (coordinator: PlaybackOptionsCoordinator): PlaybackOptionsV
     return (coordinator as unknown as { pendingViewModel: PlaybackOptionsViewModel | null }).pendingViewModel!;
 };
 
-const flushPromises = async (rounds: number = 10): Promise<void> => {
-    for (let i = 0; i < rounds; i += 1) {
-        await Promise.resolve();
-    }
-};
+const flushPlaybackOptionsPromises = (): Promise<void> => flushSharedPromises(10);
 
 const installFetchMock = (fetchMock: jest.Mock): { restore: () => void } => {
     const originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
@@ -225,7 +222,7 @@ describe('PlaybackOptionsCoordinator', () => {
         const burn = viewModel.subtitles.options.find((option) => option.id === 'playback-subtitle-burn');
 
         burn?.onSelect?.();
-        await flushPromises();
+        await flushPlaybackOptionsPromises();
 
         expect(requestBurnInSubtitle).toHaveBeenCalledWith('burn', expect.any(String));
         expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalled();
@@ -258,7 +255,7 @@ describe('PlaybackOptionsCoordinator', () => {
             const option = viewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-keyless');
             option?.onSelect?.();
 
-            await flushPromises();
+            await flushPlaybackOptionsPromises();
 
             expect(fetchMock).toHaveBeenCalledWith(
                 expect.stringContaining('/library/streams/keyless'),
@@ -336,7 +333,7 @@ describe('PlaybackOptionsCoordinator', () => {
             const firstOption = firstViewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-keyless');
             firstOption?.onSelect?.();
 
-            await flushPromises();
+            await flushPlaybackOptionsPromises();
 
             expect(requestBurnInSubtitle).toHaveBeenCalledWith('keyless', expect.any(String));
 
@@ -350,7 +347,7 @@ describe('PlaybackOptionsCoordinator', () => {
             const secondOption = secondViewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-keyless');
             secondOption?.onSelect?.();
 
-            await flushPromises();
+            await flushPlaybackOptionsPromises();
 
             expect(fetchMock).toHaveBeenCalledTimes(2);
             expect((player.setSubtitleTrack as jest.Mock)).toHaveBeenCalledWith('keyless');
@@ -403,7 +400,7 @@ describe('PlaybackOptionsCoordinator', () => {
                 resolveFetch({ ok: false, status: 404 });
             }
 
-            await flushPromises();
+            await flushPlaybackOptionsPromises();
 
             expect(requestBurnInSubtitle).not.toHaveBeenCalled();
             expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalled();
@@ -461,7 +458,7 @@ describe('PlaybackOptionsCoordinator', () => {
             first?.onSelect?.();
             second?.onSelect?.();
 
-            await flushPromises();
+            await flushPlaybackOptionsPromises();
 
             expect((player.setSubtitleTrack as jest.Mock)).toHaveBeenCalledWith('second');
             expect(requestBurnInSubtitle).not.toHaveBeenCalled();
@@ -470,7 +467,7 @@ describe('PlaybackOptionsCoordinator', () => {
                 resolveFirstProbe({ ok: false, status: 404 });
             }
 
-            await flushPromises();
+            await flushPlaybackOptionsPromises();
 
             expect(requestBurnInSubtitle).not.toHaveBeenCalled();
             expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalledWith('first');
@@ -521,7 +518,7 @@ describe('PlaybackOptionsCoordinator', () => {
             option?.onSelect?.();
 
             jest.advanceTimersByTime(SUBTITLE_PROBE_TOTAL_TIMEOUT_MS + 50);
-            await flushPromises();
+            await flushPlaybackOptionsPromises();
 
             expect(requestBurnInSubtitle).toHaveBeenCalledWith('keyless', expect.any(String));
             expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalled();
@@ -578,9 +575,9 @@ describe('PlaybackOptionsCoordinator', () => {
             const option = viewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-keyless');
             option?.onSelect?.();
 
-            await flushPromises();
+            await flushPlaybackOptionsPromises();
             jest.advanceTimersByTime(60);
-            await flushPromises();
+            await flushPlaybackOptionsPromises();
 
             expect(fetchMock).toHaveBeenCalledTimes(2);
             expect(fetchMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({ method: 'HEAD' }));
@@ -615,7 +612,7 @@ describe('PlaybackOptionsCoordinator', () => {
         const burn = viewModel.subtitles.options.find((option) => option.id === 'playback-subtitle-burn');
 
         burn?.onSelect?.();
-        await flushPromises();
+        await flushPlaybackOptionsPromises();
 
         expect(notifyToast).toHaveBeenCalledWith('Loading burn-in subtitles…', 'info');
         expect(notifyToast).toHaveBeenCalledWith('Failed to load burn-in subtitles', 'warning');
@@ -645,7 +642,7 @@ describe('PlaybackOptionsCoordinator', () => {
         const burn = viewModel.subtitles.options.find((option) => option.id === 'playback-subtitle-burn');
 
         burn?.onSelect?.();
-        await flushPromises();
+        await flushPlaybackOptionsPromises();
 
         expect(notifyToast).toHaveBeenCalledWith('Loading burn-in subtitles…', 'info');
         expect(notifyToast).not.toHaveBeenCalledWith('Failed to load burn-in subtitles', 'warning');
@@ -672,7 +669,7 @@ describe('PlaybackOptionsCoordinator', () => {
         const burn = viewModel.subtitles.options.find((option) => option.id === 'playback-subtitle-burn');
 
         burn?.onSelect?.();
-        await flushPromises();
+        await flushPlaybackOptionsPromises();
 
         expect(notifyToast).toHaveBeenCalledWith('Loading burn-in subtitles…', 'info');
         expect(notifyToast).toHaveBeenCalledWith('Failed to load burn-in subtitles', 'warning');
@@ -695,7 +692,7 @@ describe('PlaybackOptionsCoordinator', () => {
         const option = viewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-sub-99');
         option?.onSelect();
 
-        await flushPromises();
+        await flushPlaybackOptionsPromises();
 
         const storedItem = localStorage.getItem('lineup_subtitle_pref_item:item-99');
         const storedGlobal = localStorage.getItem('lineup_subtitle_pref_global');
@@ -728,7 +725,7 @@ describe('PlaybackOptionsCoordinator', () => {
         const viewModel = getViewModel(coordinator);
         const audioOption = viewModel.audio.options.find((option) => option.id === 'playback-audio-audio-1');
         audioOption?.onSelect?.();
-        await flushPromises();
+        await flushPlaybackOptionsPromises();
 
         expect(notifyToast).toHaveBeenCalledWith('Failed to apply audio track change', 'warning');
         expect(navigation.closeModal).toHaveBeenCalledWith('playback-options');

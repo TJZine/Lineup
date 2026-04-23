@@ -3,7 +3,7 @@
  */
 
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
-import { flushPromises } from '../../../__tests__/helpers';
+import { flushPromises, setDevBuildForTest } from '../../../__tests__/helpers';
 import { DebugOverridesStore } from '../../../modules/debug/DebugOverridesStore';
 import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
 import { AppDiagnosticsSurface } from '../AppDiagnosticsSurface';
@@ -97,15 +97,13 @@ const createOrchestrator = (
 
 describe('AppDiagnosticsSurface', () => {
     let surface: AppDiagnosticsSurface | null = null;
+    let restoreDevBuild: (() => void) | null = null;
 
     beforeEach(() => {
         localStorage.clear();
         document.body.innerHTML = '';
-        Object.defineProperty(globalThis, '__LINEUP_DEV_BUILD__', {
-            value: true,
-            configurable: true,
-            writable: true,
-        });
+        restoreDevBuild?.();
+        restoreDevBuild = setDevBuildForTest(true);
     });
 
     afterEach(() => {
@@ -114,6 +112,8 @@ describe('AppDiagnosticsSurface', () => {
         jest.restoreAllMocks();
         document.body.innerHTML = '';
         localStorage.clear();
+        restoreDevBuild?.();
+        restoreDevBuild = null;
         try {
             delete (window as { lineup?: unknown }).lineup;
         } catch {
@@ -149,11 +149,8 @@ describe('AppDiagnosticsSurface', () => {
     });
 
     it('does not expose helper or react to shortcuts when debug surface is disabled', async () => {
-        Object.defineProperty(globalThis, '__LINEUP_DEV_BUILD__', {
-            value: false,
-            configurable: true,
-            writable: true,
-        });
+        restoreDevBuild?.();
+        restoreDevBuild = setDevBuildForTest(false);
         localStorage.removeItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING);
         const toggleServerSelect = jest.fn();
         const refreshPlaybackInfoSnapshot = jest.fn().mockResolvedValue(createSnapshot());

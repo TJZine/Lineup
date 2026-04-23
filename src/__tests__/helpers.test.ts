@@ -2,7 +2,184 @@
  * @jest-environment jsdom
  */
 
-import { advanceTimersUntil } from './helpers';
+import {
+    advanceTimersUntil,
+    createDeferred,
+    createBodyAppendedTestContainer,
+    setDevBuildForTest,
+    setDocumentReadyStateForTest,
+    flushPromises,
+    flushPromisesAndMacrotask,
+    flushPromisesAndTimers,
+    sharedConsoleOutputGuard,
+    TestConsoleOutputGuard,
+} from './helpers';
+
+describe('flushPromises', () => {
+    it('drains nested promise work with the default rounds', async () => {
+        const steps: string[] = [];
+
+        void Promise.resolve()
+            .then(() => {
+                steps.push('first');
+                return Promise.resolve().then(() => {
+                    steps.push('second');
+                });
+            });
+
+        await flushPromises();
+
+        expect(steps).toEqual(['first', 'second']);
+    });
+});
+
+describe('createDeferred', () => {
+    it('lets tests control when async work resolves', async () => {
+        const deferred = createDeferred<string>();
+        let state = 'pending';
+
+        void deferred.promise.then((value) => {
+            state = value;
+        });
+
+        await flushPromises();
+        expect(state).toBe('pending');
+
+        deferred.resolve('resolved');
+        await flushPromises();
+
+        expect(state).toBe('resolved');
+        await expect(deferred.promise).resolves.toBe('resolved');
+    });
+});
+
+describe('test environment descriptor helpers', () => {
+    it('sets and restores __LINEUP_DEV_BUILD__ without leaving an own-property override behind', () => {
+        const hadOwnProperty = Object.prototype.hasOwnProperty.call(globalThis, '__LINEUP_DEV_BUILD__');
+        const originalDescriptor = Object.getOwnPropertyDescriptor(globalThis, '__LINEUP_DEV_BUILD__');
+
+        const restore = setDevBuildForTest(false);
+
+        expect((globalThis as typeof globalThis & { __LINEUP_DEV_BUILD__?: boolean }).__LINEUP_DEV_BUILD__).toBe(false);
+
+        restore();
+
+        if (hadOwnProperty && originalDescriptor) {
+            expect(Object.getOwnPropertyDescriptor(globalThis, '__LINEUP_DEV_BUILD__')).toEqual(originalDescriptor);
+        } else {
+            expect(Object.prototype.hasOwnProperty.call(globalThis, '__LINEUP_DEV_BUILD__')).toBe(false);
+        }
+    });
+
+    it('sets and restores document.readyState without changing the suite-level descriptor owner', () => {
+        const hadOwnProperty = Object.prototype.hasOwnProperty.call(document, 'readyState');
+        const originalDescriptor = Object.getOwnPropertyDescriptor(document, 'readyState');
+        const originalReadyState = document.readyState;
+
+        const restore = setDocumentReadyStateForTest('loading');
+
+        expect(document.readyState).toBe('loading');
+
+        restore();
+
+        expect(document.readyState).toBe(originalReadyState);
+        if (hadOwnProperty && originalDescriptor) {
+            expect(Object.getOwnPropertyDescriptor(document, 'readyState')).toEqual(originalDescriptor);
+        } else {
+            expect(Object.prototype.hasOwnProperty.call(document, 'readyState')).toBe(false);
+        }
+    });
+});
+
+describe('createBodyAppendedTestContainer', () => {
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    it('creates a fresh anonymous div and appends it to document.body', () => {
+        const container = createBodyAppendedTestContainer();
+
+        expect(container.tagName).toBe('DIV');
+        expect(container.id).toBe('');
+        expect(container.className).toBe('');
+        expect(document.body.lastElementChild).toBe(container);
+    });
+
+    it('returns a distinct appended div on each call', () => {
+        const first = createBodyAppendedTestContainer();
+        const second = createBodyAppendedTestContainer();
+
+        expect(second).not.toBe(first);
+        expect(document.body.children).toHaveLength(2);
+        expect(Array.from(document.body.children)).toEqual([first, second]);
+    });
+});
+
+describe('flushPromisesAndTimers', () => {
+    beforeEach(() => {
+        jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+        jest.useRealTimers();
+    });
+
+    it('flushes promise work on both sides of a fake-timer pass', async () => {
+        const steps: string[] = [];
+        setTimeout(() => {
+            steps.push('timer-pass');
+            void Promise.resolve().then(() => {
+                steps.push('post-timer-pass');
+            });
+        }, 0);
+
+        void Promise.resolve().then(() => {
+            steps.push('pre-pass');
+        });
+
+        await flushPromisesAndTimers(2, 1);
+
+        expect(steps).toEqual([
+            'pre-pass',
+            'timer-pass',
+            'post-timer-pass',
+        ]);
+    });
+});
+
+describe('flushPromisesAndMacrotask', () => {
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
+    it('flushes promise work on both sides of the macrotask turn', async () => {
+        const steps: string[] = [];
+
+        jest.spyOn(globalThis, 'setTimeout').mockImplementation(((handler: TimerHandler, _delay?: number) => {
+            steps.push('macrotask');
+            if (typeof handler === 'function') {
+                handler();
+            }
+            void Promise.resolve().then(() => {
+                steps.push('post-macrotask-promise');
+            });
+            return 0 as unknown as ReturnType<typeof setTimeout>;
+        }) as unknown as typeof globalThis.setTimeout);
+
+        void Promise.resolve().then(() => {
+            steps.push('pre-macrotask-promise');
+        });
+
+        await flushPromisesAndMacrotask();
+
+        expect(globalThis.setTimeout).toHaveBeenCalledWith(expect.any(Function), 0);
+        expect(steps).toEqual([
+            'pre-macrotask-promise',
+            'macrotask',
+            'post-macrotask-promise',
+        ]);
+    });
+});
 
 describe('advanceTimersUntil', () => {
     beforeEach(() => {
@@ -90,5 +267,227 @@ describe('advanceTimersUntil', () => {
                 timeoutMs: 0,
             })
         ).rejects.toThrow('advanceTimersUntil requires timeoutMs > 0 (received 0).');
+    });
+});
+
+describe('TestConsoleOutputGuard', () => {
+    it('matches expected console calls with asymmetric argument matchers', () => {
+        const localConsole = {
+            warn: jest.fn(),
+            error: jest.fn(),
+        };
+        const guard = new TestConsoleOutputGuard(localConsole);
+        guard.install();
+        guard.resetForTest();
+
+        const warning = guard.expect('warn', [
+            'test warning',
+            expect.objectContaining({ detail: 'payload' }),
+        ]);
+
+        localConsole.warn('test warning', { detail: 'payload', extra: true });
+
+        expect(warning.getCalls()).toEqual([
+            ['test warning', { detail: 'payload', extra: true }],
+        ]);
+
+        expect(() => guard.finalizeForTest()).not.toThrow();
+        guard.uninstall();
+    });
+
+    it('matches expected console calls that were registered after the log was captured', () => {
+        const localConsole = {
+            warn: jest.fn(),
+            error: jest.fn(),
+        };
+        const guard = new TestConsoleOutputGuard(localConsole);
+        guard.install();
+        guard.resetForTest();
+
+        localConsole.warn('late registration warning', { ok: true });
+        const warning = guard.expect('warn', /late registration warning/);
+
+        expect(warning.getLastCall()).toEqual(['late registration warning', { ok: true }]);
+        expect(() => guard.finalizeForTest()).not.toThrow();
+        guard.uninstall();
+    });
+
+    it.each([
+        ['global', /stateful warning/g],
+        ['sticky', /'stateful warning'/y],
+    ])('matches repeated console calls with a %s regex without stateful false negatives', (_label, matcher) => {
+        const localConsole = {
+            warn: jest.fn(),
+            error: jest.fn(),
+        };
+        const guard = new TestConsoleOutputGuard(localConsole);
+        guard.install();
+        guard.resetForTest();
+
+        const warning = guard.expect('warn', matcher, { times: 2 });
+
+        localConsole.warn('stateful warning');
+        localConsole.warn('stateful warning');
+
+        expect(warning.getCalls()).toEqual([
+            ['stateful warning'],
+            ['stateful warning'],
+        ]);
+        expect(matcher.lastIndex).toBe(0);
+        expect(() => guard.finalizeForTest()).not.toThrow();
+        guard.uninstall();
+    });
+
+    it('fails with readable output when console.warn or console.error is unexpected', () => {
+        const localConsole = {
+            warn: jest.fn(),
+            error: jest.fn(),
+        };
+        const guard = new TestConsoleOutputGuard(localConsole);
+        guard.install();
+        guard.resetForTest();
+
+        localConsole.warn('unexpected warning', { code: 'warn-1' });
+        localConsole.error('unexpected error', { code: 'error-1' });
+
+        expect(() => guard.finalizeForTest()).toThrow(
+            /Unexpected console output:[\s\S]*console\.warn\('unexpected warning', \{ code: 'warn-1' \}\)[\s\S]*console\.error\('unexpected error', \{ code: 'error-1' \}\)[\s\S]*Captured console output:/
+        );
+
+        guard.uninstall();
+    });
+
+    it('fails when expected console output never arrives', () => {
+        const localConsole = {
+            warn: jest.fn(),
+            error: jest.fn(),
+        };
+        const guard = new TestConsoleOutputGuard(localConsole);
+        guard.install();
+        guard.resetForTest();
+
+        guard.expect('error', ['expected error', expect.any(Object)]);
+
+        expect(() => guard.finalizeForTest()).toThrow(
+            'Missing expected console output:\n- console.error matches args'
+        );
+
+        guard.uninstall();
+    });
+
+    it('captures expected warn/error output while preserving passthrough console delivery when LINEUP_TEST_CONSOLE is enabled', () => {
+        const originalWarn = jest.fn();
+        const originalError = jest.fn();
+        const localConsole = {
+            warn: originalWarn,
+            error: originalError,
+        };
+        const guard = new TestConsoleOutputGuard(
+            localConsole,
+            { allowConsoleOutput: true }
+        );
+
+        guard.install();
+        guard.resetForTest();
+
+        const warning = guard.expect('warn', ['passthrough warning', expect.objectContaining({ marker: 'present' })]);
+
+        localConsole.warn('passthrough warning', { marker: 'present', extra: true });
+
+        expect(guard.isInstalled()).toBe(true);
+        expect(guard.getOriginalConsole('warn')).toBe(originalWarn);
+        expect(guard.getOriginalConsole('error')).toBe(originalError);
+        expect(localConsole.warn).not.toBe(originalWarn);
+        expect(localConsole.error).not.toBe(originalError);
+        expect(originalWarn).toHaveBeenCalledWith('passthrough warning', { marker: 'present', extra: true });
+        expect(warning.getLastCall()).toEqual([
+            'passthrough warning',
+            { marker: 'present', extra: true },
+        ]);
+
+        guard.uninstall();
+        expect(localConsole.warn).toBe(originalWarn);
+        expect(localConsole.error).toBe(originalError);
+    });
+
+    it('ignores unexpected warn/error output while LINEUP_TEST_CONSOLE passthrough is enabled', () => {
+        const originalWarn = jest.fn();
+        const originalError = jest.fn();
+        const localConsole = {
+            warn: originalWarn,
+            error: originalError,
+        };
+        const guard = new TestConsoleOutputGuard(
+            localConsole,
+            { allowConsoleOutput: true }
+        );
+
+        guard.install();
+        guard.resetForTest();
+
+        expect(() => {
+            localConsole.warn('unexpected passthrough warning');
+            guard.finalizeForTest();
+        }).not.toThrow();
+
+        expect(originalWarn).toHaveBeenCalledWith('unexpected passthrough warning');
+        guard.uninstall();
+    });
+
+    it('still fails for missing expected output while LINEUP_TEST_CONSOLE passthrough is enabled', () => {
+        const guard = new TestConsoleOutputGuard(
+            {
+                warn: jest.fn(),
+                error: jest.fn(),
+            },
+            { allowConsoleOutput: true }
+        );
+
+        guard.install();
+        guard.resetForTest();
+        guard.expect('warn', 'missing passthrough warning');
+
+        expect(() => guard.finalizeForTest()).toThrow(
+            'Missing expected console output:\n- console.warn includes "missing passthrough warning" (1 remaining)'
+        );
+
+        guard.uninstall();
+    });
+});
+
+const itWithConsoleEscapeHatch = process.env.LINEUP_TEST_CONSOLE === '1' ? it : it.skip;
+
+describe('shared console setup', () => {
+    itWithConsoleEscapeHatch('LINEUP_TEST_CONSOLE keeps shared warn/error output in passthrough mode while preserving expectations', () => {
+        expect(process.env.LINEUP_TEST_CONSOLE).toBe('1');
+        expect(sharedConsoleOutputGuard.isInstalled()).toBe(true);
+        expect(console.warn).not.toBe(sharedConsoleOutputGuard.getOriginalConsole('warn'));
+        expect(console.error).not.toBe(sharedConsoleOutputGuard.getOriginalConsole('error'));
+    });
+
+    it('returns captured calls from a local guard for matched warning output', () => {
+        const localConsole = {
+            warn: jest.fn(),
+            error: jest.fn(),
+        };
+        const guard = new TestConsoleOutputGuard(localConsole);
+        guard.install();
+        guard.resetForTest();
+
+        const warning = guard.expect('warn', [
+            'shared guard warning',
+            expect.objectContaining({ marker: 'present' }),
+        ]);
+
+        try {
+            localConsole.warn('shared guard warning', { marker: 'present', extra: true });
+
+            expect(warning.getLastCall()).toEqual([
+                'shared guard warning',
+                { marker: 'present', extra: true },
+            ]);
+        } finally {
+            guard.uninstall();
+        }
     });
 });

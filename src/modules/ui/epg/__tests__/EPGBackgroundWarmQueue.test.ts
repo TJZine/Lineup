@@ -3,6 +3,7 @@ import {
     type EPGBackgroundWarmQueueDeps,
 } from '../runtime/EPGBackgroundWarmQueue';
 import type { ChannelConfig, PlaybackMode } from '../../../scheduler/channel-manager';
+import { flushPromises } from '../../../../__tests__/helpers';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,
@@ -19,11 +20,6 @@ const makeChannel = (id: string, number: number): ChannelConfig => ({
     itemCount: 0,
     totalDurationMs: 0,
 });
-
-const flushPromises = async (): Promise<void> => {
-    await Promise.resolve();
-    await Promise.resolve();
-};
 
 describe('EPGBackgroundWarmQueue', () => {
     beforeEach(() => {

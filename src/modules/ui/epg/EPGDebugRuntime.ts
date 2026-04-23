@@ -36,7 +36,7 @@ export class EPGDebugRuntime implements IEPGDebugRuntime {
             try {
                 window.addEventListener('storage', this._onStorage);
             } catch {
-                // ignore
+                // Storage-event wiring must remain fail-open.
             }
         }
     }
@@ -75,7 +75,7 @@ export class EPGDebugRuntime implements IEPGDebugRuntime {
             try {
                 window.removeEventListener('storage', this._onStorage);
             } catch {
-                // ignore
+                // Storage-event cleanup must remain fail-open.
             }
         }
         if (this._flushTimer) {
@@ -86,7 +86,7 @@ export class EPGDebugRuntime implements IEPGDebugRuntime {
             try {
                 this._flushEntries();
             } catch {
-                // ignore
+                // Pending debug-log flush must remain fail-open during destroy.
             }
         }
         this._entries = null;
@@ -110,11 +110,17 @@ export class EPGDebugRuntime implements IEPGDebugRuntime {
     }
 
     private _flushEntries(): void {
+        let serialized = '[]';
         try {
-            const serialized = JSON.stringify(this._entries ?? []);
+            serialized = JSON.stringify(this._entries ?? []);
+        } catch {
+            // Persist an empty list when an entry payload cannot be serialized.
+            this._entries = [];
+        }
+        try {
             safeLocalStorageSet(EPG_DEBUG_LOG_STORAGE_KEY, serialized);
         } catch {
-            safeLocalStorageSet(EPG_DEBUG_LOG_STORAGE_KEY, '[]');
+            // Storage writes must remain fail-open.
         }
     }
 

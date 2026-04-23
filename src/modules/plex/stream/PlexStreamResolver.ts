@@ -3,6 +3,7 @@
  */
 
 import { EventEmitter } from '../../../utils/EventEmitter';
+import { AppErrorCode } from '../../../types/app-errors';
 import type {
     IPlexStreamResolver,
     PlexStreamResolverConfig,
@@ -16,7 +17,6 @@ import type {
     StreamDecision,
     HlsOptions,
 } from './types';
-import { PlexStreamErrorCode } from './types';
 import { DEFAULT_HLS_OPTIONS, isTextSubtitleFormat } from './constants';
 import { generatePlexSessionId } from './plexSessionId';
 import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
@@ -147,7 +147,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         const item = await this._config.getItem(request.itemKey);
         if (!item) {
             throw this._createError(
-                PlexStreamErrorCode.ITEM_NOT_FOUND,
+                AppErrorCode.ITEM_NOT_FOUND,
                 `Item not found: ${request.itemKey}`,
                 false
             );
@@ -400,7 +400,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         const serverUri = this._config.getServerUri();
         if (!serverUri) {
             throw this._createError(
-                PlexStreamErrorCode.SERVER_UNREACHABLE,
+                AppErrorCode.SERVER_UNREACHABLE,
                 'No server connection available',
                 true
             );
@@ -428,7 +428,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         const metadataPath = buildPlexMetadataPath(itemKey);
         if (!metadataPath) {
             throw this._createError(
-                PlexStreamErrorCode.PARSE_ERROR,
+                AppErrorCode.PARSE_ERROR,
                 `Invalid item key for transcode URL: ${itemKey}`,
                 false
             );
@@ -743,7 +743,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         const serverUri = this._config.getServerUri();
         if (!serverUri) {
             throw this._createError(
-                PlexStreamErrorCode.SERVER_UNREACHABLE,
+                AppErrorCode.SERVER_UNREACHABLE,
                 'No server connection available',
                 true
             );
@@ -909,7 +909,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         throw this._createError(
-            PlexStreamErrorCode.MIXED_CONTENT_BLOCKED,
+            AppErrorCode.MIXED_CONTENT_BLOCKED,
             'Cannot access HTTP server from HTTPS app - no fallback available',
             false
         );
@@ -918,14 +918,14 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     private _throwIfAuthFailure(response: Response): void {
         if (response.status === 401) {
             throw this._createError(
-                PlexStreamErrorCode.AUTH_EXPIRED,
+                AppErrorCode.AUTH_EXPIRED,
                 'Authentication expired',
                 false
             );
         }
         if (response.status === 403) {
             throw this._createError(
-                PlexStreamErrorCode.AUTH_INVALID,
+                AppErrorCode.AUTH_INVALID,
                 'Authentication invalid',
                 false
             );
@@ -952,7 +952,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
      * Create a StreamResolverError.
      */
     private _createError(
-        code: PlexStreamErrorCode,
+        code: StreamResolverError['code'],
         message: string,
         recoverable: boolean,
         retryAfterMs?: number,

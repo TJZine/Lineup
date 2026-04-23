@@ -4,9 +4,9 @@
  * Tests codec validation, timeout handling, and retry behavior per spec requirements.
  */
 
+import { AppErrorCode } from '../../../types/app-errors';
 import { AudioTrackManager } from '../AudioTrackManager';
 import type { AudioTrack } from '../types';
-import { PlayerErrorCode } from '../types';
 
 // ============================================
 // Test Utilities
@@ -202,7 +202,7 @@ describe('AudioTrackManager', () => {
             ]);
 
             await expect(manager.switchTrack('track-dts')).rejects.toMatchObject({
-                code: PlayerErrorCode.CODEC_UNSUPPORTED,
+                code: AppErrorCode.CODEC_UNSUPPORTED,
             });
         });
 
@@ -247,16 +247,14 @@ describe('AudioTrackManager', () => {
             manager.setTracks([createMockTrack({ id: 'track-1' })]);
 
             await expect(manager.switchTrack('nonexistent')).rejects.toMatchObject({
-                code: PlayerErrorCode.TRACK_NOT_FOUND,
+                code: AppErrorCode.TRACK_NOT_FOUND,
                 message: expect.stringContaining('nonexistent'),
             });
         });
 
-        it('should throw TRACK_NOT_FOUND if video element not initialized', async () => {
-            // Note: TRACK_NOT_FOUND is reused here for "not initialized" case
-            // because we cannot search for tracks without a video element
+        it('should throw INITIALIZATION_FAILED if video element not initialized', async () => {
             await expect(manager.switchTrack('track-1')).rejects.toMatchObject({
-                code: PlayerErrorCode.TRACK_NOT_FOUND,
+                code: AppErrorCode.INITIALIZATION_FAILED,
                 message: expect.stringContaining('not initialized'),
             });
         });
@@ -314,7 +312,7 @@ describe('AudioTrackManager', () => {
             expect(manager.getActiveTrackId()).toBe('track-aac');
 
             await expect(manager.switchTrack('track-dts')).rejects.toMatchObject({
-                code: PlayerErrorCode.CODEC_UNSUPPORTED,
+                code: AppErrorCode.CODEC_UNSUPPORTED,
             });
 
             expect(manager.getActiveTrackId()).toBe('track-aac'); // Unchanged
@@ -348,7 +346,7 @@ describe('AudioTrackManager', () => {
             await switchPromise;
 
             expect(caughtError).toMatchObject({
-                code: PlayerErrorCode.TRACK_SWITCH_TIMEOUT,
+                code: AppErrorCode.TRACK_SWITCH_TIMEOUT,
                 message: expect.stringContaining('timed out'),
                 recoverable: false,
                 retryCount: 0, // Verify error structure completeness

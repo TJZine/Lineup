@@ -4,6 +4,7 @@
  * @version 1.0.0
  */
 
+import { expectConsoleWarn } from '../../__tests__/helpers';
 import { EventEmitter } from '../EventEmitter';
 
 describe('EventEmitter', () => {
@@ -62,6 +63,13 @@ describe('EventEmitter', () => {
 
     describe('error isolation', () => {
         it('should continue calling handlers after one throws', () => {
+            expectConsoleWarn([
+                expect.stringContaining("Handler error for event 'test'"),
+                expect.objectContaining({
+                    name: 'Error',
+                    message: 'Handler error',
+                }),
+            ]);
             const emitter = new EventEmitter<{ test: void }>();
             const errorHandler = jest.fn(() => {
                 throw new Error('Handler error');
@@ -79,27 +87,12 @@ describe('EventEmitter', () => {
             expect(successHandler).toHaveBeenCalled();
         });
 
-        it('should log errors to console.error', () => {
+        it('routes redacted handler errors to console.warn', () => {
             const emitter = new EventEmitter<{ test: void }>();
-            const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-
-            emitter.on('test', () => {
-                throw new Error('Test error');
-            });
-            emitter.emit('test', undefined);
-
-            expect(consoleSpy).toHaveBeenCalledWith(
-                expect.stringContaining('Handler error'),
-                expect.objectContaining({
-                    name: 'Error',
-                    message: 'Test error',
-                })
-            );
-        });
-
-        it('redacts sensitive tokens when logging thrown handler errors', () => {
-            const emitter = new EventEmitter<{ test: void }>();
-            const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+            const warning = expectConsoleWarn([
+                expect.stringContaining('Handler error for event'),
+                expect.any(Object),
+            ]);
             const secret = 'super-secret';
 
             emitter.on('test', () => {
@@ -107,16 +100,48 @@ describe('EventEmitter', () => {
             });
             emitter.emit('test', undefined);
 
-            const loggedErrorCall = consoleSpy.mock.calls.find((call) =>
-                typeof call[0] === 'string' && call[0].includes('Handler error for event')
-            );
-            const loggedError = loggedErrorCall?.[1] as { message?: string } | undefined;
-            expect(loggedError).toBeDefined();
-            const message = loggedError?.message ?? '';
+            const warningPayload = warning.getLastCall()?.[1] as { message?: string } | undefined;
+            expect(warningPayload).toBeDefined();
+            const message = warningPayload?.message ?? '';
             expect(message).toContain('REDACTED');
             expect(message).not.toContain(secret);
         });
 
+        it('keeps emit isolated while reporting handler failures through console.warn', () => {
+            const emitter = new EventEmitter<{ test: void }>();
+            expectConsoleWarn([
+                expect.stringContaining('Handler error for event'),
+                expect.objectContaining({
+                    name: 'Error',
+                    message: 'Handler error',
+                }),
+            ]);
+            const successHandler = jest.fn();
+
+            emitter.on('test', () => {
+                throw new Error('Handler error');
+            });
+            emitter.on('test', successHandler);
+
+            expect(() => emitter.emit('test', undefined)).not.toThrow();
+            expect(successHandler).toHaveBeenCalled();
+        });
+
+        it('keeps emit non-throwing even when the fallback warning path throws', () => {
+            const emitter = new EventEmitter<{ test: void }>();
+            jest.spyOn(console, 'warn').mockImplementation(() => {
+                throw new Error('warn failed');
+            });
+            const successHandler = jest.fn();
+
+            emitter.on('test', () => {
+                throw new Error('Handler error');
+            });
+            emitter.on('test', successHandler);
+
+            expect(() => emitter.emit('test', undefined)).not.toThrow();
+            expect(successHandler).toHaveBeenCalled();
+        });
     });
 
     describe('once', () => {

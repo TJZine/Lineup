@@ -1,46 +1,23 @@
-/**
- * @fileoverview Type-safe event emitter with error isolation.
- * One handler's error does not prevent other handlers from executing.
- * @module utils/EventEmitter
- * @version 1.0.0
- */
-
 import { IEventEmitter, IDisposable } from './interfaces';
 import { summarizeErrorForLog } from './errors';
 
-/**
- * Type-safe event emitter with error isolation.
- * One handler's error does not prevent other handlers from executing.
- *
- * @template TEventMap - A record type mapping event names to payload types
- *
- * @example
- * ```typescript
- * interface MyEvents {
- *   userLogin: { userId: string };
- *   userLogout: { userId: string; reason: string };
- * }
- *
- * const emitter = new EventEmitter<MyEvents>();
- * emitter.on('userLogin', (payload) => console.log(payload.userId));
- * emitter.emit('userLogin', { userId: '123' });
- * ```
- */
+function warnHandlerError(event: PropertyKey, summary: unknown): void {
+    globalThis.console?.warn?.call(
+        globalThis.console,
+        "[EventEmitter] Handler error for event '" + String(event) + "':",
+        summary
+    );
+}
+
+function reportHandlerError(event: PropertyKey, error: unknown): void {
+    warnHandlerError(event, summarizeErrorForLog(error));
+}
+
 export class EventEmitter<TEventMap extends Record<string, unknown>>
     implements IEventEmitter<TEventMap> {
-    /**
-     * Internal storage for event handlers.
-     * Maps event names to sets of handler functions.
-     */
     private _handlers: Map<keyof TEventMap, Set<(payload: unknown) => void>> =
         new Map();
 
-    /**
-     * Register an event handler.
-     * @param event - The event name to listen for
-     * @param handler - The callback function to invoke when the event is emitted
-     * @returns A disposable to remove the handler
-     */
     public on<K extends keyof TEventMap>(
         event: K,
         handler: (payload: TEventMap[K]) => void
@@ -58,11 +35,6 @@ export class EventEmitter<TEventMap extends Record<string, unknown>>
         };
     }
 
-    /**
-     * Unregister an event handler.
-     * @param event - The event name
-     * @param handler - The handler function to remove
-     */
     public off<K extends keyof TEventMap>(
         event: K,
         handler: (payload: TEventMap[K]) => void
@@ -73,13 +45,6 @@ export class EventEmitter<TEventMap extends Record<string, unknown>>
         }
     }
 
-    /**
-     * Register a one-time event handler.
-     * The handler will be automatically removed after it fires once.
-     * @param event - The event name to listen for
-     * @param handler - The callback function to invoke when the event is emitted
-     * @returns A disposable to remove the handler before it fires
-     */
     public once<K extends keyof TEventMap>(
         event: K,
         handler: (payload: TEventMap[K]) => void
@@ -91,13 +56,6 @@ export class EventEmitter<TEventMap extends Record<string, unknown>>
         return this.on(event, wrappedHandler);
     }
 
-    /**
-     * Emit an event to all registered handlers.
-     * CRITICAL: Errors in handlers are caught and logged, NOT propagated.
-     * This ensures one faulty handler doesn't crash the entire app.
-     * @param event - The event name to emit
-     * @param payload - The payload to pass to handlers
-     */
     public emit<K extends keyof TEventMap>(
         event: K,
         payload: TEventMap[K]
@@ -111,19 +69,15 @@ export class EventEmitter<TEventMap extends Record<string, unknown>>
             try {
                 handler(payload);
             } catch (error) {
-                // Error isolation: log but don't propagate
-                console.error(
-                    '[EventEmitter] Handler error for event \'' + String(event) + '\':',
-                    summarizeErrorForLog(error)
-                );
+                try {
+                    reportHandlerError(event, error);
+                } catch {
+                    // Best-effort logging only; delivery isolation is the real contract.
+                }
             }
         });
     }
 
-    /**
-     * Remove all handlers for a specific event or all events.
-     * @param event - Optional event name. If omitted, removes all handlers for all events.
-     */
     public removeAllListeners(event?: keyof TEventMap): void {
         if (event !== undefined) {
             this._handlers.delete(event);
@@ -132,11 +86,6 @@ export class EventEmitter<TEventMap extends Record<string, unknown>>
         }
     }
 
-    /**
-     * Get the count of handlers for an event.
-     * @param event - The event name
-     * @returns The number of registered handlers for the event
-     */
     public listenerCount(event: keyof TEventMap): number {
         const handlerSet = this._handlers.get(event);
         if (handlerSet) {

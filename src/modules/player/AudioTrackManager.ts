@@ -5,8 +5,8 @@
  * @version 1.0.0
  */
 
+import { AppErrorCode } from '../../types/app-errors';
 import type { AudioTrack, PlaybackError } from './types';
-import { PlayerErrorCode as ErrorCode } from './types';
 import { AUDIO_TRACK_SWITCH_TIMEOUT_MS } from './constants';
 import { SUPPORTED_AUDIO_CODECS } from '../plex/stream/constants';
 import type { AudioSettingsStore } from '../settings/AudioSettingsStore';
@@ -121,12 +121,12 @@ export class AudioTrackManager {
      */
     public async switchTrack(trackId: string): Promise<void> {
         if (!this._videoElement) {
-            throw this._createError(ErrorCode.TRACK_NOT_FOUND, 'Video element not initialized');
+            throw this._createError(AppErrorCode.INITIALIZATION_FAILED, 'Video element not initialized');
         }
 
         const targetTrack = this._tracks.find((t) => t.id === trackId);
         if (!targetTrack) {
-            throw this._createError(ErrorCode.TRACK_NOT_FOUND, `Audio track ${trackId} not found`);
+            throw this._createError(AppErrorCode.TRACK_NOT_FOUND, `Audio track ${trackId} not found`);
         }
 
         const videoWithTracks = this._videoElement as HTMLVideoElementWithAudioTracks;
@@ -141,7 +141,7 @@ export class AudioTrackManager {
         // Check codec support before attempting native track switching.
         if (targetTrack.codec && !this._isCodecSupported(targetTrack.codec)) {
             throw this._createError(
-                ErrorCode.CODEC_UNSUPPORTED,
+                AppErrorCode.CODEC_UNSUPPORTED,
                 `Audio codec '${targetTrack.codec}' is not supported`
             );
         }
@@ -160,7 +160,7 @@ export class AudioTrackManager {
                 lastError = error as PlaybackError;
 
                 // Don't retry timeout errors - preserve the timeout error
-                if ((error as PlaybackError).code === ErrorCode.TRACK_SWITCH_TIMEOUT) {
+                if ((error as PlaybackError).code === AppErrorCode.TRACK_SWITCH_TIMEOUT) {
                     isTimeoutError = true;
                     break;
                 }
@@ -185,7 +185,7 @@ export class AudioTrackManager {
 
         // Throw TRACK_SWITCH_FAILED after retry for non-timeout errors
         throw this._createError(
-            ErrorCode.TRACK_SWITCH_FAILED,
+            AppErrorCode.TRACK_SWITCH_FAILED,
             `Failed to switch to audio track ${trackId} after retry`,
             lastError
         );
@@ -236,7 +236,7 @@ export class AudioTrackManager {
             const timeout = setTimeout(() => {
                 clearInterval(checkInterval);
                 reject(
-                    this._createError(ErrorCode.TRACK_SWITCH_TIMEOUT, 'Audio switch timed out')
+                    this._createError(AppErrorCode.TRACK_SWITCH_TIMEOUT, 'Audio switch timed out')
                 );
             }, AUDIO_TRACK_SWITCH_TIMEOUT_MS);
 
@@ -295,7 +295,7 @@ export class AudioTrackManager {
      * Create a PlaybackError.
      */
     private _createError(
-        code: typeof ErrorCode[keyof typeof ErrorCode],
+        code: AppErrorCode,
         message: string,
         cause?: PlaybackError | null
     ): PlaybackError {

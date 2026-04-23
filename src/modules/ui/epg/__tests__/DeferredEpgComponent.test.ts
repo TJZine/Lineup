@@ -1,4 +1,5 @@
 import { DeferredEPGComponent } from '../index';
+import { flushPromises } from '../../../../__tests__/helpers';
 import type { IEPGComponent } from '../interfaces';
 import type { EPGConfig, ChannelConfig, ScheduleWindow, ScheduledProgram, EPGState } from '../types';
 import type { EpgLayoutMode } from '../../../settings/EpgPreferencesStore';
@@ -467,10 +468,8 @@ describe('DeferredEPGComponent', () => {
         component.initialize(makeConfig());
 
         component.show({ preserveFocus: true });
-        await Promise.resolve();
-        await Promise.resolve();
-        await Promise.resolve();
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await expect(component.ensureReady()).rejects.toThrow('chunk load failed');
+        await flushPromises();
 
         expect(component.isVisible()).toBe(false);
         expect(component.getState().isVisible).toBe(false);

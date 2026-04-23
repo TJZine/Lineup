@@ -6,12 +6,8 @@ import type { PlexLibrarySection as PlexLibraryModel } from '../../../plex/libra
 import { ChannelSetupSessionController } from '../ChannelSetupSessionController';
 import type { ChannelSetupBuildOutcome } from '../ChannelSetupSessionContracts';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
+import { flushPromises } from '../../../../__tests__/helpers';
 import { DEFAULT_BUILD_RESULT, DEFAULT_PREVIEW, DEFAULT_REVIEW, makeLibrary } from './channel-setup-test-helpers';
-
-const flushPromises = async (): Promise<void> => {
-    await Promise.resolve();
-    await Promise.resolve();
-};
 
 const createDeferred = <T>(): {
     promise: Promise<T>;

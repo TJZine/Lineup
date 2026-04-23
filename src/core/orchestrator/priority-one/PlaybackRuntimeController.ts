@@ -1,6 +1,5 @@
 import type { AppError } from '../../../modules/lifecycle';
 import {
-    mapPlayerErrorCodeToAppErrorCode,
     type PlaybackError,
     type PlaybackState,
     type TimeRange,
@@ -123,7 +122,7 @@ export class PlaybackRuntimeController {
         if (error.recoverable) {
             this._deps.handleGlobalError(
                 {
-                    code: mapPlayerErrorCodeToAppErrorCode(error.code),
+                    code: error.code,
                     message: error.message,
                     recoverable: true,
                 },
