@@ -144,6 +144,23 @@
       "checklist_tokens": {
         "work_item": "P11-W2",
         "priority_exit": "P11-EXIT"
+      },
+      "execution_status": {
+        "status": "completed",
+        "completed_execution_units": [
+          "P11-W2-EU1",
+          "P11-W2-EU2"
+        ],
+        "current_or_next_execution_unit": "P11-W3",
+        "evidence": [
+          "P11-W2-EU1 aligned Plex auth/error contracts in commit 3749a2fd: auth storage methods are synchronous, public auth failure contracts are documented, Plex auth transport preserves sanitized cause, discovery startup auth failures route through global auth recovery, PMS identity-probe 403 maps to access_denied while plex.tv credential 403 remains auth recovery, PMS library/stream 403 remains permission/access denied, and getLibrary accepts cancellation options.",
+          "P11-W2-EU1 implementation review found no material findings and approved the contract wave for closeout; npm run verify passed after the wave.",
+          "P11-W2-EU2 moved parser internals under src/modules/plex/library/parsing in commit fd05556a while preserving the public package root at src/modules/plex/library/index.ts and keeping parser behavior invariant.",
+          "P11-W2-EU2 implementation review found no material findings and approved parser organization for package closeout; focused parser/library tests, typecheck, import audit, and npm run verify passed.",
+          "Closeout reran the four package-local scoping commands for src/modules/plex/library/PlexLibrary.ts, src/modules/plex/auth/PlexAuth.ts, src/modules/plex/discovery/PlexServerDiscovery.ts, and src/modules/plex/stream/PlexStreamResolver.ts; all reported no open issues matching those files.",
+          "Exact review-id desloppify checks still reported the seven P11-W2 seed ids as open, but reviewed current-source proof shows detector lag/stale wording against the completed package-owned rationale."
+        ],
+        "last_touched": "2026-04-23"
       }
     },
     {
