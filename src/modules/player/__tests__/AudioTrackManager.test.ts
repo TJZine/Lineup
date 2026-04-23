@@ -252,11 +252,9 @@ describe('AudioTrackManager', () => {
             });
         });
 
-        it('should throw TRACK_NOT_FOUND if video element not initialized', async () => {
-            // Note: TRACK_NOT_FOUND is reused here for "not initialized" case
-            // because we cannot search for tracks without a video element
+        it('should throw INITIALIZATION_FAILED if video element not initialized', async () => {
             await expect(manager.switchTrack('track-1')).rejects.toMatchObject({
-                code: AppErrorCode.TRACK_NOT_FOUND,
+                code: AppErrorCode.INITIALIZATION_FAILED,
                 message: expect.stringContaining('not initialized'),
             });
         });

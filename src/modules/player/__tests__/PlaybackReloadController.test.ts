@@ -105,6 +105,7 @@ const expectPlaybackRecoveryFailed = (event: string): void => {
         expect.objectContaining({
             event,
             reason: 'test_reason',
+            outcome: 'failed',
             safeError: expect.any(Object),
         }),
     ]);

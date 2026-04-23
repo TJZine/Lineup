@@ -221,6 +221,7 @@ export class PlaybackReloadController {
                 config.failedEvent,
                 {
                     reason: context.safeReason,
+                    outcome: 'failed',
                     ...(config.failureData?.(context) ?? config.startData?.(context) ?? {}),
                 },
                 error

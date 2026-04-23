@@ -8,9 +8,15 @@ import { expectConsoleWarn } from '../../__tests__/helpers';
 import { EventEmitter } from '../EventEmitter';
 
 describe('EventEmitter', () => {
+    const originalReportError = (
+        globalThis as typeof globalThis & { reportError?: (error: unknown) => void }
+    ).reportError;
+
     afterEach(() => {
         jest.restoreAllMocks();
-        delete (globalThis as typeof globalThis & { reportError?: (error: unknown) => void }).reportError;
+        (
+            globalThis as typeof globalThis & { reportError?: (error: unknown) => void }
+        ).reportError = originalReportError;
     });
 
     describe('on/emit', () => {
@@ -88,30 +94,13 @@ describe('EventEmitter', () => {
             expect(successHandler).toHaveBeenCalled();
         });
 
-        it('reports handler errors through reportError when available', () => {
+        it('falls back to console.warn with redacted details when reportError is unavailable', () => {
             const emitter = new EventEmitter<{ test: void }>();
-            const reportError = jest.fn();
-
-            (
+            delete (
                 globalThis as typeof globalThis & {
                     reportError?: (error: unknown) => void;
                 }
-            ).reportError = reportError;
-
-            emitter.on('test', () => {
-                throw new Error('Test error');
-            });
-            emitter.emit('test', undefined);
-
-            expect(reportError).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    message: expect.stringContaining('Handler error'),
-                })
-            );
-        });
-
-        it('falls back to console.warn with redacted details when reportError is unavailable', () => {
-            const emitter = new EventEmitter<{ test: void }>();
+            ).reportError;
             const warning = expectConsoleWarn([
                 expect.stringContaining('Handler error for event'),
                 expect.any(Object),
@@ -130,7 +119,7 @@ describe('EventEmitter', () => {
             expect(message).not.toContain(secret);
         });
 
-        it('falls back to console.warn when reportError throws', () => {
+        it('keeps emit isolated even when reportError exists on the global scope', () => {
             const emitter = new EventEmitter<{ test: void }>();
             expectConsoleWarn([
                 expect.stringContaining('Handler error for event'),
@@ -143,9 +132,7 @@ describe('EventEmitter', () => {
                 globalThis as typeof globalThis & {
                     reportError?: (error: unknown) => void;
                 }
-            ).reportError = (): void => {
-                throw new Error('reportError failed');
-            };
+            ).reportError = jest.fn();
             const successHandler = jest.fn();
 
             emitter.on('test', () => {

@@ -115,6 +115,7 @@ export class EPGDebugRuntime implements IEPGDebugRuntime {
             serialized = JSON.stringify(this._entries ?? []);
         } catch {
             // Persist an empty list when an entry payload cannot be serialized.
+            this._entries = [];
         }
         try {
             safeLocalStorageSet(EPG_DEBUG_LOG_STORAGE_KEY, serialized);

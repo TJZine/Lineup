@@ -68,22 +68,37 @@ describe('fetchWithTimeoutCore', () => {
     });
 
     it('keeps the abort path fail-open when AbortController.abort throws', async () => {
-        const abortSpy = jest.spyOn(AbortController.prototype, 'abort').mockImplementation(() => {
+        const upstreamController = new AbortController();
+        const originalAbort = AbortController.prototype.abort;
+        const abortSpy = jest.spyOn(AbortController.prototype, 'abort').mockImplementation(function (
+            this: AbortController
+        ) {
+            if (this === upstreamController) {
+                return originalAbort.call(this);
+            }
             throw new Error('abort failed');
         });
-        const upstreamController = new AbortController();
+        let resolveFetch: ((value: Response | PromiseLike<Response>) => void) | undefined;
         const response = { ok: true, status: 200 } as Response;
-        mockFetch.mockResolvedValue(response);
+        mockFetch.mockImplementation(
+            () => new Promise<Response>((resolve) => {
+                resolveFetch = resolve;
+            })
+        );
 
         try {
-            await expect(
-                fetchWithTimeoutCore(
-                    'http://example.test/core-abort-fail-open',
-                    { method: 'GET' },
-                    5_000,
-                    upstreamController.signal
-                )
-            ).resolves.toBe(response);
+            const request = fetchWithTimeoutCore(
+                'http://example.test/core-abort-fail-open',
+                { method: 'GET' },
+                5_000,
+                upstreamController.signal
+            );
+
+            upstreamController.abort();
+            expect(abortSpy).toHaveBeenCalled();
+            resolveFetch?.(response);
+
+            await expect(request).resolves.toBe(response);
         } finally {
             abortSpy.mockRestore();
         }

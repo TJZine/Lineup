@@ -70,6 +70,9 @@ function mergeAbortSignals(
     } catch {
         // Listener wiring must remain fail-open.
     }
+    if (optionsSignal.aborted || upstreamSignal.aborted) {
+        abortCombined();
+    }
 
     return { signal: controller.signal, cleanup };
 }

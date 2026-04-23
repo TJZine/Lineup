@@ -19,6 +19,9 @@ export async function fetchWithTimeoutCore(
         } else {
             try {
                 upstreamSignal.addEventListener('abort', onAbort, { once: true });
+                if (upstreamSignal.aborted) {
+                    onAbort();
+                }
             } catch {
                 // Listener wiring must remain fail-open.
             }

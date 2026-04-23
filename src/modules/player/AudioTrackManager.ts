@@ -121,7 +121,7 @@ export class AudioTrackManager {
      */
     public async switchTrack(trackId: string): Promise<void> {
         if (!this._videoElement) {
-            throw this._createError(AppErrorCode.TRACK_NOT_FOUND, 'Video element not initialized');
+            throw this._createError(AppErrorCode.INITIALIZATION_FAILED, 'Video element not initialized');
         }
 
         const targetTrack = this._tracks.find((t) => t.id === trackId);
