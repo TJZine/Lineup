@@ -275,6 +275,7 @@ export class TestConsoleOutputGuard {
     private readonly allowConsoleOutput: boolean;
     private readonly originalConsole: MutableConsoleTarget;
     private readonly guardHandlers: MutableConsoleTarget;
+    private readonly passthroughHandlers: MutableConsoleTarget;
     private readonly installState: { installed: boolean } = { installed: false };
     private readonly expectations: ConsoleExpectation[] = [];
     private readonly calls: CapturedConsoleCall[] = [];
@@ -295,15 +296,30 @@ export class TestConsoleOutputGuard {
                 this.recordCall('error', args);
             },
         };
+        this.passthroughHandlers = {
+            warn: (...args: unknown[]): void => {
+                this.recordCall('warn', args);
+                this.originalConsole.warn(...args);
+            },
+            error: (...args: unknown[]): void => {
+                this.recordCall('error', args);
+                this.originalConsole.error(...args);
+            },
+        };
     }
 
     install(): void {
-        if (this.installState.installed || this.allowConsoleOutput) {
+        if (this.installState.installed) {
             return;
         }
 
-        this.target.warn = this.guardHandlers.warn;
-        this.target.error = this.guardHandlers.error;
+        if (this.allowConsoleOutput) {
+            this.target.warn = this.passthroughHandlers.warn;
+            this.target.error = this.passthroughHandlers.error;
+        } else {
+            this.target.warn = this.guardHandlers.warn;
+            this.target.error = this.guardHandlers.error;
+        }
         this.installState.installed = true;
     }
 
@@ -325,7 +341,9 @@ export class TestConsoleOutputGuard {
 
     finalizeForTest(): void {
         const missingExpectations = this.expectations.filter((expectation) => expectation.matchedCalls.length < expectation.times);
-        const unexpectedCalls = this.calls.filter((call) => call.matchedExpectationIds.length === 0);
+        const unexpectedCalls = this.allowConsoleOutput
+            ? []
+            : this.calls.filter((call) => call.matchedExpectationIds.length === 0);
 
         if (missingExpectations.length === 0 && unexpectedCalls.length === 0) {
             return;
@@ -367,12 +385,6 @@ export class TestConsoleOutputGuard {
     }
 
     expect(level: ConsoleLevel, matcher: ConsoleCallMatcher, options: ConsoleExpectationOptions = {}): ExpectedConsoleCallHandle {
-        if (this.allowConsoleOutput) {
-            throw new Error(
-                'TestConsoleOutputGuard expectations are unavailable when LINEUP_TEST_CONSOLE=1 because install() keeps console passthrough enabled.'
-            );
-        }
-
         const expectation: ConsoleExpectation = {
             id: this.nextExpectationId++,
             level,

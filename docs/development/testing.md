@@ -150,7 +150,7 @@ Unexpected `console.warn` and `console.error` now fail the owning test by defaul
 
 - Register expected warn/error output with `expectConsoleWarn(...)` or `expectConsoleError(...)` from `src/__tests__/helpers.ts`.
 - Matchers can be string fragments, `RegExp`, predicates, or exact-argument arrays with Jest asymmetric matchers such as `expect.objectContaining(...)`.
-- `LINEUP_TEST_CONSOLE=1` disables the warn/error guard and restores live console output for local debugging.
+- `LINEUP_TEST_CONSOLE=1` disables unexpected warn/error enforcement and restores live console output for local debugging while still allowing `expectConsoleWarn(...)` and `expectConsoleError(...)` assertions.
 
 *Manual and integration verification still complement unit tests, especially for webOS device behavior.*
 

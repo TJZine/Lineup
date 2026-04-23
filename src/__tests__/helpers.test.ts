@@ -375,49 +375,94 @@ describe('TestConsoleOutputGuard', () => {
         guard.uninstall();
     });
 
-    it('does not replace warn/error handlers when LINEUP_TEST_CONSOLE is enabled', () => {
-        const originalWarn = console.warn;
-        const originalError = console.error;
+    it('captures expected warn/error output while preserving passthrough console delivery when LINEUP_TEST_CONSOLE is enabled', () => {
+        const originalWarn = jest.fn();
+        const originalError = jest.fn();
+        const localConsole = {
+            warn: originalWarn,
+            error: originalError,
+        };
+        const guard = new TestConsoleOutputGuard(
+            localConsole,
+            { allowConsoleOutput: true }
+        );
+
+        guard.install();
+        guard.resetForTest();
+
+        const warning = guard.expect('warn', ['passthrough warning', expect.objectContaining({ marker: 'present' })]);
+
+        localConsole.warn('passthrough warning', { marker: 'present', extra: true });
+
+        expect(guard.isInstalled()).toBe(true);
+        expect(guard.getOriginalConsole('warn')).toBe(originalWarn);
+        expect(guard.getOriginalConsole('error')).toBe(originalError);
+        expect(localConsole.warn).not.toBe(originalWarn);
+        expect(localConsole.error).not.toBe(originalError);
+        expect(originalWarn).toHaveBeenCalledWith('passthrough warning', { marker: 'present', extra: true });
+        expect(warning.getLastCall()).toEqual([
+            'passthrough warning',
+            { marker: 'present', extra: true },
+        ]);
+
+        guard.uninstall();
+        expect(localConsole.warn).toBe(originalWarn);
+        expect(localConsole.error).toBe(originalError);
+    });
+
+    it('ignores unexpected warn/error output while LINEUP_TEST_CONSOLE passthrough is enabled', () => {
+        const originalWarn = jest.fn();
+        const originalError = jest.fn();
+        const localConsole = {
+            warn: originalWarn,
+            error: originalError,
+        };
+        const guard = new TestConsoleOutputGuard(
+            localConsole,
+            { allowConsoleOutput: true }
+        );
+
+        guard.install();
+        guard.resetForTest();
+
+        expect(() => {
+            localConsole.warn('unexpected passthrough warning');
+            guard.finalizeForTest();
+        }).not.toThrow();
+
+        expect(originalWarn).toHaveBeenCalledWith('unexpected passthrough warning');
+        guard.uninstall();
+    });
+
+    it('still fails for missing expected output while LINEUP_TEST_CONSOLE passthrough is enabled', () => {
         const guard = new TestConsoleOutputGuard(
             {
-                warn: originalWarn,
-                error: originalError,
+                warn: jest.fn(),
+                error: jest.fn(),
             },
             { allowConsoleOutput: true }
         );
 
         guard.install();
+        guard.resetForTest();
+        guard.expect('warn', 'missing passthrough warning');
 
-        expect(guard.isInstalled()).toBe(false);
-        expect(guard.getOriginalConsole('warn')).toBe(originalWarn);
-        expect(guard.getOriginalConsole('error')).toBe(originalError);
-        expect(console.warn).toBe(originalWarn);
-        expect(console.error).toBe(originalError);
-    });
-
-    it('fails fast when expectations are registered while LINEUP_TEST_CONSOLE passthrough is enabled', () => {
-        const guard = new TestConsoleOutputGuard(
-            {
-                warn: console.warn,
-                error: console.error,
-            },
-            { allowConsoleOutput: true }
+        expect(() => guard.finalizeForTest()).toThrow(
+            'Missing expected console output:\n- console.warn includes "missing passthrough warning" (1 remaining)'
         );
 
-        expect(() => guard.expect('warn', 'unexpected passthrough expectation')).toThrow(
-            'TestConsoleOutputGuard expectations are unavailable when LINEUP_TEST_CONSOLE=1 because install() keeps console passthrough enabled.'
-        );
+        guard.uninstall();
     });
 });
 
 const itWithConsoleEscapeHatch = process.env.LINEUP_TEST_CONSOLE === '1' ? it : it.skip;
 
 describe('shared console setup', () => {
-    itWithConsoleEscapeHatch('LINEUP_TEST_CONSOLE keeps the shared warn/error guard disabled', () => {
+    itWithConsoleEscapeHatch('LINEUP_TEST_CONSOLE keeps shared warn/error output in passthrough mode while preserving expectations', () => {
         expect(process.env.LINEUP_TEST_CONSOLE).toBe('1');
-        expect(sharedConsoleOutputGuard.isInstalled()).toBe(false);
-        expect(console.warn).toBe(sharedConsoleOutputGuard.getOriginalConsole('warn'));
-        expect(console.error).toBe(sharedConsoleOutputGuard.getOriginalConsole('error'));
+        expect(sharedConsoleOutputGuard.isInstalled()).toBe(true);
+        expect(console.warn).not.toBe(sharedConsoleOutputGuard.getOriginalConsole('warn'));
+        expect(console.error).not.toBe(sharedConsoleOutputGuard.getOriginalConsole('error'));
     });
 
     it('returns captured calls from a local guard for matched warning output', () => {

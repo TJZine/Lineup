@@ -15,21 +15,22 @@ if (!shouldAllowConsoleOutput) {
     console.debug = noop;
     console.log = noop;
     console.info = noop;
-    sharedConsoleOutputGuard.install();
-
-    beforeEach(() => {
-        sharedConsoleOutputGuard.resetForTest();
-    });
-
-    afterEach(() => {
-        sharedConsoleOutputGuard.finalizeForTest();
-    });
-
-    afterAll(() => {
-        sharedConsoleOutputGuard.uninstall();
-        console.debug = originalConsole.debug;
-        console.log = originalConsole.log;
-        console.info = originalConsole.info;
-    });
 }
+
+sharedConsoleOutputGuard.install();
+
+beforeEach(() => {
+    sharedConsoleOutputGuard.resetForTest();
+});
+
+afterEach(() => {
+    sharedConsoleOutputGuard.finalizeForTest();
+});
+
+afterAll(() => {
+    sharedConsoleOutputGuard.uninstall();
+    console.debug = originalConsole.debug;
+    console.log = originalConsole.log;
+    console.info = originalConsole.info;
+});
 /* eslint-enable no-console */
