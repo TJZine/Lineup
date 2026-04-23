@@ -38,26 +38,37 @@ const resetStoredValues = (): void => {
  * Creates a mock localStorage instance for testing.
  * @returns Storage-compatible mock object
  */
+function installDefaultLocalStorageImpls(mockLocalStorage: MockLocalStorage): void {
+    mockLocalStorage.key.mockImplementation((index: number): string | null => {
+        const keys = Object.keys(store);
+        return index >= 0 && index < keys.length ? keys[index]! : null;
+    });
+    mockLocalStorage.getItem.mockImplementation((key: string): string | null => readStoredValue(key));
+    mockLocalStorage.setItem.mockImplementation((key: string, value: string): void => {
+        writeStoredValue(key, value);
+    });
+    mockLocalStorage.removeItem.mockImplementation((key: string): void => {
+        removeStoredValue(key);
+    });
+    mockLocalStorage.clear.mockImplementation((): void => {
+        resetStoredValues();
+    });
+}
+
 function createMockLocalStorage(): MockLocalStorage {
-    return {
+    const mockLocalStorage: MockLocalStorage = {
         get length(): number {
             return Object.keys(store).length;
         },
-        key: jest.fn((index: number): string | null => {
-            const keys = Object.keys(store);
-            return index >= 0 && index < keys.length ? keys[index]! : null;
-        }),
-        getItem: jest.fn((key: string): string | null => readStoredValue(key)),
-        setItem: jest.fn((key: string, value: string): void => {
-            writeStoredValue(key, value);
-        }),
-        removeItem: jest.fn((key: string): void => {
-            removeStoredValue(key);
-        }),
-        clear: jest.fn((): void => {
-            resetStoredValues();
-        }),
+        key: jest.fn(),
+        getItem: jest.fn(),
+        setItem: jest.fn(),
+        removeItem: jest.fn(),
+        clear: jest.fn(),
     };
+
+    installDefaultLocalStorageImpls(mockLocalStorage);
+    return mockLocalStorage;
 }
 
 /**
@@ -68,24 +79,11 @@ export const mockLocalStorage = createMockLocalStorage();
 export function resetMockLocalStorage(): void {
     resetStoredValues();
     mockLocalStorage.key.mockReset();
-    mockLocalStorage.key.mockImplementation((index: number): string | null => {
-        const keys = Object.keys(store);
-        return index >= 0 && index < keys.length ? keys[index]! : null;
-    });
     mockLocalStorage.getItem.mockReset();
-    mockLocalStorage.getItem.mockImplementation((key: string): string | null => readStoredValue(key));
     mockLocalStorage.setItem.mockReset();
-    mockLocalStorage.setItem.mockImplementation((key: string, value: string): void => {
-        writeStoredValue(key, value);
-    });
     mockLocalStorage.removeItem.mockReset();
-    mockLocalStorage.removeItem.mockImplementation((key: string): void => {
-        removeStoredValue(key);
-    });
     mockLocalStorage.clear.mockReset();
-    mockLocalStorage.clear.mockImplementation((): void => {
-        resetStoredValues();
-    });
+    installDefaultLocalStorageImpls(mockLocalStorage);
 }
 
 /**

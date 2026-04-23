@@ -6,7 +6,7 @@ describe('plex library types', () => {
         const removedMapperKey = ['mapPlexLibrary', 'ErrorCodeToAppErrorCode'].join('');
 
         // @ts-expect-error removed export must stay absent from the type surface
-        libraryTypes.PlexLibraryErrorCode;
+        type _RemovedPlexLibraryErrorCode = libraryTypes.PlexLibraryErrorCode;
         // @ts-expect-error removed export must stay absent from the type surface
         libraryTypes.mapPlexLibraryErrorCodeToAppErrorCode;
 

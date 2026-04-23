@@ -210,10 +210,10 @@ describe('EPGDebugRuntime', () => {
 
     it('keeps destroy fail-open when the flush path throws unexpectedly', () => {
         jest.spyOn(DebugOverridesStore.prototype, 'readEpgDebugEnabledAndClean').mockReturnValue(true);
-        jest.spyOn(storageHelpers, 'safeLocalStorageSet').mockImplementation(() => {
-            throw new Error('write exploded');
-        });
         const runtime = createRuntime();
+        jest.spyOn(runtime as unknown as { _flushEntries(): void }, '_flushEntries').mockImplementation(() => {
+            throw new Error('flush exploded');
+        });
 
         runtime.append('event:flush-throws', { ok: true });
 

@@ -8,7 +8,6 @@ import {
     createBodyAppendedTestContainer,
     setDevBuildForTest,
     setDocumentReadyStateForTest,
-    expectConsoleWarn,
     flushPromises,
     flushPromisesAndMacrotask,
     flushPromisesAndTimers,
@@ -395,6 +394,20 @@ describe('TestConsoleOutputGuard', () => {
         expect(console.warn).toBe(originalWarn);
         expect(console.error).toBe(originalError);
     });
+
+    it('fails fast when expectations are registered while LINEUP_TEST_CONSOLE passthrough is enabled', () => {
+        const guard = new TestConsoleOutputGuard(
+            {
+                warn: console.warn,
+                error: console.error,
+            },
+            { allowConsoleOutput: true }
+        );
+
+        expect(() => guard.expect('warn', 'unexpected passthrough expectation')).toThrow(
+            'TestConsoleOutputGuard expectations are unavailable when LINEUP_TEST_CONSOLE=1 because install() keeps console passthrough enabled.'
+        );
+    });
 });
 
 const itWithConsoleEscapeHatch = process.env.LINEUP_TEST_CONSOLE === '1' ? it : it.skip;
@@ -407,17 +420,29 @@ describe('shared console setup', () => {
         expect(console.error).toBe(sharedConsoleOutputGuard.getOriginalConsole('error'));
     });
 
-    it('returns captured calls from expectConsoleWarn for matched shared-guard output', () => {
-        const warning = expectConsoleWarn([
+    it('returns captured calls from a local guard for matched warning output', () => {
+        const localConsole = {
+            warn: jest.fn(),
+            error: jest.fn(),
+        };
+        const guard = new TestConsoleOutputGuard(localConsole);
+        guard.install();
+        guard.resetForTest();
+
+        const warning = guard.expect('warn', [
             'shared guard warning',
             expect.objectContaining({ marker: 'present' }),
         ]);
 
-        console.warn('shared guard warning', { marker: 'present', extra: true });
+        try {
+            localConsole.warn('shared guard warning', { marker: 'present', extra: true });
 
-        expect(warning.getLastCall()).toEqual([
-            'shared guard warning',
-            { marker: 'present', extra: true },
-        ]);
+            expect(warning.getLastCall()).toEqual([
+                'shared guard warning',
+                { marker: 'present', extra: true },
+            ]);
+        } finally {
+            guard.uninstall();
+        }
     });
 });

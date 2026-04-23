@@ -8,15 +8,8 @@ import { expectConsoleWarn } from '../../__tests__/helpers';
 import { EventEmitter } from '../EventEmitter';
 
 describe('EventEmitter', () => {
-    const originalReportError = (
-        globalThis as typeof globalThis & { reportError?: (error: unknown) => void }
-    ).reportError;
-
     afterEach(() => {
         jest.restoreAllMocks();
-        (
-            globalThis as typeof globalThis & { reportError?: (error: unknown) => void }
-        ).reportError = originalReportError;
     });
 
     describe('on/emit', () => {
@@ -94,13 +87,8 @@ describe('EventEmitter', () => {
             expect(successHandler).toHaveBeenCalled();
         });
 
-        it('falls back to console.warn with redacted details when reportError is unavailable', () => {
+        it('routes redacted handler errors to console.warn', () => {
             const emitter = new EventEmitter<{ test: void }>();
-            delete (
-                globalThis as typeof globalThis & {
-                    reportError?: (error: unknown) => void;
-                }
-            ).reportError;
             const warning = expectConsoleWarn([
                 expect.stringContaining('Handler error for event'),
                 expect.any(Object),
@@ -119,7 +107,7 @@ describe('EventEmitter', () => {
             expect(message).not.toContain(secret);
         });
 
-        it('keeps emit isolated even when reportError exists on the global scope', () => {
+        it('keeps emit isolated while reporting handler failures through console.warn', () => {
             const emitter = new EventEmitter<{ test: void }>();
             expectConsoleWarn([
                 expect.stringContaining('Handler error for event'),
@@ -128,11 +116,6 @@ describe('EventEmitter', () => {
                     message: 'Handler error',
                 }),
             ]);
-            (
-                globalThis as typeof globalThis & {
-                    reportError?: (error: unknown) => void;
-                }
-            ).reportError = jest.fn();
             const successHandler = jest.fn();
 
             emitter.on('test', () => {
@@ -159,7 +142,6 @@ describe('EventEmitter', () => {
             expect(() => emitter.emit('test', undefined)).not.toThrow();
             expect(successHandler).toHaveBeenCalled();
         });
-
     });
 
     describe('once', () => {

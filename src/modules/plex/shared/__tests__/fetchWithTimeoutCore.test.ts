@@ -48,10 +48,10 @@ describe('fetchWithTimeoutCore', () => {
 
     it('keeps listener wiring and cleanup fail-open when upstream signal APIs throw', async () => {
         const upstreamController = new AbortController();
-        jest.spyOn(upstreamController.signal, 'addEventListener').mockImplementation(() => {
+        const addEventListenerSpy = jest.spyOn(upstreamController.signal, 'addEventListener').mockImplementation(() => {
             throw new Error('add failed');
         });
-        jest.spyOn(upstreamController.signal, 'removeEventListener').mockImplementation(() => {
+        const removeEventListenerSpy = jest.spyOn(upstreamController.signal, 'removeEventListener').mockImplementation(() => {
             throw new Error('remove failed');
         });
         const response = { ok: true, status: 200 } as Response;
@@ -65,6 +65,8 @@ describe('fetchWithTimeoutCore', () => {
                 upstreamController.signal
             )
         ).resolves.toBe(response);
+        expect(addEventListenerSpy).toHaveBeenCalled();
+        expect(removeEventListenerSpy).toHaveBeenCalled();
     });
 
     it('keeps the abort path fail-open when AbortController.abort throws', async () => {

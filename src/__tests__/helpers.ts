@@ -367,6 +367,12 @@ export class TestConsoleOutputGuard {
     }
 
     expect(level: ConsoleLevel, matcher: ConsoleCallMatcher, options: ConsoleExpectationOptions = {}): ExpectedConsoleCallHandle {
+        if (this.allowConsoleOutput) {
+            throw new Error(
+                'TestConsoleOutputGuard expectations are unavailable when LINEUP_TEST_CONSOLE=1 because install() keeps console passthrough enabled.'
+            );
+        }
+
         const expectation: ConsoleExpectation = {
             id: this.nextExpectationId++,
             level,
