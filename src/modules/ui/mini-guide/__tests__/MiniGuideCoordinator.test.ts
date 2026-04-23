@@ -82,21 +82,21 @@ const makeEpisodeProgram = (
     isCurrent: true,
 });
 
-const makeOverlay = (): IMiniGuideOverlay & { _visible: boolean } => {
+const makeOverlay = (): IMiniGuideOverlay => {
+    let visible = false;
     const overlay = {
-        _visible: false,
         initialize: jest.fn(),
         destroy: jest.fn(),
         show: jest.fn(() => {
-            overlay._visible = true;
+            visible = true;
         }),
         hide: jest.fn(() => {
-            overlay._visible = false;
+            visible = false;
         }),
-        isVisible: jest.fn(() => overlay._visible),
+        isVisible: jest.fn(() => visible),
         setViewModel: jest.fn(),
         setFocusedIndex: jest.fn(),
-    } as unknown as IMiniGuideOverlay & { _visible: boolean };
+    } as unknown as IMiniGuideOverlay;
     return overlay;
 };
 
@@ -134,7 +134,7 @@ const setup = (overrides?: Partial<{
     currentChannel: ChannelConfig | null;
 }>): {
     coordinator: MiniGuideCoordinator;
-    overlay: IMiniGuideOverlay & { _visible: boolean };
+    overlay: IMiniGuideOverlay;
     channelManager: IChannelManager;
     scheduler: IChannelScheduler;
     resolveDeferred: Record<string, Deferred<ResolvedChannelContent>>;

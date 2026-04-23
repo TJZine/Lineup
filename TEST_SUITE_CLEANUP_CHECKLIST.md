@@ -665,6 +665,13 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 **Goal:** spend coupling-reduction effort where it still buys seam quality, not where the repo already fixed it.
 
+- `Status:` `in progress`
+- `Plan:` `docs/plans/2026-04-22-t5-w2-cast-probe-hotspot-audit.md`
+- `Last touched:` `2026-04-22`
+- `Verification:` `npm run test:unit -- --runInBand src/modules/ui/channel-transition/__tests__/ChannelTransitionCoordinator.test.ts src/modules/ui/mini-guide/__tests__/MiniGuideCoordinator.test.ts src/modules/ui/player-osd/__tests__/PlayerOsdCoordinator.test.ts src/modules/lifecycle/__tests__/AppLifecycle.test.ts` (passed, 4 suites / 99 tests); `npm run test:contracts -- --runInBand src/__tests__/policy/AntiPatterns.policy.test.ts` (passed, 1 suite / 3 tests); `npm run verify` (passed: typecheck, architecture lint, CSS lint, unit coverage, tools, contracts, docs verification, build)
+- `Follow-ups:` keep `src/modules/navigation/__tests__/NavigationManager.test.ts` and `src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts` as the remaining `T5-W2` owners until `T5-W2-B2` or `T5-W2-B3` is explicitly approved
+- `Handoff:` send the `T5-W2-B1` diff to `lineup-cleanup-review`; do not start `T5-W2-B2` or `T5-W2-B3` without review approval
+
 **Primary files:**
 
 - inspect hotspots with real maintenance cost first:

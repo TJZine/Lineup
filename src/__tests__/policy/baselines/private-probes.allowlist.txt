@@ -1,7 +1,3 @@
-# maxCount=6
-src/modules/lifecycle/__tests__/AppLifecycle.test.ts|lifecycle|_pauseCallbacks
+# maxCount=2
 src/modules/navigation/__tests__/NavigationManager.test.ts|nav|_focusManager
-src/modules/ui/channel-transition/__tests__/ChannelTransitionCoordinator.test.ts|overlay|_visible
 src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts|store|_loadedRangeKeyByChannel
-src/modules/ui/mini-guide/__tests__/MiniGuideCoordinator.test.ts|overlay|_visible
-src/modules/ui/player-osd/__tests__/PlayerOsdCoordinator.test.ts|overlay|_visible

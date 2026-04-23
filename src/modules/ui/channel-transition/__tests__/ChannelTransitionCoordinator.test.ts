@@ -18,20 +18,20 @@ const makeState = (status: PlaybackState['status']): PlaybackState => ({
     errorInfo: null,
 });
 
-const makeOverlay = (): IChannelTransitionOverlay & { _visible: boolean } => {
+const makeOverlay = (): IChannelTransitionOverlay => {
+    let visible = false;
     const overlay = {
-        _visible: false,
         initialize: jest.fn(),
         destroy: jest.fn(),
         show: jest.fn(() => {
-            overlay._visible = true;
+            visible = true;
         }),
         hide: jest.fn(() => {
-            overlay._visible = false;
+            visible = false;
         }),
-        isVisible: jest.fn(() => overlay._visible),
+        isVisible: jest.fn(() => visible),
         setViewModel: jest.fn(),
-    } as unknown as IChannelTransitionOverlay & { _visible: boolean };
+    } as unknown as IChannelTransitionOverlay;
     return overlay;
 };
 
@@ -44,7 +44,7 @@ const makeNavigation = (overrides: Partial<INavigationManager> = {}): INavigatio
 
 const setup = (state: PlaybackState): {
     coordinator: ChannelTransitionCoordinator;
-    overlay: IChannelTransitionOverlay & { _visible: boolean };
+    overlay: IChannelTransitionOverlay;
     navigation: INavigationManager;
     videoPlayer: IVideoPlayer;
     onActivityChange: jest.Mock<void, [boolean]>;
