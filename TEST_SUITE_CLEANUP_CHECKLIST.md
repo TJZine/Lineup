@@ -661,16 +661,16 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 - Follow-ups: `T5-W2` remains the next owner for the broader cast/probe hotspot audit after this bounded EPG Virtualizer seam lands.
 - Handoff: send the `T5-W1` implementation diff to `lineup-cleanup-review`; keep `T5-W2` untouched unless review finds a stop-and-replan issue.
 
-### [ ] `T5-W2` Audit The Remaining High-Value Cast/Probe Hotspots
+### [x] `T5-W2` Audit The Remaining High-Value Cast/Probe Hotspots
 
 **Goal:** spend coupling-reduction effort where it still buys seam quality, not where the repo already fixed it.
 
-- `Status:` `in progress`
+- `Status:` `completed`
 - `Plan:` `docs/plans/2026-04-22-t5-w2-cast-probe-hotspot-audit.md`
 - `Last touched:` `2026-04-22`
-- `Verification:` `npm run test:unit -- --runInBand src/modules/navigation/__tests__/NavigationManager.test.ts` (passed, 1 suite / 55 tests); `npm run test:contracts -- --runInBand src/__tests__/policy/AntiPatterns.policy.test.ts` (passed, 1 suite / 3 tests); `npm run verify` (passed: typecheck, architecture lint, CSS lint, unit coverage, tools, contracts, docs verification, build)
-- `Follow-ups:` keep `src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts` as the remaining `T5-W2` owner until `T5-W2-B3` is explicitly approved
-- `Handoff:` send the `T5-W2-B2` diff to `lineup-cleanup-review`; do not start `T5-W2-B3` without review approval
+- `Verification:` `npm run test:unit -- --runInBand src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts` (passed, 1 suite / 6 tests); `npm run test:contracts -- --runInBand src/__tests__/policy/AntiPatterns.policy.test.ts` (passed, 1 suite / 3 tests); `npm run verify` (passed: typecheck, architecture lint, CSS lint, unit coverage, tools, contracts, docs verification, build); `npm run verify:docs` (passed)
+- `Follow-ups:` keep `src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts` as the final documented private-probe exception until a broader public seam can prove retained loaded-marker state before `prune()` without reading `_loadedRangeKeyByChannel`; replan only if a future EPG runtime/public-behavior contract exposes that state truthfully
+- `Handoff:` send this residual closeout update to `lineup-cleanup-review`; no further `T5-W2` implementation work is approved unless a new public proof surface is established
 
 **Primary files:**
 
@@ -699,6 +699,13 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 
 **Goal:** reduce hand-rolled storage mocks and inconsistent restore behavior.
 
+- `Status:` `planned`
+- `Plan:` `docs/plans/2026-04-22-t6-w1-w2-test-environment-helper-standardization.md`
+- `Last touched:` `2026-04-22`
+- `Verification:` planning only; implementation verification not run yet
+- `Follow-ups:` `T6-W2` shares the same tracked plan and review gate; `T6-W3` remains separate
+- `Handoff:` send the grouped `T6-W1` / `T6-W2` plan to `lineup-cleanup-review`; do not start implementation until that review is clean
+
 **Primary files:**
 
 - Modify: `src/__tests__/mocks/localStorage.ts`
@@ -716,6 +723,13 @@ Coverage remains telemetry only. Use it as a tie-breaker when deciding where new
 ### [ ] `T6-W2` Standardize Repeated Global Descriptor Setup Only Where Cleanup Semantics Repeat
 
 **Goal:** reduce repeated descriptor-mutation boilerplate only where the setup and restore contract is genuinely the same.
+
+- `Status:` `planned`
+- `Plan:` `docs/plans/2026-04-22-t6-w1-w2-test-environment-helper-standardization.md`
+- `Last touched:` `2026-04-22`
+- `Verification:` planning only; implementation verification not run yet
+- `Follow-ups:` keep `T6-W3` as the next separate owner for DOM container setup unless review proves it belongs in the same helper seam
+- `Handoff:` send the grouped `T6-W1` / `T6-W2` plan to `lineup-cleanup-review`; keep descriptor helper scope bounded to the approved seams in review
 
 **Primary files:**
 
