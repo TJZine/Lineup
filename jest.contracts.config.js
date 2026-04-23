@@ -6,7 +6,10 @@ const config = {
     testMatch: [
         '**/*.contract.test.ts',
         '**/*.contracts.test.ts',
+        '**/*-contract.test.ts',
+        '**/*-contracts.test.ts',
         '**/*.policy.test.ts',
+        '**/*-policy.test.ts',
         '**/types.test.ts',
     ],
 };

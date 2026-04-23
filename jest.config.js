@@ -7,7 +7,7 @@ const config = {
     testPathIgnorePatterns: [
         '/node_modules/',
         '/__tests__/tools/',
-        '\\.(contracts?|policy)\\.test\\.ts$',
+        '[.-](contracts?|policy)\\.test\\.ts$',
         '/types\\.test\\.ts$',
     ],
     collectCoverageFrom: [

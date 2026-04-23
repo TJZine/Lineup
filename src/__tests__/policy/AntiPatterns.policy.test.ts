@@ -47,13 +47,16 @@ const WHOLE_SUITE_UNIT_PATH_MATCHERS = [
 ];
 const WHOLE_SUITE_UNIT_PATH_EXCLUDES = [
     /^src\/__tests__\/tools\//,
-    /\.(?:contract|contracts|policy)\.test\.ts$/,
+    /[.-](?:contract|contracts|policy)\.test\.ts$/,
     /\/types\.test\.ts$/,
 ];
 const WHOLE_SUITE_CONTRACTS_PATH_MATCHERS = [
     /\.contract\.test\.ts$/,
     /\.contracts\.test\.ts$/,
+    /-contract\.test\.ts$/,
+    /-contracts\.test\.ts$/,
     /\.policy\.test\.ts$/,
+    /-policy\.test\.ts$/,
     /\/types\.test\.ts$/,
 ];
 
@@ -280,7 +283,27 @@ describe('AntiPatterns policy', () => {
         expect(files).toContain('src/__tests__/helpers.test.ts');
         expect(files).toContain('src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoader.test.ts');
         expect(files).toContain('src/modules/player/__tests__/subtitleFallbackPipeline.test.ts');
+        expect(files).toContain('src/modules/ui/__tests__/runtime-overlay-style-contracts.test.ts');
+        expect(files).toContain('src/modules/ui/__tests__/runtime-token-style-contracts.test.ts');
         expect(files).not.toContain('src/__tests__/tools/verifyDocs.test.ts');
+    });
+
+    it('keeps hyphenated contract suite names on the contracts surface instead of unit', () => {
+        expect(isWholeSuiteFile('src/modules/ui/__tests__/runtime-token-style-contracts.test.ts')).toBe(true);
+        expect(WHOLE_SUITE_UNIT_PATH_EXCLUDES.some((pattern) => pattern.test(
+            'src/modules/ui/__tests__/runtime-token-style-contracts.test.ts'
+        ))).toBe(true);
+        expect(WHOLE_SUITE_CONTRACTS_PATH_MATCHERS.some((pattern) => pattern.test(
+            'src/modules/ui/__tests__/runtime-token-style-contracts.test.ts'
+        ))).toBe(true);
+
+        expect(isWholeSuiteFile('src/modules/ui/__tests__/runtime-overlay-style-contracts.test.ts')).toBe(true);
+        expect(WHOLE_SUITE_UNIT_PATH_EXCLUDES.some((pattern) => pattern.test(
+            'src/modules/ui/__tests__/runtime-overlay-style-contracts.test.ts'
+        ))).toBe(true);
+        expect(WHOLE_SUITE_CONTRACTS_PATH_MATCHERS.some((pattern) => pattern.test(
+            'src/modules/ui/__tests__/runtime-overlay-style-contracts.test.ts'
+        ))).toBe(true);
     });
 
     it('ratchets whole-suite private probes and approved sleep ids with synchronized owner notes', () => {
