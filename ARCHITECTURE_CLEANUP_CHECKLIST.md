@@ -16,8 +16,8 @@ The live post-reset follow-on queue is defined by `docs/architecture/p11-fresh-b
 
 - Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
-- Current execution state: `P1-W1` through `P10-W1` are now historical evidence for the retired `2026-04-16` lineage; `P11-W1` and `P11-W2` are complete and `P11-W3` is the next live fresh-baseline package from the authoritative `2026-04-23` rerun
-- Next safe start: `P11-W3` / `pkg_channel_setup_scheduler_contract_cleanup`
+- Current execution state: `P1-W1` through `P10-W1` are now historical evidence for the retired `2026-04-16` lineage; `P11-W1`, `P11-W2`, and `P11-W3` are complete and `P11-W4` is the next live fresh-baseline package from the authoritative `2026-04-23` rerun
+- Next safe start: `P11-W4` / `pkg_epg_navigation_runtime_cleanup`
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to the active package or exit row
 - First action at package start: planning only; create the package-local execution-grade plan first and do not begin implementation until that planning gate is complete
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
@@ -944,7 +944,7 @@ Default scoping rule for this queue:
 - Follow-ups: none for `P11-W2`; continue fresh-baseline queue at `P11-W3`
 - Handoff: `P11-W3`
 
-### [ ] `P11-W3` `pkg_channel_setup_scheduler_contract_cleanup` Channel Setup And Scheduler Contract Cleanup
+### [x] `P11-W3` `pkg_channel_setup_scheduler_contract_cleanup` Channel Setup And Scheduler Contract Cleanup
 
 - Backlog: `seed 13 = 3 fresh review + 10 candidate mechanical hotspots`
 - Scope: tighten the channel-manager/channel-setup contract surface, retire repeated legacy-field scrub logic, and reduce the oversized scheduler/channel-setup coordination seam
@@ -957,11 +957,12 @@ Default scoping rule for this queue:
   - `desloppify show src/modules/ui/channel-setup/ChannelSetupScreen.ts --status open --no-budget --top 80`
 - Cleanup-loop fit: Tier 3 checklist-linked package; the review ids define the owner seam, the candidate mechanical ids are scoping aids only, and EPG/navigation or cross-cutting hygiene residue stays out unless current-source proof re-homes it here
 - Likely first slice: begin with ChannelManager input types, legacy field scrub duplication, and channel-setup planner interfaces before widening into UI controllers
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Progress: `P11-W3-EU1` channel-manager/channel-setup contract wave complete; `P11-W3-S1` explicit create/update input contracts complete; `P11-W3-S2` legacy `isSequentialVariant` scrub centralized to the repository normalization boundary; `P11-W3-S3` channel-setup workflow port availability contract made uniform with UI edge defaults preserved
+- Plan: local cleanup-loop plan artifact; not tracked
 - Last touched: `2026-04-23`
-- Verification: not run for package-local scoping yet; seed evidence comes from the authoritative `2026-04-23T07:32:05+00:00` rerun and `docs/architecture/p11-fresh-baseline-package-map.json`
-- Follow-ups: none yet
+- Verification: `P11-W3-EU1` reviewed clean and committed as `5596f684`; focused verification passed with `8` suites / `115` tests for channel-manager persistence/import, setup workflow port, setup runtime, build committer, and app diagnostics; `npm run typecheck` passed; `npm run verify` passed with typecheck, architecture lint, CSS lint, coverage tests (`252` suites, `3077` passed, `1` skipped), tools tests (`5` suites, `98` tests), contracts (`7` suites, `201` tests), docs verification, and build. Closeout reran the five package-local scoping commands and all report no open issues for `ChannelManager.ts`, `ContentResolver.ts`, `ChannelSetupPlanner.ts`, `ChannelScheduler.ts`, and `ChannelSetupScreen.ts`. Exact review-id `desloppify show` commands still report the three seed ids as open, but reviewed current-source proof retires the package-owned rationale: channel-manager create/update contracts now use explicit writable input types, runtime-owned channel fields stay manager-owned, legacy `isSequentialVariant` cleanup remains only at repository load normalization plus its helper, manager save/load/export no longer repeat the scrub, and `createChannelSetupWorkflowPort` now routes all methods through one strict unavailable-workflow contract while `ChannelSetupSessionRuntime` owns UI-safe unavailable defaults.
+- Follow-ups: none for `P11-W3`; continue fresh-baseline queue at `P11-W4`
 - Handoff: `P11-W4`
 
 ### [ ] `P11-W4` `pkg_epg_navigation_runtime_cleanup` EPG, Navigation, And UI Runtime Cleanup
