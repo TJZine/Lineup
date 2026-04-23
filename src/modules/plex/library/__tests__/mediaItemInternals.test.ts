@@ -1,9 +1,9 @@
-import { buildBaseMediaItem } from '../mediaItemBaseParser';
-import { parseMediaItem } from '../mediaItemCoreParser';
-import { applyMediaItemDetails, toPlexDate } from '../mediaItemDetailsParser';
-import { parseMediaItems } from '../mediaItemParser';
+import { buildBaseMediaItem } from '../parsing/mediaItemBaseParser';
+import { parseMediaItem } from '../parsing/mediaItemCoreParser';
+import { applyMediaItemDetails, toPlexDate } from '../parsing/mediaItemDetailsParser';
+import { parseMediaItems } from '../parsing/mediaItemParser';
 import { PlexLibraryError } from '../PlexLibraryError';
-import { mapMediaType } from '../mediaTypeParser';
+import { mapMediaType } from '../parsing/mediaTypeParser';
 import type { RawMediaItem } from '../types';
 
 describe('media item internals', () => {

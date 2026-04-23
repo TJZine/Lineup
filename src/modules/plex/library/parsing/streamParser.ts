@@ -1,4 +1,4 @@
-import type { PlexStream, RawStream } from './types';
+import type { PlexStream, RawStream } from '../types';
 import { parseRequiredObject } from './parserValidation';
 
 const VALID_STREAM_TYPES = new Set([1, 2, 3]);

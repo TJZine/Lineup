@@ -1,4 +1,4 @@
-import { parseStream } from '../streamParser';
+import { parseStream } from '../parsing/streamParser';
 import type { RawStream } from '../types';
 
 describe('streamParser', () => {

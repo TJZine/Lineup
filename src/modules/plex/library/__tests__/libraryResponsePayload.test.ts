@@ -5,7 +5,7 @@ import {
     extractMetadataArray,
     extractSearchHubMetadata,
     extractSearchHubs,
-} from '../libraryResponsePayload';
+} from '../parsing/libraryResponsePayload';
 
 describe('libraryResponsePayload', () => {
     it('returns the media container when present', () => {

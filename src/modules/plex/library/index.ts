@@ -50,4 +50,4 @@ export {
     parseCollections,
     parsePlaylists,
     parseDirectoryTags,
-} from './ResponseParser';
+} from './parsing/ResponseParser';

@@ -1,4 +1,4 @@
-import type { PlexMediaType } from './types';
+import type { PlexMediaType } from '../types';
 
 const PLEX_MEDIA_TYPE_MAP: Record<string, PlexMediaType> = {
     movie: 'movie',

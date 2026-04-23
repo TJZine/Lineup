@@ -7,7 +7,7 @@ import type {
     RawDirectoryTag,
     RawPlaylist,
     RawSeason,
-} from './types';
+} from '../types';
 
 export function parseSeasons(metadata: RawSeason[]): PlexSeason[] {
     return metadata.map(parseSeason);
