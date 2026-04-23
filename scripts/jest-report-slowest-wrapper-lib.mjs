@@ -15,6 +15,12 @@ export function deriveSpawnExitCode(result) {
     return 0;
 }
 
+function throwIfSpawnErrored(result) {
+    if (result?.error) {
+        throw result.error;
+    }
+}
+
 export function runJestReportSlowestWrapper({
     surface,
     configPath,
@@ -28,6 +34,11 @@ export function runJestReportSlowestWrapper({
     const outputFile = path.join(tempDir, `${surface}.json`);
     const jestBin = path.resolve(cwd, 'node_modules/jest/bin/jest.js');
     const reportScript = path.resolve(cwd, 'scripts/jest-report-slowest.mjs');
+    const resolvedConfigPath = path.isAbsolute(configPath) ? configPath : path.resolve(cwd, configPath);
+    const spawnOptions = {
+        cwd,
+        stdio: 'inherit',
+    };
 
     let exitCode = 0;
 
@@ -37,26 +48,24 @@ export function runJestReportSlowestWrapper({
             [
                 jestBin,
                 '--config',
-                configPath,
+                resolvedConfigPath,
                 '--runInBand',
                 '--json',
                 '--outputFile',
                 outputFile,
             ],
-            {
-                stdio: 'inherit',
-            }
+            spawnOptions
         );
 
+        throwIfSpawnErrored(jestResult);
         exitCode = deriveSpawnExitCode(jestResult);
         if (exitCode !== 0) {
             return exitCode;
         }
 
-        const reportResult = spawnSyncImpl(execPath, [reportScript, outputFile, surface], {
-            stdio: 'inherit',
-        });
+        const reportResult = spawnSyncImpl(execPath, [reportScript, outputFile, surface], spawnOptions);
 
+        throwIfSpawnErrored(reportResult);
         return deriveSpawnExitCode(reportResult);
     } finally {
         removeTempDir(tempDir);
