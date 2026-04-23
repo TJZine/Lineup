@@ -7,7 +7,12 @@ import { ChannelManager } from '../ChannelManager';
 import { ChannelRepository } from '../ChannelRepository';
 import { ContentResolver } from '../ContentResolver';
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
-import type { ChannelConfig, LibraryContentSource } from '../types';
+import type {
+    ChannelConfig,
+    ChannelCreateInput,
+    ChannelUpdateInput,
+    LibraryContentSource,
+} from '../types';
 import { AppErrorCode } from '../../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../../lifecycle/constants';
 import { expectConsoleWarn } from '../../../../__tests__/helpers';
@@ -180,7 +185,7 @@ describe('ChannelManager', () => {
         });
 
         it('should throw if content source missing', async () => {
-            await expect(manager.createChannel({ name: 'Test' })).rejects.toThrow(
+            await expect(manager.createChannel({ name: 'Test' } as unknown as ChannelCreateInput)).rejects.toThrow(
                 'Content source is required'
             );
         });
@@ -243,6 +248,29 @@ describe('ChannelManager', () => {
 
             expect(updated.name).toBe('Updated');
             expect(handler).toHaveBeenCalledWith(expect.objectContaining({ name: 'Updated' }));
+        });
+
+        it('ignores runtime-managed fields during updates', async () => {
+            const channel = await manager.createChannel({
+                name: 'Original',
+                contentSource: createMockContentSource(),
+            });
+
+            const updated = await manager.updateChannel(channel.id, {
+                name: 'Updated',
+                id: 'mutated-id',
+                createdAt: 123,
+                lastContentRefresh: 456,
+                itemCount: 789,
+                totalDurationMs: 101112,
+            } as unknown as ChannelUpdateInput);
+
+            expect(updated.id).toBe(channel.id);
+            expect(updated.createdAt).toBe(channel.createdAt);
+            expect(updated.lastContentRefresh).toBe(channel.lastContentRefresh);
+            expect(updated.itemCount).toBe(channel.itemCount);
+            expect(updated.totalDurationMs).toBe(channel.totalDurationMs);
+            expect(updated.name).toBe('Updated');
         });
 
         it('should delete channel and emit event', async () => {

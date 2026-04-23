@@ -10,6 +10,7 @@ export { ContentResolver } from './ContentResolver';
 export type { IChannelManager, ChannelManagerConfig, IPlexLibraryMinimal } from './interfaces';
 export type {
     ChannelConfig,
+    ChannelCreateInput,
     ChannelContentSource,
     LibraryContentSource,
     CollectionContentSource,
@@ -28,6 +29,7 @@ export type {
     SortOrder,
     ImportResult,
     ChannelManagerEventMap,
+    ChannelUpdateInput,
 } from './types';
 export {
     STORAGE_KEY,

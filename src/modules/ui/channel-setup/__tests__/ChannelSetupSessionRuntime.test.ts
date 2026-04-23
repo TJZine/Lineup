@@ -6,6 +6,7 @@ import { DEFAULT_BUILD_RESULT, DEFAULT_PREVIEW, createWorkflowPort, makeLibrary 
 import { ChannelSetupSessionRuntime } from '../ChannelSetupSessionRuntime';
 import { ChannelSetupSessionState } from '../ChannelSetupSessionState';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
+import { ChannelSetupWorkflowUnavailableError } from '../../../../core/channel-setup/ChannelSetupWorkflowPort';
 
 const createDeferred = <T>(): {
     promise: Promise<T>;
@@ -137,6 +138,31 @@ describe('ChannelSetupSessionRuntime', () => {
         expect(state.setupContext).toBe('unknown');
 
         runtime.syncSetupContext();
+        expect(state.setupContext).toBe('unknown');
+    });
+
+    it('treats unavailable workflow queries as UI-safe defaults at the runtime edge', async () => {
+        const workflowPort = createWorkflowPort({
+            invalidateFacetSnapshot: jest.fn(() => {
+                throw new ChannelSetupWorkflowUnavailableError();
+            }),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getChannelSetupRecord: jest.fn(() => {
+                throw new ChannelSetupWorkflowUnavailableError();
+            }),
+            getSetupContextForSelectedServer: jest.fn(() => {
+                throw new ChannelSetupWorkflowUnavailableError();
+            }),
+        });
+        const { runtime, state } = createRuntime({ workflowPort });
+
+        expect(() => runtime.beginSession()).not.toThrow();
+
+        await runtime.loadLibraries();
+        runtime.syncSetupContext();
+
+        expect(state.recordApplied).toBe(true);
+        expect(state.selectedLibraryIds).toEqual(new Set(['movies']));
         expect(state.setupContext).toBe('unknown');
     });
 

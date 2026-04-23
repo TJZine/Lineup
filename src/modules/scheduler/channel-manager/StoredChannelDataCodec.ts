@@ -1,5 +1,4 @@
 import type { StoredChannelData } from './types';
-import { stripLegacySequentialVariant } from './stripLegacySequentialVariant';
 
 function isValidStoredShape(value: unknown): value is Partial<StoredChannelData> {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -8,19 +7,6 @@ function isValidStoredShape(value: unknown): value is Partial<StoredChannelData>
 
     const record = value as Record<string, unknown>;
     return Array.isArray(record.channels) && Array.isArray(record.channelOrder);
-}
-
-function sanitizeStoredChannels(channels: unknown): { channels: unknown[]; didMutate: boolean } {
-    if (!Array.isArray(channels)) {
-        return { channels: [], didMutate: false };
-    }
-    let didMutate = false;
-    const sanitized = channels.map((channel) => {
-        const result = stripLegacySequentialVariant(channel);
-        didMutate = didMutate || result.didMutate;
-        return result.channel;
-    });
-    return { channels: sanitized, didMutate };
 }
 
 export function decodeStoredChannelData(raw: string): Partial<StoredChannelData> | null {
@@ -38,12 +24,5 @@ export function decodeStoredChannelData(raw: string): Partial<StoredChannelData>
 }
 
 export function encodeStoredChannelData(data: StoredChannelData): string {
-    const { channels, didMutate } = sanitizeStoredChannels(data.channels);
-    if (!didMutate) {
-        return JSON.stringify(data);
-    }
-    return JSON.stringify({
-        ...data,
-        channels: channels as StoredChannelData['channels'],
-    });
+    return JSON.stringify(data);
 }

@@ -1,5 +1,8 @@
 import type { ChannelSetupWorkflow } from './ChannelSetupWorkflow';
-import type { ChannelSetupWorkflowPort } from './ChannelSetupWorkflowPort';
+import {
+    ChannelSetupWorkflowUnavailableError,
+    type ChannelSetupWorkflowPort,
+} from './ChannelSetupWorkflowPort';
 
 export interface CreateChannelSetupWorkflowPortDeps {
     getChannelSetupWorkflow: () => ChannelSetupWorkflow | null;
@@ -11,7 +14,7 @@ export const createChannelSetupWorkflowPort = (
     const requireChannelSetupWorkflow = (): ChannelSetupWorkflow => {
         const workflow = deps.getChannelSetupWorkflow();
         if (!workflow) {
-            throw new Error('Channel setup not initialized');
+            throw new ChannelSetupWorkflowUnavailableError();
         }
         return workflow;
     };
@@ -20,9 +23,8 @@ export const createChannelSetupWorkflowPort = (
         invalidateFacetSnapshot: (): void => requireChannelSetupWorkflow().invalidateFacetSnapshot(),
         getLibrariesForSetup: async (signal?: AbortSignal | null) =>
             requireChannelSetupWorkflow().getLibrariesForSetup(signal ?? null),
-        getChannelSetupRecord: (serverId: string) => deps.getChannelSetupWorkflow()?.getSetupRecord(serverId) ?? null,
-        getSetupContextForSelectedServer: () =>
-            deps.getChannelSetupWorkflow()?.getSetupContextForSelectedServer() ?? 'unknown',
+        getChannelSetupRecord: (serverId: string) => requireChannelSetupWorkflow().getSetupRecord(serverId),
+        getSetupContextForSelectedServer: () => requireChannelSetupWorkflow().getSetupContextForSelectedServer(),
         getSetupPreview: async (config, options) => requireChannelSetupWorkflow().getSetupPreview(config, options),
         getSetupReview: async (config, options) => requireChannelSetupWorkflow().getSetupReview(config, options),
         getSetupPlanDiagnostics: async (config, options) =>
