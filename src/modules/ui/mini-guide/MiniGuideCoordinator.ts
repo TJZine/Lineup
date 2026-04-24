@@ -6,7 +6,7 @@
 
 import type { IChannelManager, ChannelConfig, ResolvedChannelContent } from '../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig } from '../../scheduler/scheduler';
-import type { ToastType } from '../toast/types';
+import type { ToastInput } from '../toast/types';
 import {
     ShuffleGenerator,
     buildScheduleIndex,
@@ -35,7 +35,7 @@ interface MiniGuideCoordinatorDeps {
 
     switchToChannel: (channelId: string) => Promise<void>;
     getAutoHideMs: () => number;
-    notifyToast?: (message: string, type?: ToastType) => void;
+    notifyToast?: (toast: ToastInput) => void;
 }
 
 export class MiniGuideCoordinator {
@@ -136,7 +136,7 @@ export class MiniGuideCoordinator {
         }
         this.hide();
         this.deps.switchToChannel(selected.id).catch(() => {
-            this.deps.notifyToast?.('Failed to switch channel', 'warning');
+            this.deps.notifyToast?.({ message: 'Failed to switch channel', type: 'warning' });
         });
     }
 

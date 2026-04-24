@@ -62,6 +62,7 @@ import {
     PlaybackOptionsCoordinator,
     type IPlaybackOptionsModal,
 } from '../../modules/ui/playback-options';
+import type { ToastInput } from '../../modules/ui/toast/types';
 import {
     ExitConfirmCoordinator,
     ExitConfirmModal,
@@ -270,14 +271,13 @@ function notifyPlaybackRecoverySubtitleUnavailable(input: OrchestratorPlaybackRe
 
 function notifyPlaybackRecoveryToast(
     input: Pick<OrchestratorCoordinatorAssemblyInput, 'nowPlaying'>,
-    message: string,
-    type?: 'warning' | 'error' | 'info' | 'success'
+    toast: ToastInput
 ): void {
     const handler = input.nowPlaying.handler();
     if (!handler) {
         return;
     }
-    handler(type ? { message, type } : { message });
+    handler(toast);
 }
 
 function handleCoordinatorGlobalError(
@@ -567,9 +567,7 @@ export function buildMiniGuideCoordinator(input: OrchestratorCoordinatorAssembly
             }
             return 8_000;
         },
-        notifyToast: (message, type): void => {
-            notifyPlaybackRecoveryToast(input, message, type);
-        },
+        notifyToast: notifyPlaybackRecoveryToast.bind(null, input),
     });
 }
 
@@ -797,7 +795,7 @@ export function buildNavigationCoordinator(
         channelSwitching: buildNavigationChannelSwitchingConfig(input, deps),
         uiGuards: buildNavigationUiGuardsConfig(deps),
         reportRecoverableAsyncFailure: input.diagnostics.reportRecoverableAsyncFailure,
-        reportToast: (toast: { message: string; type: 'warning' | 'error' | 'info' | 'success' }): void => {
+        reportToast: (toast: ToastInput): void => {
             input.nowPlaying.handler()?.(toast);
         },
         readKeepPlayingInSettings: (): boolean =>

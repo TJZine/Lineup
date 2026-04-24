@@ -438,12 +438,12 @@ describe('OrchestratorCoordinatorBuilders', () => {
         const miniGuideDeps = (
             coordinator as unknown as {
                 deps: {
-                    notifyToast?: (message: string, type?: 'warning' | 'error' | 'info' | 'success') => void;
+                    notifyToast?: (toast: { message: string; type?: 'warning' | 'error' | 'info' | 'success' }) => void;
                 };
             }
         ).deps;
 
-        miniGuideDeps.notifyToast?.('Recovered without explicit type');
+        miniGuideDeps.notifyToast?.({ message: 'Recovered without explicit type' });
 
         expect(reportToast).toHaveBeenCalledWith({ message: 'Recovered without explicit type' });
     });

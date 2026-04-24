@@ -24,7 +24,7 @@ import {
     subtitleModeIsDirectOnly,
 } from '../../../shared/subtitle-mode';
 import { SubtitlePreferencesStore } from '../../settings/SubtitlePreferencesStore';
-import type { ToastType } from '../toast/types';
+import type { ToastInput } from '../toast/types';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
 import { fetchWithTimeout } from '../../plex/shared/fetchWithTimeout';
 import {
@@ -46,7 +46,7 @@ interface PlaybackOptionsCoordinatorDeps {
         trackId: string,
         reason: string
     ) => BurnInSubtitleRecoveryResult | Promise<BurnInSubtitleRecoveryResult>;
-    notifyToast?: (message: string, type?: ToastType) => void;
+    notifyToast?: (toast: ToastInput) => void;
     subtitlePreferencesStore?: SubtitlePreferencesStore;
 }
 
@@ -380,22 +380,22 @@ export class PlaybackOptionsCoordinator {
     private requestBurnInSubtitle(trackId: string, reason: string): void {
         const request = this.deps.requestBurnInSubtitle;
         if (!request) {
-            this.deps.notifyToast?.('Burn-in subtitles unavailable', 'warning');
+            this.deps.notifyToast?.({ message: 'Burn-in subtitles unavailable', type: 'warning' });
             return;
         }
-        this.deps.notifyToast?.('Loading burn-in subtitles…', 'info');
+        this.deps.notifyToast?.({ message: 'Loading burn-in subtitles…', type: 'info' });
         try {
             void Promise.resolve(request(trackId, reason))
                 .then((result) => {
                     if (result.outcome === 'failed') {
-                        this.deps.notifyToast?.('Failed to load burn-in subtitles', 'warning');
+                        this.deps.notifyToast?.({ message: 'Failed to load burn-in subtitles', type: 'warning' });
                     }
                 })
                 .catch(() => {
-                    this.deps.notifyToast?.('Failed to load burn-in subtitles', 'warning');
+                    this.deps.notifyToast?.({ message: 'Failed to load burn-in subtitles', type: 'warning' });
                 });
         } catch {
-            this.deps.notifyToast?.('Failed to load burn-in subtitles', 'warning');
+            this.deps.notifyToast?.({ message: 'Failed to load burn-in subtitles', type: 'warning' });
         }
     }
 
@@ -528,7 +528,7 @@ export class PlaybackOptionsCoordinator {
         if (!player) return;
         player.setAudioTrack(trackId)
             .catch(() => {
-                this.deps.notifyToast?.('Failed to apply audio track change', 'warning');
+                this.deps.notifyToast?.({ message: 'Failed to apply audio track change', type: 'warning' });
             })
             .finally(() => {
                 this.refreshIfOpen();
