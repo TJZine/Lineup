@@ -25,7 +25,6 @@ export function isChannelSetupWorkflowUnavailableError(error: unknown): boolean 
         || (
             error instanceof Error
             && error.name === 'ChannelSetupWorkflowUnavailableError'
-            && error.message === CHANNEL_SETUP_WORKFLOW_UNAVAILABLE_MESSAGE
         )
     );
 }

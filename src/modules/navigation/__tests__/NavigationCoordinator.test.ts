@@ -606,6 +606,28 @@ describe('NavigationCoordinator', () => {
         expect(event.originalEvent.preventDefault).toHaveBeenCalled();
     });
 
+    it('uses the cached routing state when handling player back', () => {
+        const focus = {
+            focusableIds: ['exit-confirm-cancel', 'exit-confirm-exit'],
+        };
+        const { handlers, navigation, deps } = setup({
+            prepareExitConfirmModal: jest.fn().mockReturnValue(focus),
+        });
+        (navigation.getCurrentScreen as jest.Mock)
+            .mockReturnValueOnce('player')
+            .mockReturnValueOnce('settings');
+        (navigation.isModalOpen as jest.Mock)
+            .mockReturnValueOnce(false)
+            .mockReturnValueOnce(true);
+        const event = makeKeyEvent('back');
+
+        handlers.keyPress?.(event);
+
+        expect(navigation.openModal).toHaveBeenCalledWith(deps.exitConfirmModalId, focus.focusableIds);
+        expect(navigation.getCurrentScreen).toHaveBeenCalledTimes(1);
+        expect(navigation.isModalOpen).toHaveBeenCalledTimes(1);
+    });
+
     it('hides player OSD on back before exit-confirm', () => {
         const { handlers, deps, navigation } = setup({
             isPlayerOsdVisible: jest.fn().mockReturnValue(true),
