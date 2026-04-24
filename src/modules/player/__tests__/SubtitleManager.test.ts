@@ -385,11 +385,11 @@ Hello`,
 
                 expect(onDeactivate).toHaveBeenCalledWith({
                     trackId: 'embedded-srt',
-                    reason: 'selected',
+                    reason: 'subtitle_text_unsupported',
                 });
                 expect(onDeactivateRecovery).toHaveBeenCalledWith({
                     trackId: 'embedded-srt',
-                    reason: 'selected',
+                    reason: 'subtitle_text_unsupported',
                 });
                 expect(onUnavailable).not.toHaveBeenCalled();
             } finally {
@@ -431,7 +431,7 @@ Hello`,
 
                 expect(onDeactivateRecovery).toHaveBeenCalledWith({
                     trackId: 'embedded-srt',
-                    reason: 'selected',
+                    reason: 'subtitle_text_unsupported',
                 });
                 expect(onUnavailable).toHaveBeenCalled();
             } finally {
@@ -475,9 +475,52 @@ Hello`,
 
                 expect(onDeactivateRecovery).toHaveBeenCalledWith({
                     trackId: 'embedded-srt',
-                    reason: 'selected',
+                    reason: 'subtitle_text_unsupported',
                 });
                 expect(onUnavailable).toHaveBeenCalledTimes(1);
+            } finally {
+                restore();
+            }
+        });
+
+        it('passes auth-specific deactivation reasons through recovery callbacks', async () => {
+            const { fetchMock, restore } = installFetchAndBlobMocks();
+
+            try {
+                const onDeactivate = jest.fn(() => true);
+                const onDeactivateRecovery = jest.fn().mockResolvedValue('handled');
+                const embeddedTrack = createMockSubtitleTrack({
+                    id: 'embedded-srt',
+                    codec: 'srt',
+                    format: 'srt',
+                    fetchableViaKey: false,
+                });
+                delete (embeddedTrack as { key?: string }).key;
+                fetchMock.mockResolvedValue({
+                    ok: false,
+                    status: 403,
+                    headers: { get: (): null => null },
+                    text: async (): Promise<string> => 'Forbidden',
+                });
+
+                manager.loadTracks([embeddedTrack], {
+                    serverUri: 'http://example.com',
+                    authHeaders: { 'X-Plex-Token': 'token' },
+                    onDeactivate,
+                    onDeactivateRecovery,
+                });
+
+                manager.setActiveTrack('embedded-srt');
+                await flushSubtitleAsync();
+
+                expect(onDeactivate).toHaveBeenCalledWith({
+                    trackId: 'embedded-srt',
+                    reason: 'subtitle_text_auth_failed',
+                });
+                expect(onDeactivateRecovery).toHaveBeenCalledWith({
+                    trackId: 'embedded-srt',
+                    reason: 'subtitle_text_auth_failed',
+                });
             } finally {
                 restore();
             }

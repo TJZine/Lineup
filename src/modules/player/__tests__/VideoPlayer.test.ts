@@ -560,11 +560,11 @@ describe('VideoPlayer', () => {
     });
 
     describe('setAudioTrack', () => {
-        it('rejects with TRACK_NOT_FOUND when the player is not initialized', async () => {
+        it('rejects with INITIALIZATION_FAILED when the player is not initialized', async () => {
             const player = new VideoPlayer();
 
             await expect(player.setAudioTrack('track-1')).rejects.toMatchObject({
-                code: AppErrorCode.TRACK_NOT_FOUND,
+                code: AppErrorCode.INITIALIZATION_FAILED,
                 message: expect.stringContaining('not initialized'),
             });
         });

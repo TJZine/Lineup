@@ -75,6 +75,35 @@ export interface SubtitleTrack {
     fetchableViaKey: boolean;
 }
 
+export type SubtitleFallbackUnsupportedReason =
+    | 'missing_context'
+    | 'invalid_url'
+    | 'invalid_source'
+    | 'not_found'
+    | 'client_error';
+
+export type SubtitleFallbackTransientReason =
+    | 'timeout'
+    | 'network_error'
+    | 'server_error'
+    | 'unknown_error';
+
+export type SubtitleFallbackAuthReason = 'unauthorized' | 'forbidden';
+
+export type SubtitleFallbackResult =
+    | { kind: 'success'; vtt: string }
+    | { kind: 'stale' }
+    | { kind: 'unsupported'; reason: SubtitleFallbackUnsupportedReason; status?: number }
+    | { kind: 'transient'; reason: SubtitleFallbackTransientReason; status?: number }
+    | { kind: 'auth'; reason: SubtitleFallbackAuthReason; status: 401 | 403 };
+
+export type SubtitleExtractabilityProbeResult =
+    | 'supported'
+    | 'unsupported'
+    | 'transient_failure'
+    | 'auth_failure'
+    | 'unknown';
+
 export interface AudioTrack {
     /** Unique track identifier */
     id: string;

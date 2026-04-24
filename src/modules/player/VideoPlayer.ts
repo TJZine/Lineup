@@ -654,7 +654,7 @@ export class VideoPlayer implements IVideoPlayer {
     public async setAudioTrack(trackId: string): Promise<void> {
         if (!this._videoElement) {
             const error: PlaybackError = {
-                code: AppErrorCode.TRACK_NOT_FOUND,
+                code: AppErrorCode.INITIALIZATION_FAILED,
                 message: 'Video player not initialized',
                 recoverable: false,
                 retryCount: 0,

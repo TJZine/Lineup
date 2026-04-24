@@ -13,7 +13,11 @@ import type {
 import type { IVideoPlayer } from '../../player';
 import type { BurnInSubtitleRecoveryResult } from '../../player/PlaybackRecoveryManager';
 import type { ScheduledProgram } from '../../scheduler/scheduler';
-import type { SubtitleTrack } from '../../player/types';
+import type {
+    StreamDescriptor,
+    SubtitleExtractabilityProbeResult,
+    SubtitleTrack,
+} from '../../player/types';
 import { BURN_IN_SUBTITLE_FORMATS } from '../../../shared/subtitle-formats';
 import {
     subtitleModeAllowsBurnIn,
@@ -22,7 +26,6 @@ import {
 import { SubtitlePreferencesStore } from '../../settings/SubtitlePreferencesStore';
 import type { ToastType } from '../toast/types';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
-import type { StreamDescriptor } from '../../player/types';
 import { fetchWithTimeout } from '../../plex/shared/fetchWithTimeout';
 import {
     applyXPlexTokenQueryParam,
@@ -409,6 +412,16 @@ export class PlaybackOptionsCoordinator {
         return (hash >>> 0).toString(16);
     }
 
+    private classifySubtitleProbeStatus(status: number): SubtitleExtractabilityProbeResult {
+        if (status === 401 || status === 403) {
+            return 'auth_failure';
+        }
+        if (status === 408 || status === 429 || status >= 500) {
+            return 'transient_failure';
+        }
+        return 'unsupported';
+    }
+
     private getProbeCacheKey(
         trackId: string,
         context: NonNullable<StreamDescriptor['subtitleContext']>
@@ -453,7 +466,9 @@ export class PlaybackOptionsCoordinator {
         }
     }
 
-    private async probeTextSubtitleExtractability(track: SubtitleTrack): Promise<'supported' | 'unsupported' | 'unknown'> {
+    private async probeTextSubtitleExtractability(
+        track: SubtitleTrack
+    ): Promise<SubtitleExtractabilityProbeResult> {
         const context = this.deps.getCurrentStreamDescriptor?.()?.subtitleContext ?? null;
         if (!context) return 'unknown';
         const cacheKey = this.getProbeCacheKey(track.id, context);
@@ -497,15 +512,14 @@ export class PlaybackOptionsCoordinator {
                 this.subtitleProbeCache.set(cacheKey, 'supported');
                 return 'supported';
             }
-            if (response.status >= 500) {
-                // Don't cache transient server errors; allow future attempts to succeed.
-                return 'unsupported';
+            const decision = this.classifySubtitleProbeStatus(response.status);
+            if (decision === 'unsupported') {
+                this.subtitleProbeCache.set(cacheKey, 'unsupported');
             }
-            this.subtitleProbeCache.set(cacheKey, 'unsupported');
-            return 'unsupported';
+            return decision;
         } catch {
             // Don't cache transient network/timeout errors; allow future attempts to succeed.
-            return 'unsupported';
+            return 'transient_failure';
         }
     }
 
