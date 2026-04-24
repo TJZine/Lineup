@@ -6,6 +6,7 @@
 import { PlexStreamResolver } from '../PlexStreamResolver';
 import { generatePlexSessionId } from '../plexSessionId';
 import type { PlexMediaFile, PlexMediaItem, PlexMediaPart, PlexStream } from '../types';
+import { AppErrorCode } from '../../../../types/app-errors';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import type { PlatformIdentityService } from '../../../../platform';
 import { expectConsoleWarn } from '../../../../__tests__/helpers';
@@ -1487,6 +1488,25 @@ describe('PlexStreamResolver', () => {
             expect(result?.audioDecision).toBe('transcode');
             expect(result?.subtitleDecision).toBe('none');
             setTimeoutSpy.mockRestore();
+        });
+
+        it('throws ACCESS_DENIED when Plex forbids the decision request', async () => {
+            const config = createMockConfig();
+            const resolver = new PlexStreamResolver(config);
+
+            mockFetch.mockResolvedValue({
+                ok: false,
+                status: 403,
+                text: async () => '',
+            });
+
+            await expect(
+                resolver.fetchUniversalTranscodeDecision('12345', { sessionId: 'sess-1', maxBitrate: 20000 })
+            ).rejects.toMatchObject({
+                code: AppErrorCode.ACCESS_DENIED,
+                message: 'Access denied',
+                recoverable: false,
+            });
         });
     });
 

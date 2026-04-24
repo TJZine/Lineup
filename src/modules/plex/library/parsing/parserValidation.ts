@@ -1,5 +1,5 @@
-import { AppErrorCode } from '../../../types/app-errors';
-import { PlexLibraryError } from './PlexLibraryError';
+import { AppErrorCode } from '../../../../types/app-errors';
+import { PlexLibraryError } from '../PlexLibraryError';
 
 export function parseRequiredObject<T>(value: unknown, context: string): T {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {

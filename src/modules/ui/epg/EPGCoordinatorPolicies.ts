@@ -8,7 +8,7 @@ import {
     buildLibraries,
     countLibraryTypeVotes,
     countLibraryTypeVotesAcrossAllChannels,
-} from './epgLibraryUtils';
+} from './EPGLibraryUtils';
 
 export type EpgScheduleRange = { startTime: number; endTime: number };
 

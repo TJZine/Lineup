@@ -133,6 +133,9 @@ describe('NavigationManager', () => {
         it('clears stale server-select params on no-param server-select route', () => {
             nav.goTo('server-select', { allowAutoConnect: true });
             nav.goTo('auth');
+
+            expect(nav.getServerSelectParams()).toBeNull();
+
             nav.goTo('server-select');
 
             expect(nav.getServerSelectParams()).toBeNull();
@@ -143,6 +146,16 @@ describe('NavigationManager', () => {
             nav.replaceScreen('auth');
             nav.replaceScreen('server-select');
 
+            expect(nav.getServerSelectParams()).toBeNull();
+        });
+
+        it('does not restore stale server-select params from screen history', () => {
+            nav.goTo('server-select', { allowAutoConnect: true });
+            nav.goTo('settings');
+
+            nav.goBack();
+
+            expect(nav.getCurrentScreen()).toBe('server-select');
             expect(nav.getServerSelectParams()).toBeNull();
         });
     });

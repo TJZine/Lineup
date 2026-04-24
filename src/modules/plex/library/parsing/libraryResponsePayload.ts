@@ -1,5 +1,5 @@
-import { AppErrorCode } from '../../../types/app-errors';
-import { PlexLibraryError } from './PlexLibraryError';
+import { AppErrorCode } from '../../../../types/app-errors';
+import { PlexLibraryError } from '../PlexLibraryError';
 import { parseRequiredArray, parseRequiredObject } from './parserValidation';
 import type {
     PlexMediaContainer,
@@ -9,7 +9,7 @@ import type {
     RawCollection,
     RawPlaylist,
     RawSeason,
-} from './types';
+} from '../types';
 
 type SearchHubPayload = {
     type: string;

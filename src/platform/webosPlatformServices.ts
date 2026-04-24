@@ -4,11 +4,16 @@
  */
 
 import type {
+    PlatformIdentityService,
     PlatformServices,
     PlatformRemoteButton,
 } from './services';
 
 type KeyMapEntry = readonly [number, PlatformRemoteButton];
+type ChromeToWebOsVersion = Readonly<{
+    minChromeMajor: number;
+    webOsVersion: string;
+}>;
 
 const WEBOS_KEY_MAP_ENTRIES: readonly KeyMapEntry[] = [
     // Navigation
@@ -94,6 +99,32 @@ function createReadonlyKeyMap(
 const WEBOS_KEY_MAP: ReadonlyMap<number, PlatformRemoteButton> =
     createReadonlyKeyMap(WEBOS_KEY_MAP_ENTRIES);
 
+// Heuristic fallback for environments where `webOSTV.platform.version` is unavailable.
+// Keep this mapping aligned with validated LG webOS Chromium baselines.
+const CHROME_TO_WEBOS_VERSION: readonly ChromeToWebOsVersion[] = [
+    { minChromeMajor: 120, webOsVersion: '25.0' },
+    { minChromeMajor: 108, webOsVersion: '24.0' },
+    { minChromeMajor: 94, webOsVersion: '23.0' },
+    { minChromeMajor: 87, webOsVersion: '22.0' },
+];
+
+let didWarnHeuristicPlatformVersion = false;
+
+function warnHeuristicPlatformVersion(chromeMajor: number, platformVersion: string): void {
+    if (didWarnHeuristicPlatformVersion) {
+        return;
+    }
+    didWarnHeuristicPlatformVersion = true;
+    try {
+        console.warn('[webOSPlatformServices] Derived platform version from Chrome major', {
+            chromeMajor,
+            platformVersion,
+        });
+    } catch {
+        // Best-effort diagnostics only.
+    }
+}
+
 function getChromeMajor(): number | null {
     try {
         if (typeof navigator === 'undefined') return null;
@@ -116,53 +147,42 @@ function isWebOs(): boolean {
     }
 }
 
-let memoizedPlatformVersion: string | null = null;
+export function createPlatformIdentityService(): PlatformIdentityService {
+    let memoizedPlatformVersion: string | null = null;
 
-function detectPlatformVersion(): string {
-    if (memoizedPlatformVersion !== null) {
-        return memoizedPlatformVersion;
-    }
-    try {
-        if (typeof window !== 'undefined') {
-            const webOSTV = (window as { webOSTV?: { platform?: { version?: string } } }).webOSTV;
-            if (webOSTV?.platform?.version) {
-                memoizedPlatformVersion = webOSTV.platform.version;
-                return memoizedPlatformVersion;
-            }
+    const detectPlatformVersion = (): string => {
+        if (memoizedPlatformVersion !== null) {
+            return memoizedPlatformVersion;
         }
+        try {
+            if (typeof window !== 'undefined') {
+                const webOSTV = (window as { webOSTV?: { platform?: { version?: string } } }).webOSTV;
+                if (webOSTV?.platform?.version) {
+                    memoizedPlatformVersion = webOSTV.platform.version;
+                    return memoizedPlatformVersion;
+                }
+            }
 
-        const chromeMajor = getChromeMajor();
-        if (chromeMajor !== null) {
-            // Heuristic fallback for environments where `webOSTV.platform.version` is unavailable.
-            // Keep this mapping updated as new webOS Chromium baselines are validated.
-            if (chromeMajor >= 120) {
-                memoizedPlatformVersion = '25.0';
-                return memoizedPlatformVersion;
+            const chromeMajor = getChromeMajor();
+            if (chromeMajor !== null) {
+                for (const mapping of CHROME_TO_WEBOS_VERSION) {
+                    if (chromeMajor >= mapping.minChromeMajor) {
+                        memoizedPlatformVersion = mapping.webOsVersion;
+                        warnHeuristicPlatformVersion(chromeMajor, memoizedPlatformVersion);
+                        return memoizedPlatformVersion;
+                    }
+                }
             }
-            if (chromeMajor >= 108) {
-                memoizedPlatformVersion = '24.0';
-                return memoizedPlatformVersion;
-            }
-            if (chromeMajor >= 94) {
-                memoizedPlatformVersion = '23.0';
-                return memoizedPlatformVersion;
-            }
-            if (chromeMajor >= 87) {
-                memoizedPlatformVersion = '22.0';
-                return memoizedPlatformVersion;
-            }
+
+            memoizedPlatformVersion = '6.0';
+            return memoizedPlatformVersion;
+        } catch {
+            memoizedPlatformVersion = '6.0';
+            return memoizedPlatformVersion;
         }
+    };
 
-        memoizedPlatformVersion = '6.0';
-        return memoizedPlatformVersion;
-    } catch {
-        memoizedPlatformVersion = '6.0';
-        return memoizedPlatformVersion;
-    }
-}
-
-function getDefaultPlexIdentity(clientIdentifier: string): Readonly<Record<string, string>> {
-    return {
+    const getDefaultPlexIdentity = (clientIdentifier: string): Readonly<Record<string, string>> => ({
         'X-Plex-Client-Identifier': clientIdentifier,
         'X-Plex-Platform': 'webOS',
         'X-Plex-Product': 'Lineup',
@@ -171,6 +191,12 @@ function getDefaultPlexIdentity(clientIdentifier: string): Readonly<Record<strin
         'X-Plex-Device-Name': 'Lineup',
         'X-Plex-Platform-Version': detectPlatformVersion(),
         'X-Plex-Model': 'LGTV',
+    });
+
+    return {
+        isWebOs,
+        detectPlatformVersion,
+        getDefaultPlexIdentity,
     };
 }
 
@@ -217,11 +243,7 @@ function deriveLanHttpSubtitleUrl(original: URL): URL | null {
 
 export function createWebOsPlatformServices(): PlatformServices {
     return {
-        identity: {
-            isWebOs,
-            detectPlatformVersion,
-            getDefaultPlexIdentity,
-        },
+        identity: createPlatformIdentityService(),
         input: {
             getKeyMap: (): ReadonlyMap<number, PlatformRemoteButton> => WEBOS_KEY_MAP,
         },
@@ -236,5 +258,3 @@ export function createWebOsPlatformServices(): PlatformServices {
         },
     };
 }
-
-export const webosPlatformServices: PlatformServices = createWebOsPlatformServices();

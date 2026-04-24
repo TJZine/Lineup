@@ -5,11 +5,11 @@
  * @version 1.0.0
  */
 
-import type { SubtitleTrack } from './types';
+import type { SubtitleFallbackResult, SubtitleTrack } from './types';
 import { BURN_IN_SUBTITLE_FORMATS } from '../../shared/subtitle-formats';
 import { redactSensitiveTokens } from '../../utils/redact';
 import type { PlatformSubtitleService } from '../../platform';
-import { webosPlatformServices } from '../../platform';
+import { createWebOsPlatformServices } from '../../platform';
 import {
     applyXPlexTokenQueryParam,
     buildPlexUrlFromKey,
@@ -34,6 +34,14 @@ interface SubtitleTrackContext {
         trackId: string;
         reason: string;
     }) => Promise<'handled' | 'failed'>;
+}
+
+type SubtitleFallbackBlobResult =
+    | { kind: 'success'; blobUrl: string }
+    | Exclude<SubtitleFallbackResult, { kind: 'success' }>;
+
+function assertNeverSubtitleFallbackFailure(result: never): never {
+    throw new Error(`Unhandled subtitle fallback failure kind: ${String(result)}`);
 }
 
 /**
@@ -79,7 +87,7 @@ export class SubtitleManager {
     private readonly _subtitleService: PlatformSubtitleService;
 
     constructor(subtitleService?: PlatformSubtitleService) {
-        this._subtitleService = subtitleService ?? webosPlatformServices.subtitle;
+        this._subtitleService = subtitleService ?? createWebOsPlatformServices().subtitle;
     }
 
     private _logSubtitleDebug(event: string, contextFactory: () => Record<string, unknown>): void {
@@ -488,32 +496,33 @@ export class SubtitleManager {
             reason,
         }));
 
-        const blobUrl = await this._fetchFallbackBlobUrl(track, loadToken);
-        if (loadToken !== this._loadToken) {
-            this._fallbackInProgress.delete(track.id);
-            return;
-        }
-        if (!blobUrl) {
-            this._fallbackInProgress.delete(track.id);
-            this._handleFallbackFailure(track, reason);
-            return;
-        }
+        try {
+            const result = await this._fetchFallbackBlobUrl(track, loadToken);
+            if (loadToken !== this._loadToken || result.kind === 'stale') {
+                return;
+            }
+            if (result.kind !== 'success') {
+                this._handleFallbackFailure(track, result);
+                return;
+            }
 
-        this._replaceTrackElement(track, blobUrl, loadToken);
-        this._fallbackInProgress.delete(track.id);
+            this._replaceTrackElement(track, result.blobUrl, loadToken);
+        } finally {
+            this._fallbackInProgress.delete(track.id);
+        }
     }
 
     private async _fetchFallbackBlobUrl(
         track: SubtitleTrack,
         loadToken: number
-    ): Promise<string | null> {
+    ): Promise<SubtitleFallbackBlobResult> {
         const urlString = this._buildDirectTrackUrl(track);
         if (!urlString) {
             this._logSubtitleDebug('subtitle_fetch_error', () => ({
                 id: track.id,
                 error: 'missing_context',
             }));
-            return null;
+            return { kind: 'unsupported', reason: 'missing_context' };
         }
         let url: URL;
         try {
@@ -523,14 +532,14 @@ export class SubtitleManager {
                 id: track.id,
                 error: 'invalid_url',
             }));
-            return null;
+            return { kind: 'unsupported', reason: 'invalid_url' };
         }
 
         const controller = new AbortController();
         this._fallbackControllers.set(track.id, controller);
 
         try {
-            const convertedVtt = await fetchSubtitleFallbackVtt({
+            const fallbackResult = await fetchSubtitleFallbackVtt({
                 track,
                 initialUrl: url,
                 context: {
@@ -547,8 +556,8 @@ export class SubtitleManager {
                 deriveLanHttpUrl: (original) => this._deriveLanHttpUrl(original),
                 logDebug: (event, contextFactory) => this._logSubtitleDebug(event, contextFactory),
             });
-            if (loadToken !== this._loadToken) return null;
-            if (!convertedVtt) return null;
+            if (loadToken !== this._loadToken) return { kind: 'stale' };
+            if (fallbackResult.kind !== 'success') return fallbackResult;
 
             const existing = this._blobUrls.get(track.id);
             if (existing) {
@@ -560,19 +569,22 @@ export class SubtitleManager {
                 this._blobUrls.delete(track.id);
             }
 
-            const blob = new Blob([convertedVtt], { type: 'text/vtt' });
+            const blob = new Blob([fallbackResult.vtt], { type: 'text/vtt' });
             const blobUrl = URL.createObjectURL(blob);
             this._blobUrls.set(track.id, blobUrl);
-            return blobUrl;
+            return {
+                kind: 'success',
+                blobUrl,
+            };
         } catch (error) {
-            if (loadToken !== this._loadToken) return null;
+            if (loadToken !== this._loadToken || controller.signal.aborted) return { kind: 'stale' };
             const message = error instanceof Error ? error.message : String(error);
             this._logSubtitleDebug('subtitle_fetch_error', () => ({
                 id: track.id,
                 error: message,
                 url: redactSensitiveTokens(url.toString()),
             }));
-            return null;
+            return { kind: 'transient', reason: 'unknown_error' };
         } finally {
             this._fallbackControllers.delete(track.id);
         }
@@ -611,11 +623,21 @@ export class SubtitleManager {
         }
     }
 
-    private _handleFallbackFailure(track: SubtitleTrack, reason: string): void {
+    private _handleFallbackFailure(
+        track: SubtitleTrack,
+        result: Exclude<SubtitleFallbackBlobResult, { kind: 'success' | 'stale' }>
+    ): void {
         const isSelected = this._activeTrackId === track.id;
         if (!isSelected) {
             return;
         }
+        const reason = this._getFallbackFailureReason(result);
+        this._logSubtitleDebug('subtitle_fallback_failed', () => ({
+            id: track.id,
+            category: result.kind,
+            reason: result.reason,
+            ...(typeof result.status === 'number' ? { status: result.status } : {}),
+        }));
         this.setActiveTrack(null);
         const handled = this._notifySubtitleDeactivated(track.id, reason);
         if (!handled) {
@@ -623,6 +645,21 @@ export class SubtitleManager {
             return;
         }
         this._recoverHandledSubtitleDeactivation(track.id, reason);
+    }
+
+    private _getFallbackFailureReason(
+        result: Exclude<SubtitleFallbackBlobResult, { kind: 'success' | 'stale' }>
+    ): string {
+        switch (result.kind) {
+            case 'auth':
+                return 'subtitle_text_auth_failed';
+            case 'transient':
+                return 'subtitle_text_transient_failure';
+            case 'unsupported':
+                return 'subtitle_text_unsupported';
+            default:
+                return assertNeverSubtitleFallbackFailure(result);
+        }
     }
 
     private _notifySubtitleDeactivated(trackId: string, reason: string): boolean {

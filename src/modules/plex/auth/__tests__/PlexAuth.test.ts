@@ -160,11 +160,18 @@ describe('PlexAuth', () => {
             jest.useFakeTimers();
             try {
                 const auth = new PlexAuth(mockConfig);
-                mockFetchFailure(new Error('Network error'));
+                const cause = new Error('Network error X-Plex-Token=super-secret');
+                cause.stack = 'Error: Network error X-Plex-Token=super-secret\n    at requestPin';
+                mockFetchFailure(cause);
 
                 const promise = auth.requestPin();
                 const rejection = expect(promise).rejects.toMatchObject({
                     code: 'SERVER_UNREACHABLE',
+                    cause: {
+                        name: 'Error',
+                        message: 'Network error X-Plex-Token=REDACTED',
+                        stack: 'Error: Network error X-Plex-Token=REDACTED\n    at requestPin',
+                    },
                 });
 
                 await jest.runAllTimersAsync();
@@ -551,7 +558,7 @@ describe('PlexAuth', () => {
         it('should include X-Plex-Token when authenticated', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('my-secret-token', 'user123');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             const headers = auth.getAuthHeaders();
 
@@ -599,7 +606,7 @@ describe('PlexAuth', () => {
 
             expect(auth.isAuthenticated()).toBe(false);
             expect(auth.getCurrentUser()).toBeNull();
-            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual({
                 kind: 'available',
                 credentials: expect.objectContaining({
                     activeUserId: 'user1',
@@ -615,10 +622,10 @@ describe('PlexAuth', () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('token-to-clear');
 
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
             expect(auth.isAuthenticated()).toBe(true);
 
-            await auth.clearCredentials();
+            auth.clearCredentials();
 
             expect(auth.isAuthenticated()).toBe(false);
             expect(auth.getCurrentUser()).toBeNull();
@@ -634,8 +641,8 @@ describe('PlexAuth', () => {
 
             const testToken = createAuthToken('event-test-token');
 
-            await auth.storeCredentials(createAuthData(testToken));
-            await auth.clearCredentials();
+            auth.storeCredentials(createAuthData(testToken));
+            auth.clearCredentials();
 
             expect(handler).toHaveBeenCalledTimes(2);
             expect(handler).toHaveBeenNthCalledWith(1, true);
@@ -650,7 +657,7 @@ describe('PlexAuth', () => {
             disposable.dispose();
 
             const testToken = createAuthToken('unsubscribe-test');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             expect(handler).not.toHaveBeenCalled();
         });
@@ -660,7 +667,7 @@ describe('PlexAuth', () => {
         it('should return missing when no credentials stored', async () => {
             const auth = new PlexAuth(mockConfig);
 
-            const result = await auth.readStoredCredentialsAndClearCorruption();
+            const result = auth.readStoredCredentialsAndClearCorruption();
 
             expect(result).toEqual({ kind: 'missing' });
         });
@@ -703,7 +710,7 @@ describe('PlexAuth', () => {
             );
 
             const auth = new PlexAuth(mockConfig);
-            const result = await auth.readStoredCredentialsAndClearCorruption();
+            const result = auth.readStoredCredentialsAndClearCorruption();
 
             expect(result.kind).toBe('available');
             if (result.kind !== 'available') return;
@@ -772,7 +779,7 @@ describe('PlexAuth', () => {
                 })
             );
 
-            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual({
                 kind: 'available',
                 credentials: expect.objectContaining({
                     activeUserId: 'user-1',
@@ -809,7 +816,7 @@ describe('PlexAuth', () => {
                 })
             );
 
-            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual({
                 kind: 'available',
                 credentials: expect.objectContaining({
                     activeUserId: 'user-1',
@@ -855,7 +862,7 @@ describe('PlexAuth', () => {
                 })
             );
 
-            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual({
                 kind: 'available',
                 credentials: expect.objectContaining({
                     activeUserId: 'user-1',
@@ -870,18 +877,18 @@ describe('PlexAuth', () => {
             });
             const auth = new PlexAuth(mockConfig);
 
-            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({ kind: 'missing' });
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual({ kind: 'missing' });
         });
 
         it('returns corrupted invalid-json and clears stored key', async () => {
             mockLocalStorage.setItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY, '{not-json');
             const auth = new PlexAuth(mockConfig);
 
-            const result = await auth.readStoredCredentialsAndClearCorruption();
+            const result = auth.readStoredCredentialsAndClearCorruption();
 
             expect(result).toEqual({ kind: 'corrupted', reason: 'invalid-json' });
             expect(mockLocalStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBeNull();
-            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({ kind: 'missing' });
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual({ kind: 'missing' });
         });
 
         it('returns corrupted invalid-shape for malformed payloads', async () => {
@@ -896,7 +903,7 @@ describe('PlexAuth', () => {
             );
             const auth = new PlexAuth(mockConfig);
 
-            const result = await auth.readStoredCredentialsAndClearCorruption();
+            const result = auth.readStoredCredentialsAndClearCorruption();
 
             expect(result).toEqual({ kind: 'corrupted', reason: 'invalid-shape' });
             expect(mockLocalStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBeNull();
@@ -936,7 +943,7 @@ describe('PlexAuth', () => {
             );
             const auth = new PlexAuth(mockConfig);
 
-            const result = await auth.readStoredCredentialsAndClearCorruption();
+            const result = auth.readStoredCredentialsAndClearCorruption();
 
             expect(result).toEqual({ kind: 'corrupted', reason: 'unsupported-version' });
             expect(mockLocalStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBeNull();
@@ -946,11 +953,11 @@ describe('PlexAuth', () => {
             mockLocalStorage.setItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY, '{not-json');
             const auth = new PlexAuth(mockConfig);
 
-            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual({
                 kind: 'corrupted',
                 reason: 'invalid-json',
             });
-            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({ kind: 'missing' });
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual({ kind: 'missing' });
         });
     });
 
@@ -962,11 +969,11 @@ describe('PlexAuth', () => {
 
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('blocked-storage-token');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             expect(auth.isAuthenticated()).toBe(true);
             expect(auth.getCurrentUser()?.token).toBe('blocked-storage-token');
-            await expect(auth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({ kind: 'missing' });
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual({ kind: 'missing' });
         });
     });
 
@@ -974,7 +981,7 @@ describe('PlexAuth', () => {
         it('should parse home users from XML response', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             const xml = `
                 <MediaContainer size="2">
@@ -1000,7 +1007,7 @@ describe('PlexAuth', () => {
         it('should parse home users from XML response with single-quoted attributes', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             const xml = `
                 <MediaContainer size='2'>
@@ -1026,7 +1033,7 @@ describe('PlexAuth', () => {
         it('should parse HomeUser XML tag variants with lowercase attributes', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             const xml = `
                 <MediaContainer size="2">
@@ -1052,7 +1059,7 @@ describe('PlexAuth', () => {
         it('should parse home users from JSON returned as text with non-JSON content-type', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             const jsonText = JSON.stringify({
                 MediaContainer: {
@@ -1081,7 +1088,7 @@ describe('PlexAuth', () => {
         it('should parse home users from nested JSON HomeUser payloads', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
             const payload = {
                 MediaContainer: {
                     homeUsers: {
@@ -1111,7 +1118,7 @@ describe('PlexAuth', () => {
         it('should throw PARSE_ERROR when home-user payload is malformed JSON text', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
                 ok: true,
@@ -1131,7 +1138,7 @@ describe('PlexAuth', () => {
         it('should fall back to v1 endpoint when v2 returns empty profile payload', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             const fetchMock = jest.fn()
                 .mockResolvedValueOnce({
@@ -1166,7 +1173,7 @@ describe('PlexAuth', () => {
         it('propagates AbortError when getHomeUsers is cancelled by the caller', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             const controller = new AbortController();
             (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
@@ -1191,7 +1198,7 @@ describe('PlexAuth', () => {
         it('should build switch URL with pin query param', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             const fetchMock = jest.fn()
                 .mockResolvedValueOnce({
@@ -1224,7 +1231,7 @@ describe('PlexAuth', () => {
         it('falls back to the v1 switch endpoint when the v2 PIN-protected switch returns 500', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             const fetchMock = jest.fn()
                 .mockResolvedValueOnce({
@@ -1266,7 +1273,7 @@ describe('PlexAuth', () => {
         it('treats 401 + valid account token as wrong PIN', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             const fetchMock = jest.fn()
                 .mockResolvedValueOnce({
@@ -1299,7 +1306,7 @@ describe('PlexAuth', () => {
         it('treats 401 + invalid account token as auth required', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             const fetchMock = jest.fn()
                 .mockResolvedValueOnce({
@@ -1328,7 +1335,7 @@ describe('PlexAuth', () => {
         it('treats 403 + invalid account token as auth invalid', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             const fetchMock = jest.fn()
                 .mockResolvedValueOnce({
@@ -1357,7 +1364,7 @@ describe('PlexAuth', () => {
         it('propagates service/network failures from validateToken during PIN disambiguation', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             const fetchMock = jest.fn()
                 .mockResolvedValueOnce({
@@ -1379,7 +1386,7 @@ describe('PlexAuth', () => {
         it('propagates AbortError when switchHomeUser is cancelled before the switch request completes', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             const controller = new AbortController();
             (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
@@ -1404,7 +1411,7 @@ describe('PlexAuth', () => {
         it('propagates AbortError when switchHomeUser is cancelled during profile fetch', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             const controller = new AbortController();
             let notifySecondFetchStarted: (() => void) | null = null;
@@ -1444,7 +1451,7 @@ describe('PlexAuth', () => {
         it('should throw not-supported when both home switch endpoints return 404', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             const fetchMock = jest.fn()
                 .mockResolvedValueOnce({
@@ -1470,7 +1477,7 @@ describe('PlexAuth', () => {
         it('should update active token and emit profileChange on switch', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             const handler = jest.fn();
             auth.on('profileChange', handler);
@@ -1508,7 +1515,7 @@ describe('PlexAuth', () => {
         it('uses the selected Plex Home profile id for activeUserId scoping', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
-            await auth.storeCredentials(createAuthData(testToken));
+            auth.storeCredentials(createAuthData(testToken));
 
             const handler = jest.fn();
             auth.on('profileChange', handler);

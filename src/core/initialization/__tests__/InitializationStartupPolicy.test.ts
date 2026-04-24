@@ -122,8 +122,8 @@ function createPlexAuthMock(
     return {
         validateToken: jest.fn().mockResolvedValue(true),
         getHomeUsers: jest.fn().mockResolvedValue([]),
-        readStoredCredentialsAndClearCorruption: jest.fn().mockResolvedValue(storedReadResult),
-        storeCredentials: jest.fn().mockResolvedValue(undefined),
+        readStoredCredentialsAndClearCorruption: jest.fn().mockReturnValue(storedReadResult),
+        storeCredentials: jest.fn<void, Parameters<IPlexAuth['storeCredentials']>>(() => undefined),
         getCurrentUser: jest.fn().mockReturnValue(storedCredentials.activeToken),
         ...overrides,
     };
@@ -181,7 +181,9 @@ describe('applyPhase2AuthGatePolicy', () => {
     it('rethrows non-auth failures that happen after token validation succeeds', async () => {
         const error = new Error('storage write failed');
         const inputs = createInputs({
-            storeCredentials: jest.fn().mockRejectedValue(error),
+            storeCredentials: jest.fn<void, Parameters<IPlexAuth['storeCredentials']>>(() => {
+                throw error;
+            }),
         });
 
         await expect(applyPolicy(inputs)).rejects.toThrow('storage write failed');
@@ -238,6 +240,33 @@ describe('applyPhase2AuthGatePolicy', () => {
         expect(inputs.navigation.goTo).toHaveBeenCalledWith('auth');
     });
 
+    it('falls back to auth resume for expired auth during token validation', async () => {
+        const error = { code: AppErrorCode.AUTH_EXPIRED };
+        const inputs = createInputs({
+            validateToken: jest.fn().mockRejectedValue(error),
+        });
+
+        await expect(applyPolicy(inputs)).resolves.toBe(false);
+
+        expect(inputs.updateModuleStatus).toHaveBeenCalledWith('plex-auth', 'pending');
+        expect(inputs.handlers.registerAuthResume).toHaveBeenCalledTimes(1);
+        expect(inputs.navigation.goTo).toHaveBeenCalledWith('auth');
+    });
+
+    it('falls back to auth resume for expired auth while checking profile selection', async () => {
+        const error = { code: AppErrorCode.AUTH_EXPIRED };
+        const inputs = createInputs({
+            getHomeUsers: jest.fn().mockRejectedValue(error),
+        });
+        inputs.readShowProfilePickerOnStartup = jest.fn(() => true);
+
+        await expect(applyPolicy(inputs)).resolves.toBe(false);
+
+        expect(inputs.updateModuleStatus).toHaveBeenCalledWith('plex-auth', 'pending');
+        expect(inputs.handlers.registerAuthResume).toHaveBeenCalledTimes(1);
+        expect(inputs.navigation.goTo).toHaveBeenCalledWith('auth');
+    });
+
     it('rethrows non-auth validation failures instead of forcing auth resume', async () => {
         const error = { code: AppErrorCode.SERVER_UNREACHABLE };
         const inputs = createInputs({
@@ -252,7 +281,7 @@ describe('applyPhase2AuthGatePolicy', () => {
 
     it('routes corrupted stored credentials to auth with STORAGE_CORRUPTED status', async () => {
         const inputs = createInputs({
-            readStoredCredentialsAndClearCorruption: jest.fn().mockResolvedValue({
+            readStoredCredentialsAndClearCorruption: jest.fn().mockReturnValue({
                 kind: 'corrupted',
                 reason: 'invalid-json',
             }),
@@ -272,7 +301,7 @@ describe('applyPhase2AuthGatePolicy', () => {
 
     it('treats missing stored credentials as normal pending-auth startup', async () => {
         const inputs = createInputs({
-            readStoredCredentialsAndClearCorruption: jest.fn().mockResolvedValue({ kind: 'missing' }),
+            readStoredCredentialsAndClearCorruption: jest.fn().mockReturnValue({ kind: 'missing' }),
         });
 
         await expect(applyPolicy(inputs)).resolves.toBe(false);
@@ -280,6 +309,22 @@ describe('applyPhase2AuthGatePolicy', () => {
         expect(inputs.updateModuleStatus).toHaveBeenCalledWith('plex-auth', 'pending');
         expect(inputs.handlers.registerAuthResume).toHaveBeenCalledTimes(1);
         expect(inputs.navigation.goTo).toHaveBeenCalledWith('auth');
+    });
+
+    it('preserves pending-auth side-effect order when stored credentials are missing', async () => {
+        const inputs = createInputs({
+            readStoredCredentialsAndClearCorruption: jest.fn().mockReturnValue({ kind: 'missing' }),
+        });
+
+        await expect(applyPolicy(inputs)).resolves.toBe(false);
+
+        const updateOrder = inputs.updateModuleStatus.mock.invocationCallOrder[0] ?? 0;
+        const resumeOrder = inputs.handlers.registerAuthResume.mock.invocationCallOrder[0] ?? 0;
+        const navigationOrder = inputs.navigation.goTo.mock.invocationCallOrder[0] ?? 0;
+
+        expect(updateOrder).toBeGreaterThan(0);
+        expect(updateOrder).toBeLessThan(resumeOrder);
+        expect(resumeOrder).toBeLessThan(navigationOrder);
     });
 
     it('normalizes to the validated account token before routing to profile-select', async () => {
@@ -397,7 +442,7 @@ describe('applyPhase2AuthGatePolicy', () => {
             thumb: 'https://plex.example/account.png',
         });
         expect(plexAuth.getActiveUserId()).toBe('account-user');
-        await expect(plexAuth.readStoredCredentialsAndClearCorruption()).resolves.toEqual({
+        expect(plexAuth.readStoredCredentialsAndClearCorruption()).toEqual({
             kind: 'available',
             credentials: expect.objectContaining({
                 accountToken: expect.objectContaining({

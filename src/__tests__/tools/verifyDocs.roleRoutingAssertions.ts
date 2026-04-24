@@ -351,13 +351,13 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         expect(result.stderr).toContain('monitor_fallback');
     });
 
-    it('fails when the planner role does not preserve the tracked gpt-5.4 high contract', () => {
+    it('fails when the planner role does not preserve the tracked high-reasoning contract', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
 
         writeRoleWorkflowClaimFixture(repoRoot);
         writeValidCodexRoleConfigFixture(repoRoot);
-        writeRepoFile(repoRoot, '.codex/agents/planner.toml', 'model = "gpt-5.4"\nmodel_reasoning_effort = "medium"\n');
+        writeRepoFile(repoRoot, '.codex/agents/planner.toml', 'model = "gpt-5.5"\nmodel_reasoning_effort = "medium"\n');
 
         const result = runVerifier(repoRoot);
 
@@ -376,7 +376,7 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         writeRepoFile(
             repoRoot,
             '.codex/agents/planner.toml',
-            'model = "gpt-5.4"\nmodel_reasoning_effort = "high"\ndeveloper_instructions = """\nPlan when useful.\n"""\n'
+            'model = "gpt-5.5"\nmodel_reasoning_effort = "high"\ndeveloper_instructions = """\nPlan when useful.\n"""\n'
         );
 
         const result = runVerifier(repoRoot);
@@ -390,7 +390,7 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         );
     });
 
-    it('fails when the cleanup_worker role does not preserve the tracked gpt-5.4 high contract', () => {
+    it('fails when the cleanup_worker role does not preserve the tracked medium-reasoning contract', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
 
@@ -399,14 +399,14 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         writeRepoFile(
             repoRoot,
             '.codex/agents/cleanup-worker.toml',
-            'model = "gpt-5.4"\nmodel_reasoning_effort = "medium"\n'
+            'model = "gpt-5.5"\nmodel_reasoning_effort = "low"\n'
         );
 
         const result = runVerifier(repoRoot);
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain(
-            'Codex role config is missing required cleanup_worker contract line (model_reasoning_effort = "high"): .codex/agents/cleanup-worker.toml'
+            'Codex role config is missing required cleanup_worker contract line (model_reasoning_effort = "medium"): .codex/agents/cleanup-worker.toml'
         );
     });
 
@@ -419,7 +419,7 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         writeRepoFile(
             repoRoot,
             '.codex/agents/cleanup-worker.toml',
-            'model = "gpt-5.4"\nmodel_reasoning_effort = "high"\ndeveloper_instructions = """\nOwn one bounded write scope at a time.\n"""\n'
+            'model = "gpt-5.5"\nmodel_reasoning_effort = "medium"\ndeveloper_instructions = """\nOwn one bounded write scope at a time.\n"""\n'
         );
 
         const result = runVerifier(repoRoot);

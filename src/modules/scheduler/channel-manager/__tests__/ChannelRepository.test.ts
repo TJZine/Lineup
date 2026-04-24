@@ -2,7 +2,7 @@ import { installMockLocalStorage, mockLocalStorage } from '../../../../__tests__
 import { fnv1a32Uint } from '../../../../utils/hash';
 import { ChannelPersistenceStore } from '../ChannelPersistenceStore';
 import { ChannelRepository } from '../ChannelRepository';
-import { CURRENT_CHANNEL_KEY, STORAGE_KEY } from '../constants';
+import { CURRENT_CHANNEL_KEY, MAX_CHANNEL_NUMBER, STORAGE_KEY } from '../constants';
 import type { StoredChannelData } from '../types';
 
 installMockLocalStorage();
@@ -147,6 +147,99 @@ describe('ChannelRepository', () => {
         expect(normalized.data.channels[0]?.shuffleSeed).toBe(fnv1a32Uint('seeded:shuffle'));
         expect(normalized.data.channels[0]?.phaseSeed).toBe(fnv1a32Uint('seeded:phase'));
         expect(normalized.didMutate).toBe(true);
+    });
+
+    it('normalizes invalid and duplicate persisted channel numbers', () => {
+        const repo = new ChannelRepository();
+        const payload = {
+            channels: [
+                createStoredChannel({ id: 'fractional', number: 7.5 }),
+                createStoredChannel({ id: 'valid-one', number: 1 }),
+                createStoredChannel({ id: 'too-high', number: 501 }),
+                createStoredChannel({ id: 'duplicate-one', number: 1 }),
+            ],
+            channelOrder: ['fractional', 'valid-one', 'too-high', 'duplicate-one'],
+            currentChannelId: 'valid-one',
+            savedAt: Date.now(),
+        };
+
+        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        const normalized = loadNormalized(repo);
+
+        expect(
+            normalized.data.channels.map((channel) => ({
+                id: channel.id,
+                number: channel.number,
+            }))
+        ).toEqual([
+            { id: 'fractional', number: 2 },
+            { id: 'valid-one', number: 1 },
+            { id: 'too-high', number: 3 },
+            { id: 'duplicate-one', number: 4 },
+        ]);
+        expect(normalized.didMutate).toBe(true);
+    });
+
+    it('assigns the next available number when a persisted channel number is missing', () => {
+        const repo = new ChannelRepository();
+        const payload = {
+            channels: [
+                createStoredChannel({ id: 'valid-one', number: 1 }),
+                createStoredChannel({ id: 'missing-number', number: undefined }),
+            ],
+            channelOrder: ['valid-one', 'missing-number'],
+            currentChannelId: 'valid-one',
+            savedAt: Date.now(),
+        };
+
+        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        const normalized = loadNormalized(repo);
+
+        expect(
+            normalized.data.channels.map((channel) => ({
+                id: channel.id,
+                number: channel.number,
+            }))
+        ).toEqual([
+            { id: 'valid-one', number: 1 },
+            { id: 'missing-number', number: 2 },
+        ]);
+        expect(normalized.didMutate).toBe(true);
+    });
+
+    it('logs when number exhaustion drops persisted channels during normalized load', () => {
+        const logger = { warn: jest.fn() };
+        const repo = new ChannelRepository(STORAGE_KEY, CURRENT_CHANNEL_KEY, logger);
+        const channels = Array.from({ length: MAX_CHANNEL_NUMBER }, (_value, index) =>
+            createStoredChannel({
+                id: `channel-${index + 1}`,
+                number: index + 1,
+            })
+        );
+        const payload = {
+            channels: [
+                ...channels,
+                createStoredChannel({ id: 'overflow', number: undefined }),
+            ],
+            channelOrder: [
+                ...channels.map((channel) => channel.id),
+                'overflow',
+            ],
+            currentChannelId: 'channel-1',
+            savedAt: Date.now(),
+        };
+
+        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        const normalized = loadNormalized(repo);
+
+        expect(normalized.data.channels).toHaveLength(MAX_CHANNEL_NUMBER);
+        expect(normalized.data.channels.some((channel) => channel.id === 'overflow')).toBe(false);
+        expect(normalized.data.channelOrder).not.toContain('overflow');
+        expect(normalized.didMutate).toBe(true);
+        expect(logger.warn).toHaveBeenCalledWith(
+            'Dropping persisted channel during normalized load due to number exhaustion',
+            { channelId: 'overflow' }
+        );
     });
 
     it('strips legacy isSequentialVariant during normalized load without creating canonical playback variant', () => {

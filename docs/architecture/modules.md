@@ -22,10 +22,6 @@ This document is directory-oriented and lists file-level owners where the canoni
 - thin public runtime entry barrel
 - re-exports `AppOrchestrator` and runtime-facing types for app/test import stability
 
-### `src/core/InitializationCoordinator.ts`
-
-- startup sequencing collaborator between app shell and orchestrator
-
 ### `src/core/app-shell/AppThemeController.ts`
 
 - app-shell runtime owner for active theme state
@@ -37,7 +33,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - app-shell startup UI initializer owner
 - initializes now-playing-info, playback-options, and exit-confirm overlays during startup
-- consumed through a narrow startup-UI port by `src/core/InitializationCoordinator.ts`
+- consumed through a narrow startup-UI port by `src/core/orchestrator/InitializationCoordinator.ts`
 
 ### `src/core/`
 
@@ -57,22 +53,23 @@ This document is directory-oriented and lists file-level owners where the canoni
 - orchestrator-facing core collaborators and shared ownership of orchestrator type definitions
 - `src/core/orchestrator/OrchestratorTypes.ts` is the durable owner of `OrchestratorConfig` and `ModuleStatus`
 - `src/core/orchestrator/OrchestratorModuleFactory.ts` owns runtime module constructor/config assembly for `AppOrchestrator.initialize()`
-- `src/core/orchestrator/OrchestratorCoordinatorFactory.ts` owns coordinator construction and dependency assembly previously in `AppOrchestrator._createCoordinators()`
-- `src/core/orchestrator/OrchestratorPriorityOneControllerFactory.ts` owns Priority-1 controller and `OrchestratorEventBinder` construction previously in `AppOrchestrator._initializePriorityOneControllers()`
+- `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts` owns coordinator construction and dependency assembly previously in `AppOrchestrator._createCoordinators()`
+- `src/core/orchestrator/InitializationCoordinator.ts` owns orchestrator startup sequencing for the app-shell/orchestrator startup path
+- `src/core/orchestrator/priority-one/PriorityOneControllerFactory.ts` owns Priority-1 controller and `OrchestratorEventBinder` construction previously in `AppOrchestrator._initializePriorityOneControllers()`
 - `src/Orchestrator.ts` remains the public re-export surface for external callers (including `src/App.ts` and tests)
 
 ### `src/core/initialization/`
 
 - startup policy collaborators extracted from `InitializationCoordinator`
 - `src/core/initialization/InitializationStartupPolicy.ts` owns startup routing policy (auth/profile/server-select/post-ready)
-- `src/modules/ui/epg/buildEpgStartupConfig.ts` owns EPG startup config shaping
+- `src/modules/ui/epg/buildEPGStartupConfig.ts` owns EPG startup config shaping
 
 ### `src/core/server-selection/`
 
 - focused server-selection collaborators shared between app shell and orchestrator
 - `src/core/server-selection/ServerSelectionTypes.ts` owns `OrchestratorServerSelectionResult`
-- `src/core/server-selection/ServerSelectionCoordinator.ts` owns the app-shell-facing selected-server workflow previously assembled inline in `AppOrchestrator.selectServer()`, including discovery-result translation, result shaping, persistence handoff, and runtime-swap invocation
-- `src/core/server-selection/SelectedServerRuntimeController.ts` owns the selected-server persistence helper, clear-selection cleanup, and the concrete runtime-swap helper consumed by the server-selection flow rather than the flow orchestration itself
+- `src/core/server-selection/ServerSelectionCoordinator.ts` owns the app-shell-facing selected-server workflow previously assembled inline in `AppOrchestrator.selectServer()`, including discovery-result translation, result shaping, transactional persistence handoff, rollback, and selected-server startup-resume invocation
+- `src/core/server-selection/SelectedServerRuntimeController.ts` owns selected-server persistence snapshot/restore helpers, clear-selection cleanup, and the concrete selected-server startup-resume helper consumed by the server-selection flow rather than the flow orchestration itself
 
 ### `src/config/`
 

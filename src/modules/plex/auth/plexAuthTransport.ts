@@ -1,6 +1,7 @@
 import { PLEX_AUTH_CONSTANTS } from './constants';
 import type { PlexAuthConfig } from './interfaces';
 import { AppErrorCode } from '../../lifecycle/types';
+import { redactSensitiveTokens, safeStringifyForLog } from '../../../utils/redact';
 
 /**
  * Error class for Plex API errors.
@@ -9,19 +10,51 @@ export class PlexApiError extends Error {
     public readonly code: AppErrorCode;
     public readonly httpStatus: number | undefined;
     public readonly retryable: boolean;
+    /**
+     * Sanitized surrogate for the original cause. Raw throwables are intentionally
+     * not forwarded to `super(message, { cause })` so token-bearing details do not
+     * leak through native Error.cause consumers.
+     */
+    public readonly cause: unknown;
 
     constructor(
         code: AppErrorCode,
         message: string,
         httpStatus?: number,
-        retryable: boolean = false
+        retryable: boolean = false,
+        cause?: unknown
     ) {
         super(message);
         this.name = 'PlexApiError';
         this.code = code;
         this.httpStatus = httpStatus;
         this.retryable = retryable;
+        this.cause = sanitizePlexApiErrorCause(cause);
     }
+}
+
+function sanitizePlexApiErrorCause(cause: unknown): unknown {
+    if (cause === undefined) {
+        return undefined;
+    }
+    if (cause instanceof Error) {
+        return {
+            name: cause.name,
+            message: redactSensitiveTokens(cause.message),
+            ...(typeof cause.stack === 'string'
+                ? { stack: redactSensitiveTokens(cause.stack).slice(0, 8000) }
+                : {}),
+        };
+    }
+    if (typeof cause === 'string') {
+        return redactSensitiveTokens(cause);
+    }
+    if (typeof cause === 'object' && cause !== null) {
+        return {
+            summary: safeStringifyForLog(cause),
+        };
+    }
+    return cause;
 }
 
 /**
@@ -115,12 +148,13 @@ function handleResponseStatus(response: Response): void {
     }
 }
 
-function createNetworkError(): PlexApiError {
+function createNetworkError(cause?: unknown): PlexApiError {
     return new PlexApiError(
         AppErrorCode.SERVER_UNREACHABLE,
         'Network error',
         undefined,
-        true
+        true,
+        cause
     );
 }
 
@@ -191,7 +225,7 @@ export async function fetchWithRetry(
             if (error instanceof PlexApiError && !error.retryable) {
                 throw error;
             }
-            lastError = error instanceof PlexApiError ? error : createNetworkError();
+            lastError = error instanceof PlexApiError ? error : createNetworkError(error);
 
             if (attempt < PLEX_AUTH_CONSTANTS.RETRY_ATTEMPTS - 1) {
                 await sleep(delay);

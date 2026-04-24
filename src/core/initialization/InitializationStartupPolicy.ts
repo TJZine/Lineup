@@ -1,6 +1,6 @@
 import { AppErrorCode, type AppError, type IAppLifecycle } from '../../modules/lifecycle';
 import type { INavigationManager } from '../../modules/navigation';
-import type { IPlexAuth } from '../../modules/plex/auth';
+import { type IPlexAuth, isPlexAuthRecoverable } from '../../modules/plex/auth';
 import type { IPlexServerDiscovery } from '../../modules/plex/discovery';
 import type { IPlexLibrary } from '../../modules/plex/library';
 import type { IPlexStreamResolver } from '../../modules/plex/stream';
@@ -141,7 +141,7 @@ function markAuthReady(inputs: Phase2AuthGateInputs): void {
     }
 }
 
-async function routeToPendingAuth(inputs: Phase2AuthGateInputs, error?: AppError): Promise<boolean> {
+function routeToPendingAuth(inputs: Phase2AuthGateInputs, error?: AppError): boolean {
     if (error) {
         inputs.updateModuleStatus('plex-auth', 'pending', error);
     } else {
@@ -168,11 +168,7 @@ async function maybeRouteToProfileSelect(inputs: Phase2AuthGateInputs): Promise<
             return false;
         }
     } catch (error) {
-        const code = (error as { code?: string }).code;
-        if (
-            code === AppErrorCode.AUTH_REQUIRED ||
-            code === AppErrorCode.AUTH_INVALID
-        ) {
+        if (isPlexAuthRecoverable(error)) {
             return routeToPendingAuth(inputs);
         }
         throw error;
@@ -181,10 +177,10 @@ async function maybeRouteToProfileSelect(inputs: Phase2AuthGateInputs): Promise<
     return true;
 }
 
-async function persistValidatedActiveCredentials(
+function persistValidatedActiveCredentials(
     inputs: Phase2AuthGateInputs,
     storedCredentials: Phase2StoredCredentials
-): Promise<void> {
+): void {
     const validatedActiveToken = resolveValidatedToken(
         inputs.plexAuth.getCurrentUser(),
         storedCredentials.activeToken
@@ -194,7 +190,7 @@ async function persistValidatedActiveCredentials(
         ? validatedActiveToken
         : storedCredentials.accountToken;
 
-    await inputs.plexAuth.storeCredentials({
+    inputs.plexAuth.storeCredentials({
         accountToken,
         activeToken: validatedActiveToken,
         activeUserId,
@@ -203,16 +199,16 @@ async function persistValidatedActiveCredentials(
     });
 }
 
-async function persistValidatedAccountFallback(
+function persistValidatedAccountFallback(
     inputs: Phase2AuthGateInputs,
     storedCredentials: Phase2StoredCredentials
-): Promise<void> {
+): void {
     const validatedAccountToken = resolveValidatedToken(
         inputs.plexAuth.getCurrentUser(),
         storedCredentials.accountToken
     );
 
-    await inputs.plexAuth.storeCredentials({
+    inputs.plexAuth.storeCredentials({
         accountToken: validatedAccountToken,
         activeToken: validatedAccountToken,
         activeUserId: validatedAccountToken.userId,
@@ -225,7 +221,7 @@ async function persistValidatedAccountFallback(
 }
 
 export async function applyPhase2AuthGatePolicy(inputs: Phase2AuthGateInputs): Promise<boolean> {
-    const storedReadResult = await inputs.plexAuth.readStoredCredentialsAndClearCorruption();
+    const storedReadResult = inputs.plexAuth.readStoredCredentialsAndClearCorruption();
     if (storedReadResult.kind === 'corrupted') {
         return routeToPendingAuth(inputs, {
             code: AppErrorCode.STORAGE_CORRUPTED,
@@ -245,7 +241,7 @@ export async function applyPhase2AuthGatePolicy(inputs: Phase2AuthGateInputs): P
             storedCredentials.activeToken.token
         );
         if (activeValid) {
-            await persistValidatedActiveCredentials(inputs, storedCredentials);
+            persistValidatedActiveCredentials(inputs, storedCredentials);
             inputs.configureDiscoveryStorage();
             inputs.seedSubtitleLanguageFromPlexUser?.();
             markAuthReady(inputs);
@@ -259,17 +255,13 @@ export async function applyPhase2AuthGatePolicy(inputs: Phase2AuthGateInputs): P
             return routeToPendingAuth(inputs);
         }
 
-        await persistValidatedAccountFallback(inputs, storedCredentials);
+        persistValidatedAccountFallback(inputs, storedCredentials);
         markAuthReady(inputs);
         inputs.handlers.registerProfileResume();
         inputs.navigation.goTo('profile-select');
         return false;
     } catch (error) {
-        const code = (error as { code?: string }).code;
-        if (
-            code === AppErrorCode.AUTH_REQUIRED ||
-            code === AppErrorCode.AUTH_INVALID
-        ) {
+        if (isPlexAuthRecoverable(error)) {
             return routeToPendingAuth(inputs);
         }
 
@@ -282,6 +274,9 @@ export async function applyPhase3ServerGatePolicy(inputs: Phase3ServerGateInputs
     try {
         await inputs.plexDiscovery.initialize();
     } catch (error) {
+        if (isPlexAuthRecoverable(error)) {
+            throw error;
+        }
         inputs.updateModuleStatus(
             'plex-server-discovery',
             'error',

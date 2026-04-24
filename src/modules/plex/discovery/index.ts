@@ -14,6 +14,7 @@ export type {
 export type {
     PlexServer,
     PlexConnection,
+    PlexDiscoverySelectedServerSnapshot,
     PlexServerDiscoveryEvents,
     MixedContentConfig,
 } from './types';

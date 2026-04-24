@@ -13,6 +13,7 @@ import {
     PlexApiResource,
     PlexApiConnection,
     MixedContentConfig,
+    PlexDiscoverySelectedServerSnapshot,
 } from './types';
 import {
     findFastestConnectionProbe,
@@ -248,7 +249,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     public async testConnection(
         _server: PlexServer,
         connection: PlexConnection
-    ): Promise<number | 'auth_required' | 'auth_invalid' | null> {
+    ): Promise<number | 'auth_required' | 'access_denied' | null> {
         const probe = await this._probeConnection(connection);
         return this._mapProbeToPublicTestResult(probe);
     }
@@ -276,7 +277,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                 return { connection, outcome: 'auth_required' };
             }
             if (response.status === 403) {
-                return { connection, outcome: 'auth_invalid' };
+                return { connection, outcome: 'access_denied' };
             }
             if (!response.ok) {
                 return { connection, outcome: 'unreachable' };
@@ -298,7 +299,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     ): Promise<{
         connection: PlexConnection | null;
         authRequired: boolean;
-        authState: 'auth_required' | 'auth_invalid' | null;
+        authState: 'auth_required' | 'access_denied' | null;
     }> {
         const probeSummary = await findFastestConnectionProbe({
             server,
@@ -315,11 +316,11 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
     private _mapProbeToPublicTestResult(
         probe: PlexConnectionProbeResult
-    ): number | 'auth_required' | 'auth_invalid' | null {
+    ): number | 'auth_required' | 'access_denied' | null {
         if (probe.outcome === 'reachable') {
             return probe.connection.latencyMs;
         }
-        if (probe.outcome === 'auth_required' || probe.outcome === 'auth_invalid') {
+        if (probe.outcome === 'auth_required' || probe.outcome === 'access_denied') {
             return probe.outcome;
         }
         return null;
@@ -337,7 +338,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                 outcome: 'reachable',
             };
         }
-        if (publicResult === 'auth_required' || publicResult === 'auth_invalid') {
+        if (publicResult === 'auth_required' || publicResult === 'access_denied') {
             return {
                 connection,
                 outcome: publicResult,
@@ -400,6 +401,39 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         });
 
         return { kind: 'selected' };
+    }
+
+    public captureSelectedServerSnapshot(): PlexDiscoverySelectedServerSnapshot {
+        return {
+            server: this._cloneSelectedServer(this._state.selectedServer, this._state.selectedConnection),
+            connection: this._cloneConnection(this._state.selectedConnection),
+            storedServerId: this._serverSelectionStore.readSelectedServerId(),
+        };
+    }
+
+    public restoreSelectedServerSnapshot(snapshot: PlexDiscoverySelectedServerSnapshot): void {
+        const previousServerId = this._state.selectedServer?.id ?? null;
+        const previousConnectionUri = this._state.selectedConnection?.uri ?? null;
+        const nextConnection = this._cloneConnection(snapshot.connection);
+        const nextServer = this._cloneSelectedServer(snapshot.server, nextConnection);
+
+        this._state.selectedServer = nextServer;
+        this._state.selectedConnection = nextConnection;
+
+        if (snapshot.storedServerId) {
+            this._serverSelectionStore.writeSelectedServerId(snapshot.storedServerId);
+        } else {
+            this._serverSelectionStore.clearSelectedServerId();
+        }
+
+        const nextServerId = nextServer?.id ?? null;
+        const nextConnectionUri = nextConnection?.uri ?? null;
+        if (previousServerId !== nextServerId) {
+            this._emitter.emit('serverChange', nextServer);
+        }
+        if (previousConnectionUri !== nextConnectionUri) {
+            this._emitter.emit('connectionChange', nextConnectionUri);
+        }
     }
 
     public getSelectedServer(): PlexServer | null {
@@ -650,6 +684,25 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return connections;
     }
 
+    private _cloneConnection(connection: PlexConnection | null): PlexConnection | null {
+        return connection ? { ...connection } : null;
+    }
+
+    private _cloneSelectedServer(
+        server: PlexServer | null,
+        selectedConnection: PlexConnection | null
+    ): PlexServer | null {
+        if (!server) {
+            return null;
+        }
+
+        return {
+            ...server,
+            connections: server.connections.map((connection) => ({ ...connection })),
+            preferredConnection: selectedConnection ? { ...selectedConnection } : null,
+        };
+    }
+
     private _normalizeConnectionUri(uri: string): string | null {
         try {
             const parsed = new URL(uri);
@@ -729,7 +782,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
     private _persistServerHealth(
         serverId: string,
-        status: 'ok' | 'unreachable' | 'auth_required' | 'auth_invalid',
+        status: 'ok' | 'unreachable' | 'auth_required' | 'access_denied',
         details?: { connection?: PlexConnection; latency?: number }
     ): void {
         const input = {

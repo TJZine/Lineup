@@ -12,14 +12,13 @@ import {
 
 export type EpgLayoutMode = 'overlay' | 'classic';
 export type EpgGuideDensity = 'detailed' | 'wide';
-export type EpgPastItemsWindow = 'auto' | '0' | '15' | '30';
+export const EPG_PAST_ITEMS_WINDOWS = ['auto', '0', '15', '30'] as const;
+export type EpgPastItemsWindow = (typeof EPG_PAST_ITEMS_WINDOWS)[number];
 export type EpgScheduleRangeSnapshot = {
     pastItemsWindowSetting: EpgPastItemsWindow;
     tabsEnabled: boolean;
     selectedLibraryId: string | null;
 };
-
-const EPG_PAST_ITEMS_WINDOWS: readonly EpgPastItemsWindow[] = ['auto', '0', '15', '30'];
 
 export class EpgPreferencesStore {
     readLibraryTabsEnabledAndClean(fallback: boolean = true): boolean {

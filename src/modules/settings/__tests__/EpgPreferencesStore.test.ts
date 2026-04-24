@@ -3,7 +3,10 @@
  */
 
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
-import { EpgPreferencesStore } from '../EpgPreferencesStore';
+import {
+    EPG_PAST_ITEMS_WINDOWS,
+    EpgPreferencesStore,
+} from '../EpgPreferencesStore';
 
 describe('EpgPreferencesStore', () => {
     let store: EpgPreferencesStore;
@@ -74,6 +77,13 @@ describe('EpgPreferencesStore', () => {
         });
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW)).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
+    });
+
+    it('round-trips the canonical past-items storage values', () => {
+        EPG_PAST_ITEMS_WINDOWS.forEach((windowValue) => {
+            expect(store.writePastItemsWindow(windowValue)).toEqual({ ok: true });
+            expect(store.readPastItemsWindowAndClean()).toBe(windowValue);
+        });
     });
 
     it('returns unavailable when storage writes are blocked', () => {

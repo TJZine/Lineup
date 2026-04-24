@@ -8,11 +8,10 @@ import type {
     AppShellServerSelectionRuntimePort,
     AppShellSettingsRuntimePort,
 } from './core/app-shell/AppShellRuntimeContracts';
-import type { LifecycleAppError, AppPhase } from './modules/lifecycle/types';
+import type { AppError, LifecycleAppError, AppPhase, LifecycleEventMap } from './modules/lifecycle/types';
 import type { INavigationManager } from './modules/navigation';
 import { createAppContainers, type AppContainerRefs } from './core/app-shell/AppContainerFactory';
-import { AppOrchestrator } from './core/orchestrator/AppOrchestrator';
-import type { OrchestratorConfig } from './core/orchestrator/OrchestratorTypes';
+import { AppOrchestrator, type AppOrchestratorRuntime } from './Orchestrator';
 import {
     AppLazyScreenRegistry,
 } from './core/app-shell/AppLazyScreenRegistry';
@@ -31,7 +30,9 @@ import { SplashScreen } from './modules/ui/splash';
 import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';
 import type { ChannelSetupConfig } from './core/channel-setup/types';
 import { getAppErrorCode } from './types/app-errors';
+import type { IDisposable } from './utils/interfaces';
 import { summarizeErrorForLog } from './utils/errors';
+import { createWebOsPlatformServices, type PlatformServices } from './platform';
 
 const NON_BLOCKING_TOAST_MESSAGES: Partial<Record<AppErrorCode, string>> = {
     [AppErrorCode.CHANNEL_NOT_FOUND]: 'That channel is unavailable.',
@@ -46,8 +47,31 @@ const NON_BLOCKING_LIFECYCLE_CODES = new Set<AppErrorCode>(
 
 const ERROR_OVERLAY_MODAL_ID = 'modal:error-overlay';
 
+type AppRuntimeLifecycleEvents = Pick<LifecycleEventMap, 'networkWarning' | 'persistenceWarning' | 'phaseChange'>;
+
+interface AppShellOrchestratorRuntime
+    extends AppOrchestratorRuntime,
+    AppShellAuthRuntimePort,
+    AppShellChannelSetupRuntimePort,
+    AppShellDiagnosticsRuntimePort,
+    AppShellNavigationRuntimePort,
+    AppShellProfileRuntimePort,
+    AppShellServerSelectionRuntimePort,
+    Pick<AppShellSettingsRuntimePort, 'getActiveUsername' | 'onGuideSettingChange' | 'setSubtitleTrack'> {
+    shutdown(): Promise<void>;
+    registerErrorHandler(moduleId: string, handler: (error: AppError) => boolean): void;
+    toLifecycleAppError(error: AppError): LifecycleAppError;
+    onScreenChange(handler: (from: string, to: string) => void): IDisposable;
+    onLifecycleEvent<K extends keyof AppRuntimeLifecycleEvents>(
+        event: K,
+        handler: (payload: AppRuntimeLifecycleEvents[K]) => void
+    ): IDisposable;
+    getRecoveryActions(errorCode: AppErrorCode): BlockingErrorOverlayAction[];
+    setNowPlayingHandler(handler: ((toast: Parameters<AppToastPresenter['show']>[0]) => void) | null): void;
+}
+
 export class App {
-    private _orchestrator: AppOrchestrator | null = null;
+    private _orchestrator: AppShellOrchestratorRuntime | null = null;
     private readonly _debugOverridesStore = new DebugOverridesStore();
     private readonly _profileSessionStore = new ProfileSessionStore();
     private readonly _blockingErrorOverlayPresenter = new AppBlockingErrorOverlayPresenter({
@@ -76,6 +100,7 @@ export class App {
     private _themeController: AppThemeController | null = null;
     private _screenUnsubscribe: (() => void) | null = null;
     private _phaseUnsubscribe: (() => void) | null = null;
+    private _lifecycleWarningDisposables: IDisposable[] = [];
 
     async start(): Promise<void> {
         try {
@@ -84,13 +109,15 @@ export class App {
 
             // Create root containers
             const containerRefs = this._createContainers();
+            const platformServices = createWebOsPlatformServices();
 
             // Build configuration
-            const config = this._buildConfig();
+            const config = this._buildConfig(platformServices);
 
             // Create and initialize orchestrator
-            this._orchestrator = new AppOrchestrator();
-            await this._orchestrator.initialize(config);
+            const orchestrator = new AppOrchestrator(platformServices);
+            this._orchestrator = orchestrator;
+            await orchestrator.initialize(config);
 
             // Initialize minimal auth/server screens before startup
             this._initializeScreens(containerRefs);
@@ -104,7 +131,7 @@ export class App {
             });
 
             // Start the orchestrator
-            await this._orchestrator.start();
+            await orchestrator.start();
         } catch (error) {
             console.error('App startup failed:', summarizeErrorForLog(error));
             try {
@@ -165,14 +192,23 @@ export class App {
 
     private _subscribeToLifecycleWarnings(): void {
         if (!this._orchestrator) return;
+        if (this._lifecycleWarningDisposables.length > 0) return;
 
-        this._orchestrator.onLifecycleEvent('persistenceWarning', () => {
-            this._toastPresenter.show({ message: 'Some settings could not be saved.', type: 'warning' });
-        });
+        this._lifecycleWarningDisposables.push(
+            this._orchestrator.onLifecycleEvent('persistenceWarning', () => {
+                this._toastPresenter.show({ message: 'Some settings could not be saved.', type: 'warning' });
+            }),
+            this._orchestrator.onLifecycleEvent('networkWarning', () => {
+                this._toastPresenter.show({ message: 'Network connection looks unstable.', type: 'warning' });
+            })
+        );
+    }
 
-        this._orchestrator.onLifecycleEvent('networkWarning', () => {
-            this._toastPresenter.show({ message: 'Network connection looks unstable.', type: 'warning' });
-        });
+    private _disposeLifecycleWarningSubscriptions(): void {
+        for (const disposable of this._lifecycleWarningDisposables) {
+            disposable.dispose();
+        }
+        this._lifecycleWarningDisposables = [];
     }
 
     async shutdown(): Promise<void> {
@@ -184,6 +220,7 @@ export class App {
             this._phaseUnsubscribe();
             this._phaseUnsubscribe = null;
         }
+        this._disposeLifecycleWarningSubscriptions();
 
         this._blockingErrorOverlayPresenter.dispose();
         this._toastPresenter.dispose();
@@ -203,7 +240,7 @@ export class App {
         }
     }
 
-    getOrchestrator(): AppOrchestrator | null {
+    getOrchestrator(): AppOrchestratorRuntime | null {
         return this._orchestrator;
     }
 
@@ -306,8 +343,10 @@ export class App {
     /**
      * Build orchestrator configuration.
      */
-    private _buildConfig(): OrchestratorConfig {
-        return createAppOrchestratorConfig();
+    private _buildConfig(
+        platformServices: PlatformServices = createWebOsPlatformServices()
+    ): ReturnType<typeof createAppOrchestratorConfig> {
+        return createAppOrchestratorConfig(platformServices);
     }
 
     /**

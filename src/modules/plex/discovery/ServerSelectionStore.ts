@@ -5,7 +5,11 @@ import {
 } from '../../../utils/storage';
 import { PLEX_DISCOVERY_CONSTANTS } from './constants';
 
-export type ServerHealthStatus = 'ok' | 'unreachable' | 'auth_required' | 'auth_invalid';
+export type ServerHealthStatus =
+    | 'ok'
+    | 'unreachable'
+    | 'auth_required'
+    | 'access_denied';
 export type ServerHealthType = 'local' | 'remote' | 'relay' | 'unknown';
 
 export type ServerHealthRecord = {
@@ -58,6 +62,15 @@ export class ServerSelectionStore {
         }
 
         return normalized;
+    }
+
+    readSelectedServerId(): string | null {
+        const { selectedServerKey } = this._keys();
+        const raw = safeLocalStorageGet(selectedServerKey);
+        if (raw === null) return null;
+
+        const normalized = raw.trim();
+        return normalized.length > 0 ? normalized : null;
     }
 
     writeSelectedServerId(serverId: string): void {
@@ -213,13 +226,8 @@ export class ServerSelectionStore {
         }
 
         const input = value as Record<string, unknown>;
-        const status = input.status;
-        if (
-            status !== 'ok'
-            && status !== 'unreachable'
-            && status !== 'auth_required'
-            && status !== 'auth_invalid'
-        ) {
+        const status = this._normalizeHealthStatus(input.status);
+        if (!status) {
             return null;
         }
 
@@ -240,5 +248,18 @@ export class ServerSelectionStore {
         }
 
         return next;
+    }
+
+    private _normalizeHealthStatus(status: unknown): ServerHealthStatus | null {
+        if (status === 'auth_invalid') {
+            return 'access_denied';
+        }
+
+        return status === 'ok'
+            || status === 'unreachable'
+            || status === 'auth_required'
+            || status === 'access_denied'
+            ? status
+            : null;
     }
 }

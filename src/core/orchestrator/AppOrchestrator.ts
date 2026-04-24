@@ -89,7 +89,7 @@ import {
     ExitConfirmModal,
     EXIT_CONFIRM_MODAL_ID,
 } from '../../modules/ui/exit-confirm';
-import { InitializationCoordinator } from '../InitializationCoordinator';
+import { InitializationCoordinator } from './InitializationCoordinator';
 import { ChannelTuningCoordinator } from '../channel-tuning';
 import { OrchestratorStorageContext } from './OrchestratorStorageContext';
 import { OrchestratorEventBinder } from './OrchestratorEventBinder';
@@ -97,9 +97,12 @@ import { OverlayRuntimePolicyController } from './OverlayRuntimePolicyController
 import { ProfileSwitchCleanupController } from './ProfileSwitchCleanupController';
 import { PlaybackRuntimeController } from './priority-one/PlaybackRuntimeController';
 import type {
+    DiscoverySelectedServerSnapshot,
     OrchestratorServerSelectionReadiness,
     OrchestratorServerSelectionResult,
+    PersistedSelectedServerSnapshot,
     SelectedServerPersistenceResult,
+    SelectedServerStartupResumeResult,
 } from '../server-selection/ServerSelectionTypes';
 import { ServerSelectionCoordinator } from '../server-selection/ServerSelectionCoordinator';
 import { SelectedServerRuntimeController } from '../server-selection/SelectedServerRuntimeController';
@@ -108,9 +111,16 @@ import type {
     OrchestratorConfig,
 } from './OrchestratorTypes';
 import { createOrchestratorModules } from './OrchestratorModuleFactory';
-import { createOrchestratorCoordinators } from './OrchestratorCoordinatorFactory';
-import { createPriorityOneControllersAndBinder } from './OrchestratorPriorityOneControllerFactory';
-import { createPriorityOneAssemblyInput } from './priority-one/PriorityOneAssemblyInput';
+import { createOrchestratorCoordinators } from './OrchestratorCoordinatorAssembly';
+import type {
+    OrchestratorCoordinatorAssemblyInput,
+    OrchestratorCoordinators,
+} from './OrchestratorCoordinatorContracts';
+import { createPriorityOneControllersAndBinder } from './priority-one/PriorityOneControllerFactory';
+import {
+    createPriorityOneAssemblyInput,
+    type PriorityOneAssemblyInput,
+} from './priority-one/PriorityOneAssemblyInput';
 import type { OrchestratorEventCleanupFailure } from './OrchestratorEventCleanupReporter';
 import type {
     ChannelBadgeOverlayInitPort,
@@ -142,7 +152,7 @@ import {
 } from '../../modules/plex/shared/plexUrl';
 import type { ToastInput } from '../../modules/ui/toast/types';
 import type { PlatformServices } from '../../platform';
-import { webosPlatformServices } from '../../platform';
+import { createWebOsPlatformServices } from '../../platform';
 import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
 import { ScheduleDayRolloverController } from './ScheduleDayRolloverController';
 import { SubtitleTrackRecoveryController } from './SubtitleTrackRecoveryController';
@@ -370,7 +380,7 @@ export class AppOrchestrator {
     };
 
     constructor(platformServices?: PlatformServices) {
-        this._platformServices = platformServices ?? webosPlatformServices;
+        this._platformServices = platformServices ?? createWebOsPlatformServices();
         this._recoverableRuntimeReporter = createDefaultRecoverableRuntimeIssueReporter(
             QA_003B_ISSUE_ID,
             this._issueDiagnosticsStore.append.bind(this._issueDiagnosticsStore)
@@ -412,62 +422,31 @@ export class AppOrchestrator {
             getChannelSetupWorkflow: (): ChannelSetupWorkflow | null => this._channelSetupWorkflow,
         });
         this._selectedServerRuntimeController = new SelectedServerRuntimeController({
+            capturePersistedSelectionSnapshot: (): Promise<PersistedSelectedServerSnapshot> =>
+                this._capturePersistedSelectedServerSnapshotForActiveUser(),
             persistSelection: (
                 serverId: string | null,
                 serverUri: string | null
             ): Promise<SelectedServerPersistenceResult> =>
                 this._persistSelectedServerForActiveUser(serverId, serverUri),
-            runPostSelectionRuntimeSwap: async (): Promise<void> => {
-                if (!this._initCoordinator) {
-                    return;
-                }
-
-                let step = 'runStartup';
-
-                try {
-                    await this._initCoordinator.runStartup(3);
-
-                    if (this._epg) {
-                        step = 'clearSelectedChannelScheduleSnapshot';
-                        this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
-
-                        step = 'clearScheduleCaches';
-                        this._epgCoordinator?.clearScheduleCaches();
-                    }
-
-                    step = 'clearSchedules';
-                    this._epg?.clearSchedules();
-
-                    step = 'primeEpgChannels';
-                    this._epgCoordinator?.primeEpgChannels();
-
-                    step = 'refreshEpgSchedules';
-                    const refreshResult = await captureRecoverableRuntimeResultAsync(
-                        async () => this._epgCoordinator?.refreshEpgSchedules({ reason: 'server-swap' })
-                    );
-                    if (!refreshResult.ok) {
-                        this._warnRecoverableRuntimeError(
-                            'orchestrator.serverSwap.refreshEpgSchedules',
-                            'Post-selection EPG refresh failed',
-                            refreshResult.error,
-                            { step }
-                        );
-                    }
-                } catch (error) {
-                    this._warnRecoverableRuntimeError(
-                        'orchestrator.serverSwap.runStartup',
-                        'Post-selection runtime swap failed',
-                        error,
-                        { step }
-                    );
-                    throw error;
-                }
-            },
+            restorePersistedSelectionSnapshot: (
+                snapshot: PersistedSelectedServerSnapshot
+            ): Promise<SelectedServerPersistenceResult> =>
+                this._restorePersistedSelectedServerSnapshotForActiveUser(snapshot),
+            resumeStartupAfterSelection: (): Promise<SelectedServerStartupResumeResult> =>
+                this._resumeStartupAfterSelectedServerChange(),
             clearDiscoverySelection: (): void => {
                 this._plexDiscovery?.clearSelection();
             },
         });
         this._serverSelectionCoordinator = new ServerSelectionCoordinator({
+            captureDiscoverySelectionSnapshot: (): DiscoverySelectedServerSnapshot =>
+                this._captureDiscoverySelectedServerSnapshot(),
+            restoreDiscoverySelectionSnapshot: (snapshot: DiscoverySelectedServerSnapshot): void => {
+                this._restoreDiscoverySelectedServerSnapshot(snapshot);
+            },
+            capturePersistedSelectionSnapshot: (): Promise<PersistedSelectedServerSnapshot> =>
+                this._selectedServerRuntimeController.capturePersistedSelectionSnapshot(),
             selectServer: async (serverId: string): Promise<PlexServerSelectionResult> => {
                 if (!this._plexDiscovery) {
                     throw new Error('PlexServerDiscovery not initialized');
@@ -480,8 +459,12 @@ export class AppOrchestrator {
                 serverUri: string | null
             ): Promise<SelectedServerPersistenceResult> =>
                 this._selectedServerRuntimeController.persistSelection(serverId, serverUri),
-            runPostSelectionRuntimeSwap: (): Promise<void> =>
-                this._selectedServerRuntimeController.runPostSelectionRuntimeSwap(),
+            restorePersistedSelectionSnapshot: (
+                snapshot: PersistedSelectedServerSnapshot
+            ): Promise<SelectedServerPersistenceResult> =>
+                this._selectedServerRuntimeController.restorePersistedSelectionSnapshot(snapshot),
+            resumeStartupAfterSelection: (): Promise<SelectedServerStartupResumeResult> =>
+                this._selectedServerRuntimeController.resumeStartupAfterSelection(),
             getReadiness: (): OrchestratorServerSelectionReadiness =>
                 (this._ready ? 'ready' : 'startup_pending'),
         });
@@ -695,7 +678,53 @@ export class AppOrchestrator {
             this._issueDiagnosticsStore.append(issue, event, data);
         };
 
-        const coordinators = createOrchestratorCoordinators({
+        this._assignCoordinators(
+            createOrchestratorCoordinators(
+                this._buildCoordinatorAssemblyInput(initCoordinator, appendIssueDiagnostic)
+            )
+        );
+        this._scheduleDayRolloverController = new ScheduleDayRolloverController({
+            now: (): number => Date.now(),
+            getChannelManager: (): IChannelManager | null => this._channelManager,
+            getScheduler: (): IChannelScheduler | null => this._scheduler,
+            getEpgCoordinator: (): EPGCoordinator | null => this._epgCoordinator,
+            getLocalMidnightMs: (timeMs: number): number => this._schedulePolicy.getLocalMidnightMs(timeMs),
+            getLocalDayKey: (timeMs: number): number => this._schedulePolicy.getLocalDayKey(timeMs),
+            buildDailyScheduleConfig: (
+                channel: ChannelConfig,
+                items: ResolvedChannelContent['items'],
+                referenceTimeMs: number
+            ): ScheduleConfig => this._schedulePolicy.buildDailyScheduleConfig(channel, items, referenceTimeMs),
+            reportError: (message: string, error: unknown): void => {
+                this._warnRecoverableRuntimeError(
+                    'orchestrator.scheduleDayRollover',
+                    message,
+                    error
+                );
+            },
+        });
+        this._subtitleTrackRecoveryController = new SubtitleTrackRecoveryController({
+            getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
+            getPlaybackRecovery: (): PlaybackRecoveryManager | null => this._playbackRecovery,
+            readSubtitleMode: (): import('../../shared/subtitle-mode').SubtitleMode =>
+                this._subtitlePreferencesStore.readSubtitleModeAndClean('full'),
+            setSubtitleTrack: (trackId: string | null): Promise<void> => this.setSubtitleTrack(trackId),
+            nowPlayingWarn: (message: string): void => {
+                this._nowPlayingHandler?.({ message, type: 'warning' });
+            },
+            getCurrentStreamDecision: (): StreamDecision | null => this._currentStreamDecision,
+            getCurrentStreamDescriptor: (): StreamDescriptor | null => this._currentStreamDescriptor,
+            appendIssueDiagnostic: ({ key, data }): void => {
+                appendIssueDiagnostic(QA_003B_ISSUE_ID, key, data);
+            },
+        });
+    }
+
+    private _buildCoordinatorAssemblyInput(
+        initCoordinator: InitializationCoordinator,
+        appendIssueDiagnostic: AppendIssueDiagnostic
+    ): OrchestratorCoordinatorAssemblyInput {
+        return {
             epgDebugRuntime: this._epgDebugRuntime,
             config: this._config,
             moduleStatus: this._moduleStatus,
@@ -704,26 +733,26 @@ export class AppOrchestrator {
                     initCoordinator.ensureEPGInitialized(),
             },
             modules: {
-                navigation: this._navigation,
-                plexAuth: this._plexAuth,
-                plexDiscovery: this._plexDiscovery,
-                plexLibrary: this._plexLibrary,
-                plexStreamResolver: this._plexStreamResolver,
-                channelManager: this._channelManager,
-                scheduler: this._scheduler,
-                videoPlayer: this._videoPlayer,
-                lifecycle: this._lifecycle,
-                epg: this._epg,
+                navigation: this._navigation!,
+                plexAuth: this._plexAuth!,
+                plexDiscovery: this._plexDiscovery!,
+                plexLibrary: this._plexLibrary!,
+                plexStreamResolver: this._plexStreamResolver!,
+                channelManager: this._channelManager!,
+                scheduler: this._scheduler!,
+                videoPlayer: this._videoPlayer!,
+                lifecycle: this._lifecycle!,
+                epg: this._epg!,
             },
             overlays: {
-                nowPlayingInfo: this._nowPlayingInfo,
-                playerOsd: this._playerOsd,
-                channelNumberOverlay: this._channelNumberOverlay,
-                miniGuide: this._miniGuide,
-                channelTransitionOverlay: this._channelTransitionOverlay,
-                playbackOptionsModal: this._playbackOptionsModal,
-                exitConfirmModal: this._exitConfirmModal,
-                sleepTimer: this._sleepTimer,
+                nowPlayingInfo: this._nowPlayingInfo!,
+                playerOsd: this._playerOsd!,
+                channelNumberOverlay: this._channelNumberOverlay!,
+                miniGuide: this._miniGuide!,
+                channelTransitionOverlay: this._channelTransitionOverlay!,
+                playbackOptionsModal: this._playbackOptionsModal!,
+                exitConfirmModal: this._exitConfirmModal!,
+                sleepTimer: this._sleepTimer!,
             },
             stores: {
                 developerSettingsStore: this._developerSettingsStore,
@@ -792,8 +821,10 @@ export class AppOrchestrator {
             nowPlaying: {
                 handler: (): ((toast: ToastInput) => void) | null => this._nowPlayingHandler,
             },
-        });
+        };
+    }
 
+    private _assignCoordinators(coordinators: OrchestratorCoordinators): void {
         this._epgCoordinator = coordinators.epgCoordinator;
         this._channelSetup = coordinators.channelSetup;
         this._channelSetupWorkflow = coordinators.channelSetupWorkflow;
@@ -807,41 +838,6 @@ export class AppOrchestrator {
         this._playbackRecovery = coordinators.playbackRecovery;
         this._channelTuning = coordinators.channelTuning;
         this._navigationCoordinator = coordinators.navigationCoordinator;
-        this._scheduleDayRolloverController = new ScheduleDayRolloverController({
-            now: (): number => Date.now(),
-            getChannelManager: (): IChannelManager | null => this._channelManager,
-            getScheduler: (): IChannelScheduler | null => this._scheduler,
-            getEpgCoordinator: (): EPGCoordinator | null => this._epgCoordinator,
-            getLocalMidnightMs: (timeMs: number): number => this._schedulePolicy.getLocalMidnightMs(timeMs),
-            getLocalDayKey: (timeMs: number): number => this._schedulePolicy.getLocalDayKey(timeMs),
-            buildDailyScheduleConfig: (
-                channel: ChannelConfig,
-                items: ResolvedChannelContent['items'],
-                referenceTimeMs: number
-            ): ScheduleConfig => this._schedulePolicy.buildDailyScheduleConfig(channel, items, referenceTimeMs),
-            reportError: (message: string, error: unknown): void => {
-                this._warnRecoverableRuntimeError(
-                    'orchestrator.scheduleDayRollover',
-                    message,
-                    error
-                );
-            },
-        });
-        this._subtitleTrackRecoveryController = new SubtitleTrackRecoveryController({
-            getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
-            getPlaybackRecovery: (): PlaybackRecoveryManager | null => this._playbackRecovery,
-            readSubtitleMode: (): import('../../shared/subtitle-mode').SubtitleMode =>
-                this._subtitlePreferencesStore.readSubtitleModeAndClean('full'),
-            setSubtitleTrack: (trackId: string | null): Promise<void> => this.setSubtitleTrack(trackId),
-            nowPlayingWarn: (message: string): void => {
-                this._nowPlayingHandler?.({ message, type: 'warning' });
-            },
-            getCurrentStreamDecision: (): StreamDecision | null => this._currentStreamDecision,
-            getCurrentStreamDescriptor: (): StreamDescriptor | null => this._currentStreamDescriptor,
-            appendIssueDiagnostic: ({ key, data }): void => {
-                appendIssueDiagnostic(QA_003B_ISSUE_ID, key, data);
-            },
-        });
     }
 
     /**
@@ -2022,6 +2018,138 @@ export class AppOrchestrator {
         return 'updated';
     }
 
+    private async _capturePersistedSelectedServerSnapshotForActiveUser(
+    ): Promise<PersistedSelectedServerSnapshot> {
+        if (!this._plexAuth) {
+            return { kind: 'missing_credentials' };
+        }
+
+        const stored = await this._plexAuth.readStoredCredentialsAndClearCorruption();
+        if (stored.kind === 'missing') {
+            return { kind: 'missing_credentials' };
+        }
+        if (stored.kind === 'corrupted') {
+            return { kind: 'corrupted_credentials' };
+        }
+
+        const credentials = stored.credentials;
+        const activeUserId = this._plexAuth.getActiveUserId() ?? credentials.activeUserId;
+        if (!activeUserId) {
+            return { kind: 'missing_credentials' };
+        }
+
+        const selection = credentials.selectedServerByUserId?.[activeUserId] ?? {
+            serverId: null,
+            serverUri: null,
+        };
+        return {
+            kind: 'available',
+            selection: {
+                serverId: selection.serverId ?? null,
+                serverUri: selection.serverUri ?? null,
+            },
+        };
+    }
+
+    private async _restorePersistedSelectedServerSnapshotForActiveUser(
+        snapshot: PersistedSelectedServerSnapshot
+    ): Promise<SelectedServerPersistenceResult> {
+        if (snapshot.kind === 'corrupted_credentials') {
+            return 'skipped_corrupted_credentials';
+        }
+        if (snapshot.kind === 'missing_credentials') {
+            return 'skipped_missing_credentials';
+        }
+
+        return this._persistSelectedServerForActiveUser(
+            snapshot.selection.serverId,
+            snapshot.selection.serverUri
+        );
+    }
+
+    private _captureDiscoverySelectedServerSnapshot(): DiscoverySelectedServerSnapshot {
+        if (!this._plexDiscovery) {
+            return {
+                server: null,
+                connection: null,
+                storedServerId: null,
+            };
+        }
+
+        return this._plexDiscovery.captureSelectedServerSnapshot();
+    }
+
+    private _restoreDiscoverySelectedServerSnapshot(snapshot: DiscoverySelectedServerSnapshot): void {
+        this._plexDiscovery?.restoreSelectedServerSnapshot(snapshot);
+    }
+
+    private async _resumeStartupAfterSelectedServerChange(): Promise<SelectedServerStartupResumeResult> {
+        if (!this._initCoordinator) {
+            return {
+                startup: 'skipped_no_coordinator',
+                epgRefresh: { kind: 'skipped_no_coordinator' },
+            };
+        }
+
+        let step = 'runStartup';
+
+        try {
+            await this._initCoordinator.runStartup(3);
+
+            const epg = this._epg;
+            if (epg) {
+                step = 'clearSelectedChannelScheduleSnapshot';
+                this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
+
+                step = 'clearScheduleCaches';
+                this._epgCoordinator?.clearScheduleCaches();
+
+                step = 'clearSchedules';
+                epg.clearSchedules();
+
+                step = 'primeEpgChannels';
+                this._epgCoordinator?.primeEpgChannels();
+            }
+
+            const epgCoordinator = this._epgCoordinator;
+            if (!epgCoordinator) {
+                return {
+                    startup: 'completed',
+                    epgRefresh: { kind: 'skipped_no_coordinator' },
+                };
+            }
+
+            step = 'refreshEpgSchedules';
+            const refreshResult = await captureRecoverableRuntimeResultAsync(
+                async () => epgCoordinator.refreshEpgSchedules({ reason: 'server-swap' })
+            );
+            if (!refreshResult.ok) {
+                this._warnRecoverableRuntimeError(
+                    'orchestrator.serverSwap.refreshEpgSchedules',
+                    'Post-selection EPG refresh failed',
+                    refreshResult.error,
+                    { step }
+                );
+                return {
+                    startup: 'completed',
+                    epgRefresh: { kind: 'failed', error: refreshResult.error },
+                };
+            }
+            return {
+                startup: 'completed',
+                epgRefresh: { kind: 'succeeded' },
+            };
+        } catch (error) {
+            this._warnRecoverableRuntimeError(
+                'orchestrator.serverSwap.runStartup',
+                'Post-selection runtime swap failed',
+                error,
+                { step }
+            );
+            throw error;
+        }
+    }
+
     private _shouldRunAudioSetup(): boolean {
         return !this._audioSettingsStore.readAudioSetupCompleteAndClean(false);
     }
@@ -2042,7 +2170,8 @@ export class AppOrchestrator {
         if (
             mapped === AppErrorCode.AUTH_REQUIRED ||
             mapped === AppErrorCode.AUTH_EXPIRED ||
-            mapped === AppErrorCode.AUTH_INVALID
+            mapped === AppErrorCode.AUTH_INVALID ||
+            mapped === AppErrorCode.ACCESS_DENIED
         ) {
             this.handleGlobalError(
                 {
@@ -2136,122 +2265,138 @@ export class AppOrchestrator {
                 throw new Error('Priority 1 controller initialization requires playback recovery');
             }
 
-            const priorityOne = createPriorityOneControllersAndBinder(
-                createPriorityOneAssemblyInput({
-                    scheduler: this._scheduler,
-                    videoPlayer: this._videoPlayer,
-                    lifecycle: this._lifecycle,
-                    playbackState: this._playbackStateAccessors,
-                    playbackRecovery: this._playbackRecovery,
-                    surfaces: {
-                        channelBadgeOverlay: this._channelBadgeOverlay,
-                        playerOsd: this._playerOsd,
-                        nowPlayingInfo: this._nowPlayingInfo,
-                        epg: this._epg,
-                        channelTransitionActivity: {
-                            isActive: (): boolean =>
-                                this._channelTransitionCoordinator?.isActive() ?? false,
-                        },
-                        channelManager: this._channelManager,
-                        navigation: this._navigation,
-                        plexLibrary: this._plexLibrary,
-                        plexStreamResolver: this._plexStreamResolver,
-                    },
-                    stopPlayback: (): void => this._stopPlayback(),
-                    unloadCurrentChannel: (): void => {
-                        this._scheduler?.unloadChannel();
-                    },
-                    stopTranscodeSessionById: (sessionId: string): void => {
-                        void this._plexStreamResolver?.stopTranscodeSession(sessionId);
-                    },
-                    skipToNextProgram: (): void => {
-                        this._scheduler?.skipToNext();
-                    },
-                    pausePlayer: (): void => {
-                        this._videoPlayer?.pause();
-                    },
-                    playPlayer: (): Promise<void> => this._videoPlayer?.play() ?? Promise.resolve(),
-                    cancelPendingDayRollover: (): void => {
-                        this._scheduleDayRolloverController?.cancelPendingDayRollover();
-                    },
-                    pauseSchedulerSync: (): void => {
-                        this._scheduler?.pauseSyncTimer();
-                    },
-                    resumeSchedulerSync: (): void => {
-                        this._scheduler?.resumeSyncTimer();
-                    },
-                    syncSchedulerToCurrentTime: (): void => {
-                        this._scheduler?.syncToCurrentTime();
-                    },
-                    onPlayerStateChange: (state): void => {
-                        this._playerOsdCoordinator?.onPlayerStateChange(state);
-                        this._channelTransitionCoordinator?.onPlayerStateChange(state);
-                    },
-                    onPlayerTimeUpdate: (payload): void => {
-                        this._playerOsdCoordinator?.onTimeUpdate(payload);
-                    },
-                    onPlayerBufferUpdate: (payload): void => {
-                        this._playerOsdCoordinator?.onBufferUpdate(payload);
-                    },
-                    handleGlobalError: (error: AppError, context: string): void => {
-                        this.handleGlobalError(error, context);
-                    },
-                    showInfoBanner: (): void => {
-                        this._playerOsdCoordinator?.showInfoBanner();
-                    },
-                    onProgramStartUiSideEffects: (program): void => {
-                        this._nowPlayingInfoCoordinator?.onProgramStart(program);
-                        this._requireOverlayRuntimePolicyController().syncChannelBadgeOverlay();
-                        this._epgCoordinator?.refreshEpgScheduleForLiveChannel();
-                    },
-                    onStreamResolved: (): void => {
-                        this._nowPlayingDebugManager?.maybeAutoShowNowPlayingStreamDebugHud();
-                        void this._nowPlayingDebugManager?.maybeFetchNowPlayingStreamDecisionForDebugHud();
-                    },
-                    onPlaybackStartFailure: (error: unknown): void => {
-                        this._warnRecoverableRuntimeError(
-                            'orchestrator.playback.loadStream',
-                            'Failed to load stream',
-                            error
-                        );
-                    },
-                    wireNavigationCoordinatorEvents: (): Array<() => void> =>
-                        this._navigationCoordinator?.wireNavigationEvents() ?? [],
-                    wireEpgCoordinatorEvents: (): Array<() => void> =>
-                        this._epgCoordinator?.wireEpgEvents() ?? [],
-                    handleScheduleDayRollover: (): Promise<void> =>
-                        this._scheduleDayRolloverController?.handleScheduleDayRollover() ?? Promise.resolve(),
-                    handlePlayerTrackChange: (event): void => {
-                        this._playbackOptionsCoordinator?.refreshIfOpen();
-                        this._subtitleTrackRecoveryController?.handleTrackChange(event);
-                    },
-                    handlePlexLibraryAuthExpired: (): void => this._handlePlexLibraryAuthExpired(),
-                    handlePlexStreamError: (error): void => this._handlePlexStreamError(error),
-                    handleScreenChange: (payload): void => this._handleScreenChange(payload),
-                    reportPersistenceWarning: (warning): void => {
-                        this._nowPlayingHandler?.({ message: warning.message, type: 'warning' });
-                    },
-                    cleanupReporter: (failures: OrchestratorEventCleanupFailure[]): void => {
-                        this._warnRecoverableRuntimeIssue(
-                            'orchestrator.eventWiring.rollback',
-                            'Event wiring rollback failures',
-                            { failures }
-                        );
-                    },
-                    reportRecoverableAsyncFailure: (event, message, error): void => {
-                        this._warnRecoverableRuntimeError(event, message, error);
-                    },
-                    nowPlayingModalId: NOW_PLAYING_INFO_MODAL_ID,
-                })
+            this._assignPriorityOneControllers(
+                createPriorityOneControllersAndBinder(this._buildPriorityOneAssemblyInput())
             );
-
-            this._overlayRuntimePolicyController = priorityOne.overlayRuntimePolicyController;
-            this._playbackRuntimeController = priorityOne.playbackRuntimeController;
-            this._profileSwitchCleanupController = priorityOne.profileSwitchCleanupController;
-            this._eventBinder = priorityOne.eventBinder;
         } finally {
             this._priorityOneControllersInitializing = false;
         }
+    }
+
+    private _buildPriorityOneAssemblyInput(): PriorityOneAssemblyInput {
+        return createPriorityOneAssemblyInput({
+            scheduler: this._scheduler!,
+            videoPlayer: this._videoPlayer!,
+            lifecycle: this._lifecycle!,
+            playbackState: this._playbackStateAccessors,
+            playbackRecovery: this._playbackRecovery!,
+            surfaces: {
+                channelBadgeOverlay: this._channelBadgeOverlay,
+                playerOsd: this._playerOsd,
+                nowPlayingInfo: this._nowPlayingInfo,
+                epg: this._epg,
+                channelTransitionActivity: {
+                    isActive: (): boolean =>
+                        this._channelTransitionCoordinator?.isActive() ?? false,
+                },
+                channelManager: this._channelManager,
+                navigation: this._navigation,
+                plexLibrary: this._plexLibrary,
+                plexStreamResolver: this._plexStreamResolver,
+            },
+            stopPlayback: (): void => this._stopPlayback(),
+            unloadCurrentChannel: (): void => {
+                this._scheduler?.unloadChannel();
+            },
+            stopTranscodeSessionById: (sessionId: string): void => {
+                const stopPromise = this._plexStreamResolver?.stopTranscodeSession(sessionId);
+                stopPromise?.catch((error) => {
+                    this._warnRecoverableRuntimeError(
+                        'orchestrator.stopTranscodeSession',
+                        'Failed to stop Plex transcode session',
+                        error,
+                        { sessionId }
+                    );
+                });
+            },
+            skipToNextProgram: (): void => {
+                this._scheduler?.skipToNext();
+            },
+            pausePlayer: (): void => {
+                this._videoPlayer?.pause();
+            },
+            playPlayer: (): Promise<void> => this._videoPlayer?.play() ?? Promise.resolve(),
+            cancelPendingDayRollover: (): void => {
+                this._scheduleDayRolloverController?.cancelPendingDayRollover();
+            },
+            pauseSchedulerSync: (): void => {
+                this._scheduler?.pauseSyncTimer();
+            },
+            resumeSchedulerSync: (): void => {
+                this._scheduler?.resumeSyncTimer();
+            },
+            syncSchedulerToCurrentTime: (): void => {
+                this._scheduler?.syncToCurrentTime();
+            },
+            onPlayerStateChange: (state): void => {
+                this._playerOsdCoordinator?.onPlayerStateChange(state);
+                this._channelTransitionCoordinator?.onPlayerStateChange(state);
+            },
+            onPlayerTimeUpdate: (payload): void => {
+                this._playerOsdCoordinator?.onTimeUpdate(payload);
+            },
+            onPlayerBufferUpdate: (payload): void => {
+                this._playerOsdCoordinator?.onBufferUpdate(payload);
+            },
+            handleGlobalError: (error: AppError, context: string): void => {
+                this.handleGlobalError(error, context);
+            },
+            showInfoBanner: (): void => {
+                this._playerOsdCoordinator?.showInfoBanner();
+            },
+            onProgramStartUiSideEffects: (program): void => {
+                this._nowPlayingInfoCoordinator?.onProgramStart(program);
+                this._requireOverlayRuntimePolicyController().syncChannelBadgeOverlay();
+                this._epgCoordinator?.refreshEpgScheduleForLiveChannel();
+            },
+            onStreamResolved: (): void => {
+                this._nowPlayingDebugManager?.maybeAutoShowNowPlayingStreamDebugHud();
+                void this._nowPlayingDebugManager?.maybeFetchNowPlayingStreamDecisionForDebugHud();
+            },
+            onPlaybackStartFailure: (error: unknown): void => {
+                this._warnRecoverableRuntimeError(
+                    'orchestrator.playback.loadStream',
+                    'Failed to load stream',
+                    error
+                );
+            },
+            wireNavigationCoordinatorEvents: (): Array<() => void> =>
+                this._navigationCoordinator?.wireNavigationEvents() ?? [],
+            wireEpgCoordinatorEvents: (): Array<() => void> =>
+                this._epgCoordinator?.wireEpgEvents() ?? [],
+            handleScheduleDayRollover: (): Promise<void> =>
+                this._scheduleDayRolloverController?.handleScheduleDayRollover() ?? Promise.resolve(),
+            handlePlayerTrackChange: (event): void => {
+                this._playbackOptionsCoordinator?.refreshIfOpen();
+                this._subtitleTrackRecoveryController?.handleTrackChange(event);
+            },
+            handlePlexLibraryAuthExpired: (): void => this._handlePlexLibraryAuthExpired(),
+            handlePlexStreamError: (error): void => this._handlePlexStreamError(error),
+            handleScreenChange: (payload): void => this._handleScreenChange(payload),
+            reportPersistenceWarning: (warning): void => {
+                this._nowPlayingHandler?.({ message: warning.message, type: 'warning' });
+            },
+            cleanupReporter: (failures: OrchestratorEventCleanupFailure[]): void => {
+                this._warnRecoverableRuntimeIssue(
+                    'orchestrator.eventWiring.rollback',
+                    'Event wiring rollback failures',
+                    { failures }
+                );
+            },
+            reportRecoverableAsyncFailure: (event, message, error): void => {
+                this._warnRecoverableRuntimeError(event, message, error);
+            },
+            nowPlayingModalId: NOW_PLAYING_INFO_MODAL_ID,
+        });
+    }
+
+    private _assignPriorityOneControllers(
+        priorityOne: ReturnType<typeof createPriorityOneControllersAndBinder>
+    ): void {
+        this._overlayRuntimePolicyController = priorityOne.overlayRuntimePolicyController;
+        this._playbackRuntimeController = priorityOne.playbackRuntimeController;
+        this._profileSwitchCleanupController = priorityOne.profileSwitchCleanupController;
+        this._eventBinder = priorityOne.eventBinder;
     }
 
     private _handleScreenChange(payload: { from: Screen; to: Screen }): void {

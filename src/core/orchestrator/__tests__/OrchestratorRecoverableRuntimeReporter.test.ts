@@ -67,6 +67,29 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
         );
     });
 
+    it('forwards stream resolver access-denied events through global error handling', () => {
+        const orchestrator = new AppOrchestrator();
+        const handleGlobalError = jest.spyOn(orchestrator, 'handleGlobalError').mockImplementation(() => undefined);
+        const handlePlexStreamError = Reflect.get(orchestrator as object, '_handlePlexStreamError') as (
+            error: { code: AppErrorCode; message: string; recoverable: boolean }
+        ) => void;
+
+        handlePlexStreamError.call(orchestrator, {
+            code: AppErrorCode.ACCESS_DENIED,
+            message: 'Access denied',
+            recoverable: false,
+        });
+
+        expect(handleGlobalError).toHaveBeenCalledWith(
+            {
+                code: AppErrorCode.ACCESS_DENIED,
+                message: 'Access denied',
+                recoverable: false,
+            },
+            'plex-stream'
+        );
+    });
+
     it('swallows warn failures without introducing a second fallback path', () => {
         const appendIssueDiagnostic = jest.fn();
         const warn = jest.fn(() => {

@@ -46,7 +46,7 @@ import {
     parseCollections,
     parsePlaylists,
     parseDirectoryTags,
-} from './ResponseParser';
+} from './parsing/ResponseParser';
 import {
     extractDirectoryArray,
     extractLibrarySectionDirectories,
@@ -54,7 +54,7 @@ import {
     extractMetadataArray,
     extractSearchHubMetadata,
     extractSearchHubs,
-} from './libraryResponsePayload';
+} from './parsing/libraryResponsePayload';
 import { PLEX_LIBRARY_CONSTANTS, PLEX_ENDPOINTS, PLEX_MEDIA_TYPES } from './constants';
 import { fetchWithTimeoutCore } from '../shared/fetchWithTimeoutCore';
 import {
@@ -170,9 +170,14 @@ export class PlexLibrary implements IPlexLibrary {
         return redactUrlForLog(url);
     }
 
-    private async _fetchLibrarySectionsForLookup(libraryId: string): Promise<LibrarySectionsLookupSource> {
+    private async _fetchLibrarySectionsForLookup(
+        libraryId: string,
+        options?: { signal?: AbortSignal | null }
+    ): Promise<LibrarySectionsLookupSource> {
         const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTIONS);
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawLibrarySection>>(url);
+        const response = await this._fetchWithRetry<PlexMediaContainer<RawLibrarySection>>(url, {
+            signal: options?.signal ?? null,
+        });
 
         if (!response) {
             return {
@@ -316,7 +321,10 @@ export class PlexLibrary implements IPlexLibrary {
      * @param libraryId - Library section ID
      * @returns Promise resolving to library or null when not found in a valid section list
      */
-    async getLibrary(libraryId: string): Promise<PlexLibrarySection | null> {
+    async getLibrary(
+        libraryId: string,
+        options?: { signal?: AbortSignal | null }
+    ): Promise<PlexLibrarySection | null> {
         this._ensureCacheScope();
         // Check cache first
         const cached = this._state.libraryCache.get(libraryId);
@@ -324,7 +332,7 @@ export class PlexLibrary implements IPlexLibrary {
             return cached.library;
         }
 
-        const lookupSource = await this._fetchLibrarySectionsForLookup(libraryId);
+        const lookupSource = await this._fetchLibrarySectionsForLookup(libraryId, options);
         if (lookupSource.kind === 'unavailable') {
             throw lookupSource.error;
         }

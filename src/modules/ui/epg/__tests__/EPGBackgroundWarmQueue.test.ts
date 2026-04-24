@@ -3,7 +3,7 @@ import {
     type EPGBackgroundWarmQueueDeps,
 } from '../runtime/EPGBackgroundWarmQueue';
 import type { ChannelConfig, PlaybackMode } from '../../../scheduler/channel-manager';
-import { flushPromises } from '../../../../__tests__/helpers';
+import { createDeferred } from '../../../../__tests__/helpers';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,
@@ -20,6 +20,12 @@ const makeChannel = (id: string, number: number): ChannelConfig => ({
     itemCount: 0,
     totalDurationMs: 0,
 });
+
+const settleQueue = async (queue: EPGBackgroundWarmQueue): Promise<void> => {
+    const idle = queue.whenIdle();
+    await jest.runAllTimersAsync();
+    await idle;
+};
 
 describe('EPGBackgroundWarmQueue', () => {
     beforeEach(() => {
@@ -53,9 +59,7 @@ describe('EPGBackgroundWarmQueue', () => {
 
         expect(onCancel).toHaveBeenCalledWith('replace-background-warm-queue', null);
 
-        jest.advanceTimersByTime(1_000);
-        await flushPromises();
-        await flushPromises();
+        await settleQueue(queue);
 
         expect(refreshChannelSchedule).toHaveBeenCalledTimes(2);
         expect(onCancel).toHaveBeenCalledWith('warm-queue-complete', expect.any(Object));
@@ -82,8 +86,7 @@ describe('EPGBackgroundWarmQueue', () => {
             concurrency: 1,
         });
 
-        jest.advanceTimersByTime(200);
-        await flushPromises();
+        await settleQueue(queue);
 
         expect(refreshChannelSchedule).not.toHaveBeenCalled();
         expect(onCancel).toHaveBeenCalledWith('stale-refresh-token', expect.any(Object));
@@ -122,11 +125,10 @@ describe('EPGBackgroundWarmQueue', () => {
         });
 
         jest.advanceTimersByTime(100);
-        await flushPromises();
+        await jest.runOnlyPendingTimersAsync();
         expect(refreshChannelSchedule).not.toHaveBeenCalled();
 
-        jest.advanceTimersByTime(200);
-        await flushPromises();
+        await settleQueue(queue);
         expect(refreshChannelSchedule).toHaveBeenCalledTimes(1);
     });
 
@@ -192,10 +194,7 @@ describe('EPGBackgroundWarmQueue', () => {
                 concurrency: 1,
             });
 
-            for (let i = 0; i < 20; i += 1) {
-                jest.advanceTimersByTime(50);
-                await flushPromises();
-            }
+            await settleQueue(queue);
 
             expect(refreshChannelSchedule).toHaveBeenCalledTimes(3);
             expect(onError).toHaveBeenCalledWith(failure);
@@ -234,10 +233,66 @@ describe('EPGBackgroundWarmQueue', () => {
             concurrency: 1,
         });
 
-        jest.advanceTimersByTime(1_000);
-        await flushPromises();
+        await settleQueue(queue);
 
         expect(onCancel).toHaveBeenCalledWith('replace-background-warm-queue', expect.any(Object));
         expect(refreshChannelSchedule).not.toHaveBeenCalled();
+    });
+
+    it('waits for an active requestIdleCallback batch to settle after cancel', async () => {
+        type IdleGlobals = {
+            requestIdleCallback?: typeof globalThis.requestIdleCallback | undefined;
+            cancelIdleCallback?: typeof globalThis.cancelIdleCallback | undefined;
+        };
+        const idleScheduler = globalThis as unknown as IdleGlobals;
+        const priorRequestIdleCallback = idleScheduler.requestIdleCallback;
+        const priorCancelIdleCallback = idleScheduler.cancelIdleCallback;
+        let runIdleCallback: Parameters<NonNullable<typeof globalThis.requestIdleCallback>>[0] = () => undefined;
+        idleScheduler.requestIdleCallback = jest.fn((callback) => {
+            runIdleCallback = callback;
+            return 1;
+        }) as typeof globalThis.requestIdleCallback;
+        idleScheduler.cancelIdleCallback = jest.fn() as typeof globalThis.cancelIdleCallback;
+
+        try {
+            const onCancel = jest.fn();
+            const refreshDeferred = createDeferred<void>();
+            const refreshChannelSchedule = jest.fn(() => refreshDeferred.promise);
+            const queue = new EPGBackgroundWarmQueue({
+                getActiveRefreshId: (): number => 1,
+                getCacheSize: (): number => 0,
+                getCacheLimit: (): number => 500,
+                getInFlightCount: (): number => 0,
+                onCancel,
+            });
+
+            queue.start({
+                refreshId: 1,
+                reason: 'visible-range',
+                channels: [makeChannel('c1', 1)],
+                refreshChannelSchedule,
+                concurrency: 1,
+            });
+
+            runIdleCallback({ didTimeout: true, timeRemaining: () => 50 });
+            await Promise.resolve();
+            expect(refreshChannelSchedule).toHaveBeenCalledTimes(1);
+
+            queue.cancel('test-cancel');
+            let idleResolved = false;
+            const idle = queue.whenIdle().then(() => {
+                idleResolved = true;
+            });
+            await Promise.resolve();
+            expect(idleResolved).toBe(false);
+
+            refreshDeferred.resolve();
+            await idle;
+            expect(idleResolved).toBe(true);
+            expect(onCancel).toHaveBeenCalledWith('test-cancel', expect.any(Object));
+        } finally {
+            idleScheduler.requestIdleCallback = priorRequestIdleCallback;
+            idleScheduler.cancelIdleCallback = priorCancelIdleCallback;
+        }
     });
 });

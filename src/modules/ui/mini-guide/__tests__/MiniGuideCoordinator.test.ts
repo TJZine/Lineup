@@ -525,7 +525,7 @@ describe('MiniGuideCoordinator', () => {
             await Promise.resolve();
 
             expect(switchToChannel).toHaveBeenCalledWith('ch3');
-            expect(notifyToast).toHaveBeenCalledWith('Failed to switch channel', 'warning');
+            expect(notifyToast).toHaveBeenCalledWith({ message: 'Failed to switch channel', type: 'warning' });
             expect(warnSpy).not.toHaveBeenCalled();
         } finally {
             warnSpy.mockRestore();

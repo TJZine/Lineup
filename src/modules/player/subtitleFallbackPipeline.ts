@@ -1,4 +1,9 @@
-import type { SubtitleTrack } from './types';
+import type {
+    SubtitleFallbackResult,
+    SubtitleFallbackTransientReason,
+    SubtitleFallbackUnsupportedReason,
+    SubtitleTrack,
+} from './types';
 import { looksLikeHtml, normalizeSubtitleToVtt } from './subtitleConversion';
 import { fetchWithTimeout } from '../plex/shared/fetchWithTimeout';
 import {
@@ -25,6 +30,64 @@ export interface FetchSubtitleFallbackVttArgs {
     createXhr?: () => XMLHttpRequest;
 }
 
+type SubtitleFallbackFailure = Exclude<SubtitleFallbackResult, { kind: 'success' }>;
+type SubtitleFetchTextResult = { kind: 'success'; text: string } | SubtitleFallbackFailure;
+
+function staleFailure(): SubtitleFallbackFailure {
+    return { kind: 'stale' };
+}
+
+function unsupportedFailure(
+    reason: SubtitleFallbackUnsupportedReason,
+    status?: number
+): SubtitleFallbackFailure {
+    return status === undefined
+        ? { kind: 'unsupported', reason }
+        : { kind: 'unsupported', reason, status };
+}
+
+function transientFailure(
+    reason: SubtitleFallbackTransientReason,
+    status?: number
+): SubtitleFallbackFailure {
+    return status === undefined
+        ? { kind: 'transient', reason }
+        : { kind: 'transient', reason, status };
+}
+
+function classifyStatusFailure(status: number): SubtitleFallbackFailure {
+    if (status === 401) {
+        return { kind: 'auth', reason: 'unauthorized', status: 401 };
+    }
+    if (status === 403) {
+        return { kind: 'auth', reason: 'forbidden', status: 403 };
+    }
+    if (status === 404) {
+        return unsupportedFailure('not_found', status);
+    }
+    if (status === 408) {
+        return transientFailure('timeout', status);
+    }
+    if (status === 429 || status >= 500) {
+        return transientFailure('server_error', status);
+    }
+    return unsupportedFailure('client_error', status);
+}
+
+function classifyExceptionFailure(
+    error: unknown,
+    signal: AbortSignal,
+    isCurrentLoad: () => boolean
+): SubtitleFallbackFailure {
+    if (!isCurrentLoad() || signal.aborted) {
+        return staleFailure();
+    }
+    if (error instanceof Error && error.name === 'AbortError') {
+        return transientFailure('timeout');
+    }
+    return transientFailure('network_error');
+}
+
 export async function fetchSubtitleFallbackVtt({
     track,
     initialUrl,
@@ -34,9 +97,10 @@ export async function fetchSubtitleFallbackVtt({
     deriveLanHttpUrl,
     logDebug,
     createXhr = (): XMLHttpRequest => new XMLHttpRequest(),
-}: FetchSubtitleFallbackVttArgs): Promise<string | null> {
+}: FetchSubtitleFallbackVttArgs): Promise<SubtitleFallbackResult> {
     let lastAttempt = 'init';
     let lastAttemptUrl = initialUrl.toString();
+    let lastFailure: SubtitleFallbackFailure | null = null;
 
     const baseAcceptHeader = { Accept: 'text/vtt, text/plain, */*' };
     const attempts = buildPlexSubtitleFetchAttempts(initialUrl, context.authHeaders);
@@ -45,7 +109,7 @@ export async function fetchSubtitleFallbackVtt({
     for (const attempt of attempts) {
         lastAttempt = attempt.name;
         lastAttemptUrl = attempt.url.toString();
-        raw = await fetchSubtitleTextWithFallbacks({
+        const result = await fetchSubtitleTextWithFallbacks({
             url: attempt.url,
             headers: attempt.headers,
             signal,
@@ -55,8 +119,12 @@ export async function fetchSubtitleFallbackVtt({
             logDebug,
             createXhr,
         });
-        if (!isCurrentLoad()) return null;
-        if (raw) break;
+        if (result.kind === 'stale') return result;
+        if (result.kind === 'success') {
+            raw = result.text;
+            break;
+        }
+        lastFailure = result;
     }
 
     if (!raw) {
@@ -66,34 +134,28 @@ export async function fetchSubtitleFallbackVtt({
             if (!transcodeUrl) continue;
             lastAttempt = `universal_subtitles_${format}`;
             lastAttemptUrl = transcodeUrl.toString();
-            try {
-                raw = await fetchSubtitleTextWithFallbacks({
-                    url: transcodeUrl,
-                    headers: baseAcceptHeader,
-                    signal,
-                    trackId: track.id,
-                    isCurrentLoad,
-                    deriveLanHttpUrl,
-                    logDebug,
-                    createXhr,
-                });
-                if (raw) {
-                    break;
-                }
-            } catch (error) {
-                if (!isCurrentLoad()) return null;
-                const message = error instanceof Error ? error.message : String(error);
-                logDebug('subtitle_fetch_error', () => ({
-                    id: track.id,
-                    error: message,
-                    attempt: 'subtitle_text_fetch_exception',
-                    url: redactSensitiveTokens(transcodeUrl.toString()),
-                }));
+            const result = await fetchSubtitleTextWithFallbacks({
+                url: transcodeUrl,
+                headers: baseAcceptHeader,
+                signal,
+                trackId: track.id,
+                isCurrentLoad,
+                deriveLanHttpUrl,
+                logDebug,
+                createXhr,
+            });
+            if (result.kind === 'stale') {
+                return result;
             }
+            if (result.kind === 'success') {
+                raw = result.text;
+                break;
+            }
+            lastFailure = result;
         }
     }
 
-    if (!raw) return null;
+    if (!raw) return lastFailure ?? unsupportedFailure('client_error');
     if (looksLikeHtml(raw)) {
         logDebug('subtitle_fetch_error', () => ({
             id: track.id,
@@ -101,7 +163,7 @@ export async function fetchSubtitleFallbackVtt({
             attempt: lastAttempt,
             url: redactSensitiveTokens(lastAttemptUrl),
         }));
-        return null;
+        return unsupportedFailure('invalid_source');
     }
 
     const start = typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -115,7 +177,10 @@ export async function fetchSubtitleFallbackVtt({
         success: true,
     }));
 
-    return converted.vtt;
+    return {
+        kind: 'success',
+        vtt: converted.vtt,
+    };
 }
 
 interface FetchSubtitleTextWithFallbacksArgs {
@@ -138,13 +203,14 @@ async function fetchSubtitleTextWithFallbacks({
     deriveLanHttpUrl,
     logDebug,
     createXhr,
-}: FetchSubtitleTextWithFallbacksArgs): Promise<string | null> {
+}: FetchSubtitleTextWithFallbacksArgs): Promise<SubtitleFetchTextResult> {
     const urlsToTry: Array<{ variant: 'primary' | 'lan_http'; url: URL }> = [{ variant: 'primary', url }];
     const lanHttp = deriveLanHttpUrl(url);
     if (lanHttp && lanHttp.toString() !== url.toString()) {
         urlsToTry.push({ variant: 'lan_http', url: lanHttp });
     }
 
+    let lastFailure: SubtitleFallbackFailure | null = null;
     for (const entry of urlsToTry) {
         const suffix = entry.variant === 'lan_http' ? '_lan_http' : '';
         try {
@@ -154,16 +220,19 @@ async function fetchSubtitleTextWithFallbacks({
                 timeoutMs: 10_000,
                 upstreamSignal: signal,
             });
-            if (!isCurrentLoad()) return null;
+            if (!isCurrentLoad()) return staleFailure();
             if (!response.ok) {
+                let bodyText = '';
                 let bodySample: string | null = null;
                 let contentType: string | null = null;
                 try {
                     contentType = response.headers.get('content-type');
-                    bodySample = (await response.text()).slice(0, 200);
+                    bodyText = await response.text();
                 } catch {
                     // ignore
                 }
+                if (!isCurrentLoad()) return staleFailure();
+                bodySample = bodyText.length > 0 ? bodyText.slice(0, 200) : null;
                 logDebug('subtitle_fetch_error', () => ({
                     id: trackId,
                     status: response.status,
@@ -172,11 +241,15 @@ async function fetchSubtitleTextWithFallbacks({
                     ...(contentType ? { contentType } : {}),
                     ...(bodySample ? { bodySample } : {}),
                 }));
+                lastFailure = classifyStatusFailure(response.status);
             } else {
-                return await response.text();
+                const text = await response.text();
+                if (!isCurrentLoad()) return staleFailure();
+                return { kind: 'success', text };
             }
         } catch (error) {
-            if (!isCurrentLoad()) return null;
+            const failure = classifyExceptionFailure(error, signal, isCurrentLoad);
+            if (failure.kind === 'stale') return failure;
             const message = error instanceof Error ? error.message : String(error);
             logDebug('subtitle_fetch_error', () => ({
                 id: trackId,
@@ -185,7 +258,7 @@ async function fetchSubtitleTextWithFallbacks({
                 url: redactSensitiveTokens(entry.url.toString()),
             }));
 
-            const xhrText = await xhrGetText({
+            const xhrResult = await xhrGetText({
                 url: entry.url.toString(),
                 headers,
                 signal,
@@ -194,13 +267,17 @@ async function fetchSubtitleTextWithFallbacks({
                 logDebug,
                 createXhr,
             });
-            if (xhrText) {
-                return xhrText;
+            if (xhrResult.kind === 'stale') {
+                return xhrResult;
             }
+            if (xhrResult.kind === 'success') {
+                return xhrResult;
+            }
+            lastFailure = xhrResult;
         }
     }
 
-    return null;
+    return lastFailure ?? unsupportedFailure('client_error');
 }
 
 interface XhrGetTextArgs {
@@ -221,11 +298,11 @@ function xhrGetText({
     isCurrentLoad,
     logDebug,
     createXhr,
-}: XhrGetTextArgs): Promise<string | null> {
+}: XhrGetTextArgs): Promise<SubtitleFetchTextResult> {
     return new Promise((resolve) => {
         let xhr: XMLHttpRequest | null = null;
         let settled = false;
-        const finish = (value: string | null): void => {
+        const finish = (value: SubtitleFetchTextResult): void => {
             if (settled) return;
             settled = true;
             signal.removeEventListener('abort', onAbort);
@@ -238,11 +315,11 @@ function xhrGetText({
             } catch {
                 // ignore
             }
-            finish(null);
+            finish(staleFailure());
         };
 
         if (signal.aborted) {
-            finish(null);
+            finish(staleFailure());
             return;
         }
 
@@ -266,7 +343,7 @@ function xhrGetText({
             signal.addEventListener('abort', onAbort, { once: true });
             xhr.onerror = (): void => {
                 if (!isCurrentLoad()) {
-                    finish(null);
+                    finish(staleFailure());
                     return;
                 }
                 logDebug('subtitle_fetch_error', () => ({
@@ -276,11 +353,11 @@ function xhrGetText({
                     readyState: xhrRef.readyState,
                     url: redactSensitiveTokens(url),
                 }));
-                finish(null);
+                finish(transientFailure('network_error'));
             };
             xhr.ontimeout = (): void => {
                 if (!isCurrentLoad()) {
-                    finish(null);
+                    finish(staleFailure());
                     return;
                 }
                 logDebug('subtitle_fetch_error', () => ({
@@ -290,14 +367,14 @@ function xhrGetText({
                     readyState: xhrRef.readyState,
                     url: redactSensitiveTokens(url),
                 }));
-                finish(null);
+                finish(transientFailure('timeout'));
             };
             xhr.onabort = (): void => {
-                finish(null);
+                finish(signal.aborted || !isCurrentLoad() ? staleFailure() : transientFailure('timeout'));
             };
             xhr.onload = (): void => {
                 if (!isCurrentLoad()) {
-                    finish(null);
+                    finish(staleFailure());
                     return;
                 }
                 if (xhrRef.status < 200 || xhrRef.status >= 300) {
@@ -312,10 +389,13 @@ function xhrGetText({
                         url: redactSensitiveTokens(url),
                         ...(bodySample ? { bodySample } : {}),
                     }));
-                    finish(null);
+                    finish(classifyStatusFailure(xhrRef.status));
                     return;
                 }
-                finish(typeof xhrRef.responseText === 'string' ? xhrRef.responseText : null);
+                finish({
+                    kind: 'success',
+                    text: typeof xhrRef.responseText === 'string' ? xhrRef.responseText : '',
+                });
             };
 
             xhr.timeout = 10000;
@@ -328,7 +408,7 @@ function xhrGetText({
                 error: message,
                 url: redactSensitiveTokens(url),
             }));
-            finish(null);
+            finish(classifyExceptionFailure(error, signal, isCurrentLoad));
         }
     });
 }

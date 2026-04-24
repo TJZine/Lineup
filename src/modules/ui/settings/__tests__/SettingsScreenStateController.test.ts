@@ -8,6 +8,7 @@ import { SETTINGS_STORAGE_KEYS } from '../constants';
 import type { SettingsSelectConfig, SettingsToggleConfig } from '../types';
 import * as ConfigEvents from '../../../../config/events';
 import { SubtitlePreferencesStore } from '../../../settings/SubtitlePreferencesStore';
+import { EPG_PAST_ITEMS_WINDOWS } from '../../../settings/EpgPreferencesStore';
 import { THEME_OPTIONS } from '../../theme/themeDefinitions';
 
 beforeEach(() => {
@@ -114,6 +115,30 @@ it('writes layout mode and emits the guide layout change', () => {
 
     expect(writeSpy).toHaveBeenCalledWith(0);
     expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'layoutMode', mode: 'overlay' });
+});
+
+it('writes past-items window values using the shared EPG preference contract', () => {
+    const onGuideSettingChange = jest.fn();
+
+    const controller = new SettingsScreenStateController({
+        settingsStore: new SettingsStore(),
+        onGuideSettingChange,
+    });
+
+    const categories = controller.getCategories();
+    const appearanceCategory = categories.find((category) => category.id === 'appearance');
+    const pastItems = appearanceCategory?.items.find((item) => item.id === 'settings-epg-past-items');
+
+    if (!pastItems || !('options' in pastItems)) {
+        throw new Error('Past items item not found');
+    }
+
+    (pastItems as SettingsSelectConfig).onChange(2);
+
+    expect(onGuideSettingChange).toHaveBeenCalledWith({
+        key: 'pastItemsWindow',
+        value: EPG_PAST_ITEMS_WINDOWS[2],
+    });
 });
 
 it('writes debug logging and dispatches the shared debug event', () => {

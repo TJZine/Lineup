@@ -1,4 +1,4 @@
-import { parseMediaItem } from '../mediaItemParser';
+import { parseMediaItem } from '../parsing/mediaItemParser';
 import type { RawMediaItem } from '../types';
 
 describe('mediaItemParser', () => {

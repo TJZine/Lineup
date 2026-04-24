@@ -6,14 +6,14 @@
 
 import { RemoteButton, NavigationConfig } from './interfaces';
 import type { PlatformInputService } from '../../platform';
-import { webosPlatformServices } from '../../platform';
+import { createWebOsPlatformServices } from '../../platform';
 
 /**
  * webOS remote control key code mappings.
  * CRITICAL: webOS uses different key codes than standard web browsers.
  */
 export function resolveKeyMap(
-    inputService: PlatformInputService = webosPlatformServices.input
+    inputService: PlatformInputService = createWebOsPlatformServices().input
 ): ReadonlyMap<number, RemoteButton> {
     return inputService.getKeyMap();
 }
@@ -23,7 +23,7 @@ export function resolveKeyMap(
  */
 export function mapKeyCode(
     keyCode: number,
-    inputService: PlatformInputService = webosPlatformServices.input
+    inputService: PlatformInputService = createWebOsPlatformServices().input
 ): RemoteButton | null {
     const button = resolveKeyMap(inputService).get(keyCode);
     return button !== undefined ? button : null;

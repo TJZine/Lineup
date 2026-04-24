@@ -606,6 +606,28 @@ describe('NavigationCoordinator', () => {
         expect(event.originalEvent.preventDefault).toHaveBeenCalled();
     });
 
+    it('uses the cached routing state when handling player back', () => {
+        const focus = {
+            focusableIds: ['exit-confirm-cancel', 'exit-confirm-exit'],
+        };
+        const { handlers, navigation, deps } = setup({
+            prepareExitConfirmModal: jest.fn().mockReturnValue(focus),
+        });
+        (navigation.getCurrentScreen as jest.Mock)
+            .mockReturnValueOnce('player')
+            .mockReturnValueOnce('settings');
+        (navigation.isModalOpen as jest.Mock)
+            .mockReturnValueOnce(false)
+            .mockReturnValueOnce(true);
+        const event = makeKeyEvent('back');
+
+        handlers.keyPress?.(event);
+
+        expect(navigation.openModal).toHaveBeenCalledWith(deps.exitConfirmModalId, focus.focusableIds);
+        expect(navigation.getCurrentScreen).toHaveBeenCalledTimes(1);
+        expect(navigation.isModalOpen).toHaveBeenCalledTimes(1);
+    });
+
     it('hides player OSD on back before exit-confirm', () => {
         const { handlers, deps, navigation } = setup({
             isPlayerOsdVisible: jest.fn().mockReturnValue(true),
@@ -1085,6 +1107,32 @@ describe('NavigationCoordinator', () => {
 
         expect(epg.handleNavigation).toHaveBeenCalledWith('down');
         expect(event.handled).toBe(true);
+    });
+
+    it('enforces the EPG routing guard locally before toggling player OSD for ok', () => {
+        const { coordinator, epg, deps } = setup();
+        const event = makeKeyEvent('ok');
+        const handlePlayerOsdToggleKeyPress = Reflect.get(
+            coordinator as object,
+            '_handlePlayerOsdToggleKeyPress'
+        ) as (event: KeyEvent, routingState: {
+            currentScreen: Screen;
+            modalOpen: boolean;
+            shouldRouteToEpg: boolean;
+            miniGuideVisible: boolean;
+        }) => boolean;
+
+        const handled = handlePlayerOsdToggleKeyPress.call(coordinator, event, {
+            currentScreen: 'player',
+            modalOpen: false,
+            shouldRouteToEpg: true,
+            miniGuideVisible: false,
+        });
+
+        expect(handled).toBe(false);
+        expect(epg.handleSelect).not.toHaveBeenCalled();
+        expect(deps.togglePlayerOsd).not.toHaveBeenCalled();
+        expect(event.handled).toBeUndefined();
     });
 
     it('hides EPG when entering settings screen', () => {

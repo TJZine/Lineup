@@ -4,7 +4,7 @@ import type {
     RawMediaFile,
     RawMediaPart,
     RawStream,
-} from './types';
+} from '../types';
 import { parseStream } from './streamParser';
 import { parseArrayOrEmpty, parseRequiredObject } from './parserValidation';
 

@@ -1,7 +1,7 @@
 import { createDefaultPlexAuthConfig } from '../../modules/plex/auth';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import { DeveloperSettingsStore } from '../../modules/settings/DeveloperSettingsStore';
-import { webosPlatformServices } from '../../platform';
+import { createWebOsPlatformServices } from '../../platform';
 import { createOrchestratorModules } from '../../core/orchestrator/OrchestratorModuleFactory';
 import type { OrchestratorConfig } from '../../core/orchestrator/OrchestratorTypes';
 
@@ -15,11 +15,12 @@ describe('createOrchestratorModules wiring', () => {
         jest.setSystemTime(new Date('2020-01-01T00:00:00Z'));
 
         const onSleepTimerTick = jest.fn();
+        const platformServices = createWebOsPlatformServices();
         const modules = createOrchestratorModules({
             config: {
                 plexConfig: createDefaultPlexAuthConfig('test-client'),
             } as unknown as OrchestratorConfig,
-            platformServices: webosPlatformServices,
+            platformServices,
             debugOverridesStore: new DebugOverridesStore(),
             developerSettingsStore: new DeveloperSettingsStore(),
             onSleepTimerTick,

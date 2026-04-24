@@ -53,9 +53,12 @@ export class ServerSelectScreen {
     private _isSelecting: boolean = false;
     private _activeSelectGeneration: number | null = null;
     private _restoreFocusTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    private _restoreFocusGeneration: number | null = null;
     private _registeredServerButtonIds: string[] = [];
     private _lastDiscoveredServers: PlexServer[] = [];
     private _serverSelectionStore: ServerSelectionStore;
+    private _idlePromise: Promise<void> = Promise.resolve();
+    private _resolveIdlePromise: (() => void) | null = null;
 
     constructor(container: HTMLElement, ports: ServerSelectScreenPorts) {
         this._container = container;
@@ -178,8 +181,13 @@ export class ServerSelectScreen {
             clearTimeout(this._restoreFocusTimeoutId);
             this._restoreFocusTimeoutId = null;
         }
+        this._resolveIdleIfSettled();
         this._destroyScreenShell?.();
         this._destroyScreenShell = null;
+    }
+
+    async whenIdle(): Promise<void> {
+        return this._hasPendingUiWork() ? this._idlePromise : Promise.resolve();
     }
 
     show(options?: { allowAutoConnect?: boolean }): void {
@@ -211,6 +219,7 @@ export class ServerSelectScreen {
         if ((this._isLoading && this._activeLoadGeneration === generation) || !this._canUpdateUi(generation)) {
             return;
         }
+        this._ensureIdlePromise();
         this._isLoading = true;
         this._activeLoadGeneration = generation;
 
@@ -304,6 +313,7 @@ export class ServerSelectScreen {
             }
 
             if (!this._canUpdateUi(generation)) {
+                this._resolveIdleIfSettled();
                 return;
             }
 
@@ -313,6 +323,7 @@ export class ServerSelectScreen {
             this._switchProfileButton.disabled = false;
             this._clearButton.disabled = this._isClearing || this._isSelecting;
             this._restoreFocus(generation);
+            this._resolveIdleIfSettled();
         }
     }
 
@@ -349,15 +360,21 @@ export class ServerSelectScreen {
             if (this._restoreFocusTimeoutId !== null) {
                 clearTimeout(this._restoreFocusTimeoutId);
                 this._restoreFocusTimeoutId = null;
+                this._restoreFocusGeneration = null;
             }
+            this._restoreFocusGeneration = generation;
             this._restoreFocusTimeoutId = setTimeout(() => {
                 this._restoreFocusTimeoutId = null;
+                this._restoreFocusGeneration = null;
                 if (!this._canUpdateUi(generation)) return;
                 if (nav.restoreFocusForCurrentScreen()) {
+                    this._resolveIdleIfSettled();
                     return;
                 }
                 nav.setFocus('btn-server-refresh');
+                this._resolveIdleIfSettled();
             }, FOCUS_RESTORE_DELAY_MS);
+            this._ensureIdlePromise();
         }
     }
 
@@ -368,10 +385,12 @@ export class ServerSelectScreen {
         if (this._restoreFocusTimeoutId !== null) {
             clearTimeout(this._restoreFocusTimeoutId);
             this._restoreFocusTimeoutId = null;
+            this._restoreFocusGeneration = null;
         }
         this._setServerConnectButtonsDisabled(true);
         this._container.style.display = 'none';
         this._container.classList.remove('visible');
+        this._resolveIdleIfSettled();
     }
 
     async refresh(): Promise<void> {
@@ -442,6 +461,7 @@ export class ServerSelectScreen {
         }
 
         try {
+            this._ensureIdlePromise();
             this._isClearing = true;
             this._activeClearGeneration = generation;
             this._clearError();
@@ -478,6 +498,7 @@ export class ServerSelectScreen {
             ) {
                 this._setClearButtonDisabled(false, currentGeneration);
             }
+            this._resolveIdleIfSettled();
         }
     }
 
@@ -596,14 +617,14 @@ export class ServerSelectScreen {
                 health?.status === 'ok'
                 || health?.status === 'unreachable'
                 || health?.status === 'auth_required'
-                || health?.status === 'auth_invalid'
+                || health?.status === 'access_denied'
                     ? health.status
                     : 'unknown';
             const statusClass =
                 normalizedStatus === 'auth_required'
                     ? 'auth-required'
-                    : normalizedStatus === 'auth_invalid'
-                        ? 'auth-invalid'
+                    : normalizedStatus === 'access_denied'
+                        ? 'access-denied'
                         : normalizedStatus;
             pill.className = `server-status-pill ${statusClass}`;
 
@@ -611,7 +632,7 @@ export class ServerSelectScreen {
             if (normalizedStatus === 'ok') statusText = 'OK';
             else if (normalizedStatus === 'unreachable') statusText = 'Unreachable';
             else if (normalizedStatus === 'auth_required') statusText = 'Auth Required';
-            else if (normalizedStatus === 'auth_invalid') statusText = 'Auth Invalid';
+            else if (normalizedStatus === 'access_denied') statusText = 'Access Denied';
 
             if (normalizedStatus === 'ok' && typeof health?.latencyMs === 'number' && Number.isFinite(health.latencyMs)) {
                 const ms = Math.round(health.latencyMs);
@@ -708,6 +729,7 @@ export class ServerSelectScreen {
         }
 
         try {
+            this._ensureIdlePromise();
             this._isSelecting = true;
             this._activeSelectGeneration = generation;
             this._setServerConnectButtonsDisabled(true);
@@ -760,19 +782,51 @@ export class ServerSelectScreen {
                     this._restoreFocus(currentGeneration);
                 }
             }
+            this._resolveIdleIfSettled();
         }
     }
 
+    private _hasPendingUiWork(): boolean {
+        const generation = this._visibilityGeneration;
+        return (this._isLoading && this._activeLoadGeneration === generation)
+            || (this._isClearing && this._activeClearGeneration === generation)
+            || (this._isSelecting && this._activeSelectGeneration === generation)
+            || (
+                this._restoreFocusTimeoutId !== null
+                && this._restoreFocusGeneration === generation
+            );
+    }
+
+    private _ensureIdlePromise(): void {
+        if (this._resolveIdlePromise) {
+            return;
+        }
+
+        this._idlePromise = new Promise((resolve) => {
+            this._resolveIdlePromise = resolve;
+        });
+    }
+
+    private _resolveIdleIfSettled(): void {
+        if (this._hasPendingUiWork() || !this._resolveIdlePromise) {
+            return;
+        }
+
+        const resolve = this._resolveIdlePromise;
+        this._resolveIdlePromise = null;
+        resolve();
+    }
+
     private _selectionFailureMessage(
-        reason: 'server_not_found' | 'unreachable' | 'auth_required' | 'auth_invalid'
+        reason: 'server_not_found' | 'unreachable' | 'auth_required' | 'access_denied'
     ): string {
         switch (reason) {
             case 'server_not_found':
                 return 'Selected server is no longer available.';
             case 'auth_required':
                 return 'Authentication required. Sign in to Plex and try again.';
-            case 'auth_invalid':
-                return 'Stored Plex credentials are invalid. Sign in again.';
+            case 'access_denied':
+                return 'This Plex profile does not have access to that server. Choose another profile or update Plex sharing.';
             case 'unreachable':
                 return 'Selected server is unreachable right now.';
         }

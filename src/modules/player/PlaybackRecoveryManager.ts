@@ -22,6 +22,7 @@ import type { StreamDescriptor } from './types';
 import { subtitleModeAllowsBurnIn, type SubtitleMode } from '../../shared/subtitle-mode';
 import type { AppendIssueDiagnostic } from '../debug/IssueDiagnosticsStore';
 import { SubtitlePreferencesStore } from '../settings/SubtitlePreferencesStore';
+import type { ToastInput } from '../ui/toast/types';
 import { redactSensitiveTokens } from '../../utils/redact';
 import { summarizeErrorForLog } from '../../utils/errors';
 import {
@@ -53,7 +54,7 @@ export interface PlaybackRecoveryDeps {
     getPreferredSubtitleLanguage: () => string | null;
     getPlexPreferredSubtitleLanguage?: () => string | null;
     notifySubtitleUnavailable: () => void;
-    notifyToast?: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
+    notifyToast?: (toast: ToastInput) => void;
     subtitlePreferencesStore?: SubtitlePreferencesStore;
     appendIssueDiagnostic: AppendIssueDiagnostic;
 
@@ -594,7 +595,10 @@ export class PlaybackRecoveryManager {
             return this._isHandledIgnoredSubtitleRecovery(prepared) ? 'handled' : 'failed';
         }
 
-        this.deps.notifyToast?.('Subtitles failed to load. Trying burn-in…', 'info');
+        this.deps.notifyToast?.({
+            message: 'Subtitles failed to load. Trying burn-in…',
+            type: 'info',
+        });
         const result = await this._executeBurnInSubtitleRecovery(trackId, prepared);
         return result.outcome === 'failed' ? 'failed' : 'handled';
     }

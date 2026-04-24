@@ -4,13 +4,14 @@
 
 import { InitializationCoordinator } from '../InitializationCoordinator';
 import type { InitializationDependencies, InitializationCallbacks } from '../InitializationCoordinator';
-import { CLASSIC_EPG_PIP_CLASS } from '../../modules/ui/epg/buildEpgStartupConfig';
-import type { PlexAuthDataV2, PlexStoredCredentialsReadResult } from '../../modules/plex/auth';
-import { CHANNEL_BADGE_CONTAINER_ID } from '../../modules/ui/channel-badge';
-import { EpgPreferencesStore, type EpgLayoutMode } from '../../modules/settings/EpgPreferencesStore';
-import { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
-import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
-import { APP_SHELL_CONTAINER_IDS } from '../../modules/ui/common/appShellContainerIds';
+import { CLASSIC_EPG_PIP_CLASS } from '../../../modules/ui/epg/buildEPGStartupConfig';
+import type { PlexAuthDataV2, PlexStoredCredentialsReadResult } from '../../../modules/plex/auth';
+import { AppErrorCode, PlexApiError } from '../../../modules/plex/auth';
+import { CHANNEL_BADGE_CONTAINER_ID } from '../../../modules/ui/channel-badge';
+import { EpgPreferencesStore, type EpgLayoutMode } from '../../../modules/settings/EpgPreferencesStore';
+import { ProfileSessionStore } from '../../../modules/settings/ProfileSessionStore';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
 
 const createStoredCredentials = (
     activeToken: string,
@@ -112,10 +113,10 @@ describe('InitializationCoordinator (Plex Home)', () => {
         } as unknown as LegacyInitializationDependencies['navigation'];
 
         const plexAuth = {
-            readStoredCredentialsAndClearCorruption: jest.fn().mockResolvedValue({ kind: 'missing' }),
+            readStoredCredentialsAndClearCorruption: jest.fn().mockReturnValue({ kind: 'missing' }),
             validateToken: jest.fn().mockResolvedValue(true),
             getCurrentUser: jest.fn().mockReturnValue(null),
-            storeCredentials: jest.fn().mockResolvedValue(undefined),
+            storeCredentials: jest.fn(() => undefined),
             getHomeUsers: jest.fn().mockResolvedValue([]),
             on: jest.fn(() => ({ dispose: jest.fn() })),
         } as unknown as LegacyInitializationDependencies['plexAuth'];
@@ -281,7 +282,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         const navigation = deps.navigation as unknown as { goTo: jest.Mock };
         const plexDiscovery = deps.plexDiscovery as unknown as { isConnected: jest.Mock };
 
-        plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('active-token', 'account-token'));
+        plexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('active-token', 'account-token'));
         plexAuth.validateToken.mockResolvedValue(true);
         plexDiscovery.isConnected.mockReturnValue(false);
 
@@ -301,7 +302,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         };
         const navigation = deps.navigation as unknown as { goTo: jest.Mock };
 
-        plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('bad-token', 'account-token'));
+        plexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('bad-token', 'account-token'));
         plexAuth.validateToken
             .mockResolvedValueOnce(false)
             .mockResolvedValueOnce(true);
@@ -354,7 +355,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         };
         const navigation = deps.navigation as unknown as { goTo: jest.Mock };
 
-        plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(
+        plexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
             createStoredCredentials('active-token', 'account-token')
         );
         plexAuth.validateToken.mockRejectedValue(new Error('validation down'));
@@ -381,7 +382,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             readStoredCredentialsAndClearCorruption: jest.Mock;
         };
 
-        plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue({ kind: 'missing' });
+        plexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue({ kind: 'missing' });
 
         await coordinator.runStartup(1);
 
@@ -432,7 +433,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         });
 
         navigation.getCurrentScreen.mockReturnValue('auth');
-        plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(
+        plexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
             createStoredCredentials('active-token', 'account-token')
         );
         plexAuth.validateToken.mockResolvedValue(true);
@@ -491,7 +492,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         });
 
         navigation.getCurrentScreen.mockReturnValue('auth');
-        plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(
+        plexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
             createStoredCredentials('active-token', 'account-token')
         );
         plexAuth.validateToken.mockResolvedValue(true);
@@ -631,7 +632,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             return { dispose: jest.fn() };
         });
 
-        plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(
+        plexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
             createStoredCredentials('active-token', 'account-token')
         );
         plexAuth.validateToken.mockResolvedValue(true);
@@ -713,7 +714,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             return { dispose: jest.fn() };
         });
 
-        plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(
+        plexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
             createStoredCredentials('active-token', 'account-token')
         );
         plexAuth.validateToken.mockResolvedValue(true);
@@ -775,6 +776,54 @@ describe('InitializationCoordinator (Plex Home)', () => {
                 })
             );
             expect(navigation.goTo).toHaveBeenCalledWith('server-select');
+            expect(plexDiscovery.on).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            AppErrorCode.AUTH_INVALID,
+            AppErrorCode.AUTH_REQUIRED,
+            AppErrorCode.AUTH_EXPIRED,
+        ])('routes %s discovery auth failures through global auth recovery instead of server-select', async (code) => {
+            const { coordinator, deps, callbacks } = makeCoordinator();
+            const navigation = deps.navigation as unknown as { goTo: jest.Mock };
+            const plexAuth = deps.plexAuth as unknown as {
+                on: jest.Mock;
+            };
+            const plexDiscovery = deps.plexDiscovery as unknown as {
+                initialize: jest.Mock;
+                on: jest.Mock;
+            };
+            const authError = new PlexApiError(
+                code,
+                'cloud discovery credentials rejected',
+                401,
+                false
+            );
+
+            plexDiscovery.initialize.mockRejectedValue(authError);
+
+            await coordinator.runStartup(3);
+
+            expect(callbacks.updateModuleStatus).toHaveBeenCalledWith(
+                'plex-server-discovery',
+                'error',
+                expect.objectContaining({
+                    code,
+                    message: 'cloud discovery credentials rejected',
+                    recoverable: true,
+                })
+            );
+            expect(callbacks.handleGlobalError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code,
+                    message: 'cloud discovery credentials rejected',
+                    recoverable: true,
+                }),
+                'plex-server-discovery'
+            );
+            expect(plexAuth.on).toHaveBeenCalledWith('authChange', expect.any(Function));
+            expect(navigation.goTo).toHaveBeenCalledWith('auth');
+            expect(navigation.goTo).not.toHaveBeenCalledWith('server-select');
             expect(plexDiscovery.on).not.toHaveBeenCalled();
         });
 
@@ -905,7 +954,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             return { dispose: jest.fn() };
         });
 
-        plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(
+        plexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
             createStoredCredentials('active-token', 'account-token')
         );
         plexAuth.validateToken.mockResolvedValue(true);
@@ -965,7 +1014,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             isConnected: jest.Mock;
         };
 
-        plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(
+        plexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
             createStoredCredentials('active-token', 'account-token')
         );
         plexAuth.validateToken.mockResolvedValue(true);
@@ -1026,7 +1075,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         };
 
         try {
-            plexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(
+            plexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
                 createStoredCredentials('active-token', 'account-token')
             );
             plexAuth.validateToken.mockResolvedValue(true);

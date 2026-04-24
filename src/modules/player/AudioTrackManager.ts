@@ -149,6 +149,7 @@ export class AudioTrackManager {
         const previousTrackId = this._activeTrackId;
         let lastError: PlaybackError | null = null;
         let isTimeoutError = false;
+        let restoreFailure: string | null = null;
 
         // Try with retry
         for (let attempt = 0; attempt <= AUDIO_TRACK_MAX_RETRIES; attempt++) {
@@ -174,20 +175,21 @@ export class AudioTrackManager {
             try {
                 await this._restoreTrack(audioTracks, previousTrackId);
             } catch (restoreError) {
-                console.error('[AudioTrackManager] Failed to restore previous track:', restoreError);
+                restoreFailure = this._getErrorMessage(restoreError);
             }
         }
 
         // If it was a timeout error, throw TRACK_SWITCH_TIMEOUT (not TRACK_SWITCH_FAILED)
         if (isTimeoutError && lastError) {
-            throw lastError;
+            throw this._withRestoreFailure(lastError, restoreFailure);
         }
 
         // Throw TRACK_SWITCH_FAILED after retry for non-timeout errors
         throw this._createError(
             AppErrorCode.TRACK_SWITCH_FAILED,
             `Failed to switch to audio track ${trackId} after retry`,
-            lastError
+            lastError,
+            restoreFailure
         );
     }
 
@@ -291,13 +293,34 @@ export class AudioTrackManager {
         }
     }
 
+    private _getErrorMessage(error: unknown): string {
+        return error instanceof Error ? error.message : String(error);
+    }
+
+    private _withRestoreFailure(
+        error: PlaybackError,
+        restoreFailure: string | null
+    ): PlaybackError {
+        if (!restoreFailure) {
+            return error;
+        }
+        return {
+            ...error,
+            context: {
+                ...(error.context ?? {}),
+                restoreFailure,
+            },
+        };
+    }
+
     /**
      * Create a PlaybackError.
      */
     private _createError(
         code: AppErrorCode,
         message: string,
-        cause?: PlaybackError | null
+        cause?: PlaybackError | null,
+        restoreFailure?: string | null
     ): PlaybackError {
         const error: PlaybackError = {
             code,
@@ -305,8 +328,14 @@ export class AudioTrackManager {
             recoverable: false,
             retryCount: 0,
         };
-        if (cause) {
-            error.context = { cause: cause.message };
+        if (cause || restoreFailure) {
+            error.context = {};
+            if (cause) {
+                error.context.cause = cause.message;
+            }
+            if (restoreFailure) {
+                error.context.restoreFailure = restoreFailure;
+            }
         }
         return error;
     }

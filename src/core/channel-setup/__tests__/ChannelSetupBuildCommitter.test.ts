@@ -6,7 +6,11 @@ import { ChannelSetupBuildCommitter } from '../ChannelSetupBuildCommitter';
 import type { ChannelSetupBuildScratchStore } from '../ChannelSetupBuildScratchStore';
 import type { PendingChannel, ChannelDiffResult } from '../ChannelSetupPlanner';
 import type { ChannelBuildProgress } from '../types';
-import type { IChannelManager, ChannelConfig } from '../../../modules/scheduler/channel-manager';
+import type {
+    IChannelManager,
+    ChannelConfig,
+    ChannelCreateInput,
+} from '../../../modules/scheduler/channel-manager';
 import type { IPlexLibrary } from '../../../modules/plex/library';
 import { MAX_CHANNEL_NUMBER } from '../../../modules/scheduler/channel-manager/constants';
 
@@ -120,7 +124,7 @@ describe('ChannelSetupBuildCommitter', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         builtChannels = [];
-        mockBuilder.createChannel.mockImplementation(async (config: Partial<ChannelConfig>) => {
+        mockBuilder.createChannel.mockImplementation(async (config: ChannelCreateInput) => {
             const number = typeof config.number === 'number' ? config.number : builtChannels.length + 1;
             const channel: ChannelConfig = {
                 id: `built-${number}`,
@@ -174,7 +178,7 @@ describe('ChannelSetupBuildCommitter', () => {
         const { committer } = createHarness();
         const controller = new AbortController();
         let hasAborted = false;
-        mockBuilder.createChannel.mockImplementationOnce(async (config: Partial<ChannelConfig>) => {
+        mockBuilder.createChannel.mockImplementationOnce(async (config: ChannelCreateInput) => {
             const channel = await Promise.resolve({
                 ...makeExisting(2),
                 id: 'built-2',

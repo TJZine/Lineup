@@ -242,9 +242,9 @@ export class NavigationManager
 
         // Set new screen
         this._state.currentScreen = screen;
-        if (screen === 'server-select') {
-            this._state.serverSelectParams = params !== undefined ? { ...params } : null;
-        }
+        this._state.serverSelectParams = screen === 'server-select'
+            ? (params !== undefined ? { ...params } : null)
+            : null;
 
         // Emit screen change event
         this.emit('screenChange', { from, to: screen });
@@ -294,6 +294,7 @@ export class NavigationManager
 
         // Navigate to previous screen
         this._state.currentScreen = previousScreen;
+        this._state.serverSelectParams = null;
 
         // Emit screen change event
         this.emit('screenChange', { from, to: previousScreen });
@@ -317,9 +318,7 @@ export class NavigationManager
 
         const from = this._state.currentScreen;
         this._state.currentScreen = screen;
-        if (screen === 'server-select') {
-            this._state.serverSelectParams = null;
-        }
+        this._state.serverSelectParams = null;
 
         this.emit('screenChange', { from, to: screen });
 
@@ -329,7 +328,7 @@ export class NavigationManager
      * Get typed server-select params for the active server-select route.
      */
     public getServerSelectParams(): ServerSelectNavigationParams | null {
-        return this._state.serverSelectParams;
+        return this._state.currentScreen === 'server-select' ? this._state.serverSelectParams : null;
     }
 
     /**

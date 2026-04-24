@@ -1,7 +1,7 @@
 import { logPlexWarning } from '../shared/plexLogging';
 import { MixedContentConfig, PlexConnection, PlexServer } from './types';
 
-export type PlexConnectionProbeAuthState = 'auth_required' | 'auth_invalid';
+export type PlexConnectionProbeAuthState = 'auth_required' | 'access_denied';
 export type PlexConnectionProbeOutcome = 'reachable' | PlexConnectionProbeAuthState | 'unreachable';
 
 export interface PlexConnectionProbeResult {
@@ -170,8 +170,8 @@ function noteAuthOutcome(
     summary: PlexFastestConnectionProbeResult,
     outcome: PlexConnectionProbeOutcome
 ): void {
-    if (outcome === 'auth_invalid') {
-        summary.authState = 'auth_invalid';
+    if (outcome === 'access_denied') {
+        summary.authState = 'access_denied';
         return;
     }
 

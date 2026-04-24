@@ -13,16 +13,19 @@ import type {
 import type { IVideoPlayer } from '../../player';
 import type { BurnInSubtitleRecoveryResult } from '../../player/PlaybackRecoveryManager';
 import type { ScheduledProgram } from '../../scheduler/scheduler';
-import type { SubtitleTrack } from '../../player/types';
+import type {
+    StreamDescriptor,
+    SubtitleExtractabilityProbeResult,
+    SubtitleTrack,
+} from '../../player/types';
 import { BURN_IN_SUBTITLE_FORMATS } from '../../../shared/subtitle-formats';
 import {
     subtitleModeAllowsBurnIn,
     subtitleModeIsDirectOnly,
 } from '../../../shared/subtitle-mode';
 import { SubtitlePreferencesStore } from '../../settings/SubtitlePreferencesStore';
-import type { ToastType } from '../toast/types';
+import type { ToastInput } from '../toast/types';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
-import type { StreamDescriptor } from '../../player/types';
 import { fetchWithTimeout } from '../../plex/shared/fetchWithTimeout';
 import {
     applyXPlexTokenQueryParam,
@@ -43,7 +46,7 @@ interface PlaybackOptionsCoordinatorDeps {
         trackId: string,
         reason: string
     ) => BurnInSubtitleRecoveryResult | Promise<BurnInSubtitleRecoveryResult>;
-    notifyToast?: (message: string, type?: ToastType) => void;
+    notifyToast?: (toast: ToastInput) => void;
     subtitlePreferencesStore?: SubtitlePreferencesStore;
 }
 
@@ -377,22 +380,22 @@ export class PlaybackOptionsCoordinator {
     private requestBurnInSubtitle(trackId: string, reason: string): void {
         const request = this.deps.requestBurnInSubtitle;
         if (!request) {
-            this.deps.notifyToast?.('Burn-in subtitles unavailable', 'warning');
+            this.deps.notifyToast?.({ message: 'Burn-in subtitles unavailable', type: 'warning' });
             return;
         }
-        this.deps.notifyToast?.('Loading burn-in subtitles…', 'info');
+        this.deps.notifyToast?.({ message: 'Loading burn-in subtitles…', type: 'info' });
         try {
             void Promise.resolve(request(trackId, reason))
                 .then((result) => {
                     if (result.outcome === 'failed') {
-                        this.deps.notifyToast?.('Failed to load burn-in subtitles', 'warning');
+                        this.deps.notifyToast?.({ message: 'Failed to load burn-in subtitles', type: 'warning' });
                     }
                 })
                 .catch(() => {
-                    this.deps.notifyToast?.('Failed to load burn-in subtitles', 'warning');
+                    this.deps.notifyToast?.({ message: 'Failed to load burn-in subtitles', type: 'warning' });
                 });
         } catch {
-            this.deps.notifyToast?.('Failed to load burn-in subtitles', 'warning');
+            this.deps.notifyToast?.({ message: 'Failed to load burn-in subtitles', type: 'warning' });
         }
     }
 
@@ -407,6 +410,22 @@ export class PlaybackOptionsCoordinator {
             hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
         }
         return (hash >>> 0).toString(16);
+    }
+
+    private classifySubtitleProbeStatus(
+        status: number,
+        methodFallbackExhausted = false
+    ): SubtitleExtractabilityProbeResult {
+        if (status === 401 || status === 403) {
+            return 'auth_failure';
+        }
+        if (status === 501 && methodFallbackExhausted) {
+            return 'unsupported';
+        }
+        if (status === 408 || status === 429 || status >= 500) {
+            return 'transient_failure';
+        }
+        return 'unsupported';
     }
 
     private getProbeCacheKey(
@@ -453,14 +472,16 @@ export class PlaybackOptionsCoordinator {
         }
     }
 
-    private async probeTextSubtitleExtractability(track: SubtitleTrack): Promise<'supported' | 'unsupported' | 'unknown'> {
+    private async probeTextSubtitleExtractability(
+        track: SubtitleTrack
+    ): Promise<SubtitleExtractabilityProbeResult> {
         const context = this.deps.getCurrentStreamDescriptor?.()?.subtitleContext ?? null;
         if (!context) return 'unknown';
         const cacheKey = this.getProbeCacheKey(track.id, context);
         const cached = this.subtitleProbeCache.get(cacheKey);
         if (cached) return cached;
 
-        // Fast probe only: treat timeout/failure as unsupported and force burn-in for this selection.
+        // Fast probe only: only permanent unsupported results force burn-in for this selection.
         // Use a minimal header set so the probe matches the normal query-token extraction path and avoids
         // preflight-only failures caused by broader X-Plex-* header bundles.
         const url = this.buildSubtitleProbeUrl(track, context);
@@ -469,6 +490,7 @@ export class PlaybackOptionsCoordinator {
         const startMs = Date.now();
         try {
             let response: Response;
+            let methodFallbackExhausted = false;
             response = await fetchWithTimeout({
                 url: url.toString(),
                 init: {
@@ -492,20 +514,23 @@ export class PlaybackOptionsCoordinator {
                     },
                     timeoutMs: fallbackTimeoutMs,
                 });
+                methodFallbackExhausted = true;
             }
             if (response.ok) {
                 this.subtitleProbeCache.set(cacheKey, 'supported');
                 return 'supported';
             }
-            if (response.status >= 500) {
-                // Don't cache transient server errors; allow future attempts to succeed.
-                return 'unsupported';
+            const decision = this.classifySubtitleProbeStatus(
+                response.status,
+                methodFallbackExhausted
+            );
+            if (decision === 'unsupported') {
+                this.subtitleProbeCache.set(cacheKey, 'unsupported');
             }
-            this.subtitleProbeCache.set(cacheKey, 'unsupported');
-            return 'unsupported';
+            return decision;
         } catch {
             // Don't cache transient network/timeout errors; allow future attempts to succeed.
-            return 'unsupported';
+            return 'transient_failure';
         }
     }
 
@@ -514,7 +539,7 @@ export class PlaybackOptionsCoordinator {
         if (!player) return;
         player.setAudioTrack(trackId)
             .catch(() => {
-                this.deps.notifyToast?.('Failed to apply audio track change', 'warning');
+                this.deps.notifyToast?.({ message: 'Failed to apply audio track change', type: 'warning' });
             })
             .finally(() => {
                 this.refreshIfOpen();

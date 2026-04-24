@@ -2,8 +2,8 @@ import type { StreamDescriptor } from '../../../modules/player';
 import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
 import {
     createPriorityOneControllersAndBinder,
-    type OrchestratorPriorityOneControllerFactoryDeps,
-} from '../OrchestratorPriorityOneControllerFactory';
+    type PriorityOneAssemblyInput,
+} from '../priority-one/PriorityOneControllerFactory';
 import type { OrchestratorPlaybackStateAccessors } from '../OrchestratorPlaybackStateAccessors';
 
 const makeProgram = (): ScheduledProgram =>
@@ -26,16 +26,16 @@ const makeProgram = (): ScheduledProgram =>
 
 const makeDeps = (
     playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors>
-): OrchestratorPriorityOneControllerFactoryDeps => ({
+): PriorityOneAssemblyInput => ({
     modules: {
-        scheduler: {} as OrchestratorPriorityOneControllerFactoryDeps['modules']['scheduler'],
+        scheduler: {} as PriorityOneAssemblyInput['modules']['scheduler'],
         videoPlayer: {
             loadStream: jest.fn().mockResolvedValue(undefined),
             play: jest.fn().mockResolvedValue(undefined),
-        } as unknown as OrchestratorPriorityOneControllerFactoryDeps['modules']['videoPlayer'],
+        } as unknown as PriorityOneAssemblyInput['modules']['videoPlayer'],
         lifecycle: {
             saveState: jest.fn().mockResolvedValue(undefined),
-        } as unknown as OrchestratorPriorityOneControllerFactoryDeps['modules']['lifecycle'],
+        } as unknown as PriorityOneAssemblyInput['modules']['lifecycle'],
     },
     surfaces: {
         channelBadgeOverlay: null,

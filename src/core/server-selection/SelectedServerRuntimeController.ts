@@ -1,16 +1,28 @@
-import type { SelectedServerPersistenceResult } from './ServerSelectionTypes';
+import type {
+    PersistedSelectedServerSnapshot,
+    SelectedServerPersistenceResult,
+    SelectedServerStartupResumeResult,
+} from './ServerSelectionTypes';
 
 export interface SelectedServerRuntimeControllerDeps {
+    capturePersistedSelectionSnapshot(): Promise<PersistedSelectedServerSnapshot>;
     persistSelection(
         serverId: string | null,
         serverUri: string | null
     ): Promise<SelectedServerPersistenceResult>;
-    runPostSelectionRuntimeSwap(): Promise<void>;
+    restorePersistedSelectionSnapshot(
+        snapshot: PersistedSelectedServerSnapshot
+    ): Promise<SelectedServerPersistenceResult>;
+    resumeStartupAfterSelection(): Promise<SelectedServerStartupResumeResult>;
     clearDiscoverySelection(): void;
 }
 
 export class SelectedServerRuntimeController {
     constructor(private readonly _deps: SelectedServerRuntimeControllerDeps) {}
+
+    async capturePersistedSelectionSnapshot(): Promise<PersistedSelectedServerSnapshot> {
+        return this._deps.capturePersistedSelectionSnapshot();
+    }
 
     async persistSelection(
         serverId: string,
@@ -19,8 +31,14 @@ export class SelectedServerRuntimeController {
         return this._deps.persistSelection(serverId, serverUri);
     }
 
-    async runPostSelectionRuntimeSwap(): Promise<void> {
-        await this._deps.runPostSelectionRuntimeSwap();
+    async restorePersistedSelectionSnapshot(
+        snapshot: PersistedSelectedServerSnapshot
+    ): Promise<SelectedServerPersistenceResult> {
+        return this._deps.restorePersistedSelectionSnapshot(snapshot);
+    }
+
+    async resumeStartupAfterSelection(): Promise<SelectedServerStartupResumeResult> {
+        return this._deps.resumeStartupAfterSelection();
     }
 
     async clearSelection(): Promise<SelectedServerPersistenceResult> {

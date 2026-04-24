@@ -666,7 +666,7 @@ const CODEX_MODEL_SPARK = 'gpt-5.3-codex-spark';
 const CODEX_MODEL_DEFAULT = 'gpt-5.3-codex';
 const CODEX_MODEL_FALLBACK = 'gpt-5.1-codex-max';
 const CODEX_MODEL_MONITOR_FALLBACK = 'gpt-5.1';
-const CODEX_MODEL_PLANNER = 'gpt-5.4';
+const CODEX_MODEL_PLANNER = 'gpt-5.5';
 
 export function writeValidCodexRoleConfigFixture(
     repoRoot: string,
@@ -760,7 +760,7 @@ export function writeValidCodexRoleConfigFixture(
         '.codex/agents/cleanup-worker.toml',
         [
             `model = "${CODEX_MODEL_PLANNER}"`,
-            'model_reasoning_effort = "high"',
+            'model_reasoning_effort = "medium"',
             'developer_instructions = """',
             'Own one bounded cleanup-loop implementation write scope at a time.',
             'Make the smallest defensible cleanup change inside the approved execution unit, avoid unrelated edits, and validate the changed behavior before returning.',

@@ -1,5 +1,8 @@
 import { createChannelSetupWorkflowPort } from '../createChannelSetupWorkflowPort';
-import type { ChannelSetupWorkflowPort } from '../ChannelSetupWorkflowPort';
+import {
+    CHANNEL_SETUP_WORKFLOW_UNAVAILABLE_MESSAGE,
+    type ChannelSetupWorkflowPort,
+} from '../ChannelSetupWorkflowPort';
 import type { ChannelSetupWorkflow } from '../ChannelSetupWorkflow';
 import type { ChannelSetupConfig } from '../types';
 
@@ -8,30 +11,25 @@ const createWorkflowPort = (): ChannelSetupWorkflowPort => createChannelSetupWor
 });
 
 describe('createChannelSetupWorkflowPort', () => {
-    it('throws synchronously when void mutating methods run before channel setup is initialized', () => {
+    it('throws synchronously when void methods run before channel setup is initialized', () => {
         const workflowPort = createWorkflowPort();
         const config = { serverId: 'server-1' } as ChannelSetupConfig;
 
-        expect(() => workflowPort.invalidateFacetSnapshot()).toThrow('Channel setup not initialized');
-        expect(() => workflowPort.markSetupComplete('server-1', config)).toThrow('Channel setup not initialized');
+        expect(() => workflowPort.invalidateFacetSnapshot()).toThrow(CHANNEL_SETUP_WORKFLOW_UNAVAILABLE_MESSAGE);
+        expect(() => workflowPort.getChannelSetupRecord('server-1')).toThrow(CHANNEL_SETUP_WORKFLOW_UNAVAILABLE_MESSAGE);
+        expect(() => workflowPort.getSetupContextForSelectedServer()).toThrow(CHANNEL_SETUP_WORKFLOW_UNAVAILABLE_MESSAGE);
+        expect(() => workflowPort.markSetupComplete('server-1', config)).toThrow(CHANNEL_SETUP_WORKFLOW_UNAVAILABLE_MESSAGE);
     });
 
     it('rejects promise-returning coordinator methods when channel setup is not initialized', async () => {
         const workflowPort = createWorkflowPort();
         const config = { serverId: 'server-1' } as ChannelSetupConfig;
 
-        await expect(workflowPort.getLibrariesForSetup()).rejects.toThrow('Channel setup not initialized');
-        await expect(workflowPort.getSetupPreview(config)).rejects.toThrow('Channel setup not initialized');
-        await expect(workflowPort.getSetupReview(config)).rejects.toThrow('Channel setup not initialized');
-        await expect(workflowPort.getSetupPlanDiagnostics(config)).rejects.toThrow('Channel setup not initialized');
-        await expect(workflowPort.createChannelsFromSetup(config)).rejects.toThrow('Channel setup not initialized');
-    });
-
-    it('returns safe query defaults when workflow is unavailable', () => {
-        const workflowPort = createWorkflowPort();
-
-        expect(workflowPort.getChannelSetupRecord('server-1')).toBeNull();
-        expect(workflowPort.getSetupContextForSelectedServer()).toBe('unknown');
+        await expect(workflowPort.getLibrariesForSetup()).rejects.toThrow(CHANNEL_SETUP_WORKFLOW_UNAVAILABLE_MESSAGE);
+        await expect(workflowPort.getSetupPreview(config)).rejects.toThrow(CHANNEL_SETUP_WORKFLOW_UNAVAILABLE_MESSAGE);
+        await expect(workflowPort.getSetupReview(config)).rejects.toThrow(CHANNEL_SETUP_WORKFLOW_UNAVAILABLE_MESSAGE);
+        await expect(workflowPort.getSetupPlanDiagnostics(config)).rejects.toThrow(CHANNEL_SETUP_WORKFLOW_UNAVAILABLE_MESSAGE);
+        await expect(workflowPort.createChannelsFromSetup(config)).rejects.toThrow(CHANNEL_SETUP_WORKFLOW_UNAVAILABLE_MESSAGE);
     });
 
     it('forwards all methods to the resolved workflow owner', async () => {

@@ -231,7 +231,7 @@ describe('PlaybackOptionsCoordinator', () => {
     it('requests burn-in immediately for unsupported text subtitle probes in Full mode', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
-        const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 501 });
+        const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 404 });
         const { restore } = installFetchMock(fetchMock);
 
         try {
@@ -476,7 +476,7 @@ describe('PlaybackOptionsCoordinator', () => {
         }
     });
 
-    it('requests burn-in when text subtitle probe times out in Full mode', async (): Promise<void> => {
+    it('continues with direct subtitle selection when text subtitle probe times out in Full mode', async (): Promise<void> => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
         jest.useFakeTimers();
@@ -520,11 +520,58 @@ describe('PlaybackOptionsCoordinator', () => {
             jest.advanceTimersByTime(SUBTITLE_PROBE_TOTAL_TIMEOUT_MS + 50);
             await flushPlaybackOptionsPromises();
 
-            expect(requestBurnInSubtitle).toHaveBeenCalledWith('keyless', expect.any(String));
-            expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalled();
+            expect(requestBurnInSubtitle).not.toHaveBeenCalled();
+            expect((player.setSubtitleTrack as jest.Mock)).toHaveBeenCalledWith('keyless');
             expect(fetchMock).toHaveBeenCalledTimes(1);
         } finally {
             jest.useRealTimers();
+            restore();
+        }
+    });
+
+    it('continues with direct subtitle selection when the probe reports auth failure', async (): Promise<void> => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 403 });
+        const { restore } = installFetchMock(fetchMock);
+
+        try {
+            const player = createPlayer([makeTextTrack({ id: 'keyless', fetchableViaKey: false })]);
+            const requestBurnInSubtitle = jest.fn();
+
+            const coordinator = new PlaybackOptionsCoordinator({
+                playbackOptionsModalId: 'playback-options',
+                getNavigation: (): null => null,
+                getPlaybackOptionsModal: (): null => null,
+                getVideoPlayer: (): IVideoPlayer => player,
+                getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+                getCurrentStreamDescriptor: (): StreamDescriptor =>
+                    ({
+                        subtitleContext: { serverUri: 'http://example.com', authHeaders: { 'X-Plex-Token': 'token' } },
+                    } as unknown as StreamDescriptor),
+                requestBurnInSubtitle,
+            });
+
+            const viewModel = getViewModel(coordinator);
+            const option = viewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-keyless');
+            option?.onSelect?.();
+
+            await flushPlaybackOptionsPromises();
+
+            expect(requestBurnInSubtitle).not.toHaveBeenCalled();
+            expect((player.setSubtitleTrack as jest.Mock)).toHaveBeenCalledWith('keyless');
+
+            const secondViewModel = getViewModel(coordinator);
+            const secondOption = secondViewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-keyless');
+            secondOption?.onSelect?.();
+
+            await flushPlaybackOptionsPromises();
+
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(requestBurnInSubtitle).not.toHaveBeenCalled();
+            expect((player.setSubtitleTrack as jest.Mock)).toHaveBeenCalledTimes(2);
+            expect((player.setSubtitleTrack as jest.Mock)).toHaveBeenLastCalledWith('keyless');
+        } finally {
             restore();
         }
     });
@@ -582,11 +629,56 @@ describe('PlaybackOptionsCoordinator', () => {
             expect(fetchMock).toHaveBeenCalledTimes(2);
             expect(fetchMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({ method: 'HEAD' }));
             expect(fetchMock.mock.calls[1]?.[1]).toEqual(expect.objectContaining({ method: 'GET' }));
-            expect(requestBurnInSubtitle).toHaveBeenCalledWith('keyless', expect.any(String));
-            expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalled();
+            expect(requestBurnInSubtitle).not.toHaveBeenCalled();
+            expect((player.setSubtitleTrack as jest.Mock)).toHaveBeenCalledWith('keyless');
         } finally {
             dateNowSpy.mockRestore();
             jest.useRealTimers();
+            restore();
+        }
+    });
+
+    it('caches GET 501 after HEAD fallback as unsupported for text subtitle probes', async (): Promise<void> => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const fetchMock = jest.fn()
+            .mockResolvedValueOnce({ ok: false, status: 501 })
+            .mockResolvedValueOnce({ ok: false, status: 501 });
+        const { restore } = installFetchMock(fetchMock);
+
+        try {
+            const player = createPlayer([makeTextTrack({ id: 'keyless', fetchableViaKey: false })]);
+            const requestBurnInSubtitle = jest.fn();
+
+            const coordinator = new PlaybackOptionsCoordinator({
+                playbackOptionsModalId: 'playback-options',
+                getNavigation: (): null => null,
+                getPlaybackOptionsModal: (): null => null,
+                getVideoPlayer: (): IVideoPlayer => player,
+                getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+                getCurrentStreamDescriptor: (): StreamDescriptor =>
+                    ({
+                        subtitleContext: { serverUri: 'http://example.com', authHeaders: { 'X-Plex-Token': 'token' } },
+                    } as unknown as StreamDescriptor),
+                requestBurnInSubtitle,
+            });
+
+            const firstViewModel = getViewModel(coordinator);
+            firstViewModel.subtitles.options
+                .find((o) => o.id === 'playback-subtitle-keyless')
+                ?.onSelect?.();
+            await flushPlaybackOptionsPromises();
+
+            const secondViewModel = getViewModel(coordinator);
+            secondViewModel.subtitles.options
+                .find((o) => o.id === 'playback-subtitle-keyless')
+                ?.onSelect?.();
+            await flushPlaybackOptionsPromises();
+
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(requestBurnInSubtitle).toHaveBeenCalledTimes(2);
+            expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalledWith('keyless');
+        } finally {
             restore();
         }
     });
@@ -614,8 +706,8 @@ describe('PlaybackOptionsCoordinator', () => {
         burn?.onSelect?.();
         await flushPlaybackOptionsPromises();
 
-        expect(notifyToast).toHaveBeenCalledWith('Loading burn-in subtitles…', 'info');
-        expect(notifyToast).toHaveBeenCalledWith('Failed to load burn-in subtitles', 'warning');
+        expect(notifyToast).toHaveBeenCalledWith({ message: 'Loading burn-in subtitles…', type: 'info' });
+        expect(notifyToast).toHaveBeenCalledWith({ message: 'Failed to load burn-in subtitles', type: 'warning' });
     });
 
     it('does not show a failure toast when burn-in subtitle request is ignored', async () => {
@@ -644,8 +736,8 @@ describe('PlaybackOptionsCoordinator', () => {
         burn?.onSelect?.();
         await flushPlaybackOptionsPromises();
 
-        expect(notifyToast).toHaveBeenCalledWith('Loading burn-in subtitles…', 'info');
-        expect(notifyToast).not.toHaveBeenCalledWith('Failed to load burn-in subtitles', 'warning');
+        expect(notifyToast).toHaveBeenCalledWith({ message: 'Loading burn-in subtitles…', type: 'info' });
+        expect(notifyToast).not.toHaveBeenCalledWith({ message: 'Failed to load burn-in subtitles', type: 'warning' });
     });
 
     it('shows a failure toast when burn-in subtitle request rejects', async () => {
@@ -671,8 +763,8 @@ describe('PlaybackOptionsCoordinator', () => {
         burn?.onSelect?.();
         await flushPlaybackOptionsPromises();
 
-        expect(notifyToast).toHaveBeenCalledWith('Loading burn-in subtitles…', 'info');
-        expect(notifyToast).toHaveBeenCalledWith('Failed to load burn-in subtitles', 'warning');
+        expect(notifyToast).toHaveBeenCalledWith({ message: 'Loading burn-in subtitles…', type: 'info' });
+        expect(notifyToast).toHaveBeenCalledWith({ message: 'Failed to load burn-in subtitles', type: 'warning' });
     });
 
     it('does not persist subtitle preference (no per-item or global storage)', async (): Promise<void> => {
@@ -727,7 +819,7 @@ describe('PlaybackOptionsCoordinator', () => {
         audioOption?.onSelect?.();
         await flushPlaybackOptionsPromises();
 
-        expect(notifyToast).toHaveBeenCalledWith('Failed to apply audio track change', 'warning');
+        expect(notifyToast).toHaveBeenCalledWith({ message: 'Failed to apply audio track change', type: 'warning' });
         expect(navigation.closeModal).toHaveBeenCalledWith('playback-options');
         expect(refreshSpy).toHaveBeenCalled();
     });

@@ -104,6 +104,11 @@ function installFetchAndBlobMocks(): { fetchMock: jest.Mock; restore: () => void
 }
 
 const flushSubtitleAsync = (): Promise<void> => flushPromisesAndMacrotask(5);
+const flushSubtitleMicrotasks = async (count = 12): Promise<void> => {
+    for (let i = 0; i < count; i++) {
+        await Promise.resolve();
+    }
+};
 
 const developerSettingsStore = new DeveloperSettingsStore();
 
@@ -385,11 +390,11 @@ Hello`,
 
                 expect(onDeactivate).toHaveBeenCalledWith({
                     trackId: 'embedded-srt',
-                    reason: 'selected',
+                    reason: 'subtitle_text_unsupported',
                 });
                 expect(onDeactivateRecovery).toHaveBeenCalledWith({
                     trackId: 'embedded-srt',
-                    reason: 'selected',
+                    reason: 'subtitle_text_unsupported',
                 });
                 expect(onUnavailable).not.toHaveBeenCalled();
             } finally {
@@ -431,7 +436,7 @@ Hello`,
 
                 expect(onDeactivateRecovery).toHaveBeenCalledWith({
                     trackId: 'embedded-srt',
-                    reason: 'selected',
+                    reason: 'subtitle_text_unsupported',
                 });
                 expect(onUnavailable).toHaveBeenCalled();
             } finally {
@@ -475,9 +480,52 @@ Hello`,
 
                 expect(onDeactivateRecovery).toHaveBeenCalledWith({
                     trackId: 'embedded-srt',
-                    reason: 'selected',
+                    reason: 'subtitle_text_unsupported',
                 });
                 expect(onUnavailable).toHaveBeenCalledTimes(1);
+            } finally {
+                restore();
+            }
+        });
+
+        it('passes auth-specific deactivation reasons through recovery callbacks', async () => {
+            const { fetchMock, restore } = installFetchAndBlobMocks();
+
+            try {
+                const onDeactivate = jest.fn(() => true);
+                const onDeactivateRecovery = jest.fn().mockResolvedValue('handled');
+                const embeddedTrack = createMockSubtitleTrack({
+                    id: 'embedded-srt',
+                    codec: 'srt',
+                    format: 'srt',
+                    fetchableViaKey: false,
+                });
+                delete (embeddedTrack as { key?: string }).key;
+                fetchMock.mockResolvedValue({
+                    ok: false,
+                    status: 403,
+                    headers: { get: (): null => null },
+                    text: async (): Promise<string> => 'Forbidden',
+                });
+
+                manager.loadTracks([embeddedTrack], {
+                    serverUri: 'http://example.com',
+                    authHeaders: { 'X-Plex-Token': 'token' },
+                    onDeactivate,
+                    onDeactivateRecovery,
+                });
+
+                manager.setActiveTrack('embedded-srt');
+                await flushSubtitleAsync();
+
+                expect(onDeactivate).toHaveBeenCalledWith({
+                    trackId: 'embedded-srt',
+                    reason: 'subtitle_text_auth_failed',
+                });
+                expect(onDeactivateRecovery).toHaveBeenCalledWith({
+                    trackId: 'embedded-srt',
+                    reason: 'subtitle_text_auth_failed',
+                });
             } finally {
                 restore();
             }
@@ -827,6 +875,39 @@ Hello`,
 
             const logs = warnSpy.mock.calls.map((call) => String(call[0]));
             expect(logs.join(' ')).not.toContain('secret-token');
+        });
+
+        it('allows a selected track to retry fallback after a transient fallback failure', async () => {
+            const fetchMock = global.fetch as jest.Mock;
+            fetchMock.mockResolvedValue({
+                ok: false,
+                status: 500,
+                headers: { get: (): null => null },
+                text: async () => 'Server error',
+            });
+            const tracks: SubtitleTrack[] = [
+                createMockSubtitleTrack({ id: 'en' }),
+            ];
+            manager.loadTracks(tracks, {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            });
+
+            manager.setActiveTrack('en');
+            await flushSubtitleMicrotasks();
+            expect(global.URL.createObjectURL).not.toHaveBeenCalled();
+
+            fetchMock.mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: (): null => null },
+                text: async () => '1\n00:00:01,000 --> 00:00:02,000\nHello\n',
+            });
+
+            manager.setActiveTrack('en');
+            await flushSubtitleMicrotasks();
+
+            expect(global.URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
         });
     });
 });

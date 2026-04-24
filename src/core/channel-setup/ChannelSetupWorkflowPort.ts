@@ -10,6 +10,25 @@ import type {
     ChannelSetupReview,
 } from './types';
 
+export const CHANNEL_SETUP_WORKFLOW_UNAVAILABLE_MESSAGE = 'Channel setup not initialized';
+
+export class ChannelSetupWorkflowUnavailableError extends Error {
+    constructor(message: string = CHANNEL_SETUP_WORKFLOW_UNAVAILABLE_MESSAGE) {
+        super(message);
+        this.name = 'ChannelSetupWorkflowUnavailableError';
+    }
+}
+
+export function isChannelSetupWorkflowUnavailableError(error: unknown): boolean {
+    return (
+        error instanceof ChannelSetupWorkflowUnavailableError
+        || (
+            error instanceof Error
+            && error.name === 'ChannelSetupWorkflowUnavailableError'
+        )
+    );
+}
+
 export interface ChannelSetupWorkflowPort {
     invalidateFacetSnapshot(): void;
     getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibrarySection[]>;

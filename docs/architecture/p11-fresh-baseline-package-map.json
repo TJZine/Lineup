@@ -1,0 +1,430 @@
+{
+  "artifact_version": 1,
+  "artifact_role": "Tracked companion mapping the active P11 fresh-baseline cleanup queue to exact review-id membership and bounded mechanical scoping seeds for the authoritative 2026-04-23 rerun.",
+  "live_backlog_timestamp": "2026-04-23T07:32:05+00:00",
+  "package_model": "p11_fresh_baseline_follow_on_companion",
+  "stable_package_id_format": "pkg_*",
+  "authoritative_scope_rule": {
+    "exact_membership_surface": "exact_review_issue_ids",
+    "mechanical_scope_rule": "candidate_mechanical_issue_ids and candidate_scoping_files are non-membership scoping aids only; they may be absorbed only when current-source proof shows the same seam and owner.",
+    "default_non_active_buckets": "rows listed under default_out_of_scope_examples are not active package backlog by default and require fresh same-seam proof before absorption."
+  },
+  "validation": {
+    "every_open_review_issue_assigned_once": true,
+    "no_open_review_issue_unassigned": true,
+    "no_review_issue_multiply_assigned": true
+  },
+  "validation_details": {
+    "total_open_review_issues": 39,
+    "assigned_open_review_issues": 39,
+    "unassigned_review_issue_ids": [],
+    "duplicate_review_issue_ids": []
+  },
+  "package_count": 6,
+  "packages": [
+    {
+      "package_id": "pkg_orchestrator_boundary_simplification",
+      "package_name": "Orchestrator, App-Shell, And Priority-One Boundary Simplification",
+      "purpose": "Shrink the orchestrator blast radius, retire assembly/delegation warehouses, and restore honest public/root boundaries around orchestration ownership.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::abstraction_fitness::orchestrator_builder_pass_through_helpers",
+        "review::.::holistic::abstraction_fitness::priority_one_adapter_classes_are_mostly_delegation",
+        "review::.::holistic::convention_outlier::orchestrator_factory_files_are_shims",
+        "review::.::holistic::cross_module_architecture::app_orchestrator_remains_codebase_hub",
+        "review::.::holistic::cross_module_architecture::app_shell_contract_leaks_orchestrator_type",
+        "review::.::holistic::cross_module_architecture::public_orchestrator_boundary_bypassed",
+        "review::.::holistic::design_coherence::coordinator_builders_adapter_warehouse",
+        "review::.::holistic::design_coherence::orchestrator_lifecycle_god_class",
+        "review::.::holistic::high_level_elegance::orchestrator_assembly_still_owns_too_many_subsystems",
+        "review::.::holistic::high_level_elegance::root_barrels_expose_internal_or_cross_domain_types",
+        "review::.::holistic::mid_level_elegance::priority_one_handoff_spread",
+        "review::.::holistic::package_organization::initialization_coordinator_root_straggler",
+        "review::.::holistic::test_strategy::call_order_coupling_in_core_suites"
+      ],
+      "candidate_mechanical_issue_ids": [
+        "structural::src/core/orchestrator/AppOrchestrator.ts",
+        "structural::src/core/orchestrator/OrchestratorCoordinatorBuilders.ts",
+        "structural::src/core/orchestrator/InitializationCoordinator.ts",
+        "responsibility_cohesion::src/core/orchestrator/priority-one/PriorityOneControllerCollaborators.ts::cohesion::src/core/orchestrator/priority-one/PriorityOneControllerCollaborators.ts",
+        "responsibility_cohesion::src/core/orchestrator/OrchestratorCoordinatorBuilders.ts::cohesion::src/core/orchestrator/OrchestratorCoordinatorBuilders.ts",
+        "flat_dirs::src/core/orchestrator"
+      ],
+      "candidate_scoping_files": [
+        "src/core/orchestrator/AppOrchestrator.ts",
+        "src/core/orchestrator/OrchestratorCoordinatorBuilders.ts",
+        "src/core/orchestrator/priority-one/PriorityOneControllerCollaborators.ts",
+        "src/core/orchestrator/InitializationCoordinator.ts",
+        "src/__tests__/Orchestrator.test.ts",
+        "src/core/channel-tuning/__tests__/ChannelTuningCoordinator.test.ts"
+      ],
+      "default_out_of_scope_examples": [
+        "stale_exclude::*",
+        "signature::*",
+        "test_coverage::*::transitive_only",
+        "most test-zone smells::* rows outside orchestrator/channel-tuning sequencing proof",
+        "cross-cutting contract/doc-hygiene ids owned by pkg_cross_cutting_contract_hygiene"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 80",
+        "desloppify show src/core/orchestrator/OrchestratorCoordinatorBuilders.ts --status open --no-budget --top 80",
+        "desloppify show src/core/orchestrator/priority-one/PriorityOneControllerCollaborators.ts --status open --no-budget --top 80",
+        "desloppify show src/core/orchestrator/InitializationCoordinator.ts --status open --no-budget --top 80",
+        "desloppify show src/__tests__/Orchestrator.test.ts --status open --no-budget --top 80"
+      ],
+      "likely_first_slice": "Inventory AppOrchestrator, coordinator builders, and priority-one collaborator seams first; decide whether the first execution unit is boundary slimming, assembly relocation, or contract narrowing before absorbing any sequencing-test work.",
+      "recommended_execution_order": 1,
+      "checklist_tokens": {
+        "work_item": "P11-W1",
+        "priority_exit": "P11-EXIT"
+      },
+      "execution_status": {
+        "status": "completed",
+        "completed_execution_units": [
+          "P11-W1-S1",
+          "P11-W1-S2",
+          "P11-W1-S3",
+          "P11-W1-S4"
+        ],
+        "current_or_next_execution_unit": "P11-W2",
+        "evidence": [
+          "P11-W1-S1 contract narrowing implemented in src/App.ts, src/Orchestrator.ts, src/core/app-shell/AppShellRuntimeContracts.ts, src/__tests__/App.test.ts, and src/__tests__/Orchestrator.test.ts.",
+          "Implementation review found no material findings and approved P11-W1-S1 for closeout.",
+          "npm test -- --runInBand src/__tests__/App.test.ts src/__tests__/startup-integration.test.ts src/__tests__/Orchestrator.test.ts passed with 136 tests.",
+          "rg -n \"core/orchestrator/AppOrchestrator|../orchestrator/AppOrchestrator\" src/App.ts src/core/app-shell src/__tests__/App.test.ts produced no matches.",
+          "rg -n \"ChannelSetup|OrchestratorConfig|ErrorRecoveryAction\" src/Orchestrator.ts produced no matches.",
+          "npm run build passed; npm run verify:docs passed after removing the obsolete hard-coded planner/cleanup_worker model pin from the docs verifier.",
+          "P11-W1-S2 coordinator assembly relocation deleted the coordinator factory shim, moved coordinator construction ownership to OrchestratorCoordinatorAssembly.ts, narrowed coordinator builder inputs, and passed focused coordinator/orchestrator tests before commit 384bd1d1.",
+          "P11-W1-S3 priority-one startup ownership moved InitializationCoordinator under src/core/orchestrator, deleted the priority-one factory shim, slimmed priority-one collaborator adapters, updated architecture ownership docs, and passed npm run verify before commit a2626811.",
+          "P11-W1-S4 sequencing-test cleanup removed global invocationCallOrder coupling from src/__tests__/Orchestrator.test.ts, retained behavior-focused sequencing proof, reviewed clean, and passed npm run verify before commit 6c0cac5f.",
+          "Final package closeout keeps the exact review-id membership unchanged while updating moved scoping aids to src/core/orchestrator/InitializationCoordinator.ts."
+        ],
+        "last_touched": "2026-04-23"
+      }
+    },
+    {
+      "package_id": "pkg_plex_contract_surface_alignment",
+      "package_name": "Plex Contract, Auth, And Error Surface Alignment",
+      "purpose": "Align Plex auth/library/discovery/stream contracts, make auth/error semantics consistent across sibling surfaces, and reduce the flat parser-heavy library seam.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::api_surface_coherence::plex_auth_error_contracts_are_uneven",
+        "review::.::holistic::api_surface_coherence::plex_auth_storage_methods_are_faux_async",
+        "review::.::holistic::api_surface_coherence::plex_library_browse_options_drift",
+        "review::.::holistic::authorization_consistency::discovery_auth_failures_skip_global_auth_recovery",
+        "review::.::holistic::authorization_consistency::plex_403_semantics_diverge_by_module",
+        "review::.::holistic::error_consistency::plex_transport_drops_original_cause",
+        "review::.::holistic::package_organization::plex_library_parser_flat_cluster"
+      ],
+      "candidate_mechanical_issue_ids": [
+        "structural::src/modules/plex/library/PlexLibrary.ts",
+        "structural::src/modules/plex/auth/PlexAuth.ts",
+        "structural::src/modules/plex/stream/PlexStreamResolver.ts",
+        "structural::src/modules/plex/discovery/PlexServerDiscovery.ts",
+        "flat_dirs::src/modules/plex/library"
+      ],
+      "candidate_scoping_files": [
+        "src/modules/plex/library/PlexLibrary.ts",
+        "src/modules/plex/auth/PlexAuth.ts",
+        "src/modules/plex/discovery/PlexServerDiscovery.ts",
+        "src/modules/plex/stream/PlexStreamResolver.ts"
+      ],
+      "default_out_of_scope_examples": [
+        "test-only structural rows under src/modules/plex/**/__tests__",
+        "facade::*",
+        "single_use::*",
+        "test_coverage::*::transitive_only"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/plex/library/PlexLibrary.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/plex/auth/PlexAuth.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/plex/discovery/PlexServerDiscovery.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/plex/stream/PlexStreamResolver.ts --status open --no-budget --top 80"
+      ],
+      "likely_first_slice": "Start with auth/library contract and error-policy alignment before considering parser/package reorganization; only absorb parser flatness work that falls out of the same contract cleanup.",
+      "recommended_execution_order": 2,
+      "checklist_tokens": {
+        "work_item": "P11-W2",
+        "priority_exit": "P11-EXIT"
+      },
+      "execution_status": {
+        "status": "completed",
+        "completed_execution_units": [
+          "P11-W2-EU1",
+          "P11-W2-EU2"
+        ],
+        "current_or_next_execution_unit": "P11-W3",
+        "evidence": [
+          "P11-W2-EU1 aligned Plex auth/error contracts in commit 3749a2fd: auth storage methods are synchronous, public auth failure contracts are documented, Plex auth transport preserves sanitized cause, discovery startup auth failures route through global auth recovery, PMS identity-probe 403 maps to access_denied while plex.tv credential 403 remains auth recovery, PMS library/stream 403 remains permission/access denied, and getLibrary accepts cancellation options.",
+          "P11-W2-EU1 implementation review found no material findings and approved the contract wave for closeout; npm run verify passed after the wave.",
+          "P11-W2-EU2 moved parser internals under src/modules/plex/library/parsing in commit fd05556a while preserving the public package root at src/modules/plex/library/index.ts and keeping parser behavior invariant.",
+          "P11-W2-EU2 implementation review found no material findings and approved parser organization for package closeout; focused parser/library tests, typecheck, import audit, and npm run verify passed.",
+          "Closeout reran the four package-local scoping commands for src/modules/plex/library/PlexLibrary.ts, src/modules/plex/auth/PlexAuth.ts, src/modules/plex/discovery/PlexServerDiscovery.ts, and src/modules/plex/stream/PlexStreamResolver.ts; all reported no open issues matching those files.",
+          "Exact review-id desloppify checks still reported the seven P11-W2 seed ids as open, but reviewed current-source proof shows detector lag/stale wording against the completed package-owned rationale."
+        ],
+        "last_touched": "2026-04-23"
+      }
+    },
+    {
+      "package_id": "pkg_channel_setup_scheduler_contract_cleanup",
+      "package_name": "Channel Setup And Scheduler Contract Cleanup",
+      "purpose": "Tighten the channel-manager/channel-setup contract surface, retire repeated legacy-field scrub logic, and reduce the oversized scheduler/channel-setup coordination seam.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::incomplete_migration::channel_legacy_field_scrub_repeated",
+        "review::.::holistic::mid_level_elegance::channel_setup_port_mixed_lifecycle_contract",
+        "review::.::holistic::type_safety::channel_manager_input_contract_too_broad"
+      ],
+      "candidate_mechanical_issue_ids": [
+        "structural::src/modules/scheduler/channel-manager/ChannelManager.ts",
+        "structural::src/modules/scheduler/channel-manager/ContentResolver.ts",
+        "structural::src/core/channel-setup/ChannelSetupPlanner.ts",
+        "structural::src/core/channel-setup/ChannelSetupFacetSnapshotLoader.ts",
+        "structural::src/modules/scheduler/scheduler/ChannelScheduler.ts",
+        "structural::src/core/channel-tuning/ChannelTuningCoordinator.ts",
+        "structural::src/modules/ui/channel-setup/ChannelSetupScreen.ts",
+        "structural::src/modules/ui/channel-setup/steps/StrategyStepInteractionController.ts",
+        "structural::src/modules/ui/channel-setup/steps/StrategyStepController.ts",
+        "flat_dirs::src/core/channel-setup"
+      ],
+      "candidate_scoping_files": [
+        "src/modules/scheduler/channel-manager/ChannelManager.ts",
+        "src/modules/scheduler/channel-manager/ContentResolver.ts",
+        "src/core/channel-setup/ChannelSetupPlanner.ts",
+        "src/core/channel-setup/ChannelSetupFacetSnapshotLoader.ts",
+        "src/modules/scheduler/scheduler/ChannelScheduler.ts",
+        "src/modules/ui/channel-setup/ChannelSetupScreen.ts"
+      ],
+      "default_out_of_scope_examples": [
+        "EPG/navigation package seeds",
+        "Plex package seeds",
+        "cross-cutting hygiene ids owned by pkg_cross_cutting_contract_hygiene",
+        "test-only structural rows unless they prove the same scheduler/channel-setup contract drift"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/scheduler/channel-manager/ChannelManager.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/scheduler/channel-manager/ContentResolver.ts --status open --no-budget --top 80",
+        "desloppify show src/core/channel-setup/ChannelSetupPlanner.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/scheduler/scheduler/ChannelScheduler.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/ui/channel-setup/ChannelSetupScreen.ts --status open --no-budget --top 80"
+      ],
+      "likely_first_slice": "Begin with ChannelManager input types, legacy field scrub duplication, and channel-setup planner interfaces; only absorb UI step or tuning files when the same contract seam requires it.",
+      "recommended_execution_order": 3,
+      "checklist_tokens": {
+        "work_item": "P11-W3",
+        "priority_exit": "P11-EXIT"
+      },
+      "execution_status": {
+        "status": "completed",
+        "completed_execution_units": [
+          "P11-W3-EU1"
+        ],
+        "current_or_next_execution_unit": "P11-W4",
+        "evidence": [
+          "P11-W3-EU1 tightened channel-manager create/update contracts in commit 5596f684: production create/update signatures now use explicit writable input types, channel setup pending/build commits consume the typed create surface, and runtime-owned channel fields remain manager-owned.",
+          "P11-W3-EU1 centralized legacy isSequentialVariant cleanup at the channel repository load-normalization boundary; ChannelManager save/load/export and StoredChannelDataCodec encode no longer repeat the legacy scrub while persisted legacy records still load and repersist without the field.",
+          "P11-W3-EU1 made ChannelSetupWorkflowPort unavailable-workflow behavior uniform by routing all port methods through a strict unavailable-workflow contract, with ChannelSetupSessionRuntime owning UI-safe defaults for unavailable setup-record/context reads and facet invalidation.",
+          "Implementation review found no material findings and approved P11-W3-EU1 for closeout; focused channel-manager/channel-setup/app diagnostics tests, npm run typecheck, source audits, and npm run verify passed.",
+          "Closeout reran the five package-local scoping commands for src/modules/scheduler/channel-manager/ChannelManager.ts, src/modules/scheduler/channel-manager/ContentResolver.ts, src/core/channel-setup/ChannelSetupPlanner.ts, src/modules/scheduler/scheduler/ChannelScheduler.ts, and src/modules/ui/channel-setup/ChannelSetupScreen.ts; all reported no open issues matching those files.",
+          "Exact review-id desloppify checks still reported the three P11-W3 seed ids as open, but reviewed current-source proof shows detector lag/stale wording against the completed package-owned rationale."
+        ],
+        "last_touched": "2026-04-23"
+      }
+    },
+    {
+      "package_id": "pkg_epg_navigation_runtime_cleanup",
+      "package_name": "EPG, Navigation, And UI Runtime Cleanup",
+      "purpose": "Reduce navigation/EPG runtime complexity, fix stale route/state contract drift, and replace the most fragile EPG/server-select async coordination seams with clearer ownership and completion boundaries.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::contract_coherence::stale_server_select_params_contract",
+        "review::.::holistic::convention_outlier::epg_acronym_casing_drift",
+        "review::.::holistic::design_coherence::navigation_keypress_mode_pile",
+        "review::.::holistic::low_level_elegance::navigation_keypress_monolith",
+        "review::.::holistic::mid_level_elegance::server_selection_not_transactional",
+        "review::.::holistic::naming_quality::opaque_startup_resume_vocabulary",
+        "review::.::holistic::test_strategy::async_flush_guesswork_in_ui_suites"
+      ],
+      "candidate_mechanical_issue_ids": [
+        "structural::src/modules/ui/epg/view/EPGVirtualizer.ts",
+        "structural::src/modules/ui/epg/EPGComponent.ts",
+        "structural::src/modules/ui/epg/view/EPGInfoPanel.ts",
+        "structural::src/modules/ui/epg/runtime/EPGScheduleRefreshRuntime.ts",
+        "structural::src/modules/ui/epg/EPGCoordinator.ts",
+        "structural::src/modules/navigation/NavigationCoordinator.ts",
+        "structural::src/modules/navigation/NavigationManager.ts",
+        "structural::src/modules/navigation/FocusManager.ts",
+        "structural::src/modules/ui/server-select/ServerSelectScreen.ts",
+        "structural::src/modules/ui/profile-select/ProfileSelectScreen.ts",
+        "responsibility_cohesion::src/modules/ui/epg/EPGCoordinatorPolicies.ts::cohesion::src/modules/ui/epg/EPGCoordinatorPolicies.ts"
+      ],
+      "candidate_scoping_files": [
+        "src/modules/ui/epg/view/EPGVirtualizer.ts",
+        "src/modules/ui/epg/EPGComponent.ts",
+        "src/modules/ui/epg/runtime/EPGScheduleRefreshRuntime.ts",
+        "src/modules/navigation/NavigationManager.ts",
+        "src/modules/navigation/FocusManager.ts",
+        "src/modules/ui/server-select/ServerSelectScreen.ts"
+      ],
+      "default_out_of_scope_examples": [
+        "player/recovery package seeds",
+        "Plex package seeds",
+        "cross-cutting contract/doc-hygiene ids owned by pkg_cross_cutting_contract_hygiene",
+        "test-only structural rows unless they prove the same EPG/navigation completion-boundary problem"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/ui/epg/view/EPGVirtualizer.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/ui/epg/EPGComponent.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/ui/epg/runtime/EPGScheduleRefreshRuntime.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/navigation/NavigationManager.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/ui/server-select/ServerSelectScreen.ts --status open --no-budget --top 80"
+      ],
+      "likely_first_slice": "Start with the stale server-select state contract and the EPG/navigation async completion seam before attempting broader EPG runtime decomposition.",
+      "recommended_execution_order": 4,
+      "checklist_tokens": {
+        "work_item": "P11-W4",
+        "priority_exit": "P11-EXIT"
+      },
+      "execution_status": {
+        "status": "completed",
+        "completed_execution_units": [
+          "P11-W4-EU1",
+          "P11-W4-EU2",
+          "P11-W4-EU3"
+        ],
+        "current_or_next_execution_unit": "P11-W5",
+        "evidence": [
+          "P11-W4-EU1 made server-select route params active-route-only, replaced selected-server commit with rollback over discovery runtime state, discovery selected-server storage, and active-user selected-server persistence, renamed selected-server startup-resume APIs, and added explicit async idle seams for server-select, profile-select, EPG background warm, EPG schedule refresh, and EPG info-panel tests.",
+          "P11-W4-EU1 passed focused verification for 11 suites / 395 tests plus npm run typecheck, resolved one implementation-review regression around active-user snapshot timing on discovery failure, and received fresh final implementation approval.",
+          "P11-W4-EU2 split NavigationCoordinator keypress routing into named mode handlers while preserving existing remote/focus/repeat behavior; focused NavigationCoordinator tests passed with 67 tests plus npm run typecheck and review approved the slice.",
+          "P11-W4-EU3 normalized scoped EPG acronym casing to DeferredEPGComponent.ts, buildEPGStartupConfig.ts, and EPGLibraryUtils.ts while preserving package-root public exports and adding no compatibility aliases; focused renamed EPG tests passed with 4 suites / 17 tests plus npm run typecheck and review approved the slice.",
+          "Package closeout passed npm run verify with typecheck, architecture lint, CSS lint, coverage tests, tools tests, contracts, docs verification, and build.",
+          "Exact review-id desloppify checks still reported the seven P11-W4 seed ids as open, but reviewed current-source proof shows detector lag/stale wording against the completed package-owned rationale.",
+          "Closeout reran package-local scoping commands for EPGVirtualizer.ts, EPGComponent.ts, EPGScheduleRefreshRuntime.ts, NavigationManager.ts, and ServerSelectScreen.ts; all reported no open issues matching those files."
+        ],
+        "last_touched": "2026-04-24"
+      }
+    },
+    {
+      "package_id": "pkg_player_recovery_contract_cleanup",
+      "package_name": "Player, Subtitle, And Recovery Contract Cleanup",
+      "purpose": "Align player/subtitle/runtime failure contracts and retire the remaining playback-recovery cohesion hotspot without absorbing unrelated core/test strategy debt.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::contract_coherence::audio_track_error_contract_split",
+        "review::.::holistic::error_consistency::subtitle_failure_modes_collapsed"
+      ],
+      "candidate_mechanical_issue_ids": [
+        "structural::src/modules/player/VideoPlayer.ts",
+        "structural::src/modules/player/SubtitleManager.ts",
+        "structural::src/modules/player/PlaybackRecoveryManager.ts",
+        "responsibility_cohesion::src/modules/player/PlaybackRecoveryManager.ts::cohesion::src/modules/player/PlaybackRecoveryManager.ts"
+      ],
+      "candidate_scoping_files": [
+        "src/modules/player/VideoPlayer.ts",
+        "src/modules/player/SubtitleManager.ts",
+        "src/modules/player/PlaybackRecoveryManager.ts",
+        "src/modules/player/AudioTrackManager.ts"
+      ],
+      "default_out_of_scope_examples": [
+        "orchestrator/channel-tuning sequencing-test review ids",
+        "cross-cutting doc/hygiene ids",
+        "test-only player structural rows unless they prove the same runtime contract split"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/player/VideoPlayer.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/player/SubtitleManager.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/player/PlaybackRecoveryManager.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/player/AudioTrackManager.ts --status open --no-budget --top 80"
+      ],
+      "likely_first_slice": "Start with the audio-track error contract and subtitle failure-mode split, then absorb playback-recovery cohesion only if the same runtime contract cleanup needs it.",
+      "recommended_execution_order": 5,
+      "checklist_tokens": {
+        "work_item": "P11-W5",
+        "priority_exit": "P11-EXIT"
+      },
+      "execution_status": {
+        "status": "completed",
+        "completed_execution_units": [
+          "P11-W5-WAVE1"
+        ],
+        "current_or_next_execution_unit": "P11-W6",
+        "evidence": [
+          "P11-W5-WAVE1 aligned the audio-track error contract in commits 3af1fe3a and 1d20fad2: uninitialized player/video-element preconditions now use INITIALIZATION_FAILED across IVideoPlayer, VideoPlayer, AudioTrackManager, and focused tests, while unknown tracks remain TRACK_NOT_FOUND and delegated playback errors are preserved.",
+          "P11-W5-WAVE1 split subtitle fallback and playback-options probe failure contracts into explicit success, stale, unsupported, transient, and auth outcomes while preserving the non-fatal UX and existing burn-in policy only for permanent unsupported subtitle extraction.",
+          "Implementation review found no blocking findings and approved the wave; the post-review follow-up updated stale probe commentary and added repeated auth-failure probe coverage to prove auth failures are not cached as permanent unsupported.",
+          "Focused verification passed: audio contract tests, subtitle fallback/manager/playback-options tests, playback-options follow-up test run, and npm run typecheck.",
+          "P11-W5-S3 source audit found no need to change PlaybackRecoveryManager, PlaybackStreamDescriptorBuilder, Orchestrator, or PlexStreamResolver because the richer subtitle reasons fit inside existing player-owned callback seams.",
+          "Closeout reran package-local scoping commands for VideoPlayer.ts, SubtitleManager.ts, PlaybackRecoveryManager.ts, and AudioTrackManager.ts. VideoPlayer.ts, SubtitleManager.ts, and PlaybackRecoveryManager.ts reported no open file-matching issues; AudioTrackManager.ts still reported the old console/swallowed-error rows, but reviewed current-source proof shows restoreFailure is captured and included in the thrown PlaybackError, so the remaining detector rows are stale wording.",
+          "Exact review-id desloppify checks still reported the two P11-W5 seed ids as open, but reviewed current-source proof and contract tests retire the package-owned rationale."
+        ],
+        "last_touched": "2026-04-24"
+      }
+    },
+    {
+      "package_id": "pkg_cross_cutting_contract_hygiene",
+      "package_name": "Cross-Cutting Contract And Hygiene Cleanup",
+      "purpose": "Own the explicitly cross-cutting fresh review ids that do not cleanly belong to one architectural package without becoming a default residue sink.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::ai_generated_debt::pass_through_facade_layers",
+        "review::.::holistic::ai_generated_debt::restating_doc_block_noise",
+        "review::.::holistic::incomplete_migration::toast_dual_contract_alive",
+        "review::.::holistic::initialization_coupling::platform_singleton_memoizes_environment",
+        "review::.::holistic::logic_clarity::deferred-save-looks-complete",
+        "review::.::holistic::logic_clarity::sync-auth-redirect-wrapped-async",
+        "review::.::holistic::type_safety::shared_union_types_forked_across_settings"
+      ],
+      "candidate_mechanical_issue_ids": [
+        "structural::src/modules/lifecycle/AppLifecycle.ts",
+        "structural::src/modules/ui/settings/SettingsScreen.ts",
+        "structural::src/modules/ui/auth/AuthScreen.ts",
+        "structural::src/core/app-shell/AppDiagnosticsSurface.ts"
+      ],
+      "candidate_scoping_files": [
+        "src/modules/lifecycle/AppLifecycle.ts",
+        "src/modules/ui/settings/SettingsScreen.ts",
+        "src/modules/ui/auth/AuthScreen.ts",
+        "src/core/app-shell/AppDiagnosticsSurface.ts",
+        "src/core/channel-setup/ChannelSetupWorkflow.ts",
+        "src/modules/settings/DeveloperSettingsStore.ts",
+        "src/modules/settings/AudioSettingsStore.ts",
+        "src/core/app-shell/AppToastPresenter.ts"
+      ],
+      "default_out_of_scope_examples": [
+        "any fresh review id not listed under exact_review_issue_ids",
+        "default test-only structural rows",
+        "default bookkeeping / stale_exclude rows",
+        "Plex/package-specific mechanical hotspots owned by earlier packages"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/lifecycle/AppLifecycle.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/ui/settings/SettingsScreen.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/ui/auth/AuthScreen.ts --status open --no-budget --top 80",
+        "desloppify show src/core/app-shell/AppDiagnosticsSurface.ts --status open --no-budget --top 80",
+        "desloppify show src/core/channel-setup/ChannelSetupWorkflow.ts --status open --no-budget --top 80"
+      ],
+      "likely_first_slice": "Start with a per-id ownership inventory across lifecycle, settings, and toast surfaces; do not absorb extra residue unless it matches one of the exact review ids above.",
+      "recommended_execution_order": 6,
+      "checklist_tokens": {
+        "work_item": "P11-W6",
+        "priority_exit": "P11-EXIT"
+      },
+      "execution_status": {
+        "status": "completed",
+        "completed_execution_units": [
+          "P11-W6-WAVE1",
+          "P11-W6-S4",
+          "P11-W6-S5",
+          "P11-W6-WAVE2"
+        ],
+        "current_or_next_execution_unit": "P11-EXIT completed",
+        "evidence": [
+          "P11-W6-WAVE1 made lifecycle save semantics truthful by resolving/rejecting AppLifecycle.saveState() with the debounced persistence flush, made pending-auth redirect routing synchronous while preserving side-effect order, and canonicalized settings-facing subtitle mode and EPG past-items unions onto shared/store aliases without changing persisted values.",
+          "P11-W6-S4 standardized the touched internal toast callback seams on ToastInput payloads across playback recovery, playback options, mini-guide, and orchestrator coordinator wiring while preserving user-visible toast messages and types.",
+          "P11-W6-S5 moved platform-version memoization into each createWebOsPlatformServices() identity service instance while preserving the default webosPlatformServices singleton export and default injection behavior.",
+          "P11-W6-WAVE2 removed package-local pass-through storage-helper methods from DeveloperSettingsStore and AudioSettingsStore, source-audited ChannelSetupWorkflow and ChannelSetupWorkflowPort as live runtime/public boundary contracts rather than same-package facade residue, and trimmed only redundant comment noise in KeepAliveManager, Plex discovery interfaces, player types, and core/module-status.",
+          "Plan review initially found blocking findings for P11-EXIT readiness, wave accounting, and S3 owner tests; the revised plan passed closure review and a fresh final approval. Implementation reviews found no material findings for WAVE1, S4, S5, or WAVE2.",
+          "Focused verification passed for WAVE1 (6 suites / 81 tests), S4 (5 suites / 95 tests), S5 (5 suites / 100 tests), and WAVE2 (6 suites / 36 tests), plus npm run typecheck. npm run verify passed with typecheck, architecture lint, CSS lint, coverage, tools tests, contracts, docs verification, and build.",
+          "Package-local scoping reruns for AppLifecycle.ts, SettingsScreen.ts, AuthScreen.ts, AppDiagnosticsSurface.ts, and ChannelSetupWorkflow.ts all reported no open file-matching issues. Exact review-id checks still report the seven P11-W6 seed ids as open because the review detector wording stayed stale after scan, but reviewed current-source proof retires the package-owned rationale.",
+          "P11-EXIT completed after confirming the package map assigns all 39 fresh 2026-04-23 review issues exactly once, security has no open issues, the P11-W1 through P11-W6 checklist/package-map records are complete, and desloppify scan --path . reran from branch code-health."
+        ],
+        "last_touched": "2026-04-24"
+      }
+    }
+  ]
+}

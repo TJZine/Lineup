@@ -1,0 +1,323 @@
+{
+  "artifact_role": "authoritative exact membership for P12 subjective-refresh cleanup queue",
+  "artifact_version": 1,
+  "live_backlog_timestamp": "2026-04-24T18:51:04-04:00",
+  "review_run": {
+    "run_summary": ".desloppify/subagents/runs/20260424_185104/run_summary.json",
+    "merged_issues": ".desloppify/subagents/runs/20260424_185104/holistic_issues_merged.json"
+  },
+  "authoritative_scope_rule": "Exact review issue ids in packages[].exact_review_issue_ids are authoritative for P12 membership. Candidate mechanical ids, files, and commands are scoping aids only.",
+  "package_model": "checklist-linked subjective-refresh packages",
+  "stable_package_id_format": "pkg_<domain>_<purpose>",
+  "package_count": 5,
+  "score_snapshot": {
+    "overall": 85.8,
+    "objective": 96.8,
+    "strict": 85.8,
+    "verified": 96.8,
+    "mechanical_pool": 96.8,
+    "subjective_pool": 82.1
+  },
+  "validation": {
+    "expected_review_issue_count": 30,
+    "assigned_review_issue_count": 30,
+    "duplicate_review_issue_ids": [],
+    "unassigned_review_issue_ids": []
+  },
+  "package_closure_requirements": {
+    "pre_implementation_source_proof_matrix": [
+      "exact_review_issue_id",
+      "current_source_evidence_or_stale_proven_proof",
+      "concrete_fixed_when_closure_condition",
+      "out_of_scope_guardrails",
+      "expected_proof_commands_tests_and_rg_audits",
+      "likely_regression_or_new_debt_risks"
+    ],
+    "implementation_review_gate": [
+      "reviewer_must_answer_whether_the_same_complaint_would_still_be_fair",
+      "reviewer_must_check_whether_the_fix_moved_the_problem_to_a_sibling_surface",
+      "reviewer_must_list_new_same_package_issues_before_closeout"
+    ],
+    "post_fix_issue_area_sweep": [
+      "rerun_package_local_desloppify_show_commands",
+      "rerun_exact_imported_issue_id_queries_when_available",
+      "rerun_targeted_rg_audits_for_old_and_replacement_patterns",
+      "inspect_touched_files_for_new_facades_broader_barrels_duplicate_unions_swallowed_errors_untyped_widening_or_call_order_coupling",
+      "record_every_survivor_as_resolved_stale_proven_accepted_residue_deferred_or_split_follow_up_with_one_final_owner"
+    ],
+    "new_issue_capture_rule": [
+      "same_issue_area_new_or_revealed_debt_keeps_current_package_open_until_absorbed_or_replanned",
+      "different_issue_area_new_debt_must_receive_one_later_p12_owner_or_new_checklist_item_before_closeout",
+      "tests_passing_or_imported_wording_disappearing_is_not_sufficient_for_closeout"
+    ],
+    "score_risk_rule": [
+      "flat_or_worse_score_requires_proof_of_each_closure_condition_and_one_owner_for_every_new_or_surviving_issue",
+      "score_drop_without_exact_same_area_ownership_blocks_advancing_to_the_next_package",
+      "closeout_score_communication_must_include_overall_strict_objective_verified_mechanical_dimensions_and_subjective_dimensions"
+    ],
+    "required_score_communication_metrics": [
+      "overall",
+      "strict",
+      "objective",
+      "verified",
+      "File health",
+      "Code quality",
+      "Duplication",
+      "Test health",
+      "Security",
+      "all_subjective_dimensions_surfaced_by_desloppify_status"
+    ]
+  },
+  "packages": [
+    {
+      "package_id": "pkg_runtime_assembly_and_initialization_boundary",
+      "package_name": "Runtime Assembly And Initialization Boundary",
+      "purpose": "Reduce remaining AppOrchestrator/coordinator/priority-one assembly sprawl, clarify startup phase ownership, and narrow runtime public barrels.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::cross_module_architecture::app_orchestrator_runtime_hub",
+        "review::.::holistic::high_level_elegance::orchestrator_assembly_ownership_island",
+        "review::.::holistic::high_level_elegance::root_barrels_widen_public_surface",
+        "review::.::holistic::naming_quality::startup_phase_numbers_hide_resume_intent",
+        "review::.::holistic::abstraction_fitness::orchestrator_bound_helper_indirection",
+        "review::.::holistic::abstraction_fitness::priority_one_repack_forward_chain",
+        "review::.::holistic::mid_level_elegance::priority_one_handoff_spread",
+        "review::.::holistic::ai_generated_debt::pass_through_facade_layers",
+        "review::.::holistic::package_organization::initialization_coordinator_split_from_initialization_package",
+        "review::.::holistic::logic_clarity::unreachable_global_error_fallback"
+      ],
+      "candidate_mechanical_issue_ids": [
+        "structural::src/core/orchestrator/AppOrchestrator.ts",
+        "structural::src/core/orchestrator/OrchestratorCoordinatorBuilders.ts",
+        "smells::src/core/initialization/InitializationStartupPolicy.ts::async_no_await",
+        "smells::src/core/orchestrator/priority-one/PriorityOneControllerCollaborators.ts::nested_closure",
+        "smells::src/core/orchestrator/priority-one/PriorityOneControllerCollaborators.ts::high_cyclomatic_complexity"
+      ],
+      "candidate_scoping_files": [
+        "src/core/orchestrator/AppOrchestrator.ts",
+        "src/core/orchestrator/OrchestratorCoordinatorBuilders.ts",
+        "src/core/orchestrator/OrchestratorCoordinatorAssembly.ts",
+        "src/core/orchestrator/priority-one/PriorityOneAssemblyInput.ts",
+        "src/core/orchestrator/priority-one/PriorityOneControllerCollaborators.ts",
+        "src/core/orchestrator/InitializationCoordinator.ts",
+        "src/core/initialization/InitializationStartupPolicy.ts",
+        "src/Orchestrator.ts",
+        "src/core/index.ts",
+        "src/core/channel-setup/index.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 120",
+        "desloppify show src/core/orchestrator/OrchestratorCoordinatorBuilders.ts --status open --no-budget --top 120",
+        "desloppify show src/core/orchestrator/priority-one --status open --no-budget --top 120",
+        "desloppify show src/core/orchestrator/InitializationCoordinator.ts --status open --no-budget --top 80",
+        "desloppify show src/Orchestrator.ts --status open --no-budget --top 80",
+        "desloppify show src/core/index.ts --status open --no-budget --top 80"
+      ],
+      "likely_first_slice": "Inventory AppOrchestrator, coordinator builders, and priority-one handoff seams; collapse one shaping boundary before moving initialization files or trimming barrels.",
+      "recommended_execution_order": 1,
+      "checklist_tokens": {
+        "work_item": "P12-W1",
+        "priority_exit": "P12-EXIT"
+      },
+      "execution_status": {
+        "status": "not_started",
+        "completed_execution_units": [],
+        "current_or_next_execution_unit": "P12-W1",
+        "evidence": []
+      }
+    },
+    {
+      "package_id": "pkg_plex_api_error_and_url_contracts",
+      "package_name": "Plex API, Error, And URL Contracts",
+      "purpose": "Align Plex cancellation, error semantics, URL absence, auth-header typing, and URL/count policy ownership.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::error_consistency::discovery_wraps_without_cause",
+        "review::.::holistic::api_surface_coherence::plex_library_search_options_lack_signal",
+        "review::.::holistic::authorization_consistency::plex_403_semantics_still_split",
+        "review::.::holistic::contract_coherence::plex_image_url_empty_string_contract",
+        "review::.::holistic::design_coherence::plex_stream_resolver_url_policy_cluster",
+        "review::.::holistic::design_coherence::plex_library_count_fetching_inside_listing",
+        "review::.::holistic::type_safety::plex_auth_headers_widened_to_unknown"
+      ],
+      "candidate_mechanical_issue_ids": [
+        "structural::src/modules/plex/library/PlexLibrary.ts",
+        "structural::src/modules/plex/stream/PlexStreamResolver.ts",
+        "smells::src/modules/plex/discovery/discoveryProbe.ts::async_no_await"
+      ],
+      "candidate_scoping_files": [
+        "src/modules/plex/library/PlexLibrary.ts",
+        "src/modules/plex/library/interfaces.ts",
+        "src/modules/plex/library/types.ts",
+        "src/modules/plex/discovery/PlexServerDiscovery.ts",
+        "src/modules/plex/auth/plexAuthTransport.ts",
+        "src/modules/plex/stream/PlexStreamResolver.ts",
+        "src/modules/plex/shared/plexUrl.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/plex/library/PlexLibrary.ts --status open --no-budget --top 120",
+        "desloppify show src/modules/plex/library/interfaces.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/plex/discovery/PlexServerDiscovery.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/plex/auth/plexAuthTransport.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/plex/stream/PlexStreamResolver.ts --status open --no-budget --top 120",
+        "desloppify show src/modules/plex/shared/plexUrl.ts --status open --no-budget --top 80"
+      ],
+      "likely_first_slice": "Start with single-edit API contracts before attempting stream URL policy or library count-enrichment decomposition.",
+      "recommended_execution_order": 2,
+      "checklist_tokens": {
+        "work_item": "P12-W2",
+        "priority_exit": "P12-EXIT"
+      },
+      "execution_status": {
+        "status": "not_started",
+        "completed_execution_units": [],
+        "current_or_next_execution_unit": "P12-W2",
+        "evidence": []
+      }
+    },
+    {
+      "package_id": "pkg_channel_setup_scheduler_strategy_and_errors",
+      "package_name": "Channel Setup Strategy And Scheduler Errors",
+      "purpose": "Tighten channel setup package organization, planner/facet loader decomposition, workflow honesty, and scheduler typed public failures.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::error_consistency::channel_manager_bare_errors_bypass_channel_error",
+        "review::.::holistic::abstraction_fitness::channel_setup_workflow_facade",
+        "review::.::holistic::package_organization::channel_setup_flat_mixed_package",
+        "review::.::holistic::design_coherence::channel_setup_planner_strategy_pipeline",
+        "review::.::holistic::design_coherence::facet_snapshot_loader_mixed_control_flow"
+      ],
+      "candidate_mechanical_issue_ids": [
+        "structural::src/core/channel-setup/ChannelSetupPlanner.ts",
+        "structural::src/core/channel-setup/ChannelSetupFacetSnapshotLoader.ts",
+        "flat_dirs::src/core/channel-setup",
+        "test_coverage::src/core/channel-setup/formatChannelSetupWarning.ts::transitive_only"
+      ],
+      "candidate_scoping_files": [
+        "src/core/channel-setup/ChannelSetupWorkflow.ts",
+        "src/core/channel-setup/ChannelSetupPlanner.ts",
+        "src/core/channel-setup/ChannelSetupFacetSnapshotLoader.ts",
+        "src/core/channel-setup/ChannelSetupPlanningService.ts",
+        "src/core/channel-setup/ChannelSetupBuildExecutor.ts",
+        "src/core/channel-setup/ChannelSetupRecordStore.ts",
+        "src/modules/scheduler/channel-manager/ChannelManager.ts",
+        "src/modules/scheduler/channel-manager/interfaces.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/core/channel-setup/ChannelSetupWorkflow.ts --status open --no-budget --top 80",
+        "desloppify show src/core/channel-setup/ChannelSetupPlanner.ts --status open --no-budget --top 120",
+        "desloppify show src/core/channel-setup/ChannelSetupFacetSnapshotLoader.ts --status open --no-budget --top 120",
+        "desloppify show src/core/channel-setup --status open --no-budget --top 160",
+        "desloppify show src/modules/scheduler/channel-manager/ChannelManager.ts --status open --no-budget --top 100",
+        "desloppify show src/modules/scheduler/channel-manager/interfaces.ts --status open --no-budget --top 80"
+      ],
+      "likely_first_slice": "Normalize ChannelManager public failure typing if live, then choose a package split, planner strategy, or facet-load-session execution unit.",
+      "recommended_execution_order": 3,
+      "checklist_tokens": {
+        "work_item": "P12-W3",
+        "priority_exit": "P12-EXIT"
+      },
+      "execution_status": {
+        "status": "not_started",
+        "completed_execution_units": [],
+        "current_or_next_execution_unit": "P12-W3",
+        "evidence": []
+      }
+    },
+    {
+      "package_id": "pkg_ui_epg_navigation_package_coherence",
+      "package_name": "UI, EPG, And Navigation Package Coherence",
+      "purpose": "Decouple UI packages from core coordination contracts, finish EPG package splits, and reduce mixed EPG/navigation responsibilities where current source proves the seam.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::cross_module_architecture::ui_packages_import_core_runtime_contracts",
+        "review::.::holistic::package_organization::epg_root_mixes_component_runtime_and_startup",
+        "review::.::holistic::design_coherence::navigation_coordinator_multi_axis_router",
+        "review::.::holistic::design_coherence::epg_virtualizer_rendering_and_text_layout_cluster",
+        "review::.::holistic::type_safety::epg_error_type_duplicates_app_error_code"
+      ],
+      "candidate_mechanical_issue_ids": [
+        "structural::src/modules/navigation/NavigationCoordinator.ts",
+        "structural::src/modules/ui/epg/view/EPGVirtualizer.ts",
+        "flat_dirs::src/modules/ui/epg",
+        "smells::src/modules/ui/epg/styles.cells.css::css_monolith",
+        "smells::src/modules/ui/epg/styles.grid.css::css_monolith"
+      ],
+      "candidate_scoping_files": [
+        "src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts",
+        "src/modules/ui/channel-setup/ChannelSetupSessionContracts.ts",
+        "src/modules/ui/channel-setup/ChannelSetupScreen.ts",
+        "src/modules/ui/epg/EPGCoordinator.ts",
+        "src/modules/ui/epg/EPGRefreshController.ts",
+        "src/modules/ui/epg/EPGComponent.ts",
+        "src/modules/ui/epg/EPGStartupConfigRuntime.ts",
+        "src/modules/ui/epg/view/EPGVirtualizer.ts",
+        "src/modules/navigation/NavigationCoordinator.ts",
+        "src/modules/ui/epg/types.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/ui/channel-setup --status open --no-budget --top 120",
+        "desloppify show src/modules/ui/epg --status open --no-budget --top 160",
+        "desloppify show src/modules/ui/epg/view/EPGVirtualizer.ts --status open --no-budget --top 120",
+        "desloppify show src/modules/navigation/NavigationCoordinator.ts --status open --no-budget --top 120",
+        "desloppify show src/modules/ui/epg/types.ts --status open --no-budget --top 80"
+      ],
+      "likely_first_slice": "Pick either EPG package/error typing or navigation/virtualizer decomposition first; do not merge both unless plan review proves one verification envelope.",
+      "recommended_execution_order": 4,
+      "checklist_tokens": {
+        "work_item": "P12-W4",
+        "priority_exit": "P12-EXIT"
+      },
+      "execution_status": {
+        "status": "not_started",
+        "completed_execution_units": [],
+        "current_or_next_execution_unit": "P12-W4",
+        "evidence": []
+      }
+    },
+    {
+      "package_id": "pkg_focused_test_and_comment_hygiene",
+      "package_name": "Focused Test And Comment Hygiene",
+      "purpose": "Retire remaining high-value test coupling and restating player/scheduler comments without creating a miscellaneous residue sink.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::test_strategy::core_call_order_coupling",
+        "review::.::holistic::test_strategy::lifecycle_async_flush_coupling",
+        "review::.::holistic::ai_generated_debt::restating_doc_block_noise"
+      ],
+      "candidate_mechanical_issue_ids": [
+        "logs::src/modules/lifecycle/AppLifecycle.ts::AppLifecycle",
+        "smells::src/modules/lifecycle/AppLifecycle.ts::swallowed_error",
+        "smells::src/modules/player/AudioTrackManager.ts::console_error_no_throw",
+        "smells::src/modules/player/AudioTrackManager.ts::swallowed_error"
+      ],
+      "candidate_scoping_files": [
+        "src/core/channel-tuning/__tests__/ChannelTuningCoordinator.test.ts",
+        "src/modules/lifecycle/AppLifecycle.ts",
+        "src/modules/lifecycle/__tests__/AppLifecycle.test.ts",
+        "src/modules/player/RetryManager.ts",
+        "src/modules/player/SubtitleManager.ts",
+        "src/modules/player/VideoPlayer.ts",
+        "src/modules/player/types.ts",
+        "src/modules/scheduler/scheduler/interfaces.ts",
+        "src/modules/scheduler/scheduler/types.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/core/channel-tuning/__tests__/ChannelTuningCoordinator.test.ts --status open --no-budget --top 100",
+        "desloppify show src/modules/lifecycle/AppLifecycle.ts --status open --no-budget --top 100",
+        "desloppify show src/modules/lifecycle/__tests__/AppLifecycle.test.ts --status open --no-budget --top 100",
+        "desloppify show src/modules/player/RetryManager.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/player/SubtitleManager.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/player/VideoPlayer.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/scheduler/scheduler --status open --no-budget --top 100"
+      ],
+      "likely_first_slice": "Handle lifecycle awaitability only if it improves a production seam; keep comment hygiene as a separate low-risk slice.",
+      "recommended_execution_order": 5,
+      "checklist_tokens": {
+        "work_item": "P12-W5",
+        "priority_exit": "P12-EXIT"
+      },
+      "execution_status": {
+        "status": "not_started",
+        "completed_execution_units": [],
+        "current_or_next_execution_unit": "P12-W5",
+        "evidence": []
+      }
+    }
+  ]
+}

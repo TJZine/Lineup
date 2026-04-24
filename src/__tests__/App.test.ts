@@ -8,10 +8,10 @@ import { createAppOrchestratorConfig } from '../core/app-shell/AppOrchestratorCo
 import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../core/app-shell/constants';
 import { AppThemeController } from '../core/app-shell/AppThemeController';
 import type { ChannelSetupConfig } from '../core/channel-setup/types';
-import { AppOrchestrator, type PlaybackInfoSnapshot } from '../core/orchestrator/AppOrchestrator';
+import { AppOrchestrator, type PlaybackInfoSnapshot } from '../Orchestrator';
 import { PLEX_AUTH_CONSTANTS } from '../modules/plex/auth';
 import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
-import { webosPlatformServices } from '../platform';
+import { createWebOsPlatformServices } from '../platform';
 
 import { flushPromises, setDevBuildForTest } from './helpers';
 import {
@@ -186,6 +186,7 @@ describe('App bootstrap smoke', () => {
     let isReadySpy: jest.SpyInstance;
     let nowPlayingHandler: ((toast: unknown) => void) | null = null;
     const lifecycleHandlers = new Map<string, (payload: unknown) => void>();
+    const lifecycleDisposables = new Map<string, jest.Mock>();
     let screenChangeHandler: ((from: string, to: string) => void) | null = null;
     let appShellErrorHandler: ((error: { code: string; message: string; recoverable: boolean }) => boolean) | null = null;
 
@@ -216,6 +217,7 @@ describe('App bootstrap smoke', () => {
         appShellErrorHandler = null;
         nowPlayingHandler = null;
         lifecycleHandlers.clear();
+        lifecycleDisposables.clear();
         screenChangeHandler = null;
 
         jest.spyOn(AppOrchestrator.prototype, 'getCurrentScreen').mockReturnValue(null);
@@ -258,7 +260,9 @@ describe('App bootstrap smoke', () => {
         });
         jest.spyOn(AppOrchestrator.prototype, 'onLifecycleEvent').mockImplementation((event, handler) => {
             lifecycleHandlers.set(String(event), handler as never);
-            return { dispose: jest.fn() } as never;
+            const dispose = jest.fn();
+            lifecycleDisposables.set(String(event), dispose);
+            return { dispose } as never;
         });
     };
 
@@ -286,12 +290,17 @@ describe('App bootstrap smoke', () => {
         jest.restoreAllMocks();
         document.body.innerHTML = '';
         localStorage.clear();
+        delete (window as Window & typeof globalThis & {
+            webOSTV?: { platform?: { version?: string } };
+        }).webOSTV;
         restoreDevBuild?.();
         restoreDevBuild = null;
     });
 
     it('creates root containers and starts orchestrator', async () => {
-        jest.spyOn(webosPlatformServices.identity, 'detectPlatformVersion').mockReturnValue('24.0');
+        (window as Window & typeof globalThis & {
+            webOSTV?: { platform?: { version?: string } };
+        }).webOSTV = { platform: { version: '24.0' } };
 
         await bootstrapApp();
 
@@ -329,16 +338,16 @@ describe('App bootstrap smoke', () => {
     });
 
     it('defers the first platform version probe until plex auth config consumers read it', () => {
-        let bridgeReady = false;
-        const detectPlatformVersionSpy = jest
-            .spyOn(webosPlatformServices.identity, 'detectPlatformVersion')
-            .mockImplementation(() => (bridgeReady ? '24.0' : '6.0'));
+        const platformServices = createWebOsPlatformServices();
+        const detectPlatformVersionSpy = jest.spyOn(platformServices.identity, 'detectPlatformVersion');
 
-        const config = createAppOrchestratorConfig();
+        const config = createAppOrchestratorConfig(platformServices);
 
         expect(detectPlatformVersionSpy).not.toHaveBeenCalled();
 
-        bridgeReady = true;
+        (window as Window & typeof globalThis & {
+            webOSTV?: { platform?: { version?: string } };
+        }).webOSTV = { platform: { version: '24.0' } };
 
         expect(config.plexConfig.platformVersion).toBe('24.0');
         expect(detectPlatformVersionSpy).toHaveBeenCalledTimes(1);
@@ -715,6 +724,20 @@ describe('App bootstrap smoke', () => {
         jest.setSystemTime(14_000);
         persistenceWarning?.({});
         expect(toastEl?.textContent ?? '').toContain('Some settings could not be saved.');
+    });
+
+    it('disposes lifecycle warning subscriptions before shutdown tears down presenters', async () => {
+        const startedApp = await bootstrapApp();
+
+        await startedApp.shutdown();
+        app = null;
+
+        const persistenceWarningDispose = lifecycleDisposables.get('persistenceWarning');
+        const networkWarningDispose = lifecycleDisposables.get('networkWarning');
+        expect(persistenceWarningDispose).toBeDefined();
+        expect(networkWarningDispose).toBeDefined();
+        expect(persistenceWarningDispose).toHaveBeenCalledTimes(1);
+        expect(networkWarningDispose).toHaveBeenCalledTimes(1);
     });
 
     it('clears delegated toast timers during shutdown', async () => {

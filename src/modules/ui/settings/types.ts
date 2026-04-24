@@ -7,8 +7,10 @@
 import type {
     EpgGuideDensity,
     EpgLayoutMode,
+    EpgPastItemsWindow,
 } from '../../settings/EpgPreferencesStore';
 import type { ThemeName } from '../theme';
+import type { SubtitleMode } from '../../../shared/subtitle-mode';
 
 /**
  * Audio settings configuration.
@@ -71,7 +73,7 @@ interface SubtitleSettings {
      * - standard: allow server extraction for text subtitles (recommended)
      * - full: allow burn-in (image/styled) subtitles via transcoding
      */
-    mode: 'off' | 'direct' | 'standard' | 'full';
+    mode: SubtitleMode;
     /** Preferred subtitle language code (app override) */
     language: string | null;
     /** Prefer forced subtitles over full subtitles when auto-selecting */
@@ -152,13 +154,11 @@ export type SettingsItemConfig = SettingsToggleConfig | SettingsSelectConfig;
 
 export type SettingsCategoryId = 'audio_subtitles' | 'playback_hdr' | 'appearance' | 'account' | 'developer';
 
-export type EpgPastItemsWindowSetting = 'auto' | '0' | '15' | '30';
-
 export type GuideSettingChange =
     | { key: 'categoryColors' | 'libraryTabs' | 'nowWatchingBanner' | 'aggressivePreload'; enabled: boolean }
     | { key: 'layoutMode'; mode: EpgLayoutMode }
     | { key: 'guideDensity'; density: EpgGuideDensity }
-    | { key: 'pastItemsWindow'; value: EpgPastItemsWindowSetting }
+    | { key: 'pastItemsWindow'; value: EpgPastItemsWindow }
     | { key: 'infoBackgroundMode'; mode: 0 | 1 | 2 };
 
 /**

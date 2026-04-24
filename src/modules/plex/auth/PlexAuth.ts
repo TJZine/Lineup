@@ -143,7 +143,7 @@ export class PlexAuth implements IPlexAuth {
 
         if (pin.authToken !== null) {
             const userToken = await this._fetchUserProfile(pin.authToken);
-            await this.storeCredentials({
+            this.storeCredentials({
                 accountToken: userToken,
                 activeToken: userToken,
                 activeUserId: userToken.userId,
@@ -327,7 +327,7 @@ export class PlexAuth implements IPlexAuth {
      * Get stored credentials from localStorage.
      * @returns Explicit stored-read classification
      */
-    public async readStoredCredentialsAndClearCorruption(): Promise<PlexStoredCredentialsReadResult> {
+    public readStoredCredentialsAndClearCorruption(): PlexStoredCredentialsReadResult {
         return this._readStoredCredentials();
     }
 
@@ -335,7 +335,7 @@ export class PlexAuth implements IPlexAuth {
      * Store credentials to localStorage.
      * @param auth - Auth data to store
      */
-    public async storeCredentials(auth: PlexAuthData): Promise<void> {
+    public storeCredentials(auth: PlexAuthData): void {
         const stored: StoredAuthData = {
             version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
             data: auth,
@@ -353,7 +353,7 @@ export class PlexAuth implements IPlexAuth {
     /**
      * Clear credentials from localStorage.
      */
-    public async clearCredentials(): Promise<void> {
+    public clearCredentials(): void {
         this._credentialsEpoch += 1;
         if (!safeLocalStorageRemove(PLEX_AUTH_CONSTANTS.STORAGE_KEY)) {
             // localStorage can be blocked/unavailable; clearing in-memory state is still sufficient.
@@ -692,7 +692,7 @@ export class PlexAuth implements IPlexAuth {
         this._state.activeUserId = scopedUserId;
         this._state.isValidated = true;
 
-        const stored = await this.readStoredCredentialsAndClearCorruption();
+        const stored = this.readStoredCredentialsAndClearCorruption();
         const persisted = stored.kind === 'available' ? stored.credentials : null;
         const selectedServerByUserId = {
             ...(persisted?.selectedServerByUserId ?? {}),
@@ -701,7 +701,7 @@ export class PlexAuth implements IPlexAuth {
             selectedServerByUserId[scopedUserId] = { serverId: null, serverUri: null };
         }
 
-        await this.storeCredentials({
+        this.storeCredentials({
             accountToken: accountToken,
             activeToken: userToken,
             activeUserId: scopedUserId,
@@ -728,7 +728,7 @@ export class PlexAuth implements IPlexAuth {
         }
         const fromUserId = this._state.activeUserId ?? this._state.activeToken?.userId ?? null;
         const toUserId = this._state.accountToken.userId;
-        const stored = await this.readStoredCredentialsAndClearCorruption();
+        const stored = this.readStoredCredentialsAndClearCorruption();
         const persisted = stored.kind === 'available' ? stored.credentials : null;
         const selectedServerByUserId = {
             ...(persisted?.selectedServerByUserId ?? {}),
@@ -736,7 +736,7 @@ export class PlexAuth implements IPlexAuth {
         if (!selectedServerByUserId[toUserId]) {
             selectedServerByUserId[toUserId] = { serverId: null, serverUri: null };
         }
-        await this.storeCredentials({
+        this.storeCredentials({
             accountToken: this._state.accountToken,
             activeToken: this._state.accountToken,
             activeUserId: toUserId,

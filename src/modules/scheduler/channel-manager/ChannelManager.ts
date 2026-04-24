@@ -9,7 +9,12 @@ import { getAppErrorCode } from '../../../types/app-errors';
 import { ContentResolver } from './ContentResolver';
 import { ChannelRepository } from './ChannelRepository';
 import { isValidContentSource } from './ChannelContentSourceValidator';
-import { stripLegacySequentialVariant } from './stripLegacySequentialVariant';
+import {
+    isValidBuildStrategy,
+    isValidContentFilterArray,
+    isValidPlaybackMode,
+    isValidSortOrder,
+} from './ChannelValueValidators';
 import { AppErrorCode } from '../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../lifecycle/constants';
 import { TIMING_CONFIG } from '../../../config/timing';
@@ -18,12 +23,14 @@ import type { IDisposable } from '../../../utils/interfaces';
 import type {
     ChannelConfig,
     ChannelContentSource,
+    ChannelCreateInput,
     ResolvedChannelContent,
     ResolvedContentItem,
     ImportResult,
     ChannelManagerEventMap,
     ChannelManagerState,
     StoredChannelData,
+    ChannelUpdateInput,
 } from './types';
 import {
     STORAGE_KEY,
@@ -65,6 +72,17 @@ const NETWORK_ERROR_CODES: Set<AppErrorCode> = new Set([
     AppErrorCode.NETWORK_UNAVAILABLE,
 ]);
 
+const RESOLUTION_AFFECTING_UPDATE_FIELDS: readonly (keyof ChannelUpdateInput)[] = [
+    'contentSource',
+    'contentFilters',
+    'sortOrder',
+    'playbackMode',
+    'blockSize',
+    'minEpisodeRunTimeMs',
+    'maxEpisodeRunTimeMs',
+    'shuffleSeed',
+];
+
 /**
  * Extract AppErrorCode from any error type that has a code property.
  * Works with ChannelError, PlexLibraryError, PlexApiError, etc.
@@ -90,6 +108,12 @@ function isNetworkError(error: unknown): boolean {
         error.message.toLowerCase().includes('timeout') ||
         error.message.toLowerCase().includes('econnrefused') ||
         error.message.toLowerCase().includes('failed to fetch')
+    );
+}
+
+function affectsResolvedContent(updates: ChannelUpdateInput): boolean {
+    return RESOLUTION_AFFECTING_UPDATE_FIELDS.some((field) =>
+        Object.prototype.hasOwnProperty.call(updates, field)
     );
 }
 
@@ -218,7 +242,11 @@ export class ChannelManager implements IChannelManager {
             return normalized;
         })();
 
-        this._channelRepository = new ChannelRepository(initialStorageKey, initialCurrentChannelKey);
+        this._channelRepository = new ChannelRepository(
+            initialStorageKey,
+            initialCurrentChannelKey,
+            this._logger
+        );
         this._contentResolver = new ContentResolver(this._library, this._logger);
 
         this._state = {
@@ -374,7 +402,7 @@ export class ChannelManager implements IChannelManager {
      * @returns Promise resolving to complete channel config
      */
     async createChannel(
-        config: Partial<ChannelConfig>,
+        config: ChannelCreateInput,
         options?: { signal?: AbortSignal | null; initialContent?: ResolvedContentItem[] | undefined }
     ): Promise<ChannelConfig> {
         // Validate content source
@@ -502,7 +530,7 @@ export class ChannelManager implements IChannelManager {
      * @param updates - Partial updates to apply
      * @returns Promise resolving to updated channel config
      */
-    async updateChannel(id: string, updates: Partial<ChannelConfig>): Promise<ChannelConfig> {
+    async updateChannel(id: string, updates: ChannelUpdateInput): Promise<ChannelConfig> {
         const channel = this._state.channels.get(id);
         if (!channel) {
             throw new Error(CHANNEL_ERROR_MESSAGES.CHANNEL_NOT_FOUND);
@@ -520,15 +548,17 @@ export class ChannelManager implements IChannelManager {
         const updated: ChannelConfig = {
             ...channel,
             ...updates,
-            id: channel.id, // Prevent ID change
-            createdAt: channel.createdAt, // Prevent createdAt change
+            id: channel.id,
+            createdAt: channel.createdAt,
             updatedAt: Date.now(),
+            lastContentRefresh: channel.lastContentRefresh,
+            itemCount: channel.itemCount,
+            totalDurationMs: channel.totalDurationMs,
         };
 
         this._state.channels.set(id, updated);
 
-        // Re-resolve content if source changed
-        if (updates.contentSource) {
+        if (affectsResolvedContent(updates)) {
             this._state.resolvedContent.delete(id);
             try {
                 const content = await this._resolveContentInternal(updated);
@@ -591,8 +621,7 @@ export class ChannelManager implements IChannelManager {
     getAllChannels(): ChannelConfig[] {
         return this._state.channelOrder
             .map((id) => this._state.channels.get(id))
-            .filter((ch): ch is ChannelConfig => ch !== undefined)
-            .map((channel) => stripLegacySequentialVariant(channel).channel);
+            .filter((ch): ch is ChannelConfig => ch !== undefined);
     }
 
     /**
@@ -823,11 +852,8 @@ export class ChannelManager implements IChannelManager {
             }
 
             try {
-                // Generate new ID for imported channel
-                const channelData = item as Partial<ChannelConfig>;
-                delete (channelData as Record<string, unknown>)['id'];
+                const channelData = this._buildImportedChannelCreateInput(item);
 
-                // Find available number if number conflicts
                 if (
                     typeof channelData.number === 'number' &&
                     this._isChannelNumberInUse(channelData.number)
@@ -1082,17 +1108,8 @@ export class ChannelManager implements IChannelManager {
     }
 
     private _performSaveSync(): void {
-        const sanitizedChannels: ChannelConfig[] = [];
-        for (const [id, channel] of this._state.channels.entries()) {
-            const sanitized = stripLegacySequentialVariant(channel);
-            if (sanitized.didMutate) {
-                this._state.channels.set(id, sanitized.channel);
-            }
-            sanitizedChannels.push(sanitized.channel);
-        }
-
         const data: StoredChannelData = {
-            channels: sanitizedChannels,
+            channels: Array.from(this._state.channels.values()),
             channelOrder: this._state.channelOrder,
             currentChannelId: this._state.currentChannelId,
             savedAt: Date.now(),
@@ -1123,23 +1140,18 @@ export class ChannelManager implements IChannelManager {
             }
 
             const { data, didMutate: didMutateFromNormalization } = normalized;
-            let didMutateFromRuntimeCleanup = false;
 
             // Restore state
             this._state.channels.clear();
             for (const channel of data.channels) {
-                const sanitized = stripLegacySequentialVariant(channel);
-                if (sanitized.didMutate) {
-                    didMutateFromRuntimeCleanup = true;
-                }
-                this._state.channels.set(sanitized.channel.id, sanitized.channel);
+                this._state.channels.set(channel.id, channel);
             }
 
             this._state.channelOrder = data.channelOrder;
             this._state.currentChannelId = data.currentChannelId;
 
             // Persist normalized/migrated channel records once.
-            if (didMutateFromNormalization || didMutateFromRuntimeCleanup) {
+            if (didMutateFromNormalization) {
                 this._queueSave();
             }
         } catch (e) {
@@ -1383,7 +1395,11 @@ export class ChannelManager implements IChannelManager {
     }
 
     private _validateChannelNumber(number: number): void {
-        if (number < MIN_CHANNEL_NUMBER || number > MAX_CHANNEL_NUMBER) {
+        if (
+            !Number.isInteger(number) ||
+            number < MIN_CHANNEL_NUMBER ||
+            number > MAX_CHANNEL_NUMBER
+        ) {
             throw new Error(CHANNEL_ERROR_MESSAGES.INVALID_CHANNEL_NUMBER);
         }
     }
@@ -1432,6 +1448,103 @@ export class ChannelManager implements IChannelManager {
         const obj = item as Record<string, unknown>;
 
         return isValidContentSource(obj['contentSource']);
+    }
+
+    private _buildImportedChannelCreateInput(item: unknown): ChannelCreateInput {
+        const record = item as Record<string, unknown>;
+        const contentSource = record['contentSource'];
+        if (!isValidContentSource(contentSource)) {
+            throw new Error(CHANNEL_ERROR_MESSAGES.INVALID_IMPORT_DATA);
+        }
+
+        const channel: ChannelCreateInput = {
+            contentSource,
+        };
+
+        if (
+            typeof record['number'] === 'number' &&
+            Number.isInteger(record['number'])
+        ) {
+            channel.number = record['number'];
+        }
+        if (typeof record['name'] === 'string') {
+            channel.name = record['name'];
+        }
+        if (typeof record['description'] === 'string') {
+            channel.description = record['description'];
+        }
+        if (typeof record['isAutoGenerated'] === 'boolean') {
+            channel.isAutoGenerated = record['isAutoGenerated'];
+        }
+        if (typeof record['icon'] === 'string') {
+            channel.icon = record['icon'];
+        }
+        if (typeof record['color'] === 'string') {
+            channel.color = record['color'];
+        }
+        if (isValidBuildStrategy(record['buildStrategy'])) {
+            channel.buildStrategy = record['buildStrategy'];
+        }
+        if (typeof record['sourceLibraryId'] === 'string') {
+            channel.sourceLibraryId = record['sourceLibraryId'];
+        }
+        if (typeof record['sourceLibraryName'] === 'string') {
+            channel.sourceLibraryName = record['sourceLibraryName'];
+        }
+        if (typeof record['lineupReplicaIndex'] === 'number' && Number.isFinite(record['lineupReplicaIndex'])) {
+            channel.lineupReplicaIndex = record['lineupReplicaIndex'];
+        }
+        if (typeof record['isPlaybackModeVariant'] === 'boolean') {
+            channel.isPlaybackModeVariant = record['isPlaybackModeVariant'];
+        }
+        const playbackMode = isValidPlaybackMode(record['playbackMode'])
+            ? record['playbackMode']
+            : undefined;
+        if (playbackMode !== undefined) {
+            channel.playbackMode = playbackMode;
+        }
+        if (typeof record['shuffleSeed'] === 'number' && Number.isFinite(record['shuffleSeed'])) {
+            channel.shuffleSeed = record['shuffleSeed'];
+        }
+        if (
+            playbackMode === 'block'
+            && typeof record['blockSize'] === 'number'
+            && Number.isFinite(record['blockSize'])
+        ) {
+            channel.blockSize = record['blockSize'];
+        }
+        if (typeof record['phaseSeed'] === 'number' && Number.isFinite(record['phaseSeed'])) {
+            channel.phaseSeed = record['phaseSeed'];
+        }
+        if (typeof record['startTimeAnchor'] === 'number' && Number.isFinite(record['startTimeAnchor'])) {
+            channel.startTimeAnchor = record['startTimeAnchor'];
+        }
+        if (isValidContentFilterArray(record['contentFilters'])) {
+            channel.contentFilters = record['contentFilters'];
+        }
+        if (isValidSortOrder(record['sortOrder'])) {
+            channel.sortOrder = record['sortOrder'];
+        }
+        if (typeof record['skipIntros'] === 'boolean') {
+            channel.skipIntros = record['skipIntros'];
+        }
+        if (typeof record['skipCredits'] === 'boolean') {
+            channel.skipCredits = record['skipCredits'];
+        }
+        if (
+            typeof record['maxEpisodeRunTimeMs'] === 'number'
+            && Number.isFinite(record['maxEpisodeRunTimeMs'])
+        ) {
+            channel.maxEpisodeRunTimeMs = record['maxEpisodeRunTimeMs'];
+        }
+        if (
+            typeof record['minEpisodeRunTimeMs'] === 'number'
+            && Number.isFinite(record['minEpisodeRunTimeMs'])
+        ) {
+            channel.minEpisodeRunTimeMs = record['minEpisodeRunTimeMs'];
+        }
+
+        return channel;
     }
 
     /**

@@ -32,9 +32,9 @@ interface IPlexAuth {
   getActiveUserId(): string | null;
   getAccountUserId(): string | null;
   logoutActiveUser(): Promise<void>;
-  readStoredCredentialsAndClearCorruption(): Promise<PlexStoredCredentialsReadResult>;
-  storeCredentials(auth: PlexAuthData): Promise<void>;
-  clearCredentials(): Promise<void>;
+  readStoredCredentialsAndClearCorruption(): PlexStoredCredentialsReadResult;
+  storeCredentials(auth: PlexAuthData): void;
+  clearCredentials(): void;
   isAuthenticated(): boolean;
   getCurrentUser(): PlexAuthToken | null;
   getAuthHeaders(): Record<string, string>;
@@ -43,10 +43,11 @@ interface IPlexAuth {
 }
 ```
 
-Stored-credentials reads distinguish `missing`, `available`, and `corrupted`. Corrupted payloads are cleared by `PlexAuth` and surfaced distinctly from first-run missing state.
+Stored-credentials reads distinguish `missing`, `available`, and `corrupted`. Corrupted payloads are cleared by `PlexAuth` and surfaced distinctly from first-run missing state. The stored-credential read/write/clear methods are synchronous local storage and in-memory state operations; they do not imply an async persistence backend.
 
 `PlexAuthConfig.clientIdentifier` is resolved once at config assembly (`createDefaultPlexAuthConfig`) and treated as already-resolved input by `PlexAuth`.
 `validateToken()` returns `false` only for explicit auth-invalid (`401`/`403`) outcomes. Timeout, cancellation, service/network failures, and malformed success payloads throw typed `PlexApiError` failures.
+`getHomeUsers()` and `switchHomeUser()` throw typed auth failures for explicit credential problems instead of collapsing those outcomes into empty profile lists.
 `PlexHomeUser.restricted` is informational-only metadata in profile select UI and does not enforce startup or playback gating.
 
 ## Library Access (`IPlexLibrary`)
@@ -79,7 +80,10 @@ interface IPlexLibrary {
     itemCountConcurrency?: number;
   }): Promise<PlexLibrarySection[]>;
 
-  getLibrary(libraryId: string): Promise<PlexLibrarySection | null>;
+  getLibrary(
+    libraryId: string,
+    options?: { signal?: AbortSignal | null }
+  ): Promise<PlexLibrarySection | null>;
 
   getLibraryItems(libraryId: string, options?: LibraryQueryOptions): Promise<PlexMediaItem[]>;
 
@@ -145,12 +149,21 @@ Across the rest of the library surface, `null` and empty arrays are reserved for
 Manages server discovery, connection testing, and selection.
 
 ```typescript
-type PlexServerSelectionFailureReason = 'unreachable' | 'auth_required' | 'auth_invalid';
+type PlexServerSelectionFailureReason =
+  | 'unreachable'
+  | 'auth_required'
+  | 'access_denied';
 
 type PlexServerSelectionResult =
   | { kind: 'selected' }
   | { kind: 'server_not_found' }
   | { kind: 'connection_unavailable'; reason: PlexServerSelectionFailureReason };
+
+interface PlexDiscoverySelectedServerSnapshot {
+  server: PlexServer | null;
+  connection: PlexConnection | null;
+  storedServerId: string | null;
+}
 
 interface IPlexServerDiscovery {
   discoverServers(): Promise<PlexServer[]>;
@@ -164,12 +177,12 @@ interface IPlexServerDiscovery {
   testConnection(
     server: PlexServer,
     connection: PlexConnection
-  ): Promise<number | 'auth_required' | 'auth_invalid' | null>;
+  ): Promise<number | 'auth_required' | 'access_denied' | null>;
 
   findFastestConnection(server: PlexServer): Promise<{
     connection: PlexConnection | null;
     authRequired: boolean;
-    authState: 'auth_required' | 'auth_invalid' | null;
+    authState: 'auth_required' | 'access_denied' | null;
   }>;
 
   selectServer(serverId: string): Promise<PlexServerSelectionResult>;
@@ -188,6 +201,10 @@ interface IPlexServerDiscovery {
 
   clearSelection(): void;
 
+  captureSelectedServerSnapshot(): PlexDiscoverySelectedServerSnapshot;
+
+  restoreSelectedServerSnapshot(snapshot: PlexDiscoverySelectedServerSnapshot): void;
+
   getServers(): PlexServer[];
 
   isConnected(): boolean;
@@ -197,6 +214,8 @@ interface IPlexServerDiscovery {
   on(event: 'connectionChange', handler: (uri: string | null) => void): IDisposable;
 }
 ```
+
+Discovery is endpoint-aware: plex.tv cloud resource discovery `401`/`403` remains an auth recovery failure, while a PMS identity-probe `403` means the active Plex profile lacks permission for that server and surfaces as `access_denied` instead of invalid stored credentials.
 
 ## Stream Resolution (`IPlexStreamResolver`)
 

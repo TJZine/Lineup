@@ -1,5 +1,21 @@
 import type { PlexStreamResolverConfig } from '../interfaces';
 import type { PlexMediaItem, PlexMediaFile, PlexStream } from '../types';
+import type { PlatformIdentityService } from '../../../../platform';
+
+const mockIdentityService: PlatformIdentityService = {
+    isWebOs: () => true,
+    detectPlatformVersion: () => '6.0',
+    getDefaultPlexIdentity: (clientIdentifier: string) => ({
+        'X-Plex-Client-Identifier': clientIdentifier,
+        'X-Plex-Platform': 'webOS',
+        'X-Plex-Product': 'Lineup',
+        'X-Plex-Version': '1.0.0',
+        'X-Plex-Device': 'LG Smart TV',
+        'X-Plex-Device-Name': 'Lineup',
+        'X-Plex-Platform-Version': '6.0',
+        'X-Plex-Model': 'LGTV',
+    }),
+};
 
 export function createMockConfig(
     overrides: Partial<PlexStreamResolverConfig> = {}
@@ -17,6 +33,7 @@ export function createMockConfig(
         },
         getItem: jest.fn().mockResolvedValue(null),
         clientIdentifier: 'test-client-id',
+        identityService: mockIdentityService,
         ...overrides,
     };
 }

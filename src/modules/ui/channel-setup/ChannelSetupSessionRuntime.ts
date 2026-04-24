@@ -1,7 +1,9 @@
 import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/ChannelSetupWorkflowPort';
+import { isChannelSetupWorkflowUnavailableError } from '../../../core/channel-setup/ChannelSetupWorkflowPort';
 import type {
-    ChannelSetupPreview,
     ChannelSetupContext,
+    ChannelSetupPreview,
+    ChannelSetupRecord,
 } from '../../../core/channel-setup/types';
 import { isAbortLikeError } from '../../../utils/errors';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from './constants';
@@ -35,7 +37,7 @@ export class ChannelSetupSessionRuntime {
     beginSession(): void {
         this._deps.state.sessionToken += 1;
         this._resetState();
-        this._deps.workflowPort.invalidateFacetSnapshot();
+        this._invalidateFacetSnapshotIfAvailable();
     }
 
     endSession(): void {
@@ -70,9 +72,8 @@ export class ChannelSetupSessionRuntime {
             state.libraries = libraries;
             this._cleanupPlanningAsyncState();
             state.clearDerivedPlanningState();
-            this._deps.workflowPort.invalidateFacetSnapshot();
-            const serverId = this._deps.getSelectedServerId();
-            const record = serverId ? this._deps.workflowPort.getChannelSetupRecord(serverId) : null;
+            this._invalidateFacetSnapshotIfAvailable();
+            const record = this._getSetupRecordOrDefault();
             if (record) {
                 state.applySetupRecord(record);
             } else {
@@ -108,8 +109,10 @@ export class ChannelSetupSessionRuntime {
                 state.setupContext = context as ChannelSetupContext;
                 return;
             }
-        } catch {
-            // Ignore and fall back to unknown.
+        } catch (error) {
+            if (!isChannelSetupWorkflowUnavailableError(error)) {
+                throw error;
+            }
         }
         state.setupContext = 'unknown';
     }
@@ -344,8 +347,34 @@ export class ChannelSetupSessionRuntime {
     }
 
     private _handleLibrarySelectionEdit(): void {
-        this._deps.workflowPort.invalidateFacetSnapshot();
+        this._invalidateFacetSnapshotIfAvailable();
         this.clearReviewForEdits();
+    }
+
+    private _getSetupRecordOrDefault(): ChannelSetupRecord | null {
+        const serverId = this._deps.getSelectedServerId();
+        if (!serverId) {
+            return null;
+        }
+
+        try {
+            return this._deps.workflowPort.getChannelSetupRecord(serverId);
+        } catch (error) {
+            if (isChannelSetupWorkflowUnavailableError(error)) {
+                return null;
+            }
+            throw error;
+        }
+    }
+
+    private _invalidateFacetSnapshotIfAvailable(): void {
+        try {
+            this._deps.workflowPort.invalidateFacetSnapshot();
+        } catch (error) {
+            if (!isChannelSetupWorkflowUnavailableError(error)) {
+                throw error;
+            }
+        }
     }
 
     private _retirePlanningRequests(): void {

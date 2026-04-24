@@ -13,6 +13,7 @@ import {
 import { StateManager } from './StateManager';
 import { ErrorRecovery } from './ErrorRecovery';
 import { EventEmitter } from '../../utils/EventEmitter';
+import { summarizeErrorForLog } from '../../utils/errors';
 import type { IDisposable } from '../../utils/interfaces';
 import {
     MEMORY_THRESHOLDS,
@@ -21,7 +22,12 @@ import {
     VALID_PHASE_TRANSITIONS,
 } from './constants';
 import type { PlatformLifecycleService } from '../../platform';
-import { webosPlatformServices } from '../../platform';
+import { createWebOsPlatformServices } from '../../platform';
+
+type PendingSaveWaiter = {
+    resolve: () => void;
+    reject: (error: unknown) => void;
+};
 
 export class AppLifecycle implements IAppLifecycle {
     // Dependencies
@@ -57,6 +63,7 @@ export class AppLifecycle implements IAppLifecycle {
     // State save debounce
     private _saveDebounceTimer: number | null = null;
     private _pendingState: PersistentState | null = null;
+    private _pendingSaveWaiters: PendingSaveWaiter[] = [];
     private _nextPersistenceWarningAt: number = 0;
     private _persistenceWarningBackoffMs: number = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
 
@@ -81,7 +88,7 @@ export class AppLifecycle implements IAppLifecycle {
         this._emitter = new EventEmitter<LifecycleEventMap>();
         this._stateManager = stateManager !== undefined ? stateManager : new StateManager();
         this._errorRecovery = errorRecovery !== undefined ? errorRecovery : new ErrorRecovery();
-        this._lifecycleService = lifecycleService ?? webosPlatformServices.lifecycle;
+        this._lifecycleService = lifecycleService ?? createWebOsPlatformServices().lifecycle;
     }
 
     // ========== Lifecycle Methods ==========
@@ -142,9 +149,9 @@ export class AppLifecycle implements IAppLifecycle {
 
         // Save final state (already saved by _transitionPhase, but flush any pending)
         try {
-            await this._flushPendingSave();
-        } catch {
-            // Silently handle save errors on shutdown
+            await this._flushPendingSave({ finalShutdown: true });
+        } catch (error) {
+            console.warn('[AppLifecycle] Final shutdown flush failed', summarizeErrorForLog(error));
         }
 
         // Stop monitoring
@@ -165,8 +172,15 @@ export class AppLifecycle implements IAppLifecycle {
      * Save current application state.
      * Debounced to prevent excessive writes.
      */
-    public async saveState(): Promise<void> {
-        const state = this._buildCurrentState();
+    public saveState(): Promise<void> {
+        let state: PersistentState;
+        try {
+            // Build failures reject this caller only; any pending state, waiters, and debounce
+            // timer still belong to the previously scheduled flush.
+            state = this._buildCurrentState();
+        } catch (error) {
+            return Promise.reject(error);
+        }
         this._pendingState = state;
 
         // Debounce saves
@@ -177,6 +191,10 @@ export class AppLifecycle implements IAppLifecycle {
         this._saveDebounceTimer = window.setTimeout(() => {
             this._fireAndForget(this._flushPendingSave(), 'saveState');
         }, TIMING_CONFIG.SAVE_DEBOUNCE_MS) as unknown as number;
+
+        return new Promise<void>((resolve, reject) => {
+            this._pendingSaveWaiters.push({ resolve, reject });
+        });
     }
 
     // ========== Lifecycle Callbacks ==========
@@ -654,7 +672,7 @@ export class AppLifecycle implements IAppLifecycle {
     /**
      * Flush any pending state save immediately.
      */
-    private async _flushPendingSave(): Promise<void> {
+    private async _flushPendingSave(options?: { finalShutdown?: boolean }): Promise<void> {
         if (this._saveDebounceTimer !== null) {
             clearTimeout(this._saveDebounceTimer);
             this._saveDebounceTimer = null;
@@ -666,8 +684,19 @@ export class AppLifecycle implements IAppLifecycle {
                 this._pendingState = null;
                 this._persistenceWarningBackoffMs =
                     TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
+                this._resolvePendingSaveWaiters();
             } catch (error) {
-                this._handleSaveError(error);
+                if (options?.finalShutdown === true) {
+                    console.warn('[AppLifecycle] Final shutdown flush failed', summarizeErrorForLog(error));
+                }
+                // Clear the failed waiter batch before warning observers run. Synchronous
+                // re-entry via saveState() should enqueue against the next flush.
+                this._rejectPendingSaveWaiters(error);
+                try {
+                    this._handleSaveError(error);
+                } catch (handlerError) {
+                    console.warn('[AppLifecycle] Persistence warning handler failed', handlerError);
+                }
             }
         }
     }
@@ -700,6 +729,18 @@ export class AppLifecycle implements IAppLifecycle {
                 timestamp: Date.now(),
             });
         }
+    }
+
+    private _resolvePendingSaveWaiters(): void {
+        const waiters = this._pendingSaveWaiters;
+        this._pendingSaveWaiters = [];
+        waiters.forEach(({ resolve }) => resolve());
+    }
+
+    private _rejectPendingSaveWaiters(error: unknown): void {
+        const waiters = this._pendingSaveWaiters;
+        this._pendingSaveWaiters = [];
+        waiters.forEach(({ reject }) => reject(error));
     }
 
     private _shouldEmitPersistenceWarning(isQuotaError: boolean): boolean {

@@ -388,7 +388,7 @@ describe('PlexServerDiscovery', () => {
             expect(result).toBe('auth_required');
         });
 
-        it('should classify 403 as auth_invalid', async () => {
+        it('should classify 403 as access_denied', async () => {
             mockFetchJson({ error: 'forbidden' }, 403);
             const discovery = new PlexServerDiscovery(mockConfig);
             const mockServer = createMockServer();
@@ -396,7 +396,7 @@ describe('PlexServerDiscovery', () => {
 
             const result = await discovery.testConnection(mockServer, mockConnection);
 
-            expect(result).toBe('auth_invalid');
+            expect(result).toBe('access_denied');
         });
 
         it('should timeout after the configured timeout', async () => {
@@ -545,7 +545,7 @@ describe('PlexServerDiscovery', () => {
             expect(result.connection).toBeNull();
         });
 
-        it('tracks auth_invalid as the most severe auth state when probes mix 401 and 403', async () => {
+        it('tracks access_denied as the most severe auth state when probes mix 401 and 403', async () => {
             expectConsoleWarn([
                 'No working connections found',
                 expect.objectContaining({
@@ -564,16 +564,16 @@ describe('PlexServerDiscovery', () => {
             });
             jest.spyOn(discovery, 'testConnection')
                 .mockResolvedValueOnce('auth_required')
-                .mockResolvedValueOnce('auth_invalid');
+                .mockResolvedValueOnce('access_denied');
 
             const result = await discovery.findFastestConnection(mockServer);
 
             expect(result.connection).toBeNull();
             expect(result.authRequired).toBe(true);
-            expect(result.authState).toBe('auth_invalid');
+            expect(result.authState).toBe('access_denied');
         });
 
-        it('keeps authRequired false when probes only return auth_invalid', async () => {
+        it('keeps authRequired false when probes only return access_denied', async () => {
             expectConsoleWarn([
                 'No working connections found',
                 expect.objectContaining({
@@ -592,17 +592,17 @@ describe('PlexServerDiscovery', () => {
             });
 
             jest.spyOn(discovery, 'testConnection')
-                .mockResolvedValueOnce('auth_invalid')
-                .mockResolvedValueOnce('auth_invalid');
+                .mockResolvedValueOnce('access_denied')
+                .mockResolvedValueOnce('access_denied');
 
             const result = await discovery.findFastestConnection(mockServer);
 
             expect(result.connection).toBeNull();
             expect(result.authRequired).toBe(false);
-            expect(result.authState).toBe('auth_invalid');
+            expect(result.authState).toBe('access_denied');
         });
 
-        it('keeps authRequired false when local HTTP fallback succeeds after an auth_invalid HTTPS-upgrade probe', async () => {
+        it('keeps authRequired false when local HTTP fallback succeeds after an access_denied HTTPS-upgrade probe', async () => {
             expectConsoleWarn([
                 'Selected HTTP connection (last resort)',
                 expect.objectContaining({
@@ -622,7 +622,7 @@ describe('PlexServerDiscovery', () => {
             });
 
             const testConnectionSpy = jest.spyOn(discovery, 'testConnection')
-                .mockResolvedValueOnce('auth_invalid')
+                .mockResolvedValueOnce('access_denied')
                 .mockResolvedValueOnce(42);
 
             const result = await discovery.findFastestConnection(mockServer);
@@ -648,7 +648,7 @@ describe('PlexServerDiscovery', () => {
                 })
             );
             expect(result.authRequired).toBe(false);
-            expect(result.authState).toBe('auth_invalid');
+            expect(result.authState).toBe('access_denied');
         });
 
         it('warns once when no working connections are found', async () => {
@@ -973,6 +973,99 @@ describe('PlexServerDiscovery', () => {
             expect(discovery.getServerUri()).toBe('https://srv1:32400');
             expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srv1');
         });
+
+        it('restores the previous selected-server snapshot and discovery storage key after a provisional switch', async () => {
+            const discovery = new PlexServerDiscovery(mockConfig);
+
+            mockFetchJson([
+                {
+                    clientIdentifier: 'srv1',
+                    name: 'Server One',
+                    sourceTitle: 'user',
+                    ownerId: 'owner',
+                    owned: true,
+                    provides: 'server',
+                    connections: [createMockConnection({ uri: 'https://srv1:32400', address: 'srv1' })],
+                },
+                {
+                    clientIdentifier: 'srv2',
+                    name: 'Server Two',
+                    sourceTitle: 'user',
+                    ownerId: 'owner',
+                    owned: true,
+                    provides: 'server',
+                    connections: [createMockConnection({ uri: 'https://srv2:32400', address: 'srv2' })],
+                },
+            ]);
+
+            await discovery.discoverServers();
+
+            jest.spyOn(discovery, 'findFastestConnection').mockImplementation(async (server) => ({
+                connection: createMockConnection({
+                    uri: `https://${server.id}:32400`,
+                    address: server.id,
+                }),
+                authRequired: false,
+                authState: null,
+            }));
+
+            await discovery.selectServer('srv1');
+            const snapshot = discovery.captureSelectedServerSnapshot();
+
+            await discovery.selectServer('srv2');
+            expect(discovery.getSelectedServer()?.id).toBe('srv2');
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srv2');
+
+            discovery.restoreSelectedServerSnapshot(snapshot);
+
+            expect(discovery.getSelectedServer()?.id).toBe('srv1');
+            expect(discovery.getServerUri()).toBe('https://srv1:32400');
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srv1');
+        });
+
+        it('clears the discovery selected-server storage key when restoring an empty snapshot', async () => {
+            const discovery = new PlexServerDiscovery(mockConfig);
+
+            mockFetchJson([
+                {
+                    clientIdentifier: 'srv1',
+                    name: 'Server One',
+                    sourceTitle: 'user',
+                    ownerId: 'owner',
+                    owned: true,
+                    provides: 'server',
+                    connections: [createMockConnection({ uri: 'https://srv1:32400', address: 'srv1' })],
+                },
+            ]);
+
+            await discovery.discoverServers();
+            const emptySnapshot = discovery.captureSelectedServerSnapshot();
+
+            jest.spyOn(discovery, 'findFastestConnection').mockResolvedValue({
+                connection: createMockConnection({ uri: 'https://srv1:32400', address: 'srv1' }),
+                authRequired: false,
+                authState: null,
+            });
+
+            await discovery.selectServer('srv1');
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srv1');
+
+            discovery.restoreSelectedServerSnapshot(emptySnapshot);
+
+            expect(discovery.getSelectedServer()).toBeNull();
+            expect(discovery.getSelectedConnection()).toBeNull();
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBeNull();
+        });
+
+        it('captures the selected-server storage snapshot without cleaning persisted state', () => {
+            const discovery = new PlexServerDiscovery(mockConfig);
+            mockLocalStorage.setItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY, '  srv1  ');
+
+            const snapshot = discovery.captureSelectedServerSnapshot();
+
+            expect(snapshot.storedServerId).toBe('srv1');
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('  srv1  ');
+        });
     });
 
     describe('initialization', () => {
@@ -1222,7 +1315,7 @@ describe('PlexServerDiscovery', () => {
             }
         });
 
-        it('persists auth_invalid when connection probes fail with forbidden state', async () => {
+        it('persists access_denied when connection probes fail with forbidden state', async () => {
             const mockServers = [
                 {
                     clientIdentifier: 'srv1',
@@ -1248,21 +1341,21 @@ describe('PlexServerDiscovery', () => {
             jest.spyOn(discovery, 'findFastestConnection').mockResolvedValue({
                 connection: null,
                 authRequired: false,
-                authState: 'auth_invalid',
+                authState: 'access_denied',
             });
 
             const selected = await discovery.selectServer('srv1');
 
             expect(selected).toEqual({
                 kind: 'connection_unavailable',
-                reason: 'auth_invalid',
+                reason: 'access_denied',
             });
             const rawHealth = mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY);
             expect(rawHealth).toBeTruthy();
             const parsed = rawHealth ? JSON.parse(rawHealth) : {};
             expect(parsed['srv1']).toEqual(
                 expect.objectContaining({
-                    status: 'auth_invalid',
+                    status: 'access_denied',
                 })
             );
         });

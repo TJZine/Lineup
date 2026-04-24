@@ -7,7 +7,7 @@
 import { AppLifecycle } from '../AppLifecycle';
 import { StateManager } from '../StateManager';
 import { ErrorRecovery } from '../ErrorRecovery';
-import { NETWORK_CHECK_PROBE_URL } from '../constants';
+import { NETWORK_CHECK_PROBE_URL, TIMING_CONFIG } from '../constants';
 import { AppErrorCode, PersistentState } from '../types';
 import type { IAppLifecycle } from '../interfaces';
 import type { PlatformLifecycleService } from '../../../platform';
@@ -244,6 +244,32 @@ describe('AppLifecycle', () => {
             expect(secondCallback).not.toHaveBeenCalled();
         });
 
+        it('logs final pending-save flush failures during shutdown', async () => {
+            const saveError = new DOMException('Quota exceeded', 'QuotaExceededError');
+            let savePromise: Promise<void> | null = null;
+            mockStateManager.save.mockImplementation(() => {
+                throw saveError;
+            });
+            await lifecycle.initialize();
+            lifecycle.onTerminate(() => {
+                savePromise = lifecycle.saveState();
+            });
+            expectConsoleWarn([
+                '[AppLifecycle] Final shutdown flush failed',
+                expect.objectContaining({
+                    name: 'QuotaExceededError',
+                    message: 'Quota exceeded',
+                }),
+            ]);
+
+            await lifecycle.shutdown();
+
+            if (savePromise === null) {
+                throw new Error('Expected terminate callback to enqueue saveState');
+            }
+            await expect(savePromise).rejects.toBe(saveError);
+        });
+
         it('keeps relaunch add/remove symmetry and removes the exact same handler', async () => {
             const lifecycleService: PlatformLifecycleService = {
                 bindRelaunch: jest.fn((handler: (event: Event) => void) => {
@@ -280,13 +306,69 @@ describe('AppLifecycle', () => {
             jest.useFakeTimers();
             await lifecycle.initialize();
 
-            await lifecycle.saveState();
-            jest.advanceTimersByTime(600); // Past debounce time
+            const savePromise = lifecycle.saveState();
+            jest.advanceTimersByTime(TIMING_CONFIG.SAVE_DEBOUNCE_MS);
 
-            // Wait for async operations
-            await Promise.resolve();
+            await savePromise;
 
             expect(mockStateManager.save).toHaveBeenCalled();
+        });
+
+        it('keeps saveState pending until the debounced flush persists state', async () => {
+            await lifecycle.initialize();
+
+            let settled = false;
+            const savePromise = lifecycle.saveState().finally(() => {
+                settled = true;
+            });
+
+            await Promise.resolve();
+            expect(settled).toBe(false);
+
+            jest.advanceTimersByTime(TIMING_CONFIG.SAVE_DEBOUNCE_MS - 1);
+            await Promise.resolve();
+            expect(settled).toBe(false);
+
+            jest.advanceTimersByTime(1);
+            await savePromise;
+
+            expect(mockStateManager.save).toHaveBeenCalledTimes(1);
+            expect(settled).toBe(true);
+        });
+
+        it('rejects saveState when the debounced persistence flush fails', async () => {
+            const saveError = new DOMException('Quota exceeded', 'QuotaExceededError');
+            mockStateManager.save.mockImplementation(() => {
+                throw saveError;
+            });
+            await lifecycle.initialize();
+
+            const savePromise = lifecycle.saveState();
+            jest.advanceTimersByTime(TIMING_CONFIG.SAVE_DEBOUNCE_MS);
+
+            await expect(savePromise).rejects.toBe(saveError);
+        });
+
+        it('rejects saveState with the persistence error even when warning observers throw', async () => {
+            const saveError = new DOMException('Quota exceeded', 'QuotaExceededError');
+            mockStateManager.save.mockImplementation(() => {
+                throw saveError;
+            });
+            await lifecycle.initialize();
+            expectConsoleWarn([
+                "[EventEmitter] Handler error for event 'persistenceWarning':",
+                expect.objectContaining({
+                    message: 'observer failed',
+                }),
+            ]);
+            lifecycle.on('persistenceWarning', () => {
+                throw new Error('observer failed');
+            });
+
+            const savePromise = lifecycle.saveState();
+            jest.advanceTimersByTime(TIMING_CONFIG.SAVE_DEBOUNCE_MS);
+
+            await expect(savePromise).rejects.toBe(saveError);
         });
 
         it('exposes the narrowed lifecycle public seam', () => {
