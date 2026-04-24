@@ -608,7 +608,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.ensureIdlePromise();
         this.hdrFetchTimer = setTimeout(() => {
             this.hdrFetchTimer = null;
-            void this.fetchItemDetails?.(ratingKey, { signal: this.hdrFetchController?.signal ?? null })
+            void this.fetchItemDetailsSafely(ratingKey, this.hdrFetchController?.signal ?? null)
                 .then((item) => {
                     if (fetchToken !== this.hdrFetchToken) return;
                     this.hdrFetchController = null;
@@ -1075,7 +1075,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.ensureIdlePromise();
         this.posterFetchTimer = setTimeout(() => {
             this.posterFetchTimer = null;
-            void this.fetchItemDetails?.(ratingKey, { signal: this.posterFetchController?.signal ?? null })
+            void this.fetchItemDetailsSafely(ratingKey, this.posterFetchController?.signal ?? null)
                 .then((item) => {
                     if (fetchToken !== this.posterFetchToken) return;
                     this.posterFetchController = null;
@@ -1097,6 +1097,13 @@ export class EPGInfoPanel implements IEPGInfoPanel {
                     this.resolveIdleIfSettled();
                 });
         }, 200);
+    }
+
+    private fetchItemDetailsSafely(
+        ratingKey: string,
+        signal: AbortSignal | null
+    ): Promise<EpgItemDetails | null | undefined> {
+        return Promise.resolve().then(() => this.fetchItemDetails?.(ratingKey, { signal }));
     }
 
     private clearPosterFetch(): void {

@@ -15,11 +15,11 @@ type PlexAuthGateMock = Pick<
     IPlexAuth,
     'readStoredCredentialsAndClearCorruption' | 'validateToken' | 'getCurrentUser' | 'storeCredentials' | 'getHomeUsers'
 > & {
-    readStoredCredentialsAndClearCorruption: jest.Mock;
-    validateToken: jest.Mock;
-    getCurrentUser: jest.Mock;
-    storeCredentials: jest.Mock;
-    getHomeUsers: jest.Mock;
+    readStoredCredentialsAndClearCorruption: jest.MockedFunction<IPlexAuth['readStoredCredentialsAndClearCorruption']>;
+    validateToken: jest.MockedFunction<IPlexAuth['validateToken']>;
+    getCurrentUser: jest.MockedFunction<IPlexAuth['getCurrentUser']>;
+    storeCredentials: jest.MockedFunction<IPlexAuth['storeCredentials']>;
+    getHomeUsers: jest.MockedFunction<IPlexAuth['getHomeUsers']>;
 };
 
 type NavigationGateMock = Pick<INavigationManager, 'getCurrentScreen' | 'goTo'> & {
@@ -123,7 +123,7 @@ function createPlexAuthMock(
         validateToken: jest.fn().mockResolvedValue(true),
         getHomeUsers: jest.fn().mockResolvedValue([]),
         readStoredCredentialsAndClearCorruption: jest.fn().mockReturnValue(storedReadResult),
-        storeCredentials: jest.fn(() => undefined),
+        storeCredentials: jest.fn<void, Parameters<IPlexAuth['storeCredentials']>>(() => undefined),
         getCurrentUser: jest.fn().mockReturnValue(storedCredentials.activeToken),
         ...overrides,
     };
@@ -181,7 +181,7 @@ describe('applyPhase2AuthGatePolicy', () => {
     it('rethrows non-auth failures that happen after token validation succeeds', async () => {
         const error = new Error('storage write failed');
         const inputs = createInputs({
-            storeCredentials: jest.fn(() => {
+            storeCredentials: jest.fn<void, Parameters<IPlexAuth['storeCredentials']>>(() => {
                 throw error;
             }),
         });

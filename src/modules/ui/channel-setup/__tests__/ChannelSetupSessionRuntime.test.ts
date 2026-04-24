@@ -115,7 +115,7 @@ describe('ChannelSetupSessionRuntime', () => {
         await expect(buildPromise).resolves.toEqual({ kind: 'canceled' });
     });
 
-    it('syncSetupContext keeps recognized contexts and falls back to unknown on errors', () => {
+    it('syncSetupContext keeps recognized contexts and falls back to unknown on unavailable errors', () => {
         const workflowPort = createWorkflowPort({
             getSetupContextForSelectedServer: jest
                 .fn()
@@ -123,7 +123,7 @@ describe('ChannelSetupSessionRuntime', () => {
                 .mockReturnValueOnce('existing')
                 .mockReturnValueOnce('unexpected')
                 .mockImplementationOnce(() => {
-                    throw new Error('boom');
+                    throw new ChannelSetupWorkflowUnavailableError();
                 }),
         });
         const { runtime, state } = createRuntime({ workflowPort });
@@ -139,6 +139,17 @@ describe('ChannelSetupSessionRuntime', () => {
 
         runtime.syncSetupContext();
         expect(state.setupContext).toBe('unknown');
+    });
+
+    it('syncSetupContext rethrows non-unavailable workflow errors', () => {
+        const workflowPort = createWorkflowPort({
+            getSetupContextForSelectedServer: jest.fn(() => {
+                throw new Error('boom');
+            }),
+        });
+        const { runtime } = createRuntime({ workflowPort });
+
+        expect(() => runtime.syncSetupContext()).toThrow('boom');
     });
 
     it('treats unavailable workflow queries as UI-safe defaults at the runtime edge', async () => {

@@ -6,6 +6,7 @@ import { ProfileSelectScreen, type ProfileSelectScreenPorts } from '../ProfileSe
 import { AppErrorCode, PlexApiError } from '../../../plex/auth';
 import { ProfileSessionStore } from '../../../settings/ProfileSessionStore';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
+import { createDeferred } from '../../../../__tests__/helpers';
 
 type NavigationStub = {
     registerFocusable: jest.Mock;
@@ -43,14 +44,14 @@ const createNavigationStub = (): NavigationStub => ({
 
 type OrchestratorStub = {
     getNavigation: () => NavigationStub;
-    getHomeUsers: () => Promise<Array<{
+    getHomeUsers: jest.Mock<Promise<Array<{
         id: string;
         title: string;
         thumb: string | null;
         admin: boolean;
         protected: boolean;
         restricted?: boolean;
-    }>>;
+    }>>, []>;
     switchHomeUser: jest.Mock;
     useMainAccountProfile: jest.Mock;
     signOutPlex: jest.Mock;
@@ -320,6 +321,48 @@ describe('ProfileSelectScreen', () => {
             .map((call) => (call[0] as { id?: string }).id)
             .filter((id): id is string => typeof id === 'string');
         expect(registeredIds).toContain('btn-profile-main');
+    });
+
+    it('shows loading status while sign-out is pending', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: false },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const signOutDeferred = createDeferred<void>();
+        orchestrator.signOutPlex.mockReturnValue(signOutDeferred.promise);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
+        screen.show();
+        await settleScreen(screen);
+
+        (container.querySelector('#btn-profile-signout') as HTMLButtonElement).click();
+
+        expect(container.textContent).toContain('Signing out...');
+
+        signOutDeferred.resolve();
+        await settleScreen(screen);
+    });
+
+    it('does not update hidden profile list when stale profile loading settles', async () => {
+        const users = [{ id: '1', title: 'Admin', thumb: null, admin: true, protected: false }];
+        const orchestrator = createOrchestratorStub(users);
+        const usersDeferred = createDeferred<typeof users>();
+        orchestrator.getHomeUsers.mockReturnValueOnce(usersDeferred.promise);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
+        screen.show();
+        screen.hide();
+
+        usersDeferred.resolve(users);
+        await settleScreen(screen);
+
+        expect(container.querySelectorAll('.profile-row')).toHaveLength(0);
+        expect(container.textContent).toContain('Loading profiles...');
     });
 
     it('opens PIN modal for protected users', async () => {
@@ -608,7 +651,7 @@ describe('ProfileSelectScreen', () => {
         expect(slotsWrap.classList.contains('error')).toBe(false);
     });
 
-	    it('uses navigation restore entrypoint before preferred-focus fallback', async () => {
+        it('uses navigation restore entrypoint before preferred-focus fallback', async () => {
         const users = [
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
             { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
@@ -623,32 +666,32 @@ describe('ProfileSelectScreen', () => {
         screen.show();
         await settleScreen(screen);
 
-	        screen.hide();
-	        nav.setFocus.mockClear();
-	        nav.restoreFocusForCurrentScreen.mockClear();
-	        screen.show();
-	        await settleScreen(screen);
+            screen.hide();
+            nav.setFocus.mockClear();
+            nav.restoreFocusForCurrentScreen.mockClear();
+            screen.show();
+            await settleScreen(screen);
 
-	        expect(nav.restoreFocusForCurrentScreen).toHaveBeenCalledTimes(1);
-	        expect(nav.setFocus).not.toHaveBeenCalled();
-	    });
+            expect(nav.restoreFocusForCurrentScreen).toHaveBeenCalledTimes(1);
+            expect(nav.setFocus).not.toHaveBeenCalled();
+        });
 
-	    it('falls back to preferred focus when restoreFocusForCurrentScreen returns false', async () => {
-	        const users = [
-	            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
-	            { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
-	        ];
-	        const orchestrator = createOrchestratorStub(users);
-	        const nav = orchestrator.getNavigation();
-	        nav.restoreFocusForCurrentScreen.mockReturnValue(false);
-	        const container = document.createElement('div');
-	        document.body.appendChild(container);
+        it('falls back to preferred focus when restoreFocusForCurrentScreen returns false', async () => {
+            const users = [
+                { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+                { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
+            ];
+            const orchestrator = createOrchestratorStub(users);
+            const nav = orchestrator.getNavigation();
+            nav.restoreFocusForCurrentScreen.mockReturnValue(false);
+            const container = document.createElement('div');
+            document.body.appendChild(container);
 
-	        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
-	        screen.show();
-	        await settleScreen(screen);
+            const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
+            screen.show();
+            await settleScreen(screen);
 
-	        expect(nav.restoreFocusForCurrentScreen).toHaveBeenCalledTimes(1);
-	        expect(nav.setFocus).toHaveBeenCalled();
-	    });
-	});
+            expect(nav.restoreFocusForCurrentScreen).toHaveBeenCalledTimes(1);
+            expect(nav.setFocus).toHaveBeenCalled();
+        });
+    });

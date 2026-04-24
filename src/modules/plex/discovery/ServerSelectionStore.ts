@@ -217,13 +217,8 @@ export class ServerSelectionStore {
         }
 
         const input = value as Record<string, unknown>;
-        const status = input.status;
-        if (
-            status !== 'ok'
-            && status !== 'unreachable'
-            && status !== 'auth_required'
-            && status !== 'access_denied'
-        ) {
+        const status = this._normalizeHealthStatus(input.status);
+        if (!status) {
             return null;
         }
 
@@ -244,5 +239,18 @@ export class ServerSelectionStore {
         }
 
         return next;
+    }
+
+    private _normalizeHealthStatus(status: unknown): ServerHealthStatus | null {
+        if (status === 'auth_invalid') {
+            return 'access_denied';
+        }
+
+        return status === 'ok'
+            || status === 'unreachable'
+            || status === 'auth_required'
+            || status === 'access_denied'
+            ? status
+            : null;
     }
 }

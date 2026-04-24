@@ -53,6 +53,7 @@ export class ServerSelectScreen {
     private _isSelecting: boolean = false;
     private _activeSelectGeneration: number | null = null;
     private _restoreFocusTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    private _restoreFocusGeneration: number | null = null;
     private _registeredServerButtonIds: string[] = [];
     private _lastDiscoveredServers: PlexServer[] = [];
     private _serverSelectionStore: ServerSelectionStore;
@@ -359,9 +360,12 @@ export class ServerSelectScreen {
             if (this._restoreFocusTimeoutId !== null) {
                 clearTimeout(this._restoreFocusTimeoutId);
                 this._restoreFocusTimeoutId = null;
+                this._restoreFocusGeneration = null;
             }
+            this._restoreFocusGeneration = generation;
             this._restoreFocusTimeoutId = setTimeout(() => {
                 this._restoreFocusTimeoutId = null;
+                this._restoreFocusGeneration = null;
                 if (!this._canUpdateUi(generation)) return;
                 if (nav.restoreFocusForCurrentScreen()) {
                     this._resolveIdleIfSettled();
@@ -381,6 +385,7 @@ export class ServerSelectScreen {
         if (this._restoreFocusTimeoutId !== null) {
             clearTimeout(this._restoreFocusTimeoutId);
             this._restoreFocusTimeoutId = null;
+            this._restoreFocusGeneration = null;
         }
         this._setServerConnectButtonsDisabled(true);
         this._container.style.display = 'none';
@@ -782,10 +787,14 @@ export class ServerSelectScreen {
     }
 
     private _hasPendingUiWork(): boolean {
-        return this._isLoading
-            || this._isClearing
-            || this._isSelecting
-            || this._restoreFocusTimeoutId !== null;
+        const generation = this._visibilityGeneration;
+        return (this._isLoading && this._activeLoadGeneration === generation)
+            || (this._isClearing && this._activeClearGeneration === generation)
+            || (this._isSelecting && this._activeSelectGeneration === generation)
+            || (
+                this._restoreFocusTimeoutId !== null
+                && this._restoreFocusGeneration === generation
+            );
     }
 
     private _ensureIdlePromise(): void {

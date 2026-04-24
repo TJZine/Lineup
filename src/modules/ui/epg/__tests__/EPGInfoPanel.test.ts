@@ -247,6 +247,32 @@ describe('EPGInfoPanel', () => {
             jest.useRealTimers();
         });
 
+        it('settles idle when episode poster details throw synchronously', async () => {
+            jest.useFakeTimers();
+            const resolver = jest.fn((path: string | null) => (path ? 'https://server/library/thumb?token=xxx' : null));
+            const fetchItemDetails = jest.fn(() => {
+                throw new Error('details failed');
+            });
+            panel.setThumbResolver(resolver);
+            panel.setFetchItemDetails(fetchItemDetails);
+
+            const program = createMockProgram('/library/metadata/123/thumb', {
+                type: 'episode',
+                showThumb: '',
+                showTitle: '',
+                title: 'Episode Title',
+                fullTitle: 'Some Show - S01E01 - Episode Title',
+            });
+            panel.show(program);
+
+            jest.advanceTimersByTime(220);
+            await settlePanel(panel);
+
+            expect(fetchItemDetails).toHaveBeenCalledWith('test-1', { signal: expect.any(AbortSignal) });
+
+            jest.useRealTimers();
+        });
+
         it('should hide poster when resolver returns empty string', () => {
             const resolver = jest.fn().mockReturnValue('');
             panel.setThumbResolver(resolver);
@@ -1177,6 +1203,30 @@ describe('EPGInfoPanel', () => {
             const visibleBadges = badges.filter((badge) => badge.style.display !== 'none');
             const texts = visibleBadges.map((badge) => badge.textContent);
             expect(texts).toEqual(['4K', 'Dolby Vision', 'DD+', '5.1']);
+
+            jest.useRealTimers();
+        });
+
+        it('settles idle when HDR details throw synchronously', async () => {
+            jest.useFakeTimers();
+            const fetchItemDetails = jest.fn(() => {
+                throw new Error('details failed');
+            });
+            panel.setFetchItemDetails(fetchItemDetails);
+
+            const program = createMockProgram(null, {
+                mediaInfo: {
+                    resolution: '4K',
+                    audioCodec: 'eac3',
+                    audioChannels: 6,
+                },
+            });
+            panel.show(program);
+
+            jest.advanceTimersByTime(220);
+            await settlePanel(panel);
+
+            expect(fetchItemDetails).toHaveBeenCalledWith('test-1', { signal: expect.any(AbortSignal) });
 
             jest.useRealTimers();
         });

@@ -109,8 +109,10 @@ export class ChannelSetupSessionRuntime {
                 state.setupContext = context as ChannelSetupContext;
                 return;
             }
-        } catch {
-            // Ignore and fall back to unknown.
+        } catch (error) {
+            if (!isChannelSetupWorkflowUnavailableError(error)) {
+                throw error;
+            }
         }
         state.setupContext = 'unknown';
     }
