@@ -2,12 +2,18 @@ import {
     SelectedServerRuntimeController,
     type SelectedServerRuntimeControllerDeps,
 } from '../SelectedServerRuntimeController';
+import type { PersistedSelectedServerSnapshot } from '../ServerSelectionTypes';
 
 const createDeps = (
     overrides: Partial<SelectedServerRuntimeControllerDeps> = {}
 ): jest.Mocked<SelectedServerRuntimeControllerDeps> => ({
+    capturePersistedSelectionSnapshot: jest.fn().mockResolvedValue({
+        kind: 'available',
+        selection: { serverId: null, serverUri: null },
+    } satisfies PersistedSelectedServerSnapshot),
     persistSelection: jest.fn().mockResolvedValue('updated'),
-    runPostSelectionRuntimeSwap: jest.fn().mockResolvedValue(undefined),
+    restorePersistedSelectionSnapshot: jest.fn().mockResolvedValue('updated'),
+    resumeStartupAfterSelection: jest.fn().mockResolvedValue(undefined),
     clearDiscoverySelection: jest.fn(),
     ...overrides,
 } as jest.Mocked<SelectedServerRuntimeControllerDeps>);
@@ -59,13 +65,42 @@ describe('SelectedServerRuntimeController', () => {
         expect(deps.clearDiscoverySelection).not.toHaveBeenCalled();
     });
 
-    it('keeps runtime swap delegation unchanged', async () => {
+    it('captures persisted selection snapshots through the explicit controller seam', async () => {
         const deps = createDeps();
         const controller = new SelectedServerRuntimeController(deps);
 
-        await expect(controller.runPostSelectionRuntimeSwap()).resolves.toBeUndefined();
+        await expect(controller.capturePersistedSelectionSnapshot()).resolves.toEqual({
+            kind: 'available',
+            selection: { serverId: null, serverUri: null },
+        });
 
-        expect(deps.runPostSelectionRuntimeSwap).toHaveBeenCalledTimes(1);
+        expect(deps.capturePersistedSelectionSnapshot).toHaveBeenCalledTimes(1);
+        expect(deps.persistSelection).not.toHaveBeenCalled();
+        expect(deps.clearDiscoverySelection).not.toHaveBeenCalled();
+    });
+
+    it('restores persisted selection snapshots through the explicit controller seam', async () => {
+        const deps = createDeps();
+        const controller = new SelectedServerRuntimeController(deps);
+        const snapshot: PersistedSelectedServerSnapshot = {
+            kind: 'available',
+            selection: { serverId: 'server-1', serverUri: 'http://127.0.0.1:32400' },
+        };
+
+        await expect(controller.restorePersistedSelectionSnapshot(snapshot)).resolves.toBe('updated');
+
+        expect(deps.restorePersistedSelectionSnapshot).toHaveBeenCalledWith(snapshot);
+        expect(deps.persistSelection).not.toHaveBeenCalled();
+        expect(deps.clearDiscoverySelection).not.toHaveBeenCalled();
+    });
+
+    it('keeps startup-resume delegation unchanged for selected-server swaps', async () => {
+        const deps = createDeps();
+        const controller = new SelectedServerRuntimeController(deps);
+
+        await expect(controller.resumeStartupAfterSelection()).resolves.toBeUndefined();
+
+        expect(deps.resumeStartupAfterSelection).toHaveBeenCalledTimes(1);
         expect(deps.persistSelection).not.toHaveBeenCalled();
         expect(deps.clearDiscoverySelection).not.toHaveBeenCalled();
     });

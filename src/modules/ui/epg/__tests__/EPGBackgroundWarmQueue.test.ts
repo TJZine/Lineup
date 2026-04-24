@@ -3,7 +3,6 @@ import {
     type EPGBackgroundWarmQueueDeps,
 } from '../runtime/EPGBackgroundWarmQueue';
 import type { ChannelConfig, PlaybackMode } from '../../../scheduler/channel-manager';
-import { flushPromises } from '../../../../__tests__/helpers';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,
@@ -20,6 +19,12 @@ const makeChannel = (id: string, number: number): ChannelConfig => ({
     itemCount: 0,
     totalDurationMs: 0,
 });
+
+const settleQueue = async (queue: EPGBackgroundWarmQueue): Promise<void> => {
+    const idle = queue.whenIdle();
+    await jest.runAllTimersAsync();
+    await idle;
+};
 
 describe('EPGBackgroundWarmQueue', () => {
     beforeEach(() => {
@@ -53,9 +58,7 @@ describe('EPGBackgroundWarmQueue', () => {
 
         expect(onCancel).toHaveBeenCalledWith('replace-background-warm-queue', null);
 
-        jest.advanceTimersByTime(1_000);
-        await flushPromises();
-        await flushPromises();
+        await settleQueue(queue);
 
         expect(refreshChannelSchedule).toHaveBeenCalledTimes(2);
         expect(onCancel).toHaveBeenCalledWith('warm-queue-complete', expect.any(Object));
@@ -82,8 +85,7 @@ describe('EPGBackgroundWarmQueue', () => {
             concurrency: 1,
         });
 
-        jest.advanceTimersByTime(200);
-        await flushPromises();
+        await settleQueue(queue);
 
         expect(refreshChannelSchedule).not.toHaveBeenCalled();
         expect(onCancel).toHaveBeenCalledWith('stale-refresh-token', expect.any(Object));
@@ -122,11 +124,10 @@ describe('EPGBackgroundWarmQueue', () => {
         });
 
         jest.advanceTimersByTime(100);
-        await flushPromises();
+        await jest.runOnlyPendingTimersAsync();
         expect(refreshChannelSchedule).not.toHaveBeenCalled();
 
-        jest.advanceTimersByTime(200);
-        await flushPromises();
+        await settleQueue(queue);
         expect(refreshChannelSchedule).toHaveBeenCalledTimes(1);
     });
 
@@ -192,10 +193,7 @@ describe('EPGBackgroundWarmQueue', () => {
                 concurrency: 1,
             });
 
-            for (let i = 0; i < 20; i += 1) {
-                jest.advanceTimersByTime(50);
-                await flushPromises();
-            }
+            await settleQueue(queue);
 
             expect(refreshChannelSchedule).toHaveBeenCalledTimes(3);
             expect(onError).toHaveBeenCalledWith(failure);
@@ -234,8 +232,7 @@ describe('EPGBackgroundWarmQueue', () => {
             concurrency: 1,
         });
 
-        jest.advanceTimersByTime(1_000);
-        await flushPromises();
+        await settleQueue(queue);
 
         expect(onCancel).toHaveBeenCalledWith('replace-background-warm-queue', expect.any(Object));
         expect(refreshChannelSchedule).not.toHaveBeenCalled();

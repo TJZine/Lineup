@@ -133,6 +133,9 @@ describe('NavigationManager', () => {
         it('clears stale server-select params on no-param server-select route', () => {
             nav.goTo('server-select', { allowAutoConnect: true });
             nav.goTo('auth');
+
+            expect(nav.getServerSelectParams()).toBeNull();
+
             nav.goTo('server-select');
 
             expect(nav.getServerSelectParams()).toBeNull();

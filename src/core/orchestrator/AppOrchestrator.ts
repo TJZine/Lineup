@@ -97,8 +97,10 @@ import { OverlayRuntimePolicyController } from './OverlayRuntimePolicyController
 import { ProfileSwitchCleanupController } from './ProfileSwitchCleanupController';
 import { PlaybackRuntimeController } from './priority-one/PlaybackRuntimeController';
 import type {
+    DiscoverySelectedServerSnapshot,
     OrchestratorServerSelectionReadiness,
     OrchestratorServerSelectionResult,
+    PersistedSelectedServerSnapshot,
     SelectedServerPersistenceResult,
 } from '../server-selection/ServerSelectionTypes';
 import { ServerSelectionCoordinator } from '../server-selection/ServerSelectionCoordinator';
@@ -419,62 +421,31 @@ export class AppOrchestrator {
             getChannelSetupWorkflow: (): ChannelSetupWorkflow | null => this._channelSetupWorkflow,
         });
         this._selectedServerRuntimeController = new SelectedServerRuntimeController({
+            capturePersistedSelectionSnapshot: (): Promise<PersistedSelectedServerSnapshot> =>
+                this._capturePersistedSelectedServerSnapshotForActiveUser(),
             persistSelection: (
                 serverId: string | null,
                 serverUri: string | null
             ): Promise<SelectedServerPersistenceResult> =>
                 this._persistSelectedServerForActiveUser(serverId, serverUri),
-            runPostSelectionRuntimeSwap: async (): Promise<void> => {
-                if (!this._initCoordinator) {
-                    return;
-                }
-
-                let step = 'runStartup';
-
-                try {
-                    await this._initCoordinator.runStartup(3);
-
-                    if (this._epg) {
-                        step = 'clearSelectedChannelScheduleSnapshot';
-                        this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
-
-                        step = 'clearScheduleCaches';
-                        this._epgCoordinator?.clearScheduleCaches();
-                    }
-
-                    step = 'clearSchedules';
-                    this._epg?.clearSchedules();
-
-                    step = 'primeEpgChannels';
-                    this._epgCoordinator?.primeEpgChannels();
-
-                    step = 'refreshEpgSchedules';
-                    const refreshResult = await captureRecoverableRuntimeResultAsync(
-                        async () => this._epgCoordinator?.refreshEpgSchedules({ reason: 'server-swap' })
-                    );
-                    if (!refreshResult.ok) {
-                        this._warnRecoverableRuntimeError(
-                            'orchestrator.serverSwap.refreshEpgSchedules',
-                            'Post-selection EPG refresh failed',
-                            refreshResult.error,
-                            { step }
-                        );
-                    }
-                } catch (error) {
-                    this._warnRecoverableRuntimeError(
-                        'orchestrator.serverSwap.runStartup',
-                        'Post-selection runtime swap failed',
-                        error,
-                        { step }
-                    );
-                    throw error;
-                }
-            },
+            restorePersistedSelectionSnapshot: (
+                snapshot: PersistedSelectedServerSnapshot
+            ): Promise<SelectedServerPersistenceResult> =>
+                this._restorePersistedSelectedServerSnapshotForActiveUser(snapshot),
+            resumeStartupAfterSelection: (): Promise<void> =>
+                this._resumeStartupAfterSelectedServerChange(),
             clearDiscoverySelection: (): void => {
                 this._plexDiscovery?.clearSelection();
             },
         });
         this._serverSelectionCoordinator = new ServerSelectionCoordinator({
+            captureDiscoverySelectionSnapshot: (): DiscoverySelectedServerSnapshot =>
+                this._captureDiscoverySelectedServerSnapshot(),
+            restoreDiscoverySelectionSnapshot: (snapshot: DiscoverySelectedServerSnapshot): void => {
+                this._restoreDiscoverySelectedServerSnapshot(snapshot);
+            },
+            capturePersistedSelectionSnapshot: (): Promise<PersistedSelectedServerSnapshot> =>
+                this._selectedServerRuntimeController.capturePersistedSelectionSnapshot(),
             selectServer: async (serverId: string): Promise<PlexServerSelectionResult> => {
                 if (!this._plexDiscovery) {
                     throw new Error('PlexServerDiscovery not initialized');
@@ -487,8 +458,12 @@ export class AppOrchestrator {
                 serverUri: string | null
             ): Promise<SelectedServerPersistenceResult> =>
                 this._selectedServerRuntimeController.persistSelection(serverId, serverUri),
-            runPostSelectionRuntimeSwap: (): Promise<void> =>
-                this._selectedServerRuntimeController.runPostSelectionRuntimeSwap(),
+            restorePersistedSelectionSnapshot: (
+                snapshot: PersistedSelectedServerSnapshot
+            ): Promise<SelectedServerPersistenceResult> =>
+                this._selectedServerRuntimeController.restorePersistedSelectionSnapshot(snapshot),
+            resumeStartupAfterSelection: (): Promise<void> =>
+                this._selectedServerRuntimeController.resumeStartupAfterSelection(),
             getReadiness: (): OrchestratorServerSelectionReadiness =>
                 (this._ready ? 'ready' : 'startup_pending'),
         });
@@ -2040,6 +2015,125 @@ export class AppOrchestrator {
             deviceKey: credentials.deviceKey ?? null,
         });
         return 'updated';
+    }
+
+    private async _capturePersistedSelectedServerSnapshotForActiveUser(
+    ): Promise<PersistedSelectedServerSnapshot> {
+        if (!this._plexAuth) {
+            return { kind: 'missing_credentials' };
+        }
+
+        const stored = await this._plexAuth.readStoredCredentialsAndClearCorruption();
+        if (stored.kind === 'missing') {
+            return { kind: 'missing_credentials' };
+        }
+        if (stored.kind === 'corrupted') {
+            return { kind: 'corrupted_credentials' };
+        }
+
+        const credentials = stored.credentials;
+        const activeUserId = this._plexAuth.getActiveUserId() ?? credentials.activeUserId;
+        if (!activeUserId) {
+            return { kind: 'missing_credentials' };
+        }
+
+        const selection = credentials.selectedServerByUserId?.[activeUserId] ?? {
+            serverId: null,
+            serverUri: null,
+        };
+        return {
+            kind: 'available',
+            selection: {
+                serverId: selection.serverId ?? null,
+                serverUri: selection.serverUri ?? null,
+            },
+        };
+    }
+
+    private async _restorePersistedSelectedServerSnapshotForActiveUser(
+        snapshot: PersistedSelectedServerSnapshot
+    ): Promise<SelectedServerPersistenceResult> {
+        if (snapshot.kind === 'corrupted_credentials') {
+            return 'skipped_corrupted_credentials';
+        }
+
+        const selection = snapshot.kind === 'available'
+            ? snapshot.selection
+            : { serverId: null, serverUri: null };
+        return this._persistSelectedServerForActiveUser(selection.serverId, selection.serverUri);
+    }
+
+    private _captureDiscoverySelectedServerSnapshot(): DiscoverySelectedServerSnapshot {
+        const discovery = this._plexDiscovery as
+            | (IPlexServerDiscovery & {
+                captureSelectedServerSnapshot(): DiscoverySelectedServerSnapshot;
+            })
+            | null;
+        if (!discovery) {
+            return {
+                server: null,
+                connection: null,
+                storedServerId: null,
+            };
+        }
+
+        return discovery.captureSelectedServerSnapshot();
+    }
+
+    private _restoreDiscoverySelectedServerSnapshot(snapshot: DiscoverySelectedServerSnapshot): void {
+        const discovery = this._plexDiscovery as
+            | (IPlexServerDiscovery & {
+                restoreSelectedServerSnapshot(selectionSnapshot: DiscoverySelectedServerSnapshot): void;
+            })
+            | null;
+        discovery?.restoreSelectedServerSnapshot(snapshot);
+    }
+
+    private async _resumeStartupAfterSelectedServerChange(): Promise<void> {
+        if (!this._initCoordinator) {
+            return;
+        }
+
+        let step = 'runStartup';
+
+        try {
+            await this._initCoordinator.runStartup(3);
+
+            if (this._epg) {
+                step = 'clearSelectedChannelScheduleSnapshot';
+                this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
+
+                step = 'clearScheduleCaches';
+                this._epgCoordinator?.clearScheduleCaches();
+            }
+
+            step = 'clearSchedules';
+            this._epg?.clearSchedules();
+
+            step = 'primeEpgChannels';
+            this._epgCoordinator?.primeEpgChannels();
+
+            step = 'refreshEpgSchedules';
+            const refreshResult = await captureRecoverableRuntimeResultAsync(
+                async () => this._epgCoordinator?.refreshEpgSchedules({ reason: 'server-swap' })
+            );
+            if (!refreshResult.ok) {
+                this._warnRecoverableRuntimeError(
+                    'orchestrator.serverSwap.refreshEpgSchedules',
+                    'Post-selection EPG refresh failed',
+                    refreshResult.error,
+                    { step }
+                );
+            }
+        } catch (error) {
+            this._warnRecoverableRuntimeError(
+                'orchestrator.serverSwap.runStartup',
+                'Post-selection runtime swap failed',
+                error,
+                { step }
+            );
+            throw error;
+        }
     }
 
     private _shouldRunAudioSetup(): boolean {

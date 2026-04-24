@@ -8,16 +8,16 @@
 
 import { EPGInfoPanel } from '../view/EPGInfoPanel';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
-import { flushPromises } from '../../../../__tests__/helpers';
 import { extractDominantColor } from '../../../../utils/color/extractDominantColor';
 import type { ScheduledProgram } from '../types';
 
 jest.mock('../../../../utils/color/extractDominantColor');
 
 describe('EPGInfoPanel', () => {
-    const DEFAULT_FLUSH_COUNT = 4;
-    const waitForFlush = async (count: number = DEFAULT_FLUSH_COUNT): Promise<void> => {
-        await flushPromises(count);
+    const settlePanel = async (panel: EPGInfoPanel): Promise<void> => {
+        const idle = panel.whenIdle();
+        await jest.runAllTimersAsync();
+        await idle;
     };
 
     let panel: EPGInfoPanel;
@@ -237,7 +237,7 @@ describe('EPGInfoPanel', () => {
             expect(resolver).toHaveBeenCalledWith(null, 320, 480);
 
             jest.advanceTimersByTime(220);
-            await waitForFlush(2);
+            await settlePanel(panel);
 
             expect(fetchItemDetails).toHaveBeenCalledWith('test-1', { signal: expect.any(AbortSignal) });
             expect(resolver).toHaveBeenCalledWith('/library/metadata/999/thumb', 320, 480);
@@ -523,7 +523,7 @@ describe('EPGInfoPanel', () => {
                 panel.show(program);
 
                 jest.runAllTimers();
-                await waitForFlush();
+                await settlePanel(panel);
 
                 const layerB = container.querySelector('.epg-info-gradient-b') as HTMLElement | null;
                 if (!layerB) {
@@ -604,15 +604,15 @@ describe('EPGInfoPanel', () => {
                 panel.setThumbResolver(resolver);
 
                 panel.show(createMockProgram('/library/metadata/1/thumb', { ratingKey: 'first' }));
-                jest.advanceTimersByTime(150);
-                await waitForFlush(1);
+                await jest.advanceTimersByTimeAsync(150);
+                await Promise.resolve();
 
                 expect(fetchMock).toHaveBeenCalledTimes(1);
                 expect(observedSignals[0]?.aborted).toBe(false);
 
                 panel.show(createMockProgram('/library/metadata/2/thumb', { ratingKey: 'second' }));
-                jest.advanceTimersByTime(150);
-                await waitForFlush(2);
+                await jest.advanceTimersByTimeAsync(150);
+                await settlePanel(panel);
 
                 expect(fetchMock).toHaveBeenCalledTimes(2);
                 expect(observedSignals[0]?.aborted).toBe(true);
@@ -685,8 +685,8 @@ describe('EPGInfoPanel', () => {
                 const program = createMockProgram('/library/metadata/1/thumb');
                 panel.show(program);
 
-                jest.advanceTimersByTime(150);
-                await waitForFlush();
+                await jest.advanceTimersByTimeAsync(150);
+                await Promise.resolve();
 
                 expect(createdImages.length).toBe(1);
 
@@ -733,7 +733,7 @@ describe('EPGInfoPanel', () => {
                 panel.show(program);
 
                 jest.runAllTimers();
-                await waitForFlush();
+                await settlePanel(panel);
 
                 const layerA = container.querySelector('.epg-info-gradient-a') as HTMLElement | null;
                 const layerB = container.querySelector('.epg-info-gradient-b') as HTMLElement | null;
@@ -769,7 +769,7 @@ describe('EPGInfoPanel', () => {
                 const program = createMockProgram('/library/metadata/1/thumb');
                 panel.show(program);
                 jest.runAllTimers();
-                await waitForFlush();
+                await settlePanel(panel);
 
                 const layerA = container.querySelector('.epg-info-gradient-a') as HTMLElement | null;
                 const layerB = container.querySelector('.epg-info-gradient-b') as HTMLElement | null;
@@ -783,7 +783,7 @@ describe('EPGInfoPanel', () => {
                 const nextProgram = createMockProgram('/library/metadata/2/thumb', { ratingKey: 'test-2', title: 'Next' });
                 panel.updateFast(nextProgram);
                 jest.runAllTimers();
-                await waitForFlush();
+                await settlePanel(panel);
 
                 expect(extractDominantColor).toHaveBeenCalledTimes(1);
                 expect(layerA.style.getPropertyValue('--dynamic-info-bg')).toBe('');
@@ -810,7 +810,7 @@ describe('EPGInfoPanel', () => {
                 const program = createMockProgram('/library/metadata/1/thumb');
                 panel.show(program);
                 jest.runAllTimers();
-                await waitForFlush();
+                await settlePanel(panel);
 
                 const caches = panel as unknown as {
                     colorCache: Map<string, string>;
@@ -845,7 +845,7 @@ describe('EPGInfoPanel', () => {
                     });
                     panel.show(program);
                     jest.runAllTimers();
-                    await waitForFlush();
+                    await settlePanel(panel);
                 }
 
                 const cache = (panel as unknown as { colorCache: Map<string, string> }).colorCache;
@@ -1168,7 +1168,7 @@ describe('EPGInfoPanel', () => {
 
             expect(fetchItemDetails).not.toHaveBeenCalled();
             jest.advanceTimersByTime(220);
-            await waitForFlush(2);
+            await settlePanel(panel);
 
             expect(fetchItemDetails).toHaveBeenCalledWith('test-1', { signal: expect.any(AbortSignal) });
             const badges = Array.from(

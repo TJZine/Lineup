@@ -77,6 +77,8 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private colorCache = new Map<string, string>();
     private colorFailureCache = new Map<string, number>();
     private presentationMode: 'classic' | 'overlay' = 'overlay';
+    private idlePromise: Promise<void> = Promise.resolve();
+    private resolveIdlePromise: (() => void) | null = null;
 
     /**
      * Set the thumb URL resolver callback.
@@ -101,6 +103,10 @@ export class EPGInfoPanel implements IEPGInfoPanel {
 
     setPresentationMode(mode: 'classic' | 'overlay'): void {
         this.presentationMode = mode;
+    }
+
+    async whenIdle(): Promise<void> {
+        return this.hasPendingAsyncWork() ? this.idlePromise : Promise.resolve();
     }
 
     getPresentationMode(): 'classic' | 'overlay' {
@@ -298,6 +304,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.qualityBadges = [];
         this.hdrCache.clear();
         this.episodePosterCache.clear();
+        this.resolveIdleIfSettled();
     }
 
     /**
@@ -321,6 +328,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.clearHdrFetch();
         this.clearPosterFetch();
         this.clearDynamicColor();
+        this.resolveIdleIfSettled();
     }
 
     /**
@@ -597,11 +605,13 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.clearHdrFetch();
         const fetchToken = ++this.hdrFetchToken;
         this.hdrFetchController = new AbortController();
+        this.ensureIdlePromise();
         this.hdrFetchTimer = setTimeout(() => {
             this.hdrFetchTimer = null;
             void this.fetchItemDetails?.(ratingKey, { signal: this.hdrFetchController?.signal ?? null })
                 .then((item) => {
                     if (fetchToken !== this.hdrFetchToken) return;
+                    this.hdrFetchController = null;
                     const hdr = extractHdrLabelFromPlexMedia(item);
                     if (!hdr) return;
                     this.hdrCache.set(ratingKey, hdr);
@@ -613,6 +623,12 @@ export class EPGInfoPanel implements IEPGInfoPanel {
                     if (error instanceof DOMException && error.name === 'AbortError') {
                         return;
                     }
+                })
+                .finally(() => {
+                    if (fetchToken === this.hdrFetchToken) {
+                        this.hdrFetchController = null;
+                    }
+                    this.resolveIdleIfSettled();
                 });
         }, 200);
     }
@@ -626,6 +642,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             this.hdrFetchController.abort();
             this.hdrFetchController = null;
         }
+        this.resolveIdleIfSettled();
     }
 
     private formatAudioCodec(codec: string): string {
@@ -681,6 +698,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             clearTimeout(this.colorExtractTimer);
             this.colorExtractTimer = null;
         }
+        this.resolveIdleIfSettled();
     }
 
     private clearColorFetch(): void {
@@ -688,6 +706,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             this.colorFetchController.abort();
             this.colorFetchController = null;
         }
+        this.resolveIdleIfSettled();
     }
 
     private resolveInfoBackgroundMode(): 0 | 1 | 2 {
@@ -806,6 +825,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             sampler.onload = (): void => {
                 finalize();
                 if (!this.isDynamicColorRequestCurrent(program, token)) {
+                    this.resolveIdleIfSettled();
                     return;
                 }
 
@@ -813,6 +833,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
                 if (color) {
                     this.storeDynamicColor(cacheKey, color);
                     this.applyDynamicColor(color);
+                    this.resolveIdleIfSettled();
                     return;
                 }
 
@@ -823,6 +844,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             sampler.onerror = (): void => {
                 finalize();
                 if (!this.isDynamicColorRequestCurrent(program, token)) {
+                    this.resolveIdleIfSettled();
                     return;
                 }
 
@@ -836,6 +858,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
                 if (this.colorFetchController === controller) {
                     this.colorFetchController = null;
                 }
+                this.resolveIdleIfSettled();
                 return;
             }
 
@@ -844,6 +867,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             }
 
             if (!this.isDynamicColorRequestCurrent(program, token)) {
+                this.resolveIdleIfSettled();
                 return;
             }
 
@@ -875,15 +899,20 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             return;
         }
         const token = ++this.dynamicColorToken;
+        this.ensureIdlePromise();
         this.colorExtractTimer = setTimeout(() => {
+            this.colorExtractTimer = null;
             if (token !== this.dynamicColorToken) {
+                this.resolveIdleIfSettled();
                 return;
             }
             const current = this.currentProgram;
             if (!current || current.item.ratingKey !== program.item.ratingKey) {
+                this.resolveIdleIfSettled();
                 return;
             }
             if (!this.isVisible) {
+                this.resolveIdleIfSettled();
                 return;
             }
 
@@ -1043,11 +1072,13 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.clearPosterFetch();
         const fetchToken = ++this.posterFetchToken;
         this.posterFetchController = new AbortController();
+        this.ensureIdlePromise();
         this.posterFetchTimer = setTimeout(() => {
             this.posterFetchTimer = null;
             void this.fetchItemDetails?.(ratingKey, { signal: this.posterFetchController?.signal ?? null })
                 .then((item) => {
                     if (fetchToken !== this.posterFetchToken) return;
+                    this.posterFetchController = null;
                     const seriesPosterThumb = item?.grandparentThumb ?? null;
                     this.episodePosterCache.set(ratingKey, seriesPosterThumb);
                     const current = this.currentProgram;
@@ -1058,6 +1089,12 @@ export class EPGInfoPanel implements IEPGInfoPanel {
                     if (error instanceof DOMException && error.name === 'AbortError') {
                         return;
                     }
+                })
+                .finally(() => {
+                    if (fetchToken === this.posterFetchToken) {
+                        this.posterFetchController = null;
+                    }
+                    this.resolveIdleIfSettled();
                 });
         }, 200);
     }
@@ -1072,6 +1109,36 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             this.posterFetchController = null;
         }
         this.posterFetchToken += 1;
+        this.resolveIdleIfSettled();
+    }
+
+    private hasPendingAsyncWork(): boolean {
+        return this.hdrFetchTimer !== null
+            || this.hdrFetchController !== null
+            || this.posterFetchTimer !== null
+            || this.posterFetchController !== null
+            || this.colorExtractTimer !== null
+            || this.colorFetchController !== null;
+    }
+
+    private ensureIdlePromise(): void {
+        if (this.resolveIdlePromise) {
+            return;
+        }
+
+        this.idlePromise = new Promise((resolve) => {
+            this.resolveIdlePromise = resolve;
+        });
+    }
+
+    private resolveIdleIfSettled(): void {
+        if (this.hasPendingAsyncWork() || !this.resolveIdlePromise) {
+            return;
+        }
+
+        const resolve = this.resolveIdlePromise;
+        this.resolveIdlePromise = null;
+        resolve();
     }
 
     private updateMetaAndTags(program: ScheduledProgram): void {

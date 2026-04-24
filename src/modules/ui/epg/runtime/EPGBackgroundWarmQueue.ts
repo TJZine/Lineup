@@ -44,6 +44,8 @@ export class EPGBackgroundWarmQueue {
     private _state: BackgroundWarmQueueState | null = null;
     private _timer: ReturnType<typeof setTimeout> | null = null;
     private _idleHandle: number | null = null;
+    private _idlePromise: Promise<void> = Promise.resolve();
+    private _resolveIdlePromise: (() => void) | null = null;
 
     constructor(private readonly _deps: EPGBackgroundWarmQueueDeps) {}
 
@@ -58,7 +60,12 @@ export class EPGBackgroundWarmQueue {
             ...options,
             cursor: 0,
         };
+        this._ensureIdlePromise();
         this._scheduleNextBatch();
+    }
+
+    async whenIdle(): Promise<void> {
+        return this._isIdle() ? Promise.resolve() : this._idlePromise;
     }
 
     cancel(reason: string): void {
@@ -89,6 +96,7 @@ export class EPGBackgroundWarmQueue {
             refreshChannelSchedule: previousState.refreshChannelSchedule,
             concurrency: previousState.concurrency,
         } : null);
+        this._resolveIdleIfSettled();
     }
 
     private _reportBatchError(error: unknown): void {
@@ -190,9 +198,34 @@ export class EPGBackgroundWarmQueue {
         this._timer = setTimeout(() => {
             this._timer = null;
             if (this._state !== state) {
+                this._resolveIdleIfSettled();
                 return;
             }
             runBatchSafe();
         }, EPG_BACKGROUND_WARM_TIMER_DELAY_MS);
+    }
+
+    private _isIdle(): boolean {
+        return this._state === null && this._timer === null && this._idleHandle === null;
+    }
+
+    private _ensureIdlePromise(): void {
+        if (this._resolveIdlePromise) {
+            return;
+        }
+
+        this._idlePromise = new Promise((resolve) => {
+            this._resolveIdlePromise = resolve;
+        });
+    }
+
+    private _resolveIdleIfSettled(): void {
+        if (!this._isIdle() || !this._resolveIdlePromise) {
+            return;
+        }
+
+        const resolve = this._resolveIdlePromise;
+        this._resolveIdlePromise = null;
+        resolve();
     }
 }
