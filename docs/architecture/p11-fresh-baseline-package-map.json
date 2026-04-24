@@ -403,6 +403,27 @@
       "checklist_tokens": {
         "work_item": "P11-W6",
         "priority_exit": "P11-EXIT"
+      },
+      "execution_status": {
+        "status": "completed",
+        "completed_execution_units": [
+          "P11-W6-WAVE1",
+          "P11-W6-S4",
+          "P11-W6-S5",
+          "P11-W6-WAVE2"
+        ],
+        "current_or_next_execution_unit": "P11-EXIT completed",
+        "evidence": [
+          "P11-W6-WAVE1 made lifecycle save semantics truthful by resolving/rejecting AppLifecycle.saveState() with the debounced persistence flush, made pending-auth redirect routing synchronous while preserving side-effect order, and canonicalized settings-facing subtitle mode and EPG past-items unions onto shared/store aliases without changing persisted values.",
+          "P11-W6-S4 standardized the touched internal toast callback seams on ToastInput payloads across playback recovery, playback options, mini-guide, and orchestrator coordinator wiring while preserving user-visible toast messages and types.",
+          "P11-W6-S5 moved platform-version memoization into each createWebOsPlatformServices() identity service instance while preserving the default webosPlatformServices singleton export and default injection behavior.",
+          "P11-W6-WAVE2 removed package-local pass-through storage-helper methods from DeveloperSettingsStore and AudioSettingsStore, source-audited ChannelSetupWorkflow and ChannelSetupWorkflowPort as live runtime/public boundary contracts rather than same-package facade residue, and trimmed only redundant comment noise in KeepAliveManager, Plex discovery interfaces, player types, and core/module-status.",
+          "Plan review initially found blocking findings for P11-EXIT readiness, wave accounting, and S3 owner tests; the revised plan passed closure review and a fresh final approval. Implementation reviews found no material findings for WAVE1, S4, S5, or WAVE2.",
+          "Focused verification passed for WAVE1 (6 suites / 81 tests), S4 (5 suites / 95 tests), S5 (5 suites / 100 tests), and WAVE2 (6 suites / 36 tests), plus npm run typecheck. npm run verify passed with typecheck, architecture lint, CSS lint, coverage, tools tests, contracts, docs verification, and build.",
+          "Package-local scoping reruns for AppLifecycle.ts, SettingsScreen.ts, AuthScreen.ts, AppDiagnosticsSurface.ts, and ChannelSetupWorkflow.ts all reported no open file-matching issues. Exact review-id checks still report the seven P11-W6 seed ids as open because the review detector wording stayed stale after scan, but reviewed current-source proof retires the package-owned rationale.",
+          "P11-EXIT completed after confirming the package map assigns all 39 fresh 2026-04-23 review issues exactly once, security has no open issues, the P11-W1 through P11-W6 checklist/package-map records are complete, and desloppify scan --path . reran from branch code-health."
+        ],
+        "last_touched": "2026-04-24"
       }
     }
   ]
