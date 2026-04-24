@@ -8,7 +8,7 @@ import { EventEmitter } from '../../utils/EventEmitter';
 import { RemoteButton, KeyEvent } from './interfaces';
 import { LONG_PRESS_THRESHOLD_MS, mapKeyCode as mapPlatformKeyCode } from './constants';
 import type { PlatformInputService } from '../../platform';
-import { webosPlatformServices } from '../../platform';
+import { createWebOsPlatformServices } from '../../platform';
 
 /**
  * Event map for RemoteHandler internal events.
@@ -46,7 +46,7 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
 
     constructor(inputService?: PlatformInputService) {
         super();
-        this._inputService = inputService ?? webosPlatformServices.input;
+        this._inputService = inputService ?? createWebOsPlatformServices().input;
         this._boundKeyDownHandler = this._handleKeyDown.bind(this);
         this._boundKeyUpHandler = this._handleKeyUp.bind(this);
     }

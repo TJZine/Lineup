@@ -1,5 +1,4 @@
 import type {
-    SubtitleFallbackAuthReason,
     SubtitleFallbackResult,
     SubtitleFallbackTransientReason,
     SubtitleFallbackUnsupportedReason,
@@ -56,19 +55,12 @@ function transientFailure(
         : { kind: 'transient', reason, status };
 }
 
-function authFailure(
-    reason: SubtitleFallbackAuthReason,
-    status: 401 | 403
-): SubtitleFallbackFailure {
-    return { kind: 'auth', reason, status };
-}
-
 function classifyStatusFailure(status: number): SubtitleFallbackFailure {
     if (status === 401) {
-        return authFailure('unauthorized', 401);
+        return { kind: 'auth', reason: 'unauthorized', status: 401 };
     }
     if (status === 403) {
-        return authFailure('forbidden', 403);
+        return { kind: 'auth', reason: 'forbidden', status: 403 };
     }
     if (status === 404) {
         return unsupportedFailure('not_found', status);
@@ -230,14 +222,17 @@ async function fetchSubtitleTextWithFallbacks({
             });
             if (!isCurrentLoad()) return staleFailure();
             if (!response.ok) {
+                let bodyText = '';
                 let bodySample: string | null = null;
                 let contentType: string | null = null;
                 try {
                     contentType = response.headers.get('content-type');
-                    bodySample = (await response.text()).slice(0, 200);
+                    bodyText = await response.text();
                 } catch {
                     // ignore
                 }
+                if (!isCurrentLoad()) return staleFailure();
+                bodySample = bodyText.length > 0 ? bodyText.slice(0, 200) : null;
                 logDebug('subtitle_fetch_error', () => ({
                     id: trackId,
                     status: response.status,
@@ -248,7 +243,9 @@ async function fetchSubtitleTextWithFallbacks({
                 }));
                 lastFailure = classifyStatusFailure(response.status);
             } else {
-                return { kind: 'success', text: await response.text() };
+                const text = await response.text();
+                if (!isCurrentLoad()) return staleFailure();
+                return { kind: 'success', text };
             }
         } catch (error) {
             const failure = classifyExceptionFailure(error, signal, isCurrentLoad);

@@ -14,7 +14,10 @@ export interface IAppLifecycle {
 
     shutdown(): Promise<void>;
 
-    /** Resolves when the latest debounced lifecycle state save actually flushes. */
+    /**
+     * Resolves when the latest debounced lifecycle state save flushes.
+     * Rejects with the error thrown by StateManager.save(), such as QuotaExceededError.
+     */
     saveState(): Promise<void>;
 
     onPause(callback: LifecycleCallback): IDisposable;

@@ -192,6 +192,86 @@ Hello`));
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    it('returns stale when a successful subtitle response becomes stale while reading the body', async () => {
+        const fetchMock = globalThis.fetch as jest.Mock;
+        let resolveBody: (body: string) => void = () => {
+            throw new Error('subtitle body resolver was not captured');
+        };
+        let notifyBodyReadStarted: () => void = () => undefined;
+        const bodyReadStarted = new Promise<void>((resolve) => {
+            notifyBodyReadStarted = resolve;
+        });
+        fetchMock.mockResolvedValueOnce({
+            ...createResponse(''),
+            text: () => new Promise<string>((resolve) => {
+                resolveBody = resolve;
+                notifyBodyReadStarted();
+            }),
+        });
+
+        let currentLoad = true;
+        const resultPromise = fetchSubtitleFallbackVtt({
+            track: createTrack(),
+            initialUrl: new URL('http://example.com/library/streams/1?X-Plex-Token=token'),
+            context: {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            },
+            signal: new AbortController().signal,
+            isCurrentLoad: () => currentLoad,
+            deriveLanHttpUrl: () => null,
+            logDebug: jest.fn(),
+        });
+
+        await bodyReadStarted;
+        currentLoad = false;
+        resolveBody(`1
+00:00:00,000 --> 00:00:01,000
+Old`);
+
+        await expect(resultPromise).resolves.toEqual({ kind: 'stale' });
+    });
+
+    it('returns stale when an error subtitle response becomes stale while reading the body', async () => {
+        const fetchMock = globalThis.fetch as jest.Mock;
+        const logDebug = jest.fn();
+        let resolveBody: (body: string) => void = () => {
+            throw new Error('subtitle body resolver was not captured');
+        };
+        let notifyBodyReadStarted: () => void = () => undefined;
+        const bodyReadStarted = new Promise<void>((resolve) => {
+            notifyBodyReadStarted = resolve;
+        });
+        fetchMock.mockResolvedValueOnce({
+            ...createResponse('', { ok: false, status: 403, contentType: 'text/plain' }),
+            text: () => new Promise<string>((resolve) => {
+                resolveBody = resolve;
+                notifyBodyReadStarted();
+            }),
+        });
+
+        let currentLoad = true;
+        const resultPromise = fetchSubtitleFallbackVtt({
+            track: createTrack(),
+            initialUrl: new URL('http://example.com/library/streams/1?X-Plex-Token=token'),
+            context: {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            },
+            signal: new AbortController().signal,
+            isCurrentLoad: () => currentLoad,
+            deriveLanHttpUrl: () => null,
+            logDebug,
+        });
+
+        await bodyReadStarted;
+        currentLoad = false;
+        resolveBody('denied');
+
+        await expect(resultPromise).resolves.toEqual({ kind: 'stale' });
+        expect(logDebug).not.toHaveBeenCalledWith('subtitle_fetch_error', expect.any(Function));
+    });
+
     it('classifies auth failures distinctly from unsupported failures', async () => {
         const fetchMock = globalThis.fetch as jest.Mock;
         fetchMock

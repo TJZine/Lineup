@@ -10,7 +10,7 @@ import { CHANNEL_BADGE_CONTAINER_ID, type ChannelBadgeConfig } from '../../modul
 import { MINI_GUIDE_CONTAINER_ID, type MiniGuideConfig } from '../../modules/ui/mini-guide';
 import { CHANNEL_TRANSITION_CONTAINER_ID, type ChannelTransitionConfig } from '../../modules/ui/channel-transition';
 import type { PlaybackOptionsConfig } from '../../modules/ui/playback-options';
-import { webosPlatformServices } from '../../platform';
+import { createWebOsPlatformServices, type PlatformServices } from '../../platform';
 import type { OrchestratorConfig } from '../orchestrator/OrchestratorTypes';
 
 const DEFAULT_NAV_CONFIG: NavigationConfig = {
@@ -114,12 +114,14 @@ const createPlaybackOptionsConfig = (): PlaybackOptionsConfig => ({
     ...DEFAULT_PLAYBACK_OPTIONS_CONFIG,
 });
 
-export function createAppOrchestratorConfig(): OrchestratorConfig {
+export function createAppOrchestratorConfig(
+    platformServices: PlatformServices = createWebOsPlatformServices()
+): OrchestratorConfig {
     return {
         plexConfig: createDefaultPlexAuthConfig(
             undefined,
             '6.0',
-            () => webosPlatformServices.identity.detectPlatformVersion()
+            () => platformServices.identity.detectPlatformVersion()
         ),
         navConfig: createNavigationConfig(),
         playerConfig: createPlayerConfig(),

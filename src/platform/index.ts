@@ -7,5 +7,4 @@ export type {
     PlatformServices,
     PlatformRemoteButton,
 } from './services';
-export { createWebOsPlatformServices, webosPlatformServices } from './webosPlatformServices';
-
+export { createWebOsPlatformServices } from './webosPlatformServices';

@@ -1477,13 +1477,20 @@ export class ChannelManager implements IChannelManager {
         if (typeof record['isPlaybackModeVariant'] === 'boolean') {
             channel.isPlaybackModeVariant = record['isPlaybackModeVariant'];
         }
-        if (isValidPlaybackMode(record['playbackMode'])) {
-            channel.playbackMode = record['playbackMode'];
+        const playbackMode = isValidPlaybackMode(record['playbackMode'])
+            ? record['playbackMode']
+            : undefined;
+        if (playbackMode !== undefined) {
+            channel.playbackMode = playbackMode;
         }
         if (typeof record['shuffleSeed'] === 'number' && Number.isFinite(record['shuffleSeed'])) {
             channel.shuffleSeed = record['shuffleSeed'];
         }
-        if (typeof record['blockSize'] === 'number' && Number.isFinite(record['blockSize'])) {
+        if (
+            playbackMode === 'block'
+            && typeof record['blockSize'] === 'number'
+            && Number.isFinite(record['blockSize'])
+        ) {
             channel.blockSize = record['blockSize'];
         }
         if (typeof record['phaseSeed'] === 'number' && Number.isFinite(record['phaseSeed'])) {

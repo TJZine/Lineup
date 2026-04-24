@@ -22,7 +22,6 @@ import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import { InitializationCoordinator } from '../core/orchestrator/InitializationCoordinator';
 import { ChannelTuningCoordinator } from '../core/channel-tuning';
 import type { PlatformServices } from '../platform';
-import { webosPlatformServices } from '../platform';
 import type { StreamDecision } from '../modules/plex/stream';
 import { AudioSettingsStore } from '../modules/settings/AudioSettingsStore';
 import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
@@ -624,6 +623,8 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
         mockPlexDiscovery.getSelectedServer.mockReset();
         mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
+        mockPlexDiscovery.getServerUri.mockReset();
+        mockPlexDiscovery.getServerUri.mockReturnValue(null);
         mockPlexDiscovery.captureSelectedServerSnapshot.mockReset();
         mockPlexDiscovery.captureSelectedServerSnapshot.mockReturnValue({
             server: null,
@@ -832,20 +833,34 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             expect(require('../modules/lifecycle').AppLifecycle).toHaveBeenCalledWith(
                 undefined,
                 undefined,
-                webosPlatformServices.lifecycle
+                expect.objectContaining({
+                    bindRelaunch: expect.any(Function),
+                })
             );
             expect(require('../modules/navigation').NavigationManager).toHaveBeenCalledWith(
-                webosPlatformServices.input,
+                expect.objectContaining({
+                    getKeyMap: expect.any(Function),
+                }),
                 expect.objectContaining({
                     readDebugLoggingEnabled: expect.any(Function),
                 })
             );
             const streamResolverConfig =
                 (require('../modules/plex/stream').PlexStreamResolver as jest.Mock).mock.calls[0]?.[0];
-            expect(streamResolverConfig?.identityService).toBe(webosPlatformServices.identity);
+            expect(streamResolverConfig?.identityService).toEqual(
+                expect.objectContaining({
+                    detectPlatformVersion: expect.any(Function),
+                    getDefaultPlexIdentity: expect.any(Function),
+                    isWebOs: expect.any(Function),
+                })
+            );
             expect(require('../modules/player').VideoPlayer).toHaveBeenCalledWith({
-                playbackService: webosPlatformServices.playback,
-                subtitleService: webosPlatformServices.subtitle,
+                playbackService: expect.objectContaining({
+                    applyStreamSource: expect.any(Function),
+                }),
+                subtitleService: expect.objectContaining({
+                    deriveLanHttpSubtitleUrl: expect.any(Function),
+                }),
             });
         });
 
