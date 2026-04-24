@@ -3,7 +3,7 @@ import { readStoredBooleanAndClean, safeLocalStorageRemove, safeLocalStorageSet 
 
 export class AudioSettingsStore {
     readDtsPassthroughEnabledAndClean(fallback: boolean = false): boolean {
-        return this._readBooleanKey(LINEUP_STORAGE_KEYS.DTS_PASSTHROUGH, fallback);
+        return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.DTS_PASSTHROUGH, fallback);
     }
 
     writeDtsPassthroughEnabled(enabled: boolean): void {
@@ -11,7 +11,7 @@ export class AudioSettingsStore {
     }
 
     readDirectPlayAudioFallbackEnabledAndClean(fallback: boolean = false): boolean {
-        return this._readBooleanKey(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK, fallback);
+        return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK, fallback);
     }
 
     writeDirectPlayAudioFallbackEnabled(enabled: boolean): void {
@@ -19,7 +19,7 @@ export class AudioSettingsStore {
     }
 
     readAudioSetupCompleteAndClean(fallback: boolean = false): boolean {
-        return this._readBooleanKey(LINEUP_STORAGE_KEYS.AUDIO_SETUP_COMPLETE, fallback);
+        return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.AUDIO_SETUP_COMPLETE, fallback);
     }
 
     writeAudioSetupComplete(completed: boolean): void {
@@ -28,9 +28,5 @@ export class AudioSettingsStore {
 
     clearDirectPlayAudioFallbackEnabled(): void {
         safeLocalStorageRemove(LINEUP_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK);
-    }
-
-    private _readBooleanKey(key: string, fallback: boolean): boolean {
-        return readStoredBooleanAndClean(key, fallback);
     }
 }
