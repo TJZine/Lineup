@@ -17,7 +17,7 @@ import type {
     StreamDecision,
     HlsOptions,
 } from './types';
-import { DEFAULT_HLS_OPTIONS, isTextSubtitleFormat } from './constants';
+import { isTextSubtitleFormat } from './constants';
 import { generatePlexSessionId } from './plexSessionId';
 import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
 import { PlaybackSettingsStore } from '../../settings/PlaybackSettingsStore';
@@ -38,9 +38,9 @@ import {
     buildPlexUrlFromKey,
 } from '../shared/plexUrl';
 import {
-    applyPlexSessionQueryParams,
+    buildPlexClientCapabilities,
     buildPlexMetadataPath,
-    ensurePlexClientProfileName,
+    buildPlexTranscodeStartUrl,
 } from './plexStreamUrlPolicy';
 import { logPlexWarning } from '../shared/plexLogging';
 import { SubtitleDebugLogger } from '../../debug/SubtitleDebugLogger';
@@ -408,23 +408,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
         const baseUri = this._selectBaseUriForMixedContent(serverUri);
 
-        const sessionId = options.sessionId ?? generatePlexSessionId();
-        const maxBitrate = typeof options.maxBitrate === 'number'
-            ? options.maxBitrate
-            : DEFAULT_HLS_OPTIONS.maxBitrate;
-        const subtitleSize = typeof options.subtitleSize === 'number'
-            ? options.subtitleSize
-            : DEFAULT_HLS_OPTIONS.subtitleSize;
-        const audioBoost = typeof options.audioBoost === 'number'
-            ? options.audioBoost
-            : DEFAULT_HLS_OPTIONS.audioBoost;
-        const mediaIndex = typeof options.mediaIndex === 'number' ? options.mediaIndex : 0;
-        const partIndex = typeof options.partIndex === 'number' ? options.partIndex : 0;
-        const burnInEnabled =
-            options.subtitleMode === 'burn' &&
-            typeof options.subtitleStreamId === 'string' &&
-            options.subtitleStreamId.length > 0;
-
         const metadataPath = buildPlexMetadataPath(itemKey);
         if (!metadataPath) {
             throw this._createError(
@@ -436,136 +419,36 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
         const compatMode = this._playbackSettingsStore.readTranscodeCompatEnabledAndClean(false);
         const quality = this._playbackSettingsStore.readTranscodeQualityOptionAndClean();
-        const shouldApplyQualityOverride = Boolean(quality && quality.storageValue.length > 0);
-        const qualityMaxBitrate = shouldApplyQualityOverride ? quality?.maxVideoBitrateKbps : undefined;
-        const effectiveMaxBitrate = typeof qualityMaxBitrate === 'number'
-            ? Math.min(maxBitrate, Math.max(1, Math.floor(qualityMaxBitrate)))
-            : maxBitrate;
-
-        const relayOrigin = ((): string | null => {
-            try {
-                const relay = this._config.getRelayConnection()?.uri ?? null;
-                if (!relay) return null;
-                return new URL(relay).origin;
-            } catch {
-                return null;
-            }
-        })();
-        const baseOrigin = ((): string | null => {
-            try {
-                return new URL(baseUri).origin;
-            } catch {
-                return null;
-            }
-        })();
-        const location = ((): 'lan' | 'wan' | null => {
-            const selectedConn = this._config.getSelectedConnection?.() ?? null;
-            if (selectedConn) {
-                if (selectedConn.relay) return 'wan';
-                return selectedConn.local ? 'lan' : 'wan';
-            }
-            // Fallback: only classify as WAN if we are clearly using a relay origin.
-            if (relayOrigin && baseOrigin && relayOrigin === baseOrigin) {
-                return 'wan';
-            }
-            // Unknown: avoid misclassifying WAN as LAN.
-            return null;
-        })();
-
-        const params = new URLSearchParams();
-        params.set('path', metadataPath);
-        params.set('mediaIndex', String(mediaIndex));
-        params.set('partIndex', String(partIndex));
-        params.set('protocol', 'hls');
-        params.set('offset', '0');
-        // Bind the transcoder session key to our app sessionId so we can terminate it later
-        applyPlexSessionQueryParams(params, sessionId);
-        if (typeof options.audioStreamId === 'string' && options.audioStreamId.length > 0) {
-            params.set('audioStreamID', options.audioStreamId);
-        }
-
-        if (!compatMode) {
-            // Default: richer set aligned with Plex examples
-            params.set('fastSeek', '1');
-            params.set('directPlay', '0');
-            // Allow Plex to Direct Stream (copy video, transcode audio if needed) instead of forcing full transcode.
-            params.set('directStream', '1');
-            params.set('directStreamAudio', '1');
-            params.set('subtitleSize', String(subtitleSize));
-            params.set('audioBoost', String(audioBoost));
-            params.set('maxVideoBitrate', String(effectiveMaxBitrate));
-            if (shouldApplyQualityOverride && quality?.videoResolution) {
-                // Match the shape used by official clients: quality + resolution + bitrate.
-                params.set('videoQuality', '100');
-                params.set('videoResolution', quality.videoResolution);
-            }
-            if (location) {
-                params.set('location', location);
-            }
-            params.set('addDebugOverlay', '0');
-            params.set('autoAdjustQuality', '0');
-            params.set('mediaBufferSize', '102400');
-            if (burnInEnabled) {
-                params.set('subtitles', 'burn');
-                params.set('subtitleStreamID', options.subtitleStreamId as string);
-            } else {
-                // Lineup does not yet provide subtitle track selection. Avoid forcing burn-in, which can trigger video transcode.
-                params.set('subtitles', 'none');
-                // Redundant belt-and-suspenders for servers that ignore `subtitles=none`.
-                params.set('subtitleStreamID', '0');
-                params.set('subtitleFormat', 'none');
-            }
-            params.set('Accept-Language', 'en');
-        } else {
-            // Compat: minimal, conservative set for older/stricter servers
-            params.set('directPlay', '0');
-            params.set('directStream', '1');
-            params.set('maxVideoBitrate', String(effectiveMaxBitrate));
-            if (shouldApplyQualityOverride && quality?.videoResolution) {
-                params.set('videoQuality', '100');
-                params.set('videoResolution', quality.videoResolution);
-            }
-            if (location) {
-                params.set('location', location);
-            }
-            if (burnInEnabled) {
-                params.set('subtitles', 'burn');
-                params.set('subtitleStreamID', options.subtitleStreamId as string);
-            } else {
-                params.set('subtitles', 'none');
-                params.set('subtitleStreamID', '0');
-                params.set('subtitleFormat', 'none');
-            }
-        }
-
-        // Explicitly declare capabilities to improve Direct Stream decisions (audio-only transcode, no video transcode).
-        // Keep this conservative and adaptive to avoid requesting streams the device can't decode.
-        params.set(
-            'X-Plex-Client-Capabilities',
-            this._buildClientCapabilities({
-                hideDolbyVision: options.hideDolbyVision === true,
-            })
-        );
-
-        // Add client params (video element requests cannot include headers, so use query params)
-        applyXPlexQueryParamsFromHeaders(params, this._config.getAuthHeaders());
-
-        // Optional: Force the server to use a specific built-in profile name/version (advanced).
+        const authHeaders = this._config.getAuthHeaders();
         const forcedProfileName = this._config.debugOverridesStore.readTranscodeProfileNameAndClean();
-        ensurePlexClientProfileName(params, forcedProfileName);
-
-        // Ensure minimum required ID params are present even if getAuthHeaders is mocked/minimal
-        this._applyDefaultIdentityParams(params);
-
-        const url = new URL('/video/:/transcode/universal/start.m3u8', baseUri);
-        url.search = params.toString();
+        const defaultIdentityParams = this._identityService.getDefaultPlexIdentity(
+            this._config.clientIdentifier
+        );
+        const { url } = buildPlexTranscodeStartUrl({
+            baseUri,
+            metadataPath,
+            options: {
+                ...options,
+                sessionId: options.sessionId ?? generatePlexSessionId(),
+            },
+            compatMode,
+            quality,
+            selectedConnection: this._config.getSelectedConnection?.() ?? null,
+            relayConnectionUri: this._config.getRelayConnection()?.uri ?? null,
+            clientCapabilities: this._buildClientCapabilities({
+                hideDolbyVision: options.hideDolbyVision === true,
+            }),
+            authHeaders,
+            forcedProfileName,
+            defaultIdentityParams,
+        });
         try {
             const shouldLogTranscodeDebug = this._isDebugLoggingEnabled();
             if (!shouldLogTranscodeDebug) {
-                return url.toString();
+                return url;
             }
 
-            const debugUrl = new URL(url.toString());
+            const debugUrl = new URL(url);
             if (debugUrl.searchParams.has('X-Plex-Token')) {
                 applyXPlexTokenQueryParam(debugUrl.searchParams, 'REDACTED');
             }
@@ -576,7 +459,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         } catch {
             // Ignore debug logging failures
         }
-        return url.toString();
+        return url;
     }
 
     async fetchUniversalTranscodeDecision(
@@ -785,10 +668,9 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         const is4K = typeof window !== 'undefined' &&
             typeof window.screen?.width === 'number' &&
             window.screen.width >= 3840;
-        const h264Level = is4K ? '51' : '42'; // Level 5.1 (4K) vs 4.2 (1080p)
 
         const videoEl = typeof document !== 'undefined' ? document.createElement('video') : null;
-        const canPlay = (mime: string): boolean => {
+        const canPlayMimeType = (mime: string): boolean => {
             try {
                 return !!videoEl && videoEl.canPlayType(mime) !== '';
             } catch {
@@ -796,82 +678,14 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             }
         };
 
-        const chromeMajor = this._getChromeMajor();
-        const isWebOs = this._isWebOs();
-
-        // HEVC detection (common for 4K libraries).
-        //
-        // Important: many HDR10 and DV base-layer sources are HEVC Main 10 (10-bit).
-        // If we only advertise HEVC Main, PMS may assume "can't decode" and choose an
-        // SDR H.264 transcode as the safest target.
-        const supportsHevcMain =
-            canPlay('video/mp4; codecs="hvc1.1.6.L93.B0"') ||
-            canPlay('video/mp4; codecs="hev1.1.6.L93.B0"') ||
-            // Fallback: webOS 23+ (Chromium 94+) should support HEVC decode, even if canPlayType lies.
-            (isWebOs && chromeMajor !== null && chromeMajor >= 94);
-
-        // HEVC Main 10 (10-bit). Common sample codec strings include 2.x profiles.
-        const supportsHevcMain10 =
-            canPlay('video/mp4; codecs="hvc1.2.4.L93.B0"') ||
-            canPlay('video/mp4; codecs="hev1.2.4.L93.B0"') ||
-            canPlay('video/mp4; codecs="hvc1.2.4.L150.B0"') ||
-            canPlay('video/mp4; codecs="hev1.2.4.L150.B0"') ||
-            // Same conservative webOS fallback as HEVC Main.
-            (isWebOs && chromeMajor !== null && chromeMajor >= 94);
-
-        const supportsHevc = supportsHevcMain || supportsHevcMain10;
-
-        // Dolby Vision support in browser stacks is inconsistent; do not guess based on platform.
-        // Only advertise DV when canPlayType explicitly reports it.
-        const supportsDolbyVision =
-            canPlay('video/mp4; codecs="dvh1.05.06"') ||
-            canPlay('video/mp4; codecs="dvh1.08.06"');
-
-        const supportsVp9 =
-            canPlay('video/webm; codecs="vp9"') ||
-            canPlay('video/mp4; codecs="vp09.00.10.08"');
-
-        const supportsAv1 =
-            canPlay('video/mp4; codecs="av01.0.05M.08"') ||
-            canPlay('video/webm; codecs="av01.0.05M.08"');
-
-        const videoDecoders: string[] = [`h264{profile:high&level:${h264Level}}`];
-        if (supportsHevc) {
-            // Plex commonly uses HEVC "level" style values like 120 (1080p) / 150 (4K).
-            const hevcLevel = is4K ? '150' : '120';
-            // Prefer Main10 when available; keep Main as a fallback.
-            if (supportsHevcMain10) {
-                videoDecoders.push(`hevc{profile:main10&level:${hevcLevel}}`);
-            }
-            videoDecoders.push(`hevc{profile:main&level:${hevcLevel}}`);
-            if (supportsDolbyVision && options?.hideDolbyVision !== true) {
-                videoDecoders.push('hevc{profile:dvhe.05}');
-                videoDecoders.push('hevc{profile:dvhe.08}');
-            }
-        }
-        if (supportsVp9) {
-            videoDecoders.push('vp9');
-        }
-        if (supportsAv1) {
-            videoDecoders.push('av1');
-        }
-
-        const audioDecoders: string[] = [
-            'mp3',
-            'aac{bitrate:800000}',
-            'ac3{bitrate:800000}',
-            'eac3{bitrate:800000}',
-        ];
-
-        // If user explicitly enabled DTS passthrough and we're on a modern webOS stack,
-        // advertise DTS-HD MA as well (Plex often labels it as `dca-ma`).
-        if (this._isDtsPassthroughEnabled()) {
-            audioDecoders.push('dts{bitrate:1536000}');
-            audioDecoders.push('dca{bitrate:1536000}');
-            audioDecoders.push('dca-ma{bitrate:1536000}');
-        }
-
-        return `protocols=http-live-streaming,http-mp4-streaming,http-streaming-video;videoDecoders=${videoDecoders.join(',')};audioDecoders=${audioDecoders.join(',')}`;
+        return buildPlexClientCapabilities({
+            is4K,
+            canPlayMimeType,
+            chromeMajor: this._getChromeMajor(),
+            isWebOs: this._isWebOs(),
+            dtsPassthroughEnabled: this._isDtsPassthroughEnabled(),
+            hideDolbyVision: options?.hideDolbyVision === true,
+        });
     }
 
     private _selectBaseUriForMixedContent(serverUri: string): string {
