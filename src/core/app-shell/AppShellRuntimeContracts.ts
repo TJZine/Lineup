@@ -3,7 +3,6 @@ import type { PlexHomeUser, PlexPinRequest } from '../../modules/plex/auth';
 import type { PlexServer } from '../../modules/plex/discovery';
 import type { GuideSettingChange } from '../../modules/ui/settings/types';
 import type { ThemeName } from '../../modules/ui/theme';
-import type { PlaybackInfoSnapshot } from '../../Orchestrator';
 import type { ChannelSetupWorkflowPort } from '../channel-setup/ChannelSetupWorkflowPort';
 import type { OrchestratorServerSelectionResult } from '../server-selection/ServerSelectionTypes';
 
@@ -51,9 +50,81 @@ export interface AppShellSettingsRuntimePort {
     setTheme(theme: ThemeName): void;
 }
 
+export interface AppShellPlaybackInfoSnapshot {
+    channel: { id: string; number: number; name: string } | null;
+    program: {
+        itemKey: string;
+        title: string;
+        fullTitle: string;
+        type: string;
+        scheduledStartTime: number;
+        scheduledEndTime: number;
+        elapsedMs: number;
+        remainingMs: number;
+    } | null;
+    stream: {
+        protocol: string;
+        mimeType: string;
+        isDirectPlay: boolean;
+        isTranscoding: boolean;
+        container: string;
+        videoCodec: string;
+        audioCodec: string;
+        subtitleDelivery: string;
+        bitrate: number;
+        width: number;
+        height: number;
+        sessionId: string;
+        selectedAudio: {
+            id: string;
+            codec: string | null | undefined;
+            channels?: number;
+            language?: string;
+            title?: string;
+            default?: boolean;
+        } | null;
+        selectedSubtitle: {
+            id: string;
+            codec: string | null | undefined;
+            language?: string;
+            title?: string;
+            format?: string;
+            default?: boolean;
+        } | null;
+        directPlay?: {
+            allowed: boolean;
+            reasons: string[];
+        } | undefined;
+        audioFallback?: {
+            fromCodec: string;
+            toCodec: string;
+            reason: string;
+        } | undefined;
+        source?: {
+            container: string;
+            videoCodec: string;
+            audioCodec: string;
+            width: number;
+            height: number;
+            bitrate: number;
+        } | undefined;
+        transcodeRequest?: {
+            sessionId: string;
+            maxBitrate: number;
+            audioStreamId?: string;
+        } | undefined;
+        serverDecision?: {
+            videoDecision?: string;
+            audioDecision?: string;
+            subtitleDecision?: string;
+            decisionText?: string;
+        } | undefined;
+    } | null;
+}
+
 export interface AppShellDiagnosticsRuntimePort {
     toggleServerSelect(): void;
-    refreshPlaybackInfoSnapshot(): Promise<PlaybackInfoSnapshot>;
+    refreshPlaybackInfoSnapshot(): Promise<AppShellPlaybackInfoSnapshot>;
     getSelectedServerId(): string | null;
     getSelectedServerStorageKey(): string;
     getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort;
