@@ -390,7 +390,7 @@ export class NavigationCoordinator {
             return;
         }
 
-        if (this._handlePlayerBackKeyPress(event)) {
+        if (this._handlePlayerBackKeyPress(event, routingState)) {
             return;
         }
 
@@ -497,8 +497,8 @@ export class NavigationCoordinator {
     }
 
     private _handleMiniGuideModeKeyPress(event: KeyEvent, routingState: KeyPressRoutingState): boolean {
-        const { currentScreen, miniGuideVisible, modalOpen, shouldRouteToEpg } = routingState;
-        if (currentScreen !== 'player' || !miniGuideVisible || modalOpen || shouldRouteToEpg) {
+        const { currentScreen, miniGuideVisible, modalOpen } = routingState;
+        if (currentScreen !== 'player' || !miniGuideVisible || modalOpen) {
             return false;
         }
         if (this.deps.navigation.isInputBlocked()) {
@@ -603,14 +603,13 @@ export class NavigationCoordinator {
         return false;
     }
 
-    private _handlePlayerBackKeyPress(event: KeyEvent): boolean {
+    private _handlePlayerBackKeyPress(event: KeyEvent, routingState: KeyPressRoutingState): boolean {
         if (event.button !== 'back') {
             return false;
         }
 
         const navigation = this.deps.navigation;
-        const currentScreen = navigation.getCurrentScreen();
-        if (currentScreen !== 'player' || navigation.isModalOpen()) {
+        if (routingState.currentScreen !== 'player' || routingState.modalOpen) {
             return false;
         }
 

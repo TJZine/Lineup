@@ -148,6 +148,16 @@ describe('NavigationManager', () => {
 
             expect(nav.getServerSelectParams()).toBeNull();
         });
+
+        it('does not restore stale server-select params from screen history', () => {
+            nav.goTo('server-select', { allowAutoConnect: true });
+            nav.goTo('settings');
+
+            nav.goBack();
+
+            expect(nav.getCurrentScreen()).toBe('server-select');
+            expect(nav.getServerSelectParams()).toBeNull();
+        });
     });
 
     describe('focus management', () => {

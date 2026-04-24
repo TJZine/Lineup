@@ -294,9 +294,7 @@ export class NavigationManager
 
         // Navigate to previous screen
         this._state.currentScreen = previousScreen;
-        this._state.serverSelectParams = previousScreen === 'server-select'
-            ? this._state.serverSelectParams
-            : null;
+        this._state.serverSelectParams = null;
 
         // Emit screen change event
         this.emit('screenChange', { from, to: previousScreen });

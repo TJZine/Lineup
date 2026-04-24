@@ -1505,6 +1505,7 @@ describe('PlexStreamResolver', () => {
             ).rejects.toMatchObject({
                 code: AppErrorCode.ACCESS_DENIED,
                 message: 'Access denied',
+                recoverable: false,
             });
         });
     });

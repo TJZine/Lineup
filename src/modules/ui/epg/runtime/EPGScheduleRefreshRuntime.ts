@@ -298,6 +298,10 @@ export class EPGScheduleRefreshRuntime {
         this.dispose(reason);
     }
 
+    /**
+     * Wait for the background warm queue to drain.
+     * Immediate visible-channel loads are settled by refreshForRange().
+     */
     async whenBackgroundRefreshIdle(): Promise<void> {
         await this._warmQueue.whenIdle();
     }
