@@ -1,7 +1,7 @@
-export { DeferredEPGComponent } from './DeferredEpgComponent';
+export { DeferredEPGComponent } from './DeferredEPGComponent';
 export { EPGCoordinator } from './EPGCoordinator';
 export { EPGDebugRuntime } from './EPGDebugRuntime';
-export { buildEPGStartupConfig } from './buildEpgStartupConfig';
+export { buildEPGStartupConfig } from './buildEPGStartupConfig';
 export { withEpgVisibleRangeChangeBinding } from './EPGConfigBindings';
 export { EPG_CONTAINER_ID } from './constants';
 

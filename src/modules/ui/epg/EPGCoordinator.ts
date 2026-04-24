@@ -20,7 +20,7 @@ import {
     computeNormalizedLibraryFilterState,
     selectVisibleChannelsForLibraryFilter,
 } from './EPGCoordinatorPolicies';
-import { countLibraryTypeVotes } from './epgLibraryUtils';
+import { countLibraryTypeVotes } from './EPGLibraryUtils';
 import { EPGRefreshController } from './EPGRefreshController';
 import { toEpgChannels } from './model/adapters';
 import type { ChannelSwitchOptions, GuideSelectionSnapshot } from '../../../core/channel-tuning';
