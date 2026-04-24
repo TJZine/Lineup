@@ -91,6 +91,14 @@ export interface NavigationCoordinatorDeps {
     readDebugLoggingEnabled: () => boolean;
 }
 
+type KeyPressRoutingState = {
+    epg: IEPGComponent | null;
+    currentScreen: string;
+    modalOpen: boolean;
+    miniGuideVisible: boolean;
+    shouldRouteToEpg: boolean;
+};
+
 export class NavigationCoordinator {
     private _epgRepeatTimer: ReturnType<typeof setTimeout> | null = null;
     private _epgRepeatButton: 'up' | 'down' | 'left' | 'right' | null = null;
@@ -348,23 +356,61 @@ export class NavigationCoordinator {
     }
 
     private _handleKeyPress(event: KeyEvent): void {
-        const isDirection = (
-            event.button === 'up'
-            || event.button === 'down'
-            || event.button === 'left'
-            || event.button === 'right'
-        );
-        if (this._epgRepeatButton && !isDirection) {
-            this._stopEpgRepeat('nonDirectional');
-        }
-        if (this._miniGuideRepeatButton && !isDirection) {
-            this._stopMiniGuideRepeat('nonDirectional');
+        this._stopRepeatsForNonDirectionalInput(event);
+
+        if (this._handleNowPlayingModalKeyPress(event)) {
+            return;
         }
 
+        const routingState = this._getKeyPressRoutingState();
+        if (routingState.modalOpen && this._isDirectionalButton(event.button)) {
+            this._logInputNotHandled('modal_open', event);
+        }
+
+        if (this._handleEpgModeKeyPress(event, routingState)) {
+            return;
+        }
+
+        if (this._handleMiniGuideModeKeyPress(event, routingState)) {
+            return;
+        }
+
+        if (this._handlePlayerMiniGuideShowKeyPress(event, routingState)) {
+            return;
+        }
+
+        if (
+            routingState.currentScreen !== 'player'
+            && (event.button === 'up' || event.button === 'down' || event.button === 'ok')
+        ) {
+            this._logInputNotHandled('screen_not_player', event);
+        }
+
+        if (this._handlePlayerOsdToggleKeyPress(event, routingState)) {
+            return;
+        }
+
+        if (this._handlePlayerBackKeyPress(event)) {
+            return;
+        }
+
+        this._handleDefaultKeyPress(event, routingState);
+    }
+
+    private _stopRepeatsForNonDirectionalInput(event: KeyEvent): void {
+        if (this._epgRepeatButton && !this._isDirectionalButton(event.button)) {
+            this._stopEpgRepeat('nonDirectional');
+        }
+        if (this._miniGuideRepeatButton && !this._isDirectionalButton(event.button)) {
+            this._stopMiniGuideRepeat('nonDirectional');
+        }
+    }
+
+    private _handleNowPlayingModalKeyPress(event: KeyEvent): boolean {
         const isNowPlayingModalOpen = this.deps.nowPlayingInfo.isModalOpen();
         if (isNowPlayingModalOpen && event.button === 'back') {
             this._logInputNotHandled('modal_open', event);
-            return;
+            return true;
         }
         if (isNowPlayingModalOpen && event.button === 'ok') {
             const navigation = this.deps.navigation;
@@ -376,202 +422,211 @@ export class NavigationCoordinator {
                     navigation.setFocus(prep.preferredFocusId);
                 }
             }
-            event.handled = true;
-            event.originalEvent.preventDefault();
-            return;
+            this._consumeKeyEvent(event);
+            return true;
         }
+        return false;
+    }
 
-        // Compute EPG routing eligibility: only route to EPG when on guide screen with no modal open
+    private _getKeyPressRoutingState(): KeyPressRoutingState {
         const epg = this.deps.epg;
         const navigation = this.deps.navigation;
         const modalOpen = navigation.isModalOpen();
         const miniGuideVisible = this.deps.miniGuide.overlay?.isVisible() ?? false;
-        const shouldRouteToEpg = !modalOpen && !!epg?.isVisible() && !miniGuideVisible;
+        return {
+            epg,
+            currentScreen: navigation.getCurrentScreen(),
+            modalOpen,
+            miniGuideVisible,
+            shouldRouteToEpg: !modalOpen && !!epg?.isVisible() && !miniGuideVisible,
+        };
+    }
 
-        if (modalOpen && (event.button === 'up' || event.button === 'down' || event.button === 'left' || event.button === 'right')) {
-            this._logInputNotHandled('modal_open', event);
+    private _handleEpgModeKeyPress(event: KeyEvent, routingState: KeyPressRoutingState): boolean {
+        const { epg, shouldRouteToEpg } = routingState;
+        if (!epg || !shouldRouteToEpg) {
+            return false;
         }
 
-        if (epg && shouldRouteToEpg) {
-            switch (event.button) {
-                case 'up':
-                case 'down':
-                case 'left':
-                case 'right':
-                    event.handled = true;
-                    event.originalEvent.preventDefault();
+        switch (event.button) {
+            case 'up':
+            case 'down':
+            case 'left':
+            case 'right':
+                this._consumeKeyEvent(event);
 
-                    if (event.isRepeat) {
-                        return;
-                    }
+                if (event.isRepeat) {
+                    return true;
+                }
 
-                    if (this._epgRepeatButton && this._epgRepeatButton !== event.button) {
-                        this._stopEpgRepeat('directionChange');
-                    }
+                if (this._epgRepeatButton && this._epgRepeatButton !== event.button) {
+                    this._stopEpgRepeat('directionChange');
+                }
 
-                    if (epg.handleNavigation(event.button)) {
-                        this._startEpgRepeat(event.button);
-                    }
-                    return;
-                case 'play':
-                    // When the guide is open, PLAY acts as "Jump to Now" instead of controlling playback.
-                    // This mirrors common 10-foot UI conventions and avoids accidental playback toggles.
-                    this._stopEpgRepeat('play');
-                    epg.focusNow();
-                    event.handled = true;
-                    event.originalEvent.preventDefault();
-                    return;
-                case 'ok':
-                    this._stopEpgRepeat('ok');
-                    epg.handleSelect();
-                    event.handled = true;
-                    event.originalEvent.preventDefault();
-                    return;
-                case 'back':
-                    this._stopEpgRepeat('back');
-                    epg.handleBack();
-                    event.handled = true;
-                    event.originalEvent.preventDefault();
-                    return;
-                case 'channelUp':
-                case 'channelDown':
-                    event.handled = true;
-                    event.originalEvent.preventDefault();
-                    this._stopEpgRepeat('channelPage');
-                    if (event.isRepeat) {
-                        return;
-                    }
-                    epg.handlePage(event.button === 'channelUp' ? 'up' : 'down');
-                    return;
-                default:
-                    break;
-            }
+                if (epg.handleNavigation(event.button)) {
+                    this._startEpgRepeat(event.button);
+                }
+                return true;
+            case 'play':
+                this._stopEpgRepeat('play');
+                epg.focusNow();
+                this._consumeKeyEvent(event);
+                return true;
+            case 'ok':
+                this._stopEpgRepeat('ok');
+                epg.handleSelect();
+                this._consumeKeyEvent(event);
+                return true;
+            case 'back':
+                this._stopEpgRepeat('back');
+                epg.handleBack();
+                this._consumeKeyEvent(event);
+                return true;
+            case 'channelUp':
+            case 'channelDown':
+                this._consumeKeyEvent(event);
+                this._stopEpgRepeat('channelPage');
+                if (event.isRepeat) {
+                    return true;
+                }
+                epg.handlePage(event.button === 'channelUp' ? 'up' : 'down');
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private _handleMiniGuideModeKeyPress(event: KeyEvent, routingState: KeyPressRoutingState): boolean {
+        const { currentScreen, miniGuideVisible, modalOpen, shouldRouteToEpg } = routingState;
+        if (currentScreen !== 'player' || !miniGuideVisible || modalOpen || shouldRouteToEpg) {
+            return false;
+        }
+        if (this.deps.navigation.isInputBlocked()) {
+            this._logInputNotHandled('input_blocked', event);
+            this._stopMiniGuideRepeat('inputBlocked');
+            this._consumeKeyEvent(event);
+            return true;
         }
 
-        const currentScreen = navigation.getCurrentScreen();
-        if (currentScreen === 'player' && miniGuideVisible && !modalOpen && !shouldRouteToEpg) {
-            if (navigation.isInputBlocked()) {
-                this._logInputNotHandled('input_blocked', event);
-                this._stopMiniGuideRepeat('inputBlocked');
-                event.handled = true;
-                event.originalEvent.preventDefault();
-                return;
+        switch (event.button) {
+            case 'up':
+            case 'down':
+                this._consumeKeyEvent(event);
+                if (this._miniGuideRepeatButton && this._miniGuideRepeatButton !== event.button) {
+                    this._stopMiniGuideRepeat('directionChange');
+                }
+                if (!event.isRepeat || !this._miniGuideRepeatButton) {
+                    if (this.deps.miniGuide.coordinator?.handleNavigation(event.button)) {
+                        this._startMiniGuideRepeat(event.button);
+                    }
+                }
+                return true;
+            case 'channelUp':
+            case 'channelDown':
+                this._consumeKeyEvent(event);
+                this._stopMiniGuideRepeat('page');
+                this.deps.miniGuide.coordinator?.handlePage(event.button === 'channelUp' ? 'up' : 'down');
+                return true;
+            case 'right':
+                this._consumeKeyEvent(event);
+                this._stopMiniGuideRepeat('right');
+                this.deps.miniGuide.coordinator?.hide();
+                this.deps.channelSwitching.toggleEpg();
+                return true;
+            case 'ok':
+                this._consumeKeyEvent(event);
+                this._stopMiniGuideRepeat('ok');
+                if (!event.isRepeat) {
+                    this.deps.miniGuide.coordinator?.handleSelect();
+                }
+                return true;
+            case 'back':
+                this._consumeKeyEvent(event);
+                this._stopMiniGuideRepeat('back');
+                this.deps.miniGuide.coordinator?.hide();
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private _handlePlayerMiniGuideShowKeyPress(
+        event: KeyEvent,
+        routingState: KeyPressRoutingState
+    ): boolean {
+        if (
+            routingState.currentScreen === 'player'
+            && !routingState.miniGuideVisible
+            && !routingState.modalOpen
+            && !routingState.shouldRouteToEpg
+            && !(this.deps.playback.playerOsd.overlay?.isVisible() ?? false)
+            && event.button === 'up'
+        ) {
+            this._consumeKeyEvent(event);
+            if (!event.isRepeat) {
+                this.deps.miniGuide.coordinator?.show();
             }
-            switch (event.button) {
-                case 'up':
-                case 'down':
-                    event.handled = true;
-                    event.originalEvent.preventDefault();
-                    if (this._miniGuideRepeatButton && this._miniGuideRepeatButton !== event.button) {
-                        this._stopMiniGuideRepeat('directionChange');
-                    }
-                    if (!event.isRepeat || !this._miniGuideRepeatButton) {
-                        if (this.deps.miniGuide.coordinator?.handleNavigation(event.button)) {
-                            this._startMiniGuideRepeat(event.button);
-                        }
-                    }
-                    return;
-                case 'channelUp':
-                case 'channelDown':
-                    event.handled = true;
-                    event.originalEvent.preventDefault();
-                    this._stopMiniGuideRepeat('page');
-                    this.deps.miniGuide.coordinator?.handlePage(event.button === 'channelUp' ? 'up' : 'down');
-                    return;
-                case 'right':
-                    event.handled = true;
-                    event.originalEvent.preventDefault();
-                    this._stopMiniGuideRepeat('right');
-                    this.deps.miniGuide.coordinator?.hide();
-                    this.deps.channelSwitching.toggleEpg();
-                    return;
-                case 'ok':
-                    event.handled = true;
-                    event.originalEvent.preventDefault();
-                    this._stopMiniGuideRepeat('ok');
-                    if (!event.isRepeat) {
-                        this.deps.miniGuide.coordinator?.handleSelect();
-                    }
-                    return;
-                case 'back':
-                    event.handled = true;
-                    event.originalEvent.preventDefault();
-                    this._stopMiniGuideRepeat('back');
-                    this.deps.miniGuide.coordinator?.hide();
-                    return;
-                default:
-                    break;
-            }
+            return true;
+        }
+        return false;
+    }
+
+    private _handlePlayerOsdToggleKeyPress(
+        event: KeyEvent,
+        routingState: KeyPressRoutingState
+    ): boolean {
+        if (
+            event.button === 'down'
+            && routingState.currentScreen === 'player'
+            && !routingState.modalOpen
+            && !routingState.shouldRouteToEpg
+            && !(this.deps.playback.playerOsd.overlay?.isVisible() ?? false)
+            && !routingState.miniGuideVisible
+        ) {
+            this.deps.playback.playerOsd.coordinator?.toggle();
+            this._consumeKeyEvent(event);
+            return true;
         }
 
         if (
-            currentScreen === 'player'
-            && !miniGuideVisible
-            && !modalOpen
-            && !shouldRouteToEpg
+            event.button === 'ok'
+            && routingState.currentScreen === 'player'
+            && !routingState.modalOpen
             && !(this.deps.playback.playerOsd.overlay?.isVisible() ?? false)
+            && !routingState.miniGuideVisible
         ) {
-            if (event.button === 'up') {
-                event.handled = true;
-                event.originalEvent.preventDefault();
-                if (!event.isRepeat) {
-                    this.deps.miniGuide.coordinator?.show();
-                }
-                return;
-            }
+            this.deps.playback.playerOsd.coordinator?.toggle();
+            this._consumeKeyEvent(event);
+            return true;
         }
 
-        if (currentScreen !== 'player' && (event.button === 'up' || event.button === 'down' || event.button === 'ok')) {
-            this._logInputNotHandled('screen_not_player', event);
+        return false;
+    }
+
+    private _handlePlayerBackKeyPress(event: KeyEvent): boolean {
+        if (event.button !== 'back') {
+            return false;
         }
 
-        if (event.button === 'down') {
-            if (
-                currentScreen === 'player'
-                && !modalOpen
-                && !shouldRouteToEpg
-                && !(this.deps.playback.playerOsd.overlay?.isVisible() ?? false)
-                && !miniGuideVisible
-            ) {
-                this.deps.playback.playerOsd.coordinator?.toggle();
-                event.handled = true;
-                event.originalEvent.preventDefault();
-                return;
-            }
+        const navigation = this.deps.navigation;
+        const currentScreen = navigation.getCurrentScreen();
+        if (currentScreen !== 'player' || navigation.isModalOpen()) {
+            return false;
         }
 
-        if (event.button === 'ok') {
-            if (
-                currentScreen === 'player'
-                && !modalOpen
-                && !(this.deps.playback.playerOsd.overlay?.isVisible() ?? false)
-                && !miniGuideVisible
-            ) {
-                this.deps.playback.playerOsd.coordinator?.toggle();
-                event.handled = true;
-                event.originalEvent.preventDefault();
-                return;
-            }
+        if (this.deps.playback.playerOsd.overlay?.isVisible()) {
+            this.deps.playback.playerOsd.coordinator?.hide();
+            this._consumeKeyEvent(event);
+            return true;
         }
 
-        if (event.button === 'back') {
-            const currentScreen = navigation.getCurrentScreen();
-            if (currentScreen === 'player' && !navigation.isModalOpen()) {
-                if (this.deps.playback.playerOsd.overlay?.isVisible()) {
-                    this.deps.playback.playerOsd.coordinator?.hide();
-                    event.handled = true;
-                    event.originalEvent.preventDefault();
-                    return;
-                }
-                // Player back should not traverse setup/server screen history.
-                const prep = this.deps.modals.exitConfirm.prepare();
-                navigation.openModal(this.deps.modals.exitConfirm.modalId, prep.focusableIds);
-                event.handled = true;
-                event.originalEvent.preventDefault();
-                return;
-            }
-        }
+        const prep = this.deps.modals.exitConfirm.prepare();
+        navigation.openModal(this.deps.modals.exitConfirm.modalId, prep.focusableIds);
+        this._consumeKeyEvent(event);
+        return true;
+    }
 
+    private _handleDefaultKeyPress(event: KeyEvent, routingState: KeyPressRoutingState): void {
         switch (event.button) {
             case 'red':
                 if (event.isRepeat) {
@@ -580,14 +635,22 @@ export class NavigationCoordinator {
                 this.deps.nowPlayingInfo.toggleOverlay();
                 break;
             case 'channelUp':
-                if (currentScreen === 'player' && !modalOpen && !shouldRouteToEpg) {
+                if (
+                    routingState.currentScreen === 'player'
+                    && !routingState.modalOpen
+                    && !routingState.shouldRouteToEpg
+                ) {
                     this.deps.channelSwitching.setLastChannelChangeSourceRemote();
                     // Treat channel-up as decrement (reverse wrap) to match user expectation.
                     this.deps.channelSwitching.switchToPreviousChannel();
                 }
                 break;
             case 'channelDown':
-                if (currentScreen === 'player' && !modalOpen && !shouldRouteToEpg) {
+                if (
+                    routingState.currentScreen === 'player'
+                    && !routingState.modalOpen
+                    && !routingState.shouldRouteToEpg
+                ) {
                     this.deps.channelSwitching.setLastChannelChangeSourceRemote();
                     // Treat channel-down as increment (forward wrap) to match user expectation.
                     this.deps.channelSwitching.switchToNextChannel();
@@ -661,6 +724,15 @@ export class NavigationCoordinator {
                 break;
             // Other keys handled by active screen
         }
+    }
+
+    private _consumeKeyEvent(event: KeyEvent): void {
+        event.handled = true;
+        event.originalEvent.preventDefault();
+    }
+
+    private _isDirectionalButton(button: KeyEvent['button']): button is 'up' | 'down' | 'left' | 'right' {
+        return button === 'up' || button === 'down' || button === 'left' || button === 'right';
     }
 
     private _stopEpgRepeat(_reason: string): void {
