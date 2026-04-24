@@ -29,7 +29,7 @@ import {
     logVideoPlayerPlayFailure,
 } from '../debug/PlayerConsoleLogger';
 import type { PlatformPlaybackService, PlatformSubtitleService } from '../../platform';
-import { webosPlatformServices } from '../../platform';
+import { createWebOsPlatformServices } from '../../platform';
 import { SubtitleDebugLogger } from '../debug/SubtitleDebugLogger';
 
 type MediaSessionPlaybackStateLike = 'none' | 'paused' | 'playing';
@@ -91,7 +91,7 @@ export class VideoPlayer implements IVideoPlayer {
         playbackService?: PlatformPlaybackService;
         subtitleService?: PlatformSubtitleService;
     }) {
-        this._playbackService = services?.playbackService ?? webosPlatformServices.playback;
+        this._playbackService = services?.playbackService ?? createWebOsPlatformServices().playback;
         this._subtitleManager = new SubtitleManager(services?.subtitleService);
     }
 

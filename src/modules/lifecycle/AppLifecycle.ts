@@ -21,7 +21,7 @@ import {
     VALID_PHASE_TRANSITIONS,
 } from './constants';
 import type { PlatformLifecycleService } from '../../platform';
-import { webosPlatformServices } from '../../platform';
+import { createWebOsPlatformServices } from '../../platform';
 
 type PendingSaveWaiter = {
     resolve: () => void;
@@ -87,7 +87,7 @@ export class AppLifecycle implements IAppLifecycle {
         this._emitter = new EventEmitter<LifecycleEventMap>();
         this._stateManager = stateManager !== undefined ? stateManager : new StateManager();
         this._errorRecovery = errorRecovery !== undefined ? errorRecovery : new ErrorRecovery();
-        this._lifecycleService = lifecycleService ?? webosPlatformServices.lifecycle;
+        this._lifecycleService = lifecycleService ?? createWebOsPlatformServices().lifecycle;
     }
 
     // ========== Lifecycle Methods ==========
@@ -171,8 +171,13 @@ export class AppLifecycle implements IAppLifecycle {
      * Save current application state.
      * Debounced to prevent excessive writes.
      */
-    public async saveState(): Promise<void> {
-        const state = this._buildCurrentState();
+    public saveState(): Promise<void> {
+        let state: PersistentState;
+        try {
+            state = this._buildCurrentState();
+        } catch (error) {
+            return Promise.reject(error);
+        }
         this._pendingState = state;
 
         // Debounce saves
@@ -678,8 +683,12 @@ export class AppLifecycle implements IAppLifecycle {
                     TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
                 this._resolvePendingSaveWaiters();
             } catch (error) {
-                this._handleSaveError(error);
                 this._rejectPendingSaveWaiters(error);
+                try {
+                    this._handleSaveError(error);
+                } catch (handlerError) {
+                    console.warn('[AppLifecycle] Persistence warning handler failed', handlerError);
+                }
             }
         }
     }

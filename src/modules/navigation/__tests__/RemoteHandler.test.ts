@@ -14,7 +14,7 @@ import {
     resolveKeyMap,
 } from '../constants';
 import type { PlatformInputService } from '../../../platform';
-import { webosPlatformServices } from '../../../platform';
+import { createWebOsPlatformServices } from '../../../platform';
 
 // Helper to dispatch key events
 function dispatchKeyEvent(
@@ -43,7 +43,7 @@ describe('RemoteHandler', () => {
 
     describe('key mapping', () => {
         it('should derive key map from platform input service', () => {
-            expect(resolveKeyMap()).toBe(webosPlatformServices.input.getKeyMap());
+            expect(resolveKeyMap()).toBe(createWebOsPlatformServices().input.getKeyMap());
         });
 
         it('should expose a read-only key map view', () => {

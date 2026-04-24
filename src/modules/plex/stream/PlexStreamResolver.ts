@@ -30,7 +30,7 @@ import {
 import { fetchWithTimeout } from '../shared/fetchWithTimeout';
 import { detectHdrLabel } from './hdr';
 import type { PlatformIdentityService } from '../../../platform';
-import { webosPlatformServices } from '../../../platform';
+import { createWebOsPlatformServices } from '../../../platform';
 import { resolveStreamPipeline } from './resolveStreamPipeline';
 import {
     applyXPlexQueryParamsFromHeaders,
@@ -76,7 +76,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     constructor(config: PlexStreamResolverConfig) {
         this._config = config;
         this._emitter = new EventEmitter<StreamResolverEventMap>();
-        this._identityService = config.identityService ?? webosPlatformServices.identity;
+        this._identityService = config.identityService ?? createWebOsPlatformServices().identity;
     }
 
     private _getChromeMajor(): number | null {

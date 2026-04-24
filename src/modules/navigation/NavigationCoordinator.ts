@@ -576,21 +576,9 @@ export class NavigationCoordinator {
         event: KeyEvent,
         routingState: KeyPressRoutingState
     ): boolean {
+        const isOsdToggleButton = event.button === 'down' || event.button === 'ok';
         if (
-            event.button === 'down'
-            && routingState.currentScreen === 'player'
-            && !routingState.modalOpen
-            && !routingState.shouldRouteToEpg
-            && !(this.deps.playback.playerOsd.overlay?.isVisible() ?? false)
-            && !routingState.miniGuideVisible
-        ) {
-            this.deps.playback.playerOsd.coordinator?.toggle();
-            this._consumeKeyEvent(event);
-            return true;
-        }
-
-        if (
-            event.button === 'ok'
+            isOsdToggleButton
             && routingState.currentScreen === 'player'
             && !routingState.modalOpen
             && !routingState.shouldRouteToEpg

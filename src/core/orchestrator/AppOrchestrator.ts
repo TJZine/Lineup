@@ -152,7 +152,7 @@ import {
 } from '../../modules/plex/shared/plexUrl';
 import type { ToastInput } from '../../modules/ui/toast/types';
 import type { PlatformServices } from '../../platform';
-import { webosPlatformServices } from '../../platform';
+import { createWebOsPlatformServices } from '../../platform';
 import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
 import { ScheduleDayRolloverController } from './ScheduleDayRolloverController';
 import { SubtitleTrackRecoveryController } from './SubtitleTrackRecoveryController';
@@ -380,7 +380,7 @@ export class AppOrchestrator {
     };
 
     constructor(platformServices?: PlatformServices) {
-        this._platformServices = platformServices ?? webosPlatformServices;
+        this._platformServices = platformServices ?? createWebOsPlatformServices();
         this._recoverableRuntimeReporter = createDefaultRecoverableRuntimeIssueReporter(
             QA_003B_ISSUE_ID,
             this._issueDiagnosticsStore.append.bind(this._issueDiagnosticsStore)
@@ -2096,19 +2096,20 @@ export class AppOrchestrator {
         try {
             await this._initCoordinator.runStartup(3);
 
-            if (this._epg) {
+            const epg = this._epg;
+            if (epg) {
                 step = 'clearSelectedChannelScheduleSnapshot';
                 this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
 
                 step = 'clearScheduleCaches';
                 this._epgCoordinator?.clearScheduleCaches();
+
+                step = 'clearSchedules';
+                epg.clearSchedules();
+
+                step = 'primeEpgChannels';
+                this._epgCoordinator?.primeEpgChannels();
             }
-
-            step = 'clearSchedules';
-            this._epg?.clearSchedules();
-
-            step = 'primeEpgChannels';
-            this._epgCoordinator?.primeEpgChannels();
 
             const epgCoordinator = this._epgCoordinator;
             if (!epgCoordinator) {

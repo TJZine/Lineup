@@ -11,7 +11,7 @@ import type { ChannelSetupConfig } from '../core/channel-setup/types';
 import { AppOrchestrator, type PlaybackInfoSnapshot } from '../Orchestrator';
 import { PLEX_AUTH_CONSTANTS } from '../modules/plex/auth';
 import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
-import { webosPlatformServices } from '../platform';
+import { createWebOsPlatformServices } from '../platform';
 
 import { flushPromises, setDevBuildForTest } from './helpers';
 import {
@@ -286,12 +286,17 @@ describe('App bootstrap smoke', () => {
         jest.restoreAllMocks();
         document.body.innerHTML = '';
         localStorage.clear();
+        delete (window as Window & typeof globalThis & {
+            webOSTV?: { platform?: { version?: string } };
+        }).webOSTV;
         restoreDevBuild?.();
         restoreDevBuild = null;
     });
 
     it('creates root containers and starts orchestrator', async () => {
-        jest.spyOn(webosPlatformServices.identity, 'detectPlatformVersion').mockReturnValue('24.0');
+        (window as Window & typeof globalThis & {
+            webOSTV?: { platform?: { version?: string } };
+        }).webOSTV = { platform: { version: '24.0' } };
 
         await bootstrapApp();
 
@@ -330,11 +335,12 @@ describe('App bootstrap smoke', () => {
 
     it('defers the first platform version probe until plex auth config consumers read it', () => {
         let bridgeReady = false;
+        const platformServices = createWebOsPlatformServices();
         const detectPlatformVersionSpy = jest
-            .spyOn(webosPlatformServices.identity, 'detectPlatformVersion')
+            .spyOn(platformServices.identity, 'detectPlatformVersion')
             .mockImplementation(() => (bridgeReady ? '24.0' : '6.0'));
 
-        const config = createAppOrchestratorConfig();
+        const config = createAppOrchestratorConfig(platformServices);
 
         expect(detectPlatformVersionSpy).not.toHaveBeenCalled();
 

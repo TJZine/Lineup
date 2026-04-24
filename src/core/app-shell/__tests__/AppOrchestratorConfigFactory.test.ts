@@ -6,6 +6,7 @@ import { CHANNEL_BADGE_CONTAINER_ID } from '../../../modules/ui/channel-badge';
 import { MINI_GUIDE_CONTAINER_ID } from '../../../modules/ui/mini-guide';
 import { CHANNEL_TRANSITION_CONTAINER_ID } from '../../../modules/ui/channel-transition';
 import { EPG_CONTAINER_ID } from '../../../modules/ui/epg';
+import { createWebOsPlatformServices } from '../../../platform';
 
 describe('createAppOrchestratorConfig', () => {
     it('builds fresh config objects with the app-shell startup defaults', () => {
@@ -33,5 +34,18 @@ describe('createAppOrchestratorConfig', () => {
         expect(first.miniGuideConfig.containerId).toBe(MINI_GUIDE_CONTAINER_ID);
         expect(first.channelTransitionConfig.containerId).toBe(CHANNEL_TRANSITION_CONTAINER_ID);
         expect(first.playbackOptionsConfig.containerId).toBe(APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS);
+    });
+
+    it('uses the supplied platform services for lazy Plex platform-version detection', () => {
+        const platformServices = createWebOsPlatformServices();
+        const detectPlatformVersion = jest
+            .spyOn(platformServices.identity, 'detectPlatformVersion')
+            .mockReturnValue('25.0');
+
+        const config = createAppOrchestratorConfig(platformServices);
+
+        expect(detectPlatformVersion).not.toHaveBeenCalled();
+        expect(config.plexConfig.platformVersion).toBe('25.0');
+        expect(detectPlatformVersion).toHaveBeenCalledTimes(1);
     });
 });

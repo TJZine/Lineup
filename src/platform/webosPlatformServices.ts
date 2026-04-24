@@ -239,5 +239,3 @@ export function createWebOsPlatformServices(): PlatformServices {
         },
     };
 }
-
-export const webosPlatformServices: PlatformServices = createWebOsPlatformServices();

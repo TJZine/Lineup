@@ -181,10 +181,10 @@ async function maybeRouteToProfileSelect(inputs: Phase2AuthGateInputs): Promise<
     return true;
 }
 
-async function persistValidatedActiveCredentials(
+function persistValidatedActiveCredentials(
     inputs: Phase2AuthGateInputs,
     storedCredentials: Phase2StoredCredentials
-): Promise<void> {
+): void {
     const validatedActiveToken = resolveValidatedToken(
         inputs.plexAuth.getCurrentUser(),
         storedCredentials.activeToken
@@ -194,7 +194,7 @@ async function persistValidatedActiveCredentials(
         ? validatedActiveToken
         : storedCredentials.accountToken;
 
-    await inputs.plexAuth.storeCredentials({
+    inputs.plexAuth.storeCredentials({
         accountToken,
         activeToken: validatedActiveToken,
         activeUserId,
@@ -203,16 +203,16 @@ async function persistValidatedActiveCredentials(
     });
 }
 
-async function persistValidatedAccountFallback(
+function persistValidatedAccountFallback(
     inputs: Phase2AuthGateInputs,
     storedCredentials: Phase2StoredCredentials
-): Promise<void> {
+): void {
     const validatedAccountToken = resolveValidatedToken(
         inputs.plexAuth.getCurrentUser(),
         storedCredentials.accountToken
     );
 
-    await inputs.plexAuth.storeCredentials({
+    inputs.plexAuth.storeCredentials({
         accountToken: validatedAccountToken,
         activeToken: validatedAccountToken,
         activeUserId: validatedAccountToken.userId,
@@ -225,7 +225,7 @@ async function persistValidatedAccountFallback(
 }
 
 export async function applyPhase2AuthGatePolicy(inputs: Phase2AuthGateInputs): Promise<boolean> {
-    const storedReadResult = await inputs.plexAuth.readStoredCredentialsAndClearCorruption();
+    const storedReadResult = inputs.plexAuth.readStoredCredentialsAndClearCorruption();
     if (storedReadResult.kind === 'corrupted') {
         return routeToPendingAuth(inputs, {
             code: AppErrorCode.STORAGE_CORRUPTED,
@@ -245,7 +245,7 @@ export async function applyPhase2AuthGatePolicy(inputs: Phase2AuthGateInputs): P
             storedCredentials.activeToken.token
         );
         if (activeValid) {
-            await persistValidatedActiveCredentials(inputs, storedCredentials);
+            persistValidatedActiveCredentials(inputs, storedCredentials);
             inputs.configureDiscoveryStorage();
             inputs.seedSubtitleLanguageFromPlexUser?.();
             markAuthReady(inputs);
@@ -259,7 +259,7 @@ export async function applyPhase2AuthGatePolicy(inputs: Phase2AuthGateInputs): P
             return routeToPendingAuth(inputs);
         }
 
-        await persistValidatedAccountFallback(inputs, storedCredentials);
+        persistValidatedAccountFallback(inputs, storedCredentials);
         markAuthReady(inputs);
         inputs.handlers.registerProfileResume();
         inputs.navigation.goTo('profile-select');

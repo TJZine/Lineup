@@ -7,7 +7,7 @@
 import { AppLifecycle } from '../AppLifecycle';
 import { StateManager } from '../StateManager';
 import { ErrorRecovery } from '../ErrorRecovery';
-import { NETWORK_CHECK_PROBE_URL } from '../constants';
+import { NETWORK_CHECK_PROBE_URL, TIMING_CONFIG } from '../constants';
 import { AppErrorCode, PersistentState } from '../types';
 import type { IAppLifecycle } from '../interfaces';
 import type { PlatformLifecycleService } from '../../../platform';
@@ -281,7 +281,7 @@ describe('AppLifecycle', () => {
             await lifecycle.initialize();
 
             const savePromise = lifecycle.saveState();
-            jest.advanceTimersByTime(600); // Past debounce time
+            jest.advanceTimersByTime(TIMING_CONFIG.SAVE_DEBOUNCE_MS);
 
             await savePromise;
 
@@ -299,7 +299,7 @@ describe('AppLifecycle', () => {
             await Promise.resolve();
             expect(settled).toBe(false);
 
-            jest.advanceTimersByTime(599);
+            jest.advanceTimersByTime(TIMING_CONFIG.SAVE_DEBOUNCE_MS - 1);
             await Promise.resolve();
             expect(settled).toBe(false);
 
@@ -318,7 +318,29 @@ describe('AppLifecycle', () => {
             await lifecycle.initialize();
 
             const savePromise = lifecycle.saveState();
-            jest.advanceTimersByTime(600);
+            jest.advanceTimersByTime(TIMING_CONFIG.SAVE_DEBOUNCE_MS);
+
+            await expect(savePromise).rejects.toBe(saveError);
+        });
+
+        it('rejects saveState with the persistence error even when warning observers throw', async () => {
+            const saveError = new DOMException('Quota exceeded', 'QuotaExceededError');
+            mockStateManager.save.mockImplementation(() => {
+                throw saveError;
+            });
+            await lifecycle.initialize();
+            expectConsoleWarn([
+                "[EventEmitter] Handler error for event 'persistenceWarning':",
+                expect.objectContaining({
+                    message: 'observer failed',
+                }),
+            ]);
+            lifecycle.on('persistenceWarning', () => {
+                throw new Error('observer failed');
+            });
+
+            const savePromise = lifecycle.saveState();
+            jest.advanceTimersByTime(TIMING_CONFIG.SAVE_DEBOUNCE_MS);
 
             await expect(savePromise).rejects.toBe(saveError);
         });

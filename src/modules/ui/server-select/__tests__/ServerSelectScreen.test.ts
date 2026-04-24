@@ -182,7 +182,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await Promise.resolve();
+        await settleScreen(screen);
 
         const pill = container.querySelector('.server-status-pill') as HTMLElement;
         expect(pill.textContent).toContain('Unknown');

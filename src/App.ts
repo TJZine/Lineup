@@ -32,6 +32,7 @@ import type { ChannelSetupConfig } from './core/channel-setup/types';
 import { getAppErrorCode } from './types/app-errors';
 import type { IDisposable } from './utils/interfaces';
 import { summarizeErrorForLog } from './utils/errors';
+import { createWebOsPlatformServices, type PlatformServices } from './platform';
 
 const NON_BLOCKING_TOAST_MESSAGES: Partial<Record<AppErrorCode, string>> = {
     [AppErrorCode.CHANNEL_NOT_FOUND]: 'That channel is unavailable.',
@@ -107,12 +108,13 @@ export class App {
 
             // Create root containers
             const containerRefs = this._createContainers();
+            const platformServices = createWebOsPlatformServices();
 
             // Build configuration
-            const config = this._buildConfig();
+            const config = this._buildConfig(platformServices);
 
             // Create and initialize orchestrator
-            const orchestrator = new AppOrchestrator();
+            const orchestrator = new AppOrchestrator(platformServices);
             this._orchestrator = orchestrator;
             await orchestrator.initialize(config);
 
@@ -330,8 +332,10 @@ export class App {
     /**
      * Build orchestrator configuration.
      */
-    private _buildConfig(): ReturnType<typeof createAppOrchestratorConfig> {
-        return createAppOrchestratorConfig();
+    private _buildConfig(
+        platformServices: PlatformServices = createWebOsPlatformServices()
+    ): ReturnType<typeof createAppOrchestratorConfig> {
+        return createAppOrchestratorConfig(platformServices);
     }
 
     /**

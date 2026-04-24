@@ -58,14 +58,18 @@ export type SubtitleFallbackTransientReason =
     | 'server_error'
     | 'unknown_error';
 
-export type SubtitleFallbackAuthReason = 'unauthorized' | 'forbidden';
+export type SubtitleFallbackAuthResult =
+    | { kind: 'auth'; reason: 'unauthorized'; status: 401 }
+    | { kind: 'auth'; reason: 'forbidden'; status: 403 };
+
+export type SubtitleFallbackAuthReason = SubtitleFallbackAuthResult['reason'];
 
 export type SubtitleFallbackResult =
     | { kind: 'success'; vtt: string }
     | { kind: 'stale' }
     | { kind: 'unsupported'; reason: SubtitleFallbackUnsupportedReason; status?: number }
     | { kind: 'transient'; reason: SubtitleFallbackTransientReason; status?: number }
-    | { kind: 'auth'; reason: SubtitleFallbackAuthReason; status: 401 | 403 };
+    | SubtitleFallbackAuthResult;
 
 export type SubtitleExtractabilityProbeResult =
     | 'supported'

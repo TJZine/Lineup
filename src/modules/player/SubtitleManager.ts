@@ -9,7 +9,7 @@ import type { SubtitleFallbackResult, SubtitleTrack } from './types';
 import { BURN_IN_SUBTITLE_FORMATS } from '../../shared/subtitle-formats';
 import { redactSensitiveTokens } from '../../utils/redact';
 import type { PlatformSubtitleService } from '../../platform';
-import { webosPlatformServices } from '../../platform';
+import { createWebOsPlatformServices } from '../../platform';
 import {
     applyXPlexTokenQueryParam,
     buildPlexUrlFromKey,
@@ -87,7 +87,7 @@ export class SubtitleManager {
     private readonly _subtitleService: PlatformSubtitleService;
 
     constructor(subtitleService?: PlatformSubtitleService) {
-        this._subtitleService = subtitleService ?? webosPlatformServices.subtitle;
+        this._subtitleService = subtitleService ?? createWebOsPlatformServices().subtitle;
     }
 
     private _logSubtitleDebug(event: string, contextFactory: () => Record<string, unknown>): void {
