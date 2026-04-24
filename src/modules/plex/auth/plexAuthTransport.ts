@@ -10,6 +10,11 @@ export class PlexApiError extends Error {
     public readonly code: AppErrorCode;
     public readonly httpStatus: number | undefined;
     public readonly retryable: boolean;
+    /**
+     * Sanitized surrogate for the original cause. Raw throwables are intentionally
+     * not forwarded to `super(message, { cause })` so token-bearing details do not
+     * leak through native Error.cause consumers.
+     */
     public readonly cause: unknown;
 
     constructor(

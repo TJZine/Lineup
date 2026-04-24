@@ -15,6 +15,7 @@
 import { AppErrorCode, type IAppLifecycle, type AppError } from '../../modules/lifecycle';
 import type { INavigationManager } from '../../modules/navigation';
 import type { IPlexAuth } from '../../modules/plex/auth';
+import { isPlexAuthRecoverable } from '../../modules/plex/auth/plexAuthErrors';
 import type { IPlexServerDiscovery } from '../../modules/plex/discovery';
 import type { IPlexLibrary } from '../../modules/plex/library';
 import type { IPlexStreamResolver } from '../../modules/plex/stream';
@@ -478,7 +479,7 @@ export class InitializationCoordinator {
                 },
             });
         } catch (error) {
-            if (!this._isDiscoveryAuthRecoveryError(error)) {
+            if (!isPlexAuthRecoverable(error)) {
                 throw error;
             }
 
@@ -493,15 +494,6 @@ export class InitializationCoordinator {
             this._callbacks.errors.handleGlobalError(error, 'plex-server-discovery');
             return false;
         }
-    }
-
-    private _isDiscoveryAuthRecoveryError(error: unknown): error is AppError {
-        const code = (error as { code?: string } | null)?.code;
-        return (
-            code === AppErrorCode.AUTH_REQUIRED
-            || code === AppErrorCode.AUTH_INVALID
-            || code === AppErrorCode.AUTH_EXPIRED
-        );
     }
 
     /**

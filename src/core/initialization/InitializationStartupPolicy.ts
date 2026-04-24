@@ -1,6 +1,7 @@
 import { AppErrorCode, type AppError, type IAppLifecycle } from '../../modules/lifecycle';
 import type { INavigationManager } from '../../modules/navigation';
 import type { IPlexAuth } from '../../modules/plex/auth';
+import { isPlexAuthRecoverable } from '../../modules/plex/auth/plexAuthErrors';
 import type { IPlexServerDiscovery } from '../../modules/plex/discovery';
 import type { IPlexLibrary } from '../../modules/plex/library';
 import type { IPlexStreamResolver } from '../../modules/plex/stream';
@@ -126,15 +127,6 @@ function resolveValidatedToken<TToken extends Phase2StoredCredentials['activeTok
         return currentToken;
     }
     return fallbackToken;
-}
-
-function isDiscoveryAuthRecoveryError(error: unknown): boolean {
-    const code = (error as { code?: string } | null)?.code;
-    return (
-        code === AppErrorCode.AUTH_REQUIRED
-        || code === AppErrorCode.AUTH_INVALID
-        || code === AppErrorCode.AUTH_EXPIRED
-    );
 }
 
 function markAuthReady(inputs: Phase2AuthGateInputs): void {
@@ -291,7 +283,7 @@ export async function applyPhase3ServerGatePolicy(inputs: Phase3ServerGateInputs
     try {
         await inputs.plexDiscovery.initialize();
     } catch (error) {
-        if (isDiscoveryAuthRecoveryError(error)) {
+        if (isPlexAuthRecoverable(error)) {
             throw error;
         }
         inputs.updateModuleStatus(

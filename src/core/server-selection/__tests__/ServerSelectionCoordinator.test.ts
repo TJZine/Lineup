@@ -93,6 +93,33 @@ describe('ServerSelectionCoordinator', () => {
         expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
     });
 
+    it('preserves persistence failure when discovery rollback also fails', async () => {
+        const persistenceError = new Error('persist failed');
+        const rollbackError = new Error('discovery rollback failed');
+        const deps = {
+            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
+            restoreDiscoverySelectionSnapshot: jest.fn(() => {
+                throw rollbackError;
+            }),
+            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
+            selectServer: jest.fn(async () => ({ kind: 'selected' as const })),
+            getSelectedServerUri: jest.fn(() => 'http://example.com'),
+            persistSelection: jest.fn(async () => {
+                throw persistenceError;
+            }),
+            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
+            resumeStartupAfterSelection: jest.fn(async () => undefined),
+            getReadiness: jest.fn(() => 'ready' as const),
+        };
+        const coordinator = new ServerSelectionCoordinator(deps);
+
+        await expect(coordinator.selectServer('server-1')).rejects.toBe(persistenceError);
+
+        expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
+        expect(deps.restorePersistedSelectionSnapshot).not.toHaveBeenCalled();
+        expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
+    });
+
     it('restores discovery runtime state and the prior persisted record when startup resume fails', async () => {
         const resumeError = new Error('startup resume failed');
         const deps = {
@@ -115,6 +142,35 @@ describe('ServerSelectionCoordinator', () => {
         expect(deps.capturePersistedSelectionSnapshot).toHaveBeenCalledTimes(1);
         expect(deps.persistSelection).toHaveBeenCalledWith('server-1', 'http://example.com');
         expect(deps.resumeStartupAfterSelection).toHaveBeenCalledTimes(1);
+        expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
+        expect(deps.restorePersistedSelectionSnapshot).toHaveBeenCalledWith(persistedSnapshot);
+    });
+
+    it('preserves startup resume failure when both rollback attempts fail', async () => {
+        const resumeError = new Error('startup resume failed');
+        const discoveryRollbackError = new Error('discovery rollback failed');
+        const persistedRollbackError = new Error('persisted rollback failed');
+        const deps = {
+            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
+            restoreDiscoverySelectionSnapshot: jest.fn(() => {
+                throw discoveryRollbackError;
+            }),
+            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
+            selectServer: jest.fn(async () => ({ kind: 'selected' as const })),
+            getSelectedServerUri: jest.fn(() => 'http://example.com'),
+            persistSelection: jest.fn(async () => 'updated' as const),
+            restorePersistedSelectionSnapshot: jest.fn(async () => {
+                throw persistedRollbackError;
+            }),
+            resumeStartupAfterSelection: jest.fn(async () => {
+                throw resumeError;
+            }),
+            getReadiness: jest.fn(() => 'ready' as const),
+        };
+        const coordinator = new ServerSelectionCoordinator(deps);
+
+        await expect(coordinator.selectServer('server-1')).rejects.toBe(resumeError);
+
         expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
         expect(deps.restorePersistedSelectionSnapshot).toHaveBeenCalledWith(persistedSnapshot);
     });
