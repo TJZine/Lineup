@@ -4,6 +4,7 @@
  */
 
 import type {
+    PlatformIdentityService,
     PlatformServices,
     PlatformRemoteButton,
 } from './services';
@@ -116,53 +117,53 @@ function isWebOs(): boolean {
     }
 }
 
-let memoizedPlatformVersion: string | null = null;
+function createPlatformIdentityService(): PlatformIdentityService {
+    let memoizedPlatformVersion: string | null = null;
 
-function detectPlatformVersion(): string {
-    if (memoizedPlatformVersion !== null) {
-        return memoizedPlatformVersion;
-    }
-    try {
-        if (typeof window !== 'undefined') {
-            const webOSTV = (window as { webOSTV?: { platform?: { version?: string } } }).webOSTV;
-            if (webOSTV?.platform?.version) {
-                memoizedPlatformVersion = webOSTV.platform.version;
-                return memoizedPlatformVersion;
-            }
+    const detectPlatformVersion = (): string => {
+        if (memoizedPlatformVersion !== null) {
+            return memoizedPlatformVersion;
         }
+        try {
+            if (typeof window !== 'undefined') {
+                const webOSTV = (window as { webOSTV?: { platform?: { version?: string } } }).webOSTV;
+                if (webOSTV?.platform?.version) {
+                    memoizedPlatformVersion = webOSTV.platform.version;
+                    return memoizedPlatformVersion;
+                }
+            }
 
-        const chromeMajor = getChromeMajor();
-        if (chromeMajor !== null) {
-            // Heuristic fallback for environments where `webOSTV.platform.version` is unavailable.
-            // Keep this mapping updated as new webOS Chromium baselines are validated.
-            if (chromeMajor >= 120) {
-                memoizedPlatformVersion = '25.0';
-                return memoizedPlatformVersion;
+            const chromeMajor = getChromeMajor();
+            if (chromeMajor !== null) {
+                // Heuristic fallback for environments where `webOSTV.platform.version` is unavailable.
+                // Keep this mapping updated as new webOS Chromium baselines are validated.
+                if (chromeMajor >= 120) {
+                    memoizedPlatformVersion = '25.0';
+                    return memoizedPlatformVersion;
+                }
+                if (chromeMajor >= 108) {
+                    memoizedPlatformVersion = '24.0';
+                    return memoizedPlatformVersion;
+                }
+                if (chromeMajor >= 94) {
+                    memoizedPlatformVersion = '23.0';
+                    return memoizedPlatformVersion;
+                }
+                if (chromeMajor >= 87) {
+                    memoizedPlatformVersion = '22.0';
+                    return memoizedPlatformVersion;
+                }
             }
-            if (chromeMajor >= 108) {
-                memoizedPlatformVersion = '24.0';
-                return memoizedPlatformVersion;
-            }
-            if (chromeMajor >= 94) {
-                memoizedPlatformVersion = '23.0';
-                return memoizedPlatformVersion;
-            }
-            if (chromeMajor >= 87) {
-                memoizedPlatformVersion = '22.0';
-                return memoizedPlatformVersion;
-            }
+
+            memoizedPlatformVersion = '6.0';
+            return memoizedPlatformVersion;
+        } catch {
+            memoizedPlatformVersion = '6.0';
+            return memoizedPlatformVersion;
         }
+    };
 
-        memoizedPlatformVersion = '6.0';
-        return memoizedPlatformVersion;
-    } catch {
-        memoizedPlatformVersion = '6.0';
-        return memoizedPlatformVersion;
-    }
-}
-
-function getDefaultPlexIdentity(clientIdentifier: string): Readonly<Record<string, string>> {
-    return {
+    const getDefaultPlexIdentity = (clientIdentifier: string): Readonly<Record<string, string>> => ({
         'X-Plex-Client-Identifier': clientIdentifier,
         'X-Plex-Platform': 'webOS',
         'X-Plex-Product': 'Lineup',
@@ -171,6 +172,12 @@ function getDefaultPlexIdentity(clientIdentifier: string): Readonly<Record<strin
         'X-Plex-Device-Name': 'Lineup',
         'X-Plex-Platform-Version': detectPlatformVersion(),
         'X-Plex-Model': 'LGTV',
+    });
+
+    return {
+        isWebOs,
+        detectPlatformVersion,
+        getDefaultPlexIdentity,
     };
 }
 
@@ -217,11 +224,7 @@ function deriveLanHttpSubtitleUrl(original: URL): URL | null {
 
 export function createWebOsPlatformServices(): PlatformServices {
     return {
-        identity: {
-            isWebOs,
-            detectPlatformVersion,
-            getDefaultPlexIdentity,
-        },
+        identity: createPlatformIdentityService(),
         input: {
             getKeyMap: (): ReadonlyMap<number, PlatformRemoteButton> => WEBOS_KEY_MAP,
         },
