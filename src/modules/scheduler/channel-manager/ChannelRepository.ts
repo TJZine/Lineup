@@ -2,7 +2,12 @@ import { fnv1a32Uint } from '../../../utils/hash';
 import type { SafeLocalStorageWriteResult } from '../../../utils/storage';
 import { isValidContentSource } from './ChannelContentSourceValidator';
 import { ChannelPersistenceStore } from './ChannelPersistenceStore';
-import { CURRENT_CHANNEL_KEY, STORAGE_KEY } from './constants';
+import {
+    CURRENT_CHANNEL_KEY,
+    MAX_CHANNEL_NUMBER,
+    MIN_CHANNEL_NUMBER,
+    STORAGE_KEY,
+} from './constants';
 import { stripLegacySequentialVariant } from './stripLegacySequentialVariant';
 import type { ChannelConfig, StoredChannelData } from './types';
 
@@ -10,6 +15,64 @@ export type LoadedChannelState = {
     data: StoredChannelData;
     didMutate: boolean;
 } | null;
+
+function isValidChannelNumber(value: unknown): value is number {
+    return (
+        typeof value === 'number' &&
+        Number.isInteger(value) &&
+        value >= MIN_CHANNEL_NUMBER &&
+        value <= MAX_CHANNEL_NUMBER
+    );
+}
+
+function normalizeChannelNumbers(
+    channels: ChannelConfig[]
+): { channels: ChannelConfig[]; didMutate: boolean } {
+    const reservedNumbers = new Set<number>();
+    for (const channel of channels) {
+        const number = (channel as { number?: unknown }).number;
+        if (isValidChannelNumber(number) && !reservedNumbers.has(number)) {
+            reservedNumbers.add(number);
+        }
+    }
+
+    let didMutate = false;
+    const seenValidNumbers = new Set<number>();
+    const normalizedChannels: ChannelConfig[] = [];
+
+    const takeNextAvailableNumber = (): number | null => {
+        for (let n = MIN_CHANNEL_NUMBER; n <= MAX_CHANNEL_NUMBER; n++) {
+            if (!reservedNumbers.has(n)) {
+                reservedNumbers.add(n);
+                return n;
+            }
+        }
+        return null;
+    };
+
+    for (const channel of channels) {
+        const number = (channel as { number?: unknown }).number;
+        if (isValidChannelNumber(number) && !seenValidNumbers.has(number)) {
+            seenValidNumbers.add(number);
+            normalizedChannels.push(channel);
+            continue;
+        }
+
+        const fallbackNumber = takeNextAvailableNumber();
+        if (fallbackNumber === null) {
+            didMutate = true;
+            continue;
+        }
+
+        didMutate = true;
+        normalizedChannels.push({
+            ...channel,
+            number: fallbackNumber,
+        });
+    }
+
+    return { channels: normalizedChannels, didMutate };
+}
 
 export class ChannelRepository {
     private readonly _store: ChannelPersistenceStore;
@@ -39,8 +102,7 @@ export class ChannelRepository {
         const dataCurrentChannelId =
             typeof stored.currentChannelId === 'string' ? stored.currentChannelId : null;
 
-        const normalizedChannels: ChannelConfig[] = [];
-        const channelIds = new Set<string>();
+        const channelCandidates: ChannelConfig[] = [];
         let didMutate = false;
 
         for (const raw of stored.channels) {
@@ -72,7 +134,16 @@ export class ChannelRepository {
                 didMutate = true;
                 continue;
             }
-            normalizedChannels.push(channel);
+            channelCandidates.push(channel);
+        }
+
+        const channelNumberNormalization = normalizeChannelNumbers(channelCandidates);
+        if (channelNumberNormalization.didMutate) {
+            didMutate = true;
+        }
+        const normalizedChannels = channelNumberNormalization.channels;
+        const channelIds = new Set<string>();
+        for (const channel of normalizedChannels) {
             channelIds.add(channel.id);
         }
 
