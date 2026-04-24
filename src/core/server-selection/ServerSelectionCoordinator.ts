@@ -59,10 +59,11 @@ export class ServerSelectionCoordinator {
             };
         }
 
-        const persistedSelectionSnapshot = await this._deps.capturePersistedSelectionSnapshot();
-        const selectedServerUri = this._deps.getSelectedServerUri();
+        let persistedSelectionSnapshot: PersistedSelectedServerSnapshot;
         let persistedSelection: SelectedServerPersistenceResult;
         try {
+            persistedSelectionSnapshot = await this._deps.capturePersistedSelectionSnapshot();
+            const selectedServerUri = this._deps.getSelectedServerUri();
             persistedSelection = await this._deps.persistSelection(serverId, selectedServerUri);
         } catch (error) {
             this._tryRestoreDiscoverySelectionSnapshot(discoverySnapshot);
