@@ -760,7 +760,7 @@ export function writeValidCodexRoleConfigFixture(
         '.codex/agents/cleanup-worker.toml',
         [
             `model = "${CODEX_MODEL_PLANNER}"`,
-            'model_reasoning_effort = "high"',
+            'model_reasoning_effort = "medium"',
             'developer_instructions = """',
             'Own one bounded cleanup-loop implementation write scope at a time.',
             'Make the smallest defensible cleanup change inside the approved execution unit, avoid unrelated edits, and validate the changed behavior before returning.',

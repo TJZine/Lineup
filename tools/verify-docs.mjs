@@ -138,8 +138,8 @@ const requiredCodexRoleContracts = new Map([
         {
             requiredLinePatterns: [
                 {
-                    pattern: /^model_reasoning_effort\s*=\s*"high"\s*(?:#.*)?$/mu,
-                    label: 'model_reasoning_effort = "high"',
+                    pattern: /^model_reasoning_effort\s*=\s*"medium"\s*(?:#.*)?$/mu,
+                    label: 'model_reasoning_effort = "medium"',
                 },
             ],
             requiredMarkers: [
