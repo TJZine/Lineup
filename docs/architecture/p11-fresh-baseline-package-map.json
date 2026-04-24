@@ -337,6 +337,23 @@
       "checklist_tokens": {
         "work_item": "P11-W5",
         "priority_exit": "P11-EXIT"
+      },
+      "execution_status": {
+        "status": "completed",
+        "completed_execution_units": [
+          "P11-W5-WAVE1"
+        ],
+        "current_or_next_execution_unit": "P11-W6",
+        "evidence": [
+          "P11-W5-WAVE1 aligned the audio-track error contract in commits 3af1fe3a and 1d20fad2: uninitialized player/video-element preconditions now use INITIALIZATION_FAILED across IVideoPlayer, VideoPlayer, AudioTrackManager, and focused tests, while unknown tracks remain TRACK_NOT_FOUND and delegated playback errors are preserved.",
+          "P11-W5-WAVE1 split subtitle fallback and playback-options probe failure contracts into explicit success, stale, unsupported, transient, and auth outcomes while preserving the non-fatal UX and existing burn-in policy only for permanent unsupported subtitle extraction.",
+          "Implementation review found no blocking findings and approved the wave; the post-review follow-up updated stale probe commentary and added repeated auth-failure probe coverage to prove auth failures are not cached as permanent unsupported.",
+          "Focused verification passed: audio contract tests, subtitle fallback/manager/playback-options tests, playback-options follow-up test run, and npm run typecheck.",
+          "P11-W5-S3 source audit found no need to change PlaybackRecoveryManager, PlaybackStreamDescriptorBuilder, Orchestrator, or PlexStreamResolver because the richer subtitle reasons fit inside existing player-owned callback seams.",
+          "Closeout reran package-local scoping commands for VideoPlayer.ts, SubtitleManager.ts, PlaybackRecoveryManager.ts, and AudioTrackManager.ts. VideoPlayer.ts, SubtitleManager.ts, and PlaybackRecoveryManager.ts reported no open file-matching issues; AudioTrackManager.ts still reported the old console/swallowed-error rows, but reviewed current-source proof shows restoreFailure is captured and included in the thrown PlaybackError, so the remaining detector rows are stale wording.",
+          "Exact review-id desloppify checks still reported the two P11-W5 seed ids as open, but reviewed current-source proof and contract tests retire the package-owned rationale."
+        ],
+        "last_touched": "2026-04-24"
       }
     },
     {
