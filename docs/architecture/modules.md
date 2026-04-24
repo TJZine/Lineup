@@ -62,14 +62,14 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - startup policy collaborators extracted from `InitializationCoordinator`
 - `src/core/initialization/InitializationStartupPolicy.ts` owns startup routing policy (auth/profile/server-select/post-ready)
-- `src/modules/ui/epg/buildEpgStartupConfig.ts` owns EPG startup config shaping
+- `src/modules/ui/epg/buildEPGStartupConfig.ts` owns EPG startup config shaping
 
 ### `src/core/server-selection/`
 
 - focused server-selection collaborators shared between app shell and orchestrator
 - `src/core/server-selection/ServerSelectionTypes.ts` owns `OrchestratorServerSelectionResult`
-- `src/core/server-selection/ServerSelectionCoordinator.ts` owns the app-shell-facing selected-server workflow previously assembled inline in `AppOrchestrator.selectServer()`, including discovery-result translation, result shaping, persistence handoff, and runtime-swap invocation
-- `src/core/server-selection/SelectedServerRuntimeController.ts` owns the selected-server persistence helper, clear-selection cleanup, and the concrete runtime-swap helper consumed by the server-selection flow rather than the flow orchestration itself
+- `src/core/server-selection/ServerSelectionCoordinator.ts` owns the app-shell-facing selected-server workflow previously assembled inline in `AppOrchestrator.selectServer()`, including discovery-result translation, result shaping, transactional persistence handoff, rollback, and selected-server startup-resume invocation
+- `src/core/server-selection/SelectedServerRuntimeController.ts` owns selected-server persistence snapshot/restore helpers, clear-selection cleanup, and the concrete selected-server startup-resume helper consumed by the server-selection flow rather than the flow orchestration itself
 
 ### `src/config/`
 

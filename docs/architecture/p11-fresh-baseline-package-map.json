@@ -280,6 +280,25 @@
       "checklist_tokens": {
         "work_item": "P11-W4",
         "priority_exit": "P11-EXIT"
+      },
+      "execution_status": {
+        "status": "completed",
+        "completed_execution_units": [
+          "P11-W4-EU1",
+          "P11-W4-EU2",
+          "P11-W4-EU3"
+        ],
+        "current_or_next_execution_unit": "P11-W5",
+        "evidence": [
+          "P11-W4-EU1 made server-select route params active-route-only, replaced selected-server commit with rollback over discovery runtime state, discovery selected-server storage, and active-user selected-server persistence, renamed selected-server startup-resume APIs, and added explicit async idle seams for server-select, profile-select, EPG background warm, EPG schedule refresh, and EPG info-panel tests.",
+          "P11-W4-EU1 passed focused verification for 11 suites / 395 tests plus npm run typecheck, resolved one implementation-review regression around active-user snapshot timing on discovery failure, and received fresh final implementation approval.",
+          "P11-W4-EU2 split NavigationCoordinator keypress routing into named mode handlers while preserving existing remote/focus/repeat behavior; focused NavigationCoordinator tests passed with 67 tests plus npm run typecheck and review approved the slice.",
+          "P11-W4-EU3 normalized scoped EPG acronym casing to DeferredEPGComponent.ts, buildEPGStartupConfig.ts, and EPGLibraryUtils.ts while preserving package-root public exports and adding no compatibility aliases; focused renamed EPG tests passed with 4 suites / 17 tests plus npm run typecheck and review approved the slice.",
+          "Package closeout passed npm run verify with typecheck, architecture lint, CSS lint, coverage tests, tools tests, contracts, docs verification, and build.",
+          "Exact review-id desloppify checks still reported the seven P11-W4 seed ids as open, but reviewed current-source proof shows detector lag/stale wording against the completed package-owned rationale.",
+          "Closeout reran package-local scoping commands for EPGVirtualizer.ts, EPGComponent.ts, EPGScheduleRefreshRuntime.ts, NavigationManager.ts, and ServerSelectScreen.ts; all reported no open issues matching those files."
+        ],
+        "last_touched": "2026-04-24"
       }
     },
     {

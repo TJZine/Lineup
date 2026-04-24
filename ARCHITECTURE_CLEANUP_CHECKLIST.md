@@ -16,8 +16,8 @@ The live post-reset follow-on queue is defined by `docs/architecture/p11-fresh-b
 
 - Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
-- Current execution state: `P1-W1` through `P10-W1` are now historical evidence for the retired `2026-04-16` lineage; `P11-W1`, `P11-W2`, and `P11-W3` are complete and `P11-W4` is the next live fresh-baseline package from the authoritative `2026-04-23` rerun
-- Next safe start: `P11-W4` / `pkg_epg_navigation_runtime_cleanup`
+- Current execution state: `P1-W1` through `P10-W1` are now historical evidence for the retired `2026-04-16` lineage; `P11-W1`, `P11-W2`, `P11-W3`, and `P11-W4` are complete and `P11-W5` is the next live fresh-baseline package from the authoritative `2026-04-23` rerun
+- Next safe start: `P11-W5` / `pkg_player_recovery_contract_cleanup`
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to the active package or exit row
 - First action at package start: planning only; create the package-local execution-grade plan first and do not begin implementation until that planning gate is complete
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
@@ -965,7 +965,7 @@ Default scoping rule for this queue:
 - Follow-ups: none for `P11-W3`; continue fresh-baseline queue at `P11-W4`
 - Handoff: `P11-W4`
 
-### [ ] `P11-W4` `pkg_epg_navigation_runtime_cleanup` EPG, Navigation, And UI Runtime Cleanup
+### [x] `P11-W4` `pkg_epg_navigation_runtime_cleanup` EPG, Navigation, And UI Runtime Cleanup
 
 - Backlog: `seed 18 = 7 fresh review + 11 candidate mechanical hotspots`
 - Scope: reduce navigation/EPG runtime complexity, fix the stale route/state contract drift, and replace the most fragile EPG/server-select async coordination seams with clearer ownership and testable completion boundaries
@@ -978,11 +978,12 @@ Default scoping rule for this queue:
   - `desloppify show src/modules/ui/server-select/ServerSelectScreen.ts --status open --no-budget --top 80`
 - Cleanup-loop fit: Tier 3 checklist-linked package; use the exact review ids as the execution anchor, treat the candidate mechanical ids as bounded scoping aids only, and keep player/Plex/cross-cutting hygiene residue out by default
 - Likely first slice: start with the stale server-select state contract and the EPG/navigation async completion seam before widening into larger EPG decomposition
-- Status: not started
-- Plan: none yet
-- Last touched: `2026-04-23`
-- Verification: not run for package-local scoping yet; seed evidence comes from the authoritative `2026-04-23T07:32:05+00:00` rerun and `docs/architecture/p11-fresh-baseline-package-map.json`
-- Follow-ups: none yet
+- Status: completed
+- Plan: package-local cleanup-loop plan approved after adversarial review; local-only plan artifact was not promoted to `docs/plans/`
+- Last touched: `2026-04-24`
+- Progress: `P11-W4-EU1` completed the server-selection transaction and UI async-completion wave; `P11-W4-S1` made server-select route params active-route-only, renamed the selected-server startup resume path to intent-revealing APIs, and made selected-server commit rollback cover discovery runtime state, discovery selected-server storage, and active-user `{ serverId, serverUri }` persistence. `P11-W4-S2` added explicit idle/completion seams for server-select, profile-select, EPG background warm, EPG background refresh, and EPG info-panel async work. `P11-W4-EU2` split `NavigationCoordinator._handleKeyPress()` into named mode handlers without changing routing behavior. `P11-W4-EU3` normalized the scoped EPG acronym casing seam to `DeferredEPGComponent.ts`, `buildEPGStartupConfig.ts`, and `EPGLibraryUtils.ts` while preserving package-root public exports and adding no compatibility aliases.
+- Verification: `P11-W4-EU1` passed focused Jest coverage for navigation manager, server-selection coordinator/runtime, initialization coordinator, Plex discovery, orchestrator, server-select, profile-select, EPG background warm, EPG schedule refresh, and EPG info panel (`11` suites / `395` tests) plus `npm run typecheck`; implementation review found one active-user snapshot timing regression, the fix passed closure, and a fresh final review approved the wave. `P11-W4-EU2` passed `npm test -- src/modules/navigation/__tests__/NavigationCoordinator.test.ts` (`67` tests) plus `npm run typecheck` and clean review. `P11-W4-EU3` passed renamed EPG focused tests (`4` suites / `17` tests) plus `npm run typecheck` and clean review. Package closeout passed `npm run verify` with typecheck, architecture lint, CSS lint, coverage tests (`252` suites, `3085` passed, `1` skipped), tools tests (`5` suites, `98` tests), contracts (`7` suites, `201` tests), docs verification, and build. Exact review-id `desloppify show` reruns still report the seven seed ids as open, but reviewed current-source proof retires the package-owned rationale: stale server-select params are cleared/guarded off-route, selection rollback now restores all selected-server state surfaces on failed commit, selected-server runtime resume naming is explicit, UI suites await feature-owned idle seams instead of guessed flush counts, navigation key handling is a dispatcher plus named mode handlers, and scoped EPG filename/import casing is normalized. Package-local scoping reruns for `EPGVirtualizer.ts`, `EPGComponent.ts`, `EPGScheduleRefreshRuntime.ts`, `NavigationManager.ts`, and `ServerSelectScreen.ts` all reported no open issues matching those files.
+- Follow-ups: none for `P11-W4`; continue fresh-baseline queue at `P11-W5`
 - Handoff: `P11-W5`
 
 ### [ ] `P11-W5` `pkg_player_recovery_contract_cleanup` Player, Subtitle, And Recovery Contract Cleanup
