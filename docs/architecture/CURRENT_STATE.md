@@ -66,8 +66,8 @@ If another architecture doc disagrees with this one, update the other doc or arc
 ### `src/core/server-selection/`
 
 - focused server-selection collaborators shared between app shell and orchestrator
-- `ServerSelectionCoordinator.selectServer()` owns the app-shell-facing selected-server workflow/result contract, including discovery-result translation, persistence handoff, and runtime-swap invocation
-- `SelectedServerRuntimeController` owns the selected-server persistence helper, clear-selection cleanup, and the concrete post-selection runtime-swap helper invoked by that flow; it does not own the app-shell orchestration path itself
+- `ServerSelectionCoordinator.selectServer()` owns the app-shell-facing selected-server workflow/result contract, including discovery-result translation, transactional persistence handoff, rollback, and selected-server startup-resume invocation
+- `SelectedServerRuntimeController` owns selected-server persistence snapshot/restore helpers, clear-selection cleanup, and the concrete selected-server startup-resume helper invoked by that flow; it does not own the app-shell orchestration path itself
 
 ### `src/Orchestrator.ts`
 
@@ -165,7 +165,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - `src/modules/ui/common/` owns cross-surface UI presentation helpers such as `appShellContainerIds`, `channelDisplay`, and the pure `formatTimecode` helper shared by overlay owners
 - `src/modules/ui/common/appShellContainerIds.ts` is the shared owner for app-shell-owned container IDs created by `src/core/app-shell/AppContainerFactory.ts` and consumed by app-shell/runtime wiring, including the bounded `runtime-chrome-host`; feature-owned mount container IDs such as EPG, player OSD, mini guide, channel badge, channel transition, and exit confirm remain with their feature modules even though `AppContainerFactory` may canonicalize their materialized DOM nodes at document scope
 - `src/modules/ui/epg/EPGCoordinator.ts` owns EPG runtime policy entrypoints (open/close/toggle/guide-setting handling and schedule-policy orchestration), while `src/Orchestrator.ts` remains a delegation surface that wires this owner
-- `src/modules/ui/epg/buildEpgStartupConfig.ts` owns EPG startup-config shaping consumed by `src/core/orchestrator/InitializationCoordinator.ts`
+- `src/modules/ui/epg/buildEPGStartupConfig.ts` owns EPG startup-config shaping consumed by `src/core/orchestrator/InitializationCoordinator.ts`
 - `src/modules/ui/epg/index.ts` is a bounded cross-module seam and no longer re-exports EPG view/util leaf symbols
 - `src/modules/ui/epg/EPGCoordinatorPolicies.ts` keeps library-filter normalization pure, while `EPGCoordinator` and `EPGRefreshController` own explicit persisted-selection cleanup writes through `EpgPreferencesStore`
 - `src/modules/ui/epg/view/index.ts` is package-local for view-layer exports; `src/modules/ui/epg/view/EPGVirtualizer.ts` remains the current virtualized-grid owner, and the EPG package split continues to stage leaf owners under `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/`
