@@ -56,6 +56,8 @@ export class ServerSelectScreen {
     private _registeredServerButtonIds: string[] = [];
     private _lastDiscoveredServers: PlexServer[] = [];
     private _serverSelectionStore: ServerSelectionStore;
+    private _idlePromise: Promise<void> = Promise.resolve();
+    private _resolveIdlePromise: (() => void) | null = null;
 
     constructor(container: HTMLElement, ports: ServerSelectScreenPorts) {
         this._container = container;
@@ -178,8 +180,13 @@ export class ServerSelectScreen {
             clearTimeout(this._restoreFocusTimeoutId);
             this._restoreFocusTimeoutId = null;
         }
+        this._resolveIdleIfSettled();
         this._destroyScreenShell?.();
         this._destroyScreenShell = null;
+    }
+
+    async whenIdle(): Promise<void> {
+        return this._hasPendingUiWork() ? this._idlePromise : Promise.resolve();
     }
 
     show(options?: { allowAutoConnect?: boolean }): void {
@@ -211,6 +218,7 @@ export class ServerSelectScreen {
         if ((this._isLoading && this._activeLoadGeneration === generation) || !this._canUpdateUi(generation)) {
             return;
         }
+        this._ensureIdlePromise();
         this._isLoading = true;
         this._activeLoadGeneration = generation;
 
@@ -304,6 +312,7 @@ export class ServerSelectScreen {
             }
 
             if (!this._canUpdateUi(generation)) {
+                this._resolveIdleIfSettled();
                 return;
             }
 
@@ -313,6 +322,7 @@ export class ServerSelectScreen {
             this._switchProfileButton.disabled = false;
             this._clearButton.disabled = this._isClearing || this._isSelecting;
             this._restoreFocus(generation);
+            this._resolveIdleIfSettled();
         }
     }
 
@@ -354,10 +364,13 @@ export class ServerSelectScreen {
                 this._restoreFocusTimeoutId = null;
                 if (!this._canUpdateUi(generation)) return;
                 if (nav.restoreFocusForCurrentScreen()) {
+                    this._resolveIdleIfSettled();
                     return;
                 }
                 nav.setFocus('btn-server-refresh');
+                this._resolveIdleIfSettled();
             }, FOCUS_RESTORE_DELAY_MS);
+            this._ensureIdlePromise();
         }
     }
 
@@ -372,6 +385,7 @@ export class ServerSelectScreen {
         this._setServerConnectButtonsDisabled(true);
         this._container.style.display = 'none';
         this._container.classList.remove('visible');
+        this._resolveIdleIfSettled();
     }
 
     async refresh(): Promise<void> {
@@ -442,6 +456,7 @@ export class ServerSelectScreen {
         }
 
         try {
+            this._ensureIdlePromise();
             this._isClearing = true;
             this._activeClearGeneration = generation;
             this._clearError();
@@ -478,6 +493,7 @@ export class ServerSelectScreen {
             ) {
                 this._setClearButtonDisabled(false, currentGeneration);
             }
+            this._resolveIdleIfSettled();
         }
     }
 
@@ -708,6 +724,7 @@ export class ServerSelectScreen {
         }
 
         try {
+            this._ensureIdlePromise();
             this._isSelecting = true;
             this._activeSelectGeneration = generation;
             this._setServerConnectButtonsDisabled(true);
@@ -760,7 +777,35 @@ export class ServerSelectScreen {
                     this._restoreFocus(currentGeneration);
                 }
             }
+            this._resolveIdleIfSettled();
         }
+    }
+
+    private _hasPendingUiWork(): boolean {
+        return this._isLoading
+            || this._isClearing
+            || this._isSelecting
+            || this._restoreFocusTimeoutId !== null;
+    }
+
+    private _ensureIdlePromise(): void {
+        if (this._resolveIdlePromise) {
+            return;
+        }
+
+        this._idlePromise = new Promise((resolve) => {
+            this._resolveIdlePromise = resolve;
+        });
+    }
+
+    private _resolveIdleIfSettled(): void {
+        if (this._hasPendingUiWork() || !this._resolveIdlePromise) {
+            return;
+        }
+
+        const resolve = this._resolveIdlePromise;
+        this._resolveIdlePromise = null;
+        resolve();
     }
 
     private _selectionFailureMessage(

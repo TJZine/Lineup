@@ -5,7 +5,7 @@
 import { ServerSelectScreen, type ServerSelectScreenPorts } from '../ServerSelectScreen';
 import type { ServerSelectScreenNavigationPort } from '../../../navigation';
 import type { PlexServer } from '../../../plex/discovery/types';
-import { createBodyAppendedTestContainer, createDeferred, flushPromisesAndTimers } from '../../../../__tests__/helpers';
+import { createBodyAppendedTestContainer, createDeferred } from '../../../../__tests__/helpers';
 
 type NavigationStub = ServerSelectScreenNavigationPort & {
     registerFocusable: jest.Mock;
@@ -55,6 +55,12 @@ const createOrchestratorStub = (): ServerSelectScreenHarness => {
     } as ServerSelectScreenHarness;
 };
 
+const settleScreen = async (screen: ServerSelectScreen): Promise<void> => {
+    const idle = screen.whenIdle();
+    await jest.runAllTimersAsync();
+    await idle;
+};
+
 describe('ServerSelectScreen', () => {
     beforeEach(() => {
         jest.useFakeTimers();
@@ -99,7 +105,7 @@ describe('ServerSelectScreen', () => {
         expect(container.style.justifyContent).toBe('');
 
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
         expect(container.style.display).toBe('flex');
 
         screen.hide();
@@ -122,7 +128,7 @@ describe('ServerSelectScreen', () => {
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const pill = container.querySelector('.server-status-pill') as HTMLElement;
         expect(pill.textContent).toContain('Slow • 250ms');
@@ -145,7 +151,7 @@ describe('ServerSelectScreen', () => {
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const pill = container.querySelector('.server-status-pill') as HTMLElement;
         expect(pill.textContent).toContain('Very Slow • 500ms');
@@ -162,7 +168,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await Promise.resolve();
 
         const pill = container.querySelector('.server-status-pill') as HTMLElement;
         expect(pill.textContent).toContain('Unknown');
@@ -184,7 +190,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await Promise.resolve();
 
         const pill = container.querySelector('.server-status-pill') as HTMLElement;
         expect(pill.textContent).toContain('Access Denied');
@@ -203,9 +209,9 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await Promise.resolve();
         await screen.refresh();
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         expect(setSpy).not.toHaveBeenCalledWith(selectedKey, expect.any(String));
         expect(setSpy).not.toHaveBeenCalledWith(healthKey, expect.any(String));
@@ -233,7 +239,7 @@ describe('ServerSelectScreen', () => {
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const activeRow = container.querySelector('.server-row.active') as HTMLElement;
         expect(activeRow).toBeTruthy();
@@ -269,7 +275,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const serverIds = nav.registerFocusable.mock.calls
             .map((call) => (call[0] as { id?: string })?.id)
@@ -292,7 +298,7 @@ describe('ServerSelectScreen', () => {
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show();
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         expect(orchestrator.selectServer).not.toHaveBeenCalled();
         const status = container.querySelector('.screen-status') as HTMLElement;
@@ -322,7 +328,7 @@ describe('ServerSelectScreen', () => {
         expect(status?.textContent).toContain('Reconnecting to saved server');
 
         resolveDiscovery([makeServer('srv-1', 'Server One')]);
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         expect(hint?.classList.contains('visible')).toBe(false);
     });
@@ -342,7 +348,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: true });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const hint = container.querySelector('.server-autoconnect-hint') as HTMLElement | null;
         const status = container.querySelector('.screen-status') as HTMLElement | null;
@@ -371,7 +377,7 @@ describe('ServerSelectScreen', () => {
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: true });
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const activeRow = container.querySelector('.server-row.active') as HTMLElement;
         const button = activeRow.querySelector('button') as HTMLButtonElement;
@@ -390,11 +396,11 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const button = container.querySelector('.server-row button') as HTMLButtonElement;
         button.click();
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const error = container.querySelector('.screen-error') as HTMLElement;
         expect(error.textContent ?? '').toContain('Authentication required');
@@ -409,11 +415,11 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const button = container.querySelector('.server-row button') as HTMLButtonElement;
         button.click();
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const error = container.querySelector('.screen-error') as HTMLElement;
         expect(error.textContent ?? '').toContain('does not have access to that server');
@@ -429,7 +435,7 @@ describe('ServerSelectScreen', () => {
         try {
             const screen = new ServerSelectScreen(container, orchestrator);
             screen.show({ allowAutoConnect: false });
-            await flushPromisesAndTimers();
+            await Promise.resolve();
 
             expect(container.querySelector('.screen-status')?.textContent).toBe('Discovery failed.');
             expect(container.querySelector('.screen-error')?.textContent).toBe('discovery failed');
@@ -449,7 +455,7 @@ describe('ServerSelectScreen', () => {
         try {
             const screen = new ServerSelectScreen(container, orchestrator);
             screen.show({ allowAutoConnect: true });
-            await flushPromisesAndTimers();
+            await settleScreen(screen);
 
             expect(container.querySelector('.screen-status')?.textContent).toBe('Discovery failed.');
             expect(container.querySelector('.screen-error')?.textContent).toBe('Storage keys must be non-empty strings');
@@ -470,11 +476,11 @@ describe('ServerSelectScreen', () => {
         try {
             const screen = new ServerSelectScreen(container, orchestrator);
             screen.show({ allowAutoConnect: false });
-            await flushPromisesAndTimers();
+            await settleScreen(screen);
 
             const button = container.querySelector('.server-row button') as HTMLButtonElement;
             button.click();
-            await flushPromisesAndTimers();
+            await settleScreen(screen);
 
             expect(container.querySelector('.screen-status')?.textContent).toBe('Connection failed.');
             expect(container.querySelector('.screen-error')?.textContent).toBe('select failed');
@@ -497,13 +503,13 @@ describe('ServerSelectScreen', () => {
         try {
             const screen = new ServerSelectScreen(container, orchestrator);
             screen.show({ allowAutoConnect: false });
-            await flushPromisesAndTimers();
+            await settleScreen(screen);
 
             const connectButton = container.querySelector('.server-row button') as HTMLButtonElement;
             const clearButton = container.querySelector('#btn-server-forget') as HTMLButtonElement;
 
             connectButton.click();
-            await flushPromisesAndTimers();
+            await settleScreen(screen);
 
             expect(container.querySelector('.screen-status')?.textContent).toBe('Connection failed.');
             expect(container.querySelector('.screen-error')?.textContent).toBe('sync select failed');
@@ -525,7 +531,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const button = container.querySelector('.server-row button') as HTMLButtonElement;
         expect(button.disabled).toBe(false);
@@ -538,7 +544,7 @@ describe('ServerSelectScreen', () => {
         expect(container.querySelector('.screen-status')?.textContent).toBe('Connecting to Server One…');
 
         selectDeferred.resolve({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         expect(button.disabled).toBe(false);
         expect(container.querySelector('.screen-status')?.textContent).toBe('Connected to Server One.');
@@ -554,7 +560,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const button = container.querySelector('.server-row button') as HTMLButtonElement;
         button.click();
@@ -563,7 +569,7 @@ describe('ServerSelectScreen', () => {
 
         screen.hide();
         selectDeferred.resolve({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         expect(orchestrator.selectServer).toHaveBeenCalledTimes(1);
         expect(container.querySelector('.screen-status')?.textContent).toBe('Connecting to Server One…');
@@ -581,7 +587,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const firstButton = container.querySelector('.server-row button') as HTMLButtonElement;
         expect(firstButton.disabled).toBe(false);
@@ -594,7 +600,7 @@ describe('ServerSelectScreen', () => {
 
         screen.hide();
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await Promise.resolve();
 
         const reShownButton = container.querySelector('.server-row button') as HTMLButtonElement;
         expect(reShownButton.disabled).toBe(true);
@@ -604,7 +610,7 @@ describe('ServerSelectScreen', () => {
         expect(orchestrator.selectServer).toHaveBeenCalledTimes(1);
 
         selectDeferred.resolve({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const enabledButton = container.querySelector('.server-row button') as HTMLButtonElement;
         expect(enabledButton.disabled).toBe(false);
@@ -627,7 +633,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const firstButton = container.querySelector('.server-row button') as HTMLButtonElement;
         firstButton.click();
@@ -637,7 +643,7 @@ describe('ServerSelectScreen', () => {
 
         screen.hide();
         screen.show({ allowAutoConnect: true });
-        await flushPromisesAndTimers();
+        await Promise.resolve();
 
         expect(orchestrator.selectServer).toHaveBeenCalledTimes(1);
         expect(container.querySelector('.screen-status')?.textContent).toContain('Selection in progress');
@@ -646,7 +652,7 @@ describe('ServerSelectScreen', () => {
         expect(reShownButton.disabled).toBe(true);
 
         selectDeferred.resolve({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const enabledButton = container.querySelector('.server-row button') as HTMLButtonElement;
         expect(enabledButton.disabled).toBe(false);
@@ -665,7 +671,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const connectButton = container.querySelector('.server-row button') as HTMLButtonElement;
         const clearButton = container.querySelector('#btn-server-forget') as HTMLButtonElement;
@@ -680,7 +686,7 @@ describe('ServerSelectScreen', () => {
         expect(orchestrator.clearSelectedServer).not.toHaveBeenCalled();
 
         selectDeferred.resolve({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         expect(clearButton.disabled).toBe(false);
     });
@@ -698,11 +704,11 @@ describe('ServerSelectScreen', () => {
         try {
             const screen = new ServerSelectScreen(container, orchestrator);
             screen.show({ allowAutoConnect: false });
-            await flushPromisesAndTimers();
+            await settleScreen(screen);
 
             const clearButton = container.querySelector('#btn-server-forget') as HTMLButtonElement;
             clearButton.click();
-            await flushPromisesAndTimers();
+            await settleScreen(screen);
 
             expect(container.querySelector('.screen-status')?.textContent).toBe('Selection not cleared.');
             expect(container.querySelector('.screen-error')?.textContent).toBe('sync clear failed');
@@ -726,7 +732,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const connectButton = container.querySelector('.server-row button') as HTMLButtonElement;
 
@@ -744,7 +750,7 @@ describe('ServerSelectScreen', () => {
         expect(latestRefreshRegistration?.[0].neighbors.down).toBeUndefined();
 
         selectDeferred.resolve({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         expect(nav.registerFocusable).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -767,14 +773,14 @@ describe('ServerSelectScreen', () => {
 
             const screen = new ServerSelectScreen(container, orchestrator);
             screen.show({ allowAutoConnect: false });
-            await flushPromisesAndTimers();
+            await settleScreen(screen);
 
             const button = container.querySelector('.server-row button') as HTMLButtonElement;
             button.click();
             screen.hide();
 
             selectDeferred.reject(new Error('select failed'));
-            await flushPromisesAndTimers();
+            await settleScreen(screen);
 
             expect(container.querySelector('.screen-status')?.textContent).toBe('Connecting to Server One…');
             expect(container.querySelector('.screen-error')?.textContent).toBe('');
@@ -794,7 +800,7 @@ describe('ServerSelectScreen', () => {
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: true });
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const status = container.querySelector('.screen-status') as HTMLElement;
         expect(orchestrator.selectServer).not.toHaveBeenCalled();
@@ -811,7 +817,7 @@ describe('ServerSelectScreen', () => {
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const emptyState = container.querySelector('.server-empty-state');
         expect(emptyState).toBeTruthy();
@@ -843,7 +849,7 @@ describe('ServerSelectScreen', () => {
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const unregisteredIds = nav.unregisterFocusable.mock.calls.map((call) => call[0] as string | undefined);
         expect(unregisteredIds).not.toContain('btn-server-refresh');
@@ -868,10 +874,10 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         await screen.refresh();
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const unregisteredIds = nav.unregisterFocusable.mock.calls.map((call) => call[0] as string | undefined);
         expect(unregisteredIds).toContain('btn-server-select-srv-1');
@@ -887,14 +893,14 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         nav.setFocus.mockClear();
 
         const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
         expect(clearBtn).not.toBeNull();
         clearBtn?.click();
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         expect(container.querySelectorAll('.server-row')).toHaveLength(1);
         expect(container.querySelector('.server-empty-state')).toBeNull();
@@ -903,7 +909,6 @@ describe('ServerSelectScreen', () => {
         expect(status?.textContent).toBe('Selection cleared.');
         expect(detail?.textContent).toBe('Pick a server to continue.');
 
-        jest.advanceTimersByTime(60);
         expect(nav.setFocus).toHaveBeenCalledWith('btn-server-refresh');
     });
 
@@ -919,13 +924,13 @@ describe('ServerSelectScreen', () => {
 
             const screen = new ServerSelectScreen(container, orchestrator);
             screen.show({ allowAutoConnect: false });
-            await flushPromisesAndTimers();
+            await settleScreen(screen);
 
             const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
             expect(clearBtn).not.toBeNull();
 
             clearBtn?.click();
-            await flushPromisesAndTimers();
+            await settleScreen(screen);
 
             expect(orchestrator.clearSelectedServer).toHaveBeenCalledTimes(1);
             expect(container.querySelectorAll('.server-row')).toHaveLength(1);
@@ -953,7 +958,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
         expect(clearBtn).not.toBeNull();
@@ -964,7 +969,7 @@ describe('ServerSelectScreen', () => {
         expect(orchestrator.clearSelectedServer).toHaveBeenCalledTimes(1);
 
         deferred.resolve();
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         expect(container.querySelector('.screen-status')?.textContent).toBe('Selection cleared.');
     });
@@ -979,7 +984,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
         expect(clearBtn).not.toBeNull();
@@ -991,7 +996,7 @@ describe('ServerSelectScreen', () => {
         expect(clearBtn?.disabled).toBe(true);
 
         clearDeferred.resolve();
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         expect(clearBtn?.disabled).toBe(false);
         expect(container.querySelector('.screen-status')?.textContent).toBe('Selection cleared.');
@@ -1010,7 +1015,7 @@ describe('ServerSelectScreen', () => {
 
             const screen = new ServerSelectScreen(container, orchestrator);
             screen.show({ allowAutoConnect: false });
-            await flushPromisesAndTimers();
+            await settleScreen(screen);
 
             const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
             expect(clearBtn).not.toBeNull();
@@ -1022,7 +1027,7 @@ describe('ServerSelectScreen', () => {
             expect(clearBtn?.disabled).toBe(true);
 
             clearDeferred.reject(new Error('store failed'));
-            await flushPromisesAndTimers();
+            await settleScreen(screen);
 
             expect(clearBtn?.disabled).toBe(false);
             expect(container.querySelector('.screen-status')?.textContent).toBe('Selection not cleared.');
@@ -1047,7 +1052,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
         expect(clearBtn).not.toBeNull();
@@ -1059,18 +1064,18 @@ describe('ServerSelectScreen', () => {
 
         screen.hide();
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await Promise.resolve();
 
         expect(orchestrator.discoverServers).toHaveBeenCalledTimes(2);
         expect(clearBtn?.disabled).toBe(true);
 
         clearDeferred.resolve();
-        await flushPromisesAndTimers();
+        await Promise.resolve();
 
         expect(clearBtn?.disabled).toBe(true);
 
         secondDiscovery.resolve([makeServer('srv-2', 'Second Server')]);
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         expect(clearBtn?.disabled).toBe(false);
 
@@ -1093,7 +1098,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
         expect(clearBtn).not.toBeNull();
@@ -1106,12 +1111,12 @@ describe('ServerSelectScreen', () => {
 
         screen.hide();
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await Promise.resolve();
 
         expect(orchestrator.discoverServers).toHaveBeenCalledTimes(2);
 
         secondDiscovery.resolve([makeServer('srv-2', 'Second Server')]);
-        await flushPromisesAndTimers();
+        await Promise.resolve();
 
         expect(clearBtn?.disabled).toBe(true);
 
@@ -1119,7 +1124,7 @@ describe('ServerSelectScreen', () => {
         expect(orchestrator.clearSelectedServer).toHaveBeenCalledTimes(1);
 
         clearDeferred.resolve();
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         expect(clearBtn?.disabled).toBe(false);
     });
@@ -1135,7 +1140,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
         expect(clearBtn).not.toBeNull();
@@ -1147,8 +1152,7 @@ describe('ServerSelectScreen', () => {
         screen.hide();
 
         deferred.resolve();
-        await flushPromisesAndTimers();
-        jest.advanceTimersByTime(60);
+        await settleScreen(screen);
 
         expect(container.querySelector('.screen-status')?.textContent).not.toBe('Selection cleared.');
         expect(nav.registerFocusable).not.toHaveBeenCalled();
@@ -1168,7 +1172,7 @@ describe('ServerSelectScreen', () => {
 
             const screen = new ServerSelectScreen(container, orchestrator);
             screen.show({ allowAutoConnect: false });
-            await flushPromisesAndTimers();
+            await settleScreen(screen);
 
             const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
             expect(clearBtn).not.toBeNull();
@@ -1177,7 +1181,7 @@ describe('ServerSelectScreen', () => {
             screen.hide();
 
             deferred.reject(new Error('store failed'));
-            await flushPromisesAndTimers();
+            await settleScreen(screen);
 
             expect(container.querySelector('.screen-status')?.textContent).not.toBe('Selection not cleared.');
             expect(consoleErrorSpy).not.toHaveBeenCalled();
@@ -1196,7 +1200,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await Promise.resolve();
 
         nav.registerFocusable.mockClear();
         nav.setFocus.mockClear();
@@ -1204,8 +1208,7 @@ describe('ServerSelectScreen', () => {
         screen.hide();
 
         deferred.resolve([makeServer('srv-1', 'Server One')]);
-        await flushPromisesAndTimers();
-        jest.advanceTimersByTime(60);
+        await settleScreen(screen);
 
         expect(container.querySelectorAll('.server-row')).toHaveLength(0);
         expect(nav.registerFocusable).not.toHaveBeenCalled();
@@ -1225,17 +1228,16 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await Promise.resolve();
 
         screen.hide();
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await Promise.resolve();
 
         expect(orchestrator.discoverServers).toHaveBeenCalledTimes(2);
 
         firstDiscovery.resolve([makeServer('srv-1', 'Stale Server')]);
-        await flushPromisesAndTimers();
-        jest.advanceTimersByTime(60);
+        await settleScreen(screen);
 
         const serverRows = Array.from(container.querySelectorAll('.server-row'));
         expect(serverRows).toHaveLength(1);
@@ -1256,12 +1258,12 @@ describe('ServerSelectScreen', () => {
 
             const screen = new ServerSelectScreen(container, orchestrator);
             screen.show({ allowAutoConnect: false });
-            await flushPromisesAndTimers();
+            await Promise.resolve();
 
             screen.hide();
 
             deferred.reject(new Error('discovery failed'));
-            await flushPromisesAndTimers();
+            await settleScreen(screen);
 
             expect(container.querySelector('.screen-status')?.textContent).not.toBe('Discovery failed.');
             expect(consoleErrorSpy).not.toHaveBeenCalled();
@@ -1280,7 +1282,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
         expect(clearBtn).not.toBeNull();
@@ -1288,13 +1290,12 @@ describe('ServerSelectScreen', () => {
         clearBtn?.click();
         screen.hide();
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await Promise.resolve();
 
         expect(container.querySelector('.screen-status')?.textContent).toBe('Select a server from the list.');
 
         clearDeferred.resolve();
-        await flushPromisesAndTimers();
-        jest.advanceTimersByTime(60);
+        await settleScreen(screen);
 
         expect(container.querySelector('.screen-status')?.textContent).toBe('Select a server from the list.');
         expect(container.querySelectorAll('.server-row')).toHaveLength(1);
@@ -1310,7 +1311,7 @@ describe('ServerSelectScreen', () => {
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         nav.setFocus.mockClear();
         nav.restoreFocusForCurrentScreen.mockClear();
@@ -1318,7 +1319,7 @@ describe('ServerSelectScreen', () => {
         const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement | null;
         clearBtn?.click();
 
-        jest.advanceTimersByTime(60);
+        await settleScreen(screen);
         expect(nav.restoreFocusForCurrentScreen).toHaveBeenCalledTimes(1);
         expect(nav.setFocus).not.toHaveBeenCalledWith('btn-server-refresh');
     });

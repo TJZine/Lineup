@@ -358,6 +358,12 @@ const mockPlexDiscovery = {
     isConnected: jest.fn().mockReturnValue(true),
     getSelectedServer: jest.fn().mockReturnValue(null),
     getServerUri: jest.fn().mockReturnValue('http://localhost:32400'),
+    captureSelectedServerSnapshot: jest.fn().mockReturnValue({
+        server: null,
+        connection: null,
+        storedServerId: null,
+    }),
+    restoreSelectedServerSnapshot: jest.fn(),
     selectServer: jest.fn().mockResolvedValue({ kind: 'selected' }),
     clearSelection: jest.fn(),
     setStorageKeys: jest.fn(),
@@ -601,6 +607,8 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
         mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReset();
         mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue({ kind: 'missing' });
+        mockPlexAuth.storeCredentials.mockReset();
+        mockPlexAuth.storeCredentials.mockResolvedValue(undefined);
 
         mockPlexAuth.validateToken.mockReset();
         mockPlexAuth.validateToken.mockResolvedValue(true);
@@ -616,6 +624,13 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
         mockPlexDiscovery.getSelectedServer.mockReset();
         mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
+        mockPlexDiscovery.captureSelectedServerSnapshot.mockReset();
+        mockPlexDiscovery.captureSelectedServerSnapshot.mockReturnValue({
+            server: null,
+            connection: null,
+            storedServerId: null,
+        });
+        mockPlexDiscovery.restoreSelectedServerSnapshot.mockReset();
         resetMockPlexDiscoveryOn();
 
         mockChannelManager.getAllChannels.mockReset();
@@ -1176,6 +1191,103 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 });
                 expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
                 expect(runStartupSpy).toHaveBeenCalledWith(3);
+            } finally {
+                runStartupSpy.mockRestore();
+            }
+        });
+
+        it('restores the discovery snapshot when selected-server persistence rejects', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            const persistedSelectionError = new Error('selected-server persistence failed');
+            const discoverySnapshot = {
+                server: { id: 'server-prev' },
+                connection: { uri: 'http://previous.example' },
+                storedServerId: 'server-prev',
+            };
+            const storedCredentials = createStoredCredentials('valid-token');
+            if (storedCredentials.kind !== 'available') {
+                throw new Error('Expected available stored credentials in test setup');
+            }
+            storedCredentials.credentials.selectedServerByUserId['user-1'] = {
+                serverId: 'server-prev',
+                serverUri: 'http://previous.example',
+            };
+
+            const runStartupSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'runStartup')
+                .mockResolvedValue(undefined);
+            mockPlexDiscovery.captureSelectedServerSnapshot.mockReturnValue(discoverySnapshot);
+            mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(storedCredentials);
+            mockPlexAuth.storeCredentials.mockRejectedValue(persistedSelectionError);
+
+            try {
+                await expect(orchestrator.selectServer('server-1')).rejects.toBe(persistedSelectionError);
+
+                expect(mockPlexDiscovery.restoreSelectedServerSnapshot).toHaveBeenCalledWith(discoverySnapshot);
+                expect(mockPlexAuth.storeCredentials).toHaveBeenCalledTimes(1);
+                expect(runStartupSpy).not.toHaveBeenCalled();
+            } finally {
+                runStartupSpy.mockRestore();
+            }
+        });
+
+        it('restores discovery and active-user persisted selection when startup resume fails after persistence', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            const resumeError = new Error('startup resume failed');
+            expectConsoleWarn([
+                'Post-selection runtime swap failed',
+                expect.objectContaining({
+                    step: 'runStartup',
+                    safeError: expect.objectContaining({
+                        message: 'startup resume failed',
+                    }),
+                }),
+            ]);
+            const discoverySnapshot = {
+                server: { id: 'server-prev' },
+                connection: { uri: 'http://previous.example' },
+                storedServerId: 'server-prev',
+            };
+            const storedCredentials = createStoredCredentials('valid-token');
+            if (storedCredentials.kind !== 'available') {
+                throw new Error('Expected available stored credentials in test setup');
+            }
+            storedCredentials.credentials.selectedServerByUserId['user-1'] = {
+                serverId: 'server-prev',
+                serverUri: 'http://previous.example',
+            };
+
+            const runStartupSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'runStartup')
+                .mockRejectedValue(resumeError);
+            mockPlexDiscovery.captureSelectedServerSnapshot.mockReturnValue(discoverySnapshot);
+            mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
+            mockPlexDiscovery.getServerUri.mockReturnValue('http://next.example');
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(storedCredentials);
+
+            try {
+                await expect(orchestrator.selectServer('server-1')).rejects.toBe(resumeError);
+
+                expect(mockPlexDiscovery.restoreSelectedServerSnapshot).toHaveBeenCalledWith(discoverySnapshot);
+                expect(mockPlexAuth.storeCredentials).toHaveBeenNthCalledWith(
+                    1,
+                    expect.objectContaining({
+                        selectedServerByUserId: expect.objectContaining({
+                            'user-1': { serverId: 'server-1', serverUri: 'http://next.example' },
+                        }),
+                    })
+                );
+                expect(mockPlexAuth.storeCredentials).toHaveBeenNthCalledWith(
+                    2,
+                    expect.objectContaining({
+                        selectedServerByUserId: expect.objectContaining({
+                            'user-1': { serverId: 'server-prev', serverUri: 'http://previous.example' },
+                        }),
+                    })
+                );
             } finally {
                 runStartupSpy.mockRestore();
             }

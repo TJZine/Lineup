@@ -402,6 +402,47 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return { kind: 'selected' };
     }
 
+    public captureSelectedServerSnapshot(): {
+        server: PlexServer | null;
+        connection: PlexConnection | null;
+        storedServerId: string | null;
+    } {
+        return {
+            server: this._cloneSelectedServer(this._state.selectedServer, this._state.selectedConnection),
+            connection: this._cloneConnection(this._state.selectedConnection),
+            storedServerId: this._serverSelectionStore.readSelectedServerIdAndClean(),
+        };
+    }
+
+    public restoreSelectedServerSnapshot(snapshot: {
+        server: PlexServer | null;
+        connection: PlexConnection | null;
+        storedServerId: string | null;
+    }): void {
+        const previousServerId = this._state.selectedServer?.id ?? null;
+        const previousConnectionUri = this._state.selectedConnection?.uri ?? null;
+        const nextConnection = this._cloneConnection(snapshot.connection);
+        const nextServer = this._cloneSelectedServer(snapshot.server, nextConnection);
+
+        this._state.selectedServer = nextServer;
+        this._state.selectedConnection = nextConnection;
+
+        if (snapshot.storedServerId) {
+            this._serverSelectionStore.writeSelectedServerId(snapshot.storedServerId);
+        } else {
+            this._serverSelectionStore.clearSelectedServerId();
+        }
+
+        const nextServerId = nextServer?.id ?? null;
+        const nextConnectionUri = nextConnection?.uri ?? null;
+        if (previousServerId !== nextServerId) {
+            this._emitter.emit('serverChange', nextServer);
+        }
+        if (previousConnectionUri !== nextConnectionUri) {
+            this._emitter.emit('connectionChange', nextConnectionUri);
+        }
+    }
+
     public getSelectedServer(): PlexServer | null {
         return this._state.selectedServer;
     }
@@ -648,6 +689,25 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         }
 
         return connections;
+    }
+
+    private _cloneConnection(connection: PlexConnection | null): PlexConnection | null {
+        return connection ? { ...connection } : null;
+    }
+
+    private _cloneSelectedServer(
+        server: PlexServer | null,
+        selectedConnection: PlexConnection | null
+    ): PlexServer | null {
+        if (!server) {
+            return null;
+        }
+
+        return {
+            ...server,
+            connections: server.connections.map((connection) => ({ ...connection })),
+            preferredConnection: selectedConnection ? { ...selectedConnection } : null,
+        };
     }
 
     private _normalizeConnectionUri(uri: string): string | null {

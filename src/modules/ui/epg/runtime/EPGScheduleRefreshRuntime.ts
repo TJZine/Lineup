@@ -298,6 +298,10 @@ export class EPGScheduleRefreshRuntime {
         this.dispose(reason);
     }
 
+    async whenBackgroundRefreshIdle(): Promise<void> {
+        await this._warmQueue.whenIdle();
+    }
+
     async refreshForRange(range: RangeRefreshRequest, reason: string): Promise<void> {
         const session = this._createRefreshSession(range, reason);
         if (!session) {

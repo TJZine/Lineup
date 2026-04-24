@@ -7,7 +7,6 @@ import type {
 } from '../../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduleConfig, ScheduleWindow } from '../../../scheduler/scheduler';
 import type { IEPGComponent } from '../interfaces';
-import { flushPromises } from '../../../../__tests__/helpers';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,
@@ -163,6 +162,12 @@ const createRuntime = (
     };
 };
 
+const settleBackgroundRefresh = async (runtime: EPGScheduleRefreshRuntime): Promise<void> => {
+    const idle = runtime.whenBackgroundRefreshIdle();
+    await jest.runAllTimersAsync();
+    await idle;
+};
+
 describe('EPGScheduleRefreshRuntime', () => {
     it('threads server-swap into the aggressive-dependent branches', async () => {
         const computeScheduleCacheLimit = jest.fn(() => 64);
@@ -243,10 +248,7 @@ describe('EPGScheduleRefreshRuntime', () => {
                 'visible-range'
             );
 
-            for (let i = 0; i < 20; i += 1) {
-                jest.advanceTimersByTime(50);
-                await flushPromises();
-            }
+            await settleBackgroundRefresh(runtime);
 
             runtime.clearLoadedScheduleMarkers();
             (deps.appendIssueDiagnostic as jest.Mock).mockClear();
@@ -257,10 +259,7 @@ describe('EPGScheduleRefreshRuntime', () => {
                 'visible-range'
             );
 
-            for (let i = 0; i < 20; i += 1) {
-                jest.advanceTimersByTime(50);
-                await flushPromises();
-            }
+            await settleBackgroundRefresh(runtime);
 
             expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
                 'QA-003b',

@@ -1,12 +1,31 @@
 import { ServerSelectionCoordinator } from '../ServerSelectionCoordinator';
+import type {
+    DiscoverySelectedServerSnapshot,
+    PersistedSelectedServerSnapshot,
+} from '../ServerSelectionTypes';
+
+const discoverySnapshot: DiscoverySelectedServerSnapshot = {
+    server: null,
+    connection: null,
+    storedServerId: null,
+};
+
+const persistedSnapshot: PersistedSelectedServerSnapshot = {
+    kind: 'available',
+    selection: { serverId: 'server-prev', serverUri: 'http://previous.example' },
+};
 
 describe('ServerSelectionCoordinator', () => {
     it('returns selection_failed without persistence or runtime swap when discovery cannot select a server', async () => {
         const deps = {
+            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
+            restoreDiscoverySelectionSnapshot: jest.fn(),
+            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
             selectServer: jest.fn(async () => ({ kind: 'server_not_found' as const })),
             getSelectedServerUri: jest.fn(() => null),
             persistSelection: jest.fn(async () => 'updated' as const),
-            runPostSelectionRuntimeSwap: jest.fn(async () => undefined),
+            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
+            resumeStartupAfterSelection: jest.fn(async () => undefined),
             getReadiness: jest.fn(() => 'startup_pending' as const),
         };
         const coordinator = new ServerSelectionCoordinator(deps);
@@ -15,16 +34,23 @@ describe('ServerSelectionCoordinator', () => {
             kind: 'selection_failed',
             reason: 'server_not_found',
         });
+        expect(deps.capturePersistedSelectionSnapshot).not.toHaveBeenCalled();
         expect(deps.persistSelection).not.toHaveBeenCalled();
-        expect(deps.runPostSelectionRuntimeSwap).not.toHaveBeenCalled();
+        expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
+        expect(deps.restoreDiscoverySelectionSnapshot).not.toHaveBeenCalled();
+        expect(deps.restorePersistedSelectionSnapshot).not.toHaveBeenCalled();
     });
 
-    it('persists the selection, runs the runtime swap, and returns the app-facing selected result', async () => {
+    it('persists the selection, resumes startup, and returns the app-facing selected result', async () => {
         const deps = {
+            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
+            restoreDiscoverySelectionSnapshot: jest.fn(),
+            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
             selectServer: jest.fn(async () => ({ kind: 'selected' as const })),
             getSelectedServerUri: jest.fn(() => 'http://example.com'),
             persistSelection: jest.fn(async () => 'updated' as const),
-            runPostSelectionRuntimeSwap: jest.fn(async () => undefined),
+            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
+            resumeStartupAfterSelection: jest.fn(async () => undefined),
             getReadiness: jest.fn(() => 'ready' as const),
         };
         const coordinator = new ServerSelectionCoordinator(deps);
@@ -34,8 +60,62 @@ describe('ServerSelectionCoordinator', () => {
             readiness: 'ready',
             persistedSelection: 'updated',
         });
+        expect(deps.capturePersistedSelectionSnapshot).toHaveBeenCalledTimes(1);
         expect(deps.persistSelection).toHaveBeenCalledWith('server-1', 'http://example.com');
         expect(deps.persistSelection).toHaveBeenCalledTimes(1);
-        expect(deps.runPostSelectionRuntimeSwap).toHaveBeenCalledTimes(1);
+        expect(deps.resumeStartupAfterSelection).toHaveBeenCalledTimes(1);
+        expect(deps.restoreDiscoverySelectionSnapshot).not.toHaveBeenCalled();
+        expect(deps.restorePersistedSelectionSnapshot).not.toHaveBeenCalled();
+    });
+
+    it('restores discovery runtime state without touching persisted selection when persistence rejects', async () => {
+        const persistenceError = new Error('persist failed');
+        const deps = {
+            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
+            restoreDiscoverySelectionSnapshot: jest.fn(),
+            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
+            selectServer: jest.fn(async () => ({ kind: 'selected' as const })),
+            getSelectedServerUri: jest.fn(() => 'http://example.com'),
+            persistSelection: jest.fn(async () => {
+                throw persistenceError;
+            }),
+            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
+            resumeStartupAfterSelection: jest.fn(async () => undefined),
+            getReadiness: jest.fn(() => 'ready' as const),
+        };
+        const coordinator = new ServerSelectionCoordinator(deps);
+
+        await expect(coordinator.selectServer('server-1')).rejects.toBe(persistenceError);
+
+        expect(deps.capturePersistedSelectionSnapshot).toHaveBeenCalledTimes(1);
+        expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
+        expect(deps.restorePersistedSelectionSnapshot).not.toHaveBeenCalled();
+        expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
+    });
+
+    it('restores discovery runtime state and the prior persisted record when startup resume fails', async () => {
+        const resumeError = new Error('startup resume failed');
+        const deps = {
+            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
+            restoreDiscoverySelectionSnapshot: jest.fn(),
+            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
+            selectServer: jest.fn(async () => ({ kind: 'selected' as const })),
+            getSelectedServerUri: jest.fn(() => 'http://example.com'),
+            persistSelection: jest.fn(async () => 'updated' as const),
+            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
+            resumeStartupAfterSelection: jest.fn(async () => {
+                throw resumeError;
+            }),
+            getReadiness: jest.fn(() => 'ready' as const),
+        };
+        const coordinator = new ServerSelectionCoordinator(deps);
+
+        await expect(coordinator.selectServer('server-1')).rejects.toBe(resumeError);
+
+        expect(deps.capturePersistedSelectionSnapshot).toHaveBeenCalledTimes(1);
+        expect(deps.persistSelection).toHaveBeenCalledWith('server-1', 'http://example.com');
+        expect(deps.resumeStartupAfterSelection).toHaveBeenCalledTimes(1);
+        expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
+        expect(deps.restorePersistedSelectionSnapshot).toHaveBeenCalledWith(persistedSnapshot);
     });
 });

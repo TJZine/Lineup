@@ -6,7 +6,6 @@ import { ProfileSelectScreen, type ProfileSelectScreenPorts } from '../ProfileSe
 import { AppErrorCode, PlexApiError } from '../../../plex/auth';
 import { ProfileSessionStore } from '../../../settings/ProfileSessionStore';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
-import { flushPromisesAndTimers } from '../../../../__tests__/helpers';
 
 type NavigationStub = {
     registerFocusable: jest.Mock;
@@ -73,6 +72,12 @@ const createOrchestratorStub = (users: Array<{
         useMainAccountProfile: jest.fn().mockResolvedValue(undefined),
         signOutPlex: jest.fn().mockResolvedValue(undefined),
     };
+};
+
+const settleScreen = async (screen: ProfileSelectScreen): Promise<void> => {
+    const idle = screen.whenIdle();
+    await jest.runAllTimersAsync();
+    await idle;
 };
 
 describe('ProfileSelectScreen', () => {
@@ -147,7 +152,7 @@ describe('ProfileSelectScreen', () => {
         expect(container.style.justifyContent).toBe('');
 
         screen.show();
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
         expect(container.style.display).toBe('flex');
 
         screen.hide();
@@ -166,7 +171,7 @@ describe('ProfileSelectScreen', () => {
         const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const rows = container.querySelectorAll('.profile-row');
         expect(rows.length).toBe(2);
@@ -190,7 +195,7 @@ describe('ProfileSelectScreen', () => {
         );
         screen.show();
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const restrictedBadge = container.querySelector('#btn-profile-2 .profile-restricted');
         expect(restrictedBadge).not.toBeNull();
@@ -210,7 +215,7 @@ describe('ProfileSelectScreen', () => {
 
         const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const mainButton = container.querySelector('#btn-profile-main') as HTMLButtonElement | null;
         expect(mainButton).not.toBeNull();
@@ -235,7 +240,7 @@ describe('ProfileSelectScreen', () => {
         const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const activeRow = container.querySelector('#btn-profile-2') as HTMLElement;
         const badge = activeRow.querySelector('.profile-last-used') as HTMLElement;
@@ -256,7 +261,7 @@ describe('ProfileSelectScreen', () => {
 
         const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const rowIds = Array.from(container.querySelectorAll('.profile-row'))
             .map((row) => (row as HTMLElement).id)
@@ -281,7 +286,7 @@ describe('ProfileSelectScreen', () => {
         const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const rows = container.querySelectorAll('.profile-row');
         expect(rows.length).toBe(1);
@@ -305,7 +310,7 @@ describe('ProfileSelectScreen', () => {
 
         const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const mainButton = container.querySelector('#btn-profile-main') as HTMLButtonElement | null;
         expect(mainButton).not.toBeNull();
@@ -329,7 +334,7 @@ describe('ProfileSelectScreen', () => {
         const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const protectedButton = container.querySelector('#btn-profile-2') as HTMLButtonElement;
         protectedButton.click();
@@ -354,10 +359,10 @@ describe('ProfileSelectScreen', () => {
         );
         screen.show();
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const modal = container.querySelector('.profile-pin-modal') as HTMLElement;
         expect(modal.style.display).toBe('none');
@@ -377,7 +382,7 @@ describe('ProfileSelectScreen', () => {
         const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const protectedButton = container.querySelector('#btn-profile-2') as HTMLButtonElement;
         protectedButton.click();
@@ -398,7 +403,7 @@ describe('ProfileSelectScreen', () => {
         const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const protectedButton = container.querySelector('#btn-profile-2') as HTMLButtonElement;
         protectedButton.click();
@@ -428,7 +433,7 @@ describe('ProfileSelectScreen', () => {
         const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const protectedButton = container.querySelector('#btn-profile-2') as HTMLButtonElement;
         protectedButton.click();
@@ -449,7 +454,7 @@ describe('ProfileSelectScreen', () => {
         const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         const protectedButton = container.querySelector('#btn-profile-2') as HTMLButtonElement;
         protectedButton.click();
@@ -471,7 +476,7 @@ describe('ProfileSelectScreen', () => {
         const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
 
@@ -480,7 +485,7 @@ describe('ProfileSelectScreen', () => {
         (container.querySelector('#btn-profile-pin-3') as HTMLButtonElement).click();
         (container.querySelector('#btn-profile-pin-4') as HTMLButtonElement).click();
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         expect(orchestrator.switchHomeUser).toHaveBeenCalledTimes(1);
         expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', '1234');
@@ -499,10 +504,10 @@ describe('ProfileSelectScreen', () => {
         const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         (container.querySelector('#btn-profile-main') as HTMLButtonElement).click();
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         expect(orchestrator.useMainAccountProfile).toHaveBeenCalledTimes(1);
         expect(writeLastProfileIdSpy).toHaveBeenCalledWith(null);
@@ -521,7 +526,7 @@ describe('ProfileSelectScreen', () => {
         const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
         (container.querySelector('#btn-profile-pin-1') as HTMLButtonElement).click();
@@ -548,7 +553,7 @@ describe('ProfileSelectScreen', () => {
         const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         // Open PIN modal for protected user.
         (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
@@ -564,7 +569,7 @@ describe('ProfileSelectScreen', () => {
         keyPress!({ button: 'num4', isRepeat: false, isLongPress: false, handled: false });
 
         // Allow async submit to complete.
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
         expect(orchestrator.switchHomeUser).toHaveBeenCalledTimes(1);
         expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', '1234');
@@ -585,7 +590,7 @@ describe('ProfileSelectScreen', () => {
         const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
 
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
         (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
 
         (container.querySelector('#btn-profile-pin-1') as HTMLButtonElement).click();
@@ -616,15 +621,14 @@ describe('ProfileSelectScreen', () => {
 
         const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
         screen.show();
-        await flushPromisesAndTimers();
+        await settleScreen(screen);
 
 	        screen.hide();
 	        nav.setFocus.mockClear();
 	        nav.restoreFocusForCurrentScreen.mockClear();
 	        screen.show();
-	        await flushPromisesAndTimers();
+	        await settleScreen(screen);
 
-	        jest.advanceTimersByTime(60);
 	        expect(nav.restoreFocusForCurrentScreen).toHaveBeenCalledTimes(1);
 	        expect(nav.setFocus).not.toHaveBeenCalled();
 	    });
@@ -642,9 +646,8 @@ describe('ProfileSelectScreen', () => {
 
 	        const screen = new ProfileSelectScreen(container, orchestrator as unknown as ProfileSelectScreenPorts, profileSessionStore);
 	        screen.show();
-	        await flushPromisesAndTimers();
+	        await settleScreen(screen);
 
-	        jest.advanceTimersByTime(60);
 	        expect(nav.restoreFocusForCurrentScreen).toHaveBeenCalledTimes(1);
 	        expect(nav.setFocus).toHaveBeenCalled();
 	    });

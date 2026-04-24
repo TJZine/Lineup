@@ -70,6 +70,8 @@ export class ProfileSelectScreen {
     private _isSwitching: boolean = false;
     private _pinJustFilledTimeoutId: ReturnType<typeof setTimeout> | null = null;
     private _pinErrorTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    private _idlePromise: Promise<void> = Promise.resolve();
+    private _resolveIdlePromise: (() => void) | null = null;
 
     constructor(
         container: HTMLElement,
@@ -245,10 +247,15 @@ export class ProfileSelectScreen {
         void this._loadProfiles();
     }
 
+    async whenIdle(): Promise<void> {
+        return this._hasPendingUiWork() ? this._idlePromise : Promise.resolve();
+    }
+
     destroy(): void {
         this.hide();
         this._destroyScreenShell?.();
         this._destroyScreenShell = null;
+        this._resolveIdleIfSettled();
     }
 
 	    hide(): void {
@@ -265,10 +272,12 @@ export class ProfileSelectScreen {
         }
         this._container.style.display = 'none';
         this._container.classList.remove('visible');
+        this._resolveIdleIfSettled();
     }
 
     private async _loadProfiles(): Promise<void> {
         if (this._isLoading) return;
+        this._ensureIdlePromise();
         this._isLoading = true;
         this._listEl.replaceChildren();
         this._userButtonIds = [];
@@ -307,6 +316,7 @@ export class ProfileSelectScreen {
 	            if (nav?.getCurrentScreen() === 'profile-select') {
 	                this._registerFocusables();
 	            }
+                this._resolveIdleIfSettled();
 	        }
 	    }
 
@@ -408,6 +418,7 @@ export class ProfileSelectScreen {
         if (this._isSwitching) return;
         this._clearError();
         this._setStatus('Starting Lineup...', { tone: 'loading' });
+        this._ensureIdlePromise();
         this._isSwitching = true;
         try {
             await this._ports.useMainAccountProfile();
@@ -417,11 +428,13 @@ export class ProfileSelectScreen {
             this._handleError(error, 'Unable to switch profile.');
         } finally {
             this._isSwitching = false;
+            this._resolveIdleIfSettled();
         }
     }
 
     private async _handleSignOut(): Promise<void> {
         if (this._isSwitching) return;
+        this._ensureIdlePromise();
         this._isSwitching = true;
         try {
             await this._ports.signOutPlex();
@@ -429,11 +442,13 @@ export class ProfileSelectScreen {
             this._handleError(error, 'Unable to sign out.');
         } finally {
             this._isSwitching = false;
+            this._resolveIdleIfSettled();
         }
     }
 
     private async _switchUser(userId: string, pin?: string): Promise<boolean> {
         this._setStatus('Starting Lineup...', { tone: 'loading' });
+        this._ensureIdlePromise();
         this._isSwitching = true;
         try {
             await this._ports.switchHomeUser(userId, pin);
@@ -458,6 +473,7 @@ export class ProfileSelectScreen {
             return false;
         } finally {
             this._isSwitching = false;
+            this._resolveIdleIfSettled();
         }
     }
 
@@ -520,9 +536,11 @@ export class ProfileSelectScreen {
             if (this._pinJustFilledTimeoutId !== null) {
                 clearTimeout(this._pinJustFilledTimeoutId);
             }
+            this._ensureIdlePromise();
             this._pinJustFilledTimeoutId = setTimeout(() => {
                 slot.classList.remove('just-filled');
                 this._pinJustFilledTimeoutId = null;
+                this._resolveIdleIfSettled();
             }, 200);
         }
         if (this._pinDigits.length >= PIN_LENGTH) {
@@ -557,12 +575,41 @@ export class ProfileSelectScreen {
         if (this._pinErrorTimeoutId !== null) {
             clearTimeout(this._pinErrorTimeoutId);
         }
+        this._ensureIdlePromise();
         this._pinErrorTimeoutId = setTimeout(() => {
             this._pinSlotsWrapEl.classList.remove('error');
             this._pinErrorTimeoutId = null;
+            this._resolveIdleIfSettled();
         }, 350);
         const nav = this._ports.getNavigation();
         nav?.setFocus('btn-profile-pin-5');
+    }
+
+    private _hasPendingUiWork(): boolean {
+        return this._isLoading
+            || this._isSwitching
+            || this._pinJustFilledTimeoutId !== null
+            || this._pinErrorTimeoutId !== null;
+    }
+
+    private _ensureIdlePromise(): void {
+        if (this._resolveIdlePromise) {
+            return;
+        }
+
+        this._idlePromise = new Promise((resolve) => {
+            this._resolveIdlePromise = resolve;
+        });
+    }
+
+    private _resolveIdleIfSettled(): void {
+        if (this._hasPendingUiWork() || !this._resolveIdlePromise) {
+            return;
+        }
+
+        const resolve = this._resolveIdlePromise;
+        this._resolveIdlePromise = null;
+        resolve();
     }
 
     private _registerPinModalFocusables(nav: INavigationManager | null): string[] {

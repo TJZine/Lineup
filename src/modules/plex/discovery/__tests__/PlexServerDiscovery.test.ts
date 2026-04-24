@@ -973,6 +973,89 @@ describe('PlexServerDiscovery', () => {
             expect(discovery.getServerUri()).toBe('https://srv1:32400');
             expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srv1');
         });
+
+        it('restores the previous selected-server snapshot and discovery storage key after a provisional switch', async () => {
+            const discovery = new PlexServerDiscovery(mockConfig);
+
+            mockFetchJson([
+                {
+                    clientIdentifier: 'srv1',
+                    name: 'Server One',
+                    sourceTitle: 'user',
+                    ownerId: 'owner',
+                    owned: true,
+                    provides: 'server',
+                    connections: [createMockConnection({ uri: 'https://srv1:32400', address: 'srv1' })],
+                },
+                {
+                    clientIdentifier: 'srv2',
+                    name: 'Server Two',
+                    sourceTitle: 'user',
+                    ownerId: 'owner',
+                    owned: true,
+                    provides: 'server',
+                    connections: [createMockConnection({ uri: 'https://srv2:32400', address: 'srv2' })],
+                },
+            ]);
+
+            await discovery.discoverServers();
+
+            jest.spyOn(discovery, 'findFastestConnection').mockImplementation(async (server) => ({
+                connection: createMockConnection({
+                    uri: `https://${server.id}:32400`,
+                    address: server.id,
+                }),
+                authRequired: false,
+                authState: null,
+            }));
+
+            await discovery.selectServer('srv1');
+            const snapshot = discovery.captureSelectedServerSnapshot();
+
+            await discovery.selectServer('srv2');
+            expect(discovery.getSelectedServer()?.id).toBe('srv2');
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srv2');
+
+            discovery.restoreSelectedServerSnapshot(snapshot);
+
+            expect(discovery.getSelectedServer()?.id).toBe('srv1');
+            expect(discovery.getServerUri()).toBe('https://srv1:32400');
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srv1');
+        });
+
+        it('clears the discovery selected-server storage key when restoring an empty snapshot', async () => {
+            const discovery = new PlexServerDiscovery(mockConfig);
+
+            mockFetchJson([
+                {
+                    clientIdentifier: 'srv1',
+                    name: 'Server One',
+                    sourceTitle: 'user',
+                    ownerId: 'owner',
+                    owned: true,
+                    provides: 'server',
+                    connections: [createMockConnection({ uri: 'https://srv1:32400', address: 'srv1' })],
+                },
+            ]);
+
+            await discovery.discoverServers();
+            const emptySnapshot = discovery.captureSelectedServerSnapshot();
+
+            jest.spyOn(discovery, 'findFastestConnection').mockResolvedValue({
+                connection: createMockConnection({ uri: 'https://srv1:32400', address: 'srv1' }),
+                authRequired: false,
+                authState: null,
+            });
+
+            await discovery.selectServer('srv1');
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srv1');
+
+            discovery.restoreSelectedServerSnapshot(emptySnapshot);
+
+            expect(discovery.getSelectedServer()).toBeNull();
+            expect(discovery.getSelectedConnection()).toBeNull();
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBeNull();
+        });
     });
 
     describe('initialization', () => {
