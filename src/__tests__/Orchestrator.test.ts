@@ -1326,7 +1326,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             }
         });
 
-        it('restores current discovery selection when a missing-credentials snapshot is rolled back after credentials become available', async () => {
+        it('does not synthesize persisted selection from discovery when rolling back a missing-credentials snapshot', async () => {
             await orchestrator.initialize(mockConfig);
 
             const resumeError = new Error('startup resume failed');
@@ -1345,18 +1345,12 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 storedServerId: 'server-prev',
             };
             const nextCredentials = createStoredCredentials('valid-token');
-            const restoredCredentials = createStoredCredentials('valid-token');
             mockPlexDiscovery.captureSelectedServerSnapshot.mockReturnValue(discoverySnapshot);
             mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
             mockPlexDiscovery.getServerUri.mockReturnValue('http://next.example');
-            mockPlexDiscovery.restoreSelectedServerSnapshot.mockImplementation(() => {
-                mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-prev' });
-                mockPlexDiscovery.getServerUri.mockReturnValue('http://previous.example');
-            });
             mockPlexAuth.readStoredCredentialsAndClearCorruption
                 .mockReturnValueOnce({ kind: 'missing' })
-                .mockReturnValueOnce(nextCredentials)
-                .mockReturnValueOnce(restoredCredentials);
+                .mockReturnValueOnce(nextCredentials);
             const runStartupSpy = jest
                 .spyOn(InitializationCoordinator.prototype, 'runStartup')
                 .mockRejectedValue(resumeError);
@@ -1364,22 +1358,16 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             try {
                 await expect(orchestrator.selectServer('server-1')).rejects.toBe(resumeError);
 
-                expect(mockPlexAuth.storeCredentials).toHaveBeenNthCalledWith(
-                    1,
+                expect(mockPlexDiscovery.restoreSelectedServerSnapshot).toHaveBeenCalledWith(discoverySnapshot);
+                expect(mockPlexAuth.storeCredentials).toHaveBeenCalledTimes(1);
+                expect(mockPlexAuth.storeCredentials).toHaveBeenCalledWith(
                     expect.objectContaining({
                         selectedServerByUserId: expect.objectContaining({
                             'user-1': { serverId: 'server-1', serverUri: 'http://next.example' },
                         }),
                     })
                 );
-                expect(mockPlexAuth.storeCredentials).toHaveBeenNthCalledWith(
-                    2,
-                    expect.objectContaining({
-                        selectedServerByUserId: expect.objectContaining({
-                            'user-1': { serverId: 'server-prev', serverUri: 'http://previous.example' },
-                        }),
-                    })
-                );
+                expect(mockPlexAuth.readStoredCredentialsAndClearCorruption).toHaveBeenCalledTimes(2);
             } finally {
                 mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
                 mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400');

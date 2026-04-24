@@ -72,6 +72,17 @@ const NETWORK_ERROR_CODES: Set<AppErrorCode> = new Set([
     AppErrorCode.NETWORK_UNAVAILABLE,
 ]);
 
+const RESOLUTION_AFFECTING_UPDATE_FIELDS: readonly (keyof ChannelUpdateInput)[] = [
+    'contentSource',
+    'contentFilters',
+    'sortOrder',
+    'playbackMode',
+    'blockSize',
+    'minEpisodeRunTimeMs',
+    'maxEpisodeRunTimeMs',
+    'shuffleSeed',
+];
+
 /**
  * Extract AppErrorCode from any error type that has a code property.
  * Works with ChannelError, PlexLibraryError, PlexApiError, etc.
@@ -97,6 +108,12 @@ function isNetworkError(error: unknown): boolean {
         error.message.toLowerCase().includes('timeout') ||
         error.message.toLowerCase().includes('econnrefused') ||
         error.message.toLowerCase().includes('failed to fetch')
+    );
+}
+
+function affectsResolvedContent(updates: ChannelUpdateInput): boolean {
+    return RESOLUTION_AFFECTING_UPDATE_FIELDS.some((field) =>
+        Object.prototype.hasOwnProperty.call(updates, field)
     );
 }
 
@@ -225,7 +242,11 @@ export class ChannelManager implements IChannelManager {
             return normalized;
         })();
 
-        this._channelRepository = new ChannelRepository(initialStorageKey, initialCurrentChannelKey);
+        this._channelRepository = new ChannelRepository(
+            initialStorageKey,
+            initialCurrentChannelKey,
+            this._logger
+        );
         this._contentResolver = new ContentResolver(this._library, this._logger);
 
         this._state = {
@@ -537,8 +558,7 @@ export class ChannelManager implements IChannelManager {
 
         this._state.channels.set(id, updated);
 
-        // Re-resolve content if source changed
-        if (updates.contentSource) {
+        if (affectsResolvedContent(updates)) {
             this._state.resolvedContent.delete(id);
             try {
                 const content = await this._resolveContentInternal(updated);

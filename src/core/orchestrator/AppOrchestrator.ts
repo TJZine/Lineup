@@ -2057,14 +2057,14 @@ export class AppOrchestrator {
         if (snapshot.kind === 'corrupted_credentials') {
             return 'skipped_corrupted_credentials';
         }
+        if (snapshot.kind === 'missing_credentials') {
+            return 'skipped_missing_credentials';
+        }
 
-        const selection = snapshot.kind === 'available'
-            ? snapshot.selection
-            : {
-                serverId: this._plexDiscovery?.getSelectedServer()?.id ?? null,
-                serverUri: this._plexDiscovery?.getServerUri() ?? null,
-            };
-        return this._persistSelectedServerForActiveUser(selection.serverId, selection.serverUri);
+        return this._persistSelectedServerForActiveUser(
+            snapshot.selection.serverId,
+            snapshot.selection.serverUri
+        );
     }
 
     private _captureDiscoverySelectedServerSnapshot(): DiscoverySelectedServerSnapshot {

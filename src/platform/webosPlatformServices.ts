@@ -10,6 +10,10 @@ import type {
 } from './services';
 
 type KeyMapEntry = readonly [number, PlatformRemoteButton];
+type ChromeToWebOsVersion = Readonly<{
+    minChromeMajor: number;
+    webOsVersion: string;
+}>;
 
 const WEBOS_KEY_MAP_ENTRIES: readonly KeyMapEntry[] = [
     // Navigation
@@ -95,6 +99,32 @@ function createReadonlyKeyMap(
 const WEBOS_KEY_MAP: ReadonlyMap<number, PlatformRemoteButton> =
     createReadonlyKeyMap(WEBOS_KEY_MAP_ENTRIES);
 
+// Heuristic fallback for environments where `webOSTV.platform.version` is unavailable.
+// Keep this mapping aligned with validated LG webOS Chromium baselines.
+const CHROME_TO_WEBOS_VERSION: readonly ChromeToWebOsVersion[] = [
+    { minChromeMajor: 120, webOsVersion: '25.0' },
+    { minChromeMajor: 108, webOsVersion: '24.0' },
+    { minChromeMajor: 94, webOsVersion: '23.0' },
+    { minChromeMajor: 87, webOsVersion: '22.0' },
+];
+
+let didWarnHeuristicPlatformVersion = false;
+
+function warnHeuristicPlatformVersion(chromeMajor: number, platformVersion: string): void {
+    if (didWarnHeuristicPlatformVersion) {
+        return;
+    }
+    didWarnHeuristicPlatformVersion = true;
+    try {
+        console.warn('[webOSPlatformServices] Derived platform version from Chrome major', {
+            chromeMajor,
+            platformVersion,
+        });
+    } catch {
+        // Best-effort diagnostics only.
+    }
+}
+
 function getChromeMajor(): number | null {
     try {
         if (typeof navigator === 'undefined') return null;
@@ -117,7 +147,7 @@ function isWebOs(): boolean {
     }
 }
 
-function createPlatformIdentityService(): PlatformIdentityService {
+export function createPlatformIdentityService(): PlatformIdentityService {
     let memoizedPlatformVersion: string | null = null;
 
     const detectPlatformVersion = (): string => {
@@ -135,23 +165,12 @@ function createPlatformIdentityService(): PlatformIdentityService {
 
             const chromeMajor = getChromeMajor();
             if (chromeMajor !== null) {
-                // Heuristic fallback for environments where `webOSTV.platform.version` is unavailable.
-                // Keep this mapping updated as new webOS Chromium baselines are validated.
-                if (chromeMajor >= 120) {
-                    memoizedPlatformVersion = '25.0';
-                    return memoizedPlatformVersion;
-                }
-                if (chromeMajor >= 108) {
-                    memoizedPlatformVersion = '24.0';
-                    return memoizedPlatformVersion;
-                }
-                if (chromeMajor >= 94) {
-                    memoizedPlatformVersion = '23.0';
-                    return memoizedPlatformVersion;
-                }
-                if (chromeMajor >= 87) {
-                    memoizedPlatformVersion = '22.0';
-                    return memoizedPlatformVersion;
+                for (const mapping of CHROME_TO_WEBOS_VERSION) {
+                    if (chromeMajor >= mapping.minChromeMajor) {
+                        memoizedPlatformVersion = mapping.webOsVersion;
+                        warnHeuristicPlatformVersion(chromeMajor, memoizedPlatformVersion);
+                        return memoizedPlatformVersion;
+                    }
                 }
             }
 

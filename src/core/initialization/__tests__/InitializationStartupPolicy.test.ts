@@ -240,6 +240,33 @@ describe('applyPhase2AuthGatePolicy', () => {
         expect(inputs.navigation.goTo).toHaveBeenCalledWith('auth');
     });
 
+    it('falls back to auth resume for expired auth during token validation', async () => {
+        const error = { code: AppErrorCode.AUTH_EXPIRED };
+        const inputs = createInputs({
+            validateToken: jest.fn().mockRejectedValue(error),
+        });
+
+        await expect(applyPolicy(inputs)).resolves.toBe(false);
+
+        expect(inputs.updateModuleStatus).toHaveBeenCalledWith('plex-auth', 'pending');
+        expect(inputs.handlers.registerAuthResume).toHaveBeenCalledTimes(1);
+        expect(inputs.navigation.goTo).toHaveBeenCalledWith('auth');
+    });
+
+    it('falls back to auth resume for expired auth while checking profile selection', async () => {
+        const error = { code: AppErrorCode.AUTH_EXPIRED };
+        const inputs = createInputs({
+            getHomeUsers: jest.fn().mockRejectedValue(error),
+        });
+        inputs.readShowProfilePickerOnStartup = jest.fn(() => true);
+
+        await expect(applyPolicy(inputs)).resolves.toBe(false);
+
+        expect(inputs.updateModuleStatus).toHaveBeenCalledWith('plex-auth', 'pending');
+        expect(inputs.handlers.registerAuthResume).toHaveBeenCalledTimes(1);
+        expect(inputs.navigation.goTo).toHaveBeenCalledWith('auth');
+    });
+
     it('rethrows non-auth validation failures instead of forcing auth resume', async () => {
         const error = { code: AppErrorCode.SERVER_UNREACHABLE };
         const inputs = createInputs({

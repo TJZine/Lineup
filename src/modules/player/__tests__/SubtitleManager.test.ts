@@ -104,6 +104,11 @@ function installFetchAndBlobMocks(): { fetchMock: jest.Mock; restore: () => void
 }
 
 const flushSubtitleAsync = (): Promise<void> => flushPromisesAndMacrotask(5);
+const flushSubtitleMicrotasks = async (count = 12): Promise<void> => {
+    for (let i = 0; i < count; i++) {
+        await Promise.resolve();
+    }
+};
 
 const developerSettingsStore = new DeveloperSettingsStore();
 
@@ -870,6 +875,39 @@ Hello`,
 
             const logs = warnSpy.mock.calls.map((call) => String(call[0]));
             expect(logs.join(' ')).not.toContain('secret-token');
+        });
+
+        it('allows a selected track to retry fallback after a transient fallback failure', async () => {
+            const fetchMock = global.fetch as jest.Mock;
+            fetchMock.mockResolvedValue({
+                ok: false,
+                status: 500,
+                headers: { get: (): null => null },
+                text: async () => 'Server error',
+            });
+            const tracks: SubtitleTrack[] = [
+                createMockSubtitleTrack({ id: 'en' }),
+            ];
+            manager.loadTracks(tracks, {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            });
+
+            manager.setActiveTrack('en');
+            await flushSubtitleMicrotasks();
+            expect(global.URL.createObjectURL).not.toHaveBeenCalled();
+
+            fetchMock.mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: (): null => null },
+                text: async () => '1\n00:00:01,000 --> 00:00:02,000\nHello\n',
+            });
+
+            manager.setActiveTrack('en');
+            await flushSubtitleMicrotasks();
+
+            expect(global.URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
         });
     });
 });

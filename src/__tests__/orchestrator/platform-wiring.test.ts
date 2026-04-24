@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 
 import { AppErrorCode, AppOrchestrator } from '../../Orchestrator';
-import { createWebOsPlatformServices } from '../../platform';
+import { createPlatformIdentityService, createWebOsPlatformServices } from '../../platform';
 
 describe('AppOrchestrator platform wiring suite', () => {
     it('maps AppError into LifecycleAppError', () => {
@@ -40,6 +40,43 @@ describe('AppOrchestrator platform wiring suite', () => {
                 secondServices.identity.getDefaultPlexIdentity('client-id')['X-Plex-Platform-Version']
             ).toBe('25.0');
         } finally {
+            if (hadOriginalWebOsTv && originalWebOsTv !== undefined) {
+                webOsWindow.webOSTV = originalWebOsTv;
+            } else {
+                delete webOsWindow.webOSTV;
+            }
+        }
+    });
+
+    it('exports a lightweight identity service with heuristic platform-version diagnostics', () => {
+        const webOsWindow = window as Window & typeof globalThis & {
+            webOSTV?: { platform?: { version?: string } };
+        };
+        const hadOriginalWebOsTv = Object.prototype.hasOwnProperty.call(webOsWindow, 'webOSTV');
+        const originalWebOsTv = webOsWindow.webOSTV;
+        const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+        try {
+            delete webOsWindow.webOSTV;
+            Object.defineProperty(globalThis, 'navigator', {
+                configurable: true,
+                value: { userAgent: 'Mozilla/5.0 (Web0S) AppleWebKit/537.36 Chrome/108.0.0.0 Safari/537.36' },
+            });
+
+            const identity = createPlatformIdentityService();
+
+            expect(identity.detectPlatformVersion()).toBe('24.0');
+            expect(warnSpy).toHaveBeenCalledWith(
+                '[webOSPlatformServices] Derived platform version from Chrome major',
+                { chromeMajor: 108, platformVersion: '24.0' }
+            );
+            expect(identity.getDefaultPlexIdentity('client-id')['X-Plex-Platform-Version']).toBe('24.0');
+        } finally {
+            warnSpy.mockRestore();
+            if (originalNavigator) {
+                Object.defineProperty(globalThis, 'navigator', originalNavigator);
+            }
             if (hadOriginalWebOsTv && originalWebOsTv !== undefined) {
                 webOsWindow.webOSTV = originalWebOsTv;
             } else {

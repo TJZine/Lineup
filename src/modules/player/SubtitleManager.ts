@@ -496,23 +496,20 @@ export class SubtitleManager {
             reason,
         }));
 
-        const blobUrl = await this._fetchFallbackBlobUrl(track, loadToken);
-        if (loadToken !== this._loadToken) {
-            this._fallbackInProgress.delete(track.id);
-            return;
-        }
-        if (blobUrl.kind === 'stale') {
-            this._fallbackInProgress.delete(track.id);
-            return;
-        }
-        if (blobUrl.kind !== 'success') {
-            this._fallbackInProgress.delete(track.id);
-            this._handleFallbackFailure(track, blobUrl);
-            return;
-        }
+        try {
+            const result = await this._fetchFallbackBlobUrl(track, loadToken);
+            if (loadToken !== this._loadToken || result.kind === 'stale') {
+                return;
+            }
+            if (result.kind !== 'success') {
+                this._handleFallbackFailure(track, result);
+                return;
+            }
 
-        this._replaceTrackElement(track, blobUrl.blobUrl, loadToken);
-        this._fallbackInProgress.delete(track.id);
+            this._replaceTrackElement(track, result.blobUrl, loadToken);
+        } finally {
+            this._fallbackInProgress.delete(track.id);
+        }
     }
 
     private async _fetchFallbackBlobUrl(

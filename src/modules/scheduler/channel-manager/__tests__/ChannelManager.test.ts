@@ -1434,6 +1434,40 @@ describe('ChannelManager', () => {
             expect(content.items[0]!.title).toBe('Apple');
         });
 
+        it('re-resolves cached content when filters change during update', async () => {
+            mockLibrary.getLibraryItems.mockResolvedValue([
+                createMockItem({ ratingKey: '1', year: 2018 }),
+                createMockItem({ ratingKey: '2', year: 2020 }),
+                createMockItem({ ratingKey: '3', year: 2022 }),
+            ]);
+            const channel = await manager.createChannel({
+                contentSource: createMockContentSource(),
+            });
+
+            const updated = await manager.updateChannel(channel.id, {
+                contentFilters: [{ field: 'year', operator: 'gte', value: 2020 }],
+            });
+            const content = await manager.resolveChannelContent(channel.id);
+
+            expect(updated.itemCount).toBe(2);
+            expect(content.items.map((item) => item.ratingKey)).toEqual(['2', '3']);
+        });
+
+        it('re-resolves cached content when sort order changes during update', async () => {
+            mockLibrary.getLibraryItems.mockResolvedValue([
+                createMockItem({ ratingKey: '1', title: 'Zebra' }),
+                createMockItem({ ratingKey: '2', title: 'Apple' }),
+            ]);
+            const channel = await manager.createChannel({
+                contentSource: createMockContentSource(),
+            });
+
+            await manager.updateChannel(channel.id, { sortOrder: 'title_asc' });
+            const content = await manager.resolveChannelContent(channel.id);
+
+            expect(content.items.map((item) => item.title)).toEqual(['Apple', 'Zebra']);
+        });
+
         it('should filter out zero-duration items', async () => {
             mockLibrary.getLibraryItems.mockResolvedValue([
                 createMockItem({ ratingKey: '1', durationMs: 0 }),

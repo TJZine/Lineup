@@ -100,6 +100,7 @@ export class App {
     private _themeController: AppThemeController | null = null;
     private _screenUnsubscribe: (() => void) | null = null;
     private _phaseUnsubscribe: (() => void) | null = null;
+    private _lifecycleWarningDisposables: IDisposable[] = [];
 
     async start(): Promise<void> {
         try {
@@ -191,14 +192,23 @@ export class App {
 
     private _subscribeToLifecycleWarnings(): void {
         if (!this._orchestrator) return;
+        if (this._lifecycleWarningDisposables.length > 0) return;
 
-        this._orchestrator.onLifecycleEvent('persistenceWarning', () => {
-            this._toastPresenter.show({ message: 'Some settings could not be saved.', type: 'warning' });
-        });
+        this._lifecycleWarningDisposables.push(
+            this._orchestrator.onLifecycleEvent('persistenceWarning', () => {
+                this._toastPresenter.show({ message: 'Some settings could not be saved.', type: 'warning' });
+            }),
+            this._orchestrator.onLifecycleEvent('networkWarning', () => {
+                this._toastPresenter.show({ message: 'Network connection looks unstable.', type: 'warning' });
+            })
+        );
+    }
 
-        this._orchestrator.onLifecycleEvent('networkWarning', () => {
-            this._toastPresenter.show({ message: 'Network connection looks unstable.', type: 'warning' });
-        });
+    private _disposeLifecycleWarningSubscriptions(): void {
+        for (const disposable of this._lifecycleWarningDisposables) {
+            disposable.dispose();
+        }
+        this._lifecycleWarningDisposables = [];
     }
 
     async shutdown(): Promise<void> {
@@ -210,6 +220,7 @@ export class App {
             this._phaseUnsubscribe();
             this._phaseUnsubscribe = null;
         }
+        this._disposeLifecycleWarningSubscriptions();
 
         this._blockingErrorOverlayPresenter.dispose();
         this._toastPresenter.dispose();

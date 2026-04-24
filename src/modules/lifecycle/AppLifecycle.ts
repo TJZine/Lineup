@@ -13,6 +13,7 @@ import {
 import { StateManager } from './StateManager';
 import { ErrorRecovery } from './ErrorRecovery';
 import { EventEmitter } from '../../utils/EventEmitter';
+import { summarizeErrorForLog } from '../../utils/errors';
 import type { IDisposable } from '../../utils/interfaces';
 import {
     MEMORY_THRESHOLDS,
@@ -148,9 +149,9 @@ export class AppLifecycle implements IAppLifecycle {
 
         // Save final state (already saved by _transitionPhase, but flush any pending)
         try {
-            await this._flushPendingSave();
-        } catch {
-            // Silently handle save errors on shutdown
+            await this._flushPendingSave({ finalShutdown: true });
+        } catch (error) {
+            console.warn('[AppLifecycle] Final shutdown flush failed', summarizeErrorForLog(error));
         }
 
         // Stop monitoring
@@ -174,6 +175,8 @@ export class AppLifecycle implements IAppLifecycle {
     public saveState(): Promise<void> {
         let state: PersistentState;
         try {
+            // Build failures reject this caller only; any pending state, waiters, and debounce
+            // timer still belong to the previously scheduled flush.
             state = this._buildCurrentState();
         } catch (error) {
             return Promise.reject(error);
@@ -669,7 +672,7 @@ export class AppLifecycle implements IAppLifecycle {
     /**
      * Flush any pending state save immediately.
      */
-    private async _flushPendingSave(): Promise<void> {
+    private async _flushPendingSave(options?: { finalShutdown?: boolean }): Promise<void> {
         if (this._saveDebounceTimer !== null) {
             clearTimeout(this._saveDebounceTimer);
             this._saveDebounceTimer = null;
@@ -683,6 +686,11 @@ export class AppLifecycle implements IAppLifecycle {
                     TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
                 this._resolvePendingSaveWaiters();
             } catch (error) {
+                if (options?.finalShutdown === true) {
+                    console.warn('[AppLifecycle] Final shutdown flush failed', summarizeErrorForLog(error));
+                }
+                // Clear the failed waiter batch before warning observers run. Synchronous
+                // re-entry via saveState() should enqueue against the next flush.
                 this._rejectPendingSaveWaiters(error);
                 try {
                     this._handleSaveError(error);

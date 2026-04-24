@@ -16,6 +16,10 @@ export type LoadedChannelState = {
     didMutate: boolean;
 } | null;
 
+type ChannelRepositoryLogger = {
+    warn: (message: string, ...args: unknown[]) => void;
+};
+
 function isValidChannelNumber(value: unknown): value is number {
     return (
         typeof value === 'number' &&
@@ -26,12 +30,13 @@ function isValidChannelNumber(value: unknown): value is number {
 }
 
 function normalizeChannelNumbers(
-    channels: ChannelConfig[]
+    channels: ChannelConfig[],
+    logger?: ChannelRepositoryLogger
 ): { channels: ChannelConfig[]; didMutate: boolean } {
     const reservedNumbers = new Set<number>();
     for (const channel of channels) {
         const number = (channel as { number?: unknown }).number;
-        if (isValidChannelNumber(number) && !reservedNumbers.has(number)) {
+        if (isValidChannelNumber(number)) {
             reservedNumbers.add(number);
         }
     }
@@ -61,6 +66,9 @@ function normalizeChannelNumbers(
         const fallbackNumber = takeNextAvailableNumber();
         if (fallbackNumber === null) {
             didMutate = true;
+            logger?.warn('Dropping persisted channel during normalized load due to number exhaustion', {
+                channelId: typeof channel.id === 'string' ? channel.id : null,
+            });
             continue;
         }
 
@@ -77,7 +85,11 @@ function normalizeChannelNumbers(
 export class ChannelRepository {
     private readonly _store: ChannelPersistenceStore;
 
-    constructor(storageKey: string = STORAGE_KEY, currentChannelKey: string = CURRENT_CHANNEL_KEY) {
+    constructor(
+        storageKey: string = STORAGE_KEY,
+        currentChannelKey: string = CURRENT_CHANNEL_KEY,
+        private readonly _logger?: ChannelRepositoryLogger
+    ) {
         this._store = new ChannelPersistenceStore(storageKey, currentChannelKey);
     }
 
@@ -137,7 +149,7 @@ export class ChannelRepository {
             channelCandidates.push(channel);
         }
 
-        const channelNumberNormalization = normalizeChannelNumbers(channelCandidates);
+        const channelNumberNormalization = normalizeChannelNumbers(channelCandidates, this._logger);
         if (channelNumberNormalization.didMutate) {
             didMutate = true;
         }

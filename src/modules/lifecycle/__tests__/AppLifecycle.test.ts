@@ -244,6 +244,32 @@ describe('AppLifecycle', () => {
             expect(secondCallback).not.toHaveBeenCalled();
         });
 
+        it('logs final pending-save flush failures during shutdown', async () => {
+            const saveError = new DOMException('Quota exceeded', 'QuotaExceededError');
+            let savePromise: Promise<void> | null = null;
+            mockStateManager.save.mockImplementation(() => {
+                throw saveError;
+            });
+            await lifecycle.initialize();
+            lifecycle.onTerminate(() => {
+                savePromise = lifecycle.saveState();
+            });
+            expectConsoleWarn([
+                '[AppLifecycle] Final shutdown flush failed',
+                expect.objectContaining({
+                    name: 'QuotaExceededError',
+                    message: 'Quota exceeded',
+                }),
+            ]);
+
+            await lifecycle.shutdown();
+
+            if (savePromise === null) {
+                throw new Error('Expected terminate callback to enqueue saveState');
+            }
+            await expect(savePromise).rejects.toBe(saveError);
+        });
+
         it('keeps relaunch add/remove symmetry and removes the exact same handler', async () => {
             const lifecycleService: PlatformLifecycleService = {
                 bindRelaunch: jest.fn((handler: (event: Event) => void) => {

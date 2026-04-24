@@ -168,11 +168,7 @@ async function maybeRouteToProfileSelect(inputs: Phase2AuthGateInputs): Promise<
             return false;
         }
     } catch (error) {
-        const code = (error as { code?: string }).code;
-        if (
-            code === AppErrorCode.AUTH_REQUIRED ||
-            code === AppErrorCode.AUTH_INVALID
-        ) {
+        if (isPlexAuthRecoverable(error)) {
             return routeToPendingAuth(inputs);
         }
         throw error;
@@ -265,11 +261,7 @@ export async function applyPhase2AuthGatePolicy(inputs: Phase2AuthGateInputs): P
         inputs.navigation.goTo('profile-select');
         return false;
     } catch (error) {
-        const code = (error as { code?: string }).code;
-        if (
-            code === AppErrorCode.AUTH_REQUIRED ||
-            code === AppErrorCode.AUTH_INVALID
-        ) {
+        if (isPlexAuthRecoverable(error)) {
             return routeToPendingAuth(inputs);
         }
 
