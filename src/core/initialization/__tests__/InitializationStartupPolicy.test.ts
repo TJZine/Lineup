@@ -9,7 +9,7 @@ import type {
 } from '../../../modules/plex/auth';
 import { PlexAuth } from '../../../modules/plex/auth/PlexAuth';
 import { PLEX_AUTH_CONSTANTS } from '../../../modules/plex/auth/constants';
-import { applyPhase2AuthGatePolicy, type Phase2AuthGateInputs } from '../InitializationStartupPolicy';
+import { applyAuthValidationPolicy, type AuthValidationPolicyInputs } from '../InitializationStartupPolicy';
 
 type PlexAuthGateMock = Pick<
     IPlexAuth,
@@ -31,9 +31,9 @@ type LifecycleGateMock = Pick<IAppLifecycle, 'setPhase'> & {
     setPhase: jest.MockedFunction<IAppLifecycle['setPhase']>;
 };
 
-type Phase2PlexAuthOverrides = Partial<PlexAuthGateMock>;
+type AuthValidationPlexAuthOverrides = Partial<PlexAuthGateMock>;
 
-type Phase2AuthGateTestInputs = Phase2AuthGateInputs & {
+type AuthValidationPolicyTestInputs = AuthValidationPolicyInputs & {
     plexAuth: PlexAuthGateMock;
     navigation: NavigationGateMock;
     lifecycle: LifecycleGateMock;
@@ -113,7 +113,7 @@ Object.defineProperty(globalThis, 'localStorage', {
 
 function createPlexAuthMock(
     storedCredentials: PlexAuthDataV2,
-    overrides: Phase2PlexAuthOverrides = {}
+    overrides: AuthValidationPlexAuthOverrides = {}
 ): PlexAuthGateMock {
     const storedReadResult: PlexStoredCredentialsReadResult = {
         kind: 'available',
@@ -142,7 +142,7 @@ function createLifecycleMock(): LifecycleGateMock {
     };
 }
 
-function createInputs(overrides: Phase2PlexAuthOverrides = {}): Phase2AuthGateTestInputs {
+function createInputs(overrides: AuthValidationPlexAuthOverrides = {}): AuthValidationPolicyTestInputs {
     const storedCredentials = createStoredCredentials();
     const plexAuth = createPlexAuthMock(storedCredentials, overrides);
     const navigation = createNavigationMock();
@@ -164,11 +164,11 @@ function createInputs(overrides: Phase2PlexAuthOverrides = {}): Phase2AuthGateTe
     };
 }
 
-function applyPolicy(inputs: Phase2AuthGateTestInputs): Promise<boolean> {
-    return applyPhase2AuthGatePolicy(inputs);
+function applyPolicy(inputs: AuthValidationPolicyTestInputs): Promise<boolean> {
+    return applyAuthValidationPolicy(inputs);
 }
 
-describe('applyPhase2AuthGatePolicy', () => {
+describe('applyAuthValidationPolicy', () => {
     beforeEach(() => {
         mockLocalStorage.clear();
         jest.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -412,7 +412,7 @@ describe('applyPhase2AuthGatePolicy', () => {
 
         const navigation = createNavigationMock();
         const lifecycle = createLifecycleMock();
-        const inputs: Phase2AuthGateInputs = {
+        const inputs: AuthValidationPolicyInputs = {
             startTime: Date.now() - 10,
             plexAuth,
             navigation,
@@ -428,7 +428,7 @@ describe('applyPhase2AuthGatePolicy', () => {
         };
 
         try {
-            await expect(applyPhase2AuthGatePolicy(inputs)).resolves.toBe(false);
+            await expect(applyAuthValidationPolicy(inputs)).resolves.toBe(false);
         } finally {
             (globalThis as typeof globalThis & { fetch: typeof previousFetch }).fetch = previousFetch;
         }

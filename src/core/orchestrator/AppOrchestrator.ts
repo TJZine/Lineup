@@ -89,7 +89,7 @@ import {
     ExitConfirmModal,
     EXIT_CONFIRM_MODAL_ID,
 } from '../../modules/ui/exit-confirm';
-import { InitializationCoordinator } from './InitializationCoordinator';
+import { InitializationCoordinator, STARTUP_PHASE } from '../initialization/InitializationCoordinator';
 import { ChannelTuningCoordinator } from '../channel-tuning';
 import { OrchestratorStorageContext } from './OrchestratorStorageContext';
 import { OrchestratorEventBinder } from './OrchestratorEventBinder';
@@ -839,7 +839,7 @@ export class AppOrchestrator {
 
     /**
      * Start the application - execute initialization sequence and begin playback.
-     * Follows 5-phase initialization order per spec.
+     * Follows the named startup sequence order per spec.
      */
     async start(): Promise<void> {
         if (!this._initCoordinator) {
@@ -850,7 +850,7 @@ export class AppOrchestrator {
         }
 
         this._playbackRecovery?.resetPlaybackFailureGuard();
-        await this._initCoordinator.runStartup(1);
+        await this._initCoordinator.runStartup(STARTUP_PHASE.FULL_STARTUP);
     }
 
     /**
@@ -1459,7 +1459,7 @@ export class AppOrchestrator {
         await this._plexAuth.clearCredentials();
         this._plexDiscovery?.clearSelection();
         if (this._initCoordinator) {
-            await this._initCoordinator.runStartup(2);
+            await this._initCoordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
         } else {
             this._navigation?.goTo('auth');
         }
@@ -1788,7 +1788,7 @@ export class AppOrchestrator {
     }
 
     // ============================================
-    // Private Methods - Initialization Phases
+    // Private Methods - Initialization State
     // ============================================
 
     private _cloneModuleStatus(status: ModuleStatus): ModuleStatus {
@@ -2091,7 +2091,7 @@ export class AppOrchestrator {
         let step = 'runStartup';
 
         try {
-            await this._initCoordinator.runStartup(3);
+            await this._initCoordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
 
             const epg = this._epg;
             if (epg) {

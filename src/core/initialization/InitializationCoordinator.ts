@@ -1,15 +1,15 @@
 /**
- * @fileoverview Initialization Coordinator - Manages the 5-phase startup sequence.
- * @module core/orchestrator/InitializationCoordinator
+ * @fileoverview Initialization Coordinator - Manages the named startup sequence.
+ * @module core/initialization/InitializationCoordinator
  * @version 1.0.0
  *
  * Extracted from Orchestrator to reduce complexity and improve modularity.
  * Handles:
- * - Phase 1: Core infrastructure (Lifecycle, Navigation)
- * - Phase 2: Auth validation
- * - Phase 3: Plex server connection
- * - Phase 4: Channel Manager, Scheduler, Video Player
- * - Phase 5: EPG initialization
+ * - full startup from core infrastructure
+ * - auth-change resume
+ * - server-selection/profile-change resume
+ * - runtime module resume
+ * - EPG-only resume
  */
 
 import { AppErrorCode, type IAppLifecycle, type AppError } from '../../modules/lifecycle';
@@ -27,24 +27,51 @@ import type { IPlayerOsdOverlay } from '../../modules/ui/player-osd';
 import type { IMiniGuideOverlay } from '../../modules/ui/mini-guide';
 import type { IChannelTransitionOverlay } from '../../modules/ui/channel-transition';
 import type { IDisposable } from '../../utils/interfaces';
-import type { OrchestratorConfig, ModuleStatus } from './OrchestratorTypes';
+import type { OrchestratorConfig, ModuleStatus } from '../orchestrator/OrchestratorTypes';
 import type {
     ChannelBadgeOverlayInitPort,
     ChannelNumberOverlayInitPort,
-} from './OverlayPorts';
+} from '../orchestrator/OverlayPorts';
 import { EpgPreferencesStore, type EpgLayoutMode } from '../../modules/settings/EpgPreferencesStore';
 import { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
 import {
-    applyPhase2AuthGatePolicy,
-    applyPhase3ServerGatePolicy,
+    applyAuthValidationPolicy,
+    applyServerConnectionPolicy,
     applyPostReadyRoutingPolicy,
-} from '../initialization/InitializationStartupPolicy';
-import { toRecoverableModuleStatusError } from '../initialization/RecoverableModuleStatusError';
-import type { RecoverableAsyncFailureReporter } from './OrchestratorRuntimeSeams';
+} from './InitializationStartupPolicy';
+import { toRecoverableModuleStatusError } from './RecoverableModuleStatusError';
+import type { RecoverableAsyncFailureReporter } from '../orchestrator/OrchestratorRuntimeSeams';
 
 // ============================================
 // Types
 // ============================================
+
+export const STARTUP_PHASE = {
+    FULL_STARTUP: 1,
+    RESUME_AFTER_AUTH_CHANGE: 2,
+    RESUME_AFTER_SERVER_SELECTION: 3,
+    RESUME_RUNTIME_MODULES: 4,
+    RESUME_EPG_ONLY: 5,
+} as const;
+
+export type StartupPhase = typeof STARTUP_PHASE[keyof typeof STARTUP_PHASE];
+type StartupResumePhase =
+    | typeof STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE
+    | typeof STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION;
+
+const STARTUP_RESUME_FAILURES: Record<
+    StartupResumePhase,
+    { context: string; message: string }
+> = {
+    [STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE]: {
+        context: 'initialization.resume.afterAuthChange',
+        message: 'Background startup resume after auth change failed',
+    },
+    [STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION]: {
+        context: 'initialization.resume.afterServerSelection',
+        message: 'Background startup resume after server selection failed',
+    },
+};
 
 /**
  * Dependencies injected by Orchestrator.
@@ -133,7 +160,7 @@ export interface InitializationCallbacks {
 // ============================================
 
 /**
- * InitializationCoordinator - Manages the 5-phase startup sequence.
+ * InitializationCoordinator - Manages the named startup sequence.
  *
  * Extracted from Orchestrator to reduce its size and improve modularity.
  * The coordinator is instantiated by Orchestrator with injected dependencies
@@ -144,7 +171,7 @@ export class InitializationCoordinator {
 
     // Startup state
     private _startupInProgress = false;
-    private _startupQueuedPhase: 1 | 2 | 3 | 4 | 5 | null = null;
+    private _startupQueuedPhase: StartupPhase | null = null;
     private _startupQueuedWaiters: Array<{ resolve: () => void; reject: (err: unknown) => void }> = [];
 
     // Resume listeners
@@ -166,35 +193,35 @@ export class InitializationCoordinator {
     // Public Methods
     // ============================================
 
-    async runStartup(startPhase: 1 | 2 | 3 | 4 | 5): Promise<void> {
+    async runStartup(startPhase: StartupPhase): Promise<void> {
         this._cancelEpgWarmup();
         if (this._startupInProgress) {
             this._startupQueuedPhase = this._startupQueuedPhase === null
                 ? startPhase
-                : (Math.min(this._startupQueuedPhase, startPhase) as 1 | 2 | 3 | 4 | 5);
+                : (Math.min(this._startupQueuedPhase, startPhase) as StartupPhase);
             return new Promise((resolve, reject) => {
                 this._startupQueuedWaiters.push({ resolve, reject });
             });
         }
 
         this._startupInProgress = true;
-        let phaseToRun: 1 | 2 | 3 | 4 | 5 = startPhase;
+        let phaseToRun: StartupPhase = startPhase;
         let caughtError: unknown = null;
         let shouldScheduleEpgWarmup = false;
         let shouldRunFinalReadyWork = false;
 
         try {
             while (true) {
-                const willRunPhase4 = phaseToRun <= 4;
-                const shouldEagerlyInitEpgForPass = phaseToRun > 1;
+                const willRunPhase4 = phaseToRun <= STARTUP_PHASE.RESUME_RUNTIME_MODULES;
+                const shouldEagerlyInitEpgForPass = phaseToRun > STARTUP_PHASE.FULL_STARTUP;
                 this._callbacks.state.setReady(false);
 
-                if (phaseToRun <= 1) {
-                    await this._initPhase1();
+                if (phaseToRun <= STARTUP_PHASE.FULL_STARTUP) {
+                    await this._initCoreInfrastructure();
                 }
 
-                if (phaseToRun <= 2) {
-                    const authValid = await this._initPhase2();
+                if (phaseToRun <= STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE) {
+                    const authValid = await this._validateAuthentication();
                     if (!authValid) {
                         if (this._startupQueuedPhase === null) {
                             break;
@@ -205,8 +232,8 @@ export class InitializationCoordinator {
                     }
                 }
 
-                if (phaseToRun <= 3) {
-                    const plexConnected = await this._initPhase3();
+                if (phaseToRun <= STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION) {
+                    const plexConnected = await this._connectPlexServer();
                     if (!plexConnected) {
                         if (this._startupQueuedPhase === null) {
                             break;
@@ -217,13 +244,13 @@ export class InitializationCoordinator {
                     }
                 }
 
-                if (phaseToRun <= 4) {
-                    await this._initPhase4();
+                if (phaseToRun <= STARTUP_PHASE.RESUME_RUNTIME_MODULES) {
+                    await this._initializePlaybackRuntime();
                     await this._ensureCorePlayerUiInitialized();
                 }
 
                 if (shouldEagerlyInitEpgForPass) {
-                    await this._initPhase5({
+                    await this._initializeEpg({
                         ensureCorePlayerUi: !willRunPhase4,
                     });
                 }
@@ -309,7 +336,7 @@ export class InitializationCoordinator {
     }
 
     async ensureEPGInitialized(): Promise<void> {
-        await this._initPhase5();
+        await this._initializeEpg();
     }
 
     clearAuthResume(): void {
@@ -360,17 +387,17 @@ export class InitializationCoordinator {
         this.clearServerResume();
         this.clearProfileResume();
         this._callbacks.serverStorage.configureDiscoveryStorage();
-        await this.runStartup(3);
+        await this.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
     }
 
     // ============================================
-    // Private Methods - Initialization Phases
+    // Private Methods - Startup Stages
     // ============================================
 
     /**
-     * Phase 1: Initialize core infrastructure (EventEmitter, AppLifecycle, Navigation)
+     * Initialize core infrastructure (EventEmitter, AppLifecycle, Navigation).
      */
-    private async _initPhase1(): Promise<void> {
+    private async _initCoreInfrastructure(): Promise<void> {
         const startTime = Date.now();
 
         // EventEmitter is already ready (synchronous)
@@ -408,9 +435,9 @@ export class InitializationCoordinator {
     }
 
     /**
-     * Phase 2: Validate authentication
+     * Validate authentication.
      */
-    private async _initPhase2(): Promise<boolean> {
+    private async _validateAuthentication(): Promise<boolean> {
         const startTime = Date.now();
         this._callbacks.status.updateModuleStatus('plex-auth', 'initializing');
 
@@ -426,7 +453,7 @@ export class InitializationCoordinator {
             return false;
         }
 
-        const phase2Inputs = {
+        const authGateInputs = {
             startTime,
             plexAuth: this._deps.modules.plexAuth,
             navigation: this._deps.modules.navigation,
@@ -447,13 +474,13 @@ export class InitializationCoordinator {
                 : {}),
         };
 
-        return applyPhase2AuthGatePolicy(phase2Inputs);
+        return applyAuthValidationPolicy(authGateInputs);
     }
 
     /**
-     * Phase 3: Connect to Plex server and initialize Plex services
+     * Connect to Plex server and initialize Plex services.
      */
-    private async _initPhase3(): Promise<boolean> {
+    private async _connectPlexServer(): Promise<boolean> {
         const startTime = Date.now();
 
         if (
@@ -466,7 +493,7 @@ export class InitializationCoordinator {
         }
 
         try {
-            return await applyPhase3ServerGatePolicy({
+            return await applyServerConnectionPolicy({
                 startTime,
                 plexDiscovery: this._deps.modules.plexDiscovery,
                 plexLibrary: this._deps.modules.plexLibrary,
@@ -499,9 +526,9 @@ export class InitializationCoordinator {
     }
 
     /**
-     * Phase 4: Initialize Channel Manager, Scheduler, and Video Player
+     * Initialize Channel Manager, Scheduler, Video Player, and playback overlays.
      */
-    private async _initPhase4(): Promise<void> {
+    private async _initializePlaybackRuntime(): Promise<void> {
         const startTime = Date.now();
 
         // Channel Manager
@@ -606,9 +633,9 @@ export class InitializationCoordinator {
     }
 
     /**
-     * Phase 5: Initialize EPG
+     * Initialize EPG.
      */
-    private async _initPhase5(options?: { ensureCorePlayerUi?: boolean }): Promise<void> {
+    private async _initializeEpg(options?: { ensureCorePlayerUi?: boolean }): Promise<void> {
         const ensureCorePlayerUi = options?.ensureCorePlayerUi ?? true;
         if (this._callbacks.status.getModuleStatus('epg-ui') === 'ready') {
             if (ensureCorePlayerUi) {
@@ -717,7 +744,7 @@ export class InitializationCoordinator {
                 return;
             }
             this.clearAuthResume();
-            this._resumeStartupPhase(2);
+            this._resumeStartupFrom(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
         });
         this._authResumeDisposable = disposable;
     }
@@ -736,7 +763,7 @@ export class InitializationCoordinator {
                 return;
             }
             this.clearServerResume();
-            this._resumeStartupPhase(3);
+            this._resumeStartupFrom(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
         });
         this._serverResumeDisposable = disposable;
     }
@@ -752,25 +779,26 @@ export class InitializationCoordinator {
         this.clearProfileResume();
         const disposable = this._deps.modules.plexAuth.on('profileChange', () => {
             void this.resumeStartupAfterProfileSwitch().catch((error: unknown) => {
-                this._reportResumeFailure(3, error);
+                this._reportResumeFailure(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION, error);
             });
         });
         this._profileResumeDisposable = disposable;
     }
 
-    private _resumeStartupPhase(phase: 2 | 3): void {
+    private _resumeStartupFrom(phase: StartupResumePhase): void {
         void this.runStartup(phase).catch((error: unknown) => {
             this._reportResumeFailure(phase, error);
         });
     }
 
-    private _reportResumeFailure(phase: 2 | 3, error: unknown): void {
+    private _reportResumeFailure(phase: StartupResumePhase, error: unknown): void {
         // runStartup() already reports fatal startup failures via handleGlobalError('start').
         // Consume the rejection here only to avoid an unhandled Promise rejection on resume.
         try {
+            const failure = STARTUP_RESUME_FAILURES[phase];
             this._callbacks.diagnostics.reportRecoverableAsyncFailure(
-                `initialization.resume.phase${phase}`,
-                `Background startup resume failed for phase ${phase}`,
+                failure.context,
+                failure.message,
                 error
             );
         } catch {

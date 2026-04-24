@@ -6,7 +6,8 @@
  */
 
 
-import { AppOrchestrator, AppErrorCode } from '../Orchestrator';
+import { AppOrchestrator } from '../Orchestrator';
+import { AppErrorCode } from '../modules/lifecycle';
 import type { OrchestratorConfig } from '../core/orchestrator/OrchestratorTypes';
 import {
     NowPlayingInfoCoordinator,
@@ -19,7 +20,7 @@ import type { ScheduledProgram } from '../modules/scheduler/scheduler';
 import type { INowPlayingInfoOverlay, NowPlayingInfoConfig } from '../modules/ui/now-playing-info';
 import { CHANNEL_BADGE_CONTAINER_ID } from '../modules/ui/channel-badge';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
-import { InitializationCoordinator } from '../core/orchestrator/InitializationCoordinator';
+import { InitializationCoordinator, STARTUP_PHASE } from '../core/initialization/InitializationCoordinator';
 import { ChannelTuningCoordinator } from '../core/channel-tuning';
 import type { PlatformServices } from '../platform';
 import type { StreamDecision } from '../modules/plex/stream';
@@ -1072,7 +1073,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 });
 
                 expect(mockPlexDiscovery.selectServer).toHaveBeenCalledWith('server-1');
-                expect(runStartupSpy).toHaveBeenCalledWith(3);
+                expect(runStartupSpy).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
                 expect(clearSpy).toHaveBeenCalled();
                 expect(mockEpg.clearSchedules).toHaveBeenCalled();
                 expect(primeSpy).toHaveBeenCalled();
@@ -1119,7 +1120,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     },
                 });
 
-                expect(runStartupSpy).toHaveBeenCalledWith(3);
+                expect(runStartupSpy).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
                 expect(refreshSpy).toHaveBeenCalledWith({ reason: 'server-swap' });
             } finally {
                 refreshSpy.mockRestore();
@@ -1194,7 +1195,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     },
                 });
                 expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
-                expect(runStartupSpy).toHaveBeenCalledWith(3);
+                expect(runStartupSpy).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
             } finally {
                 runStartupSpy.mockRestore();
             }
@@ -1223,7 +1224,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     },
                 });
                 expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
-                expect(runStartupSpy).toHaveBeenCalledWith(3);
+                expect(runStartupSpy).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
             } finally {
                 runStartupSpy.mockRestore();
             }
@@ -1727,7 +1728,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 listener?.('http://server.example');
                 await Promise.resolve();
 
-                expect(runStartupSpy).toHaveBeenCalledWith(3);
+                expect(runStartupSpy).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
             } finally {
                 runStartupSpy.mockRestore();
             }
@@ -1808,16 +1809,16 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
             await orchestrator.start();
 
-            // Phase 1 (lifecycle, navigation) should be before Phase 2 (auth)
+            // Core infrastructure (lifecycle, navigation) should be before auth validation
             const lifecycleIdx = initOrder.indexOf('lifecycle');
             const navIdx = initOrder.indexOf('navigation');
             const authIdx = initOrder.indexOf('plex-auth');
             const discoveryIdx = initOrder.indexOf('plex-discovery');
 
-            // Lifecycle and navigation are Phase 1 (parallel)
+            // Lifecycle and navigation initialize together before auth
             expect(lifecycleIdx).toBeLessThan(authIdx);
             expect(navIdx).toBeLessThan(authIdx);
-            // Auth is Phase 2, before discovery (Phase 3)
+            // Auth validation runs before server discovery
             expect(authIdx).toBeLessThan(discoveryIdx);
         });
 

@@ -53,7 +53,7 @@ const waitForBoot = async (module: BootstrapModule): Promise<void> => {
     throw new Error('bootstrap did not create orchestrator');
 };
 
-const waitForUnauthenticatedPhase2 = async (module: BootstrapModule): Promise<void> => {
+const waitForUnauthenticatedAuthGate = async (module: BootstrapModule): Promise<void> => {
     for (let i = 0; i < 50; i += 1) {
         await flushPromisesAndMacrotask();
         const orchestrator = module.app?.getOrchestrator() ?? null;
@@ -75,7 +75,7 @@ const waitForUnauthenticatedPhase2 = async (module: BootstrapModule): Promise<vo
         }
     }
 
-    throw new Error('startup did not reach unauthenticated phase-2 state');
+    throw new Error('startup did not reach unauthenticated auth gate state');
 };
 
 describe('startup integration', () => {
@@ -120,7 +120,7 @@ describe('startup integration', () => {
         module.installLineupBootstrap();
         document.dispatchEvent(new Event('DOMContentLoaded'));
         await waitForBoot(module);
-        await waitForUnauthenticatedPhase2(module);
+        await waitForUnauthenticatedAuthGate(module);
 
         expect(module.app).not.toBeNull();
 
