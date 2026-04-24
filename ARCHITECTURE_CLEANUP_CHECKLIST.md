@@ -16,8 +16,8 @@ The live post-reset follow-on queue is defined by `docs/architecture/p11-fresh-b
 
 - Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
-- Current execution state: `P1-W1` through `P10-W1` are now historical evidence for the retired `2026-04-16` lineage; `P11-W1`, `P11-W2`, `P11-W3`, `P11-W4`, and `P11-W5` are complete and `P11-W6` is the next live fresh-baseline package from the authoritative `2026-04-23` rerun
-- Next safe start: `P11-W6` / `pkg_cross_cutting_contract_hygiene`
+- Current execution state: `P1-W1` through `P10-W1` are now historical evidence for the retired `2026-04-16` lineage; `P11-W1` through `P11-W6` and `P11-EXIT` are complete for the authoritative `2026-04-23` fresh-baseline rerun
+- Next safe start: none inside `P11`; use `desloppify next` or a new approved checklist item before opening more cleanup work
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to the active package or exit row
 - First action at package start: planning only; create the package-local execution-grade plan first and do not begin implementation until that planning gate is complete
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
@@ -1006,7 +1006,7 @@ Default scoping rule for this queue:
 - Follow-ups: none for `P11-W5`; continue fresh-baseline queue at `P11-W6`
 - Handoff: `P11-W6`
 
-### [ ] `P11-W6` `pkg_cross_cutting_contract_hygiene` Cross-Cutting Contract And Hygiene Cleanup
+### [x] `P11-W6` `pkg_cross_cutting_contract_hygiene` Cross-Cutting Contract And Hygiene Cleanup
 
 - Backlog: `seed 11 = 7 fresh review + 4 candidate mechanical hotspots`
 - Scope: own the explicitly cross-cutting fresh review ids that do not cleanly belong to one architectural package without becoming a default residue sink for unrelated cleanup work
@@ -1019,19 +1019,20 @@ Default scoping rule for this queue:
   - `desloppify show src/core/channel-setup/ChannelSetupWorkflow.ts --status open --no-budget --top 80`
 - Cleanup-loop fit: Tier 3 checklist-linked package; exact review ids are the only authoritative membership surface here, candidate files are bounded scoping aids only, and no unrelated residue may be absorbed just because it feels “shared”
 - Likely first slice: start with a per-id ownership inventory across lifecycle, settings, toast, and pass-through facade surfaces before choosing the first execution unit
-- Status: not started
-- Plan: none yet
-- Last touched: `2026-04-23`
-- Verification: not run for package-local scoping yet; seed evidence comes from the authoritative `2026-04-23T07:32:05+00:00` rerun and `docs/architecture/p11-fresh-baseline-package-map.json`
-- Follow-ups: none yet
+- Status: completed
+- Plan: package-local cleanup-loop plan approved after adversarial review; local-only plan artifact was not promoted to `docs/plans/`
+- Last touched: `2026-04-24`
+- Progress: `P11-W6-WAVE1` completed the lifecycle/auth/settings truthfulness and shared-type cleanup. `P11-W6-S1` made `AppLifecycle.saveState()` resolve or reject with the debounced persistence flush instead of an already-resolved scheduling promise, with lifecycle contract tests covering pending-until-flush and save-failure rejection. `P11-W6-S2` made the pending-auth redirect helper synchronous while preserving `update status -> register resume -> navigate` ordering. `P11-W6-S3` moved settings-facing subtitle mode and EPG past-items values onto canonical shared/store aliases without changing persisted values or UI option semantics. `P11-W6-S4` standardized the touched internal toast callbacks on `ToastInput` payloads across playback recovery, playback options, mini-guide, and orchestrator coordinator wiring while preserving existing message/type behavior. `P11-W6-S5` moved platform-version memoization into each `createWebOsPlatformServices()` identity service instance while preserving the default `webosPlatformServices` singleton export. `P11-W6-WAVE2` removed package-local storage-helper pass-throughs in `DeveloperSettingsStore` and `AudioSettingsStore`, source-audited `ChannelSetupWorkflow` and its port as live runtime/public boundary contracts rather than stray same-package facade residue, and trimmed only redundant/restating comment noise in `KeepAliveManager`, Plex discovery interfaces, player types, and `core/module-status`.
+- Verification: plan review initially found blocking findings for priority-exit readiness, wave accounting, and S3 owner-test coverage; the revised plan passed closure review and a fresh final approval. Implementation review found no material findings for `P11-W6-WAVE1`, `P11-W6-S4`, `P11-W6-S5`, or `P11-W6-WAVE2`. Focused verification passed for WAVE1 (`6` suites / `81` tests), S4 (`5` suites / `95` tests), S5 (`5` suites / `100` tests), and WAVE2 (`6` suites / `36` tests), plus repeated `npm run typecheck`. The direct `src/modules/ui/toast/__tests__/types.test.ts` Jest unit target remains ignored by the current unit-test config, but the same contract file is covered by `npm run test:contracts`. Package-local scoping reruns for `AppLifecycle.ts`, `SettingsScreen.ts`, `AuthScreen.ts`, `AppDiagnosticsSurface.ts`, and `ChannelSetupWorkflow.ts` all reported no open file-matching issues. `desloppify scan --path .` completed from branch `code-health` with strict score `85.9`, objective `97.1`, verified `97.1`, security `100.0`, no open security issues, and review auto-resolve skipped as stale/transient, so exact review-id commands still print the seven original P11-W6 seed rows despite reviewed current-source proof retiring the package-owned rationale. `npm run verify` passed with typecheck, architecture lint, CSS lint, coverage (`254` suites / `3134` passed / `1` skipped), tools tests (`5` suites / `98` tests), contracts (`7` suites / `201` tests), docs verification, and build.
+- Follow-ups: none for `P11-W6`; any future collapse of the channel-setup workflow/port split requires a separate owner-approved runtime-contract/Orchestrator change, not this cross-cutting hygiene package
 - Handoff: `P11-EXIT`
 
-- [ ] `P11-EXIT`
+- [x] `P11-EXIT`
 
 - Close only if: every fresh `2026-04-23` review issue has one checklist owner, every overlapping mechanical hotspot retired under `P11` has one exact package owner or an explicit `accepted residue`, `deferred`, or `stale-proven` disposition recorded from current-source evidence, `docs/architecture/p11-fresh-baseline-package-map.json`, the follow-on queue rationale doc, and this checklist agree on package seed membership, and the final fresh-baseline backlog is re-rerun from the integration branch before claiming completion
-- Status: not started
-- Plan: none yet
-- Last touched: `2026-04-23`
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: continue through `P11` until the fresh-baseline queue is fully drained or explicitly archived
+- Status: completed
+- Plan: priority-exit readiness was included in the approved `P11-W6` cleanup-loop plan
+- Last touched: `2026-04-24`
+- Verification: `docs/architecture/p11-fresh-baseline-package-map.json` still assigns all `39` fresh `2026-04-23` review issues exactly once across the six P11 packages with no duplicates or unassigned ids. `P11-W1` through `P11-W6` are complete in this checklist and the package map. `desloppify plan queue --sort recent` reported one remaining subjective living-plan item outside the drained P11 package queue. `desloppify show security --status open --no-budget --top 50` reported no open security issues. The P11-W6 package-local scoping reruns all reported no open file-matching issues. `desloppify scan --path .` reran the fresh baseline from branch `code-health`; review auto-resolve was skipped as stale/transient, so the `39` review rows remain visible as stale detector wording, but every row has one checklist/package-map owner and completed package evidence. `npm run verify` passed.
+- Follow-ups: none for `P11`; open new cleanup work only through `desloppify next` or a newly approved checklist item
+- Handoff: none; `P11` fresh-baseline queue is drained
