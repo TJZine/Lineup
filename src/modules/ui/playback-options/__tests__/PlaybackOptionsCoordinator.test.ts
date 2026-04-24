@@ -560,6 +560,17 @@ describe('PlaybackOptionsCoordinator', () => {
 
             expect(requestBurnInSubtitle).not.toHaveBeenCalled();
             expect((player.setSubtitleTrack as jest.Mock)).toHaveBeenCalledWith('keyless');
+
+            const secondViewModel = getViewModel(coordinator);
+            const secondOption = secondViewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-keyless');
+            secondOption?.onSelect?.();
+
+            await flushPlaybackOptionsPromises();
+
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(requestBurnInSubtitle).not.toHaveBeenCalled();
+            expect((player.setSubtitleTrack as jest.Mock)).toHaveBeenCalledTimes(2);
+            expect((player.setSubtitleTrack as jest.Mock)).toHaveBeenLastCalledWith('keyless');
         } finally {
             restore();
         }
