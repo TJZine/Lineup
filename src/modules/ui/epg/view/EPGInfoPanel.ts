@@ -14,6 +14,7 @@ import { formatContentRatingBadge } from '../../../../utils/contentRating';
 import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
 import { NowPlayingDisplayStore } from '../../../settings/NowPlayingDisplayStore';
 import { extractDominantColor } from '../../../../utils/color/extractDominantColor';
+import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
 
 const MAX_DYNAMIC_COLOR_CACHE_ENTRIES = 128;
 const DYNAMIC_COLOR_FAILURE_COOLDOWN_MS = 60_000;
@@ -106,7 +107,11 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     }
 
     async whenIdle(): Promise<void> {
-        return this.hasPendingAsyncWork() ? this.idlePromise : Promise.resolve();
+        while (this.hasPendingAsyncWork()) {
+            this.ensureIdlePromise();
+            const idle = this.idlePromise;
+            await idle;
+        }
     }
 
     getPresentationMode(): 'classic' | 'overlay' {
@@ -611,7 +616,6 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             void this.fetchItemDetailsSafely(ratingKey, this.hdrFetchController?.signal ?? null)
                 .then((item) => {
                     if (fetchToken !== this.hdrFetchToken) return;
-                    this.hdrFetchController = null;
                     const hdr = extractHdrLabelFromPlexMedia(item);
                     if (!hdr) return;
                     this.hdrCache.set(ratingKey, hdr);
@@ -620,9 +624,10 @@ export class EPGInfoPanel implements IEPGInfoPanel {
                     this.updateQualityBadges(current, hdr);
                 })
                 .catch((error) => {
-                    if (error instanceof DOMException && error.name === 'AbortError') {
+                    if (isAbortLikeError(error, this.hdrFetchController?.signal ?? undefined)) {
                         return;
                     }
+                    this.reportDetailsFetchFailure('hdr', error);
                 })
                 .finally(() => {
                     if (fetchToken === this.hdrFetchToken) {
@@ -642,6 +647,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             this.hdrFetchController.abort();
             this.hdrFetchController = null;
         }
+        this.hdrFetchToken += 1;
         this.resolveIdleIfSettled();
     }
 
@@ -1078,7 +1084,6 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             void this.fetchItemDetailsSafely(ratingKey, this.posterFetchController?.signal ?? null)
                 .then((item) => {
                     if (fetchToken !== this.posterFetchToken) return;
-                    this.posterFetchController = null;
                     const seriesPosterThumb = item?.grandparentThumb ?? null;
                     this.episodePosterCache.set(ratingKey, seriesPosterThumb);
                     const current = this.currentProgram;
@@ -1086,9 +1091,10 @@ export class EPGInfoPanel implements IEPGInfoPanel {
                     this.updatePoster(current, 'full');
                 })
                 .catch((error) => {
-                    if (error instanceof DOMException && error.name === 'AbortError') {
+                    if (isAbortLikeError(error, this.posterFetchController?.signal ?? undefined)) {
                         return;
                     }
+                    this.reportDetailsFetchFailure('poster', error);
                 })
                 .finally(() => {
                     if (fetchToken === this.posterFetchToken) {
@@ -1104,6 +1110,13 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         signal: AbortSignal | null
     ): Promise<EpgItemDetails | null | undefined> {
         return Promise.resolve().then(() => this.fetchItemDetails?.(ratingKey, { signal }));
+    }
+
+    private reportDetailsFetchFailure(kind: 'hdr' | 'poster', error: unknown): void {
+        console.warn('EPG info panel details fetch failed', {
+            kind,
+            error: summarizeErrorForLog(error),
+        });
     }
 
     private clearPosterFetch(): void {
