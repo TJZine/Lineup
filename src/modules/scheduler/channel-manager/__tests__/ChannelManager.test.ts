@@ -270,6 +270,7 @@ describe('ChannelManager', () => {
             expect(updated.lastContentRefresh).toBe(channel.lastContentRefresh);
             expect(updated.itemCount).toBe(channel.itemCount);
             expect(updated.totalDurationMs).toBe(channel.totalDurationMs);
+            expect(updated.updatedAt).toBeGreaterThanOrEqual(channel.updatedAt);
             expect(updated.name).toBe('Updated');
         });
 
@@ -1219,6 +1220,60 @@ describe('ChannelManager', () => {
             expect(result.importedCount).toBe(1);
             expect(result.errors).toHaveLength(0);
             expect(manager.getAllChannels()).toHaveLength(1);
+        });
+
+        it('omits invalid enum-like fields and content filters during import', async () => {
+            const importData = JSON.stringify([
+                {
+                    name: 'Imported Channel',
+                    contentSource: createMockContentSource(),
+                    buildStrategy: 'not-a-strategy',
+                    playbackMode: 'not-a-mode',
+                    sortOrder: 'not-a-sort-order',
+                    contentFilters: [{ field: 'year', operator: 'definitely', value: 2020 }],
+                },
+            ]);
+
+            const result = await manager.importChannels(importData);
+
+            expect(result.success).toBe(true);
+            expect(result.importedCount).toBe(1);
+            expect(result.errors).toHaveLength(0);
+
+            const [channel] = manager.getAllChannels();
+            expect(channel).toEqual(expect.objectContaining({
+                name: 'Imported Channel',
+                playbackMode: 'sequential',
+            }));
+            expect(channel?.buildStrategy).toBeUndefined();
+            expect(channel?.sortOrder).toBeUndefined();
+            expect(channel?.contentFilters).toBeUndefined();
+        });
+
+        it('preserves valid enum-like fields and content filters during import', async () => {
+            const importData = JSON.stringify([
+                {
+                    name: 'Imported Channel',
+                    contentSource: createMockContentSource(),
+                    buildStrategy: 'genres',
+                    playbackMode: 'shuffle',
+                    sortOrder: 'title_asc',
+                    contentFilters: [{ field: 'year', operator: 'gte', value: 2020 }],
+                },
+            ]);
+
+            const result = await manager.importChannels(importData);
+
+            expect(result.success).toBe(true);
+            expect(result.importedCount).toBe(1);
+
+            const [channel] = manager.getAllChannels();
+            expect(channel).toEqual(expect.objectContaining({
+                buildStrategy: 'genres',
+                playbackMode: 'shuffle',
+                sortOrder: 'title_asc',
+                contentFilters: [{ field: 'year', operator: 'gte', value: 2020 }],
+            }));
         });
 
         it('ignores legacy isSequentialVariant when importing channels without canonical playback variant metadata', async () => {

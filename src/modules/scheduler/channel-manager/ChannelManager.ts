@@ -9,17 +9,21 @@ import { getAppErrorCode } from '../../../types/app-errors';
 import { ContentResolver } from './ContentResolver';
 import { ChannelRepository } from './ChannelRepository';
 import { isValidContentSource } from './ChannelContentSourceValidator';
+import {
+    isValidBuildStrategy,
+    isValidContentFilterArray,
+    isValidPlaybackMode,
+    isValidSortOrder,
+} from './ChannelValueValidators';
 import { AppErrorCode } from '../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../lifecycle/constants';
 import { TIMING_CONFIG } from '../../../config/timing';
 import type { IChannelManager, ChannelManagerConfig, IPlexLibraryMinimal } from './interfaces';
 import type { IDisposable } from '../../../utils/interfaces';
 import type {
-    BuildStrategy,
     ChannelConfig,
     ChannelContentSource,
     ChannelCreateInput,
-    ContentFilter,
     ResolvedChannelContent,
     ResolvedContentItem,
     ImportResult,
@@ -27,8 +31,6 @@ import type {
     ChannelManagerState,
     StoredChannelData,
     ChannelUpdateInput,
-    PlaybackMode,
-    SortOrder,
 } from './types';
 import {
     STORAGE_KEY,
@@ -1453,8 +1455,8 @@ export class ChannelManager implements IChannelManager {
         if (typeof record['color'] === 'string') {
             channel.color = record['color'];
         }
-        if (typeof record['buildStrategy'] === 'string') {
-            channel.buildStrategy = record['buildStrategy'] as BuildStrategy;
+        if (isValidBuildStrategy(record['buildStrategy'])) {
+            channel.buildStrategy = record['buildStrategy'];
         }
         if (typeof record['sourceLibraryId'] === 'string') {
             channel.sourceLibraryId = record['sourceLibraryId'];
@@ -1468,8 +1470,8 @@ export class ChannelManager implements IChannelManager {
         if (typeof record['isPlaybackModeVariant'] === 'boolean') {
             channel.isPlaybackModeVariant = record['isPlaybackModeVariant'];
         }
-        if (typeof record['playbackMode'] === 'string') {
-            channel.playbackMode = record['playbackMode'] as PlaybackMode;
+        if (isValidPlaybackMode(record['playbackMode'])) {
+            channel.playbackMode = record['playbackMode'];
         }
         if (typeof record['shuffleSeed'] === 'number' && Number.isFinite(record['shuffleSeed'])) {
             channel.shuffleSeed = record['shuffleSeed'];
@@ -1483,11 +1485,11 @@ export class ChannelManager implements IChannelManager {
         if (typeof record['startTimeAnchor'] === 'number' && Number.isFinite(record['startTimeAnchor'])) {
             channel.startTimeAnchor = record['startTimeAnchor'];
         }
-        if (Array.isArray(record['contentFilters'])) {
-            channel.contentFilters = record['contentFilters'] as ContentFilter[];
+        if (isValidContentFilterArray(record['contentFilters'])) {
+            channel.contentFilters = record['contentFilters'];
         }
-        if (typeof record['sortOrder'] === 'string') {
-            channel.sortOrder = record['sortOrder'] as SortOrder;
+        if (isValidSortOrder(record['sortOrder'])) {
+            channel.sortOrder = record['sortOrder'];
         }
         if (typeof record['skipIntros'] === 'boolean') {
             channel.skipIntros = record['skipIntros'];
