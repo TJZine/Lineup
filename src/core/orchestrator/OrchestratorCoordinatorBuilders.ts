@@ -69,16 +69,14 @@ import {
     EXIT_CONFIRM_FOCUSABLE_IDS,
     EXIT_CONFIRM_MODAL_ID,
 } from '../../modules/ui/exit-confirm';
-import {
-    ChannelSetupBuildCommitter,
-    ChannelSetupBuildScratchStore,
-    ChannelSetupBuildExecutor,
-    ChannelSetupCompletionTracker,
-    ChannelSetupCoordinator,
-    ChannelSetupPlanningService,
-    ChannelSetupRecordStore,
-    ChannelSetupWorkflow,
-} from '../channel-setup';
+import { ChannelSetupBuildCommitter } from '../channel-setup/ChannelSetupBuildCommitter';
+import { ChannelSetupBuildScratchStore } from '../channel-setup/ChannelSetupBuildScratchStore';
+import { ChannelSetupBuildExecutor } from '../channel-setup/ChannelSetupBuildExecutor';
+import { ChannelSetupCompletionTracker } from '../channel-setup/ChannelSetupCompletionTracker';
+import { ChannelSetupCoordinator } from '../channel-setup/ChannelSetupCoordinator';
+import { ChannelSetupPlanningService } from '../channel-setup/ChannelSetupPlanningService';
+import { ChannelSetupRecordStore } from '../channel-setup/ChannelSetupRecordStore';
+import { ChannelSetupWorkflow } from '../channel-setup/ChannelSetupWorkflow';
 import { ChannelTuningCoordinator } from '../channel-tuning';
 import type { GuideSelectionSnapshot } from '../channel-tuning';
 import { secondsToMilliseconds } from '../../config/timing';

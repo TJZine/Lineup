@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 
-import { AppErrorCode, AppOrchestrator } from '../../Orchestrator';
+import { AppOrchestrator } from '../../Orchestrator';
+import { AppErrorCode } from '../../modules/lifecycle';
 import { createPlatformIdentityService, createWebOsPlatformServices } from '../../platform';
 
 describe('AppOrchestrator platform wiring suite', () => {

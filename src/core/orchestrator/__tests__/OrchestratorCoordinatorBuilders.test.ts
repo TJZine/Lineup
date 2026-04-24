@@ -14,27 +14,39 @@ const coordinatorInstance = { clearRerunRequest: jest.fn(), kind: 'coordinator' 
 const completionTrackerInstance = { kind: 'completion-tracker' };
 const workflowInstance = { kind: 'workflow' };
 
-jest.mock('../../channel-setup', () => ({
+jest.mock('../../channel-setup/ChannelSetupRecordStore', () => ({
     ChannelSetupRecordStore: jest.fn(() => recordStoreInstance),
+}));
+jest.mock('../../channel-setup/ChannelSetupBuildScratchStore', () => ({
     ChannelSetupBuildScratchStore: jest.fn(() => scratchStoreInstance),
+}));
+jest.mock('../../channel-setup/ChannelSetupPlanningService', () => ({
     ChannelSetupPlanningService: jest.fn(() => planningServiceInstance),
+}));
+jest.mock('../../channel-setup/ChannelSetupBuildCommitter', () => ({
     ChannelSetupBuildCommitter: jest.fn(() => buildCommitterInstance),
+}));
+jest.mock('../../channel-setup/ChannelSetupBuildExecutor', () => ({
     ChannelSetupBuildExecutor: jest.fn(() => buildExecutorInstance),
+}));
+jest.mock('../../channel-setup/ChannelSetupCoordinator', () => ({
     ChannelSetupCoordinator: jest.fn(() => coordinatorInstance),
+}));
+jest.mock('../../channel-setup/ChannelSetupCompletionTracker', () => ({
     ChannelSetupCompletionTracker: jest.fn(() => completionTrackerInstance),
+}));
+jest.mock('../../channel-setup/ChannelSetupWorkflow', () => ({
     ChannelSetupWorkflow: jest.fn(() => workflowInstance),
 }));
 
-import {
-    ChannelSetupBuildCommitter,
-    ChannelSetupBuildExecutor,
-    ChannelSetupBuildScratchStore,
-    ChannelSetupCompletionTracker,
-    ChannelSetupCoordinator,
-    ChannelSetupPlanningService,
-    ChannelSetupRecordStore,
-    ChannelSetupWorkflow,
-} from '../../channel-setup';
+import { ChannelSetupBuildCommitter } from '../../channel-setup/ChannelSetupBuildCommitter';
+import { ChannelSetupBuildExecutor } from '../../channel-setup/ChannelSetupBuildExecutor';
+import { ChannelSetupBuildScratchStore } from '../../channel-setup/ChannelSetupBuildScratchStore';
+import { ChannelSetupCompletionTracker } from '../../channel-setup/ChannelSetupCompletionTracker';
+import { ChannelSetupCoordinator } from '../../channel-setup/ChannelSetupCoordinator';
+import { ChannelSetupPlanningService } from '../../channel-setup/ChannelSetupPlanningService';
+import { ChannelSetupRecordStore } from '../../channel-setup/ChannelSetupRecordStore';
+import { ChannelSetupWorkflow } from '../../channel-setup/ChannelSetupWorkflow';
 import {
     bindEpgVisibleRangeChange,
     buildChannelSetupOwners,

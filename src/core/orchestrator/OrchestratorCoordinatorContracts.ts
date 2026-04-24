@@ -64,7 +64,8 @@ import type { DeveloperSettingsStore } from '../../modules/settings/DeveloperSet
 import type { ToastInput } from '../../modules/ui/toast/types';
 import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
 import type { ChannelNumberOverlayRuntimePort } from './OverlayPorts';
-import type { ChannelSetupCoordinator, ChannelSetupWorkflow } from '../channel-setup';
+import type { ChannelSetupCoordinator } from '../channel-setup/ChannelSetupCoordinator';
+import type { ChannelSetupWorkflow } from '../channel-setup/ChannelSetupWorkflow';
 import type { EPGCoordinator } from '../../modules/ui/epg';
 import type { NowPlayingInfoCoordinator } from '../../modules/ui/now-playing-info';
 import type { PlayerOsdCoordinator } from '../../modules/ui/player-osd';

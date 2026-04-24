@@ -124,12 +124,10 @@ import type {
     ChannelNumberOverlayInitPort,
 } from './OverlayPorts';
 import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
-import {
-    ChannelSetupCoordinator,
-    ChannelSetupWorkflow,
-    createChannelSetupWorkflowPort,
-    type ChannelSetupWorkflowPort,
-} from '../channel-setup';
+import { ChannelSetupCoordinator } from '../channel-setup/ChannelSetupCoordinator';
+import { ChannelSetupWorkflow } from '../channel-setup/ChannelSetupWorkflow';
+import { createChannelSetupWorkflowPort } from '../channel-setup/createChannelSetupWorkflowPort';
+import type { ChannelSetupWorkflowPort } from '../channel-setup/ChannelSetupWorkflowPort';
 import { NowPlayingDebugManager } from '../../modules/debug/NowPlayingDebugManager';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import { IssueDiagnosticsStore, type AppendIssueDiagnostic } from '../../modules/debug/IssueDiagnosticsStore';
@@ -2228,15 +2226,11 @@ export class AppOrchestrator {
             return handlerResult.value;
         }
 
-        if (!handlerResult.ok) {
-            this._warnRecoverableRuntimeError(
-                'orchestrator.globalError.handlerFailure',
-                `Error in handler for ${moduleId}`,
-                handlerResult.error
-            );
-            return false;
-        }
-
+        this._warnRecoverableRuntimeError(
+            'orchestrator.globalError.handlerFailure',
+            `Error in handler for ${moduleId}`,
+            handlerResult.error
+        );
         return false;
     }
 
