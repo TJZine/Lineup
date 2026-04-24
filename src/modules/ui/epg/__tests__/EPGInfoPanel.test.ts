@@ -10,6 +10,7 @@ import { EPGInfoPanel } from '../view/EPGInfoPanel';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import { extractDominantColor } from '../../../../utils/color/extractDominantColor';
 import type { ScheduledProgram } from '../types';
+import type { EpgItemDetails } from '../model/domainTypes';
 
 jest.mock('../../../../utils/color/extractDominantColor');
 
@@ -18,6 +19,10 @@ describe('EPGInfoPanel', () => {
         const idle = panel.whenIdle();
         await jest.runAllTimersAsync();
         await idle;
+    };
+    const settlePanelAfterTimerDrain = async (panel: EPGInfoPanel): Promise<void> => {
+        await jest.runAllTimersAsync();
+        await panel.whenIdle();
     };
 
     let panel: EPGInfoPanel;
@@ -50,6 +55,23 @@ describe('EPGInfoPanel', () => {
         loopNumber: 0,
         streamDescriptor: null,
         isCurrent: true,
+    });
+    const createMockHdrItemDetails = (hdr: string): EpgItemDetails => ({
+        ratingKey: 'test-1',
+        media: [
+            {
+                parts: [
+                    {
+                        streams: [
+                            {
+                                streamType: 1,
+                                hdr,
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
     });
 
     beforeEach(() => {
@@ -249,28 +271,41 @@ describe('EPGInfoPanel', () => {
 
         it('settles idle when episode poster details throw synchronously', async () => {
             jest.useFakeTimers();
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
             const resolver = jest.fn((path: string | null) => (path ? 'https://server/library/thumb?token=xxx' : null));
             const fetchItemDetails = jest.fn(() => {
-                throw new Error('details failed');
+                throw new Error('details failed X-Plex-Token=poster-secret');
             });
             panel.setThumbResolver(resolver);
             panel.setFetchItemDetails(fetchItemDetails);
 
-            const program = createMockProgram('/library/metadata/123/thumb', {
-                type: 'episode',
-                showThumb: '',
-                showTitle: '',
-                title: 'Episode Title',
-                fullTitle: 'Some Show - S01E01 - Episode Title',
-            });
-            panel.show(program);
+            try {
+                const program = createMockProgram('/library/metadata/123/thumb', {
+                    type: 'episode',
+                    showThumb: '',
+                    showTitle: '',
+                    title: 'Episode Title',
+                    fullTitle: 'Some Show - S01E01 - Episode Title',
+                });
+                panel.show(program);
 
-            jest.advanceTimersByTime(220);
-            await settlePanel(panel);
+                jest.advanceTimersByTime(220);
+                await settlePanel(panel);
 
-            expect(fetchItemDetails).toHaveBeenCalledWith('test-1', { signal: expect.any(AbortSignal) });
-
-            jest.useRealTimers();
+                expect(fetchItemDetails).toHaveBeenCalledWith('test-1', { signal: expect.any(AbortSignal) });
+                expect(warnSpy).toHaveBeenCalledWith(
+                    'EPG info panel details fetch failed',
+                    expect.objectContaining({
+                        kind: 'poster',
+                        error: expect.objectContaining({
+                            message: 'details failed X-Plex-Token=REDACTED',
+                        }),
+                    })
+                );
+            } finally {
+                warnSpy.mockRestore();
+                jest.useRealTimers();
+            }
         });
 
         it('should hide poster when resolver returns empty string', () => {
@@ -871,7 +906,7 @@ describe('EPGInfoPanel', () => {
                     });
                     panel.show(program);
                     jest.runAllTimers();
-                    await settlePanel(panel);
+                    await settlePanelAfterTimerDrain(panel);
                 }
 
                 const cache = (panel as unknown as { colorCache: Map<string, string> }).colorCache;
@@ -1134,53 +1169,7 @@ describe('EPGInfoPanel', () => {
 
         it('lazy-fetches HDR when mediaInfo is missing it', async () => {
             jest.useFakeTimers();
-            const fetchItemDetails = jest.fn().mockResolvedValue({
-                ratingKey: 'test-1',
-                key: '/library/metadata/1',
-                type: 'movie',
-                title: 'Test Movie',
-                sortTitle: 'Test Movie',
-                summary: '',
-                year: 2024,
-                durationMs: 7200000,
-                addedAt: new Date(),
-                updatedAt: new Date(),
-                thumb: null,
-                art: null,
-                media: [
-                    {
-                        id: 'media-1',
-                        duration: 7200000,
-                        bitrate: 12000,
-                        width: 3840,
-                        height: 2160,
-                        aspectRatio: 1.78,
-                        videoCodec: 'hevc',
-                        audioCodec: 'eac3',
-                        audioChannels: 6,
-                        container: 'mkv',
-                        videoResolution: '4K',
-                        parts: [
-                            {
-                                id: 'part-1',
-                                key: '/library/parts/1/file.mkv',
-                                duration: 7200000,
-                                file: 'file.mkv',
-                                size: 123,
-                                container: 'mkv',
-                                streams: [
-                                    {
-                                        id: 'stream-1',
-                                        streamType: 1,
-                                        codec: 'hevc',
-                                        hdr: 'Dolby Vision',
-                                    },
-                                ],
-                            },
-                        ],
-                    },
-                ],
-            });
+            const fetchItemDetails = jest.fn().mockResolvedValue(createMockHdrItemDetails('Dolby Vision'));
             panel.setFetchItemDetails(fetchItemDetails);
 
             const program = createMockProgram(null, {
@@ -1207,28 +1196,86 @@ describe('EPGInfoPanel', () => {
             jest.useRealTimers();
         });
 
-        it('settles idle when HDR details throw synchronously', async () => {
+        it('ignores stale HDR fetch results after clearing the in-flight request', async () => {
             jest.useFakeTimers();
-            const fetchItemDetails = jest.fn(() => {
-                throw new Error('details failed');
+            let resolveDetails: (value: unknown) => void = () => undefined;
+            const detailsPromise = new Promise((resolve) => {
+                resolveDetails = resolve;
             });
+            const fetchItemDetails = jest.fn().mockReturnValue(detailsPromise);
             panel.setFetchItemDetails(fetchItemDetails);
 
-            const program = createMockProgram(null, {
+            const fetchingProgram = createMockProgram(null, {
                 mediaInfo: {
                     resolution: '4K',
                     audioCodec: 'eac3',
                     audioChannels: 6,
                 },
             });
-            panel.show(program);
+            panel.show(fetchingProgram);
 
-            jest.advanceTimersByTime(220);
-            await settlePanel(panel);
-
+            await jest.advanceTimersByTimeAsync(220);
             expect(fetchItemDetails).toHaveBeenCalledWith('test-1', { signal: expect.any(AbortSignal) });
 
+            const explicitHdrProgram = createMockProgram(null, {
+                mediaInfo: {
+                    resolution: '4K',
+                    hdr: 'HDR10',
+                    audioCodec: 'eac3',
+                    audioChannels: 6,
+                },
+            });
+            panel.show(explicitHdrProgram);
+
+            resolveDetails(createMockHdrItemDetails('Dolby Vision'));
+            await Promise.resolve();
+            await settlePanel(panel);
+
+            const badges = Array.from(
+                container.querySelectorAll('.epg-info-quality-badge')
+            ) as HTMLElement[];
+            const visibleBadges = badges.filter((badge) => badge.style.display !== 'none');
+            const texts = visibleBadges.map((badge) => badge.textContent);
+            expect(texts).toEqual(['4K', 'HDR10', 'DD+', '5.1']);
+
             jest.useRealTimers();
+        });
+
+        it('settles idle when HDR details throw synchronously', async () => {
+            jest.useFakeTimers();
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const fetchItemDetails = jest.fn(() => {
+                throw new Error('details failed X-Plex-Token=hdr-secret');
+            });
+            panel.setFetchItemDetails(fetchItemDetails);
+
+            try {
+                const program = createMockProgram(null, {
+                    mediaInfo: {
+                        resolution: '4K',
+                        audioCodec: 'eac3',
+                        audioChannels: 6,
+                    },
+                });
+                panel.show(program);
+
+                jest.advanceTimersByTime(220);
+                await settlePanel(panel);
+
+                expect(fetchItemDetails).toHaveBeenCalledWith('test-1', { signal: expect.any(AbortSignal) });
+                expect(warnSpy).toHaveBeenCalledWith(
+                    'EPG info panel details fetch failed',
+                    expect.objectContaining({
+                        kind: 'hdr',
+                        error: expect.objectContaining({
+                            message: 'details failed X-Plex-Token=REDACTED',
+                        }),
+                    })
+                );
+            } finally {
+                warnSpy.mockRestore();
+                jest.useRealTimers();
+            }
         });
     });
 });
