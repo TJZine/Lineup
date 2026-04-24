@@ -23,6 +23,11 @@ import {
 import type { PlatformLifecycleService } from '../../platform';
 import { webosPlatformServices } from '../../platform';
 
+type PendingSaveWaiter = {
+    resolve: () => void;
+    reject: (error: unknown) => void;
+};
+
 export class AppLifecycle implements IAppLifecycle {
     // Dependencies
     private readonly _emitter: EventEmitter<LifecycleEventMap>;
@@ -57,6 +62,7 @@ export class AppLifecycle implements IAppLifecycle {
     // State save debounce
     private _saveDebounceTimer: number | null = null;
     private _pendingState: PersistentState | null = null;
+    private _pendingSaveWaiters: PendingSaveWaiter[] = [];
     private _nextPersistenceWarningAt: number = 0;
     private _persistenceWarningBackoffMs: number = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
 
@@ -177,6 +183,10 @@ export class AppLifecycle implements IAppLifecycle {
         this._saveDebounceTimer = window.setTimeout(() => {
             this._fireAndForget(this._flushPendingSave(), 'saveState');
         }, TIMING_CONFIG.SAVE_DEBOUNCE_MS) as unknown as number;
+
+        return new Promise<void>((resolve, reject) => {
+            this._pendingSaveWaiters.push({ resolve, reject });
+        });
     }
 
     // ========== Lifecycle Callbacks ==========
@@ -666,8 +676,10 @@ export class AppLifecycle implements IAppLifecycle {
                 this._pendingState = null;
                 this._persistenceWarningBackoffMs =
                     TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
+                this._resolvePendingSaveWaiters();
             } catch (error) {
                 this._handleSaveError(error);
+                this._rejectPendingSaveWaiters(error);
             }
         }
     }
@@ -700,6 +712,18 @@ export class AppLifecycle implements IAppLifecycle {
                 timestamp: Date.now(),
             });
         }
+    }
+
+    private _resolvePendingSaveWaiters(): void {
+        const waiters = this._pendingSaveWaiters;
+        this._pendingSaveWaiters = [];
+        waiters.forEach(({ resolve }) => resolve());
+    }
+
+    private _rejectPendingSaveWaiters(error: unknown): void {
+        const waiters = this._pendingSaveWaiters;
+        this._pendingSaveWaiters = [];
+        waiters.forEach(({ reject }) => reject(error));
     }
 
     private _shouldEmitPersistenceWarning(isQuotaError: boolean): boolean {

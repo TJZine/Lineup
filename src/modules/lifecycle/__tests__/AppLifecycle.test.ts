@@ -280,13 +280,47 @@ describe('AppLifecycle', () => {
             jest.useFakeTimers();
             await lifecycle.initialize();
 
-            await lifecycle.saveState();
+            const savePromise = lifecycle.saveState();
             jest.advanceTimersByTime(600); // Past debounce time
 
-            // Wait for async operations
-            await Promise.resolve();
+            await savePromise;
 
             expect(mockStateManager.save).toHaveBeenCalled();
+        });
+
+        it('keeps saveState pending until the debounced flush persists state', async () => {
+            await lifecycle.initialize();
+
+            let settled = false;
+            const savePromise = lifecycle.saveState().finally(() => {
+                settled = true;
+            });
+
+            await Promise.resolve();
+            expect(settled).toBe(false);
+
+            jest.advanceTimersByTime(599);
+            await Promise.resolve();
+            expect(settled).toBe(false);
+
+            jest.advanceTimersByTime(1);
+            await savePromise;
+
+            expect(mockStateManager.save).toHaveBeenCalledTimes(1);
+            expect(settled).toBe(true);
+        });
+
+        it('rejects saveState when the debounced persistence flush fails', async () => {
+            const saveError = new DOMException('Quota exceeded', 'QuotaExceededError');
+            mockStateManager.save.mockImplementation(() => {
+                throw saveError;
+            });
+            await lifecycle.initialize();
+
+            const savePromise = lifecycle.saveState();
+            jest.advanceTimersByTime(600);
+
+            await expect(savePromise).rejects.toBe(saveError);
         });
 
         it('exposes the narrowed lifecycle public seam', () => {

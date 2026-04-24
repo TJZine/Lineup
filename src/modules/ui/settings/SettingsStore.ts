@@ -2,17 +2,20 @@ import { TRANSCODE_QUALITY_OPTIONS } from '../../../config/transcodeQuality';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from '../now-playing-info/constants';
 import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
 import { DeveloperSettingsStore } from '../../settings/DeveloperSettingsStore';
-import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
+import {
+    EPG_PAST_ITEMS_WINDOWS,
+    EpgPreferencesStore,
+    type EpgPastItemsWindow,
+} from '../../settings/EpgPreferencesStore';
 import { NowPlayingDisplayStore } from '../../settings/NowPlayingDisplayStore';
 import { PlaybackSettingsStore } from '../../settings/PlaybackSettingsStore';
 import { ProfileSessionStore } from '../../settings/ProfileSessionStore';
 import { SubtitlePreferencesStore } from '../../settings/SubtitlePreferencesStore';
-import type { SubtitleMode } from '../../../shared/subtitle-mode';
+import {
+    DEFAULT_SUBTITLE_MODE,
+    type SubtitleMode,
+} from '../../../shared/subtitle-mode';
 import { DEFAULT_SETTINGS } from './constants';
-
-const EPG_PAST_ITEMS_STORAGE_VALUES = ['auto', '0', '15', '30'] as const;
-
-type EpgPastItemsStorageValue = (typeof EPG_PAST_ITEMS_STORAGE_VALUES)[number];
 type SubtitleLanguageOption = Readonly<{ code: string | null }>;
 
 export type ToggleSettingId =
@@ -252,13 +255,13 @@ export class SettingsStore {
 
     readEpgPastItemsWindowValueAndClean(): number {
         const raw = this._epgPreferencesStore.readPastItemsWindowAndClean('auto');
-        const index = EPG_PAST_ITEMS_STORAGE_VALUES.findIndex((option) => option === raw);
+        const index = EPG_PAST_ITEMS_WINDOWS.findIndex((option) => option === raw);
         if (index >= 0) return index;
         return 0;
     }
 
-    writeEpgPastItemsWindowValue(value: number): EpgPastItemsStorageValue {
-        const option = EPG_PAST_ITEMS_STORAGE_VALUES[value] ?? EPG_PAST_ITEMS_STORAGE_VALUES[0];
+    writeEpgPastItemsWindowValue(value: number): EpgPastItemsWindow {
+        const option = EPG_PAST_ITEMS_WINDOWS[value] ?? EPG_PAST_ITEMS_WINDOWS[0];
         this._epgPreferencesStore.writePastItemsWindow(option);
         return option;
     }
@@ -274,7 +277,7 @@ export class SettingsStore {
     }
 
     readSubtitleModeAndClean(): SubtitleMode {
-        return this._subtitlePreferencesStore.readSubtitleModeAndClean('full');
+        return this._subtitlePreferencesStore.readSubtitleModeAndClean(DEFAULT_SUBTITLE_MODE);
     }
 
     writeSubtitleMode(mode: SubtitleMode): void {

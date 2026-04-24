@@ -2,10 +2,18 @@ import { DEFAULT_THEME, THEME_OPTIONS } from '../theme/themeDefinitions';
 import type { GuideSettingChange, SettingsCategoryConfig } from './types';
 import { SettingsStore } from './SettingsStore';
 import type { ThemeName } from '../theme/themeDefinitions';
-import type { SubtitleMode } from '../../../shared/subtitle-mode';
+import {
+    DEFAULT_SUBTITLE_MODE,
+    SUBTITLE_MODES,
+    type SubtitleMode,
+} from '../../../shared/subtitle-mode';
 import { dispatchDebugLoggingChanged } from '../../../config/events';
 import { TRANSCODE_QUALITY_OPTIONS } from '../../../config/transcodeQuality';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from '../now-playing-info';
+import {
+    EPG_PAST_ITEMS_WINDOWS,
+    type EpgPastItemsWindow,
+} from '../../settings/EpgPreferencesStore';
 
 const SUBTITLE_LANGUAGE_OPTIONS: Array<{ label: string; code: string | null }> = [
     { label: 'Auto (Plex)', code: null },
@@ -21,23 +29,37 @@ const SUBTITLE_LANGUAGE_OPTIONS: Array<{ label: string; code: string | null }> =
     { label: 'Chinese', code: 'zh' },
 ];
 
-const SUBTITLE_MODE_OPTIONS: Array<{ label: string; mode: SubtitleMode }> = [
-    { label: 'Off', mode: 'off' },
-    { label: 'Direct only (fastest)', mode: 'direct' },
-    { label: 'Standard (avoid transcoding)', mode: 'standard' },
-    { label: 'Full (Burn-in, default)', mode: 'full' },
-];
+const SUBTITLE_MODE_LABELS: Record<SubtitleMode, string> = {
+    off: 'Off',
+    direct: 'Direct only (fastest)',
+    standard: 'Standard (avoid transcoding)',
+    full: 'Full (Burn-in, default)',
+};
 
-const EPG_PAST_ITEMS_OPTIONS = [
-    { label: 'Auto (Recommended)', storageValue: 'auto' as const },
-    { label: 'Now (0m)', storageValue: '0' as const },
-    { label: '15m', storageValue: '15' as const },
-    { label: '30m', storageValue: '30' as const },
-];
+const SUBTITLE_MODE_OPTIONS = SUBTITLE_MODES.map((mode) => ({
+    label: SUBTITLE_MODE_LABELS[mode],
+    mode,
+}));
+
+const EPG_PAST_ITEMS_LABELS: Record<EpgPastItemsWindow, string> = {
+    auto: 'Auto (Recommended)',
+    '0': 'Now (0m)',
+    '15': '15m',
+    '30': '30m',
+};
+
+const EPG_PAST_ITEMS_OPTIONS = EPG_PAST_ITEMS_WINDOWS.map((storageValue) => ({
+    label: EPG_PAST_ITEMS_LABELS[storageValue],
+    storageValue,
+}));
 
 const DEFAULT_THEME_VALUE = Math.max(
     0,
     THEME_OPTIONS.findIndex((option) => option.theme === DEFAULT_THEME)
+);
+const DEFAULT_SUBTITLE_MODE_VALUE = Math.max(
+    0,
+    SUBTITLE_MODE_OPTIONS.findIndex((option) => option.mode === DEFAULT_SUBTITLE_MODE)
 );
 
 export interface SettingsScreenStateControllerOptions {
@@ -390,12 +412,12 @@ export class SettingsScreenStateController {
 
     private _subtitleModeToValue(mode: SubtitleMode): number {
         const index = SUBTITLE_MODE_OPTIONS.findIndex((option) => option.mode === mode);
-        return index >= 0 ? index : 3;
+        return index >= 0 ? index : DEFAULT_SUBTITLE_MODE_VALUE;
     }
 
     private _valueToSubtitleMode(value: number): SubtitleMode {
         const option = SUBTITLE_MODE_OPTIONS[value];
-        if (!option) return 'full';
+        if (!option) return DEFAULT_SUBTITLE_MODE;
         return option.mode;
     }
 
@@ -439,7 +461,7 @@ export class SettingsScreenStateController {
         return this._settingsStore.readEpgPastItemsWindowValueAndClean();
     }
 
-    private _writeEpgPastItemsWindowValue(value: number): 'auto' | '0' | '15' | '30' {
+    private _writeEpgPastItemsWindowValue(value: number): EpgPastItemsWindow {
         return this._settingsStore.writeEpgPastItemsWindowValue(value);
     }
 

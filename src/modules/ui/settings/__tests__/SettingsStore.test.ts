@@ -6,6 +6,7 @@ import { SettingsStore } from '../SettingsStore';
 import type { SettingsStoreOptions } from '../SettingsStore';
 import { SETTINGS_STORAGE_KEYS, DEFAULT_SETTINGS } from '../constants';
 import type { DeveloperSettingsStore } from '../../../settings/DeveloperSettingsStore';
+import { EPG_PAST_ITEMS_WINDOWS } from '../../../settings/EpgPreferencesStore';
 
 const SUBTITLE_OPTIONS = [
     { code: null },
@@ -128,6 +129,18 @@ describe('SettingsStore', () => {
 
         expect(store.readEpgPastItemsWindowValueAndClean()).toBe(0);
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW)).toBeNull();
+    });
+
+    it('writes canonical EPG past-items storage values from the shared preference contract', () => {
+        expect(store.writeEpgPastItemsWindowValue(2)).toBe(EPG_PAST_ITEMS_WINDOWS[2]);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW)).toBe(
+            EPG_PAST_ITEMS_WINDOWS[2]
+        );
+
+        expect(store.writeEpgPastItemsWindowValue(99)).toBe(EPG_PAST_ITEMS_WINDOWS[0]);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW)).toBe(
+            EPG_PAST_ITEMS_WINDOWS[0]
+        );
     });
 
     it('reads EPG guide density and removes invalid persisted values', () => {

@@ -142,7 +142,7 @@ function markAuthReady(inputs: Phase2AuthGateInputs): void {
     }
 }
 
-async function routeToPendingAuth(inputs: Phase2AuthGateInputs, error?: AppError): Promise<boolean> {
+function routeToPendingAuth(inputs: Phase2AuthGateInputs, error?: AppError): boolean {
     if (error) {
         inputs.updateModuleStatus('plex-auth', 'pending', error);
     } else {
