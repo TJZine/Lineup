@@ -1109,6 +1109,32 @@ describe('NavigationCoordinator', () => {
         expect(event.handled).toBe(true);
     });
 
+    it('enforces the EPG routing guard locally before toggling player OSD for ok', () => {
+        const { coordinator, epg, deps } = setup();
+        const event = makeKeyEvent('ok');
+        const handlePlayerOsdToggleKeyPress = Reflect.get(
+            coordinator as object,
+            '_handlePlayerOsdToggleKeyPress'
+        ) as (event: KeyEvent, routingState: {
+            currentScreen: Screen;
+            modalOpen: boolean;
+            shouldRouteToEpg: boolean;
+            miniGuideVisible: boolean;
+        }) => boolean;
+
+        const handled = handlePlayerOsdToggleKeyPress.call(coordinator, event, {
+            currentScreen: 'player',
+            modalOpen: false,
+            shouldRouteToEpg: true,
+            miniGuideVisible: false,
+        });
+
+        expect(handled).toBe(false);
+        expect(epg.handleSelect).not.toHaveBeenCalled();
+        expect(deps.togglePlayerOsd).not.toHaveBeenCalled();
+        expect(event.handled).toBeUndefined();
+    });
+
     it('hides EPG when entering settings screen', () => {
         const { handlers, epg } = setup();
 

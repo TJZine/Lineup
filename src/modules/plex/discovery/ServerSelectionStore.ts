@@ -64,6 +64,15 @@ export class ServerSelectionStore {
         return normalized;
     }
 
+    readSelectedServerId(): string | null {
+        const { selectedServerKey } = this._keys();
+        const raw = safeLocalStorageGet(selectedServerKey);
+        if (raw === null) return null;
+
+        const normalized = raw.trim();
+        return normalized.length > 0 ? normalized : null;
+    }
+
     writeSelectedServerId(serverId: string): void {
         const { selectedServerKey } = this._keys();
         const normalized = serverId.trim();

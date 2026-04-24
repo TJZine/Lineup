@@ -593,6 +593,7 @@ export class NavigationCoordinator {
             event.button === 'ok'
             && routingState.currentScreen === 'player'
             && !routingState.modalOpen
+            && !routingState.shouldRouteToEpg
             && !(this.deps.playback.playerOsd.overlay?.isVisible() ?? false)
             && !routingState.miniGuideVisible
         ) {

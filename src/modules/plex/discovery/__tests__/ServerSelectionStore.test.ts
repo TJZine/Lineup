@@ -24,6 +24,22 @@ describe('ServerSelectionStore', () => {
         expect(store.readSelectedServerIdAndClean()).toBe('srv-1');
     });
 
+    it('reads selected server id without mutating persisted whitespace', () => {
+        mockLocalStorage.setItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY, '  srv-1  ');
+        const store = new ServerSelectionStore();
+
+        expect(store.readSelectedServerId()).toBe('srv-1');
+        expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('  srv-1  ');
+    });
+
+    it('reads blank selected server id as null without clearing it', () => {
+        mockLocalStorage.setItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY, '   ');
+        const store = new ServerSelectionStore();
+
+        expect(store.readSelectedServerId()).toBeNull();
+        expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('   ');
+    });
+
     it('normalizes invalid selected server ids by clearing persisted value', () => {
         mockLocalStorage.setItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY, '   ');
         const store = new ServerSelectionStore();

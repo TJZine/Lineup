@@ -412,9 +412,15 @@ export class PlaybackOptionsCoordinator {
         return (hash >>> 0).toString(16);
     }
 
-    private classifySubtitleProbeStatus(status: number): SubtitleExtractabilityProbeResult {
+    private classifySubtitleProbeStatus(
+        status: number,
+        methodFallbackExhausted = false
+    ): SubtitleExtractabilityProbeResult {
         if (status === 401 || status === 403) {
             return 'auth_failure';
+        }
+        if (status === 501 && methodFallbackExhausted) {
+            return 'unsupported';
         }
         if (status === 408 || status === 429 || status >= 500) {
             return 'transient_failure';
@@ -484,6 +490,7 @@ export class PlaybackOptionsCoordinator {
         const startMs = Date.now();
         try {
             let response: Response;
+            let methodFallbackExhausted = false;
             response = await fetchWithTimeout({
                 url: url.toString(),
                 init: {
@@ -507,12 +514,16 @@ export class PlaybackOptionsCoordinator {
                     },
                     timeoutMs: fallbackTimeoutMs,
                 });
+                methodFallbackExhausted = true;
             }
             if (response.ok) {
                 this.subtitleProbeCache.set(cacheKey, 'supported');
                 return 'supported';
             }
-            const decision = this.classifySubtitleProbeStatus(response.status);
+            const decision = this.classifySubtitleProbeStatus(
+                response.status,
+                methodFallbackExhausted
+            );
             if (decision === 'unsupported') {
                 this.subtitleProbeCache.set(cacheKey, 'unsupported');
             }

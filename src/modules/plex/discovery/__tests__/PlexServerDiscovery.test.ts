@@ -1056,6 +1056,16 @@ describe('PlexServerDiscovery', () => {
             expect(discovery.getSelectedConnection()).toBeNull();
             expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBeNull();
         });
+
+        it('captures the selected-server storage snapshot without cleaning persisted state', () => {
+            const discovery = new PlexServerDiscovery(mockConfig);
+            mockLocalStorage.setItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY, '  srv1  ');
+
+            const snapshot = discovery.captureSelectedServerSnapshot();
+
+            expect(snapshot.storedServerId).toBe('srv1');
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('  srv1  ');
+        });
     });
 
     describe('initialization', () => {

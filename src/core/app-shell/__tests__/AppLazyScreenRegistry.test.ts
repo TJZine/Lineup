@@ -51,7 +51,15 @@ const makePortFactory = (): PortFactoryLike => ({
     })),
     createServerSelectScreenPorts: jest.fn(() => ({
         discoverServers: jest.fn().mockResolvedValue([]),
-        selectServer: jest.fn().mockResolvedValue({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' }),
+        selectServer: jest.fn().mockResolvedValue({
+            kind: 'selected',
+            readiness: 'ready',
+            persistedSelection: 'updated',
+            startupResume: {
+                startup: 'completed',
+                epgRefresh: { kind: 'succeeded' },
+            },
+        }),
         clearSelectedServer: jest.fn().mockResolvedValue(undefined),
         getSelectedServerStorageKey: jest.fn().mockReturnValue('selected-server-id'),
         getServerHealthStorageKey: jest.fn().mockReturnValue('server-health'),

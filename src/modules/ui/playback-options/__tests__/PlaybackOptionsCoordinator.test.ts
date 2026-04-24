@@ -638,6 +638,51 @@ describe('PlaybackOptionsCoordinator', () => {
         }
     });
 
+    it('caches GET 501 after HEAD fallback as unsupported for text subtitle probes', async (): Promise<void> => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const fetchMock = jest.fn()
+            .mockResolvedValueOnce({ ok: false, status: 501 })
+            .mockResolvedValueOnce({ ok: false, status: 501 });
+        const { restore } = installFetchMock(fetchMock);
+
+        try {
+            const player = createPlayer([makeTextTrack({ id: 'keyless', fetchableViaKey: false })]);
+            const requestBurnInSubtitle = jest.fn();
+
+            const coordinator = new PlaybackOptionsCoordinator({
+                playbackOptionsModalId: 'playback-options',
+                getNavigation: (): null => null,
+                getPlaybackOptionsModal: (): null => null,
+                getVideoPlayer: (): IVideoPlayer => player,
+                getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+                getCurrentStreamDescriptor: (): StreamDescriptor =>
+                    ({
+                        subtitleContext: { serverUri: 'http://example.com', authHeaders: { 'X-Plex-Token': 'token' } },
+                    } as unknown as StreamDescriptor),
+                requestBurnInSubtitle,
+            });
+
+            const firstViewModel = getViewModel(coordinator);
+            firstViewModel.subtitles.options
+                .find((o) => o.id === 'playback-subtitle-keyless')
+                ?.onSelect?.();
+            await flushPlaybackOptionsPromises();
+
+            const secondViewModel = getViewModel(coordinator);
+            secondViewModel.subtitles.options
+                .find((o) => o.id === 'playback-subtitle-keyless')
+                ?.onSelect?.();
+            await flushPlaybackOptionsPromises();
+
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(requestBurnInSubtitle).toHaveBeenCalledTimes(2);
+            expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalledWith('keyless');
+        } finally {
+            restore();
+        }
+    });
+
     it('shows a failure toast when burn-in subtitle request reports a failed outcome', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 

@@ -1,7 +1,6 @@
 import { AppErrorCode, type AppError, type IAppLifecycle } from '../../modules/lifecycle';
 import type { INavigationManager } from '../../modules/navigation';
-import type { IPlexAuth } from '../../modules/plex/auth';
-import { isPlexAuthRecoverable } from '../../modules/plex/auth/plexAuthErrors';
+import { type IPlexAuth, isPlexAuthRecoverable } from '../../modules/plex/auth';
 import type { IPlexServerDiscovery } from '../../modules/plex/discovery';
 import type { IPlexLibrary } from '../../modules/plex/library';
 import type { IPlexStreamResolver } from '../../modules/plex/stream';

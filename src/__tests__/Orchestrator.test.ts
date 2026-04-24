@@ -1050,6 +1050,10 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     kind: 'selected',
                     readiness: 'startup_pending',
                     persistedSelection: 'updated',
+                    startupResume: {
+                        startup: 'completed',
+                        epgRefresh: { kind: 'succeeded' },
+                    },
                 });
 
                 expect(mockPlexDiscovery.selectServer).toHaveBeenCalledWith('server-1');
@@ -1094,6 +1098,10 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     kind: 'selected',
                     readiness: 'startup_pending',
                     persistedSelection: 'updated',
+                    startupResume: {
+                        startup: 'completed',
+                        epgRefresh: { kind: 'failed', error: refreshError },
+                    },
                 });
 
                 expect(runStartupSpy).toHaveBeenCalledWith(3);
@@ -1121,6 +1129,8 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
                 expect(runStartupSpy).not.toHaveBeenCalled();
             } finally {
+                mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
+                mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400');
                 runStartupSpy.mockRestore();
             }
         });
@@ -1163,6 +1173,10 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     kind: 'selected',
                     readiness: 'startup_pending',
                     persistedSelection: 'skipped_missing_credentials',
+                    startupResume: {
+                        startup: 'completed',
+                        epgRefresh: { kind: 'succeeded' },
+                    },
                 });
                 expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
                 expect(runStartupSpy).toHaveBeenCalledWith(3);
@@ -1188,6 +1202,10 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     kind: 'selected',
                     readiness: 'startup_pending',
                     persistedSelection: 'skipped_corrupted_credentials',
+                    startupResume: {
+                        startup: 'completed',
+                        epgRefresh: { kind: 'succeeded' },
+                    },
                 });
                 expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
                 expect(runStartupSpy).toHaveBeenCalledWith(3);
@@ -1289,6 +1307,67 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     })
                 );
             } finally {
+                runStartupSpy.mockRestore();
+            }
+        });
+
+        it('restores current discovery selection when a missing-credentials snapshot is rolled back after credentials become available', async () => {
+            await orchestrator.initialize(mockConfig);
+
+            const resumeError = new Error('startup resume failed');
+            expectConsoleWarn([
+                'Post-selection runtime swap failed',
+                expect.objectContaining({
+                    step: 'runStartup',
+                    safeError: expect.objectContaining({
+                        message: 'startup resume failed',
+                    }),
+                }),
+            ]);
+            const discoverySnapshot = {
+                server: { id: 'server-prev' },
+                connection: { uri: 'http://previous.example' },
+                storedServerId: 'server-prev',
+            };
+            const nextCredentials = createStoredCredentials('valid-token');
+            const restoredCredentials = createStoredCredentials('valid-token');
+            mockPlexDiscovery.captureSelectedServerSnapshot.mockReturnValue(discoverySnapshot);
+            mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
+            mockPlexDiscovery.getServerUri.mockReturnValue('http://next.example');
+            mockPlexDiscovery.restoreSelectedServerSnapshot.mockImplementation(() => {
+                mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-prev' });
+                mockPlexDiscovery.getServerUri.mockReturnValue('http://previous.example');
+            });
+            mockPlexAuth.readStoredCredentialsAndClearCorruption
+                .mockReturnValueOnce({ kind: 'missing' })
+                .mockReturnValueOnce(nextCredentials)
+                .mockReturnValueOnce(restoredCredentials);
+            const runStartupSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'runStartup')
+                .mockRejectedValue(resumeError);
+
+            try {
+                await expect(orchestrator.selectServer('server-1')).rejects.toBe(resumeError);
+
+                expect(mockPlexAuth.storeCredentials).toHaveBeenNthCalledWith(
+                    1,
+                    expect.objectContaining({
+                        selectedServerByUserId: expect.objectContaining({
+                            'user-1': { serverId: 'server-1', serverUri: 'http://next.example' },
+                        }),
+                    })
+                );
+                expect(mockPlexAuth.storeCredentials).toHaveBeenNthCalledWith(
+                    2,
+                    expect.objectContaining({
+                        selectedServerByUserId: expect.objectContaining({
+                            'user-1': { serverId: 'server-prev', serverUri: 'http://previous.example' },
+                        }),
+                    })
+                );
+            } finally {
+                mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
+                mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400');
                 runStartupSpy.mockRestore();
             }
         });

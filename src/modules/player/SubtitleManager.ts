@@ -40,6 +40,10 @@ type SubtitleFallbackBlobResult =
     | { kind: 'success'; blobUrl: string }
     | Exclude<SubtitleFallbackResult, { kind: 'success' }>;
 
+function assertNeverSubtitleFallbackFailure(result: never): never {
+    throw new Error(`Unhandled subtitle fallback failure kind: ${String(result)}`);
+}
+
 /**
  * Manages subtitle tracks for the video player.
  * Creates and controls HTMLTrackElement instances.
@@ -656,6 +660,8 @@ export class SubtitleManager {
                 return 'subtitle_text_transient_failure';
             case 'unsupported':
                 return 'subtitle_text_unsupported';
+            default:
+                return assertNeverSubtitleFallbackFailure(result);
         }
     }
 
