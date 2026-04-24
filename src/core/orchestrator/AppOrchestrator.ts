@@ -2064,12 +2064,7 @@ export class AppOrchestrator {
     }
 
     private _captureDiscoverySelectedServerSnapshot(): DiscoverySelectedServerSnapshot {
-        const discovery = this._plexDiscovery as
-            | (IPlexServerDiscovery & {
-                captureSelectedServerSnapshot(): DiscoverySelectedServerSnapshot;
-            })
-            | null;
-        if (!discovery) {
+        if (!this._plexDiscovery) {
             return {
                 server: null,
                 connection: null,
@@ -2077,16 +2072,11 @@ export class AppOrchestrator {
             };
         }
 
-        return discovery.captureSelectedServerSnapshot();
+        return this._plexDiscovery.captureSelectedServerSnapshot();
     }
 
     private _restoreDiscoverySelectedServerSnapshot(snapshot: DiscoverySelectedServerSnapshot): void {
-        const discovery = this._plexDiscovery as
-            | (IPlexServerDiscovery & {
-                restoreSelectedServerSnapshot(selectionSnapshot: DiscoverySelectedServerSnapshot): void;
-            })
-            | null;
-        discovery?.restoreSelectedServerSnapshot(snapshot);
+        this._plexDiscovery?.restoreSelectedServerSnapshot(snapshot);
     }
 
     private async _resumeStartupAfterSelectedServerChange(): Promise<void> {
@@ -2285,7 +2275,15 @@ export class AppOrchestrator {
                 this._scheduler?.unloadChannel();
             },
             stopTranscodeSessionById: (sessionId: string): void => {
-                void this._plexStreamResolver?.stopTranscodeSession(sessionId);
+                const stopPromise = this._plexStreamResolver?.stopTranscodeSession(sessionId);
+                stopPromise?.catch((error) => {
+                    this._warnRecoverableRuntimeError(
+                        'orchestrator.stopTranscodeSession',
+                        'Failed to stop Plex transcode session',
+                        error,
+                        { sessionId }
+                    );
+                });
             },
             skipToNextProgram: (): void => {
                 this._scheduler?.skipToNext();

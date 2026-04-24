@@ -52,6 +52,16 @@ export interface PlexServer {
     preferredConnection: PlexConnection | null;
 }
 
+/**
+ * Captures the selected-server state owned by discovery so callers can roll
+ * back transactional selection attempts without reaching into discovery internals.
+ */
+export interface PlexDiscoverySelectedServerSnapshot {
+    server: PlexServer | null;
+    connection: PlexConnection | null;
+    storedServerId: string | null;
+}
+
 // ============================================
 // Internal State Types
 // ============================================

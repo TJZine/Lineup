@@ -13,6 +13,7 @@ import {
     PlexApiResource,
     PlexApiConnection,
     MixedContentConfig,
+    PlexDiscoverySelectedServerSnapshot,
 } from './types';
 import {
     findFastestConnectionProbe,
@@ -402,11 +403,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return { kind: 'selected' };
     }
 
-    public captureSelectedServerSnapshot(): {
-        server: PlexServer | null;
-        connection: PlexConnection | null;
-        storedServerId: string | null;
-    } {
+    public captureSelectedServerSnapshot(): PlexDiscoverySelectedServerSnapshot {
         return {
             server: this._cloneSelectedServer(this._state.selectedServer, this._state.selectedConnection),
             connection: this._cloneConnection(this._state.selectedConnection),
@@ -414,11 +411,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         };
     }
 
-    public restoreSelectedServerSnapshot(snapshot: {
-        server: PlexServer | null;
-        connection: PlexConnection | null;
-        storedServerId: string | null;
-    }): void {
+    public restoreSelectedServerSnapshot(snapshot: PlexDiscoverySelectedServerSnapshot): void {
         const previousServerId = this._state.selectedServer?.id ?? null;
         const previousConnectionUri = this._state.selectedConnection?.uri ?? null;
         const nextConnection = this._cloneConnection(snapshot.connection);

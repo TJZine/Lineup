@@ -1,4 +1,4 @@
-import { AppErrorCode, type AppError } from '../../lifecycle/types';
+import { AppErrorCode } from '../../lifecycle/types';
 
 const PLEX_AUTH_RECOVERABLE_CODES: ReadonlySet<AppErrorCode> = new Set([
     AppErrorCode.AUTH_REQUIRED,
@@ -6,10 +6,13 @@ const PLEX_AUTH_RECOVERABLE_CODES: ReadonlySet<AppErrorCode> = new Set([
     AppErrorCode.AUTH_EXPIRED,
 ]);
 
-export function isPlexAuthRecoverable(error: unknown): error is AppError {
-    const code = typeof error === 'object' && error !== null
-        ? (error as { code?: unknown }).code
-        : undefined;
+type PlexAuthRecoverableError = { code: AppErrorCode };
 
+export function isPlexAuthRecoverable(error: unknown): error is PlexAuthRecoverableError {
+    if (!error || typeof error !== 'object' || Array.isArray(error)) {
+        return false;
+    }
+
+    const code = (error as { code?: unknown }).code;
     return PLEX_AUTH_RECOVERABLE_CODES.has(code as AppErrorCode);
 }

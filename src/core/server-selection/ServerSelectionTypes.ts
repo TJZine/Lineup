@@ -1,6 +1,5 @@
 import type {
-    PlexConnection,
-    PlexServer,
+    PlexDiscoverySelectedServerSnapshot,
     PlexServerSelectionFailureReason,
 } from '../../modules/plex/discovery';
 
@@ -27,11 +26,7 @@ export type PersistedSelectedServerSnapshot =
         kind: 'corrupted_credentials';
     };
 
-export interface DiscoverySelectedServerSnapshot {
-    server: PlexServer | null;
-    connection: PlexConnection | null;
-    storedServerId: string | null;
-}
+export type DiscoverySelectedServerSnapshot = PlexDiscoverySelectedServerSnapshot;
 
 export type OrchestratorServerSelectionResult =
     | {
