@@ -22,4 +22,12 @@ describe('isChannelSetupWorkflowUnavailableError', () => {
     it('rejects unrelated errors', () => {
         expect(isChannelSetupWorkflowUnavailableError(new Error('Channel setup not initialized'))).toBe(false);
     });
+
+    it.each([
+        null,
+        undefined,
+        { name: 'ChannelSetupWorkflowUnavailableError' },
+    ])('rejects non-Error input %#', (error) => {
+        expect(isChannelSetupWorkflowUnavailableError(error)).toBe(false);
+    });
 });

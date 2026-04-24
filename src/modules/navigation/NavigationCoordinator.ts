@@ -8,6 +8,7 @@ import type {
     INavigationManager,
     KeyEvent,
     NavigationAsyncFailureReporter,
+    Screen,
 } from './interfaces';
 import type { IEPGComponent } from '../ui/epg';
 import type { IVideoPlayer } from '../player';
@@ -93,7 +94,7 @@ export interface NavigationCoordinatorDeps {
 
 type KeyPressRoutingState = {
     epg: IEPGComponent | null;
-    currentScreen: string;
+    currentScreen: Screen;
     modalOpen: boolean;
     miniGuideVisible: boolean;
     shouldRouteToEpg: boolean;
