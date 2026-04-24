@@ -216,7 +216,7 @@ active docs tree.
 The active P12 exact membership surface is
 `docs/architecture/p12-subjective-refresh-package-map.json`.
 
-### [ ] `P12-W1` `pkg_runtime_assembly_and_initialization_boundary`
+### [x] `P12-W1` `pkg_runtime_assembly_and_initialization_boundary`
 
 - Backlog: `seed 10` fresh subjective review issues.
 - Scope: reduce the remaining AppOrchestrator/coordinator/priority-one assembly
@@ -231,16 +231,25 @@ The active P12 exact membership surface is
   - `desloppify show src/core/orchestrator/OrchestratorCoordinatorBuilders.ts --status open --no-budget --top 120`
   - `desloppify show src/core/orchestrator/priority-one --status open --no-budget --top 120`
   - `desloppify show src/core/orchestrator/InitializationCoordinator.ts --status open --no-budget --top 80`
+  - `desloppify show src/core/initialization/InitializationCoordinator.ts --status open --no-budget --top 80`
   - `desloppify show src/Orchestrator.ts --status open --no-budget --top 80`
   - `desloppify show src/core/index.ts --status open --no-budget --top 80`
 - Likely first slice: inventory the runtime assembly and priority-one handoff
   seams; choose one shaping boundary to collapse before moving files or barrels.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start with a package-local cleanup-loop plan for `P12-W1`.
+- Status: completed
+- Plan: local-only cleanup-loop plan reviewed and approved
+- Last touched: 2026-04-24
+- Verification: `npm run verify` passed; `npm run verify:docs` passed after
+  checklist closeout; package-local `desloppify show` commands rerun with no
+  open issues for `AppOrchestrator`, `OrchestratorCoordinatorBuilders`, old/new
+  `InitializationCoordinator`, `src/Orchestrator.ts`, or `src/core/index.ts`;
+  priority-one residual mechanical smells remain accepted as non-P12-W1
+  closure blockers; exact imported review-id queries returned no open rows;
+  `desloppify scan --path .` completed with overall `85.8`, strict `85.8`,
+  objective `97.1`, and verified `97.1`.
+- Follow-ups: none for P12-W1; `P12-EXIT` remains pending until all P12
+  packages are complete.
+- Handoff: continue with `P12-W2`.
 
 ### [ ] `P12-W2` `pkg_plex_api_error_and_url_contracts`
 

@@ -98,7 +98,7 @@
         "src/core/orchestrator/OrchestratorCoordinatorAssembly.ts",
         "src/core/orchestrator/priority-one/PriorityOneAssemblyInput.ts",
         "src/core/orchestrator/priority-one/PriorityOneControllerCollaborators.ts",
-        "src/core/orchestrator/InitializationCoordinator.ts",
+        "src/core/initialization/InitializationCoordinator.ts",
         "src/core/initialization/InitializationStartupPolicy.ts",
         "src/Orchestrator.ts",
         "src/core/index.ts",
@@ -109,6 +109,7 @@
         "desloppify show src/core/orchestrator/OrchestratorCoordinatorBuilders.ts --status open --no-budget --top 120",
         "desloppify show src/core/orchestrator/priority-one --status open --no-budget --top 120",
         "desloppify show src/core/orchestrator/InitializationCoordinator.ts --status open --no-budget --top 80",
+        "desloppify show src/core/initialization/InitializationCoordinator.ts --status open --no-budget --top 80",
         "desloppify show src/Orchestrator.ts --status open --no-budget --top 80",
         "desloppify show src/core/index.ts --status open --no-budget --top 80"
       ],
@@ -119,10 +120,23 @@
         "priority_exit": "P12-EXIT"
       },
       "execution_status": {
-        "status": "not_started",
-        "completed_execution_units": [],
-        "current_or_next_execution_unit": "P12-W1",
-        "evidence": []
+        "status": "completed",
+        "completed_execution_units": [
+          "P12-W1-S1",
+          "P12-W1-S2",
+          "P12-W1-S3",
+          "P12-W1-S4"
+        ],
+        "current_or_next_execution_unit": "P12-W2",
+        "evidence": [
+          "2026-04-24: P12-W1-S1 collapsed the priority-one source-to-input repack chain; review::.::holistic::abstraction_fitness::priority_one_repack_forward_chain and review::.::holistic::mid_level_elegance::priority_one_handoff_spread resolved by reviewed source proof.",
+          "2026-04-24: P12-W1-S2 removed coordinator-builder one-hop helper indirection; review::.::holistic::abstraction_fitness::orchestrator_bound_helper_indirection, review::.::holistic::high_level_elegance::orchestrator_assembly_ownership_island, and review::.::holistic::ai_generated_debt::pass_through_facade_layers resolved by reviewed source proof.",
+          "2026-04-24: P12-W1-S3 moved InitializationCoordinator under src/core/initialization and replaced numeric startup phase vocabulary with intent names across coordinator, policy, and affected tests; review::.::holistic::naming_quality::startup_phase_numbers_hide_resume_intent and review::.::holistic::package_organization::initialization_coordinator_split_from_initialization_package resolved by reviewed source proof.",
+          "2026-04-24: P12-W1-S4 narrowed runtime/root barrels and removed unreachable global-error fallback; review::.::holistic::high_level_elegance::root_barrels_widen_public_surface, review::.::holistic::logic_clarity::unreachable_global_error_fallback, and review::.::holistic::cross_module_architecture::app_orchestrator_runtime_hub resolved for the package by reviewed source proof.",
+          "2026-04-24: package-local desloppify commands and exact imported review-id queries reran; exact review ids returned no open rows. Priority-one mechanical smells remain outside P12-W1 review-id closure and require no owner transfer here.",
+          "2026-04-24: npm run verify passed after closeout edits; desloppify scan --path . completed with overall 85.8, strict 85.8, objective 97.1, and verified 97.1.",
+          "2026-04-24: focused implementation commits created: 85b5da1f, 9926e6e2, 2eb79540, and f6045bea."
+        ]
       }
     },
     {
