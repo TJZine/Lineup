@@ -1,6 +1,7 @@
 import type {
     PersistedSelectedServerSnapshot,
     SelectedServerPersistenceResult,
+    SelectedServerStartupResumeResult,
 } from './ServerSelectionTypes';
 
 export interface SelectedServerRuntimeControllerDeps {
@@ -12,7 +13,7 @@ export interface SelectedServerRuntimeControllerDeps {
     restorePersistedSelectionSnapshot(
         snapshot: PersistedSelectedServerSnapshot
     ): Promise<SelectedServerPersistenceResult>;
-    resumeStartupAfterSelection(): Promise<void>;
+    resumeStartupAfterSelection(): Promise<SelectedServerStartupResumeResult>;
     clearDiscoverySelection(): void;
 }
 
@@ -36,8 +37,8 @@ export class SelectedServerRuntimeController {
         return this._deps.restorePersistedSelectionSnapshot(snapshot);
     }
 
-    async resumeStartupAfterSelection(): Promise<void> {
-        await this._deps.resumeStartupAfterSelection();
+    async resumeStartupAfterSelection(): Promise<SelectedServerStartupResumeResult> {
+        return this._deps.resumeStartupAfterSelection();
     }
 
     async clearSelection(): Promise<SelectedServerPersistenceResult> {

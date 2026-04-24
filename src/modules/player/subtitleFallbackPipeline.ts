@@ -73,7 +73,10 @@ function classifyStatusFailure(status: number): SubtitleFallbackFailure {
     if (status === 404) {
         return unsupportedFailure('not_found', status);
     }
-    if (status === 408 || status === 429 || status >= 500) {
+    if (status === 408) {
+        return transientFailure('timeout', status);
+    }
+    if (status === 429 || status >= 500) {
         return transientFailure('server_error', status);
     }
     return unsupportedFailure('client_error', status);

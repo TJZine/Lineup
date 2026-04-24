@@ -5,6 +5,7 @@ import type {
     OrchestratorServerSelectionResult,
     PersistedSelectedServerSnapshot,
     SelectedServerPersistenceResult,
+    SelectedServerStartupResumeResult,
 } from './ServerSelectionTypes';
 
 export interface ServerSelectionCoordinatorDeps {
@@ -20,7 +21,7 @@ export interface ServerSelectionCoordinatorDeps {
     restorePersistedSelectionSnapshot(
         snapshot: PersistedSelectedServerSnapshot
     ): Promise<SelectedServerPersistenceResult>;
-    resumeStartupAfterSelection(): Promise<void>;
+    resumeStartupAfterSelection(): Promise<SelectedServerStartupResumeResult>;
     getReadiness(): OrchestratorServerSelectionReadiness;
 }
 
@@ -69,17 +70,17 @@ export class ServerSelectionCoordinator {
         }
 
         try {
-            await this._deps.resumeStartupAfterSelection();
+            const startupResume = await this._deps.resumeStartupAfterSelection();
+            return {
+                kind: 'selected',
+                readiness: this._deps.getReadiness(),
+                persistedSelection,
+                startupResume,
+            };
         } catch (error) {
             this._tryRestoreDiscoverySelectionSnapshot(discoverySnapshot);
             await this._tryRestorePersistedSelectionSnapshot(persistedSelectionSnapshot);
             throw error;
         }
-
-        return {
-            kind: 'selected',
-            readiness: this._deps.getReadiness(),
-            persistedSelection,
-        };
     }
 }

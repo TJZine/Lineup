@@ -102,6 +102,7 @@ import type {
     OrchestratorServerSelectionResult,
     PersistedSelectedServerSnapshot,
     SelectedServerPersistenceResult,
+    SelectedServerStartupResumeResult,
 } from '../server-selection/ServerSelectionTypes';
 import { ServerSelectionCoordinator } from '../server-selection/ServerSelectionCoordinator';
 import { SelectedServerRuntimeController } from '../server-selection/SelectedServerRuntimeController';
@@ -432,7 +433,7 @@ export class AppOrchestrator {
                 snapshot: PersistedSelectedServerSnapshot
             ): Promise<SelectedServerPersistenceResult> =>
                 this._restorePersistedSelectedServerSnapshotForActiveUser(snapshot),
-            resumeStartupAfterSelection: (): Promise<void> =>
+            resumeStartupAfterSelection: (): Promise<SelectedServerStartupResumeResult> =>
                 this._resumeStartupAfterSelectedServerChange(),
             clearDiscoverySelection: (): void => {
                 this._plexDiscovery?.clearSelection();
@@ -462,7 +463,7 @@ export class AppOrchestrator {
                 snapshot: PersistedSelectedServerSnapshot
             ): Promise<SelectedServerPersistenceResult> =>
                 this._selectedServerRuntimeController.restorePersistedSelectionSnapshot(snapshot),
-            resumeStartupAfterSelection: (): Promise<void> =>
+            resumeStartupAfterSelection: (): Promise<SelectedServerStartupResumeResult> =>
                 this._selectedServerRuntimeController.resumeStartupAfterSelection(),
             getReadiness: (): OrchestratorServerSelectionReadiness =>
                 (this._ready ? 'ready' : 'startup_pending'),
@@ -2059,7 +2060,10 @@ export class AppOrchestrator {
 
         const selection = snapshot.kind === 'available'
             ? snapshot.selection
-            : { serverId: null, serverUri: null };
+            : {
+                serverId: this._plexDiscovery?.getSelectedServer()?.id ?? null,
+                serverUri: this._plexDiscovery?.getServerUri() ?? null,
+            };
         return this._persistSelectedServerForActiveUser(selection.serverId, selection.serverUri);
     }
 
@@ -2079,9 +2083,12 @@ export class AppOrchestrator {
         this._plexDiscovery?.restoreSelectedServerSnapshot(snapshot);
     }
 
-    private async _resumeStartupAfterSelectedServerChange(): Promise<void> {
+    private async _resumeStartupAfterSelectedServerChange(): Promise<SelectedServerStartupResumeResult> {
         if (!this._initCoordinator) {
-            return;
+            return {
+                startup: 'skipped_no_coordinator',
+                epgRefresh: { kind: 'skipped_no_coordinator' },
+            };
         }
 
         let step = 'runStartup';
@@ -2103,9 +2110,17 @@ export class AppOrchestrator {
             step = 'primeEpgChannels';
             this._epgCoordinator?.primeEpgChannels();
 
+            const epgCoordinator = this._epgCoordinator;
+            if (!epgCoordinator) {
+                return {
+                    startup: 'completed',
+                    epgRefresh: { kind: 'skipped_no_coordinator' },
+                };
+            }
+
             step = 'refreshEpgSchedules';
             const refreshResult = await captureRecoverableRuntimeResultAsync(
-                async () => this._epgCoordinator?.refreshEpgSchedules({ reason: 'server-swap' })
+                async () => epgCoordinator.refreshEpgSchedules({ reason: 'server-swap' })
             );
             if (!refreshResult.ok) {
                 this._warnRecoverableRuntimeError(
@@ -2114,7 +2129,15 @@ export class AppOrchestrator {
                     refreshResult.error,
                     { step }
                 );
+                return {
+                    startup: 'completed',
+                    epgRefresh: { kind: 'failed', error: refreshResult.error },
+                };
             }
+            return {
+                startup: 'completed',
+                epgRefresh: { kind: 'succeeded' },
+            };
         } catch (error) {
             this._warnRecoverableRuntimeError(
                 'orchestrator.serverSwap.runStartup',

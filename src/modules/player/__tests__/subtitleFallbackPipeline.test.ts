@@ -259,6 +259,32 @@ Hello`));
         });
     });
 
+    it('classifies HTTP request timeout status as a timeout transient failure', async () => {
+        const fetchMock = globalThis.fetch as jest.Mock;
+        fetchMock.mockResolvedValue(createResponse('timeout', { ok: false, status: 408 }));
+
+        const result = await fetchSubtitleFallbackVtt({
+            track: createTrack(),
+            initialUrl: new URL('http://example.com/library/streams/1?X-Plex-Token=token'),
+            context: {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+                itemKey: '999',
+                sessionId: 'sess-1',
+            },
+            signal: new AbortController().signal,
+            isCurrentLoad: () => true,
+            deriveLanHttpUrl: () => null,
+            logDebug: jest.fn(),
+        });
+
+        expect(result).toEqual({
+            kind: 'transient',
+            reason: 'timeout',
+            status: 408,
+        });
+    });
+
     it('falls back to the universal subtitles endpoint when stream fetch attempts fail', async () => {
         const fetchMock = globalThis.fetch as jest.Mock;
         fetchMock

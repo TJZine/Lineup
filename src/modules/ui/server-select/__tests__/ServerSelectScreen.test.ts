@@ -6,6 +6,7 @@ import { ServerSelectScreen, type ServerSelectScreenPorts } from '../ServerSelec
 import type { ServerSelectScreenNavigationPort } from '../../../navigation';
 import type { PlexServer } from '../../../plex/discovery/types';
 import { createBodyAppendedTestContainer, createDeferred } from '../../../../__tests__/helpers';
+import type { OrchestratorServerSelectionResult } from '../../../../core/server-selection/ServerSelectionTypes';
 
 type NavigationStub = ServerSelectScreenNavigationPort & {
     registerFocusable: jest.Mock;
@@ -38,6 +39,19 @@ const makeServer = (id: string, name: string, owned = true): PlexServer => ({
     connections: [],
     capabilities: [],
     preferredConnection: null,
+});
+
+const makeSelectedServerResult = (): Extract<
+    OrchestratorServerSelectionResult,
+    { kind: 'selected' }
+> => ({
+    kind: 'selected' as const,
+    readiness: 'ready' as const,
+    persistedSelection: 'updated' as const,
+    startupResume: {
+        startup: 'completed' as const,
+        epgRefresh: { kind: 'succeeded' as const },
+    },
 });
 
 const createOrchestratorStub = (): ServerSelectScreenHarness => {
@@ -291,7 +305,7 @@ describe('ServerSelectScreen', () => {
         const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
-        orchestrator.selectServer.mockResolvedValue({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
+        orchestrator.selectServer.mockResolvedValue(makeSelectedServerResult());
 
         localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
 
@@ -338,11 +352,7 @@ describe('ServerSelectScreen', () => {
         const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
-        orchestrator.selectServer.mockResolvedValue({
-            kind: 'selected',
-            readiness: 'ready',
-            persistedSelection: 'updated',
-        });
+        orchestrator.selectServer.mockResolvedValue(makeSelectedServerResult());
 
         localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
 
@@ -543,7 +553,7 @@ describe('ServerSelectScreen', () => {
         expect(button.disabled).toBe(true);
         expect(container.querySelector('.screen-status')?.textContent).toBe('Connecting to Server One…');
 
-        selectDeferred.resolve({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
+        selectDeferred.resolve(makeSelectedServerResult());
         await settleScreen(screen);
 
         expect(button.disabled).toBe(false);
@@ -568,7 +578,7 @@ describe('ServerSelectScreen', () => {
         expect(container.querySelector('.screen-status')?.textContent).toBe('Connecting to Server One…');
 
         screen.hide();
-        selectDeferred.resolve({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
+        selectDeferred.resolve(makeSelectedServerResult());
         await settleScreen(screen);
 
         expect(orchestrator.selectServer).toHaveBeenCalledTimes(1);
@@ -609,7 +619,7 @@ describe('ServerSelectScreen', () => {
         reShownButton.click();
         expect(orchestrator.selectServer).toHaveBeenCalledTimes(1);
 
-        selectDeferred.resolve({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
+        selectDeferred.resolve(makeSelectedServerResult());
         await settleScreen(screen);
 
         const enabledButton = container.querySelector('.server-row button') as HTMLButtonElement;
@@ -651,7 +661,7 @@ describe('ServerSelectScreen', () => {
         const reShownButton = container.querySelector('.server-row button') as HTMLButtonElement;
         expect(reShownButton.disabled).toBe(true);
 
-        selectDeferred.resolve({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
+        selectDeferred.resolve(makeSelectedServerResult());
         await settleScreen(screen);
 
         const enabledButton = container.querySelector('.server-row button') as HTMLButtonElement;
@@ -685,7 +695,7 @@ describe('ServerSelectScreen', () => {
 
         expect(orchestrator.clearSelectedServer).not.toHaveBeenCalled();
 
-        selectDeferred.resolve({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
+        selectDeferred.resolve(makeSelectedServerResult());
         await settleScreen(screen);
 
         expect(clearButton.disabled).toBe(false);
@@ -749,7 +759,7 @@ describe('ServerSelectScreen', () => {
 
         expect(latestRefreshRegistration?.[0].neighbors.down).toBeUndefined();
 
-        selectDeferred.resolve({ kind: 'selected', readiness: 'ready', persistedSelection: 'updated' });
+        selectDeferred.resolve(makeSelectedServerResult());
         await settleScreen(screen);
 
         expect(nav.registerFocusable).toHaveBeenCalledWith(

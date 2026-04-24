@@ -407,7 +407,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return {
             server: this._cloneSelectedServer(this._state.selectedServer, this._state.selectedConnection),
             connection: this._cloneConnection(this._state.selectedConnection),
-            storedServerId: this._serverSelectionStore.readSelectedServerIdAndClean(),
+            storedServerId: this._serverSelectionStore.readSelectedServerId(),
         };
     }
 

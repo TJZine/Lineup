@@ -1443,7 +1443,6 @@ export class ChannelManager implements IChannelManager {
 
         if (
             typeof record['number'] === 'number' &&
-            Number.isFinite(record['number']) &&
             Number.isInteger(record['number'])
         ) {
             channel.number = record['number'];

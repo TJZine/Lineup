@@ -13,7 +13,10 @@ const createDeps = (
     } satisfies PersistedSelectedServerSnapshot),
     persistSelection: jest.fn().mockResolvedValue('updated'),
     restorePersistedSelectionSnapshot: jest.fn().mockResolvedValue('updated'),
-    resumeStartupAfterSelection: jest.fn().mockResolvedValue(undefined),
+    resumeStartupAfterSelection: jest.fn().mockResolvedValue({
+        startup: 'completed',
+        epgRefresh: { kind: 'succeeded' },
+    }),
     clearDiscoverySelection: jest.fn(),
     ...overrides,
 } as jest.Mocked<SelectedServerRuntimeControllerDeps>);
@@ -98,7 +101,10 @@ describe('SelectedServerRuntimeController', () => {
         const deps = createDeps();
         const controller = new SelectedServerRuntimeController(deps);
 
-        await expect(controller.resumeStartupAfterSelection()).resolves.toBeUndefined();
+        await expect(controller.resumeStartupAfterSelection()).resolves.toEqual({
+            startup: 'completed',
+            epgRefresh: { kind: 'succeeded' },
+        });
 
         expect(deps.resumeStartupAfterSelection).toHaveBeenCalledTimes(1);
         expect(deps.persistSelection).not.toHaveBeenCalled();

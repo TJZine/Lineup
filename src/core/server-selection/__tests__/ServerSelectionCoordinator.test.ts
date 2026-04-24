@@ -15,6 +15,11 @@ const persistedSnapshot: PersistedSelectedServerSnapshot = {
     selection: { serverId: 'server-prev', serverUri: 'http://previous.example' },
 };
 
+const startupResumeSucceeded = {
+    startup: 'completed',
+    epgRefresh: { kind: 'succeeded' },
+} as const;
+
 describe('ServerSelectionCoordinator', () => {
     it('returns selection_failed without persistence or runtime swap when discovery cannot select a server', async () => {
         const deps = {
@@ -25,7 +30,7 @@ describe('ServerSelectionCoordinator', () => {
             getSelectedServerUri: jest.fn(() => null),
             persistSelection: jest.fn(async () => 'updated' as const),
             restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
-            resumeStartupAfterSelection: jest.fn(async () => undefined),
+            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
             getReadiness: jest.fn(() => 'startup_pending' as const),
         };
         const coordinator = new ServerSelectionCoordinator(deps);
@@ -50,7 +55,7 @@ describe('ServerSelectionCoordinator', () => {
             getSelectedServerUri: jest.fn(() => 'http://example.com'),
             persistSelection: jest.fn(async () => 'updated' as const),
             restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
-            resumeStartupAfterSelection: jest.fn(async () => undefined),
+            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
             getReadiness: jest.fn(() => 'ready' as const),
         };
         const coordinator = new ServerSelectionCoordinator(deps);
@@ -59,6 +64,7 @@ describe('ServerSelectionCoordinator', () => {
             kind: 'selected',
             readiness: 'ready',
             persistedSelection: 'updated',
+            startupResume: startupResumeSucceeded,
         });
         expect(deps.capturePersistedSelectionSnapshot).toHaveBeenCalledTimes(1);
         expect(deps.persistSelection).toHaveBeenCalledWith('server-1', 'http://example.com');
@@ -80,7 +86,7 @@ describe('ServerSelectionCoordinator', () => {
                 throw persistenceError;
             }),
             restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
-            resumeStartupAfterSelection: jest.fn(async () => undefined),
+            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
             getReadiness: jest.fn(() => 'ready' as const),
         };
         const coordinator = new ServerSelectionCoordinator(deps);
@@ -108,7 +114,7 @@ describe('ServerSelectionCoordinator', () => {
                 throw persistenceError;
             }),
             restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
-            resumeStartupAfterSelection: jest.fn(async () => undefined),
+            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
             getReadiness: jest.fn(() => 'ready' as const),
         };
         const coordinator = new ServerSelectionCoordinator(deps);
@@ -173,5 +179,31 @@ describe('ServerSelectionCoordinator', () => {
 
         expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
         expect(deps.restorePersistedSelectionSnapshot).toHaveBeenCalledWith(persistedSnapshot);
+    });
+
+    it('returns recoverable startup-resume details with the selected result', async () => {
+        const startupResume = {
+            startup: 'completed',
+            epgRefresh: { kind: 'failed', error: new Error('refresh failed') },
+        } as const;
+        const deps = {
+            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
+            restoreDiscoverySelectionSnapshot: jest.fn(),
+            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
+            selectServer: jest.fn(async () => ({ kind: 'selected' as const })),
+            getSelectedServerUri: jest.fn(() => 'http://example.com'),
+            persistSelection: jest.fn(async () => 'updated' as const),
+            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
+            resumeStartupAfterSelection: jest.fn(async () => startupResume),
+            getReadiness: jest.fn(() => 'ready' as const),
+        };
+        const coordinator = new ServerSelectionCoordinator(deps);
+
+        await expect(coordinator.selectServer('server-1')).resolves.toEqual({
+            kind: 'selected',
+            readiness: 'ready',
+            persistedSelection: 'updated',
+            startupResume,
+        });
     });
 });
