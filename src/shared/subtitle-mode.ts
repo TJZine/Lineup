@@ -4,9 +4,11 @@
  * @version 1.0.0
  */
 
-export type SubtitleMode = 'off' | 'direct' | 'standard' | 'full';
+export const SUBTITLE_MODES = ['off', 'direct', 'standard', 'full'] as const;
 
-const SUBTITLE_MODES: readonly SubtitleMode[] = ['off', 'direct', 'standard', 'full'] as const;
+export type SubtitleMode = (typeof SUBTITLE_MODES)[number];
+
+export const DEFAULT_SUBTITLE_MODE: SubtitleMode = 'full';
 
 export function isSubtitleMode(value: unknown): value is SubtitleMode {
     return typeof value === 'string' && (SUBTITLE_MODES as readonly string[]).includes(value);
@@ -21,7 +23,7 @@ export function parseSubtitleMode(value: string | null | undefined): SubtitleMod
 
 export function normalizeSubtitleMode(
     value: string | null | undefined,
-    fallback: SubtitleMode = 'full'
+    fallback: SubtitleMode = DEFAULT_SUBTITLE_MODE
 ): SubtitleMode {
     return parseSubtitleMode(value) ?? fallback;
 }

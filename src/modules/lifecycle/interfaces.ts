@@ -14,6 +14,7 @@ export interface IAppLifecycle {
 
     shutdown(): Promise<void>;
 
+    /** Resolves when the latest debounced lifecycle state save actually flushes. */
     saveState(): Promise<void>;
 
     onPause(callback: LifecycleCallback): IDisposable;

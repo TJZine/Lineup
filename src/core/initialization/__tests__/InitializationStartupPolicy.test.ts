@@ -284,6 +284,22 @@ describe('applyPhase2AuthGatePolicy', () => {
         expect(inputs.navigation.goTo).toHaveBeenCalledWith('auth');
     });
 
+    it('preserves pending-auth side-effect order when stored credentials are missing', async () => {
+        const inputs = createInputs({
+            readStoredCredentialsAndClearCorruption: jest.fn().mockReturnValue({ kind: 'missing' }),
+        });
+
+        await expect(applyPolicy(inputs)).resolves.toBe(false);
+
+        const updateOrder = inputs.updateModuleStatus.mock.invocationCallOrder[0] ?? 0;
+        const resumeOrder = inputs.handlers.registerAuthResume.mock.invocationCallOrder[0] ?? 0;
+        const navigationOrder = inputs.navigation.goTo.mock.invocationCallOrder[0] ?? 0;
+
+        expect(updateOrder).toBeGreaterThan(0);
+        expect(updateOrder).toBeLessThan(resumeOrder);
+        expect(resumeOrder).toBeLessThan(navigationOrder);
+    });
+
     it('normalizes to the validated account token before routing to profile-select', async () => {
         const inputs = createInputs({
             validateToken: jest.fn()
