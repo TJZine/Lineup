@@ -159,6 +159,12 @@ type PlexServerSelectionResult =
   | { kind: 'server_not_found' }
   | { kind: 'connection_unavailable'; reason: PlexServerSelectionFailureReason };
 
+interface PlexDiscoverySelectedServerSnapshot {
+  server: PlexServer | null;
+  connection: PlexConnection | null;
+  storedServerId: string | null;
+}
+
 interface IPlexServerDiscovery {
   discoverServers(): Promise<PlexServer[]>;
 
@@ -194,6 +200,10 @@ interface IPlexServerDiscovery {
   getActiveConnectionUri(): string | null;
 
   clearSelection(): void;
+
+  captureSelectedServerSnapshot(): PlexDiscoverySelectedServerSnapshot;
+
+  restoreSelectedServerSnapshot(snapshot: PlexDiscoverySelectedServerSnapshot): void;
 
   getServers(): PlexServer[];
 

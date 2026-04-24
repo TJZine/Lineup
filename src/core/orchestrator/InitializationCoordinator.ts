@@ -483,15 +483,18 @@ export class InitializationCoordinator {
                 throw error;
             }
 
+            const moduleError = toRecoverableModuleStatusError(
+                error,
+                'Server discovery authentication failed during startup.'
+            );
             this._callbacks.status.updateModuleStatus(
                 'plex-server-discovery',
                 'error',
-                toRecoverableModuleStatusError(
-                    error,
-                    'Server discovery authentication failed during startup.'
-                )
+                moduleError
             );
-            this._callbacks.errors.handleGlobalError(error, 'plex-server-discovery');
+            this._registerAuthResume();
+            this._deps.modules.navigation.goTo('auth');
+            this._callbacks.errors.handleGlobalError(moduleError, 'plex-server-discovery');
             return false;
         }
     }

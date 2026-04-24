@@ -1,4 +1,4 @@
-import { PlexServer, PlexConnection } from './types';
+import { PlexServer, PlexConnection, PlexDiscoverySelectedServerSnapshot } from './types';
 import { IDisposable } from '../../../utils/interfaces';
 
 export type PlexServerSelectionFailureReason =
@@ -120,6 +120,16 @@ export interface IPlexServerDiscovery {
      * Resets selected server and connection state.
      */
     clearSelection(): void;
+
+    /**
+     * Capture selected-server state for a transactional rollback.
+     */
+    captureSelectedServerSnapshot(): PlexDiscoverySelectedServerSnapshot;
+
+    /**
+     * Restore selected-server state captured by captureSelectedServerSnapshot.
+     */
+    restoreSelectedServerSnapshot(snapshot: PlexDiscoverySelectedServerSnapshot): void;
 
     // State
 

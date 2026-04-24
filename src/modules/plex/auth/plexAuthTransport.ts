@@ -41,6 +41,9 @@ function sanitizePlexApiErrorCause(cause: unknown): unknown {
         return {
             name: cause.name,
             message: redactSensitiveTokens(cause.message),
+            ...(typeof cause.stack === 'string'
+                ? { stack: redactSensitiveTokens(cause.stack).slice(0, 8000) }
+                : {}),
         };
     }
     if (typeof cause === 'string') {

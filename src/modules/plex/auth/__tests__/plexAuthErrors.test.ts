@@ -17,4 +17,13 @@ describe('isPlexAuthRecoverable', () => {
     ])('rejects %s as a Plex auth recovery code', (code) => {
         expect(isPlexAuthRecoverable({ code })).toBe(false);
     });
+
+    it.each([
+        null,
+        undefined,
+        'error',
+        [],
+    ])('rejects non-AppError input %#', (error) => {
+        expect(isPlexAuthRecoverable(error)).toBe(false);
+    });
 });
