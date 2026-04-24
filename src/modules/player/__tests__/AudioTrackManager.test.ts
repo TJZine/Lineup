@@ -378,6 +378,68 @@ describe('AudioTrackManager', () => {
             // This confirms the failed switch did not corrupt state
             expect(manager.getActiveTrackId()).toBe('track-1');
         });
+
+        it('surfaces restore failures in the thrown playback error context', async () => {
+            const trackOne = {
+                id: 'track-1',
+                _enabled: true,
+                get enabled(): boolean {
+                    return false;
+                },
+                set enabled(value: boolean) {
+                    if (value) {
+                        throw new Error('restore exploded');
+                    }
+                    this._enabled = value;
+                },
+                kind: 'main',
+                label: 'Track 1',
+                language: 'en',
+            };
+            const trackTwo = {
+                id: 'track-2',
+                _enabled: false,
+                get enabled(): boolean {
+                    return false;
+                },
+                set enabled(value: boolean) {
+                    this._enabled = value;
+                },
+                kind: 'main',
+                label: 'Track 2',
+                language: 'en',
+            };
+            const videoEl = {
+                audioTracks: {
+                    0: trackOne,
+                    1: trackTwo,
+                    length: 2,
+                },
+            } as unknown as HTMLVideoElement;
+            manager.initialize(videoEl);
+
+            manager.setTracks([
+                createMockTrack({ id: 'track-1', index: 0, codec: 'aac' }),
+                createMockTrack({ id: 'track-2', index: 1, codec: 'aac', default: false }),
+            ]);
+
+            jest.useFakeTimers();
+
+            let caughtError: unknown = null;
+            const switchPromise = manager.switchTrack('track-2').catch((error) => {
+                caughtError = error;
+            });
+
+            await jest.runAllTimersAsync();
+            await switchPromise;
+
+            expect(caughtError).toMatchObject({
+                code: AppErrorCode.TRACK_SWITCH_TIMEOUT,
+                context: {
+                    restoreFailure: 'restore exploded',
+                },
+            });
+        });
     });
 
     describe('unload and destroy', () => {

@@ -82,7 +82,10 @@ Hello`));
             logDebug: jest.fn(),
         });
 
-        expect(result).toContain('WEBVTT');
+        expect(result).toMatchObject({
+            kind: 'success',
+            vtt: expect.stringContaining('WEBVTT'),
+        });
         expect(fetchMock).toHaveBeenCalledTimes(2);
         expect(fetchMock.mock.calls[0]?.[0]).toBe('http://example.com/library/streams/1?X-Plex-Token=token');
         expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual({
@@ -118,12 +121,15 @@ Hello`));
             logDebug: jest.fn(),
         });
 
-        expect(result).toContain('WEBVTT');
+        expect(result).toMatchObject({
+            kind: 'success',
+            vtt: expect.stringContaining('WEBVTT'),
+        });
         expect(deriveLanHttpUrl).toHaveBeenCalledTimes(1);
         expect(fetchMock.mock.calls[1]?.[0]).toBe('http://192.168.50.19:32400/library/streams/1?X-Plex-Token=token');
     });
 
-    it('rejects html subtitle responses and logs the html_response branch', async () => {
+    it('classifies html subtitle responses as unsupported', async () => {
         const fetchMock = globalThis.fetch as jest.Mock;
         const logDebug = jest.fn();
         fetchMock.mockResolvedValueOnce(
@@ -145,11 +151,10 @@ Hello`));
             logDebug,
         });
 
-        expect(result).toBeNull();
-        expect(logDebug).toHaveBeenCalledWith(
-            'subtitle_fetch_error',
-            expect.any(Function)
-        );
+        expect(result).toEqual({
+            kind: 'unsupported',
+            reason: 'invalid_source',
+        });
         const htmlResponseLog = logDebug.mock.calls
             .map((call) => call[1]())
             .find((entry) => entry.error === 'html_response');
@@ -162,7 +167,7 @@ Hello`));
         );
     });
 
-    it('short-circuits to null when the load is stale after a fetch attempt', async () => {
+    it('returns stale when the load is no longer current after a fetch attempt', async () => {
         const fetchMock = globalThis.fetch as jest.Mock;
         fetchMock.mockResolvedValueOnce(createResponse(`1
 00:00:00,000 --> 00:00:01,000
@@ -183,8 +188,75 @@ Hello`));
         });
         currentLoad = false;
 
-        await expect(resultPromise).resolves.toBeNull();
+        await expect(resultPromise).resolves.toEqual({ kind: 'stale' });
         expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('classifies auth failures distinctly from unsupported failures', async () => {
+        const fetchMock = globalThis.fetch as jest.Mock;
+        fetchMock
+            .mockResolvedValueOnce(createResponse('denied', { ok: false, status: 403 }))
+            .mockResolvedValueOnce(createResponse('denied', { ok: false, status: 403 }))
+            .mockResolvedValueOnce(createResponse('denied', { ok: false, status: 403 }))
+            .mockResolvedValueOnce(createResponse('denied', { ok: false, status: 403 }))
+            .mockResolvedValueOnce(createResponse('denied', { ok: false, status: 403 }))
+            .mockResolvedValueOnce(createResponse('denied', { ok: false, status: 403 }));
+
+        const result = await fetchSubtitleFallbackVtt({
+            track: createTrack(),
+            initialUrl: new URL('http://example.com/library/streams/1?X-Plex-Token=token'),
+            context: {
+                serverUri: 'http://example.com',
+                authHeaders: {
+                    'X-Plex-Token': 'token',
+                    'X-Plex-Client-Identifier': 'client-1',
+                },
+                itemKey: '999',
+                sessionId: 'sess-1',
+            },
+            signal: new AbortController().signal,
+            isCurrentLoad: () => true,
+            deriveLanHttpUrl: () => null,
+            logDebug: jest.fn(),
+        });
+
+        expect(result).toEqual({
+            kind: 'auth',
+            reason: 'forbidden',
+            status: 403,
+        });
+    });
+
+    it('classifies server failures distinctly from permanent unsupported failures', async () => {
+        const fetchMock = globalThis.fetch as jest.Mock;
+        fetchMock
+            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 500 }))
+            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 500 }))
+            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 500 }))
+            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 500 }))
+            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 500 }))
+            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 500 }));
+
+        const result = await fetchSubtitleFallbackVtt({
+            track: createTrack(),
+            initialUrl: new URL('http://example.com/library/streams/1?X-Plex-Token=token'),
+            context: {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+                itemKey: '999',
+                sessionId: 'sess-1',
+            },
+            signal: new AbortController().signal,
+            isCurrentLoad: () => true,
+            deriveLanHttpUrl: () => null,
+            logDebug: jest.fn(),
+        });
+
+        expect(result).toEqual({
+            kind: 'transient',
+            reason: 'server_error',
+            status: 500,
+        });
     });
 
     it('falls back to the universal subtitles endpoint when stream fetch attempts fail', async () => {
@@ -217,7 +289,10 @@ Hello`));
             logDebug: jest.fn(),
         });
 
-        expect(result).toContain('WEBVTT');
+        expect(result).toMatchObject({
+            kind: 'success',
+            vtt: expect.stringContaining('WEBVTT'),
+        });
         expect(fetchMock).toHaveBeenCalledTimes(5);
 
         const transcodeUrl = new URL(String(fetchMock.mock.calls[4]?.[0]));
@@ -276,6 +351,9 @@ Hello`;
             createXhr: () => new MockXhr() as unknown as XMLHttpRequest,
         });
 
-        expect(result).toContain('WEBVTT');
+        expect(result).toMatchObject({
+            kind: 'success',
+            vtt: expect.stringContaining('WEBVTT'),
+        });
     });
 });

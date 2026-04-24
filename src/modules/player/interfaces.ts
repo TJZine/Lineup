@@ -28,9 +28,10 @@ export interface IVideoPlayer {
      * Set the active audio track.
      * @param trackId - Audio track ID to activate
      * @throws {PlaybackError}
-     * Rejects with TRACK_NOT_FOUND when the player is not initialized or the track ID is unknown.
+     * Rejects with INITIALIZATION_FAILED when the player is not initialized.
+     * Rejects with TRACK_NOT_FOUND when the track ID is unknown.
      * Rejects with CODEC_UNSUPPORTED, TRACK_SWITCH_TIMEOUT, or TRACK_SWITCH_FAILED when native
-     * switching cannot complete.
+     * switching cannot complete; delegated AudioTrackManager errors are preserved.
      */
     setAudioTrack(trackId: string): Promise<void>;
 
