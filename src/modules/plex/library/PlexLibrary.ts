@@ -632,7 +632,9 @@ export class PlexLibrary implements IPlexLibrary {
         }
 
         const url = this._buildUrl(PLEX_ENDPOINTS.SEARCH, params);
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawMediaItem>>(url);
+        const response = await this._fetchWithRetry<PlexMediaContainer<RawMediaItem>>(url, {
+            signal: options.signal ?? null,
+        });
 
         if (!response) {
             return [];
@@ -850,13 +852,13 @@ export class PlexLibrary implements IPlexLibrary {
      * @param imagePath - Image path from Plex metadata
      * @param width - Optional resize width
      * @param height - Optional resize height (defaults to width)
-     * @returns Full URL with authentication token
+     * @returns Full URL with authentication token, or null when no image URL can be built
      */
-    getImageUrl(imagePath: string, width?: number, height?: number): string {
-        if (!imagePath) return '';
+    getImageUrl(imagePath: string, width?: number, height?: number): string | null {
+        if (!imagePath) return null;
 
         const serverUri = this._config.getServerUri();
-        if (!serverUri) return '';
+        if (!serverUri) return null;
 
         const token = this._config.getAuthToken() || '';
         const originClassification = classifyPlexUrlOrigin(serverUri, imagePath);

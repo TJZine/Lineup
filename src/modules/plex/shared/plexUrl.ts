@@ -115,13 +115,13 @@ export function applyXPlexTokenQueryParamIfTrusted(
 
 export function applyXPlexQueryParamsFromHeaders(
     params: URLSearchParams,
-    headers: Record<string, unknown>
+    headers: Record<string, string>
 ): void {
     for (const [key, value] of Object.entries(headers)) {
         if (!key.startsWith('X-Plex-')) {
             continue;
         }
-        if (typeof value !== 'string' || value.length === 0) {
+        if (value.length === 0) {
             continue;
         }
         params.set(key, value);
@@ -131,7 +131,7 @@ export function applyXPlexQueryParamsFromHeaders(
 export function buildPlexResourceUrlWithAuth(
     baseUri: string | null,
     pathOrUrl: string,
-    authHeaders: Record<string, unknown>
+    authHeaders: Record<string, string>
 ): string | null {
     if (!baseUri) {
         return null;
@@ -146,9 +146,7 @@ export function buildPlexResourceUrlWithAuth(
     }
 
     const url = buildPlexUrlFromKey(baseUri, pathOrUrl);
-    const token = typeof authHeaders['X-Plex-Token'] === 'string'
-        ? authHeaders['X-Plex-Token']
-        : null;
+    const token = authHeaders['X-Plex-Token'] ?? null;
     applyXPlexTokenQueryParam(url.searchParams, token);
     return url.toString();
 }
