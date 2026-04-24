@@ -661,8 +661,8 @@ describe('PlaybackOptionsCoordinator', () => {
         burn?.onSelect?.();
         await flushPlaybackOptionsPromises();
 
-        expect(notifyToast).toHaveBeenCalledWith('Loading burn-in subtitles…', 'info');
-        expect(notifyToast).toHaveBeenCalledWith('Failed to load burn-in subtitles', 'warning');
+        expect(notifyToast).toHaveBeenCalledWith({ message: 'Loading burn-in subtitles…', type: 'info' });
+        expect(notifyToast).toHaveBeenCalledWith({ message: 'Failed to load burn-in subtitles', type: 'warning' });
     });
 
     it('does not show a failure toast when burn-in subtitle request is ignored', async () => {
@@ -691,8 +691,8 @@ describe('PlaybackOptionsCoordinator', () => {
         burn?.onSelect?.();
         await flushPlaybackOptionsPromises();
 
-        expect(notifyToast).toHaveBeenCalledWith('Loading burn-in subtitles…', 'info');
-        expect(notifyToast).not.toHaveBeenCalledWith('Failed to load burn-in subtitles', 'warning');
+        expect(notifyToast).toHaveBeenCalledWith({ message: 'Loading burn-in subtitles…', type: 'info' });
+        expect(notifyToast).not.toHaveBeenCalledWith({ message: 'Failed to load burn-in subtitles', type: 'warning' });
     });
 
     it('shows a failure toast when burn-in subtitle request rejects', async () => {
@@ -718,8 +718,8 @@ describe('PlaybackOptionsCoordinator', () => {
         burn?.onSelect?.();
         await flushPlaybackOptionsPromises();
 
-        expect(notifyToast).toHaveBeenCalledWith('Loading burn-in subtitles…', 'info');
-        expect(notifyToast).toHaveBeenCalledWith('Failed to load burn-in subtitles', 'warning');
+        expect(notifyToast).toHaveBeenCalledWith({ message: 'Loading burn-in subtitles…', type: 'info' });
+        expect(notifyToast).toHaveBeenCalledWith({ message: 'Failed to load burn-in subtitles', type: 'warning' });
     });
 
     it('does not persist subtitle preference (no per-item or global storage)', async (): Promise<void> => {
@@ -774,7 +774,7 @@ describe('PlaybackOptionsCoordinator', () => {
         audioOption?.onSelect?.();
         await flushPlaybackOptionsPromises();
 
-        expect(notifyToast).toHaveBeenCalledWith('Failed to apply audio track change', 'warning');
+        expect(notifyToast).toHaveBeenCalledWith({ message: 'Failed to apply audio track change', type: 'warning' });
         expect(navigation.closeModal).toHaveBeenCalledWith('playback-options');
         expect(refreshSpy).toHaveBeenCalled();
     });

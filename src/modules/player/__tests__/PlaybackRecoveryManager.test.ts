@@ -893,10 +893,10 @@ describe('PlaybackRecoveryManager', () => {
                 subtitleMode: 'burn',
             })
         );
-        expect(notifyToast).toHaveBeenCalledWith(
-            'Subtitles failed to load. Trying burn-in…',
-            'info'
-        );
+        expect(notifyToast).toHaveBeenCalledWith({
+            message: 'Subtitles failed to load. Trying burn-in…',
+            type: 'info',
+        });
     });
 
     it('skips burn-in reload when already in burn-in HLS for track', async () => {
@@ -1206,7 +1206,10 @@ describe('PlaybackRecoveryManager', () => {
             reason: 'subtitle_text_fetch_failed',
         });
 
-        expect(notifyToast).toHaveBeenCalledWith('Subtitles failed to load. Trying burn-in…', 'info');
+        expect(notifyToast).toHaveBeenCalledWith({
+            message: 'Subtitles failed to load. Trying burn-in…',
+            type: 'info',
+        });
         expect(recoveryResult).toBe('failed');
         expect(notifySubtitleUnavailable).not.toHaveBeenCalled();
     });
@@ -1321,10 +1324,10 @@ describe('PlaybackRecoveryManager', () => {
             reason: 'subtitle_text_fetch_failed',
         });
 
-        expect(notifyToast).not.toHaveBeenCalledWith(
-            'Subtitles failed to load. Trying burn-in…',
-            'info'
-        );
+        expect(notifyToast).not.toHaveBeenCalledWith({
+            message: 'Subtitles failed to load. Trying burn-in…',
+            type: 'info',
+        });
         expect(notifySubtitleUnavailable).not.toHaveBeenCalled();
     });
 
