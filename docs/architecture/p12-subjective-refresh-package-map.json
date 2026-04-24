@@ -181,10 +181,21 @@
         "priority_exit": "P12-EXIT"
       },
       "execution_status": {
-        "status": "not_started",
-        "completed_execution_units": [],
-        "current_or_next_execution_unit": "P12-W2",
-        "evidence": []
+        "status": "completed",
+        "completed_execution_units": [
+          "P12-W2-S1",
+          "P12-W2-S2",
+          "P12-W2-S3"
+        ],
+        "current_or_next_execution_unit": "P12-W3",
+        "evidence": [
+          "2026-04-24: P12-W2-S1 tightened Plex API contract edges: search now accepts/passes AbortSignal, getImageUrl absence is string|null with null absence, discovery wrappers preserve sanitized PlexApiError causes, Plex URL helpers use Record<string,string> headers, and endpoint-aware 403 semantics were reviewed as stale-proven intentional. Commit 572d32b8.",
+          "2026-04-24: P12-W2-S2 extracted pure transcode URL, session, capability, quality, location, auth-query, and subtitle URL policy into stream-owned plexStreamUrlPolicy helpers while PlexStreamResolver keeps runtime reads, helper invocation, and redacted debug logging. Commit a20dc151.",
+          "2026-04-24: P12-W2-S3 extracted bounded library count enrichment into LibraryCountEnrichment so getLibraries fetches/parses sections and delegates count enrichment while preserving count, abort, warning, and unknown/null semantics. Commit e4030631.",
+          "2026-04-24: each execution unit received a clean fresh reviewer pass; focused Plex tests passed for library, discovery, auth, shared URL, stream resolver, and stream URL policy surfaces; npm run verify passed.",
+          "2026-04-24: package-local desloppify show commands and exact imported review-id queries reran; all six package files and all seven exact review ids returned no open rows. Targeted source audits confirmed no same-package survivor for P12-W2.",
+          "2026-04-24: desloppify scan --path . completed with overall 85.8, strict 85.8, objective 97.0, and verified 97.0; status dimensions were recorded in ARCHITECTURE_CLEANUP_CHECKLIST.md."
+        ]
       }
     },
     {
