@@ -475,7 +475,7 @@ export class PlaybackOptionsCoordinator {
         const cached = this.subtitleProbeCache.get(cacheKey);
         if (cached) return cached;
 
-        // Fast probe only: treat timeout/failure as unsupported and force burn-in for this selection.
+        // Fast probe only: only permanent unsupported results force burn-in for this selection.
         // Use a minimal header set so the probe matches the normal query-token extraction path and avoids
         // preflight-only failures caused by broader X-Plex-* header bundles.
         const url = this.buildSubtitleProbeUrl(track, context);
