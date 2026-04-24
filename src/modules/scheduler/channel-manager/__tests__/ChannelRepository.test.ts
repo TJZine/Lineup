@@ -149,6 +149,37 @@ describe('ChannelRepository', () => {
         expect(normalized.didMutate).toBe(true);
     });
 
+    it('normalizes invalid and duplicate persisted channel numbers', () => {
+        const repo = new ChannelRepository();
+        const payload = {
+            channels: [
+                createStoredChannel({ id: 'fractional', number: 7.5 }),
+                createStoredChannel({ id: 'valid-one', number: 1 }),
+                createStoredChannel({ id: 'too-high', number: 501 }),
+                createStoredChannel({ id: 'duplicate-one', number: 1 }),
+            ],
+            channelOrder: ['fractional', 'valid-one', 'too-high', 'duplicate-one'],
+            currentChannelId: 'valid-one',
+            savedAt: Date.now(),
+        };
+
+        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        const normalized = loadNormalized(repo);
+
+        expect(
+            normalized.data.channels.map((channel) => ({
+                id: channel.id,
+                number: channel.number,
+            }))
+        ).toEqual([
+            { id: 'fractional', number: 2 },
+            { id: 'valid-one', number: 1 },
+            { id: 'too-high', number: 3 },
+            { id: 'duplicate-one', number: 4 },
+        ]);
+        expect(normalized.didMutate).toBe(true);
+    });
+
     it('strips legacy isSequentialVariant during normalized load without creating canonical playback variant', () => {
         const repo = new ChannelRepository();
         const payload = {
