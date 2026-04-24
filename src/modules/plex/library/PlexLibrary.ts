@@ -8,7 +8,6 @@
 import { EventEmitter } from '../../../utils/EventEmitter';
 import type { IDisposable } from '../../../utils/interfaces';
 import { AppErrorCode } from '../../../types/app-errors';
-import { summarizeErrorForLog } from '../../../utils/errors';
 import { fnv1a32Hex } from '../../../utils/hash';
 import { redactUrlForLog } from '../../../utils/redact';
 import type {
@@ -63,6 +62,7 @@ import {
     buildPlexUrlFromKey,
 } from '../shared/plexUrl';
 import { createPlexConsoleLogger } from '../shared/plexLogging';
+import { enrichLibrarySectionCounts } from './LibraryCountEnrichment';
 
 // Re-export for consumers
 export { PlexLibraryError } from './PlexLibraryError';
@@ -240,71 +240,13 @@ export class PlexLibrary implements IPlexLibrary {
         const libraries = parseLibrarySections(directories);
 
         if (options?.includeItemCounts) {
-            const signal = options.signal ?? null;
-            const defaultConcurrency = 4;
-            const rawConcurrency = options.itemCountConcurrency;
-            const normalizedConcurrency =
-                typeof rawConcurrency === 'number' && Number.isFinite(rawConcurrency)
-                    ? Math.floor(rawConcurrency)
-                    : defaultConcurrency;
-            const requestedConcurrency =
-                normalizedConcurrency > 0 ? normalizedConcurrency : defaultConcurrency;
-            const concurrency = Math.max(1, Math.min(requestedConcurrency, 8));
-            const queue = libraries.slice();
-            const workerCount = Math.min(concurrency, queue.length);
-
-            const workers = Array.from({ length: workerCount }, async () => {
-                while (queue.length > 0) {
-                    if (signal?.aborted) {
-                        return;
-                    }
-                    const lib = queue.shift();
-                    if (!lib) {
-                        return;
-                    }
-                    try {
-                        const count = await this.getLibraryItemCount(lib.id, { signal });
-                        lib.contentCount = count;
-
-                        if (lib.type === 'show') {
-                            try {
-                                const epCount = await this.getLibraryItemCount(lib.id, {
-                                    signal,
-                                    filter: { type: PLEX_MEDIA_TYPES.EPISODE },
-                                });
-                                if (epCount !== null) {
-                                    lib.episodeCount = epCount;
-                                } else {
-                                    delete lib.episodeCount;
-                                }
-                            } catch (error) {
-                                // Abort is intentional — skip remaining work without logging.
-                                if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
-                                    return;
-                                }
-                                // Non-fatal: keep the section visible even if episode counts fail.
-                                delete lib.episodeCount;
-                                const context = typeof lib.title === 'string' && lib.title ? lib.title : lib.id;
-                                this._logger.warn(
-                                    `[PlexLibrary] Failed to fetch episode count for library ${context}:`,
-                                    summarizeErrorForLog(error)
-                                );
-                            }
-                        }
-                    } catch (error) {
-                        // Abort is intentional — skip remaining work without logging.
-                        if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
-                            return;
-                        }
-                        // Non-fatal: keep the section visible even if counts fail, but preserve that count is unknown.
-                        lib.contentCount = null;
-                        const context = typeof lib.title === 'string' && lib.title ? lib.title : lib.id;
-                        this._logger.warn(`[PlexLibrary] Failed to fetch item count for library ${context}:`, summarizeErrorForLog(error));
-                    }
-                }
+            await enrichLibrarySectionCounts(libraries, {
+                signal: options.signal ?? null,
+                itemCountConcurrency: options.itemCountConcurrency,
+                getLibraryItemCount: (libraryId, countOptions) =>
+                    this.getLibraryItemCount(libraryId, countOptions),
+                logger: this._logger,
             });
-
-            await Promise.all(workers);
         }
 
         // Cache all libraries
