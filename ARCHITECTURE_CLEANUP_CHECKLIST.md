@@ -16,8 +16,8 @@ The live post-reset follow-on queue is defined by `docs/architecture/p11-fresh-b
 
 - Last structural refresh: `2026-04-16`
 - Prior completed ledger: `docs/archive/checklists/2026-04-16-architecture-cleanup-checklist-wave-4.md`
-- Current execution state: `P1-W1` through `P10-W1` are now historical evidence for the retired `2026-04-16` lineage; `P11-W1`, `P11-W2`, `P11-W3`, and `P11-W4` are complete and `P11-W5` is the next live fresh-baseline package from the authoritative `2026-04-23` rerun
-- Next safe start: `P11-W5` / `pkg_player_recovery_contract_cleanup`
+- Current execution state: `P1-W1` through `P10-W1` are now historical evidence for the retired `2026-04-16` lineage; `P11-W1`, `P11-W2`, `P11-W3`, `P11-W4`, and `P11-W5` are complete and `P11-W6` is the next live fresh-baseline package from the authoritative `2026-04-23` rerun
+- Next safe start: `P11-W6` / `pkg_cross_cutting_contract_hygiene`
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration, keeping planning and package closeout scoped to the active package or exit row
 - First action at package start: planning only; create the package-local execution-grade plan first and do not begin implementation until that planning gate is complete
 - Authoritative evidence rule: only integration-branch `desloppify` reruns may change backlog status, package completion claims, exit records, or closeout claims
@@ -986,7 +986,7 @@ Default scoping rule for this queue:
 - Follow-ups: none for `P11-W4`; continue fresh-baseline queue at `P11-W5`
 - Handoff: `P11-W5`
 
-### [ ] `P11-W5` `pkg_player_recovery_contract_cleanup` Player, Subtitle, And Recovery Contract Cleanup
+### [x] `P11-W5` `pkg_player_recovery_contract_cleanup` Player, Subtitle, And Recovery Contract Cleanup
 
 - Backlog: `seed 6 = 2 fresh review + 4 candidate mechanical hotspots`
 - Scope: align player/subtitle/runtime failure contracts, retire the remaining playback-recovery cohesion hotspot, and reduce the coupling between player behavior and brittle sequence-sensitive tests
@@ -998,11 +998,12 @@ Default scoping rule for this queue:
   - `desloppify show src/modules/player/AudioTrackManager.ts --status open --no-budget --top 80`
 - Cleanup-loop fit: Tier 3 checklist-linked package; drive execution from the exact player/recovery review ids, use the candidate mechanical ids only as same-seam evidence, and keep orchestrator/channel-tuning sequencing review work out of this package
 - Likely first slice: start with the audio-track error contract and subtitle failure-mode split, then absorb playback-recovery cohesion only if the same runtime contract cleanup needs it
-- Status: not started
-- Plan: none yet
-- Last touched: `2026-04-23`
-- Verification: not run for package-local scoping yet; seed evidence comes from the authoritative `2026-04-23T07:32:05+00:00` rerun and `docs/architecture/p11-fresh-baseline-package-map.json`
-- Follow-ups: none yet
+- Status: completed
+- Plan: package-local cleanup-loop plan approved after adversarial review; local-only plan artifact was not promoted to `docs/plans/`
+- Last touched: `2026-04-24`
+- Progress: `P11-W5-WAVE1` completed the audio-track error contract and subtitle failure-mode split. `P11-W5-S1` aligned uninitialized player/video-element failures on `INITIALIZATION_FAILED` across `IVideoPlayer`, `VideoPlayer`, `AudioTrackManager`, and focused tests while preserving `TRACK_NOT_FOUND` for unknown tracks and delegated playback errors; the same-seam restore-failure catch now carries `restoreFailure` into the thrown `PlaybackError` instead of a bare swallowed `console.error`. `P11-W5-S2` split subtitle fallback/probe outcomes into success, stale, unsupported, transient, and auth categories; permanent unsupported extraction remains eligible for burn-in under existing policy, while transient/auth failures continue direct subtitle selection and are not cached as permanent unsupported. `P11-W5-S3` was source-audited and did not require `PlaybackRecoveryManager`, descriptor callback, Orchestrator, or `PlexStreamResolver` changes.
+- Verification: focused implementation verification passed for audio contract tests, subtitle fallback/manager/playback-options tests, playback-options repeated auth-failure probe coverage, and `npm run typecheck`. Implementation review found no blocking findings and approved the wave; post-review follow-up review found no blocking findings and approved the comment/cache-test delta. Package-local `desloppify show` reruns for `VideoPlayer.ts`, `SubtitleManager.ts`, and `PlaybackRecoveryManager.ts` reported no open file-matching issues. `AudioTrackManager.ts` still reports stale `console_error_no_throw` / `swallowed_error` rows at the restored-track catch, but reviewed current-source proof shows the catch records `restoreFailure` and includes it in the thrown `PlaybackError`. Exact review-id reruns still report the two seed ids as open, but reviewed current-source proof and contract tests retire the package-owned rationale.
+- Follow-ups: none for `P11-W5`; continue fresh-baseline queue at `P11-W6`
 - Handoff: `P11-W6`
 
 ### [ ] `P11-W6` `pkg_cross_cutting_contract_hygiene` Cross-Cutting Contract And Hygiene Cleanup
