@@ -27,7 +27,7 @@ Authority, read order, and document precedence now live in [`docs/AGENTIC_DEV_WO
   - adversarial whole-system review of the repo harness against current OpenAI and Anthropic guidance
 <!-- END MANAGED SESSION PROMPT SET -->
 
-The managed-list description for `cleanup-loop.md` is intentionally concise. The authoritative scope is cleanup/refactor-only Tier 3 orchestration: keep planning/package closeout package-scoped for `checklist-linked` work, run implementation/review by approved `execution_unit` there, keep iterating planner/reviewer and implementer/reviewer until clean approval at each gate, keep `standalone remediation` to one bounded execution target unless the approved plan says otherwise, and do not route feature/design or mixed-task umbrella control through it.
+The managed-list description for `cleanup-loop.md` is intentionally concise. The authoritative scope is cleanup/refactor/remediation-only Tier 3 orchestration: keep planning/package closeout package-scoped for `checklist-linked` work, run implementation/review by approved `execution_unit` there, keep iterating planner/reviewer and implementer/reviewer until clean approval at each gate, keep `standalone remediation` to one bounded corrective target unless the approved plan says otherwise, and do not route feature/design or mixed-task umbrella control through it. Debugging belongs here only when the task is corrective remediation, regression repair, source-audit reconciliation, or refactor follow-through with no net-new feature intent.
 
 Tracked role intent:
 
@@ -42,7 +42,7 @@ Route task family first. Choose risk tier second.
 
 | Task Type | Use This Path | Prompt Family | Notes |
 |---|---|---|---|
-| cleanup/refactor | checklist cleanup units, standalone bugfix/remediation, bounded remediation, refactors with no net-new feature intent | `cleanup-*` | choose `checklist-linked` vs `standalone remediation` before tiering; `cleanup-loop` is only for Tier 3 cleanup controller/orchestrator work, with `planner` for planning, `cleanup_worker` for approved implementation passes, `reviewer` for review, package-scoped planning/closeout for `checklist-linked` work, and one bounded execution target for `standalone remediation` unless the approved plan says otherwise. |
+| cleanup/refactor | checklist cleanup units, standalone bugfix/remediation, bounded remediation, refactors with no net-new feature intent | `cleanup-*` | choose `checklist-linked` vs `standalone remediation` before tiering; `cleanup-loop` is only for Tier 3 cleanup/refactor/remediation controller work, with `planner` for planning, `cleanup_worker` for approved implementation passes, `reviewer` for review, package-scoped planning/closeout for `checklist-linked` work, and one bounded corrective target for `standalone remediation` unless the approved plan says otherwise. |
 | feature/design | net-new capability, behavior expansion, product/design direction work, UI creation/redesign | `feature-plan` + `feature-implement` + `feature-review` | Tier 2 feature flow uses the same tracked planner/reviewer/implementer prompt family as cleanup, with planner -> reviewer -> implementer -> reviewer sequencing. |
 | mixed | feature delivery that also includes a cleanup slice (for example hotspot extraction, ownership correction, or required doc refresh) | route by primary intent and split slices explicitly | Use `cleanup-*` only for the cleanup slice, never as umbrella control for full feature delivery. |
 
@@ -64,7 +64,7 @@ Cleanup sub-routing:
 Tier 3 rule for feature or mixed work:
 
 - use a task-specific run bundle in [`docs/runs/`](../../runs/README.md) plus the same feature planner -> reviewer -> implementer -> reviewer workflow
-- do not treat [`cleanup-loop.md`](./cleanup-loop.md) as the controller for feature or mixed-task delivery
+- do not treat [`cleanup-loop.md`](./cleanup-loop.md) as the controller, temporary feature-loop, or umbrella orchestrator for feature or mixed-task delivery
 
 Tier 3 cleanup orchestration note:
 

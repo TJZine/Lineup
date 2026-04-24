@@ -89,19 +89,20 @@ When tracked docs conflict, use this order:
    - if the task family is `cleanup/refactor`, choose one cleanup subtype before selecting a tier:
      - `checklist-linked`: tracked checklist work such as a `P#-W#` item, `P#-EXIT`, or other cleanup slice that must update [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md)
      - `standalone remediation`: QA/debugging/bug-fix work or other bounded remediation with no net-new feature intent and no existing checklist owner; do not invent checklist linkage just to use the cleanup lane
+     - debugging belongs in the cleanup lane only when the target is corrective remediation, regression repair, source-audit reconciliation, or refactor follow-through; if the work adds or redesigns product behavior, route the feature slice through `feature-*` instead
    - for mixed work, split feature and cleanup slices explicitly so cleanup prompts are only used for the cleanup slice
 5. Choose the orchestration tier before editing.
    - Tier 1: small bounded low-risk work uses one session/agent plus review before closeout
    - Tier 2: a normal cleanup unit uses planner -> implementer -> reviewer
    - Tier 2 feature/design work uses the same tracked planner/reviewer/implementer prompt family as cleanup, with planner -> reviewer -> implementer -> reviewer sequencing
    - Tier 3: hotspot, cross-boundary, multi-session, or otherwise high-risk work uses task-specific orchestration, and a local run bundle when repeated handoff is likely
-  - for cleanup Tier 3 work, `cleanup-loop` is an explicit orchestrator: the main session keeps `update_plan`, keeps planning/closeout package-scoped for `checklist-linked` work, runs planner -> reviewer until clean approval, then iterates approved `execution_unit` -> implementer -> reviewer loops for checklist-linked work or one bounded execution target for `standalone remediation` until the subtype-matched closeout gates are clean
+   - for cleanup Tier 3 work, `cleanup-loop` is an explicit cleanup/refactor/remediation orchestrator, not a feature-delivery loop: the main session keeps `update_plan`, keeps planning/closeout package-scoped for `checklist-linked` work, runs planner -> reviewer until clean approval, then iterates approved `execution_unit` -> implementer -> reviewer loops for checklist-linked work or one bounded execution target for `standalone remediation` until the subtype-matched closeout gates are clean
     - for checklist-linked package work, `slice_table` remains the atomic ownership map and `execution_unit` is the execution/review surface
     - `ready_now_execution_unit` is required for checklist-linked package work and must identify either one approved single-slice unit or one approved `wave_id`; `ready_now_slice` remains the first slice inside that unit
     - `execution_waves` are required only when the approved execution unit spans multiple slices or the plan explicitly opts into wave-scoped execution
     - when a wave is selected, the controller stays inside that wave until its declared completion condition is met or a replan trigger fires; wave review is the default approval gate for that unit, while slice-level accounting remains mandatory inside the wave
     - large-package execution should review coherent retirement batches, not one tiny fix at a time
-   - for Tier 3 feature or mixed work, use a task-specific run bundle and the normal workflow; do not treat `cleanup-loop` as umbrella control for feature delivery
+   - for Tier 3 feature or mixed work, use a task-specific run bundle and the normal workflow; do not treat `cleanup-loop` as an umbrella controller, temporary feature-loop, or feature-delivery substitute
    - do not escalate to a heavier tier unless the lower tier would materially weaken reliability
 6. Plan explicitly before multi-step work.
    - keep the authoritative plan in `update_plan`
