@@ -282,8 +282,8 @@ jest.mock('../modules/ui/channel-transition', () => {
 // Mock PlexAuth
 const mockPlexAuth = {
     validateToken: jest.fn().mockResolvedValue(true),
-    storeCredentials: jest.fn().mockResolvedValue(undefined),
-    readStoredCredentialsAndClearCorruption: jest.fn().mockResolvedValue({ kind: 'missing' }),
+    storeCredentials: jest.fn(() => undefined),
+    readStoredCredentialsAndClearCorruption: jest.fn().mockReturnValue({ kind: 'missing' }),
     isAuthenticated: jest.fn().mockReturnValue(true),
     getAuthHeaders: jest.fn().mockReturnValue({}),
     getCurrentUser: jest.fn().mockReturnValue(null),
@@ -292,7 +292,7 @@ const mockPlexAuth = {
     getActiveUserId: jest.fn().mockReturnValue('user-1'),
     getAccountUserId: jest.fn().mockReturnValue('user-1'),
     logoutActiveUser: jest.fn().mockResolvedValue(undefined),
-    clearCredentials: jest.fn().mockResolvedValue(undefined),
+    clearCredentials: jest.fn(() => undefined),
     on: jest.fn(() => ({ dispose: jest.fn() })),
 };
 
@@ -606,9 +606,9 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         resetMockLocalStorage();
 
         mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReset();
-        mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue({ kind: 'missing' });
+        mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue({ kind: 'missing' });
         mockPlexAuth.storeCredentials.mockReset();
-        mockPlexAuth.storeCredentials.mockResolvedValue(undefined);
+        mockPlexAuth.storeCredentials.mockImplementation(() => undefined);
 
         mockPlexAuth.validateToken.mockReset();
         mockPlexAuth.validateToken.mockResolvedValue(true);
@@ -868,7 +868,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             expect(configWithHandler.nowPlayingInfoConfig).toBe(originalNowPlayingInfoConfig);
             expect(configWithHandler.nowPlayingInfoConfig.onAutoHide).toBe(originalOnAutoHide);
 
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
 
@@ -977,7 +977,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 key === LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS ? '0' : null
             );
             await orchestrator.initialize(configWithAutoHide);
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
             await orchestrator.start();
@@ -1009,7 +1009,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 key === LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS ? '0x0' : null
             );
             await orchestrator.initialize(configWithAutoHide);
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
             await orchestrator.start();
@@ -1044,7 +1044,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
             try {
                 mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
-                mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+                mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
 
                 await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
                     kind: 'selected',
@@ -1088,7 +1088,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
             try {
                 mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
-                mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+                mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
 
                 await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
                     kind: 'selected',
@@ -1156,7 +1156,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 .spyOn(InitializationCoordinator.prototype, 'runStartup')
                 .mockResolvedValue(undefined);
             mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue({ kind: 'missing' });
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue({ kind: 'missing' });
 
             try {
                 await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
@@ -1178,7 +1178,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 .spyOn(InitializationCoordinator.prototype, 'runStartup')
                 .mockResolvedValue(undefined);
             mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue({
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue({
                 kind: 'corrupted',
                 reason: 'invalid-json',
             });
@@ -1219,8 +1219,8 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 .mockResolvedValue(undefined);
             mockPlexDiscovery.captureSelectedServerSnapshot.mockReturnValue(discoverySnapshot);
             mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(storedCredentials);
-            mockPlexAuth.storeCredentials.mockRejectedValue(persistedSelectionError);
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(storedCredentials);
+            mockPlexAuth.storeCredentials.mockImplementation(() => { throw persistedSelectionError; });
 
             try {
                 await expect(orchestrator.selectServer('server-1')).rejects.toBe(persistedSelectionError);
@@ -1266,7 +1266,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             mockPlexDiscovery.captureSelectedServerSnapshot.mockReturnValue(discoverySnapshot);
             mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
             mockPlexDiscovery.getServerUri.mockReturnValue('http://next.example');
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(storedCredentials);
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(storedCredentials);
 
             try {
                 await expect(orchestrator.selectServer('server-1')).rejects.toBe(resumeError);
@@ -1303,7 +1303,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 serverId: 'server-123',
                 serverUri: 'http://example',
             };
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(storedCredentials);
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(storedCredentials);
 
             await orchestrator.clearSelectedServer();
 
@@ -1319,8 +1319,8 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         it('propagates selected-server clear persistence failures without clearing discovery selection', async () => {
             const persistenceError = new Error('store failed');
             await orchestrator.initialize(mockConfig);
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
-            mockPlexAuth.storeCredentials.mockRejectedValueOnce(persistenceError);
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.storeCredentials.mockImplementationOnce(() => { throw persistenceError; });
 
             await expect(orchestrator.clearSelectedServer()).rejects.toBe(persistenceError);
 
@@ -1332,7 +1332,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
     describe('schedule day rollover', () => {
         it('clears the selected-channel snapshot and rebuilds the active schedule before refreshing EPG schedules on day rollover', async () => {
             await orchestrator.initialize(mockConfig);
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
             await orchestrator.start();
@@ -1409,7 +1409,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 });
 
             try {
-                mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+                mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
                 mockPlexAuth.validateToken.mockResolvedValue(true);
                 mockPlexDiscovery.isConnected.mockReturnValue(true);
 
@@ -1516,7 +1516,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 });
 
             try {
-                mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+                mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
                 mockPlexAuth.validateToken.mockResolvedValue(true);
                 mockPlexDiscovery.isConnected.mockReturnValue(true);
 
@@ -1624,7 +1624,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
             await orchestrator.initialize(mockConfig);
 
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(false);
 
@@ -1702,7 +1702,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
     describe('start', () => {
         beforeEach(async () => {
             await orchestrator.initialize(mockConfig);
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue({ kind: 'missing' });
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue({ kind: 'missing' });
         });
 
         it('should initialize modules in correct phase order', async () => {
@@ -1722,7 +1722,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 initOrder.push('plex-discovery');
             });
 
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('test-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('test-token'));
 
             await orchestrator.start();
 
@@ -1748,7 +1748,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('routes corrupted stored credentials to auth without token validation', async () => {
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue({
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue({
                 kind: 'corrupted',
                 reason: 'invalid-json',
             });
@@ -1760,7 +1760,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('should validate token and proceed if valid', async () => {
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
 
@@ -1774,7 +1774,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             const readSpy = jest
                 .spyOn(AudioSettingsStore.prototype, 'readAudioSetupCompleteAndClean')
                 .mockReturnValue(false);
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
@@ -1797,7 +1797,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('should navigate to auth if token invalid', async () => {
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('invalid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('invalid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(false);
 
             await orchestrator.start();
@@ -1806,7 +1806,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('should navigate to server-select if server connection fails', async () => {
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(false);
 
@@ -1816,7 +1816,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('should be ready after successful start', async () => {
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
 
@@ -1832,7 +1832,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 .mockResolvedValue(undefined);
 
             try {
-                mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+                mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
                 mockPlexAuth.validateToken.mockResolvedValue(true);
                 mockPlexDiscovery.isConnected.mockReturnValue(true);
 
@@ -1850,7 +1850,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('should call requestMediaSession once after player initialization', async () => {
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
 
@@ -1875,7 +1875,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('should proceed without auth UI when stored credentials exist', async () => {
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
 
@@ -1887,7 +1887,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('should navigate to channel-setup when channels are empty and setup is missing', async () => {
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
@@ -1906,7 +1906,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('should rerun setup when switching to a new server without setup record', async () => {
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-2' });
@@ -1927,7 +1927,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('should navigate to server-select when auth is valid but no selection restored', async () => {
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(false);
 
@@ -1938,7 +1938,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('should wire scheduler, player, and lifecycle events after start', async () => {
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
 
@@ -2018,7 +2018,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('uses subtitle mode policy to block burn-in subtitle tracks when mode disallows burn-in', async () => {
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
@@ -2048,7 +2048,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('uses subtitle mode policy to allow burn-in subtitle tracks when mode permits burn-in', async () => {
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
@@ -2088,7 +2088,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     preserveDirectPlayPreference: true,
                 }),
             ]);
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
             const program = {
@@ -2142,7 +2142,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('does not force direct-stream fallback when format is unsupported pre-MVP', async () => {
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
 
@@ -2505,7 +2505,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('should allow EPG while Now Playing modal is open and back should not close EPG', async () => {
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
             mockNavigation.isModalOpen.mockReturnValue(true);
@@ -2663,7 +2663,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
         it('refreshes schedules when guide density changes while EPG is visible', async () => {
             jest.useFakeTimers();
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
             mockLocalStorage.getItem.mockImplementation((key: string) =>
@@ -2732,7 +2732,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
     describe('Now Playing Info overlay', () => {
         beforeEach(async () => {
             await orchestrator.initialize(mockConfig);
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
             await orchestrator.start();
@@ -3034,7 +3034,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         it('shows warning toast when channel manager emits persistenceWarning', async () => {
             const toastHandler = jest.fn();
             orchestrator.setNowPlayingHandler(toastHandler);
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
             await orchestrator.start();
 
@@ -3279,7 +3279,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 throw new Error('pause cleanup failed');
             });
 
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('valid-token'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
 
             (mockLifecycle.onPause as jest.Mock).mockImplementationOnce(
@@ -3340,7 +3340,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
         it('should set ready to false after shutdown', async () => {
             // First start to set ready
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockResolvedValue(createStoredCredentials('t'));
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('t'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
             await orchestrator.start();

@@ -181,7 +181,9 @@ describe('applyPhase2AuthGatePolicy', () => {
     it('rethrows non-auth failures that happen after token validation succeeds', async () => {
         const error = new Error('storage write failed');
         const inputs = createInputs({
-            storeCredentials: jest.fn().mockRejectedValue(error),
+            storeCredentials: jest.fn(() => {
+                throw error;
+            }),
         });
 
         await expect(applyPolicy(inputs)).rejects.toThrow('storage write failed');

@@ -1,5 +1,8 @@
-import type { PlexServerSelectionFailureReason } from '../../modules/plex/discovery';
-import type { PlexConnection, PlexServer } from '../../modules/plex/discovery/types';
+import type {
+    PlexConnection,
+    PlexServer,
+    PlexServerSelectionFailureReason,
+} from '../../modules/plex/discovery';
 
 export type OrchestratorServerSelectionReadiness = 'ready' | 'startup_pending';
 export type SelectedServerPersistenceResult =

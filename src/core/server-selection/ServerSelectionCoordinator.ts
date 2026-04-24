@@ -27,6 +27,24 @@ export interface ServerSelectionCoordinatorDeps {
 export class ServerSelectionCoordinator {
     constructor(private readonly _deps: ServerSelectionCoordinatorDeps) {}
 
+    private _tryRestoreDiscoverySelectionSnapshot(snapshot: DiscoverySelectedServerSnapshot): void {
+        try {
+            this._deps.restoreDiscoverySelectionSnapshot(snapshot);
+        } catch {
+            // Rollback is best-effort; preserve the original selection failure.
+        }
+    }
+
+    private async _tryRestorePersistedSelectionSnapshot(
+        snapshot: PersistedSelectedServerSnapshot
+    ): Promise<void> {
+        try {
+            await this._deps.restorePersistedSelectionSnapshot(snapshot);
+        } catch {
+            // Rollback is best-effort; preserve the original runtime-resume failure.
+        }
+    }
+
     async selectServer(serverId: string): Promise<OrchestratorServerSelectionResult> {
         const discoverySnapshot = this._deps.captureDiscoverySelectionSnapshot();
         const selectionResult = await this._deps.selectServer(serverId);
@@ -46,19 +64,15 @@ export class ServerSelectionCoordinator {
         try {
             persistedSelection = await this._deps.persistSelection(serverId, selectedServerUri);
         } catch (error) {
-            this._deps.restoreDiscoverySelectionSnapshot(discoverySnapshot);
+            this._tryRestoreDiscoverySelectionSnapshot(discoverySnapshot);
             throw error;
         }
 
         try {
             await this._deps.resumeStartupAfterSelection();
         } catch (error) {
-            this._deps.restoreDiscoverySelectionSnapshot(discoverySnapshot);
-            try {
-                await this._deps.restorePersistedSelectionSnapshot(persistedSelectionSnapshot);
-            } catch {
-                // Preserve the original runtime-resume failure; rollback is best-effort here.
-            }
+            this._tryRestoreDiscoverySelectionSnapshot(discoverySnapshot);
+            await this._tryRestorePersistedSelectionSnapshot(persistedSelectionSnapshot);
             throw error;
         }
 
