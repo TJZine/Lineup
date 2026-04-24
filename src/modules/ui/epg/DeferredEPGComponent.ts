@@ -3,8 +3,8 @@ import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
 import type { ChannelConfig, EPGConfig, EPGEventMap, EPGState, ScheduleWindow, ScheduledProgram } from './types';
 import type { IEPGComponent, IEPGReadinessPort } from './interfaces';
 
-type EpgRuntimeModule = typeof import('./EPGComponent');
-type EpgRuntimeLoader = () => Promise<EpgRuntimeModule>;
+type EPGRuntimeModule = typeof import('./EPGComponent');
+type EPGRuntimeLoader = () => Promise<EPGRuntimeModule>;
 
 type PendingFocusCommand =
     | { kind: 'focusChannel'; channelIndex: number }
@@ -19,7 +19,7 @@ type PendingLibraryTabs = {
 };
 
 export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements IEPGComponent, IEPGReadinessPort {
-    private readonly _loader: EpgRuntimeLoader;
+    private readonly _loader: EPGRuntimeLoader;
     private _runtime: IEPGComponent | null = null;
     private _runtimeLoadPromise: Promise<void> | null = null;
     private _runtimeInitialized = false;
@@ -41,7 +41,7 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
     private _runtimeBridges: Array<() => void> = [];
     private _visibilityRequestId = 0;
 
-    constructor(loader: EpgRuntimeLoader = () => import('./EPGComponent')) {
+    constructor(loader: EPGRuntimeLoader = () => import('./EPGComponent')) {
         super();
         this._loader = loader;
     }
