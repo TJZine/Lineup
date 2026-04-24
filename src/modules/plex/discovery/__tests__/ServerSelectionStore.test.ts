@@ -113,6 +113,26 @@ describe('ServerSelectionStore', () => {
         );
     });
 
+    it('migrates legacy auth_invalid health records to access_denied', () => {
+        mockLocalStorage.setItem(
+            PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY,
+            JSON.stringify({
+                'srv-1': { status: 'auth_invalid', type: 'remote', latencyMs: 25, testedAt: 123 },
+            })
+        );
+
+        const store = new ServerSelectionStore();
+
+        expect(store.readServerHealthMapAndClean()).toEqual({
+            'srv-1': { status: 'access_denied', type: 'remote', latencyMs: 25, testedAt: 123 },
+        });
+        expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY)).toBe(
+            JSON.stringify({
+                'srv-1': { status: 'access_denied', type: 'remote', latencyMs: 25, testedAt: 123 },
+            })
+        );
+    });
+
     it('rejects reserved server ids during normalization and rewrites persisted health state', () => {
         mockLocalStorage.setItem(
             PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY,

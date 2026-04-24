@@ -2156,7 +2156,8 @@ export class AppOrchestrator {
         if (
             mapped === AppErrorCode.AUTH_REQUIRED ||
             mapped === AppErrorCode.AUTH_EXPIRED ||
-            mapped === AppErrorCode.AUTH_INVALID
+            mapped === AppErrorCode.AUTH_INVALID ||
+            mapped === AppErrorCode.ACCESS_DENIED
         ) {
             this.handleGlobalError(
                 {

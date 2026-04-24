@@ -51,13 +51,13 @@ export class ProfileSelectScreen {
     private _errorEl: HTMLElement;
     private _tipEl: HTMLElement;
     private _listEl: HTMLElement;
-	    private _mainButton: HTMLButtonElement;
-	    private _signOutButton: HTMLButtonElement;
-	    private _focusableIds: string[] = [];
-	    private _userButtonIds: string[] = [];
-	    private _showMain = false;
-	    private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
-	    private _isLoading: boolean = false;
+    private _mainButton: HTMLButtonElement;
+    private _signOutButton: HTMLButtonElement;
+    private _focusableIds: string[] = [];
+    private _userButtonIds: string[] = [];
+    private _showMain = false;
+    private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
+    private _isLoading: boolean = false;
 
     private _pinModal: HTMLElement;
     private _pinPromptEl: HTMLElement;
@@ -67,7 +67,12 @@ export class ProfileSelectScreen {
     private _pinDigits: string = '';
     private _pinTargetUser: PlexHomeUser | null = null;
     private _isPinOpen: boolean = false;
+    private _isVisible: boolean = false;
+    private _isDestroyed: boolean = false;
+    private _visibilityGeneration: number = 0;
     private _isSwitching: boolean = false;
+    private _activeLoadGeneration: number | null = null;
+    private _activeSwitchGeneration: number | null = null;
     private _pinJustFilledTimeoutId: ReturnType<typeof setTimeout> | null = null;
     private _pinErrorTimeoutId: ReturnType<typeof setTimeout> | null = null;
     private _idlePromise: Promise<void> = Promise.resolve();
@@ -239,12 +244,16 @@ export class ProfileSelectScreen {
     }
 
     show(): void {
+        if (this._isDestroyed) return;
+        this._isVisible = true;
+        this._visibilityGeneration += 1;
+        const generation = this._visibilityGeneration;
         this._container.style.display = 'flex';
         this._container.classList.add('visible');
         this._setStatus('Loading profiles...', { tone: 'loading' });
         this._clearError();
         this._registerKeyHandler();
-        void this._loadProfiles();
+        void this._loadProfiles(generation);
     }
 
     async whenIdle(): Promise<void> {
@@ -252,20 +261,23 @@ export class ProfileSelectScreen {
     }
 
     destroy(): void {
+        this._isDestroyed = true;
         this.hide();
         this._destroyScreenShell?.();
         this._destroyScreenShell = null;
         this._resolveIdleIfSettled();
     }
 
-	    hide(): void {
-	        this._unregisterFocusables();
-	        this._unregisterKeyHandler();
-	        this._closePinModal();
-	        if (this._pinJustFilledTimeoutId !== null) {
-	            clearTimeout(this._pinJustFilledTimeoutId);
-	            this._pinJustFilledTimeoutId = null;
-	        }
+    hide(): void {
+        this._isVisible = false;
+        this._visibilityGeneration += 1;
+        this._unregisterFocusables();
+        this._unregisterKeyHandler();
+        this._closePinModal();
+        if (this._pinJustFilledTimeoutId !== null) {
+            clearTimeout(this._pinJustFilledTimeoutId);
+            this._pinJustFilledTimeoutId = null;
+        }
         if (this._pinErrorTimeoutId !== null) {
             clearTimeout(this._pinErrorTimeoutId);
             this._pinErrorTimeoutId = null;
@@ -275,10 +287,11 @@ export class ProfileSelectScreen {
         this._resolveIdleIfSettled();
     }
 
-    private async _loadProfiles(): Promise<void> {
-        if (this._isLoading) return;
+    private async _loadProfiles(generation = this._visibilityGeneration): Promise<void> {
+        if (this._isLoading && this._activeLoadGeneration === generation) return;
         this._ensureIdlePromise();
         this._isLoading = true;
+        this._activeLoadGeneration = generation;
         this._listEl.replaceChildren();
         this._userButtonIds = [];
         this._showMain = false;
@@ -288,6 +301,9 @@ export class ProfileSelectScreen {
 
         try {
             const users = await this._ports.getHomeUsers();
+            if (!this._canUpdateUi(generation)) {
+                return;
+            }
             const hasRestrictedProfiles = users.some((user) => user.restricted === true);
             const tipText = hasRestrictedProfiles ? PROFILE_TIP_WITH_RESTRICTED : PROFILE_TIP_DEFAULT;
             this._showMain = users.length <= 1;
@@ -307,18 +323,24 @@ export class ProfileSelectScreen {
             this._setStatus('Select a profile to continue.');
             this._setTip(tipText);
         } catch (error) {
+            if (!this._canUpdateUi(generation)) {
+                return;
+            }
             this._handleError(error, 'Unable to load profiles.');
             this._setStatus('Profile list unavailable.');
             this._setTip('Select "Sign out" to switch accounts, then try again.');
-	        } finally {
-	            this._isLoading = false;
-	            const nav = this._ports.getNavigation();
-	            if (nav?.getCurrentScreen() === 'profile-select') {
-	                this._registerFocusables();
-	            }
-                this._resolveIdleIfSettled();
-	        }
-	    }
+        } finally {
+            if (this._activeLoadGeneration === generation) {
+                this._isLoading = false;
+                this._activeLoadGeneration = null;
+            }
+            const nav = this._ports.getNavigation();
+            if (this._canUpdateUi(generation) && nav?.getCurrentScreen() === 'profile-select') {
+                this._registerFocusables();
+            }
+            this._resolveIdleIfSettled();
+        }
+    }
 
     private _renderUsers(users: PlexHomeUser[]): void {
         this._listEl.replaceChildren();
@@ -405,56 +427,85 @@ export class ProfileSelectScreen {
     }
 
     private async _handleUserSelect(user: PlexHomeUser): Promise<void> {
+        const generation = this._visibilityGeneration;
+        if (!this._canUpdateUi(generation)) return;
         this._clearError();
         if (this._isSwitching) return;
         if (user.protected) {
             this._openPinModal(user);
             return;
         }
-        await this._switchUser(user.id);
+        await this._switchUser(user.id, undefined, generation);
     }
 
     private async _handleUseMainAccount(): Promise<void> {
+        const generation = this._visibilityGeneration;
+        if (!this._canUpdateUi(generation)) return;
         if (this._isSwitching) return;
         this._clearError();
         this._setStatus('Starting Lineup...', { tone: 'loading' });
         this._ensureIdlePromise();
         this._isSwitching = true;
+        this._activeSwitchGeneration = generation;
         try {
             await this._ports.useMainAccountProfile();
             // Clear last-used hint — main account bypasses profile cards.
             this.profileSessionStore.writeLastProfileId(null);
         } catch (error) {
-            this._handleError(error, 'Unable to switch profile.');
+            if (this._canUpdateUi(generation)) {
+                this._handleError(error, 'Unable to switch profile.');
+            }
         } finally {
-            this._isSwitching = false;
+            if (this._activeSwitchGeneration === generation) {
+                this._isSwitching = false;
+                this._activeSwitchGeneration = null;
+            }
             this._resolveIdleIfSettled();
         }
     }
 
     private async _handleSignOut(): Promise<void> {
+        const generation = this._visibilityGeneration;
+        if (!this._canUpdateUi(generation)) return;
         if (this._isSwitching) return;
+        this._clearError();
+        this._setStatus('Signing out...', { tone: 'loading' });
         this._ensureIdlePromise();
         this._isSwitching = true;
+        this._activeSwitchGeneration = generation;
         try {
             await this._ports.signOutPlex();
         } catch (error) {
-            this._handleError(error, 'Unable to sign out.');
+            if (this._canUpdateUi(generation)) {
+                this._handleError(error, 'Unable to sign out.');
+            }
         } finally {
-            this._isSwitching = false;
+            if (this._activeSwitchGeneration === generation) {
+                this._isSwitching = false;
+                this._activeSwitchGeneration = null;
+            }
             this._resolveIdleIfSettled();
         }
     }
 
-    private async _switchUser(userId: string, pin?: string): Promise<boolean> {
+    private async _switchUser(
+        userId: string,
+        pin?: string,
+        generation = this._visibilityGeneration
+    ): Promise<boolean> {
+        if (!this._canUpdateUi(generation)) return false;
         this._setStatus('Starting Lineup...', { tone: 'loading' });
         this._ensureIdlePromise();
         this._isSwitching = true;
+        this._activeSwitchGeneration = generation;
         try {
             await this._ports.switchHomeUser(userId, pin);
             this.profileSessionStore.writeLastProfileId(userId);
             return true;
         } catch (error) {
+            if (!this._canUpdateUi(generation)) {
+                return false;
+            }
             if (error instanceof PlexApiError) {
                 if (pin && error.code === AppErrorCode.AUTH_FAILED) {
                     this._handlePinError('Wrong PIN. Try again.');
@@ -472,12 +523,16 @@ export class ProfileSelectScreen {
             this._handleError(error, 'Unable to switch profile.');
             return false;
         } finally {
-            this._isSwitching = false;
+            if (this._activeSwitchGeneration === generation) {
+                this._isSwitching = false;
+                this._activeSwitchGeneration = null;
+            }
             this._resolveIdleIfSettled();
         }
     }
 
     private _openPinModal(user: PlexHomeUser): void {
+        if (!this._canUpdateUi()) return;
         const nav = this._ports.getNavigation();
         if (!nav || this._isPinOpen) return;
 
@@ -557,17 +612,19 @@ export class ProfileSelectScreen {
 
     private async _submitPin(): Promise<void> {
         if (!this._pinTargetUser) return;
+        const generation = this._visibilityGeneration;
         const pinToSubmit = this._pinDigits;
         this._pinDigits = '';
         this._renderPinSlots();
         this._pinErrorEl.textContent = '';
-        const ok = await this._switchUser(this._pinTargetUser.id, pinToSubmit);
-        if (ok) {
+        const ok = await this._switchUser(this._pinTargetUser.id, pinToSubmit, generation);
+        if (ok && this._canUpdateUi(generation)) {
             this._closePinModal();
         }
     }
 
     private _handlePinError(message: string): void {
+        if (!this._canUpdateUi()) return;
         this._pinErrorEl.textContent = message;
         this._pinDigits = '';
         this._renderPinSlots();
@@ -586,10 +643,19 @@ export class ProfileSelectScreen {
     }
 
     private _hasPendingUiWork(): boolean {
-        return this._isLoading
-            || this._isSwitching
+        const generation = this._visibilityGeneration;
+        return (this._isLoading && this._activeLoadGeneration === generation)
+            || (this._isSwitching && this._activeSwitchGeneration === generation)
             || this._pinJustFilledTimeoutId !== null
             || this._pinErrorTimeoutId !== null;
+    }
+
+    private _canUpdateUi(generation = this._visibilityGeneration): boolean {
+        return this._isVisible
+            && !this._isDestroyed
+            && generation === this._visibilityGeneration
+            && this._container.classList.contains('visible')
+            && this._container.style.display !== 'none';
     }
 
     private _ensureIdlePromise(): void {
@@ -690,9 +756,9 @@ export class ProfileSelectScreen {
         });
     }
 
-	    private _registerFocusables(): void {
-	        const nav = this._ports.getNavigation();
-	        if (!nav) return;
+    private _registerFocusables(): void {
+        const nav = this._ports.getNavigation();
+        if (!nav) return;
 
         const showMain = this._showMain;
         const focusableIds = [
@@ -707,7 +773,7 @@ export class ProfileSelectScreen {
         const userCount = this._userButtonIds.length;
         const firstActionId = showMain ? this._mainButton.id : this._signOutButton.id;
 
-	        focusableIds.forEach((id, index) => {
+        focusableIds.forEach((id, index) => {
             const element = document.getElementById(id);
             if (!element) return;
 
@@ -752,16 +818,16 @@ export class ProfileSelectScreen {
                 focusable.restorePriority = Math.max(0, 1000 - userIndex);
             }
             nav.registerFocusable(focusable);
-	        });
+        });
 
-	        const preferredId = this._userButtonIds[0] ?? (showMain ? this._mainButton.id : this._signOutButton.id);
-	        if (nav.restoreFocusForCurrentScreen()) {
-	            return;
-	        }
-	        if (preferredId) {
-	            nav.setFocus(preferredId, { persist: false });
-	        }
-	    }
+        const preferredId = this._userButtonIds[0] ?? (showMain ? this._mainButton.id : this._signOutButton.id);
+        if (nav.restoreFocusForCurrentScreen()) {
+            return;
+        }
+        if (preferredId) {
+            nav.setFocus(preferredId, { persist: false });
+        }
+    }
 
     private _unregisterFocusables(): void {
         const nav = this._ports.getNavigation();
@@ -805,9 +871,9 @@ export class ProfileSelectScreen {
         this._navKeyHandler = null;
     }
 
-	    private _buildUserButtonIds(userIds: string[]): string[] {
-	        return buildDeterministicButtonIds('btn-profile-', userIds);
-	    }
+    private _buildUserButtonIds(userIds: string[]): string[] {
+        return buildDeterministicButtonIds('btn-profile-', userIds);
+    }
 
     private _setStatus(message: string, options?: { tone?: ScreenTone; ariaLive?: ScreenStatus['ariaLive'] }): void {
         if (this._shellSetStatus) {

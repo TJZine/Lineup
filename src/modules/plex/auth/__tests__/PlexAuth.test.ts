@@ -664,7 +664,7 @@ describe('PlexAuth', () => {
         it('should return missing when no credentials stored', async () => {
             const auth = new PlexAuth(mockConfig);
 
-            const result = await auth.readStoredCredentialsAndClearCorruption();
+            const result = auth.readStoredCredentialsAndClearCorruption();
 
             expect(result).toEqual({ kind: 'missing' });
         });
@@ -707,7 +707,7 @@ describe('PlexAuth', () => {
             );
 
             const auth = new PlexAuth(mockConfig);
-            const result = await auth.readStoredCredentialsAndClearCorruption();
+            const result = auth.readStoredCredentialsAndClearCorruption();
 
             expect(result.kind).toBe('available');
             if (result.kind !== 'available') return;
@@ -881,7 +881,7 @@ describe('PlexAuth', () => {
             mockLocalStorage.setItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY, '{not-json');
             const auth = new PlexAuth(mockConfig);
 
-            const result = await auth.readStoredCredentialsAndClearCorruption();
+            const result = auth.readStoredCredentialsAndClearCorruption();
 
             expect(result).toEqual({ kind: 'corrupted', reason: 'invalid-json' });
             expect(mockLocalStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBeNull();
@@ -900,7 +900,7 @@ describe('PlexAuth', () => {
             );
             const auth = new PlexAuth(mockConfig);
 
-            const result = await auth.readStoredCredentialsAndClearCorruption();
+            const result = auth.readStoredCredentialsAndClearCorruption();
 
             expect(result).toEqual({ kind: 'corrupted', reason: 'invalid-shape' });
             expect(mockLocalStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBeNull();
@@ -940,7 +940,7 @@ describe('PlexAuth', () => {
             );
             const auth = new PlexAuth(mockConfig);
 
-            const result = await auth.readStoredCredentialsAndClearCorruption();
+            const result = auth.readStoredCredentialsAndClearCorruption();
 
             expect(result).toEqual({ kind: 'corrupted', reason: 'unsupported-version' });
             expect(mockLocalStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBeNull();

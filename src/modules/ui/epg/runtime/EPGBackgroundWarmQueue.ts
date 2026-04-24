@@ -44,6 +44,7 @@ export class EPGBackgroundWarmQueue {
     private _state: BackgroundWarmQueueState | null = null;
     private _timer: ReturnType<typeof setTimeout> | null = null;
     private _idleHandle: number | null = null;
+    private _activeBatchCount: number = 0;
     private _idlePromise: Promise<void> = Promise.resolve();
     private _resolveIdlePromise: (() => void) | null = null;
 
@@ -142,34 +143,40 @@ export class EPGBackgroundWarmQueue {
             if (this._state !== state) {
                 return;
             }
+            this._activeBatchCount += 1;
 
-            const batchSize = Math.max(1, state.concurrency * 2);
-            const batch = state.channels.slice(state.cursor, state.cursor + batchSize);
-            state.cursor += batch.length;
+            try {
+                const batchSize = Math.max(1, state.concurrency * 2);
+                const batch = state.channels.slice(state.cursor, state.cursor + batchSize);
+                state.cursor += batch.length;
 
-            if (batch.length === 0) {
-                this._cancelInternal('warm-queue-complete');
-                return;
-            }
+                if (batch.length === 0) {
+                    this._cancelInternal('warm-queue-complete');
+                    return;
+                }
 
-            let cursor = 0;
-            const workers = Array.from(
-                { length: Math.min(state.concurrency, batch.length) },
-                async () => {
-                    while (true) {
-                        const channel = batch[cursor++];
-                        if (!channel) return;
-                        try {
-                            await state.refreshChannelSchedule(channel);
-                        } catch (error) {
-                            this._reportBatchError(error);
+                let cursor = 0;
+                const workers = Array.from(
+                    { length: Math.min(state.concurrency, batch.length) },
+                    async () => {
+                        while (true) {
+                            const channel = batch[cursor++];
+                            if (!channel) return;
+                            try {
+                                await state.refreshChannelSchedule(channel);
+                            } catch (error) {
+                                this._reportBatchError(error);
+                            }
                         }
                     }
+                );
+                await Promise.all(workers);
+                if (this._state === state) {
+                    this._scheduleNextBatch();
                 }
-            );
-            await Promise.all(workers);
-            if (this._state === state) {
-                this._scheduleNextBatch();
+            } finally {
+                this._activeBatchCount = Math.max(0, this._activeBatchCount - 1);
+                this._resolveIdleIfSettled();
             }
         };
 
@@ -206,7 +213,10 @@ export class EPGBackgroundWarmQueue {
     }
 
     private _isIdle(): boolean {
-        return this._state === null && this._timer === null && this._idleHandle === null;
+        return this._state === null
+            && this._timer === null
+            && this._idleHandle === null
+            && this._activeBatchCount === 0;
     }
 
     private _ensureIdlePromise(): void {
