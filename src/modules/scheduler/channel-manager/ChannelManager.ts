@@ -1375,7 +1375,11 @@ export class ChannelManager implements IChannelManager {
     }
 
     private _validateChannelNumber(number: number): void {
-        if (number < MIN_CHANNEL_NUMBER || number > MAX_CHANNEL_NUMBER) {
+        if (
+            !Number.isInteger(number) ||
+            number < MIN_CHANNEL_NUMBER ||
+            number > MAX_CHANNEL_NUMBER
+        ) {
             throw new Error(CHANNEL_ERROR_MESSAGES.INVALID_CHANNEL_NUMBER);
         }
     }
@@ -1437,7 +1441,11 @@ export class ChannelManager implements IChannelManager {
             contentSource,
         };
 
-        if (typeof record['number'] === 'number' && Number.isFinite(record['number'])) {
+        if (
+            typeof record['number'] === 'number' &&
+            Number.isFinite(record['number']) &&
+            Number.isInteger(record['number'])
+        ) {
             channel.number = record['number'];
         }
         if (typeof record['name'] === 'string') {

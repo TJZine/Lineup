@@ -47,7 +47,7 @@ export const CHANNEL_ERROR_MESSAGES = {
     CHANNEL_NOT_FOUND: 'Channel not found',
     CONTENT_SOURCE_REQUIRED: 'Content source is required',
     MAX_CHANNELS_REACHED: 'Maximum number of channels reached',
-    INVALID_CHANNEL_NUMBER: 'Channel number must be between 1 and 500',
+    INVALID_CHANNEL_NUMBER: 'Channel number must be an integer between 1 and 500',
     DUPLICATE_CHANNEL_NUMBER: 'Channel number already in use',
     INVALID_IMPORT_DATA: 'Import file is invalid',
     EMPTY_CONTENT: 'No playable content found after filtering',

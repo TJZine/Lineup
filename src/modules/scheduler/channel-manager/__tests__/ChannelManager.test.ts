@@ -210,14 +210,23 @@ describe('ChannelManager', () => {
                     number: 0,
                     contentSource: createMockContentSource(),
                 })
-            ).rejects.toThrow('Channel number must be between 1 and 500');
+            ).rejects.toThrow('Channel number must be an integer between 1 and 500');
 
             await expect(
                 manager.createChannel({
                     number: 501,
                     contentSource: createMockContentSource(),
                 })
-            ).rejects.toThrow('Channel number must be between 1 and 500');
+            ).rejects.toThrow('Channel number must be an integer between 1 and 500');
+        });
+
+        it('should throw on fractional channel numbers', async () => {
+            await expect(
+                manager.createChannel({
+                    number: 7.5,
+                    contentSource: createMockContentSource(),
+                })
+            ).rejects.toThrow('Channel number must be an integer between 1 and 500');
         });
 
         it('should emit channelCreated event', async () => {
@@ -272,6 +281,17 @@ describe('ChannelManager', () => {
             expect(updated.totalDurationMs).toBe(channel.totalDurationMs);
             expect(updated.updatedAt).toBeGreaterThanOrEqual(channel.updatedAt);
             expect(updated.name).toBe('Updated');
+        });
+
+        it('should throw when updating to a fractional channel number', async () => {
+            const channel = await manager.createChannel({
+                name: 'Original',
+                contentSource: createMockContentSource(),
+            });
+
+            await expect(
+                manager.updateChannel(channel.id, { number: 7.5 })
+            ).rejects.toThrow('Channel number must be an integer between 1 and 500');
         });
 
         it('should delete channel and emit event', async () => {
@@ -1274,6 +1294,47 @@ describe('ChannelManager', () => {
                 sortOrder: 'title_asc',
                 contentFilters: [{ field: 'year', operator: 'gte', value: 2020 }],
             }));
+        });
+
+        it('omits the entire content filter array during import when any filter is invalid', async () => {
+            const importData = JSON.stringify([
+                {
+                    name: 'Imported Channel',
+                    contentSource: createMockContentSource(),
+                    contentFilters: [
+                        { field: 'year', operator: 'gte', value: 2020 },
+                        { field: 'year', operator: 'definitely', value: 2020 },
+                    ],
+                },
+            ]);
+
+            const result = await manager.importChannels(importData);
+
+            expect(result.success).toBe(true);
+            expect(result.importedCount).toBe(1);
+            expect(result.errors).toHaveLength(0);
+
+            const [channel] = manager.getAllChannels();
+            expect(channel?.contentFilters).toBeUndefined();
+        });
+
+        it('omits fractional channel numbers during import', async () => {
+            const importData = JSON.stringify([
+                {
+                    name: 'Fractional Channel',
+                    number: 7.5,
+                    contentSource: createMockContentSource(),
+                },
+            ]);
+
+            const result = await manager.importChannels(importData);
+
+            expect(result.success).toBe(true);
+            expect(result.importedCount).toBe(1);
+            expect(result.errors).toHaveLength(0);
+
+            const [channel] = manager.getAllChannels();
+            expect(channel?.number).toBe(1);
         });
 
         it('ignores legacy isSequentialVariant when importing channels without canonical playback variant metadata', async () => {
