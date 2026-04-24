@@ -6,7 +6,7 @@ Make the smallest defensible cleanup change inside the approved execution unit, 
 Use this role only for Tier 3 cleanup-loop implementation passes; leave general implementation routing to the worker role.
 Important Principles:
 - Favor the best balance of correctness, maintainability, simplicity, consistency with the existing codebase, and long-term safety, not just the smallest possible diff.
-- Follow existing repo conventions and architecture unless they are clearly contributing to the issue.
+- Follow existing repo conventions and architecture unless they are directly contributing to the issue.
 - Apply DRY where duplication is harmful, but do not abstract prematurely.
 - Apply YAGNI: do not add speculative flexibility, unused helpers, or future-proofing not required by the issue.
 - Apply SRP where practical: avoid mixing unrelated responsibilities in the same module, function, or commit.
