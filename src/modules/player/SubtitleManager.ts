@@ -1,10 +1,3 @@
-/**
- * @fileoverview Subtitle track manager for Video Player.
- * Handles creation and management of text tracks.
- * @module modules/player/SubtitleManager
- * @version 1.0.0
- */
-
 import type { SubtitleFallbackResult, SubtitleTrack } from './types';
 import { BURN_IN_SUBTITLE_FORMATS } from '../../shared/subtitle-formats';
 import { redactSensitiveTokens } from '../../utils/redact';
@@ -44,45 +37,20 @@ function assertNeverSubtitleFallbackFailure(result: never): never {
     throw new Error(`Unhandled subtitle fallback failure kind: ${String(result)}`);
 }
 
-/**
- * Manages subtitle tracks for the video player.
- * Creates and controls HTMLTrackElement instances.
- */
 export class SubtitleManager {
     private readonly _subtitleDebugLogger = new SubtitleDebugLogger({
         scope: 'SubtitleManager',
     });
-    /** Reference to the video element */
     private _videoElement: HTMLVideoElement | null = null;
-
-    /** Currently loaded subtitle tracks */
     private _tracks: SubtitleTrack[] = [];
-
-    /** Map of track IDs to track elements */
     private _trackElements: Map<string, HTMLTrackElement> = new Map();
-
-    /** Currently active track ID */
     private _activeTrackId: string | null = null;
-
-    /** Subtitle fetch context (server + auth headers) */
     private _subtitleContext: SubtitleTrackContext | null = null;
-
-    /** Load token for guarding async work */
     private _loadToken = 0;
-
-    /** Track timers by ID */
     private _trackTimers: Map<string, number[]> = new Map();
-
-    /** Track IDs with fallback in progress */
     private _fallbackInProgress: Set<string> = new Set();
-
-    /** Track IDs that are ready */
     private _readyTracks: Set<string> = new Set();
-
-    /** Blob URLs created for fallback tracks */
     private _blobUrls: Map<string, string> = new Map();
-
-    /** Abort controllers for subtitle fetches */
     private _fallbackControllers: Map<string, AbortController> = new Map();
     private readonly _subtitleService: PlatformSubtitleService;
 
@@ -114,18 +82,12 @@ export class SubtitleManager {
         return result;
     }
 
-    /**
-     * Initialize the subtitle manager with a video element.
-     * @param videoElement - The video element to manage subtitles for
-     */
     public initialize(videoElement: HTMLVideoElement): void {
         this._videoElement = videoElement;
     }
 
     /**
      * Load subtitle tracks for the current media.
-     * Creates track elements for text-based formats.
-     * @param tracks - Array of subtitle tracks to load
      * @returns Array of track IDs that require burn-in
      */
     public loadTracks(tracks: SubtitleTrack[], context?: SubtitleTrackContext): string[] {
@@ -133,7 +95,6 @@ export class SubtitleManager {
             return [];
         }
 
-        // Clear any existing tracks
         this.unloadTracks();
 
         this._subtitleContext = context ?? null;
@@ -204,13 +165,9 @@ export class SubtitleManager {
         return burnInRequired;
     }
 
-    /**
-     * Unload all subtitle tracks.
-     */
     public unloadTracks(): void {
         this._loadToken += 1;
         this._clearPendingTrackState();
-        // Remove track elements from DOM
         for (const element of this._trackElements.values()) {
             element.remove();
         }
@@ -221,10 +178,6 @@ export class SubtitleManager {
         this._subtitleContext = null;
     }
 
-    /**
-     * Set the active subtitle track.
-     * @param trackId - Track ID to activate, null to disable all
-     */
     public setActiveTrack(trackId: string | null): void {
         if (!this._videoElement) {
             return;
@@ -275,42 +228,22 @@ export class SubtitleManager {
         }));
     }
 
-    /**
-     * Get the currently active track ID.
-     * @returns Active track ID or null
-     */
     public getActiveTrackId(): string | null {
         return this._activeTrackId;
     }
 
-    /**
-     * Get all loaded subtitle tracks.
-     * @returns Array of subtitle tracks
-     */
     public getTracks(): SubtitleTrack[] {
         return [...this._tracks];
     }
 
-    /**
-     * Check if a format requires burn-in.
-     * @param format - Subtitle format
-     * @returns true if format requires burn-in
-     */
     public requiresBurnIn(format: string): boolean {
         return this._requiresBurnIn(format);
     }
 
-    /**
-     * Destroy the subtitle manager.
-     */
     public destroy(): void {
         this.unloadTracks();
         this._videoElement = null;
     }
-
-    // ========================================
-    // Private Methods
-    // ========================================
 
     private _clearPendingTrackState(): void {
         for (const timers of this._trackTimers.values()) {
@@ -700,11 +633,6 @@ export class SubtitleManager {
         }
     }
 
-    /**
-     * Create a track element for a subtitle track.
-     * @param track - Subtitle track info
-     * @returns HTMLTrackElement
-     */
     private _createTrackElement(track: SubtitleTrack, src: string): HTMLTrackElement {
         const trackElement = document.createElement('track');
         trackElement.id = track.id;
@@ -730,11 +658,6 @@ export class SubtitleManager {
         return trackElement;
     }
 
-    /**
-     * Check if a format requires burn-in (cannot be rendered natively).
-     * @param format - Subtitle format
-     * @returns true if format requires burn-in
-     */
     private _requiresBurnIn(format: string): boolean {
         const normalizedFormat = format.toLowerCase();
         return BURN_IN_SUBTITLE_FORMATS.includes(normalizedFormat);

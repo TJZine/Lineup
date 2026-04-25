@@ -1,42 +1,18 @@
-/**
- * @fileoverview Retry manager for video playback errors.
- * Handles retry scheduling with exponential backoff.
- * @module modules/player/RetryManager
- * @version 1.0.0
- */
-
 import type { StreamDescriptor, PlaybackError } from './types';
 import { MAX_RETRY_ATTEMPTS, RETRY_BASE_DELAY_MS, SYNTHETIC_MEDIA_ERROR_CODE_KEY } from './constants';
 import { mapMediaErrorCodeToPlaybackError } from './ErrorHandler';
 
-/**
- * Manages retry logic for video playback with exponential backoff.
- */
 export class RetryManager {
-    /** Current retry count */
     private _retryCount = 0;
-
-    /** Retry timer ID */
     private _retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-    /** Metadata wait timeout ID (for _retryPlayback) */
     private _metadataTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    /** Video element reference */
     private _videoElement: HTMLVideoElement | null = null;
-
-    /** Current stream descriptor */
     private _descriptor: StreamDescriptor | null = null;
-
-    /** Config retry delay */
     private _configRetryDelayMs: number = RETRY_BASE_DELAY_MS;
-
-    /** Config retry attempts */
     private _configRetryAttempts: number = MAX_RETRY_ATTEMPTS;
 
-    /**
-     * Initialize the retry manager.
-     */
     public initialize(
         videoElement: HTMLVideoElement,
         configRetryAttempts?: number,
@@ -47,16 +23,10 @@ export class RetryManager {
         this._configRetryDelayMs = configRetryDelayMs ?? RETRY_BASE_DELAY_MS;
     }
 
-    /**
-     * Set current descriptor for retry.
-     */
     public setDescriptor(descriptor: StreamDescriptor | null): void {
         this._descriptor = descriptor;
     }
 
-    /**
-     * Get current retry count.
-     */
     public getRetryCount(): number {
         return this._retryCount;
     }
@@ -83,17 +53,11 @@ export class RetryManager {
         return playbackError;
     }
 
-    /**
-     * Reset retry state.
-     */
     public reset(): void {
         this._retryCount = 0;
         this.clear();
     }
 
-    /**
-     * Clear pending retry timer.
-     */
     public clear(): void {
         if (this._retryTimer) {
             clearTimeout(this._retryTimer);
@@ -105,9 +69,6 @@ export class RetryManager {
         }
     }
 
-    /**
-     * Destroy the manager.
-     */
     public destroy(): void {
         this.clear();
         this._videoElement = null;
@@ -115,13 +76,6 @@ export class RetryManager {
         this._retryCount = 0;
     }
 
-    // ========================================
-    // Private Methods
-    // ========================================
-
-    /**
-     * Schedule a retry after delay.
-     */
     private _scheduleRetry(delayMs: number): void {
         this.clear();
         this._retryCount++;
