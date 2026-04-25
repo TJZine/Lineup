@@ -415,4 +415,8 @@ export async function cleanupAndUninstallLineupBootstrap(): Promise<void> {
     }
 }
 
-export { app, bootstrap, cleanup };
+export function getLineupApp(): App | null {
+    return app;
+}
+
+export { bootstrap, cleanup };

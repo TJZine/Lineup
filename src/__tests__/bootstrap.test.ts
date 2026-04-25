@@ -132,7 +132,7 @@ const importBootstrapModule = async (options?: {
 
 const expectBootstrapFailureState = (module: BootstrapModule): void => {
     expect(document.querySelectorAll('#global-error-overlay')).toHaveLength(1);
-    expect(module.app).toBeNull();
+    expect(module.getLineupApp()).toBeNull();
     expect((window as LineupWindow).__LINEUP__).toBeUndefined();
 };
 
@@ -308,7 +308,7 @@ describe('bootstrap seam', () => {
         const { module } = await importBootstrapModule({ shutdown, expectLifecycleSuccess: false });
 
         await expect(module.cleanup()).rejects.toThrow('shutdown failed');
-        expect(module.app).toBeNull();
+        expect(module.getLineupApp()).toBeNull();
         expect((window as LineupWindow).__LINEUP__).toBeUndefined();
     });
 

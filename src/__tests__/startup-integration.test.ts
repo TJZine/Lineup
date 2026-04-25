@@ -45,7 +45,7 @@ const setDocumentReadyState = (value: DocumentReadyState): void => {
 const waitForBoot = async (module: BootstrapModule): Promise<void> => {
     for (let i = 0; i < 50; i += 1) {
         await flushPromisesAndMacrotask();
-        if (module.app?.getOrchestrator()) {
+        if (module.getLineupApp()?.getOrchestrator()) {
             return;
         }
     }
@@ -56,7 +56,7 @@ const waitForBoot = async (module: BootstrapModule): Promise<void> => {
 const waitForUnauthenticatedAuthGate = async (module: BootstrapModule): Promise<void> => {
     for (let i = 0; i < 50; i += 1) {
         await flushPromisesAndMacrotask();
-        const orchestrator = module.app?.getOrchestrator() ?? null;
+        const orchestrator = module.getLineupApp()?.getOrchestrator() ?? null;
         if (!orchestrator) continue;
 
         const moduleStatus = orchestrator.getModuleStatus();
@@ -122,9 +122,9 @@ describe('startup integration', () => {
         await waitForBoot(module);
         await waitForUnauthenticatedAuthGate(module);
 
-        expect(module.app).not.toBeNull();
+        expect(module.getLineupApp()).not.toBeNull();
 
-        const orchestrator = module.app?.getOrchestrator() ?? null;
+        const orchestrator = module.getLineupApp()?.getOrchestrator() ?? null;
         expect(orchestrator).not.toBeNull();
 
         const moduleStatus = orchestrator?.getModuleStatus();
@@ -145,7 +145,7 @@ describe('startup integration', () => {
 
         await module.cleanupAndUninstallLineupBootstrap();
 
-        expect(module.app).toBeNull();
+        expect(module.getLineupApp()).toBeNull();
         expect((window as LineupWindow).__LINEUP__).toBeUndefined();
     });
 });
