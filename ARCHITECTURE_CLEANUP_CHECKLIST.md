@@ -15,11 +15,11 @@ architecture or workflow document.
 
 ## Fresh-Session Handoff
 
-- Current execution state: P0-P11 are complete and archived; P12 work packages
-  are complete, and `P12-EXIT` is blocked on the final scan guard.
-- Next safe start: resolve `P12-EXIT` by clearing the five subjective
-  reassessment placeholders or getting maintainer approval for the
-  `desloppify scan --force-rescan` path.
+- Current execution state: P0-P12 are complete; `P12-EXIT` closed after the
+  final integration-branch Desloppify scan on `2026-04-25`.
+- Next safe start: use the post-P12 scan and refreshed subjective review output
+  to plan a future checklist priority. Do not treat the P12 strategize findings
+  as direct source-fix instructions without fresh owner/verification planning.
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration.
 - First action at package start: for new checklist-linked work, planning only;
   create the package-local execution-grade plan before implementation.
@@ -33,33 +33,48 @@ architecture or workflow document.
 
 ## Current Evidence Snapshot
 
-Source: trusted internal subjective review run
-`.desloppify/subagents/runs/20260424_185104/holistic_issues_merged.json`,
-follow-up `desloppify scan --path .`, and local queue reads on `2026-04-24`.
+Source: trusted internal subjective review runs
+`.desloppify/subagents/runs/20260425_182437`,
+`.desloppify/subagents/runs/20260425_182908`, and
+`.desloppify/subagents/runs/20260425_184236`, plus
+`.desloppify/subagents/runs/20260425_184735`; final integration-branch
+`desloppify scan --path .`; local queue/status reads on `2026-04-25`.
 
-- Imported review result: `27` new review issues, `56` resolved, `0` reopened.
-- Living plan result: `30` planned review work items; `36` stale review work
-  items removed; `15` covered subjective queue items removed.
-- Current queue read: `desloppify plan queue --sort recent` reports `5`
-  subjective reassessment placeholders, not direct implementation packages.
-- Current direct review read: `desloppify show review --status open --no-budget
-  --top 80` reports no open `review` detector rows, while `desloppify plan`
-  still lists the `30` planned review items. Treat the P12 companion map as the
-  exact checklist scope until the next authoritative scan/plan sync proves a
-  different state.
-- Scores after the follow-up scan: overall `85.8`, objective `96.8`, strict
-  `85.8`, verified `96.8`.
-- Mechanical pool: `96.8%`; subjective pool: `82.1%`.
-- Largest weighted subjective drags: high elegance `76.0`, design coherence
-  `64.0`, mid elegance `84.0`, abstraction fit `78.0`, contracts `88.0`.
-- Security: `100.0`, no open security issues in the pasted scan output.
+- Final scan result: `desloppify scan --path .` completed successfully at
+  `2026-04-25T18:52:09+00:00` with `272` total scan issues and no active
+  scan-blocking queue.
+- Final scores: overall `88.0`, objective `95.7`, strict `87.9`, verified
+  `95.7`; strict remains above the `85.0` target.
+- Current queue read after post-scan deferral: `desloppify next` reports
+  `Queue: 0 items` and `Nothing to do! Strict score: 87.9/100`.
+- Direct review read: `desloppify show review --status open --no-budget --top
+  120` reports no active open `review` detector rows, while `desloppify status`
+  records `5` untriaged review work items from the final five-dimension
+  subjective pass. Treat those rows as future checklist input, not P12 source
+  work.
+- Security read: `desloppify show security --status open --no-budget --top 50`
+  reports three import-cycle rows, not security-vulnerability rows:
+  channel-setup facet snapshot loader/session, channel-setup planner/strategy
+  builders, and navigation channel-number/router cycle.
+- Biggest weighted drags in the final scan: mid elegance `82.0`, design
+  coherence `73.0`, high elegance `88.0`, low elegance `84.0`, contracts
+  `88.0`.
+- Real future-work candidates identified by refreshed review output include
+  profile-select CSS shard consistency, bootstrap live app singleton exposure,
+  EPGVirtualizer render-context closure complexity, channel-setup workflow
+  contract ownership, AppLifecycle operational concern mixing, AppOrchestrator
+  runtime hub breadth, Plex library/error/URL contract seams, and stale
+  architecture-doc channel-setup owner paths. The final five-dimension pass
+  additionally surfaced navigation helper/coordinator import coupling,
+  EPG background warm queue scheduling breadth, duplicate core/UI channel setup
+  workflow-port contracts, EPGVirtualizer DOM-budget closure complexity, and
+  `bootstrap.ts` live mutable app lifecycle export. These are not P12 blockers;
+  they need fresh owner/verification planning before any P13-style execution.
 
-Score interpretation: the `-0.1` strict drop is not evidence that the P11 fixes
-regressed the code. The newer `gpt-5.5` review surfaced a more current
-subjective backlog and removed stale review rows at the same time. The active
-cleanup question is now whether the 30 imported issues represent worthwhile
-current-source work; the package map below keeps only those issue ids as P12
-scope.
+Score interpretation: P12 is closed with strict `87.9`, but Desloppify still
+shows a score plateau and points to design coherence as the next breakthrough
+area. The refreshed review output should seed future checklist planning, not
+retroactively reopen completed P12 packages.
 
 ## Operating Contract
 
@@ -435,7 +450,7 @@ The active P12 exact membership surface is
   maintainer-approved force-rescan decision.
 - Handoff: resolve the `desloppify scan` guard, then close `P12-EXIT`.
 
-- [ ] `P12-EXIT`
+- [x] `P12-EXIT`
 
 - Close only if: every P12 review issue has one checklist owner, every absorbed
   mechanical hotspot has one exact owner or explicit disposition, the P12
@@ -450,23 +465,26 @@ The active P12 exact membership surface is
   - rerun each completed package's local scoping commands
   - `npm run verify`
   - `npm run verify:docs`
-- Status: blocked
+- Status: completed
 - Plan: local-only P12-W5 closeout evidence; no tracked plan promoted
 - Last touched: 2026-04-25
-- Verification: `desloppify scan --path .` was attempted and blocked by the
-  tool's mid-cycle guard because five subjective reassessment placeholders
-  remain; `desloppify status` passed and recorded overall `85.7`, strict
-  `85.7`, objective `96.7`, and verified `96.7`; `desloppify plan queue --sort
-  recent` reported five subjective reassessment placeholders; `desloppify show
-  review --status open --no-budget --top 120` returned no open `review`
-  detector rows; `desloppify show security --status open --no-budget --top 50`
-  returned two non-security import-cycle rows in channel-setup planning; P12-W5
-  package-local commands and `npm run verify` passed.
-- Follow-ups: final P12 scan/exit owner is `P12-EXIT`; resolve whether to clear
-  the five subjective placeholders first or run the force-rescan command with
-  maintainer approval, then record the final scan delta and close `P12-EXIT`.
-- Handoff: do not start P13 work until `P12-EXIT` has a completed final scan and
-  exit record.
+- Verification: `desloppify scan --path .` completed successfully after the
+  final five-dimension subjective pass; `desloppify status` recorded overall
+  `88.0`, strict `87.9`, objective `95.7`, and
+  verified `95.7`; `desloppify plan queue --sort recent --include-skipped --top
+  80` and `desloppify next` showed no active queue items after temporary
+  deferral of future-work review prompts; `desloppify show review --status open
+  --no-budget --top 120` returned no active open review rows but `desloppify
+  status` recorded `5` untriaged future-work review items; `desloppify show
+  security --status open --no-budget --top 50` returned three non-security
+  import-cycle rows; P12-W5 package-local commands and `npm run verify` passed
+  before this exit, and this docs closeout requires `npm run verify:docs`.
+- Follow-ups: use the final scan's structural/security-cycle rows and refreshed
+  review candidates as future checklist planning input. Do not start source
+  work from the skipped review prompts without a new checklist owner and
+  verification plan.
+- Handoff: P12 is closed. Future cleanup planning may start from the final scan
+  evidence and refreshed review candidates.
 
 ## Not Active Checklist Scope By Default
 
