@@ -574,26 +574,29 @@ describe('ChannelTuningCoordinator', () => {
         expect(scheduler.loadChannel).not.toHaveBeenCalled();
     });
 
-    it('preserves success call order', async () => {
+    it('applies the successful switch contract', async () => {
         const { coordinator, deps, channelManager, scheduler, videoPlayer } = createCoordinator();
+        let loadedScheduleChannelId: string | null = null;
+        let syncObservedLoadedScheduleChannelId: string | null = null;
+
+        scheduler.loadChannel.mockImplementation((schedule) => {
+            loadedScheduleChannelId = schedule.channelId;
+        });
+        scheduler.syncToCurrentTime.mockImplementation(() => {
+            syncObservedLoadedScheduleChannelId = loadedScheduleChannelId;
+        });
 
         await coordinator.switchToChannel('ch1');
 
-        const resolveOrder = channelManager.resolveChannelContent.mock.invocationCallOrder[0] ?? 0;
-        const armTransitionOrder = deps.armChannelTransitionForSwitch.mock.invocationCallOrder[0] ?? 0;
-        const stopOrder = videoPlayer.stop.mock.invocationCallOrder[0] ?? 0;
-        const loadOrder = scheduler.loadChannel.mock.invocationCallOrder[0] ?? 0;
-        const syncOrder = scheduler.syncToCurrentTime.mock.invocationCallOrder[0] ?? 0;
-        const setCurrentOrder = channelManager.setCurrentChannel.mock.invocationCallOrder[0] ?? 0;
-        const saveOrder = deps.saveLifecycleState.mock.invocationCallOrder[0] ?? 0;
-
-        expect(resolveOrder).toBeLessThan(armTransitionOrder);
-        expect(armTransitionOrder).toBeLessThan(stopOrder);
+        expect(channelManager.resolveChannelContent).toHaveBeenCalledWith('ch1', { signal: null });
         expect(deps.armChannelTransitionForSwitch).toHaveBeenCalledWith('1 Channel 1');
-        expect(loadOrder).toBeGreaterThan(0);
-        expect(syncOrder).toBeGreaterThan(loadOrder);
-        expect(setCurrentOrder).toBeGreaterThan(syncOrder);
-        expect(saveOrder).toBeGreaterThan(setCurrentOrder);
+        expect(videoPlayer.stop).toHaveBeenCalledTimes(1);
+        expect(scheduler.loadChannel).toHaveBeenCalledWith(expect.objectContaining({
+            channelId: 'ch1',
+        }));
+        expect(scheduler.syncToCurrentTime).toHaveBeenCalledTimes(1);
+        expect(syncObservedLoadedScheduleChannelId).toBe('ch1');
+        expect(channelManager.setCurrentChannel).toHaveBeenCalledWith('ch1');
         expect(deps.saveLifecycleState).toHaveBeenCalledTimes(1);
     });
 

@@ -66,6 +66,7 @@ export class AppLifecycle implements IAppLifecycle {
     private _pendingSaveWaiters: PendingSaveWaiter[] = [];
     private _nextPersistenceWarningAt: number = 0;
     private _persistenceWarningBackoffMs: number = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
+    private _pendingTransition: Promise<void> = Promise.resolve();
 
     // Idempotency guards (ISSUE-003)
     private _initialized: boolean = false;
@@ -345,17 +346,35 @@ export class AppLifecycle implements IAppLifecycle {
      * @param phase - New phase
      */
     public setPhase(phase: AppPhase): void {
-        // Synchronous validation to catch invalid transitions immediately
+        this._trackPendingTransition(this._setPhaseAndTrack(phase));
+    }
+
+    public async setPhaseAndWait(phase: AppPhase): Promise<boolean> {
+        const transition = this._setPhaseAndTrack(phase);
+        this._trackPendingTransition(transition);
+        return transition;
+    }
+
+    public waitForPendingTransition(): Promise<void> {
+        return this._pendingTransition;
+    }
+
+    private _setPhaseAndTrack(phase: AppPhase): Promise<boolean> {
         const validTransitions = VALID_PHASE_TRANSITIONS[this._phase];
         if (validTransitions && !validTransitions.includes(phase)) {
-            // Log invalid transition attempt for debugging
             console.warn(
                 `[AppLifecycle] Invalid phase transition: ${this._phase} -> ${phase}`
             );
-            return;
+            return Promise.resolve(false);
         }
-        // Delegate to the async version (now validated)
-        this._transitionPhase(phase);
+        return this._transitionPhase(phase);
+    }
+
+    private _trackPendingTransition(transition: Promise<unknown>): void {
+        this._pendingTransition = transition.then(
+            () => undefined,
+            () => undefined
+        );
     }
 
     /**
@@ -406,7 +425,7 @@ export class AppLifecycle implements IAppLifecycle {
 
         // Set phase to error if not already
         if (this._phase !== 'error' && this._phase !== 'terminating') {
-            this._transitionPhase('error');
+            this._trackPendingTransition(this._transitionPhase('error'));
         }
 
         this._emitter.emit('error', lifecycleError);
@@ -444,17 +463,14 @@ export class AppLifecycle implements IAppLifecycle {
     private _setupVisibilityListeners(): void {
         // Standard visibility API
         this._visibilityHandler = (): void => {
-            if (document.hidden) {
-                this._handlePause();
-            } else {
-                this._handleResume();
-            }
+            const transition = document.hidden ? this._handlePause() : this._handleResume();
+            this._trackPendingTransition(transition);
         };
         document.addEventListener('visibilitychange', this._visibilityHandler);
 
         // webOS relaunch event
         const relaunchHandler = (_event: Event): void => {
-            this._handleResume();
+            this._trackPendingTransition(this._handleResume());
         };
         this._webOSRelaunchDisposer = this._lifecycleService.bindRelaunch(relaunchHandler);
     }
