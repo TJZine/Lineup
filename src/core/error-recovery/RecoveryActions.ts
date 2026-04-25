@@ -131,6 +131,8 @@ const RECOVERY_GROUP_BY_ERROR_CODE: Record<AppErrorCode, RecoveryActionGroupId> 
     [AppErrorCode.RESOURCE_NOT_FOUND]: 'content',
     [AppErrorCode.STORAGE_QUOTA_EXCEEDED]: 'storage',
     [AppErrorCode.STORAGE_CORRUPTED]: 'storage',
+    [AppErrorCode.STORAGE_VALIDATION_FAILED]: 'storage',
+    [AppErrorCode.PERSISTENCE_FALLBACK]: 'storage',
     [AppErrorCode.DATA_CORRUPTION]: 'storage',
     [AppErrorCode.INITIALIZATION_FAILED]: 'startup',
     [AppErrorCode.MODULE_INIT_FAILED]: 'startup',
@@ -145,6 +147,12 @@ const RECOVERY_GROUP_BY_ERROR_CODE: Record<AppErrorCode, RecoveryActionGroupId> 
     [AppErrorCode.NAV_BOUNDARY]: 'dismiss',
     [AppErrorCode.SCROLL_TIMEOUT]: 'dismiss',
     [AppErrorCode.POOL_EXHAUSTED]: 'dismiss',
+    [AppErrorCode.CHANNEL_CONTENT_SOURCE_REQUIRED]: 'dismiss',
+    [AppErrorCode.MAX_CHANNELS_REACHED]: 'dismiss',
+    [AppErrorCode.DUPLICATE_CHANNEL_NUMBER]: 'dismiss',
+    [AppErrorCode.INVALID_CHANNEL_NUMBER]: 'dismiss',
+    [AppErrorCode.INVALID_IMPORT_DATA]: 'dismiss',
+    [AppErrorCode.CHANNEL_MANAGER_DISPOSED]: 'dismiss',
     [AppErrorCode.UNKNOWN]: 'dismiss',
 };
 

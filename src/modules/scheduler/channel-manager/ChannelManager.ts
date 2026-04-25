@@ -161,8 +161,64 @@ function getHttpStatusForLog(error: unknown): number | undefined {
     return undefined;
 }
 
-function createUnknownChannelError(message: string, recoverable = false): ChannelError {
-    return new ChannelError(AppErrorCode.UNKNOWN, message, recoverable);
+function createChannelNotFoundError(): ChannelError {
+    return new ChannelError(
+        AppErrorCode.CHANNEL_NOT_FOUND,
+        CHANNEL_ERROR_MESSAGES.CHANNEL_NOT_FOUND,
+        false
+    );
+}
+
+function createChannelContentSourceRequiredError(): ChannelError {
+    return new ChannelError(
+        AppErrorCode.CHANNEL_CONTENT_SOURCE_REQUIRED,
+        CHANNEL_ERROR_MESSAGES.CONTENT_SOURCE_REQUIRED,
+        false
+    );
+}
+
+function createMaxChannelsReachedError(): ChannelError {
+    return new ChannelError(
+        AppErrorCode.MAX_CHANNELS_REACHED,
+        CHANNEL_ERROR_MESSAGES.MAX_CHANNELS_REACHED,
+        false
+    );
+}
+
+function createDuplicateChannelNumberError(): ChannelError {
+    return new ChannelError(
+        AppErrorCode.DUPLICATE_CHANNEL_NUMBER,
+        CHANNEL_ERROR_MESSAGES.DUPLICATE_CHANNEL_NUMBER,
+        false
+    );
+}
+
+function createInvalidChannelNumberError(): ChannelError {
+    return new ChannelError(
+        AppErrorCode.INVALID_CHANNEL_NUMBER,
+        CHANNEL_ERROR_MESSAGES.INVALID_CHANNEL_NUMBER,
+        false
+    );
+}
+
+function createInvalidImportDataError(): ChannelError {
+    return new ChannelError(
+        AppErrorCode.INVALID_IMPORT_DATA,
+        CHANNEL_ERROR_MESSAGES.INVALID_IMPORT_DATA,
+        false
+    );
+}
+
+function createStorageValidationError(message: string): ChannelError {
+    return new ChannelError(AppErrorCode.STORAGE_VALIDATION_FAILED, message, false);
+}
+
+function createDisposedError(): ChannelError {
+    return new ChannelError(AppErrorCode.CHANNEL_MANAGER_DISPOSED, 'ChannelManager disposed', false);
+}
+
+function createPersistenceFallbackError(message: string): ChannelError {
+    return new ChannelError(AppErrorCode.PERSISTENCE_FALLBACK, message, true);
 }
 
 // ============================================
@@ -228,7 +284,7 @@ export class ChannelManager implements IChannelManager {
             if (config.storageKey === undefined) return STORAGE_KEY;
             const normalized = config.storageKey.trim();
             if (normalized.length === 0) {
-                throw createUnknownChannelError('Storage keys must be non-empty strings');
+                throw createStorageValidationError('Storage keys must be non-empty strings');
             }
             return normalized;
         })();
@@ -241,7 +297,7 @@ export class ChannelManager implements IChannelManager {
             }
             const normalized = config.currentChannelKey.trim();
             if (normalized.length === 0) {
-                throw createUnknownChannelError('Storage keys must be non-empty strings');
+                throw createStorageValidationError('Storage keys must be non-empty strings');
             }
             return normalized;
         })();
@@ -269,7 +325,7 @@ export class ChannelManager implements IChannelManager {
         const normalizedStorageKey = storageKey.trim();
         const normalizedCurrentChannelKey = currentChannelKey.trim();
         if (normalizedStorageKey.length === 0 || normalizedCurrentChannelKey.length === 0) {
-            throw createUnknownChannelError('Storage keys must be non-empty strings');
+            throw createStorageValidationError('Storage keys must be non-empty strings');
         }
         this.cancelPendingRetries();
         try {
@@ -376,7 +432,7 @@ export class ChannelManager implements IChannelManager {
                             true
                         );
                     }
-                    throw createUnknownChannelError('Failed to persist current channel', true);
+                    throw createPersistenceFallbackError('Failed to persist current channel');
                 }
                 this._onPersistenceSuccess();
             } catch (e) {
@@ -411,12 +467,12 @@ export class ChannelManager implements IChannelManager {
     ): Promise<ChannelConfig> {
         // Validate content source
         if (!config.contentSource) {
-            throw createUnknownChannelError(CHANNEL_ERROR_MESSAGES.CONTENT_SOURCE_REQUIRED);
+            throw createChannelContentSourceRequiredError();
         }
 
         // Check max channels
         if (this._state.channels.size >= MAX_CHANNELS) {
-            throw createUnknownChannelError(CHANNEL_ERROR_MESSAGES.MAX_CHANNELS_REACHED);
+            throw createMaxChannelsReachedError();
         }
 
         // Validate and assign channel number
@@ -424,7 +480,7 @@ export class ChannelManager implements IChannelManager {
         if (typeof config.number === 'number') {
             this._validateChannelNumber(config.number);
             if (this._isChannelNumberInUse(config.number)) {
-                throw createUnknownChannelError(CHANNEL_ERROR_MESSAGES.DUPLICATE_CHANNEL_NUMBER);
+                throw createDuplicateChannelNumberError();
             }
             channelNumber = config.number;
         } else {
@@ -537,18 +593,14 @@ export class ChannelManager implements IChannelManager {
     async updateChannel(id: string, updates: ChannelUpdateInput): Promise<ChannelConfig> {
         const channel = this._state.channels.get(id);
         if (!channel) {
-            throw new ChannelError(
-                AppErrorCode.CHANNEL_NOT_FOUND,
-                CHANNEL_ERROR_MESSAGES.CHANNEL_NOT_FOUND,
-                false
-            );
+            throw createChannelNotFoundError();
         }
 
         // Handle number change
         if (typeof updates.number === 'number' && updates.number !== channel.number) {
             this._validateChannelNumber(updates.number);
             if (this._isChannelNumberInUse(updates.number)) {
-                throw createUnknownChannelError(CHANNEL_ERROR_MESSAGES.DUPLICATE_CHANNEL_NUMBER);
+                throw createDuplicateChannelNumberError();
             }
         }
 
@@ -594,11 +646,7 @@ export class ChannelManager implements IChannelManager {
      */
     async deleteChannel(id: string): Promise<void> {
         if (!this._state.channels.has(id)) {
-            throw new ChannelError(
-                AppErrorCode.CHANNEL_NOT_FOUND,
-                CHANNEL_ERROR_MESSAGES.CHANNEL_NOT_FOUND,
-                false
-            );
+            throw createChannelNotFoundError();
         }
 
         this._state.channels.delete(id);
@@ -662,11 +710,7 @@ export class ChannelManager implements IChannelManager {
     ): Promise<ResolvedChannelContent> {
         const channel = this._state.channels.get(channelId);
         if (!channel) {
-            throw new ChannelError(
-                AppErrorCode.CHANNEL_NOT_FOUND,
-                CHANNEL_ERROR_MESSAGES.CHANNEL_NOT_FOUND,
-                false
-            );
+            throw createChannelNotFoundError();
         }
 
         // Check cache
@@ -693,11 +737,7 @@ export class ChannelManager implements IChannelManager {
     ): Promise<ResolvedChannelContent> {
         const channel = this._state.channels.get(channelId);
         if (!channel) {
-            throw new ChannelError(
-                AppErrorCode.CHANNEL_NOT_FOUND,
-                CHANNEL_ERROR_MESSAGES.CHANNEL_NOT_FOUND,
-                false
-            );
+            throw createChannelNotFoundError();
         }
 
         this._state.resolvedContent.delete(channelId);
@@ -715,11 +755,7 @@ export class ChannelManager implements IChannelManager {
     ): Promise<ResolvedContentItem[]> {
         const channel = this._state.channels.get(channelId);
         if (!channel) {
-            throw new ChannelError(
-                AppErrorCode.CHANNEL_NOT_FOUND,
-                CHANNEL_ERROR_MESSAGES.CHANNEL_NOT_FOUND,
-                false
-            );
+            throw createChannelNotFoundError();
         }
 
         const cached = this._state.resolvedContent.get(channelId);
@@ -754,11 +790,7 @@ export class ChannelManager implements IChannelManager {
     setCurrentChannel(channelId: string): void {
         const channel = this._state.channels.get(channelId);
         if (!channel) {
-            throw new ChannelError(
-                AppErrorCode.CHANNEL_NOT_FOUND,
-                CHANNEL_ERROR_MESSAGES.CHANNEL_NOT_FOUND,
-                false
-            );
+            throw createChannelNotFoundError();
         }
 
         this._state.currentChannelId = channelId;
@@ -774,7 +806,7 @@ export class ChannelManager implements IChannelManager {
                         true
                     );
                 }
-                throw createUnknownChannelError('Failed to persist current channel', true);
+                throw createPersistenceFallbackError('Failed to persist current channel');
             }
             this._onPersistenceSuccess();
         } catch (e) {
@@ -915,7 +947,7 @@ export class ChannelManager implements IChannelManager {
         }
         // Teardown is expected; do not treat cancellation as a persistence failure.
         // Rejecting the pending save also clears internal promise state + queued catch tracking.
-        const disposedError = createUnknownChannelError('ChannelManager disposed');
+        const disposedError = createDisposedError();
         this._markPersistenceFailureReported(disposedError);
         this._rejectPendingSave(disposedError);
         this._contentResolver.clearCaches();
@@ -1141,7 +1173,7 @@ export class ChannelManager implements IChannelManager {
             );
         }
         if (!writeResult.ok && writeResult.reason === 'unavailable') {
-            throw createUnknownChannelError('Failed to persist channels to storage', true);
+            throw createPersistenceFallbackError('Failed to persist channels to storage');
         }
     }
 
@@ -1416,7 +1448,7 @@ export class ChannelManager implements IChannelManager {
             number < MIN_CHANNEL_NUMBER ||
             number > MAX_CHANNEL_NUMBER
         ) {
-            throw createUnknownChannelError(CHANNEL_ERROR_MESSAGES.INVALID_CHANNEL_NUMBER);
+            throw createInvalidChannelNumberError();
         }
     }
 
@@ -1470,7 +1502,7 @@ export class ChannelManager implements IChannelManager {
         const record = item as Record<string, unknown>;
         const contentSource = record['contentSource'];
         if (!isValidContentSource(contentSource)) {
-            throw createUnknownChannelError(CHANNEL_ERROR_MESSAGES.INVALID_IMPORT_DATA);
+            throw createInvalidImportDataError();
         }
 
         const channel: ChannelCreateInput = {
