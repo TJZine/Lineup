@@ -15,12 +15,14 @@ architecture or workflow document.
 
 ## Fresh-Session Handoff
 
-- Current execution state: P0-P11 are complete and archived; P12 is the active
-  `2026-04-24` subjective-refresh follow-on queue.
-- Next safe start: `P12-W5 / pkg_focused_test_and_comment_hygiene`.
+- Current execution state: P0-P11 are complete and archived; P12 work packages
+  are complete, and `P12-EXIT` is blocked on the final scan guard.
+- Next safe start: resolve `P12-EXIT` by clearing the five subjective
+  reassessment placeholders or getting maintainer approval for the
+  `desloppify scan --force-rescan` path.
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration.
-- First action at package start: planning only; create the package-local
-  execution-grade plan before implementation.
+- First action at package start: for new checklist-linked work, planning only;
+  create the package-local execution-grade plan before implementation.
 - Active exact issue-membership surface:
   `docs/architecture/p12-subjective-refresh-package-map.json`.
 - Prior fresh-baseline exact issue-membership surface:
@@ -381,7 +383,7 @@ The active P12 exact membership surface is
   packages are complete.
 - Handoff: continue with `P12-W5`.
 
-### [ ] `P12-W5` `pkg_focused_test_and_comment_hygiene`
+### [x] `P12-W5` `pkg_focused_test_and_comment_hygiene`
 
 - Backlog: `seed 3` fresh subjective review issues.
 - Scope: retire the remaining high-value focused test seams and restating
@@ -401,12 +403,37 @@ The active P12 exact membership surface is
 - Likely first slice: add or use an awaitable lifecycle completion seam only if
   it improves production/test clarity; otherwise handle comment hygiene as a
   separate low-risk slice.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: after `P12-W4`, plan `P12-W5` from exact test/comment ids.
+- Status: completed
+- Plan: local-only cleanup-loop plan reviewed and approved
+- Last touched: 2026-04-25
+- Verification: P12-W5 exact imported review-id queries returned no open rows
+  for `core_call_order_coupling`, `lifecycle_async_flush_coupling`, and
+  `restating_doc_block_noise`; package-local `desloppify show` commands
+  returned no open rows for
+  `src/core/channel-tuning/__tests__/ChannelTuningCoordinator.test.ts`,
+  `src/modules/lifecycle/__tests__/AppLifecycle.test.ts`,
+  `src/modules/player/RetryManager.ts`,
+  `src/modules/player/SubtitleManager.ts`,
+  `src/modules/player/VideoPlayer.ts`, and
+  `src/modules/scheduler/scheduler`; `src/modules/lifecycle/AppLifecycle.ts`
+  still reports the accepted non-P12-W5 mechanical log/swallowed-error rows.
+  Targeted `rg` audits found no channel-tuning `invocationCallOrder`/relative
+  order coupling, no lifecycle generic drain guesses, and no mapped
+  fileoverview/module/version/restating comment patterns. `npm run verify`
+  passed after all P12-W5 source changes. `desloppify status` recorded overall
+  `85.7`, strict `85.7`, objective `96.7`, verified `96.7`, File health
+  `92.4` (`91.6` strict), Code quality `98.1`, Duplication `99.9`, Test health
+  `97.5` (`97.3` strict), Security `99.7`, and subjective dimensions:
+  AI generated debt `78.0`, API coherence `84.0`, Abstraction fit `78.0`,
+  Auth consistency `84.0`, Contracts `88.0`, Convention drift `92.0`,
+  Cross-module arch `76.0`, Design coherence `64.0`, Elegance `83.0`, Error
+  consistency `80.0`, Naming quality `88.0`, Stale migration `91.0`, Structure
+  nav `78.0`, Test strategy `82.0`, and Type safety `88.0`.
+- Follow-ups: none for P12-W5; `P12-EXIT` remains blocked on final
+  `desloppify scan --path .` because the tool's mid-cycle guard reports five
+  subjective reassessment placeholders and requires either clearing them or a
+  maintainer-approved force-rescan decision.
+- Handoff: resolve the `desloppify scan` guard, then close `P12-EXIT`.
 
 - [ ] `P12-EXIT`
 
@@ -423,12 +450,23 @@ The active P12 exact membership surface is
   - rerun each completed package's local scoping commands
   - `npm run verify`
   - `npm run verify:docs`
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: none until P12 packages complete.
+- Status: blocked
+- Plan: local-only P12-W5 closeout evidence; no tracked plan promoted
+- Last touched: 2026-04-25
+- Verification: `desloppify scan --path .` was attempted and blocked by the
+  tool's mid-cycle guard because five subjective reassessment placeholders
+  remain; `desloppify status` passed and recorded overall `85.7`, strict
+  `85.7`, objective `96.7`, and verified `96.7`; `desloppify plan queue --sort
+  recent` reported five subjective reassessment placeholders; `desloppify show
+  review --status open --no-budget --top 120` returned no open `review`
+  detector rows; `desloppify show security --status open --no-budget --top 50`
+  returned two non-security import-cycle rows in channel-setup planning; P12-W5
+  package-local commands and `npm run verify` passed.
+- Follow-ups: final P12 scan/exit owner is `P12-EXIT`; resolve whether to clear
+  the five subjective placeholders first or run the force-rescan command with
+  maintainer approval, then record the final scan delta and close `P12-EXIT`.
+- Handoff: do not start P13 work until `P12-EXIT` has a completed final scan and
+  exit record.
 
 ## Not Active Checklist Scope By Default
 
