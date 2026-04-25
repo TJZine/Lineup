@@ -240,6 +240,8 @@ describe('OrchestratorCoordinatorBuilders', () => {
 
         expect(coordinatorArgs.getSelectedServerId()).toBe('server-1');
         expect(coordinatorArgs.getExistingChannelCount()).toBe(2);
+        expect(coordinatorArgs.getSelectedServerId).toBe(owners.portOwners.getSelectedServerId);
+        expect(coordinatorArgs.getExistingChannelCount).toBe(owners.portOwners.getExistingChannelCount);
         expect(owners.portOwners.getSelectedServerId()).toBe('server-1');
         expect(owners.portOwners.getExistingChannelCount()).toBe(2);
         completionTrackerArgs.clearRerunRequest();

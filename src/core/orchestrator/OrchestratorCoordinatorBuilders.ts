@@ -209,7 +209,9 @@ export function bindEpgVisibleRangeChange(
     input.config.epgConfig =
         withEpgVisibleRangeChangeBinding(
             input.config.epgConfig,
-            handleVisibleRangeChange.bind(null, epgCoordinator)
+            (range: EpgVisibleRange): void => {
+                handleVisibleRangeChange(epgCoordinator, range);
+            }
         ) ?? input.config.epgConfig;
 }
 
@@ -264,7 +266,9 @@ export function buildChannelSetupOwners(
     });
     const completionTracker = new ChannelSetupCompletionTracker({
         recordStore,
-        clearRerunRequest: coordinator.clearRerunRequest.bind(coordinator),
+        clearRerunRequest: (): void => {
+            coordinator.clearRerunRequest();
+        },
     });
     return {
         coordinator,
@@ -612,11 +616,15 @@ export function buildChannelTuningCoordinator(
         },
         getPendingNowPlayingChannelId: (): string | null =>
             input.playback.state.getPendingNowPlayingChannelId(),
-        resetPlaybackGuardsForNewChannel: resetChannelTuningPlaybackGuards.bind(null, playbackRecovery),
+        resetPlaybackGuardsForNewChannel: (): void => {
+            resetChannelTuningPlaybackGuards(playbackRecovery);
+        },
         stopActiveTranscodeSession: (): void => {
             input.playback.stopActiveTranscodeSession();
         },
-        armChannelTransitionForSwitch: armChannelTransitionForSwitch.bind(null, channelTransitionCoordinator),
+        armChannelTransitionForSwitch: (prefix: string): void => {
+            armChannelTransitionForSwitch(channelTransitionCoordinator, prefix);
+        },
         appendIssueDiagnostic: input.diagnostics.appendIssueDiagnostic,
         handleGlobalError: (error: AppError, context: string): void =>
             handleCoordinatorGlobalError(input, error, context),
