@@ -54,7 +54,9 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/core/orchestrator/OrchestratorTypes.ts` is the durable owner of `OrchestratorConfig` and `ModuleStatus`
 - `src/core/orchestrator/OrchestratorModuleFactory.ts` owns runtime module constructor/config assembly for `AppOrchestrator.initialize()`
 - `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts` owns coordinator construction and dependency assembly previously in `AppOrchestrator._createCoordinators()`
+- `src/core/orchestrator/OrchestratorRuntimeControllerBuilder.ts` owns schedule-day rollover and subtitle-track recovery controller construction for `AppOrchestrator`
 - `src/core/initialization/InitializationCoordinator.ts` owns orchestrator startup sequencing for the app-shell/orchestrator startup path
+- `src/core/orchestrator/priority-one/PriorityOneAssemblyBuilder.ts` owns Priority-1 runtime assembly shaping from app-provided runtime refs and callbacks
 - `src/core/orchestrator/priority-one/PriorityOneControllerFactory.ts` owns Priority-1 controller and `OrchestratorEventBinder` construction previously in `AppOrchestrator._initializePriorityOneControllers()`
 - `src/Orchestrator.ts` remains the public re-export surface for external callers (including `src/App.ts` and tests)
 
@@ -69,7 +71,8 @@ This document is directory-oriented and lists file-level owners where the canoni
 - focused server-selection collaborators shared between app shell and orchestrator
 - `src/core/server-selection/ServerSelectionTypes.ts` owns `OrchestratorServerSelectionResult`
 - `src/core/server-selection/ServerSelectionCoordinator.ts` owns the app-shell-facing selected-server workflow previously assembled inline in `AppOrchestrator.selectServer()`, including discovery-result translation, result shaping, transactional persistence handoff, rollback, and selected-server startup-resume invocation
-- `src/core/server-selection/SelectedServerRuntimeController.ts` owns selected-server persistence snapshot/restore helpers, clear-selection cleanup, and the concrete selected-server startup-resume helper consumed by the server-selection flow rather than the flow orchestration itself
+- `src/core/server-selection/SelectedServerPersistenceAdapter.ts` owns selected-server credential persistence, active-user snapshot/restore helpers, and `selectedServerByUserId` updates behind a narrow Plex-auth port
+- `src/core/server-selection/SelectedServerRuntimeController.ts` owns clear-selection cleanup, discovery selected-server snapshot/restore delegation, and the concrete selected-server startup-resume helper consumed by the server-selection flow rather than the flow orchestration itself
 
 ### `src/config/`
 

@@ -67,7 +67,8 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - focused server-selection collaborators shared between app shell and orchestrator
 - `ServerSelectionCoordinator.selectServer()` owns the app-shell-facing selected-server workflow/result contract, including discovery-result translation, transactional persistence handoff, rollback, and selected-server startup-resume invocation
-- `SelectedServerRuntimeController` owns selected-server persistence snapshot/restore helpers, clear-selection cleanup, and the concrete selected-server startup-resume helper invoked by that flow; it does not own the app-shell orchestration path itself
+- `SelectedServerPersistenceAdapter` owns selected-server credential persistence, active-user snapshot/restore helpers, and `selectedServerByUserId` updates behind a narrow Plex-auth port
+- `SelectedServerRuntimeController` owns clear-selection cleanup, discovery selected-server snapshot/restore delegation, and the concrete selected-server startup-resume helper invoked by that flow; it does not own the app-shell orchestration path itself
 
 ### `src/Orchestrator.ts`
 
@@ -80,12 +81,17 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - central runtime coordinator implementation owner
 - owns composition-root diagnostics append wiring (`AppendIssueDiagnostic`) for runtime collaborators while `IssueDiagnosticsStore` remains the storage/debug owner
 - constructs the initialization-package `InitializationCoordinator` before coordinator assembly so `ensureEpgInitialized` callbacks always bind the real startup owner (no fake no-op readiness path)
-- builds the grouped priority-one runtime assembly contract directly and lets `src/core/orchestrator/priority-one/PriorityOneControllerCollaborators.ts` own controller-specific collaborator shaping
+- delegates grouped priority-one runtime assembly shaping to `src/core/orchestrator/priority-one/PriorityOneAssemblyBuilder.ts` and delegates schedule-day rollover plus subtitle-track recovery construction to `src/core/orchestrator/OrchestratorRuntimeControllerBuilder.ts`
 
 ### `src/core/orchestrator/priority-one/`
 
 - focused owner for the grouped priority-one runtime assembly contract plus controller/binder composition
+- `PriorityOneAssemblyBuilder.ts` owns the grouped priority-one runtime assembly contract from app-provided runtime refs and callbacks
 - `PriorityOneControllerFactory.ts` now owns playback start/runtime, overlay runtime policy, profile-switch cleanup, and event-binder assembly for the priority-one path
+
+### `src/core/orchestrator/OrchestratorRuntimeControllerBuilder.ts`
+
+- focused owner for schedule-day rollover and subtitle-track recovery controller construction used by `AppOrchestrator`
 
 ### `src/core/orchestrator/OrchestratorSchedulePolicy.ts`
 
