@@ -1,10 +1,10 @@
-import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
-import { isChannelSetupWorkflowUnavailableError } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type {
     ChannelSetupContext,
     ChannelSetupPreview,
     ChannelSetupRecord,
-} from '../../../core/channel-setup/types';
+    ChannelSetupSessionWorkflowPort,
+} from './ChannelSetupSessionPorts';
+import { isChannelSetupWorkflowUnavailableError } from './ChannelSetupSessionPorts';
 import { isAbortLikeError } from '../../../utils/errors';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from './constants';
 import type {
@@ -28,7 +28,7 @@ export class ChannelSetupSessionRuntime {
 
     constructor(
         private readonly _deps: {
-            workflowPort: ChannelSetupWorkflowPort;
+            workflowPort: ChannelSetupSessionWorkflowPort;
             getSelectedServerId: () => string | null;
             state: ChannelSetupSessionState;
         }

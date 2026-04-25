@@ -5,14 +5,14 @@
 import { ChannelSetupScreen } from '../ChannelSetupScreen';
 import type { INavigationManager } from '../../../navigation/interfaces';
 import { flushPromises, flushPromisesAndTimers } from '../../../../__tests__/helpers';
-import { MIXED_SCOPE_STRATEGY_KEYS } from '../../../../core/channel-setup/constants';
 import {
     ADVANCED_STRATEGY_KEYS,
     CONTENT_STRATEGY_KEYS,
+    MIXED_SCOPE_STRATEGY_KEYS,
     STEP2_CONTROL_IDS,
     STRATEGY_CATEGORIES,
+    SETUP_STRATEGY_KEYS,
 } from '../steps/constants';
-import { SETUP_STRATEGY_KEYS } from '../../../../core/channel-setup/constants';
 import {
     clickButton,
     createNavigationMock,

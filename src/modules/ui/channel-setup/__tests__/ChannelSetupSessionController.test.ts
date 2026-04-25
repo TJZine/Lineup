@@ -1,7 +1,10 @@
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
-import { DEFAULT_MIN_ITEMS_PER_CHANNEL } from '../../../../core/channel-setup/constants';
-import type { ChannelSetupConfig, ChannelSetupRecord } from '../../../../core/channel-setup/types';
-import type { ChannelSetupWorkflowPort } from '../../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
+import { DEFAULT_MIN_ITEMS_PER_CHANNEL } from '../steps/constants';
+import type {
+    ChannelSetupConfig,
+    ChannelSetupRecord,
+    ChannelSetupSessionWorkflowPort,
+} from '../ChannelSetupSessionPorts';
 import type { PlexLibrarySection as PlexLibraryModel } from '../../../plex/library/types';
 import { ChannelSetupSessionController } from '../ChannelSetupSessionController';
 import type { ChannelSetupBuildOutcome } from '../ChannelSetupSessionContracts';
@@ -26,10 +29,10 @@ const createDeferred = <T>(): {
     return { promise, resolve, reject };
 };
 
-type WorkflowPortOverrides = Partial<jest.Mocked<ChannelSetupWorkflowPort>>;
+type WorkflowPortOverrides = Partial<jest.Mocked<ChannelSetupSessionWorkflowPort>>;
 
-const createWorkflowPort = (overrides: WorkflowPortOverrides = {}): jest.Mocked<ChannelSetupWorkflowPort> => {
-    const base: jest.Mocked<ChannelSetupWorkflowPort> = {
+const createWorkflowPort = (overrides: WorkflowPortOverrides = {}): jest.Mocked<ChannelSetupSessionWorkflowPort> => {
+    const base: jest.Mocked<ChannelSetupSessionWorkflowPort> = {
         getLibrariesForSetup: jest.fn().mockResolvedValue([]),
         getChannelSetupRecord: jest.fn((_serverId: string) => null),
         getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
@@ -625,7 +628,7 @@ describe('ChannelSetupSessionController', () => {
 
     it('syncSetupContext() preserves first-time/existing/unknown and falls back to unknown', (): void => {
         const getSetupContextForSelectedServer = jest
-            .fn<ReturnType<ChannelSetupWorkflowPort['getSetupContextForSelectedServer']>, []>()
+            .fn<ReturnType<ChannelSetupSessionWorkflowPort['getSetupContextForSelectedServer']>, []>()
             .mockReturnValueOnce('first-time')
             .mockReturnValueOnce('existing')
             .mockReturnValueOnce('unknown')

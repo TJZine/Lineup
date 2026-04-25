@@ -4,7 +4,6 @@
  */
 
 import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
-import type { ModuleRuntimeStatus } from '../../../core/module-status';
 import type { AppErrorCode } from '../../../types/app-errors';
 import type {
     EpgChannel,
@@ -13,12 +12,13 @@ import type {
     EpgScheduledProgram,
 } from './model/domainTypes';
 import type { IEPGDebugRuntime } from './EPGDebugRuntime';
+import type { EpgUiStatus } from './EPGCoordinatorContracts';
 
 // Re-export EPG-owned aliases for UI contracts.
 export type ScheduledProgram = EpgScheduledProgram;
 export type ScheduleWindow = EpgScheduleWindow;
 export type ChannelConfig = EpgChannel;
-export type EPGUiStatus = ModuleRuntimeStatus | undefined;
+export type EPGUiStatus = EpgUiStatus;
 
 // ============================================
 // EPG Configuration & State

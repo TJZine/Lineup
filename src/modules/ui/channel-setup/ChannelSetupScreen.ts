@@ -3,14 +3,15 @@
 import {
     type ChannelBuildProgress,
     type ChannelSetupConfig,
-} from '../../../core/channel-setup/types';
+    type ChannelSetupSessionWorkflowPort,
+} from './ChannelSetupSessionPorts';
 import type { FocusableElement, KeyEvent } from '../../navigation';
 import { ServerSelectionStore } from '../../plex/discovery/ServerSelectionStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../scheduler/channel-manager/constants';
 import {
     SETUP_STRATEGY_KEYS,
-} from '../../../core/channel-setup/constants';
+} from './steps/constants';
 import { createDropdownPopover } from '../common/CreateDropdownPopover';
 import { createScreenShell } from '../common/ScreenShell';
 import { renderCappedWarnings } from '../common/render/renderCappedWarnings';
@@ -30,7 +31,6 @@ import type {
     EstimateKey,
     StrategyStepMutableState,
 } from './ChannelSetupSessionContracts';
-import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { ChannelSetupScreenPorts } from './ChannelSetupScreenPorts';
 
 const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
@@ -158,7 +158,7 @@ export class ChannelSetupScreen {
 
     constructor(
         container: HTMLElement,
-        deps: { workflowPort: ChannelSetupWorkflowPort; screenPorts: ChannelSetupScreenPorts }
+        deps: { workflowPort: ChannelSetupSessionWorkflowPort; screenPorts: ChannelSetupScreenPorts }
     ) {
         this._container = container;
         this._screenPorts = deps.screenPorts;

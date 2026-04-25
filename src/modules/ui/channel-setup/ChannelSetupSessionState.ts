@@ -1,12 +1,16 @@
 import type {
+    ChannelExpansionConfig,
     ChannelSetupConfig,
     ChannelSetupContext,
     ChannelSetupPreview,
     ChannelSetupRecord,
     ChannelSetupReview,
-} from '../../../core/channel-setup/types';
+    SeriesOrderingConfig,
+    SetupStrategyConfig,
+} from './ChannelSetupSessionPorts';
 import {
     DEFAULT_CHANNEL_SETUP_MAX,
+    MAX_CHANNELS,
 } from '../../scheduler/channel-manager/constants';
 import type {
     ChannelExpansionState,
@@ -23,8 +27,7 @@ import {
     DEFAULT_STRATEGY_PRIORITIES,
     MIXED_SCOPE_STRATEGY_KEYS,
     SETUP_STRATEGY_KEYS,
-} from '../../../core/channel-setup/constants';
-import { normalizeChannelSetupConfig } from '../../../core/channel-setup/planning/normalizeChannelSetupConfig';
+} from './steps/constants';
 import type { PlexLibrarySection } from '../../plex/library';
 import {
     SERIES_BLOCK_PRESETS,
@@ -124,6 +127,76 @@ const cloneReview = (review: ChannelSetupReview | null): ChannelSetupReview | nu
                 unchanged: [...review.diff.samples.unchanged],
             },
         },
+    };
+};
+
+const normalizeChannelExpansion = (expansion: ChannelExpansionConfig | undefined): ChannelExpansionConfig => ({
+    addAlternateLineups: expansion?.addAlternateLineups === true,
+    alternateLineupCopies: Number.isFinite(expansion?.alternateLineupCopies)
+        ? Math.min(3, Math.max(1, Math.floor(Number(expansion?.alternateLineupCopies))))
+        : 1,
+    variantType:
+        expansion?.variantType === 'sequential' || expansion?.variantType === 'block'
+            ? expansion.variantType
+            : 'none',
+    variantBlockSize: Number.isFinite(expansion?.variantBlockSize)
+        ? Math.min(5, Math.max(2, Math.floor(Number(expansion?.variantBlockSize))))
+        : DEFAULT_SERIES_BLOCK_PRESET,
+});
+
+const normalizeSeriesOrdering = (value: SeriesOrderingConfig | undefined): SeriesOrderingConfig => ({
+    basePlaybackMode:
+        value?.basePlaybackMode === 'sequential' || value?.basePlaybackMode === 'block'
+            ? value.basePlaybackMode
+            : 'shuffle',
+    baseBlockSize: Number.isFinite(value?.baseBlockSize)
+        ? Math.min(5, Math.max(2, Math.floor(Number(value?.baseBlockSize))))
+        : DEFAULT_SERIES_BLOCK_PRESET,
+});
+
+const normalizeChannelSetupConfig = (config: ChannelSetupConfig): ChannelSetupConfig => {
+    const selectedLibraryIds = Array.isArray(config.selectedLibraryIds)
+        ? config.selectedLibraryIds.filter((id): id is string => typeof id === 'string')
+        : [];
+    const maxChannels = Number.isFinite(config.maxChannels)
+        ? Math.min(Math.max(Math.floor(config.maxChannels), 1), MAX_CHANNELS)
+        : DEFAULT_CHANNEL_SETUP_MAX;
+    const minItemsPerChannel = Number.isFinite(config.minItemsPerChannel)
+        ? Math.max(1, Math.floor(config.minItemsPerChannel))
+        : DEFAULT_MIN_ITEMS_PER_CHANNEL;
+    const buildMode =
+        config.buildMode === 'append' || config.buildMode === 'merge' || config.buildMode === 'replace'
+            ? config.buildMode
+            : 'replace';
+    const actorStudioCombineMode =
+        config.actorStudioCombineMode === 'combined' || config.actorStudioCombineMode === 'separate'
+            ? config.actorStudioCombineMode
+            : 'separate';
+    const strategySource = (config.strategyConfig ?? {}) as Partial<Record<SetupStrategyKey, SetupStrategyConfig>>;
+    const strategyConfig = SETUP_STRATEGY_KEYS.reduce<ChannelSetupConfig['strategyConfig']>((acc, key) => {
+        const candidate = strategySource[key];
+        const enabled = typeof candidate?.enabled === 'boolean' ? candidate.enabled : true;
+        const rawPriority = candidate?.priority;
+        const priority = Number.isFinite(rawPriority)
+            ? Math.max(1, Math.floor(Number(rawPriority)))
+            : DEFAULT_STRATEGY_PRIORITIES[key];
+        const scope = MIXED_SCOPE_STRATEGY_KEYS.has(key) && candidate?.scope === 'cross-library'
+            ? 'cross-library'
+            : 'per-library';
+        acc[key] = { enabled, priority, scope };
+        return acc;
+    }, {} as ChannelSetupConfig['strategyConfig']);
+
+    return {
+        ...config,
+        selectedLibraryIds,
+        maxChannels,
+        minItemsPerChannel,
+        buildMode,
+        actorStudioCombineMode,
+        strategyConfig,
+        channelExpansion: normalizeChannelExpansion(config.channelExpansion),
+        seriesOrdering: normalizeSeriesOrdering(config.seriesOrdering),
     };
 };
 

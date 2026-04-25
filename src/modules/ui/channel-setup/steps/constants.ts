@@ -3,9 +3,11 @@ import type {
     ChannelSetupConfig,
     SeriesOrderingConfig,
     SetupStrategyKey,
-} from '../../../../core/channel-setup/types';
+} from '../ChannelSetupSessionPorts';
 
-export type { SetupStrategyKey } from '../../../../core/channel-setup/types';
+export type { SetupStrategyKey } from '../ChannelSetupSessionPorts';
+
+export const DEFAULT_MIN_ITEMS_PER_CHANNEL = 5;
 
 export const CONTENT_STRATEGY_KEYS = [
     'collections',
@@ -65,3 +67,32 @@ export const SERIES_BASE_MODE_OPTIONS = (['shuffle', 'sequential', 'block'] as c
 export const SERIES_VARIANT_TYPE_OPTIONS = (['none', 'sequential', 'block'] as const) satisfies readonly ChannelExpansionConfig['variantType'][];
 
 export const SERIES_BLOCK_PRESETS = [2, 3, 4, 5] as const;
+
+export const SETUP_STRATEGY_KEYS = [
+    'collections',
+    'playlists',
+    'genres',
+    'directors',
+    'decades',
+    'recentlyAdded',
+    'studios',
+    'actors',
+] as const satisfies readonly SetupStrategyKey[];
+
+export const DEFAULT_STRATEGY_PRIORITIES: Record<SetupStrategyKey, number> = {
+    playlists: 1,
+    collections: 2,
+    recentlyAdded: 3,
+    genres: 4,
+    studios: 5,
+    actors: 6,
+    decades: 7,
+    directors: 8,
+};
+
+export const MIXED_SCOPE_STRATEGY_KEYS = new Set<SetupStrategyKey>([
+    'genres',
+    'directors',
+    'studios',
+    'actors',
+]);

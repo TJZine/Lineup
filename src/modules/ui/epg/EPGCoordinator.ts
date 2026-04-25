@@ -23,18 +23,19 @@ import {
 import { countLibraryTypeVotes } from './EPGLibraryUtils';
 import { EPGRefreshController } from './EPGRefreshController';
 import { toEpgChannels } from './model/adapters';
-import type { ChannelSwitchOptions, GuideSelectionSnapshot } from '../../../core/channel-tuning';
 import type { IEPGDebugRuntime } from './EPGDebugRuntime';
-import type { EPGUiStatus } from './types';
-
-type EpgChannelSwitchOptions = Pick<ChannelSwitchOptions, 'guideSelectionSnapshot'>;
+import type {
+    EpgChannelSwitchOptions,
+    EpgGuideSelectionSnapshot,
+    EpgUiStatus,
+} from './EPGCoordinatorContracts';
 
 export interface EPGCoordinatorDeps {
     getEpg: () => IEPGComponent | null;
     getChannelManager: () => IChannelManager | null;
     getScheduler: () => IChannelScheduler | null;
 
-    getEpgUiStatus: () => EPGUiStatus;
+    getEpgUiStatus: () => EpgUiStatus;
     ensureEpgInitialized: () => Promise<void>;
 
     getEpgConfig: () => EPGConfig | null;
@@ -79,7 +80,7 @@ export class EPGCoordinator {
             getEpg: (): IEPGComponent | null => this.deps.getEpg(),
             getChannelManager: (): IChannelManager | null => this.deps.getChannelManager(),
             getScheduler: (): IChannelScheduler | null => this.deps.getScheduler(),
-            getEpgUiStatus: (): EPGUiStatus => this.deps.getEpgUiStatus(),
+            getEpgUiStatus: (): EpgUiStatus => this.deps.getEpgUiStatus(),
             getEpgConfig: (): EPGConfig | null => this.deps.getEpgConfig(),
             getLocalMidnightMs: (timeMs: number): number => this.deps.getLocalMidnightMs(timeMs),
             debugRuntime: this.deps.debugRuntime ?? null,
@@ -523,7 +524,7 @@ export class EPGCoordinator {
         selectedAt: number
     ): Promise<void> {
         const { requestId, controller } = this._startGuideSelectionRequest();
-        let snapshot: GuideSelectionSnapshot | null = null;
+        let snapshot: EpgGuideSelectionSnapshot | null = null;
         try {
             snapshot = await this._refreshController.buildGuideSelectionSnapshot({
                 channelId,
