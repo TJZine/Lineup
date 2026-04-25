@@ -5,10 +5,10 @@ import type {
     ChannelSetupContext,
     ChannelSetupPreview,
     ChannelSetupReview,
-    ChannelSetupSessionWorkflowPort,
     SeriesOrderingConfig,
     SetupStrategyConfig,
-} from './ChannelSetupSessionPorts';
+} from '../../../core/channel-setup/types';
+import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { PlexLibrarySection } from '../../plex/library';
 import type { SetupStrategyKey } from './steps/constants';
 
@@ -78,7 +78,7 @@ export type ChannelSetupBuildOutcome =
         kind: 'success';
         serverId: string;
         config: ChannelSetupConfig;
-        result: Awaited<ReturnType<ChannelSetupSessionWorkflowPort['createChannelsFromSetup']>>;
+        result: Awaited<ReturnType<ChannelSetupWorkflowPort['createChannelsFromSetup']>>;
         bookkeepingError?: string;
     };
 

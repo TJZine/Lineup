@@ -3,7 +3,7 @@ import type {
     ChannelSetupContext,
     ChannelSetupPreview,
     ChannelSetupReview,
-} from '../ChannelSetupSessionPorts';
+} from '../../../../core/channel-setup/types';
 import type { PlexLibrarySection } from '../../../plex/library';
 import type {
     EstimateKey,

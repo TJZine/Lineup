@@ -232,15 +232,15 @@ describe('StrategyStepInteractionController', () => {
 
         controller.registerStep2Focusables(categoryButtons, detailButtons, backButton, nextButton, adapters);
 
-        expect(adapters.registerStep2).toHaveBeenCalledWith(
+        expect(adapters.registerStep2).toHaveBeenCalledWith({
             categoryButtons,
             detailButtons,
-            [backButton, nextButton],
-            controller.categoryButtonId('content-sources'),
-            'setup-strategy-playlists',
-            'setup-strategy-playlists',
-            expect.any(Function)
-        );
+            footerButtons: [backButton, nextButton],
+            activeCategoryId: controller.categoryButtonId('content-sources'),
+            detailFocusTarget: 'setup-strategy-playlists',
+            preferredFocusId: 'setup-strategy-playlists',
+            onDetailFocus: expect.any(Function),
+        });
     });
 
     it('exposes stable ids, clears transient state, and resets controller-owned focus state', () => {
@@ -724,14 +724,14 @@ describe('StrategyStepInteractionController', () => {
         });
         const adapters = createAdapters(snapshot, {
             getPreferredFocusId: jest.fn(() => 'setup-series-base-block-size'),
-            registerStep2: jest.fn((categoryButtons, detailButtons, footerButtons, activeCategoryId, detailFocusTarget, preferredFocusId, rememberDetailFocus) => {
-                expect(categoryButtons).toHaveLength(1);
-                expect(detailButtons).toHaveLength(3);
-                expect(footerButtons).toHaveLength(2);
-                expect(activeCategoryId).toBe('setup-category-series-ordering');
-                expect(detailFocusTarget).toBe(STEP2_CONTROL_IDS.seriesBaseMode);
-                expect(preferredFocusId).toBe('setup-series-base-block-size');
-                rememberDetailFocus(STEP2_CONTROL_IDS.seriesVariantType);
+            registerStep2: jest.fn((options) => {
+                expect(options.categoryButtons).toHaveLength(1);
+                expect(options.detailButtons).toHaveLength(3);
+                expect(options.footerButtons).toHaveLength(2);
+                expect(options.activeCategoryId).toBe('setup-category-series-ordering');
+                expect(options.detailFocusTarget).toBe(STEP2_CONTROL_IDS.seriesBaseMode);
+                expect(options.preferredFocusId).toBe('setup-series-base-block-size');
+                options.onDetailFocus(STEP2_CONTROL_IDS.seriesVariantType);
                 return true;
             }),
         });

@@ -15,10 +15,10 @@ architecture or workflow document.
 
 ## Fresh-Session Handoff
 
-- Current execution state: P0-P12 are complete; P13 is the active
-  checklist-linked cleanup planning priority seeded from the refreshed post-P12
+- Current execution state: P0-P12 and `P13-W1` are complete; P13 remains the
+  active checklist-linked cleanup priority seeded from the refreshed post-P12
   subjective review backlog.
-- Next safe start: create a package-local execution-grade plan for `P13-W1`, or
+- Next safe start: create a package-local execution-grade plan for `P13-W2`, or
   for another P13 package only if maintainer direction explicitly changes the
   order. Do not start source cleanup directly from the refreshed review output
   without a package-local plan and review.
@@ -269,7 +269,7 @@ P12 is closed. Its exact completed package membership remains in
 The active P13 exact membership surface is
 `docs/architecture/p13-post-p12-subjective-backlog-package-map.json`.
 
-### [ ] `P13-W1` `pkg_channel_setup_workflow_and_ui_contract_ownership`
+### [x] `P13-W1` `pkg_channel_setup_workflow_and_ui_contract_ownership`
 
 - Backlog: `3` refreshed post-P12 review issues.
 - Scope: make the core channel-setup workflow port the canonical contract,
@@ -287,21 +287,45 @@ The active P13 exact membership surface is
   - `src/core/channel-setup/workflow/createChannelSetupWorkflowPort.ts`
   - `src/core/channel-setup/types.ts`
   - `src/core/channel-setup/planning/ChannelSetupPlanDiagnostics.ts`
-  - `src/modules/ui/channel-setup/ChannelSetupSessionPorts.ts`
   - `src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts`
   - `src/modules/ui/channel-setup/focus/ChannelSetupFocusCoordinator.ts`
   - `src/modules/ui/channel-setup/steps/StrategyStepInteractionController.ts`
   - `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
+  - retired during closeout:
+    `src/modules/ui/channel-setup/ChannelSetupSessionPorts.ts`
 - Package guardrail: the source-proof matrix must account for both the
   workflow-port owner and the duplicate core/UI shape evidence before choosing
   an execution unit.
 - Likely verification: `npm run verify`.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: create a package-local execution-grade plan before source edits.
+- Status: completed
+- Plan: package-local execution brief approved for `P13-W1-WAVE1`
+  (`P13-W1-S1` workflow contract canonicalization, `P13-W1-S2` focus API
+  object-shape cleanup).
+- Last touched: 2026-04-25
+- Verification: `npm run verify` passed; targeted `rg` audits found no
+  `ChannelSetupSessionWorkflowPort`, no `ChannelSetupSessionPorts` references
+  under `src`, and object-shaped `registerStep2` signatures/call sites; all
+  package-local `desloppify show <file> --status open --no-budget` sweeps
+  reported no open file-path issues, including the now-retired
+  `ChannelSetupSessionPorts.ts` path.
+- Source-proof closeout:
+  - `review::.::holistic::cross_module_architecture::channel_setup_workflow_contract_owned_by_ui`
+    is stale-proven resolved: core factory now imports/returns the core
+    `ChannelSetupWorkflowPort`, and the duplicate UI contract file is deleted.
+  - `review::.::holistic::incomplete_migration::channel_setup_dual_workflow_contract`
+    is stale-proven resolved: no `ChannelSetupSessionWorkflowPort` source
+    references remain, and unavailable workflow handling imports from the core
+    workflow port owner.
+  - `review::.::holistic::api_surface_coherence::channel_setup_focus_positional_api`
+    is stale-proven resolved: `registerStep2` now accepts one named options
+    object across the focus coordinator, strategy interaction adapter, screen
+    adapter, and tests.
+- Review: plan review and implementation review were clean after revision; the
+  implementation reviewer found no sibling wrapper, alias, facade, or new
+  same-package debt requiring absorption or replan.
+- Follow-ups: none.
+- Handoff: `P13-W1` is closed. Do not start `P13-W2` unless this closeout
+  remains intact on the integration branch.
 
 ### [ ] `P13-W2` `pkg_orchestrator_navigation_lifecycle_composition_boundaries`
 

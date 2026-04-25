@@ -1,7 +1,7 @@
 import type { FocusableElement } from '../../../navigation/interfaces';
 import { syncFocusableRegistry } from '../../common/focus/syncFocusableRegistry';
 import { scrollToNearest } from './scrollToNearest';
-import type { FocusCoordinatorDeps } from './types';
+import type { FocusCoordinatorDeps, RegisterStep2FocusOptions } from './types';
 
 export class ChannelSetupFocusCoordinator {
     private readonly _deps: FocusCoordinatorDeps;
@@ -19,20 +19,21 @@ export class ChannelSetupFocusCoordinator {
         return this._registerButtons(buttons, 'spatial', preferredFocusId);
     }
 
-    registerStep2(
-        categoryButtons: HTMLButtonElement[],
-        detailButtons: HTMLButtonElement[],
-        footerButtons: HTMLButtonElement[],
-        activeCategoryId: string,
-        detailFocusTarget: string | null,
-        preferredFocusId: string | null,
-        onDetailFocus: (id: string) => void
-    ): boolean {
+    registerStep2(options: RegisterStep2FocusOptions): boolean {
         const nav = this._deps.getNavigation();
         if (!nav) {
             this._registeredIds = [];
             return false;
         }
+        const {
+            categoryButtons,
+            detailButtons,
+            footerButtons,
+            activeCategoryId,
+            detailFocusTarget,
+            preferredFocusId,
+            onDetailFocus,
+        } = options;
 
         const focusableButtons = [...categoryButtons, ...detailButtons, ...footerButtons]
             .filter((button) => !button.disabled);

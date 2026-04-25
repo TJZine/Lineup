@@ -74,11 +74,13 @@
         "src/core/channel-setup/workflow/createChannelSetupWorkflowPort.ts",
         "src/core/channel-setup/types.ts",
         "src/core/channel-setup/planning/ChannelSetupPlanDiagnostics.ts",
-        "src/modules/ui/channel-setup/ChannelSetupSessionPorts.ts",
         "src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts",
         "src/modules/ui/channel-setup/focus/ChannelSetupFocusCoordinator.ts",
         "src/modules/ui/channel-setup/steps/StrategyStepInteractionController.ts",
         "src/modules/ui/channel-setup/ChannelSetupScreen.ts"
+      ],
+      "retired_candidate_scoping_files": [
+        "src/modules/ui/channel-setup/ChannelSetupSessionPorts.ts"
       ],
       "package_local_scoping_commands": [
         "desloppify show src/core/channel-setup/workflow/ChannelSetupWorkflowPort.ts --status open --no-budget --top 80",
@@ -98,9 +100,22 @@
         "priority_exit": "P13-EXIT"
       },
       "execution_status": {
-        "status": "not started",
-        "completed_execution_units": [],
-        "current_or_next_execution_unit": "P13-W1"
+        "status": "completed",
+        "completed_execution_units": [
+          "P13-W1-WAVE1"
+        ],
+        "current_or_next_execution_unit": null,
+        "source_proof_disposition": {
+          "review::.::holistic::cross_module_architecture::channel_setup_workflow_contract_owned_by_ui": "stale-proven resolved by core workflow port canonicality and retired duplicate UI contract file",
+          "review::.::holistic::incomplete_migration::channel_setup_dual_workflow_contract": "stale-proven resolved by removing ChannelSetupSessionWorkflowPort from source and routing unavailable workflow handling through the core owner",
+          "review::.::holistic::api_surface_coherence::channel_setup_focus_positional_api": "stale-proven resolved by object-shaped registerStep2 API across focus coordinator, strategy adapter, screen adapter, and tests"
+        },
+        "verification": [
+          "npm run verify",
+          "targeted rg audits for retired workflow-port contract and object-shaped registerStep2 call sites",
+          "package-local desloppify show commands",
+          "exact issue-id desloppify show queries; stale rows resolved by current-source proof"
+        ]
       }
     },
     {

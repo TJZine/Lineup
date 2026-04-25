@@ -3,8 +3,8 @@
 import {
     type ChannelBuildProgress,
     type ChannelSetupConfig,
-    type ChannelSetupSessionWorkflowPort,
-} from './ChannelSetupSessionPorts';
+} from '../../../core/channel-setup/types';
+import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { FocusableElement, KeyEvent } from '../../navigation';
 import { ServerSelectionStore } from '../../plex/discovery/ServerSelectionStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
@@ -23,6 +23,7 @@ import { BuildReviewStepController } from './steps/BuildReviewStepController';
 import { BuildProgressStepController } from './steps/BuildProgressStepController';
 import type { BuildReviewStateSnapshot, StrategyStepDropdownConfig } from './steps/types';
 import type { SetupStrategyKey } from './steps/constants';
+import type { RegisterStep2FocusOptions } from './focus/types';
 import { scrollToNearest } from './focus/scrollToNearest';
 import { ChannelSetupSessionController } from './ChannelSetupSessionController';
 import { strategySupportsMixedScope } from './ChannelSetupSessionState';
@@ -158,7 +159,7 @@ export class ChannelSetupScreen {
 
     constructor(
         container: HTMLElement,
-        deps: { workflowPort: ChannelSetupSessionWorkflowPort; screenPorts: ChannelSetupScreenPorts }
+        deps: { workflowPort: ChannelSetupWorkflowPort; screenPorts: ChannelSetupScreenPorts }
     ) {
         this._container = container;
         this._screenPorts = deps.screenPorts;
@@ -442,23 +443,7 @@ export class ChannelSetupScreen {
             openDropdown: (config: StrategyStepDropdownConfig): void => {
                 this._openStep2Dropdown(config);
             },
-            registerStep2: (
-                categoryButtons: HTMLButtonElement[],
-                detailButtons: HTMLButtonElement[],
-                footerButtons: [HTMLButtonElement, HTMLButtonElement],
-                activeCategoryButtonId: string,
-                detailFocusTarget: string | null,
-                preferredFocusId: string | null,
-                rememberDetailFocus: (id: string) => void
-            ): boolean => this._focus.registerStep2(
-                categoryButtons,
-                detailButtons,
-                footerButtons,
-                activeCategoryButtonId,
-                detailFocusTarget,
-                preferredFocusId,
-                rememberDetailFocus
-            ),
+            registerStep2: (options: RegisterStep2FocusOptions): boolean => this._focus.registerStep2(options),
             renderStep: (): void => {
                 this._renderStep();
             },

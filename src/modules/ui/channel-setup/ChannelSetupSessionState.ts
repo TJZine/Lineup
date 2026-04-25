@@ -7,7 +7,7 @@ import type {
     ChannelSetupReview,
     SeriesOrderingConfig,
     SetupStrategyConfig,
-} from './ChannelSetupSessionPorts';
+} from '../../../core/channel-setup/types';
 import {
     DEFAULT_CHANNEL_SETUP_MAX,
     MAX_CHANNELS,

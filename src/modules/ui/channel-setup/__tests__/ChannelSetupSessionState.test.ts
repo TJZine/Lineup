@@ -1,4 +1,4 @@
-import type { ChannelSetupRecord } from '../ChannelSetupSessionPorts';
+import type { ChannelSetupRecord } from '../../../../core/channel-setup/types';
 import { DEFAULT_CHANNEL_SETUP_MAX } from '../../../scheduler/channel-manager/constants';
 import { DEFAULT_MIN_ITEMS_PER_CHANNEL } from '../steps/constants';
 import { makeLibrary } from './channel-setup-test-helpers';

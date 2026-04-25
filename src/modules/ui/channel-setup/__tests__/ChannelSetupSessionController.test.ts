@@ -3,8 +3,8 @@ import { DEFAULT_MIN_ITEMS_PER_CHANNEL } from '../steps/constants';
 import type {
     ChannelSetupConfig,
     ChannelSetupRecord,
-    ChannelSetupSessionWorkflowPort,
-} from '../ChannelSetupSessionPorts';
+} from '../../../../core/channel-setup/types';
+import type { ChannelSetupWorkflowPort } from '../../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { PlexLibrarySection as PlexLibraryModel } from '../../../plex/library/types';
 import { ChannelSetupSessionController } from '../ChannelSetupSessionController';
 import type { ChannelSetupBuildOutcome } from '../ChannelSetupSessionContracts';
@@ -29,10 +29,10 @@ const createDeferred = <T>(): {
     return { promise, resolve, reject };
 };
 
-type WorkflowPortOverrides = Partial<jest.Mocked<ChannelSetupSessionWorkflowPort>>;
+type WorkflowPortOverrides = Partial<jest.Mocked<ChannelSetupWorkflowPort>>;
 
-const createWorkflowPort = (overrides: WorkflowPortOverrides = {}): jest.Mocked<ChannelSetupSessionWorkflowPort> => {
-    const base: jest.Mocked<ChannelSetupSessionWorkflowPort> = {
+const createWorkflowPort = (overrides: WorkflowPortOverrides = {}): jest.Mocked<ChannelSetupWorkflowPort> => {
+    const base: jest.Mocked<ChannelSetupWorkflowPort> = {
         getLibrariesForSetup: jest.fn().mockResolvedValue([]),
         getChannelSetupRecord: jest.fn((_serverId: string) => null),
         getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
@@ -628,7 +628,7 @@ describe('ChannelSetupSessionController', () => {
 
     it('syncSetupContext() preserves first-time/existing/unknown and falls back to unknown', (): void => {
         const getSetupContextForSelectedServer = jest
-            .fn<ReturnType<ChannelSetupSessionWorkflowPort['getSetupContextForSelectedServer']>, []>()
+            .fn<ReturnType<ChannelSetupWorkflowPort['getSetupContextForSelectedServer']>, []>()
             .mockReturnValueOnce('first-time')
             .mockReturnValueOnce('existing')
             .mockReturnValueOnce('unknown')

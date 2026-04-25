@@ -3,9 +3,9 @@ import type {
     ChannelSetupConfig,
     SeriesOrderingConfig,
     SetupStrategyKey,
-} from '../ChannelSetupSessionPorts';
+} from '../../../../core/channel-setup/types';
 
-export type { SetupStrategyKey } from '../ChannelSetupSessionPorts';
+export type { SetupStrategyKey } from '../../../../core/channel-setup/types';
 
 export const DEFAULT_MIN_ITEMS_PER_CHANNEL = 5;
 

@@ -1,9 +1,7 @@
 import type {
-    ChannelSetupSessionWorkflowPort,
-} from '../../../modules/ui/channel-setup/ChannelSetupSessionPorts';
-import {
-    ChannelSetupWorkflowUnavailableError,
-} from '../../../modules/ui/channel-setup/ChannelSetupSessionPorts';
+    ChannelSetupWorkflowPort,
+} from './ChannelSetupWorkflowPort';
+import { ChannelSetupWorkflowUnavailableError } from './ChannelSetupWorkflowPort';
 import type { ChannelSetupContext } from '../types';
 import type { ChannelSetupBuildExecutor } from '../build/ChannelSetupBuildExecutor';
 import type { ChannelSetupCompletionTracker } from '../persistence/ChannelSetupCompletionTracker';
@@ -25,7 +23,7 @@ export interface ChannelSetupWorkflowPortOwners {
 
 export const createChannelSetupWorkflowPort = (
     deps: CreateChannelSetupWorkflowPortDeps
-): ChannelSetupSessionWorkflowPort => {
+): ChannelSetupWorkflowPort => {
     const requireOwners = (): ChannelSetupWorkflowPortOwners => {
         const owners = deps.getOwners();
         if (!owners) {

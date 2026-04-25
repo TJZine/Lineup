@@ -19,6 +19,7 @@ import {
     type StrategyCategoryKey,
 } from './constants';
 import type { StrategyStepDropdownConfig } from './types';
+import type { RegisterStep2FocusOptions } from '../focus/types';
 
 type AdjustableControl = {
     cyclePrev: () => boolean;
@@ -34,15 +35,7 @@ type StrategyStepInteractionAdapters = {
     getSessionSnapshot: () => ChannelSetupSessionSnapshot;
     hasActiveDropdown: () => boolean;
     openDropdown: (config: StrategyStepDropdownConfig) => void;
-    registerStep2: (
-        categoryButtons: HTMLButtonElement[],
-        detailButtons: HTMLButtonElement[],
-        footerButtons: [HTMLButtonElement, HTMLButtonElement],
-        activeCategoryButtonId: string,
-        detailFocusTarget: string | null,
-        preferredFocusId: string | null,
-        rememberDetailFocus: (id: string) => void
-    ) => boolean;
+    registerStep2: (options: RegisterStep2FocusOptions) => boolean;
     renderStep: () => void;
     setPreferredFocusId: (focusId: string | null) => void;
     setPriorityRowGrabbedVisual: (strategy: SetupStrategyKey | null, grabbed: boolean) => void;
@@ -382,17 +375,17 @@ export class StrategyStepInteractionController {
             detailIds,
             adapters.getSessionSnapshot()
         );
-        const preferredApplied = adapters.registerStep2(
+        const preferredApplied = adapters.registerStep2({
             categoryButtons,
             detailButtons,
-            [backButton, nextButton],
-            activeCategoryButtonId,
+            footerButtons: [backButton, nextButton],
+            activeCategoryId: activeCategoryButtonId,
             detailFocusTarget,
-            adapters.getPreferredFocusId(),
-            (id) => {
+            preferredFocusId: adapters.getPreferredFocusId(),
+            onDetailFocus: (id) => {
                 this._rememberActiveDetailFocus(id, adapters.getSessionSnapshot());
-            }
-        );
+            },
+        });
         if (preferredApplied) {
             adapters.setPreferredFocusId(null);
         }
