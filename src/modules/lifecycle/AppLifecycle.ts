@@ -12,28 +12,26 @@ import {
 } from './types';
 import { StateManager } from './StateManager';
 import { ErrorRecovery } from './ErrorRecovery';
+import { LifecycleConnectivityMonitor } from './LifecycleConnectivityMonitor';
+import { LifecycleMemoryMonitor } from './LifecycleMemoryMonitor';
+import { LifecycleStatePersistenceQueue } from './LifecycleStatePersistenceQueue';
 import { EventEmitter } from '../../utils/EventEmitter';
-import { summarizeErrorForLog } from '../../utils/errors';
 import type { IDisposable } from '../../utils/interfaces';
 import {
-    MEMORY_THRESHOLDS,
-    NETWORK_CHECK_PROBE_URL,
     TIMING_CONFIG,
     VALID_PHASE_TRANSITIONS,
 } from './constants';
 import type { PlatformLifecycleService } from '../../platform';
 import { createWebOsPlatformServices } from '../../platform';
 
-type PendingSaveWaiter = {
-    resolve: () => void;
-    reject: (error: unknown) => void;
-};
-
 export class AppLifecycle implements IAppLifecycle {
     // Dependencies
     private readonly _emitter: EventEmitter<LifecycleEventMap>;
     private readonly _stateManager: StateManager;
     private readonly _errorRecovery: ErrorRecovery;
+    private readonly _statePersistenceQueue: LifecycleStatePersistenceQueue;
+    private readonly _connectivityMonitor: LifecycleConnectivityMonitor;
+    private readonly _memoryMonitor: LifecycleMemoryMonitor;
 
     // Runtime state
     private _phase: AppPhase = 'initializing';
@@ -50,30 +48,12 @@ export class AppLifecycle implements IAppLifecycle {
     // Event listener references (for cleanup)
     private _visibilityHandler: (() => void) | null = null;
     private _webOSRelaunchDisposer: (() => void) | null = null;
-    private _onlineHandler: (() => void) | null = null;
-    private _offlineHandler: (() => void) | null = null;
     private readonly _lifecycleService: PlatformLifecycleService;
-
-    // Memory monitoring
-    private _memoryCheckInterval: number | null = null;
-
-    // Network monitoring
-    private _networkCheckInterval: number | null = null;
-
-    // State save debounce
-    private _saveDebounceTimer: number | null = null;
-    private _pendingState: PersistentState | null = null;
-    private _pendingSaveWaiters: PendingSaveWaiter[] = [];
-    private _nextPersistenceWarningAt: number = 0;
-    private _persistenceWarningBackoffMs: number = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
     private _pendingTransition: Promise<void> = Promise.resolve();
 
     // Idempotency guards (ISSUE-003)
     private _initialized: boolean = false;
     private _shutdownStarted: boolean = false;
-
-    // Network warning throttling
-    private _nextNetworkWarningAt: number = 0;
 
     /**
      * Create a new AppLifecycle manager.
@@ -90,6 +70,33 @@ export class AppLifecycle implements IAppLifecycle {
         this._stateManager = stateManager !== undefined ? stateManager : new StateManager();
         this._errorRecovery = errorRecovery !== undefined ? errorRecovery : new ErrorRecovery();
         this._lifecycleService = lifecycleService ?? createWebOsPlatformServices().lifecycle;
+        this._statePersistenceQueue = new LifecycleStatePersistenceQueue({
+            stateManager: this._stateManager,
+            buildState: (): PersistentState => this._buildCurrentState(),
+            emitPersistenceWarning: (warning): void => {
+                this._emitter.emit('persistenceWarning', warning);
+            },
+        });
+        this._connectivityMonitor = new LifecycleConnectivityMonitor({
+            onNetworkChange: ({ isAvailable }): void => {
+                this._isNetworkAvailable = isAvailable;
+                this._emitter.emit('networkChange', { isAvailable });
+            },
+            onNetworkWarning: (warning): void => {
+                this._emitter.emit('networkWarning', warning);
+            },
+            reportAsyncError: (error, context): void => {
+                this._handleAsyncError(error, context);
+            },
+        });
+        this._memoryMonitor = new LifecycleMemoryMonitor({
+            onMemoryWarning: (warning): void => {
+                this._emitter.emit('memoryWarning', warning);
+            },
+            clearCaches: (): void => {
+                this.performMemoryCleanup();
+            },
+        });
     }
 
     // ========== Lifecycle Methods ==========
@@ -107,12 +114,13 @@ export class AppLifecycle implements IAppLifecycle {
 
         // Setup event listeners
         this._setupVisibilityListeners();
-        this._setupNetworkListeners();
-        this._startMemoryMonitoring();
-        this._startNetworkMonitoring();
+        this._connectivityMonitor.setupListeners();
+        this._memoryMonitor.startMonitoring();
+        this._connectivityMonitor.startMonitoring();
 
         // Check initial network state
         this._isNetworkAvailable = navigator.onLine;
+        this._connectivityMonitor.setInitialAvailability(navigator.onLine);
 
         // Restore state
         const savedState = this._stateManager.load();
@@ -149,19 +157,15 @@ export class AppLifecycle implements IAppLifecycle {
         );
 
         // Save final state (already saved by _transitionPhase, but flush any pending)
-        try {
-            await this._flushPendingSave({ finalShutdown: true });
-        } catch (error) {
-            console.warn('[AppLifecycle] Final shutdown flush failed', summarizeErrorForLog(error));
-        }
+        await this._statePersistenceQueue.flush({ finalShutdown: true });
 
         // Stop monitoring
-        this._stopMemoryMonitoring();
-        this._stopNetworkMonitoring();
+        this._memoryMonitor.stopMonitoring();
+        this._connectivityMonitor.stopMonitoring();
 
         // Remove event listeners
         this._removeVisibilityListeners();
-        this._removeNetworkListeners();
+        this._connectivityMonitor.removeListeners();
 
         // Clear all event handlers
         this._emitter.removeAllListeners();
@@ -174,28 +178,7 @@ export class AppLifecycle implements IAppLifecycle {
      * Debounced to prevent excessive writes.
      */
     public saveState(): Promise<void> {
-        let state: PersistentState;
-        try {
-            // Build failures reject this caller only; any pending state, waiters, and debounce
-            // timer still belong to the previously scheduled flush.
-            state = this._buildCurrentState();
-        } catch (error) {
-            return Promise.reject(error);
-        }
-        this._pendingState = state;
-
-        // Debounce saves
-        if (this._saveDebounceTimer !== null) {
-            clearTimeout(this._saveDebounceTimer);
-        }
-
-        this._saveDebounceTimer = window.setTimeout(() => {
-            this._fireAndForget(this._flushPendingSave(), 'saveState');
-        }, TIMING_CONFIG.SAVE_DEBOUNCE_MS) as unknown as number;
-
-        return new Promise<void>((resolve, reject) => {
-            this._pendingSaveWaiters.push({ resolve, reject });
-        });
+        return this._statePersistenceQueue.saveState();
     }
 
     // ========== Lifecycle Callbacks ==========
@@ -239,42 +222,7 @@ export class AppLifecycle implements IAppLifecycle {
      * @returns true if network test succeeds
      */
     public async checkNetworkStatus(): Promise<boolean> {
-        let timeoutId: number | null = null;
-        try {
-            // Simple HEAD request to check connectivity
-            const controller = new AbortController();
-            timeoutId = window.setTimeout(
-                () => controller.abort(),
-                TIMING_CONFIG.NETWORK_CHECK_TIMEOUT_MS
-            ) as unknown as number;
-
-            const response = await fetch(NETWORK_CHECK_PROBE_URL, {
-                method: 'HEAD',
-                signal: controller.signal,
-                mode: 'no-cors' // Use no-cors to avoid CORS errors on opaque network check
-            });
-
-            // With no-cors, response is typically opaque (type: 'opaque', ok: false, status: 0).
-            // A successful fetch that does not throw is sufficient to treat the network as available.
-            const available = response.type === 'opaque' || response.ok;
-            if (available !== this._isNetworkAvailable) {
-                this._isNetworkAvailable = available;
-                this._emitter.emit('networkChange', { isAvailable: available });
-            }
-
-            return available;
-        } catch {
-            if (this._isNetworkAvailable) {
-                this._isNetworkAvailable = false;
-                this._emitter.emit('networkChange', { isAvailable: false });
-            }
-            this._maybeEmitNetworkWarning('Network connectivity check failed');
-            return false;
-        } finally {
-            if (timeoutId !== null) {
-                clearTimeout(timeoutId);
-            }
-        }
+        return this._connectivityMonitor.checkNetworkStatus();
     }
 
     // ========== Memory Monitoring ==========
@@ -284,29 +232,7 @@ export class AppLifecycle implements IAppLifecycle {
      * @returns Memory usage statistics
      */
     public getMemoryUsage(): MemoryUsage {
-        // performance.memory is Chrome-specific (including webOS)
-        const memory = (performance as unknown as {
-            memory?: {
-                usedJSHeapSize: number;
-                totalJSHeapSize: number;
-                jsHeapSizeLimit: number;
-            }
-        }).memory;
-
-        if (memory) {
-            return {
-                used: memory.usedJSHeapSize,
-                limit: memory.jsHeapSizeLimit,
-                percentage: Math.round((memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100),
-            };
-        }
-
-        // Fallback when memory API not available
-        return {
-            used: 0,
-            limit: MEMORY_THRESHOLDS.LIMIT_BYTES,
-            percentage: 0,
-        };
+        return this._memoryMonitor.getMemoryUsage();
     }
 
     /**
@@ -397,7 +323,7 @@ export class AppLifecycle implements IAppLifecycle {
         }
 
         // Save state BEFORE transition (per spec)
-        await this._flushPendingSave();
+        await this._statePersistenceQueue.flush();
 
         const from = this._phase;
         this._phase = phase;
@@ -490,93 +416,6 @@ export class AppLifecycle implements IAppLifecycle {
     }
 
     /**
-     * Setup network change listeners.
-     */
-    private _setupNetworkListeners(): void {
-        this._onlineHandler = (): void => {
-            this._isNetworkAvailable = true;
-            this._emitter.emit('networkChange', { isAvailable: true });
-        };
-
-        this._offlineHandler = (): void => {
-            this._isNetworkAvailable = false;
-            this._emitter.emit('networkChange', { isAvailable: false });
-        };
-
-        window.addEventListener('online', this._onlineHandler);
-        window.addEventListener('offline', this._offlineHandler);
-    }
-
-    /**
-     * Start periodic network connectivity checks.
-     */
-    private _startNetworkMonitoring(): void {
-        this._networkCheckInterval = window.setInterval(() => {
-            this._fireAndForget(this.checkNetworkStatus(), 'network-monitor');
-        }, TIMING_CONFIG.NETWORK_CHECK_INTERVAL_MS) as unknown as number;
-    }
-
-    /**
-     * Stop periodic network checks.
-     */
-    private _stopNetworkMonitoring(): void {
-        if (this._networkCheckInterval !== null) {
-            clearInterval(this._networkCheckInterval);
-            this._networkCheckInterval = null;
-        }
-    }
-
-    /**
-     * Remove network listeners.
-     */
-    private _removeNetworkListeners(): void {
-        if (this._onlineHandler) {
-            window.removeEventListener('online', this._onlineHandler);
-            this._onlineHandler = null;
-        }
-        if (this._offlineHandler) {
-            window.removeEventListener('offline', this._offlineHandler);
-            this._offlineHandler = null;
-        }
-    }
-
-    /**
-     * Start memory monitoring.
-     */
-    private _startMemoryMonitoring(): void {
-        this._memoryCheckInterval = window.setInterval(() => {
-            this._checkMemory();
-        }, MEMORY_THRESHOLDS.CHECK_INTERVAL_MS) as unknown as number;
-    }
-
-    /**
-     * Stop memory monitoring.
-     */
-    private _stopMemoryMonitoring(): void {
-        if (this._memoryCheckInterval !== null) {
-            clearInterval(this._memoryCheckInterval);
-            this._memoryCheckInterval = null;
-        }
-    }
-
-    /**
-     * Check memory usage and emit warnings if needed.
-     */
-    private _checkMemory(): void {
-        const usage = this.getMemoryUsage();
-        if (usage.used === 0) {
-            return; // API not available
-        }
-
-        if (usage.used > MEMORY_THRESHOLDS.CRITICAL_BYTES) {
-            this._emitter.emit('memoryWarning', { level: 'critical', used: usage.used });
-            this.performMemoryCleanup();
-        } else if (usage.used > MEMORY_THRESHOLDS.WARNING_BYTES) {
-            this._emitter.emit('memoryWarning', { level: 'warning', used: usage.used });
-        }
-    }
-
-    /**
      * Handle app pause (backgrounding).
      */
     private async _handlePause(): Promise<void> {
@@ -588,7 +427,7 @@ export class AppLifecycle implements IAppLifecycle {
         this._emitter.emit('visibilityChange', { isVisible: false });
 
         // Save state immediately on pause
-        await this._flushPendingSave();
+        await this._statePersistenceQueue.flush();
 
         // Execute pause callbacks with timeout
         await this._executeCallbacksWithTimeout(
@@ -685,122 +524,9 @@ export class AppLifecycle implements IAppLifecycle {
         };
     }
 
-    /**
-     * Flush any pending state save immediately.
-     */
-    private async _flushPendingSave(options?: { finalShutdown?: boolean }): Promise<void> {
-        if (this._saveDebounceTimer !== null) {
-            clearTimeout(this._saveDebounceTimer);
-            this._saveDebounceTimer = null;
-        }
-
-        if (this._pendingState !== null) {
-            try {
-                this._stateManager.save(this._pendingState);
-                this._pendingState = null;
-                this._persistenceWarningBackoffMs =
-                    TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
-                this._resolvePendingSaveWaiters();
-            } catch (error) {
-                if (options?.finalShutdown === true) {
-                    console.warn('[AppLifecycle] Final shutdown flush failed', summarizeErrorForLog(error));
-                }
-                // Clear the failed waiter batch before warning observers run. Synchronous
-                // re-entry via saveState() should enqueue against the next flush.
-                this._rejectPendingSaveWaiters(error);
-                try {
-                    this._handleSaveError(error);
-                } catch (handlerError) {
-                    console.warn('[AppLifecycle] Persistence warning handler failed', handlerError);
-                }
-            }
-        }
-    }
-
-    /**
-     * Fire-and-forget helper that funnels async errors into non-blocking handling.
-     */
-    private _fireAndForget(promise: Promise<unknown>, context: string): void {
-        void promise.catch((error) => {
-            this._handleAsyncError(error, context);
-        });
-    }
-
     private _handleAsyncError(error: unknown, context: string): void {
-        if (context === 'saveState') {
-            this._handleSaveError(error);
-            return;
-        }
-    }
-
-    private _handleSaveError(error: unknown): void {
-        const isQuotaError = this._isQuotaError(error);
-        if (this._shouldEmitPersistenceWarning(isQuotaError)) {
-            const message = isQuotaError
-                ? 'Persistent storage quota exceeded; save deferred'
-                : 'Failed to persist state; will retry on next save';
-            this._emitter.emit('persistenceWarning', {
-                message,
-                isQuotaError,
-                timestamp: Date.now(),
-            });
-        }
-    }
-
-    private _resolvePendingSaveWaiters(): void {
-        const waiters = this._pendingSaveWaiters;
-        this._pendingSaveWaiters = [];
-        waiters.forEach(({ resolve }) => resolve());
-    }
-
-    private _rejectPendingSaveWaiters(error: unknown): void {
-        const waiters = this._pendingSaveWaiters;
-        this._pendingSaveWaiters = [];
-        waiters.forEach(({ reject }) => reject(error));
-    }
-
-    private _shouldEmitPersistenceWarning(isQuotaError: boolean): boolean {
-        const now = Date.now();
-        if (now < this._nextPersistenceWarningAt) {
-            return false;
-        }
-        const backoff = isQuotaError
-            ? this._persistenceWarningBackoffMs
-            : TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
-        this._nextPersistenceWarningAt = now + backoff;
-        if (isQuotaError) {
-            this._persistenceWarningBackoffMs = Math.min(
-                this._persistenceWarningBackoffMs * 2,
-                TIMING_CONFIG.PERSISTENCE_WARNING_MAX_BACKOFF_MS
-            );
-        } else {
-            this._persistenceWarningBackoffMs = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
-        }
-        return true;
-    }
-
-    private _maybeEmitNetworkWarning(message: string): void {
-        const now = Date.now();
-        if (now < this._nextNetworkWarningAt) {
-            return;
-        }
-        this._nextNetworkWarningAt = now + TIMING_CONFIG.NETWORK_WARNING_BACKOFF_MS;
-        this._emitter.emit('networkWarning', {
-            message,
-            isAvailable: this._isNetworkAvailable,
-            timestamp: now,
-        });
-    }
-
-    private _isQuotaError(error: unknown): boolean {
-        if (typeof DOMException !== 'undefined' && error instanceof DOMException) {
-            return (
-                error.code === 22 ||
-                error.code === 1014 ||
-                error.name === 'QuotaExceededError'
-            );
-        }
-        return false;
+        void error;
+        void context;
     }
 
     /**
