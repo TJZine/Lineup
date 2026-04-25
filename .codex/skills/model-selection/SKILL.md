@@ -80,4 +80,4 @@ Use `n/a` for roles that are not part of the next session.
 - Emitting model advice for every handoff
 - Using `high` just because work is important instead of because the reasoning problem is hard
 - Recommending mini models for ambiguous architecture work only because a later review exists
-- Forgetting that Codex-optimized models are the default implementer choice for code-heavy sessions
+- Forgetting that the default implementer choice is `gpt-5.5 medium`, with `gpt-5.4` as the fallback when `gpt-5.5` is unavailable
