@@ -19,19 +19,17 @@ import type {
 } from '../../../modules/plex/library';
 import type {
     ChannelConfig,
-    ChannelCreateInput,
     ContentFilter,
     SortOrder,
 } from '../../../modules/scheduler/channel-manager';
 import { buildChannelSetupStrategyBuckets } from './ChannelSetupStrategyBuilders';
+import {
+    createEmptyChannelSetupEstimates,
+    toChannelSetupDecadeValue,
+    type PendingChannel,
+} from './ChannelSetupPlanningTypes';
 
-export type PendingChannel =
-    ChannelCreateInput
-    & {
-        name: string;
-        playbackMode: ChannelConfig['playbackMode'];
-        shuffleSeed: number;
-    };
+export type { PendingChannel } from './ChannelSetupPlanningTypes';
 
 interface ChannelSetupPlanInput {
     config: ChannelSetupConfig;
@@ -124,18 +122,6 @@ export interface ChannelDiffResult {
     samples: { created: string[]; removed: string[]; unchanged: string[] };
 }
 
-const emptyEstimates = (): ChannelSetupEstimates => ({
-    total: 0,
-    collections: 0,
-    playlists: 0,
-    genres: 0,
-    directors: 0,
-    decades: 0,
-    recentlyAdded: 0,
-    studios: 0,
-    actors: 0,
-});
-
 const sortTagValuesByCountThenTitle = <T extends { title: string; count: number }>(values: T[]): T[] => (
     [...values].sort((a, b) => {
         const countDiff = b.count - a.count;
@@ -151,14 +137,6 @@ const toCountSamples = (values: Array<{ title: string; count: number }>, limit: 
         title: value.title,
         count: value.count,
     }));
-
-const toDecadeValue = (tag: PlexTagDirectoryItem): number | null => {
-    const year = Number.parseInt(tag.title, 10);
-    if (!Number.isFinite(year)) {
-        return null;
-    }
-    return Math.floor(year / 10) * 10;
-};
 
 const formatDecadeLabel = (decade: number): string => `${decade}s`;
 
@@ -397,7 +375,7 @@ function buildChannelSetupPlanInternal(
 
     const pending = withVariants.slice(0, effectiveMaxChannels);
     const reachedMaxChannels = withVariants.length > effectiveMaxChannels;
-    const estimates = emptyEstimates();
+    const estimates = createEmptyChannelSetupEstimates();
     for (const channel of pending) {
         estimates.total += 1;
         const strategyKey = channel.buildStrategy as keyof ChannelSetupEstimates | undefined;
@@ -561,7 +539,7 @@ function buildDecadeFacetCountDiagnostics(
     const decades = new Map<number, { totalCount: number; hasUnknownCount: boolean }>();
 
     for (const yearTag of yearTags) {
-        const decade = toDecadeValue(yearTag);
+        const decade = toChannelSetupDecadeValue(yearTag.title);
         if (decade === null) {
             continue;
         }
@@ -645,18 +623,18 @@ function createPlannerDiagnostics(
             studios: toFacetCountDiagnostics(studiosByLibraryId),
             actors: toFacetCountDiagnostics(actorsByLibraryId),
         },
-        candidatesBeforeMinItems: emptyEstimates(),
-        candidatesAfterMinItems: emptyEstimates(),
-        strategyBucketSizes: emptyEstimates(),
-        afterAlternateLineups: emptyEstimates(),
-        afterVariants: emptyEstimates(),
-        afterMaxChannels: emptyEstimates(),
-        lostToMaxChannels: emptyEstimates(),
+        candidatesBeforeMinItems: createEmptyChannelSetupEstimates(),
+        candidatesAfterMinItems: createEmptyChannelSetupEstimates(),
+        strategyBucketSizes: createEmptyChannelSetupEstimates(),
+        afterAlternateLineups: createEmptyChannelSetupEstimates(),
+        afterVariants: createEmptyChannelSetupEstimates(),
+        afterMaxChannels: createEmptyChannelSetupEstimates(),
+        lostToMaxChannels: createEmptyChannelSetupEstimates(),
     };
 }
 
 function countChannelsByStrategy(channels: PendingChannel[]): ChannelSetupEstimates {
-    const estimates = emptyEstimates();
+    const estimates = createEmptyChannelSetupEstimates();
     for (const channel of channels) {
         estimates.total += 1;
         const strategyKey = channel.buildStrategy as SetupStrategyKey | undefined;

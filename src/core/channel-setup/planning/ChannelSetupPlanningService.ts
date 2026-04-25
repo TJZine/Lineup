@@ -26,6 +26,7 @@ import {
     type ChannelSetupFacetSnapshot,
     type ChannelSetupPlanningIntent,
 } from './ChannelSetupFacetSnapshotLoader';
+import { createEmptyChannelSetupEstimates } from './ChannelSetupPlanningTypes';
 import { normalizeChannelSetupConfig } from './normalizeChannelSetupConfig';
 
 export interface ChannelSetupPlanningServiceDeps {
@@ -291,17 +292,7 @@ export class ChannelSetupPlanningService {
     }
 
     private _emptyEstimates(): ChannelSetupPreview['estimates'] {
-        return {
-            total: 0,
-            collections: 0,
-            playlists: 0,
-            genres: 0,
-            directors: 0,
-            decades: 0,
-            recentlyAdded: 0,
-            studios: 0,
-            actors: 0,
-        };
+        return createEmptyChannelSetupEstimates();
     }
 
     private _normalizeDiffForMode(

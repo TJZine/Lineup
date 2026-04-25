@@ -16,7 +16,7 @@ import type {
     ChannelSetupFacetSnapshot,
     ChannelSetupFacetSnapshotData,
     ChannelSetupPlexRequestIntent,
-} from './ChannelSetupFacetSnapshotLoader';
+} from './ChannelSetupPlanningTypes';
 
 type ChannelSetupRequiredTagDirectoryLabel = 'Genres' | 'Directors' | 'Years' | 'Actors' | 'Studios';
 type ChannelSetupNativeFacetFamily = 'genres' | 'directors' | 'decades' | 'actors' | 'studios';

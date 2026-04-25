@@ -1,53 +1,32 @@
 import type {
     IPlexLibrary,
     PlexLibrarySection,
-    PlexTagDirectoryItem,
-    PlexPlaylist,
-    PlexCollection,
 } from '../../../modules/plex/library';
-import { getPlexRequestIntentForChannelSetup } from '../../../modules/plex/library';
-import type { ChannelBuildProgress, ChannelSetupConfig, ChannelSetupPreviewFailureReason } from '../types';
+import type { ChannelBuildProgress, ChannelSetupConfig } from '../types';
 import {
     ChannelSetupFacetSnapshotLoadSession,
     createAbortError,
 } from './ChannelSetupFacetSnapshotLoadSession';
+import type {
+    ChannelSetupFacetSnapshot,
+    ChannelSetupPlanningIntent,
+    ChannelSetupPlexRequestIntent,
+} from './ChannelSetupPlanningTypes';
 
 export {
     assertRecoveredTagCount,
     ChannelSetupPlanningError,
 } from './ChannelSetupFacetSnapshotLoadSession';
-
-export type ChannelSetupPlanningIntent = 'preview' | 'build';
-export type ChannelSetupPlexRequestIntent = ReturnType<typeof getPlexRequestIntentForChannelSetup>;
+export type {
+    ChannelSetupFacetSnapshot,
+    ChannelSetupFacetSnapshotData,
+    ChannelSetupPlanningIntent,
+    ChannelSetupPlexRequestIntent,
+} from './ChannelSetupPlanningTypes';
 
 export interface ChannelSetupFacetSnapshotLoaderDeps {
     plexLibrary: IPlexLibrary;
 }
-
-export type ChannelSetupFacetSnapshotData = {
-    playlists: PlexPlaylist[];
-    collectionsByLibraryId: Map<string, PlexCollection[]>;
-    genresByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    directorsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    yearsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    actorsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    studiosByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    warnings: string[];
-    hasTransientLoadFailure: boolean;
-    errorsTotal: number;
-    playlistMs: number;
-    collectionsMs: number;
-    libraryQueryMs: number;
-    lastTask?: ChannelBuildProgress['task'];
-};
-
-export type ChannelSetupFacetSnapshot =
-    | ({ status: 'ready' } & ChannelSetupFacetSnapshotData)
-    | ({
-        status: 'blocked' | 'slow';
-        message: string;
-        failureReason: ChannelSetupPreviewFailureReason;
-    } & ChannelSetupFacetSnapshotData);
 
 export type ChannelSetupFacetSnapshotWaitOptions = {
     signal: AbortSignal | null;
