@@ -3,7 +3,7 @@
  * @module modules/scheduler/channel-manager/__tests__/ChannelManager.test
  */
 
-import { ChannelManager } from '../ChannelManager';
+import { ChannelError, ChannelManager } from '../ChannelManager';
 import { ChannelRepository } from '../ChannelRepository';
 import { ContentResolver } from '../ContentResolver';
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
@@ -184,10 +184,15 @@ describe('ChannelManager', () => {
             expect(ch2.number).toBe(2);
         });
 
-        it('should throw if content source missing', async () => {
-            await expect(manager.createChannel({ name: 'Test' } as unknown as ChannelCreateInput)).rejects.toThrow(
-                'Content source is required'
-            );
+        it('throws ChannelError if content source missing', async () => {
+            const promise = manager.createChannel({ name: 'Test' } as unknown as ChannelCreateInput);
+
+            await expect(promise).rejects.toBeInstanceOf(ChannelError);
+            await expect(promise).rejects.toMatchObject({
+                name: 'ChannelError',
+                code: AppErrorCode.UNKNOWN,
+                message: 'Content source is required',
+            });
         });
 
         it('should throw on duplicate channel number', async () => {
@@ -259,6 +264,14 @@ describe('ChannelManager', () => {
             expect(handler).toHaveBeenCalledWith(expect.objectContaining({ name: 'Updated' }));
         });
 
+        it('throws ChannelError when updating a missing channel', async () => {
+            await expect(manager.updateChannel('missing-channel', { name: 'Nope' })).rejects.toMatchObject({
+                name: 'ChannelError',
+                code: AppErrorCode.CHANNEL_NOT_FOUND,
+                message: 'Channel not found',
+            });
+        });
+
         it('ignores runtime-managed fields during updates', async () => {
             const channel = await manager.createChannel({
                 name: 'Original',
@@ -306,6 +319,14 @@ describe('ChannelManager', () => {
 
             expect(manager.getChannel(channel.id)).toBeNull();
             expect(handler).toHaveBeenCalledWith(channel.id);
+        });
+
+        it('throws ChannelError when deleting a missing channel', async () => {
+            await expect(manager.deleteChannel('missing-channel')).rejects.toMatchObject({
+                name: 'ChannelError',
+                code: AppErrorCode.CHANNEL_NOT_FOUND,
+                message: 'Channel not found',
+            });
         });
 
         it('should find channel by number', async () => {
@@ -741,6 +762,11 @@ describe('ChannelManager', () => {
             manager.setCurrentChannel(ch2.id);
 
             expect(manager.getCurrentChannel()!.id).toBe(ch2.id);
+        });
+
+        it('throws ChannelError when switching to a missing channel', () => {
+            expect(() => manager.setCurrentChannel('missing-channel')).toThrow(ChannelError);
+            expect(() => manager.setCurrentChannel('missing-channel')).toThrow('Channel not found');
         });
 
         it('should emit channelSwitch event', async () => {

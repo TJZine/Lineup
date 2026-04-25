@@ -17,7 +17,7 @@ export interface IChannelManager {
      * Create a new channel with default values for missing fields.
      * @param config - Writable channel configuration
      * @returns Promise resolving to complete channel config
-     * @throws Error if content source is missing
+     * @throws ChannelError if content source is missing
      */
     createChannel(config: ChannelCreateInput, options?: { signal?: AbortSignal | null }): Promise<ChannelConfig>;
 
@@ -26,14 +26,14 @@ export interface IChannelManager {
      * @param id - Channel ID
      * @param updates - Writable updates to apply
      * @returns Promise resolving to updated channel config
-     * @throws Error if channel not found
+     * @throws ChannelError if channel not found
      */
     updateChannel(id: string, updates: ChannelUpdateInput): Promise<ChannelConfig>;
 
     /**
      * Delete a channel.
      * @param id - Channel ID to delete
-     * @throws Error if channel not found
+     * @throws ChannelError if channel not found
      */
     deleteChannel(id: string): Promise<void>;
 
@@ -65,7 +65,7 @@ export interface IChannelManager {
      * Resolve content for a channel (uses cache if valid).
      * @param channelId - Channel ID
      * @returns Promise resolving to resolved content
-     * @throws Error if channel not found
+     * @throws ChannelError if channel not found
      */
     resolveChannelContent(channelId: string, options?: { signal?: AbortSignal | null }): Promise<ResolvedChannelContent>;
 
@@ -73,7 +73,7 @@ export interface IChannelManager {
      * Force refresh content for a channel (bypasses cache).
      * @param channelId - Channel ID
      * @returns Promise resolving to resolved content
-     * @throws Error if channel not found
+     * @throws ChannelError if channel not found
      */
     refreshChannelContent(channelId: string, options?: { signal?: AbortSignal | null }): Promise<ResolvedChannelContent>;
 
@@ -82,7 +82,7 @@ export interface IChannelManager {
      * Used by guide prefetchers that want to avoid caching/persisting channel metadata.
      * @param channelId - Channel ID
      * @returns Promise resolving to resolved content items
-     * @throws Error if channel not found
+     * @throws ChannelError if channel not found
      */
     resolveChannelItemsForSchedule(
         channelId: string,
@@ -100,6 +100,7 @@ export interface IChannelManager {
     /**
      * Set the current active channel.
      * @param channelId - Channel ID to switch to
+     * @throws ChannelError if channel not found
      */
     setCurrentChannel(channelId: string): void;
 
@@ -164,6 +165,7 @@ export interface IChannelManager {
      * Update persistence keys for multi-server/multi-mode support.
      * Implementations should NOT throw if storage is unavailable.
      * Typically followed by loadChannels().
+     * @throws ChannelError if storage keys are empty.
      */
     setStorageKeys(storageKey: string, currentChannelKey: string): void;
 
