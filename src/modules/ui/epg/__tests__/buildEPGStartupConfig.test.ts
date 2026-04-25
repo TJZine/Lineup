@@ -8,7 +8,7 @@ import {
     buildEPGStartupConfig,
     CLASSIC_EPG_PIP_CLASS,
     type EPGStartupConfigInputs,
-} from '../buildEPGStartupConfig';
+} from '../startup/buildEPGStartupConfig';
 import type { EPGConfig } from '../types';
 
 const createBaseConfig = (): EPGConfig => ({

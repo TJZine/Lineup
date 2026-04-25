@@ -3,7 +3,7 @@ import type { EPGConfig } from '../types';
 import {
     computeEpgScheduleRangeMs,
     computeNormalizedLibraryFilterState,
-} from '../EPGCoordinatorPolicies';
+} from '../coordinator/EPGCoordinatorPolicies';
 
 const makeChannel = (
     id: string,

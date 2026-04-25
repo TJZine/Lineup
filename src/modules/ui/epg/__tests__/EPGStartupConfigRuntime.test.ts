@@ -7,7 +7,7 @@ import {
     CLASSIC_EPG_PIP_CLASS,
     EPGStartupConfigRuntime,
     type EPGStartupConfigRuntimeDependencies,
-} from '../EPGStartupConfigRuntime';
+} from '../startup/EPGStartupConfigRuntime';
 
 const createDependencies = (): EPGStartupConfigRuntimeDependencies => ({
     plexLibrary: null,

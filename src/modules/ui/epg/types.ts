@@ -11,8 +11,8 @@ import type {
     EpgScheduleWindow,
     EpgScheduledProgram,
 } from './model/domainTypes';
-import type { IEPGDebugRuntime } from './EPGDebugRuntime';
-import type { EpgUiStatus } from './EPGCoordinatorContracts';
+import type { IEPGDebugRuntime } from './debug/EPGDebugRuntime';
+import type { EpgUiStatus } from './coordinator/EPGCoordinatorContracts';
 
 // Re-export EPG-owned aliases for UI contracts.
 export type ScheduledProgram = EpgScheduledProgram;

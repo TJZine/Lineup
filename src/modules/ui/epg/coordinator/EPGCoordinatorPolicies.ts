@@ -1,9 +1,9 @@
-import type { ChannelConfig } from '../../scheduler/channel-manager';
-import type { EPGConfig } from './types';
+import type { ChannelConfig } from '../../../scheduler/channel-manager';
+import type { EPGConfig } from '../types';
 import type {
     EpgPastItemsWindow,
     EpgScheduleRangeSnapshot,
-} from '../../settings/EpgPreferencesStore';
+} from '../../../settings/EpgPreferencesStore';
 import {
     buildLibraries,
     countLibraryTypeVotes,

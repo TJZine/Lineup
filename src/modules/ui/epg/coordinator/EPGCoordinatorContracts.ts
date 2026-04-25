@@ -1,4 +1,4 @@
-import type { ResolvedContentItem } from '../../scheduler/channel-manager';
+import type { ResolvedContentItem } from '../../../scheduler/channel-manager';
 
 export type EpgUiStatus = 'pending' | 'initializing' | 'ready' | 'error' | 'disabled' | undefined;
 

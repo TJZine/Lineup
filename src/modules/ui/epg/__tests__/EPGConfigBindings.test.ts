@@ -1,4 +1,4 @@
-import { withEpgVisibleRangeChangeBinding } from '../EPGConfigBindings';
+import { withEpgVisibleRangeChangeBinding } from '../component/EPGConfigBindings';
 import type { EPGConfig, EpgVisibleRange } from '../types';
 
 describe('withEpgVisibleRangeChangeBinding', () => {

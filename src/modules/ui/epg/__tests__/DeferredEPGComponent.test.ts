@@ -269,6 +269,62 @@ describe('DeferredEPGComponent', () => {
         expect(loader).toHaveBeenCalledTimes(1);
     });
 
+    it('bridges runtime events and removes bridges on destroy', async () => {
+        const runtimeHandlers = new Map<string, Array<(payload: unknown) => void>>();
+        const destroy = jest.fn();
+        const disposeCalls: jest.Mock[] = [];
+        const onRuntimeEvent = ((event: string | number | symbol, handler: (payload: unknown) => void) => {
+            const eventName = String(event);
+            const handlers = runtimeHandlers.get(eventName) ?? [];
+            handlers.push(handler);
+            runtimeHandlers.set(eventName, handlers);
+            const dispose = jest.fn(() => {
+                runtimeHandlers.set(
+                    eventName,
+                    (runtimeHandlers.get(eventName) ?? []).filter((candidate) => candidate !== handler)
+                );
+            });
+            disposeCalls.push(dispose);
+            return { dispose };
+        }) as unknown as IEPGComponent['on'];
+        const loader = createLoader({
+            on: onRuntimeEvent,
+            destroy,
+        });
+        const onOpen = jest.fn();
+        const component = new DeferredEPGComponent(loader as never);
+        component.on('open', onOpen);
+
+        await component.ensureReady();
+        runtimeHandlers.get('open')?.forEach((handler) => handler(undefined));
+
+        expect(onOpen).toHaveBeenCalledTimes(1);
+
+        component.destroy();
+        runtimeHandlers.get('open')?.forEach((handler) => handler(undefined));
+
+        expect(onOpen).toHaveBeenCalledTimes(1);
+        expect(disposeCalls).toHaveLength(8);
+        expect(disposeCalls.every((dispose) => dispose.mock.calls.length === 1)).toBe(true);
+        expect(destroy).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not replay a hidden show request after the runtime loads', async () => {
+        const show = jest.fn();
+        const hide = jest.fn();
+        const loader = createLoader({ show, hide });
+        const component = new DeferredEPGComponent(loader as never);
+        component.initialize(makeConfig());
+
+        component.show();
+        component.hide();
+        await component.ensureReady();
+
+        expect(show).not.toHaveBeenCalled();
+        expect(hide).not.toHaveBeenCalled();
+        expect(component.isVisible()).toBe(false);
+    });
+
     it('replays queued config, channels, schedules, layout mode, banner mode, and tabs after load', async () => {
         const callLog: string[] = [];
         const debugRuntime = {

@@ -1,29 +1,29 @@
 /**
  * @fileoverview Coordinates EPG state, schedule loading, and overlay lifecycle.
- * @module modules/ui/epg/EPGCoordinator
+ * @module modules/ui/epg/coordinator/EPGCoordinator
  * @version 1.0.0
  */
 
-import type { EpgGuideDensity } from '../../settings/EpgPreferencesStore';
-import type { IEPGComponent } from './interfaces';
-import type { ChannelConfig as EpgChannel, EPGConfig, EpgVisibleRange, ScheduledProgram as EpgScheduledProgram } from './types';
-import type { GuideSettingChange } from '../settings/types';
-import type { IChannelManager, ChannelConfig as SchedulerChannelConfig, ResolvedChannelContent } from '../../scheduler/channel-manager';
+import type { EpgGuideDensity } from '../../../settings/EpgPreferencesStore';
+import type { IEPGComponent } from '../interfaces';
+import type { ChannelConfig as EpgChannel, EPGConfig, EpgVisibleRange, ScheduledProgram as EpgScheduledProgram } from '../types';
+import type { GuideSettingChange } from '../../settings/types';
+import type { IChannelManager, ChannelConfig as SchedulerChannelConfig, ResolvedChannelContent } from '../../../scheduler/channel-manager';
 import type {
     IChannelScheduler,
     ScheduleConfig,
-} from '../../scheduler/scheduler';
-import type { AppendIssueDiagnostic } from '../../debug/IssueDiagnosticsStore';
-import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
-import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
+} from '../../../scheduler/scheduler';
+import type { AppendIssueDiagnostic } from '../../../debug/IssueDiagnosticsStore';
+import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
+import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
 import {
     computeNormalizedLibraryFilterState,
     selectVisibleChannelsForLibraryFilter,
 } from './EPGCoordinatorPolicies';
 import { countLibraryTypeVotes } from './EPGLibraryUtils';
 import { EPGRefreshController } from './EPGRefreshController';
-import { toEpgChannels } from './model/adapters';
-import type { IEPGDebugRuntime } from './EPGDebugRuntime';
+import { toEpgChannels } from '../model/adapters';
+import type { IEPGDebugRuntime } from '../debug/EPGDebugRuntime';
 import type {
     EpgChannelSwitchOptions,
     EpgGuideSelectionSnapshot,

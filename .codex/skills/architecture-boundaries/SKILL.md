@@ -14,7 +14,7 @@ The default move is extraction, not accretion.
 ## Use This Skill For
 
 - Changes touching [`src/App.ts`](../../../src/App.ts) or [`src/Orchestrator.ts`](../../../src/Orchestrator.ts)
-- Work in current hotspots like [`src/modules/ui/settings/SettingsScreen.ts`](../../../src/modules/ui/settings/SettingsScreen.ts), [`src/modules/ui/epg/EPGComponent.ts`](../../../src/modules/ui/epg/EPGComponent.ts), [`src/modules/ui/channel-setup/ChannelSetupScreen.ts`](../../../src/modules/ui/channel-setup/ChannelSetupScreen.ts), [`src/modules/plex/stream/PlexStreamResolver.ts`](../../../src/modules/plex/stream/PlexStreamResolver.ts), or [`src/modules/scheduler/channel-manager/ChannelManager.ts`](../../../src/modules/scheduler/channel-manager/ChannelManager.ts)
+- Work in current hotspots like [`src/modules/ui/settings/SettingsScreen.ts`](../../../src/modules/ui/settings/SettingsScreen.ts), [`src/modules/ui/epg/component/EPGComponent.ts`](../../../src/modules/ui/epg/component/EPGComponent.ts), [`src/modules/ui/channel-setup/ChannelSetupScreen.ts`](../../../src/modules/ui/channel-setup/ChannelSetupScreen.ts), [`src/modules/plex/stream/PlexStreamResolver.ts`](../../../src/modules/plex/stream/PlexStreamResolver.ts), or [`src/modules/scheduler/channel-manager/ChannelManager.ts`](../../../src/modules/scheduler/channel-manager/ChannelManager.ts)
 - New collaborators, controllers, binders, repositories, or stores
 - Any change that moves logic between UI, Plex, scheduler, navigation, persistence, or lifecycle modules
 - Refactors that change ownership, public seams, startup wiring, or lifecycle cleanup behavior

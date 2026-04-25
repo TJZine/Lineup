@@ -1,7 +1,7 @@
-import { EventEmitter } from '../../../utils/EventEmitter';
-import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
-import type { ChannelConfig, EPGConfig, EPGEventMap, EPGState, ScheduleWindow, ScheduledProgram } from './types';
-import type { IEPGComponent, IEPGReadinessPort } from './interfaces';
+import { EventEmitter } from '../../../../utils/EventEmitter';
+import type { EpgLayoutMode } from '../../../settings/EpgPreferencesStore';
+import type { ChannelConfig, EPGConfig, EPGEventMap, EPGState, ScheduleWindow, ScheduledProgram } from '../types';
+import type { IEPGComponent, IEPGReadinessPort } from '../interfaces';
 
 type EPGRuntimeModule = typeof import('./EPGComponent');
 type EPGRuntimeLoader = () => Promise<EPGRuntimeModule>;

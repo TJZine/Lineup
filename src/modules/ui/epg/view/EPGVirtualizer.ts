@@ -9,7 +9,7 @@
 
 import { EPG_CONSTANTS, EPG_CLASSES } from '../constants';
 import { formatCellTimeLabel } from '../utils';
-import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debugRuntimeGuards';
+import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debug/debugRuntimeGuards';
 import type {
     ScheduledProgram,
     ScheduleWindow,
