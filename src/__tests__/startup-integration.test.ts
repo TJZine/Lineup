@@ -45,7 +45,7 @@ const setDocumentReadyState = (value: DocumentReadyState): void => {
 const waitForBoot = async (module: BootstrapModule): Promise<void> => {
     for (let i = 0; i < 50; i += 1) {
         await flushPromisesAndMacrotask();
-        if (module.getLineupApp()?.getOrchestrator()) {
+        if (module.getLineupBootstrapStatus().hasOrchestrator) {
             return;
         }
     }
@@ -56,14 +56,14 @@ const waitForBoot = async (module: BootstrapModule): Promise<void> => {
 const waitForUnauthenticatedAuthGate = async (module: BootstrapModule): Promise<void> => {
     for (let i = 0; i < 50; i += 1) {
         await flushPromisesAndMacrotask();
-        const orchestrator = module.getLineupApp()?.getOrchestrator() ?? null;
+        const orchestrator = module.getLineupBootstrapStatus().orchestrator;
         if (!orchestrator) continue;
 
-        const moduleStatus = orchestrator.getModuleStatus();
-        const appLifecycleStatus = moduleStatus.get('app-lifecycle')?.status;
-        const navigationStatus = moduleStatus.get('navigation')?.status;
-        const plexAuthStatus = moduleStatus.get('plex-auth')?.status;
-        const screen = orchestrator.getCurrentScreen();
+        const moduleStatus = new Map(orchestrator.status.map((status) => [status.id, status.status]));
+        const appLifecycleStatus = moduleStatus.get('app-lifecycle');
+        const navigationStatus = moduleStatus.get('navigation');
+        const plexAuthStatus = moduleStatus.get('plex-auth');
+        const screen = orchestrator.currentScreen;
 
         if (
             appLifecycleStatus === 'ready'
@@ -122,17 +122,19 @@ describe('startup integration', () => {
         await waitForBoot(module);
         await waitForUnauthenticatedAuthGate(module);
 
-        expect(module.getLineupApp()).not.toBeNull();
+        const bootstrapStatus = module.getLineupBootstrapStatus();
+        expect(bootstrapStatus.hasApp).toBe(true);
+        expect(bootstrapStatus.hasOrchestrator).toBe(true);
 
-        const orchestrator = module.getLineupApp()?.getOrchestrator() ?? null;
+        const orchestrator = bootstrapStatus.orchestrator;
         expect(orchestrator).not.toBeNull();
 
-        const moduleStatus = orchestrator?.getModuleStatus();
-        expect(moduleStatus?.get('app-lifecycle')?.status).toBe('ready');
-        expect(moduleStatus?.get('navigation')?.status).toBe('ready');
-        expect(moduleStatus?.get('plex-auth')?.status).toBe('pending');
+        const moduleStatus = new Map(orchestrator?.status.map((status) => [status.id, status.status]));
+        expect(moduleStatus.get('app-lifecycle')).toBe('ready');
+        expect(moduleStatus.get('navigation')).toBe('ready');
+        expect(moduleStatus.get('plex-auth')).toBe('pending');
 
-        expect(orchestrator?.getCurrentScreen()).toBe('auth');
+        expect(orchestrator?.currentScreen).toBe('auth');
 
         const invalidTransitionWarnings = (consoleWarnSpy?.mock.calls ?? []).filter(([message]) =>
             typeof message === 'string' && message.includes('Invalid phase transition')
@@ -145,7 +147,11 @@ describe('startup integration', () => {
 
         await module.cleanupAndUninstallLineupBootstrap();
 
-        expect(module.getLineupApp()).toBeNull();
+        expect(module.getLineupBootstrapStatus()).toEqual({
+            hasApp: false,
+            hasOrchestrator: false,
+            orchestrator: null,
+        });
         expect((window as LineupWindow).__LINEUP__).toBeUndefined();
     });
 });
