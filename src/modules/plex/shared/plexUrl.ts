@@ -115,13 +115,13 @@ export function applyXPlexTokenQueryParamIfTrusted(
 
 export function applyXPlexQueryParamsFromHeaders(
     params: URLSearchParams,
-    headers: Record<string, string>
+    headers: Record<string, unknown>
 ): void {
     for (const [key, value] of Object.entries(headers)) {
         if (!key.startsWith('X-Plex-')) {
             continue;
         }
-        if (value.length === 0) {
+        if (typeof value !== 'string' || value.length === 0) {
             continue;
         }
         params.set(key, value);

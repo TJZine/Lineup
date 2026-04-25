@@ -168,10 +168,14 @@ export function buildPlexTranscodeStartUrl(input: PlexTranscodeUrlPolicyInput): 
         : DEFAULT_HLS_OPTIONS.audioBoost;
     const mediaIndex = typeof input.options.mediaIndex === 'number' ? input.options.mediaIndex : 0;
     const partIndex = typeof input.options.partIndex === 'number' ? input.options.partIndex : 0;
+    const subtitleStreamId = input.options.subtitleStreamId;
     const burnInEnabled =
         input.options.subtitleMode === 'burn' &&
-        typeof input.options.subtitleStreamId === 'string' &&
-        input.options.subtitleStreamId.length > 0;
+        typeof subtitleStreamId === 'string' &&
+        subtitleStreamId.length > 0;
+    const subtitleParams = burnInEnabled
+        ? { burnInEnabled: true as const, subtitleStreamId }
+        : { burnInEnabled: false as const };
 
     const shouldApplyQualityOverride = Boolean(input.quality && input.quality.storageValue.length > 0);
     const qualityMaxBitrate = shouldApplyQualityOverride ? input.quality?.maxVideoBitrateKbps : undefined;
@@ -203,12 +207,11 @@ export function buildPlexTranscodeStartUrl(input: PlexTranscodeUrlPolicyInput): 
         shouldApplyQualityOverride,
         videoResolution: input.quality?.videoResolution,
         location,
-        burnInEnabled,
-        subtitleStreamId: input.options.subtitleStreamId,
+        subtitle: subtitleParams,
     });
 
-    params.set('X-Plex-Client-Capabilities', input.clientCapabilities);
     applyXPlexQueryParamsFromHeaders(params, input.authHeaders);
+    params.set('X-Plex-Client-Capabilities', input.clientCapabilities);
     ensurePlexClientProfileName(params, input.forcedProfileName);
     applyDefaultIdentityParams(params, input.defaultIdentityParams);
 
@@ -230,8 +233,9 @@ function applyTranscodeModeParams(
         shouldApplyQualityOverride: boolean;
         videoResolution: string | undefined;
         location: 'lan' | 'wan' | null;
-        burnInEnabled: boolean;
-        subtitleStreamId: string | undefined;
+        subtitle:
+            | { burnInEnabled: true; subtitleStreamId: string }
+            | { burnInEnabled: false };
     }
 ): void {
     if (!input.compatMode) {
@@ -247,7 +251,7 @@ function applyTranscodeModeParams(
         params.set('addDebugOverlay', '0');
         params.set('autoAdjustQuality', '0');
         params.set('mediaBufferSize', '102400');
-        applySubtitleParams(params, input.burnInEnabled, input.subtitleStreamId);
+        applySubtitleParams(params, input.subtitle);
         params.set('Accept-Language', 'en');
         return;
     }
@@ -257,7 +261,7 @@ function applyTranscodeModeParams(
     params.set('maxVideoBitrate', String(input.effectiveMaxBitrate));
     applyQualityResolutionParams(params, input.shouldApplyQualityOverride, input.videoResolution);
     applyLocationParam(params, input.location);
-    applySubtitleParams(params, input.burnInEnabled, input.subtitleStreamId);
+    applySubtitleParams(params, input.subtitle);
 }
 
 function applyQualityResolutionParams(
@@ -281,12 +285,13 @@ function applyLocationParam(params: URLSearchParams, location: 'lan' | 'wan' | n
 
 function applySubtitleParams(
     params: URLSearchParams,
-    burnInEnabled: boolean,
-    subtitleStreamId: string | undefined
+    input:
+        | { burnInEnabled: true; subtitleStreamId: string }
+        | { burnInEnabled: false }
 ): void {
-    if (burnInEnabled) {
+    if (input.burnInEnabled) {
         params.set('subtitles', 'burn');
-        params.set('subtitleStreamID', subtitleStreamId as string);
+        params.set('subtitleStreamID', input.subtitleStreamId);
         return;
     }
 

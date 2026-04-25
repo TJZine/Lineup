@@ -57,6 +57,10 @@ export async function enrichLibrarySectionCounts(
                 library.contentCount = count;
 
                 if (library.type === 'show') {
+                    if (count === null) {
+                        delete library.episodeCount;
+                        continue;
+                    }
                     try {
                         const episodeCount = await options.getLibraryItemCount(library.id, {
                             signal,
