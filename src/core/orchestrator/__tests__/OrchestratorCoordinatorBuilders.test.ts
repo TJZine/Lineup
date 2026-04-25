@@ -349,7 +349,7 @@ describe('OrchestratorCoordinatorBuilders', () => {
         const navigationDeps = (
             coordinator as unknown as {
                 deps: Pick<
-                    import('../../../modules/navigation/NavigationCoordinator').NavigationCoordinatorDeps,
+                    import('../../../modules/navigation/NavigationCoordinatorDeps').NavigationCoordinatorDeps,
                     | 'reportRecoverableAsyncFailure'
                     | 'reportToast'
                     | 'playback'

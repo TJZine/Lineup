@@ -1,4 +1,5 @@
-import { NavigationCoordinator, type NavigationCoordinatorDeps } from '../NavigationCoordinator';
+import { NavigationCoordinator } from '../NavigationCoordinator';
+import type { NavigationCoordinatorDeps } from '../NavigationCoordinatorDeps';
 import type { INavigationManager, KeyEvent, NavigationEventMap, Screen } from '../interfaces';
 import type { IEPGComponent } from '../../ui/epg';
 import type { IVideoPlayer } from '../../player';

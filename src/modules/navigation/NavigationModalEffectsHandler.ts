@@ -1,5 +1,5 @@
 import { NOW_PLAYING_INFO_MODAL_ID } from '../ui/now-playing-info';
-import type { NavigationCoordinatorDeps } from './NavigationCoordinator';
+import type { NavigationCoordinatorDeps } from './NavigationCoordinatorDeps';
 import type { NavigationRepeatHandler } from './NavigationRepeatHandler';
 
 export class NavigationModalEffectsHandler {

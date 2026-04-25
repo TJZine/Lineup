@@ -1,5 +1,5 @@
 import { isAbortLikeError } from '../../utils/errors';
-import type { NavigationCoordinatorDeps } from './NavigationCoordinator';
+import type { NavigationCoordinatorDeps } from './NavigationCoordinatorDeps';
 
 export class NavigationChannelNumberHandler {
     constructor(private readonly deps: NavigationCoordinatorDeps) { }

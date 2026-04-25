@@ -4,7 +4,7 @@ import {
     EPG_REPEAT_TIMING,
     MINI_GUIDE_REPEAT_TIMING,
 } from './constants';
-import type { NavigationCoordinatorDeps } from './NavigationCoordinator';
+import type { NavigationCoordinatorDeps } from './NavigationCoordinatorDeps';
 
 type EpgRepeatButton = 'up' | 'down' | 'left' | 'right';
 type MiniGuideRepeatButton = 'up' | 'down';

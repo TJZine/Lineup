@@ -4,8 +4,8 @@ import {
 } from '../../modules/navigation';
 import {
     NavigationCoordinator,
-    type NavigationCoordinatorDeps,
 } from '../../modules/navigation/NavigationCoordinator';
+import type { NavigationCoordinatorDeps } from '../../modules/navigation/NavigationCoordinatorDeps';
 import type { PlaybackOptionsSectionId } from '../../modules/ui/playback-options';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import type { AppError } from '../../modules/lifecycle';
