@@ -10,7 +10,7 @@ type LibraryCountFetcher = (
 
 export interface LibraryCountEnrichmentOptions {
     signal?: AbortSignal | null;
-    itemCountConcurrency: number | undefined;
+    itemCountConcurrency?: number;
     getLibraryItemCount: LibraryCountFetcher;
     logger: NonNullable<PlexLibraryConfig['logger']>;
 }

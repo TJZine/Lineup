@@ -163,9 +163,14 @@ describe('plexStreamUrlPolicy', () => {
     });
 
     it('builds conservative client capabilities from runtime capability probes', () => {
+        const supportedMimeTypes = new Set([
+            'video/mp4; codecs="hvc1.2.4.L93.B0"',
+            'video/mp4; codecs="hvc1.2.4.L150.B0"',
+            'video/webm; codecs="vp9"',
+        ]);
         const capabilities = buildPlexClientCapabilities({
             is4K: true,
-            canPlayMimeType: (mime) => mime.includes('hvc1.2.4') || mime.includes('vp9'),
+            canPlayMimeType: (mime) => supportedMimeTypes.has(mime),
             chromeMajor: null,
             isWebOs: false,
             dtsPassthroughEnabled: true,
@@ -178,5 +183,17 @@ describe('plexStreamUrlPolicy', () => {
         expect(capabilities).toContain('vp9');
         expect(capabilities).toContain('dca-ma{bitrate:1536000}');
         expect(capabilities).not.toContain('dvhe');
+    });
+
+    it('rejects blank metadata paths before building transcode URLs', () => {
+        expect(() => buildPlexTranscodeStartUrl(createTranscodeInput({
+            metadataPath: '   ',
+        }))).toThrow('Plex transcode metadataPath must be a non-empty string');
+    });
+
+    it('rejects invalid base URIs before building transcode URLs', () => {
+        expect(() => buildPlexTranscodeStartUrl(createTranscodeInput({
+            baseUri: 'not a url',
+        }))).toThrow('Plex transcode baseUri must be a valid absolute URL');
     });
 });

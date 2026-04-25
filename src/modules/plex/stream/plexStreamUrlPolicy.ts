@@ -156,6 +156,18 @@ export function buildPlexTranscodeStartUrl(input: PlexTranscodeUrlPolicyInput): 
     url: string;
     compatMode: boolean;
 } {
+    const metadataPath = input.metadataPath.trim();
+    if (metadataPath.length === 0) {
+        throw new TypeError('Plex transcode metadataPath must be a non-empty string');
+    }
+
+    let baseUrl: URL;
+    try {
+        baseUrl = new URL(input.baseUri);
+    } catch {
+        throw new TypeError('Plex transcode baseUri must be a valid absolute URL');
+    }
+
     const sessionId = input.options.sessionId ?? '';
     const maxBitrate = typeof input.options.maxBitrate === 'number'
         ? input.options.maxBitrate
@@ -183,13 +195,13 @@ export function buildPlexTranscodeStartUrl(input: PlexTranscodeUrlPolicyInput): 
         ? Math.min(maxBitrate, Math.max(1, Math.floor(qualityMaxBitrate)))
         : maxBitrate;
     const location = classifyPlexTranscodeLocation({
-        baseUri: input.baseUri,
+        baseUri: baseUrl.toString(),
         selectedConnection: input.selectedConnection,
         relayConnectionUri: input.relayConnectionUri,
     });
 
     const params = new URLSearchParams();
-    params.set('path', input.metadataPath);
+    params.set('path', metadataPath);
     params.set('mediaIndex', String(mediaIndex));
     params.set('partIndex', String(partIndex));
     params.set('protocol', 'hls');
@@ -211,11 +223,12 @@ export function buildPlexTranscodeStartUrl(input: PlexTranscodeUrlPolicyInput): 
     });
 
     applyXPlexQueryParamsFromHeaders(params, input.authHeaders);
+    // Computed capabilities intentionally override header values so transcode policy can hide DV/prefer HDR10.
     params.set('X-Plex-Client-Capabilities', input.clientCapabilities);
     ensurePlexClientProfileName(params, input.forcedProfileName);
     applyDefaultIdentityParams(params, input.defaultIdentityParams);
 
-    const url = new URL('/video/:/transcode/universal/start.m3u8', input.baseUri);
+    const url = new URL('/video/:/transcode/universal/start.m3u8', baseUrl);
     url.search = params.toString();
     return {
         url: url.toString(),

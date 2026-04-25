@@ -242,7 +242,9 @@ export class PlexLibrary implements IPlexLibrary {
         if (options?.includeItemCounts) {
             await enrichLibrarySectionCounts(libraries, {
                 signal: options.signal ?? null,
-                itemCountConcurrency: options.itemCountConcurrency,
+                ...(options.itemCountConcurrency !== undefined
+                    ? { itemCountConcurrency: options.itemCountConcurrency }
+                    : {}),
                 getLibraryItemCount: (libraryId, countOptions) =>
                     this.getLibraryItemCount(libraryId, countOptions),
                 logger: this._logger,
