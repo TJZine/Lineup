@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { InitializationCoordinator } from '../InitializationCoordinator';
+import { InitializationCoordinator, STARTUP_PHASE } from '../InitializationCoordinator';
 import type { InitializationDependencies, InitializationCallbacks } from '../InitializationCoordinator';
 import { CLASSIC_EPG_PIP_CLASS } from '../../../modules/ui/epg/buildEPGStartupConfig';
 import type { PlexAuthDataV2, PlexStoredCredentialsReadResult } from '../../../modules/plex/auth';
@@ -286,7 +286,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         plexAuth.validateToken.mockResolvedValue(true);
         plexDiscovery.isConnected.mockReturnValue(false);
 
-        await coordinator.runStartup(2);
+        await coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
 
         expect(navigation.goTo).toHaveBeenCalledWith('server-select');
         expect(navigation.goTo).not.toHaveBeenCalledWith('profile-select');
@@ -316,7 +316,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             issuedAt: new Date(),
         });
 
-        await coordinator.runStartup(2);
+        await coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
 
         expect(navigation.goTo).toHaveBeenCalledWith('profile-select');
         expect(plexAuth.storeCredentials).toHaveBeenCalledWith({
@@ -360,7 +360,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         );
         plexAuth.validateToken.mockRejectedValue(new Error('validation down'));
 
-        await expect(coordinator.runStartup(2)).rejects.toThrow('validation down');
+        await expect(coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE)).rejects.toThrow('validation down');
 
         expect(callbacks.updateModuleStatus).not.toHaveBeenCalledWith('plex-auth', 'pending');
         expect(plexAuth.on).not.toHaveBeenCalledWith('authChange', expect.any(Function));
@@ -368,7 +368,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         expect(navigation.goTo).not.toHaveBeenCalledWith('auth');
     });
 
-    it('does not redundantly reset lifecycle phases during phase-1 startup', async () => {
+    it('does not redundantly reset lifecycle phases during full startup', async () => {
         const lifecycle = {
             initialize: jest.fn().mockResolvedValue(undefined),
             setPhase: jest.fn(),
@@ -384,14 +384,14 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
         plexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue({ kind: 'missing' });
 
-        await coordinator.runStartup(1);
+        await coordinator.runStartup(STARTUP_PHASE.FULL_STARTUP);
 
         expect((lifecycle as unknown as { initialize: jest.Mock }).initialize).toHaveBeenCalledTimes(1);
         expect((lifecycle as unknown as { setPhase: jest.Mock }).setPhase).not.toHaveBeenCalledWith('initializing');
         expect((lifecycle as unknown as { setPhase: jest.Mock }).setPhase).not.toHaveBeenCalledWith('authenticating');
     });
 
-    it('configures discovery storage before resuming Phase 3 on profileChange', async () => {
+    it('configures discovery storage before resuming after server selection on profileChange', async () => {
         const { coordinator, deps, callbacks } = makeCoordinator();
 
         const order: string[] = [];
@@ -446,21 +446,21 @@ describe('InitializationCoordinator (Plex Home)', () => {
         const runSpy = jest.spyOn(coordinator, 'runStartup');
 
         // Act: initial startup should show profile-select and register the resume handler
-        await coordinator.runStartup(2);
+        await coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
         expect(navigation.goTo).toHaveBeenCalledWith('profile-select');
         expect(profileChangeHandler).toBeTruthy();
 
-        // Clear any ordering noise from Phase 2 (which also configures discovery storage).
+        // Clear any ordering noise from auth validation (which also configures discovery storage).
         order.length = 0;
 
         // Act: simulate user switch emitting profileChange
         profileChangeHandler!();
 
-        // Wait for the Phase 3 startup triggered by the handler.
-        const phase3CallIndex = runSpy.mock.calls.findIndex((args) => args[0] === 3);
-        expect(phase3CallIndex).toBeGreaterThanOrEqual(0);
-        const phase3Promise = runSpy.mock.results[phase3CallIndex]?.value as Promise<void>;
-        await phase3Promise;
+        // Wait for the server connection startup triggered by the handler.
+        const serverConnectionCallIndex = runSpy.mock.calls.findIndex((args) => args[0] === STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
+        expect(serverConnectionCallIndex).toBeGreaterThanOrEqual(0);
+        const serverConnectionPromise = runSpy.mock.results[serverConnectionCallIndex]?.value as Promise<void>;
+        await serverConnectionPromise;
 
         // Assert: storage configured before discovery initialize reads from localStorage
         expect(order[0]).toBe('configure');
@@ -506,7 +506,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             .spyOn(coordinator, 'resumeStartupAfterProfileSwitch')
             .mockResolvedValue(undefined);
 
-        await coordinator.runStartup(2);
+        await coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
         expect(profileChangeHandler).toBeTruthy();
 
         const handler = profileChangeHandler as (() => void) | null;
@@ -520,7 +520,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         expect(resumeSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('uses the coordinator-owned helper to clear profile resume and rerun phase 3 after a manual profile switch', async () => {
+    it('uses the coordinator-owned helper to clear profile resume and rerun server-selection startup after a manual profile switch', async () => {
         const { coordinator, deps, callbacks } = makeCoordinator();
         const plexDiscovery = deps.plexDiscovery as unknown as {
             initialize: jest.Mock;
@@ -576,7 +576,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
         plexDiscovery.isConnected.mockReturnValue(false);
 
-        await coordinator.runStartup(3);
+        await coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
         expect(connectionChangeListeners.size).toBe(1);
 
         const runSpy = jest.spyOn(coordinator, 'runStartup');
@@ -595,10 +595,10 @@ describe('InitializationCoordinator (Plex Home)', () => {
         await coordinator.resumeStartupAfterProfileSwitch();
 
         expect(runSpy).toHaveBeenCalledTimes(1);
-        expect(runSpy).toHaveBeenCalledWith(3);
+        expect(runSpy).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
     });
 
-    it('reports resumed phase failures only once when profile resume startup rejects', async () => {
+    it('reports resumed startup failures only once when profile resume startup rejects', async () => {
         const { coordinator, deps, callbacks } = makeCoordinator({
             lifecycle: {
                 setPhase: jest.fn(),
@@ -647,7 +647,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
         const runSpy = jest.spyOn(coordinator, 'runStartup');
 
-        await coordinator.runStartup(2);
+        await coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
         expect(profileChangeHandler).toBeTruthy();
 
         if (!profileChangeHandler) {
@@ -656,7 +656,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         const resumeHandler = profileChangeHandler as () => void;
         resumeHandler();
 
-        const resumeCallIndex = runSpy.mock.calls.findIndex((args) => args[0] === 3);
+        const resumeCallIndex = runSpy.mock.calls.findIndex((args) => args[0] === STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
         expect(resumeCallIndex).toBeGreaterThanOrEqual(0);
 
         const resumePromise = runSpy.mock.results[resumeCallIndex]?.value as Promise<void>;
@@ -673,14 +673,14 @@ describe('InitializationCoordinator (Plex Home)', () => {
             'start'
         );
         expect(callbacks.reportRecoverableAsyncFailure).toHaveBeenCalledWith(
-            'initialization.resume.phase3',
-            'Background startup resume failed for phase 3',
+            'initialization.resume.afterServerSelection',
+            'Background startup resume after server selection failed',
             expect.any(Error)
         );
         expect(callbacks.reportRecoverableAsyncFailure).toHaveBeenCalledTimes(1);
     });
 
-    it('swallows diagnostics failures when resumed phase reporting throws', async () => {
+    it('swallows diagnostics failures when resumed startup reporting throws', async () => {
         const { coordinator, deps, callbacks } = makeCoordinator({
             lifecycle: {
                 setPhase: jest.fn(),
@@ -731,14 +731,14 @@ describe('InitializationCoordinator (Plex Home)', () => {
         });
         const runSpy = jest.spyOn(coordinator, 'runStartup');
 
-        await coordinator.runStartup(2);
+        await coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
         expect(profileChangeHandler).toBeTruthy();
 
         expect(() => {
             profileChangeHandler?.();
         }).not.toThrow();
 
-        const resumeCallIndex = runSpy.mock.calls.findIndex((args) => args[0] === 3);
+        const resumeCallIndex = runSpy.mock.calls.findIndex((args) => args[0] === STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
         expect(resumeCallIndex).toBeGreaterThanOrEqual(0);
 
         const resumePromise = runSpy.mock.results[resumeCallIndex]?.value as Promise<void>;
@@ -747,13 +747,13 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
         expect(callbacks.handleGlobalError).toHaveBeenCalledTimes(1);
         expect(callbacks.reportRecoverableAsyncFailure).toHaveBeenCalledWith(
-            'initialization.resume.phase3',
-            'Background startup resume failed for phase 3',
+            'initialization.resume.afterServerSelection',
+            'Background startup resume after server selection failed',
             expect.any(Error)
         );
     });
 
-    describe('Phase 3 startup policy branches', () => {
+    describe('server connection startup policy branches', () => {
         it('marks discovery error, navigates to server-select, and does not register server resume when discovery init fails', async () => {
             const { coordinator, deps, callbacks } = makeCoordinator();
             const navigation = deps.navigation as unknown as { goTo: jest.Mock };
@@ -764,7 +764,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
             plexDiscovery.initialize.mockRejectedValue(new Error('discovery init failed'));
 
-            await coordinator.runStartup(3);
+            await coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
 
             expect(callbacks.updateModuleStatus).toHaveBeenCalledWith(
                 'plex-server-discovery',
@@ -802,7 +802,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
             plexDiscovery.initialize.mockRejectedValue(authError);
 
-            await coordinator.runStartup(3);
+            await coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
 
             expect(callbacks.updateModuleStatus).toHaveBeenCalledWith(
                 'plex-server-discovery',
@@ -839,7 +839,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             plexDiscovery.initialize.mockResolvedValue(undefined);
             plexDiscovery.isConnected.mockReturnValue(false);
 
-            await coordinator.runStartup(3);
+            await coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
 
             expect(callbacks.updateModuleStatus).toHaveBeenCalledWith(
                 'plex-server-discovery',
@@ -864,7 +864,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         });
     });
 
-    it('initializes core player UI before marking startup ready after phase 4', async () => {
+    it('initializes core player UI before marking startup ready after runtime module resume', async () => {
         const callOrder: string[] = [];
         const startupUiInitializer = {
             ensureCorePlayerUiInitialized: jest.fn().mockImplementation(async () => {
@@ -881,7 +881,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             }
         });
 
-        await coordinator.runStartup(4);
+        await coordinator.runStartup(STARTUP_PHASE.RESUME_RUNTIME_MODULES);
 
         expect(callOrder).toEqual([
             'core-player-ui',
@@ -918,7 +918,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             }
         });
 
-        await coordinator.runStartup(3);
+        await coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
 
         expect(callOrder).toEqual([
             'epg-initialize',
@@ -966,7 +966,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         plexDiscovery.isConnected.mockReturnValue(true);
         navigation.getCurrentScreen.mockReturnValue('auth');
 
-        await coordinator.runStartup(2);
+        await coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
 
         expect(callbacks.setupEventWiring).not.toHaveBeenCalled();
         expect(callbacks.setReady).not.toHaveBeenCalledWith(true);
@@ -984,7 +984,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             return Promise.resolve();
         });
 
-        const runPromise = coordinator.runStartup(3);
+        const runPromise = coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
         await Promise.resolve();
 
         expect(callbacks.setupEventWiring).not.toHaveBeenCalled();
@@ -1034,8 +1034,8 @@ describe('InitializationCoordinator (Plex Home)', () => {
             setupEventWiringCompleted = true;
         });
 
-        const firstRunPromise = coordinator.runStartup(3);
-        const queuedRunPromise = coordinator.runStartup(5);
+        const firstRunPromise = coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
+        const queuedRunPromise = coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY);
         void queuedRunPromise.then(() => {
             setupEventWiringWasCompleteWhenQueuedResolved = setupEventWiringCompleted;
         });
@@ -1082,10 +1082,10 @@ describe('InitializationCoordinator (Plex Home)', () => {
             plexDiscovery.initialize.mockResolvedValue(undefined);
             plexDiscovery.isConnected.mockReturnValue(true);
 
-            await coordinator.runStartup(1);
+            await coordinator.runStartup(STARTUP_PHASE.FULL_STARTUP);
             expect(epgReadiness.ensureReady).not.toHaveBeenCalled();
 
-            await coordinator.runStartup(3);
+            await coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
             expect(epgReadiness.ensureReady).toHaveBeenCalledTimes(1);
 
             await jest.advanceTimersByTimeAsync(1500);
@@ -1104,7 +1104,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             (callbacks.shouldRunAudioSetup as jest.Mock).mockReturnValue(true);
             (callbacks.shouldRunChannelSetup as jest.Mock).mockReturnValue(true);
 
-            await coordinator.runStartup(5);
+            await coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY);
 
             expect(navigation.replaceScreen).toHaveBeenCalledWith('audio-setup');
         });
@@ -1116,7 +1116,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             (callbacks.shouldRunAudioSetup as jest.Mock).mockReturnValue(false);
             (callbacks.shouldRunChannelSetup as jest.Mock).mockReturnValue(true);
 
-            await coordinator.runStartup(5);
+            await coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY);
 
 	            expect(navigation.replaceScreen).toHaveBeenCalledWith('channel-setup');
 	        });
@@ -1127,7 +1127,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	            });
 	            const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
 
-	            await coordinator.runStartup(5);
+	            await coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY);
 
 	            expect(callbacks.openServerSelect).toHaveBeenCalled();
 	            expect(navigation.replaceScreen).not.toHaveBeenCalled();
@@ -1143,7 +1143,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             });
             const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
 
-            await coordinator.runStartup(5);
+            await coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY);
 
             expect(navigation.replaceScreen).toHaveBeenCalledWith('player');
             expect(callbacks.switchToChannel).toHaveBeenCalledWith(currentChannel.id);
@@ -1160,7 +1160,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             });
             const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
 
-            await coordinator.runStartup(5);
+            await coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY);
 
             expect(navigation.replaceScreen).toHaveBeenCalledWith('player');
             expect(callbacks.switchToChannel).toHaveBeenCalledWith(firstChannel.id);
@@ -1176,7 +1176,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             });
             const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
 
-            await coordinator.runStartup(5);
+            await coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY);
 
             expect(navigation.replaceScreen).toHaveBeenCalledWith('player');
             expect(callbacks.switchToChannel).not.toHaveBeenCalled();
@@ -1197,7 +1197,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
 	            (callbacks.switchToChannel as jest.Mock).mockRejectedValueOnce(new Error('route failed'));
 
-	            await expect(coordinator.runStartup(5)).rejects.toThrow('route failed');
+	            await expect(coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY)).rejects.toThrow('route failed');
 
 	            expect(callbacks.setReady).not.toHaveBeenCalledWith(true);
 	            expect((deps.lifecycle as unknown as { setPhase: jest.Mock }).setPhase).not.toHaveBeenCalledWith('ready');

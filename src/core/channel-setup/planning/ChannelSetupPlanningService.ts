@@ -1,9 +1,9 @@
-import type { IChannelManager } from '../../modules/scheduler/channel-manager';
+import type { IChannelManager } from '../../../modules/scheduler/channel-manager';
 import type {
     IPlexLibrary,
     PlexLibrarySection,
-} from '../../modules/plex/library';
-import { getPlexRequestIntentForChannelSetup } from '../../modules/plex/library';
+} from '../../../modules/plex/library';
+import { getPlexRequestIntentForChannelSetup } from '../../../modules/plex/library';
 import type {
     ChannelSetupConfig,
     ChannelBuildProgress,
@@ -11,7 +11,7 @@ import type {
     ChannelSetupPreviewFailureReason,
     ChannelSetupPreviewStatus,
     ChannelSetupReview,
-} from './types';
+} from '../types';
 import {
     buildChannelSetupPlan,
     buildChannelSetupPlanDiagnostics,
@@ -26,6 +26,7 @@ import {
     type ChannelSetupFacetSnapshot,
     type ChannelSetupPlanningIntent,
 } from './ChannelSetupFacetSnapshotLoader';
+import { createEmptyChannelSetupEstimates } from './ChannelSetupPlanningTypes';
 import { normalizeChannelSetupConfig } from './normalizeChannelSetupConfig';
 
 export interface ChannelSetupPlanningServiceDeps {
@@ -291,17 +292,7 @@ export class ChannelSetupPlanningService {
     }
 
     private _emptyEstimates(): ChannelSetupPreview['estimates'] {
-        return {
-            total: 0,
-            collections: 0,
-            playlists: 0,
-            genres: 0,
-            directors: 0,
-            decades: 0,
-            recentlyAdded: 0,
-            studios: 0,
-            actors: 0,
-        };
+        return createEmptyChannelSetupEstimates();
     }
 
     private _normalizeDiffForMode(

@@ -237,9 +237,9 @@ export interface IPlexLibrary {
      * @param imagePath - Image path from Plex metadata
      * @param width - Optional resize width
      * @param height - Optional resize height (defaults to width)
-     * @returns Full URL with authentication token
+     * @returns Full URL with authentication token, or null when no image URL can be built
      */
-    getImageUrl(imagePath: string, width?: number, height?: number): string;
+    getImageUrl(imagePath: string, width?: number, height?: number): string | null;
 
     // Refresh
 

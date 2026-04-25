@@ -1,4 +1,4 @@
-import type { ChannelSetupConfig } from './types';
+import type { ChannelSetupConfig } from '../types';
 import type { ChannelSetupRecordStore } from './ChannelSetupRecordStore';
 
 export interface ChannelSetupCompletionTrackerDeps {

@@ -17,7 +17,7 @@ architecture or workflow document.
 
 - Current execution state: P0-P11 are complete and archived; P12 is the active
   `2026-04-24` subjective-refresh follow-on queue.
-- Next safe start: `P12-W1 / pkg_runtime_assembly_and_initialization_boundary`.
+- Next safe start: `P12-W3 / pkg_channel_setup_scheduler_strategy_and_errors`.
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration.
 - First action at package start: planning only; create the package-local
   execution-grade plan before implementation.
@@ -216,7 +216,7 @@ active docs tree.
 The active P12 exact membership surface is
 `docs/architecture/p12-subjective-refresh-package-map.json`.
 
-### [ ] `P12-W1` `pkg_runtime_assembly_and_initialization_boundary`
+### [x] `P12-W1` `pkg_runtime_assembly_and_initialization_boundary`
 
 - Backlog: `seed 10` fresh subjective review issues.
 - Scope: reduce the remaining AppOrchestrator/coordinator/priority-one assembly
@@ -231,18 +231,27 @@ The active P12 exact membership surface is
   - `desloppify show src/core/orchestrator/OrchestratorCoordinatorBuilders.ts --status open --no-budget --top 120`
   - `desloppify show src/core/orchestrator/priority-one --status open --no-budget --top 120`
   - `desloppify show src/core/orchestrator/InitializationCoordinator.ts --status open --no-budget --top 80`
+  - `desloppify show src/core/initialization/InitializationCoordinator.ts --status open --no-budget --top 80`
   - `desloppify show src/Orchestrator.ts --status open --no-budget --top 80`
   - `desloppify show src/core/index.ts --status open --no-budget --top 80`
 - Likely first slice: inventory the runtime assembly and priority-one handoff
   seams; choose one shaping boundary to collapse before moving files or barrels.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start with a package-local cleanup-loop plan for `P12-W1`.
+- Status: completed
+- Plan: local-only cleanup-loop plan reviewed and approved
+- Last touched: 2026-04-24
+- Verification: `npm run verify` passed; `npm run verify:docs` passed after
+  checklist closeout; package-local `desloppify show` commands rerun with no
+  open issues for `AppOrchestrator`, `OrchestratorCoordinatorBuilders`, old/new
+  `InitializationCoordinator`, `src/Orchestrator.ts`, or `src/core/index.ts`;
+  priority-one residual mechanical smells remain accepted as non-P12-W1
+  closure blockers; exact imported review-id queries returned no open rows;
+  `desloppify scan --path .` completed with overall `85.8`, strict `85.8`,
+  objective `97.1`, and verified `97.1`.
+- Follow-ups: none for P12-W1; `P12-EXIT` remains pending until all P12
+  packages are complete.
+- Handoff: continue with `P12-W2`.
 
-### [ ] `P12-W2` `pkg_plex_api_error_and_url_contracts`
+### [x] `P12-W2` `pkg_plex_api_error_and_url_contracts`
 
 - Backlog: `seed 7` fresh subjective review issues.
 - Scope: align Plex cancellation, auth/error semantics, URL absence contracts,
@@ -261,12 +270,28 @@ The active P12 exact membership surface is
 - Likely first slice: handle the single-edit API/contract items
   (`search` signal, `getImageUrl` nullability, typed auth headers, discovery
   cause preservation) before larger stream/library decomposition.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: after `P12-W1`, plan `P12-W2` from exact Plex ids.
+- Status: completed
+- Plan: local-only cleanup-loop plan reviewed and approved
+- Last touched: 2026-04-24
+- Verification: focused Plex tests passed for library, discovery, auth,
+  shared URL, stream resolver, and stream URL policy surfaces; `npm run verify`
+  passed; `desloppify scan --path .` completed with overall `85.8`, strict
+  `85.8`, objective `97.0`, and verified `97.0`; `desloppify status` recorded
+  File health `92.6` (`92.2` strict), Code quality `98.1`, Duplication
+  `100.0`, Test health `99.0`, Security `100.0`, and subjective dimensions:
+  AI generated debt `78.0`, API coherence `84.0`, Abstraction fit `78.0`,
+  Auth consistency `84.0`, Contracts `88.0`, Convention drift `92.0`,
+  Cross-module arch `76.0`, Design coherence `64.0`, Elegance `83.0`, Error
+  consistency `80.0`, Naming quality `88.0`, Stale migration `91.0`,
+  Structure nav `78.0`, Test strategy `82.0`, and Type safety `88.0`;
+  package-local `desloppify show` commands and all seven exact review-id
+  queries returned no open rows; targeted source audits confirmed `search`
+  signal threading, `getImageUrl()` null absence, typed Plex URL headers,
+  sanitized discovery causes, endpoint-aware `403` semantics, stream URL
+  policy ownership, and delegated library-count enrichment.
+- Follow-ups: none for P12-W2; `P12-EXIT` remains pending until all P12
+  packages are complete.
+- Handoff: continue with `P12-W3`.
 
 ### [ ] `P12-W3` `pkg_channel_setup_scheduler_strategy_and_errors`
 

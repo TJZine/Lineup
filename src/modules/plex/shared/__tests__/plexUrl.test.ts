@@ -134,6 +134,20 @@ describe('shared plexUrl helpers', () => {
             expect(params.get('X-Plex-Client-Identifier')).toBe('new-id');
             expect(params.get('X-Plex-Token')).toBe('token-1');
         });
+
+        it('ignores malformed X-Plex header values at the URL boundary', () => {
+            const params = new URLSearchParams();
+
+            applyXPlexQueryParamsFromHeaders(params, {
+                'X-Plex-Token': null,
+                'X-Plex-Product': undefined,
+                'X-Plex-Client-Identifier': 'client-id',
+            });
+
+            expect(params.get('X-Plex-Token')).toBeNull();
+            expect(params.get('X-Plex-Product')).toBeNull();
+            expect(params.get('X-Plex-Client-Identifier')).toBe('client-id');
+        });
     });
 
     describe('applyXPlexTokenQueryParamIfTrusted', () => {

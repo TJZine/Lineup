@@ -3,7 +3,7 @@ import type { PlexHomeUser, PlexPinRequest } from '../../modules/plex/auth';
 import type { PlexServer } from '../../modules/plex/discovery';
 import type { GuideSettingChange } from '../../modules/ui/settings/types';
 import type { ThemeName } from '../../modules/ui/theme';
-import type { ChannelSetupWorkflowPort } from '../channel-setup/ChannelSetupWorkflowPort';
+import type { ChannelSetupWorkflowPort } from '../channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { OrchestratorServerSelectionResult } from '../server-selection/ServerSelectionTypes';
 
 export interface AppShellNavigationRuntimePort {

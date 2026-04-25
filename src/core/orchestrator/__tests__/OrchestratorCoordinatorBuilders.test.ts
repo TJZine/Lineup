@@ -12,29 +12,36 @@ const buildCommitterInstance = { kind: 'build-committer' };
 const buildExecutorInstance = { kind: 'build-executor' };
 const coordinatorInstance = { clearRerunRequest: jest.fn(), kind: 'coordinator' };
 const completionTrackerInstance = { kind: 'completion-tracker' };
-const workflowInstance = { kind: 'workflow' };
 
-jest.mock('../../channel-setup', () => ({
+jest.mock('../../channel-setup/persistence/ChannelSetupRecordStore', () => ({
     ChannelSetupRecordStore: jest.fn(() => recordStoreInstance),
+}));
+jest.mock('../../channel-setup/build/ChannelSetupBuildScratchStore', () => ({
     ChannelSetupBuildScratchStore: jest.fn(() => scratchStoreInstance),
+}));
+jest.mock('../../channel-setup/planning/ChannelSetupPlanningService', () => ({
     ChannelSetupPlanningService: jest.fn(() => planningServiceInstance),
+}));
+jest.mock('../../channel-setup/build/ChannelSetupBuildCommitter', () => ({
     ChannelSetupBuildCommitter: jest.fn(() => buildCommitterInstance),
+}));
+jest.mock('../../channel-setup/build/ChannelSetupBuildExecutor', () => ({
     ChannelSetupBuildExecutor: jest.fn(() => buildExecutorInstance),
+}));
+jest.mock('../../channel-setup/ChannelSetupCoordinator', () => ({
     ChannelSetupCoordinator: jest.fn(() => coordinatorInstance),
+}));
+jest.mock('../../channel-setup/persistence/ChannelSetupCompletionTracker', () => ({
     ChannelSetupCompletionTracker: jest.fn(() => completionTrackerInstance),
-    ChannelSetupWorkflow: jest.fn(() => workflowInstance),
 }));
 
-import {
-    ChannelSetupBuildCommitter,
-    ChannelSetupBuildExecutor,
-    ChannelSetupBuildScratchStore,
-    ChannelSetupCompletionTracker,
-    ChannelSetupCoordinator,
-    ChannelSetupPlanningService,
-    ChannelSetupRecordStore,
-    ChannelSetupWorkflow,
-} from '../../channel-setup';
+import { ChannelSetupBuildCommitter } from '../../channel-setup/build/ChannelSetupBuildCommitter';
+import { ChannelSetupBuildExecutor } from '../../channel-setup/build/ChannelSetupBuildExecutor';
+import { ChannelSetupBuildScratchStore } from '../../channel-setup/build/ChannelSetupBuildScratchStore';
+import { ChannelSetupCompletionTracker } from '../../channel-setup/persistence/ChannelSetupCompletionTracker';
+import { ChannelSetupCoordinator } from '../../channel-setup/ChannelSetupCoordinator';
+import { ChannelSetupPlanningService } from '../../channel-setup/planning/ChannelSetupPlanningService';
+import { ChannelSetupRecordStore } from '../../channel-setup/persistence/ChannelSetupRecordStore';
 import {
     bindEpgVisibleRangeChange,
     buildChannelSetupOwners,
@@ -184,7 +191,7 @@ describe('OrchestratorCoordinatorBuilders', () => {
         expect(handleVisibleRangeChange).toHaveBeenCalledWith(range);
     });
 
-    it('buildChannelSetupOwners wires shared selected-server and channel-count context through the coordinator/workflow pair', async () => {
+    it('buildChannelSetupOwners wires shared selected-server and channel-count context through the coordinator and ChannelSetupWorkflowPortOwners', async () => {
         const input = createInput();
         const epgCoordinator = {
             clearSelectedChannelScheduleSnapshot: jest.fn(),
@@ -207,7 +214,14 @@ describe('OrchestratorCoordinatorBuilders', () => {
         });
         expect(owners).toEqual({
             coordinator: coordinatorInstance,
-            workflow: workflowInstance,
+            portOwners: {
+                planningService: planningServiceInstance,
+                buildExecutor: buildExecutorInstance,
+                recordStore: recordStoreInstance,
+                completionTracker: completionTrackerInstance,
+                getSelectedServerId: expect.any(Function),
+                getExistingChannelCount: expect.any(Function),
+            },
         });
 
         const buildCommitterArgs = (ChannelSetupBuildCommitter as jest.Mock).mock.calls[0]?.[0];
@@ -223,16 +237,17 @@ describe('OrchestratorCoordinatorBuilders', () => {
 
         const coordinatorArgs = (ChannelSetupCoordinator as jest.Mock).mock.calls[0]?.[0];
         const completionTrackerArgs = (ChannelSetupCompletionTracker as jest.Mock).mock.calls[0]?.[0];
-        const workflowArgs = (ChannelSetupWorkflow as jest.Mock).mock.calls[0]?.[0];
 
         expect(coordinatorArgs.getSelectedServerId()).toBe('server-1');
         expect(coordinatorArgs.getExistingChannelCount()).toBe(2);
-        expect(workflowArgs.getSelectedServerId()).toBe('server-1');
-        expect(workflowArgs.getExistingChannelCount()).toBe(2);
+        expect(coordinatorArgs.getSelectedServerId).toBe(owners.portOwners.getSelectedServerId);
+        expect(coordinatorArgs.getExistingChannelCount).toBe(owners.portOwners.getExistingChannelCount);
+        expect(owners.portOwners.getSelectedServerId()).toBe('server-1');
+        expect(owners.portOwners.getExistingChannelCount()).toBe(2);
         completionTrackerArgs.clearRerunRequest();
         expect(coordinatorInstance.clearRerunRequest).toHaveBeenCalledTimes(1);
-        expect(workflowArgs.recordStore).toBe(recordStoreInstance);
-        expect(workflowArgs.completionTracker).toBe(completionTrackerInstance);
+        expect(owners.portOwners.recordStore).toBe(recordStoreInstance);
+        expect(owners.portOwners.completionTracker).toBe(completionTrackerInstance);
     });
 
     it('buildNavigationCoordinator preserves navigation-facing reporting semantics with the narrowed input seam', () => {

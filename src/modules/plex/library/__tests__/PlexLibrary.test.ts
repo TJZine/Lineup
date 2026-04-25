@@ -146,6 +146,34 @@ describe('PlexLibrary', () => {
             expect(showLib?.episodeCount).toBeUndefined();
         });
 
+        it('does not fetch episodeCount when show contentCount is unavailable', async () => {
+            mockFetchJson(mockLibrarySectionsResponse);
+            const library = new PlexLibrary(mockConfig);
+
+            const spy = jest.spyOn(library, 'getLibraryItemCount');
+            spy.mockImplementation(async (libraryId, options) => {
+                if (libraryId === '2' && options?.filter?.type !== PLEX_MEDIA_TYPES.EPISODE) {
+                    return null;
+                }
+                if (options?.filter?.type === PLEX_MEDIA_TYPES.EPISODE) {
+                    throw new Error('episode count should not be fetched');
+                }
+                return 456;
+            });
+
+            const libs = await library.getLibraries({ includeItemCounts: true, itemCountConcurrency: 1 });
+
+            const showLib = libs.find((lib) => lib.id === '2');
+            expect(showLib?.contentCount).toBeNull();
+            expect(showLib?.episodeCount).toBeUndefined();
+            expect(spy).not.toHaveBeenCalledWith(
+                '2',
+                expect.objectContaining({
+                    filter: { type: PLEX_MEDIA_TYPES.EPISODE },
+                })
+            );
+        });
+
         it('should sanitize itemCountConcurrency when includeItemCounts is enabled', async () => {
             const oneLibraryResponse = {
                 MediaContainer: {
@@ -749,7 +777,8 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             const url = library.getImageUrl('https://malicious.example/library/metadata/123/thumb', 300);
-            const parsed = new URL(url);
+            expect(url).not.toBeNull();
+            const parsed = new URL(url as string);
 
             expect(parsed.origin).toBe('http://192.168.1.100:32400');
             expect(parsed.pathname).toBe('/photo/:/transcode');
@@ -778,15 +807,15 @@ describe('PlexLibrary', () => {
             expect(url).toContain('height=300');
         });
 
-        it('should return empty string for empty path', () => {
+        it('should return null for empty path', () => {
             const library = new PlexLibrary(mockConfig);
 
             const url = library.getImageUrl('');
 
-            expect(url).toBe('');
+            expect(url).toBeNull();
         });
 
-        it('should return empty string when no server URI', () => {
+        it('should return null when no server URI', () => {
             const noServerConfig: PlexLibraryConfig = {
                 ...mockConfig,
                 getServerUri: () => null,
@@ -795,7 +824,7 @@ describe('PlexLibrary', () => {
 
             const url = library.getImageUrl('/library/metadata/123/thumb');
 
-            expect(url).toBe('');
+            expect(url).toBeNull();
         });
     });
 
@@ -832,6 +861,24 @@ describe('PlexLibrary', () => {
                 expect.stringContaining('sectionId=1'),
                 expect.any(Object)
             );
+        });
+
+        it('passes cancellation signals through search fetches', async () => {
+            const controller = new AbortController();
+            controller.abort();
+            const abortError = new Error('Aborted');
+            abortError.name = 'AbortError';
+            const fetchMock = jest.fn().mockImplementation((_url: string, init: RequestInit) => {
+                expect(init.signal).toEqual(expect.objectContaining({ aborted: true }));
+                return Promise.reject(abortError);
+            });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.search('test', { signal: controller.signal })).rejects.toMatchObject({
+                name: 'AbortError',
+            });
+            expect(fetchMock).toHaveBeenCalledTimes(1);
         });
 
         it('throws typed parse error when a search hub metadata payload is malformed', async () => {

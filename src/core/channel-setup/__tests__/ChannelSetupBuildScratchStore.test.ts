@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { ChannelSetupBuildScratchStore } from '../ChannelSetupBuildScratchStore';
+import { ChannelSetupBuildScratchStore } from '../build/ChannelSetupBuildScratchStore';
 
 describe('ChannelSetupBuildScratchStore', () => {
     beforeEach(() => {

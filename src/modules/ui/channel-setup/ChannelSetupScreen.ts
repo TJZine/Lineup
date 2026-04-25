@@ -30,7 +30,7 @@ import type {
     EstimateKey,
     StrategyStepMutableState,
 } from './ChannelSetupSessionContracts';
-import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/ChannelSetupWorkflowPort';
+import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { ChannelSetupScreenPorts } from './ChannelSetupScreenPorts';
 
 const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];

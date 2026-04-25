@@ -1,4 +1,4 @@
-import type { ChannelSetupPreviewFailureReason } from './types';
+import type { ChannelSetupPreviewFailureReason } from '../types';
 import type { ChannelSetupPlannerDiagnostics } from './ChannelSetupPlanner';
 
 export interface ChannelSetupPlanDiagnosticsResult {

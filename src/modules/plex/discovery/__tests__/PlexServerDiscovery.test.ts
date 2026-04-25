@@ -190,6 +190,23 @@ describe('PlexServerDiscovery', () => {
             }
         });
 
+        it('preserves sanitized network causes when discovery wraps unknown failures', async () => {
+            expectConsoleError('Network error X-Plex-Token=REDACTED');
+            const cause = new Error('Network error X-Plex-Token=super-secret');
+            cause.stack = 'Error: Network error X-Plex-Token=super-secret\n    at discoverServers';
+            mockFetchFailure(cause);
+            const discovery = new PlexServerDiscovery(mockConfig);
+
+            await expect(discovery.discoverServers()).rejects.toMatchObject({
+                code: 'SERVER_UNREACHABLE',
+                cause: {
+                    name: 'Error',
+                    message: 'Network error X-Plex-Token=REDACTED',
+                    stack: 'Error: Network error X-Plex-Token=REDACTED\n    at discoverServers',
+                },
+            });
+        });
+
         it('should filter for server capability only', async () => {
             const mockResources = [
                 {

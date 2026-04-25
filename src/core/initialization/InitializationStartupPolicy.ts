@@ -15,14 +15,14 @@ type UpdateModuleStatus = (
     loadTimeMs?: number
 ) => void;
 
-type Phase2AuthPlexAuth = Pick<
+type AuthValidationPlexAuth = Pick<
     IPlexAuth,
     'readStoredCredentialsAndClearCorruption' | 'validateToken' | 'getCurrentUser' | 'storeCredentials' | 'getHomeUsers'
 >;
 
-type Phase2AuthNavigation = Pick<INavigationManager, 'getCurrentScreen' | 'goTo'>;
+type AuthValidationNavigation = Pick<INavigationManager, 'getCurrentScreen' | 'goTo'>;
 
-type Phase2AuthLifecycle = Pick<IAppLifecycle, 'setPhase'>;
+type AuthValidationLifecycle = Pick<IAppLifecycle, 'setPhase'>;
 
 export interface StartupResumeHandlers {
     registerAuthResume(): void;
@@ -30,11 +30,11 @@ export interface StartupResumeHandlers {
     registerProfileResume(): void;
 }
 
-export interface Phase2AuthGateInputs {
+export interface AuthValidationPolicyInputs {
     startTime: number;
-    plexAuth: Phase2AuthPlexAuth;
-    navigation: Phase2AuthNavigation;
-    lifecycle: Phase2AuthLifecycle | null;
+    plexAuth: AuthValidationPlexAuth;
+    navigation: AuthValidationNavigation;
+    lifecycle: AuthValidationLifecycle | null;
     updateModuleStatus: UpdateModuleStatus;
     configureDiscoveryStorage: () => void;
     readShowProfilePickerOnStartup: () => boolean;
@@ -42,7 +42,7 @@ export interface Phase2AuthGateInputs {
     handlers: Pick<StartupResumeHandlers, 'registerAuthResume' | 'registerProfileResume'>;
 }
 
-export interface Phase3ServerGateInputs {
+export interface ServerConnectionPolicyInputs {
     startTime: number;
     plexDiscovery: IPlexServerDiscovery;
     plexLibrary: IPlexLibrary;
@@ -61,8 +61,8 @@ export interface PostReadyRoutingInputs {
     openServerSelect: () => void;
 }
 
-type Phase2StoredCredentials = Extract<
-    Awaited<ReturnType<Phase2AuthPlexAuth['readStoredCredentialsAndClearCorruption']>>,
+type AuthStoredCredentials = Extract<
+    Awaited<ReturnType<AuthValidationPlexAuth['readStoredCredentialsAndClearCorruption']>>,
     { kind: 'available' }
 >['credentials'];
 
@@ -106,9 +106,9 @@ export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs
 }
 
 function buildSelectedServerByUserId(
-    storedCredentials: Phase2StoredCredentials,
+    storedCredentials: AuthStoredCredentials,
     activeUserId: string
-): Phase2StoredCredentials['selectedServerByUserId'] {
+): AuthStoredCredentials['selectedServerByUserId'] {
     const selectedServerByUserId = {
         ...(storedCredentials.selectedServerByUserId ?? {}),
     };
@@ -118,7 +118,7 @@ function buildSelectedServerByUserId(
     return selectedServerByUserId;
 }
 
-function resolveValidatedToken<TToken extends Phase2StoredCredentials['activeToken']>(
+function resolveValidatedToken<TToken extends AuthStoredCredentials['activeToken']>(
     currentToken: TToken | null,
     fallbackToken: TToken
 ): TToken {
@@ -128,7 +128,7 @@ function resolveValidatedToken<TToken extends Phase2StoredCredentials['activeTok
     return fallbackToken;
 }
 
-function markAuthReady(inputs: Phase2AuthGateInputs): void {
+function markAuthReady(inputs: AuthValidationPolicyInputs): void {
     inputs.updateModuleStatus(
         'plex-auth',
         'ready',
@@ -141,7 +141,7 @@ function markAuthReady(inputs: Phase2AuthGateInputs): void {
     }
 }
 
-function routeToPendingAuth(inputs: Phase2AuthGateInputs, error?: AppError): boolean {
+function routeToPendingAuth(inputs: AuthValidationPolicyInputs, error?: AppError): boolean {
     if (error) {
         inputs.updateModuleStatus('plex-auth', 'pending', error);
     } else {
@@ -152,7 +152,7 @@ function routeToPendingAuth(inputs: Phase2AuthGateInputs, error?: AppError): boo
     return false;
 }
 
-async function maybeRouteToProfileSelect(inputs: Phase2AuthGateInputs): Promise<boolean> {
+async function maybeRouteToProfileSelect(inputs: AuthValidationPolicyInputs): Promise<boolean> {
     const currentScreen = inputs.navigation.getCurrentScreen();
     const isAuthScreen = currentScreen === 'auth';
     const showPickerOnStartup = inputs.readShowProfilePickerOnStartup();
@@ -178,8 +178,8 @@ async function maybeRouteToProfileSelect(inputs: Phase2AuthGateInputs): Promise<
 }
 
 function persistValidatedActiveCredentials(
-    inputs: Phase2AuthGateInputs,
-    storedCredentials: Phase2StoredCredentials
+    inputs: AuthValidationPolicyInputs,
+    storedCredentials: AuthStoredCredentials
 ): void {
     const validatedActiveToken = resolveValidatedToken(
         inputs.plexAuth.getCurrentUser(),
@@ -200,8 +200,8 @@ function persistValidatedActiveCredentials(
 }
 
 function persistValidatedAccountFallback(
-    inputs: Phase2AuthGateInputs,
-    storedCredentials: Phase2StoredCredentials
+    inputs: AuthValidationPolicyInputs,
+    storedCredentials: AuthStoredCredentials
 ): void {
     const validatedAccountToken = resolveValidatedToken(
         inputs.plexAuth.getCurrentUser(),
@@ -220,7 +220,7 @@ function persistValidatedAccountFallback(
     });
 }
 
-export async function applyPhase2AuthGatePolicy(inputs: Phase2AuthGateInputs): Promise<boolean> {
+export async function applyAuthValidationPolicy(inputs: AuthValidationPolicyInputs): Promise<boolean> {
     const storedReadResult = inputs.plexAuth.readStoredCredentialsAndClearCorruption();
     if (storedReadResult.kind === 'corrupted') {
         return routeToPendingAuth(inputs, {
@@ -269,7 +269,7 @@ export async function applyPhase2AuthGatePolicy(inputs: Phase2AuthGateInputs): P
     }
 }
 
-export async function applyPhase3ServerGatePolicy(inputs: Phase3ServerGateInputs): Promise<boolean> {
+export async function applyServerConnectionPolicy(inputs: ServerConnectionPolicyInputs): Promise<boolean> {
     inputs.updateModuleStatus('plex-server-discovery', 'initializing');
     try {
         await inputs.plexDiscovery.initialize();

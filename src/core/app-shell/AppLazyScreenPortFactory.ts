@@ -1,4 +1,4 @@
-import type { ChannelSetupWorkflowPort } from '../channel-setup/ChannelSetupWorkflowPort';
+import type { ChannelSetupWorkflowPort } from '../channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { AuthScreenPorts } from '../../modules/ui/auth';
 import type { ChannelSetupScreenPorts } from '../../modules/ui/channel-setup';
 import type { INavigationManager } from '../../modules/navigation';

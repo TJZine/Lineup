@@ -8,7 +8,7 @@ import { DebugOverridesStore } from '../../../modules/debug/DebugOverridesStore'
 import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
 import { AppDiagnosticsSurface } from '../AppDiagnosticsSurface';
 import type { AppShellDiagnosticsRuntimePort } from '../AppShellRuntimeContracts';
-import type { ChannelSetupWorkflowPort } from '../../channel-setup/ChannelSetupWorkflowPort';
+import type { ChannelSetupWorkflowPort } from '../../channel-setup/workflow/ChannelSetupWorkflowPort';
 
 const createContainer = (): HTMLDivElement => {
     const el = document.createElement('div');

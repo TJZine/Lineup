@@ -24,7 +24,7 @@ import {
     MIXED_SCOPE_STRATEGY_KEYS,
     SETUP_STRATEGY_KEYS,
 } from '../../../core/channel-setup/constants';
-import { normalizeChannelSetupConfig } from '../../../core/channel-setup/normalizeChannelSetupConfig';
+import { normalizeChannelSetupConfig } from '../../../core/channel-setup/planning/normalizeChannelSetupConfig';
 import type { PlexLibrarySection } from '../../plex/library';
 import {
     SERIES_BLOCK_PRESETS,

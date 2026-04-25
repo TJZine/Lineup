@@ -35,7 +35,7 @@ Lineup's rule is simple: one storage namespace, one owner.
 - [`src/modules/plex/auth/clientIdentifier.ts`](../../../src/modules/plex/auth/clientIdentifier.ts)
 - [`src/modules/plex/discovery/ServerSelectionStore.ts`](../../../src/modules/plex/discovery/ServerSelectionStore.ts)
 - [`src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`](../../../src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts)
-- [`src/core/channel-setup/ChannelSetupRecordStore.ts`](../../../src/core/channel-setup/ChannelSetupRecordStore.ts)
+- [`src/core/channel-setup/persistence/ChannelSetupRecordStore.ts`](../../../src/core/channel-setup/persistence/ChannelSetupRecordStore.ts)
 - Shared storage helpers in [`src/utils/storage.ts`](../../../src/utils/storage.ts)
 
 ## Bounded Exceptions

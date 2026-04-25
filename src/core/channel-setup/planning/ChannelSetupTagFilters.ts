@@ -1,4 +1,4 @@
-import type { PlexTagDirectoryItem } from '../../modules/plex/library';
+import type { PlexTagDirectoryItem } from '../../../modules/plex/library';
 
 type ChannelSetupTagFilterType = 'actor' | 'studio';
 type ChannelSetupFacetCountFamily = 'genre' | 'director' | 'year' | ChannelSetupTagFilterType;

@@ -1,6 +1,6 @@
 # Cleanup Controller Launcher
 
-Use this prompt when the task is already classified as Tier 3 high-risk cleanup/refactor work and one session needs to orchestrate the full cleanup workflow. Keep planning and closeout package-scoped for `checklist-linked` work, but execute and review inside the approved `execution_unit` there so large packages can retire coherent approved batches instead of degrading into tiny per-slice loops. Keep `standalone remediation` to one bounded execution target unless the approved plan says otherwise.
+Use this prompt when the task is already classified as Tier 3 high-risk cleanup/refactor/remediation work and one session needs to orchestrate the full cleanup workflow. Debugging fits this launcher only when the task is corrective remediation, regression repair, source-audit reconciliation, or refactor follow-through with no net-new feature intent. Keep planning and closeout package-scoped for `checklist-linked` work, but execute and review inside the approved `execution_unit` there so large packages can retire coherent approved batches instead of degrading into tiny per-slice loops. Keep `standalone remediation` to one bounded execution target unless the approved plan says otherwise.
 
 ## Read Order
 
@@ -21,7 +21,7 @@ If the short follow-up form is used, treat the named checklist item or cleanup t
 
 ## Operating Mode
 
-Run the full controller loop only for Tier 3 cleanup/refactor work. The main session is the orchestrator. It keeps the authoritative state in `update_plan`, keeps routing and seam decisions local by default, delegates only the bounded write or review work that materially benefits from delegation, and only edits directly as a last resort for small adjustments or when preserving controller context is materially more reliable than another handoff.
+Run the full controller loop only for Tier 3 cleanup/refactor/remediation work. This launcher is not a temporary feature-loop or umbrella controller for feature delivery. The main session is the orchestrator. It keeps the authoritative state in `update_plan`, keeps routing and seam decisions local by default, delegates only the bounded write or review work that materially benefits from delegation, and only edits directly as a last resort for small adjustments or when preserving controller context is materially more reliable than another handoff.
 
 ## Controller State Machine
 
@@ -42,7 +42,7 @@ Run the loop as an explicit state machine:
 ### Phase Rules
 
 - `scope-load`
-  - confirm the task is Tier 3 cleanup/refactor work
+  - confirm the task is Tier 3 cleanup/refactor/remediation work
   - identify the exact cleanup subtype (`checklist-linked` or `standalone remediation`) and the approved scope
   - for `checklist-linked` work, load the matching checklist entry and linkage
   - load the current plan or active run-bundle context when present
@@ -119,6 +119,7 @@ Run the loop as an explicit state machine:
 - for small low-risk work, do not use this prompt; stay in one session and request review before closeout
 - for a normal cleanup unit with clear scope, use the Tier 2 planner/implementer/reviewer prompts instead
 - for hotspots, cross-boundary refactors, multi-session work, or Plex/UI/Orchestrator changes, keep the full loop
+- for feature/design work, mixed-task umbrella control, or debugging that expands product behavior, do not use this prompt; route the feature slice through the feature workflow and keep any cleanup slice separate
 - for major multi-session work, create a run bundle in [`docs/runs/`](../../runs/README.md) first and have the loop use that bundle
 
 ## Controller Responsibilities

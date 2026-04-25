@@ -1,5 +1,5 @@
-import type { PlexLibrarySection } from '../../modules/plex/library';
-import type { ChannelSetupPlanDiagnosticsResult } from './ChannelSetupPlanDiagnostics';
+import type { PlexLibrarySection } from '../../../modules/plex/library';
+import type { ChannelSetupPlanDiagnosticsResult } from '../planning/ChannelSetupPlanDiagnostics';
 import type {
     ChannelBuildProgress,
     ChannelBuildSummary,
@@ -8,7 +8,7 @@ import type {
     ChannelSetupPreview,
     ChannelSetupRecord,
     ChannelSetupReview,
-} from './types';
+} from '../types';
 
 export const CHANNEL_SETUP_WORKFLOW_UNAVAILABLE_MESSAGE = 'Channel setup not initialized';
 

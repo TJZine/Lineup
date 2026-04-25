@@ -1,16 +1,16 @@
-import { ChannelManager } from '../../modules/scheduler/channel-manager';
+import { ChannelManager } from '../../../modules/scheduler/channel-manager';
 import type {
     IChannelManager,
     ChannelConfig,
     ChannelCreateInput,
-} from '../../modules/scheduler/channel-manager';
-import { MAX_CHANNEL_NUMBER } from '../../modules/scheduler/channel-manager/constants';
-import type { IPlexLibrary } from '../../modules/plex/library';
-import type { ChannelBuildProgress, ChannelBuildSummary, ChannelSetupConfig } from './types';
-import type { PendingChannel, ChannelDiffResult } from './ChannelSetupPlanner';
+} from '../../../modules/scheduler/channel-manager';
+import { MAX_CHANNEL_NUMBER } from '../../../modules/scheduler/channel-manager/constants';
+import type { IPlexLibrary } from '../../../modules/plex/library';
+import type { ChannelBuildProgress, ChannelBuildSummary, ChannelSetupConfig } from '../types';
+import type { PendingChannel, ChannelDiffResult } from '../planning/ChannelSetupPlanner';
 import type { ChannelSetupBuildScratchStore } from './ChannelSetupBuildScratchStore';
-import { isSignalAborted } from './utils';
-import { formatChannelSetupWarning } from './formatChannelSetupWarning';
+import { isSignalAborted } from '../shared/utils';
+import { formatChannelSetupWarning } from '../shared/formatChannelSetupWarning';
 
 type BuildProgressReporter = (
     task: ChannelBuildProgress['task'],

@@ -3,7 +3,7 @@
  * @module modules/scheduler/channel-manager/__tests__/ChannelManager.test
  */
 
-import { ChannelManager } from '../ChannelManager';
+import { ChannelError, ChannelManager } from '../ChannelManager';
 import { ChannelRepository } from '../ChannelRepository';
 import { ContentResolver } from '../ContentResolver';
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
@@ -184,10 +184,31 @@ describe('ChannelManager', () => {
             expect(ch2.number).toBe(2);
         });
 
-        it('should throw if content source missing', async () => {
-            await expect(manager.createChannel({ name: 'Test' } as unknown as ChannelCreateInput)).rejects.toThrow(
-                'Content source is required'
-            );
+        it('throws a typed error when the channel limit is reached', async () => {
+            const channels = Array.from({ length: MAX_CHANNELS }, (_, index) => (
+                createBaseChannel({ id: `c${index + 1}`, number: index + 1 })
+            ));
+            await manager.replaceAllChannels(channels);
+
+            await expect(
+                manager.createChannel({ contentSource: createMockContentSource() })
+            ).rejects.toMatchObject({
+                name: 'ChannelError',
+                code: AppErrorCode.MAX_CHANNELS_REACHED,
+                message: 'Maximum number of channels reached',
+            });
+        });
+
+
+        it('throws ChannelError if content source missing', async () => {
+            const promise = manager.createChannel({ name: 'Test' } as unknown as ChannelCreateInput);
+
+            await expect(promise).rejects.toBeInstanceOf(ChannelError);
+            await expect(promise).rejects.toMatchObject({
+                name: 'ChannelError',
+                code: AppErrorCode.CHANNEL_CONTENT_SOURCE_REQUIRED,
+                message: 'Content source is required',
+            });
         });
 
         it('should throw on duplicate channel number', async () => {
@@ -201,7 +222,11 @@ describe('ChannelManager', () => {
                     number: 5,
                     contentSource: createMockContentSource(),
                 })
-            ).rejects.toThrow('Channel number already in use');
+            ).rejects.toMatchObject({
+                name: 'ChannelError',
+                code: AppErrorCode.DUPLICATE_CHANNEL_NUMBER,
+                message: 'Channel number already in use',
+            });
         });
 
         it('should throw on invalid channel number', async () => {
@@ -210,14 +235,22 @@ describe('ChannelManager', () => {
                     number: 0,
                     contentSource: createMockContentSource(),
                 })
-            ).rejects.toThrow('Channel number must be an integer between 1 and 500');
+            ).rejects.toMatchObject({
+                name: 'ChannelError',
+                code: AppErrorCode.INVALID_CHANNEL_NUMBER,
+                message: 'Channel number must be an integer between 1 and 500',
+            });
 
             await expect(
                 manager.createChannel({
                     number: 501,
                     contentSource: createMockContentSource(),
                 })
-            ).rejects.toThrow('Channel number must be an integer between 1 and 500');
+            ).rejects.toMatchObject({
+                name: 'ChannelError',
+                code: AppErrorCode.INVALID_CHANNEL_NUMBER,
+                message: 'Channel number must be an integer between 1 and 500',
+            });
         });
 
         it('should throw on fractional channel numbers', async () => {
@@ -226,7 +259,11 @@ describe('ChannelManager', () => {
                     number: 7.5,
                     contentSource: createMockContentSource(),
                 })
-            ).rejects.toThrow('Channel number must be an integer between 1 and 500');
+            ).rejects.toMatchObject({
+                name: 'ChannelError',
+                code: AppErrorCode.INVALID_CHANNEL_NUMBER,
+                message: 'Channel number must be an integer between 1 and 500',
+            });
         });
 
         it('should emit channelCreated event', async () => {
@@ -257,6 +294,14 @@ describe('ChannelManager', () => {
 
             expect(updated.name).toBe('Updated');
             expect(handler).toHaveBeenCalledWith(expect.objectContaining({ name: 'Updated' }));
+        });
+
+        it('throws ChannelError when updating a missing channel', async () => {
+            await expect(manager.updateChannel('missing-channel', { name: 'Nope' })).rejects.toMatchObject({
+                name: 'ChannelError',
+                code: AppErrorCode.CHANNEL_NOT_FOUND,
+                message: 'Channel not found',
+            });
         });
 
         it('ignores runtime-managed fields during updates', async () => {
@@ -291,7 +336,11 @@ describe('ChannelManager', () => {
 
             await expect(
                 manager.updateChannel(channel.id, { number: 7.5 })
-            ).rejects.toThrow('Channel number must be an integer between 1 and 500');
+            ).rejects.toMatchObject({
+                name: 'ChannelError',
+                code: AppErrorCode.INVALID_CHANNEL_NUMBER,
+                message: 'Channel number must be an integer between 1 and 500',
+            });
         });
 
         it('should delete channel and emit event', async () => {
@@ -306,6 +355,14 @@ describe('ChannelManager', () => {
 
             expect(manager.getChannel(channel.id)).toBeNull();
             expect(handler).toHaveBeenCalledWith(channel.id);
+        });
+
+        it('throws ChannelError when deleting a missing channel', async () => {
+            await expect(manager.deleteChannel('missing-channel')).rejects.toMatchObject({
+                name: 'ChannelError',
+                code: AppErrorCode.CHANNEL_NOT_FOUND,
+                message: 'Channel not found',
+            });
         });
 
         it('should find channel by number', async () => {
@@ -415,6 +472,16 @@ describe('ChannelManager', () => {
             );
 
             setKeysSpy.mockRestore();
+        });
+
+        it('throws a typed validation error for empty storage keys', () => {
+            expect(() => manager.setStorageKeys('lineup_channels_new_scope', '   ')).toThrow(ChannelError);
+            expect(() => manager.setStorageKeys('lineup_channels_new_scope', '   ')).toThrow(
+                expect.objectContaining({
+                    code: AppErrorCode.STORAGE_VALIDATION_FAILED,
+                    message: 'Storage keys must be non-empty strings',
+                })
+            );
         });
 
         it('emits persistenceWarning and does not throw when pending save flush fails during key switch', async () => {
@@ -743,6 +810,22 @@ describe('ChannelManager', () => {
             expect(manager.getCurrentChannel()!.id).toBe(ch2.id);
         });
 
+        it('throws ChannelError when switching to a missing channel', () => {
+            let caught: unknown;
+            try {
+                manager.setCurrentChannel('missing-channel');
+            } catch (error) {
+                caught = error;
+            }
+
+            expect(caught).toBeInstanceOf(ChannelError);
+            expect(caught).toMatchObject({
+                name: 'ChannelError',
+                code: AppErrorCode.CHANNEL_NOT_FOUND,
+                message: 'Channel not found',
+            });
+        });
+
         it('should emit channelSwitch event', async () => {
             const channel = await manager.createChannel({
                 contentSource: createMockContentSource(),
@@ -799,6 +882,33 @@ describe('ChannelManager', () => {
                     code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
                     isQuotaError: true,
                     message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                })
+            );
+        });
+
+        it('emits typed persistence fallback warning when current-channel write is unavailable', async () => {
+            expectConsoleWarn([
+                'Failed to persist current channel',
+                expect.objectContaining({
+                    name: 'ChannelError',
+                    code: AppErrorCode.PERSISTENCE_FALLBACK,
+                    message: 'Failed to persist current channel',
+                }),
+            ]);
+            const ch1 = await manager.createChannel({ name: 'Ch1', contentSource: createMockContentSource() });
+            const warningHandler = jest.fn();
+            manager.on('persistenceWarning', warningHandler);
+            jest
+                .spyOn(ChannelRepository.prototype, 'saveCurrentChannelId')
+                .mockReturnValue({ ok: false, reason: 'unavailable' });
+
+            manager.setCurrentChannel(ch1.id);
+
+            expect(warningHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: AppErrorCode.PERSISTENCE_FALLBACK,
+                    isQuotaError: false,
+                    message: 'Failed to persist channels; some changes may not be saved',
                 })
             );
         });
@@ -1082,7 +1192,11 @@ describe('ChannelManager', () => {
             manager.dispose();
             jest.advanceTimersByTime(500);
 
-            await expect(pendingSave).rejects.toThrow('ChannelManager disposed');
+            await expect(pendingSave).rejects.toMatchObject({
+                name: 'ChannelError',
+                code: AppErrorCode.CHANNEL_MANAGER_DISPOSED,
+                message: 'ChannelManager disposed',
+            });
         });
 
         it('should save channels to localStorage', async () => {
@@ -1486,15 +1600,23 @@ describe('ChannelManager', () => {
 describe('ChannelManager constructor validation', () => {
     it('throws when currentChannelKey is provided as an empty string', () => {
         const plexLibrary = createMockLibrary();
+        expect(() => new ChannelManager({ plexLibrary, currentChannelKey: '' })).toThrow(ChannelError);
         expect(() => new ChannelManager({ plexLibrary, currentChannelKey: '' })).toThrow(
-            'Storage keys must be non-empty strings'
+            expect.objectContaining({
+                code: AppErrorCode.STORAGE_VALIDATION_FAILED,
+                message: 'Storage keys must be non-empty strings',
+            })
         );
     });
 
     it('throws when storageKey is provided as whitespace', () => {
         const plexLibrary = createMockLibrary();
+        expect(() => new ChannelManager({ plexLibrary, storageKey: '   ' })).toThrow(ChannelError);
         expect(() => new ChannelManager({ plexLibrary, storageKey: '   ' })).toThrow(
-            'Storage keys must be non-empty strings'
+            expect.objectContaining({
+                code: AppErrorCode.STORAGE_VALIDATION_FAILED,
+                message: 'Storage keys must be non-empty strings',
+            })
         );
     });
 });

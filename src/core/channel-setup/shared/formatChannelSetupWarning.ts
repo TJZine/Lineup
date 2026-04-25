@@ -1,4 +1,4 @@
-import { summarizeErrorForLog } from '../../utils/errors';
+import { summarizeErrorForLog } from '../../../utils/errors';
 
 export function formatChannelSetupWarning(message: string, ...details: unknown[]): string {
     if (details.length === 0) {

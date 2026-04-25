@@ -3,11 +3,11 @@ import {
     buildChannelSetupPlanDiagnostics,
     createChannelIdentityKey,
     diffChannelPlans,
-} from '../ChannelSetupPlanner';
+} from '../planning/ChannelSetupPlanner';
 import type { ChannelSetupConfig, SetupStrategyConfig, SetupStrategyKey } from '../types';
 import type { PlexLibrarySection, PlexPlaylist } from '../../../modules/plex/library';
 import type { ChannelConfig } from '../../../modules/scheduler/channel-manager';
-import type { PendingChannel } from '../ChannelSetupPlanner';
+import type { PendingChannel } from '../planning/ChannelSetupPlanner';
 import { DEFAULT_STRATEGY_PRIORITIES, MIXED_SCOPE_STRATEGY_KEYS, SETUP_STRATEGY_KEYS } from '../constants';
 
 const seedFor = (value: string): number => {

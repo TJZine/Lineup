@@ -143,6 +143,7 @@ export interface SearchOptions {
     types?: PlexMediaType[];
     libraryId?: string;
     limit?: number;
+    signal?: AbortSignal | null;
 }
 
 // ============================================

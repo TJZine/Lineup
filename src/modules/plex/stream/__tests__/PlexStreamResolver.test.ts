@@ -1093,7 +1093,7 @@ describe('PlexStreamResolver', () => {
             expect(identityService.getDefaultPlexIdentity).toHaveBeenCalledWith('test-client-id');
         });
 
-        it('preserves transcode X-Plex-Client-Capabilities header precedence over computed value', () => {
+        it('preserves computed transcode X-Plex-Client-Capabilities precedence over header value', () => {
             const config = createMockConfig({
                 getAuthHeaders: () => ({
                     'X-Plex-Token': 'mock-token',
@@ -1104,7 +1104,9 @@ describe('PlexStreamResolver', () => {
 
             const parsed = new URL(resolver.getTranscodeUrl('12345', {}));
 
-            expect(parsed.searchParams.get('X-Plex-Client-Capabilities')).toBe('header-capabilities');
+            expect(parsed.searchParams.get('X-Plex-Client-Capabilities')).toBe(
+                'protocols=http-live-streaming,http-mp4-streaming,http-streaming-video;videoDecoders=h264{profile:high&level:42};audioDecoders=mp3,aac{bitrate:800000},ac3{bitrate:800000},eac3{bitrate:800000}'
+            );
         });
 
         it('redacts X-Plex-Token in transcode debug logs', () => {

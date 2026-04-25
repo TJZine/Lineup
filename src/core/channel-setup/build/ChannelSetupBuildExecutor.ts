@@ -1,16 +1,16 @@
-import type { IChannelManager } from '../../modules/scheduler/channel-manager';
-import type { PlexLibrarySection } from '../../modules/plex/library';
+import type { IChannelManager } from '../../../modules/scheduler/channel-manager';
+import type { PlexLibrarySection } from '../../../modules/plex/library';
 import type {
     ChannelBuildProgress,
     ChannelBuildSummary,
     ChannelSetupConfig,
-} from './types';
-import { diffChannelPlans } from './ChannelSetupPlanner';
-import type { ChannelSetupPlanBuildResult, ChannelSetupPlanningService } from './ChannelSetupPlanningService';
+} from '../types';
+import { diffChannelPlans } from '../planning/ChannelSetupPlanner';
+import type { ChannelSetupPlanBuildResult, ChannelSetupPlanningService } from '../planning/ChannelSetupPlanningService';
 import type { ChannelSetupBuildCommitter } from './ChannelSetupBuildCommitter';
-import { isSignalAborted } from './utils';
-import { normalizeChannelSetupConfig } from './normalizeChannelSetupConfig';
-import { formatChannelSetupWarning } from './formatChannelSetupWarning';
+import { isSignalAborted } from '../shared/utils';
+import { normalizeChannelSetupConfig } from '../planning/normalizeChannelSetupConfig';
+import { formatChannelSetupWarning } from '../shared/formatChannelSetupWarning';
 
 export interface ChannelSetupBuildExecutorDeps {
     channelManager: IChannelManager;

@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { ChannelSetupRecordStore } from '../ChannelSetupRecordStore';
+import { ChannelSetupRecordStore } from '../persistence/ChannelSetupRecordStore';
 import { DEFAULT_STRATEGY_PRIORITIES, MIXED_SCOPE_STRATEGY_KEYS, SETUP_STRATEGY_KEYS } from '../constants';
 import { DEFAULT_CHANNEL_SETUP_MAX } from '../../../modules/scheduler/channel-manager/constants';
 import type { ChannelSetupConfig, SetupStrategyConfig, SetupStrategyKey } from '../types';

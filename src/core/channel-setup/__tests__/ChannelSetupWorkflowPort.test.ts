@@ -1,7 +1,7 @@
 import {
     ChannelSetupWorkflowUnavailableError,
     isChannelSetupWorkflowUnavailableError,
-} from '../ChannelSetupWorkflowPort';
+} from '../workflow/ChannelSetupWorkflowPort';
 
 describe('isChannelSetupWorkflowUnavailableError', () => {
     it('accepts same-realm unavailable errors with custom messages', () => {

@@ -199,7 +199,8 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                     AppErrorCode.SERVER_UNREACHABLE,
                     `Failed to discover servers: ${message} (last url: ${this._redactUrl(lastUrl) || 'unknown'})`,
                     undefined,
-                    true
+                    true,
+                    lastError
                 );
             }
             if (!response.ok) {
@@ -235,7 +236,8 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                 AppErrorCode.SERVER_UNREACHABLE,
                 `Failed to discover servers: ${message} (last url: ${lastUrlInfo})`,
                 undefined,
-                true
+                true,
+                error
             );
         } finally {
             this._state.isDiscovering = false;

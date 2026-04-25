@@ -69,16 +69,14 @@ import {
     EXIT_CONFIRM_FOCUSABLE_IDS,
     EXIT_CONFIRM_MODAL_ID,
 } from '../../modules/ui/exit-confirm';
-import {
-    ChannelSetupBuildCommitter,
-    ChannelSetupBuildScratchStore,
-    ChannelSetupBuildExecutor,
-    ChannelSetupCompletionTracker,
-    ChannelSetupCoordinator,
-    ChannelSetupPlanningService,
-    ChannelSetupRecordStore,
-    ChannelSetupWorkflow,
-} from '../channel-setup';
+import { ChannelSetupBuildCommitter } from '../channel-setup/build/ChannelSetupBuildCommitter';
+import { ChannelSetupBuildScratchStore } from '../channel-setup/build/ChannelSetupBuildScratchStore';
+import { ChannelSetupBuildExecutor } from '../channel-setup/build/ChannelSetupBuildExecutor';
+import { ChannelSetupCompletionTracker } from '../channel-setup/persistence/ChannelSetupCompletionTracker';
+import { ChannelSetupCoordinator } from '../channel-setup/ChannelSetupCoordinator';
+import { ChannelSetupPlanningService } from '../channel-setup/planning/ChannelSetupPlanningService';
+import { ChannelSetupRecordStore } from '../channel-setup/persistence/ChannelSetupRecordStore';
+import type { ChannelSetupWorkflowPortOwners } from '../channel-setup/workflow/createChannelSetupWorkflowPort';
 import { ChannelTuningCoordinator } from '../channel-tuning';
 import type { GuideSelectionSnapshot } from '../channel-tuning';
 import { secondsToMilliseconds } from '../../config/timing';
@@ -95,72 +93,6 @@ import { safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from
 
 const DEFAULT_SEEK_INCREMENT_SECONDS = 10;
 
-type DailyScheduleConfigInput = {
-    schedule: Pick<OrchestratorCoordinatorAssemblyInput['schedule'], 'buildDailyScheduleConfig'>;
-};
-
-function getCoordinatorEpg(input: OrchestratorEpgCoordinatorBuilderInput): IEPGComponent | null {
-    return input.modules.epg;
-}
-
-function getCoordinatorChannelManager(input: OrchestratorEpgCoordinatorBuilderInput): IChannelManager | null {
-    return input.modules.channelManager;
-}
-
-function getCoordinatorScheduler(
-    input: OrchestratorEpgCoordinatorBuilderInput | OrchestratorPlaybackRecoveryBuilderInput
-): IChannelScheduler | null {
-    return input.modules.scheduler;
-}
-
-function getCoordinatorEpgUiStatus(input: OrchestratorEpgCoordinatorBuilderInput): EPGUiStatus {
-    return input.moduleStatus.get('epg-ui')?.status;
-}
-
-function ensureCoordinatorEpgInitialized(input: Pick<OrchestratorCoordinatorAssemblyInput, 'init'>): Promise<void> {
-    return input.init.ensureEpgInitialized();
-}
-
-function getCoordinatorEpgConfig(input: OrchestratorEpgCoordinatorBuilderInput): EPGConfig | null {
-    return input.config?.epgConfig ?? null;
-}
-
-function getCoordinatorLocalMidnightMs(input: OrchestratorEpgCoordinatorBuilderInput, timeMs: number): number {
-    return input.schedule.getLocalMidnightMs(timeMs);
-}
-
-function buildCoordinatorDailyScheduleConfig(
-    input: DailyScheduleConfigInput,
-    channel: ChannelConfig,
-    items: ResolvedChannelContent['items'],
-    referenceTimeMs: number
-): ScheduleConfig {
-    return input.schedule.buildDailyScheduleConfig(channel, items, referenceTimeMs);
-}
-
-function getCoordinatorPreserveFocusOnOpen(input: OrchestratorEpgCoordinatorBuilderInput): boolean {
-    return input.schedule.lastChannelChangeSource() === 'guide';
-}
-
-function setCoordinatorLastChannelChangeSourceToGuide(input: OrchestratorEpgCoordinatorBuilderInput): void {
-    input.schedule.setLastChannelChangeSource('guide');
-}
-
-function switchCoordinatorToChannel(
-    input: OrchestratorEpgCoordinatorBuilderInput,
-    channelId: string,
-    options?: { guideSelectionSnapshot?: GuideSelectionSnapshot }
-): Promise<void> {
-    return input.actions.switchToChannel(channelId, options);
-}
-
-function onCoordinatorVisibilityChange(
-    input: OrchestratorEpgCoordinatorBuilderInput,
-    visible: boolean
-): void {
-    input.actions.onOverlayVisibilityChange(visible);
-}
-
 function reportCoordinatorEpgInitWarning(input: OrchestratorEpgCoordinatorBuilderInput): void {
     input.nowPlaying.handler()?.({
         message: 'Guide unavailable right now. Try again.',
@@ -170,99 +102,6 @@ function reportCoordinatorEpgInitWarning(input: OrchestratorEpgCoordinatorBuilde
 
 function handleVisibleRangeChange(epgCoordinator: EPGCoordinator, range: EpgVisibleRange): void {
     epgCoordinator.handleVisibleRangeChange(range);
-}
-
-function getSelectedServerId(input: OrchestratorChannelSetupBuilderInput): string | null {
-    return input.schedule.getSelectedServerId();
-}
-
-function getExistingChannelCount(input: OrchestratorChannelSetupBuilderInput): number {
-    return input.modules.channelManager.getAllChannels().length;
-}
-
-function clearSelectedChannelScheduleSnapshot(epgCoordinator: EPGCoordinator): void {
-    epgCoordinator.clearSelectedChannelScheduleSnapshot();
-}
-
-function primeEpgChannels(epgCoordinator: EPGCoordinator): void {
-    epgCoordinator.primeEpgChannels();
-}
-
-function refreshEpgSchedules(
-    epgCoordinator: EPGCoordinator,
-    options?: { reason?: string; debounceMs?: number }
-): Promise<void> {
-    return epgCoordinator.refreshEpgSchedules(options);
-}
-
-function getPlaybackRecoveryVideoPlayer(input: OrchestratorPlaybackRecoveryBuilderInput): IVideoPlayer | null {
-    return input.modules.videoPlayer;
-}
-
-function getPlaybackRecoveryStreamResolver(input: OrchestratorPlaybackRecoveryBuilderInput): IPlexStreamResolver | null {
-    return input.modules.plexStreamResolver;
-}
-
-function getPlaybackRecoveryCurrentProgram(input: OrchestratorPlaybackRecoveryBuilderInput): ScheduledProgram | null {
-    return input.playback.state.getCurrentProgramForPlayback();
-}
-
-function getPlaybackRecoveryCurrentStreamDescriptor(
-    input: OrchestratorPlaybackRecoveryBuilderInput
-): StreamDescriptor | null {
-    return input.playback.state.getCurrentStreamDescriptor();
-}
-
-function getPlaybackRecoveryCurrentStreamDecision(input: OrchestratorPlaybackRecoveryBuilderInput): StreamDecision | null {
-    return input.playback.state.getCurrentStreamDecision();
-}
-
-function setPlaybackRecoveryCurrentStreamDecision(
-    input: OrchestratorPlaybackRecoveryBuilderInput,
-    decision: StreamDecision | null
-): void {
-    input.playback.state.setCurrentStreamDecision(decision);
-}
-
-function setPlaybackRecoveryCurrentStreamDescriptor(
-    input: OrchestratorPlaybackRecoveryBuilderInput,
-    descriptor: StreamDescriptor | null
-): void {
-    input.playback.state.setCurrentStreamDescriptor(descriptor);
-}
-
-function buildPlaybackRecoveryPlexResourceUrl(
-    input: OrchestratorPlaybackRecoveryBuilderInput,
-    pathOrUrl: string
-): string | null {
-    return input.playback.buildPlexResourceUrl(pathOrUrl);
-}
-
-function getPlaybackRecoveryMimeType(
-    input: OrchestratorPlaybackRecoveryBuilderInput,
-    decision: StreamDecision
-): string {
-    return input.playback.getMimeType(decision);
-}
-
-function getPlaybackRecoveryAuthHeaders(input: OrchestratorPlaybackRecoveryBuilderInput): Record<string, string> {
-    return input.modules.plexAuth.getAuthHeaders();
-}
-
-function getPlaybackRecoveryServerUri(input: OrchestratorPlaybackRecoveryBuilderInput): string | null {
-    return input.modules.plexDiscovery.getServerUri() ?? null;
-}
-
-function getPlaybackRecoveryPreferredSubtitleLanguage(
-    input: OrchestratorPlaybackRecoveryBuilderInput
-): string | null {
-    return input.stores.subtitlePreferencesStore.readSubtitleLanguageAndClean();
-}
-
-function getPlaybackRecoveryPlexPreferredSubtitleLanguage(
-    input: OrchestratorPlaybackRecoveryBuilderInput
-): string | null {
-    return input.modules.plexAuth.getCurrentUser()?.preferredSubtitleLanguage ?? null;
 }
 
 function notifyPlaybackRecoverySubtitleUnavailable(input: OrchestratorPlaybackRecoveryBuilderInput): void {
@@ -288,17 +127,6 @@ function handleCoordinatorGlobalError(
     input.errors.handleGlobalError(error, context);
 }
 
-function setNavigationLastChannelChangeSource(
-    input: OrchestratorNavigationCoordinatorBuilderInput,
-    source: 'remote' | 'number'
-): void {
-    input.schedule.setLastChannelChangeSource(source);
-}
-
-function stopNavigationPlayback(input: OrchestratorNavigationCoordinatorBuilderInput): void {
-    input.playback.stopPlayback();
-}
-
 function getNavigationSeekIncrementMs(input: OrchestratorNavigationCoordinatorBuilderInput): number {
     const seekIncrementSeconds = input.config?.playerConfig?.seekIncrementSec;
     const normalizedSeekIncrementSeconds =
@@ -306,10 +134,6 @@ function getNavigationSeekIncrementMs(input: OrchestratorNavigationCoordinatorBu
             ? seekIncrementSeconds
             : DEFAULT_SEEK_INCREMENT_SECONDS;
     return secondsToMilliseconds(normalizedSeekIncrementSeconds);
-}
-
-function focusNavigationEpgOnCurrentChannel(deps: NavigationCoordinatorBuilderDeps): void {
-    deps.epgCoordinator.focusEpgOnCurrentChannel();
 }
 
 function getNavigationChannelOverlayHideDelay(input: OrchestratorNavigationCoordinatorBuilderInput): number {
@@ -331,35 +155,9 @@ function handleNavigationChannelInputUpdate(
     }
 }
 
-function getChannelTuningLocalDayKey(input: OrchestratorChannelTuningBuilderInput, timeMs: number): number {
-    return input.schedule.getLocalDayKey(timeMs);
-}
-
-function setChannelTuningActiveScheduleDayKey(
-    input: OrchestratorChannelTuningBuilderInput,
-    dayKey: number
-): void {
-    input.schedule.setActiveScheduleDayKey(dayKey);
-}
-
-function setChannelTuningPendingNowPlayingChannelId(
-    input: OrchestratorChannelTuningBuilderInput,
-    channelId: string | null
-): void {
-    input.playback.state.setPendingNowPlayingChannelId(channelId);
-}
-
-function getChannelTuningPendingNowPlayingChannelId(input: OrchestratorChannelTuningBuilderInput): string | null {
-    return input.playback.state.getPendingNowPlayingChannelId();
-}
-
 function resetChannelTuningPlaybackGuards(playbackRecovery: PlaybackRecoveryManager): void {
     playbackRecovery.resetPlaybackFailureGuard();
     playbackRecovery.resetDirectFallbackAttempts();
-}
-
-function stopChannelTuningActiveTranscodeSession(input: OrchestratorChannelTuningBuilderInput): void {
-    input.playback.stopActiveTranscodeSession();
 }
 
 function armChannelTransitionForSwitch(
@@ -369,26 +167,33 @@ function armChannelTransitionForSwitch(
     channelTransitionCoordinator.armForChannelSwitch(prefix);
 }
 
-function saveChannelTuningLifecycleState(input: OrchestratorChannelTuningBuilderInput): Promise<void> {
-    return input.modules.lifecycle.saveState();
-}
-
 export function buildEpgCoordinator(input: OrchestratorEpgCoordinatorBuilderInput): EPGCoordinator {
     return new EPGCoordinator({
-        getEpg: getCoordinatorEpg.bind(null, input),
-        getChannelManager: getCoordinatorChannelManager.bind(null, input),
-        getScheduler: getCoordinatorScheduler.bind(null, input),
-        getEpgUiStatus: getCoordinatorEpgUiStatus.bind(null, input),
-        ensureEpgInitialized: ensureCoordinatorEpgInitialized.bind(null, input),
-        getEpgConfig: getCoordinatorEpgConfig.bind(null, input),
-        getLocalMidnightMs: getCoordinatorLocalMidnightMs.bind(null, input),
+        getEpg: (): IEPGComponent | null => input.modules.epg,
+        getChannelManager: (): IChannelManager | null => input.modules.channelManager,
+        getScheduler: (): IChannelScheduler | null => input.modules.scheduler,
+        getEpgUiStatus: (): EPGUiStatus => input.moduleStatus.get('epg-ui')?.status,
+        ensureEpgInitialized: (): Promise<void> => input.init.ensureEpgInitialized(),
+        getEpgConfig: (): EPGConfig | null => input.config?.epgConfig ?? null,
+        getLocalMidnightMs: (timeMs: number): number => input.schedule.getLocalMidnightMs(timeMs),
         debugRuntime: input.epgDebugRuntime,
-        buildDailyScheduleConfig: buildCoordinatorDailyScheduleConfig.bind(null, input),
-        getPreserveFocusOnOpen: getCoordinatorPreserveFocusOnOpen.bind(null, input),
-        setLastChannelChangeSourceToGuide: setCoordinatorLastChannelChangeSourceToGuide.bind(null, input),
-        switchToChannel: switchCoordinatorToChannel.bind(null, input),
-        onVisibilityChange: onCoordinatorVisibilityChange.bind(null, input),
-        reportEpgInitWarning: reportCoordinatorEpgInitWarning.bind(null, input),
+        buildDailyScheduleConfig: (
+            channel: ChannelConfig,
+            items: ResolvedChannelContent['items'],
+            referenceTimeMs: number
+        ): ScheduleConfig => input.schedule.buildDailyScheduleConfig(channel, items, referenceTimeMs),
+        getPreserveFocusOnOpen: (): boolean => input.schedule.lastChannelChangeSource() === 'guide',
+        setLastChannelChangeSourceToGuide: (): void => {
+            input.schedule.setLastChannelChangeSource('guide');
+        },
+        switchToChannel: (
+            channelId: string,
+            options?: { guideSelectionSnapshot?: GuideSelectionSnapshot }
+        ): Promise<void> => input.actions.switchToChannel(channelId, options),
+        onVisibilityChange: (visible: boolean): void => {
+            input.actions.onOverlayVisibilityChange(visible);
+        },
+        reportEpgInitWarning: (): void => reportCoordinatorEpgInitWarning(input),
         epgPreferencesStore: input.stores.epgPreferencesStore,
         appendIssueDiagnostic: input.diagnostics.appendIssueDiagnostic,
     });
@@ -404,13 +209,15 @@ export function bindEpgVisibleRangeChange(
     input.config.epgConfig =
         withEpgVisibleRangeChangeBinding(
             input.config.epgConfig,
-            handleVisibleRangeChange.bind(null, epgCoordinator)
+            (range: EpgVisibleRange): void => {
+                handleVisibleRangeChange(epgCoordinator, range);
+            }
         ) ?? input.config.epgConfig;
 }
 
 export interface ChannelSetupOwners {
     coordinator: ChannelSetupCoordinator;
-    workflow: ChannelSetupWorkflow;
+    portOwners: ChannelSetupWorkflowPortOwners;
 }
 
 export function buildChannelSetupOwners(
@@ -433,39 +240,46 @@ export function buildChannelSetupOwners(
         plexLibrary: input.modules.plexLibrary,
         channelManager: input.modules.channelManager,
         scratchStore: buildScratchStore,
-        ensureEpgInitialized: ensureCoordinatorEpgInitialized.bind(null, input),
-        clearSelectedChannelScheduleSnapshot: clearSelectedChannelScheduleSnapshot.bind(null, epgCoordinator),
-        primeEpgChannels: primeEpgChannels.bind(null, epgCoordinator),
-        refreshEpgSchedules: refreshEpgSchedules.bind(null, epgCoordinator),
+        ensureEpgInitialized: (): Promise<void> => input.init.ensureEpgInitialized(),
+        clearSelectedChannelScheduleSnapshot: (): void => {
+            epgCoordinator.clearSelectedChannelScheduleSnapshot();
+        },
+        primeEpgChannels: (): void => {
+            epgCoordinator.primeEpgChannels();
+        },
+        refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }): Promise<void> =>
+            epgCoordinator.refreshEpgSchedules(options),
     });
     const buildExecutor = new ChannelSetupBuildExecutor({
         channelManager: input.modules.channelManager,
         planningService,
         buildCommitter,
     });
+    const getSelectedServerId = (): string | null => input.schedule.getSelectedServerId();
+    const getExistingChannelCount = (): number => input.modules.channelManager.getAllChannels().length;
     const coordinator = new ChannelSetupCoordinator({
         recordStore,
         scratchStore: buildScratchStore,
         navigation: input.modules.navigation,
-        getSelectedServerId: getSelectedServerId.bind(null, input),
-        getExistingChannelCount: getExistingChannelCount.bind(null, input),
+        getSelectedServerId,
+        getExistingChannelCount,
     });
     const completionTracker = new ChannelSetupCompletionTracker({
         recordStore,
-        clearRerunRequest: coordinator.clearRerunRequest.bind(coordinator),
+        clearRerunRequest: (): void => {
+            coordinator.clearRerunRequest();
+        },
     });
-    const workflow = new ChannelSetupWorkflow({
-        planningService,
-        buildExecutor,
-        recordStore,
-        completionTracker,
-        getSelectedServerId: getSelectedServerId.bind(null, input),
-        getExistingChannelCount: getExistingChannelCount.bind(null, input),
-    });
-
     return {
         coordinator,
-        workflow,
+        portOwners: {
+            planningService,
+            buildExecutor,
+            recordStore,
+            completionTracker,
+            getSelectedServerId,
+            getExistingChannelCount,
+        },
     };
 }
 
@@ -567,7 +381,7 @@ export function buildMiniGuideCoordinator(input: OrchestratorCoordinatorAssembly
             }
             return 8_000;
         },
-        notifyToast: notifyPlaybackRecoveryToast.bind(null, input),
+        notifyToast: (toast: ToastInput): void => notifyPlaybackRecoveryToast(input, toast),
     });
 }
 
@@ -588,25 +402,36 @@ export function buildPlaybackRecovery(
     input: OrchestratorPlaybackRecoveryBuilderInput
 ): PlaybackRecoveryManager {
     return new PlaybackRecoveryManager({
-        getVideoPlayer: getPlaybackRecoveryVideoPlayer.bind(null, input),
-        getStreamResolver: getPlaybackRecoveryStreamResolver.bind(null, input),
-        getScheduler: getCoordinatorScheduler.bind(null, input),
-        getCurrentProgramForPlayback: getPlaybackRecoveryCurrentProgram.bind(null, input),
-        getCurrentStreamDescriptor: getPlaybackRecoveryCurrentStreamDescriptor.bind(null, input),
-        getCurrentStreamDecision: getPlaybackRecoveryCurrentStreamDecision.bind(null, input),
-        setCurrentStreamDecision: setPlaybackRecoveryCurrentStreamDecision.bind(null, input),
-        setCurrentStreamDescriptor: setPlaybackRecoveryCurrentStreamDescriptor.bind(null, input),
-        buildPlexResourceUrl: buildPlaybackRecoveryPlexResourceUrl.bind(null, input),
-        getMimeType: getPlaybackRecoveryMimeType.bind(null, input),
-        getAuthHeaders: getPlaybackRecoveryAuthHeaders.bind(null, input),
-        getServerUri: getPlaybackRecoveryServerUri.bind(null, input),
-        getPreferredSubtitleLanguage: getPlaybackRecoveryPreferredSubtitleLanguage.bind(null, input),
-        getPlexPreferredSubtitleLanguage: getPlaybackRecoveryPlexPreferredSubtitleLanguage.bind(null, input),
-        notifySubtitleUnavailable: notifyPlaybackRecoverySubtitleUnavailable.bind(null, input),
-        notifyToast: notifyPlaybackRecoveryToast.bind(null, input),
+        getVideoPlayer: (): IVideoPlayer | null => input.modules.videoPlayer,
+        getStreamResolver: (): IPlexStreamResolver | null => input.modules.plexStreamResolver,
+        getScheduler: (): IChannelScheduler | null => input.modules.scheduler,
+        getCurrentProgramForPlayback: (): ScheduledProgram | null =>
+            input.playback.state.getCurrentProgramForPlayback(),
+        getCurrentStreamDescriptor: (): StreamDescriptor | null =>
+            input.playback.state.getCurrentStreamDescriptor(),
+        getCurrentStreamDecision: (): StreamDecision | null =>
+            input.playback.state.getCurrentStreamDecision(),
+        setCurrentStreamDecision: (decision: StreamDecision | null): void => {
+            input.playback.state.setCurrentStreamDecision(decision);
+        },
+        setCurrentStreamDescriptor: (descriptor: StreamDescriptor | null): void => {
+            input.playback.state.setCurrentStreamDescriptor(descriptor);
+        },
+        buildPlexResourceUrl: (pathOrUrl: string): string | null =>
+            input.playback.buildPlexResourceUrl(pathOrUrl),
+        getMimeType: (decision: StreamDecision): string => input.playback.getMimeType(decision),
+        getAuthHeaders: (): Record<string, string> => input.modules.plexAuth.getAuthHeaders(),
+        getServerUri: (): string | null => input.modules.plexDiscovery.getServerUri() ?? null,
+        getPreferredSubtitleLanguage: (): string | null =>
+            input.stores.subtitlePreferencesStore.readSubtitleLanguageAndClean(),
+        getPlexPreferredSubtitleLanguage: (): string | null =>
+            input.modules.plexAuth.getCurrentUser()?.preferredSubtitleLanguage ?? null,
+        notifySubtitleUnavailable: (): void => notifyPlaybackRecoverySubtitleUnavailable(input),
+        notifyToast: (toast: ToastInput): void => notifyPlaybackRecoveryToast(input, toast),
         subtitlePreferencesStore: input.stores.subtitlePreferencesStore,
         appendIssueDiagnostic: input.diagnostics.appendIssueDiagnostic,
-        handleGlobalError: handleCoordinatorGlobalError.bind(null, input),
+        handleGlobalError: (error: AppError, context: string): void =>
+            handleCoordinatorGlobalError(input, error, context),
     });
 }
 
@@ -625,7 +450,7 @@ export function buildPlaybackOptionsCoordinator(
             input.modules.scheduler.getCurrentProgram() ?? input.playback.state.getCurrentProgramForPlayback(),
         requestBurnInSubtitle: (trackId: string, reason: string) =>
             playbackRecovery.attemptBurnInSubtitleForCurrentProgram(trackId, reason),
-        notifyToast: notifyPlaybackRecoveryToast.bind(null, input),
+        notifyToast: (toast: ToastInput): void => notifyPlaybackRecoveryToast(input, toast),
         subtitlePreferencesStore: input.stores.subtitlePreferencesStore,
     });
 }
@@ -657,8 +482,10 @@ function buildNavigationPlaybackConfig(
     return {
         videoPlayer: input.modules.videoPlayer,
         plexAuth: input.modules.plexAuth,
-        stopPlayback: stopNavigationPlayback.bind(null, input),
-        getSeekIncrementMs: getNavigationSeekIncrementMs.bind(null, input),
+        stopPlayback: (): void => {
+            input.playback.stopPlayback();
+        },
+        getSeekIncrementMs: (): number => getNavigationSeekIncrementMs(input),
         playerOsd: {
             overlay: input.overlays.playerOsd,
             coordinator: deps.playerOsdCoordinator,
@@ -735,15 +562,23 @@ function buildNavigationChannelSwitchingConfig(
     deps: NavigationCoordinatorBuilderDeps
 ): NavigationCoordinatorDeps['channelSwitching'] {
     return {
-        setLastChannelChangeSourceRemote: setNavigationLastChannelChangeSource.bind(null, input, 'remote'),
-        setLastChannelChangeSourceNumber: setNavigationLastChannelChangeSource.bind(null, input, 'number'),
+        setLastChannelChangeSourceRemote: (): void => {
+            input.schedule.setLastChannelChangeSource('remote');
+        },
+        setLastChannelChangeSourceNumber: (): void => {
+            input.schedule.setLastChannelChangeSource('number');
+        },
         switchToNextChannel: (): void => input.actions.switchToNextChannel(),
         switchToPreviousChannel: (): void => input.actions.switchToPreviousChannel(),
         switchToChannelByNumber: (n: number): Promise<ChannelSwitchOutcome> =>
             input.actions.switchToChannelByNumberWithOutcome(n),
-        focusEpgOnCurrentChannel: focusNavigationEpgOnCurrentChannel.bind(null, deps),
+        focusEpgOnCurrentChannel: (): void => {
+            deps.epgCoordinator.focusEpgOnCurrentChannel();
+        },
         toggleEpg: (): void => input.actions.toggleEPG(),
-        onChannelInputUpdate: handleNavigationChannelInputUpdate.bind(null, input),
+        onChannelInputUpdate: (payload: { digits: string; isComplete: boolean }): void => {
+            handleNavigationChannelInputUpdate(input, payload);
+        },
     };
 }
 
@@ -767,17 +602,33 @@ export function buildChannelTuningCoordinator(
         getChannelManager: (): IChannelManager | null => input.modules.channelManager,
         getScheduler: (): IChannelScheduler | null => input.modules.scheduler,
         getVideoPlayer: (): IVideoPlayer | null => input.modules.videoPlayer,
-        buildDailyScheduleConfig: buildCoordinatorDailyScheduleConfig.bind(null, input),
-        getLocalDayKey: getChannelTuningLocalDayKey.bind(null, input),
-        setActiveScheduleDayKey: setChannelTuningActiveScheduleDayKey.bind(null, input),
-        setPendingNowPlayingChannelId: setChannelTuningPendingNowPlayingChannelId.bind(null, input),
-        getPendingNowPlayingChannelId: getChannelTuningPendingNowPlayingChannelId.bind(null, input),
-        resetPlaybackGuardsForNewChannel: resetChannelTuningPlaybackGuards.bind(null, playbackRecovery),
-        stopActiveTranscodeSession: stopChannelTuningActiveTranscodeSession.bind(null, input),
-        armChannelTransitionForSwitch: armChannelTransitionForSwitch.bind(null, channelTransitionCoordinator),
+        buildDailyScheduleConfig: (
+            channel: ChannelConfig,
+            items: ResolvedChannelContent['items'],
+            referenceTimeMs: number
+        ): ScheduleConfig => input.schedule.buildDailyScheduleConfig(channel, items, referenceTimeMs),
+        getLocalDayKey: (timeMs: number): number => input.schedule.getLocalDayKey(timeMs),
+        setActiveScheduleDayKey: (dayKey: number): void => {
+            input.schedule.setActiveScheduleDayKey(dayKey);
+        },
+        setPendingNowPlayingChannelId: (channelId: string | null): void => {
+            input.playback.state.setPendingNowPlayingChannelId(channelId);
+        },
+        getPendingNowPlayingChannelId: (): string | null =>
+            input.playback.state.getPendingNowPlayingChannelId(),
+        resetPlaybackGuardsForNewChannel: (): void => {
+            resetChannelTuningPlaybackGuards(playbackRecovery);
+        },
+        stopActiveTranscodeSession: (): void => {
+            input.playback.stopActiveTranscodeSession();
+        },
+        armChannelTransitionForSwitch: (prefix: string): void => {
+            armChannelTransitionForSwitch(channelTransitionCoordinator, prefix);
+        },
         appendIssueDiagnostic: input.diagnostics.appendIssueDiagnostic,
-        handleGlobalError: handleCoordinatorGlobalError.bind(null, input),
-        saveLifecycleState: saveChannelTuningLifecycleState.bind(null, input),
+        handleGlobalError: (error: AppError, context: string): void =>
+            handleCoordinatorGlobalError(input, error, context),
+        saveLifecycleState: (): Promise<void> => input.modules.lifecycle.saveState(),
     });
 }
 

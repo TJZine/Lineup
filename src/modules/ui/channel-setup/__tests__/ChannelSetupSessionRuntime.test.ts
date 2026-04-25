@@ -6,7 +6,7 @@ import { DEFAULT_BUILD_RESULT, DEFAULT_PREVIEW, createWorkflowPort, makeLibrary 
 import { ChannelSetupSessionRuntime } from '../ChannelSetupSessionRuntime';
 import { ChannelSetupSessionState } from '../ChannelSetupSessionState';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
-import { ChannelSetupWorkflowUnavailableError } from '../../../../core/channel-setup/ChannelSetupWorkflowPort';
+import { ChannelSetupWorkflowUnavailableError } from '../../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 
 const createDeferred = <T>(): {
     promise: Promise<T>;

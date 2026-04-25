@@ -1,5 +1,5 @@
-import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/ChannelSetupWorkflowPort';
-import { isChannelSetupWorkflowUnavailableError } from '../../../core/channel-setup/ChannelSetupWorkflowPort';
+import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
+import { isChannelSetupWorkflowUnavailableError } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type {
     ChannelSetupContext,
     ChannelSetupPreview,

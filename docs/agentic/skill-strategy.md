@@ -40,6 +40,20 @@ The skill layout and workflow in this repo are based on a small set of recurring
 - Stable entrypoint doc: `AGENTS.md`
 - Stable workflow doc: `docs/AGENTIC_DEV_WORKFLOW.md`
 
+## Policy Ownership Boundaries
+
+Keep global workflow policy in one owner and boundary-specific judgment in the smallest relevant skill:
+
+- [`docs/AGENTIC_DEV_WORKFLOW.md`](../AGENTIC_DEV_WORKFLOW.md) owns document precedence, task-family routing, tiering, memory surfaces, verification command routing, and multi-agent defaults.
+- [`docs/agentic/session-prompts/README.md`](./session-prompts/README.md) owns launcher routing, launcher inventory, and which tracked role should run each launcher.
+- [`docs/agentic/plan-authoring-standard.md`](./plan-authoring-standard.md) owns required structure for active serious plans; `execution-plan-authoring` owns judgment about how much detail a plan or light execution brief should include.
+- `verification-strategy` owns proof-mode selection; the runbook should keep only high-level command routing.
+- `model-selection` owns model maps and reasoning-effort guidance; the runbook owns only when a handoff should include `MODEL_SUGGESTION`.
+- Boundary skills (`architecture-boundaries`, `persistence-boundaries`, `plex-integration-boundaries`, and `ui-composition-patterns`) own Lineup-specific boundary constraints and should not duplicate global routing/tiering rules except where those rules affect the boundary decision itself.
+- Delegation skills (`parallel-sidecars` and `bounded-worker-execution`) own optional sidecar and bounded-worker decision gates; the runbook owns the broader multi-agent default posture.
+
+When a rule appears in multiple places, prefer moving the detailed version to the owner above and leaving only a short pointer elsewhere. Do not prune narrow boundary reminders merely because the current model is stronger; those reminders encode Lineup production constraints, not only model limitations.
+
 ## Current Skill Inventory
 
 ### Repo-Local Codex Skills

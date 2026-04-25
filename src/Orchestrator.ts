@@ -3,8 +3,6 @@ import type { Screen } from './modules/navigation';
 
 export { AppOrchestrator, type PlaybackInfoSnapshot } from './core/orchestrator/AppOrchestrator';
 export type { ModuleStatus } from './core/orchestrator/OrchestratorTypes';
-export type { OrchestratorServerSelectionResult } from './core/server-selection/ServerSelectionTypes';
-export { AppErrorCode } from './modules/lifecycle';
 
 export interface AppOrchestratorRuntime {
     getModuleStatus(): Map<string, ModuleStatus>;
