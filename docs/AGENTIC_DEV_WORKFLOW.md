@@ -184,10 +184,13 @@ When tracked docs conflict, use this order:
 
 ## Multi-Agent Usage (Optional)
 
-Use Codex multi-agent support only when it materially improves reliability, throughput, or both. The allowed patterns are optional sidecars that stay off the immediate critical path and explicitly bounded worker slices governed by `bounded-worker-execution`; do not replace the default Tier 1/Tier 2/Tier 3 workflow with “always multi-agent”.
+Use Codex multi-agent support only when it materially improves reliability, throughput, or both. The allowed patterns are optional sidecars, explicit `docs_researcher` research passes, and bounded worker slices governed by `bounded-worker-execution`; do not replace the default Tier 1/Tier 2/Tier 3 workflow with “always multi-agent”.
 
 - Keep immediate critical-path work local when the very next action depends on it.
 - Delegate independent sidecars such as targeted exploration, adversarial review, docs verification, or long waits/polling.
+- Use `docs_researcher` for read-only external documentation or source-backed research when the task has a clear research scope and should return either a compact evidence packet or a structured research report. It may run as a parallel sidecar, or as a blocking research pass when the research result is the next needed input.
+- Do not use `docs_researcher` for trivial lookups, vague open-ended browsing without a deliverable, repo discovery, implementation planning, or edits.
+- Treat `docs_researcher` output as high-quality research input, not a replacement for local verification on architecture, security, dependency, auth/token, persistence, or platform-critical decisions.
 - Delegate bounded disjoint implementation slices only when `bounded-worker-execution` applies and the main session still owns integration plus final verification.
 - Use the tracked `planner` role for bounded planning/discovery artifacts and execution-ready plan handoffs; do not emulate planner routing by sending planning through `worker` plus prompt-level model overrides.
 - Use repo-local skills to keep delegation rules explicit:
@@ -216,7 +219,7 @@ Use Codex multi-agent support only when it materially improves reliability, thro
 - `plex-integration-boundaries`
   - Plex auth, discovery, library, stream, subtitle, playback-URL work
 - `parallel-sidecars`
-  - optional sidecars such as exploration, adversarial review, docs checks, and waits that should not take over the critical path
+  - optional sidecars such as exploration, adversarial review, docs checks, research passes, and waits that should not take over implementation or planning ownership
 - `bounded-worker-execution`
   - approved-plan worker slices with disjoint write scopes and controller-owned integration
 - `execution-plan-authoring`
