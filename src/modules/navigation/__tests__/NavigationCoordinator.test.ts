@@ -1109,30 +1109,17 @@ describe('NavigationCoordinator', () => {
         expect(event.handled).toBe(true);
     });
 
-    it('enforces the EPG routing guard locally before toggling player OSD for ok', () => {
-        const { coordinator, epg, deps } = setup();
+    it('routes ok to EPG selection before player OSD toggling when guide is visible', () => {
+        const { handlers, epg, deps, navigation } = setup();
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+        (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
         const event = makeKeyEvent('ok');
-        const handlePlayerOsdToggleKeyPress = Reflect.get(
-            coordinator as object,
-            '_handlePlayerOsdToggleKeyPress'
-        ) as (event: KeyEvent, routingState: {
-            currentScreen: Screen;
-            modalOpen: boolean;
-            shouldRouteToEpg: boolean;
-            miniGuideVisible: boolean;
-        }) => boolean;
 
-        const handled = handlePlayerOsdToggleKeyPress.call(coordinator, event, {
-            currentScreen: 'player',
-            modalOpen: false,
-            shouldRouteToEpg: true,
-            miniGuideVisible: false,
-        });
+        handlers.keyPress?.(event);
 
-        expect(handled).toBe(false);
-        expect(epg.handleSelect).not.toHaveBeenCalled();
+        expect(epg.handleSelect).toHaveBeenCalledTimes(1);
         expect(deps.togglePlayerOsd).not.toHaveBeenCalled();
-        expect(event.handled).toBeUndefined();
+        expect(event.handled).toBe(true);
     });
 
     it('hides EPG when entering settings screen', () => {
