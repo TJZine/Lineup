@@ -6,6 +6,7 @@
 
 import { EventEmitter } from '../../../../utils/EventEmitter';
 import { redactSensitiveTokens } from '../../../../utils/redact';
+import { AppErrorCode } from '../../../../types/app-errors';
 import type { EPGErrorType } from '../types';
 
 /**
@@ -69,27 +70,27 @@ export class EPGErrorBoundary extends EventEmitter<EPGErrorBoundaryEvents> {
         );
 
         switch (type) {
-            case 'RENDER_ERROR':
+            case AppErrorCode.RENDER_ERROR:
                 // Show fallback row, don't crash entire grid
                 if (this.showFallbackRowFn) {
                     this.showFallbackRowFn(context);
                 }
                 break;
-            case 'SCROLL_TIMEOUT':
+            case AppErrorCode.SCROLL_TIMEOUT:
                 // Reset to known good state
                 if (this.resetScrollPositionFn) {
                     this.resetScrollPositionFn();
                 }
                 break;
-            case 'POOL_EXHAUSTED':
+            case AppErrorCode.POOL_EXHAUSTED:
                 // Aggressive cleanup
                 if (this.forceRecycleAllFn) {
                     this.forceRecycleAllFn();
                 }
                 break;
-            case 'EMPTY_CHANNEL':
-            case 'NAV_BOUNDARY':
-            case 'PARSE_ERROR':
+            case AppErrorCode.EMPTY_CHANNEL:
+            case AppErrorCode.NAV_BOUNDARY:
+            case AppErrorCode.PARSE_ERROR:
                 // These are handled silently, just logged
                 break;
         }
