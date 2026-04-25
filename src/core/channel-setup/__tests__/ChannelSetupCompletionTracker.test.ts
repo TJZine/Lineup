@@ -1,4 +1,4 @@
-import { ChannelSetupCompletionTracker } from '../ChannelSetupCompletionTracker';
+import { ChannelSetupCompletionTracker } from '../persistence/ChannelSetupCompletionTracker';
 import type { ChannelSetupConfig } from '../types';
 
 describe('ChannelSetupCompletionTracker', () => {

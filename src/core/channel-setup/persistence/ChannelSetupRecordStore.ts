@@ -1,6 +1,6 @@
-import { DEFAULT_CHANNEL_SETUP_MAX } from '../../modules/scheduler/channel-manager/constants';
-import { DEFAULT_CHANNEL_EXPANSION, DEFAULT_MIN_ITEMS_PER_CHANNEL, DEFAULT_SERIES_ORDERING, SETUP_STRATEGY_KEYS } from './constants';
-import { normalizeChannelSetupConfig } from './normalizeChannelSetupConfig';
+import { DEFAULT_CHANNEL_SETUP_MAX } from '../../../modules/scheduler/channel-manager/constants';
+import { DEFAULT_CHANNEL_EXPANSION, DEFAULT_MIN_ITEMS_PER_CHANNEL, DEFAULT_SERIES_ORDERING, SETUP_STRATEGY_KEYS } from '../constants';
+import { normalizeChannelSetupConfig } from '../planning/normalizeChannelSetupConfig';
 import type {
     ChannelExpansionConfig,
     ChannelSetupConfig,
@@ -8,7 +8,7 @@ import type {
     SeriesOrderingConfig,
     SetupStrategyConfig,
     SetupStrategyKey,
-} from './types';
+} from '../types';
 
 export interface ChannelSetupRecordStoreDeps {
     storageGet: (key: string) => string | null;

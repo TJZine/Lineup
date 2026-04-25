@@ -2,9 +2,9 @@
  * @jest-environment jsdom
  */
 
-import { ChannelSetupBuildCommitter } from '../ChannelSetupBuildCommitter';
-import type { ChannelSetupBuildScratchStore } from '../ChannelSetupBuildScratchStore';
-import type { PendingChannel, ChannelDiffResult } from '../ChannelSetupPlanner';
+import { ChannelSetupBuildCommitter } from '../build/ChannelSetupBuildCommitter';
+import type { ChannelSetupBuildScratchStore } from '../build/ChannelSetupBuildScratchStore';
+import type { PendingChannel, ChannelDiffResult } from '../planning/ChannelSetupPlanner';
 import type { ChannelBuildProgress } from '../types';
 import type {
     IChannelManager,

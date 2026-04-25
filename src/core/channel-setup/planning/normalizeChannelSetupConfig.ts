@@ -1,11 +1,11 @@
-import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../modules/scheduler/channel-manager/constants';
+import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../modules/scheduler/channel-manager/constants';
 import type {
     ChannelSetupConfig,
     ChannelExpansionConfig,
     SeriesOrderingConfig,
     SetupStrategyConfig,
     SetupStrategyKey,
-} from './types';
+} from '../types';
 import {
     DEFAULT_CHANNEL_EXPANSION,
     DEFAULT_MIN_ITEMS_PER_CHANNEL,
@@ -13,7 +13,7 @@ import {
     DEFAULT_STRATEGY_PRIORITIES,
     MIXED_SCOPE_STRATEGY_KEYS,
     SETUP_STRATEGY_KEYS,
-} from './constants';
+} from '../constants';
 
 const normalizeChannelExpansion = (expansion: ChannelExpansionConfig | undefined): ChannelExpansionConfig => {
     const addAlternateLineups = expansion?.addAlternateLineups === true;

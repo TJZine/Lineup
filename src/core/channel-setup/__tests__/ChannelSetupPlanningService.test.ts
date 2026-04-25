@@ -2,8 +2,8 @@
  * @jest-environment jsdom
  */
 
-import { ChannelSetupPlanningService } from '../ChannelSetupPlanningService';
-import { ChannelSetupFacetSnapshotLoader } from '../ChannelSetupFacetSnapshotLoader';
+import { ChannelSetupPlanningService } from '../planning/ChannelSetupPlanningService';
+import { ChannelSetupFacetSnapshotLoader } from '../planning/ChannelSetupFacetSnapshotLoader';
 import type { ChannelSetupConfig, SetupStrategyConfig, SetupStrategyKey } from '../types';
 import { DEFAULT_STRATEGY_PRIORITIES, MIXED_SCOPE_STRATEGY_KEYS, SETUP_STRATEGY_KEYS } from '../constants';
 import { PLEX_MEDIA_TYPES } from '../../../modules/plex/library';

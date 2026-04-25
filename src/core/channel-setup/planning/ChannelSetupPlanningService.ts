@@ -1,9 +1,9 @@
-import type { IChannelManager } from '../../modules/scheduler/channel-manager';
+import type { IChannelManager } from '../../../modules/scheduler/channel-manager';
 import type {
     IPlexLibrary,
     PlexLibrarySection,
-} from '../../modules/plex/library';
-import { getPlexRequestIntentForChannelSetup } from '../../modules/plex/library';
+} from '../../../modules/plex/library';
+import { getPlexRequestIntentForChannelSetup } from '../../../modules/plex/library';
 import type {
     ChannelSetupConfig,
     ChannelBuildProgress,
@@ -11,7 +11,7 @@ import type {
     ChannelSetupPreviewFailureReason,
     ChannelSetupPreviewStatus,
     ChannelSetupReview,
-} from './types';
+} from '../types';
 import {
     buildChannelSetupPlan,
     buildChannelSetupPlanDiagnostics,

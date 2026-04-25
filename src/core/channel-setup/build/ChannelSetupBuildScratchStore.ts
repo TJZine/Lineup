@@ -1,4 +1,4 @@
-import { safeLocalStorageRemoveByPrefixes } from '../../utils/storage';
+import { safeLocalStorageRemoveByPrefixes } from '../../../utils/storage';
 
 export type ChannelSetupBuildScratchKeys = {
     channelsKey: string;

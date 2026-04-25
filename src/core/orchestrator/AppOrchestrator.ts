@@ -125,9 +125,9 @@ import type {
 } from './OverlayPorts';
 import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
 import { ChannelSetupCoordinator } from '../channel-setup/ChannelSetupCoordinator';
-import { ChannelSetupWorkflow } from '../channel-setup/ChannelSetupWorkflow';
-import { createChannelSetupWorkflowPort } from '../channel-setup/createChannelSetupWorkflowPort';
-import type { ChannelSetupWorkflowPort } from '../channel-setup/ChannelSetupWorkflowPort';
+import { createChannelSetupWorkflowPort } from '../channel-setup/workflow/createChannelSetupWorkflowPort';
+import type { ChannelSetupWorkflowPortOwners } from '../channel-setup/workflow/createChannelSetupWorkflowPort';
+import type { ChannelSetupWorkflowPort } from '../channel-setup/workflow/ChannelSetupWorkflowPort';
 import { NowPlayingDebugManager } from '../../modules/debug/NowPlayingDebugManager';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import { IssueDiagnosticsStore, type AppendIssueDiagnostic } from '../../modules/debug/IssueDiagnosticsStore';
@@ -316,7 +316,7 @@ export class AppOrchestrator {
     private _ready: boolean = false;
     private _initCoordinator: InitializationCoordinator | null = null;
     private _channelSetup: ChannelSetupCoordinator | null = null;
-    private _channelSetupWorkflow: ChannelSetupWorkflow | null = null;
+    private _channelSetupPortOwners: ChannelSetupWorkflowPortOwners | null = null;
     private _playbackRuntimeController: PlaybackRuntimeController | null = null;
     private _overlayRuntimePolicyController: OverlayRuntimePolicyController | null = null;
     private _profileSwitchCleanupController: ProfileSwitchCleanupController | null = null;
@@ -414,7 +414,7 @@ export class AppOrchestrator {
             },
         };
         this._channelSetupWorkflowPort = createChannelSetupWorkflowPort({
-            getChannelSetupWorkflow: (): ChannelSetupWorkflow | null => this._channelSetupWorkflow,
+            getOwners: (): ChannelSetupWorkflowPortOwners | null => this._channelSetupPortOwners,
         });
         this._selectedServerRuntimeController = new SelectedServerRuntimeController({
             capturePersistedSelectionSnapshot: (): Promise<PersistedSelectedServerSnapshot> =>
@@ -822,7 +822,7 @@ export class AppOrchestrator {
     private _assignCoordinators(coordinators: OrchestratorCoordinators): void {
         this._epgCoordinator = coordinators.epgCoordinator;
         this._channelSetup = coordinators.channelSetup;
-        this._channelSetupWorkflow = coordinators.channelSetupWorkflow;
+        this._channelSetupPortOwners = coordinators.channelSetupPortOwners;
         this._nowPlayingDebugManager = coordinators.nowPlayingDebugManager;
         this._nowPlayingInfoCoordinator = coordinators.nowPlayingInfoCoordinator;
         this._playerOsdCoordinator = coordinators.playerOsdCoordinator;
@@ -1123,7 +1123,7 @@ export class AppOrchestrator {
         this._overlayRuntimePolicyController = null;
         this._profileSwitchCleanupController = null;
         this._channelSetup = null;
-        this._channelSetupWorkflow = null;
+        this._channelSetupPortOwners = null;
         this._plexAuth = null;
         this._plexDiscovery = null;
         this._plexLibrary = null;

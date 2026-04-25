@@ -1,6 +1,6 @@
 /**
  * @fileoverview Pure-logic planner that builds pending channel list from config.
- * @module core/channel-setup/ChannelSetupPlanner
+ * @module core/channel-setup/planning/ChannelSetupPlanner
  * @version 1.0.0
  */
 
@@ -8,21 +8,21 @@ import type {
     ChannelSetupConfig,
     ChannelSetupEstimates,
     SetupStrategyKey,
-} from './types';
-import { DEFAULT_MIN_ITEMS_PER_CHANNEL, DEFAULT_STRATEGY_PRIORITIES } from './constants';
-import { DEFAULT_CHANNEL_SETUP_MAX } from '../../modules/scheduler/channel-manager/constants';
+} from '../types';
+import { DEFAULT_MIN_ITEMS_PER_CHANNEL, DEFAULT_STRATEGY_PRIORITIES } from '../constants';
+import { DEFAULT_CHANNEL_SETUP_MAX } from '../../../modules/scheduler/channel-manager/constants';
 import type {
     PlexLibrarySection,
     PlexCollection,
     PlexPlaylist,
     PlexTagDirectoryItem,
-} from '../../modules/plex/library';
+} from '../../../modules/plex/library';
 import type {
     ChannelConfig,
     ChannelCreateInput,
     ContentFilter,
     SortOrder,
-} from '../../modules/scheduler/channel-manager';
+} from '../../../modules/scheduler/channel-manager';
 import { buildChannelSetupTagFilter } from './ChannelSetupTagFilters';
 
 export type PendingChannel =

@@ -1,4 +1,4 @@
-import type { ChannelSetupPlanDiagnosticsResult } from '../channel-setup/ChannelSetupPlanDiagnostics';
+import type { ChannelSetupPlanDiagnosticsResult } from '../channel-setup/planning/ChannelSetupPlanDiagnostics';
 import type { ChannelSetupConfig, ChannelSetupRecord } from '../channel-setup/types';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import { AudioSettingsStore } from '../../modules/settings/AudioSettingsStore';

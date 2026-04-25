@@ -1,6 +1,6 @@
 import { DEFAULT_CHANNEL_SETUP_MAX } from '../../../modules/scheduler/channel-manager/constants';
 import { DEFAULT_MIN_ITEMS_PER_CHANNEL, DEFAULT_STRATEGY_PRIORITIES, SETUP_STRATEGY_KEYS } from '../constants';
-import { normalizeChannelSetupConfig } from '../normalizeChannelSetupConfig';
+import { normalizeChannelSetupConfig } from '../planning/normalizeChannelSetupConfig';
 import type { ChannelSetupConfig, SetupStrategyConfig, SetupStrategyKey } from '../types';
 
 const createStrategyConfig = (): Record<SetupStrategyKey, SetupStrategyConfig> => (

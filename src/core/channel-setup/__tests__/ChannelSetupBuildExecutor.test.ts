@@ -2,9 +2,9 @@
  * @jest-environment jsdom
  */
 
-import { ChannelSetupBuildExecutor } from '../ChannelSetupBuildExecutor';
-import type { ChannelSetupPlanningService } from '../ChannelSetupPlanningService';
-import type { ChannelSetupBuildCommitter } from '../ChannelSetupBuildCommitter';
+import { ChannelSetupBuildExecutor } from '../build/ChannelSetupBuildExecutor';
+import type { ChannelSetupPlanningService } from '../planning/ChannelSetupPlanningService';
+import type { ChannelSetupBuildCommitter } from '../build/ChannelSetupBuildCommitter';
 import type { IChannelManager } from '../../../modules/scheduler/channel-manager';
 import type { ChannelSetupConfig } from '../types';
 

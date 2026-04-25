@@ -5,15 +5,15 @@ import type {
     PlexPlaylist,
     PlexCollection,
     PlexTagDirectoryUnsupportedReason,
-} from '../../modules/plex/library';
+} from '../../../modules/plex/library';
 import {
     getPlexRequestIntentForChannelSetup,
     getTagDirectoryMediaTypesForLibraryType,
-} from '../../modules/plex/library';
-import { AppErrorCode, getAppErrorCode } from '../../types/app-errors';
-import { summarizeErrorForLog } from '../../utils/errors';
-import type { ChannelBuildProgress, ChannelSetupConfig, ChannelSetupPreviewFailureReason } from './types';
-import { isSignalAborted } from './utils';
+} from '../../../modules/plex/library';
+import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
+import { summarizeErrorForLog } from '../../../utils/errors';
+import type { ChannelBuildProgress, ChannelSetupConfig, ChannelSetupPreviewFailureReason } from '../types';
+import { isSignalAborted } from '../shared/utils';
 import { buildChannelSetupFacetCountFilter } from './ChannelSetupTagFilters';
 
 export type ChannelSetupPlanningIntent = 'preview' | 'build';

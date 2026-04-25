@@ -5,7 +5,7 @@
 import {
     buildChannelSetupTagFilter,
     parseChannelSetupTagFastKeyFilters,
-} from '../ChannelSetupTagFilters';
+} from '../planning/ChannelSetupTagFilters';
 import type { PlexTagDirectoryItem } from '../../../modules/plex/library';
 
 const makeTag = (overrides: Partial<PlexTagDirectoryItem>): PlexTagDirectoryItem => ({

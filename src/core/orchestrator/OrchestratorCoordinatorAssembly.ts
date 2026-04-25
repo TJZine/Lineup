@@ -222,7 +222,7 @@ export function createOrchestratorCoordinators(
     return {
         epgCoordinator,
         channelSetup: channelSetupOwners.coordinator,
-        channelSetupWorkflow: channelSetupOwners.workflow,
+        channelSetupPortOwners: channelSetupOwners.portOwners,
         nowPlayingDebugManager,
         nowPlayingInfoCoordinator,
         playerOsdCoordinator,

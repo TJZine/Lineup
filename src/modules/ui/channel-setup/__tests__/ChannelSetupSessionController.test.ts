@@ -1,7 +1,7 @@
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
 import { DEFAULT_MIN_ITEMS_PER_CHANNEL } from '../../../../core/channel-setup/constants';
 import type { ChannelSetupConfig, ChannelSetupRecord } from '../../../../core/channel-setup/types';
-import type { ChannelSetupWorkflowPort } from '../../../../core/channel-setup/ChannelSetupWorkflowPort';
+import type { ChannelSetupWorkflowPort } from '../../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { PlexLibrarySection as PlexLibraryModel } from '../../../plex/library/types';
 import { ChannelSetupSessionController } from '../ChannelSetupSessionController';
 import type { ChannelSetupBuildOutcome } from '../ChannelSetupSessionContracts';

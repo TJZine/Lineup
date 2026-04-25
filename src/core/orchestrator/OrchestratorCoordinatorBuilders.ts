@@ -69,14 +69,14 @@ import {
     EXIT_CONFIRM_FOCUSABLE_IDS,
     EXIT_CONFIRM_MODAL_ID,
 } from '../../modules/ui/exit-confirm';
-import { ChannelSetupBuildCommitter } from '../channel-setup/ChannelSetupBuildCommitter';
-import { ChannelSetupBuildScratchStore } from '../channel-setup/ChannelSetupBuildScratchStore';
-import { ChannelSetupBuildExecutor } from '../channel-setup/ChannelSetupBuildExecutor';
-import { ChannelSetupCompletionTracker } from '../channel-setup/ChannelSetupCompletionTracker';
+import { ChannelSetupBuildCommitter } from '../channel-setup/build/ChannelSetupBuildCommitter';
+import { ChannelSetupBuildScratchStore } from '../channel-setup/build/ChannelSetupBuildScratchStore';
+import { ChannelSetupBuildExecutor } from '../channel-setup/build/ChannelSetupBuildExecutor';
+import { ChannelSetupCompletionTracker } from '../channel-setup/persistence/ChannelSetupCompletionTracker';
 import { ChannelSetupCoordinator } from '../channel-setup/ChannelSetupCoordinator';
-import { ChannelSetupPlanningService } from '../channel-setup/ChannelSetupPlanningService';
-import { ChannelSetupRecordStore } from '../channel-setup/ChannelSetupRecordStore';
-import { ChannelSetupWorkflow } from '../channel-setup/ChannelSetupWorkflow';
+import { ChannelSetupPlanningService } from '../channel-setup/planning/ChannelSetupPlanningService';
+import { ChannelSetupRecordStore } from '../channel-setup/persistence/ChannelSetupRecordStore';
+import type { ChannelSetupWorkflowPortOwners } from '../channel-setup/workflow/createChannelSetupWorkflowPort';
 import { ChannelTuningCoordinator } from '../channel-tuning';
 import type { GuideSelectionSnapshot } from '../channel-tuning';
 import { secondsToMilliseconds } from '../../config/timing';
@@ -215,7 +215,7 @@ export function bindEpgVisibleRangeChange(
 
 export interface ChannelSetupOwners {
     coordinator: ChannelSetupCoordinator;
-    workflow: ChannelSetupWorkflow;
+    portOwners: ChannelSetupWorkflowPortOwners;
 }
 
 export function buildChannelSetupOwners(
@@ -264,18 +264,16 @@ export function buildChannelSetupOwners(
         recordStore,
         clearRerunRequest: coordinator.clearRerunRequest.bind(coordinator),
     });
-    const workflow = new ChannelSetupWorkflow({
-        planningService,
-        buildExecutor,
-        recordStore,
-        completionTracker,
-        getSelectedServerId: (): string | null => input.schedule.getSelectedServerId(),
-        getExistingChannelCount: (): number => input.modules.channelManager.getAllChannels().length,
-    });
-
     return {
         coordinator,
-        workflow,
+        portOwners: {
+            planningService,
+            buildExecutor,
+            recordStore,
+            completionTracker,
+            getSelectedServerId: (): string | null => input.schedule.getSelectedServerId(),
+            getExistingChannelCount: (): number => input.modules.channelManager.getAllChannels().length,
+        },
     };
 }
 

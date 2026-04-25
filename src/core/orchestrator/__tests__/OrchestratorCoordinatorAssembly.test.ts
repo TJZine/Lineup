@@ -134,7 +134,7 @@ describe('createOrchestratorCoordinators', () => {
         const deps = createCoordinatorAssemblyInput();
         const epgCoordinator = { kind: 'epg' };
         const channelSetup = { kind: 'channel-setup' };
-        const channelSetupWorkflow = { kind: 'channel-setup-workflow' };
+        const channelSetupPortOwners = { kind: 'channel-setup-port-owners' };
         const nowPlayingDebugManager = { kind: 'debug-manager' };
         const nowPlayingInfoCoordinator = { kind: 'now-playing-info' };
         const playerOsdCoordinator = { kind: 'player-osd' };
@@ -149,7 +149,7 @@ describe('createOrchestratorCoordinators', () => {
         buildEpgCoordinator.mockReturnValue(epgCoordinator);
         buildChannelSetupOwners.mockReturnValue({
             coordinator: channelSetup,
-            workflow: channelSetupWorkflow,
+            portOwners: channelSetupPortOwners,
         });
         buildNowPlayingDebugManager.mockReturnValue(nowPlayingDebugManager);
         buildNowPlayingInfoCoordinator.mockReturnValue(nowPlayingInfoCoordinator);
@@ -264,7 +264,7 @@ describe('createOrchestratorCoordinators', () => {
         expect(coordinators).toEqual({
             epgCoordinator,
             channelSetup,
-            channelSetupWorkflow,
+            channelSetupPortOwners,
             nowPlayingDebugManager,
             nowPlayingInfoCoordinator,
             playerOsdCoordinator,
@@ -290,7 +290,7 @@ describe('createOrchestratorCoordinators', () => {
         buildEpgCoordinator.mockReturnValue({ kind: 'epg' });
         buildChannelSetupOwners.mockReturnValue({
             coordinator: { kind: 'channel-setup' },
-            workflow: { kind: 'channel-setup-workflow' },
+            portOwners: { kind: 'channel-setup-port-owners' },
         });
         buildNowPlayingDebugManager.mockReturnValue({ kind: 'debug-manager' });
         buildNowPlayingInfoCoordinator.mockReturnValue({ kind: 'now-playing-info' });

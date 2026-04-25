@@ -2,9 +2,9 @@
  * @jest-environment jsdom
  */
 
-import { ChannelSetupBuildScratchStore } from '../ChannelSetupBuildScratchStore';
+import { ChannelSetupBuildScratchStore } from '../build/ChannelSetupBuildScratchStore';
 import { ChannelSetupCoordinator } from '../ChannelSetupCoordinator';
-import { ChannelSetupRecordStore } from '../ChannelSetupRecordStore';
+import { ChannelSetupRecordStore } from '../persistence/ChannelSetupRecordStore';
 
 type CoordinatorHarness = {
     coordinator: ChannelSetupCoordinator;

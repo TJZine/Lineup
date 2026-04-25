@@ -6,7 +6,7 @@ import {
     assertRecoveredTagCount,
     ChannelSetupFacetSnapshotLoader,
     ChannelSetupPlanningError,
-} from '../ChannelSetupFacetSnapshotLoader';
+} from '../planning/ChannelSetupFacetSnapshotLoader';
 import { flushPromises } from '../../../__tests__/helpers';
 import type { ChannelSetupConfig } from '../types';
 import type { IPlexLibrary, PlexLibrarySection, PlexTagDirectoryItem } from '../../../modules/plex/library';
