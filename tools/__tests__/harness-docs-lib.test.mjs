@@ -248,7 +248,7 @@ test('SESSION_PROMPT_INVENTORY and EVAL_PROMPT_INVENTORY drive expected file ord
     assert.equal(SESSION_PROMPT_INVENTORY[3].file, 'cleanup-loop.md');
     assert.equal(
         SESSION_PROMPT_INVENTORY[3].description,
-        'Tier 3 cleanup/refactor controller session for package-scoped planning/closeout and execution-unit orchestration',
+        'Tier 3 cleanup/refactor/remediation-only session for package-scoped planning/closeout and execution-unit orchestration',
     );
     assert.equal(SESSION_PROMPT_INVENTORY[5].file, 'feature-implement.md');
     assert.equal(

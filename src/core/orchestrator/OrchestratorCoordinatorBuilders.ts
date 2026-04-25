@@ -253,12 +253,14 @@ export function buildChannelSetupOwners(
         planningService,
         buildCommitter,
     });
+    const getSelectedServerId = (): string | null => input.schedule.getSelectedServerId();
+    const getExistingChannelCount = (): number => input.modules.channelManager.getAllChannels().length;
     const coordinator = new ChannelSetupCoordinator({
         recordStore,
         scratchStore: buildScratchStore,
         navigation: input.modules.navigation,
-        getSelectedServerId: (): string | null => input.schedule.getSelectedServerId(),
-        getExistingChannelCount: (): number => input.modules.channelManager.getAllChannels().length,
+        getSelectedServerId,
+        getExistingChannelCount,
     });
     const completionTracker = new ChannelSetupCompletionTracker({
         recordStore,
@@ -271,8 +273,8 @@ export function buildChannelSetupOwners(
             buildExecutor,
             recordStore,
             completionTracker,
-            getSelectedServerId: (): string | null => input.schedule.getSelectedServerId(),
-            getExistingChannelCount: (): number => input.modules.channelManager.getAllChannels().length,
+            getSelectedServerId,
+            getExistingChannelCount,
         },
     };
 }

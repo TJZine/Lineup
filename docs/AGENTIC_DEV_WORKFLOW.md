@@ -97,11 +97,11 @@ When tracked docs conflict, use this order:
    - Tier 2 feature/design work uses the same tracked planner/reviewer/implementer prompt family as cleanup, with planner -> reviewer -> implementer -> reviewer sequencing
    - Tier 3: hotspot, cross-boundary, multi-session, or otherwise high-risk work uses task-specific orchestration, and a local run bundle when repeated handoff is likely
    - for cleanup Tier 3 work, `cleanup-loop` is an explicit cleanup/refactor/remediation orchestrator, not a feature-delivery loop: the main session keeps `update_plan`, keeps planning/closeout package-scoped for `checklist-linked` work, runs planner -> reviewer until clean approval, then iterates approved `execution_unit` -> implementer -> reviewer loops for checklist-linked work or one bounded execution target for `standalone remediation` until the subtype-matched closeout gates are clean
-    - for checklist-linked package work, `slice_table` remains the atomic ownership map and `execution_unit` is the execution/review surface
-    - `ready_now_execution_unit` is required for checklist-linked package work and must identify either one approved single-slice unit or one approved `wave_id`; `ready_now_slice` remains the first slice inside that unit
-    - `execution_waves` are required only when the approved execution unit spans multiple slices or the plan explicitly opts into wave-scoped execution
-    - when a wave is selected, the controller stays inside that wave until its declared completion condition is met or a replan trigger fires; wave review is the default approval gate for that unit, while slice-level accounting remains mandatory inside the wave
-    - large-package execution should review coherent retirement batches, not one tiny fix at a time
+     - for checklist-linked package work, `slice_table` remains the atomic ownership map and `execution_unit` is the execution/review surface
+     - `ready_now_execution_unit` is required for checklist-linked package work and must identify either one approved single-slice unit or one approved `wave_id`; `ready_now_slice` remains the first slice inside that unit
+     - `execution_waves` are required only when the approved execution unit spans multiple slices or the plan explicitly opts into wave-scoped execution
+     - when a wave is selected, the controller stays inside that wave until its declared completion condition is met or a replan trigger fires; wave review is the default approval gate for that unit, while slice-level accounting remains mandatory inside the wave
+     - large-package execution should review coherent retirement batches, not one tiny fix at a time
    - for Tier 3 feature or mixed work, use a task-specific run bundle and the normal workflow; do not treat `cleanup-loop` as an umbrella controller, temporary feature-loop, or feature-delivery substitute
    - do not escalate to a heavier tier unless the lower tier would materially weaken reliability
 6. Plan explicitly before multi-step work.
@@ -242,7 +242,7 @@ If you keep optional local launcher skills installed, invoke them explicitly thr
 - Tier 2 planner session: [`cleanup-plan.md`](./agentic/session-prompts/cleanup-plan.md)
 - Tier 2 implementer session: [`cleanup-implement.md`](./agentic/session-prompts/cleanup-implement.md)
 - reusable review session: [`cleanup-review.md`](./agentic/session-prompts/cleanup-review.md)
-- Tier 3 controller/orchestrator session (cleanup/refactor only, package-scoped orchestration with execution-unit-default implementation/review): [`cleanup-loop.md`](./agentic/session-prompts/cleanup-loop.md)
+- Tier 3 controller/orchestrator session (cleanup/refactor/remediation-only, package-scoped orchestration with execution-unit-default implementation/review): [`cleanup-loop.md`](./agentic/session-prompts/cleanup-loop.md)
 - Tier 2/3 feature planner session: [`feature-plan.md`](./agentic/session-prompts/feature-plan.md)
 - approved feature implementer session: [`feature-implement.md`](./agentic/session-prompts/feature-implement.md) (Tier 2 default; reusable in Tier 3 when a run bundle already exists)
 - reusable feature/design review session: [`feature-review.md`](./agentic/session-prompts/feature-review.md)
@@ -253,7 +253,7 @@ Feature plans consume the [`Universal Plan Core`](./agentic/plan-authoring-stand
 
 Use the reusable launchers only when the task risk justifies them. Tier 1 work should usually stay in one session with review.
 
-For larger multi-session or hotspot work, create a task-specific run bundle in [`docs/runs/`](./runs/README.md). Use `cleanup-loop` only for Tier 3 cleanup/refactor control; planning there still uses `planner`, implementation there routes through `cleanup_worker`, review there stays on `reviewer`, keep planning/package closeout package-scoped for `checklist-linked` work, run approved execution-unit implementation/review there, keep `standalone remediation` bounded to its approved execution target unless the plan stages it further, and allow parallel execution units only when the approved plan explicitly allows them. For Tier 3 feature or mixed work, keep the same feature `feature-plan` + `feature-review` + `feature-implement` + `feature-review` workflow, use the run bundle as the task-specific context, and keep cleanup prompts scoped to the cleanup slice.
+For larger multi-session or hotspot work, create a task-specific run bundle in [`docs/runs/`](./runs/README.md). Use `cleanup-loop` only for Tier 3 cleanup/refactor/remediation-only control; planning there still uses `planner`, implementation there routes through `cleanup_worker`, review there stays on `reviewer`, keep planning/package closeout package-scoped for `checklist-linked` work, run approved execution-unit implementation/review there, keep `standalone remediation` bounded to its approved execution target unless the plan stages it further, and allow parallel execution units only when the approved plan explicitly allows them. For Tier 3 feature or mixed work, keep the same feature `feature-plan` + `feature-review` + `feature-implement` + `feature-review` workflow, use the run bundle as the task-specific context, and keep cleanup prompts scoped to the cleanup slice.
 
 ## Session Handoffs
 

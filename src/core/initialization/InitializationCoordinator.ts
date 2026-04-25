@@ -46,6 +46,9 @@ import type { RecoverableAsyncFailureReporter } from '../orchestrator/Orchestrat
 // Types
 // ============================================
 
+// Numeric order is significant: lower values are earlier pipeline stages.
+// runStartup compares StartupPhase values and uses Math.min(_startupQueuedPhase, startPhase)
+// to collapse queued requests, so do not reorder or renumber without updating that logic.
 export const STARTUP_PHASE = {
     FULL_STARTUP: 1,
     RESUME_AFTER_AUTH_CHANGE: 2,
@@ -212,7 +215,7 @@ export class InitializationCoordinator {
 
         try {
             while (true) {
-                const willRunPhase4 = phaseToRun <= STARTUP_PHASE.RESUME_RUNTIME_MODULES;
+                const willRunInitializePlaybackRuntime = phaseToRun <= STARTUP_PHASE.RESUME_RUNTIME_MODULES;
                 const shouldEagerlyInitEpgForPass = phaseToRun > STARTUP_PHASE.FULL_STARTUP;
                 this._callbacks.state.setReady(false);
 
@@ -251,7 +254,7 @@ export class InitializationCoordinator {
 
                 if (shouldEagerlyInitEpgForPass) {
                     await this._initializeEpg({
-                        ensureCorePlayerUi: !willRunPhase4,
+                        ensureCorePlayerUi: !willRunInitializePlaybackRuntime,
                     });
                 }
 

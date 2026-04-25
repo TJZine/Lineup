@@ -16,7 +16,7 @@ Authority, read order, and document precedence now live in [`docs/AGENTIC_DEV_WO
 - [`cleanup-review.md`](./cleanup-review.md)
   - reusable adversarial review session for either a plan or an implementation
 - [`cleanup-loop.md`](./cleanup-loop.md)
-  - Tier 3 cleanup/refactor controller session for package-scoped planning/closeout and execution-unit orchestration
+  - Tier 3 cleanup/refactor/remediation-only session for package-scoped planning/closeout and execution-unit orchestration
 - [`feature-plan.md`](./feature-plan.md)
   - Tier 2 or Tier 3 planner session for serious feature/design planning
 - [`feature-implement.md`](./feature-implement.md)

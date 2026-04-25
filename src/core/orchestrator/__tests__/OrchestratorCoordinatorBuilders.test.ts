@@ -191,7 +191,7 @@ describe('OrchestratorCoordinatorBuilders', () => {
         expect(handleVisibleRangeChange).toHaveBeenCalledWith(range);
     });
 
-    it('buildChannelSetupOwners wires shared selected-server and channel-count context through the coordinator/workflow pair', async () => {
+    it('buildChannelSetupOwners wires shared selected-server and channel-count context through the coordinator and ChannelSetupWorkflowPortOwners', async () => {
         const input = createInput();
         const epgCoordinator = {
             clearSelectedChannelScheduleSnapshot: jest.fn(),
