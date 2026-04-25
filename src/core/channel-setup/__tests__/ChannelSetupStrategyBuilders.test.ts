@@ -209,6 +209,7 @@ describe('ChannelSetupStrategyBuilders', () => {
                 ['lib-1', [createTag('Alex Actor', 7, 'actor-1')]],
             ]),
             studiosByLibraryId: new Map([
+                // Unknown Plex counts are allowed through min-items filtering.
                 ['lib-1', [createTag('Studio One', null, 'studio-1')]],
             ]),
             minItems: 5,

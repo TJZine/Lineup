@@ -44,6 +44,8 @@ type NativeFacetTaskDefinition = {
     ) => Promise<PlexTagDirectoryItem[]>;
 };
 
+type FacetCountRecoveryLimiter = <T>(task: () => Promise<T>) => Promise<T>;
+
 type ChannelSetupFacetSnapshotLoadSessionOptions = {
     plexLibrary: IPlexLibrary;
     config: ChannelSetupConfig;
@@ -289,7 +291,8 @@ export class ChannelSetupFacetSnapshotLoadSession {
                 nativeFacetDefinitions,
                 library,
                 librarySignal,
-                libraryFailureStopRequested
+                libraryFailureStopRequested,
+                abortLibraryFacetRequests
             );
             if (countRecoveryFailure) {
                 this._firstFailure = this._firstFailure ?? countRecoveryFailure;
@@ -389,20 +392,30 @@ export class ChannelSetupFacetSnapshotLoadSession {
         nativeFacetDefinitions: NativeFacetTaskDefinition[],
         library: PlexLibrarySection,
         librarySignal: AbortSignal,
-        libraryFailureStopRequested: () => boolean
+        libraryFailureStopRequested: () => boolean,
+        abortLibraryFacetRequests: () => void
     ): Promise<ChannelSetupFacetSnapshot | null> {
-        for (const definition of nativeFacetDefinitions) {
+        let firstFailure: ChannelSetupFacetSnapshot | null = null;
+        const countRecoveryLimiter = createFacetCountRecoveryLimiter(MAX_FACET_COUNT_RECOVERY_CONCURRENCY);
+        const recoveryTasks = nativeFacetDefinitions.map(async (definition) => {
+            if (libraryFailureStopRequested()) {
+                return null;
+            }
             const countRecoveryFailure = await this._recoverAndStoreFacetCounts(
                 definition,
                 library,
                 librarySignal,
-                libraryFailureStopRequested
+                libraryFailureStopRequested,
+                countRecoveryLimiter
             );
-            if (countRecoveryFailure) {
-                return countRecoveryFailure;
+            if (countRecoveryFailure && !firstFailure) {
+                firstFailure = countRecoveryFailure;
+                abortLibraryFacetRequests();
             }
-        }
-        return null;
+            return countRecoveryFailure;
+        });
+        await Promise.all(recoveryTasks);
+        return firstFailure;
     }
 
     private _createNativeFacetDefinitions(library: PlexLibrarySection): NativeFacetTaskDefinition[] {
@@ -543,7 +556,8 @@ export class ChannelSetupFacetSnapshotLoadSession {
         definition: NativeFacetTaskDefinition,
         library: PlexLibrarySection,
         librarySignal: AbortSignal,
-        libraryFailureStopRequested: () => boolean
+        libraryFailureStopRequested: () => boolean,
+        countRecoveryLimiter: FacetCountRecoveryLimiter
     ): Promise<ChannelSetupFacetSnapshot | null> {
         const tags = definition.tagsByLibraryId.get(library.id) ?? [];
         if (tags.length === 0 || tags.every((tag) => tag.count !== null)) {
@@ -555,7 +569,8 @@ export class ChannelSetupFacetSnapshotLoadSession {
                 definition.mediaType,
                 definition.countRecoveryFamily,
                 tags,
-                librarySignal
+                librarySignal,
+                countRecoveryLimiter
             );
             definition.tagsByLibraryId.set(library.id, hydrated);
             return null;
@@ -584,7 +599,8 @@ export class ChannelSetupFacetSnapshotLoadSession {
         mediaType: number,
         family: 'genre' | 'director' | 'year' | 'actor' | 'studio',
         tags: PlexTagDirectoryItem[],
-        tagSignal: AbortSignal
+        tagSignal: AbortSignal,
+        countRecoveryLimiter: FacetCountRecoveryLimiter
     ): Promise<PlexTagDirectoryItem[]> {
         const unknownIndexes = tags
             .map((tag, index) => (tag.count === null ? index : -1))
@@ -597,6 +613,8 @@ export class ChannelSetupFacetSnapshotLoadSession {
         const workerCount = Math.min(MAX_FACET_COUNT_RECOVERY_CONCURRENCY, unknownIndexes.length);
         const queue = [...unknownIndexes];
         const siblingAbortController = new AbortController();
+        let hasFirstError = false;
+        let firstError: unknown;
         const linkedAbortSignal = createLinkedAbortSignal([
             tagSignal,
             siblingAbortController.signal,
@@ -605,10 +623,16 @@ export class ChannelSetupFacetSnapshotLoadSession {
             try {
                 while (queue.length > 0) {
                     if (linkedAbortSignal.signal.aborted) {
+                        if (hasFirstError) {
+                            throw firstError;
+                        }
                         return;
                     }
                     const tagIndex = queue.shift();
                     if (tagIndex === undefined || linkedAbortSignal.signal.aborted) {
+                        if (hasFirstError) {
+                            throw firstError;
+                        }
                         return;
                     }
                     const tag = hydratedTags[tagIndex];
@@ -618,9 +642,14 @@ export class ChannelSetupFacetSnapshotLoadSession {
                     const countStart = performance.now();
                     let count: number | null;
                     try {
-                        count = await this._options.plexLibrary.getLibraryItemCount(libraryId, {
-                            filter: buildChannelSetupFacetCountFilter(tag, family, mediaType),
-                            signal: linkedAbortSignal.signal,
+                        count = await countRecoveryLimiter(async () => {
+                            if (linkedAbortSignal.signal.aborted) {
+                                throw createAbortError(this._lastTask);
+                            }
+                            return this._options.plexLibrary.getLibraryItemCount(libraryId, {
+                                filter: buildChannelSetupFacetCountFilter(tag, family, mediaType),
+                                signal: linkedAbortSignal.signal,
+                            });
                         });
                     } finally {
                         this._libraryQueryMs += performance.now() - countStart;
@@ -631,10 +660,18 @@ export class ChannelSetupFacetSnapshotLoadSession {
                     };
                 }
             } catch (error) {
+                const isAbortError = error instanceof Error && error.name === 'AbortError';
+                if (!isAbortError && !hasFirstError) {
+                    firstError = error;
+                    hasFirstError = true;
+                }
                 if (!siblingAbortController.signal.aborted) {
                     siblingAbortController.abort();
                 }
-                throw error;
+                if (isAbortError && hasFirstError) {
+                    throw firstError;
+                }
+                throw hasFirstError ? firstError : error;
             }
         });
         try {
@@ -836,6 +873,13 @@ function compareDeferredEmptyTagDirectoryFailures(
 
 function createLinkedAbortSignal(signals: AbortSignal[]): { signal: AbortSignal; dispose: () => void } {
     const controller = new AbortController();
+    if (signals.some((signal) => signal.aborted)) {
+        controller.abort();
+        return {
+            signal: controller.signal,
+            dispose: () => undefined,
+        };
+    }
     const listeners: Array<{ signal: AbortSignal; listener: () => void }> = [];
     const abort = (): void => {
         if (!controller.signal.aborted) {
@@ -844,10 +888,6 @@ function createLinkedAbortSignal(signals: AbortSignal[]): { signal: AbortSignal;
     };
 
     for (const signal of signals) {
-        if (signal.aborted) {
-            abort();
-            continue;
-        }
         signal.addEventListener('abort', abort, { once: true });
         listeners.push({ signal, listener: abort });
     }
@@ -861,6 +901,30 @@ function createLinkedAbortSignal(signals: AbortSignal[]): { signal: AbortSignal;
             listeners.length = 0;
         },
     };
+}
+
+function createFacetCountRecoveryLimiter(maxConcurrency: number): FacetCountRecoveryLimiter {
+    const pending: Array<() => void> = [];
+    let active = 0;
+
+    const release = (): void => {
+        active--;
+        const next = pending.shift();
+        next?.();
+    };
+
+    return <T>(task: () => Promise<T>): Promise<T> => new Promise<T>((resolve, reject) => {
+        const run = (): void => {
+            active++;
+            void Promise.resolve().then(task).then(resolve, reject).finally(release);
+        };
+
+        if (active < maxConcurrency) {
+            run();
+            return;
+        }
+        pending.push(run);
+    });
 }
 
 function getErrorSummaryObject(error: unknown): { message?: unknown; code?: unknown } {
