@@ -285,11 +285,16 @@ The active P13 exact membership surface is
 - Core files:
   - `src/core/channel-setup/workflow/ChannelSetupWorkflowPort.ts`
   - `src/core/channel-setup/workflow/createChannelSetupWorkflowPort.ts`
+  - `src/core/channel-setup/types.ts`
+  - `src/core/channel-setup/planning/ChannelSetupPlanDiagnostics.ts`
   - `src/modules/ui/channel-setup/ChannelSetupSessionPorts.ts`
   - `src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts`
   - `src/modules/ui/channel-setup/focus/ChannelSetupFocusCoordinator.ts`
   - `src/modules/ui/channel-setup/steps/StrategyStepInteractionController.ts`
   - `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
+- Package guardrail: the source-proof matrix must account for both the
+  workflow-port owner and the duplicate core/UI shape evidence before choosing
+  an execution unit.
 - Likely verification: `npm run verify`.
 - Status: not started
 - Plan: none yet
@@ -380,12 +385,19 @@ The active P13 exact membership surface is
 - Core files:
   - `src/modules/plex/library/PlexLibraryError.ts`
   - `src/modules/plex/library/PlexLibrary.ts`
+  - `src/modules/plex/auth/plexAuthTransport.ts`
   - `src/modules/plex/shared/plexUrl.ts`
   - `src/modules/plex/stream/interfaces.ts`
   - `src/modules/plex/stream/PlexStreamResolver.ts`
+  - `src/modules/plex/stream/resolveStreamPipeline.ts`
   - `src/modules/plex/discovery/PlexServerDiscovery.ts`
   - `src/modules/plex/auth/plexAuthPayloadParsers.ts`
+  - `src/modules/plex/auth/PlexAuth.ts`
+  - `src/modules/player/SubtitleManager.ts`
   - `src/modules/player/AudioTrackManager.ts`
+- Package guardrail: the package-local plan must separate Plex contract/error
+  semantics from player-only simplification unless it proves a shared execution
+  unit, owner, and verification envelope.
 - Likely verification: `npm run verify`.
 - Status: not started
 - Plan: none yet
@@ -398,10 +410,10 @@ The active P13 exact membership surface is
 ### [ ] `P13-W5` `pkg_documentation_comment_and_package_hygiene`
 
 - Backlog: `4` refreshed post-P12 review issues.
-- Scope: trim restating lifecycle/player comments, trim Plex type/constant doc
-  bloat, flatten profile-select style shards if the package-local audit confirms
-  the inconsistency, and update stale channel-setup owner paths in current
-  architecture truth.
+- Scope: planning container for four small hygiene issues that must remain
+  separately owned at execution time: lifecycle/player restating comments, Plex
+  type/constant doc bloat, profile-select style-shard organization, and stale
+  channel-setup owner paths in current architecture truth.
 - Imported review issues:
   - `review::.::holistic::ai_generated_debt::lifecycle_player_restating_comments`
   - `review::.::holistic::ai_generated_debt::plex_type_constant_doc_bloat`
@@ -420,6 +432,11 @@ The active P13 exact membership surface is
   - `docs/architecture/CURRENT_STATE.md`
 - Likely verification: source/style changes require `npm run verify`; current
   architecture doc changes require `npm run verify:docs`.
+- Package guardrail: `P13-W5` is not a miscellaneous cleanup bucket. Its
+  package-local plan must either split these issues into explicit execution
+  units with one owner and verification command each, or mark an issue
+  `deferred`/`split follow-up` with one final owner and revisit trigger before
+  closing any completed subset.
 - Status: not started
 - Plan: none yet
 - Last touched: not started

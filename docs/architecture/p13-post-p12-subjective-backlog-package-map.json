@@ -51,6 +51,7 @@
     ],
     "priority_exit_gate": [
       "every_p13_review_issue_has_one_owner_or_explicit_disposition",
+      "every_absorbed_mechanical_hotspot_has_one_exact_owner_or_explicit_disposition",
       "package_map_and_checklist_agree",
       "package_local_checks_pass",
       "final_integration_branch_desloppify_scan_succeeds",
@@ -71,6 +72,8 @@
       "candidate_scoping_files": [
         "src/core/channel-setup/workflow/ChannelSetupWorkflowPort.ts",
         "src/core/channel-setup/workflow/createChannelSetupWorkflowPort.ts",
+        "src/core/channel-setup/types.ts",
+        "src/core/channel-setup/planning/ChannelSetupPlanDiagnostics.ts",
         "src/modules/ui/channel-setup/ChannelSetupSessionPorts.ts",
         "src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts",
         "src/modules/ui/channel-setup/focus/ChannelSetupFocusCoordinator.ts",
@@ -80,6 +83,8 @@
       "package_local_scoping_commands": [
         "desloppify show src/core/channel-setup/workflow/ChannelSetupWorkflowPort.ts --status open --no-budget --top 80",
         "desloppify show src/core/channel-setup/workflow/createChannelSetupWorkflowPort.ts --status open --no-budget --top 80",
+        "desloppify show src/core/channel-setup/types.ts --status open --no-budget --top 80",
+        "desloppify show src/core/channel-setup/planning/ChannelSetupPlanDiagnostics.ts --status open --no-budget --top 80",
         "desloppify show src/modules/ui/channel-setup/ChannelSetupSessionPorts.ts --status open --no-budget --top 120",
         "desloppify show src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts --status open --no-budget --top 80",
         "desloppify show src/modules/ui/channel-setup/focus/ChannelSetupFocusCoordinator.ts --status open --no-budget --top 80",
@@ -193,21 +198,29 @@
       "candidate_scoping_files": [
         "src/modules/plex/library/PlexLibraryError.ts",
         "src/modules/plex/library/PlexLibrary.ts",
+        "src/modules/plex/auth/plexAuthTransport.ts",
         "src/modules/plex/shared/plexUrl.ts",
         "src/modules/plex/stream/interfaces.ts",
         "src/modules/plex/stream/PlexStreamResolver.ts",
+        "src/modules/plex/stream/resolveStreamPipeline.ts",
         "src/modules/plex/discovery/PlexServerDiscovery.ts",
         "src/modules/plex/auth/plexAuthPayloadParsers.ts",
+        "src/modules/plex/auth/PlexAuth.ts",
+        "src/modules/player/SubtitleManager.ts",
         "src/modules/player/AudioTrackManager.ts"
       ],
       "package_local_scoping_commands": [
         "desloppify show src/modules/plex/library/PlexLibraryError.ts --status open --no-budget --top 80",
         "desloppify show src/modules/plex/library/PlexLibrary.ts --status open --no-budget --top 120",
+        "desloppify show src/modules/plex/auth/plexAuthTransport.ts --status open --no-budget --top 80",
         "desloppify show src/modules/plex/shared/plexUrl.ts --status open --no-budget --top 80",
         "desloppify show src/modules/plex/stream/interfaces.ts --status open --no-budget --top 80",
         "desloppify show src/modules/plex/stream/PlexStreamResolver.ts --status open --no-budget --top 120",
+        "desloppify show src/modules/plex/stream/resolveStreamPipeline.ts --status open --no-budget --top 80",
         "desloppify show src/modules/plex/discovery/PlexServerDiscovery.ts --status open --no-budget --top 120",
         "desloppify show src/modules/plex/auth/plexAuthPayloadParsers.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/plex/auth/PlexAuth.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/player/SubtitleManager.ts --status open --no-budget --top 80",
         "desloppify show src/modules/player/AudioTrackManager.ts --status open --no-budget --top 80"
       ],
       "likely_first_slice": "Keep Plex contract/error changes together only where the plan proves shared semantics; avoid mixing player-only simplification into Plex risk without explicit execution-unit boundaries.",
@@ -225,7 +238,7 @@
     {
       "package_id": "pkg_documentation_comment_and_package_hygiene",
       "package_name": "Documentation, Comment, And Package Hygiene",
-      "purpose": "Trim restating comments/docs, align profile-select style-shard organization if current source still proves it, and update stale architecture owner paths.",
+      "purpose": "Planning container for four small hygiene issues that must remain separately owned at execution time: lifecycle/player comments, Plex docs/constants, profile-select style organization, and architecture owner-path correction.",
       "exact_review_issue_ids": [
         "review::.::holistic::ai_generated_debt::lifecycle_player_restating_comments",
         "review::.::holistic::ai_generated_debt::plex_type_constant_doc_bloat",
@@ -252,7 +265,7 @@
         "desloppify show src/modules/ui/profile-select/styles --status open --no-budget --top 120",
         "desloppify show docs/architecture/CURRENT_STATE.md --status open --no-budget --top 80"
       ],
-      "likely_first_slice": "Separate source/style hygiene from current-state doc correction unless the package-local plan proves one verification envelope.",
+      "likely_first_slice": "Do not treat this as a miscellaneous cleanup bucket. Split source/comment, style-package, and current-state doc correction into explicit execution units unless the package-local plan proves one owner and verification envelope.",
       "recommended_execution_order": 5,
       "checklist_tokens": {
         "work_item": "P13-W5",
