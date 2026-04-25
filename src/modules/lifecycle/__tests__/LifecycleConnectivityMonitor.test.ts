@@ -56,6 +56,25 @@ describe('LifecycleConnectivityMonitor', () => {
         expect(onNetworkChange).toHaveBeenNthCalledWith(2, { isAvailable: true });
     });
 
+    it('emits browser connectivity events even when availability is unchanged', () => {
+        const monitor = createMonitor();
+        monitor.setInitialAvailability(false);
+        monitor.setupListeners();
+
+        window.dispatchEvent(new Event('offline'));
+        window.dispatchEvent(new Event('offline'));
+
+        expect(onNetworkChange).toHaveBeenNthCalledWith(1, { isAvailable: false });
+        expect(onNetworkChange).toHaveBeenNthCalledWith(2, { isAvailable: false });
+
+        monitor.setInitialAvailability(true);
+        window.dispatchEvent(new Event('online'));
+        window.dispatchEvent(new Event('online'));
+
+        expect(onNetworkChange).toHaveBeenNthCalledWith(3, { isAvailable: true });
+        expect(onNetworkChange).toHaveBeenNthCalledWith(4, { isAvailable: true });
+    });
+
     it('treats a resolved no-cors probe as available and clears the timeout', async () => {
         const originalFetch = globalThis.fetch;
         const clearTimeoutSpy = jest.spyOn(globalThis, 'clearTimeout');
@@ -83,6 +102,25 @@ describe('LifecycleConnectivityMonitor', () => {
         );
         expect(onNetworkChange).toHaveBeenCalledWith({ isAvailable: true });
         expect(clearTimeoutSpy).toHaveBeenCalled();
+    });
+
+    it('does not emit duplicate network changes for same-state successful probes', async () => {
+        const originalFetch = globalThis.fetch;
+        const fetchMock = jest.fn().mockResolvedValue({
+            ok: false,
+            type: 'opaque',
+        });
+        (globalThis as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+        const monitor = createMonitor();
+        monitor.setInitialAvailability(true);
+
+        try {
+            await expect(monitor.checkNetworkStatus()).resolves.toBe(true);
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+
+        expect(onNetworkChange).not.toHaveBeenCalled();
     });
 
     it('throttles network warnings after failed probes', async () => {

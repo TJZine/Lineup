@@ -33,11 +33,11 @@ export class LifecycleConnectivityMonitor {
 
     public setupListeners(): void {
         this._onlineHandler = (): void => {
-            this._setAvailability(true);
+            this._setAvailabilityFromBrowserEvent(true);
         };
 
         this._offlineHandler = (): void => {
-            this._setAvailability(false);
+            this._setAvailabilityFromBrowserEvent(false);
         };
 
         window.addEventListener('online', this._onlineHandler);
@@ -103,6 +103,11 @@ export class LifecycleConnectivityMonitor {
         if (isAvailable === this._isNetworkAvailable) {
             return;
         }
+        this._isNetworkAvailable = isAvailable;
+        this._onNetworkChange({ isAvailable });
+    }
+
+    private _setAvailabilityFromBrowserEvent(isAvailable: boolean): void {
         this._isNetworkAvailable = isAvailable;
         this._onNetworkChange({ isAvailable });
     }
