@@ -2,6 +2,7 @@ import {
     ChannelSetupWorkflowUnavailableError,
     type ChannelSetupWorkflowPort,
 } from './ChannelSetupWorkflowPort';
+import type { ChannelSetupContext } from '../types';
 import type { ChannelSetupBuildExecutor } from '../build/ChannelSetupBuildExecutor';
 import type { ChannelSetupCompletionTracker } from '../persistence/ChannelSetupCompletionTracker';
 import type { ChannelSetupRecordStore } from '../persistence/ChannelSetupRecordStore';
@@ -36,7 +37,7 @@ export const createChannelSetupWorkflowPort = (
         getLibrariesForSetup: async (signal?: AbortSignal | null) =>
             requireOwners().planningService.getLibrariesForSetup(signal ?? null),
         getChannelSetupRecord: (serverId: string) => requireOwners().recordStore.getRecord(serverId),
-        getSetupContextForSelectedServer: () => {
+        getSetupContextForSelectedServer: (): ChannelSetupContext => {
             const owners = requireOwners();
             const serverId = owners.getSelectedServerId();
             if (!serverId) {
