@@ -17,7 +17,7 @@ architecture or workflow document.
 
 - Current execution state: P0-P11 are complete and archived; P12 is the active
   `2026-04-24` subjective-refresh follow-on queue.
-- Next safe start: `P12-W4 / pkg_ui_epg_navigation_package_coherence`.
+- Next safe start: `P12-W5 / pkg_focused_test_and_comment_hygiene`.
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration.
 - First action at package start: planning only; create the package-local
   execution-grade plan before implementation.
@@ -331,7 +331,7 @@ The active P12 exact membership surface is
   packages are complete.
 - Handoff: continue with `P12-W4`.
 
-### [ ] `P12-W4` `pkg_ui_epg_navigation_package_coherence`
+### [x] `P12-W4` `pkg_ui_epg_navigation_package_coherence`
 
 - Backlog: `seed 5` fresh subjective review issues.
 - Scope: decouple UI packages from core coordination contracts where current
@@ -350,12 +350,36 @@ The active P12 exact membership surface is
 - Likely first slice: choose between EPG package split and EPG error-type
   cleanup; do not fold broad navigation decomposition into the first slice
   unless the package plan proves the same verification envelope.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: after `P12-W3`, plan `P12-W4` from exact UI/EPG/navigation ids.
+- Status: completed
+- Plan: local-only cleanup-loop plan reviewed and approved
+- Last touched: 2026-04-25
+- Verification: exact imported review-id queries returned no open rows for all
+  five P12-W4 ids; package-local `desloppify show` commands returned no open
+  rows for `src/modules/ui/channel-setup`,
+  `src/modules/ui/epg/view/EPGVirtualizer.ts`,
+  `src/modules/navigation/NavigationCoordinator.ts`, and
+  `src/modules/ui/epg/types.ts`; `src/modules/ui/epg` package sweep reports
+  only accepted CSS monolith residue in style files that was explicitly out of
+  P12-W4 implementation scope. Targeted `rg` audits confirmed production UI no
+  longer imports `core/channel-setup`, `core/channel-tuning`, or
+  `core/module-status`; scoped EPG error handling has no raw quoted EPG error
+  literals; old root-level moved EPG owner paths are absent from current
+  architecture/tool/package-map surfaces; EPG root contains only public seam,
+  type, utility, and style files; navigation routing delegates key-mode,
+  repeat, modal, screen, and channel-number behavior to navigation-local
+  handlers. `npm run verify` passed. `npm run verify:docs` passed after the
+  repo-local skill link update. `desloppify status` recorded overall `85.7`,
+  strict `85.7`, objective `96.7`, verified `96.7`, File health `92.4`
+  (`91.6` strict), Code quality `98.1`, Duplication `99.9`, Test health
+  `97.5` (`97.3` strict), Security `99.7`, and subjective dimensions:
+  AI generated debt `78.0`, API coherence `84.0`, Abstraction fit `78.0`,
+  Auth consistency `84.0`, Contracts `88.0`, Convention drift `92.0`,
+  Cross-module arch `76.0`, Design coherence `64.0`, Elegance `83.0`,
+  Error consistency `80.0`, Naming quality `88.0`, Stale migration `91.0`,
+  Structure nav `78.0`, Test strategy `82.0`, and Type safety `88.0`.
+- Follow-ups: none for P12-W4; `P12-EXIT` remains pending until all P12
+  packages are complete.
+- Handoff: continue with `P12-W5`.
 
 ### [ ] `P12-W5` `pkg_focused_test_and_comment_hygiene`
 

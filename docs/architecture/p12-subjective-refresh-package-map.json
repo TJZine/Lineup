@@ -303,10 +303,25 @@
         "priority_exit": "P12-EXIT"
       },
       "execution_status": {
-        "status": "not_started",
-        "completed_execution_units": [],
-        "current_or_next_execution_unit": "P12-W4",
-        "evidence": []
+        "status": "completed",
+        "completed_execution_units": [
+          "P12-W4-S1",
+          "P12-W4-S2",
+          "P12-W4-S3",
+          "P12-W4-S4",
+          "P12-W4-S5"
+        ],
+        "current_or_next_execution_unit": "P12-W5",
+        "evidence": [
+          "2026-04-25: P12-W4-S1 aligned EPG error typing and boundary call sites/tests to AppErrorCode. Commit b9061256.",
+          "2026-04-25: P12-W4-S2 moved production UI runtime contracts out of core imports and kept channel-setup workflow adaptation in src/core/channel-setup/workflow/createChannelSetupWorkflowPort.ts. Commit bebbb300.",
+          "2026-04-25: P12-W4-S3 split EPG component, coordinator, startup, and debug owners into package-local subfolders while preserving the public EPG seam and deferred EPG lazy-load verifier. Commit db876d0c.",
+          "2026-04-25: P12-W4-S4 extracted EPG cell presentation/layout policy into a view-local EPGCellRenderer while EPGVirtualizer retains virtualization mechanics. Commit 097158c8.",
+          "2026-04-25: P12-W4-S5 split NavigationCoordinator key-mode, repeat, modal, screen, and channel-number behavior into navigation-local handlers while preserving key/repeat behavior. Commit 770e3da7.",
+          "2026-04-25: all five exact imported review-id queries returned no open rows; package-local commands were clean for mapped files, with only accepted out-of-scope EPG CSS monolith rows remaining at package-folder level.",
+          "2026-04-25: targeted source audits passed for UI core-import removal, AppErrorCode-backed EPG errors, EPG root owner paths, EPG deferred component verification, EPGVirtualizer presentation delegation, and NavigationCoordinator handler delegation.",
+          "2026-04-25: npm run verify passed; npm run verify:docs passed after closeout edits; desloppify status recorded overall 85.7, strict 85.7, objective 96.7, and verified 96.7."
+        ]
       }
     },
     {
