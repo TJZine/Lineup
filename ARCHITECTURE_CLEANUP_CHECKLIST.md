@@ -17,7 +17,7 @@ architecture or workflow document.
 
 - Current execution state: P0-P11 are complete and archived; P12 is the active
   `2026-04-24` subjective-refresh follow-on queue.
-- Next safe start: `P12-W3 / pkg_channel_setup_scheduler_strategy_and_errors`.
+- Next safe start: `P12-W4 / pkg_ui_epg_navigation_package_coherence`.
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration.
 - First action at package start: planning only; create the package-local
   execution-grade plan before implementation.
@@ -293,7 +293,7 @@ The active P12 exact membership surface is
   packages are complete.
 - Handoff: continue with `P12-W3`.
 
-### [ ] `P12-W3` `pkg_channel_setup_scheduler_strategy_and_errors`
+### [x] `P12-W3` `pkg_channel_setup_scheduler_strategy_and_errors`
 
 - Backlog: `seed 5` fresh subjective review issues.
 - Scope: tighten channel setup package organization, planner/facet-loader
@@ -312,12 +312,24 @@ The active P12 exact membership surface is
 - Likely first slice: normalize ChannelManager public failure typing if still
   live, then decide whether channel setup work starts with package folders,
   planner strategy builders, or facet-loader load-session extraction.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: after `P12-W2`, plan `P12-W3` from exact channel/scheduler ids.
+- Status: completed
+- Plan: local-only cleanup-loop plan reviewed and approved
+- Last touched: 2026-04-25
+- Verification: P12-W3 exact imported review-id queries returned no open rows
+  for `channel_manager_bare_errors_bypass_channel_error`,
+  `channel_setup_workflow_facade`, `channel_setup_flat_mixed_package`,
+  `channel_setup_planner_strategy_pipeline`, and
+  `facet_snapshot_loader_mixed_control_flow`; package-local `desloppify show`
+  commands returned no open rows for `ChannelSetupWorkflow.ts`,
+  `ChannelSetupPlanner.ts`, `ChannelSetupFacetSnapshotLoader.ts`,
+  `ChannelManager.ts`, and `interfaces.ts`; package-folder sweep still reports
+  accepted mechanical residue in extracted planning leaves
+  (`ChannelSetupStrategyBuilders.ts`, `ChannelSetupFacetSnapshotLoadSession.ts`,
+  `ChannelSetupPlanningTypes.ts`) that is not a live P12-W3 imported-review
+  blocker.
+- Follow-ups: none for P12-W3; `P12-EXIT` remains pending until all P12
+  packages are complete.
+- Handoff: continue with `P12-W4`.
 
 ### [ ] `P12-W4` `pkg_ui_epg_navigation_package_coherence`
 

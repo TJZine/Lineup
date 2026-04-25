@@ -240,10 +240,23 @@
         "priority_exit": "P12-EXIT"
       },
       "execution_status": {
-        "status": "not_started",
-        "completed_execution_units": [],
-        "current_or_next_execution_unit": "P12-W3",
-        "evidence": []
+        "status": "completed",
+        "completed_execution_units": [
+          "P12-W3-S1",
+          "P12-W3-S2",
+          "P12-W3-S3",
+          "P12-W3-S4",
+          "P12-W3-S5",
+          "P12-W3-S6",
+          "P12-W3-S7"
+        ],
+        "current_or_next_execution_unit": "P12-W4",
+        "evidence": [
+          "2026-04-25: focused implementation commits present in HEAD: bf0e4bdd, 5c090c5c, f4429484, fc95bd30, b5a95593, 96b38b16, and 8a52947b.",
+          "2026-04-25: exact imported review-id queries returned no open rows for all five P12-W3 review ids.",
+          "2026-04-25: package-local file-level commands returned no open rows for ChannelSetupWorkflow.ts, ChannelSetupPlanner.ts, ChannelSetupFacetSnapshotLoader.ts, ChannelManager.ts, and channel-manager interfaces.ts.",
+          "2026-04-25: package-folder sweep reports accepted mechanical residue in extracted planning leaves; no P12-W3 exact imported-review id remains open."
+        ]
       }
     },
     {
