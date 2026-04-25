@@ -327,7 +327,7 @@ The active P13 exact membership surface is
 - Handoff: `P13-W1` is closed. Do not start `P13-W2` unless this closeout
   remains intact on the integration branch.
 
-### [ ] `P13-W2` `pkg_orchestrator_navigation_lifecycle_composition_boundaries`
+### [x] `P13-W2` `pkg_orchestrator_navigation_lifecycle_composition_boundaries`
 
 - Backlog: `5` refreshed post-P12 review issues.
 - Scope: reduce remaining AppOrchestrator runtime-hub breadth, narrow
@@ -353,13 +353,58 @@ The active P13 exact membership surface is
   - `src/modules/lifecycle/AppLifecycle.ts`
   - `src/bootstrap.ts`
 - Likely verification: `npm run verify`.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: plan only after `P13-W1` is complete or explicitly deferred with one
-  final owner.
+- Status: completed
+- Plan: package-local execution brief approved for serial slices `P13-W2-S1`
+  through `P13-W2-S5`.
+- Last touched: 2026-04-25
+- Verification: `npm run verify` passed; `npm run verify:docs` passed during
+  S3 ownership-doc closeout and as part of final `npm run verify`; package-local
+  `desloppify show` commands were rerun; exact issue-id queries were rerun with
+  `--status all`; targeted `rg` audits found no old navigation deps import, no
+  full assembly input in coordinator builders, no selected-server credential
+  mutation or priority-one/runtime-controller construction in
+  `AppOrchestrator.ts`, no old lifecycle persistence/monitor internals in
+  `AppLifecycle.ts`, and no bootstrap live `app` export, `getLineupApp`, or
+  exported `App | null` accessor. Direct `desloppify detect cycles --file`
+  checks for `NavigationChannelNumberHandler.ts` and `NavigationCoordinator.ts`
+  reported no import cycles.
+- Source-proof closeout:
+  - `review::.::holistic::dependency_health::navigation_coordinator_type_cycle`
+    is stale-proven resolved: `NavigationCoordinatorDeps` now lives in a neutral
+    navigation contract file, helper imports no longer point back to
+    `NavigationCoordinator.ts`, and direct cycle detection reports no import
+    cycles.
+  - `review::.::holistic::mid_level_elegance::coordinator_builders_full_assembly_bus`
+    is stale-proven resolved: all seven named leaf builders now consume narrow
+    builder inputs; the full coordinator assembly input remains only in the
+    assembly shaper layer.
+  - `review::.::holistic::design_coherence::app_orchestrator_still_runtime_hub`
+    is stale-proven resolved for the mapped P13-W2 subclaims:
+    selected-server credential persistence moved to
+    `SelectedServerPersistenceAdapter`, priority-one assembly shaping moved to
+    `PriorityOneAssemblyBuilder`, and schedule-day rollover plus subtitle-track
+    recovery construction moved to `OrchestratorRuntimeControllerBuilder`.
+  - `review::.::holistic::design_coherence::app_lifecycle_mixed_operational_concerns`
+    is stale-proven resolved: persistence queueing, connectivity monitoring,
+    and memory monitoring moved into focused lifecycle collaborators while
+    `AppLifecycle` preserves its public lifecycle API and phase/callback seam.
+  - `review::.::holistic::initialization_coupling::bootstrap_live_app_export`
+    is stale-proven resolved: bootstrap app state is private and the exported
+    status seam returns bounded snapshot facts, not `App`, `Orchestrator`, or
+    mutable live runtime objects.
+- Review: plan review was clean after revision; every implementation slice
+  reached clean review. S3 and S4 had review findings that were fixed and
+  closure-checked before fresh final approval; S5 had a live-app accessor finding
+  that was fixed and then passed fresh final review.
+- Follow-ups: accepted residue only for pre-existing objective detector rows not
+  owned by P13-W2 exact membership: the nested-closure row in
+  `OrchestratorCoordinatorBuilders.ts`, navigation helper transitive-test rows,
+  and lifecycle log/shallow-test/swallowed-error rows remain with the existing
+  Desloppify objective queue as final owner; revisit when `desloppify next`
+  selects them. No P13-W2 exact review issue has a deferred or split follow-up.
+- Handoff: `P13-W2` is closed. Next safe start is a package-local
+  execution-grade plan for `P13-W3`; do not start source cleanup directly from
+  refreshed review output.
 
 ### [ ] `P13-W3` `pkg_epg_and_channel_setup_ui_runtime_complexity`
 
