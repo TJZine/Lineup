@@ -6,8 +6,15 @@ import type {
     OrchestratorCoordinatorAssemblyInput,
     OrchestratorCoordinators,
     OrchestratorEpgCoordinatorBuilderInput,
+    OrchestratorChannelTransitionCoordinatorBuilderInput,
+    OrchestratorExitConfirmCoordinatorBuilderInput,
+    OrchestratorMiniGuideCoordinatorBuilderInput,
     OrchestratorNavigationCoordinatorBuilderInput,
+    OrchestratorNowPlayingDebugManagerBuilderInput,
+    OrchestratorNowPlayingInfoCoordinatorBuilderInput,
+    OrchestratorPlaybackOptionsCoordinatorBuilderInput,
     OrchestratorPlaybackRecoveryBuilderInput,
+    OrchestratorPlayerOsdCoordinatorBuilderInput,
 } from './OrchestratorCoordinatorContracts';
 import {
     buildChannelSetupOwners,
@@ -173,6 +180,157 @@ function buildNavigationCoordinatorInput(
     };
 }
 
+function buildNowPlayingDebugManagerInput(
+    input: OrchestratorCoordinatorAssemblyInput
+): OrchestratorNowPlayingDebugManagerBuilderInput {
+    return {
+        modules: {
+            navigation: input.modules.navigation,
+            plexStreamResolver: input.modules.plexStreamResolver,
+            scheduler: input.modules.scheduler,
+        },
+        overlays: {
+            nowPlayingInfo: input.overlays.nowPlayingInfo,
+        },
+        stores: {
+            debugOverridesStore: input.stores.debugOverridesStore,
+        },
+        playback: {
+            state: input.playback.state,
+        },
+    };
+}
+
+function buildNowPlayingInfoCoordinatorInput(
+    input: OrchestratorCoordinatorAssemblyInput
+): OrchestratorNowPlayingInfoCoordinatorBuilderInput {
+    return {
+        config: input.config,
+        modules: {
+            navigation: input.modules.navigation,
+            scheduler: input.modules.scheduler,
+            plexLibrary: input.modules.plexLibrary,
+        },
+        overlays: {
+            nowPlayingInfo: input.overlays.nowPlayingInfo,
+        },
+        stores: {
+            nowPlayingDisplayStore: input.stores.nowPlayingDisplayStore,
+        },
+        playback: {
+            state: input.playback.state,
+            buildPlexResourceUrl: input.playback.buildPlexResourceUrl,
+            getPlaybackInfoSnapshot: input.playback.getPlaybackInfoSnapshot,
+            refreshPlaybackInfoSnapshot: input.playback.refreshPlaybackInfoSnapshot,
+        },
+        actions: {
+            onOverlayVisibilityChange: input.actions.onOverlayVisibilityChange,
+        },
+    };
+}
+
+function buildPlayerOsdCoordinatorInput(
+    input: OrchestratorCoordinatorAssemblyInput
+): OrchestratorPlayerOsdCoordinatorBuilderInput {
+    return {
+        config: input.config,
+        modules: {
+            navigation: input.modules.navigation,
+            scheduler: input.modules.scheduler,
+            channelManager: input.modules.channelManager,
+            videoPlayer: input.modules.videoPlayer,
+        },
+        overlays: {
+            playerOsd: input.overlays.playerOsd,
+            sleepTimer: input.overlays.sleepTimer,
+        },
+        stores: {
+            nowPlayingDisplayStore: input.stores.nowPlayingDisplayStore,
+        },
+        playback: {
+            state: input.playback.state,
+            buildPlexResourceUrl: input.playback.buildPlexResourceUrl,
+        },
+        actions: {
+            onOverlayVisibilityChange: input.actions.onOverlayVisibilityChange,
+        },
+    };
+}
+
+function buildMiniGuideCoordinatorInput(
+    input: OrchestratorCoordinatorAssemblyInput
+): OrchestratorMiniGuideCoordinatorBuilderInput {
+    return {
+        config: input.config,
+        modules: {
+            channelManager: input.modules.channelManager,
+            scheduler: input.modules.scheduler,
+        },
+        overlays: {
+            miniGuide: input.overlays.miniGuide,
+        },
+        schedule: {
+            buildDailyScheduleConfig: input.schedule.buildDailyScheduleConfig,
+        },
+        actions: {
+            switchToChannel: input.actions.switchToChannel,
+        },
+        nowPlaying: input.nowPlaying,
+    };
+}
+
+function buildChannelTransitionCoordinatorInput(
+    input: OrchestratorCoordinatorAssemblyInput
+): OrchestratorChannelTransitionCoordinatorBuilderInput {
+    return {
+        modules: {
+            navigation: input.modules.navigation,
+            videoPlayer: input.modules.videoPlayer,
+        },
+        overlays: {
+            channelTransitionOverlay: input.overlays.channelTransitionOverlay,
+        },
+        actions: {
+            onChannelTransitionActivityChange: input.actions.onChannelTransitionActivityChange,
+        },
+    };
+}
+
+function buildPlaybackOptionsCoordinatorInput(
+    input: OrchestratorCoordinatorAssemblyInput
+): OrchestratorPlaybackOptionsCoordinatorBuilderInput {
+    return {
+        modules: {
+            navigation: input.modules.navigation,
+            videoPlayer: input.modules.videoPlayer,
+            scheduler: input.modules.scheduler,
+        },
+        overlays: {
+            playbackOptionsModal: input.overlays.playbackOptionsModal,
+        },
+        stores: {
+            subtitlePreferencesStore: input.stores.subtitlePreferencesStore,
+        },
+        playback: {
+            state: input.playback.state,
+        },
+        nowPlaying: input.nowPlaying,
+    };
+}
+
+function buildExitConfirmCoordinatorInput(
+    input: OrchestratorCoordinatorAssemblyInput
+): OrchestratorExitConfirmCoordinatorBuilderInput {
+    return {
+        modules: {
+            navigation: input.modules.navigation,
+        },
+        overlays: {
+            exitConfirmModal: input.overlays.exitConfirmModal,
+        },
+    };
+}
+
 export function createOrchestratorCoordinators(
     input: OrchestratorCoordinatorAssemblyInput
 ): OrchestratorCoordinators {
@@ -184,25 +342,33 @@ export function createOrchestratorCoordinators(
 
     let nowPlayingInfoCoordinator: NowPlayingInfoCoordinator | null = null;
     const nowPlayingDebugManager = buildNowPlayingDebugManager(
-        input,
+        buildNowPlayingDebugManagerInput(input),
         (): void => nowPlayingInfoCoordinator?.refreshIfOpen()
     );
 
-    nowPlayingInfoCoordinator = buildNowPlayingInfoCoordinator(input, nowPlayingDebugManager);
+    nowPlayingInfoCoordinator = buildNowPlayingInfoCoordinator(
+        buildNowPlayingInfoCoordinatorInput(input),
+        nowPlayingDebugManager
+    );
 
     let playbackOptionsCoordinator: PlaybackOptionsCoordinator | null = null;
     const playerOsdCoordinator = buildPlayerOsdCoordinator(
-        input,
+        buildPlayerOsdCoordinatorInput(input),
         (preferredSection) =>
             playbackOptionsCoordinator?.prepareModal(preferredSection) ??
             { focusableIds: [], preferredFocusId: null }
     );
 
-    const miniGuideCoordinator = buildMiniGuideCoordinator(input);
-    const channelTransitionCoordinator = buildChannelTransitionCoordinator(input);
+    const miniGuideCoordinator = buildMiniGuideCoordinator(buildMiniGuideCoordinatorInput(input));
+    const channelTransitionCoordinator = buildChannelTransitionCoordinator(
+        buildChannelTransitionCoordinatorInput(input)
+    );
     const playbackRecovery = buildPlaybackRecovery(buildPlaybackRecoveryInput(input));
-    playbackOptionsCoordinator = buildPlaybackOptionsCoordinator(input, playbackRecovery);
-    const exitConfirmCoordinator = buildExitConfirmCoordinator(input);
+    playbackOptionsCoordinator = buildPlaybackOptionsCoordinator(
+        buildPlaybackOptionsCoordinatorInput(input),
+        playbackRecovery
+    );
+    const exitConfirmCoordinator = buildExitConfirmCoordinator(buildExitConfirmCoordinatorInput(input));
     const channelTuning = buildChannelTuningCoordinator(
         buildChannelTuningInput(input),
         playbackRecovery,

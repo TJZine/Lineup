@@ -82,11 +82,18 @@ import type { GuideSelectionSnapshot } from '../channel-tuning';
 import { secondsToMilliseconds } from '../../config/timing';
 import type {
     OrchestratorChannelSetupBuilderInput,
+    OrchestratorChannelTransitionCoordinatorBuilderInput,
     OrchestratorChannelTuningBuilderInput,
     OrchestratorCoordinatorAssemblyInput,
     OrchestratorEpgCoordinatorBuilderInput,
+    OrchestratorExitConfirmCoordinatorBuilderInput,
+    OrchestratorMiniGuideCoordinatorBuilderInput,
     OrchestratorNavigationCoordinatorBuilderInput,
+    OrchestratorNowPlayingDebugManagerBuilderInput,
+    OrchestratorNowPlayingInfoCoordinatorBuilderInput,
+    OrchestratorPlaybackOptionsCoordinatorBuilderInput,
     OrchestratorPlaybackRecoveryBuilderInput,
+    OrchestratorPlayerOsdCoordinatorBuilderInput,
 } from './OrchestratorCoordinatorContracts';
 import { NowPlayingDebugManager } from '../../modules/debug/NowPlayingDebugManager';
 import { safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from '../../utils/storage';
@@ -284,7 +291,7 @@ export function buildChannelSetupOwners(
 }
 
 export function buildNowPlayingDebugManager(
-    input: OrchestratorCoordinatorAssemblyInput,
+    input: OrchestratorNowPlayingDebugManagerBuilderInput,
     requestNowPlayingOverlayRefresh: () => void
 ): NowPlayingDebugManager {
     return new NowPlayingDebugManager({
@@ -301,7 +308,7 @@ export function buildNowPlayingDebugManager(
 }
 
 export function buildNowPlayingInfoCoordinator(
-    input: OrchestratorCoordinatorAssemblyInput,
+    input: OrchestratorNowPlayingInfoCoordinatorBuilderInput,
     nowPlayingDebugManager: NowPlayingDebugManager
 ): NowPlayingInfoCoordinator {
     return new NowPlayingInfoCoordinator({
@@ -334,7 +341,7 @@ export function buildNowPlayingInfoCoordinator(
 }
 
 export function buildPlayerOsdCoordinator(
-    input: OrchestratorCoordinatorAssemblyInput,
+    input: OrchestratorPlayerOsdCoordinatorBuilderInput,
     preparePlaybackOptionsModal: (
         preferredSection?: PlaybackOptionsSectionId
     ) => { focusableIds: string[]; preferredFocusId: string | null }
@@ -363,7 +370,9 @@ export function buildPlayerOsdCoordinator(
     });
 }
 
-export function buildMiniGuideCoordinator(input: OrchestratorCoordinatorAssemblyInput): MiniGuideCoordinator {
+export function buildMiniGuideCoordinator(
+    input: OrchestratorMiniGuideCoordinatorBuilderInput
+): MiniGuideCoordinator {
     return new MiniGuideCoordinator({
         getOverlay: (): IMiniGuideOverlay | null => input.overlays.miniGuide,
         getChannelManager: (): IChannelManager | null => input.modules.channelManager,
@@ -386,7 +395,7 @@ export function buildMiniGuideCoordinator(input: OrchestratorCoordinatorAssembly
 }
 
 export function buildChannelTransitionCoordinator(
-    input: OrchestratorCoordinatorAssemblyInput
+    input: OrchestratorChannelTransitionCoordinatorBuilderInput
 ): ChannelTransitionCoordinator {
     return new ChannelTransitionCoordinator({
         getOverlay: (): IChannelTransitionOverlay | null => input.overlays.channelTransitionOverlay,
@@ -436,7 +445,7 @@ export function buildPlaybackRecovery(
 }
 
 export function buildPlaybackOptionsCoordinator(
-    input: OrchestratorCoordinatorAssemblyInput,
+    input: OrchestratorPlaybackOptionsCoordinatorBuilderInput,
     playbackRecovery: PlaybackRecoveryManager
 ): PlaybackOptionsCoordinator {
     return new PlaybackOptionsCoordinator({
@@ -456,7 +465,7 @@ export function buildPlaybackOptionsCoordinator(
 }
 
 export function buildExitConfirmCoordinator(
-    input: OrchestratorCoordinatorAssemblyInput
+    input: OrchestratorExitConfirmCoordinatorBuilderInput
 ): ExitConfirmCoordinator {
     return new ExitConfirmCoordinator({
         getNavigation: (): INavigationManager | null => input.modules.navigation,
