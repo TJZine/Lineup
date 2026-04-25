@@ -59,32 +59,30 @@ type ChannelSetupFacetSnapshotWaiter = {
     ) => void;
 };
 
-type ChannelSetupFacetSnapshotLoadToken = object;
+type ChannelSetupFacetSnapshotInflightLoad = {
+    key: string;
+    promise: Promise<ChannelSetupFacetSnapshot> | null;
+    controller: AbortController;
+    lastTask: ChannelBuildProgress['task'] | undefined;
+    progress: ChannelSetupFacetSnapshotProgress | null;
+    waiters: Set<ChannelSetupFacetSnapshotWaiter>;
+};
 
 export class ChannelSetupFacetSnapshotLoader {
     private _cachedKey: string | null = null;
     private _cachedSnapshot: ChannelSetupFacetSnapshot | null = null;
-    private _inflightKey: string | null = null;
-    private _inflightPromise: Promise<ChannelSetupFacetSnapshot> | null = null;
-    private _inflightLoadToken: ChannelSetupFacetSnapshotLoadToken | null = null;
-    private _inflightLastTask: ChannelBuildProgress['task'] | undefined;
-    private _inflightProgress: ChannelSetupFacetSnapshotProgress | null = null;
-    private _activeSnapshotAbortController: AbortController | null = null;
-    private readonly _inflightWaiters = new Set<ChannelSetupFacetSnapshotWaiter>();
+    private readonly _inflightLoads = new Map<string, ChannelSetupFacetSnapshotInflightLoad>();
 
     constructor(private readonly _deps: ChannelSetupFacetSnapshotLoaderDeps) {}
 
     invalidate(): void {
-        this._activeSnapshotAbortController?.abort();
-        this._activeSnapshotAbortController = null;
         this._cachedKey = null;
         this._cachedSnapshot = null;
-        this._inflightKey = null;
-        this._inflightPromise = null;
-        this._inflightLoadToken = null;
-        this._inflightLastTask = undefined;
-        this._inflightProgress = null;
-        this._inflightWaiters.clear();
+        for (const load of this._inflightLoads.values()) {
+            load.controller.abort();
+            load.waiters.clear();
+        }
+        this._inflightLoads.clear();
     }
 
     private _shouldCacheSnapshot(snapshot: ChannelSetupFacetSnapshot): boolean {
@@ -96,7 +94,7 @@ export class ChannelSetupFacetSnapshotLoader {
 
     private _throwIfSignalAborted(signal: AbortSignal | null | undefined): void {
         if (signal?.aborted) {
-            throw createAbortError(this._inflightLastTask);
+            throw createAbortError(undefined);
         }
     }
 
@@ -111,35 +109,46 @@ export class ChannelSetupFacetSnapshotLoader {
         if (this._cachedKey === key && this._cachedSnapshot) {
             return this._cachedSnapshot;
         }
-        if (this._inflightKey === key && this._inflightPromise) {
-            return this._awaitSnapshot(this._inflightPromise, options);
+        const inflightLoad = this._inflightLoads.get(key);
+        if (inflightLoad) {
+            return this._awaitSnapshot(inflightLoad, options);
         }
 
-        this.invalidate();
         this._throwIfSignalAborted(options.signal);
-        const loadToken: ChannelSetupFacetSnapshotLoadToken = {};
         const snapshotAbortController = new AbortController();
-        this._inflightKey = key;
-        this._inflightLoadToken = loadToken;
-        this._activeSnapshotAbortController = snapshotAbortController;
-        const loadPromise = this._loadSnapshotUncached(
-            config,
-            libraries,
-            options.detachFromSignal ? null : options.signal,
-            options.requestIntent,
-            snapshotAbortController,
-            (task, label, detail, current, total) => {
-                this._emitInflightProgress(loadToken, task, label, detail, current, total);
+        const load: ChannelSetupFacetSnapshotInflightLoad = {
+            key,
+            promise: null,
+            controller: snapshotAbortController,
+            lastTask: undefined,
+            progress: null,
+            waiters: new Set(),
+        };
+        this._inflightLoads.set(key, load);
+        let loadPromise: Promise<ChannelSetupFacetSnapshot>;
+        try {
+            loadPromise = this._loadSnapshotUncached(
+                config,
+                libraries,
+                options.detachFromSignal ? null : options.signal,
+                options.requestIntent,
+                snapshotAbortController,
+                (task, label, detail, current, total) => {
+                    this._emitInflightProgress(load, task, label, detail, current, total);
+                }
+            );
+        } catch (error) {
+            if (this._inflightLoads.get(key) === load) {
+                this._inflightLoads.delete(key);
             }
-        );
-        this._inflightPromise = loadPromise;
+            throw error;
+        }
+        load.promise = loadPromise;
 
         void loadPromise.then(
             (snapshot) => {
                 if (
-                    this._inflightPromise === loadPromise
-                    && this._inflightKey === key
-                    && this._inflightLoadToken === loadToken
+                    this._inflightLoads.get(key) === load
                     && this._shouldCacheSnapshot(snapshot)
                 ) {
                     this._cachedKey = key;
@@ -148,22 +157,13 @@ export class ChannelSetupFacetSnapshotLoader {
             },
             () => undefined
         ).finally(() => {
-            if (
-                this._inflightPromise === loadPromise
-                && this._inflightKey === key
-                && this._inflightLoadToken === loadToken
-            ) {
-                this._activeSnapshotAbortController = null;
-                this._inflightPromise = null;
-                this._inflightKey = null;
-                this._inflightLoadToken = null;
-                this._inflightLastTask = undefined;
-                this._inflightProgress = null;
-                this._inflightWaiters.clear();
+            if (this._inflightLoads.get(key) === load) {
+                this._inflightLoads.delete(key);
+                load.waiters.clear();
             }
         });
 
-        return this._awaitSnapshot(loadPromise, options);
+        return this._awaitSnapshot(load, options);
     }
 
     private _buildSnapshotKey(config: ChannelSetupConfig, intent: ChannelSetupPlanningIntent): string {
@@ -186,13 +186,17 @@ export class ChannelSetupFacetSnapshotLoader {
     }
 
     private _awaitSnapshot(
-        promise: Promise<ChannelSetupFacetSnapshot>,
+        load: ChannelSetupFacetSnapshotInflightLoad,
         options: ChannelSetupFacetSnapshotWaitOptions
     ): Promise<ChannelSetupFacetSnapshot> {
-        const waiter = this._registerWaiter(options.reportProgress);
+        const promise = load.promise;
+        if (!promise) {
+            return Promise.reject(new Error('Snapshot load was not initialized'));
+        }
+        const waiter = this._registerWaiter(load, options.reportProgress);
         const cleanup = (): void => {
             if (waiter) {
-                this._inflightWaiters.delete(waiter);
+                load.waiters.delete(waiter);
             }
         };
         const signal = options.signal;
@@ -216,12 +220,12 @@ export class ChannelSetupFacetSnapshotLoader {
         }
         if (signal.aborted) {
             cleanup();
-            return Promise.reject(createAbortError(this._inflightLastTask));
+            return Promise.reject(createAbortError(load.lastTask));
         }
         return new Promise<ChannelSetupFacetSnapshot>((resolve, reject) => {
             const onAbort = (): void => {
                 cleanup();
-                reject(createAbortError(this._inflightLastTask));
+                reject(createAbortError(load.lastTask));
             };
             signal.addEventListener('abort', onAbort, { once: true });
             void promise.then(
@@ -240,6 +244,7 @@ export class ChannelSetupFacetSnapshotLoader {
     }
 
     private _registerWaiter(
+        load: ChannelSetupFacetSnapshotInflightLoad,
         reportProgress?: (
             task: ChannelBuildProgress['task'],
             label: string,
@@ -252,28 +257,28 @@ export class ChannelSetupFacetSnapshotLoader {
             return null;
         }
         const waiter: ChannelSetupFacetSnapshotWaiter = { reportProgress };
-        this._inflightWaiters.add(waiter);
-        if (this._inflightProgress) {
-            const progress = this._inflightProgress;
+        load.waiters.add(waiter);
+        if (load.progress) {
+            const progress = load.progress;
             reportProgress(progress.task, progress.label, progress.detail, progress.current, progress.total);
         }
         return waiter;
     }
 
     private _emitInflightProgress(
-        loadToken: ChannelSetupFacetSnapshotLoadToken,
+        load: ChannelSetupFacetSnapshotInflightLoad,
         task: ChannelBuildProgress['task'],
         label: string,
         detail: string,
         current: number,
         total: number | null
     ): void {
-        if (this._inflightLoadToken !== loadToken) {
+        if (this._inflightLoads.get(load.key) !== load) {
             return;
         }
-        this._inflightLastTask = task;
-        this._inflightProgress = { task, label, detail, current, total };
-        for (const waiter of this._inflightWaiters) {
+        load.lastTask = task;
+        load.progress = { task, label, detail, current, total };
+        for (const waiter of load.waiters) {
             waiter.reportProgress(task, label, detail, current, total);
         }
     }

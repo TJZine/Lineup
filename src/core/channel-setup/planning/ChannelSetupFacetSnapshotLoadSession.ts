@@ -596,36 +596,52 @@ export class ChannelSetupFacetSnapshotLoadSession {
         const hydratedTags = [...tags];
         const workerCount = Math.min(MAX_FACET_COUNT_RECOVERY_CONCURRENCY, unknownIndexes.length);
         const queue = [...unknownIndexes];
+        const siblingAbortController = new AbortController();
+        const linkedAbortSignal = createLinkedAbortSignal([
+            tagSignal,
+            siblingAbortController.signal,
+        ]);
         const workers = Array.from({ length: workerCount }, async (): Promise<void> => {
-            while (queue.length > 0) {
-                if (tagSignal.aborted) {
-                    return;
+            try {
+                while (queue.length > 0) {
+                    if (linkedAbortSignal.signal.aborted) {
+                        return;
+                    }
+                    const tagIndex = queue.shift();
+                    if (tagIndex === undefined || linkedAbortSignal.signal.aborted) {
+                        return;
+                    }
+                    const tag = hydratedTags[tagIndex];
+                    if (!tag || tag.count !== null) {
+                        continue;
+                    }
+                    const countStart = performance.now();
+                    let count: number | null;
+                    try {
+                        count = await this._options.plexLibrary.getLibraryItemCount(libraryId, {
+                            filter: buildChannelSetupFacetCountFilter(tag, family, mediaType),
+                            signal: linkedAbortSignal.signal,
+                        });
+                    } finally {
+                        this._libraryQueryMs += performance.now() - countStart;
+                    }
+                    hydratedTags[tagIndex] = {
+                        ...tag,
+                        count: assertRecoveredTagCount(count, family, tag.title),
+                    };
                 }
-                const tagIndex = queue.shift();
-                if (tagIndex === undefined) {
-                    return;
+            } catch (error) {
+                if (!siblingAbortController.signal.aborted) {
+                    siblingAbortController.abort();
                 }
-                const tag = hydratedTags[tagIndex];
-                if (!tag || tag.count !== null) {
-                    continue;
-                }
-                const countStart = performance.now();
-                let count: number | null;
-                try {
-                    count = await this._options.plexLibrary.getLibraryItemCount(libraryId, {
-                        filter: buildChannelSetupFacetCountFilter(tag, family, mediaType),
-                        signal: tagSignal,
-                    });
-                } finally {
-                    this._libraryQueryMs += performance.now() - countStart;
-                }
-                hydratedTags[tagIndex] = {
-                    ...tag,
-                    count: assertRecoveredTagCount(count, family, tag.title),
-                };
+                throw error;
             }
         });
-        await Promise.all(workers);
+        try {
+            await Promise.all(workers);
+        } finally {
+            linkedAbortSignal.dispose();
+        }
         return hydratedTags;
     }
 
@@ -647,7 +663,6 @@ export class ChannelSetupFacetSnapshotLoadSession {
             ...(this._lastTask !== undefined ? { lastTask: this._lastTask } : {}),
         };
     }
-
     private _reportSnapshotProgress(
         task: ChannelBuildProgress['task'],
         label: string,
@@ -817,6 +832,35 @@ function compareDeferredEmptyTagDirectoryFailures(
     if (titleDiff !== 0) return titleDiff;
 
     return left.type - right.type;
+}
+
+function createLinkedAbortSignal(signals: AbortSignal[]): { signal: AbortSignal; dispose: () => void } {
+    const controller = new AbortController();
+    const listeners: Array<{ signal: AbortSignal; listener: () => void }> = [];
+    const abort = (): void => {
+        if (!controller.signal.aborted) {
+            controller.abort();
+        }
+    };
+
+    for (const signal of signals) {
+        if (signal.aborted) {
+            abort();
+            continue;
+        }
+        signal.addEventListener('abort', abort, { once: true });
+        listeners.push({ signal, listener: abort });
+    }
+
+    return {
+        signal: controller.signal,
+        dispose: (): void => {
+            for (const { signal, listener } of listeners) {
+                signal.removeEventListener('abort', listener);
+            }
+            listeners.length = 0;
+        },
+    };
 }
 
 function getErrorSummaryObject(error: unknown): { message?: unknown; code?: unknown } {

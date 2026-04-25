@@ -182,6 +182,119 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
 
         await expect(loadPromise).rejects.toMatchObject({ name: 'AbortError' });
         await flushPromises();
-        expect(secondSettled).toBe(true);
+            expect(secondSettled).toBe(true);
+        });
+
+    it('preserves an earlier different-key load when a newer key starts', async () => {
+        let resolveGenresStarted: (() => void) | null = null;
+        let resolveGenres: (tags: PlexTagDirectoryItem[]) => void = () => undefined;
+        let genresAborted = false;
+        const genresStarted = new Promise<void>((resolve) => {
+            resolveGenresStarted = resolve;
+        });
+        const genresResult = new Promise<PlexTagDirectoryItem[]>((resolve) => {
+            resolveGenres = resolve;
+        });
+        const loader = new ChannelSetupFacetSnapshotLoader({
+            plexLibrary: createPlexLibrary({
+                getGenres: jest.fn().mockImplementation((_libraryId, options) => {
+                    resolveGenresStarted?.();
+                    options.signal?.addEventListener('abort', () => {
+                        genresAborted = true;
+                    }, { once: true });
+                    return genresResult;
+                }),
+                getDirectors: jest.fn().mockResolvedValue([
+                    { key: 'director-1', title: 'Jane Director', count: 2 },
+                ]),
+            }),
+        });
+
+        const firstLoad = loader.loadSnapshot(
+            createConfig(),
+            [createLibrary()],
+            'preview',
+            {
+                signal: null,
+                requestIntent: 'preview',
+                detachFromSignal: false,
+            }
+        );
+        await genresStarted;
+
+        const secondLoad = loader.loadSnapshot(
+            createConfig({
+                strategyConfig: {
+                    ...createConfig().strategyConfig,
+                    genres: { enabled: false, priority: 3, scope: 'per-library' },
+                    directors: { enabled: true, priority: 4, scope: 'per-library' },
+                },
+            }),
+            [createLibrary()],
+            'preview',
+            {
+                signal: null,
+                requestIntent: 'preview',
+                detachFromSignal: false,
+            }
+        );
+
+        await expect(secondLoad).resolves.toMatchObject({ status: 'ready' });
+        expect(genresAborted).toBe(false);
+        resolveGenres([{ key: 'genre-1', title: 'Action', count: 2 }]);
+        await expect(firstLoad).resolves.toMatchObject({ status: 'ready' });
+    });
+
+    it('aborts sibling recovered-count requests after the first recovery failure', async () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        let secondCountSignalAborted = false;
+        let countRequestIndex = 0;
+        const loader = new ChannelSetupFacetSnapshotLoader({
+            plexLibrary: createPlexLibrary({
+                getActors: jest.fn().mockResolvedValue([
+                    { key: 'actor-1', title: 'Alex Actor', count: null },
+                    { key: 'actor-2', title: 'Blair Actor', count: null },
+                ]),
+                getLibraryItemCount: jest.fn().mockImplementation((_libraryId, options) => {
+                    countRequestIndex++;
+                    if (countRequestIndex === 1) {
+                        return Promise.reject(new Error('count failed'));
+                    }
+                    return new Promise<number | null>((_resolve, reject) => {
+                        options.signal?.addEventListener('abort', () => {
+                            secondCountSignalAborted = true;
+                            reject(new DOMException('Aborted', 'AbortError'));
+                        }, { once: true });
+                    });
+                }),
+            }),
+        });
+
+        try {
+            const snapshot = await loader.loadSnapshot(
+                createConfig({
+                    strategyConfig: {
+                        ...createConfig().strategyConfig,
+                        genres: { enabled: false, priority: 3, scope: 'per-library' },
+                        actors: { enabled: true, priority: 8, scope: 'per-library' },
+                    },
+                }),
+                [createLibrary()],
+                'preview',
+                {
+                    signal: null,
+                    requestIntent: 'preview',
+                    detachFromSignal: false,
+                }
+            );
+
+            expect(snapshot).toMatchObject({
+                status: 'blocked',
+                failureReason: 'error',
+            });
+            expect(secondCountSignalAborted).toBe(true);
+        } finally {
+            warnSpy.mockRestore();
+        }
     });
 });
