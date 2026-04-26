@@ -129,12 +129,13 @@ describe('startup integration', () => {
         const orchestrator = bootstrapStatus.orchestrator;
         expect(orchestrator).not.toBeNull();
 
-        const moduleStatus = new Map(orchestrator?.status.map((status) => [status.id, status.status]));
+        const actualOrchestrator = orchestrator as NonNullable<typeof orchestrator>;
+        const moduleStatus = new Map(actualOrchestrator.status.map((status) => [status.id, status.status]));
         expect(moduleStatus.get('app-lifecycle')).toBe('ready');
         expect(moduleStatus.get('navigation')).toBe('ready');
         expect(moduleStatus.get('plex-auth')).toBe('pending');
 
-        expect(orchestrator?.currentScreen).toBe('auth');
+        expect(actualOrchestrator.currentScreen).toBe('auth');
 
         const invalidTransitionWarnings = (consoleWarnSpy?.mock.calls ?? []).filter(([message]) =>
             typeof message === 'string' && message.includes('Invalid phase transition')

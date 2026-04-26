@@ -130,6 +130,12 @@ export class NavigationKeyModeRouter {
         if (!epg || !routingState.shouldRouteToEpg) {
             return false;
         }
+        if (this.deps.navigation.isInputBlocked()) {
+            this.logInputNotHandled('input_blocked', event);
+            this.repeats.stopEpgRepeat('inputBlocked');
+            this._consumeKeyEvent(event);
+            return true;
+        }
 
         switch (event.button) {
             case 'up':

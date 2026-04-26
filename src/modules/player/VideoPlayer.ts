@@ -698,7 +698,7 @@ export class VideoPlayer implements IVideoPlayer {
         this.on('stateChange', this._mediaSessionStateChangeHandler);
     }
 
-    // Idempotent: multiple calls are safe.
+    // Idempotent: multiple calls are safe. Never throws.
     public releaseMediaSession(): void {
         // Idempotency guard
         if (!this._mediaSessionEnabled) {

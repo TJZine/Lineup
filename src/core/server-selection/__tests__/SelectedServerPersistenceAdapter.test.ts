@@ -66,6 +66,36 @@ describe('SelectedServerPersistenceAdapter', () => {
         });
     });
 
+    it('uses the current session active user when stored credentials disagree', async () => {
+        const credentials = makeCredentials({
+            activeUserId: 'stored-user',
+            selectedServerByUserId: {
+                'stored-user': { serverId: 'server-old', serverUri: 'https://old.example.invalid' },
+            },
+        });
+        const port = createPort({
+            getActiveUserId: jest.fn(() => 'session-user'),
+            readStoredCredentialsAndClearCorruption: jest.fn(() => ({
+                kind: 'available',
+                credentials,
+            })),
+        });
+        const adapter = new SelectedServerPersistenceAdapter({
+            getCredentialsPort: (): SelectedServerCredentialsPort => port,
+        });
+
+        await expect(adapter.persistSelection('server-1', 'https://server.example.invalid')).resolves.toBe('updated');
+
+        // Current session authority is intentional: port.getActiveUserId() overwrites stored activeUserId.
+        expect(port.storeCredentials).toHaveBeenCalledWith(expect.objectContaining({
+            activeUserId: 'session-user',
+            selectedServerByUserId: expect.objectContaining({
+                'session-user': { serverId: 'server-1', serverUri: 'https://server.example.invalid' },
+                'stored-user': { serverId: 'server-old', serverUri: 'https://old.example.invalid' },
+            }),
+        }));
+    });
+
     it('preserves missing and corrupted credential semantics when persisting', async () => {
         const missingPort = createPort({
             readStoredCredentialsAndClearCorruption: jest.fn(() => ({ kind: 'missing' })),

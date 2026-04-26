@@ -1,4 +1,3 @@
-import { NOW_PLAYING_INFO_MODAL_ID } from '../ui/now-playing-info';
 import type { NavigationCoordinatorDeps } from './NavigationCoordinatorDeps';
 import type { NavigationRepeatHandler } from './NavigationRepeatHandler';
 
@@ -12,25 +11,21 @@ export class NavigationModalEffectsHandler {
         this.repeats.stopEpgRepeat('modalOpen');
         this.repeats.stopMiniGuideRepeat('modalOpen');
         this.deps.miniGuide.coordinator?.hide();
-        if (modalId === NOW_PLAYING_INFO_MODAL_ID) {
+        if (modalId === this.deps.nowPlayingInfo.modalId) {
             this.deps.nowPlayingInfo.showOverlay();
-        }
-        if (modalId === this.deps.modals.playbackOptions.modalId) {
+        } else if (modalId === this.deps.modals.playbackOptions.modalId) {
             this.deps.modals.playbackOptions.show();
-        }
-        if (modalId === this.deps.modals.exitConfirm.modalId) {
+        } else if (modalId === this.deps.modals.exitConfirm.modalId) {
             this.deps.modals.exitConfirm.show();
         }
     }
 
     handleModalClose(modalId: string): void {
-        if (modalId === NOW_PLAYING_INFO_MODAL_ID) {
+        if (modalId === this.deps.nowPlayingInfo.modalId) {
             this.deps.nowPlayingInfo.hideOverlay();
-        }
-        if (modalId === this.deps.modals.playbackOptions.modalId) {
+        } else if (modalId === this.deps.modals.playbackOptions.modalId) {
             this.deps.modals.playbackOptions.hide();
-        }
-        if (modalId === this.deps.modals.exitConfirm.modalId) {
+        } else if (modalId === this.deps.modals.exitConfirm.modalId) {
             this.deps.modals.exitConfirm.hide();
         }
     }

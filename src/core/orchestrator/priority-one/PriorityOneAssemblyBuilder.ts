@@ -1,5 +1,7 @@
 import type {
+    PriorityOneOptionalRuntimeSurfaces,
     PriorityOnePlaybackRecoveryPort,
+    RecoverableAsyncFailureReporter,
 } from '../OrchestratorRuntimeSeams';
 import type { AppError, IAppLifecycle } from '../../../modules/lifecycle';
 import type { INavigationManager, Screen } from '../../../modules/navigation';
@@ -10,17 +12,16 @@ import type { ChannelManagerEventMap, IChannelManager } from '../../../modules/s
 import type { IChannelScheduler, ScheduledProgram } from '../../../modules/scheduler/scheduler';
 import type { OrchestratorEventCleanupReporter } from '../OrchestratorEventCleanupReporter';
 import type { OrchestratorPlaybackStateAccessors } from '../OrchestratorPlaybackStateAccessors';
-import type { RecoverableAsyncFailureReporter } from '../OrchestratorRuntimeSeams';
 import type { PriorityOneAssemblyInput } from './PriorityOneAssemblyInput';
 
 export interface PriorityOneAssemblyBuilderInput {
     scheduler: IChannelScheduler;
     videoPlayer: IVideoPlayer;
     lifecycle: IAppLifecycle;
-    channelBadgeOverlay: { show: (input: { channelNumber: number; channelName: string }) => void; hide: () => void } | null;
-    playerOsd: { isVisible: () => boolean } | null;
-    nowPlayingInfo: { isVisible: () => boolean } | null;
-    epg: { isVisible: () => boolean } | null;
+    channelBadgeOverlay: PriorityOneOptionalRuntimeSurfaces['channelBadgeOverlay'];
+    playerOsd: PriorityOneOptionalRuntimeSurfaces['playerOsd'];
+    nowPlayingInfo: PriorityOneOptionalRuntimeSurfaces['nowPlayingInfo'];
+    epg: PriorityOneOptionalRuntimeSurfaces['epg'];
     isChannelTransitionActive: () => boolean;
     channelManager: IChannelManager | null;
     navigation: INavigationManager | null;

@@ -82,6 +82,7 @@ type LegacyNavigationCoordinatorDeps = {
     toggleNowPlayingInfoOverlay: jest.Mock;
     showNowPlayingInfoOverlay: jest.Mock;
     hideNowPlayingInfoOverlay: jest.Mock;
+    nowPlayingInfoModalId: string;
     playbackOptionsModalId: string;
     preparePlaybackOptionsModal: jest.Mock;
     showPlaybackOptionsModal: jest.Mock;
@@ -155,6 +156,7 @@ const setup = (
         toggleNowPlayingInfoOverlay: jest.fn(),
         showNowPlayingInfoOverlay: jest.fn(),
         hideNowPlayingInfoOverlay: jest.fn(),
+        nowPlayingInfoModalId: NOW_PLAYING_INFO_MODAL_ID,
         playbackOptionsModalId: PLAYBACK_OPTIONS_MODAL_ID,
         preparePlaybackOptionsModal: jest.fn().mockReturnValue({
             focusableIds: ['playback-subtitle-off'],
@@ -212,6 +214,7 @@ const setup = (
             },
         },
         nowPlayingInfo: {
+            modalId: legacy.nowPlayingInfoModalId,
             isModalOpen: legacy.isNowPlayingModalOpen,
             toggleOverlay: legacy.toggleNowPlayingInfoOverlay,
             showOverlay: legacy.showNowPlayingInfoOverlay,
@@ -809,6 +812,20 @@ describe('NavigationCoordinator', () => {
         expect(deps.pokePlayerOsd).toHaveBeenCalledWith('pause');
     });
 
+    it('consumes EPG mode input without handling selection while input is blocked', () => {
+        const { handlers, epg, navigation } = setup();
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+        (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
+        (navigation.isInputBlocked as jest.Mock).mockReturnValue(true);
+        const event = makeKeyEvent('ok');
+
+        handlers.keyPress?.(event);
+
+        expect(epg.handleSelect).not.toHaveBeenCalled();
+        expect(event.handled).toBe(true);
+        expect(event.originalEvent.preventDefault).toHaveBeenCalled();
+    });
+
     it('fastforward seeks forward and pokes OSD', () => {
         const { handlers, deps, videoPlayer } = setup();
 
@@ -1029,6 +1046,18 @@ describe('NavigationCoordinator', () => {
 
         expect(deps.shouldRunChannelSetup).toHaveBeenCalled();
         expect(navigation.replaceScreen).toHaveBeenCalledWith('channel-setup');
+    });
+
+    it('hides EPG before channel setup redirects a guide-to-player transition', () => {
+        const { handlers, deps, epg, navigation } = setup({
+            shouldRunChannelSetup: jest.fn().mockReturnValue(true),
+        });
+
+        handlers.screenChange?.({ from: 'guide', to: 'player' });
+
+        expect(epg.hide).toHaveBeenCalledTimes(1);
+        expect(navigation.replaceScreen).toHaveBeenCalledWith('channel-setup');
+        expect(deps.hideMiniGuide).not.toHaveBeenCalled();
     });
 
     it('modal open/close triggers now playing overlay handlers', () => {

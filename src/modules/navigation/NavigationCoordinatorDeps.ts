@@ -36,6 +36,7 @@ export interface NavigationCoordinatorDeps {
         } | null;
     };
     nowPlayingInfo: {
+        modalId: string;
         isModalOpen: () => boolean;
         toggleOverlay: () => void;
         showOverlay: () => void;

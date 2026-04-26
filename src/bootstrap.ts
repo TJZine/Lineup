@@ -77,14 +77,14 @@ interface LineupDebugApi {
     orchestratorStatus: () => unknown;
 }
 
-interface LineupBootstrapModuleStatusSnapshot {
+export interface LineupBootstrapModuleStatusSnapshot {
     readonly id: string;
     readonly status: string;
     readonly loadTimeMs: number | null;
     readonly errorCode: string | null;
 }
 
-interface LineupBootstrapOrchestratorStatusSnapshot {
+export interface LineupBootstrapOrchestratorStatusSnapshot {
     readonly isReady: boolean;
     readonly currentScreen: string | null;
     readonly status: readonly LineupBootstrapModuleStatusSnapshot[];
@@ -192,7 +192,7 @@ function showDebugVideo(): void {
     setDebugVideoDisplay('');
 }
 
-function getDebugOrchestratorStatus(currentApp: App): unknown {
+function getDebugOrchestratorStatus(currentApp: LineupAppInstance): unknown {
     const status = getOrchestratorStatusSnapshot(currentApp);
     if (!status) return null;
     return {
@@ -201,7 +201,7 @@ function getDebugOrchestratorStatus(currentApp: App): unknown {
     };
 }
 
-function getOrchestratorStatusSnapshot(currentApp: App): LineupBootstrapOrchestratorStatusSnapshot | null {
+function getOrchestratorStatusSnapshot(currentApp: LineupAppInstance): LineupBootstrapOrchestratorStatusSnapshot | null {
     const orchestrator = currentApp.getOrchestrator();
     if (!orchestrator) return null;
     const status = Array.from(orchestrator.getModuleStatus().values(), toDebugModuleStatusSnapshot);

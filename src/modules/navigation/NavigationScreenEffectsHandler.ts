@@ -2,6 +2,7 @@ import { NOW_PLAYING_INFO_MODAL_ID } from '../ui/now-playing-info';
 import type { NavigationCoordinatorDeps } from './NavigationCoordinatorDeps';
 import type { NavigationRepeatHandler } from './NavigationRepeatHandler';
 import type { NavigationFireAndReport } from './NavigationKeyModeRouter';
+import type { Screen } from './interfaces';
 
 export class NavigationScreenEffectsHandler {
     constructor(
@@ -10,14 +11,9 @@ export class NavigationScreenEffectsHandler {
         private readonly fireAndReport: NavigationFireAndReport
     ) { }
 
-    handleScreenChange(from: string, to: string): void {
+    handleScreenChange(from: Screen, to: Screen): void {
         this.repeats.stopEpgRepeat('screenChange');
         this.repeats.stopMiniGuideRepeat('screenChange');
-        if (to === 'player' && this.deps.uiGuards.shouldRunChannelSetup()) {
-            this.deps.navigation.replaceScreen('channel-setup');
-            return;
-        }
-
         const epg = this.deps.epg;
         const videoPlayer = this.deps.playback.videoPlayer;
         const navigation = this.deps.navigation;
@@ -25,6 +21,11 @@ export class NavigationScreenEffectsHandler {
         // Hide EPG when leaving guide.
         if (from === 'guide' && to !== 'guide') {
             epg?.hide();
+        }
+
+        if (to === 'player' && this.deps.uiGuards.shouldRunChannelSetup()) {
+            this.deps.navigation.replaceScreen('channel-setup');
+            return;
         }
 
         // Close Now Playing Info overlay when leaving player.
