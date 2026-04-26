@@ -200,13 +200,16 @@ export class EPGBackgroundWarmQueue {
             { length: Math.min(state.concurrency, batch.length) },
             async () => {
                 while (true) {
+                    if (this._state !== state) return;
                     const channel = batch[cursor++];
+                    if (this._state !== state) return;
                     if (!channel) return;
                     try {
                         await state.refreshChannelSchedule(channel);
                     } catch (error) {
                         this._reportBatchError(error);
                     }
+                    if (this._state !== state) return;
                 }
             }
         );

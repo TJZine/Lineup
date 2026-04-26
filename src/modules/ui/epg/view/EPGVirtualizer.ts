@@ -161,103 +161,16 @@ class RenderPassAccumulator implements RenderPassContext {
         const selected = new Map<number, VirtualizedCellRenderData>();
         const maxIndex = queue.length - 1;
         const sampleCount = Math.min(this.perRowLimit, queue.length);
-        const edgeSampleIndexes = [
-            0,
-            Math.round(maxIndex / 3),
-            Math.round((maxIndex * 2) / 3),
-            maxIndex,
-        ];
-
-        this.addQueueSamples(selected, queue, edgeSampleIndexes);
+        const step = maxIndex / Math.max(1, sampleCount - 1);
 
         for (let i = 0; i < sampleCount; i += 1) {
-            const index = Math.round((i * maxIndex) / Math.max(1, sampleCount - 1));
+            const index = Math.round(i * step);
             selected.set(index, queue[index]!);
         }
 
-        this.fillQueueSamples(selected, queue, sampleCount);
-        return this.limitQueueSamples(selected, sampleCount);
-    }
-
-    private addQueueSamples(
-        selected: Map<number, VirtualizedCellRenderData>,
-        queue: VirtualizedCellRenderData[],
-        indexes: number[]
-    ): void {
-        const maxIndex = queue.length - 1;
-        for (const index of indexes) {
-            if (index >= 0 && index <= maxIndex) {
-                selected.set(index, queue[index]!);
-            }
-        }
-    }
-
-    private fillQueueSamples(
-        selected: Map<number, VirtualizedCellRenderData>,
-        queue: VirtualizedCellRenderData[],
-        sampleCount: number
-    ): void {
-        if (selected.size >= sampleCount) {
-            return;
-        }
-
-        for (let index = 0; index < queue.length && selected.size < sampleCount; index += 1) {
-            if (!selected.has(index)) {
-                selected.set(index, queue[index]!);
-            }
-        }
-    }
-
-    private limitQueueSamples(
-        selected: Map<number, VirtualizedCellRenderData>,
-        sampleCount: number
-    ): VirtualizedCellRenderData[] {
-        const orderedSelected = Array.from(selected.entries()).sort(([a], [b]) => a - b);
-
-        if (orderedSelected.length <= sampleCount) {
-            return orderedSelected.map(([, cell]) => cell);
-        }
-
-        if (sampleCount === 1) {
-            return [orderedSelected[0]![1]];
-        }
-
-        const step = (orderedSelected.length - 1) / (sampleCount - 1);
-        const resampled = new Map<number, VirtualizedCellRenderData>();
-
-        for (let i = 0; i < sampleCount; i += 1) {
-            const orderedIndex = Math.round(i * step);
-            const selectedEntry = orderedSelected[orderedIndex];
-            if (!selectedEntry) {
-                continue;
-            }
-            resampled.set(selectedEntry[0], selectedEntry[1]);
-        }
-
-        this.fillOrderedQueueSamples(resampled, orderedSelected, sampleCount);
-
-        return Array.from(resampled.entries())
+        return Array.from(selected.entries())
             .sort(([a], [b]) => a - b)
             .map(([, cell]) => cell);
-    }
-
-    private fillOrderedQueueSamples(
-        selected: Map<number, VirtualizedCellRenderData>,
-        orderedCells: Array<[number, VirtualizedCellRenderData]>,
-        sampleCount: number
-    ): void {
-        if (selected.size >= sampleCount) {
-            return;
-        }
-
-        for (const [index, cell] of orderedCells) {
-            if (selected.size >= sampleCount) {
-                break;
-            }
-            if (!selected.has(index)) {
-                selected.set(index, cell);
-            }
-        }
     }
 }
 

@@ -108,6 +108,10 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         return this.presentationMode;
     }
 
+    getDynamicBackgroundCacheStats(): ReturnType<EPGInfoPanelDynamicBackground['getCacheStats']> {
+        return this.dynamicBackground.getCacheStats();
+    }
+
     /**
      * Initialize the info panel.
      *

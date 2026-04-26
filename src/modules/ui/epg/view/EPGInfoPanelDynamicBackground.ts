@@ -48,7 +48,7 @@ export class EPGInfoPanelDynamicBackground {
         this.deps.onPendingWork();
         this.colorExtractTimer = setTimeout(() => {
             this.colorExtractTimer = null;
-            if (!this.isCurrentRequest(program, token)) {
+            if (!this.isStillLatestRequest(program, token)) {
                 this.deps.onSettled();
                 return;
             }
@@ -98,6 +98,18 @@ export class EPGInfoPanelDynamicBackground {
 
     hasPendingAsyncWork(): boolean {
         return this.colorExtractTimer !== null || this.colorFetchController !== null;
+    }
+
+    getCacheStats(): {
+        colorCacheSize: number;
+        colorFailureCacheSize: number;
+        hasColorCacheKey: (key: string) => boolean;
+    } {
+        return {
+            colorCacheSize: this.colorCache.size,
+            colorFailureCacheSize: this.colorFailureCache.size,
+            hasColorCacheKey: (key: string): boolean => this.colorCache.has(key),
+        };
     }
 
     private clearColorExtractTimer(): void {
@@ -171,12 +183,14 @@ export class EPGInfoPanelDynamicBackground {
             if (!response.ok) {
                 throw new Error(`sample fetch failed: ${response.status}`);
             }
-            if (!this.isCurrentRequest(program, token) || this.colorFetchController !== controller) {
+            if (!this.isStillLatestRequest(program, token) || this.colorFetchController !== controller) {
+                this.settleFetchIfCurrent(controller);
                 return;
             }
 
             const blob = await response.blob();
-            if (!this.isCurrentRequest(program, token) || this.colorFetchController !== controller) {
+            if (!this.isStillLatestRequest(program, token) || this.colorFetchController !== controller) {
+                this.settleFetchIfCurrent(controller);
                 return;
             }
 
@@ -192,7 +206,7 @@ export class EPGInfoPanelDynamicBackground {
 
             sampler.onload = (): void => {
                 finalize();
-                if (!this.isCurrentRequest(program, token)) {
+                if (!this.isStillLatestRequest(program, token)) {
                     this.deps.onSettled();
                     return;
                 }
@@ -211,7 +225,7 @@ export class EPGInfoPanelDynamicBackground {
 
             sampler.onerror = (): void => {
                 finalize();
-                if (!this.isCurrentRequest(program, token)) {
+                if (!this.isStillLatestRequest(program, token)) {
                     this.deps.onSettled();
                     return;
                 }
@@ -234,7 +248,7 @@ export class EPGInfoPanelDynamicBackground {
                 this.colorFetchController = null;
             }
 
-            if (!this.isCurrentRequest(program, token)) {
+            if (!this.isStillLatestRequest(program, token)) {
                 this.deps.onSettled();
                 return;
             }
@@ -244,7 +258,14 @@ export class EPGInfoPanelDynamicBackground {
         }
     }
 
-    private isCurrentRequest(program: ScheduledProgram, token: number): boolean {
+    private settleFetchIfCurrent(controller: AbortController): void {
+        if (this.colorFetchController === controller) {
+            this.colorFetchController = null;
+        }
+        this.deps.onSettled();
+    }
+
+    private isStillLatestRequest(program: ScheduledProgram, token: number): boolean {
         return token === this.dynamicColorToken && this.deps.isCurrentRequest(program, token);
     }
 }
