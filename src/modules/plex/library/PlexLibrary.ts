@@ -9,7 +9,7 @@ import { EventEmitter } from '../../../utils/EventEmitter';
 import type { IDisposable } from '../../../utils/interfaces';
 import { AppErrorCode } from '../../../types/app-errors';
 import { fnv1a32Hex } from '../../../utils/hash';
-import { redactUrlForLog } from '../../../utils/redact';
+import { redactSensitiveTokens, redactUrlForLog } from '../../../utils/redact';
 import type {
     IPlexLibrary,
     PlexLibraryConfig,
@@ -206,7 +206,9 @@ export class PlexLibrary implements IPlexLibrary {
                     ? error
                     : new PlexLibraryError(
                         AppErrorCode.PARSE_ERROR,
-                        `Invalid library section payload while resolving ${libraryId}: ${message}`
+                        `Invalid library section payload while resolving ${libraryId}: ${message}`,
+                        undefined,
+                        { cause: error, context: { libraryId } }
                     ),
             };
         }
@@ -607,7 +609,9 @@ export class PlexLibrary implements IPlexLibrary {
                 if (error instanceof PlexLibraryError) {
                     throw new PlexLibraryError(
                         error.code,
-                        `Invalid search hub "${hub.type}" for query "${query}": ${error.message}`
+                        `Invalid search hub "${hub.type}" for query "${query}": ${error.message}`,
+                        error.httpStatus,
+                        { cause: error, context: { query, hubType: hub.type } }
                     );
                 }
                 throw error;
@@ -1096,11 +1100,12 @@ export class PlexLibrary implements IPlexLibrary {
                         );
                     }
                 } catch (parseError) {
+                    const responseBodySnippet = redactSensitiveTokens(text.substring(0, 500));
                     if (parseError instanceof PlexLibraryError) {
                         logger.error(
                             `[PlexLibrary] Parse error for ${this._redactUrlForLog(url)}:`,
                             parseError,
-                            `Response body: ${text.substring(0, 500)}`
+                            `Response body: ${responseBodySnippet}`
                         );
                         throw parseError;
                     }
@@ -1108,12 +1113,20 @@ export class PlexLibrary implements IPlexLibrary {
                     logger.error(
                         `[PlexLibrary] Parse error for ${this._redactUrlForLog(url)}:`,
                         parseError,
-                        `Response body: ${text.substring(0, 500)}`
+                        `Response body: ${responseBodySnippet}`
                     );
                     const message = parseError instanceof Error ? parseError.message : String(parseError);
                     throw new PlexLibraryError(
                         AppErrorCode.PARSE_ERROR,
-                        `Invalid JSON response from ${this._redactUrlForLog(url)}: ${message}`
+                        `Invalid JSON response from ${this._redactUrlForLog(url)}: ${message}`,
+                        undefined,
+                        {
+                            cause: parseError,
+                            context: {
+                                url: this._redactUrlForLog(url),
+                                responseBodySnippet,
+                            },
+                        }
                     );
                 }
 
@@ -1146,7 +1159,12 @@ export class PlexLibrary implements IPlexLibrary {
                     }
                     throw new PlexLibraryError(
                         AppErrorCode.NETWORK_TIMEOUT,
-                        'Network timeout after max retries'
+                        'Network timeout after max retries',
+                        undefined,
+                        {
+                            cause: error,
+                            context: { url: this._redactUrlForLog(url) },
+                        }
                     );
                 }
 
@@ -1164,7 +1182,12 @@ export class PlexLibrary implements IPlexLibrary {
                     this._config.onServerUnreachable?.();
                     throw new PlexLibraryError(
                         AppErrorCode.SERVER_UNREACHABLE,
-                        error.message
+                        redactSensitiveTokens(error.message),
+                        undefined,
+                        {
+                            cause: error,
+                            context: { url: this._redactUrlForLog(url) },
+                        }
                     );
                 }
 
@@ -1177,7 +1200,12 @@ export class PlexLibrary implements IPlexLibrary {
                 this._config.onServerUnreachable?.();
                 throw new PlexLibraryError(
                     AppErrorCode.SERVER_UNREACHABLE,
-                    error instanceof Error ? error.message : 'Unknown error'
+                    error instanceof Error ? redactSensitiveTokens(error.message) : 'Unknown error',
+                    undefined,
+                    {
+                        cause: error,
+                        context: { url: this._redactUrlForLog(url) },
+                    }
                 );
             }
         }
