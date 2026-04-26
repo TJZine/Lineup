@@ -873,10 +873,12 @@ describe('EPGInfoPanel', () => {
                 jest.runAllTimers();
                 await settlePanel(panel);
 
-                const caches = panel as unknown as {
-                    colorCache: Map<string, string>;
-                    colorFailureCache: Map<string, number>;
-                };
+                const caches = (panel as unknown as {
+                    dynamicBackground: {
+                        colorCache: Map<string, string>;
+                        colorFailureCache: Map<string, number>;
+                    };
+                }).dynamicBackground;
                 expect(caches.colorFailureCache.size).toBeGreaterThan(0);
 
                 panel.destroy();
@@ -909,7 +911,11 @@ describe('EPGInfoPanel', () => {
                     await settlePanelAfterTimerDrain(panel);
                 }
 
-                const cache = (panel as unknown as { colorCache: Map<string, string> }).colorCache;
+                const cache = (panel as unknown as {
+                    dynamicBackground: {
+                        colorCache: Map<string, string>;
+                    };
+                }).dynamicBackground.colorCache;
                 expect(cache.size).toBe(128);
                 expect(cache.has('cache-0')).toBe(false);
                 expect(cache.has('cache-1')).toBe(false);

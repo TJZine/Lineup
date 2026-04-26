@@ -9,15 +9,12 @@ import { formatTime, formatDuration } from '../utils';
 import type { IEPGInfoPanel } from '../interfaces';
 import type { ScheduledProgram } from '../types';
 import type { EpgItemDetails } from '../model/domainTypes';
-import { extractHdrLabelFromPlexMedia } from '../../../plex/stream/hdr';
 import { formatContentRatingBadge } from '../../../../utils/contentRating';
 import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
 import { NowPlayingDisplayStore } from '../../../settings/NowPlayingDisplayStore';
-import { extractDominantColor } from '../../../../utils/color/extractDominantColor';
-import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
+import { EPGInfoPanelDetailsLoader } from './EPGInfoPanelDetailsLoader';
+import { EPGInfoPanelDynamicBackground } from './EPGInfoPanelDynamicBackground';
 
-const MAX_DYNAMIC_COLOR_CACHE_ENTRIES = 128;
-const DYNAMIC_COLOR_FAILURE_COOLDOWN_MS = 60_000;
 const QUALITY_BADGE_SLOT_COUNT = 5;
 
 type InfoPanelTemplateBindings = {
@@ -58,25 +55,18 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     private currentProgram: ScheduledProgram | null = null;
     private thumbResolver:
         ((pathOrUrl: string | null, width?: number, height?: number) => string | null) | null = null;
-    private fetchItemDetails:
-        ((ratingKey: string, options?: { signal?: AbortSignal | null }) => Promise<EpgItemDetails | null>) | null = null;
     private qualityBadges: HTMLElement[] = [];
-    private hdrCache = new Map<string, string>();
-    private hdrFetchToken = 0;
-    private hdrFetchController: AbortController | null = null;
-    private hdrFetchTimer: ReturnType<typeof setTimeout> | null = null;
-    private episodePosterCache = new Map<string, string | null>();
-    private posterFetchToken = 0;
-    private posterFetchController: AbortController | null = null;
-    private posterFetchTimer: ReturnType<typeof setTimeout> | null = null;
-    private dynamicColorToken = 0;
-    private gradientAElement: HTMLElement | null = null;
-    private gradientBElement: HTMLElement | null = null;
-    private activeGradientSlot: 'a' | 'b' = 'a';
-    private colorExtractTimer: ReturnType<typeof setTimeout> | null = null;
-    private colorFetchController: AbortController | null = null;
-    private colorCache = new Map<string, string>();
-    private colorFailureCache = new Map<string, number>();
+    private readonly detailsLoader = new EPGInfoPanelDetailsLoader({
+        onPendingWork: () => this.ensureIdlePromise(),
+        onSettled: () => this.resolveIdleIfSettled(),
+        onHdrLoaded: (ratingKey, hdr) => this.applyFetchedHdr(ratingKey, hdr),
+        onEpisodePosterLoaded: (ratingKey) => this.applyFetchedEpisodePoster(ratingKey),
+    });
+    private readonly dynamicBackground = new EPGInfoPanelDynamicBackground({
+        onPendingWork: () => this.ensureIdlePromise(),
+        onSettled: () => this.resolveIdleIfSettled(),
+        isCurrentRequest: (program, token) => this.isDynamicColorRequestCurrent(program, token),
+    });
     private presentationMode: 'classic' | 'overlay' = 'overlay';
     private idlePromise: Promise<void> = Promise.resolve();
     private resolveIdlePromise: (() => void) | null = null;
@@ -99,7 +89,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     setFetchItemDetails(
         fetcher: ((ratingKey: string, options?: { signal?: AbortSignal | null }) => Promise<EpgItemDetails | null>) | null
     ): void {
-        this.fetchItemDetails = fetcher;
+        this.detailsLoader.setFetchItemDetails(fetcher);
     }
 
     setPresentationMode(mode: 'classic' | 'overlay'): void {
@@ -130,8 +120,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
 
         const bindings = this.bindTemplateElements(container);
         this.backdropElement = bindings.backdrop;
-        this.gradientAElement = bindings.gradientA;
-        this.gradientBElement = bindings.gradientB;
+        this.dynamicBackground.bindGradientElements(bindings.gradientA, bindings.gradientB);
         this.posterElement = bindings.poster;
         this.showTitleElement = bindings.showTitle;
         this.titleElement = bindings.title;
@@ -278,8 +267,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
      * Destroy the info panel and clean up resources.
      */
     destroy(): void {
-        this.clearHdrFetch();
-        this.clearPosterFetch();
+        this.detailsLoader.destroy();
         if (this.containerElement) {
             this.containerElement.remove();
             this.containerElement = null;
@@ -294,21 +282,12 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.genresElement = null;
         this.descriptionElement = null;
         this.descriptionInnerElement = null;
-        this.dynamicColorToken += 1;
-        this.clearColorFetch();
-        this.clearColorExtractTimer();
-        this.gradientAElement = null;
-        this.gradientBElement = null;
-        this.activeGradientSlot = 'a';
-        this.colorCache.clear();
-        this.colorFailureCache.clear();
+        this.dynamicBackground.unbind();
+        this.dynamicBackground.clearCaches();
         this.currentProgram = null;
         this.thumbResolver = null;
-        this.fetchItemDetails = null;
         this.isVisible = false;
         this.qualityBadges = [];
-        this.hdrCache.clear();
-        this.episodePosterCache.clear();
         this.resolveIdleIfSettled();
     }
 
@@ -330,9 +309,9 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.containerElement.style.visibility = 'hidden';
         this.containerElement.style.opacity = '0';
         this.isVisible = false;
-        this.clearHdrFetch();
-        this.clearPosterFetch();
-        this.clearDynamicColor();
+        this.detailsLoader.clearHdrFetch();
+        this.detailsLoader.clearPosterFetch();
+        this.dynamicBackground.clearDynamicColor();
         this.resolveIdleIfSettled();
     }
 
@@ -585,70 +564,27 @@ export class EPGInfoPanel implements IEPGInfoPanel {
 
         const allowHdrFetch = options?.allowHdrFetch ?? true;
         if (!mediaInfo?.hdr && !overrideHdr) {
+            const cachedHdr = this.detailsLoader.getCachedHdr(program.item.ratingKey);
+            if (cachedHdr) {
+                this.updateQualityBadges(program, cachedHdr);
+                return;
+            }
             if (allowHdrFetch) {
-                this.maybeFetchHdr(program);
+                this.detailsLoader.maybeFetchHdr(program);
             } else {
-                this.clearHdrFetch();
+                this.detailsLoader.clearHdrFetch();
             }
         } else {
-            this.clearHdrFetch();
+            this.detailsLoader.clearHdrFetch();
         }
     }
 
-    private maybeFetchHdr(program: ScheduledProgram): void {
-        const ratingKey = program.item.ratingKey;
-        if (!ratingKey || !this.fetchItemDetails) {
+    private applyFetchedHdr(ratingKey: string, hdr: string): void {
+        const current = this.currentProgram;
+        if (!current || current.item.ratingKey !== ratingKey) {
             return;
         }
-
-        const cached = this.hdrCache.get(ratingKey);
-        if (cached) {
-            this.updateQualityBadges(program, cached);
-            return;
-        }
-
-        this.clearHdrFetch();
-        const fetchToken = ++this.hdrFetchToken;
-        this.hdrFetchController = new AbortController();
-        this.ensureIdlePromise();
-        this.hdrFetchTimer = setTimeout(() => {
-            this.hdrFetchTimer = null;
-            void this.fetchItemDetailsSafely(ratingKey, this.hdrFetchController?.signal ?? null)
-                .then((item) => {
-                    if (fetchToken !== this.hdrFetchToken) return;
-                    const hdr = extractHdrLabelFromPlexMedia(item);
-                    if (!hdr) return;
-                    this.hdrCache.set(ratingKey, hdr);
-                    const current = this.currentProgram;
-                    if (!current || current.item.ratingKey !== ratingKey) return;
-                    this.updateQualityBadges(current, hdr);
-                })
-                .catch((error) => {
-                    if (isAbortLikeError(error, this.hdrFetchController?.signal ?? undefined)) {
-                        return;
-                    }
-                    this.reportDetailsFetchFailure('hdr', error);
-                })
-                .finally(() => {
-                    if (fetchToken === this.hdrFetchToken) {
-                        this.hdrFetchController = null;
-                    }
-                    this.resolveIdleIfSettled();
-                });
-        }, 200);
-    }
-
-    private clearHdrFetch(): void {
-        if (this.hdrFetchTimer !== null) {
-            clearTimeout(this.hdrFetchTimer);
-            this.hdrFetchTimer = null;
-        }
-        if (this.hdrFetchController) {
-            this.hdrFetchController.abort();
-            this.hdrFetchController = null;
-        }
-        this.hdrFetchToken += 1;
-        this.resolveIdleIfSettled();
+        this.updateQualityBadges(current, hdr);
     }
 
     private formatAudioCodec(codec: string): string {
@@ -699,22 +635,6 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         return null;
     }
 
-    private clearColorExtractTimer(): void {
-        if (this.colorExtractTimer !== null) {
-            clearTimeout(this.colorExtractTimer);
-            this.colorExtractTimer = null;
-        }
-        this.resolveIdleIfSettled();
-    }
-
-    private clearColorFetch(): void {
-        if (this.colorFetchController) {
-            this.colorFetchController.abort();
-            this.colorFetchController = null;
-        }
-        this.resolveIdleIfSettled();
-    }
-
     private resolveInfoBackgroundMode(): 0 | 1 | 2 {
         return this.epgPreferencesStore.readInfoBackgroundModeAndClean(0);
     }
@@ -724,64 +644,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         return preferredThumb ? (this.thumbResolver?.(preferredThumb, 32, 32) ?? null) : null;
     }
 
-    private ensureCacheUnderLimit<T>(map: Map<string, T>, limit: number): void {
-        if (map.size <= limit) {
-            return;
-        }
-
-        const oldestKey = map.keys().next().value;
-        if (typeof oldestKey === 'string') {
-            map.delete(oldestKey);
-        }
-    }
-
-    private storeDynamicColor(cacheKey: string, color: string): void {
-        this.colorFailureCache.delete(cacheKey);
-        this.colorCache.set(cacheKey, color);
-        this.ensureCacheUnderLimit(this.colorCache, MAX_DYNAMIC_COLOR_CACHE_ENTRIES);
-    }
-
-    private markDynamicColorFailure(cacheKey: string): void {
-        this.colorFailureCache.set(cacheKey, Date.now());
-        this.ensureCacheUnderLimit(this.colorFailureCache, MAX_DYNAMIC_COLOR_CACHE_ENTRIES);
-    }
-
-    private clearDynamicColor(): void {
-        this.dynamicColorToken += 1;
-        this.clearColorExtractTimer();
-        this.clearColorFetch();
-
-        if (this.gradientAElement) {
-            this.gradientAElement.style.removeProperty('--dynamic-info-bg');
-            this.gradientAElement.classList.add(EPG_CLASSES.INFO_GRADIENT_ACTIVE);
-        }
-
-        if (this.gradientBElement) {
-            this.gradientBElement.style.removeProperty('--dynamic-info-bg');
-            this.gradientBElement.classList.remove(EPG_CLASSES.INFO_GRADIENT_ACTIVE);
-        }
-
-        this.activeGradientSlot = 'a';
-    }
-
-    private applyDynamicColor(color: string): void {
-        const incoming = this.activeGradientSlot === 'a' ? this.gradientBElement : this.gradientAElement;
-        const outgoing = this.activeGradientSlot === 'a' ? this.gradientAElement : this.gradientBElement;
-
-        if (!incoming || !outgoing) {
-            return;
-        }
-
-        incoming.style.setProperty('--dynamic-info-bg', color);
-        incoming.classList.add(EPG_CLASSES.INFO_GRADIENT_ACTIVE);
-        outgoing.classList.remove(EPG_CLASSES.INFO_GRADIENT_ACTIVE);
-        this.activeGradientSlot = this.activeGradientSlot === 'a' ? 'b' : 'a';
-    }
-
-    private isDynamicColorRequestCurrent(program: ScheduledProgram, token: number): boolean {
-        if (token !== this.dynamicColorToken) {
-            return false;
-        }
+    private isDynamicColorRequestCurrent(program: ScheduledProgram, _token: number): boolean {
         if (!this.isVisible) {
             return false;
         }
@@ -790,161 +653,18 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         return Boolean(current && current.item.ratingKey === program.item.ratingKey);
     }
 
-    private async loadDynamicColorFromSampleUrl(
-        program: ScheduledProgram,
-        cacheKey: string,
-        token: number,
-        sampleUrl: string,
-        controller: AbortController
-    ): Promise<void> {
-        try {
-            if (typeof fetch !== 'function') {
-                throw new Error('fetch unavailable');
-            }
-            if (typeof URL.createObjectURL !== 'function' || typeof URL.revokeObjectURL !== 'function') {
-                throw new Error('blob url unavailable');
-            }
-
-            const response = await fetch(sampleUrl, { signal: controller.signal });
-            if (!response.ok) {
-                throw new Error(`sample fetch failed: ${response.status}`);
-            }
-            if (!this.isDynamicColorRequestCurrent(program, token) || this.colorFetchController !== controller) {
-                return;
-            }
-
-            const blob = await response.blob();
-            if (!this.isDynamicColorRequestCurrent(program, token) || this.colorFetchController !== controller) {
-                return;
-            }
-
-            const blobUrl = URL.createObjectURL(blob);
-            const sampler = new Image();
-
-            const finalize = (): void => {
-                URL.revokeObjectURL(blobUrl);
-                if (this.colorFetchController === controller) {
-                    this.colorFetchController = null;
-                }
-            };
-
-            sampler.onload = (): void => {
-                finalize();
-                if (!this.isDynamicColorRequestCurrent(program, token)) {
-                    this.resolveIdleIfSettled();
-                    return;
-                }
-
-                const color = extractDominantColor(sampler);
-                if (color) {
-                    this.storeDynamicColor(cacheKey, color);
-                    this.applyDynamicColor(color);
-                    this.resolveIdleIfSettled();
-                    return;
-                }
-
-                this.markDynamicColorFailure(cacheKey);
-                this.clearDynamicColor();
-            };
-
-            sampler.onerror = (): void => {
-                finalize();
-                if (!this.isDynamicColorRequestCurrent(program, token)) {
-                    this.resolveIdleIfSettled();
-                    return;
-                }
-
-                this.markDynamicColorFailure(cacheKey);
-                this.clearDynamicColor();
-            };
-
-            sampler.src = blobUrl;
-        } catch (error) {
-            if (error instanceof DOMException && error.name === 'AbortError') {
-                if (this.colorFetchController === controller) {
-                    this.colorFetchController = null;
-                }
-                this.resolveIdleIfSettled();
-                return;
-            }
-
-            if (this.colorFetchController === controller) {
-                this.colorFetchController = null;
-            }
-
-            if (!this.isDynamicColorRequestCurrent(program, token)) {
-                this.resolveIdleIfSettled();
-                return;
-            }
-
-            this.markDynamicColorFailure(cacheKey);
-            this.clearDynamicColor();
-        }
-    }
-
-    private scheduleDynamicColor(program: ScheduledProgram, sampleUrl: string): void {
-        this.clearColorExtractTimer();
-        this.clearColorFetch();
-
-        const poster = this.posterElement;
-        if (!poster) {
-            this.clearDynamicColor();
-            return;
-        }
-
-        const cacheKey = program.item.ratingKey;
-        const cachedColor = this.colorCache.get(cacheKey);
-        if (cachedColor) {
-            this.applyDynamicColor(cachedColor);
-            return;
-        }
-
-        const lastFailure = this.colorFailureCache.get(cacheKey) ?? null;
-        if (lastFailure !== null && (Date.now() - lastFailure) < DYNAMIC_COLOR_FAILURE_COOLDOWN_MS) {
-            this.clearDynamicColor();
-            return;
-        }
-        const token = ++this.dynamicColorToken;
-        this.ensureIdlePromise();
-        this.colorExtractTimer = setTimeout(() => {
-            this.colorExtractTimer = null;
-            if (token !== this.dynamicColorToken) {
-                this.resolveIdleIfSettled();
-                return;
-            }
-            const current = this.currentProgram;
-            if (!current || current.item.ratingKey !== program.item.ratingKey) {
-                this.resolveIdleIfSettled();
-                return;
-            }
-            if (!this.isVisible) {
-                this.resolveIdleIfSettled();
-                return;
-            }
-
-            if (!sampleUrl) {
-                this.markDynamicColorFailure(cacheKey);
-                this.clearDynamicColor();
-                return;
-            }
-            const controller = new AbortController();
-            this.colorFetchController = controller;
-            void this.loadDynamicColorFromSampleUrl(program, cacheKey, token, sampleUrl, controller);
-        }, 120);
-    }
-
     private resolvePreferredPosterThumb(program: ScheduledProgram, mode: 'fast' | 'full'): string | null {
         const { item } = program;
         if (item.type !== 'episode') {
             return item.thumb;
         } else {
             const ratingKey = item.ratingKey;
-            const hasCached = this.episodePosterCache.has(ratingKey);
-            const cached = hasCached ? this.episodePosterCache.get(ratingKey) : undefined;
+            const hasCached = this.detailsLoader.hasCachedEpisodePoster(ratingKey);
+            const cached = this.detailsLoader.getCachedEpisodePoster(ratingKey);
             const showThumb = item.showThumb || null;
             const preferredThumb = (cached ?? showThumb) ?? null;
             if (!preferredThumb && !hasCached && mode === 'full') {
-                this.maybeFetchEpisodePoster(program);
+                this.detailsLoader.maybeFetchEpisodePoster(program);
             }
             return preferredThumb;
         }
@@ -997,14 +717,14 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             if (infoBackgroundMode === 0) {
                 const sampleUrl = this.resolvePosterSampleUrl(program);
                 if (!sampleUrl) {
-                    this.clearDynamicColor();
+                    this.dynamicBackground.clearDynamicColor();
                     return;
                 }
-                this.scheduleDynamicColor(program, sampleUrl);
+                this.dynamicBackground.scheduleDynamicColor(program, sampleUrl);
                 return;
             }
 
-            this.clearDynamicColor();
+            this.dynamicBackground.clearDynamicColor();
             return;
         }
 
@@ -1023,21 +743,21 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             }
 
             if (mode !== 'full') {
-                this.clearDynamicColor();
+                this.dynamicBackground.clearDynamicColor();
                 return;
             }
 
             if (infoBackgroundMode === 0) {
                 const sampleUrl = this.resolvePosterSampleUrl(program);
                 if (!sampleUrl) {
-                    this.clearDynamicColor();
+                    this.dynamicBackground.clearDynamicColor();
                     return;
                 }
-                this.scheduleDynamicColor(program, sampleUrl);
+                this.dynamicBackground.scheduleDynamicColor(program, sampleUrl);
                 return;
             }
 
-            this.clearDynamicColor();
+            this.dynamicBackground.clearDynamicColor();
             return;
         }
 
@@ -1049,7 +769,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             return;
         }
 
-        this.clearDynamicColor();
+        this.dynamicBackground.clearDynamicColor();
     }
 
     private extractShowTitleFromFullTitle(fullTitle: string): string | null {
@@ -1066,79 +786,17 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         return derived ?? '';
     }
 
-    private maybeFetchEpisodePoster(program: ScheduledProgram): void {
-        const ratingKey = program.item.ratingKey;
-        if (!ratingKey || !this.fetchItemDetails) {
+    private applyFetchedEpisodePoster(ratingKey: string): void {
+        const current = this.currentProgram;
+        if (!current || current.item.ratingKey !== ratingKey) {
             return;
         }
-        if (this.episodePosterCache.has(ratingKey)) {
-            return;
-        }
-
-        this.clearPosterFetch();
-        const fetchToken = ++this.posterFetchToken;
-        this.posterFetchController = new AbortController();
-        this.ensureIdlePromise();
-        this.posterFetchTimer = setTimeout(() => {
-            this.posterFetchTimer = null;
-            void this.fetchItemDetailsSafely(ratingKey, this.posterFetchController?.signal ?? null)
-                .then((item) => {
-                    if (fetchToken !== this.posterFetchToken) return;
-                    const seriesPosterThumb = item?.grandparentThumb ?? null;
-                    this.episodePosterCache.set(ratingKey, seriesPosterThumb);
-                    const current = this.currentProgram;
-                    if (!current || current.item.ratingKey !== ratingKey) return;
-                    this.updatePoster(current, 'full');
-                })
-                .catch((error) => {
-                    if (isAbortLikeError(error, this.posterFetchController?.signal ?? undefined)) {
-                        return;
-                    }
-                    this.reportDetailsFetchFailure('poster', error);
-                })
-                .finally(() => {
-                    if (fetchToken === this.posterFetchToken) {
-                        this.posterFetchController = null;
-                    }
-                    this.resolveIdleIfSettled();
-                });
-        }, 200);
-    }
-
-    private fetchItemDetailsSafely(
-        ratingKey: string,
-        signal: AbortSignal | null
-    ): Promise<EpgItemDetails | null | undefined> {
-        return Promise.resolve().then(() => this.fetchItemDetails?.(ratingKey, { signal }));
-    }
-
-    private reportDetailsFetchFailure(kind: 'hdr' | 'poster', error: unknown): void {
-        console.warn('EPG info panel details fetch failed', {
-            kind,
-            error: summarizeErrorForLog(error),
-        });
-    }
-
-    private clearPosterFetch(): void {
-        if (this.posterFetchTimer !== null) {
-            clearTimeout(this.posterFetchTimer);
-            this.posterFetchTimer = null;
-        }
-        if (this.posterFetchController) {
-            this.posterFetchController.abort();
-            this.posterFetchController = null;
-        }
-        this.posterFetchToken += 1;
-        this.resolveIdleIfSettled();
+        this.updatePoster(current, 'full');
     }
 
     private hasPendingAsyncWork(): boolean {
-        return this.hdrFetchTimer !== null
-            || this.hdrFetchController !== null
-            || this.posterFetchTimer !== null
-            || this.posterFetchController !== null
-            || this.colorExtractTimer !== null
-            || this.colorFetchController !== null;
+        return this.detailsLoader.hasPendingAsyncWork()
+            || this.dynamicBackground.hasPendingAsyncWork();
     }
 
     private ensureIdlePromise(): void {
