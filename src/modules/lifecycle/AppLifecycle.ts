@@ -15,8 +15,8 @@ import { ErrorRecovery } from './ErrorRecovery';
 import { LifecycleConnectivityMonitor } from './LifecycleConnectivityMonitor';
 import { LifecycleMemoryMonitor } from './LifecycleMemoryMonitor';
 import { LifecycleStatePersistenceQueue } from './LifecycleStatePersistenceQueue';
+import { LifecycleAsyncErrorReporter } from './LifecycleAsyncErrorReporter';
 import { EventEmitter } from '../../utils/EventEmitter';
-import { summarizeErrorForLog } from '../../utils/errors';
 import type { IDisposable } from '../../utils/interfaces';
 import {
     TIMING_CONFIG,
@@ -33,6 +33,7 @@ export class AppLifecycle implements IAppLifecycle {
     private readonly _statePersistenceQueue: LifecycleStatePersistenceQueue;
     private readonly _connectivityMonitor: LifecycleConnectivityMonitor;
     private readonly _memoryMonitor: LifecycleMemoryMonitor;
+    private readonly _asyncErrorReporter: LifecycleAsyncErrorReporter;
 
     // Runtime state
     private _phase: AppPhase = 'initializing';
@@ -76,6 +77,14 @@ export class AppLifecycle implements IAppLifecycle {
             buildState: (): PersistentState => this._buildCurrentState(),
             emitPersistenceWarning: (warning): void => {
                 this._emitter.emit('persistenceWarning', warning);
+            },
+        });
+        this._asyncErrorReporter = new LifecycleAsyncErrorReporter({
+            emitAsyncError: (payload): void => {
+                this._emitter.emit('asyncError', payload);
+            },
+            reportError: (error): void => {
+                this.reportError(error);
             },
         });
         this._connectivityMonitor = new LifecycleConnectivityMonitor({
@@ -535,20 +544,7 @@ export class AppLifecycle implements IAppLifecycle {
     }
 
     private _handleAsyncError(error: unknown, context: string): void {
-        const summarizedError = summarizeErrorForLog(error);
-        console.warn('[AppLifecycle] Async lifecycle task failed', {
-            context,
-            error: summarizedError,
-        });
-        this.reportError({
-            code: AppErrorCode.UNKNOWN,
-            message: `Async lifecycle task failed: ${context}`,
-            recoverable: true,
-            context: {
-                source: context,
-                error: summarizedError,
-            },
-        });
+        this._asyncErrorReporter.handle(error, context);
     }
 
     /**
