@@ -247,6 +247,7 @@ interface IPlexStreamResolver {
 
   canDirectPlay(item: PlexMediaItem): boolean;
 
+  /** Throws StreamResolverError synchronously when a transcode URL cannot be built. */
   getTranscodeUrl(itemKey: string, options: HlsOptions): string;
 
   fetchUniversalTranscodeDecision(
