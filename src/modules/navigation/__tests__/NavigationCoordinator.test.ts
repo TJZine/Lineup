@@ -1187,15 +1187,18 @@ describe('NavigationCoordinator', () => {
     });
 
     it('preserves player continuity across settings roundtrip', () => {
-        const { handlers, deps, epg, videoPlayer, navigation } = setup();
+        const nowPlayingInfoModalId = 'injected-now-playing-info';
+        const { handlers, deps, epg, videoPlayer, navigation } = setup({
+            nowPlayingInfoModalId,
+        });
         (navigation.isModalOpen as jest.Mock).mockImplementation(
-            (modalId?: string) => modalId === NOW_PLAYING_INFO_MODAL_ID
+            (modalId?: string) => modalId === nowPlayingInfoModalId
         );
 
         handlers.screenChange?.({ from: 'player', to: 'settings' });
 
         expect(epg.hide).toHaveBeenCalledTimes(1);
-        expect(navigation.closeModal).toHaveBeenCalledWith(NOW_PLAYING_INFO_MODAL_ID);
+        expect(navigation.closeModal).toHaveBeenCalledWith(nowPlayingInfoModalId);
         expect(deps.hideMiniGuide).toHaveBeenCalledTimes(1);
         expect(deps.hidePlayerOsd).toHaveBeenCalledTimes(1);
         expect(videoPlayer.pause).toHaveBeenCalledTimes(1);

@@ -1,4 +1,3 @@
-import { NOW_PLAYING_INFO_MODAL_ID } from '../ui/now-playing-info';
 import type { NavigationCoordinatorDeps } from './NavigationCoordinatorDeps';
 import type { NavigationRepeatHandler } from './NavigationRepeatHandler';
 import type { NavigationFireAndReport } from './NavigationCoordinatorCallbacks';
@@ -30,8 +29,8 @@ export class NavigationScreenEffectsHandler {
 
         // Close Now Playing Info overlay when leaving player.
         if (from === 'player' && to !== 'player') {
-            if (navigation.isModalOpen(NOW_PLAYING_INFO_MODAL_ID)) {
-                navigation.closeModal(NOW_PLAYING_INFO_MODAL_ID);
+            if (navigation.isModalOpen(this.deps.nowPlayingInfo.modalId)) {
+                navigation.closeModal(this.deps.nowPlayingInfo.modalId);
             }
             this.deps.miniGuide.coordinator?.hide();
             this.deps.playback.playerOsd.coordinator?.hide();
