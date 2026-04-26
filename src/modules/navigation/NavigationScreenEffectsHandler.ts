@@ -1,7 +1,7 @@
 import { NOW_PLAYING_INFO_MODAL_ID } from '../ui/now-playing-info';
 import type { NavigationCoordinatorDeps } from './NavigationCoordinatorDeps';
 import type { NavigationRepeatHandler } from './NavigationRepeatHandler';
-import type { NavigationFireAndReport } from './NavigationKeyModeRouter';
+import type { NavigationFireAndReport } from './NavigationCoordinatorCallbacks';
 import type { Screen } from './interfaces';
 
 export class NavigationScreenEffectsHandler {
