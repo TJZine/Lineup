@@ -15,13 +15,12 @@ architecture or workflow document.
 
 ## Fresh-Session Handoff
 
-- Current execution state: P0-P12 and `P13-W1` are complete; P13 remains the
-  active checklist-linked cleanup priority seeded from the refreshed post-P12
-  subjective review backlog.
-- Next safe start: create a package-local execution-grade plan for `P13-W2`, or
-  for another P13 package only if maintainer direction explicitly changes the
-  order. Do not start source cleanup directly from the refreshed review output
-  without a package-local plan and review.
+- Current execution state: P0-P13 are complete. `P13-EXIT` closed the refreshed
+  post-P12 subjective review backlog package queue on 2026-04-26.
+- Next safe start: choose the next cleanup priority from the current
+  `desloppify next` / living-plan evidence. Do not reopen P13 exact issues
+  solely from stale detector wording; require current-source proof of a live
+  seam and a new owner before planning any follow-up.
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration.
 - First action at package start: for new checklist-linked work, planning only;
   create the package-local execution-grade plan before implementation.
@@ -546,8 +545,11 @@ The active P13 exact membership surface is
   - The remaining objective `AudioTrackManager.ts` `console_error_no_throw` and
     `swallowed_error` Desloppify rows are pre-existing objective backlog
     signals for the restore-failure catch/log path, not part of P13-W4 exact
-    review membership. The mapped async-without-await complaint is closed by
-    current-source proof.
+    review membership. Final owner: the existing Desloppify objective queue;
+    revisit when `desloppify next` or a future objective cleanup selects the
+    `AudioTrackManager.ts` restore-failure catch/log path. Verification command:
+    `desloppify show src/modules/player/AudioTrackManager.ts --status open --no-budget --top 80`.
+    The mapped async-without-await complaint is closed by current-source proof.
   - The imported exact review issue queries still return stale original
     Desloppify review rows, but every P13-W4 exact issue is resolved by
     current-source proof and reviewed implementation evidence.
@@ -566,11 +568,10 @@ The active P13 exact membership surface is
     boundaries, transcode throw contract docs/call sites, parser required-field
     manufacturing, audio restore async/await removal, and discovery
     state/storage/event ownership.
-- Follow-ups: none for P13-W4 exact membership. `P13-W5` remains open and
-  `P13-EXIT` must remain open until later P13 package closeout.
-- Handoff: `P13-W4` is closed. Next safe start is a package-local
-  execution-grade plan for `P13-W5`; do not close `P13-EXIT` until later P13
-  packages are complete.
+- Follow-ups: none for P13-W4 exact membership. `P13-W5` and `P13-EXIT` are
+  closed by later records in this checklist.
+- Handoff: `P13-W4` is closed. Later P13 records complete P13-W5 and P13
+  priority exit.
 
 ### [x] `P13-W5` `pkg_documentation_comment_and_package_hygiene`
 
@@ -618,12 +619,12 @@ The active P13 exact membership surface is
   - Targeted `rg` checks cleared the stale comment/path/import evidence for S1-S4, including profile-select nested-path references in source, checklist, and package-map surfaces.
   - `git diff --check` passed for each execution unit's touched files.
   - Full `npm run verify` and `npm run verify:docs` passed during final package verification.
-- Follow-ups: none for P13-W5 exact membership. `P13-EXIT` remains open.
-- Handoff: `P13-W5` is closed for implementation. Next required gate is
-  package/priority closeout review plus controller-owned final verification;
-  do not close `P13-EXIT` from this worker pass.
+- Follow-ups: none for P13-W5 exact membership. `P13-EXIT` is closed by the
+  controller-owned priority-exit record below.
+- Handoff: `P13-W5` is closed for implementation and P13 priority exit is
+  complete; do not reopen P13 exact issues solely from stale detector wording.
 
-### [ ] `P13-EXIT`
+### [x] `P13-EXIT`
 
 - Close only if: every P13 review issue has one checklist owner or explicit
   disposition, every absorbed mechanical hotspot has one exact owner or
@@ -640,13 +641,72 @@ The active P13 exact membership surface is
   - `desloppify show security --status open --no-budget --top 50`
   - rerun each completed package's local scoping commands
   - `npm run verify` and/or `npm run verify:docs`, matching touched surfaces
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: do not close until all P13 work items are complete or explicitly
-  disposed with one final owner.
+- Status: completed
+- Plan: controller-owned P13 priority-exit evidence pass on the integration
+  branch. Verification mode: `integration-ops`; classification: broader
+  integration/manual proof required.
+- Last touched: 2026-04-26
+- Exit evidence:
+  - Checklist and package map agree: `P13-W1` through `P13-W5` are complete,
+    all `5` package-map execution statuses are `completed`, and package-map
+    validation reports `22` expected / `22` assigned exact review issues with
+    no duplicates or unassigned ids.
+  - Every P13 exact review issue has one owner/disposition: all `22`
+    `desloppify show <exact-review-issue-id> --status open --no-budget --top 20`
+    checks returned no open matches; source-proof dispositions remain recorded
+    under each package.
+  - Package-local sweep passed: `40` package-local `desloppify show` commands
+    ran with no failures. Open rows are accepted objective residue outside P13
+    exact membership and have final owners or dispositions: P13-W2 objective
+    builder/navigation/lifecycle rows remain with the existing Desloppify
+    objective queue, P13-W4 `AudioTrackManager.ts` catch/log rows remain with
+    the existing Desloppify objective queue, and P13-W5 only resurfaced the
+    already documented AppLifecycle objective residue outside P13-W5 scope.
+  - Final integration-branch `desloppify scan --path .` succeeded. Scores:
+    overall `88.1`, objective `96.0`, strict `88.0`, verified `96.0`; security
+    detector pass reported clean during scan, and subjective review reported
+    clean across `20` dimensions. The scan also reported `+15` new and `-24`
+    resolved objective/query changes, skipped boilerplate auto-resolve because
+    `jscpd` errored, and skipped auto-resolve for review because the review
+    pass returned `0`, likely transient.
+  - `desloppify status` recorded strict `88.0`, `324` open in-scope/global
+    issues, and a CLI triage recommendation for `5` new review work items.
+    `desloppify plan queue --sort recent` reported an empty queue, and
+    `desloppify next` reported nothing to do.
+  - `desloppify show review --status open --no-budget --top 120` returned no
+    open issues matching `review`. `desloppify show security --status open --no-budget --top 50`
+    returned three open `cycles` rows via search-term matching; direct
+    `desloppify detect cycles --file` checks for
+    `src/core/channel-setup/planning/ChannelSetupFacetSnapshotLoadSession.ts`,
+    `src/core/channel-setup/planning/ChannelSetupPlanner.ts`,
+    `src/modules/navigation/NavigationChannelNumberHandler.ts`, and
+    `src/modules/navigation/NavigationCoordinator.ts` all reported no import
+    cycles, so those rows are stale query residue rather than live P13-owned
+    blockers.
+  - Review: read-only P13-EXIT ownership review initially blocked on missing
+    final-owner wording for P13-W4 `AudioTrackManager.ts` objective residue;
+    checklist and package map were updated with the final owner, revisit
+    trigger, and verification command, and the closure check approved the
+    patch with no new blocker.
+- Verification:
+  - `desloppify scan --path .` passed.
+  - `desloppify status` passed.
+  - `desloppify plan queue --sort recent` passed.
+  - `desloppify next` passed.
+  - `desloppify show review --status open --no-budget --top 120` passed with
+    no open review matches.
+  - `desloppify show security --status open --no-budget --top 50` ran and was
+    reconciled against direct cycle-detection proof.
+  - Package-local scoping commands for all five completed packages passed as
+    described above.
+  - `npm run verify` passed; Vite emitted only the existing chunk-size warning.
+  - `npm run verify:docs` passed.
+- Follow-ups: no P13 exact-membership follow-ups. Accepted non-P13 objective
+  residue remains with the existing Desloppify objective queue and should be
+  revisited only when `desloppify next` or a future objective cleanup selects
+  those rows.
+- Handoff: `P13` priority exit is closed. Do not reopen P13 exact issues solely
+  from stale detector wording; require current-source proof of a live seam.
 
 ## Not Active Checklist Scope By Default
 
