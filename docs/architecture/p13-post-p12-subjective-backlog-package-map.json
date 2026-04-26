@@ -287,9 +287,37 @@
         "priority_exit": "P13-EXIT"
       },
       "execution_status": {
-        "status": "not started",
-        "completed_execution_units": [],
-        "current_or_next_execution_unit": "P13-W4"
+        "status": "completed",
+        "completed_execution_units": [
+          "P13-W4-EU1",
+          "P13-W4-EU2",
+          "P13-W4-EU3",
+          "P13-W4-EU4",
+          "P13-W4-EU5",
+          "P13-W4-EU6"
+        ],
+        "current_or_next_execution_unit": null,
+        "source_proof_disposition": {
+          "review::.::holistic::error_consistency::plex_library_error_wrapping_loses_cause": "stale-proven resolved by preserving sanitized cause/context on PlexLibraryError wrappers for parse, network, timeout, and unknown failures without using native raw Error.cause or leaking Plex tokens",
+          "review::.::holistic::authorization_consistency::plex_image_foreign_url_boundary": "stale-proven resolved by returning null for foreign absolute image metadata in PlexLibrary.getImageUrl and shared Plex resource URL construction while preserving server-relative and same-server absolute image URLs",
+          "review::.::holistic::contract_coherence::plex_transcode_url_throws_undocumented": "stale-proven resolved by documenting synchronous StreamResolverError throws on the stream interface, implementation JSDoc, and Plex API docs, plus a resolveStreamPipeline transcode-path propagation contract test",
+          "review::.::holistic::design_coherence::plex_discovery_discover_servers_pipeline": "stale-proven resolved by extracting stateless PlexResourceDiscoveryRequestPolicy ownership for resource request variants, timeout, retry/backoff/rate-limit, 5xx fallback, response parsing, and response error mapping while leaving cache, stale context, selected-server state, events, and health persistence in PlexServerDiscovery",
+          "review::.::holistic::type_safety::plex_user_parser_record_contract": "stale-proven resolved by making parseUserResponse accept unknown, validate required profile fields internally, and throw typed parse errors without manufacturing required token fields from missing payload fields",
+          "review::.::holistic::logic_clarity::restore_track_async_without_await": "stale-proven resolved by making AudioTrackManager._restoreTrack synchronous and calling it directly inside the existing recovery try/catch"
+        },
+        "accepted_residue": [
+          "The remaining objective AudioTrackManager.ts console_error_no_throw and swallowed_error rows are pre-existing objective backlog signals for the restore-failure catch/log path, not part of P13-W4 exact review membership.",
+          "Exact issue-id Desloppify queries still return stale original imported review rows, but every P13-W4 exact issue is resolved by current-source proof and reviewed implementation evidence."
+        ],
+        "verification": [
+          "targeted package Jest command passed: 10 suites, 384 tests",
+          "npm run typecheck",
+          "npm run verify",
+          "npm run verify:docs before closeout edit as part of npm run verify; rerun required for final closeout commit",
+          "package-local desloppify show commands",
+          "exact issue-id desloppify show queries with --status all; stale imported review rows remain but are resolved by current-source proof",
+          "targeted rg audits for sanitized library causes, foreign image URL boundaries, transcode throw contract docs/call sites, parser required-field manufacturing, audio restore async/await removal, and discovery state/storage/event ownership"
+        ]
       }
     },
     {

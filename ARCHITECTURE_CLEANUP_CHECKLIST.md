@@ -470,7 +470,7 @@ The active P13 exact membership surface is
   execution-grade plan for `P13-W4`; do not close `P13-EXIT` until later P13
   packages are complete.
 
-### [ ] `P13-W4` `pkg_plex_and_player_contract_error_semantics`
+### [x] `P13-W4` `pkg_plex_and_player_contract_error_semantics`
 
 - Backlog: `6` refreshed post-P12 review issues.
 - Scope: preserve Plex library error causes, clarify Plex image URL trust
@@ -504,13 +504,73 @@ The active P13 exact membership surface is
   semantics from player-only simplification unless it proves a shared execution
   unit, owner, and verification envelope.
 - Likely verification: `npm run verify`.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: plan only after earlier P13 owners are complete or explicitly
-  deferred with one final owner.
+- Status: completed
+- Plan: package-local execution brief approved for serial single-slice units
+  `P13-W4-EU1` through `P13-W4-EU6`.
+- Last touched:
+  - `964aa21e` `Preserve Plex library error causes`
+  - `9031be56` `Reject foreign Plex image URLs`
+  - `86cb0c84` `Document Plex transcode URL failures`
+  - `4c25001e` `Extract Plex discovery request policy`
+  - `f18a2ebf` `Validate Plex user profile payloads`
+  - `dc0089da` `Simplify audio track restore`
+- Source-proof disposition:
+  - `review::.::holistic::error_consistency::plex_library_error_wrapping_loses_cause`
+    is stale-proven resolved by preserving sanitized `cause`/`context` on
+    `PlexLibraryError` wrappers for parse, network, timeout, and unknown
+    failures without using native raw `Error.cause` or leaking Plex tokens.
+  - `review::.::holistic::authorization_consistency::plex_image_foreign_url_boundary`
+    is stale-proven resolved by rejecting foreign absolute image metadata with
+    `null` in both library image URL construction and shared Plex resource URL
+    construction while preserving server-relative and same-server absolute
+    image URLs.
+  - `review::.::holistic::contract_coherence::plex_transcode_url_throws_undocumented`
+    is stale-proven resolved by documenting synchronous `StreamResolverError`
+    throws on the public interface, implementation JSDoc, and Plex API docs,
+    plus a pipeline contract test proving the transcode-path throw propagates
+    unchanged.
+  - `review::.::holistic::design_coherence::plex_discovery_discover_servers_pipeline`
+    is stale-proven resolved by moving Plex resource request variants, timeout,
+    retry/backoff/rate-limit, 5xx fallback, response parsing, and response
+    error mapping into the stateless `PlexResourceDiscoveryRequestPolicy`
+    helper while leaving cache, stale-context handling, selected-server state,
+    events, and health persistence in `PlexServerDiscovery`.
+  - `review::.::holistic::type_safety::plex_user_parser_record_contract` is
+    stale-proven resolved by making `parseUserResponse` accept `unknown`,
+    validate required profile fields internally, and throw typed parse errors
+    without manufacturing required token fields from missing payload fields.
+  - `review::.::holistic::logic_clarity::restore_track_async_without_await` is
+    stale-proven resolved by making `_restoreTrack` synchronous and calling it
+    directly inside the existing recovery `try/catch`.
+- Accepted residue:
+  - The remaining objective `AudioTrackManager.ts` `console_error_no_throw` and
+    `swallowed_error` Desloppify rows are pre-existing objective backlog
+    signals for the restore-failure catch/log path, not part of P13-W4 exact
+    review membership. The mapped async-without-await complaint is closed by
+    current-source proof.
+  - The imported exact review issue queries still return stale original
+    Desloppify review rows, but every P13-W4 exact issue is resolved by
+    current-source proof and reviewed implementation evidence.
+- Verification:
+  - Targeted package Jest command passed: 10 suites, 384 tests.
+  - `npm run typecheck` passed.
+  - `npm run verify` passed, including architecture lint, CSS lint, coverage
+    tests, tools tests, contract tests, docs verification, and build; Vite
+    emitted only the existing chunk-size warning.
+  - `npm run verify:docs` passed as part of `npm run verify` before this
+    closeout edit and will be rerun for the final closeout commit.
+  - Package-local Desloppify show commands and exact issue-id queries were
+    rerun; stale imported review rows remain but are resolved by current-source
+    proof.
+  - Targeted `rg` audits covered sanitized library causes, foreign image URL
+    boundaries, transcode throw contract docs/call sites, parser required-field
+    manufacturing, audio restore async/await removal, and discovery
+    state/storage/event ownership.
+- Follow-ups: none for P13-W4 exact membership. `P13-W5` remains open and
+  `P13-EXIT` must remain open until later P13 package closeout.
+- Handoff: `P13-W4` is closed. Next safe start is a package-local
+  execution-grade plan for `P13-W5`; do not close `P13-EXIT` until later P13
+  packages are complete.
 
 ### [ ] `P13-W5` `pkg_documentation_comment_and_package_hygiene`
 
