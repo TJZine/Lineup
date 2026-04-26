@@ -529,12 +529,9 @@ function buildNavigationNowPlayingInfoConfig(
 ): NavigationCoordinatorDeps['nowPlayingInfo'] {
     return {
         modalId: NOW_PLAYING_INFO_MODAL_ID,
-        isModalOpen: (): boolean => {
-            const isOpen = input.modules.navigation.isModalOpen(NOW_PLAYING_INFO_MODAL_ID);
-            if (isOpen) {
-                input.overlays.nowPlayingInfo.resetAutoHideTimer();
-            }
-            return isOpen;
+        isModalOpen: (): boolean => input.modules.navigation.isModalOpen(NOW_PLAYING_INFO_MODAL_ID),
+        resetAutoHideTimer: (): void => {
+            input.overlays.nowPlayingInfo.resetAutoHideTimer();
         },
         toggleOverlay: (): void => input.actions.toggleNowPlayingInfoOverlay(),
         showOverlay: (): void => deps.nowPlayingInfoCoordinator.handleModalOpen(NOW_PLAYING_INFO_MODAL_ID),

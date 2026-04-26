@@ -1,7 +1,12 @@
 import { DEFAULT_CHANNEL_SETUP_MAX } from '../../../modules/scheduler/channel-manager/constants';
 import { DEFAULT_MIN_ITEMS_PER_CHANNEL, DEFAULT_STRATEGY_PRIORITIES, SETUP_STRATEGY_KEYS } from '../constants';
 import { normalizeChannelSetupConfig } from '../planning/normalizeChannelSetupConfig';
-import type { ChannelSetupConfig, SetupStrategyConfig, SetupStrategyKey } from '../types';
+import type {
+    ChannelSetupConfig,
+    ChannelSetupRecord,
+    SetupStrategyConfig,
+    SetupStrategyKey,
+} from '../types';
 
 const createStrategyConfig = (): Record<SetupStrategyKey, SetupStrategyConfig> => (
     SETUP_STRATEGY_KEYS.reduce<Record<SetupStrategyKey, SetupStrategyConfig>>((acc, key) => {
@@ -71,5 +76,29 @@ describe('normalizeChannelSetupConfig', () => {
 
         expect(normalized.buildMode).toBe('replace');
         expect(normalized.actorStudioCombineMode).toBe('separate');
+    });
+
+    it('preserves record metadata while returning normalized nested config objects', () => {
+        const record: ChannelSetupRecord = {
+            ...createConfig(),
+            createdAt: 1_000,
+            updatedAt: 2_000,
+        };
+
+        const normalized = normalizeChannelSetupConfig(record);
+        const roundTripRecord: ChannelSetupRecord = normalized;
+
+        expect(roundTripRecord.createdAt).toBe(1_000);
+        expect(roundTripRecord.updatedAt).toBe(2_000);
+        expect(roundTripRecord.channelExpansion).toEqual({
+            addAlternateLineups: false,
+            alternateLineupCopies: 1,
+            variantType: 'none',
+            variantBlockSize: 3,
+        });
+        expect(roundTripRecord.seriesOrdering).toEqual({
+            basePlaybackMode: 'shuffle',
+            baseBlockSize: 3,
+        });
     });
 });

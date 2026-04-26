@@ -35,6 +35,13 @@ const createPort = (
     ...overrides,
 });
 
+const createAdapter = (
+    port: SelectedServerCredentialsPort | null
+): SelectedServerPersistenceAdapter =>
+    new SelectedServerPersistenceAdapter({
+        getCredentialsPort: () => port,
+    });
+
 describe('SelectedServerPersistenceAdapter', () => {
     it('persists selected server for the active Plex user without changing credential schema', async () => {
         const credentials = makeCredentials({
@@ -48,9 +55,7 @@ describe('SelectedServerPersistenceAdapter', () => {
                 credentials,
             })),
         });
-        const adapter = new SelectedServerPersistenceAdapter({
-            getCredentialsPort: (): SelectedServerCredentialsPort => port,
-        });
+        const adapter = createAdapter(port);
 
         await expect(adapter.persistSelection('server-1', 'https://server.example.invalid')).resolves.toBe('updated');
 
@@ -80,9 +85,7 @@ describe('SelectedServerPersistenceAdapter', () => {
                 credentials,
             })),
         });
-        const adapter = new SelectedServerPersistenceAdapter({
-            getCredentialsPort: (): SelectedServerCredentialsPort => port,
-        });
+        const adapter = createAdapter(port);
 
         await expect(adapter.persistSelection('server-1', 'https://server.example.invalid')).resolves.toBe('updated');
 
@@ -107,15 +110,9 @@ describe('SelectedServerPersistenceAdapter', () => {
             })),
         });
 
-        await expect(new SelectedServerPersistenceAdapter({
-            getCredentialsPort: (): null => null,
-        }).persistSelection('server-1', null)).resolves.toBe('skipped_missing_credentials');
-        await expect(new SelectedServerPersistenceAdapter({
-            getCredentialsPort: (): SelectedServerCredentialsPort => missingPort,
-        }).persistSelection('server-1', null)).resolves.toBe('skipped_missing_credentials');
-        await expect(new SelectedServerPersistenceAdapter({
-            getCredentialsPort: (): SelectedServerCredentialsPort => corruptedPort,
-        }).persistSelection('server-1', null)).resolves.toBe('skipped_corrupted_credentials');
+        await expect(createAdapter(null).persistSelection('server-1', null)).resolves.toBe('skipped_missing_credentials');
+        await expect(createAdapter(missingPort).persistSelection('server-1', null)).resolves.toBe('skipped_missing_credentials');
+        await expect(createAdapter(corruptedPort).persistSelection('server-1', null)).resolves.toBe('skipped_corrupted_credentials');
 
         expect(missingPort.storeCredentials).not.toHaveBeenCalled();
         expect(corruptedPort.storeCredentials).not.toHaveBeenCalled();
@@ -135,9 +132,7 @@ describe('SelectedServerPersistenceAdapter', () => {
                 }),
             })),
         });
-        const adapter = new SelectedServerPersistenceAdapter({
-            getCredentialsPort: (): SelectedServerCredentialsPort => port,
-        });
+        const adapter = createAdapter(port);
 
         await expect(adapter.capturePersistedSelectionSnapshot()).resolves.toEqual({
             kind: 'available',

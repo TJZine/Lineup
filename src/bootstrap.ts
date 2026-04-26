@@ -157,15 +157,15 @@ function toSafeErrorMessage(value: unknown): string {
     return 'An unexpected error occurred.';
 }
 
-function openDebugEpg(currentApp: App): void {
+function openDebugEpg(currentApp: LineupAppInstance): void {
     currentApp.getOrchestrator()?.openEPG();
 }
 
-function closeDebugEpg(currentApp: App): void {
+function closeDebugEpg(currentApp: LineupAppInstance): void {
     currentApp.getOrchestrator()?.closeEPG();
 }
 
-function toggleDebugEpg(currentApp: App): void {
+function toggleDebugEpg(currentApp: LineupAppInstance): void {
     currentApp.getOrchestrator()?.toggleEPG();
 }
 
@@ -212,7 +212,7 @@ function getOrchestratorStatusSnapshot(currentApp: LineupAppInstance): LineupBoo
     };
 }
 
-function createLineupDebugApi(currentApp: App): LineupDebugApi {
+function createLineupDebugApi(currentApp: LineupAppInstance): LineupDebugApi {
     return {
         openEPG: openDebugEpg.bind(null, currentApp),
         closeEPG: closeDebugEpg.bind(null, currentApp),

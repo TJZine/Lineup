@@ -1,16 +1,17 @@
 import type {
-    ChannelExpansionConfig,
     ChannelSetupConfig,
     ChannelSetupContext,
     ChannelSetupPreview,
     ChannelSetupRecord,
     ChannelSetupReview,
-    SeriesOrderingConfig,
-    SetupStrategyConfig,
 } from '../../../core/channel-setup/types';
 import {
+    DEFAULT_CHANNEL_EXPANSION,
+    DEFAULT_SERIES_ORDERING,
+} from '../../../core/channel-setup/constants';
+import { normalizeChannelSetupConfig } from '../../../core/channel-setup/planning/normalizeChannelSetupConfig';
+import {
     DEFAULT_CHANNEL_SETUP_MAX,
-    MAX_CHANNELS,
 } from '../../scheduler/channel-manager/constants';
 import type {
     ChannelExpansionState,
@@ -23,38 +24,13 @@ import type {
     StrategyStepMutableState,
 } from './ChannelSetupSessionContracts';
 import {
-    ALTERNATE_LINEUP_COPY_OPTIONS,
     DEFAULT_MIN_ITEMS_PER_CHANNEL,
     DEFAULT_STRATEGY_PRIORITIES,
     MIXED_SCOPE_STRATEGY_KEYS,
-    SERIES_BLOCK_PRESETS,
     SETUP_STRATEGY_KEYS,
     type SetupStrategyKey,
 } from './steps/constants';
 import type { PlexLibrarySection } from '../../plex/library';
-
-const ALTERNATE_LINEUP_COPY_MIN = ALTERNATE_LINEUP_COPY_OPTIONS.length > 0
-    ? Math.min(...ALTERNATE_LINEUP_COPY_OPTIONS)
-    : 1;
-const ALTERNATE_LINEUP_COPY_MAX = ALTERNATE_LINEUP_COPY_OPTIONS.length > 0
-    ? Math.max(...ALTERNATE_LINEUP_COPY_OPTIONS)
-    : 3;
-const SERIES_BLOCK_PRESET_MIN = SERIES_BLOCK_PRESETS.length > 0
-    ? Math.min(...SERIES_BLOCK_PRESETS)
-    : 2;
-const SERIES_BLOCK_PRESET_MAX = SERIES_BLOCK_PRESETS.length > 0
-    ? Math.max(...SERIES_BLOCK_PRESETS)
-    : 5;
-const DEFAULT_SERIES_BLOCK_PRESET = SERIES_BLOCK_PRESETS.includes(3)
-    ? 3
-    : SERIES_BLOCK_PRESETS[0] ?? 3;
-
-export const clampSeriesBlockPreset = (raw: unknown): number => {
-    const numeric = typeof raw === 'number' ? raw : Number(raw);
-    if (!Number.isFinite(numeric)) return DEFAULT_SERIES_BLOCK_PRESET;
-    const value = Math.floor(numeric);
-    return Math.min(SERIES_BLOCK_PRESET_MAX, Math.max(SERIES_BLOCK_PRESET_MIN, value));
-};
 
 export const strategySupportsMixedScope = (key: SetupStrategyKey): boolean =>
     MIXED_SCOPE_STRATEGY_KEYS.has(key);
@@ -80,15 +56,11 @@ export const createDefaultStrategyOrder = (): SetupStrategyKey[] =>
     [...SETUP_STRATEGY_KEYS].sort(compareSetupStrategyKeys);
 
 export const defaultChannelExpansionState = (): ChannelExpansionState => ({
-    addAlternateLineups: false,
-    alternateLineupCopies: 1,
-    variantType: 'none',
-    variantBlockSize: DEFAULT_SERIES_BLOCK_PRESET,
+    ...DEFAULT_CHANNEL_EXPANSION,
 });
 
 export const defaultSeriesOrderingState = (): SeriesOrderingState => ({
-    basePlaybackMode: 'shuffle',
-    baseBlockSize: DEFAULT_SERIES_BLOCK_PRESET,
+    ...DEFAULT_SERIES_ORDERING,
 });
 
 const cloneStrategies = (strategies: SetupStrategyState): SetupStrategyState =>
@@ -132,75 +104,6 @@ const cloneReview = (review: ChannelSetupReview | null): ChannelSetupReview | nu
                 unchanged: [...review.diff.samples.unchanged],
             },
         },
-    };
-};
-
-const normalizeChannelExpansion = (expansion: ChannelExpansionConfig | undefined): ChannelExpansionConfig => ({
-    addAlternateLineups: expansion?.addAlternateLineups === true,
-    alternateLineupCopies: Number.isFinite(expansion?.alternateLineupCopies)
-        ? Math.min(
-            ALTERNATE_LINEUP_COPY_MAX,
-            Math.max(ALTERNATE_LINEUP_COPY_MIN, Math.floor(Number(expansion?.alternateLineupCopies)))
-        )
-        : ALTERNATE_LINEUP_COPY_MIN,
-    variantType:
-        expansion?.variantType === 'sequential' || expansion?.variantType === 'block'
-            ? expansion.variantType
-            : 'none',
-    variantBlockSize: clampSeriesBlockPreset(expansion?.variantBlockSize),
-});
-
-const normalizeSeriesOrdering = (value: SeriesOrderingConfig | undefined): SeriesOrderingConfig => ({
-    basePlaybackMode:
-        value?.basePlaybackMode === 'sequential' || value?.basePlaybackMode === 'block'
-            ? value.basePlaybackMode
-            : 'shuffle',
-    baseBlockSize: clampSeriesBlockPreset(value?.baseBlockSize),
-});
-
-const normalizeChannelSetupConfig = (config: ChannelSetupConfig): ChannelSetupConfig => {
-    const selectedLibraryIds = Array.isArray(config.selectedLibraryIds)
-        ? config.selectedLibraryIds.filter((id): id is string => typeof id === 'string')
-        : [];
-    const maxChannels = Number.isFinite(config.maxChannels)
-        ? Math.min(Math.max(Math.floor(config.maxChannels), 1), MAX_CHANNELS)
-        : DEFAULT_CHANNEL_SETUP_MAX;
-    const minItemsPerChannel = Number.isFinite(config.minItemsPerChannel)
-        ? Math.max(1, Math.floor(config.minItemsPerChannel))
-        : DEFAULT_MIN_ITEMS_PER_CHANNEL;
-    const buildMode =
-        config.buildMode === 'append' || config.buildMode === 'merge' || config.buildMode === 'replace'
-            ? config.buildMode
-            : 'replace';
-    const actorStudioCombineMode =
-        config.actorStudioCombineMode === 'combined' || config.actorStudioCombineMode === 'separate'
-            ? config.actorStudioCombineMode
-            : 'separate';
-    const strategySource = (config.strategyConfig ?? {}) as Partial<Record<SetupStrategyKey, SetupStrategyConfig>>;
-    const strategyConfig = SETUP_STRATEGY_KEYS.reduce<ChannelSetupConfig['strategyConfig']>((acc, key) => {
-        const candidate = strategySource[key];
-        const enabled = typeof candidate?.enabled === 'boolean' ? candidate.enabled : true;
-        const rawPriority = candidate?.priority;
-        const priority = Number.isFinite(rawPriority)
-            ? Math.max(1, Math.floor(Number(rawPriority)))
-            : DEFAULT_STRATEGY_PRIORITIES[key];
-        const scope = MIXED_SCOPE_STRATEGY_KEYS.has(key) && candidate?.scope === 'cross-library'
-            ? 'cross-library'
-            : 'per-library';
-        acc[key] = { enabled, priority, scope };
-        return acc;
-    }, {} as ChannelSetupConfig['strategyConfig']);
-
-    return {
-        ...config,
-        selectedLibraryIds,
-        maxChannels,
-        minItemsPerChannel,
-        buildMode,
-        actorStudioCombineMode,
-        strategyConfig,
-        channelExpansion: normalizeChannelExpansion(config.channelExpansion),
-        seriesOrdering: normalizeSeriesOrdering(config.seriesOrdering),
     };
 };
 
@@ -433,15 +336,15 @@ export class ChannelSetupSessionState {
         this.strategyOrder = sortedByPriority;
 
         this.channelExpansion = {
-            addAlternateLineups: normalized.channelExpansion?.addAlternateLineups === true,
-            alternateLineupCopies: normalized.channelExpansion?.alternateLineupCopies ?? 1,
-            variantType: normalized.channelExpansion?.variantType ?? 'none',
-            variantBlockSize: normalized.channelExpansion?.variantBlockSize ?? DEFAULT_SERIES_BLOCK_PRESET,
+            addAlternateLineups: normalized.channelExpansion.addAlternateLineups,
+            alternateLineupCopies: normalized.channelExpansion.alternateLineupCopies,
+            variantType: normalized.channelExpansion.variantType,
+            variantBlockSize: normalized.channelExpansion.variantBlockSize,
         };
 
         this.seriesOrdering = {
-            basePlaybackMode: normalized.seriesOrdering?.basePlaybackMode ?? 'shuffle',
-            baseBlockSize: normalized.seriesOrdering?.baseBlockSize ?? DEFAULT_SERIES_BLOCK_PRESET,
+            basePlaybackMode: normalized.seriesOrdering.basePlaybackMode,
+            baseBlockSize: normalized.seriesOrdering.baseBlockSize,
         };
 
         this.maxChannels = normalized.maxChannels;

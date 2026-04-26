@@ -116,12 +116,14 @@ export class AppLifecycle implements IAppLifecycle {
         // Setup event listeners
         this._setupVisibilityListeners();
         this._connectivityMonitor.setupListeners();
-        this._memoryMonitor.startMonitoring();
-        this._connectivityMonitor.startMonitoring();
 
         // Check initial network state
-        this._isNetworkAvailable = navigator.onLine;
-        this._connectivityMonitor.setInitialAvailability(navigator.onLine);
+        const initialNetworkAvailability = navigator.onLine;
+        this._isNetworkAvailable = initialNetworkAvailability;
+        this._connectivityMonitor.setInitialAvailability(initialNetworkAvailability);
+
+        this._memoryMonitor.startMonitoring();
+        this._connectivityMonitor.startMonitoring();
 
         // Restore state
         const savedState = this._stateManager.load();

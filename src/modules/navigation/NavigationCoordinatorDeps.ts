@@ -38,6 +38,7 @@ export interface NavigationCoordinatorDeps {
     nowPlayingInfo: {
         modalId: string;
         isModalOpen: () => boolean;
+        resetAutoHideTimer: () => void;
         toggleOverlay: () => void;
         showOverlay: () => void;
         hideOverlay: () => void;

@@ -529,6 +529,32 @@ describe('AppLifecycle', () => {
 
             expect(lifecycle.getPhase()).toBe('backgrounded');
         });
+
+        it('waits for an earlier visibility transition even when a later transition settles first', async () => {
+            await lifecycle.initialize();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
+            const pauseDeferred = createDeferred<void>();
+            lifecycle.onPause(() => pauseDeferred.promise);
+            let waitSettled = false;
+
+            Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+
+            Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+
+            const wait = lifecycle.waitForPendingTransition().then(() => {
+                waitSettled = true;
+            });
+
+            await Promise.resolve();
+            expect(waitSettled).toBe(false);
+
+            pauseDeferred.resolve();
+            await wait;
+            expect(waitSettled).toBe(true);
+        });
     });
 
     describe('error handling', () => {
@@ -581,32 +607,6 @@ describe('AppLifecycle', () => {
                     timestamp: expect.any(Number),
                 })
             );
-        });
-
-        it('waits for an earlier visibility transition even when a later transition settles first', async () => {
-            await lifecycle.initialize();
-            await lifecycle.setPhaseAndWait('loading_data');
-            await lifecycle.setPhaseAndWait('ready');
-            const pauseDeferred = createDeferred<void>();
-            lifecycle.onPause(() => pauseDeferred.promise);
-            let waitSettled = false;
-
-            Object.defineProperty(document, 'hidden', { value: true, configurable: true });
-            document.dispatchEvent(new Event('visibilitychange'));
-
-            Object.defineProperty(document, 'hidden', { value: false, configurable: true });
-            document.dispatchEvent(new Event('visibilitychange'));
-
-            const wait = lifecycle.waitForPendingTransition().then(() => {
-                waitSettled = true;
-            });
-
-            await Promise.resolve();
-            expect(waitSettled).toBe(false);
-
-            pauseDeferred.resolve();
-            await wait;
-            expect(waitSettled).toBe(true);
         });
     });
 

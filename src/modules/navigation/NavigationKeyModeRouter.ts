@@ -1,5 +1,4 @@
 import type { KeyEvent, Screen } from './interfaces';
-import { NOW_PLAYING_INFO_MODAL_ID } from '../ui/now-playing-info';
 import type { NavigationCoordinatorDeps } from './NavigationCoordinatorDeps';
 import type { NavigationRepeatHandler } from './NavigationRepeatHandler';
 
@@ -100,7 +99,8 @@ export class NavigationKeyModeRouter {
             const navigation = this.deps.navigation;
             if (!navigation.isModalOpen(this.deps.modals.playbackOptions.modalId)) {
                 const prep = this.deps.modals.playbackOptions.prepare('subtitles');
-                navigation.closeModal(NOW_PLAYING_INFO_MODAL_ID);
+                this.deps.nowPlayingInfo.resetAutoHideTimer();
+                navigation.closeModal(this.deps.nowPlayingInfo.modalId);
                 navigation.openModal(this.deps.modals.playbackOptions.modalId, prep.focusableIds);
                 if (prep.preferredFocusId) {
                     navigation.setFocus(prep.preferredFocusId);
@@ -331,6 +331,9 @@ export class NavigationKeyModeRouter {
                 break;
             case 'info':
             case 'blue': {
+                if (event.isRepeat) {
+                    break;
+                }
                 const navigation = this.deps.navigation;
                 const plexAuth = this.deps.playback.plexAuth;
                 if (plexAuth && !plexAuth.isAuthenticated()) {

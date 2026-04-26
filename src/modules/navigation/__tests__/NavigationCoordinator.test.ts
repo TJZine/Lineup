@@ -79,6 +79,7 @@ type LegacyNavigationCoordinatorDeps = {
     handleMiniGuidePage: jest.Mock;
     handleMiniGuideSelect: jest.Mock;
     isNowPlayingModalOpen: jest.Mock;
+    resetNowPlayingInfoAutoHideTimer: jest.Mock;
     toggleNowPlayingInfoOverlay: jest.Mock;
     showNowPlayingInfoOverlay: jest.Mock;
     hideNowPlayingInfoOverlay: jest.Mock;
@@ -153,6 +154,7 @@ const setup = (
         handleMiniGuidePage: jest.fn().mockReturnValue(true),
         handleMiniGuideSelect: jest.fn(),
         isNowPlayingModalOpen: jest.fn().mockReturnValue(false),
+        resetNowPlayingInfoAutoHideTimer: jest.fn(),
         toggleNowPlayingInfoOverlay: jest.fn(),
         showNowPlayingInfoOverlay: jest.fn(),
         hideNowPlayingInfoOverlay: jest.fn(),
@@ -216,6 +218,7 @@ const setup = (
         nowPlayingInfo: {
             modalId: legacy.nowPlayingInfoModalId,
             isModalOpen: legacy.isNowPlayingModalOpen,
+            resetAutoHideTimer: legacy.resetNowPlayingInfoAutoHideTimer,
             toggleOverlay: legacy.toggleNowPlayingInfoOverlay,
             showOverlay: legacy.showNowPlayingInfoOverlay,
             hideOverlay: legacy.hideNowPlayingInfoOverlay,
@@ -674,7 +677,9 @@ describe('NavigationCoordinator', () => {
             focusableIds: ['playback-subtitle-off'],
             preferredFocusId: 'playback-subtitle-off',
         };
+        const nowPlayingInfoModalId = 'injected-now-playing-info';
         const { handlers, navigation, deps } = setup({
+            nowPlayingInfoModalId,
             isNowPlayingModalOpen: jest.fn().mockReturnValue(true),
             preparePlaybackOptionsModal: jest.fn().mockReturnValue(focus),
         });
@@ -683,12 +688,33 @@ describe('NavigationCoordinator', () => {
         handlers.keyPress?.(event);
 
         expect(deps.preparePlaybackOptionsModal).toHaveBeenCalledWith('subtitles');
-        expect(navigation.closeModal).toHaveBeenCalledWith(NOW_PLAYING_INFO_MODAL_ID);
+        expect(deps.resetNowPlayingInfoAutoHideTimer).toHaveBeenCalledTimes(1);
+        expect(navigation.closeModal).toHaveBeenCalledWith(nowPlayingInfoModalId);
         expect(navigation.openModal).toHaveBeenCalledWith(
             PLAYBACK_OPTIONS_MODAL_ID,
             focus.focusableIds
         );
         expect(event.handled).toBe(true);
+    });
+
+    it('does not route repeated info or blue keypresses', () => {
+        const { handlers, navigation } = setup();
+
+        handlers.keyPress?.(makeKeyEvent('info', { isRepeat: true }));
+        handlers.keyPress?.(makeKeyEvent('blue', { isRepeat: true }));
+
+        expect(navigation.goTo).not.toHaveBeenCalled();
+    });
+
+    it('routes non-repeated info or blue keypresses to the server-selection flow once per keypress', () => {
+        const { handlers, navigation } = setup();
+
+        handlers.keyPress?.(makeKeyEvent('info'));
+        handlers.keyPress?.(makeKeyEvent('blue'));
+
+        expect(navigation.goTo).toHaveBeenCalledTimes(2);
+        expect(navigation.goTo).toHaveBeenNthCalledWith(1, 'server-select', { allowAutoConnect: false });
+        expect(navigation.goTo).toHaveBeenNthCalledWith(2, 'server-select', { allowAutoConnect: false });
     });
 
     it('routes EPG key handling and marks handled', () => {

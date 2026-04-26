@@ -15,6 +15,13 @@ import {
     SETUP_STRATEGY_KEYS,
 } from '../constants';
 
+export type NormalizedChannelSetupConfig<T extends ChannelSetupConfig = ChannelSetupConfig> =
+    Omit<T, keyof ChannelSetupConfig> &
+    ChannelSetupConfig & {
+        channelExpansion: ChannelExpansionConfig;
+        seriesOrdering: SeriesOrderingConfig;
+    };
+
 const normalizeChannelExpansion = (expansion: ChannelExpansionConfig | undefined): ChannelExpansionConfig => {
     const addAlternateLineups = expansion?.addAlternateLineups === true;
     const alternateLineupCopies = Number.isFinite(expansion?.alternateLineupCopies)
@@ -49,7 +56,9 @@ const normalizeSeriesOrdering = (value: SeriesOrderingConfig | undefined): Serie
     };
 };
 
-export const normalizeChannelSetupConfig = (config: ChannelSetupConfig): ChannelSetupConfig => {
+export const normalizeChannelSetupConfig = <T extends ChannelSetupConfig>(
+    config: T
+): NormalizedChannelSetupConfig<T> => {
     const selectedLibraryIds = Array.isArray(config.selectedLibraryIds)
         ? config.selectedLibraryIds.filter((id): id is string => typeof id === 'string')
         : [];
@@ -92,5 +101,5 @@ export const normalizeChannelSetupConfig = (config: ChannelSetupConfig): Channel
         strategyConfig,
         channelExpansion: normalizeChannelExpansion(config.channelExpansion),
         seriesOrdering: normalizeSeriesOrdering(config.seriesOrdering),
-    };
+    } as NormalizedChannelSetupConfig<T>;
 };
