@@ -28,6 +28,22 @@ type AdjustableControl = {
     openDropdown: () => void;
 };
 
+type StrategyControlValue = string | number;
+
+type StrategyControlDescriptor = {
+    controlId: string;
+    options: (adapters: StrategyControlOptionsAdapters) => readonly StrategyControlValue[];
+    currentValue: (session: ChannelSetupSessionSnapshot) => StrategyControlValue;
+    applyValue: (draft: StrategyStepMutableState, value: StrategyControlValue) => void;
+    cycleMode?: 'discrete' | 'preset';
+    isDisabled?: (session: ChannelSetupSessionSnapshot) => boolean;
+};
+
+type StrategyControlOptionsAdapters = {
+    channelLimitOptions: number[];
+    minItemsOptions: number[];
+};
+
 type StrategyStepInteractionAdapters = {
     deferDropdownRender: () => void;
     dismissDropdown: () => void;
@@ -48,6 +64,86 @@ type StrategyStepInteractionAdapters = {
     updatePriorityRowState: (rowId: string, enabled: boolean) => boolean;
     updateStrategyState: (mutate: (draft: StrategyStepMutableState) => void) => void;
 };
+
+const STRATEGY_CONTROL_DESCRIPTORS: readonly StrategyControlDescriptor[] = [
+    {
+        controlId: STEP2_CONTROL_IDS.buildMode,
+        options: () => BUILD_MODE_OPTIONS,
+        currentValue: (session) => session.buildMode,
+        applyValue: (draft, value) => {
+            draft.buildMode = value as typeof draft.buildMode;
+        },
+    },
+    {
+        controlId: STEP2_CONTROL_IDS.combineMode,
+        options: () => COMBINE_MODE_OPTIONS,
+        currentValue: (session) => session.actorStudioCombineMode,
+        applyValue: (draft, value) => {
+            draft.actorStudioCombineMode = value as typeof draft.actorStudioCombineMode;
+        },
+    },
+    {
+        controlId: STEP2_CONTROL_IDS.alternateLineupCopies,
+        options: () => ALTERNATE_LINEUP_COPY_OPTIONS,
+        currentValue: (session) => session.channelExpansion.alternateLineupCopies,
+        applyValue: (draft, value) => {
+            draft.channelExpansion.alternateLineupCopies = Number(value);
+        },
+        isDisabled: (session) => !session.channelExpansion.addAlternateLineups,
+    },
+    {
+        controlId: STEP2_CONTROL_IDS.seriesBaseMode,
+        options: () => SERIES_BASE_MODE_OPTIONS,
+        currentValue: (session) => session.seriesOrdering.basePlaybackMode,
+        applyValue: (draft, value) => {
+            draft.seriesOrdering.basePlaybackMode = value as typeof draft.seriesOrdering.basePlaybackMode;
+        },
+    },
+    {
+        controlId: STEP2_CONTROL_IDS.seriesBaseBlockSize,
+        options: () => SERIES_BLOCK_PRESETS,
+        currentValue: (session) => session.seriesOrdering.baseBlockSize,
+        applyValue: (draft, value) => {
+            draft.seriesOrdering.baseBlockSize = Number(value);
+        },
+        isDisabled: (session) => session.seriesOrdering.basePlaybackMode !== 'block',
+    },
+    {
+        controlId: STEP2_CONTROL_IDS.seriesVariantType,
+        options: () => SERIES_VARIANT_TYPE_OPTIONS,
+        currentValue: (session) => session.channelExpansion.variantType,
+        applyValue: (draft, value) => {
+            draft.channelExpansion.variantType = value as typeof draft.channelExpansion.variantType;
+        },
+    },
+    {
+        controlId: STEP2_CONTROL_IDS.seriesVariantBlockSize,
+        options: () => SERIES_BLOCK_PRESETS,
+        currentValue: (session) => session.channelExpansion.variantBlockSize,
+        applyValue: (draft, value) => {
+            draft.channelExpansion.variantBlockSize = Number(value);
+        },
+        isDisabled: (session) => session.channelExpansion.variantType !== 'block',
+    },
+    {
+        controlId: STEP2_CONTROL_IDS.maxChannels,
+        options: (adapters) => adapters.channelLimitOptions,
+        currentValue: (session) => session.maxChannels,
+        applyValue: (draft, value) => {
+            draft.maxChannels = Number(value);
+        },
+        cycleMode: 'preset',
+    },
+    {
+        controlId: STEP2_CONTROL_IDS.minItems,
+        options: (adapters) => adapters.minItemsOptions,
+        currentValue: (session) => session.minItems,
+        applyValue: (draft, value) => {
+            draft.minItems = Number(value);
+        },
+        cycleMode: 'preset',
+    },
+];
 
 export class StrategyStepInteractionController {
     private _activeStrategyCategory: StrategyCategoryKey = 'content-sources';
@@ -420,160 +516,24 @@ export class StrategyStepInteractionController {
         }
     ): StrategyStepDropdownConfig | null {
         const session = adapters.getSessionSnapshot();
-        if (controlId === STEP2_CONTROL_IDS.buildMode) {
-            return {
-                anchorId: controlId,
-                options: BUILD_MODE_OPTIONS.map((value) => ({
-                    label: this._capitalize(value),
-                    value,
-                })),
-                currentValue: session.buildMode,
-                onSelect: (value): void => {
-                    this.applySettingChange(controlId, (draft) => {
-                        draft.buildMode = value as typeof draft.buildMode;
-                    }, adapters);
-                },
-            };
+        const descriptor = this._getControlDescriptor(controlId);
+        if (!descriptor || this._isDescriptorDisabled(descriptor, session)) {
+            return null;
         }
 
-        if (controlId === STEP2_CONTROL_IDS.combineMode) {
-            return {
-                anchorId: controlId,
-                options: COMBINE_MODE_OPTIONS.map((value) => ({
-                    label: this._capitalize(value),
-                    value,
-                })),
-                currentValue: session.actorStudioCombineMode,
-                onSelect: (value): void => {
-                    this.applySettingChange(controlId, (draft) => {
-                        draft.actorStudioCombineMode = value as typeof draft.actorStudioCombineMode;
-                    }, adapters);
-                },
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.alternateLineupCopies) {
-            if (!session.channelExpansion.addAlternateLineups) {
-                return null;
-            }
-            return {
-                anchorId: controlId,
-                options: ALTERNATE_LINEUP_COPY_OPTIONS.map((value) => ({
-                    label: String(value),
-                    value: String(value),
-                })),
-                currentValue: String(session.channelExpansion.alternateLineupCopies),
-                onSelect: (value): void => {
-                    this.applySettingChange(controlId, (draft) => {
-                        draft.channelExpansion.alternateLineupCopies = Number(value);
-                    }, adapters);
-                },
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.seriesBaseMode) {
-            return {
-                anchorId: controlId,
-                options: SERIES_BASE_MODE_OPTIONS.map((value) => ({
-                    label: this._capitalize(value),
-                    value,
-                })),
-                currentValue: session.seriesOrdering.basePlaybackMode,
-                onSelect: (value): void => {
-                    this.applySettingChange(controlId, (draft) => {
-                        draft.seriesOrdering.basePlaybackMode = value as typeof draft.seriesOrdering.basePlaybackMode;
-                    }, adapters);
-                },
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.seriesBaseBlockSize) {
-            if (session.seriesOrdering.basePlaybackMode !== 'block') {
-                return null;
-            }
-            return {
-                anchorId: controlId,
-                options: SERIES_BLOCK_PRESETS.map((value) => ({
-                    label: String(value),
-                    value: String(value),
-                })),
-                currentValue: String(session.seriesOrdering.baseBlockSize),
-                onSelect: (value): void => {
-                    this.applySettingChange(controlId, (draft) => {
-                        draft.seriesOrdering.baseBlockSize = Number(value);
-                    }, adapters);
-                },
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.seriesVariantType) {
-            return {
-                anchorId: controlId,
-                options: SERIES_VARIANT_TYPE_OPTIONS.map((value) => ({
-                    label: this._capitalize(value),
-                    value,
-                })),
-                currentValue: session.channelExpansion.variantType,
-                onSelect: (value): void => {
-                    this.applySettingChange(controlId, (draft) => {
-                        draft.channelExpansion.variantType = value as typeof draft.channelExpansion.variantType;
-                    }, adapters);
-                },
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.seriesVariantBlockSize) {
-            if (session.channelExpansion.variantType !== 'block') {
-                return null;
-            }
-            return {
-                anchorId: controlId,
-                options: SERIES_BLOCK_PRESETS.map((value) => ({
-                    label: String(value),
-                    value: String(value),
-                })),
-                currentValue: String(session.channelExpansion.variantBlockSize),
-                onSelect: (value): void => {
-                    this.applySettingChange(controlId, (draft) => {
-                        draft.channelExpansion.variantBlockSize = Number(value);
-                    }, adapters);
-                },
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.maxChannels) {
-            return {
-                anchorId: controlId,
-                options: adapters.channelLimitOptions.map((value) => ({
-                    label: String(value),
-                    value: String(value),
-                })),
-                currentValue: String(session.maxChannels),
-                onSelect: (value): void => {
-                    this.applySettingChange(controlId, (draft) => {
-                        draft.maxChannels = Number(value);
-                    }, adapters);
-                },
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.minItems) {
-            return {
-                anchorId: controlId,
-                options: adapters.minItemsOptions.map((value) => ({
-                    label: String(value),
-                    value: String(value),
-                })),
-                currentValue: String(session.minItems),
-                onSelect: (value): void => {
-                    this.applySettingChange(controlId, (draft) => {
-                        draft.minItems = Number(value);
-                    }, adapters);
-                },
-            };
-        }
-
-        return null;
+        return {
+            anchorId: controlId,
+            options: descriptor.options(adapters).map((value) => ({
+                label: this._formatDropdownLabel(value),
+                value: String(value),
+            })),
+            currentValue: String(descriptor.currentValue(session)),
+            onSelect: (value): void => {
+                this.applySettingChange(controlId, (draft) => {
+                    descriptor.applyValue(draft, value);
+                }, adapters);
+            },
+        };
     }
 
     private _getAdjustableControl(
@@ -600,285 +560,23 @@ export class StrategyStepInteractionController {
             this.openAdjustableControl(controlId, adapters);
         };
 
-        if (controlId === STEP2_CONTROL_IDS.buildMode) {
-            return {
-                cyclePrev: (): boolean => this._cycleDiscreteOption(controlId, BUILD_MODE_OPTIONS, session.buildMode, 'left', adapters, (draft, value) => {
-                    draft.buildMode = value as typeof draft.buildMode;
-                }),
-                cycleNext: (): boolean => this._cycleDiscreteOption(controlId, BUILD_MODE_OPTIONS, session.buildMode, 'right', adapters, (draft, value) => {
-                    draft.buildMode = value as typeof draft.buildMode;
-                }),
-                isDisabled: () => false,
-                openDropdown,
-            };
+        const descriptor = this._getControlDescriptor(controlId);
+        if (!descriptor) {
+            return null;
         }
 
-        if (controlId === STEP2_CONTROL_IDS.combineMode) {
-            return {
-                cyclePrev: (): boolean => this._cycleDiscreteOption(controlId, COMBINE_MODE_OPTIONS, session.actorStudioCombineMode, 'left', adapters, (draft, value) => {
-                    draft.actorStudioCombineMode = value as typeof draft.actorStudioCombineMode;
-                }),
-                cycleNext: (): boolean => this._cycleDiscreteOption(controlId, COMBINE_MODE_OPTIONS, session.actorStudioCombineMode, 'right', adapters, (draft, value) => {
-                    draft.actorStudioCombineMode = value as typeof draft.actorStudioCombineMode;
-                }),
-                isDisabled: () => false,
-                openDropdown,
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.alternateLineupCopies) {
-            return {
-                cyclePrev: (): boolean => {
-                    if (!session.channelExpansion.addAlternateLineups) {
-                        return false;
-                    }
-                    return this._cycleDiscreteOption(
-                        controlId,
-                        ALTERNATE_LINEUP_COPY_OPTIONS,
-                        session.channelExpansion.alternateLineupCopies,
-                        'left',
-                        adapters,
-                        (draft, value) => {
-                            draft.channelExpansion.alternateLineupCopies = Number(value);
-                        }
-                    );
-                },
-                cycleNext: (): boolean => {
-                    if (!session.channelExpansion.addAlternateLineups) {
-                        return false;
-                    }
-                    return this._cycleDiscreteOption(
-                        controlId,
-                        ALTERNATE_LINEUP_COPY_OPTIONS,
-                        session.channelExpansion.alternateLineupCopies,
-                        'right',
-                        adapters,
-                        (draft, value) => {
-                            draft.channelExpansion.alternateLineupCopies = Number(value);
-                        }
-                    );
-                },
-                isDisabled: () => !session.channelExpansion.addAlternateLineups,
-                openDropdown,
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.seriesBaseMode) {
-            return {
-                cyclePrev: (): boolean => this._cycleDiscreteOption(
-                    controlId,
-                    SERIES_BASE_MODE_OPTIONS,
-                    session.seriesOrdering.basePlaybackMode,
-                    'left',
-                    adapters,
-                    (draft, value) => {
-                        draft.seriesOrdering.basePlaybackMode = value as typeof draft.seriesOrdering.basePlaybackMode;
-                    }
-                ),
-                cycleNext: (): boolean => this._cycleDiscreteOption(
-                    controlId,
-                    SERIES_BASE_MODE_OPTIONS,
-                    session.seriesOrdering.basePlaybackMode,
-                    'right',
-                    adapters,
-                    (draft, value) => {
-                        draft.seriesOrdering.basePlaybackMode = value as typeof draft.seriesOrdering.basePlaybackMode;
-                    }
-                ),
-                isDisabled: () => false,
-                openDropdown,
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.seriesBaseBlockSize) {
-            return {
-                cyclePrev: (): boolean => {
-                    if (session.seriesOrdering.basePlaybackMode !== 'block') {
-                        return false;
-                    }
-                    return this._cycleDiscreteOption(
-                        controlId,
-                        SERIES_BLOCK_PRESETS,
-                        session.seriesOrdering.baseBlockSize,
-                        'left',
-                        adapters,
-                        (draft, value) => {
-                            draft.seriesOrdering.baseBlockSize = Number(value);
-                        }
-                    );
-                },
-                cycleNext: (): boolean => {
-                    if (session.seriesOrdering.basePlaybackMode !== 'block') {
-                        return false;
-                    }
-                    return this._cycleDiscreteOption(
-                        controlId,
-                        SERIES_BLOCK_PRESETS,
-                        session.seriesOrdering.baseBlockSize,
-                        'right',
-                        adapters,
-                        (draft, value) => {
-                            draft.seriesOrdering.baseBlockSize = Number(value);
-                        }
-                    );
-                },
-                isDisabled: () => session.seriesOrdering.basePlaybackMode !== 'block',
-                openDropdown,
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.seriesVariantType) {
-            return {
-                cyclePrev: (): boolean => this._cycleDiscreteOption(
-                    controlId,
-                    SERIES_VARIANT_TYPE_OPTIONS,
-                    session.channelExpansion.variantType,
-                    'left',
-                    adapters,
-                    (draft, value) => {
-                        draft.channelExpansion.variantType = value as typeof draft.channelExpansion.variantType;
-                    }
-                ),
-                cycleNext: (): boolean => this._cycleDiscreteOption(
-                    controlId,
-                    SERIES_VARIANT_TYPE_OPTIONS,
-                    session.channelExpansion.variantType,
-                    'right',
-                    adapters,
-                    (draft, value) => {
-                        draft.channelExpansion.variantType = value as typeof draft.channelExpansion.variantType;
-                    }
-                ),
-                isDisabled: () => false,
-                openDropdown,
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.seriesVariantBlockSize) {
-            return {
-                cyclePrev: (): boolean => {
-                    if (session.channelExpansion.variantType !== 'block') {
-                        return false;
-                    }
-                    return this._cycleDiscreteOption(
-                        controlId,
-                        SERIES_BLOCK_PRESETS,
-                        session.channelExpansion.variantBlockSize,
-                        'left',
-                        adapters,
-                        (draft, value) => {
-                            draft.channelExpansion.variantBlockSize = Number(value);
-                        }
-                    );
-                },
-                cycleNext: (): boolean => {
-                    if (session.channelExpansion.variantType !== 'block') {
-                        return false;
-                    }
-                    return this._cycleDiscreteOption(
-                        controlId,
-                        SERIES_BLOCK_PRESETS,
-                        session.channelExpansion.variantBlockSize,
-                        'right',
-                        adapters,
-                        (draft, value) => {
-                            draft.channelExpansion.variantBlockSize = Number(value);
-                        }
-                    );
-                },
-                isDisabled: () => session.channelExpansion.variantType !== 'block',
-                openDropdown,
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.maxChannels) {
-            return {
-                cyclePrev: (): boolean => this._cyclePresetOption(
-                    controlId,
-                    adapters.channelLimitOptions,
-                    session.maxChannels,
-                    'left',
-                    adapters,
-                    (draft, value) => {
-                        draft.maxChannels = value;
-                    }
-                ),
-                cycleNext: (): boolean => this._cyclePresetOption(
-                    controlId,
-                    adapters.channelLimitOptions,
-                    session.maxChannels,
-                    'right',
-                    adapters,
-                    (draft, value) => {
-                        draft.maxChannels = value;
-                    }
-                ),
-                isDisabled: () => false,
-                openDropdown,
-            };
-        }
-
-        if (controlId === STEP2_CONTROL_IDS.minItems) {
-            return {
-                cyclePrev: (): boolean => this._cyclePresetOption(
-                    controlId,
-                    adapters.minItemsOptions,
-                    session.minItems,
-                    'left',
-                    adapters,
-                    (draft, value) => {
-                        draft.minItems = value;
-                    }
-                ),
-                cycleNext: (): boolean => this._cyclePresetOption(
-                    controlId,
-                    adapters.minItemsOptions,
-                    session.minItems,
-                    'right',
-                    adapters,
-                    (draft, value) => {
-                        draft.minItems = value;
-                    }
-                ),
-                isDisabled: () => false,
-                openDropdown,
-            };
-        }
-
-        return null;
+        return {
+            cyclePrev: (): boolean => this._cycleDescriptorOption(controlId, descriptor, session, 'left', adapters),
+            cycleNext: (): boolean => this._cycleDescriptorOption(controlId, descriptor, session, 'right', adapters),
+            isDisabled: () => this._isDescriptorDisabled(descriptor, session),
+            openDropdown,
+        };
     }
 
-    private _cycleDiscreteOption<T extends string | number>(
+    private _cycleDescriptorOption(
         controlId: string,
-        options: readonly T[],
-        current: T,
-        direction: 'left' | 'right',
-        adapters: Pick<
-            StrategyStepInteractionAdapters,
-            | 'deferDropdownRender'
-            | 'getSessionSnapshot'
-            | 'hasActiveDropdown'
-            | 'renderStep'
-            | 'setPreferredFocusId'
-            | 'updatePriorityRowState'
-            | 'updateStrategyState'
-        > & {
-            schedulePreview: () => void;
-        },
-        apply: (draft: StrategyStepMutableState, value: T) => void
-    ): boolean {
-        const next = this._stepOption(options, current, direction);
-        if (next === current) {
-            return false;
-        }
-        this.applySettingChange(controlId, (draft) => apply(draft, next), adapters);
-        return true;
-    }
-
-    private _cyclePresetOption(
-        controlId: string,
-        options: number[],
-        current: number,
+        descriptor: StrategyControlDescriptor,
+        session: ChannelSetupSessionSnapshot,
         direction: 'left' | 'right',
         adapters: Pick<
             StrategyStepInteractionAdapters,
@@ -891,16 +589,36 @@ export class StrategyStepInteractionController {
             | 'updatePriorityRowState'
             | 'updateStrategyState'
         > & {
+            channelLimitOptions: number[];
+            minItemsOptions: number[];
             schedulePreview: () => void;
-        },
-        apply: (draft: StrategyStepMutableState, value: number) => void
+        }
     ): boolean {
-        const next = adapters.stepPreset(options, current, direction, 'clamp');
+        if (this._isDescriptorDisabled(descriptor, session)) {
+            return false;
+        }
+
+        const options = descriptor.options(adapters);
+        const current = descriptor.currentValue(session);
+        const next = descriptor.cycleMode === 'preset'
+            ? adapters.stepPreset(options.map(Number), Number(current), direction, 'clamp')
+            : this._stepOption(options, current, direction);
         if (next === current) {
             return false;
         }
-        this.applySettingChange(controlId, (draft) => apply(draft, next), adapters);
+        this.applySettingChange(controlId, (draft) => descriptor.applyValue(draft, next), adapters);
         return true;
+    }
+
+    private _getControlDescriptor(controlId: string): StrategyControlDescriptor | null {
+        return STRATEGY_CONTROL_DESCRIPTORS.find((descriptor) => descriptor.controlId === controlId) ?? null;
+    }
+
+    private _isDescriptorDisabled(
+        descriptor: StrategyControlDescriptor,
+        session: ChannelSetupSessionSnapshot
+    ): boolean {
+        return descriptor.isDisabled?.(session) ?? false;
     }
 
     private _categoryFromButtonId(buttonId: string): StrategyCategoryKey | null {
@@ -972,20 +690,13 @@ export class StrategyStepInteractionController {
     }
 
     private _isDetailControlEnabled(
-        category: StrategyCategoryKey,
+        _category: StrategyCategoryKey,
         controlId: string,
         session: ChannelSetupSessionSnapshot
     ): boolean {
-        if (category === 'build-options' && controlId === STEP2_CONTROL_IDS.alternateLineupCopies) {
-            return session.channelExpansion.addAlternateLineups;
-        }
-        if (category === 'series-ordering') {
-            if (controlId === STEP2_CONTROL_IDS.seriesBaseBlockSize) {
-                return session.seriesOrdering.basePlaybackMode === 'block';
-            }
-            if (controlId === STEP2_CONTROL_IDS.seriesVariantBlockSize) {
-                return session.channelExpansion.variantType === 'block';
-            }
+        const descriptor = this._getControlDescriptor(controlId);
+        if (descriptor) {
+            return !this._isDescriptorDisabled(descriptor, session);
         }
         return true;
     }
@@ -1046,5 +757,9 @@ export class StrategyStepInteractionController {
 
     private _capitalize(value: string): string {
         return value.charAt(0).toUpperCase() + value.slice(1);
+    }
+
+    private _formatDropdownLabel(value: StrategyControlValue): string {
+        return typeof value === 'string' ? this._capitalize(value) : String(value);
     }
 }
