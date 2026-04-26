@@ -572,7 +572,7 @@ The active P13 exact membership surface is
   execution-grade plan for `P13-W5`; do not close `P13-EXIT` until later P13
   packages are complete.
 
-### [ ] `P13-W5` `pkg_documentation_comment_and_package_hygiene`
+### [x] `P13-W5` `pkg_documentation_comment_and_package_hygiene`
 
 - Backlog: `4` refreshed post-P12 review issues.
 - Scope: planning container for four small hygiene issues that must remain
@@ -593,7 +593,9 @@ The active P13 exact membership surface is
   - `src/modules/plex/discovery/types.ts`
   - `src/modules/plex/library/constants.ts`
   - `src/modules/ui/profile-select/styles.css`
-  - `src/modules/ui/profile-select/styles/*`
+  - `src/modules/ui/profile-select/styles.layout.css`
+  - `src/modules/ui/profile-select/styles.cards.css`
+  - `src/modules/ui/profile-select/styles.pin-modal.css`
   - `docs/architecture/CURRENT_STATE.md`
 - Likely verification: source/style changes require `npm run verify`; current
   architecture doc changes require `npm run verify:docs`.
@@ -602,13 +604,24 @@ The active P13 exact membership surface is
   units with one owner and verification command each, or mark an issue
   `deferred`/`split follow-up` with one final owner and revisit trigger before
   closing any completed subset.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: plan only after earlier P13 owners are complete or explicitly
-  deferred with one final owner.
+- Status: completed
+- Plan: local cleanup-loop execution units `P13-W5-EU1` through `P13-W5-EU4`.
+- Last touched: 2026-04-26
+- Dispositions:
+  - `P13-W5-S1` / `review::.::holistic::ai_generated_debt::lifecycle_player_restating_comments` resolved by removing restating comments in lifecycle/player code while preserving non-obvious phase, platform, retry, and media-session rationale.
+  - `P13-W5-S2` / `review::.::holistic::ai_generated_debt::plex_type_constant_doc_bloat` resolved by removing Plex file/module/version headers, wrapper comments, and obvious per-field/per-constant comments while preserving non-obvious protocol/default semantics.
+  - `P13-W5-S3` / `review::.::holistic::package_organization::profile_select_nested_css_shards` resolved by flattening profile-select CSS shards to `styles.layout.css`, `styles.cards.css`, and `styles.pin-modal.css` with unchanged CSS content and preserved import order.
+  - `P13-W5-S4` / `review::.::holistic::high_level_elegance::canonical_architecture_channel_setup_path_drift` resolved by correcting canonical channel-setup owner paths in `docs/architecture/CURRENT_STATE.md` to the current `persistence/`, `build/`, and `planning/` source paths.
+- Verification:
+  - Exact issue-id `desloppify show --status open` checks for all four imported review issues reported no open matches during execution-unit proof.
+  - Package-local `desloppify show` checks for the touched source/doc/style paths reported no remaining package-owned open issues, except pre-existing AppLifecycle log/swallowed-error/shallow-test rows outside P13-W5 scope.
+  - Targeted `rg` checks cleared the stale comment/path/import evidence for S1-S4, including profile-select nested-path references in source, checklist, and package-map surfaces.
+  - `git diff --check` passed for each execution unit's touched files.
+  - Full `npm run verify` and `npm run verify:docs` passed during final package verification.
+- Follow-ups: none for P13-W5 exact membership. `P13-EXIT` remains open.
+- Handoff: `P13-W5` is closed for implementation. Next required gate is
+  package/priority closeout review plus controller-owned final verification;
+  do not close `P13-EXIT` from this worker pass.
 
 ### [ ] `P13-EXIT`
 
