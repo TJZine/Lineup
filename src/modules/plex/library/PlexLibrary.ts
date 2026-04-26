@@ -811,25 +811,21 @@ export class PlexLibrary implements IPlexLibrary {
         const token = this._config.getAuthToken() || '';
         const originClassification = classifyPlexUrlOrigin(serverUri, imagePath);
 
+        if (originClassification === 'foreign-absolute') {
+            return null;
+        }
+
         if (typeof width === 'number' && width > 0) {
             const resizeHeight = typeof height === 'number' ? height : width;
             const url = new URL(PLEX_ENDPOINTS.PHOTO_TRANSCODE, serverUri);
             applyXPlexTokenQueryParam(url.searchParams, token);
             url.searchParams.set('width', String(width));
             url.searchParams.set('height', String(resizeHeight));
-            url.searchParams.set(
-                'url',
-                originClassification === 'foreign-absolute'
-                    ? imagePath
-                    : buildPlexUrlFromKey(serverUri, imagePath).toString()
-            );
+            url.searchParams.set('url', buildPlexUrlFromKey(serverUri, imagePath).toString());
             return url.toString();
         }
 
         // Direct image URL
-        if (originClassification === 'foreign-absolute') {
-            return imagePath;
-        }
         if (originClassification === 'server-absolute' || originClassification === 'server-relative') {
             const normalized = buildPlexUrlFromKey(serverUri, imagePath);
             applyXPlexTokenQueryParam(normalized.searchParams, token);

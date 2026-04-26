@@ -867,27 +867,20 @@ describe('PlexLibrary', () => {
             expect(url).toContain('X-Plex-Token=mock-token');
         });
 
-        it('should return external absolute image URLs token-free', () => {
+        it('should reject external absolute image URLs', () => {
             const library = new PlexLibrary(mockConfig);
 
             const url = library.getImageUrl('https://malicious.example/library/metadata/123/thumb');
 
-            expect(url).toBe('https://malicious.example/library/metadata/123/thumb');
+            expect(url).toBeNull();
         });
 
-        it('should preserve resized external images through the Plex transcode path', () => {
+        it('should reject resized external absolute image URLs', () => {
             const library = new PlexLibrary(mockConfig);
 
             const url = library.getImageUrl('https://malicious.example/library/metadata/123/thumb', 300);
-            expect(url).not.toBeNull();
-            const parsed = new URL(url as string);
 
-            expect(parsed.origin).toBe('http://192.168.1.100:32400');
-            expect(parsed.pathname).toBe('/photo/:/transcode');
-            expect(parsed.searchParams.get('X-Plex-Token')).toBe('mock-token');
-            expect(parsed.searchParams.get('width')).toBe('300');
-            expect(parsed.searchParams.get('height')).toBe('300');
-            expect(parsed.searchParams.get('url')).toBe('https://malicious.example/library/metadata/123/thumb');
+            expect(url).toBeNull();
         });
 
         it('should use transcoder for resized images', () => {
