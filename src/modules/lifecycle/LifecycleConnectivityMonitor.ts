@@ -93,7 +93,7 @@ export class LifecycleConnectivityMonitor {
                 mode: 'no-cors',
             });
 
-            const available = response.type === 'opaque';
+            const available = response.type === 'opaque' || response.ok;
             this._setAvailability(available);
             return available;
         } catch {

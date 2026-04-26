@@ -554,6 +554,28 @@ describe('AppLifecycle', () => {
             pauseDeferred.resolve();
             await wait;
             expect(waitSettled).toBe(true);
+            expect(lifecycle.getPhase()).toBe('ready');
+            expect(lifecycle.getState().isVisible).toBe(true);
+        });
+
+        it('does not leave the app backgrounded when visibility resumes before a slow pause settles', async () => {
+            await lifecycle.initialize();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
+            const pauseDeferred = createDeferred<void>();
+            lifecycle.onPause(() => pauseDeferred.promise);
+
+            Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+
+            Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+
+            pauseDeferred.resolve();
+            await lifecycle.waitForPendingTransition();
+
+            expect(lifecycle.getState().isVisible).toBe(true);
+            expect(lifecycle.getPhase()).toBe('ready');
         });
     });
 

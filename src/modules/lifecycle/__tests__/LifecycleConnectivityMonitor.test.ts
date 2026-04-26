@@ -134,6 +134,25 @@ describe('LifecycleConnectivityMonitor', () => {
         expect(onNetworkChange).not.toHaveBeenCalled();
     });
 
+    it('treats a resolved ok probe as available when fetch returns a non-opaque response', async () => {
+        const originalFetch = globalThis.fetch;
+        const fetchMock = jest.fn().mockResolvedValue({
+            ok: true,
+            type: 'basic',
+        });
+        (globalThis as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+        const monitor = createMonitor();
+        monitor.setInitialAvailability(false);
+
+        try {
+            await expect(monitor.checkNetworkStatus()).resolves.toBe(true);
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+
+        expect(onNetworkChange).toHaveBeenCalledWith({ isAvailable: true });
+    });
+
     it('starts network monitoring only once until stopped', () => {
         const monitor = createMonitor();
         const checkSpy = jest.spyOn(monitor, 'checkNetworkStatus').mockResolvedValue(true);

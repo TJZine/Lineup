@@ -442,7 +442,7 @@ export class AppLifecycle implements IAppLifecycle {
             TIMING_CONFIG.CALLBACK_TIMEOUT_MS
         );
 
-        if (this._phase === 'ready') {
+        if (this._phase === 'ready' && !this._isVisible) {
             await this._transitionPhase('backgrounded');
         }
     }
@@ -471,6 +471,9 @@ export class AppLifecycle implements IAppLifecycle {
 
         if (this._phase === 'resuming') {
             await this._transitionPhase('ready');
+            if (!this._isVisible) {
+                await this._transitionPhase('backgrounded');
+            }
         }
     }
 
