@@ -406,7 +406,7 @@ The active P13 exact membership surface is
   execution-grade plan for `P13-W3`; do not start source cleanup directly from
   refreshed review output.
 
-### [ ] `P13-W3` `pkg_epg_and_channel_setup_ui_runtime_complexity`
+### [x] `P13-W3` `pkg_epg_and_channel_setup_ui_runtime_complexity`
 
 - Backlog: `4` refreshed post-P12 review issues.
 - Scope: split EPG info-panel render/fetch/color ownership, reduce
@@ -426,13 +426,49 @@ The active P13 exact membership surface is
   - `src/modules/ui/epg/runtime/EPGBackgroundWarmQueue.ts`
   - `src/modules/ui/channel-setup/steps/StrategyStepInteractionController.ts`
 - Likely verification: `npm run verify`.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: plan only after earlier P13 owners are complete or explicitly
-  deferred with one final owner.
+- Status: completed
+- Plan: package-local execution brief approved for serial execution units
+  `P13-W3-EU1` through `P13-W3-EU4`.
+- Last touched: 2026-04-26
+- Verification: targeted package tests passed (`266` Jest tests plus `4`
+  channel-setup contract tests); `npm run verify` passed after the final
+  explicit-return-type cleanup; package-local `desloppify show` commands were
+  rerun and reported no open file-scoped issues; exact issue-id queries were
+  rerun with `--status all` and still show stale review wording; targeted `rg`
+  audits confirmed warm-queue batch/scheduler work now lives in named methods,
+  EPG virtualizer budget/sampling work lives in `RenderPassAccumulator`, EPG
+  info-panel fetch/color/cache work lives in package-local collaborators, and
+  strategy-step dropdown/cycle behavior derives from one descriptor table.
+- Source-proof closeout:
+  - `review::.::holistic::low_level_elegance::epg_background_warm_schedule_next_batch_dense`
+    is stale-proven resolved: `_scheduleNextBatch` resolves and applies queue
+    action/backpressure only, while batch execution, worker fan-out, safe error
+    reporting, and idle/timer scheduling live in named methods.
+  - `review::.::holistic::low_level_elegance::epg_virtualizer_render_context_closure_nest`
+    is stale-proven resolved: render-pass row budget, visible/buffer queues,
+    focused-cell exemption, row finalization, and sampling policy live in the
+    package-local `RenderPassAccumulator` instead of nested closures.
+  - `review::.::holistic::design_coherence::epg_info_panel_mixed_render_fetch_color`
+    is stale-proven resolved: `EPGInfoPanel` remains the presenter/DOM binder
+    and delegates HDR/episode-poster loading/cache state to
+    `EPGInfoPanelDetailsLoader` and dynamic color sampling/object URL/cache
+    state/gradient mutation to `EPGInfoPanelDynamicBackground`.
+  - `review::.::holistic::design_coherence::strategy_step_control_tables_duplicated`
+    is stale-proven resolved: `STRATEGY_CONTROL_DESCRIPTORS` is the single local
+    source for adjustable strategy control ids, options, current values,
+    disabled predicates, draft mutation, and preset/discrete cycling mode.
+- Review: plan review found missing wave/slice accounting, the planner revised
+  to serial execution units, and a fresh final plan review approved
+  implementation. Every implementation unit reached clean review; the final
+  integrated source review approved the behavior-neutral return-type cleanup
+  before checklist/package-map closeout.
+- Follow-ups: none for P13-W3 exact membership. The exact issue-id queries still
+  return stale imported review text, but current-source proof and implementation
+  review show the package-owned complaints are resolved; do not create a new
+  follow-up solely from detector wording lag.
+- Handoff: `P13-W3` is closed. Next safe start is a package-local
+  execution-grade plan for `P13-W4`; do not close `P13-EXIT` until later P13
+  packages are complete.
 
 ### [ ] `P13-W4` `pkg_plex_and_player_contract_error_semantics`
 

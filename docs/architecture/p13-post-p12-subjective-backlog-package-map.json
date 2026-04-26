@@ -217,9 +217,27 @@
         "priority_exit": "P13-EXIT"
       },
       "execution_status": {
-        "status": "not started",
-        "completed_execution_units": [],
-        "current_or_next_execution_unit": "P13-W3"
+        "status": "completed",
+        "completed_execution_units": [
+          "P13-W3-EU1",
+          "P13-W3-EU2",
+          "P13-W3-EU3",
+          "P13-W3-EU4"
+        ],
+        "current_or_next_execution_unit": null,
+        "source_proof_disposition": {
+          "review::.::holistic::design_coherence::epg_info_panel_mixed_render_fetch_color": "stale-proven resolved by keeping EPGInfoPanel as presenter/DOM binder while moving HDR and episode-poster loading/cache state to EPGInfoPanelDetailsLoader and dynamic color sampling, object URL lifecycle, color caches, and gradient mutation to EPGInfoPanelDynamicBackground",
+          "review::.::holistic::low_level_elegance::epg_virtualizer_render_context_closure_nest": "stale-proven resolved by moving render-pass row budget, visible/buffer queues, focused-cell exemption, row finalization, and sampling policy into the package-local RenderPassAccumulator instead of nested closures",
+          "review::.::holistic::low_level_elegance::epg_background_warm_schedule_next_batch_dense": "stale-proven resolved by leaving _scheduleNextBatch responsible for queue action/backpressure resolution and delegating batch execution, worker fan-out, safe error reporting, and idle/timer scheduling to named methods",
+          "review::.::holistic::design_coherence::strategy_step_control_tables_duplicated": "stale-proven resolved by deriving dropdown config and left/right cycling from one local STRATEGY_CONTROL_DESCRIPTORS table for control ids, options, current values, disabled predicates, draft mutation, and cycling mode"
+        },
+        "verification": [
+          "targeted package tests: 266 Jest tests plus 4 channel-setup contract tests",
+          "npm run verify",
+          "package-local desloppify show commands",
+          "exact issue-id desloppify show queries with --status all; stale imported review rows remain but are resolved by current-source proof",
+          "targeted rg audits for warm-queue batch/scheduler methods, EPG virtualizer RenderPassAccumulator ownership, EPG info-panel details/dynamic-background collaborators, and strategy-step descriptor-table ownership"
+        ]
       }
     },
     {
