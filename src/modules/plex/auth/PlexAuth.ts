@@ -71,16 +71,6 @@ export class PlexAuth implements IPlexAuth {
     private _emitter: EventEmitter<PlexAuthEvents>;
     private _credentialsEpoch = 0;
 
-    private isValidUserPayload(payload: unknown): payload is Record<string, unknown> {
-        if (typeof payload !== 'object' || payload === null) return false;
-        const data = payload as Record<string, unknown>;
-        const id = data['id'];
-        const username = data['username'];
-        const email = data['email'];
-        const hasValidId = typeof id === 'string' || typeof id === 'number';
-        return hasValidId && typeof username === 'string' && typeof email === 'string';
-    }
-
     /**
      * Create a new PlexAuth instance.
      * @param config - Plex API client identification config
@@ -248,14 +238,6 @@ export class PlexAuth implements IPlexAuth {
                     throw new PlexApiError(
                         AppErrorCode.PARSE_ERROR,
                         'Failed to parse token validation response',
-                        response.status,
-                        false
-                    );
-                }
-                if (!this.isValidUserPayload(data)) {
-                    throw new PlexApiError(
-                        AppErrorCode.PARSE_ERROR,
-                        'Token validation response payload is missing required fields',
                         response.status,
                         false
                     );

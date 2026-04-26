@@ -82,18 +82,22 @@ export function parsePinResponse(
  * @returns Parsed auth token
  */
 export function parseUserResponse(
-    data: Record<string, unknown>,
+    data: unknown,
     token: string
 ): PlexAuthToken {
-    const thumbValue = data['thumb'];
+    const payload = requireRecord(data, 'User response');
+    const userId = requireUserId(payload['id'], 'Plex user id');
+    const username = requireNonEmptyString(payload['username'], 'Plex username');
+    const email = requireNonEmptyString(payload['email'], 'Plex user email');
+    const thumbValue = payload['thumb'];
     const thumb = typeof thumbValue === 'string' ? thumbValue : '';
-    const preferredSubtitleLanguage = extractPreferredSubtitleLanguage(data);
+    const preferredSubtitleLanguage = extractPreferredSubtitleLanguage(payload);
 
     return {
         token: token,
-        userId: String(data['id']),
-        username: String(data['username']),
-        email: String(data['email']),
+        userId,
+        username,
+        email,
         thumb: thumb,
         expiresAt: null,
         issuedAt: new Date(),
@@ -189,6 +193,23 @@ function requireFiniteNumber(value: unknown, label: string): number {
 function requireNonEmptyString(value: unknown, label: string): string {
     if (typeof value === 'string' && value.trim().length > 0) {
         return value.trim();
+    }
+
+    throw new PlexApiError(
+        AppErrorCode.PARSE_ERROR,
+        `${label} was missing or invalid`,
+        undefined,
+        false
+    );
+}
+
+function requireUserId(value: unknown, label: string): string {
+    if (typeof value === 'string' && value.trim().length > 0) {
+        return value.trim();
+    }
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return String(value);
     }
 
     throw new PlexApiError(

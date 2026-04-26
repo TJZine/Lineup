@@ -261,6 +261,43 @@ describe('PlexAuth', () => {
             expect(auth.isAuthenticated()).toBe(true);
         });
 
+        it('throws PARSE_ERROR when a claimed PIN returns an invalid user profile payload', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const storeCredentialsSpy = jest.spyOn(auth, 'storeCredentials');
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    json: async function () {
+                        return {
+                            id: 12345,
+                            code: 'ABCD',
+                            expiresAt: '2026-01-15T12:15:00Z',
+                            authToken: 'xyzToken123',
+                            clientIdentifier: mockConfig.clientIdentifier,
+                        };
+                    },
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    json: async function () {
+                        return {
+                            id: 99999,
+                            username: 'testuser',
+                        };
+                    },
+                });
+
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await expect(auth.checkPinStatus(12345)).rejects.toMatchObject({
+                code: AppErrorCode.PARSE_ERROR,
+            });
+            expect(storeCredentialsSpy).not.toHaveBeenCalled();
+            expect(auth.isAuthenticated()).toBe(false);
+        });
+
         it('does not treat a blank authToken as a claimed PIN', async () => {
             const auth = new PlexAuth(mockConfig);
             const storeCredentialsSpy = jest.spyOn(auth, 'storeCredentials');

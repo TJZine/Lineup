@@ -1,5 +1,6 @@
 import {
     parsePinResponse,
+    parseUserResponse,
     parseHomeUsersPayload,
     parseSwitchResponsePayload,
     readPlexResponse,
@@ -126,6 +127,47 @@ describe('plexAuthPayloadParsers', () => {
             ['invalid expiresAt', { id: 42, code: 'abc123', expiresAt: 'not-a-date' }],
         ])('rejects %s in PIN payloads', (_label, payload) => {
             expect(() => parsePinResponse(payload, 'fallback-client')).toThrow(
+                expect.objectContaining({
+                    code: AppErrorCode.PARSE_ERROR,
+                })
+            );
+        });
+    });
+
+    describe('parseUserResponse', () => {
+        it('parses required user profile fields from a valid payload', () => {
+            const token = parseUserResponse(
+                {
+                    id: 12345,
+                    username: '  validateduser  ',
+                    email: '  validated@example.com  ',
+                    thumb: 'https://plex.tv/thumb.jpg',
+                    preferredSubtitleLanguage: '  es  ',
+                },
+                'valid-token'
+            );
+
+            expect(token).toMatchObject({
+                token: 'valid-token',
+                userId: '12345',
+                username: 'validateduser',
+                email: 'validated@example.com',
+                thumb: 'https://plex.tv/thumb.jpg',
+                preferredSubtitleLanguage: 'es',
+            });
+        });
+
+        it.each([
+            ['non-object payload', null],
+            ['missing id', { username: 'user', email: 'user@example.com' }],
+            ['blank id', { id: '   ', username: 'user', email: 'user@example.com' }],
+            ['invalid id', { id: {}, username: 'user', email: 'user@example.com' }],
+            ['missing username', { id: 1, email: 'user@example.com' }],
+            ['blank username', { id: 1, username: '   ', email: 'user@example.com' }],
+            ['missing email', { id: 1, username: 'user' }],
+            ['blank email', { id: 1, username: 'user', email: '   ' }],
+        ])('throws PARSE_ERROR for %s', (_label, payload) => {
+            expect(() => parseUserResponse(payload, 'valid-token')).toThrow(
                 expect.objectContaining({
                     code: AppErrorCode.PARSE_ERROR,
                 })
