@@ -69,6 +69,198 @@ type RenderPassContext = {
     finalizeAllRows: () => void;
 };
 
+class RenderPassAccumulator implements RenderPassContext {
+    readonly newVisibleCells = new Map<string, VirtualizedCellRenderData>();
+    readonly maxDomElements = EPG_CONSTANTS.MAX_DOM_ELEMENTS;
+    readonly perRowLimit: number;
+    readonly visibleWindowStartMinutes: number;
+    readonly visibleWindowEndMinutes: number;
+    private readonly rowCommitCounts = new Map<number, number>();
+    private readonly visibleQueues = new Map<number, VirtualizedCellRenderData[]>();
+    private readonly bufferQueues = new Map<number, VirtualizedCellRenderData[]>();
+
+    constructor(
+        readonly channelOffsetChanged: boolean,
+        private readonly visibleRows: number[],
+        visibleTimeRange: VirtualizedGridState['visibleTimeRange']
+    ) {
+        const visibleRowCount = Math.max(1, visibleRows.length);
+        this.perRowLimit = Math.max(1, Math.ceil(this.maxDomElements / visibleRowCount));
+        const timeBuffer = EPG_CONSTANTS.TIME_BUFFER_MINUTES;
+        this.visibleWindowStartMinutes = visibleTimeRange.start + timeBuffer;
+        this.visibleWindowEndMinutes = visibleTimeRange.end - timeBuffer;
+    }
+
+    stageCell = (
+        cellData: VirtualizedCellRenderData,
+        isFocusedCell: boolean,
+        overlapsVisibleWindow: boolean
+    ): void => {
+        if (isFocusedCell) {
+            this.tryCommitCell(cellData, true);
+            return;
+        }
+
+        const queues = overlapsVisibleWindow ? this.visibleQueues : this.bufferQueues;
+        const queue = queues.get(cellData.rowIndex) ?? [];
+        queue.push(cellData);
+        queues.set(cellData.rowIndex, queue);
+    };
+
+    finalizeRow = (rowIndex: number): void => {
+        this.flushQueuedCells(rowIndex, this.visibleQueues, true);
+        this.flushQueuedCells(rowIndex, this.bufferQueues, false);
+    };
+
+    finalizeAllRows = (): void => {
+        for (const rowIndex of this.visibleRows) {
+            this.finalizeRow(rowIndex);
+        }
+    };
+
+    private tryCommitCell(cellData: VirtualizedCellRenderData, isFocusedCell: boolean): void {
+        const currentRowCount = this.rowCommitCounts.get(cellData.rowIndex) ?? 0;
+        if (!isFocusedCell) {
+            if (this.newVisibleCells.size >= this.maxDomElements) {
+                return;
+            }
+            if (currentRowCount >= this.perRowLimit) {
+                return;
+            }
+        }
+        this.newVisibleCells.set(cellData.key, cellData);
+        if (!isFocusedCell) {
+            this.rowCommitCounts.set(cellData.rowIndex, currentRowCount + 1);
+        }
+    }
+
+    private flushQueuedCells(
+        rowIndex: number,
+        queuedCellsByRow: Map<number, VirtualizedCellRenderData[]>,
+        isVisibleQueue: boolean
+    ): void {
+        const queue = queuedCellsByRow.get(rowIndex);
+        if (!queue || queue.length === 0) {
+            return;
+        }
+
+        const cellsToCommit = isVisibleQueue ? this.selectVisibleQueueCells(queue) : queue;
+
+        for (const cellData of cellsToCommit) {
+            this.tryCommitCell(cellData, false);
+        }
+
+        queuedCellsByRow.delete(rowIndex);
+    }
+
+    private selectVisibleQueueCells(queue: VirtualizedCellRenderData[]): VirtualizedCellRenderData[] {
+        if (queue.length <= this.perRowLimit) {
+            return queue;
+        }
+
+        const selected = new Map<number, VirtualizedCellRenderData>();
+        const maxIndex = queue.length - 1;
+        const sampleCount = Math.min(this.perRowLimit, queue.length);
+        const edgeSampleIndexes = [
+            0,
+            Math.round(maxIndex / 3),
+            Math.round((maxIndex * 2) / 3),
+            maxIndex,
+        ];
+
+        this.addQueueSamples(selected, queue, edgeSampleIndexes);
+
+        for (let i = 0; i < sampleCount; i += 1) {
+            const index = Math.round((i * maxIndex) / Math.max(1, sampleCount - 1));
+            selected.set(index, queue[index]!);
+        }
+
+        this.fillQueueSamples(selected, queue, sampleCount);
+        return this.limitQueueSamples(selected, sampleCount);
+    }
+
+    private addQueueSamples(
+        selected: Map<number, VirtualizedCellRenderData>,
+        queue: VirtualizedCellRenderData[],
+        indexes: number[]
+    ): void {
+        const maxIndex = queue.length - 1;
+        for (const index of indexes) {
+            if (index >= 0 && index <= maxIndex) {
+                selected.set(index, queue[index]!);
+            }
+        }
+    }
+
+    private fillQueueSamples(
+        selected: Map<number, VirtualizedCellRenderData>,
+        queue: VirtualizedCellRenderData[],
+        sampleCount: number
+    ): void {
+        if (selected.size >= sampleCount) {
+            return;
+        }
+
+        for (let index = 0; index < queue.length && selected.size < sampleCount; index += 1) {
+            if (!selected.has(index)) {
+                selected.set(index, queue[index]!);
+            }
+        }
+    }
+
+    private limitQueueSamples(
+        selected: Map<number, VirtualizedCellRenderData>,
+        sampleCount: number
+    ): VirtualizedCellRenderData[] {
+        const orderedSelected = Array.from(selected.entries()).sort(([a], [b]) => a - b);
+
+        if (orderedSelected.length <= sampleCount) {
+            return orderedSelected.map(([, cell]) => cell);
+        }
+
+        if (sampleCount === 1) {
+            return [orderedSelected[0]![1]];
+        }
+
+        const step = (orderedSelected.length - 1) / (sampleCount - 1);
+        const resampled = new Map<number, VirtualizedCellRenderData>();
+
+        for (let i = 0; i < sampleCount; i += 1) {
+            const orderedIndex = Math.round(i * step);
+            const selectedEntry = orderedSelected[orderedIndex];
+            if (!selectedEntry) {
+                continue;
+            }
+            resampled.set(selectedEntry[0], selectedEntry[1]);
+        }
+
+        this.fillOrderedQueueSamples(resampled, orderedSelected, sampleCount);
+
+        return Array.from(resampled.entries())
+            .sort(([a], [b]) => a - b)
+            .map(([, cell]) => cell);
+    }
+
+    private fillOrderedQueueSamples(
+        selected: Map<number, VirtualizedCellRenderData>,
+        orderedCells: Array<[number, VirtualizedCellRenderData]>,
+        sampleCount: number
+    ): void {
+        if (selected.size >= sampleCount) {
+            return;
+        }
+
+        for (const [index, cell] of orderedCells) {
+            if (selected.size >= sampleCount) {
+                break;
+            }
+            if (!selected.has(index)) {
+                selected.set(index, cell);
+            }
+        }
+    }
+}
+
 /**
  * EPG Virtualizer class.
  * Manages DOM element pooling and efficient grid rendering.
@@ -360,161 +552,11 @@ export class EPGVirtualizer {
         const previousChannelOffset = this.channelOffset;
         this.channelOffset = range.channelOffset;
         const channelOffsetChanged = previousChannelOffset !== this.channelOffset;
-        const newVisibleCells = new Map<string, VirtualizedCellRenderData>();
-        const maxDomElements = EPG_CONSTANTS.MAX_DOM_ELEMENTS;
-        const visibleRowCount = Math.max(1, range.visibleRows.length);
-        const perRowLimit = Math.max(1, Math.ceil(maxDomElements / visibleRowCount));
-        const perRowCounts = new Map<number, number>();
-        const timeBuffer = EPG_CONSTANTS.TIME_BUFFER_MINUTES;
-        const visibleWindowStartMinutes = range.visibleTimeRange.start + timeBuffer;
-        const visibleWindowEndMinutes = range.visibleTimeRange.end - timeBuffer;
-        const queuedVisibleByRow = new Map<number, VirtualizedCellRenderData[]>();
-        const queuedBufferByRow = new Map<number, VirtualizedCellRenderData[]>();
-
-        const tryAddCommittedCell = (cellData: VirtualizedCellRenderData, isFocusedCell: boolean): void => {
-            const currentRowCount = perRowCounts.get(cellData.rowIndex) ?? 0;
-            if (!isFocusedCell) {
-                if (newVisibleCells.size >= maxDomElements) {
-                    return;
-                }
-                if (currentRowCount >= perRowLimit) {
-                    return;
-                }
-            }
-            newVisibleCells.set(cellData.key, cellData);
-            if (!isFocusedCell) {
-                perRowCounts.set(cellData.rowIndex, currentRowCount + 1);
-            }
-        };
-
-        const stageCell = (
-            cellData: VirtualizedCellRenderData,
-            isFocusedCell: boolean,
-            overlapsVisibleWindow: boolean
-        ): void => {
-            if (isFocusedCell) {
-                tryAddCommittedCell(cellData, true);
-                return;
-            }
-
-            const target = overlapsVisibleWindow ? queuedVisibleByRow : queuedBufferByRow;
-            const queue = target.get(cellData.rowIndex) ?? [];
-            queue.push(cellData);
-            target.set(cellData.rowIndex, queue);
-        };
-
-        const selectVisibleQueueCells = (queue: VirtualizedCellRenderData[]): VirtualizedCellRenderData[] => {
-            if (queue.length <= perRowLimit) {
-                return queue;
-            }
-
-            const selected = new Map<number, VirtualizedCellRenderData>();
-            const maxIndex = queue.length - 1;
-            const sampleCount = Math.min(perRowLimit, queue.length);
-            const seedIndices = [
-                0,
-                Math.round(maxIndex / 3),
-                Math.round((maxIndex * 2) / 3),
-                maxIndex,
-            ];
-
-            for (const index of seedIndices) {
-                if (index >= 0 && index <= maxIndex) {
-                    selected.set(index, queue[index]!);
-                }
-            }
-
-            for (let i = 0; i < sampleCount; i += 1) {
-                const index = Math.round((i * maxIndex) / Math.max(1, sampleCount - 1));
-                selected.set(index, queue[index]!);
-            }
-
-            if (selected.size < sampleCount) {
-                for (let index = 0; index < queue.length && selected.size < sampleCount; index += 1) {
-                    if (!selected.has(index)) {
-                        selected.set(index, queue[index]!);
-                    }
-                }
-            }
-
-            const orderedSelected = Array.from(selected.entries()).sort(([a], [b]) => a - b);
-
-            if (orderedSelected.length <= sampleCount) {
-                return orderedSelected.map(([, cell]) => cell);
-            }
-
-            if (sampleCount === 1) {
-                return [orderedSelected[0]![1]];
-            }
-
-            const step = (orderedSelected.length - 1) / (sampleCount - 1);
-            const resampled = new Map<number, VirtualizedCellRenderData>();
-
-            for (let i = 0; i < sampleCount; i += 1) {
-                const orderedIndex = Math.round(i * step);
-                const selectedEntry = orderedSelected[orderedIndex];
-                if (!selectedEntry) {
-                    continue;
-                }
-                resampled.set(selectedEntry[0], selectedEntry[1]);
-            }
-
-            if (resampled.size < sampleCount) {
-                for (const [index, cell] of orderedSelected) {
-                    if (resampled.size >= sampleCount) {
-                        break;
-                    }
-                    if (!resampled.has(index)) {
-                        resampled.set(index, cell);
-                    }
-                }
-            }
-
-            return Array.from(resampled.entries())
-                .sort(([a], [b]) => a - b)
-                .map(([, cell]) => cell);
-        };
-
-        const flushQueue = (
-            rowIndex: number,
-            queued: Map<number, VirtualizedCellRenderData[]>,
-            isVisibleQueue: boolean
-        ): void => {
-            const queue = queued.get(rowIndex);
-            if (!queue || queue.length === 0) {
-                return;
-            }
-
-            const cellsToCommit = isVisibleQueue ? selectVisibleQueueCells(queue) : queue;
-
-            for (const cellData of cellsToCommit) {
-                tryAddCommittedCell(cellData, false);
-            }
-
-            queued.delete(rowIndex);
-        };
-
-        const finalizeRow = (rowIndex: number): void => {
-            flushQueue(rowIndex, queuedVisibleByRow, true);
-            flushQueue(rowIndex, queuedBufferByRow, false);
-        };
-
-        const finalizeAllRows = (): void => {
-            for (const rowIndex of range.visibleRows) {
-                finalizeRow(rowIndex);
-            }
-        };
-
-        return {
-            newVisibleCells,
+        return new RenderPassAccumulator(
             channelOffsetChanged,
-            maxDomElements,
-            visibleWindowStartMinutes,
-            visibleWindowEndMinutes,
-            stageCell,
-            finalizeRow,
-            finalizeAllRows,
-        };
+            range.visibleRows,
+            range.visibleTimeRange
+        );
     }
 
     private collectVisibleCells(
