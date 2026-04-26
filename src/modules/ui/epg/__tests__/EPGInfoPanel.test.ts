@@ -902,7 +902,7 @@ describe('EPGInfoPanel', () => {
                 const dynamicBackground = new EPGInfoPanelDynamicBackground({
                     onPendingWork: jest.fn(),
                     onSettled,
-                    isCurrentRequest: () => isCurrentRequest,
+                    isCurrentRequest: (): boolean => isCurrentRequest,
                 });
                 Object.defineProperty(globalThis, 'fetch', {
                     configurable: true,

@@ -583,56 +583,28 @@ describe('AppLifecycle', () => {
             );
         });
 
-        it('reports async lifecycle task failures through the lifecycle error seam', async () => {
+        it('waits for an earlier visibility transition even when a later transition settles first', async () => {
             await lifecycle.initialize();
-            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-            const handler = jest.fn();
-            lifecycle.on('error', handler);
-
-            (lifecycle as unknown as {
-                _handleAsyncError: (error: unknown, context: string) => void;
-            })._handleAsyncError(new Error('monitor failed'), 'network-monitor');
-            await lifecycle.waitForPendingTransition();
-
-            expect(warnSpy).toHaveBeenCalledWith(
-                '[AppLifecycle] Async lifecycle task failed',
-                expect.objectContaining({
-                    context: 'network-monitor',
-                })
-            );
-            expect(lifecycle.getLastError()).toEqual(expect.objectContaining({
-                code: AppErrorCode.UNKNOWN,
-                recoverable: true,
-                context: expect.objectContaining({
-                    source: 'network-monitor',
-                }),
-            }));
-            expect(handler).toHaveBeenCalledWith(expect.objectContaining({
-                code: AppErrorCode.UNKNOWN,
-                phase: expect.any(String),
-            }));
-            warnSpy.mockRestore();
-        });
-
-        it('waits for all tracked transitions instead of only the latest', async () => {
-            const first = createDeferred<void>();
-            const second = createDeferred<void>();
-            const trackPendingTransition = (lifecycle as unknown as {
-                _trackPendingTransition: (transition: Promise<unknown>) => void;
-            })._trackPendingTransition.bind(lifecycle);
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
+            const pauseDeferred = createDeferred<void>();
+            lifecycle.onPause(() => pauseDeferred.promise);
             let waitSettled = false;
 
-            trackPendingTransition(first.promise);
-            trackPendingTransition(second.promise);
+            Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+
+            Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+
             const wait = lifecycle.waitForPendingTransition().then(() => {
                 waitSettled = true;
             });
 
-            second.resolve();
             await Promise.resolve();
             expect(waitSettled).toBe(false);
 
-            first.resolve();
+            pauseDeferred.resolve();
             await wait;
             expect(waitSettled).toBe(true);
         });

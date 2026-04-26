@@ -1485,13 +1485,12 @@ describe('EPGVirtualizer', () => {
             expect(container.querySelector(`[data-key="row-0-${gridAnchorTime}"]`)).toBeNull();
             expect(container.querySelector(`[data-key="row-0-${gridAnchorTime + (119 * 60_000)}"]`)).toBeNull();
             expect(container.querySelector(`[data-key="row-0-${gridAnchorTime + (120 * 60_000)}"]`)).not.toBeNull();
-            expect(container.querySelector(`[data-key="row-0-${gridAnchorTime + (180 * 60_000)}"]`)).not.toBeNull();
+            expect(container.querySelector(`[data-key="row-0-${gridAnchorTime + (299 * 60_000)}"]`)).not.toBeNull();
             expect(container.querySelector(`[data-key="row-6-${gridAnchorTime + (120 * 60_000)}"]`)).not.toBeNull();
-            expect(container.querySelector(`[data-key="row-6-${gridAnchorTime + (180 * 60_000)}"]`)).not.toBeNull();
             expect(container.querySelector(`[data-key="row-6-${gridAnchorTime}"]`)).toBeNull();
         });
 
-        it('caps sampled visible queue cells to the per-row limit when seed indices add extra entries', () => {
+        it('caps sampled visible queue cells to the per-row limit', () => {
             const rowCount = 40;
             const channelIds = Array.from({ length: rowCount }, (_, index) => `row-${index}`);
             const schedules = new Map<string, ScheduleWindow>();

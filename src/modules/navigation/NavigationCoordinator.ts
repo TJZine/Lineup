@@ -6,6 +6,7 @@
 
 import type {
     KeyEvent,
+    NavigationEventMap,
 } from './interfaces';
 import { recordNonBlockingFailureTimestamp } from './nonBlockingFailureTimestamps';
 import { NavigationRepeatHandler } from './NavigationRepeatHandler';
@@ -182,7 +183,7 @@ export class NavigationCoordinator {
             navigation.off('settings', settingsHandler);
         });
 
-        const screenHandler = (payload: { from: string; to: string }): void => {
+        const screenHandler = (payload: NavigationEventMap['screenChange']): void => {
             this._screenEffects.handleScreenChange(payload.from, payload.to);
         };
         navigation.on('screenChange', screenHandler);
