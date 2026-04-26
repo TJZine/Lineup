@@ -17,11 +17,12 @@ architecture or workflow document.
 
 - Current execution state: P0-P13 are complete. `P13-EXIT` closed the refreshed
   post-P12 subjective review backlog package queue on 2026-04-26. P14 is the
-  active cleanup priority seeded from the refreshed post-P13 subjective review
-  and triage.
-- Next safe start: create a package-local execution-grade plan for `P14-W1`
-  `navigation-feature-port-boundary`. Do not implement source cleanup directly
-  from this checklist or from stale detector wording.
+  active score-targeted cleanup priority for AI generated debt, cross-module
+  architecture, and design coherence.
+- Next safe start: create a package-local execution-grade plan for
+  `P14-WAVE1`, covering `P14-W1` through `P14-W3` as separate owned slices in
+  one coordinated execution unit. Do not implement source cleanup directly from
+  this checklist or from stale detector wording.
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration.
 - First action at package start: for new checklist-linked work, planning only;
   create the package-local execution-grade plan before implementation.
@@ -63,21 +64,31 @@ Source: post-P13 targeted subjective review runs
 - Triage accounting: the refresh produced `9` review issue ids. P14 assigns
   `4` exact ids to active packages and gives the other `5` ids explicit
   non-active dispositions with one owner/revisit rule in the package map.
+- P14 score target: raise AI generated debt, cross-module arch, and design
+  coherence into the mid/high 80s. Continue P14 until all three target
+  dimensions are at least `85`, or stop earlier only if two consecutive fresh
+  focused subjective reviews find no concrete source-backed issues that can be
+  fixed without ownership churn, strict remains at least `88`, and no P0
+  security or high-confidence source-backed design/coherence issues remain.
 
 Score interpretation: P13 is closed with strict `88.0` at exit and the current
 post-P13 read is strict `88.3`. The next score-moving cleanup surface is a
-narrow P14 queue: navigation feature-port ownership, diagnostics surface/action
-separation, and generated comment noise.
+wave-scoped P14 program: first complete the admitted navigation,
+diagnostics-surface, and generated-comment packages together, then re-review the
+target dimensions before admitting any broader cleanup.
 
 ## Operating Contract
 
 - Work top to bottom unless maintainer direction says otherwise.
 - Keep authoritative execution state in Codex `update_plan`.
-- Create a package-local execution-grade plan for the selected `P14-W#`; keep it
-  local by default and promote to `docs/plans/*` only when durable tracked
-  handoff memory is explicitly needed.
+- Create a package-local execution-grade plan for the selected `P14-WAVE#` or
+  `P14-W#`; keep it local by default and promote to `docs/plans/*` only when
+  durable tracked handoff memory is explicitly needed.
 - Use the active companion map for exact review-id membership. Checklist rows
   summarize package intent; they are not a substitute for the map.
+- Wave metadata is orchestration-only. Exact issue ownership remains in
+  package-map package/disposition entries and must not be duplicated by wave
+  rows.
 - Overlapping production mechanical hotspots may be absorbed only when current
   source proves they reinforce the same package seam.
 - Do not absorb stale-exclude rows, duplicated detector rows, or broad
@@ -285,10 +296,54 @@ P13 is closed. Its exact completed package membership remains in
   - Status: completed
   - Handoff: archived; P14 owns the refreshed post-P13 review queue.
 
-## Active P14 Post-P13 Subjective Review
+## Active P14 Score-Targeted Subjective Review
 
 The active P14 exact membership surface is
 `docs/architecture/p14-post-p13-subjective-review-package-map.json`.
+
+P14 targets the current low subjective dimensions, not just the four admitted
+review rows:
+
+- AI generated debt: raise from `78.0` to at least `85`.
+- Cross-module arch: raise from `78.0` to at least `85`.
+- Design coherence: raise from `73.0` to at least `85`.
+
+Continue P14 until all three target dimensions are at least `85`, or stop
+earlier only when two consecutive fresh focused reviews for
+`design_coherence,cross_module_architecture,ai_generated_debt` find no concrete
+source-backed issues that can be fixed without ownership churn, strict remains
+at least `88`, and no P0 security or high-confidence source-backed
+design/coherence issues remain. Do not convert skipped/deferred findings into
+active implementation just to chase scores.
+
+### [ ] `P14-WAVE1` admitted score-moving cleanup
+
+- Scope: execute the current admitted P14 issues as one coordinated cleanup
+  wave while preserving slice-level issue ownership for `P14-W1`, `P14-W2`, and
+  `P14-W3`.
+- Owned slices:
+  - `P14-W1` `navigation-feature-port-boundary`
+  - `P14-W2` `diagnostics-surface-action-split`
+  - `P14-W3` `generated-comment-noise`
+- Goal: move cross-module arch, design coherence, and AI generated debt in one
+  coherent batch before rerunning focused subjective review.
+- Package guardrail: one package-local execution-grade plan may cover the wave
+  only if it includes a `slice_table` or equivalent ledger that keeps each exact
+  review issue id owned by its package, preserves separate closure conditions,
+  and records package-local verification for each slice. The plan must not
+  merge the three packages into a generic cleanup bucket.
+- Verification routing: `npm run verify` for the source wave, package-local
+  scoping commands for all three slices, targeted `rg` audits from the companion
+  map, and a fresh focused subjective review for
+  `design_coherence,cross_module_architecture,ai_generated_debt` after the wave.
+- Status: not started
+- Plan: none yet; first action is a package-local execution-grade wave plan.
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: start here. Do not start `P14-WAVE2`, `P14-WAVE3`, or P15 until
+  `P14-WAVE1` has source-proof closeout, focused review results, and exact
+  issue dispositions.
 
 ### [ ] `P14-W1` `navigation-feature-port-boundary`
 
@@ -320,7 +375,8 @@ The active P14 exact membership surface is
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: next safe implementation package. Start with planning only.
+- Handoff: execute as the cross-module architecture slice inside `P14-WAVE1`.
+  Start with planning only.
 
 ### [ ] `P14-W2` `diagnostics-surface-action-split`
 
@@ -348,7 +404,7 @@ The active P14 exact membership surface is
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: plan after `P14-W1`, unless maintainer direction reprioritizes.
+- Handoff: execute as the design-coherence slice inside `P14-WAVE1`.
 
 ### [ ] `P14-W3` `generated-comment-noise`
 
@@ -380,16 +436,71 @@ The active P14 exact membership surface is
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: plan after boundary and diagnostics packages, unless a maintainer
-  asks for low-risk comment cleanup first.
+- Handoff: execute as the AI-generated-debt slice inside `P14-WAVE1`.
+
+### [ ] `P14-WAVE2` design-coherence expansion/re-review gate
+
+- Scope: after `P14-WAVE1`, run a fresh focused subjective review for
+  `design_coherence,cross_module_architecture,ai_generated_debt`, then admit
+  additional design/coherence work only if the review produces concrete
+  source-backed seams with one owner and a verification envelope.
+- Reconsiderable surfaces:
+  - `src/core/orchestrator/AppOrchestrator.ts`
+  - `src/modules/lifecycle/AppLifecycle.ts`
+  - `src/core/channel-setup/planning/ChannelSetupPlanner.ts`
+  - `src/modules/plex/discovery/PlexResourceDiscoveryRequestPolicy.ts`
+- Package guardrail: do not activate broad AppOrchestrator, lifecycle,
+  channel-setup, or Plex cleanup merely because files are large or prior
+  detector wording exists. A WAVE2 admission must reduce ownership breadth
+  without relocating the same hub responsibility into a sibling owner.
+- Verification routing: focused subjective review, current-source proof for
+  each newly admitted issue id, package-local scoping commands for newly scoped
+  files, `npm run verify` for any admitted source work, and `npm run
+  verify:docs` for checklist/package-map updates.
+- Status: not started
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Follow-ups: the four WAVE2-reconsiderable deferred design/coherence issue ids
+  remain non-active unless WAVE2 produces fresh proof that supersedes their
+  current dispositions. The legacy playback migration issue stays under its
+  existing persistence-migration disposition.
+- Handoff: gate only. If no concrete source-backed seam passes the guardrail,
+  record that as one focused-review stop-condition pass instead of creating
+  source work.
+
+### [ ] `P14-WAVE3` AI-generated-debt expansion gate
+
+- Scope: after `P14-WAVE1`, expand generated comment/header/JSDoc cleanup only
+  when targeted audits find the same generated-style pattern beyond the initial
+  high-signal files.
+- Candidate expansion proof: targeted `rg` audits for `@fileoverview`,
+  `@module`, stale `@version`, signature-echo event JSDoc, private-field echo
+  comments, and comments that only restate adjacent names or types.
+- Package guardrail: WAVE3 remains behavior-neutral comment/API-doc cleanup.
+  Preserve comments documenting non-obvious behavior, compatibility constraints,
+  error isolation, platform quirks, strict subtitle behavior, EventEmitter
+  generic constraints, and externally visible contract caveats.
+- Verification routing: targeted audit before admission, package-local
+  Desloppify show commands for admitted files, `git diff --check`, `npm run
+  verify` for source-comment batches, and focused subjective review after the
+  batch.
+- Status: not started
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: gate only. Admit additional files only when the audit shows the same
+  pattern and the planned patch stays comment-only.
 
 ### [ ] `P14-EXIT`
 
 - Close only if: every one of the nine refreshed review issue ids has one owner
   or explicit disposition; the P14 package map and checklist agree;
   package-local checks pass; final integration-branch scan/status/plan/review
-  and security evidence is recorded; and `npm run verify` /
-  `npm run verify:docs` pass as appropriate.
+  and security evidence is recorded; focused review evidence after each wave is
+  recorded; stop-condition evaluation is recorded before opening P15; and `npm
+  run verify` / `npm run verify:docs` pass as appropriate.
 - Required commands:
   - `desloppify scan --path .`
   - `desloppify status`
@@ -397,16 +508,33 @@ The active P14 exact membership surface is
   - `desloppify plan`
   - `desloppify show review --status open --no-budget --top 120`
   - package-local scoping commands for each completed P14 package
+  - focused subjective review for
+    `design_coherence,cross_module_architecture,ai_generated_debt` after each
+    completed P14 wave
   - `desloppify show security --status open --no-budget --top 50`
   - `npm run verify` for P14 source work and `npm run verify:docs` for
     checklist/package-map closeout
+- Score reporting required at exit:
+  - AI generated debt current score and delta from `78.0`
+  - Cross-module arch current score and delta from `78.0`
+  - Design coherence current score and delta from `73.0`
+- Stop-condition evaluation:
+  - close normally when all three target dimensions are at least `85`
+  - or close early only if two consecutive fresh focused subjective reviews
+    find no concrete source-backed issues that can be fixed without ownership
+    churn, strict remains at least `88`, and no P0 security or high-confidence
+    source-backed design/coherence issues remain
+- New issue rule: any newly admitted focused-review issue must be added to the
+  package map with one owner, candidate files, package-local commands,
+  verification routing, and a revisit/stop condition before implementation.
 - Status: not started
 - Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
 - Handoff: do not open P15 until P14-EXIT records exact-id ownership,
-  dispositions, scan/status/review/security evidence, and verification results.
+  dispositions, scan/status/review/security evidence, target-dimension score
+  evidence, stop-condition evaluation, and verification results.
 
 ## P14 Non-Active Refreshed Review Dispositions
 

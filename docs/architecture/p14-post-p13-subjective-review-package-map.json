@@ -21,9 +21,27 @@
     }
   ],
   "authoritative_scope_rule": "Exact review issue ids in packages[].exact_review_issue_ids and dispositions[].exact_review_issue_id are authoritative for P14 accounting. Candidate files and commands are scoping aids only. Source cleanup must not start without a package-local execution-grade plan and review.",
-  "package_model": "checklist-linked post-P13 subjective review packages",
+  "package_model": "checklist-linked post-P13 score-targeted subjective review packages",
   "stable_package_id_format": "pkg_<domain>_<purpose>",
   "package_count": 3,
+  "score_target_goal": {
+    "purpose": "Raise the low P14 target subjective dimensions into the mid/high 80s without authorizing broad ownership churn.",
+    "target_dimensions": {
+      "ai_generated_debt": {
+        "baseline": 78.0,
+        "target": 85.0
+      },
+      "cross_module_architecture": {
+        "baseline": 78.0,
+        "target": 85.0
+      },
+      "design_coherence": {
+        "baseline": 73.0,
+        "target": 85.0
+      }
+    },
+    "stop_condition": "Continue P14 until AI generated debt, cross-module architecture, and design coherence are all >= 85, or stop earlier only after two consecutive fresh focused subjective reviews find no concrete source-backed issues that can be fixed without ownership churn, strict remains >= 88, and no P0/security findings or high-confidence source-backed design/coherence issues remain."
+  },
   "score_snapshot": {
     "source": "post-P13 targeted review refresh and scan",
     "date": "2026-04-26",
@@ -79,10 +97,85 @@
       "every_p14_review_issue_has_one_owner_or_explicit_disposition",
       "package_map_and_checklist_agree",
       "package_local_checks_pass",
+      "focused_review_after_each_wave_recorded",
+      "ai_generated_debt_cross_module_arch_design_coherence_scores_reported",
+      "stop_condition_evaluated_before_p15",
       "final_integration_branch_desloppify_scan_status_plan_review_and_security_evidence_recorded",
       "npm_run_verify_and_or_verify_docs_pass_as_appropriate"
     ]
   },
+  "execution_waves": [
+    {
+      "wave_id": "P14-WAVE1",
+      "name": "admitted-score-moving-cleanup",
+      "status": "not started",
+      "purpose": "Implement the current admitted P14 issues as one coordinated wave that can move cross-module architecture, design coherence, and AI generated debt together.",
+      "package_ids": [
+        "pkg_navigation_feature_port_boundary",
+        "pkg_diagnostics_surface_action_split",
+        "pkg_generated_comment_noise"
+      ],
+      "ownership_rule": "Wave membership is orchestration-only. Exact review issue ownership remains in packages[].exact_review_issue_ids, and the wave plan must keep separate slice closure conditions and verification for each package.",
+      "planning_requirement": "A single package-local execution-grade plan may cover the wave only if it includes a slice_table or equivalent ledger for P14-W1, P14-W2, and P14-W3 plus focused review after the wave.",
+      "verification_routing": [
+        "npm run verify",
+        "all package-local scoping commands from the three wave packages",
+        "targeted rg audits from the three wave packages",
+        "fresh focused subjective review for design_coherence,cross_module_architecture,ai_generated_debt after wave closeout"
+      ],
+      "replan_triggers": [
+        "a slice requires ownership outside its package guardrail",
+        "a fix would relocate a hub responsibility instead of reducing ownership breadth",
+        "new same-area review or source-audit residue cannot be assigned to one package owner",
+        "targeted verification reveals behavior changes outside the approved wave scope"
+      ]
+    },
+    {
+      "wave_id": "P14-WAVE2",
+      "name": "design-coherence-expansion-review-gate",
+      "status": "not started",
+      "purpose": "After WAVE1, run a fresh focused review and admit broader design/coherence work only when current-source proof identifies concrete ownership seams.",
+      "gate_only": true,
+      "reconsiderable_surfaces": [
+        "src/core/orchestrator/AppOrchestrator.ts",
+        "src/modules/lifecycle/AppLifecycle.ts",
+        "src/core/channel-setup/planning/ChannelSetupPlanner.ts",
+        "src/modules/plex/discovery/PlexResourceDiscoveryRequestPolicy.ts"
+      ],
+      "admission_rule": "Do not activate broad AppOrchestrator, lifecycle, channel-setup, or Plex cleanup merely because files are large or stale detector wording exists. Admit only seams that reduce ownership breadth without relocating the same hub responsibility elsewhere and that have one owner, candidate files, and verification routing.",
+      "deferred_disposition_scope": "The existing AppLifecycle, AppOrchestrator, ChannelSetupPlanner, and Plex discovery policy dispositions remain non-active unless WAVE2 produces fresh current-source proof that supersedes them.",
+      "verification_routing": [
+        "fresh focused subjective review for design_coherence,cross_module_architecture,ai_generated_debt",
+        "current-source proof matrix for each newly admitted issue id",
+        "npm run verify for admitted source work",
+        "npm run verify:docs for checklist/package-map updates"
+      ]
+    },
+    {
+      "wave_id": "P14-WAVE3",
+      "name": "ai-generated-debt-expansion-gate",
+      "status": "not started",
+      "purpose": "Expand generated comment/header/JSDoc cleanup beyond initial files only when targeted audits find the same generated-style pattern.",
+      "gate_only": true,
+      "admission_rule": "Additional files may be admitted only when targeted audits find generated-style banners or tautological comments/JSDoc and the planned patch remains behavior-neutral comment/API-doc cleanup.",
+      "preserve_comments_for": [
+        "non-obvious behavior",
+        "compatibility constraints",
+        "error isolation",
+        "platform quirks",
+        "strict subtitle behavior",
+        "EventEmitter generic constraints",
+        "externally visible contract caveats"
+      ],
+      "verification_routing": [
+        "targeted rg audits for generated-style comment patterns before admission",
+        "package-local Desloppify show commands for admitted files",
+        "git diff --check",
+        "npm run verify for source-comment batches",
+        "fresh focused subjective review for design_coherence,cross_module_architecture,ai_generated_debt after the batch"
+      ]
+    }
+  ],
   "packages": [
     {
       "package_id": "pkg_navigation_feature_port_boundary",
@@ -126,7 +219,7 @@
       },
       "execution_status": {
         "status": "not started",
-        "current_or_next_execution_unit": "package-local execution-grade plan",
+        "current_or_next_execution_unit": "P14-WAVE1 package-local execution-grade plan",
         "recommended_execution_order": 1
       }
     },
@@ -162,7 +255,7 @@
       },
       "execution_status": {
         "status": "not started",
-        "current_or_next_execution_unit": "package-local execution-grade plan",
+        "current_or_next_execution_unit": "P14-WAVE1 package-local execution-grade plan",
         "recommended_execution_order": 2
       }
     },
@@ -214,7 +307,7 @@
       },
       "execution_status": {
         "status": "not started",
-        "current_or_next_execution_unit": "package-local execution-grade plan",
+        "current_or_next_execution_unit": "P14-WAVE1 package-local execution-grade plan",
         "recommended_execution_order": 3
       }
     }
