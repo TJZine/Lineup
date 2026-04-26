@@ -314,12 +314,11 @@ export class ChannelSetupSessionState {
         const selected = normalized.selectedLibraryIds.filter((id) => availableIds.has(id));
         this.selectedLibraryIds = new Set(selected.length > 0 ? selected : this.libraries.map((lib) => lib.id));
 
-        const defaults = createDefaultStrategyState();
         this.strategies = SETUP_STRATEGY_KEYS.reduce<SetupStrategyState>((acc, key) => {
             const configured = normalized.strategyConfig[key];
             acc[key] = {
-                enabled: configured?.enabled ?? defaults[key].enabled,
-                scope: strategySupportsMixedScope(key) && configured?.scope === 'cross-library' ? 'cross-library' : 'per-library',
+                enabled: configured.enabled,
+                scope: strategySupportsMixedScope(key) && configured.scope === 'cross-library' ? 'cross-library' : 'per-library',
             };
             return acc;
         }, createDefaultStrategyState());

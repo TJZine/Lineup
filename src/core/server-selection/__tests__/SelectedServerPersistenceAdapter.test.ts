@@ -118,7 +118,7 @@ describe('SelectedServerPersistenceAdapter', () => {
         expect(corruptedPort.storeCredentials).not.toHaveBeenCalled();
     });
 
-    it('captures and restores selected-server snapshots for the active user', async () => {
+    it('captures selected-server snapshots for the active user without persisting', async () => {
         const port = createPort({
             readStoredCredentialsAndClearCorruption: jest.fn(() => ({
                 kind: 'available',
@@ -141,6 +141,26 @@ describe('SelectedServerPersistenceAdapter', () => {
                 serverUri: 'https://server.example.invalid',
             },
         });
+
+        expect(port.storeCredentials).not.toHaveBeenCalled();
+    });
+
+    it('restores selected-server snapshots by replacing the active-user selection exactly', async () => {
+        const port = createPort({
+            readStoredCredentialsAndClearCorruption: jest.fn(() => ({
+                kind: 'available',
+                credentials: makeCredentials({
+                    selectedServerByUserId: {
+                        'active-user': {
+                            serverId: 'server-1',
+                            serverUri: 'https://server.example.invalid',
+                        },
+                    },
+                }),
+            })),
+        });
+        const adapter = createAdapter(port);
+
         await expect(adapter.restorePersistedSelectionSnapshot({
             kind: 'available',
             selection: {
@@ -149,13 +169,14 @@ describe('SelectedServerPersistenceAdapter', () => {
             },
         })).resolves.toBe('updated');
 
+        expect(port.storeCredentials).toHaveBeenCalledTimes(1);
         expect(port.storeCredentials).toHaveBeenCalledWith(expect.objectContaining({
-            selectedServerByUserId: expect.objectContaining({
+            selectedServerByUserId: {
                 'active-user': {
                     serverId: 'server-2',
                     serverUri: 'https://server-2.example.invalid',
                 },
-            }),
+            },
         }));
     });
 });
