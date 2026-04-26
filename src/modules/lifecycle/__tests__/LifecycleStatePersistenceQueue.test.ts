@@ -10,8 +10,8 @@ import type { PersistentState } from '../types';
 describe('LifecycleStatePersistenceQueue', () => {
     let state: PersistentState;
     let stateManager: jest.Mocked<Pick<StateManager, 'save'>>;
-    let buildState: jest.Mock<PersistentState>;
-    let emitPersistenceWarning: jest.Mock<void, [{ message: string; isQuotaError: boolean; timestamp: number }]>;
+    let buildState: jest.Mock<() => PersistentState>;
+    let emitPersistenceWarning: jest.Mock<(arg: { message: string; isQuotaError: boolean; timestamp: number }) => void>;
     let warnSpy: jest.SpyInstance;
 
     beforeEach(() => {
@@ -119,5 +119,6 @@ describe('LifecycleStatePersistenceQueue', () => {
                 name: 'QuotaExceededError',
             })
         );
+        expect(emitPersistenceWarning).not.toHaveBeenCalled();
     });
 });

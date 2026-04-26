@@ -17,6 +17,10 @@ export class LifecycleMemoryMonitor {
     }
 
     public startMonitoring(): void {
+        if (this._memoryCheckInterval !== null) {
+            return;
+        }
+
         this._memoryCheckInterval = window.setInterval(() => {
             this.checkMemory();
         }, MEMORY_THRESHOLDS.CHECK_INTERVAL_MS) as unknown as number;
@@ -30,23 +34,7 @@ export class LifecycleMemoryMonitor {
     }
 
     public getMemoryUsage(): MemoryUsage {
-        const memory = (performance as unknown as {
-            memory?: {
-                usedJSHeapSize: number;
-                totalJSHeapSize: number;
-                jsHeapSizeLimit: number;
-            }
-        }).memory;
-
-        if (memory) {
-            return {
-                used: memory.usedJSHeapSize,
-                limit: memory.jsHeapSizeLimit,
-                percentage: Math.round((memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100),
-            };
-        }
-
-        return {
+        return this._readPerformanceMemoryUsage() ?? {
             used: 0,
             limit: MEMORY_THRESHOLDS.LIMIT_BYTES,
             percentage: 0,
@@ -54,8 +42,8 @@ export class LifecycleMemoryMonitor {
     }
 
     public checkMemory(): void {
-        const usage = this.getMemoryUsage();
-        if (usage.used === 0) {
+        const usage = this._readPerformanceMemoryUsage();
+        if (usage === null) {
             return;
         }
 
@@ -65,5 +53,25 @@ export class LifecycleMemoryMonitor {
         } else if (usage.used > MEMORY_THRESHOLDS.WARNING_BYTES) {
             this._onMemoryWarning({ level: 'warning', used: usage.used });
         }
+    }
+
+    private _readPerformanceMemoryUsage(): MemoryUsage | null {
+        const memory = (performance as unknown as {
+            memory?: {
+                usedJSHeapSize: number;
+                totalJSHeapSize: number;
+                jsHeapSizeLimit: number;
+            }
+        }).memory;
+
+        if (!memory) {
+            return null;
+        }
+
+        return {
+            used: memory.usedJSHeapSize,
+            limit: memory.jsHeapSizeLimit,
+            percentage: Math.round((memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100),
+        };
     }
 }

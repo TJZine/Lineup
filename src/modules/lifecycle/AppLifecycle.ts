@@ -16,6 +16,7 @@ import { LifecycleConnectivityMonitor } from './LifecycleConnectivityMonitor';
 import { LifecycleMemoryMonitor } from './LifecycleMemoryMonitor';
 import { LifecycleStatePersistenceQueue } from './LifecycleStatePersistenceQueue';
 import { EventEmitter } from '../../utils/EventEmitter';
+import { summarizeErrorForLog } from '../../utils/errors';
 import type { IDisposable } from '../../utils/interfaces';
 import {
     TIMING_CONFIG,
@@ -297,7 +298,11 @@ export class AppLifecycle implements IAppLifecycle {
     }
 
     private _trackPendingTransition(transition: Promise<unknown>): void {
-        this._pendingTransition = transition.then(
+        const previousTransition = this._pendingTransition;
+        this._pendingTransition = previousTransition.then(
+            () => transition,
+            () => transition
+        ).then(
             () => undefined,
             () => undefined
         );
@@ -525,8 +530,20 @@ export class AppLifecycle implements IAppLifecycle {
     }
 
     private _handleAsyncError(error: unknown, context: string): void {
-        void error;
-        void context;
+        const summarizedError = summarizeErrorForLog(error);
+        console.warn('[AppLifecycle] Async lifecycle task failed', {
+            context,
+            error: summarizedError,
+        });
+        this.reportError({
+            code: AppErrorCode.UNKNOWN,
+            message: `Async lifecycle task failed: ${context}`,
+            recoverable: true,
+            context: {
+                source: context,
+                error: summarizedError,
+            },
+        });
     }
 
     /**

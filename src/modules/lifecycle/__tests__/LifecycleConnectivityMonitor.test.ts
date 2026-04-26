@@ -6,9 +6,9 @@ import { LifecycleConnectivityMonitor } from '../LifecycleConnectivityMonitor';
 import { NETWORK_CHECK_PROBE_URL, TIMING_CONFIG } from '../constants';
 
 describe('LifecycleConnectivityMonitor', () => {
-    let onNetworkChange: jest.Mock<void, [{ isAvailable: boolean }]>;
-    let onNetworkWarning: jest.Mock<void, [{ message: string; isAvailable: boolean; timestamp: number }]>;
-    let reportAsyncError: jest.Mock<void, [unknown, string]>;
+    let onNetworkChange: jest.Mock<(payload: { isAvailable: boolean }) => void>;
+    let onNetworkWarning: jest.Mock<(payload: { message: string; isAvailable: boolean; timestamp: number }) => void>;
+    let reportAsyncError: jest.Mock<(error: unknown, context: string) => void>;
 
     beforeEach(() => {
         jest.useFakeTimers();
@@ -43,6 +43,17 @@ describe('LifecycleConnectivityMonitor', () => {
 
         expect(removeEventListenerSpy).toHaveBeenCalledWith('online', onlineHandler);
         expect(removeEventListenerSpy).toHaveBeenCalledWith('offline', offlineHandler);
+    });
+
+    it('does not register duplicate online/offline listeners', () => {
+        const addEventListenerSpy = jest.spyOn(window, 'addEventListener');
+        const monitor = createMonitor();
+
+        monitor.setupListeners();
+        monitor.setupListeners();
+
+        expect(addEventListenerSpy.mock.calls.filter((call) => call[0] === 'online')).toHaveLength(1);
+        expect(addEventListenerSpy.mock.calls.filter((call) => call[0] === 'offline')).toHaveLength(1);
     });
 
     it('emits network changes from browser connectivity events', () => {
@@ -121,6 +132,19 @@ describe('LifecycleConnectivityMonitor', () => {
         }
 
         expect(onNetworkChange).not.toHaveBeenCalled();
+    });
+
+    it('starts network monitoring only once until stopped', () => {
+        const monitor = createMonitor();
+        const checkSpy = jest.spyOn(monitor, 'checkNetworkStatus').mockResolvedValue(true);
+
+        monitor.startMonitoring();
+        monitor.startMonitoring();
+        jest.advanceTimersByTime(TIMING_CONFIG.NETWORK_CHECK_INTERVAL_MS);
+        monitor.stopMonitoring();
+        jest.advanceTimersByTime(TIMING_CONFIG.NETWORK_CHECK_INTERVAL_MS);
+
+        expect(checkSpy).toHaveBeenCalledTimes(1);
     });
 
     it('throttles network warnings after failed probes', async () => {

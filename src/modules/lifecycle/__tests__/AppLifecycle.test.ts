@@ -11,7 +11,7 @@ import { NETWORK_CHECK_PROBE_URL, TIMING_CONFIG } from '../constants';
 import { AppErrorCode, PersistentState } from '../types';
 import type { IAppLifecycle } from '../interfaces';
 import type { PlatformLifecycleService } from '../../../platform';
-import { expectConsoleWarn } from '../../../__tests__/helpers';
+import { createDeferred, expectConsoleWarn } from '../../../__tests__/helpers';
 
 describe('AppLifecycle', () => {
     let lifecycle: AppLifecycle;
@@ -581,6 +581,60 @@ describe('AppLifecycle', () => {
                     timestamp: expect.any(Number),
                 })
             );
+        });
+
+        it('reports async lifecycle task failures through the lifecycle error seam', async () => {
+            await lifecycle.initialize();
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const handler = jest.fn();
+            lifecycle.on('error', handler);
+
+            (lifecycle as unknown as {
+                _handleAsyncError: (error: unknown, context: string) => void;
+            })._handleAsyncError(new Error('monitor failed'), 'network-monitor');
+            await lifecycle.waitForPendingTransition();
+
+            expect(warnSpy).toHaveBeenCalledWith(
+                '[AppLifecycle] Async lifecycle task failed',
+                expect.objectContaining({
+                    context: 'network-monitor',
+                })
+            );
+            expect(lifecycle.getLastError()).toEqual(expect.objectContaining({
+                code: AppErrorCode.UNKNOWN,
+                recoverable: true,
+                context: expect.objectContaining({
+                    source: 'network-monitor',
+                }),
+            }));
+            expect(handler).toHaveBeenCalledWith(expect.objectContaining({
+                code: AppErrorCode.UNKNOWN,
+                phase: expect.any(String),
+            }));
+            warnSpy.mockRestore();
+        });
+
+        it('waits for all tracked transitions instead of only the latest', async () => {
+            const first = createDeferred<void>();
+            const second = createDeferred<void>();
+            const trackPendingTransition = (lifecycle as unknown as {
+                _trackPendingTransition: (transition: Promise<unknown>) => void;
+            })._trackPendingTransition.bind(lifecycle);
+            let waitSettled = false;
+
+            trackPendingTransition(first.promise);
+            trackPendingTransition(second.promise);
+            const wait = lifecycle.waitForPendingTransition().then(() => {
+                waitSettled = true;
+            });
+
+            second.resolve();
+            await Promise.resolve();
+            expect(waitSettled).toBe(false);
+
+            first.resolve();
+            await wait;
+            expect(waitSettled).toBe(true);
         });
     });
 

@@ -32,6 +32,10 @@ export class LifecycleConnectivityMonitor {
     }
 
     public setupListeners(): void {
+        if (this._onlineHandler !== null || this._offlineHandler !== null) {
+            return;
+        }
+
         this._onlineHandler = (): void => {
             this._setAvailabilityFromBrowserEvent(true);
         };
@@ -56,6 +60,10 @@ export class LifecycleConnectivityMonitor {
     }
 
     public startMonitoring(): void {
+        if (this._networkCheckInterval !== null) {
+            return;
+        }
+
         this._networkCheckInterval = window.setInterval(() => {
             void this.checkNetworkStatus().catch((error) => {
                 this._reportAsyncError(error, 'network-monitor');
@@ -85,7 +93,7 @@ export class LifecycleConnectivityMonitor {
                 mode: 'no-cors',
             });
 
-            const available = response.type === 'opaque' || response.ok;
+            const available = response.type === 'opaque';
             this._setAvailability(available);
             return available;
         } catch {

@@ -6,8 +6,8 @@ import { LifecycleMemoryMonitor } from '../LifecycleMemoryMonitor';
 import { MEMORY_THRESHOLDS } from '../constants';
 
 describe('LifecycleMemoryMonitor', () => {
-    let onMemoryWarning: jest.Mock<void, [{ level: 'warning' | 'critical'; used: number }]>;
-    let clearCaches: jest.Mock<void, []>;
+    let onMemoryWarning: jest.Mock<(payload: { level: 'warning' | 'critical'; used: number }) => void>;
+    let clearCaches: jest.Mock<() => void>;
 
     beforeEach(() => {
         jest.useFakeTimers();
@@ -83,6 +83,19 @@ describe('LifecycleMemoryMonitor', () => {
         setMemory(MEMORY_THRESHOLDS.WARNING_BYTES + 1);
         const monitor = createMonitor();
 
+        monitor.startMonitoring();
+        jest.advanceTimersByTime(MEMORY_THRESHOLDS.CHECK_INTERVAL_MS);
+        monitor.stopMonitoring();
+        jest.advanceTimersByTime(MEMORY_THRESHOLDS.CHECK_INTERVAL_MS);
+
+        expect(onMemoryWarning).toHaveBeenCalledTimes(1);
+    });
+
+    it('starts memory monitoring only once until stopped', () => {
+        setMemory(MEMORY_THRESHOLDS.WARNING_BYTES + 1);
+        const monitor = createMonitor();
+
+        monitor.startMonitoring();
         monitor.startMonitoring();
         jest.advanceTimersByTime(MEMORY_THRESHOLDS.CHECK_INTERVAL_MS);
         monitor.stopMonitoring();

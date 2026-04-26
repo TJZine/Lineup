@@ -70,6 +70,8 @@ export class LifecycleStatePersistenceQueue {
         } catch (error) {
             if (options?.finalShutdown === true) {
                 console.warn('[AppLifecycle] Final shutdown flush failed', summarizeErrorForLog(error));
+                this._rejectPendingSaveWaiters(error);
+                return;
             }
             this._rejectPendingSaveWaiters(error);
             this._handleSaveError(error);
