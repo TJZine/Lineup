@@ -57,15 +57,15 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         ((pathOrUrl: string | null, width?: number, height?: number) => string | null) | null = null;
     private qualityBadges: HTMLElement[] = [];
     private readonly detailsLoader = new EPGInfoPanelDetailsLoader({
-        onPendingWork: () => this.ensureIdlePromise(),
-        onSettled: () => this.resolveIdleIfSettled(),
-        onHdrLoaded: (ratingKey, hdr) => this.applyFetchedHdr(ratingKey, hdr),
-        onEpisodePosterLoaded: (ratingKey) => this.applyFetchedEpisodePoster(ratingKey),
+        onPendingWork: (): void => this.ensureIdlePromise(),
+        onSettled: (): void => this.resolveIdleIfSettled(),
+        onHdrLoaded: (ratingKey, hdr): void => this.applyFetchedHdr(ratingKey, hdr),
+        onEpisodePosterLoaded: (ratingKey): void => this.applyFetchedEpisodePoster(ratingKey),
     });
     private readonly dynamicBackground = new EPGInfoPanelDynamicBackground({
-        onPendingWork: () => this.ensureIdlePromise(),
-        onSettled: () => this.resolveIdleIfSettled(),
-        isCurrentRequest: (program, token) => this.isDynamicColorRequestCurrent(program, token),
+        onPendingWork: (): void => this.ensureIdlePromise(),
+        onSettled: (): void => this.resolveIdleIfSettled(),
+        isCurrentRequest: (program, token): boolean => this.isDynamicColorRequestCurrent(program, token),
     });
     private presentationMode: 'classic' | 'overlay' = 'overlay';
     private idlePromise: Promise<void> = Promise.resolve();

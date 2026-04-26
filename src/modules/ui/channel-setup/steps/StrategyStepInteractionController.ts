@@ -68,77 +68,77 @@ type StrategyStepInteractionAdapters = {
 const STRATEGY_CONTROL_DESCRIPTORS: readonly StrategyControlDescriptor[] = [
     {
         controlId: STEP2_CONTROL_IDS.buildMode,
-        options: () => BUILD_MODE_OPTIONS,
-        currentValue: (session) => session.buildMode,
-        applyValue: (draft, value) => {
+        options: (): readonly StrategyControlValue[] => BUILD_MODE_OPTIONS,
+        currentValue: (session): StrategyControlValue => session.buildMode,
+        applyValue: (draft, value): void => {
             draft.buildMode = value as typeof draft.buildMode;
         },
     },
     {
         controlId: STEP2_CONTROL_IDS.combineMode,
-        options: () => COMBINE_MODE_OPTIONS,
-        currentValue: (session) => session.actorStudioCombineMode,
-        applyValue: (draft, value) => {
+        options: (): readonly StrategyControlValue[] => COMBINE_MODE_OPTIONS,
+        currentValue: (session): StrategyControlValue => session.actorStudioCombineMode,
+        applyValue: (draft, value): void => {
             draft.actorStudioCombineMode = value as typeof draft.actorStudioCombineMode;
         },
     },
     {
         controlId: STEP2_CONTROL_IDS.alternateLineupCopies,
-        options: () => ALTERNATE_LINEUP_COPY_OPTIONS,
-        currentValue: (session) => session.channelExpansion.alternateLineupCopies,
-        applyValue: (draft, value) => {
+        options: (): readonly StrategyControlValue[] => ALTERNATE_LINEUP_COPY_OPTIONS,
+        currentValue: (session): StrategyControlValue => session.channelExpansion.alternateLineupCopies,
+        applyValue: (draft, value): void => {
             draft.channelExpansion.alternateLineupCopies = Number(value);
         },
-        isDisabled: (session) => !session.channelExpansion.addAlternateLineups,
+        isDisabled: (session): boolean => !session.channelExpansion.addAlternateLineups,
     },
     {
         controlId: STEP2_CONTROL_IDS.seriesBaseMode,
-        options: () => SERIES_BASE_MODE_OPTIONS,
-        currentValue: (session) => session.seriesOrdering.basePlaybackMode,
-        applyValue: (draft, value) => {
+        options: (): readonly StrategyControlValue[] => SERIES_BASE_MODE_OPTIONS,
+        currentValue: (session): StrategyControlValue => session.seriesOrdering.basePlaybackMode,
+        applyValue: (draft, value): void => {
             draft.seriesOrdering.basePlaybackMode = value as typeof draft.seriesOrdering.basePlaybackMode;
         },
     },
     {
         controlId: STEP2_CONTROL_IDS.seriesBaseBlockSize,
-        options: () => SERIES_BLOCK_PRESETS,
-        currentValue: (session) => session.seriesOrdering.baseBlockSize,
-        applyValue: (draft, value) => {
+        options: (): readonly StrategyControlValue[] => SERIES_BLOCK_PRESETS,
+        currentValue: (session): StrategyControlValue => session.seriesOrdering.baseBlockSize,
+        applyValue: (draft, value): void => {
             draft.seriesOrdering.baseBlockSize = Number(value);
         },
-        isDisabled: (session) => session.seriesOrdering.basePlaybackMode !== 'block',
+        isDisabled: (session): boolean => session.seriesOrdering.basePlaybackMode !== 'block',
     },
     {
         controlId: STEP2_CONTROL_IDS.seriesVariantType,
-        options: () => SERIES_VARIANT_TYPE_OPTIONS,
-        currentValue: (session) => session.channelExpansion.variantType,
-        applyValue: (draft, value) => {
+        options: (): readonly StrategyControlValue[] => SERIES_VARIANT_TYPE_OPTIONS,
+        currentValue: (session): StrategyControlValue => session.channelExpansion.variantType,
+        applyValue: (draft, value): void => {
             draft.channelExpansion.variantType = value as typeof draft.channelExpansion.variantType;
         },
     },
     {
         controlId: STEP2_CONTROL_IDS.seriesVariantBlockSize,
-        options: () => SERIES_BLOCK_PRESETS,
-        currentValue: (session) => session.channelExpansion.variantBlockSize,
-        applyValue: (draft, value) => {
+        options: (): readonly StrategyControlValue[] => SERIES_BLOCK_PRESETS,
+        currentValue: (session): StrategyControlValue => session.channelExpansion.variantBlockSize,
+        applyValue: (draft, value): void => {
             draft.channelExpansion.variantBlockSize = Number(value);
         },
-        isDisabled: (session) => session.channelExpansion.variantType !== 'block',
+        isDisabled: (session): boolean => session.channelExpansion.variantType !== 'block',
     },
     {
         controlId: STEP2_CONTROL_IDS.maxChannels,
-        options: (adapters) => adapters.channelLimitOptions,
-        currentValue: (session) => session.maxChannels,
-        applyValue: (draft, value) => {
+        options: (adapters): readonly StrategyControlValue[] => adapters.channelLimitOptions,
+        currentValue: (session): StrategyControlValue => session.maxChannels,
+        applyValue: (draft, value): void => {
             draft.maxChannels = Number(value);
         },
         cycleMode: 'preset',
     },
     {
         controlId: STEP2_CONTROL_IDS.minItems,
-        options: (adapters) => adapters.minItemsOptions,
-        currentValue: (session) => session.minItems,
-        applyValue: (draft, value) => {
+        options: (adapters): readonly StrategyControlValue[] => adapters.minItemsOptions,
+        currentValue: (session): StrategyControlValue => session.minItems,
+        applyValue: (draft, value): void => {
             draft.minItems = Number(value);
         },
         cycleMode: 'preset',
