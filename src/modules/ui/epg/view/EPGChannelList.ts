@@ -5,7 +5,7 @@
  */
 
 import { EPG_CLASSES, EPG_CONSTANTS } from '../constants';
-import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debugRuntimeGuards';
+import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debug/debugRuntimeGuards';
 import type { EPGConfig, ChannelConfig } from '../types';
 import { getChannelNameForDisplay } from '../../common/channelDisplay';
 

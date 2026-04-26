@@ -1,4 +1,4 @@
-import { EPGCoordinator, type EPGCoordinatorDeps } from '../EPGCoordinator';
+import { EPGCoordinator, type EPGCoordinatorDeps } from '../coordinator/EPGCoordinator';
 import type { EPGUiStatus } from '../types';
 import type { IEPGComponent } from '../interfaces';
 import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
@@ -21,8 +21,8 @@ import {
     computeEpgScheduleRangeMs,
     getBackgroundWarmQueueAction,
     partitionPrefetchChannels,
-} from '../EPGCoordinatorPolicies';
-import * as EPGCoordinatorPolicies from '../EPGCoordinatorPolicies';
+} from '../coordinator/EPGCoordinatorPolicies';
+import * as EPGCoordinatorPolicies from '../coordinator/EPGCoordinatorPolicies';
 import { flushPromises } from '../../../../__tests__/helpers';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({

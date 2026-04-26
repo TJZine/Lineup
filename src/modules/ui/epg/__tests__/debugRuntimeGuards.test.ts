@@ -1,5 +1,5 @@
-import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debugRuntimeGuards';
-import type { IEPGDebugRuntime } from '../EPGDebugRuntime';
+import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debug/debugRuntimeGuards';
+import type { IEPGDebugRuntime } from '../debug/EPGDebugRuntime';
 
 describe('debugRuntimeGuards', () => {
     it('returns false when isEnabled throws', () => {

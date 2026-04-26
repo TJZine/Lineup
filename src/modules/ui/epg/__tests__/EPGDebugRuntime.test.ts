@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { EPGDebugRuntime } from '../EPGDebugRuntime';
+import { EPGDebugRuntime } from '../debug/EPGDebugRuntime';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import * as storageHelpers from '../../../../utils/storage';
 import { DebugOverridesStore } from '../../../debug/DebugOverridesStore';

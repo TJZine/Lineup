@@ -186,18 +186,15 @@ export class VideoPlayer implements IVideoPlayer {
     }
 
     public async initialize(config: VideoPlayerConfig): Promise<void> {
-        // Guard: Prevent creating multiple video elements (spec requirement)
         if (this._videoElement) {
             return;
         }
 
-        // Apply defaults
         this._config = {
             ...DEFAULT_CONFIG,
             ...config,
         };
 
-        // Create video element
         this._videoElement = document.createElement('video');
         this._videoElement.id = VIDEO_ELEMENT_ID;
         this._videoElement.style.cssText = VIDEO_ELEMENT_STYLES;
@@ -206,19 +203,16 @@ export class VideoPlayer implements IVideoPlayer {
         // Hide the video element until a stream is actually loaded so the UI can render.
         this._videoElement.style.display = 'none';
 
-        // Find container and append
         const container = document.getElementById(config.containerId);
         if (!container) {
             throw new Error(`Video container not found: ${config.containerId}`);
         }
         container.appendChild(this._videoElement);
 
-        // Initialize state first, then set volume
         this._state = this._createInitialState();
         this._videoElement.volume = Math.max(0, Math.min(1, this._config.defaultVolume));
         this._state.volume = this._videoElement.volume;
 
-        // Initialize managers
         this._subtitleManager.initialize(this._videoElement);
         this._audioTrackManager.initialize(this._videoElement);
         this._retryManager.initialize(
@@ -227,7 +221,6 @@ export class VideoPlayer implements IVideoPlayer {
             this._config.retryDelayMs
         );
 
-        // Setup event listeners using event manager
         this._eventManager.attach(
             this._videoElement,
             this._emitter,
@@ -241,7 +234,6 @@ export class VideoPlayer implements IVideoPlayer {
             this._retryManager
         );
 
-        // Start keep-alive
         this._keepAliveManager.setIsPlayingCheck((): boolean => this.isPlaying());
         this._keepAliveManager.start();
     }
@@ -278,20 +270,16 @@ export class VideoPlayer implements IVideoPlayer {
             throw new Error('VideoPlayer not initialized');
         }
 
-        // Unload any existing stream
         this.unloadStream();
         const loadGeneration = ++this._loadGeneration;
 
         // Ensure video element is visible once we start loading media.
         this._videoElement.style.display = 'block';
 
-        // Store descriptor
         this._state.currentDescriptor = descriptor;
 
-        // Update status
         this._updateStatus('loading');
 
-        // Reset retry manager
         this._retryManager.reset();
         this._retryManager.setDescriptor(descriptor);
 
@@ -318,7 +306,6 @@ export class VideoPlayer implements IVideoPlayer {
             })),
         }));
 
-        // Load subtitle tracks
         const subtitleContext = this._createSubtitleContext(descriptor);
         const burnInTracks = this._subtitleManager.loadTracks(
             descriptor.subtitleTracks,
@@ -336,17 +323,13 @@ export class VideoPlayer implements IVideoPlayer {
             }
         }
 
-        // Load audio tracks
         this._audioTrackManager.setTracks(descriptor.audioTracks);
 
-        // Store available tracks in state
         this._state.durationMs = descriptor.durationMs;
         this._state.activeAudioId = this._audioTrackManager.getActiveTrackId();
 
-        // Sync media session metadata if enabled
         this._syncMediaSessionMetadata();
 
-        // Trigger load
         this._videoElement.load();
 
         // Wait for canplay event with timeout (30s default)
@@ -367,9 +350,6 @@ export class VideoPlayer implements IVideoPlayer {
         }
     }
 
-    /**
-     * Unload the current stream.
-     */
     public unloadStream(): void {
         if (!this._videoElement) {
             return;
@@ -380,31 +360,24 @@ export class VideoPlayer implements IVideoPlayer {
         // don't propagate as "real" playback completion.
         this._state.currentDescriptor = null;
 
-        // Cancel pending retries to prevent stream resurrection
         this._retryManager.clear();
         this._retryManager.setDescriptor(null);
 
-        // Pause and clear source
         this._videoElement.pause();
 
-        // Remove source elements
         while (this._videoElement.firstChild) {
             this._videoElement.removeChild(this._videoElement.firstChild);
         }
 
-        // Clear src attribute
         this._videoElement.removeAttribute('src');
         this._videoElement.load();
         // Hide when idle to avoid covering UI with a black video plane.
         this._videoElement.style.display = 'none';
 
-        // Unload subtitles
         this._subtitleManager.unloadTracks();
 
-        // Unload audio tracks
         this._audioTrackManager.unload();
 
-        // Reset state
         this._state.currentTimeMs = 0;
         this._state.durationMs = 0;
         this._state.bufferPercent = 0;
@@ -412,19 +385,11 @@ export class VideoPlayer implements IVideoPlayer {
         this._state.activeAudioId = null;
         this._state.errorInfo = null;
 
-        // Sync media session metadata if enabled (clears metadata)
         this._syncMediaSessionMetadata();
 
         this._updateStatus('idle');
     }
 
-    // ========================================
-    // Playback Control
-    // ========================================
-
-    /**
-     * Start or resume playback.
-     */
     public async play(): Promise<void> {
         if (!this._videoElement) {
             throw new Error('VideoPlayer not initialized');
@@ -442,26 +407,16 @@ export class VideoPlayer implements IVideoPlayer {
         }
     }
 
-    /**
-     * Pause playback.
-     */
     public pause(): void {
         if (this._videoElement) {
             this._videoElement.pause();
         }
     }
 
-    /**
-     * Stop playback and unload stream.
-     */
     public stop(): void {
         this.unloadStream();
     }
 
-    /**
-     * Seek to an absolute position.
-     * @param positionMs - Target position in milliseconds
-     */
     public async seekTo(positionMs: number): Promise<void> {
         if (!this._videoElement) {
             throw new Error('VideoPlayer not initialized');
@@ -501,24 +456,12 @@ export class VideoPlayer implements IVideoPlayer {
         });
     }
 
-    /**
-     * Seek relative to current position.
-     * @param deltaMs - Delta in milliseconds
-     */
     public async seekRelative(deltaMs: number): Promise<void> {
         const currentMs = this.getCurrentTimeMs();
         const targetMs = currentMs + deltaMs;
         return this.seekTo(targetMs);
     }
 
-    // ========================================
-    // Volume Control
-    // ========================================
-
-    /**
-     * Set the volume level.
-     * @param level - Volume level (0.0 to 1.0)
-     */
     public setVolume(level: number): void {
         if (!this._videoElement) {
             return;
@@ -538,16 +481,10 @@ export class VideoPlayer implements IVideoPlayer {
         this._emitStateChange();
     }
 
-    /**
-     * Get the current volume level.
-     */
     public getVolume(): number {
         return this._state.volume;
     }
 
-    /**
-     * Mute audio.
-     */
     public mute(): void {
         if (!this._videoElement) {
             return;
@@ -558,9 +495,6 @@ export class VideoPlayer implements IVideoPlayer {
         this._emitStateChange();
     }
 
-    /**
-     * Unmute audio.
-     */
     public unmute(): void {
         if (!this._videoElement) {
             return;
@@ -571,9 +505,6 @@ export class VideoPlayer implements IVideoPlayer {
         this._emitStateChange();
     }
 
-    /**
-     * Toggle mute state.
-     */
     public toggleMute(): void {
         if (this._state.isMuted) {
             this.unmute();
@@ -582,14 +513,6 @@ export class VideoPlayer implements IVideoPlayer {
         }
     }
 
-    // ========================================
-    // Track Management
-    // ========================================
-
-    /**
-     * Set the active subtitle track.
-     * @param trackId - Track ID to activate, null to disable
-     */
     public async setSubtitleTrack(trackId: string | null): Promise<void> {
         this._subtitleSelectionInProgress = true;
         this._subtitleSelectionRequestedId = trackId;
@@ -646,8 +569,6 @@ export class VideoPlayer implements IVideoPlayer {
     }
 
     /**
-     * Set the active audio track with retry-on-failure.
-     * @param trackId - Audio track ID to activate
      * @throws PlaybackError when the player is not initialized, the track is unknown,
      * or native switching fails
      */
@@ -662,25 +583,17 @@ export class VideoPlayer implements IVideoPlayer {
             throw error;
         }
 
-        // Delegate to AudioTrackManager (handles retry and error mapping)
         await this._audioTrackManager.switchTrack(trackId);
 
-        // Update state
         this._state.activeAudioId = this._audioTrackManager.getActiveTrackId();
         this._emitter.emit('trackChange', { type: 'audio', trackId });
         this._emitStateChange();
     }
 
-    /**
-     * Get available subtitle tracks.
-     */
     public getAvailableSubtitles(): SubtitleTrack[] {
         return this._subtitleManager.getTracks();
     }
 
-    /**
-     * Get available audio tracks.
-     */
     public getAvailableAudio(): AudioTrack[] {
         return this._audioTrackManager.getTracks();
     }
@@ -693,13 +606,6 @@ export class VideoPlayer implements IVideoPlayer {
         return this._loadGeneration === loadGeneration && this._state.currentDescriptor === descriptor;
     }
 
-    // ========================================
-    // State
-    // ========================================
-
-    /**
-     * Get current playback state.
-     */
     public getState(): PlaybackState {
         return {
             status: this._state.status,
@@ -715,9 +621,6 @@ export class VideoPlayer implements IVideoPlayer {
         };
     }
 
-    /**
-     * Get current playback position.
-     */
     public getCurrentTimeMs(): number {
         if (!this._videoElement) {
             return 0;
@@ -725,9 +628,6 @@ export class VideoPlayer implements IVideoPlayer {
         return Math.round(this._videoElement.currentTime * 1000);
     }
 
-    /**
-     * Get media duration.
-     */
     public getDurationMs(): number {
         if (!this._videoElement || !isFinite(this._videoElement.duration)) {
             return this._state.durationMs;
@@ -735,20 +635,10 @@ export class VideoPlayer implements IVideoPlayer {
         return Math.round(this._videoElement.duration * 1000);
     }
 
-    /**
-     * Check if media is currently playing.
-     */
     public isPlaying(): boolean {
         return this._state.status === 'playing';
     }
 
-    // ========================================
-    // Events
-    // ========================================
-
-    /**
-     * Register an event handler.
-     */
     public on<K extends keyof PlayerEventMap>(
         event: K,
         handler: (payload: PlayerEventMap[K]) => void
@@ -756,9 +646,6 @@ export class VideoPlayer implements IVideoPlayer {
         this._emitter.on(event, handler);
     }
 
-    /**
-     * Unregister an event handler.
-     */
     public off<K extends keyof PlayerEventMap>(
         event: K,
         handler: (payload: PlayerEventMap[K]) => void
@@ -766,15 +653,7 @@ export class VideoPlayer implements IVideoPlayer {
         this._emitter.off(event, handler);
     }
 
-    // ========================================
-    // Media Session
-    // ========================================
-
-    /**
-     * Request media session integration.
-     * Registers action handlers and syncs Now Playing metadata.
-     * Idempotent: multiple calls are safe. Never throws.
-     */
+    // Idempotent: multiple calls are safe. Never throws.
     public requestMediaSession(): void {
         // Idempotency guard
         if (this._mediaSessionEnabled) {
@@ -819,11 +698,7 @@ export class VideoPlayer implements IVideoPlayer {
         this.on('stateChange', this._mediaSessionStateChangeHandler);
     }
 
-    /**
-     * Release media session integration.
-     * Clears handlers, metadata, and unsubscribes from events.
-     * Idempotent: multiple calls are safe.
-     */
+    // Idempotent: multiple calls are safe. Never throws.
     public releaseMediaSession(): void {
         // Idempotency guard
         if (!this._mediaSessionEnabled) {
@@ -867,13 +742,6 @@ export class VideoPlayer implements IVideoPlayer {
         }
     }
 
-    // ========================================
-    // Private Methods - State
-    // ========================================
-
-    /**
-     * Create initial state object.
-     */
     private _createInitialState(): VideoPlayerInternalState {
         return {
             status: 'idle',
@@ -890,9 +758,6 @@ export class VideoPlayer implements IVideoPlayer {
         };
     }
 
-    /**
-     * Update player status and emit state change.
-     */
     private _updateStatus(status: PlayerStatus): void {
         if (this._state.status !== status) {
             this._state.status = status;
@@ -900,21 +765,10 @@ export class VideoPlayer implements IVideoPlayer {
         }
     }
 
-    /**
-     * Emit state change event.
-     */
     private _emitStateChange(): void {
         this._emitter.emit('stateChange', this.getState());
     }
 
-    // ========================================
-    // Private Methods - Media Session
-    // ========================================
-
-    /**
-     * Get Media Session API if available and functional.
-     * Uses feature detection without relying on TypeScript DOM types.
-     */
     private _getMediaSession(): MediaSessionLike | null {
         // Check navigator exists
         if (typeof navigator === 'undefined') {
@@ -940,10 +794,6 @@ export class VideoPlayer implements IVideoPlayer {
         return candidate as MediaSessionLike;
     }
 
-    /**
-     * Create an action handler for a specific Media Session action.
-     * Handlers never throw and guard against uninitialized player.
-     */
     private _createActionHandler(action: MediaSessionActionLike): MediaSessionActionHandlerLike {
         return (details: unknown): void => {
             // Guard: if player isn't initialized, no-op
@@ -1012,10 +862,6 @@ export class VideoPlayer implements IVideoPlayer {
         logVideoPlayerMediaSessionActionFailure(action, error);
     }
 
-    /**
-     * Extract seekTime from action details.
-     * Returns null if not a valid finite number.
-     */
     private _extractSeekTime(details: unknown): number | null {
         if (
             typeof details === 'object' &&
@@ -1030,9 +876,6 @@ export class VideoPlayer implements IVideoPlayer {
         return null;
     }
 
-    /**
-     * Extract seekOffset from action details, or use default.
-     */
     private _extractSeekOffset(details: unknown): number {
         if (
             typeof details === 'object' &&
@@ -1055,9 +898,6 @@ export class VideoPlayer implements IVideoPlayer {
         return 10;
     }
 
-    /**
-     * Sync Media Session metadata from current descriptor.
-     */
     private _syncMediaSessionMetadata(): void {
         if (!this._mediaSessionEnabled) {
             return;
@@ -1122,9 +962,6 @@ export class VideoPlayer implements IVideoPlayer {
         }
     }
 
-    /**
-     * Get MediaMetadata constructor if available.
-     */
     private _getMediaMetadataConstructor(): (new (init: unknown) => unknown) | null {
         const candidate = (globalThis as { MediaMetadata?: unknown }).MediaMetadata;
         if (typeof candidate === 'function') {
@@ -1133,9 +970,6 @@ export class VideoPlayer implements IVideoPlayer {
         return null;
     }
 
-    /**
-     * Sync Media Session playback state from player state.
-     */
     private _syncMediaSessionPlaybackState(state: PlaybackState): void {
         if (!this._mediaSessionEnabled) {
             return;
@@ -1163,9 +997,6 @@ export class VideoPlayer implements IVideoPlayer {
         this._syncMediaSessionPositionState(state);
     }
 
-    /**
-     * Sync Media Session position state (optional API).
-     */
     private _syncMediaSessionPositionState(state: PlaybackState): void {
         const mediaSession = this._getMediaSession();
         if (

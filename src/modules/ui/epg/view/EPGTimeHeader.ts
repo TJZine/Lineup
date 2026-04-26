@@ -1,5 +1,5 @@
 import { EPG_CLASSES } from '../constants';
-import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debugRuntimeGuards';
+import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debug/debugRuntimeGuards';
 import type { EPGConfig, TimeSlot } from '../types';
 
 function formatTimeSlot(timestamp: number): string {

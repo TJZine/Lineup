@@ -1,0 +1,338 @@
+{
+  "artifact_role": "authoritative exact membership for P13 post-P12 subjective backlog cleanup queue",
+  "artifact_version": 1,
+  "created_at": "2026-04-25",
+  "review_runs": [
+    {
+      "merged_issues": ".desloppify/subagents/runs/20260425_182908/holistic_issues_merged.json"
+    },
+    {
+      "merged_issues": ".desloppify/subagents/runs/20260425_184735/holistic_issues_merged.json"
+    }
+  ],
+  "authoritative_scope_rule": "Exact review issue ids in packages[].exact_review_issue_ids are authoritative for P13 membership. Candidate files and commands are scoping aids only. Source cleanup must not start without a package-local execution-grade plan and review.",
+  "package_model": "checklist-linked post-P12 subjective backlog packages",
+  "stable_package_id_format": "pkg_<domain>_<purpose>",
+  "package_count": 5,
+  "score_snapshot": {
+    "source": "P12 final integration-branch scan",
+    "date": "2026-04-25",
+    "overall": 88.0,
+    "strict": 87.9,
+    "objective": 95.7,
+    "verified": 95.7
+  },
+  "validation": {
+    "expected_review_issue_count": 22,
+    "assigned_review_issue_count": 22,
+    "duplicate_review_issue_ids": [],
+    "unassigned_review_issue_ids": []
+  },
+  "package_closure_requirements": {
+    "pre_implementation_source_proof_matrix": [
+      "exact_review_issue_id",
+      "current_source_evidence_or_stale_proven_proof",
+      "concrete_fixed_when_closure_condition",
+      "out_of_scope_guardrails",
+      "expected_proof_commands_tests_and_rg_audits",
+      "likely_regression_or_new_debt_risks"
+    ],
+    "implementation_review_gate": [
+      "reviewer_must_answer_whether_the_same_complaint_would_still_be_fair",
+      "reviewer_must_check_whether_the_fix_moved_the_problem_to_a_sibling_surface",
+      "reviewer_must_list_new_same_package_issues_before_closeout"
+    ],
+    "post_fix_issue_area_sweep": [
+      "rerun_package_local_desloppify_show_commands",
+      "rerun_exact_imported_issue_id_queries_when_available",
+      "rerun_targeted_rg_audits_for_old_and_replacement_patterns",
+      "inspect_touched_files_for_new_facades_broader_barrels_duplicate_unions_swallowed_errors_untyped_widening_or_call_order_coupling",
+      "record_every_survivor_as_resolved_stale_proven_accepted_residue_deferred_or_split_follow_up_with_one_final_owner"
+    ],
+    "priority_exit_gate": [
+      "every_p13_review_issue_has_one_owner_or_explicit_disposition",
+      "every_absorbed_mechanical_hotspot_has_one_exact_owner_or_explicit_disposition",
+      "package_map_and_checklist_agree",
+      "package_local_checks_pass",
+      "final_integration_branch_desloppify_scan_succeeds",
+      "desloppify_status_queue_review_and_security_evidence_recorded",
+      "npm_run_verify_and_or_verify_docs_pass_as_appropriate"
+    ]
+  },
+  "packages": [
+    {
+      "package_id": "pkg_channel_setup_workflow_and_ui_contract_ownership",
+      "package_name": "Channel Setup Workflow And UI Contract Ownership",
+      "purpose": "Make the core channel-setup workflow port canonical, retire duplicate UI/core workflow contracts, and replace positional channel-setup focus registration with a clearer UI-owned API.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::cross_module_architecture::channel_setup_workflow_contract_owned_by_ui",
+        "review::.::holistic::incomplete_migration::channel_setup_dual_workflow_contract",
+        "review::.::holistic::api_surface_coherence::channel_setup_focus_positional_api"
+      ],
+      "candidate_scoping_files": [
+        "src/core/channel-setup/workflow/ChannelSetupWorkflowPort.ts",
+        "src/core/channel-setup/workflow/createChannelSetupWorkflowPort.ts",
+        "src/core/channel-setup/types.ts",
+        "src/core/channel-setup/planning/ChannelSetupPlanDiagnostics.ts",
+        "src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts",
+        "src/modules/ui/channel-setup/focus/ChannelSetupFocusCoordinator.ts",
+        "src/modules/ui/channel-setup/steps/StrategyStepInteractionController.ts",
+        "src/modules/ui/channel-setup/ChannelSetupScreen.ts"
+      ],
+      "retired_candidate_scoping_files": [
+        "src/modules/ui/channel-setup/ChannelSetupSessionPorts.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/core/channel-setup/workflow/ChannelSetupWorkflowPort.ts --status open --no-budget --top 80",
+        "desloppify show src/core/channel-setup/workflow/createChannelSetupWorkflowPort.ts --status open --no-budget --top 80",
+        "desloppify show src/core/channel-setup/types.ts --status open --no-budget --top 80",
+        "desloppify show src/core/channel-setup/planning/ChannelSetupPlanDiagnostics.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/ui/channel-setup/ChannelSetupSessionPorts.ts --status open --no-budget --top 120",
+        "desloppify show src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/ui/channel-setup/focus/ChannelSetupFocusCoordinator.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/ui/channel-setup/steps/StrategyStepInteractionController.ts --status open --no-budget --top 120",
+        "desloppify show src/modules/ui/channel-setup/ChannelSetupScreen.ts --status open --no-budget --top 120"
+      ],
+      "likely_first_slice": "Normalize the workflow-port ownership first, then handle focus registration only if the plan proves it shares the same verification envelope.",
+      "recommended_execution_order": 1,
+      "checklist_tokens": {
+        "work_item": "P13-W1",
+        "priority_exit": "P13-EXIT"
+      },
+      "execution_status": {
+        "status": "completed",
+        "completed_execution_units": [
+          "P13-W1-WAVE1"
+        ],
+        "current_or_next_execution_unit": null,
+        "source_proof_disposition": {
+          "review::.::holistic::cross_module_architecture::channel_setup_workflow_contract_owned_by_ui": "stale-proven resolved by core workflow port canonicality and retired duplicate UI contract file",
+          "review::.::holistic::incomplete_migration::channel_setup_dual_workflow_contract": "stale-proven resolved by removing ChannelSetupSessionWorkflowPort from source and routing unavailable workflow handling through the core owner",
+          "review::.::holistic::api_surface_coherence::channel_setup_focus_positional_api": "stale-proven resolved by object-shaped registerStep2 API across focus coordinator, strategy adapter, screen adapter, and tests"
+        },
+        "verification": [
+          "npm run verify",
+          "targeted rg audits for retired workflow-port contract and object-shaped registerStep2 call sites",
+          "package-local desloppify show commands",
+          "exact issue-id desloppify show queries; stale rows resolved by current-source proof"
+        ]
+      }
+    },
+    {
+      "package_id": "pkg_orchestrator_navigation_lifecycle_composition_boundaries",
+      "package_name": "Orchestrator, Navigation, Lifecycle Composition Boundaries",
+      "purpose": "Reduce remaining orchestration hub breadth, narrow coordinator-builder inputs, break navigation type-cycle ownership, split lifecycle concerns, and clarify bootstrap live app state.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::design_coherence::app_orchestrator_still_runtime_hub",
+        "review::.::holistic::mid_level_elegance::coordinator_builders_full_assembly_bus",
+        "review::.::holistic::dependency_health::navigation_coordinator_type_cycle",
+        "review::.::holistic::design_coherence::app_lifecycle_mixed_operational_concerns",
+        "review::.::holistic::initialization_coupling::bootstrap_live_app_export"
+      ],
+      "candidate_scoping_files": [
+        "src/core/orchestrator/AppOrchestrator.ts",
+        "src/core/orchestrator/OrchestratorCoordinatorAssembly.ts",
+        "src/core/orchestrator/OrchestratorCoordinatorBuilders.ts",
+        "src/core/orchestrator/OrchestratorCoordinatorContracts.ts",
+        "src/modules/navigation/NavigationCoordinator.ts",
+        "src/modules/navigation/NavigationRepeatHandler.ts",
+        "src/modules/navigation/NavigationKeyModeRouter.ts",
+        "src/modules/navigation/NavigationModalEffectsHandler.ts",
+        "src/modules/navigation/NavigationChannelNumberHandler.ts",
+        "src/modules/lifecycle/AppLifecycle.ts",
+        "src/bootstrap.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 120",
+        "desloppify show src/core/orchestrator/OrchestratorCoordinatorAssembly.ts --status open --no-budget --top 120",
+        "desloppify show src/core/orchestrator/OrchestratorCoordinatorBuilders.ts --status open --no-budget --top 120",
+        "desloppify show src/core/orchestrator/OrchestratorCoordinatorContracts.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/navigation/NavigationCoordinator.ts --status open --no-budget --top 120",
+        "desloppify show src/modules/navigation --status open --no-budget --top 160",
+        "desloppify show src/modules/lifecycle/AppLifecycle.ts --status open --no-budget --top 120",
+        "desloppify show src/bootstrap.ts --status open --no-budget --top 80"
+      ],
+      "likely_first_slice": "Plan the composition boundary before editing; this package spans orchestrator, navigation, lifecycle, and bootstrap seams and must keep owners explicit.",
+      "recommended_execution_order": 2,
+      "checklist_tokens": {
+        "work_item": "P13-W2",
+        "priority_exit": "P13-EXIT"
+      },
+      "execution_status": {
+        "status": "completed",
+        "completed_execution_units": [
+          "P13-W2-S1",
+          "P13-W2-S2",
+          "P13-W2-S3",
+          "P13-W2-S4",
+          "P13-W2-S5"
+        ],
+        "current_or_next_execution_unit": null,
+        "source_proof_disposition": {
+          "review::.::holistic::design_coherence::app_orchestrator_still_runtime_hub": "stale-proven resolved for the mapped subclaims by moving selected-server credential persistence to SelectedServerPersistenceAdapter, priority-one assembly shaping to PriorityOneAssemblyBuilder, and schedule rollover/subtitle recovery construction to OrchestratorRuntimeControllerBuilder",
+          "review::.::holistic::mid_level_elegance::coordinator_builders_full_assembly_bus": "stale-proven resolved by narrowing every named full-assembly-input leaf builder to explicit builder inputs while keeping full assembly input only at the assembly shaper layer",
+          "review::.::holistic::dependency_health::navigation_coordinator_type_cycle": "stale-proven resolved by moving NavigationCoordinatorDeps to a neutral navigation contract file and confirming direct cycle detection reports no navigation import cycles",
+          "review::.::holistic::design_coherence::app_lifecycle_mixed_operational_concerns": "stale-proven resolved by extracting lifecycle persistence queue, connectivity monitor, and memory monitor collaborators while preserving AppLifecycle public lifecycle behavior",
+          "review::.::holistic::initialization_coupling::bootstrap_live_app_export": "stale-proven resolved by keeping bootstrap app state private and exporting only bounded bootstrap status facts"
+        },
+        "accepted_residue": [
+          "Existing objective detector rows for OrchestratorCoordinatorBuilders nested closures, navigation helper transitive-only tests, and AppLifecycle log/shallow-test/swallowed-error signals are outside P13-W2 exact review membership and remain owned by the existing Desloppify objective queue."
+        ],
+        "verification": [
+          "npm run verify",
+          "npm run verify:docs",
+          "package-local desloppify show commands",
+          "exact issue-id desloppify show queries with --status all",
+          "targeted rg audits for old navigation deps import, full builder assembly input, AppOrchestrator selected-server/priority-one/runtime-controller ownership, lifecycle internals, and bootstrap live app export/accessors",
+          "direct desloppify detect cycles checks for NavigationChannelNumberHandler.ts and NavigationCoordinator.ts"
+        ]
+      }
+    },
+    {
+      "package_id": "pkg_epg_and_channel_setup_ui_runtime_complexity",
+      "package_name": "EPG And Channel Setup UI Runtime Complexity",
+      "purpose": "Split EPG info-panel render/fetch/color ownership, reduce EPG virtualizer and warm-queue complexity, and remove duplicated channel-setup strategy-step control tables.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::design_coherence::epg_info_panel_mixed_render_fetch_color",
+        "review::.::holistic::low_level_elegance::epg_virtualizer_render_context_closure_nest",
+        "review::.::holistic::low_level_elegance::epg_background_warm_schedule_next_batch_dense",
+        "review::.::holistic::design_coherence::strategy_step_control_tables_duplicated"
+      ],
+      "candidate_scoping_files": [
+        "src/modules/ui/epg/view/EPGInfoPanel.ts",
+        "src/modules/ui/epg/view/EPGVirtualizer.ts",
+        "src/modules/ui/epg/runtime/EPGBackgroundWarmQueue.ts",
+        "src/modules/ui/channel-setup/steps/StrategyStepInteractionController.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/ui/epg/view/EPGInfoPanel.ts --status open --no-budget --top 120",
+        "desloppify show src/modules/ui/epg/view/EPGVirtualizer.ts --status open --no-budget --top 120",
+        "desloppify show src/modules/ui/epg/runtime/EPGBackgroundWarmQueue.ts --status open --no-budget --top 120",
+        "desloppify show src/modules/ui/channel-setup/steps/StrategyStepInteractionController.ts --status open --no-budget --top 120"
+      ],
+      "likely_first_slice": "Choose a package-local UI runtime slice that can be reviewed coherently without broadening into unrelated EPG or channel-setup UI behavior.",
+      "recommended_execution_order": 3,
+      "checklist_tokens": {
+        "work_item": "P13-W3",
+        "priority_exit": "P13-EXIT"
+      },
+      "execution_status": {
+        "status": "completed",
+        "completed_execution_units": [
+          "P13-W3-EU1",
+          "P13-W3-EU2",
+          "P13-W3-EU3",
+          "P13-W3-EU4"
+        ],
+        "current_or_next_execution_unit": null,
+        "source_proof_disposition": {
+          "review::.::holistic::design_coherence::epg_info_panel_mixed_render_fetch_color": "stale-proven resolved by keeping EPGInfoPanel as presenter/DOM binder while moving HDR and episode-poster loading/cache state to EPGInfoPanelDetailsLoader and dynamic color sampling, object URL lifecycle, color caches, and gradient mutation to EPGInfoPanelDynamicBackground",
+          "review::.::holistic::low_level_elegance::epg_virtualizer_render_context_closure_nest": "stale-proven resolved by moving render-pass row budget, visible/buffer queues, focused-cell exemption, row finalization, and sampling policy into the package-local RenderPassAccumulator instead of nested closures",
+          "review::.::holistic::low_level_elegance::epg_background_warm_schedule_next_batch_dense": "stale-proven resolved by leaving _scheduleNextBatch responsible for queue action/backpressure resolution and delegating batch execution, worker fan-out, safe error reporting, and idle/timer scheduling to named methods",
+          "review::.::holistic::design_coherence::strategy_step_control_tables_duplicated": "stale-proven resolved by deriving dropdown config and left/right cycling from one local STRATEGY_CONTROL_DESCRIPTORS table for control ids, options, current values, disabled predicates, draft mutation, and cycling mode"
+        },
+        "verification": [
+          "targeted package tests: 266 Jest tests plus 4 channel-setup contract tests",
+          "npm run verify",
+          "package-local desloppify show commands",
+          "exact issue-id desloppify show queries with --status all; stale imported review rows remain but are resolved by current-source proof",
+          "targeted rg audits for warm-queue batch/scheduler methods, EPG virtualizer RenderPassAccumulator ownership, EPG info-panel details/dynamic-background collaborators, and strategy-step descriptor-table ownership"
+        ]
+      }
+    },
+    {
+      "package_id": "pkg_plex_and_player_contract_error_semantics",
+      "package_name": "Plex And Player Contract/Error Semantics",
+      "purpose": "Tighten Plex library errors, image URL trust boundaries, transcode URL contract semantics, Plex discovery policy, user parser typing, and audio-track restoration clarity.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::error_consistency::plex_library_error_wrapping_loses_cause",
+        "review::.::holistic::authorization_consistency::plex_image_foreign_url_boundary",
+        "review::.::holistic::contract_coherence::plex_transcode_url_throws_undocumented",
+        "review::.::holistic::design_coherence::plex_discovery_discover_servers_pipeline",
+        "review::.::holistic::type_safety::plex_user_parser_record_contract",
+        "review::.::holistic::logic_clarity::restore_track_async_without_await"
+      ],
+      "candidate_scoping_files": [
+        "src/modules/plex/library/PlexLibraryError.ts",
+        "src/modules/plex/library/PlexLibrary.ts",
+        "src/modules/plex/auth/plexAuthTransport.ts",
+        "src/modules/plex/shared/plexUrl.ts",
+        "src/modules/plex/stream/interfaces.ts",
+        "src/modules/plex/stream/PlexStreamResolver.ts",
+        "src/modules/plex/stream/resolveStreamPipeline.ts",
+        "src/modules/plex/discovery/PlexServerDiscovery.ts",
+        "src/modules/plex/auth/plexAuthPayloadParsers.ts",
+        "src/modules/plex/auth/PlexAuth.ts",
+        "src/modules/player/SubtitleManager.ts",
+        "src/modules/player/AudioTrackManager.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/plex/library/PlexLibraryError.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/plex/library/PlexLibrary.ts --status open --no-budget --top 120",
+        "desloppify show src/modules/plex/auth/plexAuthTransport.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/plex/shared/plexUrl.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/plex/stream/interfaces.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/plex/stream/PlexStreamResolver.ts --status open --no-budget --top 120",
+        "desloppify show src/modules/plex/stream/resolveStreamPipeline.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/plex/discovery/PlexServerDiscovery.ts --status open --no-budget --top 120",
+        "desloppify show src/modules/plex/auth/plexAuthPayloadParsers.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/plex/auth/PlexAuth.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/player/SubtitleManager.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/player/AudioTrackManager.ts --status open --no-budget --top 80"
+      ],
+      "likely_first_slice": "Keep Plex contract/error changes together only where the plan proves shared semantics; avoid mixing player-only simplification into Plex risk without explicit execution-unit boundaries.",
+      "recommended_execution_order": 4,
+      "checklist_tokens": {
+        "work_item": "P13-W4",
+        "priority_exit": "P13-EXIT"
+      },
+      "execution_status": {
+        "status": "not started",
+        "completed_execution_units": [],
+        "current_or_next_execution_unit": "P13-W4"
+      }
+    },
+    {
+      "package_id": "pkg_documentation_comment_and_package_hygiene",
+      "package_name": "Documentation, Comment, And Package Hygiene",
+      "purpose": "Planning container for four small hygiene issues that must remain separately owned at execution time: lifecycle/player comments, Plex docs/constants, profile-select style organization, and architecture owner-path correction.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::ai_generated_debt::lifecycle_player_restating_comments",
+        "review::.::holistic::ai_generated_debt::plex_type_constant_doc_bloat",
+        "review::.::holistic::package_organization::profile_select_nested_css_shards",
+        "review::.::holistic::high_level_elegance::canonical_architecture_channel_setup_path_drift"
+      ],
+      "candidate_scoping_files": [
+        "src/modules/lifecycle/AppLifecycle.ts",
+        "src/modules/player/VideoPlayer.ts",
+        "src/modules/plex/discovery/types.ts",
+        "src/modules/plex/library/constants.ts",
+        "src/modules/ui/profile-select/styles.css",
+        "src/modules/ui/profile-select/styles/layout.css",
+        "src/modules/ui/profile-select/styles/cards.css",
+        "src/modules/ui/profile-select/styles/pin-modal.css",
+        "docs/architecture/CURRENT_STATE.md"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/lifecycle/AppLifecycle.ts --status open --no-budget --top 120",
+        "desloppify show src/modules/player/VideoPlayer.ts --status open --no-budget --top 120",
+        "desloppify show src/modules/plex/discovery/types.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/plex/library/constants.ts --status open --no-budget --top 80",
+        "desloppify show src/modules/ui/profile-select/styles.css --status open --no-budget --top 80",
+        "desloppify show src/modules/ui/profile-select/styles --status open --no-budget --top 120",
+        "desloppify show docs/architecture/CURRENT_STATE.md --status open --no-budget --top 80"
+      ],
+      "likely_first_slice": "Do not treat this as a miscellaneous cleanup bucket. Split source/comment, style-package, and current-state doc correction into explicit execution units unless the package-local plan proves one owner and verification envelope.",
+      "recommended_execution_order": 5,
+      "checklist_tokens": {
+        "work_item": "P13-W5",
+        "priority_exit": "P13-EXIT"
+      },
+      "execution_status": {
+        "status": "not started",
+        "completed_execution_units": [],
+        "current_or_next_execution_unit": "P13-W5"
+      }
+    }
+  ]
+}

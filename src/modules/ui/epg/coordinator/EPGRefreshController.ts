@@ -2,29 +2,29 @@ import type {
     ChannelConfig as SchedulerChannelConfig,
     IChannelManager,
     ResolvedChannelContent,
-} from '../../scheduler/channel-manager';
+} from '../../../scheduler/channel-manager';
 import type {
     IChannelScheduler,
     ScheduleConfig,
     ScheduleWindow as SchedulerScheduleWindow,
-} from '../../scheduler/scheduler';
-import { EpgPreferencesStore } from '../../settings/EpgPreferencesStore';
-import type { GuideSettingChange } from '../settings/types';
-import type { AppendIssueDiagnostic } from '../../debug/IssueDiagnosticsStore';
-import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
-import type { IEPGComponent } from './interfaces';
-import type { EPGUiStatus, EpgVisibleRange } from './types';
-import { EPGScheduleRefreshRuntime, EPGVisibleRangeRefreshQueue } from './runtime';
+} from '../../../scheduler/scheduler';
+import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
+import type { GuideSettingChange } from '../../settings/types';
+import type { AppendIssueDiagnostic } from '../../../debug/IssueDiagnosticsStore';
+import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
+import type { IEPGComponent } from '../interfaces';
+import type { EpgVisibleRange } from '../types';
+import { EPGScheduleRefreshRuntime, EPGVisibleRangeRefreshQueue } from '../runtime';
 import {
     computeNormalizedLibraryFilterState,
     computeEpgScheduleRangeMs,
     selectVisibleChannelsForLibraryFilter,
 } from './EPGCoordinatorPolicies';
-import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from './debugRuntimeGuards';
-import { toEpgScheduleWindow } from './model/adapters';
-import type { GuideSelectionSnapshot } from '../../../core/channel-tuning';
-import type { EPGConfig } from './types';
-import type { IEPGDebugRuntime } from './EPGDebugRuntime';
+import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debug/debugRuntimeGuards';
+import { toEpgScheduleWindow } from '../model/adapters';
+import type { EPGConfig } from '../types';
+import type { IEPGDebugRuntime } from '../debug/EPGDebugRuntime';
+import type { EpgGuideSelectionSnapshot, EpgUiStatus } from './EPGCoordinatorContracts';
 
 const EPG_SCHEDULE_CACHE_MIN_ENTRIES = 60;
 const EPG_SCHEDULE_CACHE_MAX_ENTRIES = 240;
@@ -37,7 +37,7 @@ export interface EPGRefreshControllerDeps {
     getEpg: () => IEPGComponent | null;
     getChannelManager: () => IChannelManager | null;
     getScheduler: () => IChannelScheduler | null;
-    getEpgUiStatus: () => EPGUiStatus;
+    getEpgUiStatus: () => EpgUiStatus;
     getEpgConfig: () => EPGConfig | null;
     getLocalMidnightMs: (timeMs: number) => number;
     debugRuntime?: IEPGDebugRuntime | null;
@@ -60,7 +60,7 @@ export class EPGRefreshController {
             getEpg: (): IEPGComponent | null => this._deps.getEpg(),
             getChannelManager: (): IChannelManager | null => this._deps.getChannelManager(),
             getScheduler: (): IChannelScheduler | null => this._deps.getScheduler(),
-            getEpgUiStatus: (): EPGUiStatus => this._deps.getEpgUiStatus(),
+            getEpgUiStatus: (): EpgUiStatus => this._deps.getEpgUiStatus(),
             getEpgScheduleRangeMs: (): { startTime: number; endTime: number } | null => this._getEpgScheduleRangeMs(),
             getLibraryFilterState: (allChannels: SchedulerChannelConfig[]): { selectedId: string | null; shouldFilter: boolean } =>
                 this._readAppliedLibraryFilterState(allChannels),
@@ -332,7 +332,7 @@ export class EPGRefreshController {
             selectedAt: number;
         },
         signal?: AbortSignal | null
-    ): Promise<GuideSelectionSnapshot | null> {
+    ): Promise<EpgGuideSelectionSnapshot | null> {
         return this._scheduleRefreshRuntime.buildGuideSelectionSnapshot(request, signal);
     }
 

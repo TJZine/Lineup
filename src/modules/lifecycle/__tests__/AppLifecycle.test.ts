@@ -11,7 +11,7 @@ import { NETWORK_CHECK_PROBE_URL, TIMING_CONFIG } from '../constants';
 import { AppErrorCode, PersistentState } from '../types';
 import type { IAppLifecycle } from '../interfaces';
 import type { PlatformLifecycleService } from '../../../platform';
-import { expectConsoleWarn, flushPromisesAndTimers } from '../../../__tests__/helpers';
+import { createDeferred, expectConsoleWarn } from '../../../__tests__/helpers';
 
 describe('AppLifecycle', () => {
     let lifecycle: AppLifecycle;
@@ -180,10 +180,8 @@ describe('AppLifecycle', () => {
         it('should set phase to terminating', async () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
-            lifecycle.setPhase('loading_data');
-            await Promise.resolve();
-            lifecycle.setPhase('ready');
-            await Promise.resolve();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
             await lifecycle.shutdown();
 
             expect(lifecycle.getPhase()).toBe('terminating');
@@ -192,10 +190,8 @@ describe('AppLifecycle', () => {
         it('should emit beforeTerminate event', async () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
-            lifecycle.setPhase('loading_data');
-            await Promise.resolve();
-            lifecycle.setPhase('ready');
-            await Promise.resolve();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
 
             const handler = jest.fn();
             lifecycle.on('beforeTerminate', handler);
@@ -207,10 +203,8 @@ describe('AppLifecycle', () => {
 
         it('should allow removing terminate callbacks via disposable subscription', async () => {
             await lifecycle.initialize();
-            lifecycle.setPhase('loading_data');
-            await Promise.resolve();
-            lifecycle.setPhase('ready');
-            await Promise.resolve();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
 
             const terminateCallback = jest.fn();
             const subscription = lifecycle.onTerminate(terminateCallback) as unknown as { dispose?: () => void };
@@ -224,10 +218,8 @@ describe('AppLifecycle', () => {
 
         it('does not break callback iteration when a callback disposes another callback during shutdown', async () => {
             await lifecycle.initialize();
-            lifecycle.setPhase('loading_data');
-            await Promise.resolve();
-            lifecycle.setPhase('ready');
-            await Promise.resolve();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
 
             let secondSubscription: { dispose?: () => void } | null = null;
             const firstCallback = jest.fn(() => {
@@ -322,11 +314,9 @@ describe('AppLifecycle', () => {
                 settled = true;
             });
 
-            await Promise.resolve();
             expect(settled).toBe(false);
 
             jest.advanceTimersByTime(TIMING_CONFIG.SAVE_DEBOUNCE_MS - 1);
-            await Promise.resolve();
             expect(settled).toBe(false);
 
             jest.advanceTimersByTime(1);
@@ -372,11 +362,16 @@ describe('AppLifecycle', () => {
         });
 
         it('exposes the narrowed lifecycle public seam', () => {
-            const lifecyclePublicSurface: Pick<IAppLifecycle, 'saveState' | 'getPhase' | 'setPhase' | 'on'> = lifecycle;
+            const lifecyclePublicSurface: Pick<
+                IAppLifecycle,
+                'saveState' | 'getPhase' | 'setPhase' | 'setPhaseAndWait' | 'waitForPendingTransition' | 'on'
+            > = lifecycle;
 
             expect(typeof lifecyclePublicSurface.saveState).toBe('function');
             expect(typeof lifecyclePublicSurface.getPhase).toBe('function');
             expect(typeof lifecyclePublicSurface.setPhase).toBe('function');
+            expect(typeof lifecyclePublicSurface.setPhaseAndWait).toBe('function');
+            expect(typeof lifecyclePublicSurface.waitForPendingTransition).toBe('function');
             expect(typeof lifecyclePublicSurface.on).toBe('function');
         });
 
@@ -394,10 +389,8 @@ describe('AppLifecycle', () => {
     describe('visibility', () => {
         it('removes duplicate pause subscriptions independently via the public pause lifecycle', async () => {
             await lifecycle.initialize();
-            lifecycle.setPhase('loading_data');
-            await flushPromisesAndTimers();
-            lifecycle.setPhase('ready');
-            await flushPromisesAndTimers();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
 
             const pauseCallback = jest.fn();
             const first = lifecycle.onPause(pauseCallback) as unknown as { dispose?: () => void };
@@ -407,7 +400,7 @@ describe('AppLifecycle', () => {
 
             Object.defineProperty(document, 'hidden', { value: true, configurable: true });
             document.dispatchEvent(new Event('visibilitychange'));
-            await flushPromisesAndTimers();
+            await lifecycle.waitForPendingTransition();
 
             expect(pauseCallback).toHaveBeenCalledTimes(1);
 
@@ -415,11 +408,11 @@ describe('AppLifecycle', () => {
 
             Object.defineProperty(document, 'hidden', { value: false, configurable: true });
             document.dispatchEvent(new Event('visibilitychange'));
-            await flushPromisesAndTimers();
+            await lifecycle.waitForPendingTransition();
 
             Object.defineProperty(document, 'hidden', { value: true, configurable: true });
             document.dispatchEvent(new Event('visibilitychange'));
-            await flushPromisesAndTimers();
+            await lifecycle.waitForPendingTransition();
 
             expect(pauseCallback).toHaveBeenCalledTimes(1);
         });
@@ -427,10 +420,8 @@ describe('AppLifecycle', () => {
         it('should call pause callbacks when hidden', async () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
-            lifecycle.setPhase('loading_data');
-            await flushPromisesAndTimers();
-            lifecycle.setPhase('ready');
-            await flushPromisesAndTimers();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
 
             const pauseCallback = jest.fn();
             lifecycle.onPause(pauseCallback);
@@ -439,8 +430,7 @@ describe('AppLifecycle', () => {
             Object.defineProperty(document, 'hidden', { value: true, configurable: true });
             document.dispatchEvent(new Event('visibilitychange'));
 
-            // Wait for async callbacks
-            await flushPromisesAndTimers();
+            await lifecycle.waitForPendingTransition();
 
             expect(pauseCallback).toHaveBeenCalled();
         });
@@ -448,10 +438,8 @@ describe('AppLifecycle', () => {
         it('should allow removing pause callbacks via disposable subscription', async () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
-            lifecycle.setPhase('loading_data');
-            await flushPromisesAndTimers();
-            lifecycle.setPhase('ready');
-            await flushPromisesAndTimers();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
 
             const pauseCallback = jest.fn();
             const subscription = lifecycle.onPause(pauseCallback) as unknown as { dispose?: () => void };
@@ -462,8 +450,7 @@ describe('AppLifecycle', () => {
             Object.defineProperty(document, 'hidden', { value: true, configurable: true });
             document.dispatchEvent(new Event('visibilitychange'));
 
-            // Wait for async callbacks
-            await flushPromisesAndTimers();
+            await lifecycle.waitForPendingTransition();
 
             expect(pauseCallback).not.toHaveBeenCalled();
         });
@@ -471,10 +458,8 @@ describe('AppLifecycle', () => {
         it('should call resume callbacks when visible', async () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
-            lifecycle.setPhase('loading_data');
-            await flushPromisesAndTimers();
-            lifecycle.setPhase('ready');
-            await flushPromisesAndTimers();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
 
             const resumeCallback = jest.fn();
             lifecycle.onResume(resumeCallback);
@@ -482,12 +467,12 @@ describe('AppLifecycle', () => {
             // First hide
             Object.defineProperty(document, 'hidden', { value: true, configurable: true });
             document.dispatchEvent(new Event('visibilitychange'));
-            await flushPromisesAndTimers();
+            await lifecycle.waitForPendingTransition();
 
             // Then show
             Object.defineProperty(document, 'hidden', { value: false, configurable: true });
             document.dispatchEvent(new Event('visibilitychange'));
-            await flushPromisesAndTimers();
+            await lifecycle.waitForPendingTransition();
 
             expect(resumeCallback).toHaveBeenCalled();
         });
@@ -495,10 +480,8 @@ describe('AppLifecycle', () => {
         it('should allow removing resume callbacks via disposable subscription', async () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
-            lifecycle.setPhase('loading_data');
-            await flushPromisesAndTimers();
-            lifecycle.setPhase('ready');
-            await flushPromisesAndTimers();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
 
             const resumeCallback = jest.fn();
             const subscription = lifecycle.onResume(resumeCallback) as unknown as { dispose?: () => void };
@@ -508,12 +491,12 @@ describe('AppLifecycle', () => {
             // First hide
             Object.defineProperty(document, 'hidden', { value: true, configurable: true });
             document.dispatchEvent(new Event('visibilitychange'));
-            await flushPromisesAndTimers();
+            await lifecycle.waitForPendingTransition();
 
             // Then show
             Object.defineProperty(document, 'hidden', { value: false, configurable: true });
             document.dispatchEvent(new Event('visibilitychange'));
-            await flushPromisesAndTimers();
+            await lifecycle.waitForPendingTransition();
 
             expect(resumeCallback).not.toHaveBeenCalled();
         });
@@ -521,18 +504,15 @@ describe('AppLifecycle', () => {
         it('should emit visibilityChange event', async () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
-            lifecycle.setPhase('loading_data');
-            await flushPromisesAndTimers();
-            lifecycle.setPhase('ready');
-            await flushPromisesAndTimers();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
 
             const handler = jest.fn();
             lifecycle.on('visibilityChange', handler);
 
             Object.defineProperty(document, 'hidden', { value: true, configurable: true });
             document.dispatchEvent(new Event('visibilitychange'));
-
-            await flushPromisesAndTimers();
+            await lifecycle.waitForPendingTransition();
 
             expect(handler).toHaveBeenCalledWith({ isVisible: false });
         });
@@ -540,17 +520,62 @@ describe('AppLifecycle', () => {
         it('should set phase to backgrounded when ready and hidden', async () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
-            lifecycle.setPhase('loading_data');
-            await flushPromisesAndTimers();
-            lifecycle.setPhase('ready');
-            await flushPromisesAndTimers();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
+
+            Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            await lifecycle.waitForPendingTransition();
+
+            expect(lifecycle.getPhase()).toBe('backgrounded');
+        });
+
+        it('waits for an earlier visibility transition even when a later transition settles first', async () => {
+            await lifecycle.initialize();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
+            const pauseDeferred = createDeferred<void>();
+            lifecycle.onPause(() => pauseDeferred.promise);
+            let waitSettled = false;
 
             Object.defineProperty(document, 'hidden', { value: true, configurable: true });
             document.dispatchEvent(new Event('visibilitychange'));
 
-            await flushPromisesAndTimers();
+            Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
 
-            expect(lifecycle.getPhase()).toBe('backgrounded');
+            const wait = lifecycle.waitForPendingTransition().then(() => {
+                waitSettled = true;
+            });
+
+            await Promise.resolve();
+            expect(waitSettled).toBe(false);
+
+            pauseDeferred.resolve();
+            await wait;
+            expect(waitSettled).toBe(true);
+            expect(lifecycle.getPhase()).toBe('ready');
+            expect(lifecycle.getState().isVisible).toBe(true);
+        });
+
+        it('does not leave the app backgrounded when visibility resumes before a slow pause settles', async () => {
+            await lifecycle.initialize();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
+            const pauseDeferred = createDeferred<void>();
+            lifecycle.onPause(() => pauseDeferred.promise);
+
+            Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+
+            Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+
+            pauseDeferred.resolve();
+            await lifecycle.waitForPendingTransition();
+
+            expect(lifecycle.getState().isVisible).toBe(true);
+            expect(lifecycle.getPhase()).toBe('ready');
         });
     });
 
@@ -572,17 +597,15 @@ describe('AppLifecycle', () => {
         it('should set phase to error on reportError', async () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
-            lifecycle.setPhase('loading_data');
-            await flushPromisesAndTimers();
-            lifecycle.setPhase('ready');
-            await flushPromisesAndTimers();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
 
             lifecycle.reportError({
                 code: AppErrorCode.AUTH_EXPIRED,
                 message: 'Session expired',
                 recoverable: true,
             });
-            await flushPromisesAndTimers();
+            await lifecycle.waitForPendingTransition();
 
             expect(lifecycle.getPhase()).toBe('error');
         });
@@ -693,8 +716,7 @@ describe('AppLifecycle', () => {
             const handler = jest.fn();
             lifecycle.on('phaseChange', handler);
 
-            lifecycle.setPhase('loading_data');
-            await flushPromisesAndTimers();
+            await lifecycle.setPhaseAndWait('loading_data');
 
             expect(handler).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -707,15 +729,13 @@ describe('AppLifecycle', () => {
         it('should not emit if phase unchanged', async () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data
-            lifecycle.setPhase('loading_data');
-            await flushPromisesAndTimers();
+            await lifecycle.setPhaseAndWait('loading_data');
             expectConsoleWarn('Invalid phase transition');
 
             const handler = jest.fn();
             lifecycle.on('phaseChange', handler);
 
-            lifecycle.setPhase('loading_data');
-            await flushPromisesAndTimers();
+            await lifecycle.setPhaseAndWait('loading_data');
 
             expect(handler).not.toHaveBeenCalled();
         });
@@ -723,10 +743,8 @@ describe('AppLifecycle', () => {
         it('should return correct state object', async () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data -> ready
-            lifecycle.setPhase('loading_data');
-            await flushPromisesAndTimers();
-            lifecycle.setPhase('ready');
-            await flushPromisesAndTimers();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
 
             const state = lifecycle.getState();
 
@@ -748,8 +766,7 @@ describe('AppLifecycle', () => {
             expectConsoleWarn('Invalid phase transition');
 
             // Try to jump directly to 'ready' (invalid: should go through loading_data)
-            lifecycle.setPhase('ready');
-            await flushPromisesAndTimers();
+            await lifecycle.setPhaseAndWait('ready');
 
             // Phase should NOT have changed
             expect(lifecycle.getPhase()).toBe('authenticating');
@@ -758,18 +775,15 @@ describe('AppLifecycle', () => {
         it('should reject invalid phase transition from ready to authenticating', async () => {
             await lifecycle.initialize();
             // Progress through valid transitions to reach 'ready'
-            lifecycle.setPhase('loading_data');
-            await flushPromisesAndTimers();
-            lifecycle.setPhase('ready');
-            await flushPromisesAndTimers();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
 
             expect(lifecycle.getPhase()).toBe('ready');
 
             expectConsoleWarn('Invalid phase transition');
 
             // Try to go back to 'authenticating' (invalid transition)
-            lifecycle.setPhase('authenticating');
-            await Promise.resolve();
+            await lifecycle.setPhaseAndWait('authenticating');
 
             // Phase should NOT have changed
             expect(lifecycle.getPhase()).toBe('ready');
@@ -777,16 +791,14 @@ describe('AppLifecycle', () => {
 
         it('should reject transition from loading_data to authenticating', async () => {
             await lifecycle.initialize();
-            lifecycle.setPhase('loading_data');
-            await Promise.resolve();
+            await lifecycle.setPhaseAndWait('loading_data');
 
             expect(lifecycle.getPhase()).toBe('loading_data');
 
             expectConsoleWarn('Invalid phase transition');
 
             // Try invalid backward transition
-            lifecycle.setPhase('authenticating');
-            await Promise.resolve();
+            await lifecycle.setPhaseAndWait('authenticating');
 
             expect(lifecycle.getPhase()).toBe('loading_data');
         });

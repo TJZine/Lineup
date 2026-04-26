@@ -349,10 +349,11 @@ describe('OrchestratorCoordinatorBuilders', () => {
         const navigationDeps = (
             coordinator as unknown as {
                 deps: Pick<
-                    import('../../../modules/navigation/NavigationCoordinator').NavigationCoordinatorDeps,
+                    import('../../../modules/navigation/NavigationCoordinatorDeps').NavigationCoordinatorDeps,
                     | 'reportRecoverableAsyncFailure'
                     | 'reportToast'
                     | 'playback'
+                    | 'nowPlayingInfo'
                     | 'readKeepPlayingInSettings'
                     | 'readDebugLoggingEnabled'
                 >;
@@ -368,6 +369,18 @@ describe('OrchestratorCoordinatorBuilders', () => {
         expect(navigationDeps.playback.getSeekIncrementMs()).toBe(30_000);
         input.config!.playerConfig!.seekIncrementSec = Number.NaN;
         expect(navigationDeps.playback.getSeekIncrementMs()).toBe(10_000);
+        const navigationModule = input.modules.navigation as unknown as {
+            isModalOpen: jest.Mock<boolean, [string?]>;
+        };
+        navigationModule.isModalOpen = jest.fn(() => true);
+        const nowPlayingInfoOverlay = input.overlays.nowPlayingInfo as unknown as {
+            resetAutoHideTimer: jest.Mock;
+        };
+        expect(navigationDeps.nowPlayingInfo.isModalOpen()).toBe(true);
+        expect(navigationModule.isModalOpen).toHaveBeenCalledWith('now-playing-info');
+        expect(nowPlayingInfoOverlay.resetAutoHideTimer).not.toHaveBeenCalled();
+        navigationDeps.nowPlayingInfo.resetAutoHideTimer();
+        expect(nowPlayingInfoOverlay.resetAutoHideTimer).toHaveBeenCalledTimes(1);
         expect(navigationDeps.readKeepPlayingInSettings()).toBe(false);
         expect(navigationDeps.readDebugLoggingEnabled()).toBe(true);
     });

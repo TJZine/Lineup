@@ -1,5 +1,5 @@
 import type { ChannelConfig, PlaybackMode } from '../../../scheduler/channel-manager';
-import { buildLibraries } from '../EPGLibraryUtils';
+import { buildLibraries } from '../coordinator/EPGLibraryUtils';
 
 const makeChannel = (
     id: string,

@@ -54,7 +54,9 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/core/orchestrator/OrchestratorTypes.ts` is the durable owner of `OrchestratorConfig` and `ModuleStatus`
 - `src/core/orchestrator/OrchestratorModuleFactory.ts` owns runtime module constructor/config assembly for `AppOrchestrator.initialize()`
 - `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts` owns coordinator construction and dependency assembly previously in `AppOrchestrator._createCoordinators()`
+- `src/core/orchestrator/OrchestratorRuntimeControllerBuilder.ts` owns schedule-day rollover and subtitle-track recovery controller construction for `AppOrchestrator`
 - `src/core/initialization/InitializationCoordinator.ts` owns orchestrator startup sequencing for the app-shell/orchestrator startup path
+- `src/core/orchestrator/priority-one/PriorityOneAssemblyBuilder.ts` owns Priority-1 runtime assembly shaping from app-provided runtime refs and callbacks
 - `src/core/orchestrator/priority-one/PriorityOneControllerFactory.ts` owns Priority-1 controller and `OrchestratorEventBinder` construction previously in `AppOrchestrator._initializePriorityOneControllers()`
 - `src/Orchestrator.ts` remains the public re-export surface for external callers (including `src/App.ts` and tests)
 
@@ -62,14 +64,15 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - startup coordinator and policy collaborators for app-shell/orchestrator startup
 - `src/core/initialization/InitializationStartupPolicy.ts` owns startup routing policy (auth/profile/server-select/post-ready)
-- `src/modules/ui/epg/buildEPGStartupConfig.ts` owns EPG startup config shaping
+- `src/modules/ui/epg/startup/buildEPGStartupConfig.ts` owns EPG startup config shaping
 
 ### `src/core/server-selection/`
 
 - focused server-selection collaborators shared between app shell and orchestrator
 - `src/core/server-selection/ServerSelectionTypes.ts` owns `OrchestratorServerSelectionResult`
 - `src/core/server-selection/ServerSelectionCoordinator.ts` owns the app-shell-facing selected-server workflow previously assembled inline in `AppOrchestrator.selectServer()`, including discovery-result translation, result shaping, transactional persistence handoff, rollback, and selected-server startup-resume invocation
-- `src/core/server-selection/SelectedServerRuntimeController.ts` owns selected-server persistence snapshot/restore helpers, clear-selection cleanup, and the concrete selected-server startup-resume helper consumed by the server-selection flow rather than the flow orchestration itself
+- `src/core/server-selection/SelectedServerPersistenceAdapter.ts` owns selected-server credential persistence, active-user snapshot/restore helpers, and `selectedServerByUserId` updates behind a narrow Plex-auth port
+- `src/core/server-selection/SelectedServerRuntimeController.ts` owns clear-selection cleanup, discovery selected-server snapshot/restore delegation, and the concrete selected-server startup-resume helper consumed by the server-selection flow rather than the flow orchestration itself
 
 ### `src/config/`
 
@@ -200,7 +203,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 ### `src/modules/ui/epg/`
 
 - bounded exception for the EPG debug-log cache helper
-- `src/modules/ui/epg/debugRuntimeGuards.ts` owns safe helper fan-out through `appendDebugRuntimeLog(...)`; `src/modules/ui/epg/EPGDebugRuntime.ts` owns bounded `lineup_debug_epg_log` buffering/flush behavior through runtime `append(...)`; this remains a bounded exception and is not precedent for new UI-layer storage owners
+- `src/modules/ui/epg/debug/debugRuntimeGuards.ts` owns safe helper fan-out through `appendDebugRuntimeLog(...)`; `src/modules/ui/epg/debug/EPGDebugRuntime.ts` owns bounded `lineup_debug_epg_log` buffering/flush behavior through runtime `append(...)`; this remains a bounded exception and is not precedent for new UI-layer storage owners
 
 ### `src/modules/plex/auth/`
 
@@ -229,7 +232,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 ### Direct-storage Exception Wraps (`P3-W3`, completed 2026-03-11)
 
-- `src/modules/debug/DebugOverridesStore.ts` owns the `lineup_debug_epg` flag; `src/modules/ui/epg/debugRuntimeGuards.ts` (`appendDebugRuntimeLog`) owns safe helper fan-out to `EPGDebugRuntime.append(...)`; `src/modules/ui/epg/EPGDebugRuntime.ts` owns bounded `lineup_debug_epg_log` buffering and flush scheduling
+- `src/modules/debug/DebugOverridesStore.ts` owns the `lineup_debug_epg` flag; `src/modules/ui/epg/debug/debugRuntimeGuards.ts` (`appendDebugRuntimeLog`) owns safe helper fan-out to `EPGDebugRuntime.append(...)`; `src/modules/ui/epg/debug/EPGDebugRuntime.ts` owns bounded `lineup_debug_epg_log` buffering and flush scheduling
 - `src/core/channel-setup/ChannelSetupRecordStore.ts` (`cleanupStaleBuildKeys`) now routes stale temp-key cleanup through `src/utils/storage.ts` prefix-based helper; `ChannelSetupCoordinator.ts` just delegates
 - `src/bootstrap.ts` still contains the one-off `lineup_debug_transcode` -> `lineup_debug_logging` migration helper
 - `src/modules/ui/audio-setup/AudioSetupScreen.ts` and `src/Orchestrator.ts` now consume `AudioSettingsStore` for `lineup_audio_setup_complete`; `src/Orchestrator.ts` now uses `SubtitlePreferencesStore` subtitle mode policy instead of the retired `lineup_subtitle_allow_burn_in` key
@@ -267,7 +270,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/modules/ui/theme/` is the public owner of theme metadata (`ThemeName`, `DEFAULT_THEME`, `THEME_CLASSES`, `THEME_OPTIONS`)
 - runtime theme state/control is app-shell-owned by `src/core/app-shell/AppThemeController.ts`
 - `src/modules/ui/settings/` consumes theme metadata plus app-composed runtime callbacks and should not act as a second public owner for those definitions
-- `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/` remain the staged EPG package owners introduced by `P2-W4`
+- `src/modules/ui/epg/component/`, `src/modules/ui/epg/coordinator/`, `src/modules/ui/epg/startup/`, `src/modules/ui/epg/debug/`, `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/` are the staged EPG package owners.
 
 ## Current Hotspot Reference
 
@@ -275,7 +278,7 @@ The most important structural hotspots remain and should be treated as active wo
 
 - `src/Orchestrator.ts`
 - `src/App.ts`
-- `src/modules/ui/epg/EPGComponent.ts`
+- `src/modules/ui/epg/component/EPGComponent.ts`
 - `src/modules/ui/settings/SettingsScreen.ts`
 - `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
 - `src/modules/plex/stream/PlexStreamResolver.ts`
@@ -285,7 +288,7 @@ The most important structural hotspots remain and should be treated as active wo
 
 - `src/Orchestrator.ts` → `P1` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 - `src/App.ts` → `P2` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
-- `src/modules/ui/epg/EPGComponent.ts`, `src/modules/ui/settings/SettingsScreen.ts`, `src/modules/ui/channel-setup/ChannelSetupScreen.ts` → `P4` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
+- `src/modules/ui/epg/component/EPGComponent.ts`, `src/modules/ui/settings/SettingsScreen.ts`, `src/modules/ui/channel-setup/ChannelSetupScreen.ts` → `P4` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 - `src/modules/plex/stream/PlexStreamResolver.ts` → `P5` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 - `src/modules/scheduler/channel-manager/ChannelManager.ts` → `P6` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 

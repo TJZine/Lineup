@@ -4,20 +4,21 @@
  */
 
 import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
-import type { ModuleRuntimeStatus } from '../../../core/module-status';
+import type { AppErrorCode } from '../../../types/app-errors';
 import type {
     EpgChannel,
     EpgItemDetails,
     EpgScheduleWindow,
     EpgScheduledProgram,
 } from './model/domainTypes';
-import type { IEPGDebugRuntime } from './EPGDebugRuntime';
+import type { IEPGDebugRuntime } from './debug/EPGDebugRuntime';
+import type { EpgUiStatus } from './coordinator/EPGCoordinatorContracts';
 
 // Re-export EPG-owned aliases for UI contracts.
 export type ScheduledProgram = EpgScheduledProgram;
 export type ScheduleWindow = EpgScheduleWindow;
 export type ChannelConfig = EpgChannel;
-export type EPGUiStatus = ModuleRuntimeStatus | undefined;
+export type EPGUiStatus = EpgUiStatus;
 
 // ============================================
 // EPG Configuration & State
@@ -247,13 +248,15 @@ export interface EPGInternalState {
 /**
  * EPG error types for error boundary handling.
  */
-export type EPGErrorType =
-    | 'RENDER_ERROR'
-    | 'SCROLL_TIMEOUT'
-    | 'POOL_EXHAUSTED'
-    | 'EMPTY_CHANNEL'
-    | 'NAV_BOUNDARY'
-    | 'PARSE_ERROR';
+export type EPGErrorType = Extract<
+    AppErrorCode,
+    | AppErrorCode.RENDER_ERROR
+    | AppErrorCode.SCROLL_TIMEOUT
+    | AppErrorCode.POOL_EXHAUSTED
+    | AppErrorCode.EMPTY_CHANNEL
+    | AppErrorCode.NAV_BOUNDARY
+    | AppErrorCode.PARSE_ERROR
+>;
 
 /**
  * Cell render data for virtualization.

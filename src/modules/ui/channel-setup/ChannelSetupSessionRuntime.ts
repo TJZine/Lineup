@@ -1,10 +1,10 @@
-import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
-import { isChannelSetupWorkflowUnavailableError } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type {
     ChannelSetupContext,
     ChannelSetupPreview,
     ChannelSetupRecord,
 } from '../../../core/channel-setup/types';
+import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
+import { isChannelSetupWorkflowUnavailableError } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import { isAbortLikeError } from '../../../utils/errors';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from './constants';
 import type {

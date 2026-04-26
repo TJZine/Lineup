@@ -1,4 +1,4 @@
-import type { ChannelConfig } from '../../scheduler/channel-manager';
+import type { ChannelConfig } from '../../../scheduler/channel-manager';
 
 export const buildLibraries = (channels: ChannelConfig[]): Array<{ id: string; name: string }> => {
     const map = new Map<string, string>();

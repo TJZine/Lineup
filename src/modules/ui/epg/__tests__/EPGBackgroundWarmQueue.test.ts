@@ -295,4 +295,38 @@ describe('EPGBackgroundWarmQueue', () => {
             idleScheduler.cancelIdleCallback = priorCancelIdleCallback;
         }
     });
+
+    it('does not start remaining warm refreshes after the queue is cancelled mid-batch', async () => {
+        const firstRefresh = createDeferred<void>();
+        const refreshChannelSchedule = jest.fn((channel: ChannelConfig) => {
+            if (channel.id === 'c1') {
+                return firstRefresh.promise;
+            }
+            return Promise.resolve();
+        });
+        const queue = new EPGBackgroundWarmQueue({
+            getActiveRefreshId: (): number => 1,
+            getCacheSize: (): number => 0,
+            getCacheLimit: (): number => 500,
+            getInFlightCount: (): number => 0,
+        });
+
+        queue.start({
+            refreshId: 1,
+            reason: 'visible-range',
+            channels: [makeChannel('c1', 1), makeChannel('c2', 2)],
+            refreshChannelSchedule,
+            concurrency: 1,
+        });
+
+        await jest.runOnlyPendingTimersAsync();
+        await Promise.resolve();
+        expect(refreshChannelSchedule).toHaveBeenCalledTimes(1);
+
+        queue.cancel('test-cancel');
+        firstRefresh.resolve();
+        await queue.whenIdle();
+
+        expect(refreshChannelSchedule).toHaveBeenCalledTimes(1);
+    });
 });

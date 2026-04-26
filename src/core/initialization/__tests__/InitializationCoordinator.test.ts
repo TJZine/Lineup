@@ -4,7 +4,7 @@
 
 import { InitializationCoordinator, STARTUP_PHASE } from '../InitializationCoordinator';
 import type { InitializationDependencies, InitializationCallbacks } from '../InitializationCoordinator';
-import { CLASSIC_EPG_PIP_CLASS } from '../../../modules/ui/epg/buildEPGStartupConfig';
+import { CLASSIC_EPG_PIP_CLASS } from '../../../modules/ui/epg';
 import type { PlexAuthDataV2, PlexStoredCredentialsReadResult } from '../../../modules/plex/auth';
 import { AppErrorCode, PlexApiError } from '../../../modules/plex/auth';
 import { CHANNEL_BADGE_CONTAINER_ID } from '../../../modules/ui/channel-badge';

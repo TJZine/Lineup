@@ -42,6 +42,12 @@ export interface IAppLifecycle {
 
     setPhase(phase: AppPhase): void;
 
+    /** Awaitable test/runtime seam for callers that need phase transition completion. */
+    setPhaseAndWait(phase: AppPhase): Promise<boolean>;
+
+    /** Resolves after the latest tracked phase, pause, resume, or error transition settles. */
+    waitForPendingTransition(): Promise<void>;
+
     reportError(error: AppError): void;
 
     getLastError(): AppError | null;

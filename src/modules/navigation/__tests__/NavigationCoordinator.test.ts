@@ -1,4 +1,5 @@
-import { NavigationCoordinator, type NavigationCoordinatorDeps } from '../NavigationCoordinator';
+import { NavigationCoordinator } from '../NavigationCoordinator';
+import type { NavigationCoordinatorDeps } from '../NavigationCoordinatorDeps';
 import type { INavigationManager, KeyEvent, NavigationEventMap, Screen } from '../interfaces';
 import type { IEPGComponent } from '../../ui/epg';
 import type { IVideoPlayer } from '../../player';
@@ -78,9 +79,11 @@ type LegacyNavigationCoordinatorDeps = {
     handleMiniGuidePage: jest.Mock;
     handleMiniGuideSelect: jest.Mock;
     isNowPlayingModalOpen: jest.Mock;
+    resetNowPlayingInfoAutoHideTimer: jest.Mock;
     toggleNowPlayingInfoOverlay: jest.Mock;
     showNowPlayingInfoOverlay: jest.Mock;
     hideNowPlayingInfoOverlay: jest.Mock;
+    nowPlayingInfoModalId: string;
     playbackOptionsModalId: string;
     preparePlaybackOptionsModal: jest.Mock;
     showPlaybackOptionsModal: jest.Mock;
@@ -151,9 +154,11 @@ const setup = (
         handleMiniGuidePage: jest.fn().mockReturnValue(true),
         handleMiniGuideSelect: jest.fn(),
         isNowPlayingModalOpen: jest.fn().mockReturnValue(false),
+        resetNowPlayingInfoAutoHideTimer: jest.fn(),
         toggleNowPlayingInfoOverlay: jest.fn(),
         showNowPlayingInfoOverlay: jest.fn(),
         hideNowPlayingInfoOverlay: jest.fn(),
+        nowPlayingInfoModalId: NOW_PLAYING_INFO_MODAL_ID,
         playbackOptionsModalId: PLAYBACK_OPTIONS_MODAL_ID,
         preparePlaybackOptionsModal: jest.fn().mockReturnValue({
             focusableIds: ['playback-subtitle-off'],
@@ -211,7 +216,9 @@ const setup = (
             },
         },
         nowPlayingInfo: {
+            modalId: legacy.nowPlayingInfoModalId,
             isModalOpen: legacy.isNowPlayingModalOpen,
+            resetAutoHideTimer: legacy.resetNowPlayingInfoAutoHideTimer,
             toggleOverlay: legacy.toggleNowPlayingInfoOverlay,
             showOverlay: legacy.showNowPlayingInfoOverlay,
             hideOverlay: legacy.hideNowPlayingInfoOverlay,
@@ -670,7 +677,9 @@ describe('NavigationCoordinator', () => {
             focusableIds: ['playback-subtitle-off'],
             preferredFocusId: 'playback-subtitle-off',
         };
+        const nowPlayingInfoModalId = 'injected-now-playing-info';
         const { handlers, navigation, deps } = setup({
+            nowPlayingInfoModalId,
             isNowPlayingModalOpen: jest.fn().mockReturnValue(true),
             preparePlaybackOptionsModal: jest.fn().mockReturnValue(focus),
         });
@@ -679,12 +688,33 @@ describe('NavigationCoordinator', () => {
         handlers.keyPress?.(event);
 
         expect(deps.preparePlaybackOptionsModal).toHaveBeenCalledWith('subtitles');
-        expect(navigation.closeModal).toHaveBeenCalledWith(NOW_PLAYING_INFO_MODAL_ID);
+        expect(deps.resetNowPlayingInfoAutoHideTimer).toHaveBeenCalledTimes(1);
+        expect(navigation.closeModal).toHaveBeenCalledWith(nowPlayingInfoModalId);
         expect(navigation.openModal).toHaveBeenCalledWith(
             PLAYBACK_OPTIONS_MODAL_ID,
             focus.focusableIds
         );
         expect(event.handled).toBe(true);
+    });
+
+    it('does not route repeated info or blue keypresses', () => {
+        const { handlers, navigation } = setup();
+
+        handlers.keyPress?.(makeKeyEvent('info', { isRepeat: true }));
+        handlers.keyPress?.(makeKeyEvent('blue', { isRepeat: true }));
+
+        expect(navigation.goTo).not.toHaveBeenCalled();
+    });
+
+    it('routes non-repeated info or blue keypresses to the server-selection flow once per keypress', () => {
+        const { handlers, navigation } = setup();
+
+        handlers.keyPress?.(makeKeyEvent('info'));
+        handlers.keyPress?.(makeKeyEvent('blue'));
+
+        expect(navigation.goTo).toHaveBeenCalledTimes(2);
+        expect(navigation.goTo).toHaveBeenNthCalledWith(1, 'server-select', { allowAutoConnect: false });
+        expect(navigation.goTo).toHaveBeenNthCalledWith(2, 'server-select', { allowAutoConnect: false });
     });
 
     it('routes EPG key handling and marks handled', () => {
@@ -806,6 +836,20 @@ describe('NavigationCoordinator', () => {
         handlers.keyPress?.(makeKeyEvent('pause'));
 
         expect(deps.pokePlayerOsd).toHaveBeenCalledWith('pause');
+    });
+
+    it('consumes EPG mode input without handling selection while input is blocked', () => {
+        const { handlers, epg, navigation } = setup();
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+        (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
+        (navigation.isInputBlocked as jest.Mock).mockReturnValue(true);
+        const event = makeKeyEvent('ok');
+
+        handlers.keyPress?.(event);
+
+        expect(epg.handleSelect).not.toHaveBeenCalled();
+        expect(event.handled).toBe(true);
+        expect(event.originalEvent.preventDefault).toHaveBeenCalled();
     });
 
     it('fastforward seeks forward and pokes OSD', () => {
@@ -1030,6 +1074,18 @@ describe('NavigationCoordinator', () => {
         expect(navigation.replaceScreen).toHaveBeenCalledWith('channel-setup');
     });
 
+    it('hides EPG before channel setup redirects a guide-to-player transition', () => {
+        const { handlers, deps, epg, navigation } = setup({
+            shouldRunChannelSetup: jest.fn().mockReturnValue(true),
+        });
+
+        handlers.screenChange?.({ from: 'guide', to: 'player' });
+
+        expect(epg.hide).toHaveBeenCalledTimes(1);
+        expect(navigation.replaceScreen).toHaveBeenCalledWith('channel-setup');
+        expect(deps.hideMiniGuide).not.toHaveBeenCalled();
+    });
+
     it('modal open/close triggers now playing overlay handlers', () => {
         const { handlers, deps } = setup();
 
@@ -1109,30 +1165,17 @@ describe('NavigationCoordinator', () => {
         expect(event.handled).toBe(true);
     });
 
-    it('enforces the EPG routing guard locally before toggling player OSD for ok', () => {
-        const { coordinator, epg, deps } = setup();
+    it('routes ok to EPG selection before player OSD toggling when guide is visible', () => {
+        const { handlers, epg, deps, navigation } = setup();
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+        (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
         const event = makeKeyEvent('ok');
-        const handlePlayerOsdToggleKeyPress = Reflect.get(
-            coordinator as object,
-            '_handlePlayerOsdToggleKeyPress'
-        ) as (event: KeyEvent, routingState: {
-            currentScreen: Screen;
-            modalOpen: boolean;
-            shouldRouteToEpg: boolean;
-            miniGuideVisible: boolean;
-        }) => boolean;
 
-        const handled = handlePlayerOsdToggleKeyPress.call(coordinator, event, {
-            currentScreen: 'player',
-            modalOpen: false,
-            shouldRouteToEpg: true,
-            miniGuideVisible: false,
-        });
+        handlers.keyPress?.(event);
 
-        expect(handled).toBe(false);
-        expect(epg.handleSelect).not.toHaveBeenCalled();
+        expect(epg.handleSelect).toHaveBeenCalledTimes(1);
         expect(deps.togglePlayerOsd).not.toHaveBeenCalled();
-        expect(event.handled).toBeUndefined();
+        expect(event.handled).toBe(true);
     });
 
     it('hides EPG when entering settings screen', () => {
@@ -1144,15 +1187,18 @@ describe('NavigationCoordinator', () => {
     });
 
     it('preserves player continuity across settings roundtrip', () => {
-        const { handlers, deps, epg, videoPlayer, navigation } = setup();
+        const nowPlayingInfoModalId = 'injected-now-playing-info';
+        const { handlers, deps, epg, videoPlayer, navigation } = setup({
+            nowPlayingInfoModalId,
+        });
         (navigation.isModalOpen as jest.Mock).mockImplementation(
-            (modalId?: string) => modalId === NOW_PLAYING_INFO_MODAL_ID
+            (modalId?: string) => modalId === nowPlayingInfoModalId
         );
 
         handlers.screenChange?.({ from: 'player', to: 'settings' });
 
         expect(epg.hide).toHaveBeenCalledTimes(1);
-        expect(navigation.closeModal).toHaveBeenCalledWith(NOW_PLAYING_INFO_MODAL_ID);
+        expect(navigation.closeModal).toHaveBeenCalledWith(nowPlayingInfoModalId);
         expect(deps.hideMiniGuide).toHaveBeenCalledTimes(1);
         expect(deps.hidePlayerOsd).toHaveBeenCalledTimes(1);
         expect(videoPlayer.pause).toHaveBeenCalledTimes(1);

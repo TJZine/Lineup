@@ -67,7 +67,8 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - focused server-selection collaborators shared between app shell and orchestrator
 - `ServerSelectionCoordinator.selectServer()` owns the app-shell-facing selected-server workflow/result contract, including discovery-result translation, transactional persistence handoff, rollback, and selected-server startup-resume invocation
-- `SelectedServerRuntimeController` owns selected-server persistence snapshot/restore helpers, clear-selection cleanup, and the concrete selected-server startup-resume helper invoked by that flow; it does not own the app-shell orchestration path itself
+- `SelectedServerPersistenceAdapter` owns selected-server credential persistence, active-user snapshot/restore helpers, and `selectedServerByUserId` updates behind a narrow Plex-auth port
+- `SelectedServerRuntimeController` owns clear-selection cleanup, discovery selected-server snapshot/restore delegation, and the concrete selected-server startup-resume helper invoked by that flow; it does not own the app-shell orchestration path itself
 
 ### `src/Orchestrator.ts`
 
@@ -80,12 +81,17 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - central runtime coordinator implementation owner
 - owns composition-root diagnostics append wiring (`AppendIssueDiagnostic`) for runtime collaborators while `IssueDiagnosticsStore` remains the storage/debug owner
 - constructs the initialization-package `InitializationCoordinator` before coordinator assembly so `ensureEpgInitialized` callbacks always bind the real startup owner (no fake no-op readiness path)
-- builds the grouped priority-one runtime assembly contract directly and lets `src/core/orchestrator/priority-one/PriorityOneControllerCollaborators.ts` own controller-specific collaborator shaping
+- delegates grouped priority-one runtime assembly shaping to `src/core/orchestrator/priority-one/PriorityOneAssemblyBuilder.ts` and delegates schedule-day rollover plus subtitle-track recovery construction to `src/core/orchestrator/OrchestratorRuntimeControllerBuilder.ts`
 
 ### `src/core/orchestrator/priority-one/`
 
 - focused owner for the grouped priority-one runtime assembly contract plus controller/binder composition
+- `PriorityOneAssemblyBuilder.ts` owns the grouped priority-one runtime assembly contract from app-provided runtime refs and callbacks
 - `PriorityOneControllerFactory.ts` now owns playback start/runtime, overlay runtime policy, profile-switch cleanup, and event-binder assembly for the priority-one path
+
+### `src/core/orchestrator/OrchestratorRuntimeControllerBuilder.ts`
+
+- focused owner for schedule-day rollover and subtitle-track recovery controller construction used by `AppOrchestrator`
 
 ### `src/core/orchestrator/OrchestratorSchedulePolicy.ts`
 
@@ -149,7 +155,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - these are the current designated owners for storage-backed state
 - `src/modules/ui/settings/SettingsStore.ts` is a UI-facing facade; `debugLogging` and `subtitleDebugLogging` persistence now routes through `src/modules/settings/DeveloperSettingsStore.ts`
 - runtime consumers route mapped key families through typed stores (for example `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`, `ProfileSelectScreen` -> `ProfileSessionStore`, `AppThemeController` -> `ThemePreferencesStore`, `EPGInfoPanel` -> `NowPlayingDisplayStore`/`EpgPreferencesStore`, `SettingsStore` -> dedicated settings stores, `AudioSetupScreen`/`Orchestrator`/`AudioTrackManager` -> `AudioSettingsStore` policy reads and setup completion state, `Orchestrator` -> `SubtitlePreferencesStore` subtitle mode policy for burn-in decisions)
-- `src/modules/ui/epg/EPGDebugRuntime.ts` is the bounded EPG-layer owner for `lineup_debug_epg_log` buffering + flush scheduling and debug-flag cache reads used by EPG runtime/UI consumers; it is not a general storage-owner precedent
+- `src/modules/ui/epg/debug/EPGDebugRuntime.ts` is the bounded EPG-layer owner for `lineup_debug_epg_log` buffering + flush scheduling and debug-flag cache reads used by EPG runtime/UI consumers; it is not a general storage-owner precedent
 - `src/modules/debug/DebugOverridesStore.ts` is the canonical owner for the `lineup_debug_epg` flag
 - `src/core/channel-setup/ChannelSetupRecordStore.ts` owns only the persisted setup-record family `lineup_channel_setup_v2:${serverId}`
 - `src/core/channel-setup/ChannelSetupBuildScratchStore.ts` owns temporary Channel Setup build-key lifecycle (`lineup_channels_build_tmp_v1:*`, `lineup_current_channel_build_tmp_v1:*`)
@@ -166,11 +172,11 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - `src/modules/ui/theme/` owns the public theme metadata contract (`ThemeName`, `DEFAULT_THEME`, `THEME_CLASSES`, `THEME_OPTIONS`); runtime theme state/control lives in app-shell ownership (`AppThemeController`), and `src/modules/ui/settings/` consumes theme callbacks through app-composed ports
 - `src/modules/ui/common/` owns cross-surface UI presentation helpers such as `appShellContainerIds`, `channelDisplay`, and the pure `formatTimecode` helper shared by overlay owners
 - `src/modules/ui/common/appShellContainerIds.ts` is the shared owner for app-shell-owned container IDs created by `src/core/app-shell/AppContainerFactory.ts` and consumed by app-shell/runtime wiring, including the bounded `runtime-chrome-host`; feature-owned mount container IDs such as EPG, player OSD, mini guide, channel badge, channel transition, and exit confirm remain with their feature modules even though `AppContainerFactory` may canonicalize their materialized DOM nodes at document scope
-- `src/modules/ui/epg/EPGCoordinator.ts` owns EPG runtime policy entrypoints (open/close/toggle/guide-setting handling and schedule-policy orchestration), while `src/Orchestrator.ts` remains a delegation surface that wires this owner
-- `src/modules/ui/epg/buildEPGStartupConfig.ts` owns EPG startup-config shaping consumed by `src/core/initialization/InitializationCoordinator.ts`
+- `src/modules/ui/epg/coordinator/EPGCoordinator.ts` owns EPG runtime policy entrypoints (open/close/toggle/guide-setting handling and schedule-policy orchestration), while `src/Orchestrator.ts` remains a delegation surface that wires this owner
+- `src/modules/ui/epg/startup/buildEPGStartupConfig.ts` owns EPG startup-config shaping consumed by `src/core/initialization/InitializationCoordinator.ts`
 - `src/modules/ui/epg/index.ts` is a bounded cross-module seam and no longer re-exports EPG view/util leaf symbols
-- `src/modules/ui/epg/EPGCoordinatorPolicies.ts` keeps library-filter normalization pure, while `EPGCoordinator` and `EPGRefreshController` own explicit persisted-selection cleanup writes through `EpgPreferencesStore`
-- `src/modules/ui/epg/view/index.ts` is package-local for view-layer exports; `src/modules/ui/epg/view/EPGVirtualizer.ts` remains the current virtualized-grid owner, and the EPG package split continues to stage leaf owners under `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/`
+- `src/modules/ui/epg/coordinator/EPGCoordinatorPolicies.ts` keeps library-filter normalization pure, while `EPGCoordinator` and `EPGRefreshController` own explicit persisted-selection cleanup writes through `EpgPreferencesStore`
+- `src/modules/ui/epg/view/index.ts` is package-local for view-layer exports; `src/modules/ui/epg/view/EPGVirtualizer.ts` remains the current virtualized-grid owner, and the EPG package split continues to stage leaf owners under `src/modules/ui/epg/component/`, `src/modules/ui/epg/coordinator/`, `src/modules/ui/epg/startup/`, `src/modules/ui/epg/debug/`, `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/`
 - overlay package roots (`now-playing-info`, `player-osd`, `mini-guide`, `channel-transition`, `playback-options`, `exit-confirm`) are the intended cross-module seams for coordinator/value imports used by core/app-shell wiring
 - `src/core/app-shell/AppContainerFactory.ts` materializes a bounded `runtime-chrome-host` under `#app`, canonicalizes app-shell-owned containers plus app-materialized feature mount nodes at document scope, and reparents exactly `player-osd`, `channel-number-overlay`, `channel-badge`, `mini-guide`, and `channel-transition` into that host; the host owns shell-plane structure only, while feature packages keep their DOM markup, visibility, and local z-index ownership
 - `src/modules/ui/channel-setup/ChannelSetupSessionController.ts` is now a UI-facing composition wrapper over `ChannelSetupSessionState` (session state/config serialization/record hydration) and `ChannelSetupSessionRuntime` (workflow I/O, abort/timer lifecycle)
@@ -182,7 +188,7 @@ The main structural hotspots still called out by the cleanup backlog are:
 
 - `src/core/orchestrator/AppOrchestrator.ts`
 - `src/App.ts`
-- `src/modules/ui/epg/EPGComponent.ts`
+- `src/modules/ui/epg/component/EPGComponent.ts`
 - `src/modules/ui/settings/SettingsScreen.ts`
 - `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
 - `src/modules/plex/stream/PlexStreamResolver.ts`

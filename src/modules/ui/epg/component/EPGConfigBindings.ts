@@ -1,4 +1,4 @@
-import type { EPGConfig, EpgVisibleRange } from './types';
+import type { EPGConfig, EpgVisibleRange } from '../types';
 
 export function withEpgVisibleRangeChangeBinding(
     epgConfig: EPGConfig | null | undefined,

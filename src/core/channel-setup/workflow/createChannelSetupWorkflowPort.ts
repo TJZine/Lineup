@@ -1,7 +1,7 @@
-import {
-    ChannelSetupWorkflowUnavailableError,
-    type ChannelSetupWorkflowPort,
+import type {
+    ChannelSetupWorkflowPort,
 } from './ChannelSetupWorkflowPort';
+import { ChannelSetupWorkflowUnavailableError } from './ChannelSetupWorkflowPort';
 import type { ChannelSetupContext } from '../types';
 import type { ChannelSetupBuildExecutor } from '../build/ChannelSetupBuildExecutor';
 import type { ChannelSetupCompletionTracker } from '../persistence/ChannelSetupCompletionTracker';

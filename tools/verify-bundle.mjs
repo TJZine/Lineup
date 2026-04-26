@@ -12,7 +12,7 @@ const REQUIRED_DEFERRED_MODULES = [
     '../../modules/ui/settings/SettingsScreen',
     '../../modules/ui/settings/SettingsStore',
     '../../modules/ui/channel-setup/ChannelSetupScreen',
-    '../../modules/ui/epg/EPGComponent',
+    '../../modules/ui/epg/component/EPGComponent',
 ].map((specifier) => normalizeLazyModuleSpecifier(specifier));
 
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';

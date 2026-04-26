@@ -160,6 +160,7 @@ export interface OrchestratorCoordinatorAssemblyInput {
 }
 
 type CoordinatorModules = OrchestratorCoordinatorAssemblyInput['modules'];
+type CoordinatorOverlays = OrchestratorCoordinatorAssemblyInput['overlays'];
 type CoordinatorStores = OrchestratorCoordinatorAssemblyInput['stores'];
 type CoordinatorPlayback = OrchestratorCoordinatorAssemblyInput['playback'];
 type CoordinatorSchedule = OrchestratorCoordinatorAssemblyInput['schedule'];
@@ -243,6 +244,65 @@ export interface OrchestratorNavigationCoordinatorBuilderInput {
         | 'toggleNowPlayingInfoOverlay'
     >;
     nowPlaying: OrchestratorCoordinatorAssemblyInput['nowPlaying'];
+}
+
+export interface OrchestratorNowPlayingDebugManagerBuilderInput {
+    modules: Pick<CoordinatorModules, 'navigation' | 'plexStreamResolver' | 'scheduler'>;
+    overlays: Pick<CoordinatorOverlays, 'nowPlayingInfo'>;
+    stores: Pick<CoordinatorStores, 'debugOverridesStore'>;
+    playback: Pick<CoordinatorPlayback, 'state'>;
+}
+
+export interface OrchestratorNowPlayingInfoCoordinatorBuilderInput {
+    config: OrchestratorCoordinatorAssemblyInput['config'];
+    modules: Pick<CoordinatorModules, 'navigation' | 'scheduler' | 'plexLibrary'>;
+    overlays: Pick<CoordinatorOverlays, 'nowPlayingInfo'>;
+    stores: Pick<CoordinatorStores, 'nowPlayingDisplayStore'>;
+    playback: Pick<
+        CoordinatorPlayback,
+        | 'state'
+        | 'buildPlexResourceUrl'
+        | 'getPlaybackInfoSnapshot'
+        | 'refreshPlaybackInfoSnapshot'
+    >;
+    actions: Pick<CoordinatorActions, 'onOverlayVisibilityChange'>;
+}
+
+export interface OrchestratorPlayerOsdCoordinatorBuilderInput {
+    config: OrchestratorCoordinatorAssemblyInput['config'];
+    modules: Pick<CoordinatorModules, 'navigation' | 'scheduler' | 'channelManager' | 'videoPlayer'>;
+    overlays: Pick<CoordinatorOverlays, 'playerOsd' | 'sleepTimer'>;
+    stores: Pick<CoordinatorStores, 'nowPlayingDisplayStore'>;
+    playback: Pick<CoordinatorPlayback, 'state' | 'buildPlexResourceUrl'>;
+    actions: Pick<CoordinatorActions, 'onOverlayVisibilityChange'>;
+}
+
+export interface OrchestratorMiniGuideCoordinatorBuilderInput {
+    config: OrchestratorCoordinatorAssemblyInput['config'];
+    modules: Pick<CoordinatorModules, 'channelManager' | 'scheduler'>;
+    overlays: Pick<CoordinatorOverlays, 'miniGuide'>;
+    schedule: Pick<CoordinatorSchedule, 'buildDailyScheduleConfig'>;
+    actions: Pick<CoordinatorActions, 'switchToChannel'>;
+    nowPlaying: OrchestratorCoordinatorAssemblyInput['nowPlaying'];
+}
+
+export interface OrchestratorChannelTransitionCoordinatorBuilderInput {
+    modules: Pick<CoordinatorModules, 'navigation' | 'videoPlayer'>;
+    overlays: Pick<CoordinatorOverlays, 'channelTransitionOverlay'>;
+    actions: Pick<CoordinatorActions, 'onChannelTransitionActivityChange'>;
+}
+
+export interface OrchestratorPlaybackOptionsCoordinatorBuilderInput {
+    modules: Pick<CoordinatorModules, 'navigation' | 'videoPlayer' | 'scheduler'>;
+    overlays: Pick<CoordinatorOverlays, 'playbackOptionsModal'>;
+    stores: Pick<CoordinatorStores, 'subtitlePreferencesStore'>;
+    playback: Pick<CoordinatorPlayback, 'state'>;
+    nowPlaying: OrchestratorCoordinatorAssemblyInput['nowPlaying'];
+}
+
+export interface OrchestratorExitConfirmCoordinatorBuilderInput {
+    modules: Pick<CoordinatorModules, 'navigation'>;
+    overlays: Pick<CoordinatorOverlays, 'exitConfirmModal'>;
 }
 
 export interface OrchestratorCoordinators {

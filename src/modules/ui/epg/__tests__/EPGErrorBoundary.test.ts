@@ -3,6 +3,7 @@
  */
 
 import { EPGErrorBoundary } from '../view/EPGErrorBoundary';
+import { AppErrorCode } from '../../../../types/app-errors';
 
 describe('EPGErrorBoundary', () => {
     let errorBoundary: EPGErrorBoundary;
@@ -20,37 +21,37 @@ describe('EPGErrorBoundary', () => {
 
     describe('handleError', () => {
         it('should log errors with context', () => {
-            errorBoundary.handleError('RENDER_ERROR', 'testContext');
+            errorBoundary.handleError(AppErrorCode.RENDER_ERROR, 'testContext');
 
             expect(console.warn).toHaveBeenCalledWith(
-                '[EPG] RENDER_ERROR in testContext:',
+                `[EPG] ${AppErrorCode.RENDER_ERROR} in testContext:`,
                 undefined
             );
         });
 
         it('should log error message when provided', () => {
             const error = new Error('Test error');
-            errorBoundary.handleError('RENDER_ERROR', 'testContext', error);
+            errorBoundary.handleError(AppErrorCode.RENDER_ERROR, 'testContext', error);
 
             expect(console.warn).toHaveBeenCalledWith(
-                '[EPG] RENDER_ERROR in testContext:',
+                `[EPG] ${AppErrorCode.RENDER_ERROR} in testContext:`,
                 'Test error'
             );
         });
 
         it('should increment error count per type', () => {
-            errorBoundary.handleError('RENDER_ERROR', 'ctx1');
-            errorBoundary.handleError('RENDER_ERROR', 'ctx2');
+            errorBoundary.handleError(AppErrorCode.RENDER_ERROR, 'ctx1');
+            errorBoundary.handleError(AppErrorCode.RENDER_ERROR, 'ctx2');
 
-            expect(errorBoundary.getErrorCount('RENDER_ERROR')).toBe(2);
-            expect(errorBoundary.getErrorCount('POOL_EXHAUSTED')).toBe(0);
+            expect(errorBoundary.getErrorCount(AppErrorCode.RENDER_ERROR)).toBe(2);
+            expect(errorBoundary.getErrorCount(AppErrorCode.POOL_EXHAUSTED)).toBe(0);
         });
 
         it('should call showFallbackRow for RENDER_ERROR', () => {
             const showFallbackRow = jest.fn();
             errorBoundary.setCallbacks({ showFallbackRow });
 
-            errorBoundary.handleError('RENDER_ERROR', 'grid-row-5');
+            errorBoundary.handleError(AppErrorCode.RENDER_ERROR, 'grid-row-5');
 
             expect(showFallbackRow).toHaveBeenCalledWith('grid-row-5');
         });
@@ -59,7 +60,7 @@ describe('EPGErrorBoundary', () => {
             const resetScrollPosition = jest.fn();
             errorBoundary.setCallbacks({ resetScrollPosition });
 
-            errorBoundary.handleError('SCROLL_TIMEOUT', 'scrollHandler');
+            errorBoundary.handleError(AppErrorCode.SCROLL_TIMEOUT, 'scrollHandler');
 
             expect(resetScrollPosition).toHaveBeenCalled();
         });
@@ -68,7 +69,7 @@ describe('EPGErrorBoundary', () => {
             const forceRecycleAll = jest.fn();
             errorBoundary.setCallbacks({ forceRecycleAll });
 
-            errorBoundary.handleError('POOL_EXHAUSTED', 'virtualizer');
+            errorBoundary.handleError(AppErrorCode.POOL_EXHAUSTED, 'virtualizer');
 
             expect(forceRecycleAll).toHaveBeenCalled();
         });
@@ -78,13 +79,13 @@ describe('EPGErrorBoundary', () => {
             errorBoundary.on('degradedMode', degradedHandler);
 
             // Trigger 3 errors (MAX_ERRORS_PER_TYPE = 3)
-            errorBoundary.handleError('RENDER_ERROR', 'ctx1');
-            errorBoundary.handleError('RENDER_ERROR', 'ctx2');
+            errorBoundary.handleError(AppErrorCode.RENDER_ERROR, 'ctx1');
+            errorBoundary.handleError(AppErrorCode.RENDER_ERROR, 'ctx2');
             expect(degradedHandler).not.toHaveBeenCalled();
 
-            errorBoundary.handleError('RENDER_ERROR', 'ctx3');
+            errorBoundary.handleError(AppErrorCode.RENDER_ERROR, 'ctx3');
             expect(degradedHandler).toHaveBeenCalledWith({
-                type: 'RENDER_ERROR',
+                type: AppErrorCode.RENDER_ERROR,
                 count: 3,
             });
         });
@@ -92,12 +93,12 @@ describe('EPGErrorBoundary', () => {
 
     describe('wrap', () => {
         it('should execute operation and return result', () => {
-            const result = errorBoundary.wrap('RENDER_ERROR', 'test', () => 42);
+            const result = errorBoundary.wrap(AppErrorCode.RENDER_ERROR, 'test', () => 42);
             expect(result).toBe(42);
         });
 
         it('should catch errors and return undefined', () => {
-            const result = errorBoundary.wrap('RENDER_ERROR', 'test', () => {
+            const result = errorBoundary.wrap(AppErrorCode.RENDER_ERROR, 'test', () => {
                 throw new Error('Test failure');
             });
 
@@ -109,7 +110,7 @@ describe('EPGErrorBoundary', () => {
             const showFallbackRow = jest.fn();
             errorBoundary.setCallbacks({ showFallbackRow });
 
-            errorBoundary.wrap('RENDER_ERROR', 'renderRow', () => {
+            errorBoundary.wrap(AppErrorCode.RENDER_ERROR, 'renderRow', () => {
                 throw new Error('Render failed');
             });
 
@@ -117,40 +118,40 @@ describe('EPGErrorBoundary', () => {
         });
 
         it('should increment error count on failure', () => {
-            errorBoundary.wrap('PARSE_ERROR', 'parser', () => {
+            errorBoundary.wrap(AppErrorCode.PARSE_ERROR, 'parser', () => {
                 throw new Error('Parse failed');
             });
 
-            expect(errorBoundary.getErrorCount('PARSE_ERROR')).toBe(1);
+            expect(errorBoundary.getErrorCount(AppErrorCode.PARSE_ERROR)).toBe(1);
         });
     });
 
     describe('resetCounts', () => {
         it('should clear all error counts', () => {
-            errorBoundary.handleError('RENDER_ERROR', 'ctx1');
-            errorBoundary.handleError('POOL_EXHAUSTED', 'ctx2');
+            errorBoundary.handleError(AppErrorCode.RENDER_ERROR, 'ctx1');
+            errorBoundary.handleError(AppErrorCode.POOL_EXHAUSTED, 'ctx2');
 
             errorBoundary.resetCounts();
 
-            expect(errorBoundary.getErrorCount('RENDER_ERROR')).toBe(0);
-            expect(errorBoundary.getErrorCount('POOL_EXHAUSTED')).toBe(0);
+            expect(errorBoundary.getErrorCount(AppErrorCode.RENDER_ERROR)).toBe(0);
+            expect(errorBoundary.getErrorCount(AppErrorCode.POOL_EXHAUSTED)).toBe(0);
         });
     });
 
     describe('isDegraded', () => {
         it('should return false when under threshold', () => {
-            errorBoundary.handleError('RENDER_ERROR', 'ctx1');
-            errorBoundary.handleError('RENDER_ERROR', 'ctx2');
+            errorBoundary.handleError(AppErrorCode.RENDER_ERROR, 'ctx1');
+            errorBoundary.handleError(AppErrorCode.RENDER_ERROR, 'ctx2');
 
-            expect(errorBoundary.isDegraded('RENDER_ERROR')).toBe(false);
+            expect(errorBoundary.isDegraded(AppErrorCode.RENDER_ERROR)).toBe(false);
         });
 
         it('should return true at threshold', () => {
-            errorBoundary.handleError('RENDER_ERROR', 'ctx1');
-            errorBoundary.handleError('RENDER_ERROR', 'ctx2');
-            errorBoundary.handleError('RENDER_ERROR', 'ctx3');
+            errorBoundary.handleError(AppErrorCode.RENDER_ERROR, 'ctx1');
+            errorBoundary.handleError(AppErrorCode.RENDER_ERROR, 'ctx2');
+            errorBoundary.handleError(AppErrorCode.RENDER_ERROR, 'ctx3');
 
-            expect(errorBoundary.isDegraded('RENDER_ERROR')).toBe(true);
+            expect(errorBoundary.isDegraded(AppErrorCode.RENDER_ERROR)).toBe(true);
         });
     });
 
@@ -158,13 +159,13 @@ describe('EPGErrorBoundary', () => {
         it('should clear all state', () => {
             const callback = jest.fn();
             errorBoundary.setCallbacks({ showFallbackRow: callback });
-            errorBoundary.handleError('RENDER_ERROR', 'ctx1');
+            errorBoundary.handleError(AppErrorCode.RENDER_ERROR, 'ctx1');
 
             errorBoundary.destroy();
 
-            expect(errorBoundary.getErrorCount('RENDER_ERROR')).toBe(0);
+            expect(errorBoundary.getErrorCount(AppErrorCode.RENDER_ERROR)).toBe(0);
             // After destroy, callbacks should not be called
-            errorBoundary.handleError('RENDER_ERROR', 'ctx2');
+            errorBoundary.handleError(AppErrorCode.RENDER_ERROR, 'ctx2');
             expect(callback).toHaveBeenCalledTimes(1); // Only the first call
         });
     });

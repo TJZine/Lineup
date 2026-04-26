@@ -240,10 +240,23 @@
         "priority_exit": "P12-EXIT"
       },
       "execution_status": {
-        "status": "not_started",
-        "completed_execution_units": [],
-        "current_or_next_execution_unit": "P12-W3",
-        "evidence": []
+        "status": "completed",
+        "completed_execution_units": [
+          "P12-W3-S1",
+          "P12-W3-S2",
+          "P12-W3-S3",
+          "P12-W3-S4",
+          "P12-W3-S5",
+          "P12-W3-S6",
+          "P12-W3-S7"
+        ],
+        "current_or_next_execution_unit": "P12-W4",
+        "evidence": [
+          "2026-04-25: focused implementation commits present in HEAD: bf0e4bdd, 5c090c5c, f4429484, fc95bd30, b5a95593, 96b38b16, and 8a52947b.",
+          "2026-04-25: exact imported review-id queries returned no open rows for all five P12-W3 review ids.",
+          "2026-04-25: package-local file-level commands returned no open rows for ChannelSetupWorkflow.ts, ChannelSetupPlanner.ts, ChannelSetupFacetSnapshotLoader.ts, ChannelManager.ts, and channel-manager interfaces.ts.",
+          "2026-04-25: package-folder sweep reports accepted mechanical residue in extracted planning leaves; no P12-W3 exact imported-review id remains open."
+        ]
       }
     },
     {
@@ -268,10 +281,10 @@
         "src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts",
         "src/modules/ui/channel-setup/ChannelSetupSessionContracts.ts",
         "src/modules/ui/channel-setup/ChannelSetupScreen.ts",
-        "src/modules/ui/epg/EPGCoordinator.ts",
-        "src/modules/ui/epg/EPGRefreshController.ts",
-        "src/modules/ui/epg/EPGComponent.ts",
-        "src/modules/ui/epg/EPGStartupConfigRuntime.ts",
+        "src/modules/ui/epg/coordinator/EPGCoordinator.ts",
+        "src/modules/ui/epg/coordinator/EPGRefreshController.ts",
+        "src/modules/ui/epg/component/EPGComponent.ts",
+        "src/modules/ui/epg/startup/EPGStartupConfigRuntime.ts",
         "src/modules/ui/epg/view/EPGVirtualizer.ts",
         "src/modules/navigation/NavigationCoordinator.ts",
         "src/modules/ui/epg/types.ts"
@@ -290,10 +303,25 @@
         "priority_exit": "P12-EXIT"
       },
       "execution_status": {
-        "status": "not_started",
-        "completed_execution_units": [],
-        "current_or_next_execution_unit": "P12-W4",
-        "evidence": []
+        "status": "completed",
+        "completed_execution_units": [
+          "P12-W4-S1",
+          "P12-W4-S2",
+          "P12-W4-S3",
+          "P12-W4-S4",
+          "P12-W4-S5"
+        ],
+        "current_or_next_execution_unit": "P12-W5",
+        "evidence": [
+          "2026-04-25: P12-W4-S1 aligned EPG error typing and boundary call sites/tests to AppErrorCode. Commit b9061256.",
+          "2026-04-25: P12-W4-S2 moved production UI runtime contracts out of core imports and kept channel-setup workflow adaptation in src/core/channel-setup/workflow/createChannelSetupWorkflowPort.ts. Commit bebbb300.",
+          "2026-04-25: P12-W4-S3 split EPG component, coordinator, startup, and debug owners into package-local subfolders while preserving the public EPG seam and deferred EPG lazy-load verifier. Commit db876d0c.",
+          "2026-04-25: P12-W4-S4 extracted EPG cell presentation/layout policy into a view-local EPGCellRenderer while EPGVirtualizer retains virtualization mechanics. Commit 097158c8.",
+          "2026-04-25: P12-W4-S5 split NavigationCoordinator key-mode, repeat, modal, screen, and channel-number behavior into navigation-local handlers while preserving key/repeat behavior. Commit 770e3da7.",
+          "2026-04-25: all five exact imported review-id queries returned no open rows; package-local commands were clean for mapped files, with only accepted out-of-scope EPG CSS monolith rows remaining at package-folder level.",
+          "2026-04-25: targeted source audits passed for UI core-import removal, AppErrorCode-backed EPG errors, EPG root owner paths, EPG deferred component verification, EPGVirtualizer presentation delegation, and NavigationCoordinator handler delegation.",
+          "2026-04-25: npm run verify passed; npm run verify:docs passed after closeout edits; desloppify status recorded overall 85.7, strict 85.7, objective 96.7, and verified 96.7."
+        ]
       }
     },
     {
@@ -338,10 +366,19 @@
         "priority_exit": "P12-EXIT"
       },
       "execution_status": {
-        "status": "not_started",
-        "completed_execution_units": [],
-        "current_or_next_execution_unit": "P12-W5",
-        "evidence": []
+        "status": "completed",
+        "completed_execution_units": [
+          "P12-W5-WAVE1",
+          "P12-W5-S3"
+        ],
+        "current_or_next_execution_unit": "P12-EXIT",
+        "evidence": [
+          "2026-04-25: P12-W5-WAVE1 replaced the channel-tuning broad call-order assertion with stable switch-contract assertions and added an additive lifecycle awaitability seam while preserving non-awaiting setPhase behavior.",
+          "2026-04-25: P12-W5-S3 trimmed mapped player/scheduler restating comment and JSDoc noise as a comment-only cleanup while preserving constraint-bearing platform, subtitle, media-session, retry, EventEmitter, and scheduler comments.",
+          "2026-04-25: fresh implementation reviews approved P12-W5-WAVE1 and P12-W5-S3; the original core_call_order_coupling, lifecycle_async_flush_coupling, and restating_doc_block_noise complaints were no longer fair for the mapped source.",
+          "2026-04-25: exact imported review-id queries returned no open rows for all three P12-W5 ids; package-local commands were clean except for accepted non-P12-W5 AppLifecycle log/swallowed-error mechanical rows.",
+          "2026-04-25: targeted rg audits found no channel-tuning invocation-order coupling, lifecycle generic drain guesses, or mapped restating comment patterns. npm run verify passed after all P12-W5 source changes."
+        ]
       }
     }
   ]

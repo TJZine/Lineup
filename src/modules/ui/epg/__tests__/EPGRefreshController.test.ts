@@ -1,4 +1,4 @@
-import { EPGRefreshController, type EPGRefreshControllerDeps } from '../EPGRefreshController';
+import { EPGRefreshController, type EPGRefreshControllerDeps } from '../coordinator/EPGRefreshController';
 import type { IEPGComponent } from '../interfaces';
 import type { ChannelConfig, IChannelManager, PlaybackMode, ResolvedChannelContent } from '../../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduleConfig, ScheduleWindow, SchedulerState } from '../../../scheduler/scheduler';

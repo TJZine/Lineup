@@ -1,7 +1,8 @@
 /** EPG component that renders the Electronic Program Guide surface. */
 
-import { EventEmitter } from '../../../utils/EventEmitter';
-import { EPG_CONSTANTS, EPG_CLASSES, EPG_ERRORS, DEFAULT_EPG_CONFIG } from './constants';
+import { EventEmitter } from '../../../../utils/EventEmitter';
+import { AppErrorCode } from '../../../../types/app-errors';
+import { EPG_CONSTANTS, EPG_CLASSES, EPG_ERRORS, DEFAULT_EPG_CONFIG } from '../constants';
 import {
     EPGChannelList,
     EPGErrorBoundary,
@@ -11,12 +12,12 @@ import {
     EPGTimeHeader,
     EPGVirtualizer,
     EPGVisibleRangeEmitter,
-} from './view';
-import { rafThrottle } from './utils';
-import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from './debugRuntimeGuards';
-import { createLineupBrandGlyph } from '../common/brandGlyph';
-import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
-import type { IEPGComponent } from './interfaces';
+} from '../view';
+import { rafThrottle } from '../utils';
+import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debug/debugRuntimeGuards';
+import { createLineupBrandGlyph } from '../../common/brandGlyph';
+import type { EpgLayoutMode } from '../../../settings/EpgPreferencesStore';
+import type { IEPGComponent } from '../interfaces';
 import type {
     EPGConfig,
     EPGState,
@@ -27,7 +28,7 @@ import type {
     ScheduledProgram,
     ScheduleWindow,
     ChannelConfig,
-} from './types';
+} from '../types';
 
 type EpgShellStructure = {
     classicHeader: HTMLElement;
@@ -1745,7 +1746,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private renderGridInternal(): void {
         if (!this.state.isVisible || !this.state.isInitialized) return;
 
-        this.errorBoundary.wrap('RENDER_ERROR', 'renderGrid', () => {
+        this.errorBoundary.wrap(AppErrorCode.RENDER_ERROR, 'renderGrid', () => {
             this.refreshCurrentTime();
             this.timeHeader.updateScrollPosition(this.state.scrollPosition.timeOffset);
             this.virtualizer.updateScrollPosition(this.state.scrollPosition.timeOffset);

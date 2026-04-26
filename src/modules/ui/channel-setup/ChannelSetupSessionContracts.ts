@@ -1,4 +1,3 @@
-import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type {
     ChannelBuildProgress,
     ChannelExpansionConfig,
@@ -9,6 +8,7 @@ import type {
     SeriesOrderingConfig,
     SetupStrategyConfig,
 } from '../../../core/channel-setup/types';
+import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { PlexLibrarySection } from '../../plex/library';
 import type { SetupStrategyKey } from './steps/constants';
 

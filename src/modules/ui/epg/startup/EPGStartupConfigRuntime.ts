@@ -1,13 +1,13 @@
-import type { IPlexLibrary } from '../../plex/library';
-import type { IChannelManager } from '../../scheduler/channel-manager';
-import type { IChannelScheduler } from '../../scheduler/scheduler';
-import type { IVideoPlayer } from '../../player';
-import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
-import { APP_SHELL_CONTAINER_IDS } from '../common/appShellContainerIds';
-import type { IEPGDebugRuntime } from './EPGDebugRuntime';
-import { toEpgItemDetails } from './model/adapters';
-import type { EPGConfig } from './types';
-import { formatTimeRange } from './utils';
+import type { IPlexLibrary } from '../../../plex/library';
+import type { IChannelManager } from '../../../scheduler/channel-manager';
+import type { IChannelScheduler } from '../../../scheduler/scheduler';
+import type { IVideoPlayer } from '../../../player';
+import type { EpgLayoutMode } from '../../../settings/EpgPreferencesStore';
+import { APP_SHELL_CONTAINER_IDS } from '../../common/appShellContainerIds';
+import type { IEPGDebugRuntime } from '../debug/EPGDebugRuntime';
+import { toEpgItemDetails } from '../model/adapters';
+import type { EPGConfig } from '../types';
+import { formatTimeRange } from '../utils';
 
 export const CLASSIC_EPG_PIP_CLASS = 'epg-pip-active';
 

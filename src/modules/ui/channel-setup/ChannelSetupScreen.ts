@@ -4,13 +4,14 @@ import {
     type ChannelBuildProgress,
     type ChannelSetupConfig,
 } from '../../../core/channel-setup/types';
+import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { FocusableElement, KeyEvent } from '../../navigation';
 import { ServerSelectionStore } from '../../plex/discovery/ServerSelectionStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../scheduler/channel-manager/constants';
 import {
     SETUP_STRATEGY_KEYS,
-} from '../../../core/channel-setup/constants';
+} from './steps/constants';
 import { createDropdownPopover } from '../common/CreateDropdownPopover';
 import { createScreenShell } from '../common/ScreenShell';
 import { renderCappedWarnings } from '../common/render/renderCappedWarnings';
@@ -22,6 +23,7 @@ import { BuildReviewStepController } from './steps/BuildReviewStepController';
 import { BuildProgressStepController } from './steps/BuildProgressStepController';
 import type { BuildReviewStateSnapshot, StrategyStepDropdownConfig } from './steps/types';
 import type { SetupStrategyKey } from './steps/constants';
+import type { RegisterStep2FocusOptions } from './focus/types';
 import { scrollToNearest } from './focus/scrollToNearest';
 import { ChannelSetupSessionController } from './ChannelSetupSessionController';
 import { strategySupportsMixedScope } from './ChannelSetupSessionState';
@@ -30,7 +32,6 @@ import type {
     EstimateKey,
     StrategyStepMutableState,
 } from './ChannelSetupSessionContracts';
-import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { ChannelSetupScreenPorts } from './ChannelSetupScreenPorts';
 
 const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
@@ -442,23 +443,7 @@ export class ChannelSetupScreen {
             openDropdown: (config: StrategyStepDropdownConfig): void => {
                 this._openStep2Dropdown(config);
             },
-            registerStep2: (
-                categoryButtons: HTMLButtonElement[],
-                detailButtons: HTMLButtonElement[],
-                footerButtons: [HTMLButtonElement, HTMLButtonElement],
-                activeCategoryButtonId: string,
-                detailFocusTarget: string | null,
-                preferredFocusId: string | null,
-                rememberDetailFocus: (id: string) => void
-            ): boolean => this._focus.registerStep2(
-                categoryButtons,
-                detailButtons,
-                footerButtons,
-                activeCategoryButtonId,
-                detailFocusTarget,
-                preferredFocusId,
-                rememberDetailFocus
-            ),
+            registerStep2: (options: RegisterStep2FocusOptions): boolean => this._focus.registerStep2(options),
             renderStep: (): void => {
                 this._renderStep();
             },

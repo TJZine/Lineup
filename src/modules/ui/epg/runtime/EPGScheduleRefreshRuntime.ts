@@ -15,18 +15,15 @@ import type {
 } from '../../../scheduler/scheduler';
 import type { AppendIssueDiagnostic } from '../../../debug/IssueDiagnosticsStore';
 import type { IEPGComponent } from '../interfaces';
-import { computeBackgroundWarmQueueCaps, partitionPrefetchChannels } from '../EPGCoordinatorPolicies';
+import { computeBackgroundWarmQueueCaps, partitionPrefetchChannels } from '../coordinator/EPGCoordinatorPolicies';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
-import type { ModuleRuntimeStatus } from '../../../../core/module-status';
 import { EPGBackgroundWarmQueue } from './EPGBackgroundWarmQueue';
 import { EPGScheduleCacheStore } from './EPGScheduleCacheStore';
 import { toEpgScheduleWindow } from '../model/adapters';
-import type { GuideSelectionSnapshot } from '../../../../core/channel-tuning';
+import type { EpgGuideSelectionSnapshot, EpgUiStatus } from '../coordinator/EPGCoordinatorContracts';
 
 const EPG_BACKGROUND_DEBUG_LOG_EVERY_N = 20;
 const QA_003B_ISSUE_ID = 'QA-003b';
-
-type EpgUiStatus = ModuleRuntimeStatus | undefined;
 
 type RangeRefreshRequest = {
     channelStart: number;
@@ -225,7 +222,7 @@ export class EPGScheduleRefreshRuntime {
     async buildGuideSelectionSnapshot(
         request: GuideSelectionSnapshotRequest,
         signal?: AbortSignal | null
-    ): Promise<GuideSelectionSnapshot | null> {
+    ): Promise<EpgGuideSelectionSnapshot | null> {
         if (signal?.aborted) {
             return null;
         }

@@ -7,6 +7,7 @@
  */
 
 import { EPGInfoPanel } from '../view/EPGInfoPanel';
+import { EPGInfoPanelDynamicBackground } from '../view/EPGInfoPanelDynamicBackground';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import { extractDominantColor } from '../../../../utils/color/extractDominantColor';
 import type { ScheduledProgram } from '../types';
@@ -873,18 +874,57 @@ describe('EPGInfoPanel', () => {
                 jest.runAllTimers();
                 await settlePanel(panel);
 
-                const caches = panel as unknown as {
-                    colorCache: Map<string, string>;
-                    colorFailureCache: Map<string, number>;
-                };
-                expect(caches.colorFailureCache.size).toBeGreaterThan(0);
+                expect(panel.getDynamicBackgroundCacheStats().colorFailureCacheSize).toBeGreaterThan(0);
 
                 panel.destroy();
 
-                expect(caches.colorCache.size).toBe(0);
-                expect(caches.colorFailureCache.size).toBe(0);
+                expect(panel.getDynamicBackgroundCacheStats()).toEqual(expect.objectContaining({
+                    colorCacheSize: 0,
+                    colorFailureCacheSize: 0,
+                }));
             } finally {
                 localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
+                jest.runOnlyPendingTimers();
+                jest.useRealTimers();
+            }
+        });
+
+        it('settles stale dynamic color fetches after the sample blob resolves', async () => {
+            jest.useFakeTimers();
+
+            try {
+                let isCurrentRequest = true;
+                let resolveBlob: (blob: Blob) => void = () => undefined;
+                const blobPromise = new Promise<Blob>((resolve) => {
+                    resolveBlob = resolve;
+                });
+                const onSettled = jest.fn();
+                const dynamicBackground = new EPGInfoPanelDynamicBackground({
+                    onPendingWork: jest.fn(),
+                    onSettled,
+                    isCurrentRequest: (): boolean => isCurrentRequest,
+                });
+                Object.defineProperty(globalThis, 'fetch', {
+                    configurable: true,
+                    writable: true,
+                    value: jest.fn().mockResolvedValue({
+                        ok: true,
+                        blob: jest.fn(() => blobPromise),
+                    } as unknown as Response),
+                });
+
+                dynamicBackground.scheduleDynamicColor(createMockProgram('/thumb'), 'https://img.example/thumb.jpg');
+                jest.advanceTimersByTime(120);
+                await Promise.resolve();
+                expect(dynamicBackground.hasPendingAsyncWork()).toBe(true);
+
+                isCurrentRequest = false;
+                resolveBlob(new Blob(['sample'], { type: 'image/jpeg' }));
+                await Promise.resolve();
+
+                expect(dynamicBackground.hasPendingAsyncWork()).toBe(false);
+                expect(onSettled).toHaveBeenCalled();
+            } finally {
                 jest.runOnlyPendingTimers();
                 jest.useRealTimers();
             }
@@ -909,11 +949,11 @@ describe('EPGInfoPanel', () => {
                     await settlePanelAfterTimerDrain(panel);
                 }
 
-                const cache = (panel as unknown as { colorCache: Map<string, string> }).colorCache;
-                expect(cache.size).toBe(128);
-                expect(cache.has('cache-0')).toBe(false);
-                expect(cache.has('cache-1')).toBe(false);
-                expect(cache.has('cache-129')).toBe(true);
+                const cacheStats = panel.getDynamicBackgroundCacheStats();
+                expect(cacheStats.colorCacheSize).toBe(128);
+                expect(cacheStats.hasColorCacheKey('cache-0')).toBe(false);
+                expect(cacheStats.hasColorCacheKey('cache-1')).toBe(false);
+                expect(cacheStats.hasColorCacheKey('cache-129')).toBe(true);
             } finally {
                 localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
                 jest.runOnlyPendingTimers();

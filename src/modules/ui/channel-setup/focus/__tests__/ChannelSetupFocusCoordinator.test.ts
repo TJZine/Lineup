@@ -68,15 +68,15 @@ describe('ChannelSetupFocusCoordinator', () => {
         const footer1 = document.createElement('button');
         footer1.id = 'footer-1';
 
-        coordinator.registerStep2(
-            [cat1],
-            [detail1],
-            [footer1],
-            cat1.id,
-            detail1.id,
-            null,
-            jest.fn()
-        );
+        coordinator.registerStep2({
+            categoryButtons: [cat1],
+            detailButtons: [detail1],
+            footerButtons: [footer1],
+            activeCategoryId: cat1.id,
+            detailFocusTarget: detail1.id,
+            preferredFocusId: null,
+            onDetailFocus: jest.fn(),
+        });
 
         const cat2 = document.createElement('button');
         cat2.id = 'cat-2';
@@ -85,15 +85,15 @@ describe('ChannelSetupFocusCoordinator', () => {
         const footer2 = document.createElement('button');
         footer2.id = 'footer-2';
 
-        coordinator.registerStep2(
-            [cat2],
-            [detail2],
-            [footer2],
-            cat2.id,
-            detail2.id,
-            null,
-            jest.fn()
-        );
+        coordinator.registerStep2({
+            categoryButtons: [cat2],
+            detailButtons: [detail2],
+            footerButtons: [footer2],
+            activeCategoryId: cat2.id,
+            detailFocusTarget: detail2.id,
+            preferredFocusId: null,
+            onDetailFocus: jest.fn(),
+        });
 
         expect(nav.unregisterFocusable).toHaveBeenCalledWith('cat-1');
         expect(nav.unregisterFocusable).toHaveBeenCalledWith('detail-1');

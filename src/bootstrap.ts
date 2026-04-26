@@ -28,6 +28,7 @@ const ORIGINAL_CONSOLE_ERROR = originalConsoleError.bind(console);
 const developerSettingsStore = new DeveloperSettingsStore();
 const GLOBAL_ERROR_OVERLAY_ID = 'global-error-overlay';
 const GLOBAL_ERROR_OVERLAY_FATAL_CLASS = 'error-overlay-fatal';
+type LineupAppInstance = InstanceType<typeof App>;
 
 /**
  * In lean production builds, silence noisy console output unless debug logging is explicitly enabled.
@@ -76,7 +77,26 @@ interface LineupDebugApi {
     orchestratorStatus: () => unknown;
 }
 
-let app: App | null = null;
+export interface LineupBootstrapModuleStatusSnapshot {
+    readonly id: string;
+    readonly status: string;
+    readonly loadTimeMs: number | null;
+    readonly errorCode: string | null;
+}
+
+export interface LineupBootstrapOrchestratorStatusSnapshot {
+    readonly isReady: boolean;
+    readonly currentScreen: string | null;
+    readonly status: readonly LineupBootstrapModuleStatusSnapshot[];
+}
+
+export interface LineupBootstrapStatus {
+    readonly hasApp: boolean;
+    readonly hasOrchestrator: boolean;
+    readonly orchestrator: LineupBootstrapOrchestratorStatusSnapshot | null;
+}
+
+let app: LineupAppInstance | null = null;
 let bootstrapInstalled = false;
 
 function handleDebugLoggingChanged(): void {
@@ -137,15 +157,15 @@ function toSafeErrorMessage(value: unknown): string {
     return 'An unexpected error occurred.';
 }
 
-function openDebugEpg(currentApp: App): void {
+function openDebugEpg(currentApp: LineupAppInstance): void {
     currentApp.getOrchestrator()?.openEPG();
 }
 
-function closeDebugEpg(currentApp: App): void {
+function closeDebugEpg(currentApp: LineupAppInstance): void {
     currentApp.getOrchestrator()?.closeEPG();
 }
 
-function toggleDebugEpg(currentApp: App): void {
+function toggleDebugEpg(currentApp: LineupAppInstance): void {
     currentApp.getOrchestrator()?.toggleEPG();
 }
 
@@ -172,17 +192,27 @@ function showDebugVideo(): void {
     setDebugVideoDisplay('');
 }
 
-function getDebugOrchestratorStatus(currentApp: App): unknown {
+function getDebugOrchestratorStatus(currentApp: LineupAppInstance): unknown {
+    const status = getOrchestratorStatusSnapshot(currentApp);
+    if (!status) return null;
+    return {
+        isReady: status.isReady,
+        status: status.status,
+    };
+}
+
+function getOrchestratorStatusSnapshot(currentApp: LineupAppInstance): LineupBootstrapOrchestratorStatusSnapshot | null {
     const orchestrator = currentApp.getOrchestrator();
     if (!orchestrator) return null;
     const status = Array.from(orchestrator.getModuleStatus().values(), toDebugModuleStatusSnapshot);
     return {
         isReady: orchestrator.isReady(),
+        currentScreen: orchestrator.getCurrentScreen(),
         status,
     };
 }
 
-function createLineupDebugApi(currentApp: App): LineupDebugApi {
+function createLineupDebugApi(currentApp: LineupAppInstance): LineupDebugApi {
     return {
         openEPG: openDebugEpg.bind(null, currentApp),
         closeEPG: closeDebugEpg.bind(null, currentApp),
@@ -194,7 +224,7 @@ function createLineupDebugApi(currentApp: App): LineupDebugApi {
     };
 }
 
-function syncWindowDebugApi(currentApp: App | null): void {
+function syncWindowDebugApi(currentApp: LineupAppInstance | null): void {
     const win = window as Window & { __LINEUP__?: LineupDebugApi };
     if (!currentApp || !isDebugSurfaceEnabled()) {
         delete win.__LINEUP__;
@@ -415,4 +445,13 @@ export async function cleanupAndUninstallLineupBootstrap(): Promise<void> {
     }
 }
 
-export { app, bootstrap, cleanup };
+export function getLineupBootstrapStatus(): LineupBootstrapStatus {
+    const orchestrator = app ? getOrchestratorStatusSnapshot(app) : null;
+    return {
+        hasApp: app !== null,
+        hasOrchestrator: orchestrator !== null,
+        orchestrator,
+    };
+}
+
+export { bootstrap, cleanup };

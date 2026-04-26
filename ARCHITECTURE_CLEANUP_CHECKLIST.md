@@ -15,13 +15,19 @@ architecture or workflow document.
 
 ## Fresh-Session Handoff
 
-- Current execution state: P0-P11 are complete and archived; P12 is the active
-  `2026-04-24` subjective-refresh follow-on queue.
-- Next safe start: `P12-W3 / pkg_channel_setup_scheduler_strategy_and_errors`.
+- Current execution state: P0-P12 and `P13-W1` are complete; P13 remains the
+  active checklist-linked cleanup priority seeded from the refreshed post-P12
+  subjective review backlog.
+- Next safe start: create a package-local execution-grade plan for `P13-W2`, or
+  for another P13 package only if maintainer direction explicitly changes the
+  order. Do not start source cleanup directly from the refreshed review output
+  without a package-local plan and review.
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration.
-- First action at package start: planning only; create the package-local
-  execution-grade plan before implementation.
+- First action at package start: for new checklist-linked work, planning only;
+  create the package-local execution-grade plan before implementation.
 - Active exact issue-membership surface:
+  `docs/architecture/p13-post-p12-subjective-backlog-package-map.json`.
+- Completed P12 exact issue-membership surface:
   `docs/architecture/p12-subjective-refresh-package-map.json`.
 - Prior fresh-baseline exact issue-membership surface:
   `docs/architecture/p11-fresh-baseline-package-map.json`.
@@ -31,39 +37,54 @@ architecture or workflow document.
 
 ## Current Evidence Snapshot
 
-Source: trusted internal subjective review run
-`.desloppify/subagents/runs/20260424_185104/holistic_issues_merged.json`,
-follow-up `desloppify scan --path .`, and local queue reads on `2026-04-24`.
+Source: trusted internal subjective review runs
+`.desloppify/subagents/runs/20260425_182437`,
+`.desloppify/subagents/runs/20260425_182908`, and
+`.desloppify/subagents/runs/20260425_184236`, plus
+`.desloppify/subagents/runs/20260425_184735`; final integration-branch
+`desloppify scan --path .`; local queue/status reads on `2026-04-25`.
 
-- Imported review result: `27` new review issues, `56` resolved, `0` reopened.
-- Living plan result: `30` planned review work items; `36` stale review work
-  items removed; `15` covered subjective queue items removed.
-- Current queue read: `desloppify plan queue --sort recent` reports `5`
-  subjective reassessment placeholders, not direct implementation packages.
-- Current direct review read: `desloppify show review --status open --no-budget
-  --top 80` reports no open `review` detector rows, while `desloppify plan`
-  still lists the `30` planned review items. Treat the P12 companion map as the
-  exact checklist scope until the next authoritative scan/plan sync proves a
-  different state.
-- Scores after the follow-up scan: overall `85.8`, objective `96.8`, strict
-  `85.8`, verified `96.8`.
-- Mechanical pool: `96.8%`; subjective pool: `82.1%`.
-- Largest weighted subjective drags: high elegance `76.0`, design coherence
-  `64.0`, mid elegance `84.0`, abstraction fit `78.0`, contracts `88.0`.
-- Security: `100.0`, no open security issues in the pasted scan output.
+- Final scan result: `desloppify scan --path .` completed successfully at
+  `2026-04-25T18:52:09+00:00` with `272` total scan issues and no active
+  scan-blocking queue.
+- Final scores: overall `88.0`, objective `95.7`, strict `87.9`, verified
+  `95.7`; strict remains above the `85.0` target.
+- Current queue read after post-scan deferral: `desloppify next` reports
+  `Queue: 0 items` and `Nothing to do! Strict score: 87.9/100`.
+- Direct review read: `desloppify show review --status open --no-budget --top
+  120` reports no active open `review` detector rows, while `desloppify status`
+  records `5` untriaged review work items from the final five-dimension
+  subjective pass. Treat those rows as future checklist input, not P12 source
+  work.
+- Security read: `desloppify show security --status open --no-budget --top 50`
+  reports three import-cycle rows, not security-vulnerability rows:
+  channel-setup facet snapshot loader/session, channel-setup planner/strategy
+  builders, and navigation channel-number/router cycle.
+- Biggest weighted drags in the final scan: mid elegance `82.0`, design
+  coherence `73.0`, high elegance `88.0`, low elegance `84.0`, contracts
+  `88.0`.
+- Real future-work candidates identified by refreshed review output include
+  profile-select CSS shard consistency, bootstrap live app singleton exposure,
+  EPGVirtualizer render-context closure complexity, channel-setup workflow
+  contract ownership, AppLifecycle operational concern mixing, AppOrchestrator
+  runtime hub breadth, Plex library/error/URL contract seams, and stale
+  architecture-doc channel-setup owner paths. The final five-dimension pass
+  additionally surfaced navigation helper/coordinator import coupling,
+  EPG background warm queue scheduling breadth, duplicate core/UI channel setup
+  workflow-port contracts, EPGVirtualizer DOM-budget closure complexity, and
+  `bootstrap.ts` live mutable app lifecycle export. These are not P12 blockers;
+  they need fresh owner/verification planning before any P13-style execution.
 
-Score interpretation: the `-0.1` strict drop is not evidence that the P11 fixes
-regressed the code. The newer `gpt-5.5` review surfaced a more current
-subjective backlog and removed stale review rows at the same time. The active
-cleanup question is now whether the 30 imported issues represent worthwhile
-current-source work; the package map below keeps only those issue ids as P12
-scope.
+Score interpretation: P12 is closed with strict `87.9`, but Desloppify still
+shows a score plateau and points to design coherence as the next breakthrough
+area. The refreshed review output should seed future checklist planning, not
+retroactively reopen completed P12 packages.
 
 ## Operating Contract
 
 - Work top to bottom unless maintainer direction says otherwise.
 - Keep authoritative execution state in Codex `update_plan`.
-- Create a package-local execution-grade plan for the selected `P12-W#`; keep it
+- Create a package-local execution-grade plan for the selected `P13-W#`; keep it
   local by default and promote to `docs/plans/*` only when durable tracked
   handoff memory is explicitly needed.
 - Use the active companion map for exact review-id membership. Checklist rows
@@ -118,9 +139,9 @@ current evidence.
   - package-local scoping commands for the closing priority
   - strongest task-specific verification used by the closing work item
 
-## P12 Closure Protocol
+## Checklist-Linked Closure Protocol
 
-P12 packages must prove they closed the current-source issue area, not just
+Checklist-linked packages must prove they closed the current-source issue area, not just
 changed files related to the imported review text.
 
 - Source-proof matrix before implementation:
@@ -137,7 +158,7 @@ changed files related to the imported review text.
   - reviewer must check whether the fix moved the same responsibility,
     pass-through, typing, error, or package-organization problem to a sibling
     surface
-  - reviewer must list any newly introduced issue that belongs to the same P12
+  - reviewer must list any newly introduced issue that belongs to the same
     package before the work item can close
 - Post-fix issue-area sweep:
   - rerun all package-local `desloppify show` commands
@@ -151,8 +172,9 @@ changed files related to the imported review text.
   - if the fix reveals or creates a new issue in the same issue area, keep the
     current package open and either absorb it into the current execution unit or
     replan the same package before moving on
-  - if the fix reveals a different issue area, assign it to one later P12 owner
-    or a new checklist item before closing the current package
+  - if the fix reveals a different issue area, assign it to one later owner in
+    the same active priority or a new checklist item before closing the current
+    package
   - do not close a package solely because tests pass or the originally imported
     wording disappeared
 - Score-risk rule:
@@ -211,188 +233,347 @@ active docs tree.
   - Status: completed
   - Handoff: archived
 
-## Active P12 Subjective Refresh Queue
+## Completed P12 Subjective Refresh Summary
 
-The active P12 exact membership surface is
+P12 is closed. Its exact completed package membership remains in
 `docs/architecture/p12-subjective-refresh-package-map.json`.
 
-### [x] `P12-W1` `pkg_runtime_assembly_and_initialization_boundary`
+- Final status: `P12-W1` through `P12-W5` and `P12-EXIT` completed.
+- Closeout commit: `5738defa` `Close P12 exit scan evidence`.
+- Final scan date: `2026-04-25`.
+- Final scan result: `desloppify scan --path .` completed successfully with
+  overall `88.0`, strict `87.9`, objective `95.7`, and verified `95.7`; strict
+  stayed above the `85.0` target.
+- Queue/status evidence: `desloppify next` reported `Queue: 0 items` and
+  `Nothing to do! Strict score: 87.9/100`; `desloppify show review --status
+  open --no-budget --top 120` reported no active open review rows, while
+  `desloppify status` recorded five refreshed future-work review items.
+- Security evidence: `desloppify show security --status open --no-budget --top
+  50` reported import-cycle rows, not security vulnerabilities.
+- Verification evidence: `npm run verify` passed during P12 source closeout, and
+  `npm run verify:docs` passed after the P12 checklist closeout.
+- Disposition: refreshed post-P12 review items seed P13. They are not P12 reopen
+  work and must not be used as source-fix instructions without a P13 owner and
+  package-local verification plan.
 
-- Backlog: `seed 10` fresh subjective review issues.
-- Scope: reduce the remaining AppOrchestrator/coordinator/priority-one assembly
-  hub, move initialization ownership toward the initialization package, clarify
-  startup phase vocabulary, and trim root/public barrels where they still widen
-  runtime ownership.
+- [x] `P12-EXIT`
+  - required: every P12 review issue had one checklist owner or explicit
+    disposition, the P12 package map and checklist agreed, package-local checks
+    passed, final integration-branch scan/queue/status/security/review evidence
+    was recorded, and docs verification passed.
+  - Status: completed
+  - Handoff: archived; P13 owns the refreshed post-P12 backlog.
+
+## Active P13 Post-P12 Subjective Backlog
+
+The active P13 exact membership surface is
+`docs/architecture/p13-post-p12-subjective-backlog-package-map.json`.
+
+### [x] `P13-W1` `pkg_channel_setup_workflow_and_ui_contract_ownership`
+
+- Backlog: `3` refreshed post-P12 review issues.
+- Scope: make the core channel-setup workflow port the canonical contract,
+  remove duplicate core/UI workflow-contract ownership, and replace positional
+  channel-setup focus registration with a clearer UI-owned API.
+- Imported review issues:
+  - `review::.::holistic::cross_module_architecture::channel_setup_workflow_contract_owned_by_ui`
+  - `review::.::holistic::incomplete_migration::channel_setup_dual_workflow_contract`
+  - `review::.::holistic::api_surface_coherence::channel_setup_focus_positional_api`
 - Exact seed membership:
-  `docs/architecture/p12-subjective-refresh-package-map.json` ->
-  `pkg_runtime_assembly_and_initialization_boundary`.
-- Package-local scoping commands:
-  - `desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 120`
-  - `desloppify show src/core/orchestrator/OrchestratorCoordinatorBuilders.ts --status open --no-budget --top 120`
-  - `desloppify show src/core/orchestrator/priority-one --status open --no-budget --top 120`
-  - `desloppify show src/core/orchestrator/InitializationCoordinator.ts --status open --no-budget --top 80`
-  - `desloppify show src/core/initialization/InitializationCoordinator.ts --status open --no-budget --top 80`
-  - `desloppify show src/Orchestrator.ts --status open --no-budget --top 80`
-  - `desloppify show src/core/index.ts --status open --no-budget --top 80`
-- Likely first slice: inventory the runtime assembly and priority-one handoff
-  seams; choose one shaping boundary to collapse before moving files or barrels.
+  `docs/architecture/p13-post-p12-subjective-backlog-package-map.json` ->
+  `pkg_channel_setup_workflow_and_ui_contract_ownership`.
+- Core files:
+  - `src/core/channel-setup/workflow/ChannelSetupWorkflowPort.ts`
+  - `src/core/channel-setup/workflow/createChannelSetupWorkflowPort.ts`
+  - `src/core/channel-setup/types.ts`
+  - `src/core/channel-setup/planning/ChannelSetupPlanDiagnostics.ts`
+  - `src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts`
+  - `src/modules/ui/channel-setup/focus/ChannelSetupFocusCoordinator.ts`
+  - `src/modules/ui/channel-setup/steps/StrategyStepInteractionController.ts`
+  - `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
+  - retired during closeout:
+    `src/modules/ui/channel-setup/ChannelSetupSessionPorts.ts`
+- Package guardrail: the source-proof matrix must account for both the
+  workflow-port owner and the duplicate core/UI shape evidence before choosing
+  an execution unit.
+- Likely verification: `npm run verify`.
 - Status: completed
-- Plan: local-only cleanup-loop plan reviewed and approved
-- Last touched: 2026-04-24
-- Verification: `npm run verify` passed; `npm run verify:docs` passed after
-  checklist closeout; package-local `desloppify show` commands rerun with no
-  open issues for `AppOrchestrator`, `OrchestratorCoordinatorBuilders`, old/new
-  `InitializationCoordinator`, `src/Orchestrator.ts`, or `src/core/index.ts`;
-  priority-one residual mechanical smells remain accepted as non-P12-W1
-  closure blockers; exact imported review-id queries returned no open rows;
-  `desloppify scan --path .` completed with overall `85.8`, strict `85.8`,
-  objective `97.1`, and verified `97.1`.
-- Follow-ups: none for P12-W1; `P12-EXIT` remains pending until all P12
-  packages are complete.
-- Handoff: continue with `P12-W2`.
+- Plan: package-local execution brief approved for `P13-W1-WAVE1`
+  (`P13-W1-S1` workflow contract canonicalization, `P13-W1-S2` focus API
+  object-shape cleanup).
+- Last touched: 2026-04-25
+- Verification: `npm run verify` passed; targeted `rg` audits found no
+  `ChannelSetupSessionWorkflowPort`, no `ChannelSetupSessionPorts` references
+  under `src`, and object-shaped `registerStep2` signatures/call sites; all
+  package-local `desloppify show <file> --status open --no-budget` sweeps
+  reported no open file-path issues, including the now-retired
+  `ChannelSetupSessionPorts.ts` path.
+- Source-proof closeout:
+  - `review::.::holistic::cross_module_architecture::channel_setup_workflow_contract_owned_by_ui`
+    is stale-proven resolved: core factory now imports/returns the core
+    `ChannelSetupWorkflowPort`, and the duplicate UI contract file is deleted.
+  - `review::.::holistic::incomplete_migration::channel_setup_dual_workflow_contract`
+    is stale-proven resolved: no `ChannelSetupSessionWorkflowPort` source
+    references remain, and unavailable workflow handling imports from the core
+    workflow port owner.
+  - `review::.::holistic::api_surface_coherence::channel_setup_focus_positional_api`
+    is stale-proven resolved: `registerStep2` now accepts one named options
+    object across the focus coordinator, strategy interaction adapter, screen
+    adapter, and tests.
+- Review: plan review and implementation review were clean after revision; the
+  implementation reviewer found no sibling wrapper, alias, facade, or new
+  same-package debt requiring absorption or replan.
+- Follow-ups: none.
+- Handoff: `P13-W1` is closed. Do not start `P13-W2` unless this closeout
+  remains intact on the integration branch.
 
-### [x] `P12-W2` `pkg_plex_api_error_and_url_contracts`
+### [x] `P13-W2` `pkg_orchestrator_navigation_lifecycle_composition_boundaries`
 
-- Backlog: `seed 7` fresh subjective review issues.
-- Scope: align Plex cancellation, auth/error semantics, URL absence contracts,
-  header typing, stream URL policy ownership, discovery cause preservation, and
-  library-count enrichment.
+- Backlog: `5` refreshed post-P12 review issues.
+- Scope: reduce remaining AppOrchestrator runtime-hub breadth, narrow
+  coordinator-builder assembly inputs, break navigation helper/coordinator type
+  cycles, split lifecycle operational concerns, and clarify the bootstrap live
+  app export boundary.
+- Imported review issues:
+  - `review::.::holistic::design_coherence::app_orchestrator_still_runtime_hub`
+  - `review::.::holistic::mid_level_elegance::coordinator_builders_full_assembly_bus`
+  - `review::.::holistic::dependency_health::navigation_coordinator_type_cycle`
+  - `review::.::holistic::design_coherence::app_lifecycle_mixed_operational_concerns`
+  - `review::.::holistic::initialization_coupling::bootstrap_live_app_export`
 - Exact seed membership:
-  `docs/architecture/p12-subjective-refresh-package-map.json` ->
-  `pkg_plex_api_error_and_url_contracts`.
-- Package-local scoping commands:
-  - `desloppify show src/modules/plex/library/PlexLibrary.ts --status open --no-budget --top 120`
-  - `desloppify show src/modules/plex/library/interfaces.ts --status open --no-budget --top 80`
-  - `desloppify show src/modules/plex/discovery/PlexServerDiscovery.ts --status open --no-budget --top 80`
-  - `desloppify show src/modules/plex/auth/plexAuthTransport.ts --status open --no-budget --top 80`
-  - `desloppify show src/modules/plex/stream/PlexStreamResolver.ts --status open --no-budget --top 120`
-  - `desloppify show src/modules/plex/shared/plexUrl.ts --status open --no-budget --top 80`
-- Likely first slice: handle the single-edit API/contract items
-  (`search` signal, `getImageUrl` nullability, typed auth headers, discovery
-  cause preservation) before larger stream/library decomposition.
+  `docs/architecture/p13-post-p12-subjective-backlog-package-map.json` ->
+  `pkg_orchestrator_navigation_lifecycle_composition_boundaries`.
+- Core files:
+  - `src/core/orchestrator/AppOrchestrator.ts`
+  - `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts`
+  - `src/core/orchestrator/OrchestratorCoordinatorBuilders.ts`
+  - `src/core/orchestrator/OrchestratorCoordinatorContracts.ts`
+  - `src/modules/navigation/NavigationCoordinator.ts`
+  - navigation helper files
+  - `src/modules/lifecycle/AppLifecycle.ts`
+  - `src/bootstrap.ts`
+- Likely verification: `npm run verify`.
 - Status: completed
-- Plan: local-only cleanup-loop plan reviewed and approved
-- Last touched: 2026-04-24
-- Verification: focused Plex tests passed for library, discovery, auth,
-  shared URL, stream resolver, and stream URL policy surfaces; `npm run verify`
-  passed; `desloppify scan --path .` completed with overall `85.8`, strict
-  `85.8`, objective `97.0`, and verified `97.0`; `desloppify status` recorded
-  File health `92.6` (`92.2` strict), Code quality `98.1`, Duplication
-  `100.0`, Test health `99.0`, Security `100.0`, and subjective dimensions:
-  AI generated debt `78.0`, API coherence `84.0`, Abstraction fit `78.0`,
-  Auth consistency `84.0`, Contracts `88.0`, Convention drift `92.0`,
-  Cross-module arch `76.0`, Design coherence `64.0`, Elegance `83.0`, Error
-  consistency `80.0`, Naming quality `88.0`, Stale migration `91.0`,
-  Structure nav `78.0`, Test strategy `82.0`, and Type safety `88.0`;
-  package-local `desloppify show` commands and all seven exact review-id
-  queries returned no open rows; targeted source audits confirmed `search`
-  signal threading, `getImageUrl()` null absence, typed Plex URL headers,
-  sanitized discovery causes, endpoint-aware `403` semantics, stream URL
-  policy ownership, and delegated library-count enrichment.
-- Follow-ups: none for P12-W2; `P12-EXIT` remains pending until all P12
+- Plan: package-local execution brief approved for serial slices `P13-W2-S1`
+  through `P13-W2-S5`.
+- Last touched: 2026-04-25
+- Verification: `npm run verify` passed; `npm run verify:docs` passed during
+  S3 ownership-doc closeout and as part of final `npm run verify`; package-local
+  `desloppify show` commands were rerun; exact issue-id queries were rerun with
+  `--status all`; targeted `rg` audits found no old navigation deps import, no
+  full assembly input in coordinator builders, no selected-server credential
+  mutation or priority-one/runtime-controller construction in
+  `AppOrchestrator.ts`, no old lifecycle persistence/monitor internals in
+  `AppLifecycle.ts`, and no bootstrap live `app` export, `getLineupApp`, or
+  exported `App | null` accessor. Direct `desloppify detect cycles --file`
+  checks for `NavigationChannelNumberHandler.ts` and `NavigationCoordinator.ts`
+  reported no import cycles.
+- Source-proof closeout:
+  - `review::.::holistic::dependency_health::navigation_coordinator_type_cycle`
+    is stale-proven resolved: `NavigationCoordinatorDeps` now lives in a neutral
+    navigation contract file, helper imports no longer point back to
+    `NavigationCoordinator.ts`, and direct cycle detection reports no import
+    cycles.
+  - `review::.::holistic::mid_level_elegance::coordinator_builders_full_assembly_bus`
+    is stale-proven resolved: all seven named leaf builders now consume narrow
+    builder inputs; the full coordinator assembly input remains only in the
+    assembly shaper layer.
+  - `review::.::holistic::design_coherence::app_orchestrator_still_runtime_hub`
+    is stale-proven resolved for the mapped P13-W2 subclaims:
+    selected-server credential persistence moved to
+    `SelectedServerPersistenceAdapter`, priority-one assembly shaping moved to
+    `PriorityOneAssemblyBuilder`, and schedule-day rollover plus subtitle-track
+    recovery construction moved to `OrchestratorRuntimeControllerBuilder`.
+  - `review::.::holistic::design_coherence::app_lifecycle_mixed_operational_concerns`
+    is stale-proven resolved: persistence queueing, connectivity monitoring,
+    and memory monitoring moved into focused lifecycle collaborators while
+    `AppLifecycle` preserves its public lifecycle API and phase/callback seam.
+  - `review::.::holistic::initialization_coupling::bootstrap_live_app_export`
+    is stale-proven resolved: bootstrap app state is private and the exported
+    status seam returns bounded snapshot facts, not `App`, `Orchestrator`, or
+    mutable live runtime objects.
+- Review: plan review was clean after revision; every implementation slice
+  reached clean review. S3 and S4 had review findings that were fixed and
+  closure-checked before fresh final approval; S5 had a live-app accessor finding
+  that was fixed and then passed fresh final review.
+- Follow-ups: accepted residue only for pre-existing objective detector rows not
+  owned by P13-W2 exact membership: the nested-closure row in
+  `OrchestratorCoordinatorBuilders.ts`, navigation helper transitive-test rows,
+  and lifecycle log/shallow-test/swallowed-error rows remain with the existing
+  Desloppify objective queue as final owner; revisit when `desloppify next`
+  selects them. No P13-W2 exact review issue has a deferred or split follow-up.
+- Handoff: `P13-W2` is closed. Next safe start is a package-local
+  execution-grade plan for `P13-W3`; do not start source cleanup directly from
+  refreshed review output.
+
+### [x] `P13-W3` `pkg_epg_and_channel_setup_ui_runtime_complexity`
+
+- Backlog: `4` refreshed post-P12 review issues.
+- Scope: split EPG info-panel render/fetch/color ownership, reduce
+  EPGVirtualizer render-context closure complexity, isolate EPG background warm
+  queue scheduling policy, and remove duplicated strategy-step control tables.
+- Imported review issues:
+  - `review::.::holistic::design_coherence::epg_info_panel_mixed_render_fetch_color`
+  - `review::.::holistic::low_level_elegance::epg_virtualizer_render_context_closure_nest`
+  - `review::.::holistic::low_level_elegance::epg_background_warm_schedule_next_batch_dense`
+  - `review::.::holistic::design_coherence::strategy_step_control_tables_duplicated`
+- Exact seed membership:
+  `docs/architecture/p13-post-p12-subjective-backlog-package-map.json` ->
+  `pkg_epg_and_channel_setup_ui_runtime_complexity`.
+- Core files:
+  - `src/modules/ui/epg/view/EPGInfoPanel.ts`
+  - `src/modules/ui/epg/view/EPGVirtualizer.ts`
+  - `src/modules/ui/epg/runtime/EPGBackgroundWarmQueue.ts`
+  - `src/modules/ui/channel-setup/steps/StrategyStepInteractionController.ts`
+- Likely verification: `npm run verify`.
+- Status: completed
+- Plan: package-local execution brief approved for serial execution units
+  `P13-W3-EU1` through `P13-W3-EU4`.
+- Last touched: 2026-04-26
+- Verification: targeted package tests passed (`266` Jest tests plus `4`
+  channel-setup contract tests); `npm run verify` passed after the final
+  explicit-return-type cleanup; package-local `desloppify show` commands were
+  rerun and reported no open file-scoped issues; exact issue-id queries were
+  rerun with `--status all` and still show stale review wording; targeted `rg`
+  audits confirmed warm-queue batch/scheduler work now lives in named methods,
+  EPG virtualizer budget/sampling work lives in `RenderPassAccumulator`, EPG
+  info-panel fetch/color/cache work lives in package-local collaborators, and
+  strategy-step dropdown/cycle behavior derives from one descriptor table.
+- Source-proof closeout:
+  - `review::.::holistic::low_level_elegance::epg_background_warm_schedule_next_batch_dense`
+    is stale-proven resolved: `_scheduleNextBatch` resolves and applies queue
+    action/backpressure only, while batch execution, worker fan-out, safe error
+    reporting, and idle/timer scheduling live in named methods.
+  - `review::.::holistic::low_level_elegance::epg_virtualizer_render_context_closure_nest`
+    is stale-proven resolved: render-pass row budget, visible/buffer queues,
+    focused-cell exemption, row finalization, and sampling policy live in the
+    package-local `RenderPassAccumulator` instead of nested closures.
+  - `review::.::holistic::design_coherence::epg_info_panel_mixed_render_fetch_color`
+    is stale-proven resolved: `EPGInfoPanel` remains the presenter/DOM binder
+    and delegates HDR/episode-poster loading/cache state to
+    `EPGInfoPanelDetailsLoader` and dynamic color sampling/object URL/cache
+    state/gradient mutation to `EPGInfoPanelDynamicBackground`.
+  - `review::.::holistic::design_coherence::strategy_step_control_tables_duplicated`
+    is stale-proven resolved: `STRATEGY_CONTROL_DESCRIPTORS` is the single local
+    source for adjustable strategy control ids, options, current values,
+    disabled predicates, draft mutation, and preset/discrete cycling mode.
+- Review: plan review found missing wave/slice accounting, the planner revised
+  to serial execution units, and a fresh final plan review approved
+  implementation. Every implementation unit reached clean review; the final
+  integrated source review approved the behavior-neutral return-type cleanup
+  before checklist/package-map closeout.
+- Follow-ups: none for P13-W3 exact membership. The exact issue-id queries still
+  return stale imported review text, but current-source proof and implementation
+  review show the package-owned complaints are resolved; do not create a new
+  follow-up solely from detector wording lag.
+- Handoff: `P13-W3` is closed. Next safe start is a package-local
+  execution-grade plan for `P13-W4`; do not close `P13-EXIT` until later P13
   packages are complete.
-- Handoff: continue with `P12-W3`.
 
-### [ ] `P12-W3` `pkg_channel_setup_scheduler_strategy_and_errors`
+### [ ] `P13-W4` `pkg_plex_and_player_contract_error_semantics`
 
-- Backlog: `seed 5` fresh subjective review issues.
-- Scope: tighten channel setup package organization, planner/facet-loader
-  decomposition, workflow policy honesty, and ChannelManager typed public
-  failures.
+- Backlog: `6` refreshed post-P12 review issues.
+- Scope: preserve Plex library error causes, clarify Plex image URL trust
+  boundaries, document or normalize transcode URL throw semantics, extract Plex
+  discovery retry/fallback policy, tighten Plex user parser record contracts,
+  and simplify synchronous audio-track restoration.
+- Imported review issues:
+  - `review::.::holistic::error_consistency::plex_library_error_wrapping_loses_cause`
+  - `review::.::holistic::authorization_consistency::plex_image_foreign_url_boundary`
+  - `review::.::holistic::contract_coherence::plex_transcode_url_throws_undocumented`
+  - `review::.::holistic::design_coherence::plex_discovery_discover_servers_pipeline`
+  - `review::.::holistic::type_safety::plex_user_parser_record_contract`
+  - `review::.::holistic::logic_clarity::restore_track_async_without_await`
 - Exact seed membership:
-  `docs/architecture/p12-subjective-refresh-package-map.json` ->
-  `pkg_channel_setup_scheduler_strategy_and_errors`.
-- Package-local scoping commands:
-  - `desloppify show src/core/channel-setup/ChannelSetupWorkflow.ts --status open --no-budget --top 80`
-  - `desloppify show src/core/channel-setup/ChannelSetupPlanner.ts --status open --no-budget --top 120`
-  - `desloppify show src/core/channel-setup/ChannelSetupFacetSnapshotLoader.ts --status open --no-budget --top 120`
-  - `desloppify show src/core/channel-setup --status open --no-budget --top 160`
-  - `desloppify show src/modules/scheduler/channel-manager/ChannelManager.ts --status open --no-budget --top 100`
-  - `desloppify show src/modules/scheduler/channel-manager/interfaces.ts --status open --no-budget --top 80`
-- Likely first slice: normalize ChannelManager public failure typing if still
-  live, then decide whether channel setup work starts with package folders,
-  planner strategy builders, or facet-loader load-session extraction.
+  `docs/architecture/p13-post-p12-subjective-backlog-package-map.json` ->
+  `pkg_plex_and_player_contract_error_semantics`.
+- Core files:
+  - `src/modules/plex/library/PlexLibraryError.ts`
+  - `src/modules/plex/library/PlexLibrary.ts`
+  - `src/modules/plex/auth/plexAuthTransport.ts`
+  - `src/modules/plex/shared/plexUrl.ts`
+  - `src/modules/plex/stream/interfaces.ts`
+  - `src/modules/plex/stream/PlexStreamResolver.ts`
+  - `src/modules/plex/stream/resolveStreamPipeline.ts`
+  - `src/modules/plex/discovery/PlexServerDiscovery.ts`
+  - `src/modules/plex/auth/plexAuthPayloadParsers.ts`
+  - `src/modules/plex/auth/PlexAuth.ts`
+  - `src/modules/player/SubtitleManager.ts`
+  - `src/modules/player/AudioTrackManager.ts`
+- Package guardrail: the package-local plan must separate Plex contract/error
+  semantics from player-only simplification unless it proves a shared execution
+  unit, owner, and verification envelope.
+- Likely verification: `npm run verify`.
 - Status: not started
 - Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: after `P12-W2`, plan `P12-W3` from exact channel/scheduler ids.
+- Handoff: plan only after earlier P13 owners are complete or explicitly
+  deferred with one final owner.
 
-### [ ] `P12-W4` `pkg_ui_epg_navigation_package_coherence`
+### [ ] `P13-W5` `pkg_documentation_comment_and_package_hygiene`
 
-- Backlog: `seed 5` fresh subjective review issues.
-- Scope: decouple UI packages from core coordination contracts where current
-  source proves an ownership leak, finish EPG root/package splits, reduce
-  NavigationCoordinator and EPGVirtualizer mixed responsibilities, and align EPG
-  error typing with `AppErrorCode`.
+- Backlog: `4` refreshed post-P12 review issues.
+- Scope: planning container for four small hygiene issues that must remain
+  separately owned at execution time: lifecycle/player restating comments, Plex
+  type/constant doc bloat, profile-select style-shard organization, and stale
+  channel-setup owner paths in current architecture truth.
+- Imported review issues:
+  - `review::.::holistic::ai_generated_debt::lifecycle_player_restating_comments`
+  - `review::.::holistic::ai_generated_debt::plex_type_constant_doc_bloat`
+  - `review::.::holistic::package_organization::profile_select_nested_css_shards`
+  - `review::.::holistic::high_level_elegance::canonical_architecture_channel_setup_path_drift`
 - Exact seed membership:
-  `docs/architecture/p12-subjective-refresh-package-map.json` ->
-  `pkg_ui_epg_navigation_package_coherence`.
-- Package-local scoping commands:
-  - `desloppify show src/modules/ui/channel-setup --status open --no-budget --top 120`
-  - `desloppify show src/modules/ui/epg --status open --no-budget --top 160`
-  - `desloppify show src/modules/ui/epg/view/EPGVirtualizer.ts --status open --no-budget --top 120`
-  - `desloppify show src/modules/navigation/NavigationCoordinator.ts --status open --no-budget --top 120`
-  - `desloppify show src/modules/ui/epg/types.ts --status open --no-budget --top 80`
-- Likely first slice: choose between EPG package split and EPG error-type
-  cleanup; do not fold broad navigation decomposition into the first slice
-  unless the package plan proves the same verification envelope.
+  `docs/architecture/p13-post-p12-subjective-backlog-package-map.json` ->
+  `pkg_documentation_comment_and_package_hygiene`.
+- Core files:
+  - `src/modules/lifecycle/AppLifecycle.ts`
+  - `src/modules/player/VideoPlayer.ts`
+  - `src/modules/plex/discovery/types.ts`
+  - `src/modules/plex/library/constants.ts`
+  - `src/modules/ui/profile-select/styles.css`
+  - `src/modules/ui/profile-select/styles/*`
+  - `docs/architecture/CURRENT_STATE.md`
+- Likely verification: source/style changes require `npm run verify`; current
+  architecture doc changes require `npm run verify:docs`.
+- Package guardrail: `P13-W5` is not a miscellaneous cleanup bucket. Its
+  package-local plan must either split these issues into explicit execution
+  units with one owner and verification command each, or mark an issue
+  `deferred`/`split follow-up` with one final owner and revisit trigger before
+  closing any completed subset.
 - Status: not started
 - Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: after `P12-W3`, plan `P12-W4` from exact UI/EPG/navigation ids.
+- Handoff: plan only after earlier P13 owners are complete or explicitly
+  deferred with one final owner.
 
-### [ ] `P12-W5` `pkg_focused_test_and_comment_hygiene`
+### [ ] `P13-EXIT`
 
-- Backlog: `seed 3` fresh subjective review issues.
-- Scope: retire the remaining high-value focused test seams and restating
-  player/scheduler comment noise without turning this into a miscellaneous
-  residue sink.
-- Exact seed membership:
-  `docs/architecture/p12-subjective-refresh-package-map.json` ->
-  `pkg_focused_test_and_comment_hygiene`.
-- Package-local scoping commands:
-  - `desloppify show src/core/channel-tuning/__tests__/ChannelTuningCoordinator.test.ts --status open --no-budget --top 100`
-  - `desloppify show src/modules/lifecycle/AppLifecycle.ts --status open --no-budget --top 100`
-  - `desloppify show src/modules/lifecycle/__tests__/AppLifecycle.test.ts --status open --no-budget --top 100`
-  - `desloppify show src/modules/player/RetryManager.ts --status open --no-budget --top 80`
-  - `desloppify show src/modules/player/SubtitleManager.ts --status open --no-budget --top 80`
-  - `desloppify show src/modules/player/VideoPlayer.ts --status open --no-budget --top 80`
-  - `desloppify show src/modules/scheduler/scheduler --status open --no-budget --top 100`
-- Likely first slice: add or use an awaitable lifecycle completion seam only if
-  it improves production/test clarity; otherwise handle comment hygiene as a
-  separate low-risk slice.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: after `P12-W4`, plan `P12-W5` from exact test/comment ids.
-
-- [ ] `P12-EXIT`
-
-- Close only if: every P12 review issue has one checklist owner, every absorbed
-  mechanical hotspot has one exact owner or explicit disposition, the P12
-  package map and checklist agree, security triage is clean or assigned, and a
-  final integration-branch scan/queue/status refresh records the score delta.
+- Close only if: every P13 review issue has one checklist owner or explicit
+  disposition, every absorbed mechanical hotspot has one exact owner or
+  explicit disposition, the P13 package map and checklist agree, package-local
+  checks pass, final integration-branch `desloppify scan --path .` succeeds,
+  `desloppify status`, queue, review, and security evidence are recorded, and
+  `npm run verify` and/or `npm run verify:docs` pass as appropriate.
 - Required commands:
   - `desloppify scan --path .`
   - `desloppify status`
   - `desloppify plan queue --sort recent`
+  - `desloppify next`
   - `desloppify show review --status open --no-budget --top 120`
   - `desloppify show security --status open --no-budget --top 50`
   - rerun each completed package's local scoping commands
-  - `npm run verify`
-  - `npm run verify:docs`
+  - `npm run verify` and/or `npm run verify:docs`, matching touched surfaces
 - Status: not started
 - Plan: none yet
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: none until P12 packages complete.
+- Handoff: do not close until all P13 work items are complete or explicitly
+  disposed with one final owner.
 
 ## Not Active Checklist Scope By Default
 
@@ -403,4 +584,4 @@ The active P12 exact membership surface is
   changes.
 - Duplicate detector rows or detector-lag rows without current-source evidence.
 - Dirty source edits already present in the worktree; evaluate them separately
-  before assuming they belong to a P12 package.
+  before assuming they belong to a P13 package.

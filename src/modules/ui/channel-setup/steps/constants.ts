@@ -4,8 +4,16 @@ import type {
     SeriesOrderingConfig,
     SetupStrategyKey,
 } from '../../../../core/channel-setup/types';
+import {
+    DEFAULT_MIN_ITEMS_PER_CHANNEL as CORE_DEFAULT_MIN_ITEMS_PER_CHANNEL,
+    DEFAULT_STRATEGY_PRIORITIES as CORE_DEFAULT_STRATEGY_PRIORITIES,
+    MIXED_SCOPE_STRATEGY_KEYS as CORE_MIXED_SCOPE_STRATEGY_KEYS,
+    SETUP_STRATEGY_KEYS as CORE_SETUP_STRATEGY_KEYS,
+} from '../../../../core/channel-setup/constants';
 
 export type { SetupStrategyKey } from '../../../../core/channel-setup/types';
+
+export const DEFAULT_MIN_ITEMS_PER_CHANNEL = CORE_DEFAULT_MIN_ITEMS_PER_CHANNEL;
 
 export const CONTENT_STRATEGY_KEYS = [
     'collections',
@@ -65,3 +73,9 @@ export const SERIES_BASE_MODE_OPTIONS = (['shuffle', 'sequential', 'block'] as c
 export const SERIES_VARIANT_TYPE_OPTIONS = (['none', 'sequential', 'block'] as const) satisfies readonly ChannelExpansionConfig['variantType'][];
 
 export const SERIES_BLOCK_PRESETS = [2, 3, 4, 5] as const;
+
+export const SETUP_STRATEGY_KEYS = CORE_SETUP_STRATEGY_KEYS;
+
+export const DEFAULT_STRATEGY_PRIORITIES: Record<SetupStrategyKey, number> = CORE_DEFAULT_STRATEGY_PRIORITIES;
+
+export const MIXED_SCOPE_STRATEGY_KEYS = CORE_MIXED_SCOPE_STRATEGY_KEYS;

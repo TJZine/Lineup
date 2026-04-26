@@ -210,8 +210,130 @@ describe('createOrchestratorCoordinators', () => {
         });
         expect(channelSetupInput).not.toHaveProperty('overlays');
         expect(buildChannelSetupOwners).toHaveBeenCalledWith(channelSetupInput, epgCoordinator);
-        expect(buildNowPlayingInfoCoordinator).toHaveBeenCalledWith(deps, nowPlayingDebugManager);
+
+        expect(buildNowPlayingDebugManager.mock.calls[0]?.[0]).toEqual({
+            modules: {
+                navigation: deps.modules.navigation,
+                plexStreamResolver: deps.modules.plexStreamResolver,
+                scheduler: deps.modules.scheduler,
+            },
+            overlays: {
+                nowPlayingInfo: deps.overlays.nowPlayingInfo,
+            },
+            stores: {
+                debugOverridesStore: deps.stores.debugOverridesStore,
+            },
+            playback: {
+                state: deps.playback.state,
+            },
+        });
+        expect(buildNowPlayingInfoCoordinator).toHaveBeenCalledWith(
+            {
+                config: deps.config,
+                modules: {
+                    navigation: deps.modules.navigation,
+                    scheduler: deps.modules.scheduler,
+                    plexLibrary: deps.modules.plexLibrary,
+                },
+                overlays: {
+                    nowPlayingInfo: deps.overlays.nowPlayingInfo,
+                },
+                stores: {
+                    nowPlayingDisplayStore: deps.stores.nowPlayingDisplayStore,
+                },
+                playback: {
+                    state: deps.playback.state,
+                    buildPlexResourceUrl: deps.playback.buildPlexResourceUrl,
+                    getPlaybackInfoSnapshot: deps.playback.getPlaybackInfoSnapshot,
+                    refreshPlaybackInfoSnapshot: deps.playback.refreshPlaybackInfoSnapshot,
+                },
+                actions: {
+                    onOverlayVisibilityChange: deps.actions.onOverlayVisibilityChange,
+                },
+            },
+            nowPlayingDebugManager
+        );
+        expect(buildPlayerOsdCoordinator.mock.calls[0]?.[0]).toEqual({
+            config: deps.config,
+            modules: {
+                navigation: deps.modules.navigation,
+                scheduler: deps.modules.scheduler,
+                channelManager: deps.modules.channelManager,
+                videoPlayer: deps.modules.videoPlayer,
+            },
+            overlays: {
+                playerOsd: deps.overlays.playerOsd,
+                sleepTimer: deps.overlays.sleepTimer,
+            },
+            stores: {
+                nowPlayingDisplayStore: deps.stores.nowPlayingDisplayStore,
+            },
+            playback: {
+                state: deps.playback.state,
+                buildPlexResourceUrl: deps.playback.buildPlexResourceUrl,
+            },
+            actions: {
+                onOverlayVisibilityChange: deps.actions.onOverlayVisibilityChange,
+            },
+        });
+        expect(buildMiniGuideCoordinator).toHaveBeenCalledWith({
+            config: deps.config,
+            modules: {
+                channelManager: deps.modules.channelManager,
+                scheduler: deps.modules.scheduler,
+            },
+            overlays: {
+                miniGuide: deps.overlays.miniGuide,
+            },
+            schedule: {
+                buildDailyScheduleConfig: deps.schedule.buildDailyScheduleConfig,
+            },
+            actions: {
+                switchToChannel: deps.actions.switchToChannel,
+            },
+            nowPlaying: deps.nowPlaying,
+        });
+        expect(buildChannelTransitionCoordinator).toHaveBeenCalledWith({
+            modules: {
+                navigation: deps.modules.navigation,
+                videoPlayer: deps.modules.videoPlayer,
+            },
+            overlays: {
+                channelTransitionOverlay: deps.overlays.channelTransitionOverlay,
+            },
+            actions: {
+                onChannelTransitionActivityChange: deps.actions.onChannelTransitionActivityChange,
+            },
+        });
         expect(buildPlaybackRecovery.mock.calls[0]?.[0]).not.toHaveProperty('config');
+        expect(buildPlaybackOptionsCoordinator).toHaveBeenCalledWith(
+            {
+                modules: {
+                    navigation: deps.modules.navigation,
+                    videoPlayer: deps.modules.videoPlayer,
+                    scheduler: deps.modules.scheduler,
+                },
+                overlays: {
+                    playbackOptionsModal: deps.overlays.playbackOptionsModal,
+                },
+                stores: {
+                    subtitlePreferencesStore: deps.stores.subtitlePreferencesStore,
+                },
+                playback: {
+                    state: deps.playback.state,
+                },
+                nowPlaying: deps.nowPlaying,
+            },
+            playbackRecovery
+        );
+        expect(buildExitConfirmCoordinator).toHaveBeenCalledWith({
+            modules: {
+                navigation: deps.modules.navigation,
+            },
+            overlays: {
+                exitConfirmModal: deps.overlays.exitConfirmModal,
+            },
+        });
         expect(buildChannelTuningCoordinator.mock.calls[0]?.[0]).not.toHaveProperty('overlays');
         expect(buildNavigationCoordinator).toHaveBeenCalledWith(
             {

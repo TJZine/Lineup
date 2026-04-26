@@ -1,5 +1,5 @@
 import type { ChannelConfig } from '../../../scheduler/channel-manager';
-import { getBackgroundWarmQueueAction } from '../EPGCoordinatorPolicies';
+import { getBackgroundWarmQueueAction } from '../coordinator/EPGCoordinatorPolicies';
 
 export const EPG_BACKGROUND_WARM_IDLE_TIMEOUT_MS = 120;
 export const EPG_BACKGROUND_WARM_TIMER_DELAY_MS = 24;
@@ -29,6 +29,8 @@ export interface EPGBackgroundWarmQueueStartOptions {
 interface BackgroundWarmQueueState extends EPGBackgroundWarmQueueStartOptions {
     cursor: number;
 }
+
+type BackgroundWarmQueueAction = ReturnType<typeof getBackgroundWarmQueueAction>;
 
 export interface EPGBackgroundWarmQueueDeps {
     getActiveRefreshId: () => number;
@@ -110,8 +112,17 @@ export class EPGBackgroundWarmQueue {
             return;
         }
 
+        const action = this._resolveWarmQueueAction(state);
+        if (this._applyWarmQueueBackpressureOrCancel(action)) {
+            return;
+        }
+
+        this._scheduleBatchExecution(state);
+    }
+
+    private _resolveWarmQueueAction(state: BackgroundWarmQueueState): BackgroundWarmQueueAction {
         const resolveAction = this._deps.getWarmQueueAction ?? getBackgroundWarmQueueAction;
-        const action = resolveAction({
+        return resolveAction({
             refreshId: state.refreshId,
             activeRefreshId: this._deps.getActiveRefreshId(),
             cursor: state.cursor,
@@ -121,71 +132,97 @@ export class EPGBackgroundWarmQueue {
             inFlightCount: this._deps.getInFlightCount(),
             concurrency: state.concurrency,
         });
+    }
 
+    private _applyWarmQueueBackpressureOrCancel(action: BackgroundWarmQueueAction): boolean {
         if (action.kind === 'cancel') {
             this._cancelInternal(action.reason);
-            return;
+            return true;
         }
 
         if (action.kind === 'backpressure') {
-            if (this._timer) {
-                return;
-            }
+            this._scheduleBackpressureRetry();
+            return true;
+        }
 
-            this._timer = setTimeout(() => {
-                this._timer = null;
-                this._scheduleNextBatch();
-            }, EPG_BACKGROUND_WARM_BACKPRESSURE_DELAY_MS);
+        return false;
+    }
+
+    private _scheduleBackpressureRetry(): void {
+        if (this._timer) {
             return;
         }
 
-        const runBatch = async (): Promise<void> => {
-            if (this._state !== state) {
+        this._timer = setTimeout(() => {
+            this._timer = null;
+            this._scheduleNextBatch();
+        }, EPG_BACKGROUND_WARM_BACKPRESSURE_DELAY_MS);
+    }
+
+    private async _runWarmBatch(state: BackgroundWarmQueueState): Promise<void> {
+        if (this._state !== state) {
+            return;
+        }
+
+        this._activeBatchCount += 1;
+
+        try {
+            const batch = this._takeWarmBatch(state);
+
+            if (batch.length === 0) {
+                this._cancelInternal('warm-queue-complete');
                 return;
             }
-            this._activeBatchCount += 1;
 
-            try {
-                const batchSize = Math.max(1, state.concurrency * 2);
-                const batch = state.channels.slice(state.cursor, state.cursor + batchSize);
-                state.cursor += batch.length;
-
-                if (batch.length === 0) {
-                    this._cancelInternal('warm-queue-complete');
-                    return;
-                }
-
-                let cursor = 0;
-                const workers = Array.from(
-                    { length: Math.min(state.concurrency, batch.length) },
-                    async () => {
-                        while (true) {
-                            const channel = batch[cursor++];
-                            if (!channel) return;
-                            try {
-                                await state.refreshChannelSchedule(channel);
-                            } catch (error) {
-                                this._reportBatchError(error);
-                            }
-                        }
-                    }
-                );
-                await Promise.all(workers);
-                if (this._state === state) {
-                    this._scheduleNextBatch();
-                }
-            } finally {
-                this._activeBatchCount = Math.max(0, this._activeBatchCount - 1);
-                this._resolveIdleIfSettled();
+            await this._runWarmBatchWorkers(state, batch);
+            if (this._state === state) {
+                this._scheduleNextBatch();
             }
-        };
+        } finally {
+            this._activeBatchCount = Math.max(0, this._activeBatchCount - 1);
+            this._resolveIdleIfSettled();
+        }
+    }
 
-        const runBatchSafe = (): void => {
-            runBatch().catch((error: unknown) => {
-                this._reportBatchError(error);
-            });
-        };
+    private _takeWarmBatch(state: BackgroundWarmQueueState): ChannelConfig[] {
+        const batchSize = Math.max(1, state.concurrency * 2);
+        const batch = state.channels.slice(state.cursor, state.cursor + batchSize);
+        state.cursor += batch.length;
+        return batch;
+    }
 
+    private async _runWarmBatchWorkers(
+        state: BackgroundWarmQueueState,
+        batch: ChannelConfig[]
+    ): Promise<void> {
+        let cursor = 0;
+        const workers = Array.from(
+            { length: Math.min(state.concurrency, batch.length) },
+            async () => {
+                while (true) {
+                    if (this._state !== state) return;
+                    const channel = batch[cursor++];
+                    if (this._state !== state) return;
+                    if (!channel) return;
+                    try {
+                        await state.refreshChannelSchedule(channel);
+                    } catch (error) {
+                        this._reportBatchError(error);
+                    }
+                    if (this._state !== state) return;
+                }
+            }
+        );
+        await Promise.all(workers);
+    }
+
+    private _runWarmBatchSafe(state: BackgroundWarmQueueState): void {
+        this._runWarmBatch(state).catch((error: unknown) => {
+            this._reportBatchError(error);
+        });
+    }
+
+    private _scheduleBatchExecution(state: BackgroundWarmQueueState): void {
         const idleScheduler = globalThis as IdleSchedulerLike;
         if (typeof idleScheduler.requestIdleCallback === 'function') {
             this._idleHandle = idleScheduler.requestIdleCallback((deadline) => {
@@ -197,7 +234,7 @@ export class EPGBackgroundWarmQueue {
                     this._scheduleNextBatch();
                     return;
                 }
-                runBatchSafe();
+                this._runWarmBatchSafe(state);
             }, { timeout: EPG_BACKGROUND_WARM_IDLE_TIMEOUT_MS });
             return;
         }
@@ -208,7 +245,7 @@ export class EPGBackgroundWarmQueue {
                 this._resolveIdleIfSettled();
                 return;
             }
-            runBatchSafe();
+            this._runWarmBatchSafe(state);
         }, EPG_BACKGROUND_WARM_TIMER_DELAY_MS);
     }
 

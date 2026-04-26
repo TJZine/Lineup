@@ -6,8 +6,8 @@
  * @module modules/ui/epg/__tests__/EPGComponent.test
  */
 
-import { EPGComponent } from '../EPGComponent';
-import { EPGDebugRuntime } from '../EPGDebugRuntime';
+import { EPGComponent } from '../component/EPGComponent';
+import { EPGDebugRuntime } from '../debug/EPGDebugRuntime';
 import { EPG_CLASSES } from '../constants';
 import type { ScheduledProgram, ScheduleWindow, ChannelConfig, EPGConfig } from '../types';
 import { DebugOverridesStore } from '../../../debug/DebugOverridesStore';

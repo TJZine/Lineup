@@ -1,5 +1,5 @@
 import { DEFAULT_CHANNEL_SETUP_MAX } from '../../../modules/scheduler/channel-manager/constants';
-import { DEFAULT_CHANNEL_EXPANSION, DEFAULT_MIN_ITEMS_PER_CHANNEL, DEFAULT_SERIES_ORDERING, SETUP_STRATEGY_KEYS } from '../constants';
+import { DEFAULT_MIN_ITEMS_PER_CHANNEL, SETUP_STRATEGY_KEYS } from '../constants';
 import { normalizeChannelSetupConfig } from '../planning/normalizeChannelSetupConfig';
 import type {
     ChannelExpansionConfig,
@@ -119,8 +119,8 @@ export class ChannelSetupRecordStore {
             serverId,
             selectedLibraryIds: [...normalizedConfig.selectedLibraryIds],
             strategyConfig: { ...normalizedConfig.strategyConfig },
-            channelExpansion: normalizedConfig.channelExpansion ?? DEFAULT_CHANNEL_EXPANSION,
-            seriesOrdering: normalizedConfig.seriesOrdering ?? DEFAULT_SERIES_ORDERING,
+            channelExpansion: normalizedConfig.channelExpansion,
+            seriesOrdering: normalizedConfig.seriesOrdering,
             maxChannels: normalizedConfig.maxChannels,
             buildMode: normalizedConfig.buildMode,
             actorStudioCombineMode: normalizedConfig.actorStudioCombineMode,
