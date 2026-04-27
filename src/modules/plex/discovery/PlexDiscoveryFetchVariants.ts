@@ -27,14 +27,24 @@ export function buildDiscoveryFetchVariants(headers: Record<string, string>): Di
 
     const urlWithToken = new URL(baseUrlString);
     applyXPlexTokenQueryParamIfTrusted(urlWithToken, token, PLEX_CLOUD_TRUSTED_ORIGINS);
-    variants.push({ url: urlWithToken.toString(), headers });
+    pushVariantWhenTokenWasApplied(variants, urlWithToken, headers);
 
     const clientsBaseUrl = new URL(
         PLEX_DISCOVERY_CONSTANTS.PLEX_CLIENTS_BASE_URL + PLEX_DISCOVERY_CONSTANTS.RESOURCES_ENDPOINT
     );
     clientsBaseUrl.search = `?${PLEX_DISCOVERY_CONSTANTS.RESOURCES_PARAMS}`;
     applyXPlexTokenQueryParamIfTrusted(clientsBaseUrl, token, PLEX_CLOUD_TRUSTED_ORIGINS);
-    variants.push({ url: clientsBaseUrl.toString(), headers });
+    pushVariantWhenTokenWasApplied(variants, clientsBaseUrl, headers);
 
     return variants;
+}
+
+function pushVariantWhenTokenWasApplied(
+    variants: DiscoveryFetchVariant[],
+    url: URL,
+    headers: Record<string, string>
+): void {
+    if (url.searchParams.has('X-Plex-Token')) {
+        variants.push({ url: url.toString(), headers });
+    }
 }

@@ -3,6 +3,7 @@ import type {
     KeyEvent,
     NavigationAsyncFailureReporter,
 } from './interfaces';
+import type { ToastInput } from '../ui/toast/types';
 
 export type NavigationPlaybackOptionsSectionId = 'subtitles' | 'audio';
 export type NavigationChannelSwitchOutcome = 'switched' | 'aborted' | 'failed';
@@ -130,7 +131,7 @@ export interface NavigationCoordinatorEventPort {
     miniGuide: NavigationMiniGuidePort;
     channelSwitching: NavigationChannelSwitchingPort;
     reportRecoverableAsyncFailure: NavigationAsyncFailureReporter;
-    reportToast?: (toast: { message: string; type: 'warning' | 'error' | 'info' | 'success' }) => void;
+    reportToast?: (toast: ToastInput) => void;
     readDebugLoggingEnabled: () => boolean;
 }
 
