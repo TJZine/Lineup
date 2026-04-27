@@ -5,9 +5,12 @@ import {
 import {
     NavigationCoordinator,
 } from '../../modules/navigation/NavigationCoordinator';
-import type { NavigationCoordinatorDeps } from '../../modules/navigation/NavigationCoordinatorDeps';
+import type {
+    NavigationChannelSwitchOutcome,
+    NavigationCoordinatorDeps,
+    NavigationPlaybackOptionsSectionId,
+} from '../../modules/navigation/NavigationCoordinatorDeps';
 import type { PlaybackOptionsSectionId } from '../../modules/ui/playback-options';
-import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import type { AppError } from '../../modules/lifecycle';
 import type { IPlexLibrary } from '../../modules/plex/library';
 import type {
@@ -546,7 +549,7 @@ function buildNavigationModalsConfig(
         playbackOptions: {
             modalId: PLAYBACK_OPTIONS_MODAL_ID,
             prepare: (
-                preferredSection?: PlaybackOptionsSectionId
+                preferredSection?: NavigationPlaybackOptionsSectionId
             ): { focusableIds: string[]; preferredFocusId: string | null } =>
                 deps.playbackOptionsCoordinator.prepareModal(preferredSection) ??
                 { focusableIds: [], preferredFocusId: null },
@@ -577,7 +580,7 @@ function buildNavigationChannelSwitchingConfig(
         },
         switchToNextChannel: (): void => input.actions.switchToNextChannel(),
         switchToPreviousChannel: (): void => input.actions.switchToPreviousChannel(),
-        switchToChannelByNumber: (n: number): Promise<ChannelSwitchOutcome> =>
+        switchToChannelByNumber: (n: number): Promise<NavigationChannelSwitchOutcome> =>
             input.actions.switchToChannelByNumberWithOutcome(n),
         focusEpgOnCurrentChannel: (): void => {
             deps.epgCoordinator.focusEpgOnCurrentChannel();

@@ -2,18 +2,36 @@ import type {
     INavigationManager,
     NavigationAsyncFailureReporter,
 } from './interfaces';
-import type { IEPGComponent } from '../ui/epg';
-import type { IVideoPlayer } from '../player';
-import type { IPlexAuth } from '../plex/auth';
-import type { PlaybackOptionsSectionId } from '../ui/playback-options';
-import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
+
+export type NavigationPlaybackOptionsSectionId = 'subtitles' | 'audio';
+export type NavigationChannelSwitchOutcome = 'switched' | 'aborted' | 'failed';
+
+export interface NavigationEpgPort {
+    isVisible: () => boolean;
+    handleNavigation: (direction: 'up' | 'down' | 'left' | 'right') => boolean;
+    handlePage: (direction: 'up' | 'down') => boolean;
+    handleSelect: () => boolean;
+    handleBack: () => boolean;
+    focusNow: () => void;
+    hide: () => void;
+}
+
+export interface NavigationVideoPlayerPort {
+    play: () => Promise<void>;
+    pause: () => void;
+    seekRelative: (deltaMs: number) => Promise<void>;
+}
+
+export interface NavigationAuthPort {
+    isAuthenticated: () => boolean;
+}
 
 export interface NavigationCoordinatorDeps {
     navigation: INavigationManager;
-    epg: IEPGComponent | null;
+    epg: NavigationEpgPort | null;
     playback: {
-        videoPlayer: IVideoPlayer | null;
-        plexAuth: IPlexAuth | null;
+        videoPlayer: NavigationVideoPlayerPort | null;
+        plexAuth: NavigationAuthPort | null;
         stopPlayback: () => void;
         getSeekIncrementMs: () => number;
         playerOsd: {
@@ -47,7 +65,7 @@ export interface NavigationCoordinatorDeps {
         playbackOptions: {
             modalId: string;
             prepare: (
-                preferredSection?: PlaybackOptionsSectionId
+                preferredSection?: NavigationPlaybackOptionsSectionId
             ) => { focusableIds: string[]; preferredFocusId: string | null };
             show: () => void;
             hide: () => void;
@@ -64,7 +82,7 @@ export interface NavigationCoordinatorDeps {
         setLastChannelChangeSourceNumber: () => void;
         switchToNextChannel: () => void;
         switchToPreviousChannel: () => void;
-        switchToChannelByNumber: (n: number) => Promise<ChannelSwitchOutcome>;
+        switchToChannelByNumber: (n: number) => Promise<NavigationChannelSwitchOutcome>;
         focusEpgOnCurrentChannel: () => void;
         toggleEpg: () => void;
         onChannelInputUpdate?: (payload: { digits: string; isComplete: boolean }) => void;

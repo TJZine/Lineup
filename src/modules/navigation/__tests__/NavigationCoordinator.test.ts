@@ -1,17 +1,20 @@
 import { NavigationCoordinator } from '../NavigationCoordinator';
-import type { NavigationCoordinatorDeps } from '../NavigationCoordinatorDeps';
+import type {
+    NavigationAuthPort,
+    NavigationCoordinatorDeps,
+    NavigationEpgPort,
+    NavigationVideoPlayerPort,
+} from '../NavigationCoordinatorDeps';
 import type { INavigationManager, KeyEvent, NavigationEventMap, Screen } from '../interfaces';
-import type { IEPGComponent } from '../../ui/epg';
-import type { IVideoPlayer } from '../../player';
-import type { IPlexAuth } from '../../plex/auth';
 import {
     computeAcceleratedRepeatIntervalMs,
     EPG_REPEAT_TIMING,
     MINI_GUIDE_REPEAT_TIMING,
 } from '../constants';
 import { advanceTimersUntil } from '../../../__tests__/helpers';
-import { NOW_PLAYING_INFO_MODAL_ID } from '../../ui/now-playing-info';
-import { PLAYBACK_OPTIONS_MODAL_ID } from '../../ui/playback-options/constants';
+
+const NOW_PLAYING_INFO_MODAL_ID = 'now-playing-info';
+const PLAYBACK_OPTIONS_MODAL_ID = 'playback-options';
 
 type HandlerMap = Partial<{
     [K in keyof NavigationEventMap]: (payload: NavigationEventMap[K]) => void;
@@ -65,8 +68,8 @@ const makeKeyEvent = (
 });
 
 type LegacyNavigationCoordinatorDeps = {
-    videoPlayer: IVideoPlayer | null;
-    plexAuth: IPlexAuth | null;
+    videoPlayer: NavigationVideoPlayerPort | null;
+    plexAuth: NavigationAuthPort | null;
     stopPlayback: jest.Mock;
     pokePlayerOsd: jest.Mock;
     togglePlayerOsd: jest.Mock;
@@ -115,12 +118,12 @@ const setup = (
     deps: NavigationCoordinatorDeps & LegacyNavigationCoordinatorDeps;
     handlers: HandlerMap;
     navigation: INavigationManager;
-    epg: IEPGComponent;
-    videoPlayer: IVideoPlayer;
-    plexAuth: IPlexAuth;
+    epg: NavigationEpgPort;
+    videoPlayer: NavigationVideoPlayerPort;
+    plexAuth: NavigationAuthPort;
 } => {
     const { navigation, handlers } = makeNavigation();
-    const epg: IEPGComponent = {
+    const epg: NavigationEpgPort = {
         isVisible: jest.fn().mockReturnValue(false),
         handleNavigation: jest.fn().mockReturnValue(false),
         handlePage: jest.fn().mockReturnValue(false),
@@ -128,16 +131,15 @@ const setup = (
         handleBack: jest.fn().mockReturnValue(false),
         focusNow: jest.fn(),
         hide: jest.fn(),
-    } as unknown as IEPGComponent;
-    const videoPlayer: IVideoPlayer = {
+    };
+    const videoPlayer: NavigationVideoPlayerPort = {
         play: jest.fn().mockResolvedValue(undefined),
         pause: jest.fn(),
-        stop: jest.fn(),
         seekRelative: jest.fn().mockResolvedValue(undefined),
-    } as unknown as IVideoPlayer;
-    const plexAuth: IPlexAuth = {
+    };
+    const plexAuth: NavigationAuthPort = {
         isAuthenticated: jest.fn().mockReturnValue(true),
-    } as unknown as IPlexAuth;
+    };
 
     const legacy: LegacyNavigationCoordinatorDeps = {
         videoPlayer,
