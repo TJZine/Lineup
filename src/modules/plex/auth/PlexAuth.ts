@@ -1,10 +1,3 @@
-/**
- * @fileoverview Plex Authentication implementation.
- * Handles PIN-based OAuth flow, token storage, and credential management.
- * @module modules/plex/auth/PlexAuth
- * @version 1.1.0
- */
-
 import { EventEmitter } from '../../../utils/EventEmitter';
 import { IDisposable } from '../../../utils/interfaces';
 import {
@@ -730,16 +723,6 @@ export class PlexAuth implements IPlexAuth {
         }
     }
 
-    // ========================================
-    // Event handling
-    // ========================================
-
-    /**
-     * Register handler for auth change events.
-     * @param event - Event name ('authChange')
-     * @param handler - Handler function
-     * @returns Disposable to remove handler
-     */
     public on(
         event: 'authChange',
         handler: (isAuthenticated: boolean) => void

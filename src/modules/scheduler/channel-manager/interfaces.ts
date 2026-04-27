@@ -178,13 +178,6 @@ export interface IChannelManager {
         options?: { currentChannelId?: string | null }
     ): Promise<void>;
 
-    // Events
-
-    /**
-     * Subscribe to channel manager events.
-     * @param event - Event name
-     * @param handler - Event handler
-     */
     on<K extends keyof ChannelManagerEventMap>(
         event: K,
         handler: (payload: ChannelManagerEventMap[K]) => void

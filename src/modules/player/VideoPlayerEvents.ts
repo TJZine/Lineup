@@ -1,10 +1,3 @@
-/**
- * @fileoverview Video player event handling.
- * Encapsulates DOM event wiring and handler logic.
- * @module modules/player/VideoPlayerEvents
- * @version 1.0.0
- */
-
 import type { EventEmitter } from '../../utils/EventEmitter';
 import type {
     PlayerEventMap,
@@ -16,40 +9,20 @@ import type { RetryManager } from './RetryManager';
 
 import { SYNTHETIC_MEDIA_ERROR_CODE_KEY } from './constants';
 
-/**
- * Callbacks for state updates.
- */
 interface EventHandlerCallbacks {
     updateStatus: (status: PlayerStatus) => void;
     getState: () => VideoPlayerInternalState;
     setState: (update: Partial<VideoPlayerInternalState>) => void;
 }
 
-/**
- * Manages video element event listeners.
- */
 export class VideoPlayerEvents {
-    /** Video element reference */
     private _videoElement: HTMLVideoElement | null = null;
-
-    /** Event emitter */
     private _emitter: EventEmitter<PlayerEventMap> | null = null;
-
-    /** State accessor */
     private _callbacks: EventHandlerCallbacks | null = null;
-
-    /** Retry manager */
     private _retryManager: RetryManager | null = null;
-
-    /** Bound event handlers for cleanup */
     private _boundHandlers: Map<string, EventListener> = new Map();
-
-    /** Status before seeking (to restore after) */
     private _statusBeforeSeek: PlayerStatus | null = null;
 
-    /**
-     * Attach event listeners to video element.
-     */
     public attach(
         videoElement: HTMLVideoElement,
         emitter: EventEmitter<PlayerEventMap>,
@@ -82,9 +55,6 @@ export class VideoPlayerEvents {
         }
     }
 
-    /**
-     * Detach all event listeners.
-     */
     public detach(): void {
         if (!this._videoElement) {
             return;
@@ -145,10 +115,6 @@ export class VideoPlayerEvents {
             }, timeoutMs);
         });
     }
-
-    // ========================================
-    // Event Handlers
-    // ========================================
 
     private _handleLoadStart(): void {
         this._callbacks?.updateStatus('loading');

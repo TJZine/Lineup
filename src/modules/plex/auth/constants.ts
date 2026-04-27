@@ -1,42 +1,13 @@
-/**
- * @fileoverview Constants for Plex Authentication module.
- * @module modules/plex/auth/constants
- * @version 1.0.0
- */
-
-/**
- * Plex authentication constants.
- * All timing values in milliseconds unless noted.
- */
 export const PLEX_AUTH_CONSTANTS = {
-    /** Base URL for plex.tv API */
     PLEX_TV_BASE_URL: 'https://plex.tv/api/v2',
-
-    /** Base URL for plex.tv API v1 */
     PLEX_TV_BASE_URL_V1: 'https://plex.tv/api',
-
-    /** PIN endpoint path */
     PIN_ENDPOINT: '/pins',
-
-    /** User profile endpoint path */
     USER_ENDPOINT: '/user',
-
-    /** Plex Home users endpoint path */
     HOME_USERS_ENDPOINT: '/home/users',
-
-    /** localStorage key for auth data */
     STORAGE_KEY: 'lineup_plex_auth',
-
-    /** localStorage key for client identifier */
     CLIENT_ID_KEY: 'lineup_client_id',
-
-    /** PIN polling interval (1 second) */
     PIN_POLL_INTERVAL_MS: 1000,
-
-    /** PIN timeout (5 minutes) */
     PIN_TIMEOUT_MS: 300000,
-
-    /** Token validation timeout */
     TOKEN_VALIDATION_TIMEOUT_MS: 5000,
 
     /** Per-request timeout for Plex auth network calls */

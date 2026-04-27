@@ -1,10 +1,3 @@
-/**
- * @fileoverview Error handling and retry logic for Video Player.
- * Extracted to reduce VideoPlayer.ts file length.
- * @module modules/player/ErrorHandler
- * @version 1.0.0
- */
-
 import { AppErrorCode } from '../../types/app-errors';
 import type { PlaybackError } from './types';
 import { RETRY_BASE_DELAY_MS } from './constants';

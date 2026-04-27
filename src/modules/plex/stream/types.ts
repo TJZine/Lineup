@@ -1,72 +1,33 @@
-/**
- * @fileoverview Type definitions for Plex Stream Resolver module.
- * @module modules/plex/stream/types
- * @version 1.0.0
- */
-
 import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
 import type { PlexStream, PlexMediaPart, PlexMediaFile, PlexMediaType } from '../shared/types';
 
-// ============================================
-// Shared Types (repo-local)
-// These types are maintained in-repo for runtime use.
-// ============================================
-
 export type { PlexStream, PlexMediaPart, PlexMediaFile, PlexMediaType };
 
-/**
- * A media item from Plex (movie, episode, etc.)
- */
 export interface PlexMediaItem {
-    /** Unique item ID (ratingKey) */
     ratingKey: string;
-    /** API path to item details */
     key: string;
-    /** Item type */
     type: PlexMediaType;
-    /** Display title */
     title: string;
-    /** Original title (for foreign films) */
     originalTitle?: string;
-    /** Sort title */
     sortTitle: string;
-    /** Plot summary */
     summary: string;
-    /** Release year */
     year: number;
-    /** Duration in milliseconds */
     durationMs: number;
-    /** When item was added to library */
     addedAt: Date;
-    /** Last metadata update time */
     updatedAt: Date;
-    /** Poster image path */
     thumb: string | null;
-    /** Background art path */
     art: string | null;
-    /** Banner image path (TV shows) */
     banner?: string | null;
-    /** Plex rating (0-10) */
     rating?: number;
-    /** Audience rating (0-10) */
     audienceRating?: number;
-    /** Content rating (e.g., "PG-13", "TV-MA") */
     contentRating?: string;
-    /** Show name (for episodes) */
     grandparentTitle?: string;
-    /** Season name (for episodes) */
     parentTitle?: string;
-    /** Season number (1-based) */
     seasonNumber?: number;
-    /** Episode number (1-based) */
     episodeNumber?: number;
-    /** Resume position in ms (0 if not started) */
     viewOffset?: number;
-    /** Number of times watched */
     viewCount?: number;
-    /** Last watched time */
     lastViewedAt?: Date;
-    /** Available media files/versions */
     media: PlexMediaFile[];
 }
 
@@ -88,21 +49,10 @@ export function mapPlexStreamErrorCodeToAppErrorCode(
     return getAppErrorCode(code) ?? AppErrorCode.UNKNOWN;
 }
 
-// ============================================
-// Stream Resolution Types
-// ============================================
-
-/**
- * Request parameters for resolving a playback stream
- */
 export interface StreamRequest {
-    /** ratingKey of media item */
     itemKey: string;
-    /** Specific part ID if multi-part */
     partId?: string;
-    /** Resume position in ms */
     startOffsetMs?: number;
-    /** Preferred audio track ID */
     audioStreamId?: string;
     /**
      * Preferred subtitle track ID (used for out-of-band extraction/fetching; does not imply burn-in).
@@ -114,59 +64,34 @@ export interface StreamRequest {
      * Burn-in is only requested when `subtitleMode === 'burn'` or the selected subtitle format requires it.
      */
     subtitleStreamId?: string;
-    /** Subtitle delivery override (burn-in forces transcoding). */
     subtitleMode?: 'none' | 'burn';
-    /** Maximum bitrate in kbps */
     maxBitrate?: number;
-    /** Prefer direct play (no transcoding) */
     directPlay?: boolean;
-    /** Prefer direct stream (remux only) */
     directStream?: boolean;
 }
 
-/**
- * Resolved stream decision from Plex
- */
 export interface StreamDecision {
-    /** Final playback URL */
     playbackUrl: string;
     /** Resolved Plex base origin used to build playback URLs for this decision. */
     resolvedBaseUrl?: string;
-    /** Stream protocol */
     protocol: 'hls' | 'dash' | 'http';
-    /** true if playing original file directly */
     isDirectPlay: boolean;
-    /** true if server is transcoding */
     isTranscoding: boolean;
-    /** Container format */
     container: string;
-    /** Video codec being delivered */
     videoCodec: string;
-    /** Audio codec being delivered */
     audioCodec: string;
-    /** How subtitles are delivered */
     subtitleDelivery: 'embed' | 'sidecar' | 'burn' | 'none';
-    /** Plex session ID for tracking */
     sessionId: string;
-    /** Selected media version index */
     mediaIndex: number;
-    /** Selected part index */
     partIndex: number;
     /** Plex part key (useful for diagnostics and future subtitle extraction fallbacks) */
     partKey: string;
-    /** Selected audio stream */
     selectedAudioStream: PlexStream | null;
-    /** Selected subtitle stream */
     selectedSubtitleStream: PlexStream | null;
-    /** Available audio streams for UI selection */
     availableAudioStreams?: PlexStream[];
-    /** Available subtitle streams for UI selection */
     availableSubtitleStreams?: PlexStream[];
-    /** Output video width */
     width: number;
-    /** Output video height */
     height: number;
-    /** Output bitrate in kbps */
     bitrate: number;
 
     // ========================================
