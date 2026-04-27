@@ -1,4 +1,5 @@
 import type {
+    Direction,
     INavigationManager,
     KeyEvent,
     NavigationAsyncFailureReporter,
@@ -7,11 +8,13 @@ import type { ToastInput } from '../ui/toast/types';
 
 export type NavigationPlaybackOptionsSectionId = 'subtitles' | 'audio';
 export type NavigationChannelSwitchOutcome = 'switched' | 'aborted' | 'failed';
+export type NavigationFourWayDirection = Direction;
+export type NavigationVerticalDirection = Extract<Direction, 'up' | 'down'>;
 
 export interface NavigationEpgPort {
     isVisible: () => boolean;
-    handleNavigation: (direction: 'up' | 'down' | 'left' | 'right') => boolean;
-    handlePage: (direction: 'up' | 'down') => boolean;
+    handleNavigation: (direction: NavigationFourWayDirection) => boolean;
+    handlePage: (direction: NavigationVerticalDirection) => boolean;
     handleSelect: () => boolean;
     handleBack: () => boolean;
     focusNow: () => void;
@@ -48,8 +51,8 @@ export interface NavigationMiniGuidePort {
     coordinator: {
         show: () => void;
         hide: () => void;
-        handleNavigation: (direction: 'up' | 'down') => boolean;
-        handlePage: (direction: 'up' | 'down') => boolean;
+        handleNavigation: (direction: NavigationVerticalDirection) => boolean;
+        handlePage: (direction: NavigationVerticalDirection) => boolean;
         handleSelect: () => void;
     } | null;
 }
@@ -100,11 +103,11 @@ export interface NavigationRepeatRuntime {
     stopForKeyUp(button: KeyEvent['button']): void;
     stopForNonDirectionalInput(event: KeyEvent): void;
     stopEpgRepeat(reason: string): void;
-    startEpgRepeat(button: 'up' | 'down' | 'left' | 'right'): void;
-    stopEpgRepeatForDirectionChange(button: 'up' | 'down' | 'left' | 'right'): void;
+    startEpgRepeat(button: NavigationFourWayDirection): void;
+    stopEpgRepeatForDirectionChange(button: NavigationFourWayDirection): void;
     stopMiniGuideRepeat(reason: string): void;
-    startMiniGuideRepeat(button: 'up' | 'down'): void;
-    stopMiniGuideRepeatForDirectionChange(button: 'up' | 'down'): void;
+    startMiniGuideRepeat(button: NavigationVerticalDirection): void;
+    stopMiniGuideRepeatForDirectionChange(button: NavigationVerticalDirection): void;
     hasMiniGuideRepeatButton(): boolean;
 }
 

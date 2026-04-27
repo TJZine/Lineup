@@ -1,6 +1,7 @@
 import { PLEX_DISCOVERY_CONSTANTS } from '../constants';
 import { AppErrorCode } from '../../../lifecycle/types';
 import { PlexApiError } from '../../auth/plexAuthTransport';
+import { redactUrlForLog } from '../../../../utils/redact';
 import {
     getDiscoveryRateLimitDelayMs,
     handleResponseError,
@@ -39,7 +40,7 @@ describe('getDiscoveryRateLimitDelayMs', () => {
     });
 
     it('honors HTTP-date Retry-After values', () => {
-        const retryAfter = new Date(Date.now() + 4500).toUTCString();
+        const retryAfter = new Date(Date.now() + 4000).toUTCString();
 
         expect(getDiscoveryRateLimitDelayMs(createResponse(retryAfter))).toBe(4000);
     });
@@ -67,22 +68,27 @@ describe('getDiscoveryRateLimitDelayMs', () => {
 });
 
 describe('handleResponseError', () => {
+    const captureResponseError = (status: number): unknown => {
+        let thrown: unknown;
+        try {
+            handleResponseError({ status } as Response);
+        } catch (error) {
+            thrown = error;
+        }
+        return thrown;
+    };
+
     it.each([
         [401, AppErrorCode.AUTH_REQUIRED, false],
         [403, AppErrorCode.AUTH_INVALID, false],
         [429, AppErrorCode.RATE_LIMITED, true],
-        [500, AppErrorCode.SERVER_UNREACHABLE, true],
-        [503, AppErrorCode.SERVER_UNREACHABLE, true],
+        [500, AppErrorCode.SERVER_ERROR, true],
+        [503, AppErrorCode.SERVER_ERROR, true],
         [404, AppErrorCode.RESOURCE_NOT_FOUND, false],
     ])(
         'maps status %i to %s with retryable=%s',
         (status: number, expectedCode: AppErrorCode, expectedRetryable: boolean) => {
-            let thrown: unknown;
-            try {
-                (handleResponseError as (response: Response) => void)({ status } as Response);
-            } catch (error) {
-                thrown = error;
-            }
+            const thrown = captureResponseError(status);
 
             expect(thrown).toBeInstanceOf(PlexApiError);
             expect(thrown).toMatchObject({
@@ -97,5 +103,14 @@ describe('handleResponseError', () => {
 describe('redactDiscoveryUrl', () => {
     it('returns an empty string when no URL is available', () => {
         expect(redactDiscoveryUrl(undefined)).toBe('');
+    });
+
+    it('redacts token query parameters in discovery URLs', () => {
+        const url = 'https://example.com/path?token=SECRET_VALUE&other=1';
+
+        const redacted = redactDiscoveryUrl(url);
+
+        expect(redacted).toBe(redactUrlForLog(url));
+        expect(redacted).not.toContain('SECRET_VALUE');
     });
 });

@@ -1,6 +1,7 @@
 import type { KeyEvent, Screen } from './interfaces';
 import type {
     NavigationFireAndReport,
+    NavigationFourWayDirection,
     NavigationKeyModeRouterPort,
     NavigationLogInputNotHandled,
     NavigationObserveNonBlockingPromise,
@@ -394,7 +395,7 @@ export class NavigationKeyModeRouter {
         event.originalEvent.preventDefault();
     }
 
-    private _isDirectionalButton(button: KeyEvent['button']): button is 'up' | 'down' | 'left' | 'right' {
+    private _isDirectionalButton(button: KeyEvent['button']): button is NavigationFourWayDirection {
         return button === 'up' || button === 'down' || button === 'left' || button === 'right';
     }
 }

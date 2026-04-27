@@ -5,19 +5,18 @@ import {
     MINI_GUIDE_REPEAT_TIMING,
 } from './constants';
 import type {
+    NavigationFourWayDirection,
     NavigationRepeatHandlerPort,
     NavigationRepeatRuntime,
+    NavigationVerticalDirection,
 } from './NavigationCoordinatorContracts';
-
-type EpgRepeatButton = 'up' | 'down' | 'left' | 'right';
-type MiniGuideRepeatButton = 'up' | 'down';
 
 export class NavigationRepeatHandler implements NavigationRepeatRuntime {
     private _epgRepeatTimer: ReturnType<typeof setTimeout> | null = null;
-    private _epgRepeatButton: EpgRepeatButton | null = null;
+    private _epgRepeatButton: NavigationFourWayDirection | null = null;
     private _epgRepeatStartMs = 0;
     private _miniGuideRepeatTimer: ReturnType<typeof setTimeout> | null = null;
-    private _miniGuideRepeatButton: MiniGuideRepeatButton | null = null;
+    private _miniGuideRepeatButton: NavigationVerticalDirection | null = null;
     private _miniGuideRepeatStartMs = 0;
 
     constructor(private readonly deps: NavigationRepeatHandlerPort) { }
@@ -49,7 +48,7 @@ export class NavigationRepeatHandler implements NavigationRepeatRuntime {
         this._epgRepeatStartMs = 0;
     }
 
-    startEpgRepeat(button: EpgRepeatButton): void {
+    startEpgRepeat(button: NavigationFourWayDirection): void {
         this.stopEpgRepeat('restart');
         this._epgRepeatButton = button;
         this._epgRepeatStartMs = Date.now();
@@ -59,7 +58,7 @@ export class NavigationRepeatHandler implements NavigationRepeatRuntime {
         );
     }
 
-    stopEpgRepeatForDirectionChange(button: EpgRepeatButton): void {
+    stopEpgRepeatForDirectionChange(button: NavigationFourWayDirection): void {
         if (this._epgRepeatButton && this._epgRepeatButton !== button) {
             this.stopEpgRepeat('directionChange');
         }
@@ -74,7 +73,7 @@ export class NavigationRepeatHandler implements NavigationRepeatRuntime {
         this._miniGuideRepeatStartMs = 0;
     }
 
-    startMiniGuideRepeat(button: MiniGuideRepeatButton): void {
+    startMiniGuideRepeat(button: NavigationVerticalDirection): void {
         this.stopMiniGuideRepeat('restart');
         this._miniGuideRepeatButton = button;
         this._miniGuideRepeatStartMs = Date.now();
@@ -84,7 +83,7 @@ export class NavigationRepeatHandler implements NavigationRepeatRuntime {
         );
     }
 
-    stopMiniGuideRepeatForDirectionChange(button: MiniGuideRepeatButton): void {
+    stopMiniGuideRepeatForDirectionChange(button: NavigationVerticalDirection): void {
         if (this._miniGuideRepeatButton && this._miniGuideRepeatButton !== button) {
             this.stopMiniGuideRepeat('directionChange');
         }
@@ -166,7 +165,7 @@ export class NavigationRepeatHandler implements NavigationRepeatRuntime {
         );
     }
 
-    private _isDirectionalButton(button: KeyEvent['button']): button is EpgRepeatButton {
+    private _isDirectionalButton(button: KeyEvent['button']): button is NavigationFourWayDirection {
         return button === 'up' || button === 'down' || button === 'left' || button === 'right';
     }
 }

@@ -33,6 +33,15 @@ export class PlexApiError extends Error {
     }
 }
 
+export function createPlexServiceError(status: number): PlexApiError {
+    return new PlexApiError(
+        AppErrorCode.SERVER_ERROR,
+        'Plex service error: ' + String(status),
+        status,
+        true
+    );
+}
+
 function sanitizePlexApiErrorCause(cause: unknown): unknown {
     if (cause === undefined) {
         return undefined;
@@ -139,12 +148,7 @@ function handleResponseStatus(response: Response): void {
     }
     // Server errors - retryable
     if (response.status >= 500) {
-        throw new PlexApiError(
-            AppErrorCode.SERVER_UNREACHABLE,
-            'Server error: ' + String(response.status),
-            response.status,
-            true
-        );
+        throw createPlexServiceError(response.status);
     }
 }
 

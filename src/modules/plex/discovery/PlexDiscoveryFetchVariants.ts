@@ -10,11 +10,7 @@ export interface DiscoveryFetchVariant {
 }
 
 export function buildDiscoveryFetchVariants(headers: Record<string, string>): DiscoveryFetchVariant[] {
-    const baseUrl = new URL(
-        PLEX_DISCOVERY_CONSTANTS.PLEX_TV_BASE_URL + PLEX_DISCOVERY_CONSTANTS.RESOURCES_ENDPOINT
-    );
-    baseUrl.search = `?${PLEX_DISCOVERY_CONSTANTS.RESOURCES_PARAMS}`;
-
+    const baseUrl = buildDiscoveryResourcesUrl(PLEX_DISCOVERY_CONSTANTS.PLEX_TV_BASE_URL);
     const token = headers['X-Plex-Token'];
     const baseUrlString = baseUrl.toString();
     const variants: DiscoveryFetchVariant[] = [
@@ -25,18 +21,31 @@ export function buildDiscoveryFetchVariants(headers: Record<string, string>): Di
         return variants;
     }
 
-    const urlWithToken = new URL(baseUrlString);
-    applyXPlexTokenQueryParamIfTrusted(urlWithToken, token, PLEX_CLOUD_TRUSTED_ORIGINS);
-    pushVariantWhenTokenWasApplied(variants, urlWithToken, headers);
-
-    const clientsBaseUrl = new URL(
-        PLEX_DISCOVERY_CONSTANTS.PLEX_CLIENTS_BASE_URL + PLEX_DISCOVERY_CONSTANTS.RESOURCES_ENDPOINT
+    pushTrustedTokenVariant(variants, new URL(baseUrlString), token, headers);
+    pushTrustedTokenVariant(
+        variants,
+        buildDiscoveryResourcesUrl(PLEX_DISCOVERY_CONSTANTS.PLEX_CLIENTS_BASE_URL),
+        token,
+        headers
     );
-    clientsBaseUrl.search = `?${PLEX_DISCOVERY_CONSTANTS.RESOURCES_PARAMS}`;
-    applyXPlexTokenQueryParamIfTrusted(clientsBaseUrl, token, PLEX_CLOUD_TRUSTED_ORIGINS);
-    pushVariantWhenTokenWasApplied(variants, clientsBaseUrl, headers);
 
     return variants;
+}
+
+function buildDiscoveryResourcesUrl(baseUrl: string): URL {
+    const url = new URL(baseUrl + PLEX_DISCOVERY_CONSTANTS.RESOURCES_ENDPOINT);
+    url.search = `?${PLEX_DISCOVERY_CONSTANTS.RESOURCES_PARAMS}`;
+    return url;
+}
+
+function pushTrustedTokenVariant(
+    variants: DiscoveryFetchVariant[],
+    url: URL,
+    token: string,
+    headers: Record<string, string>
+): void {
+    applyXPlexTokenQueryParamIfTrusted(url, token, PLEX_CLOUD_TRUSTED_ORIGINS);
+    pushVariantWhenTokenWasApplied(variants, url, headers);
 }
 
 function pushVariantWhenTokenWasApplied(

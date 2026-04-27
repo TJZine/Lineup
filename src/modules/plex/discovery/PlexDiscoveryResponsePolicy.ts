@@ -1,5 +1,5 @@
 import { AppErrorCode } from '../../lifecycle/types';
-import { PlexApiError } from '../auth/plexAuthTransport';
+import { createPlexServiceError, PlexApiError } from '../auth/plexAuthTransport';
 import { redactUrlForLog } from '../../../utils/redact';
 import { PLEX_DISCOVERY_CONSTANTS } from './constants';
 
@@ -59,12 +59,7 @@ export function handleResponseError(response: Response): never {
         );
     }
     if (response.status >= 500) {
-        throw new PlexApiError(
-            AppErrorCode.SERVER_UNREACHABLE,
-            'Server error: ' + String(response.status),
-            response.status,
-            true
-        );
+        throw createPlexServiceError(response.status);
     }
     if (response.status === 404) {
         throw new PlexApiError(

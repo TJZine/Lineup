@@ -467,12 +467,12 @@ describe('PlexAuth', () => {
             });
         });
 
-        it('should throw SERVER_UNREACHABLE for 5xx responses', async () => {
+        it('should throw SERVER_ERROR for 5xx responses', async () => {
             const auth = new PlexAuth(mockConfig);
             mockFetchJson({ error: 'server_error' }, 503);
 
             await expect(auth.validateToken('server-token')).rejects.toMatchObject({
-                code: 'SERVER_UNREACHABLE',
+                code: 'SERVER_ERROR',
                 httpStatus: 503,
             });
         });

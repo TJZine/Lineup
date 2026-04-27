@@ -22,6 +22,7 @@ import {
 import {
     PlexApiError,
     buildRequestHeaders,
+    createPlexServiceError,
     fetchWithRetry,
 } from './plexAuthTransport';
 import {
@@ -264,12 +265,7 @@ export class PlexAuth implements IPlexAuth {
                 );
             }
             if (response.status >= 500) {
-                throw new PlexApiError(
-                    AppErrorCode.SERVER_UNREACHABLE,
-                    `Token validation service failure (${response.status})`,
-                    response.status,
-                    true
-                );
+                throw createPlexServiceError(response.status);
             }
             throw new PlexApiError(
                 AppErrorCode.SERVER_UNREACHABLE,
