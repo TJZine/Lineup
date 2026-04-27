@@ -193,6 +193,55 @@ describe('ChannelSetupPlanner', () => {
         expect(identityKey).not.toContain('"isSequentialVariant":true');
     });
 
+    it('uses block size as part of block playback variant identity', () => {
+        const blockSizeThree: PendingChannel = {
+            name: 'Variant',
+            contentSource: {
+                type: 'library',
+                libraryId: 'library-identity',
+                libraryType: 'show',
+                includeWatched: true,
+            },
+            playbackMode: 'block',
+            blockSize: 3,
+            lineupReplicaIndex: 0,
+            isPlaybackModeVariant: true,
+            shuffleSeed: 123,
+        } as PendingChannel;
+        const blockSizeFour: PendingChannel = {
+            ...blockSizeThree,
+            blockSize: 4,
+        };
+
+        expect(createChannelIdentityKey(blockSizeThree)).not.toBe(
+            createChannelIdentityKey(blockSizeFour)
+        );
+    });
+
+    it('normalizes filter identity deterministically across mixed value types', () => {
+        const first: PendingChannel = {
+            name: 'Filtered',
+            contentSource: {
+                type: 'library',
+                libraryId: 'library-filter',
+                libraryType: 'movie',
+                includeWatched: true,
+            },
+            contentFilters: [
+                { field: 'contentRating', operator: 'eq', value: 'true' },
+                { field: 'contentRating', operator: 'eq', value: true },
+            ],
+            playbackMode: 'shuffle',
+            shuffleSeed: 123,
+        } as PendingChannel;
+        const second: PendingChannel = {
+            ...first,
+            contentFilters: [...first.contentFilters!].reverse(),
+        };
+
+        expect(createChannelIdentityKey(first)).toBe(createChannelIdentityKey(second));
+    });
+
     it('emits per-library genre channels using libraryFilter instead of contentFilters', () => {
         const plan = buildChannelSetupPlan({
             config: createConfig({
@@ -369,6 +418,41 @@ describe('ChannelSetupPlanner', () => {
         expect(createChannelIdentityKey(blockVariant as PendingChannel)).not.toBe(
             createChannelIdentityKey(sequentialVariantCandidate)
         );
+    });
+
+    it('does not duplicate a block variant when base series ordering already matches it', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['s1'],
+                strategyConfig: createStrategyConfig({ collections: { enabled: true } }),
+                seriesOrdering: {
+                    basePlaybackMode: 'block',
+                    baseBlockSize: 3,
+                },
+                channelExpansion: {
+                    addAlternateLineups: false,
+                    alternateLineupCopies: 1,
+                    variantType: 'block',
+                    variantBlockSize: 3,
+                },
+            }),
+            libraries: [{ id: 's1', title: 'Shows', type: 'show', contentCount: 10 }] as PlexLibrarySection[],
+            playlists: [],
+            collectionsByLibraryId: new Map([
+                ['s1', [{ ratingKey: 'co1', key: '/library/collections/co1', title: 'Classics', thumb: null, childCount: 10 }]],
+            ]),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(plan.pendingChannels.map((channel) => channel.name)).toEqual(['Classics']);
+        expect(plan.pendingChannels[0]?.playbackMode).toBe('block');
+        expect(plan.pendingChannels[0]?.blockSize).toBe(3);
     });
 
     it('treats mixed TV-only channels as series-derived for base series ordering and variants', () => {

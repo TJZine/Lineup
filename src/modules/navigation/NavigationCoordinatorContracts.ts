@@ -172,6 +172,13 @@ export interface NavigationChannelNumberPort {
     channelSwitching: NavigationChannelSwitchingPort;
 }
 
+/**
+ * Ports referenced by multiple dependency groups must point at the same runtime
+ * instances. For example, orchestrator wiring should pass one shared
+ * NavigationMiniGuidePort, NavigationChannelSwitchingPort, INavigationManager,
+ * and NavigationEpgPort anywhere those ports appear so handlers operate on the
+ * same navigation state.
+ */
 export interface NavigationCoordinatorDeps {
     events: NavigationCoordinatorEventPort;
     repeats: NavigationRepeatHandlerPort;

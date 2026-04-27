@@ -124,7 +124,7 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
 }
 
 export function buildChannelSetupPlanDiagnostics(input: ChannelSetupPlanInput): ChannelSetupPlannerDiagnostics {
-    return buildChannelSetupPlanInternal(input, true).diagnostics as ChannelSetupPlannerDiagnostics;
+    return buildChannelSetupPlanInternal(input, true).diagnostics!;
 }
 
 function buildChannelSetupPlanInternal(
@@ -371,6 +371,8 @@ function expandPlaybackVariants(
         const sameBlockSize =
             variantType !== 'block' || channel.blockSize === variantBlockSize;
         if (sameMode && sameBlockSize) {
+            // Series-derived base channels may already match the requested variant;
+            // skip them so setup does not emit duplicate playback-mode variants.
             continue;
         }
         const variant: PendingChannel = {

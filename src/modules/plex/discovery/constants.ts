@@ -12,6 +12,9 @@ export const PLEX_DISCOVERY_CONSTANTS = {
     /** Base URL for plex.tv API */
     PLEX_TV_BASE_URL: 'https://plex.tv/api/v2',
 
+    /** Base URL for clients.plex.tv API */
+    PLEX_CLIENTS_BASE_URL: 'https://clients.plex.tv/api/v2',
+
     /** Resources endpoint path */
     RESOURCES_ENDPOINT: '/resources',
 

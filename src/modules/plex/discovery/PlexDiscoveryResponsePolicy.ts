@@ -5,12 +5,10 @@ import { PLEX_DISCOVERY_CONSTANTS } from './constants';
 
 export function getDiscoveryRateLimitDelayMs(response: Response): number {
     const retryAfter = response.headers.get('Retry-After');
-    const parsed = retryAfter ? parseInt(retryAfter, 10) : NaN;
-    return Number.isFinite(parsed) && parsed > 0
-        ? Math.min(
-            parsed * 1000,
-            PLEX_DISCOVERY_CONSTANTS.RATE_LIMIT_MAX_DELAY_MS
-        )
+    const parsedSeconds = retryAfter ? Number.parseFloat(retryAfter) : NaN;
+    const maxRetrySeconds = PLEX_DISCOVERY_CONSTANTS.RATE_LIMIT_MAX_DELAY_MS / 1000;
+    return Number.isFinite(parsedSeconds) && parsedSeconds > 0
+        ? Math.min(parsedSeconds, maxRetrySeconds) * 1000
         : PLEX_DISCOVERY_CONSTANTS.RATE_LIMIT_DEFAULT_DELAY_MS;
 }
 

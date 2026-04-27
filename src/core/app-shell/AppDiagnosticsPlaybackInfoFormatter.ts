@@ -100,6 +100,9 @@ export function formatAppDiagnosticsPlaybackInfo(
 }
 
 function formatMilliseconds(ms: number): string {
+    if (!Number.isFinite(ms)) {
+        return 'unknown';
+    }
     const totalSec = Math.max(0, Math.floor(ms / 1000));
     const h = Math.floor(totalSec / 3600);
     const m = Math.floor((totalSec % 3600) / 60);

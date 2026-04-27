@@ -7,6 +7,7 @@ import { flushPromises, setDevBuildForTest } from '../../../__tests__/helpers';
 import { DebugOverridesStore } from '../../../modules/debug/DebugOverridesStore';
 import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
 import { AppDiagnosticsSurface } from '../AppDiagnosticsSurface';
+import type { AppDiagnosticsAudioSettingsStore } from '../AppDiagnosticsDevMenuController';
 import type { AppShellDiagnosticsRuntimePort } from '../AppShellRuntimeContracts';
 import type { ChannelSetupWorkflowPort } from '../../channel-setup/workflow/ChannelSetupWorkflowPort';
 
@@ -205,6 +206,39 @@ describe('AppDiagnosticsSurface', () => {
         await flushPromises();
 
         expect(refreshPlaybackInfoSnapshot).toHaveBeenCalledTimes(2);
+    });
+
+    it('uses the injected audio settings store for dev-menu audio fallback overrides', async () => {
+        const audioSettingsStore: jest.Mocked<AppDiagnosticsAudioSettingsStore> = {
+            readDirectPlayAudioFallbackEnabledAndClean: jest.fn(() => true),
+            writeDirectPlayAudioFallbackEnabled: jest.fn(),
+            clearDirectPlayAudioFallbackEnabled: jest.fn(),
+        };
+        const container = createContainer();
+        document.body.appendChild(container);
+
+        surface = new AppDiagnosticsSurface({
+            getDiagnosticsRuntime: (): AppShellDiagnosticsRuntimePort => createOrchestrator(),
+            showToast: jest.fn(),
+            debugOverridesStore: new DebugOverridesStore(),
+            audioSettingsStore,
+        });
+        surface.setContainer(container);
+        surface.initialize();
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyD', ctrlKey: true, shiftKey: true }));
+        await flushPromises();
+
+        const fallbackToggle = container.querySelector('#dev-directplay-audio-fallback');
+        const saveButton = container.querySelector('#dev-transcode-save');
+        expect(fallbackToggle).toBeInstanceOf(HTMLInputElement);
+        expect(saveButton).toBeInstanceOf(HTMLButtonElement);
+        expect((fallbackToggle as HTMLInputElement).checked).toBe(true);
+
+        (fallbackToggle as HTMLInputElement).checked = false;
+        (saveButton as HTMLButtonElement).click();
+
+        expect(audioSettingsStore.writeDirectPlayAudioFallbackEnabled).toHaveBeenCalledWith(false);
     });
 
     it('dumps saved channel-setup planner diagnostics through the global helper', async () => {

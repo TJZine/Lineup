@@ -13,25 +13,33 @@ export interface AppDiagnosticsDevMenuControllerOptions {
     getDiagnosticsRuntime: () => AppShellDiagnosticsRuntimePort | null;
     showToast: (input: ToastInput) => void;
     debugOverridesStore: DebugOverridesStore;
+    audioSettingsStore?: AppDiagnosticsAudioSettingsStore;
+}
+
+export interface AppDiagnosticsAudioSettingsStore {
+    readDirectPlayAudioFallbackEnabledAndClean: (fallback?: boolean) => boolean;
+    writeDirectPlayAudioFallbackEnabled: (enabled: boolean) => void;
+    clearDirectPlayAudioFallbackEnabled: () => void;
 }
 
 export class AppDiagnosticsDevMenuController {
     private readonly _getDiagnosticsRuntime: () => AppShellDiagnosticsRuntimePort | null;
     private readonly _showToast: (input: ToastInput) => void;
     private readonly _debugOverridesStore: DebugOverridesStore;
-    private readonly _audioSettingsStore = new AudioSettingsStore();
+    private readonly _audioSettingsStore: AppDiagnosticsAudioSettingsStore;
 
     constructor(options: AppDiagnosticsDevMenuControllerOptions) {
         this._getDiagnosticsRuntime = options.getDiagnosticsRuntime;
         this._showToast = options.showToast;
         this._debugOverridesStore = options.debugOverridesStore;
+        this._audioSettingsStore = options.audioSettingsStore ?? new AudioSettingsStore();
     }
 
     render(container: HTMLElement): void {
         const view = renderAppDiagnosticsDevMenu(container);
         this._hydrateDevMenuOverrideState(view);
         this._bindDevMenuEvents(view);
-        void this._refreshDevPlaybackInfo(view.container);
+        void this._refreshDevPlaybackInfo(view.playbackPre);
     }
 
     private async _copyToClipboard(text: string): Promise<boolean> {
@@ -78,7 +86,7 @@ export class AppDiagnosticsDevMenuController {
         });
 
         view.refreshButton.addEventListener('click', () => {
-            void this._refreshDevPlaybackInfo(view.container);
+            void this._refreshDevPlaybackInfo(view.playbackPre);
         });
 
         view.saveOverridesButton.addEventListener('click', () => {
@@ -121,11 +129,9 @@ export class AppDiagnosticsDevMenuController {
         });
     }
 
-    private async _refreshDevPlaybackInfo(container: HTMLElement): Promise<void> {
+    private async _refreshDevPlaybackInfo(pre: HTMLPreElement): Promise<void> {
         const runtime = this._getDiagnosticsRuntime();
         if (!runtime) return;
-        const pre = container.querySelector('#dev-playback-info') as HTMLPreElement | null;
-        if (!pre) return;
 
         pre.textContent = 'Loading...';
         pre.dataset.summary = '';

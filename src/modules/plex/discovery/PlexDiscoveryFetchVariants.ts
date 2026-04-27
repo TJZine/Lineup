@@ -29,7 +29,9 @@ export function buildDiscoveryFetchVariants(headers: Record<string, string>): Di
     applyXPlexTokenQueryParamIfTrusted(urlWithToken, token, PLEX_CLOUD_TRUSTED_ORIGINS);
     variants.push({ url: urlWithToken.toString(), headers });
 
-    const clientsBaseUrl = new URL('https://clients.plex.tv/api/v2/resources');
+    const clientsBaseUrl = new URL(
+        PLEX_DISCOVERY_CONSTANTS.PLEX_CLIENTS_BASE_URL + PLEX_DISCOVERY_CONSTANTS.RESOURCES_ENDPOINT
+    );
     clientsBaseUrl.search = `?${PLEX_DISCOVERY_CONSTANTS.RESOURCES_PARAMS}`;
     applyXPlexTokenQueryParamIfTrusted(clientsBaseUrl, token, PLEX_CLOUD_TRUSTED_ORIGINS);
     variants.push({ url: clientsBaseUrl.toString(), headers });

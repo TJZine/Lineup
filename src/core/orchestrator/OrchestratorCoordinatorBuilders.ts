@@ -665,7 +665,7 @@ export function buildNavigationCoordinator(
             channelSwitching,
             reportRecoverableAsyncFailure: input.diagnostics.reportRecoverableAsyncFailure,
             reportToast: (toast: ToastInput): void => {
-                input.nowPlaying.handler()?.(toast);
+                notifyPlaybackRecoveryToast(input, toast);
             },
             readDebugLoggingEnabled: (): boolean =>
                 input.stores.developerSettingsStore.readDebugLoggingEnabledAndClean(false),

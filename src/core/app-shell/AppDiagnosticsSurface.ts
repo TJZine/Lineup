@@ -5,7 +5,10 @@ import { DeveloperSettingsStore } from '../../modules/settings/DeveloperSettings
 import type { ToastInput } from '../../modules/ui/toast/types';
 import type { AppShellDiagnosticsRuntimePort } from './AppShellRuntimeContracts';
 import { summarizeChannelSetupPlannerDiagnostics } from './AppDiagnosticsChannelSetupSummary';
-import { AppDiagnosticsDevMenuController } from './AppDiagnosticsDevMenuController';
+import {
+    AppDiagnosticsDevMenuController,
+    type AppDiagnosticsAudioSettingsStore,
+} from './AppDiagnosticsDevMenuController';
 
 type DiagnosticsWindow = Window & {
     lineup?: {
@@ -30,6 +33,7 @@ export interface AppDiagnosticsSurfaceOptions {
     getActiveChannelSetupConfig?: () => ChannelSetupConfig | null;
     showToast: (input: ToastInput) => void;
     debugOverridesStore: DebugOverridesStore;
+    audioSettingsStore?: AppDiagnosticsAudioSettingsStore;
 }
 
 export class AppDiagnosticsSurface {
@@ -43,11 +47,13 @@ export class AppDiagnosticsSurface {
     constructor(options: AppDiagnosticsSurfaceOptions) {
         this._getDiagnosticsRuntime = options.getDiagnosticsRuntime;
         this._getActiveChannelSetupConfig = options.getActiveChannelSetupConfig ?? (() : ChannelSetupConfig | null => null);
-        this._devMenuController = new AppDiagnosticsDevMenuController({
+        const devMenuOptions = {
             getDiagnosticsRuntime: options.getDiagnosticsRuntime,
             showToast: options.showToast,
             debugOverridesStore: options.debugOverridesStore,
-        });
+            ...(options.audioSettingsStore ? { audioSettingsStore: options.audioSettingsStore } : {}),
+        };
+        this._devMenuController = new AppDiagnosticsDevMenuController(devMenuOptions);
     }
 
     setContainer(container: HTMLElement | null): void {
