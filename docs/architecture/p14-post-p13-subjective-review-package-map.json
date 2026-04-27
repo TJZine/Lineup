@@ -1,6 +1,6 @@
 {
   "artifact_role": "authoritative exact membership for P14 post-P13 subjective review cleanup queue",
-  "artifact_version": 1,
+  "artifact_version": 2,
   "created_at": "2026-04-26",
   "review_runs": [
     {
@@ -40,7 +40,8 @@
         "target": 85.0
       }
     },
-    "stop_condition": "Continue P14 until AI generated debt, cross-module architecture, and design coherence are all >= 85, or stop earlier only after two consecutive fresh focused subjective reviews find no concrete source-backed issues that can be fixed without ownership churn, strict remains >= 88, and no P0/security findings or high-confidence source-backed design/coherence issues remain."
+    "stop_condition": "Continue P14 until AI generated debt, cross-module architecture, and design coherence are all >= 85, or stop earlier only after two consecutive fresh focused subjective reviews find no concrete source-backed issues that can be fixed without ownership churn, strict remains >= 88, and no P0/security findings or high-confidence source-backed design/coherence issues remain.",
+    "non_closure_rule": "Completing P14-W1, P14-W2, and P14-W3 closes only P14-WAVE1. It is not sufficient to close P14 or P14-EXIT without focused review, target-score evidence, and either all three target dimensions >= 85 or the early-stop condition recorded."
   },
   "score_snapshot": {
     "source": "post-P13 targeted review refresh and scan",
@@ -98,6 +99,8 @@
       "package_map_and_checklist_agree",
       "package_local_checks_pass",
       "focused_review_after_each_wave_recorded",
+      "p14_w1_w2_w3_completion_not_treated_as_p14_exit",
+      "gate_no_admission_results_count_only_as_early_stop_evidence",
       "ai_generated_debt_cross_module_arch_design_coherence_scores_reported",
       "stop_condition_evaluated_before_p15",
       "final_integration_branch_desloppify_scan_status_plan_review_and_security_evidence_recorded",
@@ -116,6 +119,7 @@
         "pkg_generated_comment_noise"
       ],
       "ownership_rule": "Wave membership is orchestration-only. Exact review issue ownership remains in packages[].exact_review_issue_ids, and the wave plan must keep separate slice closure conditions and verification for each package.",
+      "exit_boundary": "P14-WAVE1 completion is an evidence checkpoint, not P14 closure. If focused review or score reporting shows any target dimension below 85 with concrete source-backed issues remaining, WAVE2 and/or WAVE3 must add packages before P14-EXIT.",
       "planning_requirement": "A single package-local execution-grade plan may cover the wave only if it includes a slice_table or equivalent ledger for P14-W1, P14-W2, and P14-W3 plus focused review after the wave.",
       "verification_routing": [
         "npm run verify",
@@ -143,6 +147,7 @@
         "src/modules/plex/discovery/PlexResourceDiscoveryRequestPolicy.ts"
       ],
       "admission_rule": "Do not activate broad AppOrchestrator, lifecycle, channel-setup, or Plex cleanup merely because files are large or stale detector wording exists. Admit only seams that reduce ownership breadth without relocating the same hub responsibility elsewhere and that have one owner, candidate files, and verification routing.",
+      "no_admission_result": "If WAVE2 finds no concrete source-backed seam worth admitting, record it only as one focused-review pass toward the early-stop condition. It is not P14 closure by itself.",
       "deferred_disposition_scope": "The existing AppLifecycle, AppOrchestrator, ChannelSetupPlanner, and Plex discovery policy dispositions remain non-active unless WAVE2 produces fresh current-source proof that supersedes them.",
       "verification_routing": [
         "fresh focused subjective review for design_coherence,cross_module_architecture,ai_generated_debt",
@@ -158,6 +163,7 @@
       "purpose": "Expand generated comment/header/JSDoc cleanup beyond initial files only when targeted audits find the same generated-style pattern.",
       "gate_only": true,
       "admission_rule": "Additional files may be admitted only when targeted audits find generated-style banners or tautological comments/JSDoc and the planned patch remains behavior-neutral comment/API-doc cleanup.",
+      "no_admission_result": "If WAVE3 finds no additional generated-style comment debt worth admitting, record it only as one audit/focused-review pass toward the early-stop condition. It is not P14 closure by itself.",
       "preserve_comments_for": [
         "non-obvious behavior",
         "compatibility constraints",

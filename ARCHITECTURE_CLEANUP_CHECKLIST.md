@@ -316,6 +316,11 @@ at least `88`, and no P0 security or high-confidence source-backed
 design/coherence issues remain. Do not convert skipped/deferred findings into
 active implementation just to chase scores.
 
+Completion of `P14-W1`, `P14-W2`, and `P14-W3` is necessary for the first wave
+but is not sufficient to close P14 or `P14-EXIT`. Treat `P14-WAVE1` closeout as
+the evidence checkpoint that decides whether `P14-WAVE2` and/or `P14-WAVE3`
+must add larger score-moving packages.
+
 ### [ ] `P14-WAVE1` admitted score-moving cleanup
 
 - Scope: execute the current admitted P14 issues as one coordinated cleanup
@@ -343,7 +348,9 @@ active implementation just to chase scores.
 - Follow-ups: none yet
 - Handoff: start here. Do not start `P14-WAVE2`, `P14-WAVE3`, or P15 until
   `P14-WAVE1` has source-proof closeout, focused review results, and exact
-  issue dispositions.
+  issue dispositions. Do not close P14 merely because `P14-W1`, `P14-W2`, and
+  `P14-W3` are complete; close only after the target-score or early-stop
+  evidence in `P14-EXIT` is recorded.
 
 ### [ ] `P14-W1` `navigation-feature-port-boundary`
 
@@ -467,7 +474,9 @@ active implementation just to chase scores.
   existing persistence-migration disposition.
 - Handoff: gate only. If no concrete source-backed seam passes the guardrail,
   record that as one focused-review stop-condition pass instead of creating
-  source work.
+  source work. A no-admission WAVE2 result is not P14 closure by itself; it can
+  satisfy only one of the two consecutive focused-review passes required by the
+  early-stop condition.
 
 ### [ ] `P14-WAVE3` AI-generated-debt expansion gate
 
@@ -491,7 +500,9 @@ active implementation just to chase scores.
 - Verification: not run
 - Follow-ups: none yet
 - Handoff: gate only. Admit additional files only when the audit shows the same
-  pattern and the planned patch stays comment-only.
+  pattern and the planned patch stays comment-only. A no-admission WAVE3 result
+  is not P14 closure by itself; it can satisfy only one focused-review/audit
+  pass toward the early-stop condition.
 
 ### [ ] `P14-EXIT`
 
@@ -501,6 +512,11 @@ active implementation just to chase scores.
   and security evidence is recorded; focused review evidence after each wave is
   recorded; stop-condition evaluation is recorded before opening P15; and `npm
   run verify` / `npm run verify:docs` pass as appropriate.
+- Explicit non-closure rule: completing `P14-W1`, `P14-W2`, and `P14-W3`
+  closes only `P14-WAVE1`. It does not close P14 unless the required focused
+  review and score report prove all three target dimensions reached `85`, or
+  the early-stop condition is recorded with two consecutive fresh focused
+  reviews.
 - Required commands:
   - `desloppify scan --path .`
   - `desloppify status`
