@@ -612,7 +612,7 @@ must add larger score-moving packages.
   older broad `channel_setup_planner_pipeline_bulk` disposition.
 - Handoff: archived inside completed `P14-WAVE2`.
 
-### [ ] `P14-WAVE3` AI-generated-debt follow-up wave
+### [x] `P14-WAVE3` AI-generated-debt follow-up wave
 
 - Scope: execute the admitted post-WAVE1 generated comment/header/JSDoc cleanup
   after an execution-grade plan and clean adversarial plan review.
@@ -632,16 +632,21 @@ must add larger score-moving packages.
   Desloppify show commands for admitted files, `git diff --check`, `npm run
   verify` for source-comment batches, and focused subjective review after the
   batch.
-- Status: not started
-- Plan: none yet; first action is a package-local execution-grade WAVE3 plan.
+- Status: completed
+- Plan: local `P14-WAVE3` execution plan reviewed clean after revision and a
+  fresh final approval pass.
 - Last touched: `2026-04-27`
 - Verification: targeted audits, package-local Desloppify commands,
-  `git diff --check`, `npm run verify`, and focused subjective review after
-  the batch.
-- Follow-ups: none yet
-- Handoff: start with planning only. Completing WAVE3 is not P14 exit.
+  `git diff --check`, `npm run verify`, and implementation review passed.
+- Commit: `78e79884` `chore: clean p14 wave3 generated comments`
+- Follow-ups: `P14-WAVE3` owns the remaining active P14 work items. It triggers
+  combined focused subjective review/scoring and `P14-EXIT` readiness evidence,
+  but does not close P14 by itself.
+- Handoff: proceed to combined focused review/scoring for
+  `design_coherence,cross_module_architecture,ai_generated_debt` and P14-EXIT
+  readiness. Do not open P15.
 
-### [ ] `P14-W8` `generated-headers-and-banners`
+### [x] `P14-W8` `generated-headers-and-banners`
 
 - Imported review issues:
   - `review::.::holistic::ai_generated_debt::generated_style_headers_and_banners`
@@ -654,9 +659,18 @@ must add larger score-moving packages.
   - `src/modules/plex/stream/interfaces.ts`
   - `src/modules/player/AudioTrackManager.ts`
 - Package guardrail: comment-only; no export/API/type/runtime changes.
-- Handoff: execute as part of `P14-WAVE3` after plan/review.
+- Status: completed
+- Plan: local `P14-WAVE3` reviewed plan.
+- Last touched: `78e79884` `chore: clean p14 wave3 generated comments`
+- Verification: package-local Desloppify commands, targeted generated-header,
+  separator/banner, and navigation section-label audits, `git diff --check`,
+  `npm run verify`, and implementation review passed.
+- Review: exact complaint is no longer fair for the approved W8 scope;
+  generated metadata, separator/export banners, and navigation section labels
+  were removed while meaningful comments were preserved.
+- Handoff: archived inside completed `P14-WAVE3`.
 
-### [ ] `P14-W9` `trivial-event-and-method-jsdoc`
+### [x] `P14-W9` `trivial-event-and-method-jsdoc`
 
 - Imported review issues:
   - `review::.::holistic::ai_generated_debt::trivial_event_and_method_jsdoc`
@@ -671,7 +685,17 @@ must add larger score-moving packages.
 - Package guardrail: comment-only; preserve comments explaining lifecycle
   ordering, platform constraints, error isolation, compatibility, or external
   contracts.
-- Handoff: execute as part of `P14-WAVE3` after plan/review.
+- Status: completed
+- Plan: local `P14-WAVE3` reviewed plan.
+- Last touched: `78e79884` `chore: clean p14 wave3 generated comments`
+- Verification: package-local Desloppify commands, targeted trivial
+  event/method/init-stage JSDoc audits, preservation audit, `git diff --check`,
+  `npm run verify`, and implementation review passed.
+- Review: exact complaint is no longer fair for the approved W9 scope; trivial
+  event/method/init-stage JSDoc was removed, zero exact
+  `InitializationCoordinator` init-stage phrases were retained, and useful
+  lifecycle/platform/error/contract comments were preserved.
+- Handoff: archived inside completed `P14-WAVE3`.
 
 ### [ ] `P14-EXIT`
 

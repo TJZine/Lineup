@@ -234,7 +234,7 @@
     {
       "wave_id": "P14-WAVE3",
       "name": "ai-generated-debt-expansion-gate",
-      "status": "admitted",
+      "status": "completed",
       "purpose": "After WAVE1, focused review left AI-generated debt below target; execute admitted behavior-neutral generated comment cleanup packages.",
       "gate_only": false,
       "admission_rule": "Additional files may be admitted only when targeted audits find generated-style banners or tautological comments/JSDoc and the planned patch remains behavior-neutral comment/API-doc cleanup.",
@@ -259,7 +259,18 @@
         "pkg_generated_headers_and_banners",
         "pkg_trivial_event_and_method_jsdoc"
       ],
-      "admission_evidence": ".desloppify/subagents/runs/20260427_025123/holistic_issues_merged.json"
+      "admission_evidence": ".desloppify/subagents/runs/20260427_025123/holistic_issues_merged.json",
+      "completed_at": "2026-04-27",
+      "completed_by_commit": "78e79884",
+      "implementation_review": "clean; exact P14-W8 and P14-W9 complaints no longer fair; TypeScript no-comment emit comparison showed no runtime/type surface change",
+      "verification_observed": [
+        "package-local Desloppify show commands for WAVE3 files",
+        "targeted generated-header/banner and trivial-JSDoc rg audits",
+        "preservation rg audit for meaningful comments",
+        "git diff --check",
+        "npm run verify"
+      ],
+      "post_wave_decision": "WAVE3 closes the admitted source-comment wave but does not close P14 by itself; proceed to combined focused subjective review/scoring and P14-EXIT readiness evidence."
     }
   ],
   "packages": [
@@ -590,7 +601,8 @@
         "desloppify show src/modules/navigation/interfaces.ts --status open --no-budget --top 80",
         "desloppify show src/modules/plex/stream/interfaces.ts --status open --no-budget --top 120",
         "desloppify show src/modules/player/AudioTrackManager.ts --status open --no-budget --top 120",
-        "rg -n \"@fileoverview|@module|@version|={5,}|-{5,}|Class Exports|Interface Exports|Type Exports|Constant Exports\" src/modules/scheduler/scheduler/index.ts src/modules/navigation/interfaces.ts src/modules/plex/stream/interfaces.ts src/modules/player/AudioTrackManager.ts"
+        "rg -n \"@fileoverview|@module|@version|={5,}|-{5,}|Class Exports|Interface Exports|Type Exports|Constant Exports\" src/modules/scheduler/scheduler/index.ts src/modules/navigation/interfaces.ts src/modules/plex/stream/interfaces.ts src/modules/player/AudioTrackManager.ts",
+        "rg -n \"^\\\\s*//\\\\s*(Initialization|Screen Navigation|Focus Management|Registration|Modals|Input Blocking|State|Events)\\\\s*$\" src/modules/navigation/interfaces.ts"
       ],
       "verification_routing": {
         "mode": "refactor-invariance",
@@ -603,9 +615,9 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE3 execution-grade plan",
-        "recommended_execution_order": 1
+        "status": "completed",
+        "completed_by_commit": "78e79884",
+        "disposition": "resolved in P14-WAVE3; generated metadata, separator/export banners, and navigation section labels removed from approved files while meaningful runtime comments were preserved"
       }
     },
     {
@@ -630,7 +642,7 @@
         "desloppify show src/modules/plex/library/interfaces.ts --status open --no-budget --top 120",
         "desloppify show src/modules/player/AudioTrackManager.ts --status open --no-budget --top 120",
         "desloppify show src/core/initialization/InitializationCoordinator.ts --status open --no-budget --top 120",
-        "rg -n \"Register event handler|Remove event handler|Event name|Handler function|Initialize|Set tracks|Get tracks|Unload|Destroy|resume\" src/modules/plex/stream/interfaces.ts src/modules/plex/library/interfaces.ts src/modules/player/AudioTrackManager.ts src/core/initialization/InitializationCoordinator.ts"
+        "rg -n \"Register event handler|Remove event handler|Event name|Handler function|Initialize with a video element|Set available audio tracks|Get available audio tracks|Get active track ID|Clear tracks on unload|Destroy the manager|Check if an audio codec is supported|Switch track with timeout|Restore a previous track|Create a PlaybackError|Register listener for auth state changes|Register listener for server connection changes|Register listener for profile change events|Initialize core infrastructure|Validate authentication|Connect to Plex server|Initialize Channel Manager|Initialize EPG\" src/modules/plex/stream/interfaces.ts src/modules/plex/library/interfaces.ts src/modules/player/AudioTrackManager.ts src/core/initialization/InitializationCoordinator.ts"
       ],
       "verification_routing": {
         "mode": "refactor-invariance",
@@ -643,9 +655,9 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE3 execution-grade plan",
-        "recommended_execution_order": 2
+        "status": "completed",
+        "completed_by_commit": "78e79884",
+        "disposition": "resolved in P14-WAVE3; trivial event/method/init-stage JSDoc removed from approved files, zero exact InitializationCoordinator init-stage phrases retained, and useful lifecycle/platform/error/contract comments preserved"
       }
     }
   ],
