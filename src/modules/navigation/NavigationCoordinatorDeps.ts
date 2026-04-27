@@ -96,3 +96,41 @@ export interface NavigationCoordinatorDeps {
     readKeepPlayingInSettings: () => boolean;
     readDebugLoggingEnabled: () => boolean;
 }
+
+export type NavigationRepeatHandlerPort = Pick<
+    NavigationCoordinatorDeps,
+    'navigation' | 'epg' | 'miniGuide'
+>;
+
+export type NavigationKeyModeRouterPort = Pick<
+    NavigationCoordinatorDeps,
+    | 'navigation'
+    | 'epg'
+    | 'playback'
+    | 'miniGuide'
+    | 'nowPlayingInfo'
+    | 'modals'
+    | 'channelSwitching'
+>;
+
+export type NavigationScreenEffectsPort = Pick<
+    NavigationCoordinatorDeps,
+    | 'navigation'
+    | 'epg'
+    | 'playback'
+    | 'miniGuide'
+    | 'nowPlayingInfo'
+    | 'channelSwitching'
+    | 'uiGuards'
+    | 'readKeepPlayingInSettings'
+>;
+
+export type NavigationModalEffectsPort = Pick<
+    NavigationCoordinatorDeps,
+    'miniGuide' | 'nowPlayingInfo' | 'modals'
+>;
+
+export type NavigationChannelNumberPort = Pick<
+    NavigationCoordinatorDeps,
+    'epg' | 'channelSwitching'
+>;

@@ -1,5 +1,5 @@
 import type { KeyEvent, Screen } from './interfaces';
-import type { NavigationCoordinatorDeps } from './NavigationCoordinatorDeps';
+import type { NavigationKeyModeRouterPort } from './NavigationCoordinatorDeps';
 import type { NavigationRepeatHandler } from './NavigationRepeatHandler';
 import type {
     NavigationFireAndReport,
@@ -16,7 +16,7 @@ type KeyPressRoutingState = {
 
 export class NavigationKeyModeRouter {
     constructor(
-        private readonly deps: NavigationCoordinatorDeps,
+        private readonly deps: NavigationKeyModeRouterPort,
         private readonly repeats: NavigationRepeatHandler,
         private readonly fireAndReport: NavigationFireAndReport,
         private readonly observeNonBlockingPromise: NavigationObserveNonBlockingPromise,

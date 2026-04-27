@@ -1,11 +1,11 @@
-import type { NavigationCoordinatorDeps } from './NavigationCoordinatorDeps';
+import type { NavigationScreenEffectsPort } from './NavigationCoordinatorDeps';
 import type { NavigationRepeatHandler } from './NavigationRepeatHandler';
 import type { NavigationFireAndReport } from './NavigationCoordinatorCallbacks';
 import type { Screen } from './interfaces';
 
 export class NavigationScreenEffectsHandler {
     constructor(
-        private readonly deps: NavigationCoordinatorDeps,
+        private readonly deps: NavigationScreenEffectsPort,
         private readonly repeats: NavigationRepeatHandler,
         private readonly fireAndReport: NavigationFireAndReport
     ) { }

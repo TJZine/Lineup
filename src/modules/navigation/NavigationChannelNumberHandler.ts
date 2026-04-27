@@ -1,8 +1,8 @@
 import { isAbortLikeError } from '../../utils/errors';
-import type { NavigationCoordinatorDeps } from './NavigationCoordinatorDeps';
+import type { NavigationChannelNumberPort } from './NavigationCoordinatorDeps';
 
 export class NavigationChannelNumberHandler {
-    constructor(private readonly deps: NavigationCoordinatorDeps) { }
+    constructor(private readonly deps: NavigationChannelNumberPort) { }
 
     async handleChannelNumberEntered(channelNumber: number): Promise<void> {
         this.deps.channelSwitching.setLastChannelChangeSourceNumber();

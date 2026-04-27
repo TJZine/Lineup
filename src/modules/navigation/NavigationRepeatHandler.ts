@@ -4,7 +4,7 @@ import {
     EPG_REPEAT_TIMING,
     MINI_GUIDE_REPEAT_TIMING,
 } from './constants';
-import type { NavigationCoordinatorDeps } from './NavigationCoordinatorDeps';
+import type { NavigationRepeatHandlerPort } from './NavigationCoordinatorDeps';
 
 type EpgRepeatButton = 'up' | 'down' | 'left' | 'right';
 type MiniGuideRepeatButton = 'up' | 'down';
@@ -17,7 +17,7 @@ export class NavigationRepeatHandler {
     private _miniGuideRepeatButton: MiniGuideRepeatButton | null = null;
     private _miniGuideRepeatStartMs = 0;
 
-    constructor(private readonly deps: NavigationCoordinatorDeps) { }
+    constructor(private readonly deps: NavigationRepeatHandlerPort) { }
 
     stopForKeyUp(button: KeyEvent['button']): void {
         if (button === this._epgRepeatButton) {

@@ -1,9 +1,9 @@
-import type { NavigationCoordinatorDeps } from './NavigationCoordinatorDeps';
+import type { NavigationModalEffectsPort } from './NavigationCoordinatorDeps';
 import type { NavigationRepeatHandler } from './NavigationRepeatHandler';
 
 export class NavigationModalEffectsHandler {
     constructor(
-        private readonly deps: NavigationCoordinatorDeps,
+        private readonly deps: NavigationModalEffectsPort,
         private readonly repeats: NavigationRepeatHandler
     ) { }
 
