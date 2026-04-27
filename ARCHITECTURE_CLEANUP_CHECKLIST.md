@@ -489,7 +489,10 @@ must add larger score-moving packages.
   `plex_discovery_request_policy_nested` disposition. The older broad
   `channel_setup_planner_pipeline_bulk` disposition remains non-active; `P14-W7`
   owns only the fresh planner/strategy cycle issue.
-- Commit: `8ac03c7c` `refactor: split p14 wave2 cleanup boundaries`
+- Commits: `cd9d7094` `refactor: narrow navigation handler ports`,
+  `1ba2f847` `refactor: extract diagnostics dev menu controller`,
+  `51f13a1c` `refactor: split Plex discovery request policy`, and
+  `530154a5` `refactor: move channel setup planning contracts`
 - Handoff: `P14-WAVE2` is closed, but P14 and `P14-EXIT` remain open. Continue
   directly to `P14-WAVE3`; do not run focused subjective review/scoring until
   `P14-WAVE3` also closes unless a replan trigger fires.
@@ -515,7 +518,7 @@ must add larger score-moving packages.
   builder.
 - Status: completed
 - Plan: local `P14-WAVE2` reviewed plan.
-- Last touched: `8ac03c7c` `refactor: split p14 wave2 cleanup boundaries`
+- Last touched: `cd9d7094` `refactor: narrow navigation handler ports`
 - Verification: targeted navigation/orchestrator tests, package-local
   Desloppify commands, targeted navigation port `rg` audits, `npm run verify`,
   and implementation review passed.
@@ -543,7 +546,7 @@ must add larger score-moving packages.
   into UI modules.
 - Status: completed
 - Plan: local `P14-WAVE2` reviewed plan.
-- Last touched: `8ac03c7c` `refactor: split p14 wave2 cleanup boundaries`
+- Last touched: `1ba2f847` `refactor: extract diagnostics dev menu controller`
 - Verification: targeted diagnostics surface tests, package-local Desloppify
   commands, targeted diagnostics API/action `rg` audits, `npm run verify`, and
   implementation review passed.
@@ -569,7 +572,7 @@ must add larger score-moving packages.
   timeout handling, abort behavior, and final response/error classification.
 - Status: completed
 - Plan: local `P14-WAVE2` reviewed plan.
-- Last touched: `8ac03c7c` `refactor: split p14 wave2 cleanup boundaries`
+- Last touched: `51f13a1c` `refactor: split Plex discovery request policy`
 - Verification: targeted Plex discovery tests, package-local Desloppify
   commands, targeted discovery retry/fallback `rg` audits, `npm run verify`,
   and implementation review passed.
@@ -600,7 +603,7 @@ must add larger score-moving packages.
   strategy pipeline. This is a boundary/cycle cleanup only.
 - Status: completed
 - Plan: local `P14-WAVE2` reviewed plan.
-- Last touched: `8ac03c7c` `refactor: split p14 wave2 cleanup boundaries`
+- Last touched: `530154a5` `refactor: move channel setup planning contracts`
 - Verification: targeted channel-setup and app diagnostics summary tests,
   package-local Desloppify commands, targeted planner/strategy dependency `rg`
   audits, `npm run verify`, and implementation review passed.

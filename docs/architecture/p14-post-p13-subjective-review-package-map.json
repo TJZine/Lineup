@@ -250,7 +250,6 @@
       ],
       "admission_evidence": ".desloppify/subagents/runs/20260427_025123/holistic_issues_merged.json",
       "completed_at": "2026-04-27",
-      "completed_by_commit": "8ac03c7c",
       "implementation_review": "clean; exact P14-W4 through P14-W7 complaints no longer fair",
       "verification_observed": [
         "package-local Desloppify show commands for WAVE2 slices",
@@ -258,7 +257,13 @@
         "targeted navigation/orchestrator, diagnostics, Plex discovery, and channel-setup tests",
         "npm run verify"
       ],
-      "post_wave_decision": "Do not run focused subjective review/scoring after WAVE2 alone; continue directly to P14-WAVE3, then run one combined focused review."
+      "post_wave_decision": "Do not run focused subjective review/scoring after WAVE2 alone; continue directly to P14-WAVE3, then run one combined focused review.",
+      "completed_by_commits": [
+        "cd9d7094 refactor: narrow navigation handler ports",
+        "1ba2f847 refactor: extract diagnostics dev menu controller",
+        "51f13a1c refactor: split Plex discovery request policy",
+        "530154a5 refactor: move channel setup planning contracts"
+      ]
     },
     {
       "wave_id": "P14-WAVE3",
@@ -525,7 +530,7 @@
       },
       "execution_status": {
         "status": "completed",
-        "completed_by_commit": "8ac03c7c",
+        "completed_by_commit": "cd9d7094",
         "disposition": "resolved in P14-WAVE2; implementation review found handler-specific navigation ports make the exact complaint no longer fair"
       }
     },
@@ -567,7 +572,7 @@
       },
       "execution_status": {
         "status": "completed",
-        "completed_by_commit": "8ac03c7c",
+        "completed_by_commit": "1ba2f847",
         "disposition": "resolved in P14-WAVE2; dev-menu actions moved behind an app-shell controller while AppDiagnosticsSurface retained lifecycle/keybinding/window-helper ownership"
       }
     },
@@ -607,7 +612,7 @@
       },
       "execution_status": {
         "status": "completed",
-        "completed_by_commit": "8ac03c7c",
+        "completed_by_commit": "51f13a1c",
         "disposition": "resolved in P14-WAVE2; request execution, fetch-variant construction, and response policy were split inside the Plex discovery owner with retry/fallback/classification behavior preserved"
       }
     },
@@ -654,7 +659,7 @@
       },
       "execution_status": {
         "status": "completed",
-        "completed_by_commit": "8ac03c7c",
+        "completed_by_commit": "530154a5",
         "disposition": "resolved in P14-WAVE2; planner-neutral identity, diff, diagnostics, and pending-channel contracts moved to ChannelSetupPlanningTypes, including type-only consumer import reconciliation for build committer/executor without activating the old broad pipeline-bulk issue"
       }
     },
