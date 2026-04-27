@@ -700,7 +700,7 @@ must add larger score-moving packages.
   lifecycle/platform/error/contract comments were preserved.
 - Handoff: archived inside completed `P14-WAVE3`.
 
-### [ ] `P14-WAVE4` post-WAVE3 target residual cleanup
+### [x] `P14-WAVE4` post-WAVE3 target residual cleanup
 
 - Scope: execute the focused post-WAVE3 residual issues admitted because all
   three P14 target dimensions remain below `85`.
@@ -722,17 +722,24 @@ must add larger score-moving packages.
   map, targeted `rg` audits, targeted tests where source behavior is touched,
   `npm run verify`, implementation review, checklist/package-map updates, and
   `npm run verify:docs`.
-- Status: not started
-- Plan: none yet; first action is a package-local execution-grade WAVE4 plan.
+- Status: completed
+- Plan: local `P14-WAVE4` execution plan reviewed clean after revision and a
+  fresh final approval pass.
 - Last touched: `2026-04-27`
+- Verification: package-local Desloppify commands, targeted `rg` audits,
+  targeted navigation/orchestrator and channel-setup tests, `git diff --check`,
+  `npm run verify`, and implementation review passed.
+- Commit: `7d27cc2e` `refactor: close p14 wave4 residual cleanup`
 - Follow-ups: the post-WAVE3 focused review re-used the
   `generated_style_headers_and_banners` id with new residual files; `P14-W11`
   is the current residual owner while `P14-W8` remains closed for its approved
-  WAVE3 source slice.
-- Handoff: start with planning only. Completing WAVE4 will still require a
-  fresh focused review/scoring pass before P14 can enter `P14-EXIT`.
+  WAVE3 source slice. `P14-WAVE4` source completion still requires a fresh
+  focused review/scoring pass before P14 can enter `P14-EXIT`.
+- Handoff: run focused subjective review/scoring for
+  `design_coherence,cross_module_architecture,ai_generated_debt`, then decide
+  whether P14 can enter `P14-EXIT` or needs another admitted wave.
 
-### [ ] `P14-W10` `navigation-deps-feature-spanning-hub`
+### [x] `P14-W10` `navigation-deps-feature-spanning-hub`
 
 - Imported review issues:
   - `review::.::holistic::cross_module_architecture::navigation_deps_feature_spanning_hub`
@@ -740,14 +747,23 @@ must add larger score-moving packages.
   `NavigationCoordinatorDeps` source of truth; assemble explicit handler input
   contracts at the orchestrator composition root.
 - Candidate files:
-  - `src/modules/navigation/NavigationCoordinatorDeps.ts`
+  - `src/modules/navigation/NavigationCoordinatorContracts.ts`
   - `src/modules/navigation/NavigationCoordinator.ts`
   - `src/core/orchestrator/OrchestratorCoordinatorBuilders.ts`
 - Package guardrail: keep concrete feature adaptation in the orchestrator
   builder. Do not move feature coordination into navigation.
-- Handoff: execute as part of `P14-WAVE4` after plan/review.
+- Status: completed
+- Plan: local `P14-WAVE4` reviewed plan.
+- Last touched: `7d27cc2e` `refactor: close p14 wave4 residual cleanup`
+- Verification: targeted navigation/orchestrator tests, package-local
+  Desloppify commands, targeted handler-contract `rg` audits, `git diff
+  --check`, `npm run verify`, and implementation review passed.
+- Review: exact complaint is no longer fair; handler ports now live in
+  navigation-owned `NavigationCoordinatorContracts`, while concrete feature
+  adaptation remains in `OrchestratorCoordinatorBuilders`.
+- Handoff: archived inside completed `P14-WAVE4`.
 
-### [ ] `P14-W11` `generated-header-residuals`
+### [x] `P14-W11` `generated-header-residuals`
 
 - Imported review issues:
   - `review::.::holistic::ai_generated_debt::generated_style_headers_and_banners`
@@ -760,9 +776,18 @@ must add larger score-moving packages.
   - `src/modules/navigation/NavigationManager.ts`
 - Package guardrail: comment-only; preserve comments that explain non-obvious
   ownership, platform behavior, lifecycle ordering, or error isolation.
-- Handoff: execute as part of `P14-WAVE4` after plan/review.
+- Status: completed
+- Plan: local `P14-WAVE4` reviewed plan.
+- Last touched: `7d27cc2e` `refactor: close p14 wave4 residual cleanup`
+- Verification: package-local Desloppify commands, targeted generated-header
+  and banner audits, `git diff --check`, `npm run verify`, and implementation
+  review passed.
+- Review: exact complaint is no longer fair for the residual files; generated
+  metadata and banner dividers were removed while useful runtime comments were
+  preserved.
+- Handoff: archived inside completed `P14-WAVE4`.
 
-### [ ] `P14-W12` `trivial-signature-jsdoc-residuals`
+### [x] `P14-W12` `trivial-signature-jsdoc-residuals`
 
 - Imported review issues:
   - `review::.::holistic::ai_generated_debt::trivial_signature_jsdoc`
@@ -776,9 +801,18 @@ must add larger score-moving packages.
 - Package guardrail: comment-only; preserve semantic comments where null-vs-throw
   behavior, lifecycle ordering, platform constraints, or external contracts
   differ from the signature.
-- Handoff: execute as part of `P14-WAVE4` after plan/review.
+- Status: completed
+- Plan: local `P14-WAVE4` reviewed plan.
+- Last touched: `7d27cc2e` `refactor: close p14 wave4 residual cleanup`
+- Verification: package-local Desloppify commands, targeted trivial-signature
+  JSDoc audits, `git diff --check`, `npm run verify`, and implementation
+  review passed.
+- Review: exact complaint is no longer fair for the current-source-proven
+  residuals; `src/modules/navigation/interfaces.ts` was stale for the targeted
+  trivial signatures and was left unchanged.
+- Handoff: archived inside completed `P14-WAVE4`.
 
-### [ ] `P14-W13` `channel-setup-planner-stage-blur`
+### [x] `P14-W13` `channel-setup-planner-stage-blur`
 
 - Imported review issues:
   - `review::.::holistic::design_coherence::channel_setup_planner_stage_blur`
@@ -791,24 +825,47 @@ must add larger score-moving packages.
   - `src/core/channel-setup/planning/ChannelSetupStrategyBuilders.ts`
 - Package guardrail: do not rewrite the channel setup pipeline or change channel
   setup output. This is a stage-boundary cleanup only.
-- Handoff: execute as part of `P14-WAVE4` after plan/review.
+- Status: completed
+- Plan: local `P14-WAVE4` reviewed plan.
+- Last touched: `7d27cc2e` `refactor: close p14 wave4 residual cleanup`
+- Verification: targeted channel-setup tests, package-local Desloppify
+  commands, targeted planner-stage `rg` audits, `git diff --check`, `npm run
+  verify`, and implementation review passed.
+- Review: exact complaint is no longer fair; channel setup planning now exposes
+  pure named stages for limits, library selection, strategy ordering, playback
+  normalization, alternate lineups, playback variants, truncation, estimates,
+  and diagnostics without observed behavior drift.
+- Handoff: archived inside completed `P14-WAVE4`.
 
-### [ ] `P14-W14` `navigation-collaborator-cycle`
+### [x] `P14-W14` `navigation-collaborator-cycle`
 
 - Imported review issues:
   - `review::.::holistic::design_coherence::navigation_collaborator_cycle`
 - Scope: make navigation collaborator imports acyclic by moving shared callback
   and runtime contract types into a small navigation-owned contract module.
 - Candidate files:
+  - `src/modules/navigation/NavigationCoordinatorContracts.ts`
   - `src/modules/navigation/NavigationCoordinator.ts`
   - `src/modules/navigation/NavigationKeyModeRouter.ts`
   - `src/modules/navigation/NavigationRepeatHandler.ts`
+  - `src/modules/navigation/NavigationScreenEffectsHandler.ts`
   - `src/modules/navigation/NavigationModalEffectsHandler.ts`
   - `src/modules/navigation/NavigationChannelNumberHandler.ts`
 - Package guardrail: preserve remote behavior and event subscription ownership.
   Confirm current imports before treating mechanical cycle rows as live source
   defects.
-- Handoff: execute as part of `P14-WAVE4` after plan/review.
+- Status: completed
+- Plan: local `P14-WAVE4` reviewed plan.
+- Last touched: `7d27cc2e` `refactor: close p14 wave4 residual cleanup`
+- Verification: targeted navigation/orchestrator tests, package-local
+  Desloppify commands, targeted collaborator import audits, `git diff --check`,
+  `npm run verify`, and implementation review passed.
+- Review: exact complaint is no longer fair; shared navigation callback/runtime
+  and handler port types now live in `NavigationCoordinatorContracts`, and
+  handlers no longer import concrete coordinator/repeat classes for shared
+  contracts. `NavigationScreenEffectsHandler.ts` was included as approved
+  package-local scope expansion under the same W14 owner.
+- Handoff: archived inside completed `P14-WAVE4`.
 
 ### [ ] `P14-EXIT`
 

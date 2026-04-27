@@ -1,6 +1,6 @@
 {
   "artifact_role": "authoritative exact membership for P14 post-P13 subjective review cleanup queue",
-  "artifact_version": 3,
+  "artifact_version": 4,
   "created_at": "2026-04-26",
   "review_runs": [
     {
@@ -309,7 +309,7 @@
     {
       "wave_id": "P14-WAVE4",
       "name": "post-wave3-target-residual-cleanup",
-      "status": "admitted",
+      "status": "completed",
       "purpose": "After WAVE3, focused review still left all three P14 target dimensions below 85; execute the next admitted source-backed residual issues before reconsidering P14-EXIT.",
       "gate_only": false,
       "admission_rule": "Admit only source-backed residuals from the 20260427_042426 focused review with one owner, candidate files, package-local commands, and verification routing. Do not reopen broad AppOrchestrator, lifecycle, or P15 work.",
@@ -354,7 +354,21 @@
           }
         },
         "decision": "P14 target dimensions remain below 85 with five concrete source-backed issues; admit P14-WAVE4 before further implementation or P14-EXIT."
-      }
+      },
+      "completed_at": "2026-04-27",
+      "commits": [
+        "7d27cc2e refactor: close p14 wave4 residual cleanup"
+      ],
+      "verification_observed": [
+        "package-local Desloppify show commands for W10-W14 files",
+        "targeted handler-contract, generated-header, trivial-JSDoc, planner-stage, and collaborator-import rg audits",
+        "npm test -- --runTestsByPath src/modules/navigation/__tests__/NavigationCoordinator.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorBuilders.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorAssembly.test.ts --runInBand",
+        "npm test -- --runTestsByPath src/core/channel-setup/__tests__/ChannelSetupPlanner.test.ts src/core/channel-setup/__tests__/ChannelSetupBuildCommitter.test.ts --runInBand",
+        "git diff --check",
+        "npm run verify"
+      ],
+      "implementation_review_result": "clean; reviewer found the W10-W14 complaints no longer fair and no sibling-surface relocation",
+      "post_wave_decision": "WAVE4 closes the admitted residual source wave but does not close P14 by itself; run fresh focused subjective review/scoring before deciding whether P14 can enter P14-EXIT or needs another wave."
     }
   ],
   "packages": [
@@ -756,15 +770,15 @@
         "review::.::holistic::cross_module_architecture::navigation_deps_feature_spanning_hub"
       ],
       "candidate_scoping_files": [
-        "src/modules/navigation/NavigationCoordinatorDeps.ts",
+        "src/modules/navigation/NavigationCoordinatorContracts.ts",
         "src/modules/navigation/NavigationCoordinator.ts",
         "src/core/orchestrator/OrchestratorCoordinatorBuilders.ts"
       ],
       "package_local_scoping_commands": [
-        "desloppify show src/modules/navigation/NavigationCoordinatorDeps.ts --status open --no-budget --top 160",
+        "desloppify show src/modules/navigation/NavigationCoordinatorContracts.ts --status open --no-budget --top 160",
         "desloppify show src/modules/navigation/NavigationCoordinator.ts --status open --no-budget --top 160",
         "desloppify show src/core/orchestrator/OrchestratorCoordinatorBuilders.ts --status open --no-budget --top 160",
-        "rg -n \"NavigationCoordinatorDeps|Pick<NavigationCoordinatorDeps|new Navigation.*Handler|buildNavigation\" src/modules/navigation src/core/orchestrator/OrchestratorCoordinatorBuilders.ts"
+        "rg -n \"NavigationCoordinatorDeps|Pick<NavigationCoordinatorDeps|NavigationCoordinatorContracts|new Navigation.*Handler|buildNavigation\" src/modules/navigation src/core/orchestrator/OrchestratorCoordinatorBuilders.ts"
       ],
       "verification_routing": {
         "mode": "refactor-invariance plus integration-ops",
@@ -777,9 +791,9 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE4 execution-grade plan",
-        "recommended_execution_order": 1
+        "status": "completed",
+        "completed_by_commit": "7d27cc2e",
+        "disposition": "resolved in P14-WAVE4; handler ports moved into explicit navigation-owned NavigationCoordinatorContracts and concrete feature adaptation remains in OrchestratorCoordinatorBuilders"
       }
     },
     {
@@ -818,9 +832,9 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE4 execution-grade plan",
-        "recommended_execution_order": 2
+        "status": "completed",
+        "completed_by_commit": "7d27cc2e",
+        "disposition": "resolved in P14-WAVE4; residual generated file metadata and banner dividers removed from approved files while meaningful runtime comments were preserved"
       }
     },
     {
@@ -859,9 +873,9 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE4 execution-grade plan",
-        "recommended_execution_order": 3
+        "status": "completed",
+        "completed_by_commit": "7d27cc2e",
+        "disposition": "resolved in P14-WAVE4; current-source-proven trivial signature JSDoc removed, while stale navigation/interfaces matches were left unchanged and semantic lifecycle/platform/external-contract comments were preserved"
       }
     },
     {
@@ -895,9 +909,9 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE4 execution-grade plan",
-        "recommended_execution_order": 4
+        "status": "completed",
+        "completed_by_commit": "7d27cc2e",
+        "disposition": "resolved in P14-WAVE4; channel setup planning now uses named pure stages for limits, library selection, strategy ordering, playback normalization, alternate lineups, variants, truncation, estimates, and diagnostics without observed behavior drift"
       }
     },
     {
@@ -912,19 +926,23 @@
         "review::.::holistic::design_coherence::navigation_collaborator_cycle"
       ],
       "candidate_scoping_files": [
+        "src/modules/navigation/NavigationCoordinatorContracts.ts",
         "src/modules/navigation/NavigationCoordinator.ts",
         "src/modules/navigation/NavigationKeyModeRouter.ts",
         "src/modules/navigation/NavigationRepeatHandler.ts",
+        "src/modules/navigation/NavigationScreenEffectsHandler.ts",
         "src/modules/navigation/NavigationModalEffectsHandler.ts",
         "src/modules/navigation/NavigationChannelNumberHandler.ts"
       ],
       "package_local_scoping_commands": [
+        "desloppify show src/modules/navigation/NavigationCoordinatorContracts.ts --status open --no-budget --top 160",
         "desloppify show src/modules/navigation/NavigationCoordinator.ts --status open --no-budget --top 160",
         "desloppify show src/modules/navigation/NavigationKeyModeRouter.ts --status open --no-budget --top 160",
         "desloppify show src/modules/navigation/NavigationRepeatHandler.ts --status open --no-budget --top 160",
         "desloppify show src/modules/navigation/NavigationModalEffectsHandler.ts --status open --no-budget --top 120",
         "desloppify show src/modules/navigation/NavigationChannelNumberHandler.ts --status open --no-budget --top 120",
-        "rg -n \"from './NavigationCoordinator'|from './NavigationRepeatHandler'|NavigationCoordinatorCallbacks|NavigationRepeatHandler|NavigationKeyModeRouter|NavigationModalEffectsHandler|NavigationChannelNumberHandler\" src/modules/navigation"
+        "desloppify show src/modules/navigation/NavigationScreenEffectsHandler.ts --status open --no-budget --top 120",
+        "rg -n \"from './NavigationCoordinator'|from './NavigationRepeatHandler'|from './NavigationCoordinatorCallbacks'|NavigationCoordinatorContracts|NavigationRepeatHandler|NavigationKeyModeRouter|NavigationModalEffectsHandler|NavigationScreenEffectsHandler|NavigationChannelNumberHandler\" src/modules/navigation"
       ],
       "verification_routing": {
         "mode": "refactor-invariance plus integration-ops",
@@ -937,9 +955,9 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE4 execution-grade plan",
-        "recommended_execution_order": 5
+        "status": "completed",
+        "completed_by_commit": "7d27cc2e",
+        "disposition": "resolved in P14-WAVE4; shared callback/runtime and handler port types moved to NavigationCoordinatorContracts, including approved NavigationScreenEffectsHandler scope expansion, while coordinator event subscription ownership remained intact"
       }
     }
   ],
