@@ -72,6 +72,15 @@ export interface LifecycleAppError extends AppError {
     actions: ErrorAction[];
 }
 
+export interface LifecycleAsyncError {
+    /** Async lifecycle task context that failed */
+    context: string;
+    /** Log-safe error summary */
+    error: unknown;
+    /** Timestamp of async failure */
+    timestamp: number;
+}
+
 /**
  * Event map for lifecycle events.
  * Used with EventEmitter for type-safe event handling.
@@ -89,6 +98,8 @@ export interface LifecycleEventMap {
     plexConnectionChange: { status: ConnectionStatus };
     /** Emitted when an error is reported */
     error: LifecycleAppError;
+    /** Emitted when an async lifecycle task fails without necessarily changing app phase */
+    asyncError: LifecycleAsyncError;
     /** Emitted when persistence fails but does not require blocking UI */
     persistenceWarning: { message: string; isQuotaError: boolean; timestamp: number };
     /** Emitted when network monitoring detects failures (throttled) */

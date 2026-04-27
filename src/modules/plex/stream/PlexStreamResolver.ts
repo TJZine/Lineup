@@ -395,6 +395,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
      * @param itemKey - ratingKey of the media item
      * @param options - HLS transcoding options (required per SSOT)
      * @returns Full transcode URL
+     * @throws StreamResolverError synchronously when a transcode URL cannot be built.
      */
     getTranscodeUrl(itemKey: string, options: HlsOptions): string {
         const serverUri = this._config.getServerUri();

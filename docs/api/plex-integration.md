@@ -143,7 +143,7 @@ interface IPlexLibrary {
 
 `getLibrary()` returns `null` only when the id is not present in a valid fetched section list. Unavailable or malformed section-list fetches throw `PlexLibraryError`.
 Across the rest of the library surface, `null` and empty arrays are reserved for real Plex not-found or empty-success outcomes such as `404` item lookups, empty metadata lists, or unsupported tag directories. Malformed payloads, empty `200` response bodies, timeout failures, and server errors reject with `PlexLibraryError` instead of collapsing into semantic empties.
-`getImageUrl()` returns `null` when no image URL can be built, such as an empty image path or missing active server URI.
+`getImageUrl()` returns `null` when no image URL can be built, such as an empty image path, missing active server URI, or a foreign absolute image URL. Plex tokens are only attached to active-server-owned image URLs.
 
 ## Server Discovery (`IPlexServerDiscovery`)
 
@@ -247,6 +247,7 @@ interface IPlexStreamResolver {
 
   canDirectPlay(item: PlexMediaItem): boolean;
 
+  /** Throws StreamResolverError synchronously when a transcode URL cannot be built. */
   getTranscodeUrl(itemKey: string, options: HlsOptions): string;
 
   fetchUniversalTranscodeDecision(

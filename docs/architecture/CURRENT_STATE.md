@@ -149,7 +149,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - `src/modules/debug/IssueDiagnosticsStore.ts`
 - `src/modules/plex/discovery/ServerSelectionStore.ts`
 - `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`
-- `src/core/channel-setup/ChannelSetupRecordStore.ts`
+- `src/core/channel-setup/persistence/ChannelSetupRecordStore.ts`
 - `src/modules/plex/auth/PlexAuth.ts`
 - `src/modules/plex/auth/clientIdentifier.ts`
 - these are the current designated owners for storage-backed state
@@ -157,9 +157,9 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - runtime consumers route mapped key families through typed stores (for example `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`, `ProfileSelectScreen` -> `ProfileSessionStore`, `AppThemeController` -> `ThemePreferencesStore`, `EPGInfoPanel` -> `NowPlayingDisplayStore`/`EpgPreferencesStore`, `SettingsStore` -> dedicated settings stores, `AudioSetupScreen`/`Orchestrator`/`AudioTrackManager` -> `AudioSettingsStore` policy reads and setup completion state, `Orchestrator` -> `SubtitlePreferencesStore` subtitle mode policy for burn-in decisions)
 - `src/modules/ui/epg/debug/EPGDebugRuntime.ts` is the bounded EPG-layer owner for `lineup_debug_epg_log` buffering + flush scheduling and debug-flag cache reads used by EPG runtime/UI consumers; it is not a general storage-owner precedent
 - `src/modules/debug/DebugOverridesStore.ts` is the canonical owner for the `lineup_debug_epg` flag
-- `src/core/channel-setup/ChannelSetupRecordStore.ts` owns only the persisted setup-record family `lineup_channel_setup_v2:${serverId}`
-- `src/core/channel-setup/ChannelSetupBuildScratchStore.ts` owns temporary Channel Setup build-key lifecycle (`lineup_channels_build_tmp_v1:*`, `lineup_current_channel_build_tmp_v1:*`)
-- `src/core/channel-setup/ChannelSetupPlanningService.ts` owns plan/review composition and uses `ChannelSetupFacetSnapshotLoader` as its internal facet-snapshot collaborator
+- `src/core/channel-setup/persistence/ChannelSetupRecordStore.ts` owns only the persisted setup-record family `lineup_channel_setup_v2:${serverId}`
+- `src/core/channel-setup/build/ChannelSetupBuildScratchStore.ts` owns temporary Channel Setup build-key lifecycle (`lineup_channels_build_tmp_v1:*`, `lineup_current_channel_build_tmp_v1:*`)
+- `src/core/channel-setup/planning/ChannelSetupPlanningService.ts` owns plan/review composition and uses `ChannelSetupFacetSnapshotLoader` as its internal facet-snapshot collaborator
 - `src/core/channel-setup/ChannelSetupCoordinator.ts` consumes typed seams for record persistence (`ChannelSetupRecordStore`) and build-scratch cleanup (`ChannelSetupBuildScratchStore`); composition-root wiring no longer forwards raw setup-record storage callbacks
 - `src/core/index.ts` and `src/core/channel-setup/index.ts` are intentionally empty; runtime callers import from owning modules instead of widening root/package barrels
 - `src/bootstrap.ts` still carries the one-off `lineup_debug_transcode` -> `lineup_debug_logging` migration path

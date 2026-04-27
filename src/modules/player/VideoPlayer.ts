@@ -239,17 +239,14 @@ export class VideoPlayer implements IVideoPlayer {
     }
 
     public destroy(): void {
-        // Release media session before tearing down event emitters
         this.releaseMediaSession();
 
-        // Stop managers
         this._keepAliveManager.stop();
         this._retryManager.destroy();
         this._eventManager.detach();
         this._subtitleManager.destroy();
         this._audioTrackManager.destroy();
 
-        // Remove video element
         if (this._videoElement) {
             this._videoElement.pause();
             this._videoElement.src = '';
@@ -257,10 +254,8 @@ export class VideoPlayer implements IVideoPlayer {
             this._videoElement = null;
         }
 
-        // Remove all event handlers
         this._emitter.removeAllListeners();
 
-        // Reset state
         this._state = this._createInitialState();
         this._config = null;
     }
@@ -332,8 +327,6 @@ export class VideoPlayer implements IVideoPlayer {
 
         this._videoElement.load();
 
-        // Wait for canplay event with timeout (30s default)
-        // Uses VideoPlayerEvents.waitForCanPlay() to avoid code duplication
         await this._eventManager.waitForCanPlay();
         if (!this._isActiveLoad(loadGeneration, descriptor)) {
             return;
@@ -429,7 +422,6 @@ export class VideoPlayer implements IVideoPlayer {
 
         video.currentTime = Math.min(positionSec, durationSec);
 
-        // Wait for seeked event with timeout
         return new Promise((resolve, reject) => {
             const SEEK_TIMEOUT_MS = 5000;
             let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -472,7 +464,6 @@ export class VideoPlayer implements IVideoPlayer {
         this._videoElement.volume = clampedLevel;
         this._state.volume = clampedLevel;
 
-        // If setting volume while muted, unmute
         if (this._state.isMuted && clampedLevel > 0) {
             this._state.isMuted = false;
             this._videoElement.muted = false;
@@ -655,7 +646,6 @@ export class VideoPlayer implements IVideoPlayer {
 
     // Idempotent: multiple calls are safe. Never throws.
     public requestMediaSession(): void {
-        // Idempotency guard
         if (this._mediaSessionEnabled) {
             return;
         }
@@ -667,7 +657,6 @@ export class VideoPlayer implements IVideoPlayer {
             return;
         }
 
-        // Mark enabled only after confirming support
         this._mediaSessionEnabled = true;
 
         // Install action handlers (each wrapped in try/catch for quirky implementations)
@@ -682,10 +671,8 @@ export class VideoPlayer implements IVideoPlayer {
             }
         }
 
-        // Sync metadata immediately based on current descriptor
         this._syncMediaSessionMetadata();
 
-        // Sync playback state immediately
         this._syncMediaSessionPlaybackState(this.getState());
 
         // Subscribe to stateChange events for ongoing updates.
@@ -700,13 +687,11 @@ export class VideoPlayer implements IVideoPlayer {
 
     // Idempotent: multiple calls are safe. Never throws.
     public releaseMediaSession(): void {
-        // Idempotency guard
         if (!this._mediaSessionEnabled) {
             return;
         }
         this._mediaSessionEnabled = false;
 
-        // Unsubscribe state change handler
         if (this._mediaSessionStateChangeHandler) {
             this.off('stateChange', this._mediaSessionStateChangeHandler);
             this._mediaSessionStateChangeHandler = null;
@@ -717,7 +702,6 @@ export class VideoPlayer implements IVideoPlayer {
             return;
         }
 
-        // Clear all action handlers
         for (let i = 0; i < MEDIA_SESSION_ACTIONS.length; i++) {
             const action = MEDIA_SESSION_ACTIONS[i];
             if (action) {
@@ -729,7 +713,6 @@ export class VideoPlayer implements IVideoPlayer {
             }
         }
 
-        // Clear metadata and playback state (wrapped for quirky implementations)
         try {
             mediaSession.metadata = null;
         } catch {
@@ -770,19 +753,16 @@ export class VideoPlayer implements IVideoPlayer {
     }
 
     private _getMediaSession(): MediaSessionLike | null {
-        // Check navigator exists
         if (typeof navigator === 'undefined') {
             return null;
         }
 
-        // Check mediaSession exists on navigator
         if (!('mediaSession' in navigator)) {
             return null;
         }
 
         const candidate = (navigator as { mediaSession?: unknown }).mediaSession;
 
-        // Validate it has the required setActionHandler method
         if (
             typeof candidate !== 'object' ||
             candidate === null ||
@@ -796,7 +776,6 @@ export class VideoPlayer implements IVideoPlayer {
 
     private _createActionHandler(action: MediaSessionActionLike): MediaSessionActionHandlerLike {
         return (details: unknown): void => {
-            // Guard: if player isn't initialized, no-op
             if (!this._videoElement) {
                 return;
             }
@@ -918,7 +897,6 @@ export class VideoPlayer implements IVideoPlayer {
             return;
         }
 
-        // Check if MediaMetadata constructor exists
         const MediaMetadataConstructor = this._getMediaMetadataConstructor();
         if (!MediaMetadataConstructor) {
             try {
@@ -929,7 +907,6 @@ export class VideoPlayer implements IVideoPlayer {
             return;
         }
 
-        // Build init object
         const metadata = descriptor.mediaMetadata;
         const init: {
             title: string;
@@ -993,7 +970,6 @@ export class VideoPlayer implements IVideoPlayer {
             // Ignore
         }
 
-        // Update position state if supported and applicable
         this._syncMediaSessionPositionState(state);
     }
 
@@ -1020,12 +996,10 @@ export class VideoPlayer implements IVideoPlayer {
         let position = state.currentTimeMs / 1000;
         const playbackRate = state.playbackRate;
 
-        // Validate all values are finite
         if (!isFinite(duration) || !isFinite(position) || !isFinite(playbackRate)) {
             return;
         }
 
-        // Clamp position to [0, duration]
         position = Math.max(0, Math.min(position, duration));
 
         try {

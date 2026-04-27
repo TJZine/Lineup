@@ -158,6 +158,9 @@ docs/runs/*
 docs/agentic/evals/baselines/**
 !docs/agentic/evals/baselines/README.md
 
+# Keep macOS metadata ignored even inside allowlisted doc/skill trees.
+**/.DS_Store
+
 # Storybook
 storybook-static/
 

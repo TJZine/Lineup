@@ -173,7 +173,7 @@ export class AudioTrackManager {
         // Failed after retries - try to restore previous track
         if (previousTrackId && previousTrackId !== trackId) {
             try {
-                await this._restoreTrack(audioTracks, previousTrackId);
+                this._restoreTrack(audioTracks, previousTrackId);
             } catch (restoreError) {
                 restoreFailure = this._getErrorMessage(restoreError);
             }
@@ -281,10 +281,10 @@ export class AudioTrackManager {
     /**
      * Restore a previous track.
      */
-    private async _restoreTrack(
+    private _restoreTrack(
         audioTracks: WebOSAudioTrackList,
         trackId: string
-    ): Promise<void> {
+    ): void {
         for (let i = 0; i < audioTracks.length; i++) {
             const track = audioTracks[i];
             if (track) {

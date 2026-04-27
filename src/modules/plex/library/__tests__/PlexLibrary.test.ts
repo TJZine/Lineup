@@ -272,6 +272,41 @@ describe('PlexLibrary', () => {
             });
         });
 
+        it('preserves sanitized parse cause and request context without leaking URL tokens', async () => {
+            mockFetchTextResponse('{not-valid-json');
+            const library = new PlexLibrary(mockConfig);
+            expectConsoleError((args: readonly unknown[]) => {
+                const [message] = args;
+                return typeof message === 'string'
+                    && message.includes('[PlexLibrary] Parse error for')
+                    && message.includes('X-Plex-Token=REDACTED')
+                    && !message.includes('secret-token');
+            });
+
+            try {
+                await library.getItem('123?X-Plex-Token=secret-token');
+                throw new Error('Expected getItem to reject');
+            } catch (error) {
+                expect(error).toBeInstanceOf(PlexLibraryError);
+                const plexError = error as PlexLibraryError;
+                expect(plexError).toMatchObject({
+                    code: AppErrorCode.PARSE_ERROR,
+                    message: expect.stringContaining('Invalid JSON response'),
+                    httpStatus: undefined,
+                    cause: {
+                        name: 'SyntaxError',
+                        message: expect.any(String),
+                    },
+                    context: {
+                        summary: expect.stringContaining('X-Plex-Token=REDACTED'),
+                    },
+                });
+                expect(plexError.context).toMatchObject({
+                    summary: expect.not.stringContaining('secret-token'),
+                });
+            }
+        });
+
         it('throws typed error when library sections are unavailable', async () => {
             mockFetchJson({ error: 'Not found' }, 404);
             const library = new PlexLibrary(mockConfig);
@@ -572,6 +607,73 @@ describe('PlexLibrary', () => {
             expect(message).not.toContain('mock-token');
         });
 
+        it('preserves sanitized network causes without leaking URL tokens', async () => {
+            const onServerUnreachable = jest.fn();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockRejectedValue(
+                new TypeError('Failed to fetch http://plex.test/item?X-Plex-Token=secret-token')
+            );
+            const library = new PlexLibrary({
+                ...mockConfig,
+                onServerUnreachable,
+            });
+
+            try {
+                await library.getItem('123?X-Plex-Token=secret-token');
+                throw new Error('Expected getItem to reject');
+            } catch (error) {
+                expect(error).toBeInstanceOf(PlexLibraryError);
+                const plexError = error as PlexLibraryError;
+                expect(plexError).toMatchObject({
+                    code: AppErrorCode.SERVER_UNREACHABLE,
+                    message: 'Failed to fetch http://plex.test/item?X-Plex-Token=REDACTED',
+                    httpStatus: undefined,
+                    cause: {
+                        name: 'TypeError',
+                        message: 'Failed to fetch http://plex.test/item?X-Plex-Token=REDACTED',
+                    },
+                    context: {
+                        summary: expect.stringContaining('X-Plex-Token=REDACTED'),
+                    },
+                });
+                expect(plexError.context).toMatchObject({
+                    summary: expect.not.stringContaining('secret-token'),
+                });
+            }
+            expect(onServerUnreachable).toHaveBeenCalled();
+        });
+
+        it('preserves sanitized unknown causes without leaking URL tokens', async () => {
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockRejectedValue({
+                detail: 'Bad fetch state for http://plex.test/item?X-Plex-Token=secret-token',
+            });
+            const library = new PlexLibrary(mockConfig);
+
+            try {
+                await library.getItem('123?X-Plex-Token=secret-token');
+                throw new Error('Expected getItem to reject');
+            } catch (error) {
+                expect(error).toBeInstanceOf(PlexLibraryError);
+                const plexError = error as PlexLibraryError;
+                expect(plexError).toMatchObject({
+                    code: AppErrorCode.SERVER_UNREACHABLE,
+                    message: 'Unknown error',
+                    httpStatus: undefined,
+                    cause: {
+                        summary: expect.stringContaining('X-Plex-Token=REDACTED'),
+                    },
+                    context: {
+                        summary: expect.stringContaining('X-Plex-Token=REDACTED'),
+                    },
+                });
+                expect(plexError.cause).toMatchObject({
+                    summary: expect.not.stringContaining('secret-token'),
+                });
+                expect(plexError.context).toMatchObject({
+                    summary: expect.not.stringContaining('secret-token'),
+                });
+            }
+        });
+
         it('should parse media files correctly', async () => {
             mockFetchJson(mockMediaItemResponse);
             const library = new PlexLibrary(mockConfig);
@@ -765,27 +867,20 @@ describe('PlexLibrary', () => {
             expect(url).toContain('X-Plex-Token=mock-token');
         });
 
-        it('should return external absolute image URLs token-free', () => {
+        it('should reject external absolute image URLs', () => {
             const library = new PlexLibrary(mockConfig);
 
             const url = library.getImageUrl('https://malicious.example/library/metadata/123/thumb');
 
-            expect(url).toBe('https://malicious.example/library/metadata/123/thumb');
+            expect(url).toBeNull();
         });
 
-        it('should preserve resized external images through the Plex transcode path', () => {
+        it('should reject resized external absolute image URLs', () => {
             const library = new PlexLibrary(mockConfig);
 
             const url = library.getImageUrl('https://malicious.example/library/metadata/123/thumb', 300);
-            expect(url).not.toBeNull();
-            const parsed = new URL(url as string);
 
-            expect(parsed.origin).toBe('http://192.168.1.100:32400');
-            expect(parsed.pathname).toBe('/photo/:/transcode');
-            expect(parsed.searchParams.get('X-Plex-Token')).toBe('mock-token');
-            expect(parsed.searchParams.get('width')).toBe('300');
-            expect(parsed.searchParams.get('height')).toBe('300');
-            expect(parsed.searchParams.get('url')).toBe('https://malicious.example/library/metadata/123/thumb');
+            expect(url).toBeNull();
         });
 
         it('should use transcoder for resized images', () => {

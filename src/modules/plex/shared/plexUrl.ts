@@ -139,7 +139,7 @@ export function buildPlexResourceUrlWithAuth(
 
     const classification = classifyPlexUrlOrigin(baseUri, pathOrUrl);
     if (classification === 'foreign-absolute') {
-        return pathOrUrl;
+        return null;
     }
     if (classification === 'invalid' && !isRootRelativePath(pathOrUrl)) {
         return null;

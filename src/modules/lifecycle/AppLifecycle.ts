@@ -15,8 +15,8 @@ import { ErrorRecovery } from './ErrorRecovery';
 import { LifecycleConnectivityMonitor } from './LifecycleConnectivityMonitor';
 import { LifecycleMemoryMonitor } from './LifecycleMemoryMonitor';
 import { LifecycleStatePersistenceQueue } from './LifecycleStatePersistenceQueue';
+import { LifecycleAsyncErrorReporter } from './LifecycleAsyncErrorReporter';
 import { EventEmitter } from '../../utils/EventEmitter';
-import { summarizeErrorForLog } from '../../utils/errors';
 import type { IDisposable } from '../../utils/interfaces';
 import {
     TIMING_CONFIG,
@@ -26,33 +26,29 @@ import type { PlatformLifecycleService } from '../../platform';
 import { createWebOsPlatformServices } from '../../platform';
 
 export class AppLifecycle implements IAppLifecycle {
-    // Dependencies
     private readonly _emitter: EventEmitter<LifecycleEventMap>;
     private readonly _stateManager: StateManager;
     private readonly _errorRecovery: ErrorRecovery;
     private readonly _statePersistenceQueue: LifecycleStatePersistenceQueue;
     private readonly _connectivityMonitor: LifecycleConnectivityMonitor;
     private readonly _memoryMonitor: LifecycleMemoryMonitor;
+    private readonly _asyncErrorReporter: LifecycleAsyncErrorReporter;
 
-    // Runtime state
     private _phase: AppPhase = 'initializing';
     private _isVisible: boolean = true;
     private _isNetworkAvailable: boolean = true;
     private _lastActiveTime: number = Date.now();
     private _lastError: AppError | null = null;
 
-    // Callbacks
     private readonly _pauseCallbacks: LifecycleCallback[] = [];
     private readonly _resumeCallbacks: LifecycleCallback[] = [];
     private readonly _terminateCallbacks: LifecycleCallback[] = [];
 
-    // Event listener references (for cleanup)
     private _visibilityHandler: (() => void) | null = null;
     private _webOSRelaunchDisposer: (() => void) | null = null;
     private readonly _lifecycleService: PlatformLifecycleService;
     private _pendingTransition: Promise<void> = Promise.resolve();
 
-    // Idempotency guards (ISSUE-003)
     private _initialized: boolean = false;
     private _shutdownStarted: boolean = false;
 
@@ -76,6 +72,14 @@ export class AppLifecycle implements IAppLifecycle {
             buildState: (): PersistentState => this._buildCurrentState(),
             emitPersistenceWarning: (warning): void => {
                 this._emitter.emit('persistenceWarning', warning);
+            },
+        });
+        this._asyncErrorReporter = new LifecycleAsyncErrorReporter({
+            emitAsyncError: (payload): void => {
+                this._emitter.emit('asyncError', payload);
+            },
+            reportError: (error): void => {
+                this.reportError(error);
             },
         });
         this._connectivityMonitor = new LifecycleConnectivityMonitor({
@@ -107,17 +111,14 @@ export class AppLifecycle implements IAppLifecycle {
      * Sets up event listeners and restores state.
      */
     public async initialize(): Promise<void> {
-        // Idempotency guard: prevent double-initialization
         if (this._initialized) {
             return;
         }
         this._initialized = true;
 
-        // Setup event listeners
         this._setupVisibilityListeners();
         this._connectivityMonitor.setupListeners();
 
-        // Check initial network state
         const initialNetworkAvailability = navigator.onLine;
         this._isNetworkAvailable = initialNetworkAvailability;
         this._connectivityMonitor.setInitialAvailability(initialNetworkAvailability);
@@ -125,7 +126,6 @@ export class AppLifecycle implements IAppLifecycle {
         this._memoryMonitor.startMonitoring();
         this._connectivityMonitor.startMonitoring();
 
-        // Restore state
         const savedState = this._stateManager.load();
 
         // Auth is managed by PlexAuth storage; initialization settles in authenticating
@@ -142,7 +142,6 @@ export class AppLifecycle implements IAppLifecycle {
      * Saves state and removes all event listeners.
      */
     public async shutdown(): Promise<void> {
-        // Idempotency guard: prevent double-shutdown
         if (this._shutdownStarted) {
             return;
         }
@@ -150,10 +149,8 @@ export class AppLifecycle implements IAppLifecycle {
 
         await this._transitionPhase('terminating');
 
-        // Emit beforeTerminate
         this._emitter.emit('beforeTerminate', undefined);
 
-        // Execute terminate callbacks with timeout
         await this._executeCallbacksWithTimeout(
             this._terminateCallbacks,
             TIMING_CONFIG.CALLBACK_TIMEOUT_MS
@@ -162,15 +159,12 @@ export class AppLifecycle implements IAppLifecycle {
         // Save final state (already saved by _transitionPhase, but flush any pending)
         await this._statePersistenceQueue.flush({ finalShutdown: true });
 
-        // Stop monitoring
         this._memoryMonitor.stopMonitoring();
         this._connectivityMonitor.stopMonitoring();
 
-        // Remove event listeners
         this._removeVisibilityListeners();
         this._connectivityMonitor.removeListeners();
 
-        // Clear all event handlers
         this._emitter.removeAllListeners();
     }
 
@@ -184,7 +178,7 @@ export class AppLifecycle implements IAppLifecycle {
         return this._statePersistenceQueue.saveState();
     }
 
-    // ========== Lifecycle Callbacks ==========
+    // ========== Lifecycle Hooks ==========
 
     /**
      * Register a callback for when app is paused.
@@ -317,12 +311,10 @@ export class AppLifecycle implements IAppLifecycle {
      * @returns true if transition succeeded
      */
     private async _transitionPhase(phase: AppPhase): Promise<boolean> {
-        // No-op if same phase
         if (this._phase === phase) {
             return true;
         }
 
-        // Validate transition
         const validTransitions = VALID_PHASE_TRANSITIONS[this._phase];
         if (validTransitions && !validTransitions.includes(phase)) {
             // Reject invalid transition per spec
@@ -394,14 +386,12 @@ export class AppLifecycle implements IAppLifecycle {
      * Setup visibility change listeners.
      */
     private _setupVisibilityListeners(): void {
-        // Standard visibility API
         this._visibilityHandler = (): void => {
             const transition = document.hidden ? this._handlePause() : this._handleResume();
             this._trackPendingTransition(transition);
         };
         document.addEventListener('visibilitychange', this._visibilityHandler);
 
-        // webOS relaunch event
         const relaunchHandler = (_event: Event): void => {
             this._trackPendingTransition(this._handleResume());
         };
@@ -427,7 +417,7 @@ export class AppLifecycle implements IAppLifecycle {
      */
     private async _handlePause(): Promise<void> {
         if (!this._isVisible) {
-            return; // Already paused
+            return;
         }
 
         this._isVisible = false;
@@ -436,7 +426,6 @@ export class AppLifecycle implements IAppLifecycle {
         // Save state immediately on pause
         await this._statePersistenceQueue.flush();
 
-        // Execute pause callbacks with timeout
         await this._executeCallbacksWithTimeout(
             this._pauseCallbacks,
             TIMING_CONFIG.CALLBACK_TIMEOUT_MS
@@ -452,7 +441,7 @@ export class AppLifecycle implements IAppLifecycle {
      */
     private async _handleResume(): Promise<void> {
         if (this._isVisible) {
-            return; // Already visible
+            return;
         }
 
         this._isVisible = true;
@@ -463,7 +452,6 @@ export class AppLifecycle implements IAppLifecycle {
             await this._transitionPhase('resuming');
         }
 
-        // Execute resume callbacks
         await this._executeCallbacksWithTimeout(
             this._resumeCallbacks,
             TIMING_CONFIG.CALLBACK_TIMEOUT_MS
@@ -535,27 +523,13 @@ export class AppLifecycle implements IAppLifecycle {
     }
 
     private _handleAsyncError(error: unknown, context: string): void {
-        const summarizedError = summarizeErrorForLog(error);
-        console.warn('[AppLifecycle] Async lifecycle task failed', {
-            context,
-            error: summarizedError,
-        });
-        this.reportError({
-            code: AppErrorCode.UNKNOWN,
-            message: `Async lifecycle task failed: ${context}`,
-            recoverable: true,
-            context: {
-                source: context,
-                error: summarizedError,
-            },
-        });
+        this._asyncErrorReporter.handle(error, context);
     }
 
     /**
      * Build current state for saving.
      */
     private _buildCurrentState(): PersistentState {
-        // Load existing persisted state as baseline, or create default if none exists
         const existingState =
             this._stateManager.load() ?? this._stateManager.createDefaultState();
 

@@ -59,6 +59,62 @@
       "npm_run_verify_and_or_verify_docs_pass_as_appropriate"
     ]
   },
+  "priority_exit_evidence": {
+    "checklist_token": "P13-EXIT",
+    "status": "completed",
+    "completed_at": "2026-04-26",
+    "verification_mode": "integration-ops",
+    "verification_classification": "broader integration/manual proof required",
+    "summary": "P13-W1 through P13-W5 are complete; all 22 exact P13 review issue ids are assigned with source-proof dispositions and no open exact-id matches; package-local sweeps returned only accepted non-P13 objective residue with final owners or stale query residue reconciled by direct proof.",
+    "commands": [
+      "desloppify scan --path .",
+      "desloppify status",
+      "desloppify plan queue --sort recent",
+      "desloppify next",
+      "desloppify show review --status open --no-budget --top 120",
+      "desloppify show security --status open --no-budget --top 50",
+      "40 package-local desloppify show commands from packages[].package_local_scoping_commands",
+      "22 exact issue-id checks: desloppify show <exact-review-issue-id> --status open --no-budget --top 20",
+      "desloppify detect cycles --file src/core/channel-setup/planning/ChannelSetupFacetSnapshotLoadSession.ts",
+      "desloppify detect cycles --file src/core/channel-setup/planning/ChannelSetupPlanner.ts",
+      "desloppify detect cycles --file src/modules/navigation/NavigationChannelNumberHandler.ts",
+      "desloppify detect cycles --file src/modules/navigation/NavigationCoordinator.ts",
+      "npm run verify",
+      "npm run verify:docs"
+    ],
+    "desloppify_scan": {
+      "status": "passed",
+      "overall": 88.1,
+      "objective": 96.0,
+      "strict": 88.0,
+      "verified": 96.0,
+      "notes": [
+        "security detector pass reported clean during scan",
+        "subjective review reported clean across 20 dimensions",
+        "boilerplate duplication auto-resolve skipped because jscpd errored",
+        "review auto-resolve skipped because review returned 0, likely transient"
+      ]
+    },
+    "top_level_evidence": {
+      "status": "strict 88.0 with 324 open in-scope/global issues and a CLI triage recommendation for 5 new review work items",
+      "queue": "desloppify plan queue --sort recent reported an empty queue",
+      "next": "desloppify next reported nothing to do",
+      "review": "desloppify show review --status open --no-budget --top 120 returned no open review matches",
+      "security": "desloppify show security --status open --no-budget --top 50 returned three open cycles rows via search-term matching; direct detect-cycles checks for the named files reported no import cycles, so they are stale query residue rather than live P13-owned blockers"
+    },
+    "review": {
+      "status": "clean after closure check",
+      "notes": [
+        "read-only ownership review initially blocked on missing final-owner wording for P13-W4 AudioTrackManager.ts objective residue",
+        "checklist and package map now assign that residue to the existing Desloppify objective queue with a revisit trigger and verification command",
+        "closure check approved the patch with no new blocker"
+      ]
+    },
+    "follow_ups": [
+      "No P13 exact-membership follow-ups remain.",
+      "Accepted non-P13 objective residue remains with the existing Desloppify objective queue and should be revisited only when desloppify next or a future objective cleanup selects those rows."
+    ]
+  },
   "packages": [
     {
       "package_id": "pkg_channel_setup_workflow_and_ui_contract_ownership",
@@ -287,9 +343,37 @@
         "priority_exit": "P13-EXIT"
       },
       "execution_status": {
-        "status": "not started",
-        "completed_execution_units": [],
-        "current_or_next_execution_unit": "P13-W4"
+        "status": "completed",
+        "completed_execution_units": [
+          "P13-W4-EU1",
+          "P13-W4-EU2",
+          "P13-W4-EU3",
+          "P13-W4-EU4",
+          "P13-W4-EU5",
+          "P13-W4-EU6"
+        ],
+        "current_or_next_execution_unit": null,
+        "source_proof_disposition": {
+          "review::.::holistic::error_consistency::plex_library_error_wrapping_loses_cause": "stale-proven resolved by preserving sanitized cause/context on PlexLibraryError wrappers for parse, network, timeout, and unknown failures without using native raw Error.cause or leaking Plex tokens",
+          "review::.::holistic::authorization_consistency::plex_image_foreign_url_boundary": "stale-proven resolved by returning null for foreign absolute image metadata in PlexLibrary.getImageUrl and shared Plex resource URL construction while preserving server-relative and same-server absolute image URLs",
+          "review::.::holistic::contract_coherence::plex_transcode_url_throws_undocumented": "stale-proven resolved by documenting synchronous StreamResolverError throws on the stream interface, implementation JSDoc, and Plex API docs, plus a resolveStreamPipeline transcode-path propagation contract test",
+          "review::.::holistic::design_coherence::plex_discovery_discover_servers_pipeline": "stale-proven resolved by extracting stateless PlexResourceDiscoveryRequestPolicy ownership for resource request variants, timeout, retry/backoff/rate-limit, 5xx fallback, response parsing, and response error mapping while leaving cache, stale context, selected-server state, events, and health persistence in PlexServerDiscovery",
+          "review::.::holistic::type_safety::plex_user_parser_record_contract": "stale-proven resolved by making parseUserResponse accept unknown, validate required profile fields internally, and throw typed parse errors without manufacturing required token fields from missing payload fields",
+          "review::.::holistic::logic_clarity::restore_track_async_without_await": "stale-proven resolved by making AudioTrackManager._restoreTrack synchronous and calling it directly inside the existing recovery try/catch"
+        },
+        "accepted_residue": [
+          "The remaining objective AudioTrackManager.ts console_error_no_throw and swallowed_error rows are pre-existing objective backlog signals for the restore-failure catch/log path, not part of P13-W4 exact review membership. Final owner: the existing Desloppify objective queue; revisit when desloppify next or a future objective cleanup selects the AudioTrackManager.ts restore-failure catch/log path. Verification command: desloppify show src/modules/player/AudioTrackManager.ts --status open --no-budget --top 80.",
+          "Exact issue-id Desloppify queries still return stale original imported review rows, but every P13-W4 exact issue is resolved by current-source proof and reviewed implementation evidence."
+        ],
+        "verification": [
+          "targeted package Jest command passed: 10 suites, 384 tests",
+          "npm run typecheck",
+          "npm run verify",
+          "npm run verify:docs before closeout edit as part of npm run verify; rerun required for final closeout commit",
+          "package-local desloppify show commands",
+          "exact issue-id desloppify show queries with --status all; stale imported review rows remain but are resolved by current-source proof",
+          "targeted rg audits for sanitized library causes, foreign image URL boundaries, transcode throw contract docs/call sites, parser required-field manufacturing, audio restore async/await removal, and discovery state/storage/event ownership"
+        ]
       }
     },
     {
@@ -308,9 +392,9 @@
         "src/modules/plex/discovery/types.ts",
         "src/modules/plex/library/constants.ts",
         "src/modules/ui/profile-select/styles.css",
-        "src/modules/ui/profile-select/styles/layout.css",
-        "src/modules/ui/profile-select/styles/cards.css",
-        "src/modules/ui/profile-select/styles/pin-modal.css",
+        "src/modules/ui/profile-select/styles.layout.css",
+        "src/modules/ui/profile-select/styles.cards.css",
+        "src/modules/ui/profile-select/styles.pin-modal.css",
         "docs/architecture/CURRENT_STATE.md"
       ],
       "package_local_scoping_commands": [
@@ -319,7 +403,7 @@
         "desloppify show src/modules/plex/discovery/types.ts --status open --no-budget --top 80",
         "desloppify show src/modules/plex/library/constants.ts --status open --no-budget --top 80",
         "desloppify show src/modules/ui/profile-select/styles.css --status open --no-budget --top 80",
-        "desloppify show src/modules/ui/profile-select/styles --status open --no-budget --top 120",
+        "desloppify show src/modules/ui/profile-select --status open --no-budget --top 120",
         "desloppify show docs/architecture/CURRENT_STATE.md --status open --no-budget --top 80"
       ],
       "likely_first_slice": "Do not treat this as a miscellaneous cleanup bucket. Split source/comment, style-package, and current-state doc correction into explicit execution units unless the package-local plan proves one owner and verification envelope.",
@@ -329,9 +413,27 @@
         "priority_exit": "P13-EXIT"
       },
       "execution_status": {
-        "status": "not started",
-        "completed_execution_units": [],
-        "current_or_next_execution_unit": "P13-W5"
+        "status": "completed",
+        "completed_execution_units": [
+          "P13-W5-EU1",
+          "P13-W5-EU2",
+          "P13-W5-EU3",
+          "P13-W5-EU4"
+        ],
+        "current_or_next_execution_unit": null,
+        "source_proof_disposition": {
+          "review::.::holistic::ai_generated_debt::lifecycle_player_restating_comments": "resolved by removing restating lifecycle/player comments while preserving non-obvious phase, platform, retry, and media-session rationale",
+          "review::.::holistic::ai_generated_debt::plex_type_constant_doc_bloat": "resolved by removing Plex type/constant documentation bloat while preserving comments that explain protocol/default semantics",
+          "review::.::holistic::package_organization::profile_select_nested_css_shards": "resolved by flattening profile-select CSS shards to sibling files with preserved cascade order and unchanged CSS content",
+          "review::.::holistic::high_level_elegance::canonical_architecture_channel_setup_path_drift": "resolved by correcting canonical Channel Setup owner paths in current architecture truth"
+        },
+        "verification": [
+          "exact issue-id desloppify show --status open checks for all four imported review issues reported no open matches during execution-unit proof",
+          "package-local desloppify show checks for touched source/doc/style paths reported no remaining package-owned open issues, except pre-existing AppLifecycle log/swallowed-error/shallow-test rows outside P13-W5 scope",
+          "targeted rg checks cleared stale comment/path/import evidence for S1-S4, including profile-select nested-path references in source, checklist, and package-map surfaces",
+          "git diff --check passed for each execution unit's touched files",
+          "npm run verify and npm run verify:docs passed during final package verification"
+        ]
       }
     }
   ]

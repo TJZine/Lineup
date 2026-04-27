@@ -206,13 +206,13 @@ describe('shared plexUrl helpers', () => {
             expect(result).toBeNull();
         });
 
-        it('keeps foreign absolute URLs unchanged and token-free', () => {
+        it('rejects foreign absolute URLs', () => {
             const result = buildPlexResourceUrlWithAuth(
                 'http://192.168.1.100:32400',
                 'https://cdn.example/images/poster.jpg',
                 { 'X-Plex-Token': 'token-1' }
             );
-            expect(result).toBe('https://cdn.example/images/poster.jpg');
+            expect(result).toBeNull();
         });
 
         it('normalizes server-relative and server-absolute URLs and applies token query param', () => {

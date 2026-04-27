@@ -1,6 +1,7 @@
 import { resolveStreamPipeline } from '../resolveStreamPipeline';
 import type { StreamResolverError } from '../interfaces';
 import { createMockMediaItem } from './testUtils';
+import { AppErrorCode } from '../../../../types/app-errors';
 
 describe('resolveStreamPipeline', () => {
     const createError = (
@@ -181,6 +182,39 @@ describe('resolveStreamPipeline', () => {
         expect(result.decision.transcodeRequest).toMatchObject({
             maxBitrate: 20000,
         });
+    });
+
+    it('propagates synchronous StreamResolverError transcode URL failures unchanged', () => {
+        const item = createMockMediaItem({
+            container: 'avi',
+            videoCodec: 'mpeg4',
+            audioCodec: 'mp2',
+        });
+        const expectedError = createError(
+            AppErrorCode.SERVER_UNREACHABLE,
+            'No server connection available',
+            true
+        );
+
+        try {
+            resolveStreamPipeline({
+                item,
+                request: { itemKey: '12345' },
+                sessionId: 'session-1',
+                allowDirectPlayAudioFallback: true,
+                dtsPassthroughEnabled: false,
+                userAgent: null,
+                hdr10FallbackMode: 'off',
+                createError,
+                buildDirectPlayUrl: () => 'http://example.com/direct',
+                getTranscodeUrl: () => {
+                    throw expectedError;
+                },
+            });
+            throw new Error('Expected resolveStreamPipeline to throw');
+        } catch (error) {
+            expect(error).toBe(expectedError);
+        }
     });
 
     it('honors explicit audioStreamId for direct-play compatibility and url generation', () => {
