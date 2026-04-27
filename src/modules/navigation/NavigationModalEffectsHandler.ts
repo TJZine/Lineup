@@ -1,9 +1,18 @@
 import type {
-    NavigationModalEffectsPort,
+    NavigationMiniGuidePort,
+    NavigationModalsPort,
+    NavigationNowPlayingInfoPort,
+    NavigationModalEffectsRuntime,
     NavigationRepeatRuntime,
 } from './NavigationCoordinatorContracts';
 
-export class NavigationModalEffectsHandler {
+export interface NavigationModalEffectsPort {
+    miniGuide: NavigationMiniGuidePort;
+    nowPlayingInfo: NavigationNowPlayingInfoPort;
+    modals: NavigationModalsPort;
+}
+
+export class NavigationModalEffectsHandler implements NavigationModalEffectsRuntime {
     constructor(
         private readonly deps: NavigationModalEffectsPort,
         private readonly repeats: NavigationRepeatRuntime

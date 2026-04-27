@@ -356,11 +356,26 @@ describe('OrchestratorCoordinatorBuilders', () => {
         expect(navigationDeps.events.reportToast).toBeDefined();
         navigationDeps.events.reportToast?.({ message: 'Recovered', type: 'warning' });
         expect(reportToast).toHaveBeenCalledWith({ message: 'Recovered', type: 'warning' });
-        expect(navigationDeps.keyModeRouter.playback.getSeekIncrementMs()).toBe(15_000);
+        const handlers = navigationDeps.createHandlers({
+            fireAndReport: jest.fn(),
+            observeNonBlockingPromise: jest.fn().mockResolvedValue(undefined),
+            logInputNotHandled: jest.fn(),
+        });
+        const keyModeRouterDeps = (handlers.keyModeRouter as unknown as {
+            deps: {
+                playback: { getSeekIncrementMs: () => number };
+                nowPlayingInfo: { isModalOpen: () => boolean; resetAutoHideTimer: () => void };
+            };
+        }).deps;
+        const screenEffectsDeps = (handlers.screenEffects as unknown as {
+            deps: { readKeepPlayingInSettings: () => boolean };
+        }).deps;
+
+        expect(keyModeRouterDeps.playback.getSeekIncrementMs()).toBe(15_000);
         input.config!.playerConfig!.seekIncrementSec = 30;
-        expect(navigationDeps.keyModeRouter.playback.getSeekIncrementMs()).toBe(30_000);
+        expect(keyModeRouterDeps.playback.getSeekIncrementMs()).toBe(30_000);
         input.config!.playerConfig!.seekIncrementSec = Number.NaN;
-        expect(navigationDeps.keyModeRouter.playback.getSeekIncrementMs()).toBe(10_000);
+        expect(keyModeRouterDeps.playback.getSeekIncrementMs()).toBe(10_000);
         const navigationModule = input.modules.navigation as unknown as {
             isModalOpen: jest.Mock<boolean, [string?]>;
         };
@@ -368,12 +383,12 @@ describe('OrchestratorCoordinatorBuilders', () => {
         const nowPlayingInfoOverlay = input.overlays.nowPlayingInfo as unknown as {
             resetAutoHideTimer: jest.Mock;
         };
-        expect(navigationDeps.keyModeRouter.nowPlayingInfo.isModalOpen()).toBe(true);
+        expect(keyModeRouterDeps.nowPlayingInfo.isModalOpen()).toBe(true);
         expect(navigationModule.isModalOpen).toHaveBeenCalledWith('now-playing-info');
         expect(nowPlayingInfoOverlay.resetAutoHideTimer).not.toHaveBeenCalled();
-        navigationDeps.keyModeRouter.nowPlayingInfo.resetAutoHideTimer();
+        keyModeRouterDeps.nowPlayingInfo.resetAutoHideTimer();
         expect(nowPlayingInfoOverlay.resetAutoHideTimer).toHaveBeenCalledTimes(1);
-        expect(navigationDeps.screenEffects.readKeepPlayingInSettings()).toBe(false);
+        expect(screenEffectsDeps.readKeepPlayingInSettings()).toBe(false);
         expect(navigationDeps.events.readDebugLoggingEnabled()).toBe(true);
     });
 

@@ -403,7 +403,7 @@
     {
       "wave_id": "P14-WAVE5",
       "name": "post-wave4-target-residual-cleanup",
-      "status": "admitted",
+      "status": "implementation_complete_pending_review",
       "purpose": "After WAVE4, focused review still left all three P14 target dimensions below 85; execute the next admitted source-backed residual issues before reconsidering P14-EXIT.",
       "gate_only": false,
       "admission_rule": "Admit only source-backed residuals from the 20260427_051430 focused review with one owner, candidate files, package-local commands, and verification routing. Do not open P15 or reopen broad AppOrchestrator/lifecycle cleanup.",
@@ -1074,8 +1074,9 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE5 execution-grade plan",
+        "status": "implementation_complete_pending_review",
+        "current_or_next_execution_unit": "P14-WAVE5 implementation review",
+        "implementation_disposition": "Handler-owned input contracts moved next to handlers; coordinator now receives handler runtimes from orchestrator-owned assembly while preserving event subscription ownership.",
         "recommended_execution_order": 1
       }
     },
@@ -1114,8 +1115,9 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE5 execution-grade plan",
+        "status": "implementation_complete_pending_review",
+        "current_or_next_execution_unit": "P14-WAVE5 implementation review",
+        "implementation_disposition": "Cited generated fileoverview/module/version headers and banner separators removed without runtime changes.",
         "recommended_execution_order": 2
       }
     },
@@ -1155,8 +1157,9 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE5 execution-grade plan",
+        "status": "implementation_complete_pending_review",
+        "current_or_next_execution_unit": "P14-WAVE5 implementation review",
+        "implementation_disposition": "Cited trivial getter/setter/pass-through JSDoc removed while preserving lifecycle, platform, and behavior comments.",
         "recommended_execution_order": 3
       }
     },
@@ -1189,8 +1192,9 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE5 execution-grade plan",
+        "status": "implementation_complete_pending_review",
+        "current_or_next_execution_unit": "P14-WAVE5 implementation review",
+        "implementation_disposition": "Planner diagnostics bookkeeping moved into a planner-local recorder with unchanged diagnostic output semantics.",
         "recommended_execution_order": 4
       }
     },
@@ -1231,8 +1235,9 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE5 execution-grade plan",
+        "status": "implementation_complete_pending_review",
+        "current_or_next_execution_unit": "P14-WAVE5 implementation review",
+        "implementation_disposition": "Concrete handler construction moved out of NavigationCoordinator into orchestrator assembly. Source audit plus madge found no circular dependency across the cited navigation files; remaining Desloppify cycle row is treated as stale detector wording pending implementation review.",
         "recommended_execution_order": 5
       }
     },
@@ -1267,8 +1272,9 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE5 execution-grade plan",
+        "status": "implementation_complete_pending_review",
+        "current_or_next_execution_unit": "P14-WAVE5 implementation review",
+        "implementation_disposition": "Facet snapshot accumulation, timings, warnings, deferred-empty bookkeeping, and library queue mechanics moved behind session-local collaborators while session-owned load-order/failure policy remained unchanged.",
         "recommended_execution_order": 6
       }
     }

@@ -1,9 +1,3 @@
-/**
- * @fileoverview Pure subtitle mode helpers.
- * @module shared/subtitle-mode
- * @version 1.0.0
- */
-
 export const SUBTITLE_MODES = ['off', 'direct', 'standard', 'full'] as const;
 
 export type SubtitleMode = (typeof SUBTITLE_MODES)[number];

@@ -1,15 +1,7 @@
-/**
- * @fileoverview Type definitions for Channel Manager module.
- * @module modules/scheduler/channel-manager/types
- * @version 1.0.0
- */
-
 import type { AppErrorCode } from '../../lifecycle/types';
 import type { PlexMediaType } from '../../plex/shared/types';
 
-// ============================================
 // Playback & Filter Types
-// ============================================
 
 /**
  * Playback mode for channel content
@@ -68,9 +60,7 @@ export type SortOrder =
 
 export type { PlexMediaType };
 
-// ============================================
 // Content Filter
-// ============================================
 
 /**
  * Content filter specification
@@ -84,9 +74,7 @@ export interface ContentFilter {
     value: string | number | boolean;
 }
 
-// ============================================
 // Content Source Types
-// ============================================
 
 /**
  * Base interface for content sources
@@ -188,9 +176,7 @@ export type ChannelContentSource =
     | ManualContentSource
     | MixedContentSource;
 
-// ============================================
 // Channel Configuration
-// ============================================
 
 /**
  * Complete channel configuration - persisted to storage
@@ -311,9 +297,7 @@ export interface ChannelCreateInput
  */
 export type ChannelUpdateInput = Partial<Pick<ChannelConfig, ChannelWritableField>>;
 
-// ============================================
 // Resolved Content
-// ============================================
 
 /**
  * A resolved content item with cached metadata
@@ -396,9 +380,7 @@ export interface ResolvedChannelContent {
     cacheReason?: 'fresh' | 'network_error' | 'content_unavailable';
 }
 
-// ============================================
 // Import/Export
-// ============================================
 
 /**
  * Channel import result
@@ -414,9 +396,7 @@ export interface ImportResult {
     errors: string[];
 }
 
-// ============================================
 // Events
-// ============================================
 
 /**
  * Channel manager events
@@ -436,9 +416,7 @@ export interface ChannelManagerEventMap {
     [key: string]: unknown;
 }
 
-// ============================================
 // Internal State
-// ============================================
 
 /**
  * Internal state for ChannelManager

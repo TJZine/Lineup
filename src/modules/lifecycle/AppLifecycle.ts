@@ -230,16 +230,10 @@ export class AppLifecycle implements IAppLifecycle {
 
     // ========== Phase Management ==========
 
-    /**
-     * Get current application phase.
-     */
     public getPhase(): AppPhase {
         return this._phase;
     }
 
-    /**
-     * Get full lifecycle state.
-     */
     public getState(): AppLifecycleState {
         return {
             phase: this._phase,
@@ -344,9 +338,6 @@ export class AppLifecycle implements IAppLifecycle {
         this._emitter.emit('error', lifecycleError);
     }
 
-    /**
-     * Get the last reported error.
-     */
     public getLastError(): AppError | null {
         return this._lastError;
     }

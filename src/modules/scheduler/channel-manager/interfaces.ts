@@ -39,17 +39,8 @@ export interface IChannelManager {
 
     // Retrieval
 
-    /**
-     * Get a channel by ID.
-     * @param id - Channel ID
-     * @returns Channel config or null if not found
-     */
     getChannel(id: string): ChannelConfig | null;
 
-    /**
-     * Get all channels in order.
-     * @returns Array of channel configs
-     */
     getAllChannels(): ChannelConfig[];
 
     /**
@@ -97,11 +88,6 @@ export interface IChannelManager {
      */
     reorderChannels(orderedIds: string[]): Promise<void>;
 
-    /**
-     * Set the current active channel.
-     * @param channelId - Channel ID to switch to
-     * @throws ChannelError if channel not found
-     */
     setCurrentChannel(channelId: string): void;
 
     /**

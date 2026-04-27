@@ -1,15 +1,22 @@
-import type { KeyEvent } from './interfaces';
+import type { INavigationManager, KeyEvent } from './interfaces';
 import {
     computeAcceleratedRepeatIntervalMs,
     EPG_REPEAT_TIMING,
     MINI_GUIDE_REPEAT_TIMING,
 } from './constants';
 import type {
+    NavigationEpgPort,
     NavigationFourWayDirection,
-    NavigationRepeatHandlerPort,
     NavigationRepeatRuntime,
+    NavigationMiniGuidePort,
     NavigationVerticalDirection,
 } from './NavigationCoordinatorContracts';
+
+export interface NavigationRepeatHandlerPort {
+    navigation: INavigationManager;
+    epg: NavigationEpgPort | null;
+    miniGuide: NavigationMiniGuidePort;
+}
 
 export class NavigationRepeatHandler implements NavigationRepeatRuntime {
     private _epgRepeatTimer: ReturnType<typeof setTimeout> | null = null;

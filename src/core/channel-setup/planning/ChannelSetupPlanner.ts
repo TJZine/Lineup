@@ -62,6 +62,84 @@ type TruncatedPendingChannels = {
     reachedMaxChannels: boolean;
 };
 
+class ChannelSetupPlannerDiagnosticsRecorder {
+    private readonly _diagnostics: ChannelSetupPlannerDiagnostics | undefined;
+
+    constructor(
+        collectDiagnostics: boolean,
+        selectedLibraries: PlexLibrarySection[],
+        tagsByFamily: {
+            genres: Map<string, PlexTagDirectoryItem[]>;
+            directors: Map<string, PlexTagDirectoryItem[]>;
+            decades: Map<string, PlexTagDirectoryItem[]>;
+            studios: Map<string, PlexTagDirectoryItem[]>;
+            actors: Map<string, PlexTagDirectoryItem[]>;
+        },
+        effectiveMaxChannels: number,
+        minItems: number
+    ) {
+        this._diagnostics = collectDiagnostics
+            ? createPlannerDiagnostics(
+                selectedLibraries,
+                tagsByFamily.genres,
+                tagsByFamily.directors,
+                tagsByFamily.decades,
+                tagsByFamily.actors,
+                tagsByFamily.studios,
+                effectiveMaxChannels,
+                minItems
+            )
+            : undefined;
+    }
+
+    get diagnostics(): ChannelSetupPlannerDiagnostics | undefined {
+        return this._diagnostics;
+    }
+
+    recordCandidateFiltering(strategyBuild: {
+        candidatesBeforeMinItems: ChannelSetupEstimates;
+        candidatesAfterMinItems: ChannelSetupEstimates;
+    }): void {
+        if (!this._diagnostics) {
+            return;
+        }
+        this._diagnostics.candidatesBeforeMinItems = strategyBuild.candidatesBeforeMinItems;
+        this._diagnostics.candidatesAfterMinItems = strategyBuild.candidatesAfterMinItems;
+    }
+
+    recordStrategyBucketSizes(channels: PendingChannel[]): void {
+        if (!this._diagnostics) {
+            return;
+        }
+        this._diagnostics.strategyBucketSizes = countChannelsByStrategy(channels);
+    }
+
+    recordAfterAlternateLineups(channels: PendingChannel[]): void {
+        if (!this._diagnostics) {
+            return;
+        }
+        this._diagnostics.afterAlternateLineups = countChannelsByStrategy(channels);
+    }
+
+    recordAfterVariants(channels: PendingChannel[]): void {
+        if (!this._diagnostics) {
+            return;
+        }
+        this._diagnostics.afterVariants = countChannelsByStrategy(channels);
+    }
+
+    recordAfterMaxChannels(estimates: ChannelSetupEstimates): void {
+        if (!this._diagnostics) {
+            return;
+        }
+        this._diagnostics.afterMaxChannels = { ...estimates };
+        this._diagnostics.lostToMaxChannels = subtractEstimates(
+            this._diagnostics.afterVariants,
+            this._diagnostics.afterMaxChannels
+        );
+    }
+}
+
 const sortTagValuesByCountThenTitle = <T extends { title: string; count: number }>(values: T[]): T[] => (
     [...values].sort((a, b) => {
         const countDiff = b.count - a.count;
@@ -148,18 +226,19 @@ function buildChannelSetupPlanInternal(
     const { effectiveMaxChannels, minItems } = resolvePlanningLimits(config);
     const selectedLibraries = selectConfiguredLibraries(libraries, config);
 
-    const diagnostics = collectDiagnostics
-        ? createPlannerDiagnostics(
-            selectedLibraries,
-            genresByLibraryId,
-            directorsByLibraryId,
-            yearsByLibraryId,
-            actorsByLibraryId,
-            studiosByLibraryId,
-            effectiveMaxChannels,
-            minItems
-        )
-        : undefined;
+    const diagnosticsRecorder = new ChannelSetupPlannerDiagnosticsRecorder(
+        collectDiagnostics,
+        selectedLibraries,
+        {
+            genres: genresByLibraryId,
+            directors: directorsByLibraryId,
+            decades: yearsByLibraryId,
+            studios: studiosByLibraryId,
+            actors: actorsByLibraryId,
+        },
+        effectiveMaxChannels,
+        minItems
+    );
 
     const strategyBuild = buildChannelSetupStrategyBuckets({
         config,
@@ -176,10 +255,7 @@ function buildChannelSetupPlanInternal(
     });
     const { strategyBuckets, skipped } = strategyBuild;
 
-    if (diagnostics) {
-        diagnostics.candidatesBeforeMinItems = strategyBuild.candidatesBeforeMinItems;
-        diagnostics.candidatesAfterMinItems = strategyBuild.candidatesAfterMinItems;
-    }
+    diagnosticsRecorder.recordCandidateFiltering(strategyBuild);
 
     const showLibraryIds = new Set(
         selectedLibraries
@@ -192,30 +268,22 @@ function buildChannelSetupPlanInternal(
         createStrategyPriorityResolver(config)
     );
 
-    if (diagnostics) {
-        diagnostics.strategyBucketSizes = countChannelsByStrategy(baseOrderedUnadjusted);
-    }
+    diagnosticsRecorder.recordStrategyBucketSizes(baseOrderedUnadjusted);
 
     const baseOrdered = normalizeSeriesPlayback(baseOrderedUnadjusted, showLibraryIds, config);
     const withAlternateLineups = expandAlternateLineups(baseOrdered, config, seedFor);
 
-    if (diagnostics) {
-        diagnostics.afterAlternateLineups = countChannelsByStrategy(withAlternateLineups);
-    }
+    diagnosticsRecorder.recordAfterAlternateLineups(withAlternateLineups);
 
     const withVariants = expandPlaybackVariants(withAlternateLineups, showLibraryIds, config, seedFor);
 
-    if (diagnostics) {
-        diagnostics.afterVariants = countChannelsByStrategy(withVariants);
-    }
+    diagnosticsRecorder.recordAfterVariants(withVariants);
 
     const { pending, reachedMaxChannels } = truncatePendingChannels(withVariants, effectiveMaxChannels);
     const estimates = estimatePendingChannels(pending);
 
-    if (diagnostics) {
-        diagnostics.afterMaxChannels = { ...estimates };
-        diagnostics.lostToMaxChannels = subtractEstimates(diagnostics.afterVariants, diagnostics.afterMaxChannels);
-    }
+    diagnosticsRecorder.recordAfterMaxChannels(estimates);
+    const diagnostics = diagnosticsRecorder.diagnostics;
 
     return {
         plan: {

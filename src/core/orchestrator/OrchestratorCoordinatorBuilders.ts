@@ -7,6 +7,7 @@ import {
 } from '../../modules/navigation/NavigationCoordinator';
 import type {
     NavigationChannelSwitchOutcome,
+    NavigationCoordinatorHandlers,
     NavigationMiniGuidePort,
     NavigationModalsPort,
     NavigationNowPlayingInfoPort,
@@ -15,6 +16,11 @@ import type {
     NavigationChannelSwitchingPort,
     NavigationUiGuardsPort,
 } from '../../modules/navigation/NavigationCoordinatorContracts';
+import { NavigationChannelNumberHandler } from '../../modules/navigation/NavigationChannelNumberHandler';
+import { NavigationKeyModeRouter } from '../../modules/navigation/NavigationKeyModeRouter';
+import { NavigationModalEffectsHandler } from '../../modules/navigation/NavigationModalEffectsHandler';
+import { NavigationRepeatHandler } from '../../modules/navigation/NavigationRepeatHandler';
+import { NavigationScreenEffectsHandler } from '../../modules/navigation/NavigationScreenEffectsHandler';
 import type { PlaybackOptionsSectionId } from '../../modules/ui/playback-options';
 import type { AppError } from '../../modules/lifecycle';
 import type { IPlexLibrary } from '../../modules/plex/library';
@@ -670,39 +676,57 @@ export function buildNavigationCoordinator(
             readDebugLoggingEnabled: (): boolean =>
                 input.stores.developerSettingsStore.readDebugLoggingEnabledAndClean(false),
         },
-        repeats: {
-            navigation: input.modules.navigation,
-            epg: input.modules.epg,
-            miniGuide,
-        },
-        keyModeRouter: {
-            navigation: input.modules.navigation,
-            epg: input.modules.epg,
-            playback,
-            miniGuide,
-            nowPlayingInfo,
-            modals,
-            channelSwitching,
-        },
-        screenEffects: {
-            navigation: input.modules.navigation,
-            epg: input.modules.epg,
-            playback,
-            miniGuide,
-            nowPlayingInfo,
-            channelSwitching,
-            uiGuards,
-            readKeepPlayingInSettings: (): boolean =>
-                input.stores.profileSessionStore.readKeepPlayingInSettingsAndClean(false),
-        },
-        modalEffects: {
-            miniGuide,
-            nowPlayingInfo,
-            modals,
-        },
-        channelNumber: {
-            epg: input.modules.epg,
-            channelSwitching,
+        createHandlers: (callbacks): NavigationCoordinatorHandlers => {
+            const repeats = new NavigationRepeatHandler({
+                navigation: input.modules.navigation,
+                epg: input.modules.epg,
+                miniGuide,
+            });
+            return {
+                repeats,
+                keyModeRouter: new NavigationKeyModeRouter(
+                    {
+                        navigation: input.modules.navigation,
+                        epg: input.modules.epg,
+                        playback,
+                        miniGuide,
+                        nowPlayingInfo,
+                        modals,
+                        channelSwitching,
+                    },
+                    repeats,
+                    callbacks.fireAndReport,
+                    callbacks.observeNonBlockingPromise,
+                    callbacks.logInputNotHandled
+                ),
+                screenEffects: new NavigationScreenEffectsHandler(
+                    {
+                        navigation: input.modules.navigation,
+                        epg: input.modules.epg,
+                        playback,
+                        miniGuide,
+                        nowPlayingInfo,
+                        channelSwitching,
+                        uiGuards,
+                        readKeepPlayingInSettings: (): boolean =>
+                            input.stores.profileSessionStore.readKeepPlayingInSettingsAndClean(false),
+                    },
+                    repeats,
+                    callbacks.fireAndReport
+                ),
+                modalEffects: new NavigationModalEffectsHandler(
+                    {
+                        miniGuide,
+                        nowPlayingInfo,
+                        modals,
+                    },
+                    repeats
+                ),
+                channelNumber: new NavigationChannelNumberHandler({
+                    epg: input.modules.epg,
+                    channelSwitching,
+                }),
+            };
         },
     });
 }

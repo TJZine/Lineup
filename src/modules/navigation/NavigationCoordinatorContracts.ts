@@ -3,6 +3,7 @@ import type {
     INavigationManager,
     KeyEvent,
     NavigationAsyncFailureReporter,
+    Screen,
 } from './interfaces';
 import type { ToastInput } from '../ui/toast/types';
 
@@ -111,23 +112,53 @@ export interface NavigationRepeatRuntime {
     hasMiniGuideRepeatButton(): boolean;
 }
 
-export type NavigationFireAndReport = (
-    key: string,
-    promiseFactory: () => Promise<void>,
-    message: string,
-    toastMessage: string
-) => Promise<void> | null;
+export interface NavigationKeyModeRouterRuntime {
+    handleLongPressBack(): void;
+    handleKeyPress(event: KeyEvent): void;
+}
 
-export type NavigationObserveNonBlockingPromise = (
-    key: string,
-    promiseFactory: () => Promise<void>,
-    message: string
-) => Promise<void>;
+export interface NavigationScreenEffectsRuntime {
+    handleScreenChange(from: Screen, to: Screen): void;
+}
 
-export type NavigationLogInputNotHandled = (
-    reason: 'modal_open' | 'screen_not_player' | 'input_blocked',
-    event: KeyEvent
-) => void;
+export interface NavigationModalEffectsRuntime {
+    handleModalOpen(modalId: string): void;
+    handleModalClose(modalId: string): void;
+}
+
+export interface NavigationChannelNumberHandlerRuntime {
+    handleChannelNumberEntered(channelNumber: number): Promise<void>;
+}
+
+export interface NavigationCoordinatorHandlerCallbacks {
+    fireAndReport: (
+        key: string,
+        promiseFactory: () => Promise<void>,
+        message: string,
+        toastMessage: string
+    ) => Promise<void> | null;
+    observeNonBlockingPromise: (
+        key: string,
+        promiseFactory: () => Promise<void>,
+        message: string
+    ) => Promise<void>;
+    logInputNotHandled: (
+        reason: 'modal_open' | 'screen_not_player' | 'input_blocked',
+        event: KeyEvent
+    ) => void;
+}
+
+export interface NavigationCoordinatorHandlers {
+    repeats: NavigationRepeatRuntime;
+    keyModeRouter: NavigationKeyModeRouterRuntime;
+    screenEffects: NavigationScreenEffectsRuntime;
+    modalEffects: NavigationModalEffectsRuntime;
+    channelNumber: NavigationChannelNumberHandlerRuntime;
+}
+
+export type NavigationCoordinatorHandlerFactory = (
+    callbacks: NavigationCoordinatorHandlerCallbacks
+) => NavigationCoordinatorHandlers;
 
 export interface NavigationCoordinatorEventPort {
     navigation: INavigationManager;
@@ -136,44 +167,6 @@ export interface NavigationCoordinatorEventPort {
     reportRecoverableAsyncFailure: NavigationAsyncFailureReporter;
     reportToast?: (toast: ToastInput) => void;
     readDebugLoggingEnabled: () => boolean;
-}
-
-export interface NavigationRepeatHandlerPort {
-    navigation: INavigationManager;
-    epg: NavigationEpgPort | null;
-    miniGuide: NavigationMiniGuidePort;
-}
-
-export interface NavigationKeyModeRouterPort {
-    navigation: INavigationManager;
-    epg: NavigationEpgPort | null;
-    playback: NavigationPlaybackPort;
-    miniGuide: NavigationMiniGuidePort;
-    nowPlayingInfo: NavigationNowPlayingInfoPort;
-    modals: NavigationModalsPort;
-    channelSwitching: NavigationChannelSwitchingPort;
-}
-
-export interface NavigationScreenEffectsPort {
-    navigation: INavigationManager;
-    epg: NavigationEpgPort | null;
-    playback: NavigationPlaybackPort;
-    miniGuide: NavigationMiniGuidePort;
-    nowPlayingInfo: NavigationNowPlayingInfoPort;
-    channelSwitching: NavigationChannelSwitchingPort;
-    uiGuards: NavigationUiGuardsPort;
-    readKeepPlayingInSettings: () => boolean;
-}
-
-export interface NavigationModalEffectsPort {
-    miniGuide: NavigationMiniGuidePort;
-    nowPlayingInfo: NavigationNowPlayingInfoPort;
-    modals: NavigationModalsPort;
-}
-
-export interface NavigationChannelNumberPort {
-    epg: NavigationEpgPort | null;
-    channelSwitching: NavigationChannelSwitchingPort;
 }
 
 /**
@@ -185,9 +178,5 @@ export interface NavigationChannelNumberPort {
  */
 export interface NavigationCoordinatorDeps {
     events: NavigationCoordinatorEventPort;
-    repeats: NavigationRepeatHandlerPort;
-    keyModeRouter: NavigationKeyModeRouterPort;
-    screenEffects: NavigationScreenEffectsPort;
-    modalEffects: NavigationModalEffectsPort;
-    channelNumber: NavigationChannelNumberPort;
+    createHandlers: NavigationCoordinatorHandlerFactory;
 }

@@ -65,10 +65,6 @@ export interface IEPGComponent {
      */
     setCategoryColorsEnabled(enabled: boolean): void;
 
-    /**
-     * Set EPG layout mode.
-     * @param mode - EPG layout presentation mode
-     */
     setLayoutMode(mode: EpgLayoutMode): void;
 
     /**
@@ -153,10 +149,6 @@ export interface IEPGComponent {
      */
     handlePage(direction: 'up' | 'down'): boolean;
 
-    /**
-     * Handle OK/Select button press.
-     * @returns true if handled
-     */
     handleSelect(): boolean;
 
     /**
@@ -166,10 +158,6 @@ export interface IEPGComponent {
     handleBack(): boolean;
 
     // State
-    /**
-     * Get current EPG state.
-     * @returns Current EPG state
-     */
     getState(): EPGState;
 
     /**

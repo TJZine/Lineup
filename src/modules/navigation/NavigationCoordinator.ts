@@ -3,52 +3,45 @@ import type {
     NavigationEventMap,
 } from './interfaces';
 import { recordNonBlockingFailureTimestamp } from './nonBlockingFailureTimestamps';
-import { NavigationRepeatHandler } from './NavigationRepeatHandler';
-import { NavigationKeyModeRouter } from './NavigationKeyModeRouter';
-import { NavigationScreenEffectsHandler } from './NavigationScreenEffectsHandler';
-import { NavigationModalEffectsHandler } from './NavigationModalEffectsHandler';
-import { NavigationChannelNumberHandler } from './NavigationChannelNumberHandler';
-import type { NavigationCoordinatorDeps } from './NavigationCoordinatorContracts';
+import type {
+    NavigationChannelNumberHandlerRuntime,
+    NavigationCoordinatorDeps,
+    NavigationCoordinatorHandlers,
+    NavigationKeyModeRouterRuntime,
+    NavigationModalEffectsRuntime,
+    NavigationRepeatRuntime,
+    NavigationScreenEffectsRuntime,
+} from './NavigationCoordinatorContracts';
 
 export class NavigationCoordinator {
-    private readonly _repeats: NavigationRepeatHandler;
-    private readonly _keyModeRouter: NavigationKeyModeRouter;
-    private readonly _screenEffects: NavigationScreenEffectsHandler;
-    private readonly _modalEffects: NavigationModalEffectsHandler;
-    private readonly _channelNumberHandler: NavigationChannelNumberHandler;
+    private readonly _repeats: NavigationRepeatRuntime;
+    private readonly _keyModeRouter: NavigationKeyModeRouterRuntime;
+    private readonly _screenEffects: NavigationScreenEffectsRuntime;
+    private readonly _modalEffects: NavigationModalEffectsRuntime;
+    private readonly _channelNumberHandler: NavigationChannelNumberHandlerRuntime;
     private _suppressedLogTimestamps: Map<string, number> = new Map();
     private _nonBlockingFailureTimestamps: Map<string, number> = new Map();
 
     constructor(private readonly deps: NavigationCoordinatorDeps) {
-        this._repeats = new NavigationRepeatHandler(deps.repeats);
-        this._keyModeRouter = new NavigationKeyModeRouter(
-            deps.keyModeRouter,
-            this._repeats,
-            (key, promiseFactory, message, toastMessage) => this._fireAndReport(
+        const handlers: NavigationCoordinatorHandlers = deps.createHandlers({
+            fireAndReport: (key, promiseFactory, message, toastMessage) => this._fireAndReport(
                 key,
                 promiseFactory,
                 message,
                 toastMessage
             ),
-            (key, promiseFactory, message) => this._observeNonBlockingPromise(
+            observeNonBlockingPromise: (key, promiseFactory, message) => this._observeNonBlockingPromise(
                 key,
                 promiseFactory,
                 message
             ),
-            (reason, event) => this._logInputNotHandled(reason, event)
-        );
-        this._screenEffects = new NavigationScreenEffectsHandler(
-            deps.screenEffects,
-            this._repeats,
-            (key, promiseFactory, message, toastMessage) => this._fireAndReport(
-                key,
-                promiseFactory,
-                message,
-                toastMessage
-            )
-        );
-        this._modalEffects = new NavigationModalEffectsHandler(deps.modalEffects, this._repeats);
-        this._channelNumberHandler = new NavigationChannelNumberHandler(deps.channelNumber);
+            logInputNotHandled: (reason, event) => this._logInputNotHandled(reason, event),
+        });
+        this._repeats = handlers.repeats;
+        this._keyModeRouter = handlers.keyModeRouter;
+        this._screenEffects = handlers.screenEffects;
+        this._modalEffects = handlers.modalEffects;
+        this._channelNumberHandler = handlers.channelNumber;
     }
 
     private _reportNonBlockingFailure(

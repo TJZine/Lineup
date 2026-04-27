@@ -1,9 +1,3 @@
-/**
- * @fileoverview Subtitle text conversion utilities.
- * @module modules/player/subtitleConversion
- * @version 1.0.0
- */
-
 import {
     detectSubtitleTextContentFormat,
     type SubtitleTextContentFormat,

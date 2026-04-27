@@ -1,12 +1,43 @@
-import type { KeyEvent, Screen } from './interfaces';
+import type { INavigationManager, KeyEvent, Screen } from './interfaces';
 import type {
-    NavigationFireAndReport,
+    NavigationChannelSwitchingPort,
+    NavigationEpgPort,
     NavigationFourWayDirection,
-    NavigationKeyModeRouterPort,
-    NavigationLogInputNotHandled,
-    NavigationObserveNonBlockingPromise,
+    NavigationMiniGuidePort,
+    NavigationModalsPort,
+    NavigationNowPlayingInfoPort,
+    NavigationPlaybackPort,
+    NavigationKeyModeRouterRuntime,
     NavigationRepeatRuntime,
 } from './NavigationCoordinatorContracts';
+
+export type NavigationFireAndReport = (
+    key: string,
+    promiseFactory: () => Promise<void>,
+    message: string,
+    toastMessage: string
+) => Promise<void> | null;
+
+export type NavigationObserveNonBlockingPromise = (
+    key: string,
+    promiseFactory: () => Promise<void>,
+    message: string
+) => Promise<void>;
+
+export type NavigationLogInputNotHandled = (
+    reason: 'modal_open' | 'screen_not_player' | 'input_blocked',
+    event: KeyEvent
+) => void;
+
+export interface NavigationKeyModeRouterPort {
+    navigation: INavigationManager;
+    epg: NavigationEpgPort | null;
+    playback: NavigationPlaybackPort;
+    miniGuide: NavigationMiniGuidePort;
+    nowPlayingInfo: NavigationNowPlayingInfoPort;
+    modals: NavigationModalsPort;
+    channelSwitching: NavigationChannelSwitchingPort;
+}
 
 type KeyPressRoutingState = {
     currentScreen: Screen;
@@ -15,7 +46,7 @@ type KeyPressRoutingState = {
     shouldRouteToEpg: boolean;
 };
 
-export class NavigationKeyModeRouter {
+export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
     constructor(
         private readonly deps: NavigationKeyModeRouterPort,
         private readonly repeats: NavigationRepeatRuntime,

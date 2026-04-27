@@ -1,10 +1,31 @@
 import { NavigationCoordinator } from '../NavigationCoordinator';
+import {
+    NavigationChannelNumberHandler,
+    type NavigationChannelNumberPort,
+} from '../NavigationChannelNumberHandler';
 import type {
     NavigationAuthPort,
+    NavigationCoordinatorHandlerCallbacks,
     NavigationCoordinatorDeps,
     NavigationEpgPort,
     NavigationVideoPlayerPort,
 } from '../NavigationCoordinatorContracts';
+import {
+    NavigationKeyModeRouter,
+    type NavigationKeyModeRouterPort,
+} from '../NavigationKeyModeRouter';
+import {
+    NavigationModalEffectsHandler,
+    type NavigationModalEffectsPort,
+} from '../NavigationModalEffectsHandler';
+import {
+    NavigationRepeatHandler,
+    type NavigationRepeatHandlerPort,
+} from '../NavigationRepeatHandler';
+import {
+    NavigationScreenEffectsHandler,
+    type NavigationScreenEffectsPort,
+} from '../NavigationScreenEffectsHandler';
 import type { INavigationManager, KeyEvent, NavigationEventMap, Screen } from '../interfaces';
 import {
     computeAcceleratedRepeatIntervalMs,
@@ -19,6 +40,14 @@ const PLAYBACK_OPTIONS_MODAL_ID = 'playback-options';
 type HandlerMap = Partial<{
     [K in keyof NavigationEventMap]: (payload: NavigationEventMap[K]) => void;
 }>;
+
+type NavigationCoordinatorTestDeps = NavigationCoordinatorDeps & {
+    repeats: NavigationRepeatHandlerPort;
+    keyModeRouter: NavigationKeyModeRouterPort;
+    screenEffects: NavigationScreenEffectsPort;
+    modalEffects: NavigationModalEffectsPort;
+    channelNumber: NavigationChannelNumberPort;
+};
 
 const makeNavigation = (): {
     navigation: INavigationManager;
@@ -116,7 +145,7 @@ const setup = (
     overrides: Partial<NavigationCoordinatorTestOverrides> = {}
 ): {
     coordinator: NavigationCoordinator;
-    deps: NavigationCoordinatorDeps;
+    deps: NavigationCoordinatorTestDeps;
     handlers: HandlerMap;
     navigation: INavigationManager;
     epg: NavigationEpgPort;
@@ -255,7 +284,7 @@ const setup = (
         hideChannelTransition: testDoubles.hideChannelTransition,
     };
 
-    const deps: NavigationCoordinatorDeps = {
+    const deps = {
         events: {
             navigation,
             miniGuide,
@@ -297,7 +326,58 @@ const setup = (
             epg,
             channelSwitching,
         },
-    };
+        createHandlers: (callbacks: NavigationCoordinatorHandlerCallbacks) => {
+            const repeats = new NavigationRepeatHandler({
+                navigation,
+                epg,
+                miniGuide,
+            });
+            return {
+                repeats,
+                keyModeRouter: new NavigationKeyModeRouter(
+                    {
+                        navigation,
+                        epg,
+                        playback,
+                        miniGuide,
+                        nowPlayingInfo,
+                        modals,
+                        channelSwitching,
+                    },
+                    repeats,
+                    callbacks.fireAndReport,
+                    callbacks.observeNonBlockingPromise,
+                    callbacks.logInputNotHandled
+                ),
+                screenEffects: new NavigationScreenEffectsHandler(
+                    {
+                        navigation,
+                        epg,
+                        playback,
+                        miniGuide,
+                        nowPlayingInfo,
+                        channelSwitching,
+                        uiGuards,
+                        readKeepPlayingInSettings: testDoubles.readKeepPlayingInSettings,
+                    },
+                    repeats,
+                    callbacks.fireAndReport
+                ),
+                modalEffects: new NavigationModalEffectsHandler(
+                    {
+                        miniGuide,
+                        nowPlayingInfo,
+                        modals,
+                    },
+                    repeats
+                ),
+                channelNumber: new NavigationChannelNumberHandler({
+                    epg,
+                    channelSwitching,
+                }),
+            };
+        },
+    } as NavigationCoordinatorTestDeps;
 
     const coordinator = new NavigationCoordinator(deps);
     coordinator.wireNavigationEvents();
