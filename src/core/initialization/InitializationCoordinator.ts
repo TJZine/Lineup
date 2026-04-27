@@ -397,9 +397,6 @@ export class InitializationCoordinator {
     // Private Methods - Startup Stages
     // ============================================
 
-    /**
-     * Initialize core infrastructure (EventEmitter, AppLifecycle, Navigation).
-     */
     private async _initCoreInfrastructure(): Promise<void> {
         const startTime = Date.now();
 
@@ -437,9 +434,6 @@ export class InitializationCoordinator {
         await Promise.all(promises);
     }
 
-    /**
-     * Validate authentication.
-     */
     private async _validateAuthentication(): Promise<boolean> {
         const startTime = Date.now();
         this._callbacks.status.updateModuleStatus('plex-auth', 'initializing');
@@ -480,9 +474,6 @@ export class InitializationCoordinator {
         return applyAuthValidationPolicy(authGateInputs);
     }
 
-    /**
-     * Connect to Plex server and initialize Plex services.
-     */
     private async _connectPlexServer(): Promise<boolean> {
         const startTime = Date.now();
 
@@ -528,9 +519,6 @@ export class InitializationCoordinator {
         }
     }
 
-    /**
-     * Initialize Channel Manager, Scheduler, Video Player, and playback overlays.
-     */
     private async _initializePlaybackRuntime(): Promise<void> {
         const startTime = Date.now();
 
@@ -635,9 +623,6 @@ export class InitializationCoordinator {
 
     }
 
-    /**
-     * Initialize EPG.
-     */
     private async _initializeEpg(options?: { ensureCorePlayerUi?: boolean }): Promise<void> {
         const ensureCorePlayerUi = options?.ensureCorePlayerUi ?? true;
         if (this._callbacks.status.getModuleStatus('epg-ui') === 'ready') {
@@ -733,9 +718,6 @@ export class InitializationCoordinator {
     // Private Methods - Resume Handlers
     // ============================================
 
-    /**
-     * Register listener for auth state changes to resume startup.
-     */
     private _registerAuthResume(): void {
         if (!this._deps.modules.plexAuth) {
             return;
@@ -752,9 +734,6 @@ export class InitializationCoordinator {
         this._authResumeDisposable = disposable;
     }
 
-    /**
-     * Register listener for server connection changes to resume startup.
-     */
     private _registerServerResume(): void {
         if (!this._deps.modules.plexDiscovery) {
             return;
@@ -771,9 +750,6 @@ export class InitializationCoordinator {
         this._serverResumeDisposable = disposable;
     }
 
-    /**
-     * Register listener for profile change events to resume startup.
-     */
     private _registerProfileResume(): void {
         if (!this._deps.modules.plexAuth) {
             return;

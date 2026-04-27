@@ -1,10 +1,3 @@
-/**
- * @fileoverview Plex Stream Resolver interfaces.
- * Defines the public interface for stream resolution and session management.
- * @module modules/plex/stream/interfaces
- * @version 1.0.0
- */
-
 import type {
     PlexStreamErrorCode,
     PlexMediaItem,
@@ -13,10 +6,6 @@ import type {
     HlsOptions,
 } from './types';
 import type { PlatformIdentityService } from '../../../platform';
-
-// ============================================
-// Error Types
-// ============================================
 
 /**
  * Stream resolver error structure.
@@ -42,10 +31,6 @@ export interface StreamResolverError {
     stage?: StreamResolverErrorStage;
 }
 
-// ============================================
-// Event Types
-// ============================================
-
 /**
  * Event map for PlexStreamResolver events.
  */
@@ -54,10 +39,6 @@ export interface StreamResolverEventMap {
     /** Index signature for EventEmitter compatibility */
     [key: string]: StreamResolverError;
 }
-
-// ============================================
-// Configuration
-// ============================================
 
 /**
  * Configuration for PlexStreamResolver.
@@ -90,19 +71,11 @@ export interface PlexStreamResolverConfig {
     identityService?: PlatformIdentityService;
 }
 
-// ============================================
-// Main Interface
-// ============================================
-
 /**
  * Plex Stream Resolver Interface.
  * Resolves playback URLs and manages playback sessions.
  */
 export interface IPlexStreamResolver {
-    // ========================================
-    // Stream Resolution
-    // ========================================
-
     /**
      * Resolve the best stream URL for a media item.
      * Determines direct play vs transcoding based on codec compatibility.
@@ -112,19 +85,11 @@ export interface IPlexStreamResolver {
      */
     resolveStream(request: StreamRequest): Promise<StreamDecision>;
 
-    // ========================================
-    // Transcode Session Management
-    // ========================================
-
     /**
      * Best-effort: stop an active transcode session without reporting progress.
      * @param sessionId - Plex transcode session identifier
      */
     stopTranscodeSession(sessionId: string): Promise<void>;
-
-    // ========================================
-    // Direct Play Check
-    // ========================================
 
     /**
      * Check if a media item can be played directly without transcoding.
@@ -132,10 +97,6 @@ export interface IPlexStreamResolver {
      * @returns true if direct play is supported
      */
     canDirectPlay(item: PlexMediaItem): boolean;
-
-    // ========================================
-    // Transcode Options
-    // ========================================
 
     /**
      * Generate an HLS transcode URL for a media item.
@@ -156,25 +117,11 @@ export interface IPlexStreamResolver {
         request: NonNullable<StreamDecision['transcodeRequest']>
     ): Promise<NonNullable<StreamDecision['serverDecision']>>;
 
-    // ========================================
-    // Events
-    // ========================================
-
-    /**
-     * Register handler for resolver events.
-     * @param event - Event name
-     * @param handler - Handler function
-     */
     on<K extends keyof StreamResolverEventMap>(
         event: K,
         handler: (payload: StreamResolverEventMap[K]) => void
     ): void;
 
-    /**
-     * Remove event handler.
-     * @param event - Event name
-     * @param handler - Handler function
-     */
     off<K extends keyof StreamResolverEventMap>(
         event: K,
         handler: (payload: StreamResolverEventMap[K]) => void

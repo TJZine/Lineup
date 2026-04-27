@@ -250,17 +250,11 @@ export interface IPlexLibrary {
      */
     refreshLibrary(libraryId: string): Promise<void>;
 
-    /**
-     * Register event handler.
-     */
     on<K extends keyof PlexLibraryEvents>(
         event: K,
         handler: (payload: PlexLibraryEvents[K]) => void
     ): void;
 
-    /**
-     * Remove event handler.
-     */
     off<K extends keyof PlexLibraryEvents>(
         event: K,
         handler: (payload: PlexLibraryEvents[K]) => void

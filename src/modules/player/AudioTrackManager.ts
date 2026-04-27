@@ -1,19 +1,8 @@
-/**
- * @fileoverview Audio track management for Video Player.
- * Extracted to reduce VideoPlayer.ts file length.
- * @module modules/player/AudioTrackManager
- * @version 1.0.0
- */
-
 import { AppErrorCode } from '../../types/app-errors';
 import type { AudioTrack, PlaybackError } from './types';
 import { AUDIO_TRACK_SWITCH_TIMEOUT_MS } from './constants';
 import { SUPPORTED_AUDIO_CODECS } from '../plex/stream/constants';
 import type { AudioSettingsStore } from '../settings/AudioSettingsStore';
-
-// ============================================
-// Type Augmentation for AudioTrackList
-// ============================================
 
 /**
  * Interface for audio track in HTMLVideoElement.
@@ -42,19 +31,11 @@ interface HTMLVideoElementWithAudioTracks extends HTMLVideoElement {
     audioTracks?: WebOSAudioTrackList;
 }
 
-// ============================================
-// Constants
-// ============================================
-
 /** Maximum retry attempts for audio track switch */
 const AUDIO_TRACK_MAX_RETRIES = 1;
 
 /** Polling interval for track switch verification */
 const TRACK_SWITCH_POLL_INTERVAL_MS = 100;
-
-// ============================================
-// Audio Track Manager Class
-// ============================================
 
 /**
  * Manages audio track switching with retry logic.
@@ -79,16 +60,10 @@ export class AudioTrackManager {
         this._audioSettingsStore = deps.audioSettingsStore;
     }
 
-    /**
-     * Initialize with a video element.
-     */
     public initialize(videoElement: HTMLVideoElement): void {
         this._videoElement = videoElement;
     }
 
-    /**
-     * Set available audio tracks.
-     */
     public setTracks(tracks: AudioTrack[]): void {
         this._tracks = tracks;
         // Set first track as active if none set
@@ -100,16 +75,10 @@ export class AudioTrackManager {
         }
     }
 
-    /**
-     * Get available audio tracks.
-     */
     public getTracks(): AudioTrack[] {
         return [...this._tracks];
     }
 
-    /**
-     * Get active track ID.
-     */
     public getActiveTrackId(): string | null {
         return this._activeTrackId;
     }
@@ -193,30 +162,17 @@ export class AudioTrackManager {
         );
     }
 
-    /**
-     * Clear tracks on unload.
-     */
     public unload(): void {
         this._tracks = [];
         this._activeTrackId = null;
     }
 
-    /**
-     * Destroy the manager.
-     */
     public destroy(): void {
         this._videoElement = null;
         this._tracks = [];
         this._activeTrackId = null;
     }
 
-    // ========================================
-    // Private Methods
-    // ========================================
-
-    /**
-     * Check if an audio codec is supported.
-     */
     private _isCodecSupported(codec: string): boolean {
         const normalizedCodec = codec.toLowerCase().trim();
         if (normalizedCodec === 'dts' || normalizedCodec === 'dca' || normalizedCodec.startsWith('dts')) {
@@ -227,9 +183,6 @@ export class AudioTrackManager {
         );
     }
 
-    /**
-     * Switch track with timeout.
-     */
     private async _switchWithTimeout(
         audioTracks: WebOSAudioTrackList,
         targetTrack: AudioTrack
@@ -278,9 +231,6 @@ export class AudioTrackManager {
         });
     }
 
-    /**
-     * Restore a previous track.
-     */
     private _restoreTrack(
         audioTracks: WebOSAudioTrackList,
         trackId: string
@@ -313,9 +263,6 @@ export class AudioTrackManager {
         };
     }
 
-    /**
-     * Create a PlaybackError.
-     */
     private _createError(
         code: AppErrorCode,
         message: string,

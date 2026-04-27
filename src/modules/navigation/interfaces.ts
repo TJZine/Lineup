@@ -1,9 +1,3 @@
-/**
- * @fileoverview Navigation module interfaces - re-exports from shared types.
- * @module modules/navigation/interfaces
- * @version 1.0.0
- */
-
 import type { PlatformRemoteButton } from '../../platform/services';
 
 // Navigation module interfaces - local definitions matching the app's shared type surface.
@@ -13,11 +7,9 @@ import type { PlatformRemoteButton } from '../../platform/services';
  * Handles remote control input and focus management
  */
 export interface INavigationManager {
-    // Initialization
     initialize(config: NavigationConfig): void;
     destroy(): void;
 
-    // Screen Navigation
     goTo(screen: 'server-select', params: ServerSelectNavigationParams): void;
     goTo(screen: 'server-select'): void;
     goTo(screen: Exclude<Screen, 'server-select'>): void;
@@ -29,7 +21,6 @@ export interface INavigationManager {
     replaceScreen(screen: Screen): void;
     getServerSelectParams(): ServerSelectNavigationParams | null;
 
-    // Focus Management
     setFocus(elementId: string, options?: SetFocusOptions): void;
     restoreFocusForCurrentScreen(): boolean;
     getFocusedElement(): FocusableElement | null;
@@ -39,13 +30,11 @@ export interface INavigationManager {
      */
     moveFocus(direction: Direction): boolean;
 
-    // Registration
     registerFocusable(element: FocusableElement): void;
     unregisterFocusable(elementId: string): void;
     registerFocusGroup(group: FocusGroup): void;
     unregisterFocusGroup(groupId: string): void;
 
-    // Modals
     openModal(modalId: string, focusableIds?: string[]): void;
     /**
      * Close a modal.
@@ -59,16 +48,13 @@ export interface INavigationManager {
      */
     isModalOpen(modalId?: string): boolean;
 
-    // Input Blocking
     blockInput(): void;
     unblockInput(): void;
     isInputBlocked(): boolean;
 
-    // State
     getCurrentScreen(): Screen;
     getState(): NavigationState;
 
-    // Events
     on<K extends keyof NavigationEventMap>(
         event: K,
         handler: (payload: NavigationEventMap[K]) => void
