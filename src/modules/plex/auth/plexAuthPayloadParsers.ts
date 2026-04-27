@@ -208,7 +208,7 @@ function requireUserId(value: unknown, label: string): string {
         return value.trim();
     }
 
-    if (typeof value === 'number' && Number.isFinite(value)) {
+    if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
         return String(value);
     }
 

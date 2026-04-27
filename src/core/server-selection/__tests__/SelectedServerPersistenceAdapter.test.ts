@@ -155,6 +155,10 @@ describe('SelectedServerPersistenceAdapter', () => {
                             serverId: 'server-1',
                             serverUri: 'https://server.example.invalid',
                         },
+                        'foreign-user': {
+                            serverId: 'foreign-server',
+                            serverUri: 'https://foreign.example.invalid',
+                        },
                     },
                 }),
             })),
@@ -175,6 +179,10 @@ describe('SelectedServerPersistenceAdapter', () => {
                 'active-user': {
                     serverId: 'server-2',
                     serverUri: 'https://server-2.example.invalid',
+                },
+                'foreign-user': {
+                    serverId: 'foreign-server',
+                    serverUri: 'https://foreign.example.invalid',
                 },
             },
         }));

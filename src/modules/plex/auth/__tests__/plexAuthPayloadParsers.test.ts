@@ -159,9 +159,14 @@ describe('plexAuthPayloadParsers', () => {
 
         it.each([
             ['non-object payload', null],
+            ['array payload', []],
+            ['undefined payload', undefined],
             ['missing id', { username: 'user', email: 'user@example.com' }],
             ['blank id', { id: '   ', username: 'user', email: 'user@example.com' }],
             ['invalid id', { id: {}, username: 'user', email: 'user@example.com' }],
+            ['zero numeric id', { id: 0, username: 'user', email: 'user@example.com' }],
+            ['negative numeric id', { id: -1, username: 'user', email: 'user@example.com' }],
+            ['fractional numeric id', { id: 1.5, username: 'user', email: 'user@example.com' }],
             ['missing username', { id: 1, email: 'user@example.com' }],
             ['blank username', { id: 1, username: '   ', email: 'user@example.com' }],
             ['missing email', { id: 1, username: 'user' }],

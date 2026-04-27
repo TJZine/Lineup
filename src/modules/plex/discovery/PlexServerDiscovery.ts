@@ -116,7 +116,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             );
             throw new PlexApiError(
                 AppErrorCode.SERVER_UNREACHABLE,
-                `Failed to discover servers: ${message} (last url: unknown)`,
+                `Failed to discover servers: ${message}`,
                 undefined,
                 true,
                 error

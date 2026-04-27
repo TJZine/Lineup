@@ -368,6 +368,24 @@ describe('PlexServerDiscovery', () => {
             });
             expect(fetch).toHaveBeenCalledTimes(1);
         });
+
+        it('rejects malformed response contracts instead of treating them as empty discovery results', async () => {
+            expectConsoleError('Expected Response with text method for server discovery response');
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: () => 'application/json' },
+                json: async () => [],
+            });
+
+            const discovery = new PlexServerDiscovery(mockConfig);
+
+            await expect(discovery.discoverServers()).rejects.toMatchObject({
+                code: 'PARSE_ERROR',
+                message: 'Expected Response with text method for server discovery response',
+            });
+            expect(fetch).toHaveBeenCalledTimes(1);
+        });
     });
 
     describe('testConnection', () => {
@@ -760,6 +778,7 @@ describe('PlexServerDiscovery', () => {
                 ok: true,
                 status: 200,
                 json: async () => mockServers,
+                text: async () => JSON.stringify(mockServers),
             });
             (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
 
@@ -859,6 +878,7 @@ describe('PlexServerDiscovery', () => {
                 ok: true,
                 status: 200,
                 json: async () => mockServers,
+                text: async () => JSON.stringify(mockServers),
             });
 
             const discovery = new PlexServerDiscovery(mockConfig);
@@ -906,6 +926,7 @@ describe('PlexServerDiscovery', () => {
                 ok: true,
                 status: 200,
                 json: async () => mockServers,
+                text: async () => JSON.stringify(mockServers),
             });
 
             const discovery = new PlexServerDiscovery(mockConfig);
@@ -1114,6 +1135,7 @@ describe('PlexServerDiscovery', () => {
                 ok: true,
                 status: 200,
                 json: async () => mockServers,
+                text: async () => JSON.stringify(mockServers),
             });
 
             const discovery = new PlexServerDiscovery(mockConfig);
@@ -1232,6 +1254,7 @@ describe('PlexServerDiscovery', () => {
                 ok: true,
                 status: 200,
                 json: async () => mockServers,
+                text: async () => JSON.stringify(mockServers),
             });
             (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
 
@@ -1411,6 +1434,7 @@ describe('PlexServerDiscovery', () => {
                 ok: true,
                 status: 200,
                 json: async () => mockServers,
+                text: async () => JSON.stringify(mockServers),
             });
 
             const discovery = new PlexServerDiscovery(mockConfig);
@@ -1459,6 +1483,7 @@ describe('PlexServerDiscovery', () => {
                 ok: true,
                 status: 200,
                 json: async () => mockServers,
+                text: async () => JSON.stringify(mockServers),
             });
 
             const discovery = new PlexServerDiscovery(mockConfig);
@@ -1511,6 +1536,7 @@ describe('PlexServerDiscovery', () => {
                 ok: true,
                 status: 200,
                 json: async () => mockServers,
+                text: async () => JSON.stringify(mockServers),
             });
 
             const discovery = new PlexServerDiscovery(mockConfig);
@@ -1564,6 +1590,7 @@ describe('PlexServerDiscovery', () => {
                 ok: true,
                 status: 200,
                 json: async () => mockServers,
+                text: async () => JSON.stringify(mockServers),
             });
 
             const discovery = new PlexServerDiscovery(mockConfig);
@@ -1609,6 +1636,7 @@ describe('PlexServerDiscovery', () => {
                 ok: true,
                 status: 200,
                 json: async () => mockServers,
+                text: async () => JSON.stringify(mockServers),
             });
 
             const discovery = new PlexServerDiscovery(mockConfig);
@@ -1987,6 +2015,7 @@ describe('PlexServerDiscovery', () => {
                         status: 200,
                         headers: { get: () => null },
                         json: async () => mockServers,
+                        text: async () => JSON.stringify(mockServers),
                     });
                 });
 
@@ -2037,6 +2066,7 @@ describe('PlexServerDiscovery', () => {
                         status: 200,
                         headers: { get: () => null },
                         json: async () => mockServers,
+                        text: async () => JSON.stringify(mockServers),
                     });
                 });
 
@@ -2045,6 +2075,60 @@ describe('PlexServerDiscovery', () => {
 
                 // Advance past the 2-second default delay
                 await jest.advanceTimersByTimeAsync(PLEX_DISCOVERY_CONSTANTS.RATE_LIMIT_DEFAULT_DELAY_MS);
+
+                const result = await discoverPromise;
+
+                expect(callCount).toBe(2);
+                expect(result).toHaveLength(1);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('caps excessive Retry-After delays before retrying discovery', async () => {
+            jest.useFakeTimers();
+            try {
+                const mockServers = [
+                    {
+                        clientIdentifier: 'srv1',
+                        name: 'Test Server',
+                        provides: 'server',
+                        connections: [],
+                        sourceTitle: 'user',
+                        ownerId: 'owner',
+                        owned: true,
+                    },
+                ];
+
+                let callCount = 0;
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(() => {
+                    callCount++;
+                    if (callCount === 1) {
+                        return Promise.resolve({
+                            ok: false,
+                            status: 429,
+                            headers: { get: (name: string) => name === 'Retry-After' ? '999999' : null },
+                            json: async () => ({ error: 'rate limited' }),
+                        });
+                    }
+                    return Promise.resolve({
+                        ok: true,
+                        status: 200,
+                        headers: { get: () => null },
+                        json: async () => mockServers,
+                        text: async () => JSON.stringify(mockServers),
+                    });
+                });
+
+                const discovery = new PlexServerDiscovery(mockConfig);
+                const discoverPromise = discovery.discoverServers();
+
+                await jest.advanceTimersByTimeAsync(
+                    PLEX_DISCOVERY_CONSTANTS.RATE_LIMIT_MAX_DELAY_MS - 1
+                );
+                expect(callCount).toBe(1);
+
+                await jest.advanceTimersByTimeAsync(1);
 
                 const result = await discoverPromise;
 

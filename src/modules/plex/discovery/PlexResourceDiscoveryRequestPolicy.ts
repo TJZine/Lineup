@@ -106,7 +106,10 @@ async function fetchDiscoveryResponse(
                 const retryAfter = response.headers.get('Retry-After');
                 const parsed = retryAfter ? parseInt(retryAfter, 10) : NaN;
                 const delayMs = Number.isFinite(parsed) && parsed > 0
-                    ? parsed * 1000
+                    ? Math.min(
+                        parsed * 1000,
+                        PLEX_DISCOVERY_CONSTANTS.RATE_LIMIT_MAX_DELAY_MS
+                    )
                     : PLEX_DISCOVERY_CONSTANTS.RATE_LIMIT_DEFAULT_DELAY_MS;
                 await new Promise((resolve) => setTimeout(resolve, delayMs));
                 response = null;
@@ -167,11 +170,13 @@ async function parseResourcesResponse(response: Response): Promise<PlexApiResour
             ? response.headers.get('Content-Type') || ''
             : '';
     if (typeof response.text !== 'function') {
-        if (typeof response.json === 'function') {
-            const parsed = await response.json();
-            return Array.isArray(parsed) ? (parsed as PlexApiResource[]) : [];
-        }
-        return [];
+        throw new PlexApiError(
+            AppErrorCode.PARSE_ERROR,
+            'Expected Response with text method for server discovery response',
+            response.status,
+            false,
+            response
+        );
     }
 
     const text = await response.text();
