@@ -5,6 +5,8 @@ import {
     MINI_GUIDE_REPEAT_TIMING,
 } from './constants';
 import type {
+    EpgStopReason,
+    MiniGuideStopReason,
     NavigationEpgPort,
     NavigationFourWayDirection,
     NavigationRepeatRuntime,
@@ -46,7 +48,7 @@ export class NavigationRepeatHandler implements NavigationRepeatRuntime {
         }
     }
 
-    stopEpgRepeat(_reason: string): void {
+    stopEpgRepeat(_reason: EpgStopReason): void {
         if (this._epgRepeatTimer !== null) {
             clearTimeout(this._epgRepeatTimer);
             this._epgRepeatTimer = null;
@@ -71,7 +73,7 @@ export class NavigationRepeatHandler implements NavigationRepeatRuntime {
         }
     }
 
-    stopMiniGuideRepeat(_reason: string): void {
+    stopMiniGuideRepeat(_reason: MiniGuideStopReason): void {
         if (this._miniGuideRepeatTimer !== null) {
             clearTimeout(this._miniGuideRepeatTimer);
             this._miniGuideRepeatTimer = null;

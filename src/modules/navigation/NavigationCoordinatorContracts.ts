@@ -9,8 +9,48 @@ import type { ToastInput } from '../ui/toast/types';
 
 export type NavigationPlaybackOptionsSectionId = 'subtitles' | 'audio';
 export type NavigationChannelSwitchOutcome = 'switched' | 'aborted' | 'failed';
-export type NavigationFourWayDirection = Direction;
-export type NavigationVerticalDirection = Extract<Direction, 'up' | 'down'>;
+export type NavigationFourWayDirection = 'up' | 'down' | 'left' | 'right';
+export type NavigationVerticalDirection = 'up' | 'down';
+
+type IsExactType<Actual, Expected> =
+    [Actual] extends [Expected]
+        ? ([Expected] extends [Actual] ? true : false)
+        : false;
+
+type AssertTrue<T extends true> = T;
+
+export type NavigationDirectionContractCheck = AssertTrue<
+    IsExactType<Direction, NavigationFourWayDirection>
+>;
+export type NavigationVerticalDirectionContractCheck = AssertTrue<
+    IsExactType<Extract<Direction, NavigationVerticalDirection>, NavigationVerticalDirection>
+>;
+
+export type NavigationRepeatStopReason =
+    | 'inputBlocked'
+    | 'keyup'
+    | 'nonDirectional'
+    | 'directionChange'
+    | 'restart'
+    | 'notVisible'
+    | 'modalOpen'
+    | 'noButton'
+    | 'blocked'
+    | 'guide'
+    | 'screenChange'
+    | 'ok'
+    | 'back';
+
+export type EpgStopReason =
+    | NavigationRepeatStopReason
+    | 'play'
+    | 'channelPage';
+
+export type MiniGuideStopReason =
+    | NavigationRepeatStopReason
+    | 'page'
+    | 'right'
+    | 'notPlayer';
 
 export interface NavigationEpgPort {
     isVisible: () => boolean;
@@ -103,10 +143,10 @@ export interface NavigationUiGuardsPort {
 export interface NavigationRepeatRuntime {
     stopForKeyUp(button: KeyEvent['button']): void;
     stopForNonDirectionalInput(event: KeyEvent): void;
-    stopEpgRepeat(reason: string): void;
+    stopEpgRepeat(reason: EpgStopReason): void;
     startEpgRepeat(button: NavigationFourWayDirection): void;
     stopEpgRepeatForDirectionChange(button: NavigationFourWayDirection): void;
-    stopMiniGuideRepeat(reason: string): void;
+    stopMiniGuideRepeat(reason: MiniGuideStopReason): void;
     startMiniGuideRepeat(button: NavigationVerticalDirection): void;
     stopMiniGuideRepeatForDirectionChange(button: NavigationVerticalDirection): void;
     hasMiniGuideRepeatButton(): boolean;
