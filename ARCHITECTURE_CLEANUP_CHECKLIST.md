@@ -321,7 +321,7 @@ but is not sufficient to close P14 or `P14-EXIT`. Treat `P14-WAVE1` closeout as
 the evidence checkpoint that decides whether `P14-WAVE2` and/or `P14-WAVE3`
 must add larger score-moving packages.
 
-### [ ] `P14-WAVE1` admitted score-moving cleanup
+### [x] `P14-WAVE1` admitted score-moving cleanup
 
 - Scope: execute the current admitted P14 issues as one coordinated cleanup
   wave while preserving slice-level issue ownership for `P14-W1`, `P14-W2`, and
@@ -341,18 +341,22 @@ must add larger score-moving packages.
   scoping commands for all three slices, targeted `rg` audits from the companion
   map, and a fresh focused subjective review for
   `design_coherence,cross_module_architecture,ai_generated_debt` after the wave.
-- Status: not started
-- Plan: none yet; first action is a package-local execution-grade wave plan.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start here. Do not start `P14-WAVE2`, `P14-WAVE3`, or P15 until
-  `P14-WAVE1` has source-proof closeout, focused review results, and exact
-  issue dispositions. Do not close P14 merely because `P14-W1`, `P14-W2`, and
-  `P14-W3` are complete; close only after the target-score or early-stop
-  evidence in `P14-EXIT` is recorded.
+- Status: completed
+- Plan: local `P14-WAVE1` execution plan reviewed clean after revision.
+- Last touched: `2026-04-27`
+- Verification: `npm run verify`, `npm run verify:docs`, package-local
+  Desloppify commands, targeted `rg` audits, and implementation review passed.
+- Focused review: `.desloppify/subagents/runs/20260427_025123` imported with
+  `--allow-partial`; AI generated debt `76.0` (`-2.0` from `78.0`),
+  cross-module arch `82.0` (`+4.0` from `78.0`), and design coherence `76.0`
+  (`+3.0` from `73.0`).
+- Follow-ups: target dimensions remain below `85`, and the fresh review found
+  concrete source-backed issues. `P14-WAVE2` and `P14-WAVE3` are admitted below
+  before any further implementation.
+- Handoff: `P14-WAVE1` is closed, but P14 and `P14-EXIT` remain open. Do not
+  open P15.
 
-### [ ] `P14-W1` `navigation-feature-port-boundary`
+### [x] `P14-W1` `navigation-feature-port-boundary`
 
 - Backlog: `1` refreshed post-P13 review issue.
 - Scope: replace feature-owned imports in `NavigationCoordinatorDeps` with
@@ -377,15 +381,16 @@ must add larger score-moving packages.
 - Verification routing: `npm run verify`, package-local Desloppify show
   commands, and targeted `rg` audits for feature-owned imports and structural
   port adaptation.
-- Status: not started
-- Plan: none yet; first action is a package-local execution-grade plan.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: execute as the cross-module architecture slice inside `P14-WAVE1`.
-  Start with planning only.
+- Status: completed
+- Plan: local `P14-WAVE1` reviewed plan.
+- Last touched: `795ef311` `refactor: add navigation-owned dependency ports`
+- Verification: `npm run verify`, package-local Desloppify commands, targeted
+  navigation import audits, and implementation review passed.
+- Follow-ups: fresh focused review admitted `P14-W4` for handler-specific
+  navigation port splitting; do not treat that follow-up as reopening `P14-W1`.
+- Handoff: archived inside completed `P14-WAVE1`.
 
-### [ ] `P14-W2` `diagnostics-surface-action-split`
+### [x] `P14-W2` `diagnostics-surface-action-split`
 
 - Backlog: `1` refreshed post-P13 review issue.
 - Scope: split `AppDiagnosticsSurface` dev-menu DOM construction from
@@ -406,14 +411,18 @@ must add larger score-moving packages.
 - Verification routing: `npm run verify`, package-local Desloppify show
   commands, and targeted `rg` audits for diagnostics action/copy dataset/API
   preservation.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: execute as the design-coherence slice inside `P14-WAVE1`.
+- Status: completed
+- Plan: local `P14-WAVE1` reviewed plan.
+- Last touched: `7cac8a6f` `refactor: split diagnostics dev menu rendering`
+- Verification: `npm run verify`, `npm run verify:docs`,
+  `npm test -- --runTestsByPath src/core/app-shell/__tests__/AppDiagnosticsSurface.test.ts --runInBand`,
+  package-local Desloppify commands, targeted diagnostics audits, and
+  implementation review passed.
+- Follow-ups: fresh focused review admitted `P14-W5` for the remaining dev-menu
+  controller/action split; do not treat that follow-up as reopening `P14-W2`.
+- Handoff: archived inside completed `P14-WAVE1`.
 
-### [ ] `P14-W3` `generated-comment-noise`
+### [x] `P14-W3` `generated-comment-noise`
 
 - Backlog: `2` refreshed post-P13 review issues.
 - Scope: remove generated-style banners and tautological comments/JSDoc while
@@ -438,24 +447,27 @@ must add larger score-moving packages.
   subtitle behavior, or EventEmitter generic constraints.
 - Verification routing: `npm run verify`, package-local Desloppify show
   commands, and targeted `rg` audits for removed generated-style comments.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: execute as the AI-generated-debt slice inside `P14-WAVE1`.
+- Status: completed
+- Plan: local `P14-WAVE1` reviewed plan.
+- Last touched: `b4269bd6` `chore: remove generated comment noise`
+- Verification: `npm run verify`, package-local Desloppify commands, targeted
+  changed-file comment audits, broad generated-comment audit, and
+  implementation review passed.
+- Follow-ups: broad generated-comment audit and focused review admitted
+  `P14-W8` and `P14-W9`; do not treat those follow-ups as reopening `P14-W3`.
+- Handoff: archived inside completed `P14-WAVE1`.
 
-### [ ] `P14-WAVE2` design-coherence expansion/re-review gate
+### [ ] `P14-WAVE2` design/coherence follow-up wave
 
-- Scope: after `P14-WAVE1`, run a fresh focused subjective review for
-  `design_coherence,cross_module_architecture,ai_generated_debt`, then admit
-  additional design/coherence work only if the review produces concrete
-  source-backed seams with one owner and a verification envelope.
-- Reconsiderable surfaces:
-  - `src/core/orchestrator/AppOrchestrator.ts`
-  - `src/modules/lifecycle/AppLifecycle.ts`
-  - `src/core/channel-setup/planning/ChannelSetupPlanner.ts`
-  - `src/modules/plex/discovery/PlexResourceDiscoveryRequestPolicy.ts`
+- Scope: execute the admitted post-WAVE1 design/coherence and cross-module
+  source issues after an execution-grade plan and clean adversarial plan review.
+- Owned slices:
+  - `P14-W4` `navigation-handler-port-split`
+  - `P14-W5` `diagnostics-dev-menu-controller-split`
+  - `P14-W6` `plex-discovery-request-policy-split`
+  - `P14-W7` `channel-setup-planner-strategy-boundary`
+- Admission evidence: focused review
+  `.desloppify/subagents/runs/20260427_025123/holistic_issues_merged.json`.
 - Package guardrail: do not activate broad AppOrchestrator, lifecycle,
   channel-setup, or Plex cleanup merely because files are large or prior
   detector wording exists. A WAVE2 admission must reduce ownership breadth
@@ -465,24 +477,94 @@ must add larger score-moving packages.
   files, `npm run verify` for any admitted source work, and `npm run
   verify:docs` for checklist/package-map updates.
 - Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: the four WAVE2-reconsiderable deferred design/coherence issue ids
-  remain non-active unless WAVE2 produces fresh proof that supersedes their
-  current dispositions. The legacy playback migration issue stays under its
-  existing persistence-migration disposition.
-- Handoff: gate only. If no concrete source-backed seam passes the guardrail,
-  record that as one focused-review stop-condition pass instead of creating
-  source work. A no-admission WAVE2 result is not P14 closure by itself; it can
-  satisfy only one of the two consecutive focused-review passes required by the
-  early-stop condition.
+- Plan: none yet; first action is a package-local execution-grade WAVE2 plan.
+- Last touched: `2026-04-27`
+- Verification: `npm run verify` for source work and `npm run verify:docs` for
+  checklist/package-map updates.
+- Follow-ups: `P14-W6` supersedes the previous non-active
+  `plex_discovery_request_policy_nested` disposition. The older broad
+  `channel_setup_planner_pipeline_bulk` disposition remains non-active; `P14-W7`
+  owns only the fresh planner/strategy cycle issue.
+- Handoff: start with planning only. Completing WAVE2 is not P14 exit.
 
-### [ ] `P14-WAVE3` AI-generated-debt expansion gate
+### [ ] `P14-W4` `navigation-handler-port-split`
 
-- Scope: after `P14-WAVE1`, expand generated comment/header/JSDoc cleanup only
-  when targeted audits find the same generated-style pattern beyond the initial
-  high-signal files.
+- Imported review issues:
+  - `review::.::holistic::cross_module_architecture::navigation_deps_cross_feature_contract`
+- Scope: split the broad navigation dependency contract into handler-specific
+  navigation-owned ports for key-mode, repeat, screen, modal, and channel-number
+  helpers.
+- Candidate files:
+  - `src/modules/navigation/NavigationCoordinatorDeps.ts`
+  - `src/modules/navigation/NavigationKeyModeRouter.ts`
+  - `src/modules/navigation/NavigationRepeatHandler.ts`
+  - `src/modules/navigation/NavigationScreenEffectsHandler.ts`
+  - `src/modules/navigation/NavigationModalEffectsHandler.ts`
+  - `src/modules/navigation/NavigationChannelNumberHandler.ts`
+  - `src/modules/navigation/NavigationCoordinator.ts`
+  - `src/core/orchestrator/OrchestratorCoordinatorBuilders.ts`
+- Package guardrail: do not move feature coordination into navigation or create
+  a new orchestration layer. Keep concrete adaptation in the orchestrator
+  builder.
+- Handoff: execute as part of `P14-WAVE2` after plan/review.
+
+### [ ] `P14-W5` `diagnostics-dev-menu-controller-split`
+
+- Imported review issues:
+  - `review::.::holistic::design_coherence::app_diagnostics_surface_mixed_actions`
+- Scope: move dev-menu command handling, hydration, refresh, storage mutation,
+  clipboard, and toast feedback behind an app-shell diagnostics controller while
+  keeping `AppDiagnosticsSurface` as lifecycle/keybinding owner.
+- Candidate files:
+  - `src/core/app-shell/AppDiagnosticsSurface.ts`
+  - `src/core/app-shell/AppDiagnosticsDevMenuView.ts`
+  - `src/core/app-shell/AppDiagnosticsPlaybackInfoFormatter.ts`
+  - `src/core/app-shell/AppDiagnosticsChannelSetupSummary.ts`
+  - `src/core/app-shell/__tests__/AppDiagnosticsSurface.test.ts`
+- Package guardrail: preserve `window.lineup`, toast, clipboard,
+  storage-clearing/reload, and debug override behavior. Do not move diagnostics
+  into UI modules.
+- Handoff: execute as part of `P14-WAVE2` after plan/review.
+
+### [ ] `P14-W6` `plex-discovery-request-policy-split`
+
+- Imported review issues:
+  - `review::.::holistic::design_coherence::plex_discovery_request_policy_nested`
+- Scope: split Plex discovery request execution from retry/fallback/response
+  classification policy after fresh focused review superseded the earlier
+  non-active disposition.
+- Candidate files:
+  - `src/modules/plex/discovery/PlexResourceDiscoveryRequestPolicy.ts`
+  - `src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts`
+- Package guardrail: preserve retry timing, 429 `Retry-After`, 5xx fallback,
+  timeout handling, abort behavior, and final response/error classification.
+- Handoff: execute as part of `P14-WAVE2` after plan/review.
+
+### [ ] `P14-W7` `channel-setup-planner-strategy-boundary`
+
+- Imported review issues:
+  - `review::.::holistic::design_coherence::channel_setup_planner_builder_cycle`
+- Scope: break the planner/strategy-builder dependency cycle by moving
+  planner-neutral identity and estimate helpers to a shared planning module
+  without changing channel setup behavior.
+- Candidate files:
+  - `src/core/channel-setup/planning/ChannelSetupPlanner.ts`
+  - `src/core/channel-setup/planning/ChannelSetupStrategyBuilders.ts`
+  - `src/core/channel-setup/planning/ChannelSetupPlanningTypes.ts`
+  - `src/core/channel-setup/__tests__/ChannelSetupPlanner.test.ts`
+- Package guardrail: do not broaden channel setup planning or rewrite the
+  strategy pipeline. This is a boundary/cycle cleanup only.
+- Handoff: execute as part of `P14-WAVE2` after plan/review.
+
+### [ ] `P14-WAVE3` AI-generated-debt follow-up wave
+
+- Scope: execute the admitted post-WAVE1 generated comment/header/JSDoc cleanup
+  after an execution-grade plan and clean adversarial plan review.
+- Owned slices:
+  - `P14-W8` `generated-headers-and-banners`
+  - `P14-W9` `trivial-event-and-method-jsdoc`
+- Admission evidence: focused review
+  `.desloppify/subagents/runs/20260427_025123/holistic_issues_merged.json`.
 - Candidate expansion proof: targeted `rg` audits for `@fileoverview`,
   `@module`, stale `@version`, signature-echo event JSDoc, private-field echo
   comments, and comments that only restate adjacent names or types.
@@ -495,28 +577,58 @@ must add larger score-moving packages.
   verify` for source-comment batches, and focused subjective review after the
   batch.
 - Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
+- Plan: none yet; first action is a package-local execution-grade WAVE3 plan.
+- Last touched: `2026-04-27`
+- Verification: targeted audits, package-local Desloppify commands,
+  `git diff --check`, `npm run verify`, and focused subjective review after
+  the batch.
 - Follow-ups: none yet
-- Handoff: gate only. Admit additional files only when the audit shows the same
-  pattern and the planned patch stays comment-only. A no-admission WAVE3 result
-  is not P14 closure by itself; it can satisfy only one focused-review/audit
-  pass toward the early-stop condition.
+- Handoff: start with planning only. Completing WAVE3 is not P14 exit.
+
+### [ ] `P14-W8` `generated-headers-and-banners`
+
+- Imported review issues:
+  - `review::.::holistic::ai_generated_debt::generated_style_headers_and_banners`
+- Scope: remove generated-style file headers and separator banners from
+  hand-written modules while preserving meaningful ownership and runtime
+  comments.
+- Candidate files:
+  - `src/modules/scheduler/scheduler/index.ts`
+  - `src/modules/navigation/interfaces.ts`
+  - `src/modules/plex/stream/interfaces.ts`
+  - `src/modules/player/AudioTrackManager.ts`
+- Package guardrail: comment-only; no export/API/type/runtime changes.
+- Handoff: execute as part of `P14-WAVE3` after plan/review.
+
+### [ ] `P14-W9` `trivial-event-and-method-jsdoc`
+
+- Imported review issues:
+  - `review::.::holistic::ai_generated_debt::trivial_event_and_method_jsdoc`
+- Scope: delete trivial JSDoc that repeats obvious event, lifecycle,
+  getter/setter, initialize, unload, and destroy method signatures while
+  preserving comments with behavioral value.
+- Candidate files:
+  - `src/modules/plex/stream/interfaces.ts`
+  - `src/modules/plex/library/interfaces.ts`
+  - `src/modules/player/AudioTrackManager.ts`
+  - `src/core/initialization/InitializationCoordinator.ts`
+- Package guardrail: comment-only; preserve comments explaining lifecycle
+  ordering, platform constraints, error isolation, compatibility, or external
+  contracts.
+- Handoff: execute as part of `P14-WAVE3` after plan/review.
 
 ### [ ] `P14-EXIT`
 
-- Close only if: every one of the nine refreshed review issue ids has one owner
+- Close only if: every P14 review issue id has one owner
   or explicit disposition; the P14 package map and checklist agree;
   package-local checks pass; final integration-branch scan/status/plan/review
   and security evidence is recorded; focused review evidence after each wave is
   recorded; stop-condition evaluation is recorded before opening P15; and `npm
   run verify` / `npm run verify:docs` pass as appropriate.
 - Explicit non-closure rule: completing `P14-W1`, `P14-W2`, and `P14-W3`
-  closes only `P14-WAVE1`. It does not close P14 unless the required focused
-  review and score report prove all three target dimensions reached `85`, or
-  the early-stop condition is recorded with two consecutive fresh focused
-  reviews.
+  closed only `P14-WAVE1`. It did not close P14 because the focused review
+  reported AI generated debt `76.0`, cross-module arch `82.0`, and design
+  coherence `76.0`.
 - Required commands:
   - `desloppify scan --path .`
   - `desloppify status`
@@ -568,10 +680,9 @@ Exact owner, reason, and revisit trigger are recorded in
   selected-server seam.
 - `review::.::holistic::design_coherence::channel_setup_planner_pipeline_bulk`:
   deferred; no active P14 owner because the current planner pipeline is readable
-  glue over existing extracted stages.
-- `review::.::holistic::design_coherence::plex_discovery_request_policy_nested`:
-  deferred; no active P14 owner because the policy is already extracted and the
-  remaining nesting is bounded.
+  glue over existing extracted stages. Fresh review superseded part of this
+  area with `P14-W7`, but the older broad pipeline-bulk wording remains
+  non-active.
 - `review::.::holistic::incomplete_migration::legacy_playback_variant_strip_still_live`:
   deferred; no active P14 owner because the legacy field strip is a bounded
   persisted-data compatibility shim.
