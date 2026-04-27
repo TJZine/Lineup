@@ -1,17 +1,9 @@
 import { AppErrorCode } from '../../lifecycle/types';
 import { PlexApiError } from '../auth/plexAuthTransport';
-import {
-    applyXPlexTokenQueryParamIfTrusted,
-    PLEX_CLOUD_TRUSTED_ORIGINS,
-} from '../shared/plexUrl';
-import { PLEX_DISCOVERY_CONSTANTS } from './constants';
 import type { PlexApiConnection, PlexApiResource } from './types';
-import { redactSensitiveTokens, redactUrlForLog } from '../../../utils/redact';
-
-interface DiscoveryFetchVariant {
-    url: string;
-    headers?: Record<string, string>;
-}
+import { redactSensitiveTokens } from '../../../utils/redact';
+import { fetchDiscoveryResponse } from './PlexDiscoveryRequestExecutor';
+import { redactDiscoveryUrl } from './PlexDiscoveryResponsePolicy';
 
 export async function discoverPlexResourcesWithRequestPolicy(
     headers: Record<string, string>
@@ -35,133 +27,6 @@ export async function discoverPlexResourcesWithRequestPolicy(
             error
         );
     }
-}
-
-function buildDiscoveryFetchVariants(headers: Record<string, string>): DiscoveryFetchVariant[] {
-    const baseUrl = new URL(
-        PLEX_DISCOVERY_CONSTANTS.PLEX_TV_BASE_URL + PLEX_DISCOVERY_CONSTANTS.RESOURCES_ENDPOINT
-    );
-    baseUrl.search = `?${PLEX_DISCOVERY_CONSTANTS.RESOURCES_PARAMS}`;
-
-    const token = headers['X-Plex-Token'];
-    const baseUrlString = baseUrl.toString();
-    const variants: DiscoveryFetchVariant[] = [
-        { url: baseUrlString, headers },
-    ];
-
-    if (!token) {
-        return variants;
-    }
-
-    const urlWithToken = new URL(baseUrlString);
-    applyXPlexTokenQueryParamIfTrusted(urlWithToken, token, PLEX_CLOUD_TRUSTED_ORIGINS);
-    variants.push({ url: urlWithToken.toString(), headers });
-
-    const clientsBaseUrl = new URL('https://clients.plex.tv/api/v2/resources');
-    clientsBaseUrl.search = `?${PLEX_DISCOVERY_CONSTANTS.RESOURCES_PARAMS}`;
-    applyXPlexTokenQueryParamIfTrusted(clientsBaseUrl, token, PLEX_CLOUD_TRUSTED_ORIGINS);
-    variants.push({ url: clientsBaseUrl.toString(), headers });
-
-    return variants;
-}
-
-async function fetchDiscoveryResponse(
-    headers: Record<string, string>,
-    onAttemptUrl: (url: string) => void
-): Promise<Response> {
-    const variants = buildDiscoveryFetchVariants(headers);
-    const maxAttempts = PLEX_DISCOVERY_CONSTANTS.MAX_DISCOVERY_ATTEMPTS;
-    let response: Response | null = null;
-    let lastError: unknown = null;
-    let lastNonOkResponse: Response | null = null;
-    let lastUrl = '';
-
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        let retryScheduled = false;
-        for (const variant of variants) {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(
-                () => controller.abort(),
-                PLEX_DISCOVERY_CONSTANTS.DISCOVERY_TIMEOUT_MS
-            );
-            try {
-                lastUrl = variant.url;
-                onAttemptUrl(lastUrl);
-                const init: RequestInit = {
-                    method: 'GET',
-                    signal: controller.signal,
-                };
-                if (variant.headers) {
-                    init.headers = variant.headers;
-                }
-                response = await fetch(variant.url, init);
-            } catch (error) {
-                lastError = error;
-                continue;
-            } finally {
-                clearTimeout(timeoutId);
-            }
-
-            if (response.status === 429 && attempt < maxAttempts - 1) {
-                const retryAfter = response.headers.get('Retry-After');
-                const parsed = retryAfter ? parseInt(retryAfter, 10) : NaN;
-                const delayMs = Number.isFinite(parsed) && parsed > 0
-                    ? Math.min(
-                        parsed * 1000,
-                        PLEX_DISCOVERY_CONSTANTS.RATE_LIMIT_MAX_DELAY_MS
-                    )
-                    : PLEX_DISCOVERY_CONSTANTS.RATE_LIMIT_DEFAULT_DELAY_MS;
-                await new Promise((resolve) => setTimeout(resolve, delayMs));
-                response = null;
-                retryScheduled = true;
-                break;
-            }
-
-            if (response.status >= 500 && response.status <= 599) {
-                lastNonOkResponse = response;
-                lastError = new Error(`Request failed with status ${response.status}`);
-                response = null;
-                continue;
-            }
-
-            break;
-        }
-
-        if (response) {
-            break;
-        }
-        if (retryScheduled) {
-            continue;
-        }
-        if (lastNonOkResponse && attempt < maxAttempts - 1) {
-            await new Promise((resolve) => {
-                setTimeout(resolve, PLEX_DISCOVERY_CONSTANTS.DISCOVERY_RETRY_BACKOFF_MS);
-            });
-        }
-    }
-
-    if (!response) {
-        if (lastNonOkResponse) {
-            handleResponseError(lastNonOkResponse);
-        }
-        const message = redactSensitiveTokens(
-            lastError instanceof Error
-                ? lastError.message
-                : 'unknown error'
-        );
-        throw new PlexApiError(
-            AppErrorCode.SERVER_UNREACHABLE,
-            `Failed to discover servers: ${message} (last url: ${redactDiscoveryUrl(lastUrl) || 'unknown'})`,
-            undefined,
-            true,
-            lastError
-        );
-    }
-    if (!response.ok) {
-        handleResponseError(response);
-    }
-
-    return response;
 }
 
 async function parseResourcesResponse(response: Response): Promise<PlexApiResource[]> {
@@ -249,58 +114,4 @@ async function parseResourcesResponse(response: Response): Promise<PlexApiResour
 function parseXmlBoolean(value: string | null): boolean {
     if (!value) return false;
     return value === '1';
-}
-
-function handleResponseError(response: Response): never {
-    if (response.status === 401) {
-        throw new PlexApiError(
-            AppErrorCode.AUTH_REQUIRED,
-            'Unauthorized: authentication required',
-            401,
-            false
-        );
-    }
-    if (response.status === 403) {
-        throw new PlexApiError(
-            AppErrorCode.AUTH_INVALID,
-            'Forbidden: access denied',
-            403,
-            false
-        );
-    }
-    if (response.status === 429) {
-        throw new PlexApiError(
-            AppErrorCode.RATE_LIMITED,
-            'Request failed with status 429',
-            429,
-            true
-        );
-    }
-    if (response.status >= 500) {
-        throw new PlexApiError(
-            AppErrorCode.SERVER_UNREACHABLE,
-            'Server error: ' + String(response.status),
-            response.status,
-            true
-        );
-    }
-    if (response.status >= 400 && response.status < 500) {
-        throw new PlexApiError(
-            AppErrorCode.SERVER_UNREACHABLE,
-            'Client error during server discovery: ' + String(response.status),
-            response.status,
-            false
-        );
-    }
-    throw new PlexApiError(
-        AppErrorCode.SERVER_UNREACHABLE,
-        'Unknown error during server discovery',
-        response.status,
-        true
-    );
-}
-
-function redactDiscoveryUrl(url: string | undefined): string {
-    if (!url) return '';
-    return redactUrlForLog(url);
 }
