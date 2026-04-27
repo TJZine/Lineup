@@ -4,7 +4,7 @@ import type {
     NavigationCoordinatorDeps,
     NavigationEpgPort,
     NavigationVideoPlayerPort,
-} from '../NavigationCoordinatorDeps';
+} from '../NavigationCoordinatorContracts';
 import type { INavigationManager, KeyEvent, NavigationEventMap, Screen } from '../interfaces';
 import {
     computeAcceleratedRepeatIntervalMs,
@@ -190,75 +190,113 @@ const setup = (
     };
     Object.assign(legacy, overrides);
 
-    const deps: NavigationCoordinatorDeps = {
-        navigation,
-        epg,
-        playback: {
-            videoPlayer: legacy.videoPlayer,
-            plexAuth: legacy.plexAuth,
-            stopPlayback: legacy.stopPlayback,
-            getSeekIncrementMs: legacy.getSeekIncrementMs,
-            playerOsd: {
-                overlay: { isVisible: legacy.isPlayerOsdVisible },
-                coordinator: {
-                    poke: legacy.pokePlayerOsd,
-                    toggle: legacy.togglePlayerOsd,
-                    hide: legacy.hidePlayerOsd,
-                },
-            },
-        },
-        miniGuide: {
-            overlay: { isVisible: legacy.isMiniGuideVisible },
+    const playback = {
+        videoPlayer: legacy.videoPlayer,
+        plexAuth: legacy.plexAuth,
+        stopPlayback: legacy.stopPlayback,
+        getSeekIncrementMs: legacy.getSeekIncrementMs,
+        playerOsd: {
+            overlay: { isVisible: legacy.isPlayerOsdVisible },
             coordinator: {
-                show: legacy.showMiniGuide,
-                hide: legacy.hideMiniGuide,
-                handleNavigation: legacy.handleMiniGuideNavigation,
-                handlePage: legacy.handleMiniGuidePage,
-                handleSelect: legacy.handleMiniGuideSelect,
+                poke: legacy.pokePlayerOsd,
+                toggle: legacy.togglePlayerOsd,
+                hide: legacy.hidePlayerOsd,
             },
         },
-        nowPlayingInfo: {
-            modalId: legacy.nowPlayingInfoModalId,
-            isModalOpen: legacy.isNowPlayingModalOpen,
-            resetAutoHideTimer: legacy.resetNowPlayingInfoAutoHideTimer,
-            toggleOverlay: legacy.toggleNowPlayingInfoOverlay,
-            showOverlay: legacy.showNowPlayingInfoOverlay,
-            hideOverlay: legacy.hideNowPlayingInfoOverlay,
+    };
+    const miniGuide = {
+        overlay: { isVisible: legacy.isMiniGuideVisible },
+        coordinator: {
+            show: legacy.showMiniGuide,
+            hide: legacy.hideMiniGuide,
+            handleNavigation: legacy.handleMiniGuideNavigation,
+            handlePage: legacy.handleMiniGuidePage,
+            handleSelect: legacy.handleMiniGuideSelect,
         },
-        modals: {
-            playbackOptions: {
-                modalId: legacy.playbackOptionsModalId,
-                prepare: legacy.preparePlaybackOptionsModal,
-                show: legacy.showPlaybackOptionsModal,
-                hide: legacy.hidePlaybackOptionsModal,
+    };
+    const nowPlayingInfo = {
+        modalId: legacy.nowPlayingInfoModalId,
+        isModalOpen: legacy.isNowPlayingModalOpen,
+        resetAutoHideTimer: legacy.resetNowPlayingInfoAutoHideTimer,
+        toggleOverlay: legacy.toggleNowPlayingInfoOverlay,
+        showOverlay: legacy.showNowPlayingInfoOverlay,
+        hideOverlay: legacy.hideNowPlayingInfoOverlay,
+    };
+    const modals = {
+        playbackOptions: {
+            modalId: legacy.playbackOptionsModalId,
+            prepare: legacy.preparePlaybackOptionsModal,
+            show: legacy.showPlaybackOptionsModal,
+            hide: legacy.hidePlaybackOptionsModal,
+        },
+        exitConfirm: {
+            modalId: legacy.exitConfirmModalId,
+            prepare: legacy.prepareExitConfirmModal,
+            show: legacy.showExitConfirmModal,
+            hide: legacy.hideExitConfirmModal,
+        },
+    };
+    const channelSwitching = {
+        setLastChannelChangeSourceRemote: legacy.setLastChannelChangeSourceRemote,
+        setLastChannelChangeSourceNumber: legacy.setLastChannelChangeSourceNumber,
+        switchToNextChannel: legacy.switchToNextChannel,
+        switchToPreviousChannel: legacy.switchToPreviousChannel,
+        switchToChannelByNumber: legacy.switchToChannelByNumber,
+        focusEpgOnCurrentChannel: legacy.focusEpgOnCurrentChannel,
+        toggleEpg: legacy.toggleEpg,
+        ...(legacy.onChannelInputUpdate
+            ? { onChannelInputUpdate: legacy.onChannelInputUpdate }
+            : {}),
+    };
+    const uiGuards = {
+        shouldRunChannelSetup: legacy.shouldRunChannelSetup,
+        hideChannelTransition: legacy.hideChannelTransition,
+    };
+
+    const deps: NavigationCoordinatorDeps = {
+        events: {
+            navigation,
+            miniGuide,
+            channelSwitching,
+            reportRecoverableAsyncFailure: legacy.reportRecoverableAsyncFailure,
+            reportToast: (toast): void => {
+                (deps as unknown as { reportToast?: (toast: unknown) => void }).reportToast?.(toast);
             },
-            exitConfirm: {
-                modalId: legacy.exitConfirmModalId,
-                prepare: legacy.prepareExitConfirmModal,
-                show: legacy.showExitConfirmModal,
-                hide: legacy.hideExitConfirmModal,
-            },
+            readDebugLoggingEnabled: legacy.readDebugLoggingEnabled,
         },
-        channelSwitching: {
-            setLastChannelChangeSourceRemote: legacy.setLastChannelChangeSourceRemote,
-            setLastChannelChangeSourceNumber: legacy.setLastChannelChangeSourceNumber,
-            switchToNextChannel: legacy.switchToNextChannel,
-            switchToPreviousChannel: legacy.switchToPreviousChannel,
-            switchToChannelByNumber: legacy.switchToChannelByNumber,
-            focusEpgOnCurrentChannel: legacy.focusEpgOnCurrentChannel,
-            toggleEpg: legacy.toggleEpg,
-            ...(legacy.onChannelInputUpdate
-                ? { onChannelInputUpdate: legacy.onChannelInputUpdate }
-                : {}),
+        repeats: {
+            navigation,
+            epg,
+            miniGuide,
         },
-        uiGuards: {
-            shouldRunChannelSetup: legacy.shouldRunChannelSetup,
-            hideChannelTransition: legacy.hideChannelTransition,
+        keyModeRouter: {
+            navigation,
+            epg,
+            playback,
+            miniGuide,
+            nowPlayingInfo,
+            modals,
+            channelSwitching,
         },
-        reportRecoverableAsyncFailure: legacy.reportRecoverableAsyncFailure,
-        readKeepPlayingInSettings: legacy.readKeepPlayingInSettings,
-        readDebugLoggingEnabled: legacy.readDebugLoggingEnabled,
-        ...overrides,
+        screenEffects: {
+            navigation,
+            epg,
+            playback,
+            miniGuide,
+            nowPlayingInfo,
+            channelSwitching,
+            uiGuards,
+            readKeepPlayingInSettings: legacy.readKeepPlayingInSettings,
+        },
+        modalEffects: {
+            miniGuide,
+            nowPlayingInfo,
+            modals,
+        },
+        channelNumber: {
+            epg,
+            channelSwitching,
+        },
     };
 
     const coordinator = new NavigationCoordinator(deps);

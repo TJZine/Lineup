@@ -1,9 +1,3 @@
-/**
- * @fileoverview Interface definitions for Plex Library module.
- * @module modules/plex/library/interfaces
- * @version 1.0.0
- */
-
 import type {
     PlexLibrarySection,
     PlexMediaItem,
@@ -28,10 +22,6 @@ export interface PlexTagDirectoryQueryOptions {
     requestIntent?: PlexLibraryRequestIntent;
 }
 
-// ============================================
-// Main Interface
-// ============================================
-
 /**
  * Plex Library Interface.
  * Provides access to Plex media libraries and content.
@@ -43,10 +33,6 @@ export interface PlexTagDirectoryQueryOptions {
 export interface IPlexLibrary {
     // Library Sections
 
-    /**
-     * Get all libraries.
-     * @returns Promise resolving to list of libraries
-     */
     getLibraries(options?: {
         signal?: AbortSignal | null;
         /**
@@ -62,11 +48,6 @@ export interface IPlexLibrary {
         itemCountConcurrency?: number;
     }): Promise<PlexLibrarySection[]>;
 
-    /**
-     * Get a specific library by ID.
-     * @param libraryId - Library section ID
-     * @returns Promise resolving to library or null when the id is not present in a valid section list
-     */
     getLibrary(
         libraryId: string,
         options?: { signal?: AbortSignal | null }
@@ -93,34 +74,14 @@ export interface IPlexLibrary {
      */
     getLibraryItemCount(libraryId: string, options?: LibraryQueryOptions): Promise<number | null>;
 
-    /**
-     * Get a specific media item by rating key.
-     * @param ratingKey - Item's unique rating key
-     * @returns Promise resolving to item or null if not found
-     */
     getItem(ratingKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem | null>;
 
     // TV Show Hierarchy
 
-    /**
-     * Get TV shows within a library.
-     * @param libraryId - Library section ID (must be a show library)
-     * @returns Promise resolving to list of shows
-     */
     getShows(libraryId: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]>;
 
-    /**
-     * Get seasons for a show.
-     * @param showKey - Show's rating key
-     * @returns Promise resolving to list of seasons
-     */
     getShowSeasons(showKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexSeason[]>;
 
-    /**
-     * Get episodes for a season.
-     * @param seasonKey - Season's rating key
-     * @returns Promise resolving to list of episodes
-     */
     getSeasonEpisodes(seasonKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]>;
 
     /**

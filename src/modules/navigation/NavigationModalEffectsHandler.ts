@@ -1,10 +1,12 @@
-import type { NavigationModalEffectsPort } from './NavigationCoordinatorDeps';
-import type { NavigationRepeatHandler } from './NavigationRepeatHandler';
+import type {
+    NavigationModalEffectsPort,
+    NavigationRepeatRuntime,
+} from './NavigationCoordinatorContracts';
 
 export class NavigationModalEffectsHandler {
     constructor(
         private readonly deps: NavigationModalEffectsPort,
-        private readonly repeats: NavigationRepeatHandler
+        private readonly repeats: NavigationRepeatRuntime
     ) { }
 
     handleModalOpen(modalId: string): void {

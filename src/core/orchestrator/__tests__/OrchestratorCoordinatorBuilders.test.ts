@@ -348,27 +348,19 @@ describe('OrchestratorCoordinatorBuilders', () => {
         const coordinator = buildNavigationCoordinator(input, deps as never);
         const navigationDeps = (
             coordinator as unknown as {
-                deps: Pick<
-                    import('../../../modules/navigation/NavigationCoordinatorDeps').NavigationCoordinatorDeps,
-                    | 'reportRecoverableAsyncFailure'
-                    | 'reportToast'
-                    | 'playback'
-                    | 'nowPlayingInfo'
-                    | 'readKeepPlayingInSettings'
-                    | 'readDebugLoggingEnabled'
-                >;
+                deps: import('../../../modules/navigation/NavigationCoordinatorContracts').NavigationCoordinatorDeps;
             }
         ).deps;
 
-        expect(navigationDeps.reportRecoverableAsyncFailure).toBe(reportRecoverableAsyncFailure);
-        expect(navigationDeps.reportToast).toBeDefined();
-        navigationDeps.reportToast?.({ message: 'Recovered', type: 'warning' });
+        expect(navigationDeps.events.reportRecoverableAsyncFailure).toBe(reportRecoverableAsyncFailure);
+        expect(navigationDeps.events.reportToast).toBeDefined();
+        navigationDeps.events.reportToast?.({ message: 'Recovered', type: 'warning' });
         expect(reportToast).toHaveBeenCalledWith({ message: 'Recovered', type: 'warning' });
-        expect(navigationDeps.playback.getSeekIncrementMs()).toBe(15_000);
+        expect(navigationDeps.keyModeRouter.playback.getSeekIncrementMs()).toBe(15_000);
         input.config!.playerConfig!.seekIncrementSec = 30;
-        expect(navigationDeps.playback.getSeekIncrementMs()).toBe(30_000);
+        expect(navigationDeps.keyModeRouter.playback.getSeekIncrementMs()).toBe(30_000);
         input.config!.playerConfig!.seekIncrementSec = Number.NaN;
-        expect(navigationDeps.playback.getSeekIncrementMs()).toBe(10_000);
+        expect(navigationDeps.keyModeRouter.playback.getSeekIncrementMs()).toBe(10_000);
         const navigationModule = input.modules.navigation as unknown as {
             isModalOpen: jest.Mock<boolean, [string?]>;
         };
@@ -376,13 +368,13 @@ describe('OrchestratorCoordinatorBuilders', () => {
         const nowPlayingInfoOverlay = input.overlays.nowPlayingInfo as unknown as {
             resetAutoHideTimer: jest.Mock;
         };
-        expect(navigationDeps.nowPlayingInfo.isModalOpen()).toBe(true);
+        expect(navigationDeps.keyModeRouter.nowPlayingInfo.isModalOpen()).toBe(true);
         expect(navigationModule.isModalOpen).toHaveBeenCalledWith('now-playing-info');
         expect(nowPlayingInfoOverlay.resetAutoHideTimer).not.toHaveBeenCalled();
-        navigationDeps.nowPlayingInfo.resetAutoHideTimer();
+        navigationDeps.keyModeRouter.nowPlayingInfo.resetAutoHideTimer();
         expect(nowPlayingInfoOverlay.resetAutoHideTimer).toHaveBeenCalledTimes(1);
-        expect(navigationDeps.readKeepPlayingInSettings()).toBe(false);
-        expect(navigationDeps.readDebugLoggingEnabled()).toBe(true);
+        expect(navigationDeps.screenEffects.readKeepPlayingInSettings()).toBe(false);
+        expect(navigationDeps.events.readDebugLoggingEnabled()).toBe(true);
     });
 
     it('buildChannelTransitionCoordinator routes transition activity changes through the named orchestrator callback path', () => {

@@ -180,26 +180,14 @@ export class AppLifecycle implements IAppLifecycle {
 
     // ========== Lifecycle Hooks ==========
 
-    /**
-     * Register a callback for when app is paused.
-     * @param callback - Function to call on pause
-     */
     public onPause(callback: LifecycleCallback): IDisposable {
         return this._registerLifecycleCallback(this._pauseCallbacks, callback);
     }
 
-    /**
-     * Register a callback for when app resumes.
-     * @param callback - Function to call on resume
-     */
     public onResume(callback: LifecycleCallback): IDisposable {
         return this._registerLifecycleCallback(this._resumeCallbacks, callback);
     }
 
-    /**
-     * Register a callback for before termination.
-     * @param callback - Function to call before terminate
-     */
     public onTerminate(callback: LifecycleCallback): IDisposable {
         return this._registerLifecycleCallback(this._terminateCallbacks, callback);
     }

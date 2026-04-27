@@ -52,6 +52,16 @@ interface ChannelSetupPlan {
     reachedMaxChannels: boolean;
 }
 
+type ChannelSetupPlanningLimits = {
+    effectiveMaxChannels: number;
+    minItems: number;
+};
+
+type TruncatedPendingChannels = {
+    pending: PendingChannel[];
+    reachedMaxChannels: boolean;
+};
+
 const sortTagValuesByCountThenTitle = <T extends { title: string; count: number }>(values: T[]): T[] => (
     [...values].sort((a, b) => {
         const countDiff = b.count - a.count;
@@ -135,14 +145,8 @@ function buildChannelSetupPlanInternal(
         seedFor,
     } = input;
 
-    const requestedMax = Number.isFinite(config.maxChannels) ? config.maxChannels : DEFAULT_CHANNEL_SETUP_MAX;
-    const effectiveMaxChannels = Math.max(1, Math.floor(requestedMax));
-    const requestedMinItems = Number.isFinite(config.minItemsPerChannel) ? config.minItemsPerChannel : DEFAULT_MIN_ITEMS_PER_CHANNEL;
-    const minItems = Math.max(1, Math.floor(requestedMinItems));
-
-    const selectedLibraries = sortLibrariesByTitle(
-        libraries.filter((lib) => config.selectedLibraryIds.includes(lib.id))
-    );
+    const { effectiveMaxChannels, minItems } = resolvePlanningLimits(config);
+    const selectedLibraries = selectConfiguredLibraries(libraries, config);
 
     const diagnostics = collectDiagnostics
         ? createPlannerDiagnostics(
@@ -156,14 +160,6 @@ function buildChannelSetupPlanInternal(
             minItems
         )
         : undefined;
-
-    const getStrategyPriority = (strategy: SetupStrategyKey): number => {
-        const configured = config.strategyConfig[strategy]?.priority;
-        if (Number.isFinite(configured)) {
-            return Math.max(1, Math.floor(Number(configured)));
-        }
-        return DEFAULT_STRATEGY_PRIORITIES[strategy];
-    };
 
     const strategyBuild = buildChannelSetupStrategyBuckets({
         config,
@@ -185,34 +181,112 @@ function buildChannelSetupPlanInternal(
         diagnostics.candidatesAfterMinItems = strategyBuild.candidatesAfterMinItems;
     }
 
-    const orderedStrategies = (Object.keys(strategyBuckets) as SetupStrategyKey[]).sort((a, b) => {
-        const priorityDiff = getStrategyPriority(a) - getStrategyPriority(b);
-        if (priorityDiff !== 0) return priorityDiff;
-        return a.localeCompare(b);
-    });
-
     const showLibraryIds = new Set(
         selectedLibraries
             .filter((library) => library.type === 'show')
             .map((library) => library.id)
     );
 
-    const baseOrderedUnadjusted: PendingChannel[] = [];
-    for (const strategy of orderedStrategies) {
-        baseOrderedUnadjusted.push(...strategyBuckets[strategy]);
-    }
+    const baseOrderedUnadjusted = orderStrategyChannels(
+        strategyBuckets,
+        createStrategyPriorityResolver(config)
+    );
 
     if (diagnostics) {
         diagnostics.strategyBucketSizes = countChannelsByStrategy(baseOrderedUnadjusted);
     }
 
+    const baseOrdered = normalizeSeriesPlayback(baseOrderedUnadjusted, showLibraryIds, config);
+    const withAlternateLineups = expandAlternateLineups(baseOrdered, config, seedFor);
+
+    if (diagnostics) {
+        diagnostics.afterAlternateLineups = countChannelsByStrategy(withAlternateLineups);
+    }
+
+    const withVariants = expandPlaybackVariants(withAlternateLineups, showLibraryIds, config, seedFor);
+
+    if (diagnostics) {
+        diagnostics.afterVariants = countChannelsByStrategy(withVariants);
+    }
+
+    const { pending, reachedMaxChannels } = truncatePendingChannels(withVariants, effectiveMaxChannels);
+    const estimates = estimatePendingChannels(pending);
+
+    if (diagnostics) {
+        diagnostics.afterMaxChannels = { ...estimates };
+        diagnostics.lostToMaxChannels = subtractEstimates(diagnostics.afterVariants, diagnostics.afterMaxChannels);
+    }
+
+    return {
+        plan: {
+            pendingChannels: pending,
+            estimates,
+            warnings: [...warnings],
+            skipped,
+            reachedMaxChannels,
+        },
+        ...(diagnostics ? { diagnostics } : {}),
+    };
+}
+
+function resolvePlanningLimits(config: ChannelSetupConfig): ChannelSetupPlanningLimits {
+    const requestedMax = Number.isFinite(config.maxChannels) ? config.maxChannels : DEFAULT_CHANNEL_SETUP_MAX;
+    const requestedMinItems = Number.isFinite(config.minItemsPerChannel)
+        ? config.minItemsPerChannel
+        : DEFAULT_MIN_ITEMS_PER_CHANNEL;
+    return {
+        effectiveMaxChannels: Math.max(1, Math.floor(requestedMax)),
+        minItems: Math.max(1, Math.floor(requestedMinItems)),
+    };
+}
+
+function selectConfiguredLibraries(
+    libraries: PlexLibrarySection[],
+    config: ChannelSetupConfig
+): PlexLibrarySection[] {
+    return sortLibrariesByTitle(
+        libraries.filter((lib) => config.selectedLibraryIds.includes(lib.id))
+    );
+}
+
+function createStrategyPriorityResolver(
+    config: ChannelSetupConfig
+): (strategy: SetupStrategyKey) => number {
+    return (strategy: SetupStrategyKey): number => {
+        const configured = config.strategyConfig[strategy]?.priority;
+        if (Number.isFinite(configured)) {
+            return Math.max(1, Math.floor(Number(configured)));
+        }
+        return DEFAULT_STRATEGY_PRIORITIES[strategy];
+    };
+}
+
+function orderStrategyChannels(
+    strategyBuckets: Record<SetupStrategyKey, PendingChannel[]>,
+    getStrategyPriority: (strategy: SetupStrategyKey) => number
+): PendingChannel[] {
+    const orderedStrategies = (Object.keys(strategyBuckets) as SetupStrategyKey[]).sort((a, b) => {
+        const priorityDiff = getStrategyPriority(a) - getStrategyPriority(b);
+        if (priorityDiff !== 0) return priorityDiff;
+        return a.localeCompare(b);
+    });
+
+    return orderedStrategies.flatMap((strategy) => strategyBuckets[strategy]);
+}
+
+function normalizeSeriesPlayback(
+    channels: PendingChannel[],
+    showLibraryIds: Set<string>,
+    config: ChannelSetupConfig
+): PendingChannel[] {
     const baseSeriesModeRaw = config.seriesOrdering?.basePlaybackMode;
     const baseSeriesMode =
         baseSeriesModeRaw === 'sequential' || baseSeriesModeRaw === 'block'
             ? baseSeriesModeRaw
             : 'shuffle';
     const baseSeriesBlockSize = sanitizeBlockSize(config.seriesOrdering?.baseBlockSize, 3);
-    const baseOrdered: PendingChannel[] = baseOrderedUnadjusted.map((channel) => {
+
+    return channels.map((channel) => {
         const isSeriesDerived = isSeriesDerivedChannel(channel, showLibraryIds);
         if (baseSeriesMode === 'shuffle' || !isSeriesDerived || channel.playbackMode !== 'shuffle') {
             return channel;
@@ -228,15 +302,25 @@ function buildChannelSetupPlanInternal(
         }
         return updated;
     });
+}
 
-    let alternateCopies = 0;
-    if (config.channelExpansion?.addAlternateLineups) {
-        const raw = config.channelExpansion?.alternateLineupCopies;
-        const copies = Number.isFinite(raw) ? Math.floor(Number(raw)) : 1;
-        alternateCopies = Math.min(3, Math.max(1, copies));
+function resolveAlternateLineupCopies(config: ChannelSetupConfig): number {
+    if (!config.channelExpansion?.addAlternateLineups) {
+        return 0;
     }
+    const raw = config.channelExpansion?.alternateLineupCopies;
+    const copies = Number.isFinite(raw) ? Math.floor(Number(raw)) : 1;
+    return Math.min(3, Math.max(1, copies));
+}
+
+function expandAlternateLineups(
+    channels: PendingChannel[],
+    config: ChannelSetupConfig,
+    seedFor: (value: string) => number
+): PendingChannel[] {
+    const alternateCopies = resolveAlternateLineupCopies(config);
     const withAlternateLineups: PendingChannel[] = [];
-    for (const channel of baseOrdered) {
+    for (const channel of channels) {
         const baseChannel: PendingChannel = {
             ...channel,
             lineupReplicaIndex: channel.lineupReplicaIndex ?? 0,
@@ -257,54 +341,67 @@ function buildChannelSetupPlanInternal(
             });
         }
     }
+    return withAlternateLineups;
+}
 
-    if (diagnostics) {
-        diagnostics.afterAlternateLineups = countChannelsByStrategy(withAlternateLineups);
-    }
-
+function expandPlaybackVariants(
+    channels: PendingChannel[],
+    showLibraryIds: Set<string>,
+    config: ChannelSetupConfig,
+    seedFor: (value: string) => number
+): PendingChannel[] {
     const variantTypeRaw = config.channelExpansion?.variantType;
     const variantType =
         variantTypeRaw === 'sequential' || variantTypeRaw === 'block'
             ? variantTypeRaw
             : 'none';
+    if (variantType === 'none') {
+        return [...channels];
+    }
+
     const variantBlockSize = sanitizeBlockSize(config.channelExpansion?.variantBlockSize, 3);
-    const withVariants: PendingChannel[] = [...withAlternateLineups];
-    if (variantType !== 'none') {
-        const variantLabel = variantType === 'sequential' ? 'Sequential' : 'Block';
-        for (const channel of withAlternateLineups) {
-            const isSeriesDerived = isSeriesDerivedChannel(channel, showLibraryIds);
-            if (!isSeriesDerived) {
-                continue;
-            }
-            const sameMode = channel.playbackMode === variantType;
-            const sameBlockSize =
-                variantType !== 'block' || channel.blockSize === variantBlockSize;
-            if (sameMode && sameBlockSize) {
-                continue;
-            }
-            const variant: PendingChannel = {
-                ...channel,
-                name: `${channel.name} • ${variantLabel}`,
-                playbackMode: variantType,
-                // Marks this as a setup-generated playback-mode variant (sequential/block) for identity/diffing.
-                isPlaybackModeVariant: true,
-                shuffleSeed: seedFor(`${createChannelIdentityKey(channel)}:variant:${variantType}`),
-            };
-            if (variantType === 'block') {
-                variant.blockSize = variantBlockSize;
-            } else {
-                delete variant.blockSize;
-            }
-            withVariants.push(variant);
+    const variantLabel = variantType === 'sequential' ? 'Sequential' : 'Block';
+    const withVariants: PendingChannel[] = [...channels];
+    for (const channel of channels) {
+        const isSeriesDerived = isSeriesDerivedChannel(channel, showLibraryIds);
+        if (!isSeriesDerived) {
+            continue;
         }
+        const sameMode = channel.playbackMode === variantType;
+        const sameBlockSize =
+            variantType !== 'block' || channel.blockSize === variantBlockSize;
+        if (sameMode && sameBlockSize) {
+            continue;
+        }
+        const variant: PendingChannel = {
+            ...channel,
+            name: `${channel.name} • ${variantLabel}`,
+            playbackMode: variantType,
+            // Marks this as a setup-generated playback-mode variant (sequential/block) for identity/diffing.
+            isPlaybackModeVariant: true,
+            shuffleSeed: seedFor(`${createChannelIdentityKey(channel)}:variant:${variantType}`),
+        };
+        if (variantType === 'block') {
+            variant.blockSize = variantBlockSize;
+        } else {
+            delete variant.blockSize;
+        }
+        withVariants.push(variant);
     }
+    return withVariants;
+}
 
-    if (diagnostics) {
-        diagnostics.afterVariants = countChannelsByStrategy(withVariants);
-    }
+function truncatePendingChannels(
+    channels: PendingChannel[],
+    effectiveMaxChannels: number
+): TruncatedPendingChannels {
+    return {
+        pending: channels.slice(0, effectiveMaxChannels),
+        reachedMaxChannels: channels.length > effectiveMaxChannels,
+    };
+}
 
-    const pending = withVariants.slice(0, effectiveMaxChannels);
-    const reachedMaxChannels = withVariants.length > effectiveMaxChannels;
+function estimatePendingChannels(pending: PendingChannel[]): ChannelSetupEstimates {
     const estimates = createEmptyChannelSetupEstimates();
     for (const channel of pending) {
         estimates.total += 1;
@@ -316,22 +413,7 @@ function buildChannelSetupPlanInternal(
             estimates[strategyKey] += 1;
         }
     }
-
-    if (diagnostics) {
-        diagnostics.afterMaxChannels = { ...estimates };
-        diagnostics.lostToMaxChannels = subtractEstimates(diagnostics.afterVariants, diagnostics.afterMaxChannels);
-    }
-
-    return {
-        plan: {
-            pendingChannels: pending,
-            estimates,
-            warnings: [...warnings],
-            skipped,
-            reachedMaxChannels,
-        },
-        ...(diagnostics ? { diagnostics } : {}),
-    };
+    return estimates;
 }
 
 function buildFacetCountDiagnostics(

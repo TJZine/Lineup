@@ -4,12 +4,15 @@ import {
     EPG_REPEAT_TIMING,
     MINI_GUIDE_REPEAT_TIMING,
 } from './constants';
-import type { NavigationRepeatHandlerPort } from './NavigationCoordinatorDeps';
+import type {
+    NavigationRepeatHandlerPort,
+    NavigationRepeatRuntime,
+} from './NavigationCoordinatorContracts';
 
 type EpgRepeatButton = 'up' | 'down' | 'left' | 'right';
 type MiniGuideRepeatButton = 'up' | 'down';
 
-export class NavigationRepeatHandler {
+export class NavigationRepeatHandler implements NavigationRepeatRuntime {
     private _epgRepeatTimer: ReturnType<typeof setTimeout> | null = null;
     private _epgRepeatButton: EpgRepeatButton | null = null;
     private _epgRepeatStartMs = 0;

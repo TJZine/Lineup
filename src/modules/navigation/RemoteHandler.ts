@@ -1,9 +1,3 @@
-/**
- * @fileoverview Remote handler for processing LG remote control key events.
- * @module modules/navigation/RemoteHandler
- * @version 1.0.0
- */
-
 import { EventEmitter } from '../../utils/EventEmitter';
 import { RemoteButton, KeyEvent } from './interfaces';
 import { LONG_PRESS_THRESHOLD_MS, mapKeyCode as mapPlatformKeyCode } from './constants';
@@ -51,9 +45,6 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
         this._boundKeyUpHandler = this._handleKeyUp.bind(this);
     }
 
-    /**
-     * Initialize the remote handler.
-     */
     public initialize(): void {
         if (this._isEnabled) {
             return;
@@ -64,9 +55,6 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
         this._isEnabled = true;
     }
 
-    /**
-     * Destroy the remote handler, removing all event listeners.
-     */
     public destroy(): void {
         if (!this._isEnabled) {
             return;
@@ -86,29 +74,14 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
         this._isEnabled = false;
     }
 
-    /**
-     * Map a key code to a RemoteButton.
-     * @param keyCode - The keyboard event keyCode
-     * @returns The mapped button or null if not mapped
-     */
     public mapKeyCode(keyCode: number): RemoteButton | null {
         return mapPlatformKeyCode(keyCode, this._inputService);
     }
 
-    /**
-     * Register a long press handler for a specific button.
-     * @param button - The button to watch for long press
-     * @param callback - The callback to invoke on long press
-     */
     public registerLongPress(button: RemoteButton, callback: () => void): void {
         this._longPressHandlers.push({ button, callback });
     }
 
-    /**
-     * Unregister a long press handler.
-     * @param button - The button to unregister
-     * @param callback - The callback to remove
-     */
     public unregisterLongPress(button: RemoteButton, callback: () => void): void {
         this._longPressHandlers = this._longPressHandlers.filter(
             (h) => !(h.button === button && h.callback === callback)

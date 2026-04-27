@@ -1,17 +1,3 @@
-/**
- * @fileoverview Initialization Coordinator - Manages the named startup sequence.
- * @module core/initialization/InitializationCoordinator
- * @version 1.0.0
- *
- * Extracted from Orchestrator to reduce complexity and improve modularity.
- * Handles:
- * - full startup from core infrastructure
- * - auth-change resume
- * - server-selection/profile-change resume
- * - runtime module resume
- * - EPG-only resume
- */
-
 import { AppErrorCode, type IAppLifecycle, type AppError } from '../../modules/lifecycle';
 import type { INavigationManager } from '../../modules/navigation';
 import { type IPlexAuth, isPlexAuthRecoverable } from '../../modules/plex/auth';
@@ -41,10 +27,6 @@ import {
 } from './InitializationStartupPolicy';
 import { toRecoverableModuleStatusError } from './RecoverableModuleStatusError';
 import type { RecoverableAsyncFailureReporter } from '../orchestrator/OrchestratorRuntimeSeams';
-
-// ============================================
-// Types
-// ============================================
 
 // Numeric order is significant: lower values are earlier pipeline stages.
 // runStartup compares StartupPhase values and uses Math.min(_startupQueuedPhase, startPhase)
@@ -158,10 +140,6 @@ export interface InitializationCallbacks {
     };
 }
 
-// ============================================
-// Implementation
-// ============================================
-
 /**
  * InitializationCoordinator - Manages the named startup sequence.
  *
@@ -191,10 +169,6 @@ export class InitializationCoordinator {
         private readonly _deps: InitializationDependencies,
         private readonly _callbacks: InitializationCallbacks
     ) { }
-
-    // ============================================
-    // Public Methods
-    // ============================================
 
     async runStartup(startPhase: StartupPhase): Promise<void> {
         this._cancelEpgWarmup();
@@ -392,10 +366,6 @@ export class InitializationCoordinator {
         this._callbacks.serverStorage.configureDiscoveryStorage();
         await this.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
     }
-
-    // ============================================
-    // Private Methods - Startup Stages
-    // ============================================
 
     private async _initCoreInfrastructure(): Promise<void> {
         const startTime = Date.now();
@@ -713,10 +683,6 @@ export class InitializationCoordinator {
             });
         }, InitializationCoordinator.EPG_WARMUP_DELAY_MS);
     }
-
-    // ============================================
-    // Private Methods - Resume Handlers
-    // ============================================
 
     private _registerAuthResume(): void {
         if (!this._deps.modules.plexAuth) {

@@ -1,9 +1,3 @@
-/**
- * @fileoverview Handles key input routing and screen navigation events.
- * @module modules/navigation/NavigationCoordinator
- * @version 1.0.0
- */
-
 import type {
     KeyEvent,
     NavigationEventMap,
@@ -14,7 +8,7 @@ import { NavigationKeyModeRouter } from './NavigationKeyModeRouter';
 import { NavigationScreenEffectsHandler } from './NavigationScreenEffectsHandler';
 import { NavigationModalEffectsHandler } from './NavigationModalEffectsHandler';
 import { NavigationChannelNumberHandler } from './NavigationChannelNumberHandler';
-import type { NavigationCoordinatorDeps } from './NavigationCoordinatorDeps';
+import type { NavigationCoordinatorDeps } from './NavigationCoordinatorContracts';
 
 export class NavigationCoordinator {
     private readonly _repeats: NavigationRepeatHandler;
@@ -26,9 +20,9 @@ export class NavigationCoordinator {
     private _nonBlockingFailureTimestamps: Map<string, number> = new Map();
 
     constructor(private readonly deps: NavigationCoordinatorDeps) {
-        this._repeats = new NavigationRepeatHandler(deps);
+        this._repeats = new NavigationRepeatHandler(deps.repeats);
         this._keyModeRouter = new NavigationKeyModeRouter(
-            deps,
+            deps.keyModeRouter,
             this._repeats,
             (key, promiseFactory, message, toastMessage) => this._fireAndReport(
                 key,
@@ -44,7 +38,7 @@ export class NavigationCoordinator {
             (reason, event) => this._logInputNotHandled(reason, event)
         );
         this._screenEffects = new NavigationScreenEffectsHandler(
-            deps,
+            deps.screenEffects,
             this._repeats,
             (key, promiseFactory, message, toastMessage) => this._fireAndReport(
                 key,
@@ -53,8 +47,8 @@ export class NavigationCoordinator {
                 toastMessage
             )
         );
-        this._modalEffects = new NavigationModalEffectsHandler(deps, this._repeats);
-        this._channelNumberHandler = new NavigationChannelNumberHandler(deps);
+        this._modalEffects = new NavigationModalEffectsHandler(deps.modalEffects, this._repeats);
+        this._channelNumberHandler = new NavigationChannelNumberHandler(deps.channelNumber);
     }
 
     private _reportNonBlockingFailure(
@@ -69,13 +63,13 @@ export class NavigationCoordinator {
             return;
         }
         try {
-            this.deps.reportRecoverableAsyncFailure(event, message, error);
+            this.deps.events.reportRecoverableAsyncFailure(event, message, error);
         } catch {
             // Diagnostics are best-effort in non-blocking failure paths.
         }
         if (toastMessage) {
             try {
-                this.deps.reportToast?.({ message: toastMessage, type: 'warning' });
+                this.deps.events.reportToast?.({ message: toastMessage, type: 'warning' });
             } catch {
                 // Toast delivery must remain best-effort here.
             }
@@ -114,7 +108,7 @@ export class NavigationCoordinator {
     }
 
     wireNavigationEvents(): Array<() => void> {
-        const navigation = this.deps.navigation;
+        const navigation = this.deps.events.navigation;
 
         const unsubs: Array<() => void> = [];
 
@@ -153,7 +147,7 @@ export class NavigationCoordinator {
         });
 
         const inputUpdateHandler = (payload: { digits: string; isComplete: boolean }): void => {
-            this.deps.channelSwitching.onChannelInputUpdate?.(payload);
+            this.deps.events.channelSwitching.onChannelInputUpdate?.(payload);
         };
         navigation.on('channelInputUpdate', inputUpdateHandler);
         unsubs.push(() => {
@@ -164,8 +158,8 @@ export class NavigationCoordinator {
             // EPG is an overlay, not a navigation screen; toggle based on EPG visibility.
             this._repeats.stopEpgRepeat('guide');
             this._repeats.stopMiniGuideRepeat('guide');
-            this.deps.miniGuide.coordinator?.hide();
-            this.deps.channelSwitching.toggleEpg();
+            this.deps.events.miniGuide.coordinator?.hide();
+            this.deps.events.channelSwitching.toggleEpg();
         };
         navigation.on('guide', guideHandler);
         unsubs.push(() => {
@@ -237,7 +231,7 @@ export class NavigationCoordinator {
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        return this.deps.readDebugLoggingEnabled();
+        return this.deps.events.readDebugLoggingEnabled();
     }
 
     private _logInputNotHandled(
@@ -245,7 +239,7 @@ export class NavigationCoordinator {
         event: KeyEvent
     ): void {
         if (!this._isDebugLoggingEnabled()) return;
-        const navigation = this.deps.navigation;
+        const navigation = this.deps.events.navigation;
         const state = navigation.getState();
         const key = [
             reason,
