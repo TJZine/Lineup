@@ -867,7 +867,7 @@ must add larger score-moving packages.
   package-local scope expansion under the same W14 owner.
 - Handoff: archived inside completed `P14-WAVE4`.
 
-### [ ] `P14-WAVE5` post-WAVE4 target residual cleanup
+### [x] `P14-WAVE5` post-WAVE4 target residual cleanup
 
 - Scope: execute the focused post-WAVE4 residual issues admitted because all
   three P14 target dimensions remain below `85`.
@@ -890,20 +890,24 @@ must add larger score-moving packages.
   map, targeted `rg` audits, targeted tests where source behavior is touched,
   `npm run verify`, implementation review, checklist/package-map updates, and
   `npm run verify:docs`.
-- Status: in progress
-- Implementation note: WAVE5 implementation is complete; awaiting WAVE5
-  implementation review and post-WAVE5 focused review/scoring.
-- Plan: none yet; first action is a package-local execution-grade WAVE5 plan.
+- Status: completed
+- Plan: local `P14-WAVE5` execution plan reviewed clean.
 - Last touched: `2026-04-27`
+- Verification: package-local Desloppify commands, targeted `rg` audits,
+  targeted navigation/orchestrator and channel-setup tests, `madge --circular`
+  navigation audit, `git diff --check`, `npm run verify`, `npm run
+  verify:docs`, and implementation review passed.
+- Commit: `96bbb9ae` `Implement P14 WAVE5 cleanup`
 - Follow-ups: the post-WAVE4 focused review re-used the
   `trivial_signature_jsdoc` id with new residual files; `P14-W17` is the
   current residual owner while `P14-W12` remains closed for its approved WAVE4
-  source slice.
-- Handoff: WAVE5 implementation is ready for implementation review. Completing
-  WAVE5 still requires a fresh focused review/scoring pass before P14 can enter
-  `P14-EXIT`.
+  source slice. WAVE5 source completion still requires a fresh focused
+  review/scoring pass before P14 can enter `P14-EXIT`.
+- Handoff: run focused subjective review/scoring for
+  `design_coherence,cross_module_architecture,ai_generated_debt`, then decide
+  whether P14 can enter `P14-EXIT` or needs another admitted wave.
 
-### [ ] `P14-W15` `navigation-contract-hub`
+### [x] `P14-W15` `navigation-contract-hub`
 
 - Imported review issues:
   - `review::.::holistic::cross_module_architecture::navigation_contract_hub`
@@ -916,13 +920,18 @@ must add larger score-moving packages.
   - `src/core/orchestrator/OrchestratorCoordinatorBuilders.ts`
 - Package guardrail: navigation may own remote/focus routing contracts, but
   cross-feature wiring and concrete adaptation stay in the orchestrator.
-- Status: in progress
-- Implementation note: handler-owned input contracts now live with the
-  handlers, while orchestrator-owned assembly keeps concrete adaptation at the
-  app-level composition boundary.
-- Handoff: route to WAVE5 implementation review.
+- Status: completed
+- Plan: local `P14-WAVE5` reviewed plan.
+- Last touched: `96bbb9ae` `Implement P14 WAVE5 cleanup`
+- Verification: targeted navigation/orchestrator tests, package-local
+  Desloppify commands, targeted contract-ownership `rg` audits, `git diff
+  --check`, `npm run verify`, and implementation review passed.
+- Review: exact complaint is no longer fair; handler-owned input contracts now
+  live with the handlers, while orchestrator-owned assembly keeps concrete
+  adaptation at the app-level composition boundary.
+- Handoff: archived inside completed `P14-WAVE5`.
 
-### [ ] `P14-W16` `generated-header-banner-residuals`
+### [x] `P14-W16` `generated-header-banner-residuals`
 
 - Imported review issues:
   - `review::.::holistic::ai_generated_debt::generated_style_headers_banners`
@@ -935,12 +944,17 @@ must add larger score-moving packages.
   - `src/modules/scheduler/shared/prng.ts`
 - Package guardrail: comment-only; preserve comments that explain non-obvious
   domain rules, external constraints, or algorithm choices.
-- Status: in progress
-- Implementation note: cited fileoverview/module/version headers and banner
-  separators were removed without runtime changes.
-- Handoff: route to WAVE5 implementation review.
+- Status: completed
+- Plan: local `P14-WAVE5` reviewed plan.
+- Last touched: `96bbb9ae` `Implement P14 WAVE5 cleanup`
+- Verification: package-local Desloppify commands, targeted generated-header
+  and banner audits, `git diff --check`, `npm run verify`, and implementation
+  review passed.
+- Review: exact complaint is no longer fair; cited fileoverview/module/version
+  headers and banner separators were removed without runtime changes.
+- Handoff: archived inside completed `P14-WAVE5`.
 
-### [ ] `P14-W17` `trivial-signature-jsdoc-wave5-residuals`
+### [x] `P14-W17` `trivial-signature-jsdoc-wave5-residuals`
 
 - Imported review issues:
   - `review::.::holistic::ai_generated_debt::trivial_signature_jsdoc`
@@ -955,12 +969,18 @@ must add larger score-moving packages.
 - Package guardrail: comment-only; do not remove comments that document
   lifecycle ordering, browser/platform quirks, business rules, or behavior not
   visible in the signature.
-- Status: in progress
-- Implementation note: cited trivial getter/setter/pass-through JSDoc was
-  removed while behavior and lifecycle/platform comments were preserved.
-- Handoff: route to WAVE5 implementation review.
+- Status: completed
+- Plan: local `P14-WAVE5` reviewed plan.
+- Last touched: `96bbb9ae` `Implement P14 WAVE5 cleanup`
+- Verification: package-local Desloppify commands, targeted trivial-signature
+  JSDoc audits, `git diff --check`, `npm run verify`, and implementation
+  review passed.
+- Review: exact complaint is no longer fair for the WAVE5 residual files; cited
+  trivial getter/setter/pass-through JSDoc was removed while behavior and
+  lifecycle/platform comments were preserved.
+- Handoff: archived inside completed `P14-WAVE5`.
 
-### [ ] `P14-W18` `channel-setup-planner-diagnostics-interleaved`
+### [x] `P14-W18` `channel-setup-planner-diagnostics-interleaved`
 
 - Imported review issues:
   - `review::.::holistic::design_coherence::channel_setup_planner_diagnostics_interleaved`
@@ -971,12 +991,18 @@ must add larger score-moving packages.
   - `src/core/channel-setup/planning/ChannelSetupPlanner.ts`
 - Package guardrail: do not change channel setup output, ordering, or
   diagnostic semantics. This is a diagnostics-ownership cleanup only.
-- Status: in progress
-- Implementation note: planner diagnostics bookkeeping now routes through a
-  planner-local recorder with unchanged diagnostics output semantics.
-- Handoff: route to WAVE5 implementation review.
+- Status: completed
+- Plan: local `P14-WAVE5` reviewed plan.
+- Last touched: `96bbb9ae` `Implement P14 WAVE5 cleanup`
+- Verification: targeted channel-setup tests, package-local Desloppify
+  commands, targeted planner-diagnostics `rg` audits, `git diff --check`, `npm
+  run verify`, and implementation review passed.
+- Review: exact complaint is no longer fair; planner diagnostics bookkeeping now
+  routes through a planner-local recorder with unchanged diagnostics output
+  semantics.
+- Handoff: archived inside completed `P14-WAVE5`.
 
-### [ ] `P14-W19` `navigation-role-split-cycle`
+### [x] `P14-W19` `navigation-role-split-cycle`
 
 - Imported review issues:
   - `review::.::holistic::design_coherence::navigation_role_split_cycle`
@@ -992,16 +1018,21 @@ must add larger score-moving packages.
 - Package guardrail: preserve remote behavior and event subscription ownership.
   Do not treat stale/type-only cycle rows as source truth without current-source
   proof.
-- Status: in progress
-- Implementation note: coordinator event subscription ownership was preserved,
-  concrete handler construction moved to orchestrator assembly, and source
-  audit plus `madge --circular` found no circular dependency across the cited
-  navigation files. Desloppify still reports the previous cycle row for
-  `NavigationChannelNumberHandler.ts`, treated as stale detector wording unless
-  implementation review finds a live source cycle.
-- Handoff: route to WAVE5 implementation review.
+- Status: completed
+- Plan: local `P14-WAVE5` reviewed plan.
+- Last touched: `96bbb9ae` `Implement P14 WAVE5 cleanup`
+- Verification: targeted navigation/orchestrator tests, package-local
+  Desloppify commands, targeted navigation cycle `rg` audits, `madge
+  --circular` navigation audit, `git diff --check`, `npm run verify`, and
+  implementation review passed.
+- Review: exact complaint is no longer fair; coordinator event subscription
+  ownership was preserved, concrete handler construction moved to orchestrator
+  assembly, and source audit plus `madge --circular` found no circular
+  dependency across the cited navigation files. The remaining Desloppify cycle
+  row is stale detector wording, not live source proof.
+- Handoff: archived inside completed `P14-WAVE5`.
 
-### [ ] `P14-W20` `facet-snapshot-session-policy-blend`
+### [x] `P14-W20` `facet-snapshot-session-policy-blend`
 
 - Imported review issues:
   - `review::.::holistic::design_coherence::facet_snapshot_session_policy_blend`
@@ -1013,12 +1044,17 @@ must add larger score-moving packages.
   - `src/core/channel-setup/planning/ChannelSetupFacetSnapshotLoader.ts`
 - Package guardrail: preserve facet snapshot output, cancellation, warning,
   timing, progress, cache/inflight, and partial-failure behavior.
-- Status: in progress
-- Implementation note: snapshot data accumulation, timings, warnings,
-  deferred-empty bookkeeping, and library queue mechanics now sit behind
-  session-local collaborators while load-order and failure-policy coordination
-  remain in the session.
-- Handoff: route to WAVE5 implementation review.
+- Status: completed
+- Plan: local `P14-WAVE5` reviewed plan.
+- Last touched: `96bbb9ae` `Implement P14 WAVE5 cleanup`
+- Verification: targeted channel-setup tests, package-local Desloppify
+  commands, targeted facet snapshot session `rg` audits, `git diff --check`,
+  `npm run verify`, and implementation review passed.
+- Review: exact complaint is no longer fair; snapshot data accumulation,
+  timings, warnings, deferred-empty bookkeeping, and library queue mechanics now
+  sit behind session-local collaborators while load-order and failure-policy
+  coordination remain in the session.
+- Handoff: archived inside completed `P14-WAVE5`.
 
 ### [ ] `P14-EXIT`
 

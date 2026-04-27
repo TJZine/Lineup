@@ -403,7 +403,7 @@
     {
       "wave_id": "P14-WAVE5",
       "name": "post-wave4-target-residual-cleanup",
-      "status": "implementation_complete_pending_review",
+      "status": "completed",
       "purpose": "After WAVE4, focused review still left all three P14 target dimensions below 85; execute the next admitted source-backed residual issues before reconsidering P14-EXIT.",
       "gate_only": false,
       "admission_rule": "Admit only source-backed residuals from the 20260427_051430 focused review with one owner, candidate files, package-local commands, and verification routing. Do not open P15 or reopen broad AppOrchestrator/lifecycle cleanup.",
@@ -449,7 +449,23 @@
           }
         },
         "decision": "P14 target dimensions remain below 85 with six concrete source-backed issues; admit P14-WAVE5 before P14-EXIT."
-      }
+      },
+      "completed_at": "2026-04-27",
+      "commits": [
+        "96bbb9ae Implement P14 WAVE5 cleanup"
+      ],
+      "verification_observed": [
+        "package-local Desloppify show commands for W15-W20 files",
+        "targeted contract-ownership, generated-header, trivial-JSDoc, planner-diagnostics, navigation-cycle, and facet-snapshot rg audits",
+        "npx madge --circular src/modules/navigation/NavigationCoordinatorContracts.ts src/modules/navigation/NavigationCoordinator.ts src/modules/navigation/NavigationKeyModeRouter.ts src/modules/navigation/NavigationRepeatHandler.ts src/modules/navigation/NavigationChannelNumberHandler.ts",
+        "npm test -- --runTestsByPath src/modules/navigation/__tests__/NavigationCoordinator.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorBuilders.test.ts src/core/orchestrator/__tests__/OrchestratorCoordinatorAssembly.test.ts --runInBand",
+        "npm test -- --runTestsByPath src/core/channel-setup/__tests__/ChannelSetupPlanner.test.ts src/core/channel-setup/__tests__/ChannelSetupBuildCommitter.test.ts src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoader.test.ts src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoadSession.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts --runInBand",
+        "git diff --check",
+        "npm run verify",
+        "npm run verify:docs"
+      ],
+      "implementation_review_result": "clean; reviewer found no material findings, confirmed navigation event subscription ownership and orchestrator-owned handler assembly, and confirmed channel setup ordering/failure/cancellation shape was preserved",
+      "post_wave_decision": "pending; WAVE5 closes the admitted residual source wave but does not close P14 by itself. Run post-WAVE5 focused review/scoring for design_coherence,cross_module_architecture,ai_generated_debt before deciding P14-EXIT versus another admitted wave."
     }
   ],
   "packages": [
@@ -1074,10 +1090,9 @@
         ]
       },
       "execution_status": {
-        "status": "implementation_complete_pending_review",
-        "current_or_next_execution_unit": "P14-WAVE5 implementation review",
-        "implementation_disposition": "Handler-owned input contracts moved next to handlers; coordinator now receives handler runtimes from orchestrator-owned assembly while preserving event subscription ownership.",
-        "recommended_execution_order": 1
+        "status": "completed",
+        "completed_by_commit": "96bbb9ae",
+        "disposition": "resolved in P14-WAVE5; handler-owned input contracts moved next to handlers and coordinator now receives handler runtimes from orchestrator-owned assembly while preserving event subscription ownership"
       }
     },
     {
@@ -1115,10 +1130,9 @@
         ]
       },
       "execution_status": {
-        "status": "implementation_complete_pending_review",
-        "current_or_next_execution_unit": "P14-WAVE5 implementation review",
-        "implementation_disposition": "Cited generated fileoverview/module/version headers and banner separators removed without runtime changes.",
-        "recommended_execution_order": 2
+        "status": "completed",
+        "completed_by_commit": "96bbb9ae",
+        "disposition": "resolved in P14-WAVE5; cited generated fileoverview/module/version headers and banner separators removed without runtime changes"
       }
     },
     {
@@ -1157,10 +1171,9 @@
         ]
       },
       "execution_status": {
-        "status": "implementation_complete_pending_review",
-        "current_or_next_execution_unit": "P14-WAVE5 implementation review",
-        "implementation_disposition": "Cited trivial getter/setter/pass-through JSDoc removed while preserving lifecycle, platform, and behavior comments.",
-        "recommended_execution_order": 3
+        "status": "completed",
+        "completed_by_commit": "96bbb9ae",
+        "disposition": "resolved in P14-WAVE5; cited trivial getter/setter/pass-through JSDoc removed while preserving lifecycle, platform, and behavior comments"
       }
     },
     {
@@ -1192,10 +1205,9 @@
         ]
       },
       "execution_status": {
-        "status": "implementation_complete_pending_review",
-        "current_or_next_execution_unit": "P14-WAVE5 implementation review",
-        "implementation_disposition": "Planner diagnostics bookkeeping moved into a planner-local recorder with unchanged diagnostic output semantics.",
-        "recommended_execution_order": 4
+        "status": "completed",
+        "completed_by_commit": "96bbb9ae",
+        "disposition": "resolved in P14-WAVE5; planner diagnostics bookkeeping moved into a planner-local recorder with unchanged diagnostic output semantics"
       }
     },
     {
@@ -1235,10 +1247,9 @@
         ]
       },
       "execution_status": {
-        "status": "implementation_complete_pending_review",
-        "current_or_next_execution_unit": "P14-WAVE5 implementation review",
-        "implementation_disposition": "Concrete handler construction moved out of NavigationCoordinator into orchestrator assembly. Source audit plus madge found no circular dependency across the cited navigation files; remaining Desloppify cycle row is treated as stale detector wording pending implementation review.",
-        "recommended_execution_order": 5
+        "status": "completed",
+        "completed_by_commit": "96bbb9ae",
+        "disposition": "resolved in P14-WAVE5; concrete handler construction moved out of NavigationCoordinator into orchestrator assembly, coordinator event subscription ownership remained intact, and source audit plus madge found no circular dependency across the cited navigation files. Remaining Desloppify cycle wording is stale detector output rather than live source proof"
       }
     },
     {
@@ -1272,10 +1283,9 @@
         ]
       },
       "execution_status": {
-        "status": "implementation_complete_pending_review",
-        "current_or_next_execution_unit": "P14-WAVE5 implementation review",
-        "implementation_disposition": "Facet snapshot accumulation, timings, warnings, deferred-empty bookkeeping, and library queue mechanics moved behind session-local collaborators while session-owned load-order/failure policy remained unchanged.",
-        "recommended_execution_order": 6
+        "status": "completed",
+        "completed_by_commit": "96bbb9ae",
+        "disposition": "resolved in P14-WAVE5; facet snapshot accumulation, timings, warnings, deferred-empty bookkeeping, and library queue mechanics moved behind session-local collaborators while session-owned load-order/failure policy remained unchanged"
       }
     }
   ],
