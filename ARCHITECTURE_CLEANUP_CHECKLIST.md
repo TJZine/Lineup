@@ -457,7 +457,7 @@ must add larger score-moving packages.
   `P14-W8` and `P14-W9`; do not treat those follow-ups as reopening `P14-W3`.
 - Handoff: archived inside completed `P14-WAVE1`.
 
-### [ ] `P14-WAVE2` design/coherence follow-up wave
+### [x] `P14-WAVE2` design/coherence follow-up wave
 
 - Scope: execute the admitted post-WAVE1 design/coherence and cross-module
   source issues after an execution-grade plan and clean adversarial plan review.
@@ -472,22 +472,29 @@ must add larger score-moving packages.
   channel-setup, or Plex cleanup merely because files are large or prior
   detector wording exists. A WAVE2 admission must reduce ownership breadth
   without relocating the same hub responsibility into a sibling owner.
-- Verification routing: focused subjective review, current-source proof for
-  each newly admitted issue id, package-local scoping commands for newly scoped
-  files, `npm run verify` for any admitted source work, and `npm run
-  verify:docs` for checklist/package-map updates.
-- Status: not started
-- Plan: none yet; first action is a package-local execution-grade WAVE2 plan.
+- Verification routing: current-source proof for each newly admitted issue id,
+  package-local scoping commands for newly scoped files, targeted tests and
+  `npm run verify` for admitted source work, implementation review, and `npm
+  run verify:docs` for checklist/package-map updates. Per the current handoff,
+  focused subjective review/scoring is deferred until `P14-WAVE3` also closes
+  unless a replan-triggering contradiction appears.
+- Status: completed
+- Plan: local `P14-WAVE2` execution plan reviewed clean after revision and a
+  fresh final approval pass.
 - Last touched: `2026-04-27`
-- Verification: `npm run verify` for source work and `npm run verify:docs` for
-  checklist/package-map updates.
+- Verification: package-local Desloppify commands, targeted `rg` audits,
+  targeted navigation/orchestrator, diagnostics, Plex discovery, and
+  channel-setup tests, `npm run verify`, and implementation review passed.
 - Follow-ups: `P14-W6` supersedes the previous non-active
   `plex_discovery_request_policy_nested` disposition. The older broad
   `channel_setup_planner_pipeline_bulk` disposition remains non-active; `P14-W7`
   owns only the fresh planner/strategy cycle issue.
-- Handoff: start with planning only. Completing WAVE2 is not P14 exit.
+- Commit: `8ac03c7c` `refactor: split p14 wave2 cleanup boundaries`
+- Handoff: `P14-WAVE2` is closed, but P14 and `P14-EXIT` remain open. Continue
+  directly to `P14-WAVE3`; do not run focused subjective review/scoring until
+  `P14-WAVE3` also closes unless a replan trigger fires.
 
-### [ ] `P14-W4` `navigation-handler-port-split`
+### [x] `P14-W4` `navigation-handler-port-split`
 
 - Imported review issues:
   - `review::.::holistic::cross_module_architecture::navigation_deps_cross_feature_contract`
@@ -506,9 +513,18 @@ must add larger score-moving packages.
 - Package guardrail: do not move feature coordination into navigation or create
   a new orchestration layer. Keep concrete adaptation in the orchestrator
   builder.
-- Handoff: execute as part of `P14-WAVE2` after plan/review.
+- Status: completed
+- Plan: local `P14-WAVE2` reviewed plan.
+- Last touched: `8ac03c7c` `refactor: split p14 wave2 cleanup boundaries`
+- Verification: targeted navigation/orchestrator tests, package-local
+  Desloppify commands, targeted navigation port `rg` audits, `npm run verify`,
+  and implementation review passed.
+- Review: exact complaint is no longer fair; navigation helpers now depend on
+  handler-specific ports while concrete adaptation remains in the orchestrator
+  builder.
+- Handoff: archived inside completed `P14-WAVE2`.
 
-### [ ] `P14-W5` `diagnostics-dev-menu-controller-split`
+### [x] `P14-W5` `diagnostics-dev-menu-controller-split`
 
 - Imported review issues:
   - `review::.::holistic::design_coherence::app_diagnostics_surface_mixed_actions`
@@ -517,6 +533,7 @@ must add larger score-moving packages.
   keeping `AppDiagnosticsSurface` as lifecycle/keybinding owner.
 - Candidate files:
   - `src/core/app-shell/AppDiagnosticsSurface.ts`
+  - `src/core/app-shell/AppDiagnosticsDevMenuController.ts`
   - `src/core/app-shell/AppDiagnosticsDevMenuView.ts`
   - `src/core/app-shell/AppDiagnosticsPlaybackInfoFormatter.ts`
   - `src/core/app-shell/AppDiagnosticsChannelSetupSummary.ts`
@@ -524,9 +541,18 @@ must add larger score-moving packages.
 - Package guardrail: preserve `window.lineup`, toast, clipboard,
   storage-clearing/reload, and debug override behavior. Do not move diagnostics
   into UI modules.
-- Handoff: execute as part of `P14-WAVE2` after plan/review.
+- Status: completed
+- Plan: local `P14-WAVE2` reviewed plan.
+- Last touched: `8ac03c7c` `refactor: split p14 wave2 cleanup boundaries`
+- Verification: targeted diagnostics surface tests, package-local Desloppify
+  commands, targeted diagnostics API/action `rg` audits, `npm run verify`, and
+  implementation review passed.
+- Review: exact complaint is no longer fair; dev-menu actions moved into
+  `AppDiagnosticsDevMenuController`, while `AppDiagnosticsSurface` retains
+  lifecycle, keybinding, and `window.lineup` helper ownership.
+- Handoff: archived inside completed `P14-WAVE2`.
 
-### [ ] `P14-W6` `plex-discovery-request-policy-split`
+### [x] `P14-W6` `plex-discovery-request-policy-split`
 
 - Imported review issues:
   - `review::.::holistic::design_coherence::plex_discovery_request_policy_nested`
@@ -535,12 +561,24 @@ must add larger score-moving packages.
   non-active disposition.
 - Candidate files:
   - `src/modules/plex/discovery/PlexResourceDiscoveryRequestPolicy.ts`
+  - `src/modules/plex/discovery/PlexDiscoveryFetchVariants.ts`
+  - `src/modules/plex/discovery/PlexDiscoveryRequestExecutor.ts`
+  - `src/modules/plex/discovery/PlexDiscoveryResponsePolicy.ts`
   - `src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts`
 - Package guardrail: preserve retry timing, 429 `Retry-After`, 5xx fallback,
   timeout handling, abort behavior, and final response/error classification.
-- Handoff: execute as part of `P14-WAVE2` after plan/review.
+- Status: completed
+- Plan: local `P14-WAVE2` reviewed plan.
+- Last touched: `8ac03c7c` `refactor: split p14 wave2 cleanup boundaries`
+- Verification: targeted Plex discovery tests, package-local Desloppify
+  commands, targeted discovery retry/fallback `rg` audits, `npm run verify`,
+  and implementation review passed.
+- Review: exact complaint is no longer fair; request execution, fetch-variant
+  construction, and response policy are split inside the Plex discovery owner
+  with retry/fallback/classification behavior preserved.
+- Handoff: archived inside completed `P14-WAVE2`.
 
-### [ ] `P14-W7` `channel-setup-planner-strategy-boundary`
+### [x] `P14-W7` `channel-setup-planner-strategy-boundary`
 
 - Imported review issues:
   - `review::.::holistic::design_coherence::channel_setup_planner_builder_cycle`
@@ -551,10 +589,28 @@ must add larger score-moving packages.
   - `src/core/channel-setup/planning/ChannelSetupPlanner.ts`
   - `src/core/channel-setup/planning/ChannelSetupStrategyBuilders.ts`
   - `src/core/channel-setup/planning/ChannelSetupPlanningTypes.ts`
+  - `src/core/channel-setup/planning/ChannelSetupPlanningService.ts`
+  - `src/core/channel-setup/planning/ChannelSetupPlanDiagnostics.ts`
+  - `src/core/app-shell/AppDiagnosticsChannelSetupSummary.ts`
+  - `src/core/channel-setup/build/ChannelSetupBuildCommitter.ts`
+  - `src/core/channel-setup/build/ChannelSetupBuildExecutor.ts`
   - `src/core/channel-setup/__tests__/ChannelSetupPlanner.test.ts`
+  - `src/core/channel-setup/__tests__/ChannelSetupBuildCommitter.test.ts`
 - Package guardrail: do not broaden channel setup planning or rewrite the
   strategy pipeline. This is a boundary/cycle cleanup only.
-- Handoff: execute as part of `P14-WAVE2` after plan/review.
+- Status: completed
+- Plan: local `P14-WAVE2` reviewed plan.
+- Last touched: `8ac03c7c` `refactor: split p14 wave2 cleanup boundaries`
+- Verification: targeted channel-setup and app diagnostics summary tests,
+  package-local Desloppify commands, targeted planner/strategy dependency `rg`
+  audits, `npm run verify`, and implementation review passed.
+- Review: exact complaint is no longer fair; planner-neutral identity, diff,
+  diagnostics, and pending-channel contracts now live in
+  `ChannelSetupPlanningTypes`, while `ChannelSetupPlanner` remains the planner
+  behavior owner. The extra build committer/executor changes were type-helper
+  import reconciliation inside the approved W7 owner and did not activate the
+  older broad `channel_setup_planner_pipeline_bulk` disposition.
+- Handoff: archived inside completed `P14-WAVE2`.
 
 ### [ ] `P14-WAVE3` AI-generated-debt follow-up wave
 

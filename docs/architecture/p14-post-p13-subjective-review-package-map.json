@@ -195,7 +195,7 @@
     {
       "wave_id": "P14-WAVE2",
       "name": "design-coherence-expansion-review-gate",
-      "status": "admitted",
+      "status": "completed",
       "purpose": "After WAVE1, focused review left cross-module architecture and design coherence below target; execute admitted source-backed seams that reduce ownership breadth without opening P14-EXIT.",
       "gate_only": false,
       "reconsiderable_surfaces": [
@@ -208,7 +208,7 @@
       "no_admission_result": "If WAVE2 finds no concrete source-backed seam worth admitting, record it only as one focused-review pass toward the early-stop condition. It is not P14 closure by itself.",
       "deferred_disposition_scope": "The existing AppLifecycle, AppOrchestrator, ChannelSetupPlanner, and Plex discovery policy dispositions remain non-active unless WAVE2 produces fresh current-source proof that supersedes them.",
       "verification_routing": [
-        "fresh focused subjective review for design_coherence,cross_module_architecture,ai_generated_debt",
+        "focused subjective review for design_coherence,cross_module_architecture,ai_generated_debt deferred until P14-WAVE3 also completes by current handoff",
         "current-source proof matrix for each newly admitted issue id",
         "npm run verify for admitted source work",
         "npm run verify:docs for checklist/package-map updates"
@@ -219,7 +219,17 @@
         "pkg_plex_discovery_request_policy_split",
         "pkg_channel_setup_planner_strategy_boundary"
       ],
-      "admission_evidence": ".desloppify/subagents/runs/20260427_025123/holistic_issues_merged.json"
+      "admission_evidence": ".desloppify/subagents/runs/20260427_025123/holistic_issues_merged.json",
+      "completed_at": "2026-04-27",
+      "completed_by_commit": "8ac03c7c",
+      "implementation_review": "clean; exact P14-W4 through P14-W7 complaints no longer fair",
+      "verification_observed": [
+        "package-local Desloppify show commands for WAVE2 slices",
+        "targeted rg audits for W4-W7",
+        "targeted navigation/orchestrator, diagnostics, Plex discovery, and channel-setup tests",
+        "npm run verify"
+      ],
+      "post_wave_decision": "Do not run focused subjective review/scoring after WAVE2 alone; continue directly to P14-WAVE3, then run one combined focused review."
     },
     {
       "wave_id": "P14-WAVE3",
@@ -424,9 +434,9 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE2 execution-grade plan",
-        "recommended_execution_order": 1
+        "status": "completed",
+        "completed_by_commit": "8ac03c7c",
+        "disposition": "resolved in P14-WAVE2; implementation review found handler-specific navigation ports make the exact complaint no longer fair"
       }
     },
     {
@@ -442,6 +452,7 @@
       ],
       "candidate_scoping_files": [
         "src/core/app-shell/AppDiagnosticsSurface.ts",
+        "src/core/app-shell/AppDiagnosticsDevMenuController.ts",
         "src/core/app-shell/AppDiagnosticsDevMenuView.ts",
         "src/core/app-shell/AppDiagnosticsPlaybackInfoFormatter.ts",
         "src/core/app-shell/AppDiagnosticsChannelSetupSummary.ts",
@@ -449,9 +460,10 @@
       ],
       "package_local_scoping_commands": [
         "desloppify show src/core/app-shell/AppDiagnosticsSurface.ts --status open --no-budget --top 160",
+        "desloppify show src/core/app-shell/AppDiagnosticsDevMenuController.ts --status open --no-budget --top 120",
         "desloppify show src/core/app-shell/AppDiagnosticsDevMenuView.ts --status open --no-budget --top 120",
         "desloppify show src/core/app-shell/AppDiagnosticsPlaybackInfoFormatter.ts --status open --no-budget --top 120",
-        "rg -n \"_bindDevMenuEvents|_hydrateDevMenuOverrideState|_refreshDevPlaybackInfo|safeClearLineupStorage|dataset\\.summary|dataset\\.raw|window\\.lineup|lineup\" src/core/app-shell"
+        "rg -n \"AppDiagnosticsDevMenuController|_bindDevMenuEvents|_hydrateDevMenuOverrideState|_refreshDevPlaybackInfo|safeClearLineupStorage|dataset\\.summary|dataset\\.raw|window\\.lineup|lineup\" src/core/app-shell"
       ],
       "verification_routing": {
         "mode": "refactor-invariance plus integration-ops",
@@ -464,9 +476,9 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE2 execution-grade plan",
-        "recommended_execution_order": 2
+        "status": "completed",
+        "completed_by_commit": "8ac03c7c",
+        "disposition": "resolved in P14-WAVE2; dev-menu actions moved behind an app-shell controller while AppDiagnosticsSurface retained lifecycle/keybinding/window-helper ownership"
       }
     },
     {
@@ -482,11 +494,17 @@
       ],
       "candidate_scoping_files": [
         "src/modules/plex/discovery/PlexResourceDiscoveryRequestPolicy.ts",
+        "src/modules/plex/discovery/PlexDiscoveryFetchVariants.ts",
+        "src/modules/plex/discovery/PlexDiscoveryRequestExecutor.ts",
+        "src/modules/plex/discovery/PlexDiscoveryResponsePolicy.ts",
         "src/modules/plex/discovery/__tests__/PlexServerDiscovery.test.ts"
       ],
       "package_local_scoping_commands": [
         "desloppify show src/modules/plex/discovery/PlexResourceDiscoveryRequestPolicy.ts --status open --no-budget --top 160",
-        "rg -n \"fetchDiscoveryResponse|buildDiscoveryFetchVariants|Retry-After|lastNonOkResponse|AbortController|classify\" src/modules/plex/discovery/PlexResourceDiscoveryRequestPolicy.ts src/modules/plex/discovery"
+        "desloppify show src/modules/plex/discovery/PlexDiscoveryFetchVariants.ts --status open --no-budget --top 120",
+        "desloppify show src/modules/plex/discovery/PlexDiscoveryRequestExecutor.ts --status open --no-budget --top 120",
+        "desloppify show src/modules/plex/discovery/PlexDiscoveryResponsePolicy.ts --status open --no-budget --top 120",
+        "rg -n \"PlexDiscoveryRequestExecutor|PlexDiscoveryResponsePolicy|PlexDiscoveryFetchVariants|fetchDiscoveryResponse|buildDiscoveryFetchVariants|Retry-After|lastNonOkResponse|AbortController|classify\" src/modules/plex/discovery/PlexResourceDiscoveryRequestPolicy.ts src/modules/plex/discovery"
       ],
       "verification_routing": {
         "mode": "refactor-invariance plus integration-ops",
@@ -498,9 +516,9 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE2 execution-grade plan",
-        "recommended_execution_order": 3
+        "status": "completed",
+        "completed_by_commit": "8ac03c7c",
+        "disposition": "resolved in P14-WAVE2; request execution, fetch-variant construction, and response policy were split inside the Plex discovery owner with retry/fallback/classification behavior preserved"
       }
     },
     {
@@ -518,12 +536,22 @@
         "src/core/channel-setup/planning/ChannelSetupPlanner.ts",
         "src/core/channel-setup/planning/ChannelSetupStrategyBuilders.ts",
         "src/core/channel-setup/planning/ChannelSetupPlanningTypes.ts",
-        "src/core/channel-setup/__tests__/ChannelSetupPlanner.test.ts"
+        "src/core/channel-setup/planning/ChannelSetupPlanningService.ts",
+        "src/core/channel-setup/planning/ChannelSetupPlanDiagnostics.ts",
+        "src/core/app-shell/AppDiagnosticsChannelSetupSummary.ts",
+        "src/core/channel-setup/build/ChannelSetupBuildCommitter.ts",
+        "src/core/channel-setup/build/ChannelSetupBuildExecutor.ts",
+        "src/core/channel-setup/__tests__/ChannelSetupPlanner.test.ts",
+        "src/core/channel-setup/__tests__/ChannelSetupBuildCommitter.test.ts"
       ],
       "package_local_scoping_commands": [
         "desloppify show src/core/channel-setup/planning/ChannelSetupPlanner.ts --status open --no-budget --top 160",
         "desloppify show src/core/channel-setup/planning/ChannelSetupStrategyBuilders.ts --status open --no-budget --top 160",
-        "rg -n \"emptyEstimates|buildChannelSetupStrategyBuckets|ChannelSetupPlanner\" src/core/channel-setup/planning"
+        "desloppify show src/core/channel-setup/planning/ChannelSetupPlanningTypes.ts --status open --no-budget --top 120",
+        "desloppify show src/core/channel-setup/planning/ChannelSetupPlanningService.ts --status open --no-budget --top 120",
+        "desloppify show src/core/channel-setup/planning/ChannelSetupPlanDiagnostics.ts --status open --no-budget --top 120",
+        "desloppify show src/core/app-shell/AppDiagnosticsChannelSetupSummary.ts --status open --no-budget --top 120",
+        "rg -n \"emptyEstimates|buildChannelSetupStrategyBuckets|ChannelSetupPlanner|diffChannelPlans|createChannelIdentityKey|ChannelSetupPlannerDiagnostics|ChannelDiffResult|PendingChannel\" src/core/channel-setup/planning src/core/channel-setup/__tests__ src/core/app-shell"
       ],
       "verification_routing": {
         "mode": "refactor-invariance plus integration-ops",
@@ -535,9 +563,9 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE2 execution-grade plan",
-        "recommended_execution_order": 4
+        "status": "completed",
+        "completed_by_commit": "8ac03c7c",
+        "disposition": "resolved in P14-WAVE2; planner-neutral identity, diff, diagnostics, and pending-channel contracts moved to ChannelSetupPlanningTypes, including type-only consumer import reconciliation for build committer/executor without activating the old broad pipeline-bulk issue"
       }
     },
     {
