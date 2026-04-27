@@ -15,11 +15,13 @@ import type {
 import {
     buildChannelSetupPlan,
     buildChannelSetupPlanDiagnostics,
+} from './ChannelSetupPlanner';
+import {
     diffChannelPlans,
     createChannelIdentityKey,
     type PendingChannel,
     type ChannelDiffResult,
-} from './ChannelSetupPlanner';
+} from './ChannelSetupPlanningTypes';
 import type { ChannelSetupPlanDiagnosticsResult } from './ChannelSetupPlanDiagnostics';
 import {
     ChannelSetupFacetSnapshotLoader,

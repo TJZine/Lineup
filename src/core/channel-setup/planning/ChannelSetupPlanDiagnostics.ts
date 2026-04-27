@@ -1,5 +1,5 @@
 import type { ChannelSetupPreviewFailureReason } from '../types';
-import type { ChannelSetupPlannerDiagnostics } from './ChannelSetupPlanner';
+import type { ChannelSetupPlannerDiagnostics } from './ChannelSetupPlanningTypes';
 
 export interface ChannelSetupPlanDiagnosticsResult {
     status: 'ready' | 'blocked' | 'slow';
