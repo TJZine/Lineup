@@ -30,6 +30,17 @@ type CategoryCandidate = {
     itemCount?: number;
 };
 
+type TagFamilyCandidate = CategoryCandidate & {
+    tag: PlexTagDirectoryItem;
+};
+
+type PerLibraryTagFamilyDescriptor = {
+    strategy: 'genres' | 'directors' | 'actors' | 'studios';
+    tagsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    categoryKey: (library: PlexLibrarySection, tag: PlexTagDirectoryItem) => string;
+    baseSource: (library: PlexLibrarySection, tag: PlexTagDirectoryItem) => ChannelConfig['contentSource'];
+};
+
 interface ChannelSetupStrategyBuildersInput {
     config: ChannelSetupConfig;
     selectedLibraries: PlexLibrarySection[];
@@ -145,6 +156,35 @@ const createLibrarySource = (
     includeWatched: true,
     ...(libraryFilter ? { libraryFilter } : {}),
 });
+
+const collectPerLibraryTagFamilyCandidates = (
+    state: ChannelSetupStrategyBuildState,
+    library: PlexLibrarySection,
+    descriptor: PerLibraryTagFamilyDescriptor
+): TagFamilyCandidate[] => {
+    const { minItems } = state.input;
+    const candidates: TagFamilyCandidate[] = [];
+    const tags = sortTagsByCountThenTitle(descriptor.tagsByLibraryId.get(library.id) ?? []);
+    for (const tag of tags) {
+        const passesMinItems = tagMeetsMinItems(tag, minItems);
+        recordMinItemOutcome(state, descriptor.strategy, passesMinItems);
+        if (!passesMinItems) {
+            continue;
+        }
+        const itemCount = getTagItemCount(tag);
+        candidates.push({
+            strategy: descriptor.strategy,
+            categoryKey: descriptor.categoryKey(library, tag),
+            categoryLabel: tag.title,
+            baseSource: descriptor.baseSource(library, tag),
+            sourceLibraryId: library.id,
+            sourceLibraryName: library.title,
+            tag,
+            ...(itemCount === undefined ? {} : { itemCount }),
+        });
+    }
+    return candidates;
+};
 
 const buildCrossLibraryFacetCandidates = (
     libraries: PlexLibrarySection[],
@@ -441,79 +481,41 @@ function buildPerLibraryFacetStrategyBuckets(
     state: ChannelSetupStrategyBuildState,
     library: PlexLibrarySection
 ): void {
-    buildPerLibraryGenreStrategyBuckets(state, library);
-    buildPerLibraryDirectorStrategyBuckets(state, library);
+    buildPerLibraryFacetTagStrategyBucket(state, library, {
+        strategy: 'genres',
+        tagsByLibraryId: state.input.genresByLibraryId,
+        categoryKey: (sourceLibrary, tag) => `${sourceLibrary.id}:${tag.title.toLowerCase()}`,
+        baseSource: (sourceLibrary, tag) => createLibrarySource(sourceLibrary, { genre: tag.title }),
+    });
+    buildPerLibraryFacetTagStrategyBucket(state, library, {
+        strategy: 'directors',
+        tagsByLibraryId: state.input.directorsByLibraryId,
+        categoryKey: (sourceLibrary, tag) => `${sourceLibrary.id}:${tag.title.toLowerCase()}`,
+        baseSource: (sourceLibrary) => createLibrarySource(sourceLibrary),
+    });
     buildPerLibraryDecadeStrategyBuckets(state, library);
 }
 
-function buildPerLibraryGenreStrategyBuckets(
+function buildPerLibraryFacetTagStrategyBucket(
     state: ChannelSetupStrategyBuildState,
-    library: PlexLibrarySection
+    library: PlexLibrarySection,
+    descriptor: PerLibraryTagFamilyDescriptor & { strategy: 'genres' | 'directors' }
 ): void {
-    if (!isStrategyEnabled(state, 'genres') || getStrategyScope(state, 'genres') !== 'per-library') {
+    if (!isStrategyEnabled(state, descriptor.strategy) || getStrategyScope(state, descriptor.strategy) !== 'per-library') {
         return;
     }
-    const { genresByLibraryId, minItems, seedFor } = state.input;
-    const candidates: CategoryCandidate[] = [];
-    for (const genre of sortTagsByCountThenTitle(genresByLibraryId.get(library.id) ?? [])) {
-        const passesMinItems = tagMeetsMinItems(genre, minItems);
-        recordMinItemOutcome(state, 'genres', passesMinItems);
-        if (!passesMinItems) {
-            continue;
-        }
-        candidates.push(withOptionalItemCount({
-            strategy: 'genres',
-            categoryKey: `${library.id}:${genre.title.toLowerCase()}`,
-            categoryLabel: genre.title,
-            baseSource: createLibrarySource(library, { genre: genre.title }),
-            sourceLibraryId: library.id,
-            sourceLibraryName: library.title,
-        }, getTagItemCount(genre)));
-    }
+    const { seedFor } = state.input;
+    const candidates = collectPerLibraryTagFamilyCandidates(state, library, descriptor);
     for (const candidate of sortCategoryCandidates(candidates)) {
-        addStrategyChannel(state, 'genres', {
+        const isDirector = descriptor.strategy === 'directors';
+        addStrategyChannel(state, descriptor.strategy, {
             name: `${library.title} - ${candidate.categoryLabel}`,
             contentSource: candidate.baseSource,
+            ...(isDirector
+                ? { contentFilters: [{ field: 'director' as const, operator: 'eq' as const, value: candidate.categoryLabel }] }
+                : {}),
             playbackMode: 'shuffle',
-            shuffleSeed: seedFor(`genre:${library.id}:${candidate.categoryLabel}`),
-            isAutoGenerated: true,
-            sourceLibraryId: library.id,
-            sourceLibraryName: library.title,
-        });
-    }
-}
-
-function buildPerLibraryDirectorStrategyBuckets(
-    state: ChannelSetupStrategyBuildState,
-    library: PlexLibrarySection
-): void {
-    if (!isStrategyEnabled(state, 'directors') || getStrategyScope(state, 'directors') !== 'per-library') {
-        return;
-    }
-    const { directorsByLibraryId, minItems, seedFor } = state.input;
-    const candidates: CategoryCandidate[] = [];
-    for (const director of sortTagsByCountThenTitle(directorsByLibraryId.get(library.id) ?? [])) {
-        const passesMinItems = tagMeetsMinItems(director, minItems);
-        recordMinItemOutcome(state, 'directors', passesMinItems);
-        if (!passesMinItems) {
-            continue;
-        }
-        candidates.push(withOptionalItemCount({
-            strategy: 'directors',
-            categoryKey: `${library.id}:${director.title.toLowerCase()}`,
-            categoryLabel: director.title,
-            baseSource: createLibrarySource(library),
-            sourceLibraryId: library.id,
-            sourceLibraryName: library.title,
-        }, getTagItemCount(director)));
-    }
-    for (const candidate of sortCategoryCandidates(candidates)) {
-        addStrategyChannel(state, 'directors', {
-            name: `${library.title} - ${candidate.categoryLabel}`,
-            contentSource: candidate.baseSource,
-            contentFilters: [{ field: 'director', operator: 'eq', value: candidate.categoryLabel }],
-            playbackMode: 'shuffle',
-            shuffleSeed: seedFor(`director:${library.id}:${candidate.categoryLabel}`),
+            shuffleSeed: seedFor(`${isDirector ? 'director' : 'genre'}:${library.id}:${candidate.categoryLabel}`),
             isAutoGenerated: true,
             sourceLibraryId: library.id,
             sourceLibraryName: library.title,
@@ -680,20 +682,20 @@ function buildPerLibraryActorStudioStrategyBucket(
     tagType: 'actor' | 'studio',
     tagsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>
 ): void {
-    const { selectedLibraries, minItems, seedFor } = state.input;
+    const { selectedLibraries, seedFor } = state.input;
     for (const library of selectedLibraries) {
-        const tags = sortTagsByCountThenTitle(tagsByLibraryId.get(library.id) ?? []);
-        for (const tag of tags) {
-            const passesMinItems = tagMeetsMinItems(tag, minItems);
-            recordMinItemOutcome(state, strategy, passesMinItems);
-            if (!passesMinItems) {
-                continue;
-            }
+        const candidates = collectPerLibraryTagFamilyCandidates(state, library, {
+            strategy,
+            tagsByLibraryId,
+            categoryKey: (_sourceLibrary, tag) => tag.key,
+            baseSource: (sourceLibrary, tag) => createLibrarySource(sourceLibrary, buildChannelSetupTagFilter(tag, tagType)),
+        });
+        for (const candidate of candidates) {
             addStrategyChannel(state, strategy, {
-                name: `${tag.title} - ${library.type === 'movie' ? 'Movies' : 'TV'}`,
-                contentSource: createLibrarySource(library, buildChannelSetupTagFilter(tag, tagType)),
+                name: `${candidate.categoryLabel} - ${library.type === 'movie' ? 'Movies' : 'TV'}`,
+                contentSource: candidate.baseSource,
                 playbackMode: 'shuffle',
-                shuffleSeed: seedFor(`${tagType}:${library.id}:${tag.key}`),
+                shuffleSeed: seedFor(`${tagType}:${library.id}:${candidate.tag.key}`),
                 isAutoGenerated: true,
                 sourceLibraryId: library.id,
                 sourceLibraryName: library.title,
