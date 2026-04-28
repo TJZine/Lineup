@@ -1,9 +1,7 @@
 import type {
     Direction,
     INavigationManager,
-    KeyEvent,
     NavigationAsyncFailureReporter,
-    Screen,
 } from './interfaces';
 import type { ToastInput } from '../ui/toast/types';
 import type {
@@ -12,6 +10,12 @@ import type {
     NavigationMiniGuidePort,
     NavigationVerticalDirection,
 } from './NavigationFeaturePorts';
+import type { NavigationChannelNumberHandlerRuntime } from './NavigationChannelNumberHandler';
+import type { NavigationCoordinatorRuntimeServices } from './NavigationCoordinatorRuntimeServices';
+import type { NavigationKeyModeRouterRuntime } from './NavigationKeyModeRouter';
+import type { NavigationModalEffectsRuntime } from './NavigationModalEffectsHandler';
+import type { NavigationRepeatRuntime } from './NavigationRepeatHandler';
+import type { NavigationScreenEffectsRuntime } from './NavigationScreenEffectsHandler';
 
 type IsExactType<Actual, Expected> =
     [Actual] extends [Expected]
@@ -26,80 +30,6 @@ export type NavigationDirectionContractCheck = AssertTrue<
 export type NavigationVerticalDirectionContractCheck = AssertTrue<
     IsExactType<Extract<Direction, NavigationVerticalDirection>, NavigationVerticalDirection>
 >;
-
-export type NavigationRepeatStopReason =
-    | 'inputBlocked'
-    | 'keyup'
-    | 'nonDirectional'
-    | 'directionChange'
-    | 'restart'
-    | 'notVisible'
-    | 'modalOpen'
-    | 'noButton'
-    | 'blocked'
-    | 'guide'
-    | 'screenChange'
-    | 'ok'
-    | 'back';
-
-export type EpgStopReason =
-    | NavigationRepeatStopReason
-    | 'play'
-    | 'channelPage';
-
-export type MiniGuideStopReason =
-    | NavigationRepeatStopReason
-    | 'page'
-    | 'right'
-    | 'notPlayer';
-
-export interface NavigationRepeatRuntime {
-    stopForKeyUp(button: KeyEvent['button']): void;
-    stopForNonDirectionalInput(event: KeyEvent): void;
-    stopEpgRepeat(reason: EpgStopReason): void;
-    startEpgRepeat(button: NavigationFourWayDirection): void;
-    stopEpgRepeatForDirectionChange(button: NavigationFourWayDirection): void;
-    stopMiniGuideRepeat(reason: MiniGuideStopReason): void;
-    startMiniGuideRepeat(button: NavigationVerticalDirection): void;
-    stopMiniGuideRepeatForDirectionChange(button: NavigationVerticalDirection): void;
-    hasMiniGuideRepeatButton(): boolean;
-}
-
-export interface NavigationKeyModeRouterRuntime {
-    handleLongPressBack(): void;
-    handleKeyPress(event: KeyEvent): void;
-}
-
-export interface NavigationScreenEffectsRuntime {
-    handleScreenChange(from: Screen, to: Screen): void;
-}
-
-export interface NavigationModalEffectsRuntime {
-    handleModalOpen(modalId: string): void;
-    handleModalClose(modalId: string): void;
-}
-
-export interface NavigationChannelNumberHandlerRuntime {
-    handleChannelNumberEntered(channelNumber: number): Promise<void>;
-}
-
-export interface NavigationCoordinatorRuntimeServices {
-    fireAndReport: (
-        key: string,
-        promiseFactory: () => Promise<void>,
-        message: string,
-        toastMessage: string
-    ) => Promise<void> | null;
-    observeNonBlockingPromise: (
-        key: string,
-        promiseFactory: () => Promise<void>,
-        message: string
-    ) => Promise<void>;
-    logInputNotHandled: (
-        reason: 'modal_open' | 'screen_not_player' | 'input_blocked',
-        event: KeyEvent
-    ) => void;
-}
 
 export interface NavigationCoordinatorHandlers {
     repeats: NavigationRepeatRuntime;

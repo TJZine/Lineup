@@ -3,13 +3,13 @@ import type {
     NavigationEventMap,
 } from './interfaces';
 import type {
-    NavigationChannelNumberHandlerRuntime,
     NavigationCoordinatorDeps,
-    NavigationKeyModeRouterRuntime,
-    NavigationModalEffectsRuntime,
-    NavigationRepeatRuntime,
-    NavigationScreenEffectsRuntime,
 } from './NavigationCoordinatorContracts';
+import type { NavigationChannelNumberHandlerRuntime } from './NavigationChannelNumberHandler';
+import type { NavigationKeyModeRouterRuntime } from './NavigationKeyModeRouter';
+import type { NavigationModalEffectsRuntime } from './NavigationModalEffectsHandler';
+import type { NavigationRepeatRuntime } from './NavigationRepeatHandler';
+import type { NavigationScreenEffectsRuntime } from './NavigationScreenEffectsHandler';
 
 export class NavigationCoordinator {
     private readonly _repeats: NavigationRepeatRuntime;

@@ -1,7 +1,4 @@
-import type {
-    NavigationRepeatRuntime,
-    NavigationScreenEffectsRuntime,
-} from './NavigationCoordinatorContracts';
+import type { NavigationRepeatRuntime } from './NavigationRepeatHandler';
 import type {
     NavigationChannelSwitchingPort,
     NavigationEpgPort,
@@ -22,6 +19,10 @@ export interface NavigationScreenEffectsPort {
     channelSwitching: NavigationChannelSwitchingPort;
     uiGuards: NavigationUiGuardsPort;
     readKeepPlayingInSettings: () => boolean;
+}
+
+export interface NavigationScreenEffectsRuntime {
+    handleScreenChange(from: Screen, to: Screen): void;
 }
 
 export class NavigationScreenEffectsHandler implements NavigationScreenEffectsRuntime {
