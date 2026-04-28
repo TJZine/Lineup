@@ -1114,6 +1114,13 @@ must add larger score-moving packages.
   moved from `NavigationCoordinatorContracts` to `NavigationFeaturePorts`, with
   orchestrator-owned feature adaptation preserved in
   `OrchestratorCoordinatorBuilders`.
+- Status: completed
+- Plan: local `P14-WAVE6` reviewed plan.
+- Last touched: `2ba166d7` `refactor: complete p14 wave6 cleanup`
+- Verification: targeted navigation/orchestrator tests, package-local
+  Desloppify commands, targeted `rg` audits, and `npm run verify`.
+- Follow-ups: `P14-W28` owns the post-WAVE6 runtime-contract residual.
+- Handoff: archived inside completed `P14-WAVE6`.
 
 ### [x] `P14-W22` `generated-style-headers-persist`
 
@@ -1132,6 +1139,13 @@ must add larger score-moving packages.
 - Disposition: resolved in `P14-WAVE6`; generated-style metadata and separator
   banners were removed from the admitted handwritten production modules without
   runtime changes.
+- Status: completed
+- Plan: local `P14-WAVE6` reviewed plan.
+- Last touched: `2ba166d7` `refactor: complete p14 wave6 cleanup`
+- Verification: `git diff --check`, package-local Desloppify commands,
+  targeted generated-header/banner audits, and `npm run verify`.
+- Follow-ups: `P14-W29` owns the post-WAVE6 generated-style residual.
+- Handoff: archived inside completed `P14-WAVE6`.
 
 ### [x] `P14-W23` `interface-lifecycle-signature-jsdoc`
 
@@ -1151,6 +1165,13 @@ must add larger score-moving packages.
 - Disposition: resolved in `P14-WAVE6`; repetitive lifecycle/interface/signature
   JSDoc was trimmed while preserving ordering, persistence, platform, and
   non-obvious behavior comments.
+- Status: completed
+- Plan: local `P14-WAVE6` reviewed plan.
+- Last touched: `2ba166d7` `refactor: complete p14 wave6 cleanup`
+- Verification: `git diff --check`, package-local Desloppify commands,
+  targeted trivial-signature JSDoc audits, and `npm run verify`.
+- Follow-ups: `P14-W31` owns the post-WAVE6 restating-comment residual.
+- Handoff: archived inside completed `P14-WAVE6`.
 
 ### [x] `P14-W24` `scheduler-type-field-doc-bloat`
 
@@ -1166,6 +1187,13 @@ must add larger score-moving packages.
 - Disposition: resolved in `P14-WAVE6`; duplicate scheduler field comments were
   removed while preserving domain, cache, token, persistence, and compatibility
   notes.
+- Status: completed
+- Plan: local `P14-WAVE6` reviewed plan.
+- Last touched: `2ba166d7` `refactor: complete p14 wave6 cleanup`
+- Verification: `git diff --check`, package-local Desloppify commands,
+  targeted duplicate-field-comment audits, and `npm run verify`.
+- Follow-ups: `P14-W30` owns the post-WAVE6 type-field-comment residual.
+- Handoff: archived inside completed `P14-WAVE6`.
 
 ### [x] `P14-W25` `facet-snapshot-load-session-too-broad`
 
@@ -1183,6 +1211,13 @@ must add larger score-moving packages.
   to `ChannelSetupFacetCountRecoveryWorker`, while load-session orchestration
   retains cancellation, warnings, timing, progress, cache/inflight, and
   partial-failure behavior.
+- Status: completed
+- Plan: local `P14-WAVE6` reviewed plan.
+- Last touched: `1761c65f` `fix: address p14 wave6 review followups`
+- Verification: targeted channel-setup/facet snapshot tests, package-local
+  Desloppify commands, targeted ownership audits, and `npm run verify`.
+- Follow-ups: `P14-W32` owns the post-WAVE6 facet snapshot residual.
+- Handoff: archived inside completed `P14-WAVE6`.
 
 ### [x] `P14-W26` `navigation-collaborator-cycle-wave6-residual`
 
@@ -1201,6 +1236,15 @@ must add larger score-moving packages.
   handlers plus a runtime-services seam and remains responsible for event
   subscription wiring. `npx madge --circular` found no circular dependency
   across the cited navigation files.
+- Status: completed
+- Plan: local `P14-WAVE6` reviewed plan.
+- Last touched: `1761c65f` `fix: address p14 wave6 review followups`
+- Verification: targeted navigation/orchestrator tests, package-local
+  Desloppify commands, targeted role-assembly audits, madge circular audit, and
+  `npm run verify`.
+- Follow-ups: none for the WAVE6 collaborator-cycle slice; `P14-W28` owns the
+  separate post-WAVE6 runtime-contract residual.
+- Handoff: archived inside completed `P14-WAVE6`.
 
 ### [x] `P14-W27` `epg-info-duration-duplication`
 
@@ -1215,6 +1259,13 @@ must add larger score-moving packages.
 - Disposition: stale-proven in `P14-WAVE6`; current source already imports and
   uses shared `formatDuration` from `../utils`, and the targeted EPG info panel
   test preserved duration formatting.
+- Status: completed
+- Plan: local `P14-WAVE6` reviewed plan.
+- Last touched: `2ba166d7` `refactor: complete p14 wave6 cleanup`
+- Verification: targeted EPG info panel tests, package-local Desloppify
+  commands, targeted `formatDuration` audit, and `npm run verify`.
+- Follow-ups: none.
+- Handoff: archived inside completed `P14-WAVE6`.
 
 ### [ ] `P14-WAVE7` post-WAVE6 target residual cleanup
 
@@ -1246,8 +1297,9 @@ must add larger score-moving packages.
   `npm run verify`, implementation review, checklist/package-map updates, and
   `npm run verify:docs`.
 - Status: not started
-- Plan: not started
+- Plan: none yet
 - Last touched: not started
+- Verification: not run
 - Follow-ups: the post-WAVE6 focused review re-used
   `navigation_runtime_contract_hub` with remaining runtime-contract evidence;
   `P14-W28` is the current residual owner while `P14-W21` remains closed for
