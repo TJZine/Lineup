@@ -23,6 +23,7 @@ import {
     createEmptyChannelSetupEstimates,
     createChannelIdentityKey,
     toChannelSetupDecadeValue,
+    type ChannelSetupFacetMap,
     type ChannelSetupPlannerCountSample,
     type ChannelSetupPlannerDiagnostics,
     type ChannelSetupPlannerFacetCountDiagnostics,
@@ -33,14 +34,14 @@ import {
 interface ChannelSetupPlanInput {
     config: ChannelSetupConfig;
     libraries: PlexLibrarySection[];
-    playlists: PlexPlaylist[];
-    collectionsByLibraryId: Map<string, PlexCollection[]>;
-    genresByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    directorsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    yearsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    actorsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    studiosByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    warnings: string[];
+    playlists: readonly PlexPlaylist[];
+    collectionsByLibraryId: ChannelSetupFacetMap<PlexCollection>;
+    genresByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    directorsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    yearsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    actorsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    studiosByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    warnings: readonly string[];
     seedFor: (value: string) => number;
 }
 
@@ -69,11 +70,11 @@ class ChannelSetupPlannerDiagnosticsRecorder {
         collectDiagnostics: boolean,
         selectedLibraries: PlexLibrarySection[],
         tagsByFamily: {
-            genres: Map<string, PlexTagDirectoryItem[]>;
-            directors: Map<string, PlexTagDirectoryItem[]>;
-            decades: Map<string, PlexTagDirectoryItem[]>;
-            studios: Map<string, PlexTagDirectoryItem[]>;
-            actors: Map<string, PlexTagDirectoryItem[]>;
+            genres: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+            directors: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+            decades: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+            studios: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+            actors: ChannelSetupFacetMap<PlexTagDirectoryItem>;
         },
         effectiveMaxChannels: number,
         minItems: number
@@ -140,7 +141,7 @@ class ChannelSetupPlannerDiagnosticsRecorder {
     }
 }
 
-const sortTagValuesByCountThenTitle = <T extends { title: string; count: number }>(values: T[]): T[] => (
+const sortTagValuesByCountThenTitle = <T extends { title: string; count: number }>(values: readonly T[]): T[] => (
     [...values].sort((a, b) => {
         const countDiff = b.count - a.count;
         if (countDiff !== 0) return countDiff;
@@ -150,7 +151,7 @@ const sortTagValuesByCountThenTitle = <T extends { title: string; count: number 
 
 const sortTagTitles = (titles: string[]): string[] => [...titles].sort((a, b) => a.localeCompare(b));
 
-const toCountSamples = (values: Array<{ title: string; count: number }>, limit: number = 5): ChannelSetupPlannerCountSample[] =>
+const toCountSamples = (values: ReadonlyArray<{ title: string; count: number }>, limit: number = 5): ChannelSetupPlannerCountSample[] =>
     sortTagValuesByCountThenTitle(values).slice(0, limit).map((value) => ({
         title: value.title,
         count: value.count,
@@ -431,6 +432,9 @@ function expandPlaybackVariants(
     const variantLabel = variantType === 'sequential' ? 'Sequential' : 'Block';
     const withVariants: PendingChannel[] = [...channels];
     for (const channel of channels) {
+        if (variantType === 'sequential' && (channel.lineupReplicaIndex ?? 0) > 0) {
+            continue;
+        }
         const isSeriesDerived = isSeriesDerivedChannel(channel, showLibraryIds);
         if (!isSeriesDerived) {
             continue;
@@ -488,7 +492,7 @@ function estimatePendingChannels(pending: PendingChannel[]): ChannelSetupEstimat
 
 function buildFacetCountDiagnostics(
     library: PlexLibrarySection,
-    tags: PlexTagDirectoryItem[],
+    tags: readonly PlexTagDirectoryItem[],
     minItems: number
 ): ChannelSetupPlannerFacetCountDiagnostics {
     const knownCounts = sortTagValuesByCountThenTitle(
@@ -521,7 +525,7 @@ function buildFacetCountDiagnostics(
 
 function buildDecadeFacetCountDiagnostics(
     library: PlexLibrarySection,
-    yearTags: PlexTagDirectoryItem[],
+    yearTags: readonly PlexTagDirectoryItem[],
     minItems: number
 ): ChannelSetupPlannerFacetCountDiagnostics {
     const decades = new Map<number, { totalCount: number; hasUnknownCount: boolean }>();
@@ -570,23 +574,23 @@ function buildDecadeFacetCountDiagnostics(
 
 function createPlannerDiagnostics(
     selectedLibraries: PlexLibrarySection[],
-    genresByLibraryId: Map<string, PlexTagDirectoryItem[]>,
-    directorsByLibraryId: Map<string, PlexTagDirectoryItem[]>,
-    yearsByLibraryId: Map<string, PlexTagDirectoryItem[]>,
-    actorsByLibraryId: Map<string, PlexTagDirectoryItem[]>,
-    studiosByLibraryId: Map<string, PlexTagDirectoryItem[]>,
+    genresByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
+    directorsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
+    yearsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
+    actorsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
+    studiosByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
     effectiveMaxChannels: number,
     minItems: number
 ): ChannelSetupPlannerDiagnostics {
     const toCounts = (
-        valuesByLibraryId: Map<string, PlexTagDirectoryItem[]>
+        valuesByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>
     ): ChannelSetupPlannerLibraryCount[] => selectedLibraries.map((library) => ({
         libraryId: library.id,
         libraryName: library.title,
         count: valuesByLibraryId.get(library.id)?.length ?? 0,
     }));
     const toFacetCountDiagnostics = (
-        valuesByLibraryId: Map<string, PlexTagDirectoryItem[]>
+        valuesByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>
     ): ChannelSetupPlannerFacetCountDiagnostics[] => selectedLibraries.map((library) =>
         buildFacetCountDiagnostics(library, valuesByLibraryId.get(library.id) ?? [], minItems)
     );

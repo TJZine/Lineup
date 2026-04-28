@@ -225,7 +225,7 @@ export class ChannelSetupPlanningService {
         if (snapshot.status !== 'ready') {
             return {
                 plan: null,
-                warnings: snapshot.warnings,
+                warnings: [...snapshot.warnings],
                 canceled: false,
                 blockedMessage: snapshot.message,
                 previewStatus: snapshot.status,
@@ -254,7 +254,7 @@ export class ChannelSetupPlanningService {
 
         return {
             plan,
-            warnings: snapshot.warnings,
+            warnings: [...snapshot.warnings],
             canceled: false,
             errorsTotal: snapshot.errorsTotal,
             playlistMs: snapshot.playlistMs,

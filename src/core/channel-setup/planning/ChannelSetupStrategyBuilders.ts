@@ -19,6 +19,7 @@ import { buildChannelSetupTagFilter } from './ChannelSetupTagFilters';
 import {
     createEmptyChannelSetupEstimates,
     toChannelSetupDecadeValue,
+    type ChannelSetupFacetMap,
     type PendingChannel,
 } from './ChannelSetupPlanningTypes';
 
@@ -37,13 +38,13 @@ type CategoryCandidate = {
 interface ChannelSetupStrategyBuildersInput {
     config: ChannelSetupConfig;
     selectedLibraries: PlexLibrarySection[];
-    playlists: PlexPlaylist[];
-    collectionsByLibraryId: Map<string, PlexCollection[]>;
-    genresByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    directorsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    yearsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    actorsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    studiosByLibraryId: Map<string, PlexTagDirectoryItem[]>;
+    playlists: readonly PlexPlaylist[];
+    collectionsByLibraryId: ChannelSetupFacetMap<PlexCollection>;
+    genresByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    directorsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    yearsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    actorsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    studiosByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
     minItems: number;
     seedFor: (value: string) => number;
 }
@@ -82,7 +83,7 @@ const getLibraryMediaType = (library: PlexLibrarySection): 'movie' | 'show' => (
     library.type === 'movie' ? 'movie' : 'show'
 );
 
-const sortPlaylistsByCountThenTitle = (playlists: PlexPlaylist[]): PlexPlaylist[] => (
+const sortPlaylistsByCountThenTitle = (playlists: readonly PlexPlaylist[]): PlexPlaylist[] => (
     [...playlists].sort((a, b) => {
         const countDiff = b.leafCount - a.leafCount;
         if (countDiff !== 0) return countDiff;
@@ -92,7 +93,7 @@ const sortPlaylistsByCountThenTitle = (playlists: PlexPlaylist[]): PlexPlaylist[
     })
 );
 
-const sortTagsByCountThenTitle = (tags: PlexTagDirectoryItem[]): PlexTagDirectoryItem[] => (
+const sortTagsByCountThenTitle = (tags: readonly PlexTagDirectoryItem[]): PlexTagDirectoryItem[] => (
     [...tags].sort((a, b) => {
         const countDiff = (b.count ?? 0) - (a.count ?? 0);
         if (countDiff !== 0) return countDiff;
@@ -152,7 +153,7 @@ const createLibrarySource = (
 
 const buildCrossLibraryFacetCandidates = (
     libraries: PlexLibrarySection[],
-    tagsByLibraryId: Map<string, PlexTagDirectoryItem[]>,
+    tagsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
     minItems: number,
     strategy: SetupStrategyKey,
     buildLibraryFilter: (tag: PlexTagDirectoryItem) => Record<string, string | number>
@@ -203,7 +204,7 @@ const buildCrossLibraryFacetCandidates = (
 
 function combineTagSources(
     libraries: PlexLibrarySection[],
-    tagsByLibraryId: Map<string, PlexTagDirectoryItem[]>,
+    tagsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
     type: 'actor' | 'studio'
 ): Array<{ key: string; title: string; totalCount: number; hasUnknownCount: boolean; sources: ChannelConfig['contentSource'][] }> {
     const grouped = new Map<
@@ -248,7 +249,7 @@ function combineTagSources(
 
 const countUniqueTagTitles = (
     libraries: PlexLibrarySection[],
-    tagsByLibraryId: Map<string, PlexTagDirectoryItem[]>
+    tagsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>
 ): number => Array.from(
     new Set(
         libraries.flatMap((library) =>
@@ -556,7 +557,7 @@ function buildPerLibraryDecadeStrategyBuckets(
 }
 
 function collectDecadeCandidateSummary(
-    yearTags: PlexTagDirectoryItem[],
+    yearTags: readonly PlexTagDirectoryItem[],
     minItems: number
 ): DecadeCandidateSummary {
     const decadeCounts = new Map<number, number>();
@@ -596,7 +597,7 @@ function buildCrossLibraryFacetStrategyBuckets(state: ChannelSetupStrategyBuildS
 function buildCrossLibraryFacetStrategyBucket(
     state: ChannelSetupStrategyBuildState,
     strategy: 'genres' | 'directors',
-    tagsByLibraryId: Map<string, PlexTagDirectoryItem[]>,
+    tagsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
     seedPrefix: 'genre' | 'director',
     buildLibraryFilter: (tag: PlexTagDirectoryItem) => Record<string, string | number>
 ): void {
@@ -636,7 +637,7 @@ function buildActorOrStudioStrategyBucket(
     state: ChannelSetupStrategyBuildState,
     strategy: 'actors' | 'studios',
     tagType: 'actor' | 'studio',
-    tagsByLibraryId: Map<string, PlexTagDirectoryItem[]>
+    tagsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>
 ): void {
     if (!isStrategyEnabled(state, strategy)) {
         return;
@@ -654,7 +655,7 @@ function buildCombinedActorStudioStrategyBucket(
     state: ChannelSetupStrategyBuildState,
     strategy: 'actors' | 'studios',
     tagType: 'actor' | 'studio',
-    tagsByLibraryId: Map<string, PlexTagDirectoryItem[]>,
+    tagsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
     scope: 'per-library' | 'cross-library'
 ): void {
     const { selectedLibraries, minItems, seedFor } = state.input;
@@ -682,7 +683,7 @@ function buildPerLibraryActorStudioStrategyBucket(
     state: ChannelSetupStrategyBuildState,
     strategy: 'actors' | 'studios',
     tagType: 'actor' | 'studio',
-    tagsByLibraryId: Map<string, PlexTagDirectoryItem[]>
+    tagsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>
 ): void {
     const { selectedLibraries, minItems, seedFor } = state.input;
     for (const library of selectedLibraries) {

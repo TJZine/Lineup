@@ -171,6 +171,41 @@ describe('ChannelSetupPlanner', () => {
         expect(diff.matchedPairs).toHaveLength(plan.pendingChannels.length);
     });
 
+    it('does not create sequential variants for alternate shuffle replicas', () => {
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['show-1'],
+                strategyConfig: createStrategyConfig({ genres: { enabled: true } }),
+                channelExpansion: {
+                    addAlternateLineups: true,
+                    alternateLineupCopies: 2,
+                    variantType: 'sequential',
+                    variantBlockSize: 3,
+                },
+            }),
+            libraries: [{ id: 'show-1', title: 'Shows', type: 'show', contentCount: 20 }] as PlexLibrarySection[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map([['show-1', [{ key: 'genre-1', title: 'Comedy', count: 20 }]]]),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(plan.pendingChannels.map((channel) => channel.name)).toEqual([
+            'Shows - Comedy',
+            'Shows - Comedy (2)',
+            'Shows - Comedy (3)',
+            'Shows - Comedy • Sequential',
+        ]);
+        expect(
+            plan.pendingChannels.filter((channel) => channel.isPlaybackModeVariant)
+        ).toHaveLength(1);
+    });
+
     it('uses isPlaybackModeVariant as the canonical playback variant key in identity hashes', () => {
         const variantCandidate: PendingChannel = {
             name: 'Variant',

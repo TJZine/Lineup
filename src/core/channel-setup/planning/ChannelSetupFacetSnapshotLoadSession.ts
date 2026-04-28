@@ -13,6 +13,7 @@ import type { ChannelBuildProgress, ChannelSetupConfig, ChannelSetupPreviewFailu
 import { isSignalAborted } from '../shared/utils';
 import { buildChannelSetupFacetCountFilter } from './ChannelSetupTagFilters';
 import type {
+    ChannelSetupFacetMap,
     ChannelSetupFacetSnapshot,
     ChannelSetupFacetSnapshotData,
     ChannelSetupPlexRequestIntent,
@@ -64,6 +65,33 @@ type ChannelSetupFacetSnapshotLoadSessionOptions = {
 
 const MAX_FACET_LIBRARY_CONCURRENCY = 2;
 const MAX_FACET_COUNT_RECOVERY_CONCURRENCY = 8;
+
+function createReadonlyFacetMap<T>(source: Map<string, T[]>): ChannelSetupFacetMap<T> {
+    const snapshot = new Map<string, readonly T[]>();
+    for (const [libraryId, values] of source.entries()) {
+        snapshot.set(libraryId, Object.freeze([...values]));
+    }
+    const readonlyMap: ChannelSetupFacetMap<T> = {
+        get size() {
+            return snapshot.size;
+        },
+        get: (key: string): readonly T[] | undefined => snapshot.get(key),
+        has: (key: string): boolean => snapshot.has(key),
+        entries: (): MapIterator<[string, readonly T[]]> => snapshot.entries(),
+        keys: (): MapIterator<string> => snapshot.keys(),
+        values: (): MapIterator<readonly T[]> => snapshot.values(),
+        forEach: (
+            callbackfn: (value: readonly T[], key: string, map: ReadonlyMap<string, readonly T[]>) => void,
+            thisArg?: unknown
+        ): void => {
+            snapshot.forEach((value, key) => {
+                callbackfn.call(thisArg, value, key, readonlyMap);
+            });
+        },
+        [Symbol.iterator]: (): MapIterator<[string, readonly T[]]> => snapshot[Symbol.iterator](),
+    };
+    return Object.freeze(readonlyMap);
+}
 
 class ChannelSetupFacetSnapshotDataAccumulator {
     readonly playlists: PlexPlaylist[] = [];
@@ -127,14 +155,14 @@ class ChannelSetupFacetSnapshotDataAccumulator {
         lastTask: ChannelBuildProgress['task'] | undefined
     ): ChannelSetupFacetSnapshotData {
         return {
-            playlists: this.playlists,
-            collectionsByLibraryId: this.collectionsByLibraryId,
-            genresByLibraryId: this.genresByLibraryId,
-            directorsByLibraryId: this.directorsByLibraryId,
-            yearsByLibraryId: this.yearsByLibraryId,
-            actorsByLibraryId: this.actorsByLibraryId,
-            studiosByLibraryId: this.studiosByLibraryId,
-            warnings: Array.from(this._warnings).sort((a, b) => a.localeCompare(b)),
+            playlists: Object.freeze([...this.playlists]),
+            collectionsByLibraryId: createReadonlyFacetMap(this.collectionsByLibraryId),
+            genresByLibraryId: createReadonlyFacetMap(this.genresByLibraryId),
+            directorsByLibraryId: createReadonlyFacetMap(this.directorsByLibraryId),
+            yearsByLibraryId: createReadonlyFacetMap(this.yearsByLibraryId),
+            actorsByLibraryId: createReadonlyFacetMap(this.actorsByLibraryId),
+            studiosByLibraryId: createReadonlyFacetMap(this.studiosByLibraryId),
+            warnings: Object.freeze(Array.from(this._warnings).sort((a, b) => a.localeCompare(b))),
             hasTransientLoadFailure,
             errorsTotal: this.errorsTotal,
             playlistMs: this.playlistMs,
@@ -263,13 +291,12 @@ export class ChannelSetupFacetSnapshotLoadSession {
 
     private async _loadPlaylists(): Promise<void> {
         this._reportSnapshotProgress('fetch_playlists', 'Fetching playlists...', 'Scanning server', 0, null);
+        const playlistsStart = performance.now();
         try {
-            const playlistsStart = performance.now();
             const fetched = await this._options.plexLibrary.getPlaylists({
                 signal: this._requestSignal,
                 requestIntent: this._options.requestIntent,
             });
-            this._snapshotDataAccumulator.playlistMs += performance.now() - playlistsStart;
             this._snapshotDataAccumulator.playlists.push(...fetched);
         } catch (error) {
             if (this._callerCanceled()) {
@@ -281,6 +308,8 @@ export class ChannelSetupFacetSnapshotLoadSession {
             console.warn('Failed to fetch playlists:', summarizeErrorForLog(error));
             this._addPartialWarning('fetch_playlists', 'fetch_playlists failed', error);
             this._snapshotDataAccumulator.errorsTotal++;
+        } finally {
+            this._snapshotDataAccumulator.playlistMs += performance.now() - playlistsStart;
         }
     }
 
@@ -399,13 +428,12 @@ export class ChannelSetupFacetSnapshotLoadSession {
             libIndex,
             this._selectedLibraries.length
         );
+        const collectionsStart = performance.now();
         try {
-            const collectionsStart = performance.now();
             const collections = await this._options.plexLibrary.getCollections(library.id, {
                 signal: this._requestSignal,
                 requestIntent: this._options.requestIntent,
             });
-            this._snapshotDataAccumulator.collectionsMs += performance.now() - collectionsStart;
             this._snapshotDataAccumulator.collectionsByLibraryId.set(library.id, collections);
             return true;
         } catch (error) {
@@ -420,6 +448,8 @@ export class ChannelSetupFacetSnapshotLoadSession {
             this._snapshotDataAccumulator.errorsTotal++;
             this._snapshotDataAccumulator.collectionsByLibraryId.set(library.id, []);
             return true;
+        } finally {
+            this._snapshotDataAccumulator.collectionsMs += performance.now() - collectionsStart;
         }
     }
 

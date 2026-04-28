@@ -208,16 +208,17 @@ function createChannelDiffEntry(
 
 export type ChannelSetupPlanningIntent = 'preview' | 'build';
 export type ChannelSetupPlexRequestIntent = ReturnType<typeof getPlexRequestIntentForChannelSetup>;
+export type ChannelSetupFacetMap<T> = ReadonlyMap<string, readonly T[]>;
 
 export type ChannelSetupFacetSnapshotData = {
-    playlists: PlexPlaylist[];
-    collectionsByLibraryId: Map<string, PlexCollection[]>;
-    genresByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    directorsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    yearsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    actorsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    studiosByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    warnings: string[];
+    playlists: readonly PlexPlaylist[];
+    collectionsByLibraryId: ChannelSetupFacetMap<PlexCollection>;
+    genresByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    directorsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    yearsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    actorsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    studiosByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    warnings: readonly string[];
     hasTransientLoadFailure: boolean;
     errorsTotal: number;
     playlistMs: number;
