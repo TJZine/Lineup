@@ -30,10 +30,32 @@ export async function discoverPlexResourcesWithRequestPolicy(
 }
 
 async function parseResourcesResponse(response: Response): Promise<PlexApiResource[]> {
-    const contentType =
-        response.headers && typeof response.headers.get === 'function'
-            ? response.headers.get('Content-Type') || ''
-            : '';
+    const { contentType, text } = await readDiscoveryResponseBody(response);
+    if (!text) {
+        return [];
+    }
+
+    const jsonResources = parseJsonResourceArray(text);
+    if (jsonResources) {
+        return jsonResources;
+    }
+
+    if (!isXmlResourceResponse(text, contentType)) {
+        throw new PlexApiError(
+            AppErrorCode.PARSE_ERROR,
+            'Failed to parse server discovery response',
+            response.status,
+            false
+        );
+    }
+
+    return parseXmlResourceArray(text, response.status);
+}
+
+async function readDiscoveryResponseBody(response: Response): Promise<{
+    contentType: string;
+    text: string;
+}> {
     if (typeof response.text !== 'function') {
         throw new PlexApiError(
             AppErrorCode.PARSE_ERROR,
@@ -44,11 +66,19 @@ async function parseResourcesResponse(response: Response): Promise<PlexApiResour
         );
     }
 
-    const text = await response.text();
-    if (!text) {
-        return [];
-    }
+    return {
+        contentType: getResponseContentType(response),
+        text: await response.text(),
+    };
+}
 
+function getResponseContentType(response: Response): string {
+    return response.headers && typeof response.headers.get === 'function'
+        ? response.headers.get('Content-Type') || ''
+        : '';
+}
+
+function parseJsonResourceArray(text: string): PlexApiResource[] | null {
     try {
         const parsed = JSON.parse(text);
         if (Array.isArray(parsed)) {
@@ -57,58 +87,54 @@ async function parseResourcesResponse(response: Response): Promise<PlexApiResour
     } catch {
         // Fall through to XML parsing.
     }
+    return null;
+}
 
-    if (!contentType.includes('xml') && !text.trim().startsWith('<')) {
-        throw new PlexApiError(
-            AppErrorCode.PARSE_ERROR,
-            'Failed to parse server discovery response',
-            response.status,
-            false
-        );
-    }
+function isXmlResourceResponse(text: string, contentType: string): boolean {
+    return contentType.includes('xml') || text.trim().startsWith('<');
+}
 
+function parseXmlResourceArray(text: string, status: number): PlexApiResource[] {
     const parser = new DOMParser();
     const doc = parser.parseFromString(text, 'application/xml');
     if (doc.getElementsByTagName('parsererror').length > 0) {
         throw new PlexApiError(
             AppErrorCode.PARSE_ERROR,
             'Invalid XML response from server discovery',
-            response.status,
+            status,
             false
         );
     }
 
-    const devices = Array.from(doc.getElementsByTagName('Device'));
-    const resources: PlexApiResource[] = [];
-    for (const device of devices) {
-        const provides = device.getAttribute('provides') || '';
-        const connections: PlexApiConnection[] = [];
-        const connectionNodes = Array.from(device.getElementsByTagName('Connection'));
-        for (const conn of connectionNodes) {
-            const portRaw = conn.getAttribute('port');
-            const port = portRaw ? Number(portRaw) : 0;
-            connections.push({
-                uri: conn.getAttribute('uri') || '',
-                protocol: conn.getAttribute('protocol') || '',
-                address: conn.getAttribute('address') || '',
-                port: Number.isFinite(port) ? port : 0,
-                local: parseXmlBoolean(conn.getAttribute('local')),
-                relay: parseXmlBoolean(conn.getAttribute('relay')),
-            });
-        }
+    return Array.from(doc.getElementsByTagName('Device')).map(mapXmlDeviceToResource);
+}
 
-        resources.push({
-            clientIdentifier: device.getAttribute('clientIdentifier') || '',
-            name: device.getAttribute('name') || '',
-            sourceTitle: device.getAttribute('sourceTitle') || '',
-            ownerId: device.getAttribute('ownerId') || '',
-            owned: parseXmlBoolean(device.getAttribute('owned')),
-            provides,
-            connections,
-        });
-    }
+function mapXmlDeviceToResource(device: Element): PlexApiResource {
+    const provides = device.getAttribute('provides') || '';
+    const connections = Array.from(device.getElementsByTagName('Connection')).map(mapXmlConnection);
 
-    return resources;
+    return {
+        clientIdentifier: device.getAttribute('clientIdentifier') || '',
+        name: device.getAttribute('name') || '',
+        sourceTitle: device.getAttribute('sourceTitle') || '',
+        ownerId: device.getAttribute('ownerId') || '',
+        owned: parseXmlBoolean(device.getAttribute('owned')),
+        provides,
+        connections,
+    };
+}
+
+function mapXmlConnection(conn: Element): PlexApiConnection {
+    const portRaw = conn.getAttribute('port');
+    const port = portRaw ? Number(portRaw) : 0;
+    return {
+        uri: conn.getAttribute('uri') || '',
+        protocol: conn.getAttribute('protocol') || '',
+        address: conn.getAttribute('address') || '',
+        port: Number.isFinite(port) ? port : 0,
+        local: parseXmlBoolean(conn.getAttribute('local')),
+        relay: parseXmlBoolean(conn.getAttribute('relay')),
+    };
 }
 
 function parseXmlBoolean(value: string | null): boolean {
