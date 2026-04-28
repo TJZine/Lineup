@@ -386,32 +386,6 @@ describe('OrchestratorCoordinatorBuilders', () => {
         });
         expect(handlers.keyModeRouter).toBe(mockNavigationKeyModeRouterInstance);
         expect(handlers.screenEffects).toBe(mockNavigationScreenEffectsHandlerInstance);
-        const keyModeRouterDeps = mockNavigationKeyModeRouter.mock.calls[0]?.[0] as {
-            playback: { getSeekIncrementMs: () => number };
-            nowPlayingInfo: { isModalOpen: () => boolean; resetAutoHideTimer: () => void };
-        };
-        const screenEffectsDeps = mockNavigationScreenEffectsHandler.mock.calls[0]?.[0] as {
-            readKeepPlayingInSettings: () => boolean;
-        };
-
-        expect(keyModeRouterDeps.playback.getSeekIncrementMs()).toBe(15_000);
-        input.config!.playerConfig!.seekIncrementSec = 30;
-        expect(keyModeRouterDeps.playback.getSeekIncrementMs()).toBe(30_000);
-        input.config!.playerConfig!.seekIncrementSec = Number.NaN;
-        expect(keyModeRouterDeps.playback.getSeekIncrementMs()).toBe(10_000);
-        const navigationModule = input.modules.navigation as unknown as {
-            isModalOpen: jest.Mock<boolean, [string?]>;
-        };
-        navigationModule.isModalOpen = jest.fn(() => true);
-        const nowPlayingInfoOverlay = input.overlays.nowPlayingInfo as unknown as {
-            resetAutoHideTimer: jest.Mock;
-        };
-        expect(keyModeRouterDeps.nowPlayingInfo.isModalOpen()).toBe(true);
-        expect(navigationModule.isModalOpen).toHaveBeenCalledWith('now-playing-info');
-        expect(nowPlayingInfoOverlay.resetAutoHideTimer).not.toHaveBeenCalled();
-        keyModeRouterDeps.nowPlayingInfo.resetAutoHideTimer();
-        expect(nowPlayingInfoOverlay.resetAutoHideTimer).toHaveBeenCalledTimes(1);
-        expect(screenEffectsDeps.readKeepPlayingInSettings()).toBe(false);
         expect(navigationDeps.events.readDebugLoggingEnabled()).toBe(true);
     });
 

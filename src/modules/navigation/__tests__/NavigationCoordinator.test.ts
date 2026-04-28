@@ -33,6 +33,7 @@ import {
     MINI_GUIDE_REPEAT_TIMING,
 } from '../constants';
 import { advanceTimersUntil } from '../../../__tests__/helpers';
+import { EXIT_CONFIRM_MODAL_ID } from '../../ui/exit-confirm';
 import { NOW_PLAYING_INFO_MODAL_ID } from '../../ui/now-playing-info';
 import { PLAYBACK_OPTIONS_MODAL_ID } from '../../ui/playback-options';
 
@@ -197,7 +198,7 @@ const setup = (
         }),
         showPlaybackOptionsModal: jest.fn(),
         hidePlaybackOptionsModal: jest.fn(),
-        exitConfirmModalId: 'exit-confirm',
+        exitConfirmModalId: EXIT_CONFIRM_MODAL_ID,
         prepareExitConfirmModal: jest.fn().mockReturnValue({
             focusableIds: ['exit-confirm-cancel', 'exit-confirm-exit'],
         }),
@@ -980,6 +981,16 @@ describe('NavigationCoordinator', () => {
         expect(deps.keyModeRouter.playback.playerOsd.coordinator?.poke).toHaveBeenCalledWith('seek');
     });
 
+    it('fastforward uses the configured seek increment from the playback port', () => {
+        const { handlers, videoPlayer } = setup({
+            getSeekIncrementMs: jest.fn().mockReturnValue(30_000),
+        });
+
+        handlers.keyPress?.(makeKeyEvent('fastforward'));
+
+        expect(videoPlayer.seekRelative).toHaveBeenCalledWith(30_000);
+    });
+
     it('rewind seeks backward and pokes OSD', () => {
         const { handlers, deps, videoPlayer } = setup();
 
@@ -1175,6 +1186,17 @@ describe('NavigationCoordinator', () => {
         handlers.screenChange?.({ from: 'player', to: 'settings' });
         expect(deps.screenEffects.readKeepPlayingInSettings).toHaveBeenCalled();
         expect(videoPlayer.pause).not.toHaveBeenCalled();
+    });
+
+    it('pauses when leaving player for settings and keep-playing-in-settings is disabled', () => {
+        const { handlers, videoPlayer, deps } = setup({
+            readKeepPlayingInSettings: jest.fn().mockReturnValue(false),
+        });
+
+        handlers.screenChange?.({ from: 'player', to: 'settings' });
+
+        expect(deps.screenEffects.readKeepPlayingInSettings).toHaveBeenCalled();
+        expect(videoPlayer.pause).toHaveBeenCalledTimes(1);
     });
 
     it('channel setup gate replaces player screen', () => {
