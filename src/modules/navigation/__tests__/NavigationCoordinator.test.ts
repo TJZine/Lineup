@@ -33,9 +33,8 @@ import {
     MINI_GUIDE_REPEAT_TIMING,
 } from '../constants';
 import { advanceTimersUntil } from '../../../__tests__/helpers';
-
-const NOW_PLAYING_INFO_MODAL_ID = 'now-playing-info';
-const PLAYBACK_OPTIONS_MODAL_ID = 'playback-options';
+import { NOW_PLAYING_INFO_MODAL_ID } from '../../ui/now-playing-info';
+import { PLAYBACK_OPTIONS_MODAL_ID } from '../../ui/playback-options';
 
 type HandlerMap = Partial<{
     [K in keyof NavigationEventMap]: (payload: NavigationEventMap[K]) => void;

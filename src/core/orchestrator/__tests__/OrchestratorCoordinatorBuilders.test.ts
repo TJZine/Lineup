@@ -12,6 +12,22 @@ const buildCommitterInstance = { kind: 'build-committer' };
 const buildExecutorInstance = { kind: 'build-executor' };
 const coordinatorInstance = { clearRerunRequest: jest.fn(), kind: 'coordinator' };
 const completionTrackerInstance = { kind: 'completion-tracker' };
+const mockNavigationCoordinatorInstance = { kind: 'navigation-coordinator' };
+const mockNavigationCoordinator = jest.fn((_: unknown) => mockNavigationCoordinatorInstance);
+const mockNavigationKeyModeRouterInstance = { handleKeyPress: jest.fn(), handleLongPressBack: jest.fn() };
+const mockNavigationKeyModeRouter = jest.fn((
+    _deps: unknown,
+    _repeats: unknown,
+    _fireAndReport: unknown,
+    _observeNonBlockingPromise: unknown,
+    _logInputNotHandled: unknown
+) => mockNavigationKeyModeRouterInstance);
+const mockNavigationScreenEffectsHandlerInstance = { handleScreenChange: jest.fn() };
+const mockNavigationScreenEffectsHandler = jest.fn((
+    _deps: unknown,
+    _repeats: unknown,
+    _fireAndReport: unknown
+) => mockNavigationScreenEffectsHandlerInstance);
 
 jest.mock('../../channel-setup/persistence/ChannelSetupRecordStore', () => ({
     ChannelSetupRecordStore: jest.fn(() => recordStoreInstance),
@@ -33,6 +49,15 @@ jest.mock('../../channel-setup/ChannelSetupCoordinator', () => ({
 }));
 jest.mock('../../channel-setup/persistence/ChannelSetupCompletionTracker', () => ({
     ChannelSetupCompletionTracker: jest.fn(() => completionTrackerInstance),
+}));
+jest.mock('../../../modules/navigation/NavigationCoordinator', () => ({
+    NavigationCoordinator: mockNavigationCoordinator,
+}));
+jest.mock('../../../modules/navigation/NavigationKeyModeRouter', () => ({
+    NavigationKeyModeRouter: mockNavigationKeyModeRouter,
+}));
+jest.mock('../../../modules/navigation/NavigationScreenEffectsHandler', () => ({
+    NavigationScreenEffectsHandler: mockNavigationScreenEffectsHandler,
 }));
 
 import { ChannelSetupBuildCommitter } from '../../channel-setup/build/ChannelSetupBuildCommitter';
@@ -346,11 +371,9 @@ describe('OrchestratorCoordinatorBuilders', () => {
         };
 
         const coordinator = buildNavigationCoordinator(input, deps as never);
-        const navigationDeps = (
-            coordinator as unknown as {
-                deps: import('../../../modules/navigation/NavigationCoordinatorContracts').NavigationCoordinatorDeps;
-            }
-        ).deps;
+        expect(coordinator).toBe(mockNavigationCoordinatorInstance);
+        const navigationDeps = mockNavigationCoordinator.mock.calls[0]?.[0] as
+            import('../../../modules/navigation/NavigationCoordinatorContracts').NavigationCoordinatorDeps;
 
         expect(navigationDeps.events.reportRecoverableAsyncFailure).toBe(reportRecoverableAsyncFailure);
         expect(navigationDeps.events.reportToast).toBeDefined();
@@ -361,15 +384,15 @@ describe('OrchestratorCoordinatorBuilders', () => {
             observeNonBlockingPromise: jest.fn().mockResolvedValue(undefined),
             logInputNotHandled: jest.fn(),
         });
-        const keyModeRouterDeps = (handlers.keyModeRouter as unknown as {
-            deps: {
-                playback: { getSeekIncrementMs: () => number };
-                nowPlayingInfo: { isModalOpen: () => boolean; resetAutoHideTimer: () => void };
-            };
-        }).deps;
-        const screenEffectsDeps = (handlers.screenEffects as unknown as {
-            deps: { readKeepPlayingInSettings: () => boolean };
-        }).deps;
+        expect(handlers.keyModeRouter).toBe(mockNavigationKeyModeRouterInstance);
+        expect(handlers.screenEffects).toBe(mockNavigationScreenEffectsHandlerInstance);
+        const keyModeRouterDeps = mockNavigationKeyModeRouter.mock.calls[0]?.[0] as {
+            playback: { getSeekIncrementMs: () => number };
+            nowPlayingInfo: { isModalOpen: () => boolean; resetAutoHideTimer: () => void };
+        };
+        const screenEffectsDeps = mockNavigationScreenEffectsHandler.mock.calls[0]?.[0] as {
+            readKeepPlayingInSettings: () => boolean;
+        };
 
         expect(keyModeRouterDeps.playback.getSeekIncrementMs()).toBe(15_000);
         input.config!.playerConfig!.seekIncrementSec = 30;
