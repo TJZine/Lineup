@@ -8,7 +8,9 @@ import type {
     NavigationUiGuardsPort,
 } from './NavigationFeaturePorts';
 import type { INavigationManager, Screen } from './interfaces';
-import type { NavigationFireAndReport } from './NavigationKeyModeRouter';
+import type { NavigationCoordinatorRuntimeServices } from './NavigationCoordinatorRuntimeServices';
+
+type NavigationScreenEffectsFireAndReport = NavigationCoordinatorRuntimeServices['fireAndReport'];
 
 export interface NavigationScreenEffectsPort {
     navigation: INavigationManager;
@@ -29,7 +31,7 @@ export class NavigationScreenEffectsHandler implements NavigationScreenEffectsRu
     constructor(
         private readonly deps: NavigationScreenEffectsPort,
         private readonly repeats: NavigationRepeatRuntime,
-        private readonly fireAndReport: NavigationFireAndReport
+        private readonly fireAndReport: NavigationScreenEffectsFireAndReport
     ) { }
 
     handleScreenChange(from: Screen, to: Screen): void {
