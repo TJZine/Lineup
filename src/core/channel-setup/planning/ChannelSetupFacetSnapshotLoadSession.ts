@@ -59,13 +59,7 @@ type ChannelSetupFacetSnapshotLoadSessionOptions = {
     signal: AbortSignal | null;
     requestIntent: ChannelSetupPlexRequestIntent;
     snapshotAbortController: AbortController;
-    reportProgress: ((
-        task: ChannelBuildProgress['task'],
-        label: string,
-        detail: string,
-        current: number,
-        total: number | null
-    ) => void) | undefined;
+    reportProgress: ((progress: ChannelBuildProgress) => void) | undefined;
 };
 
 const MAX_FACET_LIBRARY_CONCURRENCY = 2;
@@ -275,7 +269,13 @@ export class ChannelSetupFacetSnapshotLoadSession {
     }
 
     private async _loadPlaylists(): Promise<void> {
-        this._reportSnapshotProgress('fetch_playlists', 'Fetching playlists...', 'Scanning server', 0, null);
+        this._reportSnapshotProgress({
+            task: 'fetch_playlists',
+            label: 'Fetching playlists...',
+            detail: 'Scanning server',
+            current: 0,
+            total: null,
+        });
         const playlistsStart = performance.now();
         try {
             const fetched = await this._options.plexLibrary.getPlaylists({
@@ -370,13 +370,13 @@ export class ChannelSetupFacetSnapshotLoadSession {
                 )
             );
 
-            this._reportSnapshotProgress(
-                'scan_library_items',
-                'Resolving filters...',
-                library.title,
-                libIndex,
-                this._selectedLibraries.length
-            );
+            this._reportSnapshotProgress({
+                task: 'scan_library_items',
+                label: 'Resolving filters...',
+                detail: library.title,
+                current: libIndex,
+                total: this._selectedLibraries.length,
+            });
             const libraryFailure = await this._awaitFirstLibraryFacetFailure(
                 nativeFacetTasks,
                 abortLibraryFacetRequests
@@ -406,13 +406,13 @@ export class ChannelSetupFacetSnapshotLoadSession {
     }
 
     private async _loadCollections(library: PlexLibrarySection, libIndex: number): Promise<boolean> {
-        this._reportSnapshotProgress(
-            'fetch_collections',
-            'Fetching collections...',
-            library.title,
-            libIndex,
-            this._selectedLibraries.length
-        );
+        this._reportSnapshotProgress({
+            task: 'fetch_collections',
+            label: 'Fetching collections...',
+            detail: library.title,
+            current: libIndex,
+            total: this._selectedLibraries.length,
+        });
         const collectionsStart = performance.now();
         try {
             const collections = await this._options.plexLibrary.getCollections(library.id, {
@@ -722,15 +722,9 @@ export class ChannelSetupFacetSnapshotLoadSession {
     private _snapshotData(hasTransientLoadFailure: boolean): ChannelSetupFacetSnapshotData {
         return this._snapshotDataAccumulator.snapshotData(hasTransientLoadFailure, this._lastTask);
     }
-    private _reportSnapshotProgress(
-        task: ChannelBuildProgress['task'],
-        label: string,
-        detail: string,
-        current: number,
-        total: number | null
-    ): void {
-        this._lastTask = task;
-        this._options.reportProgress?.(task, label, detail, current, total);
+    private _reportSnapshotProgress(progress: ChannelBuildProgress): void {
+        this._lastTask = progress.task;
+        this._options.reportProgress?.(progress);
     }
 
     private _addPartialWarning(

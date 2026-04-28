@@ -31,32 +31,12 @@ export interface ChannelSetupFacetSnapshotLoaderDeps {
 export type ChannelSetupFacetSnapshotWaitOptions = {
     signal: AbortSignal | null;
     requestIntent: ChannelSetupPlexRequestIntent;
-    reportProgress?: (
-        task: ChannelBuildProgress['task'],
-        label: string,
-        detail: string,
-        current: number,
-        total: number | null
-    ) => void;
+    reportProgress?: (progress: ChannelBuildProgress) => void;
     detachFromSignal: boolean;
 };
 
-type ChannelSetupFacetSnapshotProgress = {
-    task: ChannelBuildProgress['task'];
-    label: string;
-    detail: string;
-    current: number;
-    total: number | null;
-};
-
 type ChannelSetupFacetSnapshotWaiter = {
-    reportProgress: (
-        task: ChannelBuildProgress['task'],
-        label: string,
-        detail: string,
-        current: number,
-        total: number | null
-    ) => void;
+    reportProgress: (progress: ChannelBuildProgress) => void;
 };
 
 type ChannelSetupFacetSnapshotInflightLoad = {
@@ -64,7 +44,7 @@ type ChannelSetupFacetSnapshotInflightLoad = {
     promise: Promise<ChannelSetupFacetSnapshot>;
     controller: AbortController;
     lastTask: ChannelBuildProgress['task'] | undefined;
-    progress: ChannelSetupFacetSnapshotProgress | null;
+    progress: ChannelBuildProgress | null;
     waiters: Set<ChannelSetupFacetSnapshotWaiter>;
 };
 
@@ -127,8 +107,8 @@ export class ChannelSetupFacetSnapshotLoader {
                         options.detachFromSignal ? null : options.signal,
                         options.requestIntent,
                         snapshotAbortController,
-                        (task, label, detail, current, total) => {
-                            this._emitInflightProgress(load, task, label, detail, current, total);
+                        (progress) => {
+                            this._emitInflightProgress(load, progress);
                         }
                     ));
                 } catch (error) {
@@ -244,13 +224,7 @@ export class ChannelSetupFacetSnapshotLoader {
 
     private _registerWaiter(
         load: ChannelSetupFacetSnapshotInflightLoad,
-        reportProgress?: (
-            task: ChannelBuildProgress['task'],
-            label: string,
-            detail: string,
-            current: number,
-            total: number | null
-        ) => void
+        reportProgress?: (progress: ChannelBuildProgress) => void
     ): ChannelSetupFacetSnapshotWaiter | null {
         if (!reportProgress) {
             return null;
@@ -258,27 +232,22 @@ export class ChannelSetupFacetSnapshotLoader {
         const waiter: ChannelSetupFacetSnapshotWaiter = { reportProgress };
         load.waiters.add(waiter);
         if (load.progress) {
-            const progress = load.progress;
-            reportProgress(progress.task, progress.label, progress.detail, progress.current, progress.total);
+            reportProgress(load.progress);
         }
         return waiter;
     }
 
     private _emitInflightProgress(
         load: ChannelSetupFacetSnapshotInflightLoad,
-        task: ChannelBuildProgress['task'],
-        label: string,
-        detail: string,
-        current: number,
-        total: number | null
+        progress: ChannelBuildProgress
     ): void {
         if (this._inflightLoads.get(load.key) !== load) {
             return;
         }
-        load.lastTask = task;
-        load.progress = { task, label, detail, current, total };
+        load.lastTask = progress.task;
+        load.progress = progress;
         for (const waiter of load.waiters) {
-            waiter.reportProgress(task, label, detail, current, total);
+            waiter.reportProgress(progress);
         }
     }
 
@@ -288,13 +257,7 @@ export class ChannelSetupFacetSnapshotLoader {
         signal: AbortSignal | null,
         requestIntent: ChannelSetupPlexRequestIntent,
         snapshotAbortController: AbortController,
-        reportProgress?: (
-            task: ChannelBuildProgress['task'],
-            label: string,
-            detail: string,
-            current: number,
-            total: number | null
-        ) => void
+        reportProgress?: (progress: ChannelBuildProgress) => void
     ): Promise<ChannelSetupFacetSnapshot> {
         return new ChannelSetupFacetSnapshotLoadSession({
             plexLibrary: this._deps.plexLibrary,
