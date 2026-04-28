@@ -4,7 +4,10 @@ import type {
     NavigationLogInputNotHandled,
     NavigationObserveNonBlockingPromise,
 } from './NavigationCoordinatorRuntimeServices';
-import type { NavigationRepeatRuntime } from './NavigationRepeatHandler';
+import type {
+    NavigationKeyModeRouterRuntime,
+    NavigationRepeatRuntime,
+} from './NavigationHandlerContracts';
 import type {
     NavigationChannelSwitchingPort,
     NavigationEpgPort,
@@ -14,11 +17,6 @@ import type {
     NavigationNowPlayingInfoPort,
     NavigationPlaybackPort,
 } from './NavigationFeaturePorts';
-
-export interface NavigationKeyModeRouterRuntime {
-    handleLongPressBack(): void;
-    handleKeyPress(event: KeyEvent): void;
-}
 
 export interface NavigationKeyModeRouterPort {
     navigation: INavigationManager;
@@ -126,7 +124,7 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
         const epg = this.deps.epg;
         const navigation = this.deps.navigation;
         const modalOpen = navigation.isModalOpen();
-        const miniGuideVisible = this.deps.miniGuide.overlay?.isVisible() ?? false;
+        const miniGuideVisible = this.deps.miniGuide.isVisible();
         return {
             currentScreen: navigation.getCurrentScreen(),
             modalOpen,
@@ -211,7 +209,7 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
                 this._consumeKeyEvent(event);
                 this.repeats.stopMiniGuideRepeatForDirectionChange(event.button);
                 if (!event.isRepeat || !this.repeats.hasMiniGuideRepeatButton()) {
-                    if (this.deps.miniGuide.coordinator?.handleNavigation(event.button)) {
+                    if (this.deps.miniGuide.requestMiniGuideIntent({ type: 'navigate', direction: event.button })) {
                         this.repeats.startMiniGuideRepeat(event.button);
                     }
                 }
@@ -220,25 +218,28 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
             case 'channelDown':
                 this._consumeKeyEvent(event);
                 this.repeats.stopMiniGuideRepeat('page');
-                this.deps.miniGuide.coordinator?.handlePage(event.button === 'channelUp' ? 'up' : 'down');
+                this.deps.miniGuide.requestMiniGuideIntent({
+                    type: 'page',
+                    direction: event.button === 'channelUp' ? 'up' : 'down',
+                });
                 return true;
             case 'right':
                 this._consumeKeyEvent(event);
                 this.repeats.stopMiniGuideRepeat('right');
-                this.deps.miniGuide.coordinator?.hide();
+                this.deps.miniGuide.requestMiniGuideIntent({ type: 'hide' });
                 this.deps.channelSwitching.toggleEpg();
                 return true;
             case 'ok':
                 this._consumeKeyEvent(event);
                 this.repeats.stopMiniGuideRepeat('ok');
                 if (!event.isRepeat) {
-                    this.deps.miniGuide.coordinator?.handleSelect();
+                    this.deps.miniGuide.requestMiniGuideIntent({ type: 'select' });
                 }
                 return true;
             case 'back':
                 this._consumeKeyEvent(event);
                 this.repeats.stopMiniGuideRepeat('back');
-                this.deps.miniGuide.coordinator?.hide();
+                this.deps.miniGuide.requestMiniGuideIntent({ type: 'hide' });
                 return true;
             default:
                 return false;
@@ -254,12 +255,12 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
             && !routingState.miniGuideVisible
             && !routingState.modalOpen
             && !routingState.shouldRouteToEpg
-            && !(this.deps.playback.playerOsd.overlay?.isVisible() ?? false)
+            && !this.deps.playback.isPlayerOsdVisible()
             && event.button === 'up'
         ) {
             this._consumeKeyEvent(event);
             if (!event.isRepeat) {
-                this.deps.miniGuide.coordinator?.show();
+                this.deps.miniGuide.requestMiniGuideIntent({ type: 'show' });
             }
             return true;
         }
@@ -276,10 +277,10 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
             && routingState.currentScreen === 'player'
             && !routingState.modalOpen
             && !routingState.shouldRouteToEpg
-            && !(this.deps.playback.playerOsd.overlay?.isVisible() ?? false)
+            && !this.deps.playback.isPlayerOsdVisible()
             && !routingState.miniGuideVisible
         ) {
-            this.deps.playback.playerOsd.coordinator?.toggle();
+            this.deps.playback.requestPlayerOsdIntent({ type: 'toggle' });
             this._consumeKeyEvent(event);
             return true;
         }
@@ -297,8 +298,8 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
             return false;
         }
 
-        if (this.deps.playback.playerOsd.overlay?.isVisible()) {
-            this.deps.playback.playerOsd.coordinator?.hide();
+        if (this.deps.playback.isPlayerOsdVisible()) {
+            this.deps.playback.requestPlayerOsdIntent({ type: 'hide' });
             this._consumeKeyEvent(event);
             return true;
         }
@@ -367,7 +368,7 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
                     );
                     void playPromise?.then(
                         () => {
-                            this.deps.playback.playerOsd.coordinator?.poke('play');
+                            this.deps.playback.requestPlayerOsdIntent({ type: 'poke', reason: 'play' });
                         },
                         () => undefined
                     );
@@ -375,7 +376,7 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
                 break;
             case 'pause':
                 this.deps.playback.videoPlayer?.pause();
-                this.deps.playback.playerOsd.coordinator?.poke('pause');
+                this.deps.playback.requestPlayerOsdIntent({ type: 'poke', reason: 'pause' });
                 break;
             case 'rewind': {
                 const player = this.deps.playback.videoPlayer;
@@ -388,7 +389,7 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
                     () => player.seekRelative(deltaMs),
                     '[Navigation] seek failed:'
                 );
-                this.deps.playback.playerOsd.coordinator?.poke('seek');
+                this.deps.playback.requestPlayerOsdIntent({ type: 'poke', reason: 'seek' });
                 break;
             }
             case 'fastforward': {
@@ -402,7 +403,7 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
                     () => player.seekRelative(deltaMs),
                     '[Navigation] seek failed:'
                 );
-                this.deps.playback.playerOsd.coordinator?.poke('seek');
+                this.deps.playback.requestPlayerOsdIntent({ type: 'poke', reason: 'seek' });
                 break;
             }
             case 'stop':

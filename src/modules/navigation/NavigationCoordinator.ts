@@ -3,12 +3,14 @@ import type {
     NavigationEventMap,
 } from './interfaces';
 import type { NavigationCoordinatorEventPort } from './NavigationCoordinatorEventPort';
-import type { NavigationChannelNumberHandlerRuntime } from './NavigationChannelNumberHandler';
 import type { NavigationCoordinatorRuntimeServices } from './NavigationCoordinatorRuntimeServices';
-import type { NavigationKeyModeRouterRuntime } from './NavigationKeyModeRouter';
-import type { NavigationModalEffectsRuntime } from './NavigationModalEffectsHandler';
-import type { NavigationRepeatRuntime } from './NavigationRepeatHandler';
-import type { NavigationScreenEffectsRuntime } from './NavigationScreenEffectsHandler';
+import type {
+    NavigationChannelNumberHandlerRuntime,
+    NavigationKeyModeRouterRuntime,
+    NavigationModalEffectsRuntime,
+    NavigationRepeatRuntime,
+    NavigationScreenEffectsRuntime,
+} from './NavigationHandlerContracts';
 
 export interface NavigationCoordinatorHandlers {
     repeats: NavigationRepeatRuntime;
@@ -98,7 +100,7 @@ export class NavigationCoordinator {
             // EPG is an overlay, not a navigation screen; toggle based on EPG visibility.
             this._repeats.stopEpgRepeat('guide');
             this._repeats.stopMiniGuideRepeat('guide');
-            this.deps.events.miniGuide.coordinator?.hide();
+            this.deps.events.miniGuide.requestMiniGuideIntent({ type: 'hide' });
             this.deps.events.channelSwitching.toggleEpg();
         };
         navigation.on('guide', guideHandler);

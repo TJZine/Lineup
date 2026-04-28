@@ -1,6 +1,15 @@
 import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
-import type { ChannelSetupPreviewFailureReason } from '../types';
 import type {
+    ChannelBuildProgress,
+    ChannelSetupPreviewFailureReason,
+} from '../types';
+import type {
+    PlexCollection,
+    PlexPlaylist,
+    PlexTagDirectoryItem,
+} from '../../../modules/plex/library';
+import type {
+    ChannelSetupFacetMap,
     ChannelSetupFacetSnapshot,
     ChannelSetupFacetSnapshotData,
 } from './ChannelSetupPlanningTypes';
@@ -11,6 +20,116 @@ import {
 } from './ChannelSetupErrorSummary';
 
 export type ChannelSetupRequiredTagDirectoryLabel = 'Genres' | 'Directors' | 'Years' | 'Actors' | 'Studios';
+export type ChannelSetupNativeFacetFamily = 'genres' | 'directors' | 'decades' | 'actors' | 'studios';
+
+type DeferredEmptyTagDirectoryFailure = {
+    family: ChannelSetupNativeFacetFamily;
+    label: ChannelSetupRequiredTagDirectoryLabel;
+    libraryTitle: string;
+    type: number;
+};
+
+function createReadonlyFacetMap<T>(source: Map<string, T[]>): ChannelSetupFacetMap<T> {
+    const snapshot = new Map<string, readonly T[]>();
+    for (const [libraryId, values] of source.entries()) {
+        snapshot.set(libraryId, Object.freeze([...values]));
+    }
+    const readonlyMap: ChannelSetupFacetMap<T> = {
+        get size() {
+            return snapshot.size;
+        },
+        get: (key: string): readonly T[] | undefined => snapshot.get(key),
+        has: (key: string): boolean => snapshot.has(key),
+        entries: (): MapIterator<[string, readonly T[]]> => snapshot.entries(),
+        keys: (): MapIterator<string> => snapshot.keys(),
+        values: (): MapIterator<readonly T[]> => snapshot.values(),
+        forEach: (
+            callbackfn: (value: readonly T[], key: string, map: ReadonlyMap<string, readonly T[]>) => void,
+            thisArg?: unknown
+        ): void => {
+            snapshot.forEach((value, key) => {
+                callbackfn.call(thisArg, value, key, readonlyMap);
+            });
+        },
+        [Symbol.iterator]: (): MapIterator<[string, readonly T[]]> => snapshot[Symbol.iterator](),
+    };
+    return Object.freeze(readonlyMap);
+}
+
+export class ChannelSetupFacetSnapshotLoadState {
+    readonly playlists: PlexPlaylist[] = [];
+    readonly collectionsByLibraryId = new Map<string, PlexCollection[]>();
+    readonly genresByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
+    readonly directorsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
+    readonly yearsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
+    readonly actorsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
+    readonly studiosByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
+    private readonly _warnings = new Set<string>();
+    private readonly _facetFamiliesWithEntries = new Set<ChannelSetupNativeFacetFamily>();
+    private readonly _deferredEmptyTagDirectoryFailures: DeferredEmptyTagDirectoryFailure[] = [];
+    errorsTotal = 0;
+    playlistMs = 0;
+    collectionsMs = 0;
+    libraryQueryMs = 0;
+
+    addPartialWarning(task: ChannelBuildProgress['task'], detail: string, error: unknown): void {
+        const message = getChannelSetupFailureDetail(getChannelSetupErrorSummaryObject(error));
+        this._warnings.add(`Partial setup plan (${task}): ${detail} (${message})`);
+    }
+
+    addWarning(message: string): void {
+        this._warnings.add(message);
+    }
+
+    markFacetEntries(family: ChannelSetupNativeFacetFamily, tags: PlexTagDirectoryItem[]): void {
+        if (tags.length > 0) {
+            this._facetFamiliesWithEntries.add(family);
+        }
+    }
+
+    deferEmptyTagDirectoryFailure(
+        family: ChannelSetupNativeFacetFamily,
+        label: ChannelSetupRequiredTagDirectoryLabel,
+        libraryTitle: string,
+        type: number
+    ): void {
+        this._deferredEmptyTagDirectoryFailures.push({ family, label, libraryTitle, type });
+    }
+
+    resolveDeferredEmptyTagDirectoryFailure(): DeferredEmptyTagDirectoryFailure | null {
+        const orderedFailures = [...this._deferredEmptyTagDirectoryFailures]
+            .sort(compareDeferredEmptyTagDirectoryFailures);
+
+        for (const failure of orderedFailures) {
+            if (!this._facetFamiliesWithEntries.has(failure.family)) {
+                return failure;
+            }
+        }
+        return null;
+    }
+
+    snapshotData(
+        hasTransientLoadFailure: boolean,
+        lastTask: ChannelBuildProgress['task'] | undefined
+    ): ChannelSetupFacetSnapshotData {
+        return {
+            playlists: Object.freeze([...this.playlists]),
+            collectionsByLibraryId: createReadonlyFacetMap(this.collectionsByLibraryId),
+            genresByLibraryId: createReadonlyFacetMap(this.genresByLibraryId),
+            directorsByLibraryId: createReadonlyFacetMap(this.directorsByLibraryId),
+            yearsByLibraryId: createReadonlyFacetMap(this.yearsByLibraryId),
+            actorsByLibraryId: createReadonlyFacetMap(this.actorsByLibraryId),
+            studiosByLibraryId: createReadonlyFacetMap(this.studiosByLibraryId),
+            warnings: Object.freeze(Array.from(this._warnings).sort((a, b) => a.localeCompare(b))),
+            hasTransientLoadFailure,
+            errorsTotal: this.errorsTotal,
+            playlistMs: this.playlistMs,
+            collectionsMs: this.collectionsMs,
+            libraryQueryMs: this.libraryQueryMs,
+            ...(lastTask !== undefined ? { lastTask } : {}),
+        };
+    }
+}
 
 type SnapshotFailureBuilderOptions = {
     addWarning: (message: string) => void;
@@ -93,4 +212,20 @@ export class ChannelSetupFacetSnapshotFailureBuilder {
             'error'
         );
     }
+}
+
+function compareDeferredEmptyTagDirectoryFailures(
+    left: DeferredEmptyTagDirectoryFailure,
+    right: DeferredEmptyTagDirectoryFailure
+): number {
+    const familyDiff = left.family.localeCompare(right.family);
+    if (familyDiff !== 0) return familyDiff;
+
+    const labelDiff = left.label.localeCompare(right.label);
+    if (labelDiff !== 0) return labelDiff;
+
+    const titleDiff = left.libraryTitle.localeCompare(right.libraryTitle);
+    if (titleDiff !== 0) return titleDiff;
+
+    return left.type - right.type;
 }

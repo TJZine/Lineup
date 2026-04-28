@@ -938,7 +938,6 @@ export class AppOrchestrator {
             }
         }
 
-        // Stop scheduler timer
         if (this._scheduler) {
             try {
                 this._scheduler.pauseSyncTimer();
@@ -953,7 +952,6 @@ export class AppOrchestrator {
             this._scheduler = null;
         }
 
-        // Destroy modules
         try {
             this._epgCoordinator?.dispose('shutdown');
         } catch (error) {

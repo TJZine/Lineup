@@ -1,4 +1,7 @@
-import type { NavigationRepeatRuntime } from './NavigationRepeatHandler';
+import type {
+    NavigationRepeatRuntime,
+    NavigationScreenEffectsRuntime,
+} from './NavigationHandlerContracts';
 import type {
     NavigationChannelSwitchingPort,
     NavigationEpgPort,
@@ -23,10 +26,6 @@ export interface NavigationScreenEffectsPort {
     channelSwitching: NavigationChannelSwitchingPort;
     uiGuards: NavigationUiGuardsPort;
     readKeepPlayingInSettings: () => boolean;
-}
-
-export interface NavigationScreenEffectsRuntime {
-    handleScreenChange(from: Screen, to: Screen): void;
 }
 
 export class NavigationScreenEffectsHandler implements NavigationScreenEffectsRuntime {
@@ -58,8 +57,8 @@ export class NavigationScreenEffectsHandler implements NavigationScreenEffectsRu
             if (navigation.isModalOpen(this.deps.nowPlayingInfo.modalId)) {
                 navigation.closeModal(this.deps.nowPlayingInfo.modalId);
             }
-            this.deps.miniGuide.coordinator?.hide();
-            this.deps.playback.playerOsd.coordinator?.hide();
+            this.deps.miniGuide.requestMiniGuideIntent({ type: 'hide' });
+            this.deps.playback.requestPlayerOsdIntent({ type: 'hide' });
             this.deps.uiGuards.hideChannelTransition();
         }
 

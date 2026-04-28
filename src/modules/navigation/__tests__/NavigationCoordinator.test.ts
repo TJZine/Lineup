@@ -9,6 +9,10 @@ import {
 import type {
     NavigationAuthPort,
     NavigationEpgPort,
+    NavigationMiniGuideIntent,
+    NavigationMiniGuidePort,
+    NavigationPlayerOsdIntent,
+    NavigationPlaybackPort,
     NavigationVideoPlayerPort,
 } from '../NavigationFeaturePorts';
 import { createNavigationCoordinatorRuntimeServices } from '../NavigationCoordinatorRuntimeServices';
@@ -43,11 +47,46 @@ type HandlerMap = Partial<{
     [K in keyof NavigationEventMap]: (payload: NavigationEventMap[K]) => void;
 }>;
 
+type NavigationPlaybackTestPort = NavigationPlaybackPort & {
+    playerOsd: {
+        overlay: { isVisible: jest.Mock };
+        coordinator: {
+            poke: jest.Mock;
+            toggle: jest.Mock;
+            hide: jest.Mock;
+        };
+    };
+};
+
+type NavigationMiniGuideTestPort = NavigationMiniGuidePort & {
+    overlay: { isVisible: jest.Mock };
+    coordinator: {
+        show: jest.Mock;
+        hide: jest.Mock;
+        handleNavigation: jest.Mock;
+        handlePage: jest.Mock;
+        handleSelect: jest.Mock;
+    };
+};
+
 type NavigationCoordinatorTestDeps = NavigationCoordinatorDeps & {
-    repeats: NavigationRepeatHandlerPort;
-    keyModeRouter: NavigationKeyModeRouterPort;
-    screenEffects: NavigationScreenEffectsPort;
-    modalEffects: NavigationModalEffectsPort;
+    events: Omit<NavigationCoordinatorDeps['events'], 'miniGuide'> & {
+        miniGuide: NavigationMiniGuideTestPort;
+    };
+    repeats: Omit<NavigationRepeatHandlerPort, 'miniGuide'> & {
+        miniGuide: NavigationMiniGuideTestPort;
+    };
+    keyModeRouter: Omit<NavigationKeyModeRouterPort, 'playback' | 'miniGuide'> & {
+        playback: NavigationPlaybackTestPort;
+        miniGuide: NavigationMiniGuideTestPort;
+    };
+    screenEffects: Omit<NavigationScreenEffectsPort, 'playback' | 'miniGuide'> & {
+        playback: NavigationPlaybackTestPort;
+        miniGuide: NavigationMiniGuideTestPort;
+    };
+    modalEffects: Omit<NavigationModalEffectsPort, 'miniGuide'> & {
+        miniGuide: NavigationMiniGuideTestPort;
+    };
     channelNumber: NavigationChannelNumberPort;
 };
 
@@ -228,6 +267,18 @@ const setup = (
         plexAuth: testDoubles.plexAuth,
         stopPlayback: testDoubles.stopPlayback,
         getSeekIncrementMs: testDoubles.getSeekIncrementMs,
+        isPlayerOsdVisible: testDoubles.isPlayerOsdVisible,
+        requestPlayerOsdIntent: jest.fn((intent: NavigationPlayerOsdIntent) => {
+            if (intent.type === 'poke') {
+                testDoubles.pokePlayerOsd(intent.reason);
+                return;
+            }
+            if (intent.type === 'toggle') {
+                testDoubles.togglePlayerOsd();
+                return;
+            }
+            testDoubles.hidePlayerOsd();
+        }),
         playerOsd: {
             overlay: { isVisible: testDoubles.isPlayerOsdVisible },
             coordinator: {
@@ -238,6 +289,25 @@ const setup = (
         },
     };
     const miniGuide = {
+        isVisible: testDoubles.isMiniGuideVisible,
+        requestMiniGuideIntent: jest.fn((intent: NavigationMiniGuideIntent) => {
+            if (intent.type === 'show') {
+                testDoubles.showMiniGuide();
+                return true;
+            }
+            if (intent.type === 'hide') {
+                testDoubles.hideMiniGuide();
+                return true;
+            }
+            if (intent.type === 'navigate') {
+                return testDoubles.handleMiniGuideNavigation(intent.direction);
+            }
+            if (intent.type === 'page') {
+                return testDoubles.handleMiniGuidePage(intent.direction);
+            }
+            testDoubles.handleMiniGuideSelect();
+            return true;
+        }),
         overlay: { isVisible: testDoubles.isMiniGuideVisible },
         coordinator: {
             show: testDoubles.showMiniGuide,

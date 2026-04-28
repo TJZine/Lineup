@@ -9,12 +9,14 @@ import {
 import { createNavigationCoordinatorRuntimeServices } from '../../modules/navigation/NavigationCoordinatorRuntimeServices';
 import type {
     NavigationChannelSwitchOutcome,
+    NavigationChannelSwitchingPort,
+    NavigationMiniGuideIntent,
     NavigationMiniGuidePort,
     NavigationModalsPort,
     NavigationNowPlayingInfoPort,
+    NavigationPlayerOsdIntent,
     NavigationPlaybackOptionsSectionId,
     NavigationPlaybackPort,
-    NavigationChannelSwitchingPort,
 } from '../../modules/navigation/NavigationFeaturePorts';
 import { NavigationChannelNumberHandler } from '../../modules/navigation/NavigationChannelNumberHandler';
 import { NavigationKeyModeRouter } from '../../modules/navigation/NavigationKeyModeRouter';
@@ -512,9 +514,17 @@ function buildNavigationPlaybackConfig(
             input.playback.stopPlayback();
         },
         getSeekIncrementMs: (): number => getNavigationSeekIncrementMs(input),
-        playerOsd: {
-            overlay: input.overlays.playerOsd,
-            coordinator: deps.playerOsdCoordinator,
+        isPlayerOsdVisible: (): boolean => input.overlays.playerOsd?.isVisible() ?? false,
+        requestPlayerOsdIntent: (intent: NavigationPlayerOsdIntent): void => {
+            if (intent.type === 'poke') {
+                deps.playerOsdCoordinator.poke(intent.reason);
+                return;
+            }
+            if (intent.type === 'toggle') {
+                deps.playerOsdCoordinator.toggle();
+                return;
+            }
+            deps.playerOsdCoordinator.hide();
         },
     };
 }
@@ -524,18 +534,28 @@ function buildNavigationMiniGuideConfig(
     deps: NavigationCoordinatorBuilderDeps
 ): NavigationMiniGuidePort {
     return {
-        overlay: input.overlays.miniGuide,
-        coordinator: {
-            show: (): void => deps.miniGuideCoordinator.show(),
-            hide: (): void => deps.miniGuideCoordinator.hide(),
-            handleNavigation: (direction: 'up' | 'down'): boolean =>
-                deps.miniGuideCoordinator.handleNavigation(direction),
-            handlePage: (direction: 'up' | 'down'): boolean =>
-                deps.miniGuideCoordinator.handlePage(direction),
-            handleSelect: (): void => {
+        isVisible: (): boolean => input.overlays.miniGuide?.isVisible() ?? false,
+        requestMiniGuideIntent: (intent: NavigationMiniGuideIntent): boolean => {
+            if (intent.type === 'show') {
+                deps.miniGuideCoordinator.show();
+                return true;
+            }
+            if (intent.type === 'hide') {
+                deps.miniGuideCoordinator.hide();
+                return true;
+            }
+            if (intent.type === 'navigate') {
+                return deps.miniGuideCoordinator.handleNavigation(intent.direction);
+            }
+            if (intent.type === 'page') {
+                return deps.miniGuideCoordinator.handlePage(intent.direction);
+            }
+            if (intent.type === 'select') {
                 input.schedule.setLastChannelChangeSource('remote');
                 deps.miniGuideCoordinator.handleSelect();
-            },
+                return true;
+            }
+            return false;
         },
     };
 }

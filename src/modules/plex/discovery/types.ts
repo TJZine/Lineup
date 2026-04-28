@@ -8,9 +8,9 @@ export interface PlexConnection {
     address: string;
     port: number;
     local: boolean;
-    /** true for Plex relay connections (bandwidth limited) */
+    /** Plex relay connections are bandwidth limited. */
     relay: boolean;
-    /** Measured latency in ms - null until tested */
+    /** Measured latency in ms; null until tested. */
     latencyMs: number | null;
 }
 
@@ -26,7 +26,6 @@ export interface PlexServer {
     owned: boolean;
     connections: PlexConnection[];
     capabilities: string[];
-    /** Best available connection after testing - null until tested */
     preferredConnection: PlexConnection | null;
 }
 
@@ -53,13 +52,10 @@ export interface PlexServerDiscoveryState {
  * WebOS apps served over HTTPS can block HTTP requests due to browser security policies.
  */
 export interface MixedContentConfig {
-    /** Prefer HTTPS connections when available (default: true) */
     preferHttps: boolean;
-    /** Attempt HTTP upgrade to HTTPS for local connections (default: true) */
     tryHttpsUpgrade: boolean;
-    /** Allow HTTP for local connections only (default: true) */
+    /** HTTP is allowed only for local Plex connections. */
     allowLocalHttp: boolean;
-    /** Log mixed content warnings (default: true) */
     logWarnings: boolean;
 }
 

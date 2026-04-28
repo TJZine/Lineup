@@ -1,40 +1,27 @@
 import type {
     IPlexLibrary,
-    PlexCollection,
     PlexLibrarySection,
-    PlexPlaylist,
     PlexTagDirectoryItem,
     PlexTagDirectoryUnsupportedReason,
 } from '../../../modules/plex/library';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import type { ChannelBuildProgress, ChannelSetupConfig } from '../types';
 import { isSignalAborted } from '../shared/utils';
-import {
-    getChannelSetupErrorSummaryObject,
-    getChannelSetupFailureDetail,
-} from './ChannelSetupErrorSummary';
 import { createAbortError } from './ChannelSetupFacetSnapshotAbort';
 import {
     ChannelSetupFacetLibraryExecutor,
-    type ChannelSetupNativeFacetFamily,
 } from './ChannelSetupFacetLibraryExecutor';
 import {
+    ChannelSetupFacetSnapshotLoadState,
     ChannelSetupFacetSnapshotFailureBuilder,
+    type ChannelSetupNativeFacetFamily,
     type ChannelSetupRequiredTagDirectoryLabel,
 } from './ChannelSetupFacetSnapshotFailures';
 import type {
-    ChannelSetupFacetMap,
     ChannelSetupFacetSnapshot,
     ChannelSetupFacetSnapshotData,
     ChannelSetupPlexRequestIntent,
 } from './ChannelSetupPlanningTypes';
-
-type DeferredEmptyTagDirectoryFailure = {
-    family: ChannelSetupNativeFacetFamily;
-    label: ChannelSetupRequiredTagDirectoryLabel;
-    libraryTitle: string;
-    type: number;
-};
 
 type ChannelSetupFacetSnapshotLoadSessionOptions = {
     plexLibrary: IPlexLibrary;
@@ -47,108 +34,6 @@ type ChannelSetupFacetSnapshotLoadSessionOptions = {
 };
 
 const MAX_FACET_LIBRARY_CONCURRENCY = 2;
-
-function createReadonlyFacetMap<T>(source: Map<string, T[]>): ChannelSetupFacetMap<T> {
-    const snapshot = new Map<string, readonly T[]>();
-    for (const [libraryId, values] of source.entries()) {
-        snapshot.set(libraryId, Object.freeze([...values]));
-    }
-    const readonlyMap: ChannelSetupFacetMap<T> = {
-        get size() {
-            return snapshot.size;
-        },
-        get: (key: string): readonly T[] | undefined => snapshot.get(key),
-        has: (key: string): boolean => snapshot.has(key),
-        entries: (): MapIterator<[string, readonly T[]]> => snapshot.entries(),
-        keys: (): MapIterator<string> => snapshot.keys(),
-        values: (): MapIterator<readonly T[]> => snapshot.values(),
-        forEach: (
-            callbackfn: (value: readonly T[], key: string, map: ReadonlyMap<string, readonly T[]>) => void,
-            thisArg?: unknown
-        ): void => {
-            snapshot.forEach((value, key) => {
-                callbackfn.call(thisArg, value, key, readonlyMap);
-            });
-        },
-        [Symbol.iterator]: (): MapIterator<[string, readonly T[]]> => snapshot[Symbol.iterator](),
-    };
-    return Object.freeze(readonlyMap);
-}
-
-class ChannelSetupFacetSnapshotDataAccumulator {
-    readonly playlists: PlexPlaylist[] = [];
-    readonly collectionsByLibraryId = new Map<string, PlexCollection[]>();
-    readonly genresByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
-    readonly directorsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
-    readonly yearsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
-    readonly actorsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
-    readonly studiosByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
-    private readonly _warnings = new Set<string>();
-    private readonly _facetFamiliesWithEntries = new Set<ChannelSetupNativeFacetFamily>();
-    private readonly _deferredEmptyTagDirectoryFailures: DeferredEmptyTagDirectoryFailure[] = [];
-    errorsTotal = 0;
-    playlistMs = 0;
-    collectionsMs = 0;
-    libraryQueryMs = 0;
-
-    addPartialWarning(task: ChannelBuildProgress['task'], detail: string, error: unknown): void {
-        const message = getChannelSetupFailureDetail(getChannelSetupErrorSummaryObject(error));
-        this._warnings.add(`Partial setup plan (${task}): ${detail} (${message})`);
-    }
-
-    addWarning(message: string): void {
-        this._warnings.add(message);
-    }
-
-    markFacetEntries(family: ChannelSetupNativeFacetFamily, tags: PlexTagDirectoryItem[]): void {
-        if (tags.length > 0) {
-            this._facetFamiliesWithEntries.add(family);
-        }
-    }
-
-    deferEmptyTagDirectoryFailure(
-        family: ChannelSetupNativeFacetFamily,
-        label: ChannelSetupRequiredTagDirectoryLabel,
-        libraryTitle: string,
-        type: number
-    ): void {
-        this._deferredEmptyTagDirectoryFailures.push({ family, label, libraryTitle, type });
-    }
-
-    resolveDeferredEmptyTagDirectoryFailure(): DeferredEmptyTagDirectoryFailure | null {
-        const orderedFailures = [...this._deferredEmptyTagDirectoryFailures]
-            .sort(compareDeferredEmptyTagDirectoryFailures);
-
-        for (const failure of orderedFailures) {
-            if (!this._facetFamiliesWithEntries.has(failure.family)) {
-                return failure;
-            }
-        }
-        return null;
-    }
-
-    snapshotData(
-        hasTransientLoadFailure: boolean,
-        lastTask: ChannelBuildProgress['task'] | undefined
-    ): ChannelSetupFacetSnapshotData {
-        return {
-            playlists: Object.freeze([...this.playlists]),
-            collectionsByLibraryId: createReadonlyFacetMap(this.collectionsByLibraryId),
-            genresByLibraryId: createReadonlyFacetMap(this.genresByLibraryId),
-            directorsByLibraryId: createReadonlyFacetMap(this.directorsByLibraryId),
-            yearsByLibraryId: createReadonlyFacetMap(this.yearsByLibraryId),
-            actorsByLibraryId: createReadonlyFacetMap(this.actorsByLibraryId),
-            studiosByLibraryId: createReadonlyFacetMap(this.studiosByLibraryId),
-            warnings: Object.freeze(Array.from(this._warnings).sort((a, b) => a.localeCompare(b))),
-            hasTransientLoadFailure,
-            errorsTotal: this.errorsTotal,
-            playlistMs: this.playlistMs,
-            collectionsMs: this.collectionsMs,
-            libraryQueryMs: this.libraryQueryMs,
-            ...(lastTask !== undefined ? { lastTask } : {}),
-        };
-    }
-}
 
 class ChannelSetupFacetSnapshotLibraryQueue {
     private readonly _queue: Array<{ library: PlexLibrarySection; index: number }>;
@@ -172,11 +57,11 @@ class ChannelSetupFacetSnapshotLibraryQueue {
 
 export class ChannelSetupFacetSnapshotLoadSession {
     private readonly _selectedLibraries: PlexLibrarySection[];
-    private readonly _snapshotDataAccumulator = new ChannelSetupFacetSnapshotDataAccumulator();
+    private readonly _loadState = new ChannelSetupFacetSnapshotLoadState();
     private readonly _failureBuilder = new ChannelSetupFacetSnapshotFailureBuilder({
-        addWarning: (message): void => this._snapshotDataAccumulator.addWarning(message),
+        addWarning: (message): void => this._loadState.addWarning(message),
         incrementErrors: (): void => {
-            this._snapshotDataAccumulator.errorsTotal++;
+            this._loadState.errorsTotal++;
         },
         snapshotData: (hasTransientLoadFailure): ChannelSetupFacetSnapshotData =>
             this._snapshotData(hasTransientLoadFailure),
@@ -221,7 +106,7 @@ export class ChannelSetupFacetSnapshotLoadSession {
 
             return {
                 status: 'ready',
-                ...this._snapshotData(this._snapshotDataAccumulator.errorsTotal > 0),
+                ...this._snapshotData(this._loadState.errorsTotal > 0),
             };
         } finally {
             this._removeSignalForwarder?.();
@@ -260,7 +145,7 @@ export class ChannelSetupFacetSnapshotLoadSession {
                 signal: this._requestSignal,
                 requestIntent: this._options.requestIntent,
             });
-            this._snapshotDataAccumulator.playlists.push(...fetched);
+            this._loadState.playlists.push(...fetched);
         } catch (error) {
             if (this._callerCanceled()) {
                 throw createAbortError(this._lastTask);
@@ -270,9 +155,9 @@ export class ChannelSetupFacetSnapshotLoadSession {
             }
             console.warn('Failed to fetch playlists:', summarizeErrorForLog(error));
             this._addPartialWarning('fetch_playlists', 'fetch_playlists failed', error);
-            this._snapshotDataAccumulator.errorsTotal++;
+            this._loadState.errorsTotal++;
         } finally {
-            this._snapshotDataAccumulator.playlistMs += performance.now() - playlistsStart;
+            this._loadState.playlistMs += performance.now() - playlistsStart;
         }
     }
 
@@ -313,42 +198,46 @@ export class ChannelSetupFacetSnapshotLoadSession {
             requestIntent: this._options.requestIntent,
             requestSignal: this._requestSignal,
             selectedLibraryCount: this._selectedLibraries.length,
-            getLastTask: (): ChannelBuildProgress['task'] | undefined => this._lastTask,
-            callerCanceled: (): boolean => this._callerCanceled(),
-            failureStopRequested: (): boolean => this._failureStopRequested(),
-            requestAbortRequiresThrow: (): boolean => this._requestSignal.aborted && !this._failureAbortActive,
-            reportSnapshotProgress: (progress): void => this._reportSnapshotProgress(progress),
-            addPartialWarning: (task, detail, error): void => this._addPartialWarning(task, detail, error),
-            incrementErrors: (): void => {
-                this._snapshotDataAccumulator.errorsTotal++;
+            control: {
+                getLastTask: (): ChannelBuildProgress['task'] | undefined => this._lastTask,
+                callerCanceled: (): boolean => this._callerCanceled(),
+                failureStopRequested: (): boolean => this._failureStopRequested(),
+                requestAbortRequiresThrow: (): boolean => this._requestSignal.aborted && !this._failureAbortActive,
+                reportSnapshotProgress: (progress): void => this._reportSnapshotProgress(progress),
+                addPartialWarning: (task, detail, error): void => this._addPartialWarning(task, detail, error),
+                abortSiblingRequests: (): void => this._abortSiblingRequests(),
             },
-            addCollectionsMs: (durationMs): void => {
-                this._snapshotDataAccumulator.collectionsMs += durationMs;
+            state: {
+                incrementErrors: (): void => {
+                    this._loadState.errorsTotal++;
+                },
+                addCollectionsMs: (durationMs): void => {
+                    this._loadState.collectionsMs += durationMs;
+                },
+                addLibraryQueryMs: (durationMs): void => {
+                    this._loadState.libraryQueryMs += durationMs;
+                },
+                collectionsByLibraryId: this._loadState.collectionsByLibraryId,
+                genresByLibraryId: this._loadState.genresByLibraryId,
+                directorsByLibraryId: this._loadState.directorsByLibraryId,
+                yearsByLibraryId: this._loadState.yearsByLibraryId,
+                actorsByLibraryId: this._loadState.actorsByLibraryId,
+                studiosByLibraryId: this._loadState.studiosByLibraryId,
+                markFacetEntries: (family, tags): void => this._markFacetEntries(family, tags),
+                deferEmptyTagDirectoryFailure: (family, label, libraryTitle, type): void =>
+                    this._deferEmptyTagDirectoryFailure(family, label, libraryTitle, type),
             },
-            addLibraryQueryMs: (durationMs): void => {
-                this._snapshotDataAccumulator.libraryQueryMs += durationMs;
-            },
-            collectionsByLibraryId: this._snapshotDataAccumulator.collectionsByLibraryId,
-            genresByLibraryId: this._snapshotDataAccumulator.genresByLibraryId,
-            directorsByLibraryId: this._snapshotDataAccumulator.directorsByLibraryId,
-            yearsByLibraryId: this._snapshotDataAccumulator.yearsByLibraryId,
-            actorsByLibraryId: this._snapshotDataAccumulator.actorsByLibraryId,
-            studiosByLibraryId: this._snapshotDataAccumulator.studiosByLibraryId,
-            markFacetEntries: (family, tags): void => this._markFacetEntries(family, tags),
-            deferEmptyTagDirectoryFailure: (family, label, libraryTitle, type): void =>
-                this._deferEmptyTagDirectoryFailure(family, label, libraryTitle, type),
             buildRequiredTagDirectoryFailure: (label, libraryTitle, type, reason, error): ChannelSetupFacetSnapshot =>
                 this._buildRequiredTagDirectoryFailure(label, libraryTitle, type, reason, error),
             buildRequiredTagCountRecoveryFailure: (label, libraryTitle, type, error): ChannelSetupFacetSnapshot =>
                 this._buildRequiredTagCountRecoveryFailure(label, libraryTitle, type, error),
-            abortSiblingRequests: (): void => this._abortSiblingRequests(),
         }).loadLibraryFacets(library, libIndex);
         this._firstFailure = this._firstFailure ?? failure;
         return failure;
     }
 
     private _snapshotData(hasTransientLoadFailure: boolean): ChannelSetupFacetSnapshotData {
-        return this._snapshotDataAccumulator.snapshotData(hasTransientLoadFailure, this._lastTask);
+        return this._loadState.snapshotData(hasTransientLoadFailure, this._lastTask);
     }
     private _reportSnapshotProgress(progress: ChannelBuildProgress): void {
         this._lastTask = progress.task;
@@ -360,7 +249,7 @@ export class ChannelSetupFacetSnapshotLoadSession {
         detail: string,
         error: unknown
     ): void {
-        this._snapshotDataAccumulator.addPartialWarning(task, detail, error);
+        this._loadState.addPartialWarning(task, detail, error);
     }
 
     private _buildRequiredTagDirectoryFailure(
@@ -386,7 +275,7 @@ export class ChannelSetupFacetSnapshotLoadSession {
         family: ChannelSetupNativeFacetFamily,
         tags: PlexTagDirectoryItem[]
     ): void {
-        this._snapshotDataAccumulator.markFacetEntries(family, tags);
+        this._loadState.markFacetEntries(family, tags);
     }
 
     private _deferEmptyTagDirectoryFailure(
@@ -395,11 +284,11 @@ export class ChannelSetupFacetSnapshotLoadSession {
         libraryTitle: string,
         type: number
     ): void {
-        this._snapshotDataAccumulator.deferEmptyTagDirectoryFailure(family, label, libraryTitle, type);
+        this._loadState.deferEmptyTagDirectoryFailure(family, label, libraryTitle, type);
     }
 
     private _resolveDeferredEmptyTagDirectoryFailure(): ChannelSetupFacetSnapshot | null {
-        const failure = this._snapshotDataAccumulator.resolveDeferredEmptyTagDirectoryFailure();
+        const failure = this._loadState.resolveDeferredEmptyTagDirectoryFailure();
         if (failure) {
             return this._buildRequiredTagDirectoryFailure(
                 failure.label,
@@ -426,20 +315,4 @@ export class ChannelSetupFacetSnapshotLoadSession {
             this._options.snapshotAbortController.abort();
         }
     }
-}
-
-function compareDeferredEmptyTagDirectoryFailures(
-    left: DeferredEmptyTagDirectoryFailure,
-    right: DeferredEmptyTagDirectoryFailure
-): number {
-    const familyDiff = left.family.localeCompare(right.family);
-    if (familyDiff !== 0) return familyDiff;
-
-    const labelDiff = left.label.localeCompare(right.label);
-    if (labelDiff !== 0) return labelDiff;
-
-    const titleDiff = left.libraryTitle.localeCompare(right.libraryTitle);
-    if (titleDiff !== 0) return titleDiff;
-
-    return left.type - right.type;
 }

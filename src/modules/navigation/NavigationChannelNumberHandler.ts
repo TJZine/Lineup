@@ -3,14 +3,11 @@ import type {
     NavigationChannelSwitchingPort,
     NavigationEpgPort,
 } from './NavigationFeaturePorts';
+import type { NavigationChannelNumberHandlerRuntime } from './NavigationHandlerContracts';
 
 export interface NavigationChannelNumberPort {
     epg: NavigationEpgPort | null;
     channelSwitching: NavigationChannelSwitchingPort;
-}
-
-export interface NavigationChannelNumberHandlerRuntime {
-    handleChannelNumberEntered(channelNumber: number): Promise<void>;
 }
 
 export class NavigationChannelNumberHandler implements NavigationChannelNumberHandlerRuntime {

@@ -4,9 +4,6 @@ import { LONG_PRESS_THRESHOLD_MS, mapKeyCode as mapPlatformKeyCode } from './con
 import type { PlatformInputService } from '../../platform';
 import { createWebOsPlatformServices } from '../../platform';
 
-/**
- * Event map for RemoteHandler internal events.
- */
 interface RemoteHandlerEventMap {
     [key: string]: unknown;
     keyDown: KeyEvent;
@@ -14,9 +11,6 @@ interface RemoteHandlerEventMap {
     longPress: { button: RemoteButton };
 }
 
-/**
- * Long press handler registration.
- */
 interface LongPressHandler {
     button: RemoteButton;
     callback: () => void;
@@ -63,7 +57,6 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
         document.removeEventListener('keydown', this._boundKeyDownHandler);
         document.removeEventListener('keyup', this._boundKeyUpHandler);
 
-        // Clear all timers
         this._longPressTimers.forEach((timerId) => {
             window.clearTimeout(timerId);
         });
@@ -88,9 +81,6 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
         );
     }
 
-    /**
-     * Cancel all pending long press handlers.
-     */
     public cancelLongPress(): void {
         this._longPressTimers.forEach((timerId) => {
             window.clearTimeout(timerId);
@@ -99,9 +89,6 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
         this._isLongPressFired.clear();
     }
 
-    /**
-     * Handle keydown events.
-     */
     private _handleKeyDown(event: KeyboardEvent): void {
         if (this._isEditableActiveElement()) {
             return;
@@ -111,7 +98,7 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
         const button = this.mapKeyCode(keyCode);
 
         if (!button) {
-            return; // Unmapped key, ignore
+            return;
         }
 
         // CRITICAL: Prevent default browser/OS behavior for mapped keys
@@ -121,12 +108,10 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
         const now = Date.now();
         const isRepeat = this._keyDownTimes.has(keyCode);
 
-        // Track key down time for long press
         if (!isRepeat) {
             this._keyDownTimes.set(keyCode, now);
             this._isLongPressFired.set(keyCode, false);
 
-            // Set up long press timer
             const timerId = window.setTimeout(() => {
                 this._handleLongPressTimeout(keyCode, button);
             }, LONG_PRESS_THRESHOLD_MS);
@@ -146,9 +131,6 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
         this.emit('keyDown', keyEvent);
     }
 
-    /**
-     * Handle keyup events.
-     */
     private _handleKeyUp(event: KeyboardEvent): void {
         const keyCode = event.keyCode;
         const button = this.mapKeyCode(keyCode);
@@ -162,17 +144,14 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
             return;
         }
 
-        // Cancel long press timer
         const timerId = this._longPressTimers.get(keyCode);
         if (timerId !== undefined) {
             window.clearTimeout(timerId);
             this._longPressTimers.delete(keyCode);
         }
 
-        // Check if long press was fired
         const wasLongPress = this._isLongPressFired.get(keyCode) === true;
 
-        // Clean up tracking
         this._keyDownTimes.delete(keyCode);
         this._isLongPressFired.delete(keyCode);
 
@@ -220,14 +199,10 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
         return element.isContentEditable === true;
     }
 
-    /**
-     * Handle long press timeout.
-     */
     private _handleLongPressTimeout(keyCode: number, button: RemoteButton): void {
         this._isLongPressFired.set(keyCode, true);
         this._longPressTimers.delete(keyCode);
 
-        // Find and invoke matching handlers
         this._longPressHandlers.forEach((handler) => {
             if (handler.button === button) {
                 handler.callback();
