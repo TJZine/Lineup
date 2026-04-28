@@ -1,5 +1,5 @@
 import {
-    type SafeLocalStorageWriteResult,
+    type SafeLocalStorageMutationResult,
     safeLocalStorageGet,
     safeLocalStorageRemove,
     safeLocalStorageRemoveWithResult,
@@ -48,7 +48,7 @@ export class ChannelPersistenceStore {
         return parsed as Partial<StoredChannelData>;
     }
 
-    writeStoredChannelData(data: StoredChannelData): SafeLocalStorageWriteResult {
+    writeStoredChannelData(data: StoredChannelData): SafeLocalStorageMutationResult {
         const encoded = encodeStoredChannelData(data);
         return safeLocalStorageSetWithResult(this._storageKey, encoded);
     }
@@ -76,7 +76,7 @@ export class ChannelPersistenceStore {
         return normalized;
     }
 
-    writeCurrentChannelId(channelId: string): SafeLocalStorageWriteResult {
+    writeCurrentChannelId(channelId: string): SafeLocalStorageMutationResult {
         const normalized = channelId.trim();
         if (normalized.length === 0) {
             return safeLocalStorageRemoveWithResult(this._currentChannelKey);

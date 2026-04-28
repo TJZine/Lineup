@@ -121,13 +121,17 @@ export function createNavigationCoordinatorRuntimeServices(
                 suppressedLogTimestamps.clear();
             }
             suppressedLogTimestamps.set(key, now);
-            events.logDebug?.('navigation.inputNotHandled', {
-                reason,
-                button: event.button,
-                currentScreen,
-                modalStack,
-                inputBlocked,
-            });
+            try {
+                events.logDebug?.('navigation.inputNotHandled', {
+                    reason,
+                    button: event.button,
+                    currentScreen,
+                    modalStack,
+                    inputBlocked,
+                });
+            } catch {
+                // Debug diagnostics are best-effort and must not affect input handling.
+            }
         },
     };
 }

@@ -51,7 +51,13 @@ export class ChannelSetupFacetCountRecoveryWorker {
         }
 
         const hydratedTags = [...this.options.tags];
-        const workerCount = Math.min(this.options.maxConcurrency, unknownIndexes.length);
+        const maxConcurrency = Math.floor(this.options.maxConcurrency);
+        if (!Number.isFinite(maxConcurrency) || maxConcurrency < 1) {
+            throw new Error(
+                `Channel setup facet count recovery maxConcurrency must be at least 1; received ${this.options.maxConcurrency}`
+            );
+        }
+        const workerCount = Math.min(maxConcurrency, unknownIndexes.length);
         const queue = [...unknownIndexes];
         const siblingAbortController = new AbortController();
         let hasFirstError = false;
@@ -60,21 +66,25 @@ export class ChannelSetupFacetCountRecoveryWorker {
             this.options.tagSignal,
             siblingAbortController.signal,
         ]);
+        const getAbortRejection = (): unknown =>
+            hasFirstError
+                ? firstError
+                : linkedAbortSignal.signal.reason ?? createAbortError(this.options.getLastTask());
         const workers = Array.from({ length: workerCount }, async (): Promise<void> => {
             try {
                 while (queue.length > 0) {
                     if (linkedAbortSignal.signal.aborted) {
-                        if (hasFirstError) {
-                            throw firstError;
+                        throw getAbortRejection();
+                    }
+                    const tagIndex = queue.shift();
+                    if (tagIndex === undefined) {
+                        if (linkedAbortSignal.signal.aborted) {
+                            throw getAbortRejection();
                         }
                         return;
                     }
-                    const tagIndex = queue.shift();
-                    if (tagIndex === undefined || linkedAbortSignal.signal.aborted) {
-                        if (hasFirstError) {
-                            throw firstError;
-                        }
-                        return;
+                    if (linkedAbortSignal.signal.aborted) {
+                        throw getAbortRejection();
                     }
                     const tag = hydratedTags[tagIndex];
                     if (!tag || tag.count !== null) {
@@ -83,7 +93,7 @@ export class ChannelSetupFacetCountRecoveryWorker {
                     let count: number | null;
                     count = await this.options.countRecoveryLimiter(async () => {
                         if (linkedAbortSignal.signal.aborted) {
-                            throw createAbortError(this.options.getLastTask());
+                            throw getAbortRejection();
                         }
                         const countStart = performance.now();
                         try {
@@ -130,21 +140,22 @@ export class ChannelSetupFacetCountRecoveryWorker {
 
 function createLinkedAbortSignal(signals: AbortSignal[]): { signal: AbortSignal; dispose: () => void } {
     const controller = new AbortController();
-    if (signals.some((signal) => signal.aborted)) {
-        controller.abort();
+    const abortedSignal = signals.find((signal) => signal.aborted);
+    if (abortedSignal) {
+        controller.abort(abortedSignal.reason);
         return {
             signal: controller.signal,
             dispose: () => undefined,
         };
     }
     const listeners: Array<{ signal: AbortSignal; listener: () => void }> = [];
-    const abort = (): void => {
-        if (!controller.signal.aborted) {
-            controller.abort();
-        }
-    };
 
     for (const signal of signals) {
+        const abort = (): void => {
+            if (!controller.signal.aborted) {
+                controller.abort(signal.reason);
+            }
+        };
         signal.addEventListener('abort', abort, { once: true });
         listeners.push({ signal, listener: abort });
     }

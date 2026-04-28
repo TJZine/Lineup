@@ -1,5 +1,5 @@
 import { fnv1a32Uint } from '../../../utils/hash';
-import type { SafeLocalStorageWriteResult } from '../../../utils/storage';
+import type { SafeLocalStorageMutationResult } from '../../../utils/storage';
 import { isValidContentSource } from './ChannelContentSourceValidator';
 import { ChannelPersistenceStore } from './ChannelPersistenceStore';
 import {
@@ -199,11 +199,11 @@ export class ChannelRepository {
         };
     }
 
-    saveStoredChannelData(data: StoredChannelData): SafeLocalStorageWriteResult {
+    saveStoredChannelData(data: StoredChannelData): SafeLocalStorageMutationResult {
         return this._store.writeStoredChannelData(data);
     }
 
-    saveCurrentChannelId(channelId: string): SafeLocalStorageWriteResult {
+    saveCurrentChannelId(channelId: string): SafeLocalStorageMutationResult {
         return this._store.writeCurrentChannelId(channelId);
     }
 }

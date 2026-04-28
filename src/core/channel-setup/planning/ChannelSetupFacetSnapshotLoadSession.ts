@@ -10,6 +10,10 @@ import { getTagDirectoryMediaTypesForLibraryType } from '../../../modules/plex/l
 import { summarizeErrorForLog } from '../../../utils/errors';
 import type { ChannelBuildProgress, ChannelSetupConfig } from '../types';
 import { isSignalAborted } from '../shared/utils';
+import {
+    getChannelSetupErrorSummaryObject,
+    getChannelSetupFailureDetail,
+} from './ChannelSetupErrorSummary';
 import { createAbortError } from './ChannelSetupFacetSnapshotAbort';
 import {
     ChannelSetupFacetCountRecoveryWorker,
@@ -109,12 +113,7 @@ class ChannelSetupFacetSnapshotDataAccumulator {
     libraryQueryMs = 0;
 
     addPartialWarning(task: ChannelBuildProgress['task'], detail: string, error: unknown): void {
-        const summaryObject = getErrorSummaryObject(error);
-        const message = typeof summaryObject.message === 'string'
-            ? summaryObject.message
-            : summaryObject.code !== undefined
-                ? String(summaryObject.code)
-                : 'unknown error';
+        const message = getChannelSetupFailureDetail(getChannelSetupErrorSummaryObject(error));
         this._warnings.add(`Partial setup plan (${task}): ${detail} (${message})`);
     }
 
@@ -838,11 +837,4 @@ function createFacetCountRecoveryLimiter(maxConcurrency: number): FacetCountReco
         }
         pending.push(run);
     });
-}
-
-function getErrorSummaryObject(error: unknown): { message?: unknown; code?: unknown } {
-    const summary = summarizeErrorForLog(error);
-    return typeof summary === 'object' && summary !== null
-        ? summary as { message?: unknown; code?: unknown }
-        : {};
 }

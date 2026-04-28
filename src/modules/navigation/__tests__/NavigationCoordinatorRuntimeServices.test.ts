@@ -69,13 +69,32 @@ describe('createNavigationCoordinatorRuntimeServices', () => {
         const runtime = createNavigationCoordinatorRuntimeServices(events);
         const event = createKeyEvent();
 
-        runtime.logInputNotHandled('input_blocked', event);
-        runtime.logInputNotHandled('input_blocked', event);
-        runtime.logInputNotHandled('input_blocked', event);
+        try {
+            runtime.logInputNotHandled('input_blocked', event);
+            runtime.logInputNotHandled('input_blocked', event);
+            runtime.logInputNotHandled('input_blocked', event);
 
-        expect(logDebug).toHaveBeenCalledTimes(2);
+            expect(logDebug).toHaveBeenCalledTimes(2);
+        } finally {
+            dateNowSpy.mockRestore();
+        }
+    });
 
-        dateNowSpy.mockRestore();
+    it('keeps input handling non-fatal when debug diagnostics throw', () => {
+        const logDebug = jest.fn(() => {
+            throw new Error('diagnostics unavailable');
+        });
+        const events = createEventPort({ logDebug });
+        const runtime = createNavigationCoordinatorRuntimeServices(events);
+
+        expect(() => {
+            runtime.logInputNotHandled('modal_open', createKeyEvent());
+        }).not.toThrow();
+
+        expect(logDebug).toHaveBeenCalledWith('navigation.inputNotHandled', expect.objectContaining({
+            reason: 'modal_open',
+            button: 'ok',
+        }));
     });
 
     it('does not log when debug logging is disabled', () => {

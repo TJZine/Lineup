@@ -215,6 +215,44 @@ describe('ChannelSetupPlanningService', () => {
         ]);
     });
 
+    it('preserves primitive partial warning details from snapshot load failures', async () => {
+        expectConsoleWarn([
+            'Failed to fetch collections for library Shows:',
+            'collections endpoint failed',
+        ]);
+        const plexLibrary = {
+            getPlaylists: jest.fn(),
+            getCollections: jest.fn().mockRejectedValue('collections endpoint failed'),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn(),
+            getDirectors: jest.fn(),
+            getYears: jest.fn(),
+            getActors: jest.fn(),
+            getStudios: jest.fn(),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+
+        const result = await service.buildSetupPlan(
+            createConfig({
+                selectedLibraryIds: ['shows'],
+                strategyConfig: {
+                    collections: { enabled: true, priority: 1, scope: 'per-library' },
+                },
+            }),
+            [makeLibrary({ id: 'shows', title: 'Shows', type: 'show' })],
+            null,
+            'preview'
+        );
+
+        expect(result.plan).not.toBeNull();
+        expect(result.warnings).toContain(
+            'Partial setup plan (fetch_collections): fetch_collections failed for Shows (collections endpoint failed)'
+        );
+    });
+
     it('recovers missing native tag counts before applying min-items filtering', async () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),

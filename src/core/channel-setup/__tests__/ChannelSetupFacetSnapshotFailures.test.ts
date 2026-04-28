@@ -65,6 +65,53 @@ describe('ChannelSetupFacetSnapshotFailureBuilder', () => {
         expect(snapshotData).toHaveBeenCalledWith(true);
     });
 
+    it('classifies primitive timeout codes as transient snapshot failures', () => {
+        const snapshotData = jest.fn(createSnapshotData);
+        const builder = new ChannelSetupFacetSnapshotFailureBuilder({
+            addWarning: jest.fn(),
+            incrementErrors: jest.fn(),
+            snapshotData,
+        });
+
+        const snapshot = builder.buildRequiredTagDirectoryFailure(
+            'Genres',
+            'Shows',
+            2,
+            'error',
+            'NETWORK_TIMEOUT'
+        );
+
+        expect(snapshot).toEqual(expect.objectContaining({
+            status: 'slow',
+            failureReason: 'timeout',
+            hasTransientLoadFailure: true,
+        }));
+        expect(snapshotData).toHaveBeenCalledWith(true);
+    });
+
+    it('preserves primitive non-timeout error details in blocked snapshot messages', () => {
+        const builder = new ChannelSetupFacetSnapshotFailureBuilder({
+            addWarning: jest.fn(),
+            incrementErrors: jest.fn(),
+            snapshotData: createSnapshotData,
+        });
+
+        const snapshot = builder.buildRequiredTagDirectoryFailure(
+            'Directors',
+            'Shows',
+            4,
+            'error',
+            'directory endpoint failed'
+        );
+
+        expect(snapshot).toEqual(expect.objectContaining({
+            status: 'blocked',
+            message: expect.stringContaining('(directory endpoint failed)'),
+            failureReason: 'error',
+            hasTransientLoadFailure: false,
+        }));
+    });
+
     it('keeps unsupported and non-timeout error failures non-transient', () => {
         const snapshotData = jest.fn(createSnapshotData);
         const builder = new ChannelSetupFacetSnapshotFailureBuilder({
