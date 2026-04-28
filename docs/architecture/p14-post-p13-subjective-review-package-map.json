@@ -616,7 +616,7 @@
     {
       "wave_id": "P14-WAVE7",
       "name": "post-wave6-target-residual-cleanup",
-      "status": "admitted",
+      "status": "completed",
       "purpose": "After WAVE6, focused review still left all three P14 target dimensions below 85; execute the next source-backed residual issues before reconsidering P14-EXIT.",
       "gate_only": false,
       "admission_rule": "Admit only source-backed residuals from the 20260428_032838 focused review with one owner, candidate files, package-local commands, and verification routing. Do not open P15, broad AppOrchestrator cleanup, broad lifecycle cleanup, or implement stale detector wording without current-source proof.",
