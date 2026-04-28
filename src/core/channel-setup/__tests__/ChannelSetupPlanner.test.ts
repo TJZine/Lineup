@@ -362,7 +362,7 @@ describe('ChannelSetupPlanner', () => {
         });
 
         expect(plan.pendingChannels.map((channel) => channel.name)).toContain('Shows - Action');
-        expect(plan.pendingChannels.map((channel) => channel.name)).toContain('Studio A - TV');
+        expect(plan.pendingChannels.map((channel) => channel.name)).toContain('Studio A - Shows');
     });
 
     it('marks a legacy per-library genre channel as replaced when libraryFilter becomes source-of-truth', () => {

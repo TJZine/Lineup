@@ -16,12 +16,63 @@ export interface AppDiagnosticsDevMenuElements {
     clearOverridesButton: HTMLButtonElement;
 }
 
+interface AppDiagnosticsOverridesSection {
+    section: HTMLDetailsElement;
+    directPlayAudioFallbackEl: HTMLInputElement;
+    nowPlayingStreamDebugEl: HTMLInputElement;
+    nowPlayingStreamDebugAutoEl: HTMLInputElement;
+    profileNameSelect: HTMLSelectElement;
+    saveOverridesButton: HTMLButtonElement;
+    clearOverridesButton: HTMLButtonElement;
+}
+
+interface AppDiagnosticsPlaybackSection {
+    section: HTMLDetailsElement;
+    refreshButton: HTMLButtonElement;
+    copySummaryButton: HTMLButtonElement;
+    copyRawButton: HTMLButtonElement;
+    playbackPre: HTMLPreElement;
+}
+
+interface AppDiagnosticsFooterActions {
+    resetButton: HTMLButtonElement;
+    closeButton: HTMLButtonElement;
+}
+
 export function renderAppDiagnosticsDevMenu(container: HTMLElement): AppDiagnosticsDevMenuElements {
     const heading = createElement('h2', {
         textContent: 'Dev Menu',
         cssText: 'margin-top:0;border-bottom:1px solid #444;padding-bottom:10px;',
     });
+    const storageInfo = createStorageInfo();
+    const stack = createElement('div', {
+        cssText: 'display:flex;flex-direction:column;gap:10px;',
+    });
+    const overrides = createOverridesSection();
+    const playback = createPlaybackSection();
+    const footerActions = createFooterActions();
 
+    stack.append(overrides.section, playback.section, footerActions.resetButton, footerActions.closeButton);
+    container.replaceChildren(heading, storageInfo, stack);
+
+    return {
+        container,
+        resetButton: footerActions.resetButton,
+        closeButton: footerActions.closeButton,
+        refreshButton: playback.refreshButton,
+        copySummaryButton: playback.copySummaryButton,
+        copyRawButton: playback.copyRawButton,
+        playbackPre: playback.playbackPre,
+        directPlayAudioFallbackEl: overrides.directPlayAudioFallbackEl,
+        nowPlayingStreamDebugEl: overrides.nowPlayingStreamDebugEl,
+        nowPlayingStreamDebugAutoEl: overrides.nowPlayingStreamDebugAutoEl,
+        profileNameSelect: overrides.profileNameSelect,
+        saveOverridesButton: overrides.saveOverridesButton,
+        clearOverridesButton: overrides.clearOverridesButton,
+    };
+}
+
+function createStorageInfo(): HTMLDivElement {
     const storageInfo = createElement('div', {
         cssText: 'margin-bottom:15px;color:#aaa;font-size:13px;',
     });
@@ -31,11 +82,10 @@ export function renderAppDiagnosticsDevMenu(container: HTMLElement): AppDiagnost
     channelsKey.textContent = LINEUP_STORAGE_KEYS.CHANNELS_REAL;
     currentChannelKey.textContent = LINEUP_STORAGE_KEYS.CURRENT_CHANNEL;
     storageInfo.append(channelsKey, ', ', currentChannelKey);
+    return storageInfo;
+}
 
-    const stack = createElement('div', {
-        cssText: 'display:flex;flex-direction:column;gap:10px;',
-    });
-
+function createOverridesSection(): AppDiagnosticsOverridesSection {
     const overridesSection = createElement('details', {
         cssText: 'border:1px solid #333;border-radius:8px;padding:10px;',
     });
@@ -137,6 +187,18 @@ export function renderAppDiagnosticsDevMenu(container: HTMLElement): AppDiagnost
     );
     overridesSection.append(overridesBody);
 
+    return {
+        section: overridesSection,
+        directPlayAudioFallbackEl,
+        nowPlayingStreamDebugEl,
+        nowPlayingStreamDebugAutoEl,
+        profileNameSelect,
+        saveOverridesButton,
+        clearOverridesButton,
+    };
+}
+
+function createPlaybackSection(): AppDiagnosticsPlaybackSection {
     const playbackSection = createElement('details', {
         cssText: 'border:1px solid #333;border-radius:8px;padding:10px;',
     });
@@ -184,6 +246,16 @@ export function renderAppDiagnosticsDevMenu(container: HTMLElement): AppDiagnost
     playbackBody.append(playbackActions, playbackPre, playbackNote);
     playbackSection.append(playbackBody);
 
+    return {
+        section: playbackSection,
+        refreshButton,
+        copySummaryButton,
+        copyRawButton,
+        playbackPre,
+    };
+}
+
+function createFooterActions(): AppDiagnosticsFooterActions {
     const resetButton = createElement('button', {
         id: 'dev-reset-app',
         textContent: 'Reset Lineup Storage',
@@ -195,23 +267,9 @@ export function renderAppDiagnosticsDevMenu(container: HTMLElement): AppDiagnost
         cssText: 'padding:10px;cursor:pointer;margin-top:10px;',
     });
 
-    stack.append(overridesSection, playbackSection, resetButton, closeButton);
-    container.replaceChildren(heading, storageInfo, stack);
-
     return {
-        container,
         resetButton,
         closeButton,
-        refreshButton,
-        copySummaryButton,
-        copyRawButton,
-        playbackPre,
-        directPlayAudioFallbackEl,
-        nowPlayingStreamDebugEl,
-        nowPlayingStreamDebugAutoEl,
-        profileNameSelect,
-        saveOverridesButton,
-        clearOverridesButton,
     };
 }
 

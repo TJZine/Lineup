@@ -182,6 +182,46 @@ describe('ChannelSetupStrategyBuilders', () => {
         expect(result.skipped).toBe(0);
     });
 
+    it('uses stable Plex tag keys for per-library genre and director shuffle seeds', () => {
+        const seedFor = jest.fn((value: string) => {
+            const seeds: Record<string, number> = {
+                'genre:lib-1:genre-action': 101,
+                'director:lib-1:director-jane': 202,
+            };
+            return seeds[value] ?? 0;
+        });
+
+        const result = buildChannelSetupStrategyBuckets({
+            config: createConfig({
+                strategyConfig: {
+                    ...createConfig().strategyConfig,
+                    playlists: { enabled: false, priority: 2, scope: 'per-library' },
+                    genres: { enabled: true, priority: 3, scope: 'per-library' },
+                    directors: { enabled: true, priority: 4, scope: 'per-library' },
+                },
+            }),
+            selectedLibraries: [createLibrary()],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map([
+                ['lib-1', [createTag(' Action ', 8, 'genre-action')]],
+            ]),
+            directorsByLibraryId: new Map([
+                ['lib-1', [createTag('JANE Director', 8, 'director-jane')]],
+            ]),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            minItems: 5,
+            seedFor,
+        });
+
+        expect(seedFor).toHaveBeenCalledWith('genre:lib-1:genre-action');
+        expect(seedFor).toHaveBeenCalledWith('director:lib-1:director-jane');
+        expect(result.strategyBuckets.genres[0]?.shuffleSeed).toBe(101);
+        expect(result.strategyBuckets.directors[0]?.shuffleSeed).toBe(202);
+    });
+
     it('builds mixed enabled strategy buckets with per-library and global metadata intact', () => {
         const result = buildChannelSetupStrategyBuckets({
             config: createConfig({
@@ -277,5 +317,47 @@ describe('ChannelSetupStrategyBuilders', () => {
             expect(bucket.lineupReplicaIndex).toBe(0);
             expect(bucket.isPlaybackModeVariant).toBe(false);
         }
+    });
+
+    it('includes the source library title in per-library actor and studio channel names', () => {
+        const result = buildChannelSetupStrategyBuckets({
+            config: createConfig({
+                selectedLibraryIds: ['lib-1', 'lib-2'],
+                strategyConfig: {
+                    ...createConfig().strategyConfig,
+                    playlists: { enabled: false, priority: 2, scope: 'per-library' },
+                    studios: { enabled: true, priority: 7, scope: 'per-library' },
+                    actors: { enabled: true, priority: 8, scope: 'per-library' },
+                },
+            }),
+            selectedLibraries: [
+                createLibrary({ id: 'lib-1', title: 'Movies' }),
+                createLibrary({ id: 'lib-2', title: 'Kids Movies' }),
+            ],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map([
+                ['lib-1', [createTag('Alex Actor', 7, 'actor-1')]],
+                ['lib-2', [createTag('Alex Actor', 7, 'actor-1')]],
+            ]),
+            studiosByLibraryId: new Map([
+                ['lib-1', [createTag('Studio One', 7, 'studio-1')]],
+                ['lib-2', [createTag('Studio One', 7, 'studio-1')]],
+            ]),
+            minItems: 5,
+            seedFor: (value) => value.length,
+        });
+
+        expect(result.strategyBuckets.actors.map((channel) => channel.name)).toEqual([
+            'Alex Actor - Movies',
+            'Alex Actor - Kids Movies',
+        ]);
+        expect(result.strategyBuckets.studios.map((channel) => channel.name)).toEqual([
+            'Studio One - Movies',
+            'Studio One - Kids Movies',
+        ]);
     });
 });

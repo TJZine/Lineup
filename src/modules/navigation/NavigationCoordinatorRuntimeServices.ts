@@ -1,9 +1,24 @@
 import { recordNonBlockingFailureTimestamp } from './nonBlockingFailureTimestamps';
 import type { KeyEvent } from './interfaces';
-import type {
-    NavigationCoordinatorEventPort,
-    NavigationCoordinatorRuntimeServices,
-} from './NavigationCoordinatorContracts';
+import type { NavigationCoordinatorEventPort } from './NavigationCoordinatorContracts';
+
+export interface NavigationCoordinatorRuntimeServices {
+    fireAndReport: (
+        key: string,
+        promiseFactory: () => Promise<void>,
+        message: string,
+        toastMessage: string
+    ) => Promise<void> | null;
+    observeNonBlockingPromise: (
+        key: string,
+        promiseFactory: () => Promise<void>,
+        message: string
+    ) => Promise<void>;
+    logInputNotHandled: (
+        reason: 'modal_open' | 'screen_not_player' | 'input_blocked',
+        event: KeyEvent
+    ) => void;
+}
 
 export function createNavigationCoordinatorRuntimeServices(
     events: NavigationCoordinatorEventPort
@@ -121,13 +136,17 @@ export function createNavigationCoordinatorRuntimeServices(
                 suppressedLogTimestamps.clear();
             }
             suppressedLogTimestamps.set(key, now);
-            events.logDebug?.('navigation.inputNotHandled', {
-                reason,
-                button: event.button,
-                currentScreen,
-                modalStack,
-                inputBlocked,
-            });
+            try {
+                events.logDebug?.('navigation.inputNotHandled', {
+                    reason,
+                    button: event.button,
+                    currentScreen,
+                    modalStack,
+                    inputBlocked,
+                });
+            } catch {
+                // Debug diagnostics are best-effort and must not affect input handling.
+            }
         },
     };
 }

@@ -1,7 +1,4 @@
-import type {
-    NavigationModalEffectsRuntime,
-    NavigationRepeatRuntime,
-} from './NavigationCoordinatorContracts';
+import type { NavigationRepeatRuntime } from './NavigationRepeatHandler';
 import type {
     NavigationMiniGuidePort,
     NavigationModalsPort,
@@ -12,6 +9,11 @@ export interface NavigationModalEffectsPort {
     miniGuide: NavigationMiniGuidePort;
     nowPlayingInfo: NavigationNowPlayingInfoPort;
     modals: NavigationModalsPort;
+}
+
+export interface NavigationModalEffectsRuntime {
+    handleModalOpen(modalId: string): void;
+    handleModalClose(modalId: string): void;
 }
 
 export class NavigationModalEffectsHandler implements NavigationModalEffectsRuntime {

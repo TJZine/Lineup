@@ -1,11 +1,14 @@
 import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
-import { summarizeErrorForLog } from '../../../utils/errors';
 import type { ChannelSetupPreviewFailureReason } from '../types';
 import type {
     ChannelSetupFacetSnapshot,
     ChannelSetupFacetSnapshotData,
 } from './ChannelSetupPlanningTypes';
 import type { PlexTagDirectoryUnsupportedReason } from '../../../modules/plex/library';
+import {
+    getChannelSetupErrorSummaryObject,
+    getChannelSetupFailureDetail,
+} from './ChannelSetupErrorSummary';
 
 export type ChannelSetupRequiredTagDirectoryLabel = 'Genres' | 'Directors' | 'Years' | 'Actors' | 'Studios';
 
@@ -43,8 +46,8 @@ export class ChannelSetupFacetSnapshotFailureBuilder {
     ): ChannelSetupFacetSnapshot {
         const baseLabel = label.toLowerCase();
         if (reason === 'error') {
-            const summaryObject = getErrorSummaryObject(error);
-            const detail = getFailureDetail(summaryObject);
+            const summaryObject = getChannelSetupErrorSummaryObject(error);
+            const detail = getChannelSetupFailureDetail(summaryObject);
             if (getAppErrorCode(summaryObject.code) === AppErrorCode.NETWORK_TIMEOUT) {
                 return this.buildFailureSnapshot(
                     'slow',
@@ -74,8 +77,8 @@ export class ChannelSetupFacetSnapshotFailureBuilder {
         error: unknown
     ): ChannelSetupFacetSnapshot {
         const baseLabel = label.toLowerCase();
-        const summaryObject = getErrorSummaryObject(error);
-        const detail = getFailureDetail(summaryObject);
+        const summaryObject = getChannelSetupErrorSummaryObject(error);
+        const detail = getChannelSetupFailureDetail(summaryObject);
         if (getAppErrorCode(summaryObject.code) === AppErrorCode.NETWORK_TIMEOUT) {
             return this.buildFailureSnapshot(
                 'slow',
@@ -90,19 +93,4 @@ export class ChannelSetupFacetSnapshotFailureBuilder {
             'error'
         );
     }
-}
-
-function getFailureDetail(summaryObject: { message?: unknown; code?: unknown }): string {
-    return typeof summaryObject.message === 'string'
-        ? summaryObject.message
-        : summaryObject.code !== undefined
-            ? String(summaryObject.code)
-            : 'unknown error';
-}
-
-function getErrorSummaryObject(error: unknown): { message?: unknown; code?: unknown } {
-    const summary = summarizeErrorForLog(error);
-    return typeof summary === 'object' && summary !== null
-        ? summary as { message?: unknown; code?: unknown }
-        : {};
 }

@@ -1,2 +1,6 @@
 export { ServerSelectScreen } from './ServerSelectScreen';
-export type { ServerSelectScreenPorts } from './ServerSelectScreen';
+export type {
+    ServerSelectScreenPorts,
+    ServerSelectSelectionFailureReason,
+    ServerSelectSelectionResult,
+} from './ServerSelectScreen';

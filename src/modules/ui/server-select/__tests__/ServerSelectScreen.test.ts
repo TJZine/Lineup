@@ -6,7 +6,6 @@ import { ServerSelectScreen, type ServerSelectScreenPorts } from '../ServerSelec
 import type { ServerSelectScreenNavigationPort } from '../../../navigation';
 import type { PlexServer } from '../../../plex/discovery/types';
 import { createBodyAppendedTestContainer, createDeferred } from '../../../../__tests__/helpers';
-import type { OrchestratorServerSelectionResult } from '../../../../core/server-selection/ServerSelectionTypes';
 
 type NavigationStub = ServerSelectScreenNavigationPort & {
     registerFocusable: jest.Mock;
@@ -42,16 +41,10 @@ const makeServer = (id: string, name: string, owned = true): PlexServer => ({
 });
 
 const makeSelectedServerResult = (): Extract<
-    OrchestratorServerSelectionResult,
+    Awaited<ReturnType<ServerSelectScreenPorts['selectServer']>>,
     { kind: 'selected' }
 > => ({
     kind: 'selected' as const,
-    readiness: 'ready' as const,
-    persistedSelection: 'updated' as const,
-    startupResume: {
-        startup: 'completed' as const,
-        epgRefresh: { kind: 'succeeded' as const },
-    },
 });
 
 const createOrchestratorStub = (): ServerSelectScreenHarness => {

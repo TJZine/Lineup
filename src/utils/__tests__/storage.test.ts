@@ -152,16 +152,36 @@ describe('storage helpers', () => {
         }
     });
 
-    it('safeLocalStorageRemoveByPrefixes skips only null keys from storage iteration', () => {
+    it('safeLocalStorageRemoveByPrefixes trims prefixes and ignores blank prefixes', () => {
+        localStorage.setItem('lineup_channels_build_tmp_v1:a', '1');
+        localStorage.setItem('other_key', '1');
+
+        const removed = safeLocalStorageRemoveByPrefixes([
+            '   ',
+            '  lineup_channels_build_tmp_v1:  ',
+        ]);
+
+        expect(removed).toEqual(['lineup_channels_build_tmp_v1:a']);
+        expect(localStorage.getItem('lineup_channels_build_tmp_v1:a')).toBe(null);
+        expect(localStorage.getItem('other_key')).toBe('1');
+        expect(safeLocalStorageRemoveByPrefixes([''])).toEqual([]);
+    });
+
+    it('safeLocalStorageRemoveByPrefixes returns keys successfully removed before a per-key failure', () => {
         const originalLocalStorage = globalThis.localStorage;
-        const removeItem = jest.fn();
+        const removeItem = jest.fn((key: string) => {
+            if (key === 'lineup_second') {
+                throw new DOMException('blocked', 'SecurityError');
+            }
+        });
         const customStorage = {
             get length(): number {
-                return 2;
+                return 3;
             },
             key: (index: number): string | null => {
-                if (index === 0) return '';
-                if (index === 1) return 'lineup_valid';
+                if (index === 0) return 'lineup_first';
+                if (index === 1) return 'lineup_second';
+                if (index === 2) return 'lineup_third';
                 return null;
             },
             removeItem,
@@ -174,9 +194,13 @@ describe('storage helpers', () => {
                 value: customStorage,
             });
 
-            expect(safeLocalStorageRemoveByPrefixes([''])).toEqual(['', 'lineup_valid']);
-            expect(removeItem).toHaveBeenNthCalledWith(1, '');
-            expect(removeItem).toHaveBeenNthCalledWith(2, 'lineup_valid');
+            expect(safeLocalStorageRemoveByPrefixes(['lineup_'])).toEqual([
+                'lineup_first',
+                'lineup_third',
+            ]);
+            expect(removeItem).toHaveBeenNthCalledWith(1, 'lineup_first');
+            expect(removeItem).toHaveBeenNthCalledWith(2, 'lineup_second');
+            expect(removeItem).toHaveBeenNthCalledWith(3, 'lineup_third');
         } finally {
             Object.defineProperty(globalThis, 'localStorage', {
                 configurable: true,

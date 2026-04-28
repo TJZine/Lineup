@@ -1,6 +1,6 @@
 import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import {
-    type SafeLocalStorageWriteResult,
+    type SafeLocalStorageMutationResult,
     parseStoredEpgInfoBackgroundMode,
     readStoredBooleanAndClean,
     safeLocalStorageGet,
@@ -25,7 +25,7 @@ export class EpgPreferencesStore {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, fallback);
     }
 
-    writeLibraryTabsEnabled(enabled: boolean): SafeLocalStorageWriteResult {
+    writeLibraryTabsEnabled(enabled: boolean): SafeLocalStorageMutationResult {
         return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, enabled ? '1' : '0');
     }
 
@@ -33,7 +33,7 @@ export class EpgPreferencesStore {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, fallback);
     }
 
-    writeAggressivePreloadEnabled(enabled: boolean): SafeLocalStorageWriteResult {
+    writeAggressivePreloadEnabled(enabled: boolean): SafeLocalStorageMutationResult {
         return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_AGGRESSIVE_PRELOAD_ENABLED, enabled ? '1' : '0');
     }
 
@@ -41,7 +41,7 @@ export class EpgPreferencesStore {
         return readTrimmedStringAndClean(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
     }
 
-    writeSelectedLibraryId(libraryId: string | null): SafeLocalStorageWriteResult {
+    writeSelectedLibraryId(libraryId: string | null): SafeLocalStorageMutationResult {
         return writeTrimmedStringOrRemoveWithResult(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, libraryId);
     }
 
@@ -56,7 +56,7 @@ export class EpgPreferencesStore {
         return fallback;
     }
 
-    writeGuideDensity(density: EpgGuideDensity): SafeLocalStorageWriteResult {
+    writeGuideDensity(density: EpgGuideDensity): SafeLocalStorageMutationResult {
         return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, density);
     }
 
@@ -71,7 +71,7 @@ export class EpgPreferencesStore {
         return fallback;
     }
 
-    writeLayoutMode(mode: EpgLayoutMode): SafeLocalStorageWriteResult {
+    writeLayoutMode(mode: EpgLayoutMode): SafeLocalStorageMutationResult {
         return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, mode);
     }
 
@@ -79,7 +79,7 @@ export class EpgPreferencesStore {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, fallback);
     }
 
-    writeNowWatchingEnabled(enabled: boolean): SafeLocalStorageWriteResult {
+    writeNowWatchingEnabled(enabled: boolean): SafeLocalStorageMutationResult {
         return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, enabled ? '1' : '0');
     }
 
@@ -87,7 +87,7 @@ export class EpgPreferencesStore {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.GUIDE_CATEGORY_COLORS, fallback);
     }
 
-    writeGuideCategoryColorsEnabled(enabled: boolean): SafeLocalStorageWriteResult {
+    writeGuideCategoryColorsEnabled(enabled: boolean): SafeLocalStorageMutationResult {
         return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.GUIDE_CATEGORY_COLORS, enabled ? '1' : '0');
     }
 
@@ -102,7 +102,7 @@ export class EpgPreferencesStore {
         return fallback;
     }
 
-    writePastItemsWindow(window: EpgPastItemsWindow): SafeLocalStorageWriteResult {
+    writePastItemsWindow(window: EpgPastItemsWindow): SafeLocalStorageMutationResult {
         return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, window);
     }
 
@@ -126,7 +126,7 @@ export class EpgPreferencesStore {
         return fallback;
     }
 
-    writeInfoBackgroundMode(mode: 0 | 1 | 2): SafeLocalStorageWriteResult {
+    writeInfoBackgroundMode(mode: 0 | 1 | 2): SafeLocalStorageMutationResult {
         return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, String(mode));
     }
 }

@@ -23,27 +23,75 @@ describe('ChannelSetupFacetCountRecoveryWorker', () => {
             getLibraryItemCount: jest.fn().mockResolvedValue(12),
         } as unknown as jest.Mocked<IPlexLibrary>;
 
-        const result = await new ChannelSetupFacetCountRecoveryWorker({
+        try {
+            const result = await new ChannelSetupFacetCountRecoveryWorker({
+                plexLibrary,
+                libraryId: 'shows',
+                mediaType: 2,
+                family: 'genre',
+                tags: [{ key: 'genre-1', title: 'Drama', count: null }],
+                tagSignal: new AbortController().signal,
+                countRecoveryLimiter: limiter,
+                getLastTask: (): 'scan_library_items' => 'scan_library_items',
+                addLibraryQueryMs,
+                maxConcurrency: 1,
+            }).recover();
+
+            expect(result).toEqual([{ key: 'genre-1', title: 'Drama', count: 12 }]);
+            expect(limiter).toHaveBeenCalledTimes(1);
+            expect(addLibraryQueryMs).toHaveBeenCalledWith(10);
+            expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
+                filter: { type: 2, genre: 'Drama' },
+                signal: expect.any(Object),
+            }));
+        } finally {
+            performanceNowSpy.mockRestore();
+        }
+    });
+
+    it('rejects invalid maxConcurrency values instead of resolving with unresolved counts', async () => {
+        const plexLibrary = {
+            getLibraryItemCount: jest.fn().mockResolvedValue(12),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+
+        await expect(new ChannelSetupFacetCountRecoveryWorker({
             plexLibrary,
             libraryId: 'shows',
             mediaType: 2,
             family: 'genre',
             tags: [{ key: 'genre-1', title: 'Drama', count: null }],
             tagSignal: new AbortController().signal,
-            countRecoveryLimiter: limiter,
+            countRecoveryLimiter: <T>(task: () => Promise<T>): Promise<T> => task(),
             getLastTask: (): 'scan_library_items' => 'scan_library_items',
-            addLibraryQueryMs,
+            addLibraryQueryMs: jest.fn(),
+            maxConcurrency: 0,
+        }).recover()).rejects.toThrow('maxConcurrency must be at least 1');
+
+        expect(plexLibrary.getLibraryItemCount).not.toHaveBeenCalled();
+    });
+
+    it('rejects when count recovery is already aborted instead of returning partial tags', async () => {
+        const abortController = new AbortController();
+        abortController.abort();
+        const plexLibrary = {
+            getLibraryItemCount: jest.fn().mockResolvedValue(12),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+
+        await expect(new ChannelSetupFacetCountRecoveryWorker({
+            plexLibrary,
+            libraryId: 'shows',
+            mediaType: 2,
+            family: 'genre',
+            tags: [{ key: 'genre-1', title: 'Drama', count: null }],
+            tagSignal: abortController.signal,
+            countRecoveryLimiter: <T>(task: () => Promise<T>): Promise<T> => task(),
+            getLastTask: (): 'scan_library_items' => 'scan_library_items',
+            addLibraryQueryMs: jest.fn(),
             maxConcurrency: 1,
-        }).recover();
+        }).recover()).rejects.toMatchObject({
+            name: 'AbortError',
+        });
 
-        expect(result).toEqual([{ key: 'genre-1', title: 'Drama', count: 12 }]);
-        expect(limiter).toHaveBeenCalledTimes(1);
-        expect(addLibraryQueryMs).toHaveBeenCalledWith(10);
-        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
-            filter: { type: 2, genre: 'Drama' },
-            signal: expect.any(Object),
-        }));
-
-        performanceNowSpy.mockRestore();
+        expect(plexLibrary.getLibraryItemCount).not.toHaveBeenCalled();
     });
 });

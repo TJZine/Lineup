@@ -14,9 +14,11 @@ export function safeLocalStorageSet(key: string, value: string): boolean {
     return safeLocalStorageSetWithResult(key, value).ok;
 }
 
-export type SafeLocalStorageWriteResult = { ok: true } | { ok: false; reason: 'quota-exceeded' | 'unavailable' };
+export type SafeLocalStorageMutationResult =
+    | { ok: true }
+    | { ok: false; reason: 'quota-exceeded' | 'unavailable' };
 
-export function safeLocalStorageSetWithResult(key: string, value: string): SafeLocalStorageWriteResult {
+export function safeLocalStorageSetWithResult(key: string, value: string): SafeLocalStorageMutationResult {
     try {
         localStorage.setItem(key, value);
         return { ok: true };
@@ -29,7 +31,7 @@ export function safeLocalStorageRemove(key: string): boolean {
     return safeLocalStorageRemoveWithResult(key).ok;
 }
 
-export function safeLocalStorageRemoveWithResult(key: string): SafeLocalStorageWriteResult {
+export function safeLocalStorageRemoveWithResult(key: string): SafeLocalStorageMutationResult {
     try {
         localStorage.removeItem(key);
         return { ok: true };
@@ -66,7 +68,7 @@ export function writeTrimmedStringOrRemove(key: string, value: string | null): v
 export function writeTrimmedStringOrRemoveWithResult(
     key: string,
     value: string | null
-): SafeLocalStorageWriteResult {
+): SafeLocalStorageMutationResult {
     if (typeof value !== 'string') {
         return safeLocalStorageRemoveWithResult(key);
     }
@@ -84,23 +86,32 @@ export function writeTrimmedStringOrRemoveWithResult(
  * Returns the list of removed keys. Never throws.
  */
 export function safeLocalStorageRemoveByPrefixes(prefixes: readonly string[]): string[] {
-    if (prefixes.length === 0) {
+    const normalizedPrefixes = prefixes
+        .map((prefix) => prefix.trim())
+        .filter((prefix) => prefix.length > 0);
+    if (normalizedPrefixes.length === 0) {
         return [];
     }
+    const removedKeys: string[] = [];
     try {
         const keysToRemove: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
             if (key === null) continue;
-            if (!prefixes.some((prefix) => key.startsWith(prefix))) continue;
+            if (!normalizedPrefixes.some((prefix) => key.startsWith(prefix))) continue;
             keysToRemove.push(key);
         }
         for (const key of keysToRemove) {
-            localStorage.removeItem(key);
+            try {
+                localStorage.removeItem(key);
+                removedKeys.push(key);
+            } catch {
+                // Keep removing independent keys; callers receive the successful removals.
+            }
         }
-        return keysToRemove;
+        return removedKeys;
     } catch {
-        return [];
+        return removedKeys;
     }
 }
 

@@ -208,7 +208,19 @@ export class ChannelSetupPlanningService {
                 signal,
                 requestIntent: getPlexRequestIntentForChannelSetup(intent),
                 detachFromSignal: reportProgress === undefined,
-                ...(reportProgress ? { reportProgress } : {}),
+                ...(reportProgress
+                    ? {
+                        reportProgress: (progress: ChannelBuildProgress): void => {
+                            reportProgress(
+                                progress.task,
+                                progress.label,
+                                progress.detail,
+                                progress.current,
+                                progress.total
+                            );
+                        },
+                    }
+                    : {}),
             };
             snapshot = await this._facetSnapshotLoader.loadSnapshot(config, libraries, intent, snapshotOptions);
         } catch (error) {
