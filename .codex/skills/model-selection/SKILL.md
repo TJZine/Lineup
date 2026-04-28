@@ -35,6 +35,7 @@ Start at `0` and add `+1` for each:
 - Score `0-1`
   - omit `MODEL_SUGGESTION` unless the user explicitly asked
   - if asked: default to the current session model; use `gpt-5.5 medium` for planner/reviewer/implementer when a concrete model is needed
+  - use `gpt-5.5 low` for a feature/design implementer only when the approved plan or current execution packet marks the unit low-execution-ready
   - for tiny read-heavy sidecars, `gpt-5.4-mini low|medium` is acceptable when speed/cost matters more than deep reasoning
 - Score `2-3`
   - include `MODEL_SUGGESTION`
@@ -60,6 +61,18 @@ Start at `0` and add `+1` for each:
   - `medium` for most bounded implementation and routine planning
   - `high` for architecture-heavy planning, adversarial review, priority-exit review, ambiguous debugging, or edge-case tracing
   - avoid `xhigh` by default unless an eval or an explicit task need justifies the cost
+- Low-execution-ready applies only to feature/design implementation units with all of:
+  - approved/reviewed plan or current execution packet
+  - bounded write scope with exact files/scope
+  - explicit verification
+  - no unresolved product, design, or architecture decision
+  - no cross-module ownership move
+  - no ambiguous debugging or root-cause work
+  - no security, auth, persistence, or token-sensitive change
+  - no priority-exit or checklist-closeout consequence
+- Escalate implementer reasoning to `medium` or `high` when the work requires local judgment, architecture seam decisions, UX/product interpretation, failing verification repair, cross-module work, Plex/navigation/Orchestrator/high-risk UI changes, cleanup/refactor execution, or scope is unclear.
+- Keep planner and reviewer recommendations stronger than implementer recommendations. Do not recommend `low` for adversarial review or serious planning.
+- `cleanup_worker` and cleanup/refactor implementers remain `gpt-5.5 medium` by default unless a future eval-backed policy revisits that.
 
 ## Handoff Format
 

@@ -187,6 +187,16 @@ The packet should name:
 - verification commands plus expected outcomes
 - explicit stop-and-replan conditions
 
+For feature/design handoffs to cheaper or weaker implementers, the packet may also include:
+
+- `IMPLEMENTER_REASONING_ELIGIBILITY: low | medium | high`
+- `WHY`
+- `LOW_ELIGIBLE_IF`
+- `ESCALATE_TO_MEDIUM_IF`
+- `STOP_AND_REPLAN_IF`
+
+These fields freeze decisions, constraints, verification, and escalation rules for the current unit without adding pseudo-code. They are primarily for feature/design handoffs and do not alter cleanup overlay defaults or the `MODEL_SUGGESTION` block shape.
+
 The packet may live in a `NEXT_SESSION_HANDOFF` block or a local run-bundle artifact. It should not replace the serious tracked plan as the durable source of scope, seam, and verification policy.
 
 ### Anti-Patterns To Avoid

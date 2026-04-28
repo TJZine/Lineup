@@ -62,6 +62,7 @@ If the short follow-up form is used, treat the named feature/design target as th
   - `analyze_impact` result when risky/shared symbols are involved, or an explicit note that it was not required for the current risk level
   - direct-read/`rg` fallback note when used
 - include exact files in scope and out of scope, verification commands, and rollback notes when risk warrants it
+- when recommending a lower-reasoning implementer for feature/design work, make `low` conditional on an approved current unit and provide a `CURRENT_EXECUTION_PACKET` with eligibility, escalation, and stop/replan rules
 - classify the verification strategy for the execution surface as one of:
   - `new regression/contract test required`
   - `existing coverage sufficient`
@@ -108,8 +109,14 @@ Return:
    - if the user explicitly asked for model guidance, or if the handoff is Tier 3 or architecture-risk score `>= 2`, include a `MODEL_SUGGESTION` block immediately before `NEXT_SESSION_HANDOFF` using repo-local `model-selection`
 8. when a weaker/cheaper implementer or an unusually fragile current unit needs extra detail, include an optional `CURRENT_EXECUTION_PACKET` block before `NEXT_SESSION_HANDOFF` with:
    - `UNIT`
+   - `IMPLEMENTER_REASONING_ELIGIBILITY: low | medium | high`
+   - `WHY`
+   - `LOW_ELIGIBLE_IF`
+   - `ESCALATE_TO_MEDIUM_IF`
    - `FILES_IN_SCOPE`
    - `FILES_OUT_OF_SCOPE`
    - `CONSTRAINTS`
    - `VERIFICATION`
    - `STOP_AND_REPLAN_IF`
+
+Keep the `MODEL_SUGGESTION` schema unchanged; put lower-reasoning eligibility details only in `CURRENT_EXECUTION_PACKET`.
