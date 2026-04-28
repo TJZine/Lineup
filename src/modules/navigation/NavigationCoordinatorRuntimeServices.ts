@@ -102,12 +102,15 @@ export function createNavigationCoordinatorRuntimeServices(
             if (!events.readDebugLoggingEnabled()) return;
             const navigation = events.navigation;
             const state = navigation.getState();
+            const currentScreen = state?.currentScreen ?? 'unknown';
+            const modalStack = state?.modalStack ?? [];
+            const inputBlocked = navigation.isInputBlocked();
             const key = [
                 reason,
                 event.button,
-                state?.currentScreen ?? 'unknown',
-                (state?.modalStack ?? []).join(','),
-                navigation.isInputBlocked() ? 'blocked' : 'open',
+                currentScreen,
+                modalStack.join(','),
+                inputBlocked ? 'blocked' : 'open',
             ].join('|');
             const now = Date.now();
             const last = suppressedLogTimestamps.get(key) ?? 0;
@@ -118,6 +121,13 @@ export function createNavigationCoordinatorRuntimeServices(
                 suppressedLogTimestamps.clear();
             }
             suppressedLogTimestamps.set(key, now);
+            events.logDebug?.('navigation.inputNotHandled', {
+                reason,
+                button: event.button,
+                currentScreen,
+                modalStack,
+                inputBlocked,
+            });
         },
     };
 }

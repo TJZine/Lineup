@@ -80,14 +80,14 @@ export class ChannelSetupFacetCountRecoveryWorker {
                     if (!tag || tag.count !== null) {
                         continue;
                     }
-                    const countStart = performance.now();
                     let count: number | null;
-                    try {
-                        count = await this.options.countRecoveryLimiter(async () => {
-                            if (linkedAbortSignal.signal.aborted) {
-                                throw createAbortError(this.options.getLastTask());
-                            }
-                            return this.options.plexLibrary.getLibraryItemCount(this.options.libraryId, {
+                    count = await this.options.countRecoveryLimiter(async () => {
+                        if (linkedAbortSignal.signal.aborted) {
+                            throw createAbortError(this.options.getLastTask());
+                        }
+                        const countStart = performance.now();
+                        try {
+                            return await this.options.plexLibrary.getLibraryItemCount(this.options.libraryId, {
                                 filter: buildChannelSetupFacetCountFilter(
                                     tag,
                                     this.options.family,
@@ -95,10 +95,10 @@ export class ChannelSetupFacetCountRecoveryWorker {
                                 ),
                                 signal: linkedAbortSignal.signal,
                             });
-                        });
-                    } finally {
-                        this.options.addLibraryQueryMs(performance.now() - countStart);
-                    }
+                        } finally {
+                            this.options.addLibraryQueryMs(performance.now() - countStart);
+                        }
+                    });
                     hydratedTags[tagIndex] = {
                         ...tag,
                         count: assertRecoveredTagCount(count, this.options.family, tag.title),

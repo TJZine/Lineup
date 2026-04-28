@@ -162,6 +162,7 @@ function buildNavigationCoordinatorInput(
         },
         diagnostics: {
             reportRecoverableAsyncFailure: input.diagnostics.reportRecoverableAsyncFailure,
+            appendIssueDiagnostic: input.diagnostics.appendIssueDiagnostic,
         },
         playback: {
             stopPlayback: input.playback.stopPlayback,

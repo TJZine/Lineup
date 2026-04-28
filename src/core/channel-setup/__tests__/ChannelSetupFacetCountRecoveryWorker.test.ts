@@ -1,0 +1,49 @@
+/**
+ * @jest-environment jsdom
+ */
+
+import type { IPlexLibrary } from '../../../modules/plex/library';
+import {
+    ChannelSetupFacetCountRecoveryWorker,
+    type FacetCountRecoveryLimiter,
+} from '../planning/ChannelSetupFacetCountRecoveryWorker';
+
+describe('ChannelSetupFacetCountRecoveryWorker', () => {
+    it('records only Plex count query duration and excludes limiter queue time', async () => {
+        const performanceNowSpy = jest.spyOn(performance, 'now')
+            .mockReturnValueOnce(100)
+            .mockReturnValueOnce(120)
+            .mockReturnValueOnce(130);
+        const addLibraryQueryMs = jest.fn();
+        const limiter: FacetCountRecoveryLimiter = jest.fn(<T>(task: () => Promise<T>) => {
+            performance.now();
+            return task();
+        });
+        const plexLibrary = {
+            getLibraryItemCount: jest.fn().mockResolvedValue(12),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+
+        const result = await new ChannelSetupFacetCountRecoveryWorker({
+            plexLibrary,
+            libraryId: 'shows',
+            mediaType: 2,
+            family: 'genre',
+            tags: [{ key: 'genre-1', title: 'Drama', count: null }],
+            tagSignal: new AbortController().signal,
+            countRecoveryLimiter: limiter,
+            getLastTask: (): 'scan_library_items' => 'scan_library_items',
+            addLibraryQueryMs,
+            maxConcurrency: 1,
+        }).recover();
+
+        expect(result).toEqual([{ key: 'genre-1', title: 'Drama', count: 12 }]);
+        expect(limiter).toHaveBeenCalledTimes(1);
+        expect(addLibraryQueryMs).toHaveBeenCalledWith(10);
+        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
+            filter: { type: 2, genre: 'Drama' },
+            signal: expect.any(Object),
+        }));
+
+        performanceNowSpy.mockRestore();
+    });
+});

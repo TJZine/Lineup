@@ -116,6 +116,7 @@ export interface NavigationCoordinatorEventPort {
     reportRecoverableAsyncFailure: NavigationAsyncFailureReporter;
     reportToast?: (toast: ToastInput) => void;
     readDebugLoggingEnabled: () => boolean;
+    logDebug?: (event: string, payload: Record<string, unknown>) => void;
 }
 
 /**

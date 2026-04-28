@@ -232,6 +232,7 @@ export interface OrchestratorNavigationCoordinatorBuilderInput {
     >;
     diagnostics: {
         reportRecoverableAsyncFailure: NavigationAsyncFailureReporter;
+        appendIssueDiagnostic: AppendIssueDiagnostic;
     };
     playback: Pick<OrchestratorCoordinatorAssemblyInput['playback'], 'stopPlayback'>;
     schedule: Pick<OrchestratorCoordinatorAssemblyInput['schedule'], 'setLastChannelChangeSource'>;

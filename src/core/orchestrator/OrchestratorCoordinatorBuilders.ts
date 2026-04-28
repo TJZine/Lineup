@@ -676,6 +676,9 @@ export function buildNavigationCoordinator(
         },
         readDebugLoggingEnabled: (): boolean =>
             input.stores.developerSettingsStore.readDebugLoggingEnabledAndClean(false),
+        logDebug: (event: string, payload: Record<string, unknown>): void => {
+            input.diagnostics.appendIssueDiagnostic('navigation', event, payload);
+        },
     };
     const runtime = createNavigationCoordinatorRuntimeServices(events);
     const repeats = new NavigationRepeatHandler({

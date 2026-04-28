@@ -21,7 +21,8 @@ export class ChannelSetupFacetSnapshotFailureBuilder {
     buildFailureSnapshot(
         status: 'blocked' | 'slow',
         message: string,
-        failureReason: ChannelSetupPreviewFailureReason
+        failureReason: ChannelSetupPreviewFailureReason,
+        hasTransientLoadFailure = false
     ): ChannelSetupFacetSnapshot {
         this.options.addWarning(message);
         this.options.incrementErrors();
@@ -29,7 +30,7 @@ export class ChannelSetupFacetSnapshotFailureBuilder {
             status,
             message,
             failureReason,
-            ...this.options.snapshotData(false),
+            ...this.options.snapshotData(hasTransientLoadFailure),
         };
     }
 
@@ -48,7 +49,8 @@ export class ChannelSetupFacetSnapshotFailureBuilder {
                 return this.buildFailureSnapshot(
                     'slow',
                     `Required ${baseLabel} tag directory (type=${type}) timed out for ${libraryTitle}; try again after Plex responds.`,
-                    'timeout'
+                    'timeout',
+                    true
                 );
             }
             return this.buildFailureSnapshot(
@@ -78,7 +80,8 @@ export class ChannelSetupFacetSnapshotFailureBuilder {
             return this.buildFailureSnapshot(
                 'slow',
                 `Required ${baseLabel} item counts (type=${type}) timed out for ${libraryTitle}; try again after Plex responds.`,
-                'timeout'
+                'timeout',
+                true
             );
         }
         return this.buildFailureSnapshot(

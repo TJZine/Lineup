@@ -277,6 +277,7 @@ describe('OrchestratorCoordinatorBuilders', () => {
 
     it('buildNavigationCoordinator preserves navigation-facing reporting semantics with the narrowed input seam', () => {
         const reportRecoverableAsyncFailure = jest.fn();
+        const appendIssueDiagnostic = jest.fn();
         const reportToast = jest.fn();
         const input: OrchestratorNavigationCoordinatorBuilderInput = {
             config: {
@@ -312,6 +313,7 @@ describe('OrchestratorCoordinatorBuilders', () => {
             } as unknown as OrchestratorNavigationCoordinatorBuilderInput['stores'],
             diagnostics: {
                 reportRecoverableAsyncFailure,
+                appendIssueDiagnostic,
             },
             playback: {
                 stopPlayback: jest.fn(),
@@ -382,6 +384,12 @@ describe('OrchestratorCoordinatorBuilders', () => {
         expect(navigationDeps.handlers.keyModeRouter).toBe(mockNavigationKeyModeRouterInstance);
         expect(navigationDeps.handlers.screenEffects).toBe(mockNavigationScreenEffectsHandlerInstance);
         expect(navigationDeps.events.readDebugLoggingEnabled()).toBe(true);
+        navigationDeps.events.logDebug?.('navigation.inputNotHandled', { reason: 'modal_open' });
+        expect(appendIssueDiagnostic).toHaveBeenCalledWith(
+            'navigation',
+            'navigation.inputNotHandled',
+            { reason: 'modal_open' }
+        );
     });
 
     it('buildChannelTransitionCoordinator routes transition activity changes through the named orchestrator callback path', () => {
