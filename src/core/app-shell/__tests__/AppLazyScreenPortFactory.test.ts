@@ -171,6 +171,21 @@ describe('AppLazyScreenPortFactory', () => {
         expect(orchestrator.selectServer).toHaveBeenCalledWith('server-1');
     });
 
+    it('rejects unhandled server-select result kinds instead of treating them as selected', async (): Promise<void> => {
+        const orchestrator = makeOrchestrator();
+        orchestrator.selectServer.mockResolvedValueOnce({
+            kind: 'selection_deferred',
+        });
+        const factory = createFactory(orchestrator);
+
+        const serverPorts = factory.createServerSelectScreenPorts();
+
+        await expect(serverPorts?.selectServer('server-1')).rejects.toThrow(
+            'Unhandled server selection result kind: selection_deferred'
+        );
+        expect(orchestrator.selectServer).toHaveBeenCalledWith('server-1');
+    });
+
     it('creates channel-setup input that delegates workflow and screen ports through orchestrator', async (): Promise<void> => {
         const orchestrator = makeOrchestrator();
         const workflowPort = { id: 'workflow-port' };

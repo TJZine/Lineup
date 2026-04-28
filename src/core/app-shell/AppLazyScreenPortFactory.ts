@@ -18,6 +18,11 @@ import type {
     AppShellSettingsRuntimePort,
 } from './AppShellRuntimeContracts';
 
+function assertUnhandledServerSelectionResult(result: never): never {
+    const resultKind = (result as { kind?: unknown }).kind;
+    throw new Error(`Unhandled server selection result kind: ${String(resultKind)}`);
+}
+
 export interface AppLazyScreenPortFactoryOptions {
     getNavigationRuntime: () => AppShellNavigationRuntimePort | null;
     getAuthRuntime: () => AppShellAuthRuntimePort | null;
@@ -101,10 +106,14 @@ export class AppLazyScreenPortFactory {
             discoverServers: (forceRefresh?: boolean) => runtime.discoverServers(forceRefresh),
             selectServer: async (serverId: string): Promise<ServerSelectSelectionResult> => {
                 const result = await runtime.selectServer(serverId);
-                if (result.kind === 'selection_failed') {
-                    return { kind: 'selection_failed', reason: result.reason };
+                switch (result.kind) {
+                    case 'selection_failed':
+                        return { kind: 'selection_failed', reason: result.reason };
+                    case 'selected':
+                        return { kind: 'selected' };
+                    default:
+                        return assertUnhandledServerSelectionResult(result);
                 }
-                return { kind: 'selected' };
             },
             clearSelectedServer: () => runtime.clearSelectedServer(),
             getSelectedServerStorageKey: () => runtime.getSelectedServerStorageKey(),

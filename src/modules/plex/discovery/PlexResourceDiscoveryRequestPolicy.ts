@@ -5,6 +5,9 @@ import { redactSensitiveTokens } from '../../../utils/redact';
 import { fetchDiscoveryResponse } from './PlexDiscoveryRequestExecutor';
 import { redactDiscoveryUrl } from './PlexDiscoveryResponsePolicy';
 
+const MIN_PORT = 1;
+const MAX_PORT = 65535;
+
 export async function discoverPlexResourcesWithRequestPolicy(
     headers: Record<string, string>
 ): Promise<PlexApiResource[]> {
@@ -145,7 +148,7 @@ function normalizeJsonConnection(connection: unknown, status: number): PlexApiCo
         uri: readJsonString(connection['uri']),
         protocol: readJsonString(connection['protocol']),
         address: readJsonString(connection['address']),
-        port: readJsonNumber(connection['port']),
+        port: normalizePort(connection['port']),
         local: readJsonBoolean(connection['local']),
         relay: readJsonBoolean(connection['relay']),
     };
@@ -157,11 +160,6 @@ function isJsonObject(value: unknown): value is Record<string, unknown> {
 
 function readJsonString(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
-}
-
-function readJsonNumber(value: unknown): number {
-    const numberValue = typeof value === 'number' ? value : (typeof value === 'string' ? Number(value.trim()) : 0);
-    return Number.isFinite(numberValue) ? numberValue : 0;
 }
 
 function readJsonBoolean(value: unknown): boolean {
@@ -176,6 +174,16 @@ function readJsonBoolean(value: unknown): boolean {
         return value === 1;
     }
     return false;
+}
+
+function normalizePort(value: unknown): number {
+    const numberValue = typeof value === 'number'
+        ? value
+        : (typeof value === 'string' && value.trim().length > 0 ? Number(value.trim()) : 0);
+
+    return Number.isInteger(numberValue) && numberValue >= MIN_PORT && numberValue <= MAX_PORT
+        ? numberValue
+        : 0;
 }
 
 function throwInvalidJsonResource(status: number): never {
@@ -218,13 +226,11 @@ function mapXmlDeviceToResource(device: Element): PlexApiResource {
 }
 
 function mapXmlConnection(conn: Element): PlexApiConnection {
-    const portRaw = conn.getAttribute('port');
-    const port = portRaw ? Number(portRaw) : 0;
     return {
         uri: conn.getAttribute('uri') || '',
         protocol: conn.getAttribute('protocol') || '',
         address: conn.getAttribute('address') || '',
-        port: Number.isFinite(port) ? port : 0,
+        port: normalizePort(conn.getAttribute('port')),
         local: parseXmlBoolean(conn.getAttribute('local')),
         relay: parseXmlBoolean(conn.getAttribute('relay')),
     };

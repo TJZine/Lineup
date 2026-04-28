@@ -198,6 +198,70 @@ describe('discoverPlexResourcesWithRequestPolicy response parsing', () => {
         ]);
     });
 
+    it('normalizes JSON and XML port values to TCP port boundaries', async () => {
+        mockDiscoveryResponse(createTextResponse(JSON.stringify([
+            {
+                clientIdentifier: 'srv-json',
+                name: 'JSON Server',
+                sourceTitle: 'json-user',
+                ownerId: 'owner-json',
+                owned: true,
+                provides: 'server',
+                connections: [
+                    { port: 1 },
+                    { port: '65535' },
+                    { port: 0 },
+                    { port: -1 },
+                    { port: 65536 },
+                    { port: 1.5 },
+                    { port: 'not-a-number' },
+                ],
+            },
+        ]), 'application/json'));
+
+        await expect(discoverPlexResourcesWithRequestPolicy(discoveryHeaders)).resolves.toEqual([
+            expect.objectContaining({
+                connections: [
+                    expect.objectContaining({ port: 1 }),
+                    expect.objectContaining({ port: 65535 }),
+                    expect.objectContaining({ port: 0 }),
+                    expect.objectContaining({ port: 0 }),
+                    expect.objectContaining({ port: 0 }),
+                    expect.objectContaining({ port: 0 }),
+                    expect.objectContaining({ port: 0 }),
+                ],
+            }),
+        ]);
+
+        mockDiscoveryResponse(createTextResponse(`
+            <MediaContainer>
+                <Device clientIdentifier="srv-xml" provides="server">
+                    <Connection port="1" />
+                    <Connection port="65535" />
+                    <Connection port="0" />
+                    <Connection port="-1" />
+                    <Connection port="65536" />
+                    <Connection port="1.5" />
+                    <Connection port="not-a-number" />
+                </Device>
+            </MediaContainer>
+        `, 'application/xml'));
+
+        await expect(discoverPlexResourcesWithRequestPolicy(discoveryHeaders)).resolves.toEqual([
+            expect.objectContaining({
+                connections: [
+                    expect.objectContaining({ port: 1 }),
+                    expect.objectContaining({ port: 65535 }),
+                    expect.objectContaining({ port: 0 }),
+                    expect.objectContaining({ port: 0 }),
+                    expect.objectContaining({ port: 0 }),
+                    expect.objectContaining({ port: 0 }),
+                    expect.objectContaining({ port: 0 }),
+                ],
+            }),
+        ]);
+    });
+
     it('throws PARSE_ERROR for non-XML unparsable responses', async () => {
         mockDiscoveryResponse(createTextResponse('not-a-json-or-xml-payload', 'text/plain'));
 
