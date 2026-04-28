@@ -6,8 +6,11 @@ import {
     NavigationCoordinator,
 } from '../../modules/navigation/NavigationCoordinator';
 import type {
-    NavigationChannelSwitchOutcome,
     NavigationCoordinatorHandlers,
+} from '../../modules/navigation/NavigationCoordinatorContracts';
+import { createNavigationCoordinatorRuntimeServices } from '../../modules/navigation/NavigationCoordinatorRuntimeServices';
+import type {
+    NavigationChannelSwitchOutcome,
     NavigationMiniGuidePort,
     NavigationModalsPort,
     NavigationNowPlayingInfoPort,
@@ -15,7 +18,7 @@ import type {
     NavigationPlaybackPort,
     NavigationChannelSwitchingPort,
     NavigationUiGuardsPort,
-} from '../../modules/navigation/NavigationCoordinatorContracts';
+} from '../../modules/navigation/NavigationFeaturePorts';
 import { NavigationChannelNumberHandler } from '../../modules/navigation/NavigationChannelNumberHandler';
 import { NavigationKeyModeRouter } from '../../modules/navigation/NavigationKeyModeRouter';
 import { NavigationModalEffectsHandler } from '../../modules/navigation/NavigationModalEffectsHandler';
@@ -663,70 +666,72 @@ export function buildNavigationCoordinator(
     const modals = buildNavigationModalsConfig(deps);
     const channelSwitching = buildNavigationChannelSwitchingConfig(input, deps);
     const uiGuards = buildNavigationUiGuardsConfig(deps);
-
-    return new NavigationCoordinator({
-        events: {
-            navigation: input.modules.navigation,
-            miniGuide,
-            channelSwitching,
-            reportRecoverableAsyncFailure: input.diagnostics.reportRecoverableAsyncFailure,
-            reportToast: (toast: ToastInput): void => {
-                notifyPlaybackRecoveryToast(input, toast);
-            },
-            readDebugLoggingEnabled: (): boolean =>
-                input.stores.developerSettingsStore.readDebugLoggingEnabledAndClean(false),
+    const events = {
+        navigation: input.modules.navigation,
+        miniGuide,
+        channelSwitching,
+        reportRecoverableAsyncFailure: input.diagnostics.reportRecoverableAsyncFailure,
+        reportToast: (toast: ToastInput): void => {
+            notifyPlaybackRecoveryToast(input, toast);
         },
-        createHandlers: (callbacks): NavigationCoordinatorHandlers => {
-            const repeats = new NavigationRepeatHandler({
+        readDebugLoggingEnabled: (): boolean =>
+            input.stores.developerSettingsStore.readDebugLoggingEnabledAndClean(false),
+    };
+    const runtime = createNavigationCoordinatorRuntimeServices(events);
+    const repeats = new NavigationRepeatHandler({
+        navigation: input.modules.navigation,
+        epg: input.modules.epg,
+        miniGuide,
+    });
+    const handlers: NavigationCoordinatorHandlers = {
+        repeats,
+        keyModeRouter: new NavigationKeyModeRouter(
+            {
                 navigation: input.modules.navigation,
                 epg: input.modules.epg,
+                playback,
                 miniGuide,
-            });
-            return {
-                repeats,
-                keyModeRouter: new NavigationKeyModeRouter(
-                    {
-                        navigation: input.modules.navigation,
-                        epg: input.modules.epg,
-                        playback,
-                        miniGuide,
-                        nowPlayingInfo,
-                        modals,
-                        channelSwitching,
-                    },
-                    repeats,
-                    callbacks.fireAndReport,
-                    callbacks.observeNonBlockingPromise,
-                    callbacks.logInputNotHandled
-                ),
-                screenEffects: new NavigationScreenEffectsHandler(
-                    {
-                        navigation: input.modules.navigation,
-                        epg: input.modules.epg,
-                        playback,
-                        miniGuide,
-                        nowPlayingInfo,
-                        channelSwitching,
-                        uiGuards,
-                        readKeepPlayingInSettings: (): boolean =>
-                            input.stores.profileSessionStore.readKeepPlayingInSettingsAndClean(false),
-                    },
-                    repeats,
-                    callbacks.fireAndReport
-                ),
-                modalEffects: new NavigationModalEffectsHandler(
-                    {
-                        miniGuide,
-                        nowPlayingInfo,
-                        modals,
-                    },
-                    repeats
-                ),
-                channelNumber: new NavigationChannelNumberHandler({
-                    epg: input.modules.epg,
-                    channelSwitching,
-                }),
-            };
-        },
+                nowPlayingInfo,
+                modals,
+                channelSwitching,
+            },
+            repeats,
+            runtime.fireAndReport,
+            runtime.observeNonBlockingPromise,
+            runtime.logInputNotHandled
+        ),
+        screenEffects: new NavigationScreenEffectsHandler(
+            {
+                navigation: input.modules.navigation,
+                epg: input.modules.epg,
+                playback,
+                miniGuide,
+                nowPlayingInfo,
+                channelSwitching,
+                uiGuards,
+                readKeepPlayingInSettings: (): boolean =>
+                    input.stores.profileSessionStore.readKeepPlayingInSettingsAndClean(false),
+            },
+            repeats,
+            runtime.fireAndReport
+        ),
+        modalEffects: new NavigationModalEffectsHandler(
+            {
+                miniGuide,
+                nowPlayingInfo,
+                modals,
+            },
+            repeats
+        ),
+        channelNumber: new NavigationChannelNumberHandler({
+            epg: input.modules.epg,
+            channelSwitching,
+        }),
+    };
+
+    return new NavigationCoordinator({
+        events,
+        handlers,
+        runtime,
     });
 }

@@ -6,11 +6,12 @@ import type {
     Screen,
 } from './interfaces';
 import type { ToastInput } from '../ui/toast/types';
-
-export type NavigationPlaybackOptionsSectionId = 'subtitles' | 'audio';
-export type NavigationChannelSwitchOutcome = 'switched' | 'aborted' | 'failed';
-export type NavigationFourWayDirection = 'up' | 'down' | 'left' | 'right';
-export type NavigationVerticalDirection = 'up' | 'down';
+import type {
+    NavigationChannelSwitchingPort,
+    NavigationFourWayDirection,
+    NavigationMiniGuidePort,
+    NavigationVerticalDirection,
+} from './NavigationFeaturePorts';
 
 type IsExactType<Actual, Expected> =
     [Actual] extends [Expected]
@@ -52,94 +53,6 @@ export type MiniGuideStopReason =
     | 'right'
     | 'notPlayer';
 
-export interface NavigationEpgPort {
-    isVisible: () => boolean;
-    handleNavigation: (direction: NavigationFourWayDirection) => boolean;
-    handlePage: (direction: NavigationVerticalDirection) => boolean;
-    handleSelect: () => boolean;
-    handleBack: () => boolean;
-    focusNow: () => void;
-    hide: () => void;
-}
-
-export interface NavigationVideoPlayerPort {
-    play: () => Promise<void>;
-    pause: () => void;
-    seekRelative: (deltaMs: number) => Promise<void>;
-}
-
-export interface NavigationAuthPort {
-    isAuthenticated: () => boolean;
-}
-
-export interface NavigationPlaybackPort {
-    videoPlayer: NavigationVideoPlayerPort | null;
-    plexAuth: NavigationAuthPort | null;
-    stopPlayback: () => void;
-    getSeekIncrementMs: () => number;
-    playerOsd: {
-        overlay: { isVisible: () => boolean } | null;
-        coordinator: {
-            poke: (reason: 'play' | 'pause' | 'seek') => void;
-            toggle: () => void;
-            hide: () => void;
-        } | null;
-    };
-}
-
-export interface NavigationMiniGuidePort {
-    overlay: { isVisible: () => boolean } | null;
-    coordinator: {
-        show: () => void;
-        hide: () => void;
-        handleNavigation: (direction: NavigationVerticalDirection) => boolean;
-        handlePage: (direction: NavigationVerticalDirection) => boolean;
-        handleSelect: () => void;
-    } | null;
-}
-
-export interface NavigationNowPlayingInfoPort {
-    modalId: string;
-    isModalOpen: () => boolean;
-    resetAutoHideTimer: () => void;
-    toggleOverlay: () => void;
-    showOverlay: () => void;
-    hideOverlay: () => void;
-}
-
-export interface NavigationModalsPort {
-    playbackOptions: {
-        modalId: string;
-        prepare: (
-            preferredSection?: NavigationPlaybackOptionsSectionId
-        ) => { focusableIds: string[]; preferredFocusId: string | null };
-        show: () => void;
-        hide: () => void;
-    };
-    exitConfirm: {
-        modalId: string;
-        prepare: () => { focusableIds: string[] };
-        show: () => void;
-        hide: () => void;
-    };
-}
-
-export interface NavigationChannelSwitchingPort {
-    setLastChannelChangeSourceRemote: () => void;
-    setLastChannelChangeSourceNumber: () => void;
-    switchToNextChannel: () => void;
-    switchToPreviousChannel: () => void;
-    switchToChannelByNumber: (n: number) => Promise<NavigationChannelSwitchOutcome>;
-    focusEpgOnCurrentChannel: () => void;
-    toggleEpg: () => void;
-    onChannelInputUpdate?: (payload: { digits: string; isComplete: boolean }) => void;
-}
-
-export interface NavigationUiGuardsPort {
-    shouldRunChannelSetup: () => boolean;
-    hideChannelTransition: () => void;
-}
-
 export interface NavigationRepeatRuntime {
     stopForKeyUp(button: KeyEvent['button']): void;
     stopForNonDirectionalInput(event: KeyEvent): void;
@@ -170,7 +83,7 @@ export interface NavigationChannelNumberHandlerRuntime {
     handleChannelNumberEntered(channelNumber: number): Promise<void>;
 }
 
-export interface NavigationCoordinatorHandlerCallbacks {
+export interface NavigationCoordinatorRuntimeServices {
     fireAndReport: (
         key: string,
         promiseFactory: () => Promise<void>,
@@ -196,10 +109,6 @@ export interface NavigationCoordinatorHandlers {
     channelNumber: NavigationChannelNumberHandlerRuntime;
 }
 
-export type NavigationCoordinatorHandlerFactory = (
-    callbacks: NavigationCoordinatorHandlerCallbacks
-) => NavigationCoordinatorHandlers;
-
 export interface NavigationCoordinatorEventPort {
     navigation: INavigationManager;
     miniGuide: NavigationMiniGuidePort;
@@ -218,5 +127,6 @@ export interface NavigationCoordinatorEventPort {
  */
 export interface NavigationCoordinatorDeps {
     events: NavigationCoordinatorEventPort;
-    createHandlers: NavigationCoordinatorHandlerFactory;
+    handlers: NavigationCoordinatorHandlers;
+    runtime: NavigationCoordinatorRuntimeServices;
 }

@@ -7,11 +7,19 @@ import type {
     PlexTagDirectoryUnsupportedReason,
 } from '../../../modules/plex/library';
 import { getTagDirectoryMediaTypesForLibraryType } from '../../../modules/plex/library';
-import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
 import { summarizeErrorForLog } from '../../../utils/errors';
-import type { ChannelBuildProgress, ChannelSetupConfig, ChannelSetupPreviewFailureReason } from '../types';
+import type { ChannelBuildProgress, ChannelSetupConfig } from '../types';
 import { isSignalAborted } from '../shared/utils';
-import { buildChannelSetupFacetCountFilter } from './ChannelSetupTagFilters';
+import { createAbortError } from './ChannelSetupFacetSnapshotAbort';
+import {
+    ChannelSetupFacetCountRecoveryWorker,
+    type ChannelSetupFacetCountRecoveryFamily,
+    type FacetCountRecoveryLimiter,
+} from './ChannelSetupFacetCountRecoveryWorker';
+import {
+    ChannelSetupFacetSnapshotFailureBuilder,
+    type ChannelSetupRequiredTagDirectoryLabel,
+} from './ChannelSetupFacetSnapshotFailures';
 import type {
     ChannelSetupFacetMap,
     ChannelSetupFacetSnapshot,
@@ -19,7 +27,6 @@ import type {
     ChannelSetupPlexRequestIntent,
 } from './ChannelSetupPlanningTypes';
 
-type ChannelSetupRequiredTagDirectoryLabel = 'Genres' | 'Directors' | 'Years' | 'Actors' | 'Studios';
 type ChannelSetupNativeFacetFamily = 'genres' | 'directors' | 'decades' | 'actors' | 'studios';
 
 type DeferredEmptyTagDirectoryFailure = {
@@ -33,7 +40,7 @@ type NativeFacetTaskDefinition = {
     family: ChannelSetupNativeFacetFamily;
     label: ChannelSetupRequiredTagDirectoryLabel;
     mediaType: number;
-    countRecoveryFamily: 'genre' | 'director' | 'year' | 'actor' | 'studio';
+    countRecoveryFamily: ChannelSetupFacetCountRecoveryFamily;
     tagsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
     fetchTags: (
         options: {
@@ -44,8 +51,6 @@ type NativeFacetTaskDefinition = {
         }
     ) => Promise<PlexTagDirectoryItem[]>;
 };
-
-type FacetCountRecoveryLimiter = <T>(task: () => Promise<T>) => Promise<T>;
 
 type ChannelSetupFacetSnapshotLoadSessionOptions = {
     plexLibrary: IPlexLibrary;
@@ -193,37 +198,17 @@ class ChannelSetupFacetSnapshotLibraryQueue {
     }
 }
 
-export class ChannelSetupPlanningError extends Error {
-    public readonly code: 'COUNT_UNAVAILABLE' = 'COUNT_UNAVAILABLE';
-
-    constructor(message: string) {
-        super(message);
-        this.name = 'ChannelSetupPlanningError';
-    }
-}
-
-export function assertRecoveredTagCount(
-    count: number | null,
-    family: 'genre' | 'director' | 'year' | 'actor' | 'studio',
-    tagTitle: string
-): number {
-    if (count === null) {
-        throw new ChannelSetupPlanningError(`${family} count unavailable for ${tagTitle}`);
-    }
-    return count;
-}
-
-export function createAbortError(lastTask?: ChannelBuildProgress['task']): DOMException & { lastTask?: ChannelBuildProgress['task'] } {
-    const error = new DOMException('Aborted', 'AbortError') as DOMException & { lastTask?: ChannelBuildProgress['task'] };
-    if (lastTask !== undefined) {
-        error.lastTask = lastTask;
-    }
-    return error;
-}
-
 export class ChannelSetupFacetSnapshotLoadSession {
     private readonly _selectedLibraries: PlexLibrarySection[];
     private readonly _snapshotDataAccumulator = new ChannelSetupFacetSnapshotDataAccumulator();
+    private readonly _failureBuilder = new ChannelSetupFacetSnapshotFailureBuilder({
+        addWarning: (message): void => this._snapshotDataAccumulator.addWarning(message),
+        incrementErrors: (): void => {
+            this._snapshotDataAccumulator.errorsTotal++;
+        },
+        snapshotData: (hasTransientLoadFailure): ChannelSetupFacetSnapshotData =>
+            this._snapshotData(hasTransientLoadFailure),
+    });
     private _lastTask: ChannelBuildProgress['task'] | undefined;
     private _shouldStop = false;
     private _firstFailure: ChannelSetupFacetSnapshot | null = null;
@@ -713,89 +698,25 @@ export class ChannelSetupFacetSnapshotLoadSession {
     private async _recoverUnknownTagCounts(
         libraryId: string,
         mediaType: number,
-        family: 'genre' | 'director' | 'year' | 'actor' | 'studio',
+        family: ChannelSetupFacetCountRecoveryFamily,
         tags: PlexTagDirectoryItem[],
         tagSignal: AbortSignal,
         countRecoveryLimiter: FacetCountRecoveryLimiter
     ): Promise<PlexTagDirectoryItem[]> {
-        const unknownIndexes = tags
-            .map((tag, index) => (tag.count === null ? index : -1))
-            .filter((index) => index >= 0);
-        if (unknownIndexes.length === 0) {
-            return tags;
-        }
-
-        const hydratedTags = [...tags];
-        const workerCount = Math.min(MAX_FACET_COUNT_RECOVERY_CONCURRENCY, unknownIndexes.length);
-        const queue = [...unknownIndexes];
-        const siblingAbortController = new AbortController();
-        let hasFirstError = false;
-        let firstError: unknown;
-        const linkedAbortSignal = createLinkedAbortSignal([
+        return new ChannelSetupFacetCountRecoveryWorker({
+            plexLibrary: this._options.plexLibrary,
+            libraryId,
+            mediaType,
+            family,
+            tags,
             tagSignal,
-            siblingAbortController.signal,
-        ]);
-        const workers = Array.from({ length: workerCount }, async (): Promise<void> => {
-            try {
-                while (queue.length > 0) {
-                    if (linkedAbortSignal.signal.aborted) {
-                        if (hasFirstError) {
-                            throw firstError;
-                        }
-                        return;
-                    }
-                    const tagIndex = queue.shift();
-                    if (tagIndex === undefined || linkedAbortSignal.signal.aborted) {
-                        if (hasFirstError) {
-                            throw firstError;
-                        }
-                        return;
-                    }
-                    const tag = hydratedTags[tagIndex];
-                    if (!tag || tag.count !== null) {
-                        continue;
-                    }
-                    const countStart = performance.now();
-                    let count: number | null;
-                    try {
-                        count = await countRecoveryLimiter(async () => {
-                            if (linkedAbortSignal.signal.aborted) {
-                                throw createAbortError(this._lastTask);
-                            }
-                            return this._options.plexLibrary.getLibraryItemCount(libraryId, {
-                                filter: buildChannelSetupFacetCountFilter(tag, family, mediaType),
-                                signal: linkedAbortSignal.signal,
-                            });
-                        });
-                    } finally {
-                        this._snapshotDataAccumulator.libraryQueryMs += performance.now() - countStart;
-                    }
-                    hydratedTags[tagIndex] = {
-                        ...tag,
-                        count: assertRecoveredTagCount(count, family, tag.title),
-                    };
-                }
-            } catch (error) {
-                const isAbortError = error instanceof Error && error.name === 'AbortError';
-                if (!isAbortError && !hasFirstError) {
-                    firstError = error;
-                    hasFirstError = true;
-                }
-                if (!siblingAbortController.signal.aborted) {
-                    siblingAbortController.abort();
-                }
-                if (isAbortError && hasFirstError) {
-                    throw firstError;
-                }
-                throw hasFirstError ? firstError : error;
-            }
-        });
-        try {
-            await Promise.all(workers);
-        } finally {
-            linkedAbortSignal.dispose();
-        }
-        return hydratedTags;
+            countRecoveryLimiter,
+            getLastTask: () => this._lastTask,
+            addLibraryQueryMs: (durationMs): void => {
+                this._snapshotDataAccumulator.libraryQueryMs += durationMs;
+            },
+            maxConcurrency: MAX_FACET_COUNT_RECOVERY_CONCURRENCY,
+        }).recover();
     }
 
     private _snapshotData(hasTransientLoadFailure: boolean): ChannelSetupFacetSnapshotData {
@@ -820,21 +741,6 @@ export class ChannelSetupFacetSnapshotLoadSession {
         this._snapshotDataAccumulator.addPartialWarning(task, detail, error);
     }
 
-    private _buildFailureSnapshot(
-        status: 'blocked' | 'slow',
-        message: string,
-        failureReason: ChannelSetupPreviewFailureReason
-    ): ChannelSetupFacetSnapshot {
-        this._snapshotDataAccumulator.addWarning(message);
-        this._snapshotDataAccumulator.errorsTotal++;
-        return {
-            status,
-            message,
-            failureReason,
-            ...this._snapshotData(false),
-        };
-    }
-
     private _buildRequiredTagDirectoryFailure(
         label: ChannelSetupRequiredTagDirectoryLabel,
         libraryTitle: string,
@@ -842,33 +748,7 @@ export class ChannelSetupFacetSnapshotLoadSession {
         reason: PlexTagDirectoryUnsupportedReason | 'error',
         error?: unknown
     ): ChannelSetupFacetSnapshot {
-        const baseLabel = label.toLowerCase();
-        if (reason === 'error') {
-            const summaryObject = getErrorSummaryObject(error);
-            const detail = typeof summaryObject.message === 'string'
-                ? summaryObject.message
-                : summaryObject.code !== undefined
-                    ? String(summaryObject.code)
-                    : 'unknown error';
-            if (getAppErrorCode(summaryObject.code) === AppErrorCode.NETWORK_TIMEOUT) {
-                return this._buildFailureSnapshot(
-                    'slow',
-                    `Required ${baseLabel} tag directory (type=${type}) timed out for ${libraryTitle}; try again after Plex responds.`,
-                    'timeout'
-                );
-            }
-            return this._buildFailureSnapshot(
-                'blocked',
-                `Required ${baseLabel} tag directory (type=${type}) failed for ${libraryTitle} (${detail}); stop and re-plan.`,
-                'error'
-            );
-        }
-        const detail = reason === 'empty' ? 'returned no entries' : 'is unsupported';
-        return this._buildFailureSnapshot(
-            'blocked',
-            `Required ${baseLabel} tag directory (type=${type}) ${detail} for ${libraryTitle}; stop and re-plan.`,
-            reason === 'empty' ? 'empty' : 'unsupported'
-        );
+        return this._failureBuilder.buildRequiredTagDirectoryFailure(label, libraryTitle, type, reason, error);
     }
 
     private _buildRequiredTagCountRecoveryFailure(
@@ -877,25 +757,7 @@ export class ChannelSetupFacetSnapshotLoadSession {
         type: number,
         error: unknown
     ): ChannelSetupFacetSnapshot {
-        const baseLabel = label.toLowerCase();
-        const summaryObject = getErrorSummaryObject(error);
-        const detail = typeof summaryObject.message === 'string'
-            ? summaryObject.message
-            : summaryObject.code !== undefined
-                ? String(summaryObject.code)
-                : 'unknown error';
-        if (getAppErrorCode(summaryObject.code) === AppErrorCode.NETWORK_TIMEOUT) {
-            return this._buildFailureSnapshot(
-                'slow',
-                `Required ${baseLabel} item counts (type=${type}) timed out for ${libraryTitle}; try again after Plex responds.`,
-                'timeout'
-            );
-        }
-        return this._buildFailureSnapshot(
-            'blocked',
-            `Required ${baseLabel} item counts (type=${type}) failed for ${libraryTitle} (${detail}); stop and re-plan.`,
-            'error'
-        );
+        return this._failureBuilder.buildRequiredTagCountRecoveryFailure(label, libraryTitle, type, error);
     }
 
     private _markFacetEntries(
@@ -958,38 +820,6 @@ function compareDeferredEmptyTagDirectoryFailures(
     if (titleDiff !== 0) return titleDiff;
 
     return left.type - right.type;
-}
-
-function createLinkedAbortSignal(signals: AbortSignal[]): { signal: AbortSignal; dispose: () => void } {
-    const controller = new AbortController();
-    if (signals.some((signal) => signal.aborted)) {
-        controller.abort();
-        return {
-            signal: controller.signal,
-            dispose: () => undefined,
-        };
-    }
-    const listeners: Array<{ signal: AbortSignal; listener: () => void }> = [];
-    const abort = (): void => {
-        if (!controller.signal.aborted) {
-            controller.abort();
-        }
-    };
-
-    for (const signal of signals) {
-        signal.addEventListener('abort', abort, { once: true });
-        listeners.push({ signal, listener: abort });
-    }
-
-    return {
-        signal: controller.signal,
-        dispose: (): void => {
-            for (const { signal, listener } of listeners) {
-                signal.removeEventListener('abort', listener);
-            }
-            listeners.length = 0;
-        },
-    };
 }
 
 function createFacetCountRecoveryLimiter(maxConcurrency: number): FacetCountRecoveryLimiter {

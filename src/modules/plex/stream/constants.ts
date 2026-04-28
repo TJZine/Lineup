@@ -1,13 +1,4 @@
-/**
- * @fileoverview Plex Stream Resolver constants.
- * Codec support tables for webOS direct play detection.
- * @module modules/plex/stream/constants
- * @version 1.0.0
- */
-
-// ============================================
 // webOS Codec Support (MAJOR-002)
-// ============================================
 
 /**
  * Supported container formats for direct play on webOS.
@@ -64,9 +55,7 @@ export const MAX_RESOLUTION = {
     height: 2160,
 } as const;
 
-// ============================================
 // Subtitle Formats
-// ============================================
 
 // Re-export from shared module so Plex stream policy code and its tests can import from a single
 // local boundary (`modules/plex/stream/constants`) instead of reaching into shared internals.
@@ -76,9 +65,7 @@ export {
     TEXT_SUBTITLE_FORMATS,
 } from '../../../shared/subtitle-formats';
 
-// ============================================
 // Client Profile
-// ============================================
 
 /**
  * Default HLS options when not specified.
@@ -89,9 +76,7 @@ export const DEFAULT_HLS_OPTIONS = {
     audioBoost: 100,
 } as const;
 
-// ============================================
 // MIME Types
-// ============================================
 
 /**
  * MIME type mapping for stream protocols and containers.

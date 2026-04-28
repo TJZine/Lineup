@@ -52,12 +52,6 @@ export class AppLifecycle implements IAppLifecycle {
     private _initialized: boolean = false;
     private _shutdownStarted: boolean = false;
 
-    /**
-     * Create a new AppLifecycle manager.
-     * @param stateManager - Optional custom StateManager (for testing)
-     * @param errorRecovery - Optional custom ErrorRecovery (for testing)
-     * @param lifecycleService - Optional platform lifecycle service (for testing/wiring)
-     */
     constructor(
         stateManager?: StateManager,
         errorRecovery?: ErrorRecovery,
@@ -104,10 +98,7 @@ export class AppLifecycle implements IAppLifecycle {
         });
     }
 
-    // ========== Lifecycle Methods ==========
-
     /**
-     * Initialize the lifecycle manager.
      * Sets up event listeners and restores state.
      */
     public async initialize(): Promise<void> {
@@ -137,10 +128,6 @@ export class AppLifecycle implements IAppLifecycle {
         }
     }
 
-    /**
-     * Shutdown the lifecycle manager.
-     * Saves state and removes all event listeners.
-     */
     public async shutdown(): Promise<void> {
         if (this._shutdownStarted) {
             return;
@@ -168,17 +155,9 @@ export class AppLifecycle implements IAppLifecycle {
         this._emitter.removeAllListeners();
     }
 
-    // ========== State Persistence ==========
-
-    /**
-     * Save current application state.
-     * Debounced to prevent excessive writes.
-     */
     public saveState(): Promise<void> {
         return this._statePersistenceQueue.saveState();
     }
-
-    // ========== Lifecycle Hooks ==========
 
     public onPause(callback: LifecycleCallback): IDisposable {
         return this._registerLifecycleCallback(this._pauseCallbacks, callback);
@@ -192,43 +171,21 @@ export class AppLifecycle implements IAppLifecycle {
         return this._registerLifecycleCallback(this._terminateCallbacks, callback);
     }
 
-    // ========== Network Monitoring ==========
-
-    /**
-     * Check if network is available.
-     * @returns true if online
-     */
     public isNetworkAvailable(): boolean {
         return this._isNetworkAvailable;
     }
 
-    /**
-     * Actively test network connectivity.
-     * @returns true if network test succeeds
-     */
     public async checkNetworkStatus(): Promise<boolean> {
         return this._connectivityMonitor.checkNetworkStatus();
     }
 
-    // ========== Memory Monitoring ==========
-
-    /**
-     * Get current memory usage.
-     * @returns Memory usage statistics
-     */
     public getMemoryUsage(): MemoryUsage {
         return this._memoryMonitor.getMemoryUsage();
     }
 
-    /**
-     * Perform memory cleanup.
-     * Emits events to trigger cache clearing.
-     */
     public performMemoryCleanup(): void {
         this._emitter.emit('clearCaches', undefined);
     }
-
-    // ========== Phase Management ==========
 
     public getPhase(): AppPhase {
         return this._phase;
@@ -245,11 +202,6 @@ export class AppLifecycle implements IAppLifecycle {
         };
     }
 
-    /**
-     * Set application phase.
-     * Validates transition and emits event.
-     * @param phase - New phase
-     */
     public setPhase(phase: AppPhase): void {
         this._trackPendingTransition(this._setPhaseAndTrack(phase));
     }
@@ -313,12 +265,6 @@ export class AppLifecycle implements IAppLifecycle {
         return true;
     }
 
-    // ========== Error Handling ==========
-
-    /**
-     * Report an error.
-     * @param error - Error to report
-     */
     public reportError(error: AppError): void {
         this._lastError = error;
 
@@ -346,12 +292,6 @@ export class AppLifecycle implements IAppLifecycle {
         return this._errorRecovery.getUserMessage(code);
     }
 
-    // ========== Event Handling ==========
-
-    /**
-     * Register an event handler.
-     * @returns A disposable to remove the handler
-     */
     public on<K extends keyof LifecycleEventMap>(
         event: K,
         handler: (payload: LifecycleEventMap[K]) => void
@@ -359,11 +299,6 @@ export class AppLifecycle implements IAppLifecycle {
         return this._emitter.on(event, handler);
     }
 
-    // ========== Private Methods ==========
-
-    /**
-     * Setup visibility change listeners.
-     */
     private _setupVisibilityListeners(): void {
         this._visibilityHandler = (): void => {
             const transition = document.hidden ? this._handlePause() : this._handleResume();
@@ -377,9 +312,6 @@ export class AppLifecycle implements IAppLifecycle {
         this._webOSRelaunchDisposer = this._lifecycleService.bindRelaunch(relaunchHandler);
     }
 
-    /**
-     * Remove visibility listeners.
-     */
     private _removeVisibilityListeners(): void {
         if (this._visibilityHandler) {
             document.removeEventListener('visibilitychange', this._visibilityHandler);

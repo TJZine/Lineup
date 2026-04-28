@@ -379,13 +379,8 @@ describe('OrchestratorCoordinatorBuilders', () => {
         expect(navigationDeps.events.reportToast).toBeDefined();
         navigationDeps.events.reportToast?.({ message: 'Recovered', type: 'warning' });
         expect(reportToast).toHaveBeenCalledWith({ message: 'Recovered', type: 'warning' });
-        const handlers = navigationDeps.createHandlers({
-            fireAndReport: jest.fn(),
-            observeNonBlockingPromise: jest.fn().mockResolvedValue(undefined),
-            logInputNotHandled: jest.fn(),
-        });
-        expect(handlers.keyModeRouter).toBe(mockNavigationKeyModeRouterInstance);
-        expect(handlers.screenEffects).toBe(mockNavigationScreenEffectsHandlerInstance);
+        expect(navigationDeps.handlers.keyModeRouter).toBe(mockNavigationKeyModeRouterInstance);
+        expect(navigationDeps.handlers.screenEffects).toBe(mockNavigationScreenEffectsHandlerInstance);
         expect(navigationDeps.events.readDebugLoggingEnabled()).toBe(true);
     });
 

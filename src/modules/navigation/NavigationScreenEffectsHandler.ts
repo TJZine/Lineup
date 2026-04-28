@@ -1,13 +1,15 @@
 import type {
+    NavigationRepeatRuntime,
+    NavigationScreenEffectsRuntime,
+} from './NavigationCoordinatorContracts';
+import type {
     NavigationChannelSwitchingPort,
     NavigationEpgPort,
     NavigationMiniGuidePort,
     NavigationNowPlayingInfoPort,
     NavigationPlaybackPort,
-    NavigationRepeatRuntime,
-    NavigationScreenEffectsRuntime,
     NavigationUiGuardsPort,
-} from './NavigationCoordinatorContracts';
+} from './NavigationFeaturePorts';
 import type { INavigationManager, Screen } from './interfaces';
 import type { NavigationFireAndReport } from './NavigationKeyModeRouter';
 

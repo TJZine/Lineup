@@ -1060,7 +1060,7 @@ must add larger score-moving packages.
   coordination remain in the session.
 - Handoff: archived inside completed `P14-WAVE5`.
 
-### [ ] `P14-WAVE6` post-WAVE5 target residual cleanup
+### [x] `P14-WAVE6` post-WAVE5 target residual cleanup
 
 - Scope: execute the focused post-WAVE5 residual issues admitted because all
   three P14 target dimensions remain below `85`.
@@ -1084,17 +1084,19 @@ must add larger score-moving packages.
   map, targeted `rg` audits, targeted tests where source behavior is touched,
   `npm run verify`, implementation review, checklist/package-map updates, and
   `npm run verify:docs`.
-- Status: not started
-- Plan: none yet; first action is a package-local execution-grade WAVE6 plan.
+- Status: completed
+- Plan: approved package-local WAVE6 execution unit; implementation completed
+  for `P14-W21` through `P14-W27`.
 - Last touched: `2026-04-28`
 - Follow-ups: the post-WAVE5 focused review re-used the
   `navigation_collaborator_cycle` id with new residual assembly evidence;
   `P14-W26` is the current residual owner while `P14-W14` remains closed for
   its approved WAVE4 source slice.
-- Handoff: start with planning only. Completing WAVE6 will still require a
-  fresh focused review/scoring pass before P14 can enter `P14-EXIT`.
+- Handoff: route to implementation review for `P14-WAVE6`. Completing WAVE6
+  still requires the controller-owned fresh focused review/scoring pass before
+  P14 can enter `P14-EXIT`; that review/scoring was not run in this worker pass.
 
-### [ ] `P14-W21` `navigation-runtime-contract-hub`
+### [x] `P14-W21` `navigation-runtime-contract-hub`
 
 - Imported review issues:
   - `review::.::holistic::cross_module_architecture::navigation_runtime_contract_hub`
@@ -1110,9 +1112,12 @@ must add larger score-moving packages.
   - `src/modules/navigation/NavigationModalEffectsHandler.ts`
 - Package guardrail: navigation may own remote/focus routing contracts, but
   cross-feature wiring and concrete adaptation stay in the orchestrator.
-- Handoff: execute as part of `P14-WAVE6` after plan/review.
+- Disposition: resolved in `P14-WAVE6`; feature-facing navigation handler ports
+  moved from `NavigationCoordinatorContracts` to `NavigationFeaturePorts`, with
+  orchestrator-owned feature adaptation preserved in
+  `OrchestratorCoordinatorBuilders`.
 
-### [ ] `P14-W22` `generated-style-headers-persist`
+### [x] `P14-W22` `generated-style-headers-persist`
 
 - Imported review issues:
   - `review::.::holistic::ai_generated_debt::generated_style_headers_persist`
@@ -1126,9 +1131,11 @@ must add larger score-moving packages.
   - `src/modules/plex/stream/constants.ts`
 - Package guardrail: comment-only; preserve compact comments that explain
   architecture references, platform constraints, or domain invariants.
-- Handoff: execute as part of `P14-WAVE6` after plan/review.
+- Disposition: resolved in `P14-WAVE6`; generated-style metadata and separator
+  banners were removed from the admitted handwritten production modules without
+  runtime changes.
 
-### [ ] `P14-W23` `interface-lifecycle-signature-jsdoc`
+### [x] `P14-W23` `interface-lifecycle-signature-jsdoc`
 
 - Imported review issues:
   - `review::.::holistic::ai_generated_debt::interface_lifecycle_signature_jSDoc`
@@ -1143,9 +1150,11 @@ must add larger score-moving packages.
 - Package guardrail: comment-only; do not remove comments that document
   lifecycle ordering, browser/platform quirks, persistence guarantees, business
   rules, or behavior not visible in the signature.
-- Handoff: execute as part of `P14-WAVE6` after plan/review.
+- Disposition: resolved in `P14-WAVE6`; repetitive lifecycle/interface/signature
+  JSDoc was trimmed while preserving ordering, persistence, platform, and
+  non-obvious behavior comments.
 
-### [ ] `P14-W24` `scheduler-type-field-doc-bloat`
+### [x] `P14-W24` `scheduler-type-field-doc-bloat`
 
 - Imported review issues:
   - `review::.::holistic::ai_generated_debt::type_field_doc_bloat`
@@ -1156,9 +1165,11 @@ must add larger score-moving packages.
   - `src/modules/scheduler/channel-manager/types.ts`
 - Package guardrail: comment-only; preserve comments that explain domain
   constraints or persistence/security semantics not visible from the type.
-- Handoff: execute as part of `P14-WAVE6` after plan/review.
+- Disposition: resolved in `P14-WAVE6`; duplicate scheduler field comments were
+  removed while preserving domain, cache, token, persistence, and compatibility
+  notes.
 
-### [ ] `P14-W25` `facet-snapshot-load-session-too-broad`
+### [x] `P14-W25` `facet-snapshot-load-session-too-broad`
 
 - Imported review issues:
   - `review::.::holistic::design_coherence::facet_snapshot_load_session_too_broad`
@@ -1169,9 +1180,13 @@ must add larger score-moving packages.
   - `src/core/channel-setup/planning/ChannelSetupFacetSnapshotLoadSession.ts`
 - Package guardrail: preserve facet snapshot output, cancellation, warning,
   timing, progress, cache/inflight, and partial-failure behavior.
-- Handoff: execute as part of `P14-WAVE6` after plan/review.
+- Disposition: resolved in `P14-WAVE6`; failure construction moved to
+  `ChannelSetupFacetSnapshotFailureBuilder` and unknown tag-count recovery moved
+  to `ChannelSetupFacetCountRecoveryWorker`, while load-session orchestration
+  retains cancellation, warnings, timing, progress, cache/inflight, and
+  partial-failure behavior.
 
-### [ ] `P14-W26` `navigation-collaborator-cycle-wave6-residual`
+### [x] `P14-W26` `navigation-collaborator-cycle-wave6-residual`
 
 - Imported review issues:
   - `review::.::holistic::design_coherence::navigation_collaborator_cycle`
@@ -1184,9 +1199,12 @@ must add larger score-moving packages.
 - Package guardrail: preserve remote behavior and event subscription ownership.
   Do not treat stale/type-only cycle rows as source truth without current-source
   proof.
-- Handoff: execute as part of `P14-WAVE6` after plan/review.
+- Disposition: resolved in `P14-WAVE6`; `NavigationCoordinator` receives built
+  handlers plus a runtime-services seam and remains responsible for event
+  subscription wiring. `npx madge --circular` found no circular dependency
+  across the cited navigation files.
 
-### [ ] `P14-W27` `epg-info-duration-duplication`
+### [x] `P14-W27` `epg-info-duration-duplication`
 
 - Imported review issues:
   - `review::.::holistic::design_coherence::epg_info_duration_duplication`
@@ -1196,7 +1214,9 @@ must add larger score-moving packages.
   - `src/modules/ui/epg/view/EPGInfoPanel.ts`
   - `src/modules/ui/epg/utils.ts`
 - Package guardrail: preserve current displayed duration formatting.
-- Handoff: execute as part of `P14-WAVE6` after plan/review.
+- Disposition: stale-proven in `P14-WAVE6`; current source already imports and
+  uses shared `formatDuration` from `../utils`, and the targeted EPG info panel
+  test preserved duration formatting.
 
 ### [ ] `P14-EXIT`
 

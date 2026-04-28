@@ -531,7 +531,7 @@
     {
       "wave_id": "P14-WAVE6",
       "name": "post-wave5-target-residual-cleanup",
-      "status": "admitted",
+      "status": "implemented_pending_review",
       "purpose": "After WAVE5, focused review still left all three P14 target dimensions below 85; execute the next admitted source-backed residual issues before reconsidering P14-EXIT.",
       "gate_only": false,
       "admission_rule": "Admit only source-backed residuals from the 20260428_022830 focused review with one owner, candidate files, package-local commands, and verification routing. Do not open P15 or reopen broad AppOrchestrator/lifecycle cleanup.",
@@ -1439,9 +1439,8 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE6 execution-grade plan",
-        "recommended_execution_order": 1
+        "status": "implemented_pending_review",
+        "disposition": "resolved in P14-WAVE6; feature-facing navigation handler ports moved from NavigationCoordinatorContracts to NavigationFeaturePorts while orchestrator-owned feature adaptation remains in OrchestratorCoordinatorBuilders"
       }
     },
     {
@@ -1479,9 +1478,8 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE6 execution-grade plan",
-        "recommended_execution_order": 2
+        "status": "implemented_pending_review",
+        "disposition": "resolved in P14-WAVE6; generated-style file metadata and decorative separator banners were removed from the admitted handwritten production modules without runtime changes"
       }
     },
     {
@@ -1519,9 +1517,8 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE6 execution-grade plan",
-        "recommended_execution_order": 3
+        "status": "implemented_pending_review",
+        "disposition": "resolved in P14-WAVE6; repetitive lifecycle/interface/signature JSDoc was trimmed while preserving comments that explain ordering, persistence, platform, and non-obvious behavior"
       }
     },
     {
@@ -1553,9 +1550,8 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE6 execution-grade plan",
-        "recommended_execution_order": 4
+        "status": "implemented_pending_review",
+        "disposition": "resolved in P14-WAVE6; duplicate scheduler field comments were removed while preserving domain, cache, token, persistence, and compatibility notes"
       }
     },
     {
@@ -1587,9 +1583,8 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE6 execution-grade plan",
-        "recommended_execution_order": 5
+        "status": "implemented_pending_review",
+        "disposition": "resolved in P14-WAVE6; facet snapshot failure construction moved to ChannelSetupFacetSnapshotFailureBuilder and unknown tag-count recovery moved to ChannelSetupFacetCountRecoveryWorker while load-session orchestration retains cancellation, warnings, timings, progress, cache/inflight, and partial-failure behavior"
       }
     },
     {
@@ -1626,9 +1621,8 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE6 execution-grade plan",
-        "recommended_execution_order": 6
+        "status": "implemented_pending_review",
+        "disposition": "resolved in P14-WAVE6; NavigationCoordinator now receives built handlers plus a runtime-services seam and remains responsible for event subscription wiring; madge audit found no circular dependency across the cited navigation files"
       }
     },
     {
@@ -1662,9 +1656,8 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "current_or_next_execution_unit": "P14-WAVE6 execution-grade plan",
-        "recommended_execution_order": 7
+        "status": "implemented_pending_review",
+        "disposition": "stale-proven in P14-WAVE6; EPGInfoPanel already imports and uses shared formatDuration from ../utils, and the targeted EPG info panel test preserved current duration formatting"
       }
     }
   ],

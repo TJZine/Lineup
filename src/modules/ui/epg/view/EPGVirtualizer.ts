@@ -1,11 +1,4 @@
-/**
- * @fileoverview EPG Virtualizer - DOM element pooling and virtualized rendering
- * @module modules/ui/epg/EPGVirtualizer
- * @version 1.0.0
- *
- * Implements virtualized grid rendering to maintain <200 DOM elements
- * regardless of channel/program count. See ADR-003 for rationale.
- */
+// Maintains a bounded DOM pool for large EPG grids. See ADR-003 for rationale.
 
 import { EPG_CONSTANTS, EPG_CLASSES } from '../constants';
 import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debug/debugRuntimeGuards';
@@ -236,9 +229,6 @@ export class EPGVirtualizer {
         this.gridContainer.appendChild(this.contentElement);
     }
 
-    /**
-     * Destroy the virtualizer and clean up resources.
-     */
     destroy(): void {
         this.cellRenderer.clearFocusedTickers();
         this.forceRecycleAll();

@@ -4,12 +4,14 @@ import {
     type NavigationChannelNumberPort,
 } from '../NavigationChannelNumberHandler';
 import type {
-    NavigationAuthPort,
-    NavigationCoordinatorHandlerCallbacks,
     NavigationCoordinatorDeps,
+} from '../NavigationCoordinatorContracts';
+import type {
+    NavigationAuthPort,
     NavigationEpgPort,
     NavigationVideoPlayerPort,
-} from '../NavigationCoordinatorContracts';
+} from '../NavigationFeaturePorts';
+import { createNavigationCoordinatorRuntimeServices } from '../NavigationCoordinatorRuntimeServices';
 import {
     NavigationKeyModeRouter,
     type NavigationKeyModeRouterPort,
@@ -326,58 +328,59 @@ const setup = (
             epg,
             channelSwitching,
         },
-        createHandlers: (callbacks: NavigationCoordinatorHandlerCallbacks) => {
-            const repeats = new NavigationRepeatHandler({
+    } as unknown as NavigationCoordinatorTestDeps;
+
+    const runtime = createNavigationCoordinatorRuntimeServices(deps.events);
+    const repeats = new NavigationRepeatHandler({
+        navigation,
+        epg,
+        miniGuide,
+    });
+    deps.runtime = runtime;
+    deps.handlers = {
+        repeats,
+        keyModeRouter: new NavigationKeyModeRouter(
+            {
                 navigation,
                 epg,
+                playback,
                 miniGuide,
-            });
-            return {
-                repeats,
-                keyModeRouter: new NavigationKeyModeRouter(
-                    {
-                        navigation,
-                        epg,
-                        playback,
-                        miniGuide,
-                        nowPlayingInfo,
-                        modals,
-                        channelSwitching,
-                    },
-                    repeats,
-                    callbacks.fireAndReport,
-                    callbacks.observeNonBlockingPromise,
-                    callbacks.logInputNotHandled
-                ),
-                screenEffects: new NavigationScreenEffectsHandler(
-                    {
-                        navigation,
-                        epg,
-                        playback,
-                        miniGuide,
-                        nowPlayingInfo,
-                        channelSwitching,
-                        uiGuards,
-                        readKeepPlayingInSettings: testDoubles.readKeepPlayingInSettings,
-                    },
-                    repeats,
-                    callbacks.fireAndReport
-                ),
-                modalEffects: new NavigationModalEffectsHandler(
-                    {
-                        miniGuide,
-                        nowPlayingInfo,
-                        modals,
-                    },
-                    repeats
-                ),
-                channelNumber: new NavigationChannelNumberHandler({
-                    epg,
-                    channelSwitching,
-                }),
-            };
-        },
-    } as NavigationCoordinatorTestDeps;
+                nowPlayingInfo,
+                modals,
+                channelSwitching,
+            },
+            repeats,
+            runtime.fireAndReport,
+            runtime.observeNonBlockingPromise,
+            runtime.logInputNotHandled
+        ),
+        screenEffects: new NavigationScreenEffectsHandler(
+            {
+                navigation,
+                epg,
+                playback,
+                miniGuide,
+                nowPlayingInfo,
+                channelSwitching,
+                uiGuards,
+                readKeepPlayingInSettings: testDoubles.readKeepPlayingInSettings,
+            },
+            repeats,
+            runtime.fireAndReport
+        ),
+        modalEffects: new NavigationModalEffectsHandler(
+            {
+                miniGuide,
+                nowPlayingInfo,
+                modals,
+            },
+            repeats
+        ),
+        channelNumber: new NavigationChannelNumberHandler({
+            epg,
+            channelSwitching,
+        }),
+    };
 
     const coordinator = new NavigationCoordinator(deps);
     coordinator.wireNavigationEvents();

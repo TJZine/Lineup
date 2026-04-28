@@ -5,8 +5,8 @@ import type {
 import type { ChannelBuildProgress, ChannelSetupConfig } from '../types';
 import {
     ChannelSetupFacetSnapshotLoadSession,
-    createAbortError,
 } from './ChannelSetupFacetSnapshotLoadSession';
+import { createAbortError } from './ChannelSetupFacetSnapshotAbort';
 import type {
     ChannelSetupFacetSnapshot,
     ChannelSetupPlanningIntent,
@@ -16,7 +16,7 @@ import type {
 export {
     assertRecoveredTagCount,
     ChannelSetupPlanningError,
-} from './ChannelSetupFacetSnapshotLoadSession';
+} from './ChannelSetupFacetCountRecoveryWorker';
 export type {
     ChannelSetupFacetSnapshot,
     ChannelSetupFacetSnapshotData,

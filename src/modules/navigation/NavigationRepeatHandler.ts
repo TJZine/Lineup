@@ -7,12 +7,14 @@ import {
 import type {
     EpgStopReason,
     MiniGuideStopReason,
+    NavigationRepeatRuntime,
+} from './NavigationCoordinatorContracts';
+import type {
     NavigationEpgPort,
     NavigationFourWayDirection,
-    NavigationRepeatRuntime,
     NavigationMiniGuidePort,
     NavigationVerticalDirection,
-} from './NavigationCoordinatorContracts';
+} from './NavigationFeaturePorts';
 
 export interface NavigationRepeatHandlerPort {
     navigation: INavigationManager;

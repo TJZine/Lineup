@@ -62,15 +62,9 @@ export type { PlexMediaType };
 
 // Content Filter
 
-/**
- * Content filter specification
- */
 export interface ContentFilter {
-    /** Field to filter on */
     field: FilterField;
-    /** Comparison operator */
     operator: FilterOperator;
-    /** Value to compare against */
     value: string | number | boolean;
 }
 
@@ -103,7 +97,6 @@ export interface LibraryContentSource extends BaseContentSource {
  */
 export interface CollectionContentSource extends BaseContentSource {
     type: 'collection';
-    /** Collection key */
     collectionKey: string;
     /** Cached collection name for display */
     collectionName: string;
@@ -114,7 +107,6 @@ export interface CollectionContentSource extends BaseContentSource {
  */
 export interface ShowContentSource extends BaseContentSource {
     type: 'show';
-    /** Show ratingKey */
     showKey: string;
     /** Cached show name for display */
     showName: string;
@@ -127,7 +119,6 @@ export interface ShowContentSource extends BaseContentSource {
  */
 export interface PlaylistContentSource extends BaseContentSource {
     type: 'playlist';
-    /** Playlist key */
     playlistKey: string;
     /** Cached playlist name for display */
     playlistName: string;
@@ -150,7 +141,6 @@ export interface ManualContentItem {
  */
 export interface ManualContentSource extends BaseContentSource {
     type: 'manual';
-    /** Selected items with cached metadata */
     items: ManualContentItem[];
 }
 
@@ -367,7 +357,6 @@ export interface ResolvedChannelContent {
     resolvedAt: number;
     /** All resolved items */
     items: ResolvedContentItem[];
-    /** Total duration of all items */
     totalDurationMs: number;
     /** Items after shuffle/sort applied */
     orderedItems: ResolvedContentItem[];

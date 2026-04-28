@@ -1,20 +1,22 @@
 import type { INavigationManager, KeyEvent, Screen } from './interfaces';
 import type {
+    NavigationKeyModeRouterRuntime,
+    NavigationCoordinatorRuntimeServices,
+    NavigationRepeatRuntime,
+} from './NavigationCoordinatorContracts';
+import type {
     NavigationChannelSwitchingPort,
-    NavigationCoordinatorHandlerCallbacks,
     NavigationEpgPort,
     NavigationFourWayDirection,
-    NavigationKeyModeRouterRuntime,
     NavigationMiniGuidePort,
     NavigationModalsPort,
     NavigationNowPlayingInfoPort,
     NavigationPlaybackPort,
-    NavigationRepeatRuntime,
-} from './NavigationCoordinatorContracts';
+} from './NavigationFeaturePorts';
 
-export type NavigationFireAndReport = NavigationCoordinatorHandlerCallbacks['fireAndReport'];
-export type NavigationObserveNonBlockingPromise = NavigationCoordinatorHandlerCallbacks['observeNonBlockingPromise'];
-export type NavigationLogInputNotHandled = NavigationCoordinatorHandlerCallbacks['logInputNotHandled'];
+export type NavigationFireAndReport = NavigationCoordinatorRuntimeServices['fireAndReport'];
+export type NavigationObserveNonBlockingPromise = NavigationCoordinatorRuntimeServices['observeNonBlockingPromise'];
+export type NavigationLogInputNotHandled = NavigationCoordinatorRuntimeServices['logInputNotHandled'];
 
 export interface NavigationKeyModeRouterPort {
     navigation: INavigationManager;
