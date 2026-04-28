@@ -19,12 +19,12 @@ architecture or workflow document.
   post-P12 subjective review backlog package queue on 2026-04-26. P14 is the
   active score-targeted cleanup priority for AI generated debt, cross-module
   architecture, and design coherence.
-- Next safe start: build an execution-grade `P14-WAVE7` plan, run adversarial
-  plan review, then execute the admitted WAVE7 residual cleanup only after the
-  plan is clean. Do not open P15 or enter `P14-EXIT` until WAVE7 is implemented,
+- Next safe start: build an execution-grade `P14-WAVE8` plan, run adversarial
+  plan review, then execute the admitted WAVE8 residual cleanup only after the
+  plan is clean. Do not open P15 or enter `P14-EXIT` until WAVE8 is implemented,
   reviewed, verified, and followed by a fresh focused review/scoring pass.
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration.
-- First action at package start: use the current `P14-WAVE7` admission in the
+- First action at package start: use the current `P14-WAVE8` admission in the
   package map, including package-local scoping commands and duplicate residual
   lineage notes, as the source for planner and reviewer briefs.
 - Active exact issue-membership surface:
@@ -41,22 +41,24 @@ architecture or workflow document.
 
 ## Current Evidence Snapshot
 
-Source: post-WAVE6 focused review run
-`.desloppify/subagents/runs/20260428_032838`, imported on `2026-04-28`.
+Source: post-WAVE7 focused review run
+`.desloppify/subagents/runs/20260428_193443`, imported on `2026-04-28`.
 
-- Current wave state: `P14-WAVE1` through `P14-WAVE6` are completed, and
-  `P14-WAVE7` is admitted but not started. P14 remains open and cannot enter
-  `P14-EXIT` until WAVE7 is planned, reviewed, implemented, verified, and
+- Current wave state: `P14-WAVE1` through `P14-WAVE7` are completed, and
+  `P14-WAVE8` is admitted but not started. P14 remains open and cannot enter
+  `P14-EXIT` until WAVE8 is planned, reviewed, implemented, verified, and
   followed by a fresh focused review/scoring pass.
-- Current target scores: AI generated debt `76.0` (`-2.0` from `78.0`),
-  cross-module arch `82.0` (`+4.0` from `78.0`), and design coherence `82.0`
-  (`+9.0` from `73.0`); all remain below the `>=85` P14 target.
+- Current target scores: AI generated debt `82.0` (`+4.0` from `78.0`),
+  cross-module arch `81.5` (`+3.5` from `78.0`), and design coherence `84.0`
+  (`+11.0` from `73.0`); all remain below the `>=85` P14 target.
 - WAVE6 closeout commits: `2ba166d7` `refactor: complete p14 wave6 cleanup`
   and `1761c65f` `fix: address p14 wave6 review followups`. WAVE7 admission
-  was recorded in `7e9cd111` `docs: admit p14 wave7`.
+  was recorded in `7e9cd111` `docs: admit p14 wave7`. WAVE7 closeout commits:
+  `b508bf88` `refactor: complete p14 wave7 cleanup` and `e2a5b369`
+  `docs: mark p14 wave7 package map complete`.
 - Current active evidence: the package map imports
-  `.desloppify/subagents/runs/20260428_032838/holistic_issues_merged.json`
-  with five concrete source-backed WAVE7 residual issues.
+  `.desloppify/subagents/runs/20260428_193443/holistic_issues_merged.json`
+  with six concrete source-backed WAVE8 residual issues.
 - Last touched: `2026-04-28`.
 - P14 score target: raise AI generated debt, cross-module arch, and design
   coherence into the mid/high 80s. Continue P14 until all three target
@@ -1436,6 +1438,151 @@ must add larger score-moving packages.
   the old load-session shape, so current-source proof is the diff plus tests and
   targeted `rg`.
 
+### [ ] `P14-WAVE8` post-WAVE7 target residual cleanup
+
+- Scope: execute the focused post-WAVE7 residual issues admitted because all
+  three P14 target dimensions remain below `85`.
+- Owned slices:
+  - `P14-W33` `production-file-generated-header-wave8`
+  - `P14-W34` `self-describing-type-constant-comments-wave8`
+  - `P14-W35` `ui-navigation-step-comments-wave8`
+  - `P14-W36` `navigation-feature-contract-hub-wave8`
+  - `P14-W37` `navigation-handler-contract-cycles-wave8`
+  - `P14-W38` `facet-snapshot-session-policy-bundle-wave8`
+- Admission evidence: focused review
+  `.desloppify/subagents/runs/20260428_193443/holistic_issues_merged.json`.
+- Score evidence: AI generated debt `82.0` (`+4.0` from `78.0`, target
+  `>=85`), cross-module arch `81.5` (`+3.5` from `78.0`, target `>=85`), and
+  design coherence `84.0` (`+11.0` from `73.0`, target `>=85`).
+- Package guardrail: do not open P15, broad AppOrchestrator cleanup, broad
+  lifecycle cleanup, or stale detector wording without current-source proof.
+  Keep cross-feature wiring and concrete adaptation in the orchestrator.
+  Comment cleanup remains behavior-neutral.
+- Sequencing guardrail: navigation contract work (`P14-W36` and `P14-W37`)
+  must be serial or one explicitly coordinated navigation sub-wave.
+  Comment cleanup (`P14-W33` through `P14-W35`) may be one behavior-neutral
+  batch only if exact issue accounting remains separate. Facet snapshot work
+  (`P14-W38`) must preserve snapshot output, cancellation, warning, timing,
+  progress, cache/inflight, partial-failure behavior, and load ordering.
+- Verification routing: package-local scoping commands from the P14 package
+  map, targeted `rg` audits, targeted tests where source behavior is touched,
+  `npm run verify`, implementation review, checklist/package-map updates, and
+  `npm run verify:docs`.
+- Status: not started
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Follow-ups: WAVE8 is admitted from the post-WAVE7 focused review because all
+  three P14 target dimensions remained below target with six concrete
+  source-backed issues. Completing WAVE8 will still not be P14 exit until a
+  controller-owned focused review/scoring pass evaluates P14-EXIT evidence.
+- Handoff: route to a fresh bounded-context planner for `P14-WAVE8`, then a
+  fresh reviewer for adversarial plan review.
+
+### [ ] `P14-W33` `production-file-generated-header-wave8`
+
+- Imported review issues:
+  - `review::.::holistic::ai_generated_debt::production_file_generated_header`
+- Scope: remove generated-style `@fileoverview` / `@module` metadata from the
+  hand-written transcode quality config while preserving useful Plex transcode
+  mapping rationale.
+- Candidate files:
+  - `src/config/transcodeQuality.ts`
+- Package guardrail: comment-only; do not change transcode option values,
+  labels, Plex query semantics, or exported types.
+- Disposition: admitted for `P14-WAVE8`; pending execution-grade plan and
+  review.
+
+### [ ] `P14-W34` `self-describing-type-constant-comments-wave8`
+
+- Imported review issues:
+  - `review::.::holistic::ai_generated_debt::self_describing_type_constant_comments`
+- Scope: trim comments on type and constant declarations that restate names,
+  units, or nullability already carried by TypeScript names/types while
+  preserving ADR rationale, units not visible in names, webOS behavior, and
+  Plex API constraints.
+- Candidate files:
+  - `src/modules/plex/discovery/types.ts`
+  - `src/modules/ui/epg/constants.ts`
+  - `src/config/transcodeQuality.ts`
+- Package guardrail: comment-only; do not change exported constants, DTO
+  shapes, Plex discovery contracts, or EPG timing values.
+- Disposition: admitted for `P14-WAVE8`; pending execution-grade plan and
+  review.
+
+### [ ] `P14-W35` `ui-navigation-step-comments-wave8`
+
+- Imported review issues:
+  - `review::.::holistic::ai_generated_debt::ui_navigation_step_comments`
+- Scope: remove UI/navigation/orchestrator comments and docblocks that only
+  narrate obvious method names or immediate statements while preserving webOS
+  behavior, failure isolation, timing contracts, shutdown ordering, and
+  user-visible policy comments.
+- Candidate files:
+  - `src/modules/ui/audio-setup/AudioSetupScreen.ts`
+  - `src/modules/navigation/RemoteHandler.ts`
+  - `src/core/orchestrator/AppOrchestrator.ts`
+- Package guardrail: comment-only; do not change shutdown order, remote input
+  behavior, long-press timing, UI DOM structure, or orchestration behavior.
+- Disposition: admitted for `P14-WAVE8`; pending execution-grade plan and
+  review.
+
+### [ ] `P14-W36` `navigation-feature-contract-hub-wave8`
+
+- Imported review issues:
+  - `review::.::holistic::cross_module_architecture::navigation_feature_contract_hub`
+- Scope: reduce navigation-owned cross-feature runtime contract hub pressure by
+  moving feature-specific reactions toward feature-owned navigation effect
+  adapters or typed navigation intents while preserving NavigationManager
+  remote/focus ownership and orchestrator-owned app-level assembly.
+- Candidate files:
+  - `src/modules/navigation/NavigationFeaturePorts.ts`
+  - `src/modules/navigation/NavigationKeyModeRouter.ts`
+  - `src/modules/navigation/NavigationScreenEffectsHandler.ts`
+  - `src/modules/navigation/NavigationModalEffectsHandler.ts`
+  - `src/core/orchestrator/OrchestratorCoordinatorBuilders.ts`
+- Package guardrail: navigation may own remote/focus routing contracts and
+  event subscription wiring, but not app-level feature assembly. Preserve
+  remote behavior and D-pad focus behavior.
+- Disposition: admitted for `P14-WAVE8`; pending execution-grade plan and
+  review.
+
+### [ ] `P14-W37` `navigation-handler-contract-cycles-wave8`
+
+- Imported review issues:
+  - `review::.::holistic::cross_module_architecture::navigation_handler_contract_cycles`
+- Scope: move shared navigation handler runtime contracts beside a neutral
+  navigation handler contract owner so the coordinator and concrete handlers no
+  longer import runtime interfaces from peer concrete handler files.
+- Candidate files:
+  - `src/modules/navigation/NavigationCoordinator.ts`
+  - `src/modules/navigation/NavigationKeyModeRouter.ts`
+  - `src/modules/navigation/NavigationScreenEffectsHandler.ts`
+  - `src/modules/navigation/NavigationModalEffectsHandler.ts`
+  - `src/modules/navigation/NavigationRepeatHandler.ts`
+- Package guardrail: contract/import refactor only unless an approved plan
+  proves a behavior change is necessary. Preserve remote behavior, repeat
+  handling, modal behavior, focus routing, and event subscription ownership.
+- Disposition: admitted for `P14-WAVE8`; pending execution-grade plan and
+  review.
+
+### [ ] `P14-W38` `facet-snapshot-session-policy-bundle-wave8`
+
+- Imported review issues:
+  - `review::.::holistic::design_coherence::facet_snapshot_session_policy_bundle`
+- Scope: reduce the wide facet executor adapter by separating mutable facet
+  load state from cancellation/failure-stop/progress control while keeping the
+  session responsible for top-level sequencing and final snapshot selection.
+- Candidate files:
+  - `src/core/channel-setup/planning/ChannelSetupFacetSnapshotLoadSession.ts`
+  - `src/core/channel-setup/planning/ChannelSetupFacetLibraryExecutor.ts`
+  - `src/core/channel-setup/planning/ChannelSetupFacetSnapshotFailures.ts`
+- Package guardrail: preserve facet snapshot output, cancellation, warning,
+  timing, progress, cache/inflight, partial-failure behavior, and load ordering.
+  Do not introduce a generic workflow framework.
+- Disposition: admitted for `P14-WAVE8`; pending execution-grade plan and
+  review.
+
 ### [ ] `P14-EXIT`
 
 - Close only if: every P14 review issue id has one owner
@@ -1460,7 +1607,11 @@ must add larger score-moving packages.
   residual issues admitted under `P14-WAVE6`. Completing `P14-WAVE6` also did
   not close P14 because the post-WAVE6 focused review reported AI generated
   debt `76.0`, cross-module arch `82.0`, and design coherence `82.0`, with
-  concrete source-backed residual issues now admitted under `P14-WAVE7`.
+  concrete source-backed residual issues admitted under `P14-WAVE7`. Completing
+  `P14-WAVE7` also did not close P14 because the post-WAVE7 focused review
+  reported AI generated debt `82.0`, cross-module arch `81.5`, and design
+  coherence `84.0`, with concrete source-backed residual issues now admitted
+  under `P14-WAVE8`.
 - Required commands:
   - `desloppify scan --path .`
   - `desloppify status`

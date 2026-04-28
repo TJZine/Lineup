@@ -1,6 +1,6 @@
 {
   "artifact_role": "authoritative exact membership for P14 post-P13 subjective review cleanup queue",
-  "artifact_version": 8,
+  "artifact_version": 9,
   "created_at": "2026-04-26",
   "review_runs": [
     {
@@ -23,6 +23,9 @@
     },
     {
       "merged_issues": ".desloppify/subagents/runs/20260428_032838/holistic_issues_merged.json"
+    },
+    {
+      "merged_issues": ".desloppify/subagents/runs/20260428_193443/holistic_issues_merged.json"
     }
   ],
   "triage_runs": [
@@ -38,7 +41,7 @@
   "authoritative_scope_rule": "Exact review issue ids in packages[].exact_review_issue_ids and dispositions[].exact_review_issue_id are authoritative for P14 accounting. Candidate files and commands are scoping aids only. Source cleanup must not start without a package-local execution-grade plan and review.",
   "package_model": "checklist-linked post-P13 score-targeted subjective review packages",
   "stable_package_id_format": "pkg_<domain>_<purpose>",
-  "package_count": 32,
+  "package_count": 38,
   "score_target_goal": {
     "purpose": "Raise the low P14 target subjective dimensions into the mid/high 80s without authorizing broad ownership churn.",
     "target_dimensions": {
@@ -202,6 +205,32 @@
         }
       },
       "decision": "P14 target dimensions remain below 85 with five concrete source-backed issues; admit P14-WAVE7 before P14-EXIT."
+    },
+    "post_wave7_focused_review": {
+      "source": ".desloppify/subagents/runs/20260428_193443/holistic_issues_merged.json",
+      "imported_via": "desloppify review --import-run .desloppify/subagents/runs/20260428_193443 --allow-partial --scan-after-import",
+      "date": "2026-04-28",
+      "target_dimensions": {
+        "ai_generated_debt": {
+          "current": 82,
+          "baseline": 78,
+          "delta": 4,
+          "target": 85
+        },
+        "cross_module_architecture": {
+          "current": 81.5,
+          "baseline": 78,
+          "delta": 3.5,
+          "target": 85
+        },
+        "design_coherence": {
+          "current": 84,
+          "baseline": 73,
+          "delta": 11,
+          "target": 85
+        }
+      },
+      "decision": "P14 target dimensions remain below 85 with six concrete source-backed issues; admit P14-WAVE8 before P14-EXIT."
     }
   },
   "cli_inconsistency": {
@@ -209,12 +238,12 @@
     "planning_evidence": "Use the refreshed review artifacts, triage artifacts, focused review artifacts, and desloppify plan as the authoritative P14 planning evidence unless a future integration-branch rerun supersedes them."
   },
   "validation": {
-    "expected_review_issue_count": 37,
-    "assigned_review_issue_count": 37,
-    "expected_refreshed_review_issue_count": 37,
-    "active_assigned_review_issue_count": 33,
+    "expected_review_issue_count": 43,
+    "assigned_review_issue_count": 43,
+    "expected_refreshed_review_issue_count": 43,
+    "active_assigned_review_issue_count": 39,
     "explicit_disposition_review_issue_count": 4,
-    "accounted_review_issue_count": 37,
+    "accounted_review_issue_count": 43,
     "duplicate_review_issue_ids": [
       "review::.::holistic::ai_generated_debt::generated_style_headers_and_banners",
       "review::.::holistic::ai_generated_debt::trivial_signature_jsdoc",
@@ -661,6 +690,60 @@
           }
         },
         "decision": "P14 target dimensions remain below 85 with five concrete source-backed issues; admit P14-WAVE7 before P14-EXIT."
+      },
+      "completed_at": "2026-04-28",
+      "exit_boundary": "P14-WAVE7 is complete as a source wave, but it is not P14 closure. Post-WAVE7 focused review left all three target dimensions below 85 and admitted P14-WAVE8.",
+      "post_wave_decision": "WAVE7 closes the admitted residual source wave but does not close P14 by itself; post-WAVE7 focused review left all target dimensions below 85 and admitted P14-WAVE8."
+    },
+    {
+      "wave_id": "P14-WAVE8",
+      "name": "post-wave7-target-residual-cleanup",
+      "status": "admitted",
+      "purpose": "After WAVE7, focused review still left all three P14 target dimensions below 85; execute the next source-backed residual issues before reconsidering P14-EXIT.",
+      "gate_only": false,
+      "admission_rule": "Admit only source-backed residuals from the 20260428_193443 focused review with one owner, candidate files, package-local commands, and verification routing. Do not open P15, broad AppOrchestrator cleanup, broad lifecycle cleanup, or P14-EXIT closure from WAVE8 admission alone.",
+      "verification_routing": [
+        "package-local scoping commands for admitted P14-WAVE8 packages",
+        "targeted rg audits from admitted packages",
+        "npm run verify for source work",
+        "implementation review for the approved execution unit",
+        "npm run verify:docs for checklist/package-map updates",
+        "fresh focused subjective review for design_coherence,cross_module_architecture,ai_generated_debt after WAVE8 closeout"
+      ],
+      "package_ids": [
+        "pkg_production_file_generated_header_wave8",
+        "pkg_self_describing_type_constant_comments_wave8",
+        "pkg_ui_navigation_step_comments_wave8",
+        "pkg_navigation_feature_contract_hub_wave8",
+        "pkg_navigation_handler_contract_cycles_wave8",
+        "pkg_facet_snapshot_session_policy_bundle_wave8"
+      ],
+      "admission_evidence": ".desloppify/subagents/runs/20260428_193443/holistic_issues_merged.json",
+      "score_snapshot": {
+        "source": ".desloppify/subagents/runs/20260428_193443/holistic_issues_merged.json",
+        "imported_via": "desloppify review --import-run .desloppify/subagents/runs/20260428_193443 --allow-partial --scan-after-import",
+        "date": "2026-04-28",
+        "target_dimensions": {
+          "ai_generated_debt": {
+            "current": 82,
+            "baseline": 78,
+            "delta": 4,
+            "target": 85
+          },
+          "cross_module_architecture": {
+            "current": 81.5,
+            "baseline": 78,
+            "delta": 3.5,
+            "target": 85
+          },
+          "design_coherence": {
+            "current": 84,
+            "baseline": 73,
+            "delta": 11,
+            "target": 85
+          }
+        },
+        "decision": "P14 target dimensions remain below 85 with six concrete source-backed issues; admit P14-WAVE8 before P14-EXIT."
       }
     }
   ],
@@ -1934,6 +2017,234 @@
       "execution_status": {
         "status": "completed",
         "disposition": "completed in P14-WAVE7; per-library collection/native-facet/tag-count-recovery execution moved to ChannelSetupFacetLibraryExecutor while ChannelSetupFacetSnapshotLoadSession remains the playlist/load coordinator, progress forwarder, failure aggregator, and final snapshot assembler, and ChannelSetupFacetSnapshotLoader remains cache/inflight owner. Targeted channel-setup facet tests and npm run verify passed. Desloppify show still reported stale triage-pending old load-session cycle/line evidence, so closure proof is current-source diff plus targeted rg/tests."
+      }
+    },
+    {
+      "package_id": "pkg_production_file_generated_header_wave8",
+      "package_name": "Production File Generated Header Wave 8",
+      "checklist_tokens": {
+        "work_item": "P14-W33",
+        "priority_exit": "P14-EXIT"
+      },
+      "purpose": "Remove generated-style fileoverview/module metadata from the hand-written transcode quality config while preserving any useful Plex transcode mapping rationale.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::ai_generated_debt::production_file_generated_header"
+      ],
+      "candidate_scoping_files": [
+        "src/config/transcodeQuality.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/config/transcodeQuality.ts --status open --no-budget --top 220",
+        "rg -n \"@fileoverview|@module|@version|Transcode|TRANSCODE_QUALITY_OPTIONS|maxBitrate|videoResolution\" src/config/transcodeQuality.ts"
+      ],
+      "verification_routing": {
+        "mode": "refactor-invariance",
+        "classification": "existing coverage sufficient",
+        "commands": [
+          "git diff --check",
+          "npm run verify",
+          "package-local Desloppify show command",
+          "targeted rg audit for generated metadata headers"
+        ]
+      },
+      "execution_status": {
+        "status": "admitted",
+        "disposition": "pending P14-WAVE8 execution-grade plan and review"
+      }
+    },
+    {
+      "package_id": "pkg_self_describing_type_constant_comments_wave8",
+      "package_name": "Self Describing Type Constant Comments Wave 8",
+      "checklist_tokens": {
+        "work_item": "P14-W34",
+        "priority_exit": "P14-EXIT"
+      },
+      "purpose": "Trim comments on type and constant declarations that restate names, units, or nullability already carried by TypeScript names/types while preserving ADR rationale, units not visible in names, webOS behavior, and Plex API constraints.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::ai_generated_debt::self_describing_type_constant_comments"
+      ],
+      "candidate_scoping_files": [
+        "src/modules/plex/discovery/types.ts",
+        "src/modules/ui/epg/constants.ts",
+        "src/config/transcodeQuality.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/plex/discovery/types.ts --status open --no-budget --top 220",
+        "desloppify show src/modules/ui/epg/constants.ts --status open --no-budget --top 220",
+        "desloppify show src/config/transcodeQuality.ts --status open --no-budget --top 220",
+        "rg -n \"relay|latencyMs|preferredConnection|VISIBLE_CHANNELS|TIME_SLOT_MINUTES|PIXELS_PER_MINUTE|TIME_INDICATOR_UPDATE_MS|TIME_SCROLL_AMOUNT|label|videoResolution|maxBitrate\" src/modules/plex/discovery/types.ts src/modules/ui/epg/constants.ts src/config/transcodeQuality.ts"
+      ],
+      "verification_routing": {
+        "mode": "refactor-invariance",
+        "classification": "existing coverage sufficient",
+        "commands": [
+          "git diff --check",
+          "npm run verify",
+          "package-local Desloppify show commands",
+          "targeted rg audit for self-describing comment phrases"
+        ]
+      },
+      "execution_status": {
+        "status": "admitted",
+        "disposition": "pending P14-WAVE8 execution-grade plan and review"
+      }
+    },
+    {
+      "package_id": "pkg_ui_navigation_step_comments_wave8",
+      "package_name": "UI Navigation Step Comments Wave 8",
+      "checklist_tokens": {
+        "work_item": "P14-W35",
+        "priority_exit": "P14-EXIT"
+      },
+      "purpose": "Remove UI/navigation/orchestrator comments and docblocks that only narrate obvious method names or immediate statements while preserving webOS behavior, failure isolation, timing contracts, shutdown ordering, and user-visible policy comments.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::ai_generated_debt::ui_navigation_step_comments"
+      ],
+      "candidate_scoping_files": [
+        "src/modules/ui/audio-setup/AudioSetupScreen.ts",
+        "src/modules/navigation/RemoteHandler.ts",
+        "src/core/orchestrator/AppOrchestrator.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/ui/audio-setup/AudioSetupScreen.ts --status open --no-budget --top 240",
+        "desloppify show src/modules/navigation/RemoteHandler.ts --status open --no-budget --top 240",
+        "desloppify show src/core/orchestrator/AppOrchestrator.ts --status open --no-budget --top 260",
+        "rg -n \"Build the UI|Header|Choices|Clear all timers|Track key down time|cancelLongPress|_handleKeyDown|lifecycle.shutdown|_stopPlayback|destroy\" src/modules/ui/audio-setup/AudioSetupScreen.ts src/modules/navigation/RemoteHandler.ts src/core/orchestrator/AppOrchestrator.ts"
+      ],
+      "verification_routing": {
+        "mode": "refactor-invariance",
+        "classification": "existing coverage sufficient",
+        "commands": [
+          "git diff --check",
+          "npm run verify",
+          "package-local Desloppify show commands",
+          "targeted rg audit for restating step comments"
+        ]
+      },
+      "execution_status": {
+        "status": "admitted",
+        "disposition": "pending P14-WAVE8 execution-grade plan and review"
+      }
+    },
+    {
+      "package_id": "pkg_navigation_feature_contract_hub_wave8",
+      "package_name": "Navigation Feature Contract Hub Wave 8",
+      "checklist_tokens": {
+        "work_item": "P14-W36",
+        "priority_exit": "P14-EXIT"
+      },
+      "purpose": "Reduce navigation-owned cross-feature runtime contract hub pressure by moving feature-specific reactions toward feature-owned navigation effect adapters or typed navigation intents while preserving NavigationManager remote/focus ownership and orchestrator-owned app-level assembly.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::cross_module_architecture::navigation_feature_contract_hub"
+      ],
+      "candidate_scoping_files": [
+        "src/modules/navigation/NavigationFeaturePorts.ts",
+        "src/modules/navigation/NavigationKeyModeRouter.ts",
+        "src/modules/navigation/NavigationScreenEffectsHandler.ts",
+        "src/modules/navigation/NavigationModalEffectsHandler.ts",
+        "src/core/orchestrator/OrchestratorCoordinatorBuilders.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/navigation/NavigationFeaturePorts.ts --status open --no-budget --top 260",
+        "desloppify show src/modules/navigation/NavigationKeyModeRouter.ts --status open --no-budget --top 260",
+        "desloppify show src/modules/navigation/NavigationScreenEffectsHandler.ts --status open --no-budget --top 260",
+        "desloppify show src/modules/navigation/NavigationModalEffectsHandler.ts --status open --no-budget --top 220",
+        "desloppify show src/core/orchestrator/OrchestratorCoordinatorBuilders.ts --status open --no-budget --top 260",
+        "rg -n \"NavigationFeaturePorts|NavigationEpgPort|NavigationPlaybackPort|NavigationMiniGuidePort|NavigationNowPlayingPort|NavigationPlaybackOptionsPort|NavigationPlayerOsdPort|NavigationChannelSwitchingPort|NavigationSettingsPort|NavigationDiagnosticsPort|openPlaybackOptions|routeEpgKey|showMiniGuide|requestPlaybackResume\" src/modules/navigation src/core/orchestrator/OrchestratorCoordinatorBuilders.ts"
+      ],
+      "verification_routing": {
+        "mode": "refactor-invariance plus integration-ops",
+        "classification": "broader integration/manual proof required",
+        "commands": [
+          "npm run verify",
+          "targeted navigation/orchestrator tests if behavior or contracts move",
+          "package-local Desloppify show commands",
+          "targeted rg audits for navigation feature-port ownership"
+        ]
+      },
+      "execution_status": {
+        "status": "admitted",
+        "disposition": "pending P14-WAVE8 execution-grade plan and review"
+      }
+    },
+    {
+      "package_id": "pkg_navigation_handler_contract_cycles_wave8",
+      "package_name": "Navigation Handler Contract Cycles Wave 8",
+      "checklist_tokens": {
+        "work_item": "P14-W37",
+        "priority_exit": "P14-EXIT"
+      },
+      "purpose": "Move shared navigation handler runtime contracts beside a neutral navigation handler contract owner so the coordinator and concrete handlers no longer import runtime interfaces from peer concrete handler files.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::cross_module_architecture::navigation_handler_contract_cycles"
+      ],
+      "candidate_scoping_files": [
+        "src/modules/navigation/NavigationCoordinator.ts",
+        "src/modules/navigation/NavigationKeyModeRouter.ts",
+        "src/modules/navigation/NavigationScreenEffectsHandler.ts",
+        "src/modules/navigation/NavigationModalEffectsHandler.ts",
+        "src/modules/navigation/NavigationRepeatHandler.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/navigation/NavigationCoordinator.ts --status open --no-budget --top 240",
+        "desloppify show src/modules/navigation/NavigationKeyModeRouter.ts --status open --no-budget --top 220",
+        "desloppify show src/modules/navigation/NavigationScreenEffectsHandler.ts --status open --no-budget --top 220",
+        "desloppify show src/modules/navigation/NavigationModalEffectsHandler.ts --status open --no-budget --top 220",
+        "desloppify show src/modules/navigation/NavigationRepeatHandler.ts --status open --no-budget --top 220",
+        "rg -n \"NavigationRepeatRuntime|NavigationKeyModeRouterRuntime|NavigationScreenEffectsRuntime|NavigationModalEffectsRuntime|from './Navigation(KeyModeRouter|ScreenEffectsHandler|ModalEffectsHandler|RepeatHandler)'\" src/modules/navigation"
+      ],
+      "verification_routing": {
+        "mode": "refactor-invariance plus integration-ops",
+        "classification": "broader integration/manual proof required",
+        "commands": [
+          "npm run verify",
+          "targeted navigation/orchestrator tests if imports or contracts move",
+          "npx madge --circular for cited navigation files",
+          "package-local Desloppify show commands",
+          "targeted rg audits for handler contract import ownership"
+        ]
+      },
+      "execution_status": {
+        "status": "admitted",
+        "disposition": "pending P14-WAVE8 execution-grade plan and review"
+      }
+    },
+    {
+      "package_id": "pkg_facet_snapshot_session_policy_bundle_wave8",
+      "package_name": "Facet Snapshot Session Policy Bundle Wave 8",
+      "checklist_tokens": {
+        "work_item": "P14-W38",
+        "priority_exit": "P14-EXIT"
+      },
+      "purpose": "Reduce the wide facet executor adapter by separating mutable facet load state from cancellation/failure-stop/progress control while keeping the session responsible for top-level sequencing and final snapshot selection.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::design_coherence::facet_snapshot_session_policy_bundle"
+      ],
+      "residual_of_package_id": "pkg_facet_snapshot_load_session_policy_bundle",
+      "candidate_scoping_files": [
+        "src/core/channel-setup/planning/ChannelSetupFacetSnapshotLoadSession.ts",
+        "src/core/channel-setup/planning/ChannelSetupFacetLibraryExecutor.ts",
+        "src/core/channel-setup/planning/ChannelSetupFacetSnapshotFailures.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/core/channel-setup/planning/ChannelSetupFacetSnapshotLoadSession.ts --status open --no-budget --top 340",
+        "desloppify show src/core/channel-setup/planning/ChannelSetupFacetLibraryExecutor.ts --status open --no-budget --top 340",
+        "desloppify show src/core/channel-setup/planning/ChannelSetupFacetSnapshotFailures.ts --status open --no-budget --top 220",
+        "rg -n \"ChannelSetupFacetSnapshotDataAccumulator|reportSnapshotProgress|addPartialWarning|incrementErrors|addCollectionsMs|addLibraryQueryMs|collectionsByLibraryId|genresByLibraryId|directorsByLibraryId|yearsByLibraryId|actorsByLibraryId|studiosByLibraryId|abortSiblingRequests|failureStopRequested|requestAbortRequiresThrow\" src/core/channel-setup/planning/ChannelSetupFacetSnapshotLoadSession.ts src/core/channel-setup/planning/ChannelSetupFacetLibraryExecutor.ts src/core/channel-setup/planning/ChannelSetupFacetSnapshotFailures.ts"
+      ],
+      "verification_routing": {
+        "mode": "refactor-invariance plus integration-ops",
+        "classification": "broader integration/manual proof required",
+        "commands": [
+          "npm run verify",
+          "targeted channel-setup/facet snapshot tests if behavior or contracts move",
+          "package-local Desloppify show commands",
+          "targeted rg audits for facet load-state/control-policy separation"
+        ]
+      },
+      "execution_status": {
+        "status": "admitted",
+        "disposition": "pending P14-WAVE8 execution-grade plan and review"
       }
     }
   ],
