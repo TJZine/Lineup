@@ -4,10 +4,8 @@ import {
 } from '../../modules/navigation';
 import {
     NavigationCoordinator,
+    type NavigationCoordinatorHandlers,
 } from '../../modules/navigation/NavigationCoordinator';
-import type {
-    NavigationCoordinatorHandlers,
-} from '../../modules/navigation/NavigationCoordinatorContracts';
 import { createNavigationCoordinatorRuntimeServices } from '../../modules/navigation/NavigationCoordinatorRuntimeServices';
 import type {
     NavigationChannelSwitchOutcome,
@@ -17,13 +15,15 @@ import type {
     NavigationPlaybackOptionsSectionId,
     NavigationPlaybackPort,
     NavigationChannelSwitchingPort,
-    NavigationUiGuardsPort,
 } from '../../modules/navigation/NavigationFeaturePorts';
 import { NavigationChannelNumberHandler } from '../../modules/navigation/NavigationChannelNumberHandler';
 import { NavigationKeyModeRouter } from '../../modules/navigation/NavigationKeyModeRouter';
 import { NavigationModalEffectsHandler } from '../../modules/navigation/NavigationModalEffectsHandler';
 import { NavigationRepeatHandler } from '../../modules/navigation/NavigationRepeatHandler';
-import { NavigationScreenEffectsHandler } from '../../modules/navigation/NavigationScreenEffectsHandler';
+import {
+    NavigationScreenEffectsHandler,
+    type NavigationUiGuardsPort,
+} from '../../modules/navigation/NavigationScreenEffectsHandler';
 import type { PlaybackOptionsSectionId } from '../../modules/ui/playback-options';
 import type { AppError } from '../../modules/lifecycle';
 import type { IPlexLibrary } from '../../modules/plex/library';

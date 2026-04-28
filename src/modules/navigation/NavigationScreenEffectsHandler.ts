@@ -5,12 +5,16 @@ import type {
     NavigationMiniGuidePort,
     NavigationNowPlayingInfoPort,
     NavigationPlaybackPort,
-    NavigationUiGuardsPort,
 } from './NavigationFeaturePorts';
 import type { INavigationManager, Screen } from './interfaces';
 import type { NavigationCoordinatorRuntimeServices } from './NavigationCoordinatorRuntimeServices';
 
 type NavigationScreenEffectsFireAndReport = NavigationCoordinatorRuntimeServices['fireAndReport'];
+
+export interface NavigationUiGuardsPort {
+    shouldRunChannelSetup: () => boolean;
+    hideChannelTransition: () => void;
+}
 
 export interface NavigationScreenEffectsPort {
     navigation: INavigationManager;

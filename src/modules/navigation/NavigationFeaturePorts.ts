@@ -84,10 +84,5 @@ export interface NavigationChannelSwitchingPort {
     onChannelInputUpdate?: (payload: { digits: string; isComplete: boolean }) => void;
 }
 
-export interface NavigationUiGuardsPort {
-    shouldRunChannelSetup: () => boolean;
-    hideChannelTransition: () => void;
-}
-
 export type NavigationFourWayDirection = 'up' | 'down' | 'left' | 'right';
 export type NavigationVerticalDirection = 'up' | 'down';

@@ -1,11 +1,11 @@
-import { NavigationCoordinator } from '../NavigationCoordinator';
+import {
+    NavigationCoordinator,
+    type NavigationCoordinatorDeps,
+} from '../NavigationCoordinator';
 import {
     NavigationChannelNumberHandler,
     type NavigationChannelNumberPort,
 } from '../NavigationChannelNumberHandler';
-import type {
-    NavigationCoordinatorDeps,
-} from '../NavigationCoordinatorContracts';
 import type {
     NavigationAuthPort,
     NavigationEpgPort,
