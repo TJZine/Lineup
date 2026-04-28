@@ -134,9 +134,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         this._subtitleDebugLogger.log(event, context);
     }
 
-    // ========================================
-    // Stream Resolution
-    // ========================================
 
     /**
      * Resolve the best stream URL for a media item.
@@ -358,9 +355,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
     }
 
-    // ========================================
-    // Direct Play Check
-    // ========================================
 
     /**
      * Check if a media item can be played directly without transcoding.
@@ -386,9 +380,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }).canDirect;
     }
 
-    // ========================================
-    // Transcode URL
-    // ========================================
 
     /**
      * Generate an HLS transcode URL for a media item.
@@ -595,9 +586,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         this._emitter.off(event, handler as HandlerUnion);
     }
 
-    // ========================================
-    // Private: URL Building
-    // ========================================
 
     /**
      * Build direct play URL with mixed content handling.
@@ -733,9 +721,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
     }
 
-    // ========================================
-    // Private: Media Selection
-    // ========================================
 
     private _getHdr10FallbackMode(): 'off' | 'smart' | 'force' {
         return this._playbackSettingsStore.readHdr10FallbackModeAndClean();
@@ -745,9 +730,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         return this._developerSettingsStore.readDebugLoggingEnabledAndClean(false);
     }
 
-    // ========================================
-    // Private: Error Handling
-    // ========================================
 
     /**
      * Create a StreamResolverError.

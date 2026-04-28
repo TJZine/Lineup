@@ -1,8 +1,4 @@
-/* ============================================================
-   Settings - Left Rail
-   Full-screen left-rail layout with cardless detail area.
-   ============================================================ */
-
+/* Full-screen left-rail layout with a cardless detail area. */
 .settings-screen {
   --settings-space-2: 2px;
   --settings-space-10: 10px;

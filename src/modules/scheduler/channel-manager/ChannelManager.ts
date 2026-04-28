@@ -42,9 +42,6 @@ import {
     CHANNEL_ERROR_MESSAGES,
 } from './constants';
 
-// ============================================
-// ChannelError Class (per spec)
-// ============================================
 
 /**
  * Channel-specific error with AppErrorCode.
@@ -221,9 +218,6 @@ function createPersistenceFallbackError(message: string): ChannelError {
     return new ChannelError(AppErrorCode.PERSISTENCE_FALLBACK, message, true);
 }
 
-// ============================================
-// UUID Generator
-// ============================================
 
 /**
  * Generate a UUID v4.
@@ -236,9 +230,6 @@ function generateUUID(): string {
     });
 }
 
-// ============================================
-// Channel Manager Class
-// ============================================
 
 /**
  * Channel Manager implementation.
@@ -452,9 +443,6 @@ export class ChannelManager implements IChannelManager {
         }
     }
 
-    // ============================================
-    // Channel CRUD
-    // ============================================
 
     /**
      * Create a new channel with default values for missing fields.
@@ -465,7 +453,6 @@ export class ChannelManager implements IChannelManager {
         config: ChannelCreateInput,
         options?: { signal?: AbortSignal | null; initialContent?: ResolvedContentItem[] | undefined }
     ): Promise<ChannelConfig> {
-        // Validate content source
         if (!config.contentSource) {
             throw createChannelContentSourceRequiredError();
         }
@@ -475,7 +462,6 @@ export class ChannelManager implements IChannelManager {
             throw createMaxChannelsReachedError();
         }
 
-        // Validate and assign channel number
         let channelNumber: number;
         if (typeof config.number === 'number') {
             this._validateChannelNumber(config.number);
@@ -487,7 +473,6 @@ export class ChannelManager implements IChannelManager {
             channelNumber = this._getNextAvailableNumber();
         }
 
-        // Build complete channel config
         const channel: ChannelConfig = {
             id: generateUUID(),
             number: channelNumber,
@@ -546,7 +531,6 @@ export class ChannelManager implements IChannelManager {
         if (config.maxEpisodeRunTimeMs !== undefined) channel.maxEpisodeRunTimeMs = config.maxEpisodeRunTimeMs;
         if (config.minEpisodeRunTimeMs !== undefined) channel.minEpisodeRunTimeMs = config.minEpisodeRunTimeMs;
 
-        // Store channel
         this._state.channels.set(channel.id, channel);
         this._state.channelOrder.push(channel.id);
 
@@ -596,7 +580,6 @@ export class ChannelManager implements IChannelManager {
             throw createChannelNotFoundError();
         }
 
-        // Handle number change
         if (typeof updates.number === 'number' && updates.number !== channel.number) {
             this._validateChannelNumber(updates.number);
             if (this._isChannelNumberInUse(updates.number)) {
@@ -653,7 +636,6 @@ export class ChannelManager implements IChannelManager {
         this._state.resolvedContent.delete(id);
         this._state.channelOrder = this._state.channelOrder.filter((cid) => cid !== id);
 
-        // Update current channel if needed
         if (this._state.currentChannelId === id) {
             this._state.currentChannelId =
                 this._state.channelOrder.length > 0 ? this._state.channelOrder[0]! : null;
@@ -664,9 +646,6 @@ export class ChannelManager implements IChannelManager {
         this._emitter.emit('channelDeleted', id);
     }
 
-    // ============================================
-    // Retrieval
-    // ============================================
 
     /**
      * Get a channel by ID.
@@ -696,9 +675,6 @@ export class ChannelManager implements IChannelManager {
         return null;
     }
 
-    // ============================================
-    // Content Resolution
-    // ============================================
 
     /**
      * Resolve content for a channel (uses cache if valid).
@@ -768,16 +744,12 @@ export class ChannelManager implements IChannelManager {
     }
 
 
-    // ============================================
-    // Ordering / Current Channel
-    // ============================================
 
     /**
      * Reorder channels.
      * @remarks In-memory order is updated synchronously; persistence is queued via debounced save.
      */
     reorderChannels(orderedIds: string[]): Promise<void> {
-        // Validate all IDs exist
         const validIds = orderedIds.filter((id) => this._state.channels.has(id));
         this._state.channelOrder = validIds;
         this._queueSave();
@@ -857,9 +829,6 @@ export class ChannelManager implements IChannelManager {
         return prevId ? this._state.channels.get(prevId) || null : null;
     }
 
-    // ============================================
-    // Import/Export
-    // ============================================
 
     /**
      * Export all channels as JSON string.
@@ -923,9 +892,6 @@ export class ChannelManager implements IChannelManager {
         return result;
     }
 
-    // ============================================
-    // Persistence
-    // ============================================
 
     /**
      * Flush any pending debounced save immediately.
@@ -1207,9 +1173,6 @@ export class ChannelManager implements IChannelManager {
         }
     }
 
-    // ============================================
-    // Events
-    // ============================================
 
     /**
      * Subscribe to channel manager events.
@@ -1221,9 +1184,6 @@ export class ChannelManager implements IChannelManager {
         return this._emitter.on(event, handler);
     }
 
-    // ============================================
-    // Private Methods
-    // ============================================
 
     private _cloneResolvedItem(item: ResolvedContentItem): ResolvedContentItem {
         const cloned: ResolvedContentItem = { ...item };
@@ -1342,7 +1302,6 @@ export class ChannelManager implements IChannelManager {
                 channel.blockSize
             );
 
-            // Build result
             const totalDurationMs = items.reduce((sum, item) => sum + item.durationMs, 0);
             const result: ResolvedChannelContent = {
                 channelId: channel.id,

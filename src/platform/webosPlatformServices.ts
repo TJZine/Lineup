@@ -1,8 +1,3 @@
-/**
- * @fileoverview Default webOS platform services implementation.
- * @module platform/webosPlatformServices
- */
-
 import type {
     PlatformIdentityService,
     PlatformServices,

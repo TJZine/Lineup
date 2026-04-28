@@ -1,8 +1,3 @@
-/**
- * @fileoverview Channel transition overlay exports.
- * @module modules/ui/channel-transition
- */
-
 export { ChannelTransitionOverlay } from './ChannelTransitionOverlay';
 export { ChannelTransitionCoordinator } from './ChannelTransitionCoordinator';
 export {

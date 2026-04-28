@@ -1,9 +1,3 @@
-/**
- * @fileoverview Splash screen shown during startup.
- * @module modules/ui/splash/SplashScreen
- * @version 2.0.0
- */
-
 import './styles.css';
 
 export class SplashScreen {

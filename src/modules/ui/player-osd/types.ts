@@ -1,8 +1,3 @@
-/**
- * @fileoverview Player OSD overlay types.
- * @module modules/ui/player-osd/types
- */
-
 export interface PlayerOsdConfig {
     containerId: string;
 }

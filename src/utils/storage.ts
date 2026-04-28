@@ -1,12 +1,7 @@
-/**
- * @fileoverview Safe localStorage helpers.
- * @module utils/storage
- * @version 1.0.0
- *
+/*
  * webOS/Chromium and some privacy modes can throw on localStorage access.
  * These helpers treat storage as optional and never throw.
  */
-
 export function safeLocalStorageGet(key: string): string | null {
     try {
         return localStorage.getItem(key);

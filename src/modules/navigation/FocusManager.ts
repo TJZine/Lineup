@@ -1,9 +1,3 @@
-/**
- * @fileoverview Focus manager for tracking and spatially navigating focusable elements.
- * @module modules/navigation/FocusManager
- * @version 1.0.0
- */
-
 import { IFocusManager, FocusableElement, FocusGroup } from './interfaces';
 import { FOCUS_CLASSES } from './constants';
 

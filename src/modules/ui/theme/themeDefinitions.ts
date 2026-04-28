@@ -1,8 +1,3 @@
-/**
- * @fileoverview Theme mapping and options source of truth.
- * @module modules/ui/theme/themeDefinitions
- */
-
 export const THEME_CLASSES = {
     'slate-pine': 'theme-slate-pine',
     swiss: 'theme-swiss',

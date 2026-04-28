@@ -264,7 +264,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             };
         }
 
-        // Update state
         const serverWithConnection: PlexServer = {
             ...server,
             preferredConnection: connection,

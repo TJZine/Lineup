@@ -1,8 +1,3 @@
-/**
- * @fileoverview Now Playing Info overlay exports.
- * @module modules/ui/now-playing-info
- */
-
 export { NowPlayingInfoOverlay } from './NowPlayingInfoOverlay';
 export { NowPlayingInfoCoordinator, getNowPlayingInfoAutoHideMs } from './NowPlayingInfoCoordinator';
 export {

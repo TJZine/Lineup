@@ -1,8 +1,3 @@
-/**
- * @fileoverview Plex URL utilities for shared stream and trust-boundary policy.
- * @module modules/plex/shared/plexUrl
- */
-
 export const PLEX_SERVER_KEY_PREFIXES = ['/library/', '/video/', '/:/'] as const;
 export const PLEX_CLOUD_TRUSTED_ORIGINS = ['https://plex.tv', 'https://clients.plex.tv'] as const;
 

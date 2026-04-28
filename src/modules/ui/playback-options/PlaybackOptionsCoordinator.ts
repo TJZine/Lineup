@@ -1,8 +1,3 @@
-/**
- * @fileoverview Playback Options modal coordinator.
- * @module modules/ui/playback-options/PlaybackOptionsCoordinator
- */
-
 import type { INavigationManager, FocusableElement } from '../../navigation';
 import type { IPlaybackOptionsModal } from './interfaces';
 import type {

@@ -1,7 +1,3 @@
-/**
- * @fileoverview Media selection policy for Plex stream resolution.
- */
-
 import type { PlexMediaFile } from './types';
 
 export type SelectedMedia = {

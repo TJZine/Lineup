@@ -1,9 +1,3 @@
-/**
- * @fileoverview Type definitions for channel setup/builder module.
- * @module core/channel-setup/types
- * @version 1.0.0
- */
-
 export type SetupStrategyKey =
     | 'collections'
     | 'playlists'

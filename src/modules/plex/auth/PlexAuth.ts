@@ -81,9 +81,6 @@ export class PlexAuth implements IPlexAuth {
         };
     }
 
-    // ========================================
-    // PIN-based OAuth flow
-    // ========================================
 
     /**
      * Initiate Plex OAuth flow by requesting a PIN code.
@@ -203,9 +200,6 @@ export class PlexAuth implements IPlexAuth {
         }
     }
 
-    // ========================================
-    // Token management
-    // ========================================
 
     /**
      * Verify a token is still valid by calling Plex API.
@@ -337,9 +331,6 @@ export class PlexAuth implements IPlexAuth {
         this._emitter.emit('authChange', false);
     }
 
-    // ========================================
-    // Convenience methods
-    // ========================================
 
     /** Check if currently authenticated. */
     public isAuthenticated(): boolean {
@@ -734,9 +725,6 @@ export class PlexAuth implements IPlexAuth {
         return this._emitter.on(event, handler as (payload: unknown) => void);
     }
 
-    // ========================================
-    // Private helpers
-    // ========================================
 
     private async _fetchUserProfile(
         token: string,

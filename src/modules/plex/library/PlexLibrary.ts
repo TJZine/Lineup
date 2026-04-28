@@ -1,10 +1,3 @@
-/**
- * @fileoverview Plex Library implementation.
- * Handles library browsing, content retrieval, and image URL generation.
- * @module modules/plex/library/PlexLibrary
- * @version 1.0.0
- */
-
 import { EventEmitter } from '../../../utils/EventEmitter';
 import type { IDisposable } from '../../../utils/interfaces';
 import { AppErrorCode } from '../../../types/app-errors';
@@ -111,9 +104,6 @@ function describeTopLevelJsonValue(value: unknown): string {
     return typeof value;
 }
 
-// ============================================
-// Main Class
-// ============================================
 
 /**
  * Plex Library implementation.
@@ -214,9 +204,6 @@ export class PlexLibrary implements IPlexLibrary {
         }
     }
 
-    // ============================================
-    // Library Sections
-    // ============================================
 
     /**
      * Get all libraries.
@@ -291,9 +278,6 @@ export class PlexLibrary implements IPlexLibrary {
         return lookupSource.libraries.find((lib) => lib.id === libraryId) ?? null;
     }
 
-    // ============================================
-    // Content Browsing
-    // ============================================
 
     /**
      * Get items from a library with optional filtering.
@@ -425,9 +409,6 @@ export class PlexLibrary implements IPlexLibrary {
         return parseMediaItem(item);
     }
 
-    // ============================================
-    // TV Show Hierarchy
-    // ============================================
 
     /**
      * Get TV shows within a library.
@@ -554,9 +535,6 @@ export class PlexLibrary implements IPlexLibrary {
         });
     }
 
-    // ============================================
-    // Search
-    // ============================================
 
     /**
      * Search for content across libraries.
@@ -621,9 +599,6 @@ export class PlexLibrary implements IPlexLibrary {
         return items;
     }
 
-    // ============================================
-    // Collections/Playlists
-    // ============================================
 
     /**
      * Get collections in a library.
@@ -716,9 +691,6 @@ export class PlexLibrary implements IPlexLibrary {
         return parseMediaItems(metadata);
     }
 
-    // ============================================
-    // Actor/Studio Tags
-    // ============================================
 
     private async _getLibrarySectionTags(
         libraryId: string,
@@ -791,9 +763,6 @@ export class PlexLibrary implements IPlexLibrary {
         return this._getLibrarySectionTags(libraryId, PLEX_ENDPOINTS.LIBRARY_SECTION_YEARS, 'Years', options);
     }
 
-    // ============================================
-    // Image URLs
-    // ============================================
 
     /**
      * Generate authenticated URL for Plex images.
@@ -836,9 +805,6 @@ export class PlexLibrary implements IPlexLibrary {
         return url.toString();
     }
 
-    // ============================================
-    // Refresh
-    // ============================================
 
     /**
      * Refresh cached library data.
@@ -857,9 +823,6 @@ export class PlexLibrary implements IPlexLibrary {
         this._emitter.emit('libraryRefreshed', { libraryId });
     }
 
-    // ============================================
-    // Events
-    // ============================================
 
     /**
      * Register an event handler.
@@ -886,9 +849,6 @@ export class PlexLibrary implements IPlexLibrary {
         this._emitter.off(event, handler);
     }
 
-    // ============================================
-    // Private Methods
-    // ============================================
 
     /**
      * Build a full URL with query parameters.

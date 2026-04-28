@@ -1,9 +1,3 @@
-/**
- * @fileoverview Tab bar component for filtering EPG by library.
- * @module modules/ui/epg/view/EPGLibraryTabs
- * @version 1.0.0
- */
-
 interface EPGLibraryTabsConfig {
     onSelect: (libraryId: string | null) => void;
 }

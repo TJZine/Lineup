@@ -1,9 +1,3 @@
-/**
- * @fileoverview Coordinates EPG state, schedule loading, and overlay lifecycle.
- * @module modules/ui/epg/coordinator/EPGCoordinator
- * @version 1.0.0
- */
-
 import type { EpgGuideDensity } from '../../../settings/EpgPreferencesStore';
 import type { IEPGComponent } from '../interfaces';
 import type { ChannelConfig as EpgChannel, EPGConfig, EpgVisibleRange, ScheduledProgram as EpgScheduledProgram } from '../types';

@@ -1,9 +1,3 @@
-/**
- * @fileoverview EPG Error Boundary - Centralized error handling for EPG component
- * @module modules/ui/epg/view/EPGErrorBoundary
- * @version 1.0.0
- */
-
 import { EventEmitter } from '../../../../utils/EventEmitter';
 import { redactSensitiveTokens } from '../../../../utils/redact';
 import { AppErrorCode } from '../../../../types/app-errors';

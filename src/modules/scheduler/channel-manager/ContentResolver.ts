@@ -1,10 +1,3 @@
-/**
- * @fileoverview Content resolution logic for Channel Manager.
- * Handles fetching and transforming content from various Plex sources.
- * @module modules/scheduler/channel-manager/ContentResolver
- * @version 1.0.0
- */
-
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from './interfaces';
 import type {
     ChannelContentSource,
@@ -24,9 +17,6 @@ import { applyBlockPlaybackMode } from '../shared/blockPlayback';
 import { PLEX_MEDIA_TYPES } from '../../plex/library/constants';
 import { detectHdrLabel } from '../../plex/stream/hdr';
 
-// ============================================
-// Content Resolver Class
-// ============================================
 
 const CONTENT_RESOLVER_CACHE_TTL_MS = 5 * 60_000;
 const SHOW_CACHE_TTL_MS = CONTENT_RESOLVER_CACHE_TTL_MS;
@@ -429,9 +419,6 @@ export class ContentResolver {
         }
     }
 
-    // ============================================
-    // Private Source Resolution Methods
-    // ============================================
 
     private async _resolveLibrarySource(
         source: LibraryContentSource,
@@ -661,9 +648,6 @@ export class ContentResolver {
         }
     }
 
-    // ============================================
-    // Private Helper Methods
-    // ============================================
 
     private _buildSourceCacheKey(source: ChannelContentSource): string {
         return this._stableSerialize(source);

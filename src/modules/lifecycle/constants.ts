@@ -1,9 +1,3 @@
-/**
- * @fileoverview Constants for the Application Lifecycle module.
- * @module modules/lifecycle/constants
- * @version 1.0.0
- */
-
 export { TIMING_CONFIG } from '../../config/timing';
 
 /**

@@ -1,8 +1,3 @@
-/**
- * @fileoverview Shared Plex media type definitions.
- * @module modules/plex/shared/types
- * @version 1.0.0
- */
 
 /**
  * Plex media item types shared across library, stream, and scheduler boundaries.

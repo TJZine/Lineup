@@ -1,9 +1,3 @@
-/**
- * @fileoverview State Manager for localStorage persistence with versioning.
- * @module modules/lifecycle/StateManager
- * @version 1.0.0
- */
-
 import {
     PersistentState,
     UserPreferences,

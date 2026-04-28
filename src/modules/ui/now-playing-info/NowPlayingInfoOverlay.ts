@@ -1,8 +1,3 @@
-/**
- * @fileoverview Now Playing Info overlay UI.
- * @module modules/ui/now-playing-info/NowPlayingInfoOverlay
- */
-
 import { NOW_PLAYING_INFO_CLASSES, NOW_PLAYING_INFO_DEFAULTS } from './constants';
 import type { INowPlayingInfoOverlay } from './interfaces';
 import type { NowPlayingInfoConfig, NowPlayingInfoViewModel } from './types';

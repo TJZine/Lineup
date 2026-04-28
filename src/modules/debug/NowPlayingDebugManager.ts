@@ -1,9 +1,3 @@
-/**
- * @fileoverview Debug overlay manager for Now Playing stream information.
- * @module modules/debug/NowPlayingDebugManager
- * @version 1.0.0
- */
-
 import { summarizeErrorForLog } from '../../utils/errors';
 import type { INavigationManager } from '../navigation';
 import type { IPlexStreamResolver, StreamDecision } from '../plex/stream';

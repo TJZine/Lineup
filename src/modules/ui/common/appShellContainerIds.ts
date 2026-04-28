@@ -1,8 +1,3 @@
-/**
- * @fileoverview Shared app-shell container IDs consumed by core shell wiring and feature modules.
- * @module modules/ui/common/appShellContainerIds
- */
-
 export const APP_SHELL_CONTAINER_IDS = {
     VIDEO: 'video-container',
     RUNTIME_CHROME_HOST: 'runtime-chrome-host',

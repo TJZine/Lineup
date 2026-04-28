@@ -1,8 +1,3 @@
-/**
- * @fileoverview Settings select component - focusable multi-value button.
- * @module modules/ui/settings/SettingsSelect
- */
-
 import type { SettingsSelectConfig } from './types';
 
 export function createSettingsSelect(config: SettingsSelectConfig): {

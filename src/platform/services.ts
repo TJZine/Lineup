@@ -1,8 +1,3 @@
-/**
- * @fileoverview Platform service boundaries used by feature modules.
- * @module platform/services
- */
-
 export type PlatformRemoteButton =
     | 'ok' | 'back'
     | 'up' | 'down' | 'left' | 'right'

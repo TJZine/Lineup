@@ -1,9 +1,3 @@
-/**
- * @fileoverview Coordinates channel setup rerun lifecycle policy.
- * @module core/channel-setup/ChannelSetupCoordinator
- * @version 1.0.0
- */
-
 import type { INavigationManager } from '../../modules/navigation';
 import type { ChannelSetupBuildScratchStore } from './build/ChannelSetupBuildScratchStore';
 import { ChannelSetupRecordStore } from './persistence/ChannelSetupRecordStore';

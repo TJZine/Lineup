@@ -1,8 +1,3 @@
-/**
- * @fileoverview Mini Guide overlay interface.
- * @module modules/ui/mini-guide/interfaces
- */
-
 import type { MiniGuideConfig, MiniGuideViewModel } from './types';
 
 export interface IMiniGuideOverlay {

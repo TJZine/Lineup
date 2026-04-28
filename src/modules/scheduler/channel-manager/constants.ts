@@ -1,12 +1,4 @@
-/**
- * @fileoverview Constants for Channel Manager module.
- * @module modules/scheduler/channel-manager/constants
- * @version 1.0.0
- */
 
-// ============================================
-// Storage Keys
-// ============================================
 
 /** localStorage key for channel configurations */
 export const STORAGE_KEY = 'lineup_channels_v4';
@@ -16,16 +8,10 @@ export const STORAGE_KEY = 'lineup_channels_v4';
 export const CURRENT_CHANNEL_KEY = 'lineup_current_channel_v4';
 
 
-// ============================================
-// Caching
-// ============================================
 
 /** Content cache TTL in milliseconds (1 hour per spec) */
 export const CACHE_TTL_MS = 60 * 60 * 1000;
 
-// ============================================
-// Limits
-// ============================================
 
 /** Default maximum channels used by setup wizard */
 export const DEFAULT_CHANNEL_SETUP_MAX = 200;
@@ -39,9 +25,6 @@ export const MIN_CHANNEL_NUMBER = 1;
 /** Maximum channel number */
 export const MAX_CHANNEL_NUMBER = 500;
 
-// ============================================
-// Error Messages
-// ============================================
 
 export const CHANNEL_ERROR_MESSAGES = {
     CHANNEL_NOT_FOUND: 'Channel not found',

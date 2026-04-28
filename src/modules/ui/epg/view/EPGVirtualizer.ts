@@ -178,10 +178,8 @@ export class EPGVirtualizer {
     private gridAnchorTime: number = 0;
     private channelOffset: number = 0;
 
-    /** Pool of recycled DOM elements */
     private elementPool: Map<string, HTMLElement> = new Map();
 
-    /** Currently visible cells */
     private visibleCells: Map<string, VirtualizedCellRenderData> = new Map();
 
     private cellRenderer = new EPGCellRenderer();
@@ -189,7 +187,6 @@ export class EPGVirtualizer {
     private focusedVisibleCellKey: string | null = null;
     private focusedTimeMs: number | null = null;
 
-    /** Total channel count */
     private totalChannels: number = 0;
     private isDebugEnabled(): boolean {
         return isDebugRuntimeEnabled(this.config?.debugRuntime);
@@ -752,7 +749,6 @@ export class EPGVirtualizer {
             return element;
         }
 
-        // Create new element if pool is empty
         return this.cellRenderer.createElement();
     }
 
@@ -803,7 +799,6 @@ export class EPGVirtualizer {
         this.cellRenderer.updateCellContent(cellData, nowMs);
         this.cellRenderer.updatePositionPresentation(cellData);
 
-        // Calculate position
         element.style.left = `${cellData.left}px`;
         element.style.width = `${cellData.width}px`;
         element.style.top = `${(cellData.rowIndex - this.channelOffset) * this.config.rowHeight}px`;

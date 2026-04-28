@@ -1,9 +1,3 @@
-/**
- * @fileoverview Dolby Vision profile parsing and HDR10 fallback decision logic.
- * @module modules/plex/stream/dvHdr10Fallback
- * @version 1.0.0
- */
-
 type DvProfileInfo = {
     raw: string | null;
     profileId: number | null;

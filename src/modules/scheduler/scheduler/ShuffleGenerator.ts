@@ -1,16 +1,6 @@
-/**
- * @fileoverview Deterministic shuffle generator using Mulberry32 PRNG.
- * Provides reproducible shuffling for channel content ordering.
- * @module modules/scheduler/scheduler/ShuffleGenerator
- * @version 1.0.0
- */
-
 import type { IShuffleGenerator } from './interfaces';
 import { createMulberry32 } from '../shared/prng';
 
-// ============================================
-// ShuffleGenerator Class
-// ============================================
 
 /**
  * Deterministic shuffle generator using Mulberry32 PRNG.

@@ -1,8 +1,3 @@
-/**
- * @fileoverview EPG-owned domain types for UI-facing contracts.
- * @module modules/ui/epg/domainTypes
- */
-
 import type { ChannelConfig as SchedulerChannelConfig } from '../../../scheduler/channel-manager';
 
 export interface EpgItemDetailsStream {

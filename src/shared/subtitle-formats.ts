@@ -1,9 +1,3 @@
-/**
- * @fileoverview Shared subtitle format constants.
- * Single source of truth for subtitle format classification.
- * @module shared/subtitle-formats
- * @version 1.0.0
- */
 
 /**
  * Subtitle formats that require burn-in (image-based or styled).

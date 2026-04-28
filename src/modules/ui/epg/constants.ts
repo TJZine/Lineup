@@ -1,8 +1,3 @@
-/**
- * @fileoverview EPG UI module constants
- * @module modules/ui/epg/constants
- */
-
 import type { EPGConfig } from './types';
 
 export const EPG_CONTAINER_ID = 'epg-container' as const;
@@ -16,13 +11,10 @@ export const EPG_CONSTANTS = {
     VISIBLE_CHANNELS: 5,
     /** Grid time slot granularity (minutes) */
     TIME_SLOT_MINUTES: 30,
-    /** Hours visible at once */
     VISIBLE_HOURS: 2,
-    /** Total hours in schedule */
     TOTAL_HOURS: 24,
     /** Pixels per minute (width scaling) */
     PIXELS_PER_MINUTE: 4,
-    /** Pixels per channel row */
     ROW_HEIGHT: 108,
     /** Virtualization row buffer above/below visible */
     ROW_BUFFER: 2,
@@ -30,13 +22,10 @@ export const EPG_CONSTANTS = {
     TIME_BUFFER_MINUTES: 60,
     /** Current time indicator update interval (ms) */
     TIME_INDICATOR_UPDATE_MS: 60_000,
-    /** Maximum DOM elements for grid cells */
     MAX_DOM_ELEMENTS: 200,
-    /** Maximum pool size for recycled elements */
     MAX_POOL_SIZE: 250,
     /** Scroll amount when navigating past visible window (minutes) */
     TIME_SCROLL_AMOUNT: 30,
-    /** Channel column width (pixels) */
     CHANNEL_COLUMN_WIDTH: 200,
 } as const;
 

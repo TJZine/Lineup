@@ -1,8 +1,3 @@
-/**
- * @fileoverview Channel transition overlay UI.
- * @module modules/ui/channel-transition/ChannelTransitionOverlay
- */
-
 import { CHANNEL_TRANSITION_CLASSES } from './constants';
 import type { IChannelTransitionOverlay } from './interfaces';
 import type { ChannelTransitionConfig, ChannelTransitionViewModel } from './types';

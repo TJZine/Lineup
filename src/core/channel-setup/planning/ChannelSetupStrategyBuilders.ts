@@ -1,8 +1,3 @@
-/**
- * @fileoverview Planner-local strategy builders for channel setup candidates.
- * @module core/channel-setup/planning/ChannelSetupStrategyBuilders
- */
-
 import type {
     ChannelSetupConfig,
     ChannelSetupEstimates,

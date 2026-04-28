@@ -1,8 +1,3 @@
-/**
- * @fileoverview Player OSD coordinator (state + view model).
- * @module modules/ui/player-osd/PlayerOsdCoordinator
- */
-
 import type { INavigationManager } from '../../navigation';
 import type { IVideoPlayer } from '../../player';
 import type { PlaybackState, PlayerStatus, TimeRange } from '../../player/types';

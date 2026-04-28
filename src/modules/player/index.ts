@@ -1,9 +1,3 @@
-/**
- * @fileoverview Public exports for Video Player module.
- * @module modules/player
- * @version 1.0.0
- */
-
 export { VideoPlayer } from './VideoPlayer';
 export { mapMediaErrorCodeToPlaybackError } from './ErrorHandler';
 export { SubtitleManager } from './SubtitleManager';

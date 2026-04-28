@@ -1,8 +1,3 @@
-/**
- * @fileoverview Mini Guide overlay UI.
- * @module modules/ui/mini-guide/MiniGuideOverlay
- */
-
 import { MINI_GUIDE_CLASSES, MINI_GUIDE_TEXT } from './constants';
 import type { IMiniGuideOverlay } from './interfaces';
 import type { MiniGuideConfig, MiniGuideViewModel } from './types';

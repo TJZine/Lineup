@@ -1,9 +1,3 @@
-/**
- * @fileoverview Error Recovery for mapping errors to user actions.
- * @module modules/lifecycle/ErrorRecovery
- * @version 1.0.0
- */
-
 import { AppError, AppErrorCode, ErrorAction } from './types';
 import { ERROR_MESSAGES } from './constants';
 
@@ -173,7 +167,6 @@ export class ErrorRecovery {
         }
     }
 
-    // ========== Private Action Creators ==========
 
     private _createAuthActions(): ErrorAction[] {
         return [

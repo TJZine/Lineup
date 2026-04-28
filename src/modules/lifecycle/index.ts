@@ -1,8 +1,3 @@
-/**
- * @fileoverview Public exports for the Application Lifecycle module.
- * @module modules/lifecycle
- * @version 1.0.0
- */
 
 // Classes
 export { AppLifecycle } from './AppLifecycle';

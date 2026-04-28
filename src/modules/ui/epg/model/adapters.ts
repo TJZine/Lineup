@@ -1,8 +1,3 @@
-/**
- * @fileoverview Boundary adapters between scheduler/Plex models and EPG-owned UI domain types.
- * @module modules/ui/epg/adapters
- */
-
 import type { ChannelConfig as SchedulerChannelConfig } from '../../../scheduler/channel-manager';
 import type {
     ScheduleWindow as SchedulerScheduleWindow,

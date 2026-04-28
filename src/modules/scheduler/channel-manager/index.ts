@@ -1,8 +1,3 @@
-/**
- * @fileoverview Public exports for Channel Manager module.
- * @module modules/scheduler/channel-manager
- * @version 1.0.0
- */
 
 // Export main class and error
 export { ChannelManager, ChannelError } from './ChannelManager';

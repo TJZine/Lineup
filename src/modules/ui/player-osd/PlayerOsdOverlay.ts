@@ -1,8 +1,3 @@
-/**
- * @fileoverview Player OSD overlay UI.
- * @module modules/ui/player-osd/PlayerOsdOverlay
- */
-
 import { PLAYER_OSD_CLASSES } from './constants';
 import type { IPlayerOsdOverlay } from './interfaces';
 import type { PlayerOsdConfig, PlayerOsdViewModel } from './types';

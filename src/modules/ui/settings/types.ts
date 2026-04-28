@@ -1,9 +1,3 @@
-/**
- * @fileoverview Settings module type definitions.
- * @module modules/ui/settings/types
- * @version 1.0.0
- */
-
 import type {
     EpgGuideDensity,
     EpgLayoutMode,
@@ -104,19 +98,13 @@ export interface SettingsConfig {
  * Settings toggle item configuration.
  */
 export interface SettingsToggleConfig {
-    /** Unique identifier */
     id: string;
-    /** Display label */
     label: string;
-    /** Optional description text */
     description?: string;
-    /** Current value */
     value: boolean;
-    /** Whether the toggle is disabled */
     disabled?: boolean;
     /** Reason for being disabled (shown to user) */
     disabledReason?: string;
-    /** Callback when value changes */
     onChange: (value: boolean) => void;
 }
 
@@ -132,21 +120,14 @@ export interface SettingsSelectOption {
  * Settings select item configuration.
  */
 export interface SettingsSelectConfig {
-    /** Unique identifier */
     id: string;
-    /** Display label */
     label: string;
-    /** Optional description text */
     description?: string;
-    /** Current value */
     value: number;
-    /** Available options */
     options: SettingsSelectOption[];
-    /** Whether the select is disabled */
     disabled?: boolean;
     /** Reason for being disabled (shown to user) */
     disabledReason?: string;
-    /** Callback when value changes */
     onChange: (value: number) => void;
 }
 
@@ -165,10 +146,7 @@ export type GuideSettingChange =
  * Settings category configuration.
  */
 export interface SettingsCategoryConfig {
-    /** Unique identifier */
     id: SettingsCategoryId;
-    /** Category label */
     label: string;
-    /** Settings items in this category */
     items: SettingsItemConfig[];
 }

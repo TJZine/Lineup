@@ -1,8 +1,3 @@
-/**
- * @fileoverview Types for Mini Guide overlay.
- * @module modules/ui/mini-guide/types
- */
-
 import type { BuildStrategy } from '../../scheduler/channel-manager/types';
 
 export interface MiniGuideConfig {

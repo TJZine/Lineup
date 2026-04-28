@@ -1,9 +1,3 @@
-/**
- * @fileoverview Type definitions for the Application Lifecycle module.
- * @module modules/lifecycle/types
- * @version 1.0.0
- */
-
 import type { AppError } from '../../types/app-errors';
 export type { AppError } from '../../types/app-errors';
 export { AppErrorCode } from '../../types/app-errors';
@@ -118,17 +112,13 @@ export interface LifecycleEventMap {
  * Runtime state of the lifecycle manager.
  */
 export interface AppLifecycleState {
-    /** Current phase */
     phase: AppPhase;
-    /** Whether app is visible (foreground) */
     isVisible: boolean;
-    /** Whether network is available */
     isNetworkAvailable: boolean;
     /** Last active timestamp */
     lastActiveTime: number;
     /** Plex server connection status */
     plexConnectionStatus: ConnectionStatus;
-    /** Current error, if any */
     currentError: AppError | null;
 }
 
@@ -152,9 +142,7 @@ export interface ErrorAction {
     label: string;
     /** Action to execute */
     action: () => void | Promise<void>;
-    /** Whether this is the primary/default action */
     isPrimary: boolean;
-    /** Whether action requires network connectivity */
     requiresNetwork: boolean;
 }
 
