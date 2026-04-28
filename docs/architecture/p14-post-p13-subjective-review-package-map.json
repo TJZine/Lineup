@@ -698,7 +698,7 @@
     {
       "wave_id": "P14-WAVE8",
       "name": "post-wave7-target-residual-cleanup",
-      "status": "admitted",
+      "status": "completed",
       "purpose": "After WAVE7, focused review still left all three P14 target dimensions below 85; execute the next source-backed residual issues before reconsidering P14-EXIT.",
       "gate_only": false,
       "admission_rule": "Admit only source-backed residuals from the 20260428_193443 focused review with one owner, candidate files, package-local commands, and verification routing. Do not open P15, broad AppOrchestrator cleanup, broad lifecycle cleanup, or P14-EXIT closure from WAVE8 admission alone.",
@@ -744,7 +744,10 @@
           }
         },
         "decision": "P14 target dimensions remain below 85 with six concrete source-backed issues; admit P14-WAVE8 before P14-EXIT."
-      }
+      },
+      "completed_at": "2026-04-28",
+      "exit_boundary": "P14-WAVE8 is complete as a source wave, but it is not P14 closure. Post-WAVE8 focused review/scoring remains required before P14 can enter P14-EXIT or admit another wave.",
+      "post_wave_decision": "WAVE8 closes the admitted residual source wave but does not close P14 by itself; run a fresh focused subjective review/scoring pass for design_coherence,cross_module_architecture,ai_generated_debt before deciding P14-EXIT or the next admitted wave."
     }
   ],
   "packages": [
@@ -2048,8 +2051,8 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "disposition": "pending P14-WAVE8 execution-grade plan and review"
+        "status": "completed",
+        "disposition": "completed in P14-WAVE8; generated-style @fileoverview/@module metadata was removed from src/config/transcodeQuality.ts while preserving useful Plex transcode mapping rationale and exported transcode option semantics. Source implementation review and npm run verify passed."
       }
     },
     {
@@ -2085,8 +2088,8 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "disposition": "pending P14-WAVE8 execution-grade plan and review"
+        "status": "completed",
+        "disposition": "completed in P14-WAVE8; self-describing comments on Plex discovery types, EPG constants, and transcode quality declarations were trimmed while preserving API constraints, meaningful units, and exported values/shapes. Source implementation review and npm run verify passed."
       }
     },
     {
@@ -2122,8 +2125,8 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "disposition": "pending P14-WAVE8 execution-grade plan and review"
+        "status": "completed",
+        "disposition": "completed in P14-WAVE8; obvious UI/navigation/orchestrator step comments were removed from the cited files while preserving webOS, shutdown ordering, timing, failure-isolation, and behavior comments. Source implementation review and npm run verify passed."
       }
     },
     {
@@ -2163,8 +2166,8 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "disposition": "pending P14-WAVE8 execution-grade plan and review"
+        "status": "completed",
+        "disposition": "completed in P14-WAVE8; player OSD and mini-guide navigation feature ports now expose typed navigation intents, with concrete feature adaptation kept in OrchestratorCoordinatorBuilders.ts. A follow-up kept the guide-event mini-guide hide path on a narrow coordinator event contract mapped by orchestrator wiring. Targeted navigation tests, source implementation review, and npm run verify passed."
       }
     },
     {
@@ -2183,7 +2186,9 @@
         "src/modules/navigation/NavigationKeyModeRouter.ts",
         "src/modules/navigation/NavigationScreenEffectsHandler.ts",
         "src/modules/navigation/NavigationModalEffectsHandler.ts",
-        "src/modules/navigation/NavigationRepeatHandler.ts"
+        "src/modules/navigation/NavigationRepeatHandler.ts",
+        "src/modules/navigation/NavigationHandlerContracts.ts",
+        "src/modules/navigation/NavigationChannelNumberHandler.ts"
       ],
       "package_local_scoping_commands": [
         "desloppify show src/modules/navigation/NavigationCoordinator.ts --status open --no-budget --top 240",
@@ -2191,7 +2196,10 @@
         "desloppify show src/modules/navigation/NavigationScreenEffectsHandler.ts --status open --no-budget --top 220",
         "desloppify show src/modules/navigation/NavigationModalEffectsHandler.ts --status open --no-budget --top 220",
         "desloppify show src/modules/navigation/NavigationRepeatHandler.ts --status open --no-budget --top 220",
-        "rg -n \"NavigationRepeatRuntime|NavigationKeyModeRouterRuntime|NavigationScreenEffectsRuntime|NavigationModalEffectsRuntime|from './Navigation(KeyModeRouter|ScreenEffectsHandler|ModalEffectsHandler|RepeatHandler)'\" src/modules/navigation"
+        "rg -n \"NavigationRepeatRuntime|NavigationKeyModeRouterRuntime|NavigationScreenEffectsRuntime|NavigationModalEffectsRuntime|from './Navigation(KeyModeRouter|ScreenEffectsHandler|ModalEffectsHandler|RepeatHandler)'\" src/modules/navigation",
+        "desloppify show src/modules/navigation/NavigationHandlerContracts.ts --status open --no-budget --top 180",
+        "desloppify show src/modules/navigation/NavigationChannelNumberHandler.ts --status open --no-budget --top 220",
+        "rg -n \"Navigation(ChannelNumberHandlerRuntime|RepeatRuntime|KeyModeRouterRuntime|ScreenEffectsRuntime|ModalEffectsRuntime)|from './Navigation(ChannelNumberHandler|RepeatHandler|KeyModeRouter|ScreenEffectsHandler|ModalEffectsHandler|HandlerContracts)'\" src/modules/navigation"
       ],
       "verification_routing": {
         "mode": "refactor-invariance plus integration-ops",
@@ -2205,8 +2213,8 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "disposition": "pending P14-WAVE8 execution-grade plan and review"
+        "status": "completed",
+        "disposition": "completed in P14-WAVE8; shared handler runtime contracts moved to the neutral NavigationHandlerContracts.ts owner, including channel-number and repeat-support contracts needed to remove runtime-interface imports from concrete peer handler files. Targeted import audits, navigation madge --circular, source implementation review, and npm run verify passed."
       }
     },
     {
@@ -2243,8 +2251,8 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "disposition": "pending P14-WAVE8 execution-grade plan and review"
+        "status": "completed",
+        "disposition": "completed in P14-WAVE8; mutable facet load state moved to ChannelSetupFacetSnapshotLoadState and ChannelSetupFacetLibraryExecutor now receives separate control and state ports while ChannelSetupFacetSnapshotLoadSession keeps top-level sequencing and final snapshot assembly. Targeted facet snapshot tests, source implementation review, and npm run verify passed."
       }
     }
   ],
