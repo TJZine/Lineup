@@ -35,7 +35,7 @@ async function parseResourcesResponse(response: Response): Promise<PlexApiResour
         return [];
     }
 
-    const jsonResources = parseJsonResourceArray(text);
+    const jsonResources = parseJsonResourceArray(text, response.status);
     if (jsonResources) {
         return jsonResources;
     }
@@ -78,20 +78,102 @@ function getResponseContentType(response: Response): string {
         : '';
 }
 
-function parseJsonResourceArray(text: string): PlexApiResource[] | null {
+function parseJsonResourceArray(text: string, status: number): PlexApiResource[] | null {
     try {
         const parsed = JSON.parse(text);
         if (Array.isArray(parsed)) {
-            return parsed as PlexApiResource[];
+            return parsed.map((resource) => normalizeJsonResource(resource, status));
         }
-    } catch {
+    } catch (error) {
+        if (error instanceof PlexApiError) {
+            throw error;
+        }
         // Fall through to XML parsing.
     }
     return null;
 }
 
 function isXmlResourceResponse(text: string, contentType: string): boolean {
-    return contentType.includes('xml') || text.trim().startsWith('<');
+    return contentType.toLowerCase().includes('xml') || text.trim().startsWith('<');
+}
+
+function normalizeJsonResource(resource: unknown, status: number): PlexApiResource {
+    if (!isJsonObject(resource)) {
+        throwInvalidJsonResource(status);
+    }
+
+    return {
+        clientIdentifier: readJsonString(resource['clientIdentifier']),
+        name: readJsonString(resource['name']),
+        sourceTitle: readJsonString(resource['sourceTitle']),
+        ownerId: readJsonString(resource['ownerId']),
+        owned: readJsonBoolean(resource['owned']),
+        provides: readJsonString(resource['provides']),
+        connections: readJsonConnections(resource['connections'], status),
+    };
+}
+
+function readJsonConnections(connections: unknown, status: number): PlexApiConnection[] {
+    if (!Array.isArray(connections)) {
+        throwInvalidJsonResource(status);
+    }
+    return connections.map((connection) => normalizeJsonConnection(connection, status));
+}
+
+function normalizeJsonConnection(connection: unknown, status: number): PlexApiConnection {
+    if (!isJsonObject(connection)) {
+        throw new PlexApiError(
+            AppErrorCode.PARSE_ERROR,
+            'Invalid JSON server discovery connection',
+            status,
+            false
+        );
+    }
+
+    return {
+        uri: readJsonString(connection['uri']),
+        protocol: readJsonString(connection['protocol']),
+        address: readJsonString(connection['address']),
+        port: readJsonNumber(connection['port']),
+        local: readJsonBoolean(connection['local']),
+        relay: readJsonBoolean(connection['relay']),
+    };
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readJsonString(value: unknown): string {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function readJsonNumber(value: unknown): number {
+    const numberValue = typeof value === 'number' ? value : (typeof value === 'string' ? Number(value.trim()) : 0);
+    return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function readJsonBoolean(value: unknown): boolean {
+    if (typeof value === 'boolean') {
+        return value;
+    }
+    if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        return normalized === '1' || normalized === 'true';
+    }
+    if (typeof value === 'number') {
+        return value === 1;
+    }
+    return false;
+}
+
+function throwInvalidJsonResource(status: number): never {
+    throw new PlexApiError(
+        AppErrorCode.PARSE_ERROR,
+        'Invalid JSON server discovery resource',
+        status,
+        false
+    );
 }
 
 function parseXmlResourceArray(text: string, status: number): PlexApiResource[] {

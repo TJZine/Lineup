@@ -353,10 +353,10 @@ describe('ChannelSetupPlanningService', () => {
         expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - Jane Doe'))).toBe(false);
         expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - 1980s'))).toBe(true);
         expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - 1990s'))).toBe(false);
-        expect(result.plan?.pendingChannels.some((c) => c.name === 'Alex Star - TV')).toBe(true);
-        expect(result.plan?.pendingChannels.some((c) => c.name === 'Taylor Guest - TV')).toBe(false);
-        expect(result.plan?.pendingChannels.some((c) => c.name === 'Studio A - TV')).toBe(true);
-        expect(result.plan?.pendingChannels.some((c) => c.name === 'Studio B - TV')).toBe(false);
+        expect(result.plan?.pendingChannels.some((c) => c.name === 'Alex Star - Shows')).toBe(true);
+        expect(result.plan?.pendingChannels.some((c) => c.name === 'Taylor Guest - Shows')).toBe(false);
+        expect(result.plan?.pendingChannels.some((c) => c.name === 'Studio A - Shows')).toBe(true);
+        expect(result.plan?.pendingChannels.some((c) => c.name === 'Studio B - Shows')).toBe(false);
         expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
             filter: { type: PLEX_MEDIA_TYPES.SHOW, genre: 'Comedy' },
             signal: expect.any(Object),

@@ -111,6 +111,78 @@ describe('discoverPlexResourcesWithRequestPolicy response parsing', () => {
         ]);
     });
 
+    it('detects XML resource responses with case-insensitive content types', async () => {
+        mockDiscoveryResponse(createTextResponse('not-valid-xml', 'Application/XML'));
+
+        await expect(discoverPlexResourcesWithRequestPolicy(discoveryHeaders)).rejects.toMatchObject({
+            code: AppErrorCode.PARSE_ERROR,
+            message: 'Invalid XML response from server discovery',
+        });
+    });
+
+    it('rejects JSON resource arrays with malformed resource items as PARSE_ERROR', async () => {
+        mockDiscoveryResponse(createTextResponse(JSON.stringify([
+            {
+                clientIdentifier: 'srv-json',
+                name: 'JSON Server',
+                sourceTitle: 'json-user',
+                ownerId: 'owner-json',
+                owned: true,
+                provides: 'server',
+                connections: {},
+            },
+        ]), 'application/json'));
+
+        await expect(discoverPlexResourcesWithRequestPolicy(discoveryHeaders)).rejects.toMatchObject({
+            code: AppErrorCode.PARSE_ERROR,
+            message: 'Invalid JSON server discovery resource',
+        });
+    });
+
+    it('normalizes valid JSON resource arrays before returning discovery resources', async () => {
+        mockDiscoveryResponse(createTextResponse(JSON.stringify([
+            {
+                clientIdentifier: ' srv-json ',
+                name: ' JSON Server ',
+                sourceTitle: ' json-user ',
+                ownerId: ' owner-json ',
+                owned: '1',
+                provides: ' server ',
+                connections: [
+                    {
+                        uri: ' https://json.example:32400 ',
+                        protocol: ' https ',
+                        address: ' json.example ',
+                        port: '32400',
+                        local: '1',
+                        relay: false,
+                    },
+                ],
+            },
+        ]), 'application/json'));
+
+        await expect(discoverPlexResourcesWithRequestPolicy(discoveryHeaders)).resolves.toEqual([
+            {
+                clientIdentifier: 'srv-json',
+                name: 'JSON Server',
+                sourceTitle: 'json-user',
+                ownerId: 'owner-json',
+                owned: true,
+                provides: 'server',
+                connections: [
+                    {
+                        uri: 'https://json.example:32400',
+                        protocol: 'https',
+                        address: 'json.example',
+                        port: 32400,
+                        local: true,
+                        relay: false,
+                    },
+                ],
+            },
+        ]);
+    });
+
     it('throws PARSE_ERROR for non-XML unparsable responses', async () => {
         mockDiscoveryResponse(createTextResponse('not-a-json-or-xml-payload', 'text/plain'));
 
