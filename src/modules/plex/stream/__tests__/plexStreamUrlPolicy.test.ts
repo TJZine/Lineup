@@ -40,6 +40,23 @@ const createTranscodeInput = (
     ...overrides,
 });
 
+const createCapabilityInput = (
+    supportedMimeTypes: Iterable<string>,
+    overrides: Partial<Parameters<typeof buildPlexClientCapabilities>[0]> = {}
+): Parameters<typeof buildPlexClientCapabilities>[0] => {
+    const mimeTypes = new Set(supportedMimeTypes);
+
+    return {
+        is4K: true,
+        canPlayMimeType: (mime) => mimeTypes.has(mime),
+        chromeMajor: null,
+        isWebOs: false,
+        dtsPassthroughEnabled: false,
+        hideDolbyVision: false,
+        ...overrides,
+    };
+};
+
 describe('plexStreamUrlPolicy', () => {
     it('normalizes rating keys and metadata paths into one canonical metadata path', () => {
         expect(buildPlexMetadataPath('999')).toBe('/library/metadata/999');
@@ -162,27 +179,127 @@ describe('plexStreamUrlPolicy', () => {
         expect(parsed.searchParams.get('location')).toBe('lan');
     });
 
-    it('builds conservative client capabilities from runtime capability probes', () => {
-        const supportedMimeTypes = new Set([
+    it('serializes client capabilities with stable decoder ordering', () => {
+        const capabilities = buildPlexClientCapabilities(createCapabilityInput([
             'video/mp4; codecs="hvc1.2.4.L93.B0"',
             'video/mp4; codecs="hvc1.2.4.L150.B0"',
+            'video/mp4; codecs="hvc1.1.6.L93.B0"',
+            'video/mp4; codecs="dvh1.05.06"',
             'video/webm; codecs="vp9"',
-        ]);
-        const capabilities = buildPlexClientCapabilities({
-            is4K: true,
-            canPlayMimeType: (mime) => supportedMimeTypes.has(mime),
-            chromeMajor: null,
-            isWebOs: false,
+            'video/mp4; codecs="av01.0.05M.08"',
+        ], {
             dtsPassthroughEnabled: true,
-            hideDolbyVision: true,
-        });
+        }));
 
-        expect(capabilities).toContain('h264{profile:high&level:51}');
-        expect(capabilities).toContain('hevc{profile:main10&level:150}');
-        expect(capabilities).toContain('hevc{profile:main&level:150}');
-        expect(capabilities).toContain('vp9');
-        expect(capabilities).toContain('dca-ma{bitrate:1536000}');
-        expect(capabilities).not.toContain('dvhe');
+        expect(capabilities).toBe(
+            'protocols=http-live-streaming,http-mp4-streaming,http-streaming-video;' +
+            'videoDecoders=' +
+            'h264{profile:high&level:51},' +
+            'hevc{profile:main10&level:150},' +
+            'hevc{profile:main&level:150},' +
+            'hevc{profile:dvhe.05},' +
+            'hevc{profile:dvhe.08},' +
+            'vp9,' +
+            'av1;' +
+            'audioDecoders=' +
+            'mp3,' +
+            'aac{bitrate:800000},' +
+            'ac3{bitrate:800000},' +
+            'eac3{bitrate:800000},' +
+            'dts{bitrate:1536000},' +
+            'dca{bitrate:1536000},' +
+            'dca-ma{bitrate:1536000}'
+        );
+    });
+
+    it('advertises Dolby Vision profiles only when supported and not hidden', () => {
+        const advertised = buildPlexClientCapabilities(createCapabilityInput([
+            'video/mp4; codecs="hvc1.1.6.L93.B0"',
+            'video/mp4; codecs="dvh1.08.06"',
+        ], {
+            is4K: false,
+            hideDolbyVision: false,
+        }));
+        const hidden = buildPlexClientCapabilities(createCapabilityInput([
+            'video/mp4; codecs="hvc1.1.6.L93.B0"',
+            'video/mp4; codecs="dvh1.08.06"',
+        ], {
+            is4K: false,
+            hideDolbyVision: true,
+        }));
+
+        expect(advertised).toContain('hevc{profile:dvhe.05},hevc{profile:dvhe.08}');
+        expect(hidden).not.toContain('dvhe');
+    });
+
+    it('includes AV1 only when an approved AV1 probe succeeds', () => {
+        const unsupported = buildPlexClientCapabilities(createCapabilityInput([]));
+        const mp4Supported = buildPlexClientCapabilities(createCapabilityInput([
+            'video/mp4; codecs="av01.0.05M.08"',
+        ]));
+        const webmSupported = buildPlexClientCapabilities(createCapabilityInput([
+            'video/webm; codecs="av01.0.05M.08"',
+        ]));
+
+        expect(unsupported).not.toContain('av1');
+        expect(mp4Supported).toContain('videoDecoders=h264{profile:high&level:51},av1');
+        expect(webmSupported).toContain('videoDecoders=h264{profile:high&level:51},av1');
+    });
+
+    it('preserves HEVC explicit probe behavior and webOS Chrome fallback', () => {
+        const explicitMain = buildPlexClientCapabilities(createCapabilityInput([
+            'video/mp4; codecs="hev1.1.6.L93.B0"',
+        ], {
+            is4K: false,
+        }));
+        const explicitMain10 = buildPlexClientCapabilities(createCapabilityInput([
+            'video/mp4; codecs="hev1.2.4.L150.B0"',
+        ], {
+            is4K: false,
+        }));
+        const oldWebOsChrome = buildPlexClientCapabilities(createCapabilityInput([], {
+            is4K: false,
+            isWebOs: true,
+            chromeMajor: 93,
+        }));
+        const fallbackWebOsChrome = buildPlexClientCapabilities(createCapabilityInput([], {
+            is4K: false,
+            isWebOs: true,
+            chromeMajor: 94,
+        }));
+
+        expect(explicitMain).toContain(
+            'videoDecoders=h264{profile:high&level:42},hevc{profile:main&level:120};'
+        );
+        expect(explicitMain10).toContain(
+            'videoDecoders=h264{profile:high&level:42},hevc{profile:main10&level:120},hevc{profile:main&level:120};'
+        );
+        expect(oldWebOsChrome).toContain(
+            'videoDecoders=h264{profile:high&level:42};'
+        );
+        expect(fallbackWebOsChrome).toContain(
+            'videoDecoders=h264{profile:high&level:42},hevc{profile:main10&level:120},hevc{profile:main&level:120};'
+        );
+    });
+
+    it('includes DTS passthrough decoders only when passthrough is enabled', () => {
+        const disabled = buildPlexClientCapabilities(createCapabilityInput([], {
+            dtsPassthroughEnabled: false,
+        }));
+        const enabled = buildPlexClientCapabilities(createCapabilityInput([], {
+            dtsPassthroughEnabled: true,
+        }));
+
+        expect(disabled).toContain(
+            'audioDecoders=mp3,aac{bitrate:800000},ac3{bitrate:800000},eac3{bitrate:800000}'
+        );
+        expect(disabled).not.toContain('dts{bitrate:1536000}');
+        expect(disabled).not.toContain('dca{bitrate:1536000}');
+        expect(disabled).not.toContain('dca-ma{bitrate:1536000}');
+        expect(enabled).toContain(
+            'audioDecoders=mp3,aac{bitrate:800000},ac3{bitrate:800000},eac3{bitrate:800000},' +
+            'dts{bitrate:1536000},dca{bitrate:1536000},dca-ma{bitrate:1536000}'
+        );
     });
 
     it('rejects blank metadata paths before building transcode URLs', () => {
