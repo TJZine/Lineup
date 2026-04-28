@@ -41,30 +41,23 @@ architecture or workflow document.
 
 ## Current Evidence Snapshot
 
-Source: post-P13 targeted subjective review runs
-`.desloppify/subagents/runs/20260426_211342` and
-`.desloppify/subagents/runs/20260426_212144`, triage runs
-`.desloppify/triage_runs/20260426_212554` and
-`.desloppify/triage_runs/20260426_214226`, plus local queue/status reads on
-`2026-04-26`.
+Source: post-WAVE6 focused review run
+`.desloppify/subagents/runs/20260428_032838`, imported on `2026-04-28`.
 
-- Current scores: overall `88.4`, objective `96.0`, strict `88.3`, verified
-  `96.0`; strict remains above the `85.0` target.
-- Weak dimensions: AI generated debt `78.0`, cross-module arch `78.0`, design
-  coherence `73.0`, elegance `86.0`, stale migration `88.0`, and init coupling
-  `88.0`.
-- `desloppify status` records `Queue: 4 items` and `Review: 5 issues open, 5
-  uninvestigated`; `desloppify plan` records the four live backlog rows under
-  `Codebase-wide`.
-- CLI inconsistency: `desloppify show review --status open --no-budget --top
-  120` reports no open `review` matches even though `desloppify status`,
-  `desloppify plan`, and the refreshed artifacts show review work. Use the
-  refreshed review artifacts, triage artifacts, and `desloppify plan` as the
-  authoritative P14 planning evidence unless superseded by a future
-  integration-branch rerun.
-- Triage accounting: the refresh produced `9` review issue ids. P14 assigns
-  `4` exact ids to active packages and gives the other `5` ids explicit
-  non-active dispositions with one owner/revisit rule in the package map.
+- Current wave state: `P14-WAVE1` through `P14-WAVE6` are completed, and
+  `P14-WAVE7` is admitted but not started. P14 remains open and cannot enter
+  `P14-EXIT` until WAVE7 is planned, reviewed, implemented, verified, and
+  followed by a fresh focused review/scoring pass.
+- Current target scores: AI generated debt `76.0` (`-2.0` from `78.0`),
+  cross-module arch `82.0` (`+4.0` from `78.0`), and design coherence `82.0`
+  (`+9.0` from `73.0`); all remain below the `>=85` P14 target.
+- WAVE6 closeout commits: `2ba166d7` `refactor: complete p14 wave6 cleanup`
+  and `1761c65f` `fix: address p14 wave6 review followups`. WAVE7 admission
+  was recorded in `7e9cd111` `docs: admit p14 wave7`.
+- Current active evidence: the package map imports
+  `.desloppify/subagents/runs/20260428_032838/holistic_issues_merged.json`
+  with five concrete source-backed WAVE7 residual issues.
+- Last touched: `2026-04-28`.
 - P14 score target: raise AI generated debt, cross-module arch, and design
   coherence into the mid/high 80s. Continue P14 until all three target
   dimensions are at least `85`, or stop earlier only if two consecutive fresh
