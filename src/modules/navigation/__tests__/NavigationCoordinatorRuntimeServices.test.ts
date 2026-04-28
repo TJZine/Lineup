@@ -4,7 +4,7 @@
 
 import { createNavigationCoordinatorRuntimeServices } from '../NavigationCoordinatorRuntimeServices';
 import type { KeyEvent, NavigationState } from '../interfaces';
-import type { NavigationCoordinatorEventPort } from '../NavigationCoordinatorContracts';
+import type { NavigationCoordinatorEventPort } from '../NavigationCoordinatorEventPort';
 
 const createKeyEvent = (): KeyEvent => ({
     button: 'ok',

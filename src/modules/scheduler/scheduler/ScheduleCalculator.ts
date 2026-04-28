@@ -32,7 +32,6 @@ export function buildScheduleIndex(
         throw new Error(SCHEDULER_ERROR_MESSAGES.EMPTY_CHANNEL);
     }
 
-    // Apply playback mode to get ordered items
     const orderedItems = applyPlaybackMode(
         config.content,
         config.playbackMode,
@@ -68,8 +67,6 @@ export function buildScheduleIndex(
     };
 }
 
-// Binary Search
-
 /**
  * Binary search to find the item index at a given position in the loop.
  * Returns the index of the item where positionInLoop falls within
@@ -100,8 +97,6 @@ export function binarySearchForItem(
     return low;
 }
 
-// Program Calculation
-
 /**
  * Calculate the program playing at a specific time.
  * Core algorithm with O(log n) complexity.
@@ -118,21 +113,16 @@ export function calculateProgramAtTime(
 ): ScheduledProgram {
     const { totalLoopDurationMs, itemStartOffsets, orderedItems } = index;
 
-    // 1. Calculate elapsed since anchor
     const elapsedSinceAnchor = queryTime - anchorTime;
 
-    // 2. Determine loop iteration
     const loopNumber = Math.floor(elapsedSinceAnchor / totalLoopDurationMs);
 
-    // 3. Position within current loop (handle negative times correctly)
     const positionInLoop =
         ((elapsedSinceAnchor % totalLoopDurationMs) + totalLoopDurationMs) %
         totalLoopDurationMs;
 
-    // 4. Binary search for current item
     const itemIndex = binarySearchForItem(positionInLoop, itemStartOffsets);
 
-    // 5. Calculate offset within item
     const itemStartOffset = itemStartOffsets[itemIndex] ?? 0;
     const offsetInItem = positionInLoop - itemStartOffset;
 
@@ -142,12 +132,10 @@ export function calculateProgramAtTime(
     }
     const remainingMs = item.durationMs - offsetInItem;
 
-    // 6. Calculate absolute times
     const loopStartTime = anchorTime + loopNumber * totalLoopDurationMs;
     const absoluteStart = loopStartTime + itemStartOffset;
     const absoluteEnd = absoluteStart + item.durationMs;
 
-    // Check if this is the current program
     const now = Date.now();
     const isCurrent = now >= absoluteStart && now < absoluteEnd;
 
@@ -207,8 +195,6 @@ export function calculatePreviousProgram(
     );
 }
 
-// Playback Mode
-
 /**
  * Apply playback mode to content items.
  * Scheduler only supports deterministic modes for replay/debugging.
@@ -231,7 +217,6 @@ export function applyPlaybackMode(
 ): ResolvedContentItem[] {
     switch (mode) {
         case 'sequential':
-            // Return copy in original order
             return items.map((item, index) => ({
                 ...item,
                 scheduledIndex: index,
@@ -268,8 +253,6 @@ export function applyPlaybackMode(
     }
 }
 
-// Schedule Window Generation
-
 /**
  * Maximum programs to return in a schedule window.
  * Acts as a memory safety guard for EPG generation.
@@ -300,20 +283,16 @@ export function generateScheduleWindow(
     anchorTime: number,
     output?: ScheduledProgram[]
 ): ScheduledProgram[] {
-    // Reuse output array if provided, otherwise allocate new
     const programs = output ?? [];
-    programs.length = 0; // Clear existing contents
+    programs.length = 0;
 
-    // Invalid window - return empty
     if (endTime <= startTime) {
         return programs;
     }
 
-    // Get the first program that overlaps with startTime
     let currentProgram = calculateProgramAtTime(startTime, index, anchorTime);
     programs.push(currentProgram);
 
-    // Walk forward until we pass endTime or hit max programs limit
     while (currentProgram.scheduledEndTime < endTime && programs.length < MAX_WINDOW_PROGRAMS) {
         currentProgram = calculateNextProgram(currentProgram, index, anchorTime);
         programs.push(currentProgram);

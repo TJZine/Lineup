@@ -129,11 +129,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     // Throttled render function for 60fps performance
     private throttledRenderGrid = rafThrottle(() => this.renderGridInternal());
 
-    /**
-     * Initialize the EPG component with configuration.
-     *
-     * @param config - EPG configuration
-     */
     initialize(config: EPGConfig): void {
         if (this.state.isInitialized) {
             return;
@@ -145,7 +140,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.state.gridAnchorTime = this.calculateGridAnchorTime(this.state.currentTime);
         this.state.focusTimeMs = this.state.currentTime;
 
-        // Find container element
         this.containerElement = document.getElementById(this.config.containerId);
         if (!this.containerElement) {
             throw new Error(EPG_ERRORS.CONTAINER_NOT_FOUND);
@@ -173,9 +167,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         appendDebugRuntimeLog(this.config.debugRuntime, event, payload);
     }
 
-    /**
-     * Destroy the EPG component and clean up resources.
-     */
     destroy(): void {
         this.infoPanelCoordinator.destroy();
         this.stopTimeUpdateInterval();
@@ -505,9 +496,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
     }
 
-    /**
-     * Create the current time indicator element.
-     */
     private createTimeIndicator(): void {
         if (!this.programAreaElement) return;
 
@@ -547,9 +535,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
     }
 
-    /**
-     * Start the time update interval.
-     */
     private startTimeUpdateInterval(): void {
         if (this.timeUpdateInterval) return;
 
@@ -558,9 +543,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }, EPG_CONSTANTS.TIME_INDICATOR_UPDATE_MS);
     }
 
-    /**
-     * Stop the time update interval.
-     */
     private stopTimeUpdateInterval(): void {
         if (this.timeUpdateInterval) {
             clearInterval(this.timeUpdateInterval);
@@ -1695,11 +1677,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         return `${channel.id}-placeholder-${focusedCell.placeholder.scheduledStartTime}`;
     }
 
-    /**
-     * Get the currently focused program.
-     *
-     * @returns Focused program or null
-     */
     getFocusedProgram(): ScheduledProgram | null {
         if (this.state.focusedCell?.kind !== 'program') {
             return null;
@@ -1708,16 +1685,10 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     }
 
 
-    /**
-     * Render the visible portion of the grid (throttled for 60fps).
-     */
     private renderGrid(): void {
         this.throttledRenderGrid();
     }
 
-    /**
-     * Internal render implementation called by throttled wrapper.
-     */
     private renderGridInternal(): void {
         if (!this.state.isVisible || !this.state.isInitialized) return;
 

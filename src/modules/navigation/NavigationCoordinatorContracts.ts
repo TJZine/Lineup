@@ -1,13 +1,8 @@
 import type {
     Direction,
-    INavigationManager,
-    NavigationAsyncFailureReporter,
 } from './interfaces';
-import type { ToastInput } from '../ui/toast/types';
 import type {
-    NavigationChannelSwitchingPort,
     NavigationFourWayDirection,
-    NavigationMiniGuidePort,
     NavigationVerticalDirection,
 } from './NavigationFeaturePorts';
 
@@ -24,13 +19,3 @@ export type NavigationDirectionContractCheck = AssertTrue<
 export type NavigationVerticalDirectionContractCheck = AssertTrue<
     IsExactType<Extract<Direction, NavigationVerticalDirection>, NavigationVerticalDirection>
 >;
-
-export interface NavigationCoordinatorEventPort {
-    navigation: INavigationManager;
-    miniGuide: NavigationMiniGuidePort;
-    channelSwitching: NavigationChannelSwitchingPort;
-    reportRecoverableAsyncFailure: NavigationAsyncFailureReporter;
-    reportToast?: (toast: ToastInput) => void;
-    readDebugLoggingEnabled: () => boolean;
-    logDebug?: (event: string, payload: Record<string, unknown>) => void;
-}

@@ -7,9 +7,7 @@ import type {
     NavigationPlaybackPort,
 } from './NavigationFeaturePorts';
 import type { INavigationManager, Screen } from './interfaces';
-import type { NavigationCoordinatorRuntimeServices } from './NavigationCoordinatorRuntimeServices';
-
-type NavigationScreenEffectsFireAndReport = NavigationCoordinatorRuntimeServices['fireAndReport'];
+import type { NavigationFireAndReport } from './NavigationCoordinatorRuntimeServices';
 
 export interface NavigationUiGuardsPort {
     shouldRunChannelSetup: () => boolean;
@@ -35,7 +33,7 @@ export class NavigationScreenEffectsHandler implements NavigationScreenEffectsRu
     constructor(
         private readonly deps: NavigationScreenEffectsPort,
         private readonly repeats: NavigationRepeatRuntime,
-        private readonly fireAndReport: NavigationScreenEffectsFireAndReport
+        private readonly fireAndReport: NavigationFireAndReport
     ) { }
 
     handleScreenChange(from: Screen, to: Screen): void {

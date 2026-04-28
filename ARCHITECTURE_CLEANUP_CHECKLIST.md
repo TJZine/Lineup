@@ -1267,7 +1267,7 @@ must add larger score-moving packages.
 - Follow-ups: none.
 - Handoff: archived inside completed `P14-WAVE6`.
 
-### [ ] `P14-WAVE7` post-WAVE6 target residual cleanup
+### [x] `P14-WAVE7` post-WAVE6 target residual cleanup
 
 - Scope: execute the focused post-WAVE6 residual issues admitted because all
   three P14 target dimensions remain below `85`.
@@ -1296,22 +1296,26 @@ must add larger score-moving packages.
   map, targeted `rg` audits, targeted tests where source behavior is touched,
   `npm run verify`, implementation review, checklist/package-map updates, and
   `npm run verify:docs`.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
+- Status: completed
+- Note: this closes WAVE7 only and is not P14 exit.
+- Plan: local approved `P14-WAVE7` execution unit `P14-W28` through `P14-W32`.
+- Last touched: P14-WAVE7 cleanup-worker implementation pass.
+- Verification: package-local Desloppify show commands were rerun; Desloppify
+  still reported triage-pending stale cycle wording for W28/W32, so source
+  proof used targeted `rg` plus `npx madge --circular` for the navigation
+  files. Targeted navigation/orchestrator tests and channel-setup facet tests
+  passed, `git diff --check` passed, and `npm run verify` passed.
 - Follow-ups: the post-WAVE6 focused review re-used
   `navigation_runtime_contract_hub` with remaining runtime-contract evidence;
   `P14-W28` is the current residual owner while `P14-W21` remains closed for
   its approved WAVE6 source slice. It also re-used
   `generated_style_headers_and_banners` with new residual files; `P14-W29` is
   the current residual owner for that lineage.
-- Handoff: route to a fresh bounded-context planner for `P14-WAVE7`, then a
-  fresh reviewer for adversarial plan review. Completing WAVE7 will still not
-  be P14 exit until a controller-owned focused review/scoring pass evaluates
-  P14-EXIT evidence.
+- Handoff: WAVE7 source work is complete. Completing WAVE7 is still not P14
+  exit; focused review/scoring and any P14-EXIT decision remain
+  controller-owned.
 
-### [ ] `P14-W28` `navigation-runtime-contract-hub-wave7-residual`
+### [x] `P14-W28` `navigation-runtime-contract-hub-wave7-residual`
 
 - Imported review issues:
   - `review::.::holistic::cross_module_architecture::navigation_runtime_contract_hub`
@@ -1328,10 +1332,18 @@ must add larger score-moving packages.
 - Package guardrail: navigation may own remote/focus routing contracts and
   event subscription wiring, but not app-level feature assembly. Preserve
   remote behavior.
-- Disposition: admitted for `P14-WAVE7`; pending execution-grade plan and
-  review.
+- Disposition: completed in `P14-WAVE7`. `NavigationCoordinatorEventPort` now
+  lives in a navigation-owned event-port module, runtime callback vocabulary is
+  exported by `NavigationCoordinatorRuntimeServices`, and key/screen handlers
+  no longer derive callback types from the aggregate runtime-services shape.
+  `P14-W28` remains the current residual owner for
+  `review::.::holistic::cross_module_architecture::navigation_runtime_contract_hub`;
+  `P14-W21` stays closed for its approved WAVE6 slice.
+- Verification: targeted navigation/orchestrator tests passed; required import
+  audit passed; `npx madge --circular` reported no circular dependency for the
+  cited navigation files; `npm run verify` passed.
 
-### [ ] `P14-W29` `generated-style-headers-banners-wave7-residual`
+### [x] `P14-W29` `generated-style-headers-banners-wave7-residual`
 
 - Imported review issues:
   - `review::.::holistic::ai_generated_debt::generated_style_headers_and_banners`
@@ -1346,10 +1358,17 @@ must add larger score-moving packages.
 - Package guardrail: comment-only; preserve comments that explain platform
   behavior, trust boundaries, persistence guarantees, domain constraints, or
   algorithmic rationale.
-- Disposition: admitted for `P14-WAVE7`; pending execution-grade plan and
-  review.
+- Disposition: stale-proven for generated-header/banner scope in current
+  source. The targeted audit found no `@fileoverview`, `@module`, `@version`,
+  decorative separator banner, or generated-style header matches in the
+  candidate files. `P14-W29` remains the current residual owner for
+  `review::.::holistic::ai_generated_debt::generated_style_headers_and_banners`;
+  `P14-W8`, `P14-W11`, and `P14-W16` stay closed for their approved slices.
+- Verification: package-local Desloppify show commands for the candidate files
+  reported no matching open issues, the targeted generated-header/banner `rg`
+  audit returned no matches, and `npm run verify` passed.
 
-### [ ] `P14-W30` `type-field-comment-bloat-wave7`
+### [x] `P14-W30` `type-field-comment-bloat-wave7`
 
 - Imported review issues:
   - `review::.::holistic::ai_generated_debt::type_field_comment_bloat`
@@ -1361,10 +1380,15 @@ must add larger score-moving packages.
   - `src/modules/ui/epg/types.ts`
 - Package guardrail: comment-only; let descriptive names and TypeScript types
   carry straightforward shape information.
-- Disposition: admitted for `P14-WAVE7`; pending execution-grade plan and
-  review.
+- Disposition: completed in `P14-WAVE7`. Duplicate field comments matched by
+  the package audit were removed from channel-manager and EPG type surfaces
+  while domain/persistence comments were preserved.
+- Verification: targeted duplicate field-comment `rg` audit returned no
+  matches for the cited phrases, package-local Desloppify show commands for the
+  two files reported no open matches, `git diff --check` passed, and
+  `npm run verify` passed.
 
-### [ ] `P14-W31` `restating-method-and-step-comments`
+### [x] `P14-W31` `restating-method-and-step-comments`
 
 - Imported review issues:
   - `review::.::holistic::ai_generated_debt::restating_method_and_step_comments`
@@ -1378,10 +1402,15 @@ must add larger score-moving packages.
   - `src/modules/lifecycle/AppLifecycle.ts`
 - Package guardrail: comment-only; preserve comments that explain behavior not
   visible in signatures or immediate code.
-- Disposition: admitted for `P14-WAVE7`; pending execution-grade plan and
-  review.
+- Disposition: completed in `P14-WAVE7`. Restating step comments and trivial
+  method JSDoc were removed from the cited EPG, scheduler, and Plex files;
+  AppLifecycle was source-audited and left unchanged because the remaining
+  comments explain lifecycle/platform behavior rather than restating methods.
+- Verification: targeted restating-comment `rg` audit no longer reports the
+  removed step-comment phrases; package-local Desloppify show commands were
+  rerun; `git diff --check` passed; `npm run verify` passed.
 
-### [ ] `P14-W32` `facet-snapshot-load-session-policy-bundle`
+### [x] `P14-W32` `facet-snapshot-load-session-policy-bundle`
 
 - Imported review issues:
   - `review::.::holistic::design_coherence::facet_snapshot_load_session_policy_bundle`
@@ -1395,8 +1424,17 @@ must add larger score-moving packages.
 - Package guardrail: preserve facet snapshot output, cancellation, warning,
   timing, progress, cache/inflight, and partial-failure behavior. Do not
   introduce a generic workflow framework.
-- Disposition: admitted for `P14-WAVE7`; pending execution-grade plan and
-  review.
+- Disposition: completed in `P14-WAVE7`. Per-library collection, native facet,
+  tag-count recovery, and library-scoped abort execution moved to
+  `ChannelSetupFacetLibraryExecutor`; the load session remains the playlist/load
+  coordinator, progress forwarder, failure aggregator, and final snapshot
+  assembler, while the loader remains the cache/inflight owner.
+- Verification: targeted channel-setup facet snapshot tests passed, the
+  required `loadSnapshot`/session audit preserved loader/session call
+  boundaries, `npm run verify` passed, and package-local Desloppify show was
+  rerun. Desloppify still reported stale triage-pending cycle/line evidence for
+  the old load-session shape, so current-source proof is the diff plus tests and
+  targeted `rg`.
 
 ### [ ] `P14-EXIT`
 

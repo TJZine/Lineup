@@ -1,5 +1,9 @@
 import type { INavigationManager, KeyEvent, Screen } from './interfaces';
-import type { NavigationCoordinatorRuntimeServices } from './NavigationCoordinatorRuntimeServices';
+import type {
+    NavigationFireAndReport,
+    NavigationLogInputNotHandled,
+    NavigationObserveNonBlockingPromise,
+} from './NavigationCoordinatorRuntimeServices';
 import type { NavigationRepeatRuntime } from './NavigationRepeatHandler';
 import type {
     NavigationChannelSwitchingPort,
@@ -10,10 +14,6 @@ import type {
     NavigationNowPlayingInfoPort,
     NavigationPlaybackPort,
 } from './NavigationFeaturePorts';
-
-export type NavigationFireAndReport = NavigationCoordinatorRuntimeServices['fireAndReport'];
-export type NavigationObserveNonBlockingPromise = NavigationCoordinatorRuntimeServices['observeNonBlockingPromise'];
-export type NavigationLogInputNotHandled = NavigationCoordinatorRuntimeServices['logInputNotHandled'];
 
 export interface NavigationKeyModeRouterRuntime {
     handleLongPressBack(): void;

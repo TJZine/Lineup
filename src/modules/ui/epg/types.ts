@@ -79,7 +79,6 @@ export interface EpgVisibleRange {
  * EPG component state (externally visible)
  */
 export interface EPGState {
-    /** Is EPG visible */
     isVisible: boolean;
     focusedCell: EPGFocusPosition | null;
     scrollPosition: {
@@ -145,7 +144,6 @@ export interface EPGChannelRow {
 export interface EPGProgramCell {
     program: ScheduledProgram;
     left: number;
-    /** Cell width in pixels */
     width: number;
     /** Extends beyond visible area */
     isPartial: boolean;

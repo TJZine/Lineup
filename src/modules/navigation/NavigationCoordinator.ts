@@ -2,9 +2,7 @@ import type {
     KeyEvent,
     NavigationEventMap,
 } from './interfaces';
-import type {
-    NavigationCoordinatorEventPort,
-} from './NavigationCoordinatorContracts';
+import type { NavigationCoordinatorEventPort } from './NavigationCoordinatorEventPort';
 import type { NavigationChannelNumberHandlerRuntime } from './NavigationChannelNumberHandler';
 import type { NavigationCoordinatorRuntimeServices } from './NavigationCoordinatorRuntimeServices';
 import type { NavigationKeyModeRouterRuntime } from './NavigationKeyModeRouter';

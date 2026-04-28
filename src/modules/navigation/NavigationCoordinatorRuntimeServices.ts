@@ -1,23 +1,29 @@
 import { recordNonBlockingFailureTimestamp } from './nonBlockingFailureTimestamps';
 import type { KeyEvent } from './interfaces';
-import type { NavigationCoordinatorEventPort } from './NavigationCoordinatorContracts';
+import type { NavigationCoordinatorEventPort } from './NavigationCoordinatorEventPort';
+
+export type NavigationFireAndReport = (
+    key: string,
+    promiseFactory: () => Promise<void>,
+    message: string,
+    toastMessage: string
+) => Promise<void> | null;
+
+export type NavigationObserveNonBlockingPromise = (
+    key: string,
+    promiseFactory: () => Promise<void>,
+    message: string
+) => Promise<void>;
+
+export type NavigationLogInputNotHandled = (
+    reason: 'modal_open' | 'screen_not_player' | 'input_blocked',
+    event: KeyEvent
+) => void;
 
 export interface NavigationCoordinatorRuntimeServices {
-    fireAndReport: (
-        key: string,
-        promiseFactory: () => Promise<void>,
-        message: string,
-        toastMessage: string
-    ) => Promise<void> | null;
-    observeNonBlockingPromise: (
-        key: string,
-        promiseFactory: () => Promise<void>,
-        message: string
-    ) => Promise<void>;
-    logInputNotHandled: (
-        reason: 'modal_open' | 'screen_not_player' | 'input_blocked',
-        event: KeyEvent
-    ) => void;
+    fireAndReport: NavigationFireAndReport;
+    observeNonBlockingPromise: NavigationObserveNonBlockingPromise;
+    logInputNotHandled: NavigationLogInputNotHandled;
 }
 
 export function createNavigationCoordinatorRuntimeServices(

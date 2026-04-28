@@ -1,6 +1,6 @@
 {
   "artifact_role": "authoritative exact membership for P14 post-P13 subjective review cleanup queue",
-  "artifact_version": 7,
+  "artifact_version": 8,
   "created_at": "2026-04-26",
   "review_runs": [
     {
@@ -1782,8 +1782,8 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "disposition": "pending P14-WAVE7 execution-grade plan and review"
+        "status": "completed",
+        "disposition": "completed in P14-WAVE7; NavigationCoordinatorEventPort moved to a navigation-owned event-port module, runtime callback vocabulary is exported by NavigationCoordinatorRuntimeServices, and key/screen handlers import narrow runtime callback types instead of deriving from the aggregate runtime-services shape. Source proof: targeted navigation/orchestrator tests passed, the required navigation import audit passed, and npx madge --circular reported no circular dependency for the cited navigation files. Desloppify show still reported stale triage-pending old cycle wording, so the closure proof is current-source diff plus madge/tests."
       }
     },
     {
@@ -1822,8 +1822,8 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "disposition": "pending P14-WAVE7 execution-grade plan and review"
+        "status": "stale_proven",
+        "disposition": "stale-proven in P14-WAVE7 for generated-style header/banner scope; targeted current-source rg audit found no @fileoverview, @module, @version, decorative separator banner, or generated-style header matches in the candidate files. P14-W29 remains the current residual owner for the duplicate generated_style_headers_and_banners lineage while P14-W8/P14-W11/P14-W16 remain closed."
       }
     },
     {
@@ -1857,8 +1857,8 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "disposition": "pending P14-WAVE7 execution-grade plan and review"
+        "status": "completed",
+        "disposition": "completed in P14-WAVE7; duplicate field comments matched by the package audit were removed from src/modules/scheduler/channel-manager/types.ts and src/modules/ui/epg/types.ts while domain/persistence comments were preserved. Targeted duplicate field-comment rg audit returned no matches for the cited phrases."
       }
     },
     {
@@ -1896,8 +1896,8 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "disposition": "pending P14-WAVE7 execution-grade plan and review"
+        "status": "completed",
+        "disposition": "completed in P14-WAVE7; restating step comments and trivial method JSDoc were removed from the cited EPG, scheduler, and Plex files while AppLifecycle was source-audited and left unchanged because the remaining comments explain lifecycle/platform behavior. Targeted restating-comment rg no longer reports the removed step-comment phrases."
       }
     },
     {
@@ -1932,8 +1932,8 @@
         ]
       },
       "execution_status": {
-        "status": "admitted",
-        "disposition": "pending P14-WAVE7 execution-grade plan and review"
+        "status": "completed",
+        "disposition": "completed in P14-WAVE7; per-library collection/native-facet/tag-count-recovery execution moved to ChannelSetupFacetLibraryExecutor while ChannelSetupFacetSnapshotLoadSession remains the playlist/load coordinator, progress forwarder, failure aggregator, and final snapshot assembler, and ChannelSetupFacetSnapshotLoader remains cache/inflight owner. Targeted channel-setup facet tests and npm run verify passed. Desloppify show still reported stale triage-pending old load-session cycle/line evidence, so closure proof is current-source diff plus targeted rg/tests."
       }
     }
   ],
