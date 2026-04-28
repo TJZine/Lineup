@@ -7,7 +7,7 @@ import type {
 import { MAX_CHANNEL_NUMBER } from '../../../modules/scheduler/channel-manager/constants';
 import type { IPlexLibrary } from '../../../modules/plex/library';
 import type { ChannelBuildProgress, ChannelBuildSummary, ChannelSetupConfig } from '../types';
-import type { PendingChannel, ChannelDiffResult } from '../planning/ChannelSetupPlanner';
+import type { PendingChannel, ChannelDiffResult } from '../planning/ChannelSetupPlanningTypes';
 import type { ChannelSetupBuildScratchStore } from './ChannelSetupBuildScratchStore';
 import { isSignalAborted } from '../shared/utils';
 import { formatChannelSetupWarning } from '../shared/formatChannelSetupWarning';

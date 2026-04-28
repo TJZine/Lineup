@@ -1,17 +1,3 @@
-/**
- * @fileoverview Initialization Coordinator - Manages the named startup sequence.
- * @module core/initialization/InitializationCoordinator
- * @version 1.0.0
- *
- * Extracted from Orchestrator to reduce complexity and improve modularity.
- * Handles:
- * - full startup from core infrastructure
- * - auth-change resume
- * - server-selection/profile-change resume
- * - runtime module resume
- * - EPG-only resume
- */
-
 import { AppErrorCode, type IAppLifecycle, type AppError } from '../../modules/lifecycle';
 import type { INavigationManager } from '../../modules/navigation';
 import { type IPlexAuth, isPlexAuthRecoverable } from '../../modules/plex/auth';
@@ -41,10 +27,6 @@ import {
 } from './InitializationStartupPolicy';
 import { toRecoverableModuleStatusError } from './RecoverableModuleStatusError';
 import type { RecoverableAsyncFailureReporter } from '../orchestrator/OrchestratorRuntimeSeams';
-
-// ============================================
-// Types
-// ============================================
 
 // Numeric order is significant: lower values are earlier pipeline stages.
 // runStartup compares StartupPhase values and uses Math.min(_startupQueuedPhase, startPhase)
@@ -158,10 +140,6 @@ export interface InitializationCallbacks {
     };
 }
 
-// ============================================
-// Implementation
-// ============================================
-
 /**
  * InitializationCoordinator - Manages the named startup sequence.
  *
@@ -191,10 +169,6 @@ export class InitializationCoordinator {
         private readonly _deps: InitializationDependencies,
         private readonly _callbacks: InitializationCallbacks
     ) { }
-
-    // ============================================
-    // Public Methods
-    // ============================================
 
     async runStartup(startPhase: StartupPhase): Promise<void> {
         this._cancelEpgWarmup();
@@ -393,13 +367,6 @@ export class InitializationCoordinator {
         await this.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
     }
 
-    // ============================================
-    // Private Methods - Startup Stages
-    // ============================================
-
-    /**
-     * Initialize core infrastructure (EventEmitter, AppLifecycle, Navigation).
-     */
     private async _initCoreInfrastructure(): Promise<void> {
         const startTime = Date.now();
 
@@ -437,9 +404,6 @@ export class InitializationCoordinator {
         await Promise.all(promises);
     }
 
-    /**
-     * Validate authentication.
-     */
     private async _validateAuthentication(): Promise<boolean> {
         const startTime = Date.now();
         this._callbacks.status.updateModuleStatus('plex-auth', 'initializing');
@@ -480,9 +444,6 @@ export class InitializationCoordinator {
         return applyAuthValidationPolicy(authGateInputs);
     }
 
-    /**
-     * Connect to Plex server and initialize Plex services.
-     */
     private async _connectPlexServer(): Promise<boolean> {
         const startTime = Date.now();
 
@@ -528,9 +489,6 @@ export class InitializationCoordinator {
         }
     }
 
-    /**
-     * Initialize Channel Manager, Scheduler, Video Player, and playback overlays.
-     */
     private async _initializePlaybackRuntime(): Promise<void> {
         const startTime = Date.now();
 
@@ -635,9 +593,6 @@ export class InitializationCoordinator {
 
     }
 
-    /**
-     * Initialize EPG.
-     */
     private async _initializeEpg(options?: { ensureCorePlayerUi?: boolean }): Promise<void> {
         const ensureCorePlayerUi = options?.ensureCorePlayerUi ?? true;
         if (this._callbacks.status.getModuleStatus('epg-ui') === 'ready') {
@@ -729,13 +684,6 @@ export class InitializationCoordinator {
         }, InitializationCoordinator.EPG_WARMUP_DELAY_MS);
     }
 
-    // ============================================
-    // Private Methods - Resume Handlers
-    // ============================================
-
-    /**
-     * Register listener for auth state changes to resume startup.
-     */
     private _registerAuthResume(): void {
         if (!this._deps.modules.plexAuth) {
             return;
@@ -752,9 +700,6 @@ export class InitializationCoordinator {
         this._authResumeDisposable = disposable;
     }
 
-    /**
-     * Register listener for server connection changes to resume startup.
-     */
     private _registerServerResume(): void {
         if (!this._deps.modules.plexDiscovery) {
             return;
@@ -771,9 +716,6 @@ export class InitializationCoordinator {
         this._serverResumeDisposable = disposable;
     }
 
-    /**
-     * Register listener for profile change events to resume startup.
-     */
     private _registerProfileResume(): void {
         if (!this._deps.modules.plexAuth) {
             return;

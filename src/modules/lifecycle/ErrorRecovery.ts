@@ -63,6 +63,7 @@ export class ErrorRecovery {
 
             case AppErrorCode.PLEX_UNREACHABLE:
             case AppErrorCode.SERVER_UNREACHABLE:
+            case AppErrorCode.SERVER_ERROR:
                 return this._createServerActions();
 
             case AppErrorCode.DATA_CORRUPTION:
@@ -146,6 +147,7 @@ export class ErrorRecovery {
                 return ERROR_MESSAGES.NETWORK_UNAVAILABLE;
             case AppErrorCode.PLEX_UNREACHABLE:
             case AppErrorCode.SERVER_UNREACHABLE:
+            case AppErrorCode.SERVER_ERROR:
                 return ERROR_MESSAGES.PLEX_UNREACHABLE;
             case AppErrorCode.DATA_CORRUPTION:
             case AppErrorCode.STORAGE_CORRUPTED:

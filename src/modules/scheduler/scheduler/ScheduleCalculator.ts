@@ -1,10 +1,3 @@
-/**
- * @fileoverview Pure functions for schedule calculations.
- * Provides O(log n) binary search and schedule index building.
- * @module modules/scheduler/scheduler/ScheduleCalculator
- * @version 1.0.0
- */
-
 import type { IShuffleGenerator } from './interfaces';
 import type {
     ScheduleConfig,
@@ -20,9 +13,7 @@ function assertNeverPlaybackMode(mode: never): never {
     throw new Error(`Unknown scheduler playback mode: ${String(mode)}`);
 }
 
-// ============================================
 // Schedule Index Building
-// ============================================
 
 /**
  * Build a schedule index from configuration.
@@ -78,9 +69,7 @@ export function buildScheduleIndex(
     };
 }
 
-// ============================================
 // Binary Search
-// ============================================
 
 /**
  * Binary search to find the item index at a given position in the loop.
@@ -112,9 +101,7 @@ export function binarySearchForItem(
     return low;
 }
 
-// ============================================
 // Program Calculation
-// ============================================
 
 /**
  * Calculate the program playing at a specific time.
@@ -221,9 +208,7 @@ export function calculatePreviousProgram(
     );
 }
 
-// ============================================
 // Playback Mode
-// ============================================
 
 /**
  * Apply playback mode to content items.
@@ -284,9 +269,7 @@ export function applyPlaybackMode(
     }
 }
 
-// ============================================
 // Schedule Window Generation
-// ============================================
 
 /**
  * Maximum programs to return in a schedule window.

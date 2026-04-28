@@ -11,45 +11,24 @@ import type { PlexMediaType } from '../../plex/shared/types';
 import type { IDisposable } from '../../../utils/interfaces';
 
 export interface IChannelManager {
-    // Channel CRUD
-
     /**
      * Create a new channel with default values for missing fields.
-     * @param config - Writable channel configuration
-     * @returns Promise resolving to complete channel config
      * @throws ChannelError if content source is missing
      */
     createChannel(config: ChannelCreateInput, options?: { signal?: AbortSignal | null }): Promise<ChannelConfig>;
 
     /**
-     * Update an existing channel.
-     * @param id - Channel ID
-     * @param updates - Writable updates to apply
-     * @returns Promise resolving to updated channel config
      * @throws ChannelError if channel not found
      */
     updateChannel(id: string, updates: ChannelUpdateInput): Promise<ChannelConfig>;
 
     /**
-     * Delete a channel.
-     * @param id - Channel ID to delete
      * @throws ChannelError if channel not found
      */
     deleteChannel(id: string): Promise<void>;
 
-    // Retrieval
-
-    /**
-     * Get a channel by ID.
-     * @param id - Channel ID
-     * @returns Channel config or null if not found
-     */
     getChannel(id: string): ChannelConfig | null;
 
-    /**
-     * Get all channels in order.
-     * @returns Array of channel configs
-     */
     getAllChannels(): ChannelConfig[];
 
     /**
@@ -59,20 +38,14 @@ export interface IChannelManager {
      */
     getChannelByNumber(number: number): ChannelConfig | null;
 
-    // Content Resolution
-
     /**
      * Resolve content for a channel (uses cache if valid).
-     * @param channelId - Channel ID
-     * @returns Promise resolving to resolved content
      * @throws ChannelError if channel not found
      */
     resolveChannelContent(channelId: string, options?: { signal?: AbortSignal | null }): Promise<ResolvedChannelContent>;
 
     /**
      * Force refresh content for a channel (bypasses cache).
-     * @param channelId - Channel ID
-     * @returns Promise resolving to resolved content
      * @throws ChannelError if channel not found
      */
     refreshChannelContent(channelId: string, options?: { signal?: AbortSignal | null }): Promise<ResolvedChannelContent>;
@@ -80,8 +53,6 @@ export interface IChannelManager {
     /**
      * Resolve channel items for schedule generation without mutating ChannelManager state.
      * Used by guide prefetchers that want to avoid caching/persisting channel metadata.
-     * @param channelId - Channel ID
-     * @returns Promise resolving to resolved content items
      * @throws ChannelError if channel not found
      */
     resolveChannelItemsForSchedule(
@@ -89,19 +60,8 @@ export interface IChannelManager {
         options?: { signal?: AbortSignal | null }
     ): Promise<ResolvedChannelContent['items']>;
 
-    // Ordering / Current Channel
-
-    /**
-     * Reorder channels.
-     * @param orderedIds - Array of channel IDs in new order
-     */
     reorderChannels(orderedIds: string[]): Promise<void>;
 
-    /**
-     * Set the current active channel.
-     * @param channelId - Channel ID to switch to
-     * @throws ChannelError if channel not found
-     */
     setCurrentChannel(channelId: string): void;
 
     /**
@@ -124,22 +84,12 @@ export interface IChannelManager {
      */
     getPreviousChannel(): ChannelConfig | null;
 
-    // Import/Export
-
-    /**
-     * Export all channels as JSON string.
-     * @returns JSON string of channel data
-     */
     exportChannels(): string;
 
     /**
-     * Import channels from JSON string.
-     * @param data - JSON string of channel data
      * @returns Import result with success/error details
      */
     importChannels(data: string): Promise<ImportResult>;
-
-    // Persistence
 
     /**
      * Persist channels to storage (via persistence boundary).
@@ -178,13 +128,6 @@ export interface IChannelManager {
         options?: { currentChannelId?: string | null }
     ): Promise<void>;
 
-    // Events
-
-    /**
-     * Subscribe to channel manager events.
-     * @param event - Event name
-     * @param handler - Event handler
-     */
     on<K extends keyof ChannelManagerEventMap>(
         event: K,
         handler: (payload: ChannelManagerEventMap[K]) => void

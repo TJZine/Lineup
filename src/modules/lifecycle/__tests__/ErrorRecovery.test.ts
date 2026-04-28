@@ -57,6 +57,21 @@ describe('ErrorRecovery', () => {
             expect(actions.some(a => a.label === 'Exit')).toBe(true);
         });
 
+        it('should map SERVER_ERROR to Retry, Different Server, and Exit', () => {
+            const error: AppError = {
+                code: AppErrorCode.SERVER_ERROR,
+                message: 'Plex service error',
+                recoverable: true,
+            };
+
+            const actions = recovery.handleError(error);
+
+            expect(actions.length).toBe(3);
+            expect(actions.some(a => a.label === 'Retry')).toBe(true);
+            expect(actions.some(a => a.label === 'Different Server')).toBe(true);
+            expect(actions.some(a => a.label === 'Exit')).toBe(true);
+        });
+
         it('should map DATA_CORRUPTION to OK action only', () => {
             const error: AppError = {
                 code: AppErrorCode.DATA_CORRUPTION,
@@ -248,6 +263,12 @@ describe('ErrorRecovery', () => {
         it('should return user-friendly message for SERVER_UNREACHABLE', () => {
             const message = recovery.getUserMessage(AppErrorCode.SERVER_UNREACHABLE);
             // Explicitly maps to PLEX_UNREACHABLE message
+            expect(message).toBe('Cannot connect to Plex server');
+        });
+
+        it('should return user-friendly message for SERVER_ERROR', () => {
+            const message = recovery.getUserMessage(AppErrorCode.SERVER_ERROR);
+            // Reached Plex, but the service failed; use the same server recovery copy.
             expect(message).toBe('Cannot connect to Plex server');
         });
 

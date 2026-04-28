@@ -1,13 +1,3 @@
-/**
- * @fileoverview Public exports for Channel Scheduler module.
- * @module modules/scheduler/scheduler
- * @version 1.0.0
- */
-
-// ============================================
-// Class Exports
-// ============================================
-
 export { ChannelScheduler } from './ChannelScheduler';
 export { ShuffleGenerator } from './ShuffleGenerator';
 export {
@@ -20,15 +10,7 @@ export {
     generateScheduleWindow,
 } from './ScheduleCalculator';
 
-// ============================================
-// Interface Exports
-// ============================================
-
 export type { IChannelScheduler, IShuffleGenerator } from './interfaces';
-
-// ============================================
-// Type Exports
-// ============================================
 
 export type {
     ScheduleConfig,
@@ -41,10 +23,6 @@ export type {
     PlaybackMode,
     ResolvedContentItem,
 } from './types';
-
-// ============================================
-// Constant Exports
-// ============================================
 
 export {
     SYNC_INTERVAL_MS,

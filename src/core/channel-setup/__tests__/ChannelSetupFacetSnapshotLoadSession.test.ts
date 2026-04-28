@@ -109,4 +109,92 @@ describe('ChannelSetupFacetSnapshotLoadSession', () => {
         await expect(session.load()).rejects.toMatchObject({ name: 'AbortError' });
         expect(snapshotAbortController.signal.aborted).toBe(true);
     });
+
+    it('returns immutable snapshot collection copies', async () => {
+        const plexLibrary = createPlexLibrary();
+        plexLibrary.getPlaylists.mockResolvedValue([
+            {
+                ratingKey: 'pl-1',
+                key: '/playlists/pl-1',
+                title: 'Favorites',
+                thumb: null,
+                duration: 0,
+                leafCount: 10,
+            },
+        ]);
+        plexLibrary.getCollections.mockResolvedValue([
+            {
+                ratingKey: 'col-1',
+                key: '/library/collections/col-1',
+                title: 'Classics',
+                thumb: null,
+                childCount: 12,
+            },
+        ]);
+
+        const session = new ChannelSetupFacetSnapshotLoadSession({
+            plexLibrary,
+            config: createConfig({
+                strategyConfig: {
+                    ...createConfig().strategyConfig,
+                    playlists: { enabled: true, priority: 2, scope: 'per-library' },
+                    collections: { enabled: true, priority: 1, scope: 'per-library' },
+                },
+            }),
+            libraries: [createLibrary()],
+            signal: null,
+            requestIntent: 'preview',
+            snapshotAbortController: new AbortController(),
+            reportProgress: undefined,
+        });
+
+        const snapshot = await session.load();
+
+        expect(snapshot.status).toBe('ready');
+        expect(Object.isFrozen(snapshot.playlists)).toBe(true);
+        expect(Object.isFrozen(snapshot.warnings)).toBe(true);
+        expect(Object.isFrozen(snapshot.collectionsByLibraryId)).toBe(true);
+        expect('set' in snapshot.collectionsByLibraryId).toBe(false);
+        expect(Object.isFrozen(snapshot.collectionsByLibraryId.get('lib-1'))).toBe(true);
+    });
+
+    it('records playlist and collection elapsed time when fetches fail', async () => {
+        const nowSpy = jest.spyOn(performance, 'now')
+            .mockReturnValueOnce(10)
+            .mockReturnValueOnce(25)
+            .mockReturnValueOnce(40)
+            .mockReturnValueOnce(70);
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const plexLibrary = createPlexLibrary();
+        plexLibrary.getPlaylists.mockRejectedValue(new Error('playlist unavailable'));
+        plexLibrary.getCollections.mockRejectedValue(new Error('collections unavailable'));
+
+        try {
+            const session = new ChannelSetupFacetSnapshotLoadSession({
+                plexLibrary,
+                config: createConfig({
+                    strategyConfig: {
+                        ...createConfig().strategyConfig,
+                        playlists: { enabled: true, priority: 2, scope: 'per-library' },
+                        collections: { enabled: true, priority: 1, scope: 'per-library' },
+                    },
+                }),
+                libraries: [createLibrary()],
+                signal: null,
+                requestIntent: 'preview',
+                snapshotAbortController: new AbortController(),
+                reportProgress: undefined,
+            });
+
+            const snapshot = await session.load();
+
+            expect(snapshot.status).toBe('ready');
+            expect(snapshot.playlistMs).toBe(15);
+            expect(snapshot.collectionsMs).toBe(30);
+            expect(snapshot.errorsTotal).toBe(2);
+        } finally {
+            nowSpy.mockRestore();
+            warnSpy.mockRestore();
+        }
+    });
 });

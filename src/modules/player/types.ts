@@ -162,21 +162,13 @@ export interface PlaybackError extends PlayerError {
 
 /** Index signature required for EventEmitter<TEventMap extends Record<string, unknown>> constraint. */
 export interface PlayerEventMap {
-    /** Emitted on any state change */
     stateChange: PlaybackState;
-    /** Emitted every ~250ms during playback */
     timeUpdate: { currentTimeMs: number; durationMs: number };
-    /** Emitted when buffer level changes */
     bufferUpdate: { percent: number; bufferedRanges: TimeRange[] };
-    /** Emitted when audio or subtitle track changes */
     trackChange: { type: 'audio' | 'subtitle'; trackId: string | null };
-    /** Emitted when playback reaches the end */
     ended: undefined;
-    /** Emitted on unrecoverable error */
     error: PlaybackError;
-    /** Emitted when media metadata is loaded */
     mediaLoaded: { durationMs: number; tracks: { audio: AudioTrack[]; subtitle: SubtitleTrack[] } };
-    /** Index signature for EventEmitter compatibility */
     [key: string]: unknown;
 }
 

@@ -1,12 +1,33 @@
-import type { NavigationCoordinatorDeps } from './NavigationCoordinatorDeps';
-import type { NavigationRepeatHandler } from './NavigationRepeatHandler';
-import type { NavigationFireAndReport } from './NavigationCoordinatorCallbacks';
-import type { Screen } from './interfaces';
+import type {
+    NavigationRepeatRuntime,
+    NavigationScreenEffectsRuntime,
+} from './NavigationCoordinatorContracts';
+import type {
+    NavigationChannelSwitchingPort,
+    NavigationEpgPort,
+    NavigationMiniGuidePort,
+    NavigationNowPlayingInfoPort,
+    NavigationPlaybackPort,
+    NavigationUiGuardsPort,
+} from './NavigationFeaturePorts';
+import type { INavigationManager, Screen } from './interfaces';
+import type { NavigationFireAndReport } from './NavigationKeyModeRouter';
 
-export class NavigationScreenEffectsHandler {
+export interface NavigationScreenEffectsPort {
+    navigation: INavigationManager;
+    epg: NavigationEpgPort | null;
+    playback: NavigationPlaybackPort;
+    miniGuide: NavigationMiniGuidePort;
+    nowPlayingInfo: NavigationNowPlayingInfoPort;
+    channelSwitching: NavigationChannelSwitchingPort;
+    uiGuards: NavigationUiGuardsPort;
+    readKeepPlayingInSettings: () => boolean;
+}
+
+export class NavigationScreenEffectsHandler implements NavigationScreenEffectsRuntime {
     constructor(
-        private readonly deps: NavigationCoordinatorDeps,
-        private readonly repeats: NavigationRepeatHandler,
+        private readonly deps: NavigationScreenEffectsPort,
+        private readonly repeats: NavigationRepeatRuntime,
         private readonly fireAndReport: NavigationFireAndReport
     ) { }
 

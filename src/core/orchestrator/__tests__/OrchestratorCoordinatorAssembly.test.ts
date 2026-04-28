@@ -356,6 +356,7 @@ describe('createOrchestratorCoordinators', () => {
                 },
                 diagnostics: {
                     reportRecoverableAsyncFailure: deps.diagnostics.reportRecoverableAsyncFailure,
+                    appendIssueDiagnostic: deps.diagnostics.appendIssueDiagnostic,
                 },
                 playback: {
                     stopPlayback: deps.playback.stopPlayback,

@@ -1,10 +1,3 @@
-/**
- * @fileoverview Navigation Manager - coordinates screen navigation, focus management,
- * and remote control input for webOS TV application.
- * @module modules/navigation/NavigationManager
- * @version 1.0.0
- */
-
 import { EventEmitter } from '../../utils/EventEmitter';
 import { IDisposable } from '../../utils/interfaces';
 import {
@@ -213,10 +206,6 @@ export class NavigationManager
 
     }
 
-    // ==========================================
-    // Screen Navigation
-    // ==========================================
-
     /**
      * Navigate to a screen, pushing the current screen to history.
      * @param screen - Target screen
@@ -338,10 +327,6 @@ export class NavigationManager
     public getCurrentScreen(): Screen {
         return this._state.currentScreen;
     }
-
-    // ==========================================
-    // Focus Management
-    // ==========================================
 
     /**
      * Set focus to an element by ID.
@@ -471,10 +456,6 @@ export class NavigationManager
         this._focusManager.unregisterFocusGroup(groupId);
     }
 
-    // ==========================================
-    // Modal Handling
-    // ==========================================
-
     /**
      * Open a modal by ID.
      * @param modalId - The modal ID to open
@@ -559,10 +540,6 @@ export class NavigationManager
         return this._state.modalStack.length > 0;
     }
 
-    // ==========================================
-    // Input Blocking
-    // ==========================================
-
     /**
      * Block all input during transitions.
      */
@@ -587,10 +564,6 @@ export class NavigationManager
         return this._state.isInputBlocked;
     }
 
-    // ==========================================
-    // State
-    // ==========================================
-
     /**
      * Get the current navigation state.
      * @returns The navigation state
@@ -604,10 +577,6 @@ export class NavigationManager
             isPointerActive: this._state.isPointerActive,
         };
     }
-
-    // ==========================================
-    // Long Press Handling
-    // ==========================================
 
     /**
      * Register a long press handler for a button.
@@ -624,10 +593,6 @@ export class NavigationManager
     public cancelLongPress(): void {
         this._remoteHandler.cancelLongPress();
     }
-
-    // ==========================================
-    // Private Methods
-    // ==========================================
 
     /**
      * Focus desync repair hook.

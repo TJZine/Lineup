@@ -5,9 +5,26 @@ import {
 import {
     NavigationCoordinator,
 } from '../../modules/navigation/NavigationCoordinator';
-import type { NavigationCoordinatorDeps } from '../../modules/navigation/NavigationCoordinatorDeps';
+import type {
+    NavigationCoordinatorHandlers,
+} from '../../modules/navigation/NavigationCoordinatorContracts';
+import { createNavigationCoordinatorRuntimeServices } from '../../modules/navigation/NavigationCoordinatorRuntimeServices';
+import type {
+    NavigationChannelSwitchOutcome,
+    NavigationMiniGuidePort,
+    NavigationModalsPort,
+    NavigationNowPlayingInfoPort,
+    NavigationPlaybackOptionsSectionId,
+    NavigationPlaybackPort,
+    NavigationChannelSwitchingPort,
+    NavigationUiGuardsPort,
+} from '../../modules/navigation/NavigationFeaturePorts';
+import { NavigationChannelNumberHandler } from '../../modules/navigation/NavigationChannelNumberHandler';
+import { NavigationKeyModeRouter } from '../../modules/navigation/NavigationKeyModeRouter';
+import { NavigationModalEffectsHandler } from '../../modules/navigation/NavigationModalEffectsHandler';
+import { NavigationRepeatHandler } from '../../modules/navigation/NavigationRepeatHandler';
+import { NavigationScreenEffectsHandler } from '../../modules/navigation/NavigationScreenEffectsHandler';
 import type { PlaybackOptionsSectionId } from '../../modules/ui/playback-options';
-import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import type { AppError } from '../../modules/lifecycle';
 import type { IPlexLibrary } from '../../modules/plex/library';
 import type {
@@ -487,7 +504,7 @@ type NavigationCoordinatorBuilderDeps = {
 function buildNavigationPlaybackConfig(
     input: OrchestratorNavigationCoordinatorBuilderInput,
     deps: NavigationCoordinatorBuilderDeps
-): NavigationCoordinatorDeps['playback'] {
+): NavigationPlaybackPort {
     return {
         videoPlayer: input.modules.videoPlayer,
         plexAuth: input.modules.plexAuth,
@@ -505,7 +522,7 @@ function buildNavigationPlaybackConfig(
 function buildNavigationMiniGuideConfig(
     input: OrchestratorNavigationCoordinatorBuilderInput,
     deps: NavigationCoordinatorBuilderDeps
-): NavigationCoordinatorDeps['miniGuide'] {
+): NavigationMiniGuidePort {
     return {
         overlay: input.overlays.miniGuide,
         coordinator: {
@@ -526,7 +543,7 @@ function buildNavigationMiniGuideConfig(
 function buildNavigationNowPlayingInfoConfig(
     input: OrchestratorNavigationCoordinatorBuilderInput,
     deps: NavigationCoordinatorBuilderDeps
-): NavigationCoordinatorDeps['nowPlayingInfo'] {
+): NavigationNowPlayingInfoPort {
     return {
         modalId: NOW_PLAYING_INFO_MODAL_ID,
         isModalOpen: (): boolean => input.modules.navigation.isModalOpen(NOW_PLAYING_INFO_MODAL_ID),
@@ -541,12 +558,12 @@ function buildNavigationNowPlayingInfoConfig(
 
 function buildNavigationModalsConfig(
     deps: NavigationCoordinatorBuilderDeps
-): NavigationCoordinatorDeps['modals'] {
+): NavigationModalsPort {
     return {
         playbackOptions: {
             modalId: PLAYBACK_OPTIONS_MODAL_ID,
             prepare: (
-                preferredSection?: PlaybackOptionsSectionId
+                preferredSection?: NavigationPlaybackOptionsSectionId
             ): { focusableIds: string[]; preferredFocusId: string | null } =>
                 deps.playbackOptionsCoordinator.prepareModal(preferredSection) ??
                 { focusableIds: [], preferredFocusId: null },
@@ -567,7 +584,7 @@ function buildNavigationModalsConfig(
 function buildNavigationChannelSwitchingConfig(
     input: OrchestratorNavigationCoordinatorBuilderInput,
     deps: NavigationCoordinatorBuilderDeps
-): NavigationCoordinatorDeps['channelSwitching'] {
+): NavigationChannelSwitchingPort {
     return {
         setLastChannelChangeSourceRemote: (): void => {
             input.schedule.setLastChannelChangeSource('remote');
@@ -577,7 +594,7 @@ function buildNavigationChannelSwitchingConfig(
         },
         switchToNextChannel: (): void => input.actions.switchToNextChannel(),
         switchToPreviousChannel: (): void => input.actions.switchToPreviousChannel(),
-        switchToChannelByNumber: (n: number): Promise<ChannelSwitchOutcome> =>
+        switchToChannelByNumber: (n: number): Promise<NavigationChannelSwitchOutcome> =>
             input.actions.switchToChannelByNumberWithOutcome(n),
         focusEpgOnCurrentChannel: (): void => {
             deps.epgCoordinator.focusEpgOnCurrentChannel();
@@ -591,7 +608,7 @@ function buildNavigationChannelSwitchingConfig(
 
 function buildNavigationUiGuardsConfig(
     deps: NavigationCoordinatorBuilderDeps
-): NavigationCoordinatorDeps['uiGuards'] {
+): NavigationUiGuardsPort {
     return {
         shouldRunChannelSetup: (): boolean => deps.channelSetup.shouldRunChannelSetup(),
         hideChannelTransition: (): void => {
@@ -643,22 +660,81 @@ export function buildNavigationCoordinator(
     input: OrchestratorNavigationCoordinatorBuilderInput,
     deps: NavigationCoordinatorBuilderDeps
 ): NavigationCoordinator {
-    return new NavigationCoordinator({
+    const playback = buildNavigationPlaybackConfig(input, deps);
+    const miniGuide = buildNavigationMiniGuideConfig(input, deps);
+    const nowPlayingInfo = buildNavigationNowPlayingInfoConfig(input, deps);
+    const modals = buildNavigationModalsConfig(deps);
+    const channelSwitching = buildNavigationChannelSwitchingConfig(input, deps);
+    const uiGuards = buildNavigationUiGuardsConfig(deps);
+    const events = {
         navigation: input.modules.navigation,
-        epg: input.modules.epg,
-        playback: buildNavigationPlaybackConfig(input, deps),
-        miniGuide: buildNavigationMiniGuideConfig(input, deps),
-        nowPlayingInfo: buildNavigationNowPlayingInfoConfig(input, deps),
-        modals: buildNavigationModalsConfig(deps),
-        channelSwitching: buildNavigationChannelSwitchingConfig(input, deps),
-        uiGuards: buildNavigationUiGuardsConfig(deps),
+        miniGuide,
+        channelSwitching,
         reportRecoverableAsyncFailure: input.diagnostics.reportRecoverableAsyncFailure,
         reportToast: (toast: ToastInput): void => {
-            input.nowPlaying.handler()?.(toast);
+            notifyPlaybackRecoveryToast(input, toast);
         },
-        readKeepPlayingInSettings: (): boolean =>
-            input.stores.profileSessionStore.readKeepPlayingInSettingsAndClean(false),
         readDebugLoggingEnabled: (): boolean =>
             input.stores.developerSettingsStore.readDebugLoggingEnabledAndClean(false),
+        logDebug: (event: string, payload: Record<string, unknown>): void => {
+            input.diagnostics.appendIssueDiagnostic('navigation', event, payload);
+        },
+    };
+    const runtime = createNavigationCoordinatorRuntimeServices(events);
+    const repeats = new NavigationRepeatHandler({
+        navigation: input.modules.navigation,
+        epg: input.modules.epg,
+        miniGuide,
+    });
+    const handlers: NavigationCoordinatorHandlers = {
+        repeats,
+        keyModeRouter: new NavigationKeyModeRouter(
+            {
+                navigation: input.modules.navigation,
+                epg: input.modules.epg,
+                playback,
+                miniGuide,
+                nowPlayingInfo,
+                modals,
+                channelSwitching,
+            },
+            repeats,
+            runtime.fireAndReport,
+            runtime.observeNonBlockingPromise,
+            runtime.logInputNotHandled
+        ),
+        screenEffects: new NavigationScreenEffectsHandler(
+            {
+                navigation: input.modules.navigation,
+                epg: input.modules.epg,
+                playback,
+                miniGuide,
+                nowPlayingInfo,
+                channelSwitching,
+                uiGuards,
+                readKeepPlayingInSettings: (): boolean =>
+                    input.stores.profileSessionStore.readKeepPlayingInSettingsAndClean(false),
+            },
+            repeats,
+            runtime.fireAndReport
+        ),
+        modalEffects: new NavigationModalEffectsHandler(
+            {
+                miniGuide,
+                nowPlayingInfo,
+                modals,
+            },
+            repeats
+        ),
+        channelNumber: new NavigationChannelNumberHandler({
+            epg: input.modules.epg,
+            channelSwitching,
+        }),
+    };
+
+    return new NavigationCoordinator({
+        events,
+        handlers,
+        runtime,
     });
 }

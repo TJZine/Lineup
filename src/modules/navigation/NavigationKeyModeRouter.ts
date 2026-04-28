@@ -1,11 +1,32 @@
-import type { KeyEvent, Screen } from './interfaces';
-import type { NavigationCoordinatorDeps } from './NavigationCoordinatorDeps';
-import type { NavigationRepeatHandler } from './NavigationRepeatHandler';
+import type { INavigationManager, KeyEvent, Screen } from './interfaces';
 import type {
-    NavigationFireAndReport,
-    NavigationLogInputNotHandled,
-    NavigationObserveNonBlockingPromise,
-} from './NavigationCoordinatorCallbacks';
+    NavigationKeyModeRouterRuntime,
+    NavigationCoordinatorRuntimeServices,
+    NavigationRepeatRuntime,
+} from './NavigationCoordinatorContracts';
+import type {
+    NavigationChannelSwitchingPort,
+    NavigationEpgPort,
+    NavigationFourWayDirection,
+    NavigationMiniGuidePort,
+    NavigationModalsPort,
+    NavigationNowPlayingInfoPort,
+    NavigationPlaybackPort,
+} from './NavigationFeaturePorts';
+
+export type NavigationFireAndReport = NavigationCoordinatorRuntimeServices['fireAndReport'];
+export type NavigationObserveNonBlockingPromise = NavigationCoordinatorRuntimeServices['observeNonBlockingPromise'];
+export type NavigationLogInputNotHandled = NavigationCoordinatorRuntimeServices['logInputNotHandled'];
+
+export interface NavigationKeyModeRouterPort {
+    navigation: INavigationManager;
+    epg: NavigationEpgPort | null;
+    playback: NavigationPlaybackPort;
+    miniGuide: NavigationMiniGuidePort;
+    nowPlayingInfo: NavigationNowPlayingInfoPort;
+    modals: NavigationModalsPort;
+    channelSwitching: NavigationChannelSwitchingPort;
+}
 
 type KeyPressRoutingState = {
     currentScreen: Screen;
@@ -14,10 +35,10 @@ type KeyPressRoutingState = {
     shouldRouteToEpg: boolean;
 };
 
-export class NavigationKeyModeRouter {
+export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
     constructor(
-        private readonly deps: NavigationCoordinatorDeps,
-        private readonly repeats: NavigationRepeatHandler,
+        private readonly deps: NavigationKeyModeRouterPort,
+        private readonly repeats: NavigationRepeatRuntime,
         private readonly fireAndReport: NavigationFireAndReport,
         private readonly observeNonBlockingPromise: NavigationObserveNonBlockingPromise,
         private readonly logInputNotHandled: NavigationLogInputNotHandled
@@ -394,7 +415,7 @@ export class NavigationKeyModeRouter {
         event.originalEvent.preventDefault();
     }
 
-    private _isDirectionalButton(button: KeyEvent['button']): button is 'up' | 'down' | 'left' | 'right' {
+    private _isDirectionalButton(button: KeyEvent['button']): button is NavigationFourWayDirection {
         return button === 'up' || button === 'down' || button === 'left' || button === 'right';
     }
 }

@@ -1,9 +1,3 @@
-/**
- * @fileoverview Manages stream recovery, subtitle resolution, and failure guards.
- * @module modules/player/PlaybackRecoveryManager
- * @version 1.0.0
- */
-
 import {
     AppErrorCode,
     getAppErrorCode,

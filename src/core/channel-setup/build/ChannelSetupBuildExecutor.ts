@@ -5,7 +5,7 @@ import type {
     ChannelBuildSummary,
     ChannelSetupConfig,
 } from '../types';
-import { diffChannelPlans } from '../planning/ChannelSetupPlanner';
+import { diffChannelPlans } from '../planning/ChannelSetupPlanningTypes';
 import type { ChannelSetupPlanBuildResult, ChannelSetupPlanningService } from '../planning/ChannelSetupPlanningService';
 import type { ChannelSetupBuildCommitter } from './ChannelSetupBuildCommitter';
 import { isSignalAborted } from '../shared/utils';

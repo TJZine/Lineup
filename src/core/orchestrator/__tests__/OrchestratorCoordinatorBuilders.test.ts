@@ -12,6 +12,22 @@ const buildCommitterInstance = { kind: 'build-committer' };
 const buildExecutorInstance = { kind: 'build-executor' };
 const coordinatorInstance = { clearRerunRequest: jest.fn(), kind: 'coordinator' };
 const completionTrackerInstance = { kind: 'completion-tracker' };
+const mockNavigationCoordinatorInstance = { kind: 'navigation-coordinator' };
+const mockNavigationCoordinator = jest.fn((_: unknown) => mockNavigationCoordinatorInstance);
+const mockNavigationKeyModeRouterInstance = { handleKeyPress: jest.fn(), handleLongPressBack: jest.fn() };
+const mockNavigationKeyModeRouter = jest.fn((
+    _deps: unknown,
+    _repeats: unknown,
+    _fireAndReport: unknown,
+    _observeNonBlockingPromise: unknown,
+    _logInputNotHandled: unknown
+) => mockNavigationKeyModeRouterInstance);
+const mockNavigationScreenEffectsHandlerInstance = { handleScreenChange: jest.fn() };
+const mockNavigationScreenEffectsHandler = jest.fn((
+    _deps: unknown,
+    _repeats: unknown,
+    _fireAndReport: unknown
+) => mockNavigationScreenEffectsHandlerInstance);
 
 jest.mock('../../channel-setup/persistence/ChannelSetupRecordStore', () => ({
     ChannelSetupRecordStore: jest.fn(() => recordStoreInstance),
@@ -33,6 +49,15 @@ jest.mock('../../channel-setup/ChannelSetupCoordinator', () => ({
 }));
 jest.mock('../../channel-setup/persistence/ChannelSetupCompletionTracker', () => ({
     ChannelSetupCompletionTracker: jest.fn(() => completionTrackerInstance),
+}));
+jest.mock('../../../modules/navigation/NavigationCoordinator', () => ({
+    NavigationCoordinator: mockNavigationCoordinator,
+}));
+jest.mock('../../../modules/navigation/NavigationKeyModeRouter', () => ({
+    NavigationKeyModeRouter: mockNavigationKeyModeRouter,
+}));
+jest.mock('../../../modules/navigation/NavigationScreenEffectsHandler', () => ({
+    NavigationScreenEffectsHandler: mockNavigationScreenEffectsHandler,
 }));
 
 import { ChannelSetupBuildCommitter } from '../../channel-setup/build/ChannelSetupBuildCommitter';
@@ -252,6 +277,7 @@ describe('OrchestratorCoordinatorBuilders', () => {
 
     it('buildNavigationCoordinator preserves navigation-facing reporting semantics with the narrowed input seam', () => {
         const reportRecoverableAsyncFailure = jest.fn();
+        const appendIssueDiagnostic = jest.fn();
         const reportToast = jest.fn();
         const input: OrchestratorNavigationCoordinatorBuilderInput = {
             config: {
@@ -287,6 +313,7 @@ describe('OrchestratorCoordinatorBuilders', () => {
             } as unknown as OrchestratorNavigationCoordinatorBuilderInput['stores'],
             diagnostics: {
                 reportRecoverableAsyncFailure,
+                appendIssueDiagnostic,
             },
             playback: {
                 stopPlayback: jest.fn(),
@@ -346,43 +373,23 @@ describe('OrchestratorCoordinatorBuilders', () => {
         };
 
         const coordinator = buildNavigationCoordinator(input, deps as never);
-        const navigationDeps = (
-            coordinator as unknown as {
-                deps: Pick<
-                    import('../../../modules/navigation/NavigationCoordinatorDeps').NavigationCoordinatorDeps,
-                    | 'reportRecoverableAsyncFailure'
-                    | 'reportToast'
-                    | 'playback'
-                    | 'nowPlayingInfo'
-                    | 'readKeepPlayingInSettings'
-                    | 'readDebugLoggingEnabled'
-                >;
-            }
-        ).deps;
+        expect(coordinator).toBe(mockNavigationCoordinatorInstance);
+        const navigationDeps = mockNavigationCoordinator.mock.calls[0]?.[0] as
+            import('../../../modules/navigation/NavigationCoordinatorContracts').NavigationCoordinatorDeps;
 
-        expect(navigationDeps.reportRecoverableAsyncFailure).toBe(reportRecoverableAsyncFailure);
-        expect(navigationDeps.reportToast).toBeDefined();
-        navigationDeps.reportToast?.({ message: 'Recovered', type: 'warning' });
+        expect(navigationDeps.events.reportRecoverableAsyncFailure).toBe(reportRecoverableAsyncFailure);
+        expect(navigationDeps.events.reportToast).toBeDefined();
+        navigationDeps.events.reportToast?.({ message: 'Recovered', type: 'warning' });
         expect(reportToast).toHaveBeenCalledWith({ message: 'Recovered', type: 'warning' });
-        expect(navigationDeps.playback.getSeekIncrementMs()).toBe(15_000);
-        input.config!.playerConfig!.seekIncrementSec = 30;
-        expect(navigationDeps.playback.getSeekIncrementMs()).toBe(30_000);
-        input.config!.playerConfig!.seekIncrementSec = Number.NaN;
-        expect(navigationDeps.playback.getSeekIncrementMs()).toBe(10_000);
-        const navigationModule = input.modules.navigation as unknown as {
-            isModalOpen: jest.Mock<boolean, [string?]>;
-        };
-        navigationModule.isModalOpen = jest.fn(() => true);
-        const nowPlayingInfoOverlay = input.overlays.nowPlayingInfo as unknown as {
-            resetAutoHideTimer: jest.Mock;
-        };
-        expect(navigationDeps.nowPlayingInfo.isModalOpen()).toBe(true);
-        expect(navigationModule.isModalOpen).toHaveBeenCalledWith('now-playing-info');
-        expect(nowPlayingInfoOverlay.resetAutoHideTimer).not.toHaveBeenCalled();
-        navigationDeps.nowPlayingInfo.resetAutoHideTimer();
-        expect(nowPlayingInfoOverlay.resetAutoHideTimer).toHaveBeenCalledTimes(1);
-        expect(navigationDeps.readKeepPlayingInSettings()).toBe(false);
-        expect(navigationDeps.readDebugLoggingEnabled()).toBe(true);
+        expect(navigationDeps.handlers.keyModeRouter).toBe(mockNavigationKeyModeRouterInstance);
+        expect(navigationDeps.handlers.screenEffects).toBe(mockNavigationScreenEffectsHandlerInstance);
+        expect(navigationDeps.events.readDebugLoggingEnabled()).toBe(true);
+        navigationDeps.events.logDebug?.('navigation.inputNotHandled', { reason: 'modal_open' });
+        expect(appendIssueDiagnostic).toHaveBeenCalledWith(
+            'navigation',
+            'navigation.inputNotHandled',
+            { reason: 'modal_open' }
+        );
     });
 
     it('buildChannelTransitionCoordinator routes transition activity changes through the named orchestrator callback path', () => {

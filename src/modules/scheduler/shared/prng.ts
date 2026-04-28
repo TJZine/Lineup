@@ -1,14 +1,4 @@
 /**
- * @fileoverview Scheduler-owned PRNG utilities for deterministic operations.
- * @module modules/scheduler/shared/prng
- * @version 1.0.0
- */
-
-// ============================================
-// Mulberry32 PRNG
-// ============================================
-
-/**
  * Create a Mulberry32 PRNG function.
  * Mulberry32 is a fast, high-quality 32-bit PRNG.
  *
@@ -25,10 +15,6 @@ export function createMulberry32(seed: number): () => number {
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
 }
-
-// ============================================
-// Fisher-Yates Shuffle
-// ============================================
 
 /**
  * Fisher-Yates shuffle with seeded PRNG.

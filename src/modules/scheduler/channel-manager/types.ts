@@ -1,15 +1,7 @@
-/**
- * @fileoverview Type definitions for Channel Manager module.
- * @module modules/scheduler/channel-manager/types
- * @version 1.0.0
- */
-
 import type { AppErrorCode } from '../../lifecycle/types';
 import type { PlexMediaType } from '../../plex/shared/types';
 
-// ============================================
 // Playback & Filter Types
-// ============================================
 
 /**
  * Playback mode for channel content
@@ -68,25 +60,15 @@ export type SortOrder =
 
 export type { PlexMediaType };
 
-// ============================================
 // Content Filter
-// ============================================
 
-/**
- * Content filter specification
- */
 export interface ContentFilter {
-    /** Field to filter on */
     field: FilterField;
-    /** Comparison operator */
     operator: FilterOperator;
-    /** Value to compare against */
     value: string | number | boolean;
 }
 
-// ============================================
 // Content Source Types
-// ============================================
 
 /**
  * Base interface for content sources
@@ -115,7 +97,6 @@ export interface LibraryContentSource extends BaseContentSource {
  */
 export interface CollectionContentSource extends BaseContentSource {
     type: 'collection';
-    /** Collection key */
     collectionKey: string;
     /** Cached collection name for display */
     collectionName: string;
@@ -126,7 +107,6 @@ export interface CollectionContentSource extends BaseContentSource {
  */
 export interface ShowContentSource extends BaseContentSource {
     type: 'show';
-    /** Show ratingKey */
     showKey: string;
     /** Cached show name for display */
     showName: string;
@@ -139,7 +119,6 @@ export interface ShowContentSource extends BaseContentSource {
  */
 export interface PlaylistContentSource extends BaseContentSource {
     type: 'playlist';
-    /** Playlist key */
     playlistKey: string;
     /** Cached playlist name for display */
     playlistName: string;
@@ -162,7 +141,6 @@ export interface ManualContentItem {
  */
 export interface ManualContentSource extends BaseContentSource {
     type: 'manual';
-    /** Selected items with cached metadata */
     items: ManualContentItem[];
 }
 
@@ -188,9 +166,7 @@ export type ChannelContentSource =
     | ManualContentSource
     | MixedContentSource;
 
-// ============================================
 // Channel Configuration
-// ============================================
 
 /**
  * Complete channel configuration - persisted to storage
@@ -311,9 +287,7 @@ export interface ChannelCreateInput
  */
 export type ChannelUpdateInput = Partial<Pick<ChannelConfig, ChannelWritableField>>;
 
-// ============================================
 // Resolved Content
-// ============================================
 
 /**
  * A resolved content item with cached metadata
@@ -383,7 +357,6 @@ export interface ResolvedChannelContent {
     resolvedAt: number;
     /** All resolved items */
     items: ResolvedContentItem[];
-    /** Total duration of all items */
     totalDurationMs: number;
     /** Items after shuffle/sort applied */
     orderedItems: ResolvedContentItem[];
@@ -396,9 +369,7 @@ export interface ResolvedChannelContent {
     cacheReason?: 'fresh' | 'network_error' | 'content_unavailable';
 }
 
-// ============================================
 // Import/Export
-// ============================================
 
 /**
  * Channel import result
@@ -414,9 +385,7 @@ export interface ImportResult {
     errors: string[];
 }
 
-// ============================================
 // Events
-// ============================================
 
 /**
  * Channel manager events
@@ -436,9 +405,7 @@ export interface ChannelManagerEventMap {
     [key: string]: unknown;
 }
 
-// ============================================
 // Internal State
-// ============================================
 
 /**
  * Internal state for ChannelManager

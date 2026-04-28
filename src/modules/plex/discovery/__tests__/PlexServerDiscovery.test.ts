@@ -174,7 +174,7 @@ describe('PlexServerDiscovery', () => {
         });
 
         it('should handle network errors gracefully', async () => {
-            expectConsoleError('Server error: 500');
+            expectConsoleError('Plex service error: 500');
             jest.useFakeTimers();
             try {
                 mockFetchJson({ error: 'Server Error' }, 500);

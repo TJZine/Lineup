@@ -1,10 +1,3 @@
-/**
- * @fileoverview Channel Scheduler implementation.
- * Manages deterministic schedule generation and time-based queries.
- * @module modules/scheduler/scheduler/ChannelScheduler
- * @version 1.0.0
- */
-
 import { EventEmitter } from '../../../utils/EventEmitter';
 import type { IChannelScheduler, IShuffleGenerator } from './interfaces';
 import type {
@@ -464,27 +457,8 @@ export class ChannelScheduler implements IChannelScheduler {
         return this._index!;
     }
 
-    // ============================================
-    // Events
-    // ============================================
-
-    /**
-     * Subscribe to programStart event.
-     * @param event - Event name
-     * @param handler - Event handler
-     */
     public on(event: 'programStart', handler: (program: ScheduledProgram) => void): void;
-    /**
-     * Subscribe to programEnd event.
-     * @param event - Event name
-     * @param handler - Event handler
-     */
     public on(event: 'programEnd', handler: (program: ScheduledProgram) => void): void;
-    /**
-     * Subscribe to scheduleSync event.
-     * @param event - Event name
-     * @param handler - Event handler
-     */
     public on(event: 'scheduleSync', handler: (state: SchedulerState) => void): void;
     public on(
         event: 'programStart' | 'programEnd' | 'scheduleSync',
@@ -493,21 +467,12 @@ export class ChannelScheduler implements IChannelScheduler {
         this._emitter.on(event, handler as (payload: unknown) => void);
     }
 
-    /**
-     * Unsubscribe from an event.
-     * @param event - Event name
-     * @param handler - Event handler
-     */
     public off(
         event: 'programStart' | 'programEnd' | 'scheduleSync',
         handler: ((program: ScheduledProgram) => void) | ((state: SchedulerState) => void)
     ): void {
         this._emitter.off(event, handler as (payload: unknown) => void);
     }
-
-    // ============================================
-    // Private Methods
-    // ============================================
 
     /**
      * Ensure a channel is loaded.

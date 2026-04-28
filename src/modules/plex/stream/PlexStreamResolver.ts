@@ -578,15 +578,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         return result as Omit<NonNullable<StreamDecision['serverDecision']>, 'fetchedAt'>;
     }
 
-    // ========================================
-    // Events
-    // ========================================
-
-    /**
-     * Register event handler.
-     * @param event - Event name
-     * @param handler - Handler function
-     */
     on<K extends keyof StreamResolverEventMap>(
         event: K,
         handler: (payload: StreamResolverEventMap[K]) => void
@@ -596,11 +587,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         this._emitter.on(event, handler as HandlerUnion);
     }
 
-    /**
-     * Remove event handler.
-     * @param event - Event name
-     * @param handler - Handler function
-     */
     off<K extends keyof StreamResolverEventMap>(
         event: K,
         handler: (payload: StreamResolverEventMap[K]) => void

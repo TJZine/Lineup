@@ -17,31 +17,31 @@ import type {
     PlexPlaylist,
     PlexTagDirectoryItem,
 } from '../../../modules/plex/library';
-import type {
-    ChannelConfig,
-    ContentFilter,
-    SortOrder,
-} from '../../../modules/scheduler/channel-manager';
+import type { ChannelConfig } from '../../../modules/scheduler/channel-manager';
 import { buildChannelSetupStrategyBuckets } from './ChannelSetupStrategyBuilders';
 import {
     createEmptyChannelSetupEstimates,
+    createChannelIdentityKey,
     toChannelSetupDecadeValue,
+    type ChannelSetupFacetMap,
+    type ChannelSetupPlannerCountSample,
+    type ChannelSetupPlannerDiagnostics,
+    type ChannelSetupPlannerFacetCountDiagnostics,
+    type ChannelSetupPlannerLibraryCount,
     type PendingChannel,
 } from './ChannelSetupPlanningTypes';
-
-export type { PendingChannel } from './ChannelSetupPlanningTypes';
 
 interface ChannelSetupPlanInput {
     config: ChannelSetupConfig;
     libraries: PlexLibrarySection[];
-    playlists: PlexPlaylist[];
-    collectionsByLibraryId: Map<string, PlexCollection[]>;
-    genresByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    directorsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    yearsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    actorsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    studiosByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    warnings: string[];
+    playlists: readonly PlexPlaylist[];
+    collectionsByLibraryId: ChannelSetupFacetMap<PlexCollection>;
+    genresByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    directorsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    yearsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    actorsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    studiosByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    warnings: readonly string[];
     seedFor: (value: string) => number;
 }
 
@@ -53,76 +53,95 @@ interface ChannelSetupPlan {
     reachedMaxChannels: boolean;
 }
 
-type ChannelSetupPlannerFacetFamily = 'genres' | 'directors' | 'decades' | 'studios' | 'actors';
-
-export interface ChannelSetupPlannerLibraryCount {
-    libraryId: string;
-    libraryName: string;
-    count: number;
-}
-
-export interface ChannelSetupPlannerCountSample {
-    title: string;
-    count: number;
-}
-
-export interface ChannelSetupPlannerFacetCountDiagnostics {
-    libraryId: string;
-    libraryName: string;
-    rawTagCount: number;
-    effectiveCandidateCount: number;
-    candidatesWithKnownCount: number;
-    candidatesWithUnknownCount: number;
-    candidatesBelowMinItems: number;
-    minKnownCount: number | null;
-    maxKnownCount: number | null;
-    sampleKnownCounts: ChannelSetupPlannerCountSample[];
-    sampleUnknownCountTitles: string[];
-    sampleBelowMinItems: ChannelSetupPlannerCountSample[];
-}
-
-export interface ChannelSetupPlannerDiagnostics {
+type ChannelSetupPlanningLimits = {
     effectiveMaxChannels: number;
     minItems: number;
-    fetchedTagsByFamily: Record<ChannelSetupPlannerFacetFamily, ChannelSetupPlannerLibraryCount[]>;
-    tagCountDiagnosticsByFamily: Record<ChannelSetupPlannerFacetFamily, ChannelSetupPlannerFacetCountDiagnostics[]>;
-    candidatesBeforeMinItems: ChannelSetupEstimates;
-    candidatesAfterMinItems: ChannelSetupEstimates;
-    strategyBucketSizes: ChannelSetupEstimates;
-    afterAlternateLineups: ChannelSetupEstimates;
-    afterVariants: ChannelSetupEstimates;
-    afterMaxChannels: ChannelSetupEstimates;
-    lostToMaxChannels: ChannelSetupEstimates;
+};
+
+type TruncatedPendingChannels = {
+    pending: PendingChannel[];
+    reachedMaxChannels: boolean;
+};
+
+class ChannelSetupPlannerDiagnosticsRecorder {
+    private readonly _diagnostics: ChannelSetupPlannerDiagnostics | undefined;
+
+    constructor(
+        collectDiagnostics: boolean,
+        selectedLibraries: PlexLibrarySection[],
+        tagsByFamily: {
+            genres: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+            directors: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+            decades: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+            studios: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+            actors: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+        },
+        effectiveMaxChannels: number,
+        minItems: number
+    ) {
+        this._diagnostics = collectDiagnostics
+            ? createPlannerDiagnostics(
+                selectedLibraries,
+                tagsByFamily.genres,
+                tagsByFamily.directors,
+                tagsByFamily.decades,
+                tagsByFamily.actors,
+                tagsByFamily.studios,
+                effectiveMaxChannels,
+                minItems
+            )
+            : undefined;
+    }
+
+    get diagnostics(): ChannelSetupPlannerDiagnostics | undefined {
+        return this._diagnostics;
+    }
+
+    recordCandidateFiltering(strategyBuild: {
+        candidatesBeforeMinItems: ChannelSetupEstimates;
+        candidatesAfterMinItems: ChannelSetupEstimates;
+    }): void {
+        if (!this._diagnostics) {
+            return;
+        }
+        this._diagnostics.candidatesBeforeMinItems = strategyBuild.candidatesBeforeMinItems;
+        this._diagnostics.candidatesAfterMinItems = strategyBuild.candidatesAfterMinItems;
+    }
+
+    recordStrategyBucketSizes(channels: PendingChannel[]): void {
+        if (!this._diagnostics) {
+            return;
+        }
+        this._diagnostics.strategyBucketSizes = countChannelsByStrategy(channels);
+    }
+
+    recordAfterAlternateLineups(channels: PendingChannel[]): void {
+        if (!this._diagnostics) {
+            return;
+        }
+        this._diagnostics.afterAlternateLineups = countChannelsByStrategy(channels);
+    }
+
+    recordAfterVariants(channels: PendingChannel[]): void {
+        if (!this._diagnostics) {
+            return;
+        }
+        this._diagnostics.afterVariants = countChannelsByStrategy(channels);
+    }
+
+    recordAfterMaxChannels(estimates: ChannelSetupEstimates): void {
+        if (!this._diagnostics) {
+            return;
+        }
+        this._diagnostics.afterMaxChannels = { ...estimates };
+        this._diagnostics.lostToMaxChannels = subtractEstimates(
+            this._diagnostics.afterVariants,
+            this._diagnostics.afterMaxChannels
+        );
+    }
 }
 
-interface ChannelIdentityCandidate {
-    contentSource: ChannelConfig['contentSource'];
-    contentFilters?: ContentFilter[];
-    sortOrder?: SortOrder;
-    playbackMode: ChannelConfig['playbackMode'];
-    blockSize?: number;
-    lineupReplicaIndex?: number;
-    isPlaybackModeVariant?: boolean;
-}
-
-interface ChannelDiffEntry {
-    name: string;
-    identityKey: string;
-    channelId?: string;
-    number?: number;
-    isAutoGenerated?: boolean;
-}
-
-export interface ChannelDiffResult {
-    created: ChannelDiffEntry[];
-    removed: ChannelDiffEntry[];
-    unchanged: ChannelDiffEntry[];
-    matchedPairs: Array<{ existing: ChannelConfig; planned: PendingChannel }>;
-    summary: { created: number; removed: number; unchanged: number };
-    samples: { created: string[]; removed: string[]; unchanged: string[] };
-}
-
-const sortTagValuesByCountThenTitle = <T extends { title: string; count: number }>(values: T[]): T[] => (
+const sortTagValuesByCountThenTitle = <T extends { title: string; count: number }>(values: readonly T[]): T[] => (
     [...values].sort((a, b) => {
         const countDiff = b.count - a.count;
         if (countDiff !== 0) return countDiff;
@@ -132,7 +151,7 @@ const sortTagValuesByCountThenTitle = <T extends { title: string; count: number 
 
 const sortTagTitles = (titles: string[]): string[] => [...titles].sort((a, b) => a.localeCompare(b));
 
-const toCountSamples = (values: Array<{ title: string; count: number }>, limit: number = 5): ChannelSetupPlannerCountSample[] =>
+const toCountSamples = (values: ReadonlyArray<{ title: string; count: number }>, limit: number = 5): ChannelSetupPlannerCountSample[] =>
     sortTagValuesByCountThenTitle(values).slice(0, limit).map((value) => ({
         title: value.title,
         count: value.count,
@@ -184,7 +203,7 @@ export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetu
 }
 
 export function buildChannelSetupPlanDiagnostics(input: ChannelSetupPlanInput): ChannelSetupPlannerDiagnostics {
-    return buildChannelSetupPlanInternal(input, true).diagnostics as ChannelSetupPlannerDiagnostics;
+    return buildChannelSetupPlanInternal(input, true).diagnostics!;
 }
 
 function buildChannelSetupPlanInternal(
@@ -205,35 +224,22 @@ function buildChannelSetupPlanInternal(
         seedFor,
     } = input;
 
-    const requestedMax = Number.isFinite(config.maxChannels) ? config.maxChannels : DEFAULT_CHANNEL_SETUP_MAX;
-    const effectiveMaxChannels = Math.max(1, Math.floor(requestedMax));
-    const requestedMinItems = Number.isFinite(config.minItemsPerChannel) ? config.minItemsPerChannel : DEFAULT_MIN_ITEMS_PER_CHANNEL;
-    const minItems = Math.max(1, Math.floor(requestedMinItems));
+    const { effectiveMaxChannels, minItems } = resolvePlanningLimits(config);
+    const selectedLibraries = selectConfiguredLibraries(libraries, config);
 
-    const selectedLibraries = sortLibrariesByTitle(
-        libraries.filter((lib) => config.selectedLibraryIds.includes(lib.id))
+    const diagnosticsRecorder = new ChannelSetupPlannerDiagnosticsRecorder(
+        collectDiagnostics,
+        selectedLibraries,
+        {
+            genres: genresByLibraryId,
+            directors: directorsByLibraryId,
+            decades: yearsByLibraryId,
+            studios: studiosByLibraryId,
+            actors: actorsByLibraryId,
+        },
+        effectiveMaxChannels,
+        minItems
     );
-
-    const diagnostics = collectDiagnostics
-        ? createPlannerDiagnostics(
-            selectedLibraries,
-            genresByLibraryId,
-            directorsByLibraryId,
-            yearsByLibraryId,
-            actorsByLibraryId,
-            studiosByLibraryId,
-            effectiveMaxChannels,
-            minItems
-        )
-        : undefined;
-
-    const getStrategyPriority = (strategy: SetupStrategyKey): number => {
-        const configured = config.strategyConfig[strategy]?.priority;
-        if (Number.isFinite(configured)) {
-            return Math.max(1, Math.floor(Number(configured)));
-        }
-        return DEFAULT_STRATEGY_PRIORITIES[strategy];
-    };
 
     const strategyBuild = buildChannelSetupStrategyBuckets({
         config,
@@ -250,16 +256,7 @@ function buildChannelSetupPlanInternal(
     });
     const { strategyBuckets, skipped } = strategyBuild;
 
-    if (diagnostics) {
-        diagnostics.candidatesBeforeMinItems = strategyBuild.candidatesBeforeMinItems;
-        diagnostics.candidatesAfterMinItems = strategyBuild.candidatesAfterMinItems;
-    }
-
-    const orderedStrategies = (Object.keys(strategyBuckets) as SetupStrategyKey[]).sort((a, b) => {
-        const priorityDiff = getStrategyPriority(a) - getStrategyPriority(b);
-        if (priorityDiff !== 0) return priorityDiff;
-        return a.localeCompare(b);
-    });
+    diagnosticsRecorder.recordCandidateFiltering(strategyBuild);
 
     const showLibraryIds = new Set(
         selectedLibraries
@@ -267,22 +264,98 @@ function buildChannelSetupPlanInternal(
             .map((library) => library.id)
     );
 
-    const baseOrderedUnadjusted: PendingChannel[] = [];
-    for (const strategy of orderedStrategies) {
-        baseOrderedUnadjusted.push(...strategyBuckets[strategy]);
-    }
+    const baseOrderedUnadjusted = orderStrategyChannels(
+        strategyBuckets,
+        createStrategyPriorityResolver(config)
+    );
 
-    if (diagnostics) {
-        diagnostics.strategyBucketSizes = countChannelsByStrategy(baseOrderedUnadjusted);
-    }
+    diagnosticsRecorder.recordStrategyBucketSizes(baseOrderedUnadjusted);
 
+    const baseOrdered = normalizeSeriesPlayback(baseOrderedUnadjusted, showLibraryIds, config);
+    const withAlternateLineups = expandAlternateLineups(baseOrdered, config, seedFor);
+
+    diagnosticsRecorder.recordAfterAlternateLineups(withAlternateLineups);
+
+    const withVariants = expandPlaybackVariants(withAlternateLineups, showLibraryIds, config, seedFor);
+
+    diagnosticsRecorder.recordAfterVariants(withVariants);
+
+    const { pending, reachedMaxChannels } = truncatePendingChannels(withVariants, effectiveMaxChannels);
+    const estimates = estimatePendingChannels(pending);
+
+    diagnosticsRecorder.recordAfterMaxChannels(estimates);
+    const diagnostics = diagnosticsRecorder.diagnostics;
+
+    return {
+        plan: {
+            pendingChannels: pending,
+            estimates,
+            warnings: [...warnings],
+            skipped,
+            reachedMaxChannels,
+        },
+        ...(diagnostics ? { diagnostics } : {}),
+    };
+}
+
+function resolvePlanningLimits(config: ChannelSetupConfig): ChannelSetupPlanningLimits {
+    const requestedMax = Number.isFinite(config.maxChannels) ? config.maxChannels : DEFAULT_CHANNEL_SETUP_MAX;
+    const requestedMinItems = Number.isFinite(config.minItemsPerChannel)
+        ? config.minItemsPerChannel
+        : DEFAULT_MIN_ITEMS_PER_CHANNEL;
+    return {
+        effectiveMaxChannels: Math.max(1, Math.floor(requestedMax)),
+        minItems: Math.max(1, Math.floor(requestedMinItems)),
+    };
+}
+
+function selectConfiguredLibraries(
+    libraries: PlexLibrarySection[],
+    config: ChannelSetupConfig
+): PlexLibrarySection[] {
+    return sortLibrariesByTitle(
+        libraries.filter((lib) => config.selectedLibraryIds.includes(lib.id))
+    );
+}
+
+function createStrategyPriorityResolver(
+    config: ChannelSetupConfig
+): (strategy: SetupStrategyKey) => number {
+    return (strategy: SetupStrategyKey): number => {
+        const configured = config.strategyConfig[strategy]?.priority;
+        if (Number.isFinite(configured)) {
+            return Math.max(1, Math.floor(Number(configured)));
+        }
+        return DEFAULT_STRATEGY_PRIORITIES[strategy];
+    };
+}
+
+function orderStrategyChannels(
+    strategyBuckets: Record<SetupStrategyKey, PendingChannel[]>,
+    getStrategyPriority: (strategy: SetupStrategyKey) => number
+): PendingChannel[] {
+    const orderedStrategies = (Object.keys(strategyBuckets) as SetupStrategyKey[]).sort((a, b) => {
+        const priorityDiff = getStrategyPriority(a) - getStrategyPriority(b);
+        if (priorityDiff !== 0) return priorityDiff;
+        return a.localeCompare(b);
+    });
+
+    return orderedStrategies.flatMap((strategy) => strategyBuckets[strategy]);
+}
+
+function normalizeSeriesPlayback(
+    channels: PendingChannel[],
+    showLibraryIds: Set<string>,
+    config: ChannelSetupConfig
+): PendingChannel[] {
     const baseSeriesModeRaw = config.seriesOrdering?.basePlaybackMode;
     const baseSeriesMode =
         baseSeriesModeRaw === 'sequential' || baseSeriesModeRaw === 'block'
             ? baseSeriesModeRaw
             : 'shuffle';
     const baseSeriesBlockSize = sanitizeBlockSize(config.seriesOrdering?.baseBlockSize, 3);
-    const baseOrdered: PendingChannel[] = baseOrderedUnadjusted.map((channel) => {
+
+    return channels.map((channel) => {
         const isSeriesDerived = isSeriesDerivedChannel(channel, showLibraryIds);
         if (baseSeriesMode === 'shuffle' || !isSeriesDerived || channel.playbackMode !== 'shuffle') {
             return channel;
@@ -298,15 +371,25 @@ function buildChannelSetupPlanInternal(
         }
         return updated;
     });
+}
 
-    let alternateCopies = 0;
-    if (config.channelExpansion?.addAlternateLineups) {
-        const raw = config.channelExpansion?.alternateLineupCopies;
-        const copies = Number.isFinite(raw) ? Math.floor(Number(raw)) : 1;
-        alternateCopies = Math.min(3, Math.max(1, copies));
+function resolveAlternateLineupCopies(config: ChannelSetupConfig): number {
+    if (!config.channelExpansion?.addAlternateLineups) {
+        return 0;
     }
+    const raw = config.channelExpansion?.alternateLineupCopies;
+    const copies = Number.isFinite(raw) ? Math.floor(Number(raw)) : 1;
+    return Math.min(3, Math.max(1, copies));
+}
+
+function expandAlternateLineups(
+    channels: PendingChannel[],
+    config: ChannelSetupConfig,
+    seedFor: (value: string) => number
+): PendingChannel[] {
+    const alternateCopies = resolveAlternateLineupCopies(config);
     const withAlternateLineups: PendingChannel[] = [];
-    for (const channel of baseOrdered) {
+    for (const channel of channels) {
         const baseChannel: PendingChannel = {
             ...channel,
             lineupReplicaIndex: channel.lineupReplicaIndex ?? 0,
@@ -327,54 +410,72 @@ function buildChannelSetupPlanInternal(
             });
         }
     }
+    return withAlternateLineups;
+}
 
-    if (diagnostics) {
-        diagnostics.afterAlternateLineups = countChannelsByStrategy(withAlternateLineups);
-    }
-
+function expandPlaybackVariants(
+    channels: PendingChannel[],
+    showLibraryIds: Set<string>,
+    config: ChannelSetupConfig,
+    seedFor: (value: string) => number
+): PendingChannel[] {
     const variantTypeRaw = config.channelExpansion?.variantType;
     const variantType =
         variantTypeRaw === 'sequential' || variantTypeRaw === 'block'
             ? variantTypeRaw
             : 'none';
+    if (variantType === 'none') {
+        return [...channels];
+    }
+
     const variantBlockSize = sanitizeBlockSize(config.channelExpansion?.variantBlockSize, 3);
-    const withVariants: PendingChannel[] = [...withAlternateLineups];
-    if (variantType !== 'none') {
-        const variantLabel = variantType === 'sequential' ? 'Sequential' : 'Block';
-        for (const channel of withAlternateLineups) {
-            const isSeriesDerived = isSeriesDerivedChannel(channel, showLibraryIds);
-            if (!isSeriesDerived) {
-                continue;
-            }
-            const sameMode = channel.playbackMode === variantType;
-            const sameBlockSize =
-                variantType !== 'block' || channel.blockSize === variantBlockSize;
-            if (sameMode && sameBlockSize) {
-                continue;
-            }
-            const variant: PendingChannel = {
-                ...channel,
-                name: `${channel.name} • ${variantLabel}`,
-                playbackMode: variantType,
-                // Marks this as a setup-generated playback-mode variant (sequential/block) for identity/diffing.
-                isPlaybackModeVariant: true,
-                shuffleSeed: seedFor(`${createChannelIdentityKey(channel)}:variant:${variantType}`),
-            };
-            if (variantType === 'block') {
-                variant.blockSize = variantBlockSize;
-            } else {
-                delete variant.blockSize;
-            }
-            withVariants.push(variant);
+    const variantLabel = variantType === 'sequential' ? 'Sequential' : 'Block';
+    const withVariants: PendingChannel[] = [...channels];
+    for (const channel of channels) {
+        if (variantType === 'sequential' && (channel.lineupReplicaIndex ?? 0) > 0) {
+            continue;
         }
+        const isSeriesDerived = isSeriesDerivedChannel(channel, showLibraryIds);
+        if (!isSeriesDerived) {
+            continue;
+        }
+        const sameMode = channel.playbackMode === variantType;
+        const sameBlockSize =
+            variantType !== 'block' || channel.blockSize === variantBlockSize;
+        if (sameMode && sameBlockSize) {
+            // Series-derived base channels may already match the requested variant;
+            // skip them so setup does not emit duplicate playback-mode variants.
+            continue;
+        }
+        const variant: PendingChannel = {
+            ...channel,
+            name: `${channel.name} • ${variantLabel}`,
+            playbackMode: variantType,
+            // Marks this as a setup-generated playback-mode variant (sequential/block) for identity/diffing.
+            isPlaybackModeVariant: true,
+            shuffleSeed: seedFor(`${createChannelIdentityKey(channel)}:variant:${variantType}`),
+        };
+        if (variantType === 'block') {
+            variant.blockSize = variantBlockSize;
+        } else {
+            delete variant.blockSize;
+        }
+        withVariants.push(variant);
     }
+    return withVariants;
+}
 
-    if (diagnostics) {
-        diagnostics.afterVariants = countChannelsByStrategy(withVariants);
-    }
+function truncatePendingChannels(
+    channels: PendingChannel[],
+    effectiveMaxChannels: number
+): TruncatedPendingChannels {
+    return {
+        pending: channels.slice(0, effectiveMaxChannels),
+        reachedMaxChannels: channels.length > effectiveMaxChannels,
+    };
+}
 
-    const pending = withVariants.slice(0, effectiveMaxChannels);
-    const reachedMaxChannels = withVariants.length > effectiveMaxChannels;
+function estimatePendingChannels(pending: PendingChannel[]): ChannelSetupEstimates {
     const estimates = createEmptyChannelSetupEstimates();
     for (const channel of pending) {
         estimates.total += 1;
@@ -386,121 +487,12 @@ function buildChannelSetupPlanInternal(
             estimates[strategyKey] += 1;
         }
     }
-
-    if (diagnostics) {
-        diagnostics.afterMaxChannels = { ...estimates };
-        diagnostics.lostToMaxChannels = subtractEstimates(diagnostics.afterVariants, diagnostics.afterMaxChannels);
-    }
-
-    return {
-        plan: {
-            pendingChannels: pending,
-            estimates,
-            warnings: [...warnings],
-            skipped,
-            reachedMaxChannels,
-        },
-        ...(diagnostics ? { diagnostics } : {}),
-    };
-}
-
-export function createChannelIdentityKey(candidate: ChannelIdentityCandidate): string {
-    // Identity keys are used to match planned channels to existing channels in merge/append flows.
-    // Intentionally exclude mutable playback settings like `blockSize` so changing those settings
-    // updates an existing channel rather than creating a duplicate.
-    const normalized = {
-        source: normalizeSource(candidate.contentSource),
-        filters: normalizeFilters(candidate.contentFilters),
-        sortOrder: candidate.sortOrder ?? null,
-        lineupReplicaIndex: candidate.lineupReplicaIndex ?? 0,
-        isPlaybackModeVariant: candidate.isPlaybackModeVariant === true,
-        variantPlaybackMode: candidate.isPlaybackModeVariant === true ? candidate.playbackMode : null,
-    };
-    return stableStringify(normalized);
-}
-
-export function diffChannelPlans(
-    existingChannels: ChannelConfig[],
-    plannedChannels: PendingChannel[]
-): ChannelDiffResult {
-    const plannedByKey = new Map<string, PendingChannel[]>();
-    for (const planned of plannedChannels) {
-        const key = createChannelIdentityKey(planned);
-        const list = plannedByKey.get(key) ?? [];
-        list.push(planned);
-        plannedByKey.set(key, list);
-    }
-
-    const created: ChannelDiffEntry[] = [];
-    const removed: ChannelDiffEntry[] = [];
-    const unchanged: ChannelDiffEntry[] = [];
-    const matchedPairs: Array<{ existing: ChannelConfig; planned: PendingChannel }> = [];
-
-    const consumePlanned = (key: string): PendingChannel | null => {
-        const list = plannedByKey.get(key);
-        if (!list || list.length === 0) return null;
-        return list.shift() ?? null;
-    };
-
-    for (const existing of existingChannels) {
-        const key = createChannelIdentityKey(existing);
-        const planned = consumePlanned(key);
-        if (planned) {
-            matchedPairs.push({ existing, planned });
-            const entry: ChannelDiffEntry = {
-                name: existing.name,
-                identityKey: key,
-                channelId: existing.id,
-                number: existing.number,
-            };
-            if (existing.isAutoGenerated !== undefined) {
-                entry.isAutoGenerated = existing.isAutoGenerated;
-            }
-            unchanged.push(entry);
-        } else {
-            const entry: ChannelDiffEntry = {
-                name: existing.name,
-                identityKey: key,
-                channelId: existing.id,
-                number: existing.number,
-            };
-            if (existing.isAutoGenerated !== undefined) {
-                entry.isAutoGenerated = existing.isAutoGenerated;
-            }
-            removed.push(entry);
-        }
-    }
-
-    for (const [key, remaining] of plannedByKey.entries()) {
-        for (const planned of remaining) {
-            const entry: ChannelDiffEntry = {
-                name: planned.name,
-                identityKey: key,
-            };
-            if (planned.isAutoGenerated !== undefined) {
-                entry.isAutoGenerated = planned.isAutoGenerated;
-            }
-            created.push(entry);
-        }
-    }
-
-    const summary = {
-        created: created.length,
-        removed: removed.length,
-        unchanged: unchanged.length,
-    };
-    const samples = {
-        created: created.slice(0, 6).map((c) => c.name),
-        removed: removed.slice(0, 6).map((c) => c.name),
-        unchanged: unchanged.slice(0, 6).map((c) => c.name),
-    };
-
-    return { created, removed, unchanged, matchedPairs, summary, samples };
+    return estimates;
 }
 
 function buildFacetCountDiagnostics(
     library: PlexLibrarySection,
-    tags: PlexTagDirectoryItem[],
+    tags: readonly PlexTagDirectoryItem[],
     minItems: number
 ): ChannelSetupPlannerFacetCountDiagnostics {
     const knownCounts = sortTagValuesByCountThenTitle(
@@ -533,7 +525,7 @@ function buildFacetCountDiagnostics(
 
 function buildDecadeFacetCountDiagnostics(
     library: PlexLibrarySection,
-    yearTags: PlexTagDirectoryItem[],
+    yearTags: readonly PlexTagDirectoryItem[],
     minItems: number
 ): ChannelSetupPlannerFacetCountDiagnostics {
     const decades = new Map<number, { totalCount: number; hasUnknownCount: boolean }>();
@@ -582,23 +574,23 @@ function buildDecadeFacetCountDiagnostics(
 
 function createPlannerDiagnostics(
     selectedLibraries: PlexLibrarySection[],
-    genresByLibraryId: Map<string, PlexTagDirectoryItem[]>,
-    directorsByLibraryId: Map<string, PlexTagDirectoryItem[]>,
-    yearsByLibraryId: Map<string, PlexTagDirectoryItem[]>,
-    actorsByLibraryId: Map<string, PlexTagDirectoryItem[]>,
-    studiosByLibraryId: Map<string, PlexTagDirectoryItem[]>,
+    genresByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
+    directorsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
+    yearsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
+    actorsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
+    studiosByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
     effectiveMaxChannels: number,
     minItems: number
 ): ChannelSetupPlannerDiagnostics {
     const toCounts = (
-        valuesByLibraryId: Map<string, PlexTagDirectoryItem[]>
+        valuesByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>
     ): ChannelSetupPlannerLibraryCount[] => selectedLibraries.map((library) => ({
         libraryId: library.id,
         libraryName: library.title,
         count: valuesByLibraryId.get(library.id)?.length ?? 0,
     }));
     const toFacetCountDiagnostics = (
-        valuesByLibraryId: Map<string, PlexTagDirectoryItem[]>
+        valuesByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>
     ): ChannelSetupPlannerFacetCountDiagnostics[] => selectedLibraries.map((library) =>
         buildFacetCountDiagnostics(library, valuesByLibraryId.get(library.id) ?? [], minItems)
     );
@@ -661,71 +653,4 @@ function subtractEstimates(
         studios: Math.max(0, source.studios - removed.studios),
         actors: Math.max(0, source.actors - removed.actors),
     };
-}
-
-function normalizeFilters(filters?: ContentFilter[]): Array<ContentFilter> | null {
-    if (!filters || filters.length === 0) return null;
-    return [...filters].sort((a, b) => {
-        const aKey = `${a.field}:${a.operator}:${String(a.value)}`;
-        const bKey = `${b.field}:${b.operator}:${String(b.value)}`;
-        return aKey.localeCompare(bKey);
-    });
-}
-
-function normalizeSource(source: ChannelConfig['contentSource']): unknown {
-    switch (source.type) {
-        case 'library':
-            return {
-                type: source.type,
-                libraryId: source.libraryId,
-                libraryType: source.libraryType,
-                includeWatched: source.includeWatched,
-                libraryFilter: normalizeRecord(source.libraryFilter),
-            };
-        case 'collection':
-            return { type: source.type, collectionKey: source.collectionKey };
-        case 'playlist':
-            return { type: source.type, playlistKey: source.playlistKey };
-        case 'show':
-            return {
-                type: source.type,
-                showKey: source.showKey,
-                seasonFilter: source.seasonFilter ? [...source.seasonFilter].sort((a, b) => a - b) : null,
-            };
-        case 'manual':
-            return {
-                type: source.type,
-                items: [...source.items].sort((a, b) => a.ratingKey.localeCompare(b.ratingKey)),
-            };
-        case 'mixed': {
-            const normalizedSources = source.sources.map(normalizeSource);
-            const sortedSources = [...normalizedSources].sort((a, b) => stableStringify(a).localeCompare(stableStringify(b)));
-            return { type: source.type, mixMode: source.mixMode, sources: sortedSources };
-        }
-        default:
-            return source;
-    }
-}
-
-function normalizeRecord(record?: Record<string, string | number>): Record<string, string | number> | null {
-    if (!record) return null;
-    const entries = Object.entries(record).sort(([a], [b]) => a.localeCompare(b));
-    const normalized: Record<string, string | number> = {};
-    for (const [key, value] of entries) {
-        normalized[key] = value;
-    }
-    return normalized;
-}
-
-function stableStringify(value: unknown): string {
-    if (value === null || typeof value !== 'object') {
-        return JSON.stringify(value);
-    }
-    if (Array.isArray(value)) {
-        return `[${value.map(stableStringify).join(',')}]`;
-    }
-    const obj = value as Record<string, unknown>;
-    const keys = Object.keys(obj).sort((left, right) => left.localeCompare(right));
-    const entries = keys.map((key) => `${JSON.stringify(key)}:${stableStringify(obj[key])}`);
-    return `{${entries.join(',')}}`;
 }

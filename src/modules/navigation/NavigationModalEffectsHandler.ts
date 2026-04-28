@@ -1,10 +1,23 @@
-import type { NavigationCoordinatorDeps } from './NavigationCoordinatorDeps';
-import type { NavigationRepeatHandler } from './NavigationRepeatHandler';
+import type {
+    NavigationModalEffectsRuntime,
+    NavigationRepeatRuntime,
+} from './NavigationCoordinatorContracts';
+import type {
+    NavigationMiniGuidePort,
+    NavigationModalsPort,
+    NavigationNowPlayingInfoPort,
+} from './NavigationFeaturePorts';
 
-export class NavigationModalEffectsHandler {
+export interface NavigationModalEffectsPort {
+    miniGuide: NavigationMiniGuidePort;
+    nowPlayingInfo: NavigationNowPlayingInfoPort;
+    modals: NavigationModalsPort;
+}
+
+export class NavigationModalEffectsHandler implements NavigationModalEffectsRuntime {
     constructor(
-        private readonly deps: NavigationCoordinatorDeps,
-        private readonly repeats: NavigationRepeatHandler
+        private readonly deps: NavigationModalEffectsPort,
+        private readonly repeats: NavigationRepeatRuntime
     ) { }
 
     handleModalOpen(modalId: string): void {

@@ -1,8 +1,19 @@
 import { isAbortLikeError } from '../../utils/errors';
-import type { NavigationCoordinatorDeps } from './NavigationCoordinatorDeps';
+import type {
+    NavigationChannelNumberHandlerRuntime,
+} from './NavigationCoordinatorContracts';
+import type {
+    NavigationChannelSwitchingPort,
+    NavigationEpgPort,
+} from './NavigationFeaturePorts';
 
-export class NavigationChannelNumberHandler {
-    constructor(private readonly deps: NavigationCoordinatorDeps) { }
+export interface NavigationChannelNumberPort {
+    epg: NavigationEpgPort | null;
+    channelSwitching: NavigationChannelSwitchingPort;
+}
+
+export class NavigationChannelNumberHandler implements NavigationChannelNumberHandlerRuntime {
+    constructor(private readonly deps: NavigationChannelNumberPort) { }
 
     async handleChannelNumberEntered(channelNumber: number): Promise<void> {
         this.deps.channelSwitching.setLastChannelChangeSourceNumber();

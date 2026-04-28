@@ -15,11 +15,13 @@ import type {
 import {
     buildChannelSetupPlan,
     buildChannelSetupPlanDiagnostics,
+} from './ChannelSetupPlanner';
+import {
     diffChannelPlans,
     createChannelIdentityKey,
     type PendingChannel,
     type ChannelDiffResult,
-} from './ChannelSetupPlanner';
+} from './ChannelSetupPlanningTypes';
 import type { ChannelSetupPlanDiagnosticsResult } from './ChannelSetupPlanDiagnostics';
 import {
     ChannelSetupFacetSnapshotLoader,
@@ -223,7 +225,7 @@ export class ChannelSetupPlanningService {
         if (snapshot.status !== 'ready') {
             return {
                 plan: null,
-                warnings: snapshot.warnings,
+                warnings: [...snapshot.warnings],
                 canceled: false,
                 blockedMessage: snapshot.message,
                 previewStatus: snapshot.status,
@@ -252,7 +254,7 @@ export class ChannelSetupPlanningService {
 
         return {
             plan,
-            warnings: snapshot.warnings,
+            warnings: [...snapshot.warnings],
             canceled: false,
             errorsTotal: snapshot.errorsTotal,
             playlistMs: snapshot.playlistMs,
