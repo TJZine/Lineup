@@ -3,7 +3,10 @@ import type { AuthScreenPorts } from '../../modules/ui/auth';
 import type { ChannelSetupScreenPorts } from '../../modules/ui/channel-setup';
 import type { INavigationManager } from '../../modules/navigation';
 import type { ProfileSelectScreenPorts } from '../../modules/ui/profile-select';
-import type { ServerSelectScreenPorts } from '../../modules/ui/server-select';
+import type {
+    ServerSelectScreenPorts,
+    ServerSelectSelectionResult,
+} from '../../modules/ui/server-select';
 import type { GuideSettingChange } from '../../modules/ui/settings/types';
 import type { ThemeName } from '../../modules/ui/theme';
 import type {
@@ -96,7 +99,13 @@ export class AppLazyScreenPortFactory {
 
         return {
             discoverServers: (forceRefresh?: boolean) => runtime.discoverServers(forceRefresh),
-            selectServer: (serverId: string) => runtime.selectServer(serverId),
+            selectServer: async (serverId: string): Promise<ServerSelectSelectionResult> => {
+                const result = await runtime.selectServer(serverId);
+                if (result.kind === 'selection_failed') {
+                    return { kind: 'selection_failed', reason: result.reason };
+                }
+                return { kind: 'selected' };
+            },
             clearSelectedServer: () => runtime.clearSelectedServer(),
             getSelectedServerStorageKey: () => runtime.getSelectedServerStorageKey(),
             getServerHealthStorageKey: () => runtime.getServerHealthStorageKey(),

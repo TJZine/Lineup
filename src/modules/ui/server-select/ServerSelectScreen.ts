@@ -1,6 +1,6 @@
 import type { PlexServer } from '../../plex/discovery/types';
 import { PlexApiError } from '../../plex/auth';
-import type { OrchestratorServerSelectionResult } from '../../../core/server-selection/ServerSelectionTypes';
+import type { PlexServerSelectionFailureReason } from '../../plex/discovery';
 import type {
     FocusableElement,
     ServerSelectScreenNavigationPort,
@@ -13,9 +13,20 @@ import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
 
 const FOCUS_RESTORE_DELAY_MS = 50;
 
+export type ServerSelectSelectionFailureReason = 'server_not_found' | PlexServerSelectionFailureReason;
+
+export type ServerSelectSelectionResult =
+    | {
+        kind: 'selection_failed';
+        reason: ServerSelectSelectionFailureReason;
+    }
+    | {
+        kind: 'selected';
+    };
+
 export interface ServerSelectScreenPorts {
     discoverServers(forceRefresh?: boolean): Promise<PlexServer[]>;
-    selectServer(serverId: string): Promise<OrchestratorServerSelectionResult>;
+    selectServer(serverId: string): Promise<ServerSelectSelectionResult>;
     clearSelectedServer(): Promise<void>;
     getSelectedServerStorageKey(): string;
     getServerHealthStorageKey(): string;

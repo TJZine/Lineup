@@ -127,7 +127,7 @@ describe('AppLazyScreenPortFactory', () => {
         expect(profilePorts?.getNavigation()).toBe(navigation);
 
         await serverPorts?.discoverServers(true);
-        await serverPorts?.selectServer('server-1');
+        await expect(serverPorts?.selectServer('server-1')).resolves.toEqual({ kind: 'selected' });
         await serverPorts?.clearSelectedServer();
         expect(serverPorts?.getSelectedServerStorageKey()).toBe('selected-server-id');
         expect(serverPorts?.getServerHealthStorageKey()).toBe('server-health');
@@ -152,6 +152,23 @@ describe('AppLazyScreenPortFactory', () => {
         expect('selectServer' in (authPorts ?? {})).toBe(false);
         expect('requestAuthPin' in (profilePorts ?? {})).toBe(false);
         expect('switchHomeUser' in (serverPorts ?? {})).toBe(false);
+    });
+
+    it('adapts server-select selection failures without exposing orchestrator result details', async (): Promise<void> => {
+        const orchestrator = makeOrchestrator();
+        orchestrator.selectServer.mockResolvedValueOnce({
+            kind: 'selection_failed',
+            reason: 'auth_required',
+        });
+        const factory = createFactory(orchestrator);
+
+        const serverPorts = factory.createServerSelectScreenPorts();
+
+        await expect(serverPorts?.selectServer('server-1')).resolves.toEqual({
+            kind: 'selection_failed',
+            reason: 'auth_required',
+        });
+        expect(orchestrator.selectServer).toHaveBeenCalledWith('server-1');
     });
 
     it('creates channel-setup input that delegates workflow and screen ports through orchestrator', async (): Promise<void> => {
