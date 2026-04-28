@@ -19,15 +19,12 @@ architecture or workflow document.
   post-P12 subjective review backlog package queue on 2026-04-26. P14 is the
   active score-targeted cleanup priority for AI generated debt, cross-module
   architecture, and design coherence.
-- Next safe start: run focused subjective review/scoring for
-  `design_coherence,cross_module_architecture,ai_generated_debt`, then decide
-  whether P14 can enter `P14-EXIT` or needs another admitted wave. Do not
-  implement source cleanup directly from this checklist or from stale detector
-  wording.
+- Next safe start: create a package-local execution-grade `P14-WAVE6` plan from
+  the admitted post-WAVE5 focused review issues. Do not implement source cleanup
+  directly from this checklist or from stale detector wording.
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration.
-- First action at package start: focused review/scoring and P14-EXIT readiness
-  assessment; create a package-local execution-grade plan only if another
-  source-backed wave is admitted.
+- First action at package start: package-local execution-grade `P14-WAVE6` plan
+  and review before implementation.
 - Active exact issue-membership surface:
   `docs/architecture/p14-post-p13-subjective-review-package-map.json`.
 - Completed P13 exact issue-membership surface:
@@ -1063,6 +1060,144 @@ must add larger score-moving packages.
   coordination remain in the session.
 - Handoff: archived inside completed `P14-WAVE5`.
 
+### [ ] `P14-WAVE6` post-WAVE5 target residual cleanup
+
+- Scope: execute the focused post-WAVE5 residual issues admitted because all
+  three P14 target dimensions remain below `85`.
+- Owned slices:
+  - `P14-W21` `navigation-runtime-contract-hub`
+  - `P14-W22` `generated-style-headers-persist`
+  - `P14-W23` `interface-lifecycle-signature-jsdoc`
+  - `P14-W24` `scheduler-type-field-doc-bloat`
+  - `P14-W25` `facet-snapshot-load-session-too-broad`
+  - `P14-W26` `navigation-collaborator-cycle-wave6-residual`
+  - `P14-W27` `epg-info-duration-duplication`
+- Admission evidence: focused review
+  `.desloppify/subagents/runs/20260428_022830/holistic_issues_merged.json`.
+- Score evidence: AI generated debt `78.0` (`+0.0` from `78.0`, target
+  `>=85`), cross-module arch `82.0` (`+4.0` from `78.0`, target `>=85`), and
+  design coherence `76.0` (`+3.0` from `73.0`, target `>=85`).
+- Package guardrail: do not open P15, broad AppOrchestrator cleanup, or broad
+  lifecycle cleanup. Do not implement stale/cycle detector wording without
+  current-source proof. Comment cleanup remains behavior-neutral.
+- Verification routing: package-local scoping commands from the P14 package
+  map, targeted `rg` audits, targeted tests where source behavior is touched,
+  `npm run verify`, implementation review, checklist/package-map updates, and
+  `npm run verify:docs`.
+- Status: not started
+- Plan: none yet; first action is a package-local execution-grade WAVE6 plan.
+- Last touched: `2026-04-28`
+- Follow-ups: the post-WAVE5 focused review re-used the
+  `navigation_collaborator_cycle` id with new residual assembly evidence;
+  `P14-W26` is the current residual owner while `P14-W14` remains closed for
+  its approved WAVE4 source slice.
+- Handoff: start with planning only. Completing WAVE6 will still require a
+  fresh focused review/scoring pass before P14 can enter `P14-EXIT`.
+
+### [ ] `P14-W21` `navigation-runtime-contract-hub`
+
+- Imported review issues:
+  - `review::.::holistic::cross_module_architecture::navigation_runtime_contract_hub`
+- Scope: reduce the remaining navigation-owned cross-feature runtime contract
+  hub by moving concrete feature-facing handler ports out of the shared
+  coordinator contract file while preserving orchestrator-owned feature
+  adaptation.
+- Candidate files:
+  - `src/modules/navigation/NavigationCoordinatorContracts.ts`
+  - `src/core/orchestrator/OrchestratorCoordinatorBuilders.ts`
+  - `src/modules/navigation/NavigationKeyModeRouter.ts`
+  - `src/modules/navigation/NavigationScreenEffectsHandler.ts`
+  - `src/modules/navigation/NavigationModalEffectsHandler.ts`
+- Package guardrail: navigation may own remote/focus routing contracts, but
+  cross-feature wiring and concrete adaptation stay in the orchestrator.
+- Handoff: execute as part of `P14-WAVE6` after plan/review.
+
+### [ ] `P14-W22` `generated-style-headers-persist`
+
+- Imported review issues:
+  - `review::.::holistic::ai_generated_debt::generated_style_headers_persist`
+- Scope: remove remaining generated-style fileoverview/module/version metadata
+  and decorative separator banners from hand-written production modules without
+  changing runtime code.
+- Candidate files:
+  - `src/modules/ui/epg/interfaces.ts`
+  - `src/modules/ui/epg/view/EPGVirtualizer.ts`
+  - `src/modules/scheduler/scheduler/ScheduleCalculator.ts`
+  - `src/modules/plex/stream/constants.ts`
+- Package guardrail: comment-only; preserve compact comments that explain
+  architecture references, platform constraints, or domain invariants.
+- Handoff: execute as part of `P14-WAVE6` after plan/review.
+
+### [ ] `P14-W23` `interface-lifecycle-signature-jsdoc`
+
+- Imported review issues:
+  - `review::.::holistic::ai_generated_debt::interface_lifecycle_signature_jSDoc`
+- Scope: delete remaining lifecycle, event, getter/setter, and interface JSDoc
+  that repeats signatures while preserving lifecycle ordering, platform,
+  persistence, and non-obvious behavior comments.
+- Candidate files:
+  - `src/modules/lifecycle/AppLifecycle.ts`
+  - `src/modules/ui/epg/interfaces.ts`
+  - `src/modules/scheduler/channel-manager/interfaces.ts`
+  - `src/modules/ui/epg/view/EPGVirtualizer.ts`
+- Package guardrail: comment-only; do not remove comments that document
+  lifecycle ordering, browser/platform quirks, persistence guarantees, business
+  rules, or behavior not visible in the signature.
+- Handoff: execute as part of `P14-WAVE6` after plan/review.
+
+### [ ] `P14-W24` `scheduler-type-field-doc-bloat`
+
+- Imported review issues:
+  - `review::.::holistic::ai_generated_debt::type_field_doc_bloat`
+- Scope: trim scheduler channel type field comments that duplicate names and
+  TypeScript types while preserving non-obvious domain constraints, persistence
+  semantics, token/security concerns, and compatibility notes.
+- Candidate files:
+  - `src/modules/scheduler/channel-manager/types.ts`
+- Package guardrail: comment-only; preserve comments that explain domain
+  constraints or persistence/security semantics not visible from the type.
+- Handoff: execute as part of `P14-WAVE6` after plan/review.
+
+### [ ] `P14-W25` `facet-snapshot-load-session-too-broad`
+
+- Imported review issues:
+  - `review::.::holistic::design_coherence::facet_snapshot_load_session_too_broad`
+- Scope: split facet snapshot failure-snapshot/message construction and
+  tag-count recovery worker logic from the load-session orchestration shell
+  without changing snapshot output.
+- Candidate files:
+  - `src/core/channel-setup/planning/ChannelSetupFacetSnapshotLoadSession.ts`
+- Package guardrail: preserve facet snapshot output, cancellation, warning,
+  timing, progress, cache/inflight, and partial-failure behavior.
+- Handoff: execute as part of `P14-WAVE6` after plan/review.
+
+### [ ] `P14-W26` `navigation-collaborator-cycle-wave6-residual`
+
+- Imported review issues:
+  - `review::.::holistic::design_coherence::navigation_collaborator_cycle`
+- Scope: resolve the remaining navigation role ownership bundle by introducing
+  a small runtime-services seam or equivalent source-proven split so the
+  coordinator receives built handlers and only wires events.
+- Candidate files:
+  - `src/modules/navigation/NavigationCoordinator.ts`
+  - `src/core/orchestrator/OrchestratorCoordinatorBuilders.ts`
+- Package guardrail: preserve remote behavior and event subscription ownership.
+  Do not treat stale/type-only cycle rows as source truth without current-source
+  proof.
+- Handoff: execute as part of `P14-WAVE6` after plan/review.
+
+### [ ] `P14-W27` `epg-info-duration-duplication`
+
+- Imported review issues:
+  - `review::.::holistic::design_coherence::epg_info_duration_duplication`
+- Scope: remove the local `EPGInfoPanel` duration-formatting duplicate by
+  reusing the existing EPG utility without changing visible formatting.
+- Candidate files:
+  - `src/modules/ui/epg/view/EPGInfoPanel.ts`
+  - `src/modules/ui/epg/utils.ts`
+- Package guardrail: preserve current displayed duration formatting.
+- Handoff: execute as part of `P14-WAVE6` after plan/review.
+
 ### [ ] `P14-EXIT`
 
 - Close only if: every P14 review issue id has one owner
@@ -1081,7 +1216,10 @@ must add larger score-moving packages.
   `P14-WAVE4` also did not close P14 because the post-WAVE4 focused review
   reported AI generated debt `78.0`, cross-module arch `82.0`, and design
   coherence `76.0`, with concrete source-backed residual issues now admitted
-  under `P14-WAVE5`.
+  under `P14-WAVE5`. Completing `P14-WAVE5` also did not close P14 because the
+  post-WAVE5 focused review reported AI generated debt `78.0`, cross-module
+  arch `82.0`, and design coherence `76.0`, with concrete source-backed
+  residual issues now admitted under `P14-WAVE6`.
 - Required commands:
   - `desloppify scan --path .`
   - `desloppify status`

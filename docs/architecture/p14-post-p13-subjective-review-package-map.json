@@ -1,6 +1,6 @@
 {
   "artifact_role": "authoritative exact membership for P14 post-P13 subjective review cleanup queue",
-  "artifact_version": 5,
+  "artifact_version": 6,
   "created_at": "2026-04-26",
   "review_runs": [
     {
@@ -17,6 +17,9 @@
     },
     {
       "merged_issues": ".desloppify/subagents/runs/20260427_051430/holistic_issues_merged.json"
+    },
+    {
+      "merged_issues": ".desloppify/subagents/runs/20260428_022830/holistic_issues_merged.json"
     }
   ],
   "triage_runs": [
@@ -32,7 +35,7 @@
   "authoritative_scope_rule": "Exact review issue ids in packages[].exact_review_issue_ids and dispositions[].exact_review_issue_id are authoritative for P14 accounting. Candidate files and commands are scoping aids only. Source cleanup must not start without a package-local execution-grade plan and review.",
   "package_model": "checklist-linked post-P13 score-targeted subjective review packages",
   "stable_package_id_format": "pkg_<domain>_<purpose>",
-  "package_count": 20,
+  "package_count": 27,
   "score_target_goal": {
     "purpose": "Raise the low P14 target subjective dimensions into the mid/high 80s without authorizing broad ownership churn.",
     "target_dimensions": {
@@ -144,6 +147,32 @@
         }
       },
       "decision": "P14 target dimensions remain below 85 with six concrete source-backed issues; admit P14-WAVE5 before P14-EXIT."
+    },
+    "post_wave5_focused_review": {
+      "source": ".desloppify/subagents/runs/20260428_022830/holistic_issues_merged.json",
+      "imported_via": "desloppify review --import-run .desloppify/subagents/runs/20260428_022830 --allow-partial --scan-after-import --force-review-rerun",
+      "date": "2026-04-28",
+      "target_dimensions": {
+        "ai_generated_debt": {
+          "current": 78,
+          "baseline": 78,
+          "delta": 0,
+          "target": 85
+        },
+        "cross_module_architecture": {
+          "current": 82,
+          "baseline": 78,
+          "delta": 4,
+          "target": 85
+        },
+        "design_coherence": {
+          "current": 76,
+          "baseline": 73,
+          "delta": 3,
+          "target": 85
+        }
+      },
+      "decision": "P14 target dimensions remain below 85 with seven concrete source-backed issues; admit P14-WAVE6 before P14-EXIT."
     }
   },
   "cli_inconsistency": {
@@ -151,18 +180,19 @@
     "planning_evidence": "Use the refreshed review artifacts, triage artifacts, focused review artifacts, and desloppify plan as the authoritative P14 planning evidence unless a future integration-branch rerun supersedes them."
   },
   "validation": {
-    "expected_review_issue_count": 25,
-    "assigned_review_issue_count": 25,
-    "expected_refreshed_review_issue_count": 25,
-    "active_assigned_review_issue_count": 21,
+    "expected_review_issue_count": 32,
+    "assigned_review_issue_count": 32,
+    "expected_refreshed_review_issue_count": 32,
+    "active_assigned_review_issue_count": 28,
     "explicit_disposition_review_issue_count": 4,
-    "accounted_review_issue_count": 25,
+    "accounted_review_issue_count": 32,
     "duplicate_review_issue_ids": [
       "review::.::holistic::ai_generated_debt::generated_style_headers_and_banners",
+      "review::.::holistic::design_coherence::navigation_collaborator_cycle",
       "review::.::holistic::ai_generated_debt::trivial_signature_jsdoc"
     ],
     "unassigned_review_issue_ids": [],
-    "duplicate_note": "generated_style_headers_and_banners reappeared after WAVE3 with new residual files; P14-W11 is the post-WAVE3 residual owner while P14-W8 remains closed for its approved source slice. The post-WAVE4 run used the shorter generated_style_headers_banners spelling for the same generated header/banner family; P14-W16 is canonicalized into the W8/W11 residual chain. trivial_signature_jsdoc reappeared after WAVE4 with new residual files; P14-W17 is the current residual owner while P14-W12 remains closed for its approved source slice."
+    "duplicate_note": "generated_style_headers_and_banners reappeared after WAVE3 with new residual files; P14-W11 is the post-WAVE3 residual owner while P14-W8 remains closed for its approved source slice. The post-WAVE4 run used the shorter generated_style_headers_banners spelling for the same generated header/banner family; P14-W16 is canonicalized into the W8/W11 residual chain. trivial_signature_jsdoc reappeared after WAVE4 with new residual files; P14-W17 is the current residual owner while P14-W12 remains closed for its approved source slice. navigation_collaborator_cycle reappeared after WAVE5 with new residual assembly evidence; P14-W26 is the current residual owner while P14-W14 remains closed for its approved WAVE4 source slice."
   },
   "package_closure_requirements": {
     "pre_implementation_source_proof_matrix": [
@@ -471,7 +501,84 @@
         "npm run verify:docs"
       ],
       "implementation_review_result": "clean; reviewer found no material findings, confirmed navigation event subscription ownership and orchestrator-owned handler assembly, and confirmed channel setup ordering/failure/cancellation shape was preserved",
-      "post_wave_decision": "pending; WAVE5 closes the admitted residual source wave but does not close P14 by itself. Run post-WAVE5 focused review/scoring for design_coherence,cross_module_architecture,ai_generated_debt before deciding P14-EXIT versus another admitted wave."
+      "focused_review_result": {
+        "source": ".desloppify/subagents/runs/20260428_022830/holistic_issues_merged.json",
+        "imported_via": "desloppify review --import-run .desloppify/subagents/runs/20260428_022830 --allow-partial --scan-after-import --force-review-rerun",
+        "date": "2026-04-28",
+        "target_dimensions": {
+          "ai_generated_debt": {
+            "current": 78,
+            "baseline": 78,
+            "delta": 0,
+            "target": 85
+          },
+          "cross_module_architecture": {
+            "current": 82,
+            "baseline": 78,
+            "delta": 4,
+            "target": 85
+          },
+          "design_coherence": {
+            "current": 76,
+            "baseline": 73,
+            "delta": 3,
+            "target": 85
+          }
+        }
+      },
+      "post_wave_decision": "WAVE5 closes the admitted residual source wave but does not close P14 by itself; post-WAVE5 focused review left all target dimensions below 85 and admitted P14-WAVE6."
+    },
+    {
+      "wave_id": "P14-WAVE6",
+      "name": "post-wave5-target-residual-cleanup",
+      "status": "admitted",
+      "purpose": "After WAVE5, focused review still left all three P14 target dimensions below 85; execute the next admitted source-backed residual issues before reconsidering P14-EXIT.",
+      "gate_only": false,
+      "admission_rule": "Admit only source-backed residuals from the 20260428_022830 focused review with one owner, candidate files, package-local commands, and verification routing. Do not open P15 or reopen broad AppOrchestrator/lifecycle cleanup.",
+      "verification_routing": [
+        "package-local scoping commands for admitted P14-WAVE6 packages",
+        "targeted rg audits from admitted packages",
+        "npm run verify for source work",
+        "implementation review for the approved execution unit",
+        "npm run verify:docs for checklist/package-map updates",
+        "fresh focused subjective review for design_coherence,cross_module_architecture,ai_generated_debt after WAVE6 closeout"
+      ],
+      "package_ids": [
+        "pkg_navigation_runtime_contract_hub",
+        "pkg_generated_style_headers_persist",
+        "pkg_interface_lifecycle_signature_jsdoc",
+        "pkg_scheduler_type_field_doc_bloat",
+        "pkg_facet_snapshot_load_session_too_broad",
+        "pkg_navigation_collaborator_cycle_wave6_residual",
+        "pkg_epg_info_duration_duplication"
+      ],
+      "admission_evidence": ".desloppify/subagents/runs/20260428_022830/holistic_issues_merged.json",
+      "score_snapshot": {
+        "source": ".desloppify/subagents/runs/20260428_022830/holistic_issues_merged.json",
+        "imported_via": "desloppify review --import-run .desloppify/subagents/runs/20260428_022830 --allow-partial --scan-after-import --force-review-rerun",
+        "date": "2026-04-28",
+        "target_dimensions": {
+          "ai_generated_debt": {
+            "current": 78,
+            "baseline": 78,
+            "delta": 0,
+            "target": 85
+          },
+          "cross_module_architecture": {
+            "current": 82,
+            "baseline": 78,
+            "delta": 4,
+            "target": 85
+          },
+          "design_coherence": {
+            "current": 76,
+            "baseline": 73,
+            "delta": 3,
+            "target": 85
+          }
+        },
+        "decision": "P14 target dimensions remain below 85 with seven concrete source-backed issues; admit P14-WAVE6 before P14-EXIT."
+      }
     }
   ],
   "packages": [
@@ -1293,6 +1400,271 @@
         "status": "completed",
         "completed_by_commit": "96bbb9ae",
         "disposition": "resolved in P14-WAVE5; facet snapshot accumulation, timings, warnings, deferred-empty bookkeeping, and library queue mechanics moved behind session-local collaborators while session-owned load-order/failure policy remained unchanged"
+      }
+    },
+    {
+      "package_id": "pkg_navigation_runtime_contract_hub",
+      "package_name": "Navigation Runtime Contract Hub",
+      "checklist_tokens": {
+        "work_item": "P14-W21",
+        "priority_exit": "P14-EXIT"
+      },
+      "purpose": "Reduce the remaining navigation-owned cross-feature runtime contract hub by moving concrete feature-facing handler ports out of the shared coordinator contract file while preserving orchestrator-owned feature adaptation.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::cross_module_architecture::navigation_runtime_contract_hub"
+      ],
+      "candidate_scoping_files": [
+        "src/modules/navigation/NavigationCoordinatorContracts.ts",
+        "src/core/orchestrator/OrchestratorCoordinatorBuilders.ts",
+        "src/modules/navigation/NavigationKeyModeRouter.ts",
+        "src/modules/navigation/NavigationScreenEffectsHandler.ts",
+        "src/modules/navigation/NavigationModalEffectsHandler.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/navigation/NavigationCoordinatorContracts.ts --status open --no-budget --top 220",
+        "desloppify show src/core/orchestrator/OrchestratorCoordinatorBuilders.ts --status open --no-budget --top 220",
+        "desloppify show src/modules/navigation/NavigationKeyModeRouter.ts --status open --no-budget --top 160",
+        "desloppify show src/modules/navigation/NavigationScreenEffectsHandler.ts --status open --no-budget --top 160",
+        "desloppify show src/modules/navigation/NavigationModalEffectsHandler.ts --status open --no-budget --top 160",
+        "rg -n \"Epg|Video|Auth|MiniGuide|NowPlaying|PlaybackOptions|ExitConfirm|ChannelSwitch|UiGuards|NavigationCoordinatorDeps|createHandlers|NavigationHandlerFactory\" src/modules/navigation/NavigationCoordinatorContracts.ts src/modules/navigation src/core/orchestrator/OrchestratorCoordinatorBuilders.ts"
+      ],
+      "verification_routing": {
+        "mode": "refactor-invariance plus integration-ops",
+        "classification": "broader integration/manual proof required",
+        "commands": [
+          "npm run verify",
+          "targeted navigation/orchestrator tests if touched",
+          "package-local Desloppify show commands",
+          "targeted rg audits for navigation contract ownership and orchestrator feature adaptation"
+        ]
+      },
+      "execution_status": {
+        "status": "admitted",
+        "current_or_next_execution_unit": "P14-WAVE6 execution-grade plan",
+        "recommended_execution_order": 1
+      }
+    },
+    {
+      "package_id": "pkg_generated_style_headers_persist",
+      "package_name": "Generated Style Headers Persist",
+      "checklist_tokens": {
+        "work_item": "P14-W22",
+        "priority_exit": "P14-EXIT"
+      },
+      "purpose": "Remove remaining generated-style fileoverview/module/version metadata and decorative separator banners from hand-written production modules without changing runtime code.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::ai_generated_debt::generated_style_headers_persist"
+      ],
+      "candidate_scoping_files": [
+        "src/modules/ui/epg/interfaces.ts",
+        "src/modules/ui/epg/view/EPGVirtualizer.ts",
+        "src/modules/scheduler/scheduler/ScheduleCalculator.ts",
+        "src/modules/plex/stream/constants.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/ui/epg/interfaces.ts --status open --no-budget --top 160",
+        "desloppify show src/modules/ui/epg/view/EPGVirtualizer.ts --status open --no-budget --top 160",
+        "desloppify show src/modules/scheduler/scheduler/ScheduleCalculator.ts --status open --no-budget --top 160",
+        "desloppify show src/modules/plex/stream/constants.ts --status open --no-budget --top 160",
+        "rg -n \"@fileoverview|@module|@version|={5,}|-{5,}|// ============================================\" src/shared src/platform src/utils src/modules src/core src/types"
+      ],
+      "verification_routing": {
+        "mode": "refactor-invariance",
+        "classification": "existing coverage sufficient",
+        "commands": [
+          "git diff --check",
+          "npm run verify",
+          "package-local Desloppify show commands",
+          "targeted rg audit for generated headers and banner separators"
+        ]
+      },
+      "execution_status": {
+        "status": "admitted",
+        "current_or_next_execution_unit": "P14-WAVE6 execution-grade plan",
+        "recommended_execution_order": 2
+      }
+    },
+    {
+      "package_id": "pkg_interface_lifecycle_signature_jsdoc",
+      "package_name": "Interface Lifecycle Signature JSDoc",
+      "checklist_tokens": {
+        "work_item": "P14-W23",
+        "priority_exit": "P14-EXIT"
+      },
+      "purpose": "Delete remaining lifecycle, event, getter/setter, and interface JSDoc that repeats signatures while preserving lifecycle ordering, platform, persistence, and non-obvious behavior comments.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::ai_generated_debt::interface_lifecycle_signature_jSDoc"
+      ],
+      "candidate_scoping_files": [
+        "src/modules/lifecycle/AppLifecycle.ts",
+        "src/modules/ui/epg/interfaces.ts",
+        "src/modules/scheduler/channel-manager/interfaces.ts",
+        "src/modules/ui/epg/view/EPGVirtualizer.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/lifecycle/AppLifecycle.ts --status open --no-budget --top 180",
+        "desloppify show src/modules/ui/epg/interfaces.ts --status open --no-budget --top 180",
+        "desloppify show src/modules/scheduler/channel-manager/interfaces.ts --status open --no-budget --top 180",
+        "desloppify show src/modules/ui/epg/view/EPGVirtualizer.ts --status open --no-budget --top 160",
+        "rg -n \"Lifecycle Methods|initialize\\(|shutdown\\(|destroy\\(|show\\(|hide\\(|toggle\\(|isVisible\\(|subscribe|unsubscribe|updateChannel|deleteChannel|exportChannels|saveChannels|flushSaves|dispose|loadChannels\" src/modules/lifecycle/AppLifecycle.ts src/modules/ui/epg/interfaces.ts src/modules/scheduler/channel-manager/interfaces.ts src/modules/ui/epg/view/EPGVirtualizer.ts"
+      ],
+      "verification_routing": {
+        "mode": "refactor-invariance",
+        "classification": "existing coverage sufficient",
+        "commands": [
+          "git diff --check",
+          "npm run verify",
+          "package-local Desloppify show commands",
+          "targeted rg audit for trivial signature JSDoc residuals"
+        ]
+      },
+      "execution_status": {
+        "status": "admitted",
+        "current_or_next_execution_unit": "P14-WAVE6 execution-grade plan",
+        "recommended_execution_order": 3
+      }
+    },
+    {
+      "package_id": "pkg_scheduler_type_field_doc_bloat",
+      "package_name": "Scheduler Type Field Doc Bloat",
+      "checklist_tokens": {
+        "work_item": "P14-W24",
+        "priority_exit": "P14-EXIT"
+      },
+      "purpose": "Trim scheduler channel type field comments that duplicate names and TypeScript types while preserving non-obvious domain constraints, persistence semantics, token/security concerns, and compatibility notes.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::ai_generated_debt::type_field_doc_bloat"
+      ],
+      "candidate_scoping_files": [
+        "src/modules/scheduler/channel-manager/types.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/scheduler/channel-manager/types.ts --status open --no-budget --top 220",
+        "rg -n \"Field to filter on|Comparison operator|Value to compare against|Collection key|Cached collection name|Show ratingKey|Cached show name|Playlist key|Selected items|Channel number|Channel name|Channel description|Channel icon|Channel color|Playback mode|Creation timestamp|Update timestamp|Item count|Total duration\" src/modules/scheduler/channel-manager/types.ts"
+      ],
+      "verification_routing": {
+        "mode": "refactor-invariance",
+        "classification": "existing coverage sufficient",
+        "commands": [
+          "git diff --check",
+          "npm run verify",
+          "package-local Desloppify show commands",
+          "targeted rg audit for duplicate field comments"
+        ]
+      },
+      "execution_status": {
+        "status": "admitted",
+        "current_or_next_execution_unit": "P14-WAVE6 execution-grade plan",
+        "recommended_execution_order": 4
+      }
+    },
+    {
+      "package_id": "pkg_facet_snapshot_load_session_too_broad",
+      "package_name": "Facet Snapshot Load Session Too Broad",
+      "checklist_tokens": {
+        "work_item": "P14-W25",
+        "priority_exit": "P14-EXIT"
+      },
+      "purpose": "Split facet snapshot failure-snapshot/message construction and tag-count recovery worker logic from the load-session orchestration shell without changing snapshot output, cancellation, warnings, timing, progress, cache/inflight, or partial-failure behavior.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::design_coherence::facet_snapshot_load_session_too_broad"
+      ],
+      "candidate_scoping_files": [
+        "src/core/channel-setup/planning/ChannelSetupFacetSnapshotLoadSession.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/core/channel-setup/planning/ChannelSetupFacetSnapshotLoadSession.ts --status open --no-budget --top 260",
+        "rg -n \"_loadLibraryFacets|_loadPlaylists|_loadCollections|_createNativeFacetTask|_recoverAndStoreFacetCounts|abort|warning|timing|progress|snapshot|failure\" src/core/channel-setup/planning/ChannelSetupFacetSnapshotLoadSession.ts src/core/channel-setup/planning"
+      ],
+      "verification_routing": {
+        "mode": "refactor-invariance plus integration-ops",
+        "classification": "broader integration/manual proof required",
+        "commands": [
+          "npm run verify",
+          "targeted channel-setup/facet snapshot tests if touched",
+          "package-local Desloppify show commands",
+          "targeted rg audits for facet snapshot session ownership"
+        ]
+      },
+      "execution_status": {
+        "status": "admitted",
+        "current_or_next_execution_unit": "P14-WAVE6 execution-grade plan",
+        "recommended_execution_order": 5
+      }
+    },
+    {
+      "package_id": "pkg_navigation_collaborator_cycle_wave6_residual",
+      "package_name": "Navigation Collaborator Cycle Wave 6 Residual",
+      "checklist_tokens": {
+        "work_item": "P14-W26",
+        "priority_exit": "P14-EXIT"
+      },
+      "purpose": "Resolve the remaining navigation role ownership bundle by introducing a small runtime-services seam or equivalent source-proven split so the coordinator receives built handlers and only wires events.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::design_coherence::navigation_collaborator_cycle"
+      ],
+      "residual_of_package_id": "pkg_navigation_collaborator_cycle",
+      "candidate_scoping_files": [
+        "src/modules/navigation/NavigationCoordinator.ts",
+        "src/core/orchestrator/OrchestratorCoordinatorBuilders.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/navigation/NavigationCoordinator.ts --status open --no-budget --top 220",
+        "desloppify show src/core/orchestrator/OrchestratorCoordinatorBuilders.ts --status open --no-budget --top 220",
+        "rg -n \"createHandlers|fireAndReport|observeNonBlocking|logUnhandledInput|NavigationRepeatHandler|NavigationKeyModeRouter|NavigationScreenEffectsHandler|NavigationModalEffectsHandler|NavigationChannelNumberHandler\" src/modules/navigation src/core/orchestrator/OrchestratorCoordinatorBuilders.ts",
+        "npx madge --circular src/modules/navigation/NavigationCoordinator.ts src/core/orchestrator/OrchestratorCoordinatorBuilders.ts src/modules/navigation"
+      ],
+      "verification_routing": {
+        "mode": "refactor-invariance plus integration-ops",
+        "classification": "broader integration/manual proof required",
+        "commands": [
+          "npm run verify",
+          "targeted navigation/orchestrator tests if touched",
+          "package-local Desloppify show commands",
+          "targeted rg audits for navigation role assembly ownership",
+          "madge circular audit for cited navigation files"
+        ]
+      },
+      "execution_status": {
+        "status": "admitted",
+        "current_or_next_execution_unit": "P14-WAVE6 execution-grade plan",
+        "recommended_execution_order": 6
+      }
+    },
+    {
+      "package_id": "pkg_epg_info_duration_duplication",
+      "package_name": "EPG Info Duration Duplication",
+      "checklist_tokens": {
+        "work_item": "P14-W27",
+        "priority_exit": "P14-EXIT"
+      },
+      "purpose": "Remove the local EPGInfoPanel duration-formatting duplicate by reusing the existing EPG utility without changing visible formatting.",
+      "exact_review_issue_ids": [
+        "review::.::holistic::design_coherence::epg_info_duration_duplication"
+      ],
+      "candidate_scoping_files": [
+        "src/modules/ui/epg/view/EPGInfoPanel.ts",
+        "src/modules/ui/epg/utils.ts"
+      ],
+      "package_local_scoping_commands": [
+        "desloppify show src/modules/ui/epg/view/EPGInfoPanel.ts --status open --no-budget --top 160",
+        "desloppify show src/modules/ui/epg/utils.ts --status open --no-budget --top 120",
+        "rg -n \"formatDuration\" src/modules/ui/epg/view/EPGInfoPanel.ts src/modules/ui/epg/utils.ts"
+      ],
+      "verification_routing": {
+        "mode": "refactor-invariance",
+        "classification": "existing coverage sufficient",
+        "commands": [
+          "npm run verify",
+          "targeted EPG info panel tests if touched",
+          "package-local Desloppify show commands",
+          "targeted rg audit for duplicate duration formatting"
+        ]
+      },
+      "execution_status": {
+        "status": "admitted",
+        "current_or_next_execution_unit": "P14-WAVE6 execution-grade plan",
+        "recommended_execution_order": 7
       }
     }
   ],
