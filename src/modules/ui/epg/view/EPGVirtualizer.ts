@@ -195,13 +195,6 @@ export class EPGVirtualizer {
         return isDebugRuntimeEnabled(this.config?.debugRuntime);
     }
 
-    /**
-     * Initialize the virtualizer.
-     *
-     * @param gridContainer - The grid container element
-     * @param config - EPG configuration
-     * @param gridAnchorTime - Start time of the schedule day (Unix ms)
-     */
     initialize(
         gridContainer: HTMLElement,
         config: EPGConfig,
@@ -244,11 +237,6 @@ export class EPGVirtualizer {
         this.config = null;
     }
 
-    /**
-     * Set total channel count for range calculations.
-     *
-     * @param count - Number of channels
-     */
     setChannelCount(count: number): void {
         this.totalChannels = count;
     }

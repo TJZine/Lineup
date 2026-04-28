@@ -19,12 +19,16 @@ architecture or workflow document.
   post-P12 subjective review backlog package queue on 2026-04-26. P14 is the
   active score-targeted cleanup priority for AI generated debt, cross-module
   architecture, and design coherence.
-- Next safe start: create a package-local execution-grade `P14-WAVE6` plan from
-  the admitted post-WAVE5 focused review issues. Do not implement source cleanup
-  directly from this checklist or from stale detector wording.
+- Next safe start: complete the implementation-review/follow-up gate for the
+  implemented `P14-WAVE6`, then run the controller-owned fresh focused
+  subjective review/scoring pass for design coherence, cross-module
+  architecture, and AI generated debt. Do not open P15 or enter `P14-EXIT`
+  until that evidence is recorded and the P14 exit conditions are evaluated.
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration.
-- First action at package start: package-local execution-grade `P14-WAVE6` plan
-  and review before implementation.
+- First action at package start: use the current `P14-WAVE6`
+  implementation-review result to patch any approved follow-up revisions, then
+  return to the controller for focused review/scoring and P14 non-closure or
+  exit evaluation.
 - Active exact issue-membership surface:
   `docs/architecture/p14-post-p13-subjective-review-package-map.json`.
 - Completed P13 exact issue-membership surface:
