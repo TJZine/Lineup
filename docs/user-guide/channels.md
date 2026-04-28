@@ -43,10 +43,9 @@ The guided setup wizard can generate many channels in one pass.
 - **Alternate Lineup Copies**:
   - Number of extra copies per generated channel (`1` to `3`).
 - **Add Sequential Channels**:
-  - Adds a sequential companion channel for each generated non-sequential channel.
+  - Adds one sequential companion channel for each generated non-sequential base channel.
   - Naming format:
     - `Action • Sequential`
-    - `Action (2) • Sequential`
 
 ### High-Volume Defaults and Quick Action
 

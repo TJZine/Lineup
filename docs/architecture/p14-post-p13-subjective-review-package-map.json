@@ -10,6 +10,12 @@
       "merged_issues": ".desloppify/subagents/runs/20260426_212144/holistic_issues_merged.json"
     },
     {
+      "merged_issues": ".desloppify/subagents/runs/20260427_025123/holistic_issues_merged.json"
+    },
+    {
+      "merged_issues": ".desloppify/subagents/runs/20260427_042426/holistic_issues_merged.json"
+    },
+    {
       "merged_issues": ".desloppify/subagents/runs/20260427_051430/holistic_issues_merged.json"
     }
   ],
@@ -156,7 +162,7 @@
       "review::.::holistic::ai_generated_debt::trivial_signature_jsdoc"
     ],
     "unassigned_review_issue_ids": [],
-    "duplicate_note": "generated_style_headers_and_banners reappeared after WAVE3 with new residual files; P14-W11 is the current residual owner while P14-W8 remains closed for its approved source slice. trivial_signature_jsdoc reappeared after WAVE4 with new residual files; P14-W17 is the current residual owner while P14-W12 remains closed for its approved source slice."
+    "duplicate_note": "generated_style_headers_and_banners reappeared after WAVE3 with new residual files; P14-W11 is the post-WAVE3 residual owner while P14-W8 remains closed for its approved source slice. The post-WAVE4 run used the shorter generated_style_headers_banners spelling for the same generated header/banner family; P14-W16 is canonicalized into the W8/W11 residual chain. trivial_signature_jsdoc reappeared after WAVE4 with new residual files; P14-W17 is the current residual owner while P14-W12 remains closed for its approved source slice."
   },
   "package_closure_requirements": {
     "pre_implementation_source_proof_matrix": [
@@ -1104,8 +1110,9 @@
       },
       "purpose": "Remove newly cited generated-style fileoverview/module/version headers and banner separators without changing runtime code.",
       "exact_review_issue_ids": [
-        "review::.::holistic::ai_generated_debt::generated_style_headers_banners"
+        "review::.::holistic::ai_generated_debt::generated_style_headers_and_banners"
       ],
+      "residual_of_package_id": "pkg_generated_header_residuals",
       "candidate_scoping_files": [
         "src/shared/subtitle-mode.ts",
         "src/modules/player/subtitleConversion.ts",
@@ -1132,7 +1139,7 @@
       "execution_status": {
         "status": "completed",
         "completed_by_commit": "96bbb9ae",
-        "disposition": "resolved in P14-WAVE5; cited generated fileoverview/module/version headers and banner separators removed without runtime changes"
+        "disposition": "resolved in P14-WAVE5; cited generated fileoverview/module/version headers and banner separators removed without runtime changes. The post-WAVE4 source run used generated_style_headers_banners spelling; this package is canonicalized into the W8/W11 generated_style_headers_and_banners residual chain."
       }
     },
     {

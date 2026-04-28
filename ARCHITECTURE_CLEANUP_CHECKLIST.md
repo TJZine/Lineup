@@ -19,13 +19,15 @@ architecture or workflow document.
   post-P12 subjective review backlog package queue on 2026-04-26. P14 is the
   active score-targeted cleanup priority for AI generated debt, cross-module
   architecture, and design coherence.
-- Next safe start: create a package-local execution-grade plan for
-  `P14-WAVE1`, covering `P14-W1` through `P14-W3` as separate owned slices in
-  one coordinated execution unit. Do not implement source cleanup directly from
-  this checklist or from stale detector wording.
+- Next safe start: run focused subjective review/scoring for
+  `design_coherence,cross_module_architecture,ai_generated_debt`, then decide
+  whether P14 can enter `P14-EXIT` or needs another admitted wave. Do not
+  implement source cleanup directly from this checklist or from stale detector
+  wording.
 - Preferred launcher: `cleanup-loop` for checklist-linked cleanup orchestration.
-- First action at package start: for new checklist-linked work, planning only;
-  create the package-local execution-grade plan before implementation.
+- First action at package start: focused review/scoring and P14-EXIT readiness
+  assessment; create a package-local execution-grade plan only if another
+  source-backed wave is admitted.
 - Active exact issue-membership surface:
   `docs/architecture/p14-post-p13-subjective-review-package-map.json`.
 - Completed P13 exact issue-membership surface:
@@ -934,7 +936,7 @@ must add larger score-moving packages.
 ### [x] `P14-W16` `generated-header-banner-residuals`
 
 - Imported review issues:
-  - `review::.::holistic::ai_generated_debt::generated_style_headers_banners`
+  - `review::.::holistic::ai_generated_debt::generated_style_headers_and_banners`
 - Scope: remove newly cited generated-style fileoverview/module/version headers
   and banner separators from hand-written modules.
 - Candidate files:
@@ -952,6 +954,11 @@ must add larger score-moving packages.
   review passed.
 - Review: exact complaint is no longer fair; cited fileoverview/module/version
   headers and banner separators were removed without runtime changes.
+- Follow-ups: `P14-W16` is the post-WAVE4 residual continuation of the same
+  `generated_style_headers_and_banners` ownership chain as `P14-W8` and
+  `P14-W11`; the source run used the shorter
+  `generated_style_headers_banners` spelling, canonicalized here for P14
+  accounting.
 - Handoff: archived inside completed `P14-WAVE5`.
 
 ### [x] `P14-W17` `trivial-signature-jsdoc-wave5-residuals`
