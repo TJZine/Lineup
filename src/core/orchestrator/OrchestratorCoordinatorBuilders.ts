@@ -755,6 +755,11 @@ export function buildNavigationCoordinator(
     return new NavigationCoordinator({
         events,
         handlers,
+        guideMiniGuide: {
+            hideForGuideToggle: (): void => {
+                deps.miniGuideCoordinator.hide();
+            },
+        },
         runtime,
     });
 }

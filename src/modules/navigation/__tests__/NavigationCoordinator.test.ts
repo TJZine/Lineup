@@ -76,6 +76,9 @@ type NavigationCoordinatorTestDeps = NavigationCoordinatorDeps & {
     repeats: Omit<NavigationRepeatHandlerPort, 'miniGuide'> & {
         miniGuide: NavigationMiniGuideTestPort;
     };
+    guideMiniGuide: {
+        hideForGuideToggle: jest.Mock;
+    };
     keyModeRouter: Omit<NavigationKeyModeRouterPort, 'playback' | 'miniGuide'> & {
         playback: NavigationPlaybackTestPort;
         miniGuide: NavigationMiniGuideTestPort;
@@ -369,6 +372,11 @@ const setup = (
             navigation,
             epg,
             miniGuide,
+        },
+        guideMiniGuide: {
+            hideForGuideToggle: jest.fn(() => {
+                testDoubles.hideMiniGuide();
+            }),
         },
         keyModeRouter: {
             navigation,

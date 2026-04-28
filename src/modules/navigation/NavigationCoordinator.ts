@@ -20,6 +20,10 @@ export interface NavigationCoordinatorHandlers {
     channelNumber: NavigationChannelNumberHandlerRuntime;
 }
 
+export interface NavigationGuideMiniGuideEvents {
+    hideForGuideToggle(): void;
+}
+
 /**
  * Ports referenced by multiple dependency groups must point at the same runtime
  * instances. For example, orchestrator wiring should pass one shared
@@ -30,6 +34,7 @@ export interface NavigationCoordinatorHandlers {
 export interface NavigationCoordinatorDeps {
     events: NavigationCoordinatorEventPort;
     handlers: NavigationCoordinatorHandlers;
+    guideMiniGuide: NavigationGuideMiniGuideEvents;
     runtime: NavigationCoordinatorRuntimeServices;
 }
 
@@ -100,7 +105,7 @@ export class NavigationCoordinator {
             // EPG is an overlay, not a navigation screen; toggle based on EPG visibility.
             this._repeats.stopEpgRepeat('guide');
             this._repeats.stopMiniGuideRepeat('guide');
-            this.deps.events.miniGuide.requestMiniGuideIntent({ type: 'hide' });
+            this.deps.guideMiniGuide.hideForGuideToggle();
             this.deps.events.channelSwitching.toggleEpg();
         };
         navigation.on('guide', guideHandler);
