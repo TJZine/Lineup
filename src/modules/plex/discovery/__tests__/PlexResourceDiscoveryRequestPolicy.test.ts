@@ -30,6 +30,21 @@ function createTextResponse(body: string, contentType: string | null = null): Re
     } as Response;
 }
 
+function createUnreadableTextResponse(contentType: string | null = null): Response {
+    return {
+        ok: true,
+        status: 200,
+        headers: {
+            get: (name: string): string | null => (
+                name.toLowerCase() === 'content-type' ? contentType : null
+            ),
+        },
+        text: async () => {
+            throw new Error('body stream failed');
+        },
+    } as unknown as Response;
+}
+
 describe('discoverPlexResourcesWithRequestPolicy response parsing', () => {
     beforeEach(() => {
         jest.clearAllMocks();
@@ -189,6 +204,21 @@ describe('discoverPlexResourcesWithRequestPolicy response parsing', () => {
         await expect(discoverPlexResourcesWithRequestPolicy(discoveryHeaders)).rejects.toMatchObject({
             code: AppErrorCode.PARSE_ERROR,
             message: 'Failed to parse server discovery response',
+        });
+    });
+
+    it('throws PARSE_ERROR when the discovery response body cannot be read', async () => {
+        mockDiscoveryResponse(createUnreadableTextResponse('application/json'));
+
+        await expect(discoverPlexResourcesWithRequestPolicy(discoveryHeaders)).rejects.toMatchObject({
+            code: AppErrorCode.PARSE_ERROR,
+            httpStatus: 200,
+            message: 'Failed to read server discovery response body (content type: application/json)',
+            retryable: false,
+            cause: expect.objectContaining({
+                name: 'Error',
+                message: 'body stream failed',
+            }),
         });
     });
 

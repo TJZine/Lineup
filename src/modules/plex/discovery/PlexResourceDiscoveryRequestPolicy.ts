@@ -56,6 +56,7 @@ async function readDiscoveryResponseBody(response: Response): Promise<{
     contentType: string;
     text: string;
 }> {
+    const contentType = getResponseContentType(response);
     if (typeof response.text !== 'function') {
         throw new PlexApiError(
             AppErrorCode.PARSE_ERROR,
@@ -66,10 +67,20 @@ async function readDiscoveryResponseBody(response: Response): Promise<{
         );
     }
 
-    return {
-        contentType: getResponseContentType(response),
-        text: await response.text(),
-    };
+    try {
+        return {
+            contentType,
+            text: await response.text(),
+        };
+    } catch (error) {
+        throw new PlexApiError(
+            AppErrorCode.PARSE_ERROR,
+            `Failed to read server discovery response body (content type: ${contentType || 'unknown'})`,
+            response.status,
+            false,
+            error
+        );
+    }
 }
 
 function getResponseContentType(response: Response): string {
