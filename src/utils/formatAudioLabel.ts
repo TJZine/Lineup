@@ -1,9 +1,3 @@
-/**
- * @fileoverview Formats audio track labels for UI display.
- * @module utils/formatAudioLabel
- * @version 1.0.0
- */
-
 import type { AudioTrack } from '../modules/player/types';
 
 export function formatAudioLabel(track: AudioTrack): string {

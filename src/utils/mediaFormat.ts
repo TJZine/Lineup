@@ -1,8 +1,3 @@
-/**
- * @fileoverview Media formatting helpers.
- * @module utils/mediaFormat
- */
-
 export function formatAudioCodec(codec?: string): string | null {
     if (!codec) return null;
     const normalized = codec.trim().toLowerCase();

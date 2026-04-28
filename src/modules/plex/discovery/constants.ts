@@ -1,8 +1,3 @@
-/**
- * @fileoverview Constants for Plex Server Discovery module.
- * @module modules/plex/discovery/constants
- * @version 1.0.0
- */
 
 /**
  * Plex server discovery constants.

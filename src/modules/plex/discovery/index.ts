@@ -1,9 +1,3 @@
-/**
- * @fileoverview Public exports for Plex Server Discovery module.
- * @module modules/plex/discovery
- * @version 1.0.0
- */
-
 export { PlexServerDiscovery, AppErrorCode, PlexApiError } from './PlexServerDiscovery';
 export type {
     IPlexServerDiscovery,

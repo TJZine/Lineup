@@ -1,15 +1,7 @@
-/**
- * @fileoverview Type definitions for Plex Library module.
- * @module modules/plex/library/types
- * @version 1.0.0
- */
-
 import type { PlexMediaFile, PlexMediaType } from '../shared/types';
 
-// ============================================
 // Shared Types (repo-local)
 // These types are maintained in-repo for runtime use.
-// ============================================
 
 export type PlexLibrarySectionType = 'movie' | 'show' | 'artist' | 'photo';
 
@@ -146,9 +138,6 @@ export interface SearchOptions {
     signal?: AbortSignal | null;
 }
 
-// ============================================
-// Internal Types
-// ============================================
 
 /**
  * Internal state for PlexLibrary instance.

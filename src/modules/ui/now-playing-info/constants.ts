@@ -1,8 +1,3 @@
-/**
- * @fileoverview Now Playing Info overlay constants.
- * @module modules/ui/now-playing-info/constants
- */
-
 import { APP_SHELL_CONTAINER_IDS } from '../common/appShellContainerIds';
 
 export const NOW_PLAYING_INFO_MODAL_ID = 'now-playing-info';

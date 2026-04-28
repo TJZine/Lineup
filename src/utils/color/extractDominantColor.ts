@@ -1,8 +1,3 @@
-/**
- * @fileoverview Extract a subtle, pre-mixed dominant color from an image for the EPG info panel.
- * @module utils/color/extractDominantColor
- */
-
 const SAMPLE_SIZE = 8;
 const MAX_LUMINANCE = 0.38;
 const BLEND_BASE_R = 8;

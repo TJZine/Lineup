@@ -1,9 +1,3 @@
-/**
- * @fileoverview HDR format detection utilities.
- * @module modules/plex/stream/hdr
- * @version 1.0.0
- */
-
 interface HdrStreamLike {
     streamType?: number;
     title?: string | null;

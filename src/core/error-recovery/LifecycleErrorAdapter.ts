@@ -1,9 +1,3 @@
-/**
- * @fileoverview Adapter to convert AppError to LifecycleAppError with actions.
- * @module core/error-recovery/LifecycleErrorAdapter
- * @version 1.0.0
- */
-
 import type { AppError } from '../../modules/lifecycle';
 import type { LifecycleAppError } from '../../modules/lifecycle';
 import type { LifecycleErrorAdapterDeps } from './types';

@@ -1,7 +1,3 @@
-/**
- * @fileoverview Content rating formatting helpers (display-only).
- * @module utils/contentRating
- */
 
 /**
  * Normalize a Plex `contentRating` string for compact badge display.

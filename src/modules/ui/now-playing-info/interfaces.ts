@@ -1,8 +1,3 @@
-/**
- * @fileoverview Interface for Now Playing Info overlay.
- * @module modules/ui/now-playing-info/interfaces
- */
-
 import type { NowPlayingInfoConfig, NowPlayingInfoViewModel } from './types';
 
 export interface INowPlayingInfoOverlay {

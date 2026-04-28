@@ -1,9 +1,7 @@
-/* ============================================================
-   Glass Theme Override
-   Premium smoked acrylic: darker (higher-opacity) scrims than base surfaces, no blur, display font.
-   Does NOT re-introduce borders, box-shadows, or top border-radius.
-   ============================================================ */
-
+/*
+ * Glass theme uses darker scrims than base surfaces, no blur, and the display font.
+ * It must not reintroduce borders, box shadows, or top border radius.
+ */
 .theme-glass .mini-guide-panel {
   --mini-guide-scrim-fallback-rgb: 8, 11, 15;
   --mini-guide-stop-1: 72%;

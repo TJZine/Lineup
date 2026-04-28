@@ -94,9 +94,6 @@ export interface StreamDecision {
     height: number;
     bitrate: number;
 
-    // ========================================
-    // Diagnostics (best-effort)
-    // ========================================
 
     /**
      * Summary of the selected source media version (before any server-side transcode/remux).

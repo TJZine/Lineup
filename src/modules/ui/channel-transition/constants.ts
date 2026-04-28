@@ -1,8 +1,3 @@
-/**
- * @fileoverview Channel transition overlay constants.
- * @module modules/ui/channel-transition/constants
- */
-
 export const CHANNEL_TRANSITION_SHOW_DELAY_MS = 175;
 export const CHANNEL_TRANSITION_CONTAINER_ID = 'channel-transition-container' as const;
 

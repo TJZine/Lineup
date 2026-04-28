@@ -41,7 +41,6 @@ export function buildScheduleIndex(
         config.blockSize
     );
 
-    // Calculate cumulative start offsets
     const itemStartOffsets: number[] = [];
     let cumulativeOffset = 0;
 

@@ -1,9 +1,3 @@
-/**
- * @fileoverview Navigation module constants - key codes and configuration.
- * @module modules/navigation/constants
- * @version 1.0.0
- */
-
 import { RemoteButton, NavigationConfig } from './interfaces';
 import type { PlatformInputService } from '../../platform';
 import { createWebOsPlatformServices } from '../../platform';

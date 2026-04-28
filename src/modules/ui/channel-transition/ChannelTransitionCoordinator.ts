@@ -1,8 +1,3 @@
-/**
- * @fileoverview Channel transition coordinator (delayed overlay).
- * @module modules/ui/channel-transition/ChannelTransitionCoordinator
- */
-
 import type { INavigationManager, Screen } from '../../navigation';
 import type { IVideoPlayer, PlaybackState } from '../../player';
 import type { IChannelTransitionOverlay } from './interfaces';

@@ -1,7 +1,3 @@
-/**
- * @fileoverview Playback compatibility policy helpers for media, audio, and HDR decisions.
- */
-
 import type { PlexMediaFile, PlexStream } from './types';
 import { SUPPORTED_AUDIO_CODECS, SUPPORTED_CONTAINERS, SUPPORTED_VIDEO_CODECS, MAX_RESOLUTION } from './constants';
 import { detectHdrLabel } from './hdr';

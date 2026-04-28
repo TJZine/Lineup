@@ -114,15 +114,10 @@ export type Direction = 'up' | 'down' | 'left' | 'right';
  * Processed key event
  */
 export interface KeyEvent {
-    /** Mapped button */
     button: RemoteButton;
-    /** Is this a repeat event */
     isRepeat: boolean;
-    /** Is this a long press */
     isLongPress: boolean;
-    /** Event timestamp */
     timestamp: number;
-    /** Original DOM event */
     originalEvent: KeyboardEvent;
     /** Whether a handler consumed the event (prevents NavigationManager default handling) */
     handled?: boolean;
@@ -175,15 +170,10 @@ export interface NavigationConfig {
  * Current navigation state
  */
 export interface NavigationState {
-    /** Active screen */
     currentScreen: Screen;
-    /** Screen history for back navigation */
     screenStack: Screen[];
-    /** Currently focused element ID */
     focusedElementId: string | null;
-    /** Stack of open modals */
     modalStack: string[];
-    /** Is Magic Remote pointer active */
     isPointerActive: boolean;
 }
 
@@ -191,9 +181,7 @@ export interface NavigationState {
  * A focusable UI element
  */
 export interface FocusableElement {
-    /** Unique element ID */
     id: string;
-    /** DOM element reference */
     element: HTMLElement;
     /** Focus group membership */
     group?: string;
@@ -220,15 +208,10 @@ export interface FocusableElement {
  * A group of focusable elements
  */
 export interface FocusGroup {
-    /** Group ID */
     id: string;
-    /** Member element IDs */
     elements: string[];
-    /** Wrap around at edges */
     wrapAround: boolean;
-    /** Layout orientation */
     orientation: 'horizontal' | 'vertical' | 'grid';
-    /** Column count for grid layout */
     columns?: number;
 }
 

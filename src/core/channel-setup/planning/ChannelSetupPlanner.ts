@@ -1,9 +1,3 @@
-/**
- * @fileoverview Pure-logic planner that builds pending channel list from config.
- * @module core/channel-setup/planning/ChannelSetupPlanner
- * @version 1.0.0
- */
-
 import type {
     ChannelSetupConfig,
     ChannelSetupEstimates,

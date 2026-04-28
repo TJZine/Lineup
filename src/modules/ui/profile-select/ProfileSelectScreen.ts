@@ -1,9 +1,3 @@
-/**
- * @fileoverview Plex Home profile selection screen.
- * @module modules/ui/profile-select/ProfileSelectScreen
- * @version 1.0.0
- */
-
 import type { PlexHomeUser } from '../../plex/auth';
 import type { FocusableElement, INavigationManager, KeyEvent } from '../../navigation';
 import { PlexApiError } from '../../plex/auth';

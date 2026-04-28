@@ -1,8 +1,3 @@
-/**
- * @fileoverview Types for Now Playing Info overlay.
- * @module modules/ui/now-playing-info/types
- */
-
 export interface NowPlayingInfoConfig {
     containerId: string;
     autoHideMs?: number;

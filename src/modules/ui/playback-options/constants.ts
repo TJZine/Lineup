@@ -1,9 +1,3 @@
-/**
- * @fileoverview Playback Options modal constants.
- * @module modules/ui/playback-options/constants
- * @version 1.0.0
- */
-
 import { APP_SHELL_CONTAINER_IDS } from '../common/appShellContainerIds';
 
 export const PLAYBACK_OPTIONS_MODAL_ID = 'playback-options';

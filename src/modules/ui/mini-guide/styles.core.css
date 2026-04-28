@@ -1,9 +1,7 @@
-/* ============================================================
-   Mini Guide — "Top-Edge Shelf"
-   Flush top/left/right, bottom-rounded, gradient scrim.
-   Design: docs/design/ui-design-language.md
-   ============================================================ */
-
+/*
+ * Top-edge shelf: flush top/left/right, bottom-rounded, gradient scrim.
+ * Design: docs/design/ui-design-language.md
+ */
 .mini-guide {
   --mini-guide-layer: 780;
   position: absolute;

@@ -365,9 +365,6 @@
   -webkit-box-orient: initial;
 }
 
-/* =========================================
-   LIVE Indicator Badge
-   ========================================= */
 .epg-live-badge {
   display: flex;
   align-items: center;

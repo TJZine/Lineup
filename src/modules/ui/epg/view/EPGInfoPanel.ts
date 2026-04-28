@@ -1,9 +1,3 @@
-/**
- * @fileoverview EPG Info Panel - Program details overlay
- * @module modules/ui/epg/view/EPGInfoPanel
- * @version 1.0.0
- */
-
 import { EPG_CLASSES } from '../constants';
 import { formatTime, formatDuration } from '../utils';
 import type { IEPGInfoPanel } from '../interfaces';
@@ -381,7 +375,6 @@ export class EPGInfoPanel implements IEPGInfoPanel {
     ): void {
         const { item } = program;
 
-        // Update title
         const showTitle = this.showTitleElement;
         const title = this.titleElement;
         if (item.type === 'episode') {
@@ -451,7 +444,6 @@ export class EPGInfoPanel implements IEPGInfoPanel {
 
         this.updateMetaAndTags(program);
 
-        // Update genres
         const genres = this.genresElement;
         if (genres) {
             const genreText = item.genres && item.genres.length > 0

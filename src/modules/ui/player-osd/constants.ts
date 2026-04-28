@@ -1,8 +1,3 @@
-/**
- * @fileoverview Player OSD overlay constants.
- * @module modules/ui/player-osd/constants
- */
-
 export const PLAYER_OSD_CONTAINER_ID = 'player-osd-container' as const;
 
 export const PLAYER_OSD_CLASSES = {

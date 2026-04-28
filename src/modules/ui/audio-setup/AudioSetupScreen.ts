@@ -1,9 +1,3 @@
-/**
- * @fileoverview Audio setup wizard screen - onboarding step.
- * @module modules/ui/audio-setup/AudioSetupScreen
- * @version 1.0.0
- */
-
 import type { INavigationManager, FocusableElement } from '../../navigation';
 import { DEFAULT_SETTINGS } from '../settings/constants';
 import { setTrustedInlineSvg } from '../../../utils/inlineSvg';
@@ -207,7 +201,6 @@ export class AudioSetupScreen {
         this._selectedChoice = choiceId;
         this._setLastFocusedChoiceId(`audio-choice-${choiceId}`);
 
-        // Update button states
         for (const choice of AUDIO_CHOICES) {
             const btn = this._container.querySelector(`#audio-choice-${choice.id}`) as HTMLButtonElement | null;
             if (btn) {
@@ -242,7 +235,6 @@ export class AudioSetupScreen {
             this._audioSettingsStore.writeDtsPassthroughEnabled(false);
         }
 
-        // Mark audio setup as complete
         this._audioSettingsStore.writeAudioSetupComplete(true);
         this._audioSettingsStore.writeDirectPlayAudioFallbackEnabled(this._directPlayFallbackEnabled);
 

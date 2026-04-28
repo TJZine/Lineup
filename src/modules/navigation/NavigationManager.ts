@@ -138,7 +138,6 @@ export class NavigationManager
 
         this._state.config = { ...DEFAULT_NAVIGATION_CONFIG, ...config };
 
-        // Initialize remote handler
         this._remoteHandler.initialize();
 
         // Subscribe to remote events
@@ -185,7 +184,6 @@ export class NavigationManager
         document.removeEventListener('click', this._handlePointerClick);
         document.removeEventListener('focusin', this._boundFocusInHandler);
 
-        // Clean up remote handler subscription
         if (this._keyDownDisposable) {
             this._keyDownDisposable.dispose();
             this._keyDownDisposable = null;

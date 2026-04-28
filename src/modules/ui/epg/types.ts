@@ -1,8 +1,3 @@
-/**
- * @fileoverview EPG UI module types
- * @module modules/ui/epg/types
- */
-
 import type { EpgLayoutMode } from '../../settings/EpgPreferencesStore';
 import type { AppErrorCode } from '../../../types/app-errors';
 import type {
@@ -20,21 +15,15 @@ export type ScheduleWindow = EpgScheduleWindow;
 export type ChannelConfig = EpgChannel;
 export type EPGUiStatus = EpgUiStatus;
 
-// ============================================
-// EPG Configuration & State
-// ============================================
 
 /**
  * EPG component configuration
  */
 export interface EPGConfig {
-    /** DOM container ID */
     containerId: string;
-    /** Number of visible channel rows */
     visibleChannels: number;
     /** Grid time slot granularity (minutes) */
     timeSlotMinutes: number;
-    /** Hours visible at once */
     visibleHours: number;
     /** Total hours in schedule (typically 24) */
     totalHours: number;
@@ -46,13 +35,11 @@ export interface EPGConfig {
     minPixelsPerMinute?: number;
     /** Maximum auto-fit pixels per minute */
     maxPixelsPerMinute?: number;
-    /** Pixels per channel row */
     rowHeight: number;
     /** Show current time indicator */
     showCurrentTimeIndicator: boolean;
     /** Auto-scroll to current time on open */
     autoScrollToNow: boolean;
-    /** Optional callback when visible range changes */
     onVisibleRangeChange?: (range: EpgVisibleRange) => void;
     /** Optional callback to resolve relative Plex thumb paths to absolute URLs, with optional size hints. */
     resolveThumbUrl?: (pathOrUrl: string | null, width?: number, height?: number) => string | null;
@@ -61,11 +48,8 @@ export interface EPGConfig {
         ratingKey: string,
         options?: { signal?: AbortSignal | null }
     ) => Promise<EpgItemDetails | null>;
-    /** Optional callback to detect if video is currently playing */
     isVideoPlaying?: () => boolean;
-    /** Optional layout mode */
     layoutMode?: EpgLayoutMode;
-    /** Optional toggle for now watching banner */
     showNowWatchingBanner?: boolean;
     /** Optional callback to fetch current channel + program info */
     getCurrentChannelInfo?: () => {
@@ -74,7 +58,6 @@ export interface EPGConfig {
         programTitle: string;
         timeLabel: string;
     } | null;
-    /** Optional callback when layout mode changes */
     onLayoutModeChange?: (mode: EpgLayoutMode) => void;
     /** Optional explicit debug runtime shared by EPG UI and runtime collaborators. */
     debugRuntime?: IEPGDebugRuntime | null;
@@ -98,9 +81,7 @@ export interface EpgVisibleRange {
 export interface EPGState {
     /** Is EPG visible */
     isVisible: boolean;
-    /** Currently focused cell */
     focusedCell: EPGFocusPosition | null;
-    /** Scroll position */
     scrollPosition: {
         /** First visible channel index */
         channelOffset: number;
@@ -114,7 +95,6 @@ export interface EPGState {
         startChannelIndex: number;
         endChannelIndex: number;
     };
-    /** Current wall-clock time */
     currentTime: number;
 }
 
@@ -128,11 +108,9 @@ export type EPGFocusPosition =
         channelIndex: number;
         /** Program index within channel */
         programIndex: number;
-        /** The focused program */
         program: ScheduledProgram;
         /** Focus time used for navigation reconciliation */
         focusTimeMs: number;
-        /** DOM element reference */
         cellElement: HTMLElement | null;
     }
     | {
@@ -148,7 +126,6 @@ export type EPGFocusPosition =
         };
         /** Focus time used for navigation reconciliation */
         focusTimeMs: number;
-        /** DOM element reference */
         cellElement: HTMLElement | null;
     };
 
@@ -166,9 +143,7 @@ export interface EPGChannelRow {
  * EPG program cell data
  */
 export interface EPGProgramCell {
-    /** The scheduled program */
     program: ScheduledProgram;
-    /** Left position in pixels */
     left: number;
     /** Cell width in pixels */
     width: number;
@@ -176,7 +151,6 @@ export interface EPGProgramCell {
     isPartial: boolean;
     /** Currently airing */
     isCurrent: boolean;
-    /** Has focus */
     isFocused: boolean;
 }
 
@@ -186,11 +160,9 @@ export interface EPGProgramCell {
 export interface VirtualizedGridState {
     /** Currently rendered channel indices */
     visibleRows: number[];
-    /** Current channel scroll offset */
     channelOffset: number;
     /** Visible time window */
     visibleTimeRange: { start: number; end: number };
-    /** Recycled DOM elements */
     recycledElements: Map<string, HTMLElement>;
 }
 
@@ -210,9 +182,6 @@ export interface EPGEventMap {
     [key: string]: unknown;
 }
 
-// ============================================
-// Internal Types
-// ============================================
 
 /**
  * Internal state for EPG component.
@@ -222,22 +191,17 @@ export interface EPGInternalState {
     isInitialized: boolean;
     /** Whether EPG is visible */
     isVisible: boolean;
-    /** Loaded channels */
     channels: ChannelConfig[];
     /** Schedule windows by channel ID */
     schedules: Map<string, ScheduleWindow>;
-    /** Loaded schedule timestamps by channel ID */
     scheduleLoadTimes: Map<string, number>;
-    /** Currently focused cell */
     focusedCell: EPGFocusPosition | null;
     /** Last requested focus time (used when schedules are missing) */
     focusTimeMs: number;
-    /** Scroll position */
     scrollPosition: {
         channelOffset: number;
         timeOffset: number;
     };
-    /** Current wall-clock time */
     currentTime: number;
     /** Grid anchor time (start of schedule day) */
     gridAnchorTime: number;
@@ -264,25 +228,15 @@ export type EPGErrorType = Extract<
 export type CellRenderData =
     | {
         kind: 'program';
-        /** Unique key for this cell */
         key: string;
-        /** Channel ID */
         channelId: string;
-        /** Row index */
         rowIndex: number;
-        /** The scheduled program */
         program: ScheduledProgram;
-        /** Left position (pixels) */
         left: number;
-        /** Cell width (pixels) */
         width: number;
-        /** Whether cell extends beyond visible area */
         isPartial: boolean;
-        /** Whether program is currently airing */
         isCurrent: boolean;
-        /** Whether program has ended */
         isPast: boolean;
-        /** Has focus */
         isFocused: boolean;
         /** Whether cell is a buffer-only entry outside the visible window */
         isBufferOnly: boolean;
@@ -291,39 +245,29 @@ export type CellRenderData =
          * when the cell is partially clipped on the left due to time scrolling.
          */
         textShiftPx: number;
-        /** DOM element reference */
         cellElement: HTMLElement | null;
     }
     | {
         kind: 'placeholder';
-        /** Unique key for this cell */
         key: string;
-        /** Channel ID */
         channelId: string;
-        /** Row index */
         rowIndex: number;
         placeholder: {
             label: string;
             scheduledStartTime: number;
             scheduledEndTime: number;
         };
-        /** Left position (pixels) */
         left: number;
-        /** Cell width (pixels) */
         width: number;
-        /** Whether cell extends beyond visible area */
         isPartial: boolean;
-        /** Whether program is currently airing */
         isCurrent: boolean;
         /** Placeholders are never past */
         isPast: boolean;
-        /** Has focus */
         isFocused: boolean;
         /** Placeholders are visible-window cells, not buffer-only entries */
         isBufferOnly: boolean;
         /** See `program.textShiftPx` (placeholders usually 0). */
         textShiftPx: number;
-        /** DOM element reference */
         cellElement: HTMLElement | null;
     };
 
@@ -335,6 +279,5 @@ export interface TimeSlot {
     time: number;
     /** Display label (e.g., "12:30 PM") */
     label: string;
-    /** Left position (pixels) */
     left: number;
 }

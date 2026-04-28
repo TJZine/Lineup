@@ -1,9 +1,3 @@
-/**
- * @fileoverview Minimal server selection screen for Plex discovery.
- * @module modules/ui/server-select/ServerSelectScreen
- * @version 1.0.0
- */
-
 import type { PlexServer } from '../../plex/discovery/types';
 import { PlexApiError } from '../../plex/auth';
 import type { OrchestratorServerSelectionResult } from '../../../core/server-selection/ServerSelectionTypes';

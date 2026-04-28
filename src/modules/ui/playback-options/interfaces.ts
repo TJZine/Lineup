@@ -1,8 +1,3 @@
-/**
- * @fileoverview Interface definitions for Playback Options modal.
- * @module modules/ui/playback-options/interfaces
- */
-
 import type { PlaybackOptionsConfig, PlaybackOptionsViewModel } from './types';
 
 export interface IPlaybackOptionsModal {

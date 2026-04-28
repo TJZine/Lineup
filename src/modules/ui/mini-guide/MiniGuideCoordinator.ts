@@ -1,9 +1,3 @@
-/**
- * @fileoverview Manages mini-guide overlay state, row building, and channel switching.
- * @module modules/ui/mini-guide/MiniGuideCoordinator
- * @version 1.0.0
- */
-
 import type { IChannelManager, ChannelConfig, ResolvedChannelContent } from '../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig } from '../../scheduler/scheduler';
 import type { ToastInput } from '../toast/types';

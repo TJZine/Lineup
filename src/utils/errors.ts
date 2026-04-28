@@ -1,9 +1,3 @@
-/**
- * @fileoverview Shared error helpers for safe logging and control-flow checks.
- * @module utils/errors
- * @version 1.0.0
- */
-
 import { redactSensitiveTokens } from './redact';
 
 export function summarizeErrorForLog(value: unknown): unknown {

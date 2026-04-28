@@ -1,9 +1,3 @@
-/**
- * @fileoverview Coordinates channel switching and schedule synchronization.
- * @module core/channel-tuning/ChannelTuningCoordinator
- * @version 1.0.0
- */
-
 import type { AppError } from '../../modules/lifecycle';
 import { AppErrorCode } from '../../modules/lifecycle';
 import { getAppErrorCode } from '../../types/app-errors';
@@ -456,10 +450,8 @@ export class ChannelTuningCoordinator {
                 return 'failed';
             }
 
-            // Update current channel
             channelManager.setCurrentChannel(channelId);
 
-            // Save state
             const lifecycleSaveError = await this._captureAsyncError(() =>
                 this.deps.saveLifecycleState()
             );

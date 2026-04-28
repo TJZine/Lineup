@@ -1,9 +1,3 @@
-/**
- * @fileoverview Coordinates Now Playing overlay lifecycle, detail fetching, and live updates.
- * @module modules/ui/now-playing-info/NowPlayingInfoCoordinator
- * @version 1.0.0
- */
-
 import type { INavigationManager } from '../../navigation';
 import type { IChannelScheduler, ScheduledProgram } from '../../scheduler/scheduler';
 import type { IPlexLibrary, PlexMediaItem } from '../../plex/library';

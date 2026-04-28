@@ -24,9 +24,6 @@ import {
     SCHEDULER_ERROR_MESSAGES,
 } from './constants';
 
-// ============================================
-// ChannelScheduler Class
-// ============================================
 
 /**
  * Channel Scheduler implementation.
@@ -51,9 +48,6 @@ import {
  * ```
  */
 export class ChannelScheduler implements IChannelScheduler {
-    // ============================================
-    // Private State
-    // ============================================
 
     private readonly _emitter: EventEmitter<SchedulerEventMap>;
     private readonly _shuffler: IShuffleGenerator;
@@ -72,9 +66,6 @@ export class ChannelScheduler implements IChannelScheduler {
         interval: null,
     };
 
-    // ============================================
-    // Constructor
-    // ============================================
 
     /**
      * Create a new ChannelScheduler instance.
@@ -85,9 +76,6 @@ export class ChannelScheduler implements IChannelScheduler {
         this._shuffler = shuffler || new ShuffleGenerator();
     }
 
-    // ============================================
-    // Schedule Generation
-    // ============================================
 
     /**
      * Load a channel and build the schedule index.
@@ -95,12 +83,10 @@ export class ChannelScheduler implements IChannelScheduler {
      * @throws Error if config.content is empty
      */
     public loadChannel(config: ScheduleConfig): void {
-        // Validate config
         if (!config.content || config.content.length === 0) {
             throw new Error(SCHEDULER_ERROR_MESSAGES.EMPTY_CHANNEL);
         }
 
-        // Stop any existing timer
         this._stopSyncTimer();
 
         // Validate anchorTime - fallback to now only if non-finite (NaN, Infinity)
@@ -113,10 +99,8 @@ export class ChannelScheduler implements IChannelScheduler {
         // Store config with validated anchorTime
         this._config = { ...config, anchorTime };
 
-        // Build schedule index
         this._index = buildScheduleIndex(this._config, this._shuffler);
 
-        // Mark as active
         this._isActive = true;
         this._lastSyncTime = Date.now();
 
@@ -168,9 +152,6 @@ export class ChannelScheduler implements IChannelScheduler {
         this._startSyncTimer();
     }
 
-    // ============================================
-    // Time-based Queries
-    // ============================================
 
     /**
      * Get the program playing at a specific time.
@@ -215,9 +196,6 @@ export class ChannelScheduler implements IChannelScheduler {
         return calculatePreviousProgram(current, this._index!, this._config!.anchorTime);
     }
 
-    // ============================================
-    // Window Queries
-    // ============================================
 
     /**
      * Get all programs within a time window.
@@ -283,9 +261,6 @@ export class ChannelScheduler implements IChannelScheduler {
         return programs;
     }
 
-    // ============================================
-    // Playback Sync
-    // ============================================
 
     /**
      * Synchronize scheduler state with wall-clock time.
@@ -333,9 +308,6 @@ export class ChannelScheduler implements IChannelScheduler {
         this._updateCurrentProgram(newProgram);
     }
 
-    // ============================================
-    // Navigation
-    // ============================================
 
     /**
      * Jump to a specific program in the schedule.
@@ -421,9 +393,6 @@ export class ChannelScheduler implements IChannelScheduler {
         this.jumpToProgram(resetProgram);
     }
 
-    // ============================================
-    // State
-    // ============================================
 
     /**
      * Get the current scheduler state.

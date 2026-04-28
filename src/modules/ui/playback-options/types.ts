@@ -1,8 +1,3 @@
-/**
- * @fileoverview Types for Playback Options modal.
- * @module modules/ui/playback-options/types
- */
-
 export interface PlaybackOptionsConfig {
     containerId: string;
 }

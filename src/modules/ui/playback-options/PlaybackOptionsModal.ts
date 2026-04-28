@@ -1,8 +1,3 @@
-/**
- * @fileoverview Playback Options modal UI.
- * @module modules/ui/playback-options/PlaybackOptionsModal
- */
-
 import { PLAYBACK_OPTIONS_CLASSES } from './constants';
 import type { IPlaybackOptionsModal } from './interfaces';
 import type { PlaybackOptionsConfig, PlaybackOptionsSection, PlaybackOptionsViewModel, PlaybackOptionsItem } from './types';

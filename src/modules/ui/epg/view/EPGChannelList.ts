@@ -1,9 +1,3 @@
-/**
- * @fileoverview EPG Channel List - Channel column showing channel names
- * @module modules/ui/epg/EPGChannelList
- * @version 1.0.0
- */
-
 import { EPG_CLASSES, EPG_CONSTANTS } from '../constants';
 import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debug/debugRuntimeGuards';
 import type { EPGConfig, ChannelConfig } from '../types';

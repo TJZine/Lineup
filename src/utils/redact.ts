@@ -1,8 +1,3 @@
-/**
- * @fileoverview Redaction helpers for safe logging.
- * @module utils/redact
- * @version 1.0.0
- */
 
 /**
  * Redact common sensitive tokens in a string.

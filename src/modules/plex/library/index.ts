@@ -1,9 +1,3 @@
-/**
- * @fileoverview Public exports for Plex Library module.
- * @module modules/plex/library
- * @version 1.0.0
- */
-
 export { PlexLibrary, PlexLibraryError } from './PlexLibrary';
 export type {
     IPlexLibrary,

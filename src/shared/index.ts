@@ -1,8 +1,3 @@
-/**
- * @fileoverview Shared module index.
- * @module shared
- */
-
 export {
     BURN_IN_SUBTITLE_FORMATS,
     isTextSubtitleFormat,

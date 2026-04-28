@@ -1,8 +1,3 @@
-/**
- * @fileoverview Navigation module public exports.
- * @module modules/navigation
- * @version 1.0.0
- */
 
 // Main classes
 export { NavigationManager } from './NavigationManager';

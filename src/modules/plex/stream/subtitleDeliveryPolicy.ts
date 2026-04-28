@@ -1,7 +1,3 @@
-/**
- * @fileoverview Subtitle delivery policy helpers for Plex stream resolution.
- */
-
 import type { PlexStream } from './types';
 import { BURN_IN_SUBTITLE_FORMATS, isTextSubtitleFormat } from './constants';
 

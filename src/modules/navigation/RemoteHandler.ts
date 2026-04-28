@@ -134,7 +134,6 @@ export class RemoteHandler extends EventEmitter<RemoteHandlerEventMap> {
             this._longPressTimers.set(keyCode, timerId);
         }
 
-        // Create key event
         const keyEvent: KeyEvent = {
             button,
             isRepeat,

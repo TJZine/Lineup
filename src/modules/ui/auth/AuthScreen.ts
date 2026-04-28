@@ -1,9 +1,3 @@
-/**
- * @fileoverview Minimal Plex auth screen for PIN flow in simulator.
- * @module modules/ui/auth/AuthScreen
- * @version 1.0.0
- */
-
 import { AppErrorCode, PlexApiError, type PlexPinRequest } from '../../plex/auth';
 import type { AuthScreenNavigationPort } from '../../navigation';
 import { getAppErrorCode } from '../../../types/app-errors';

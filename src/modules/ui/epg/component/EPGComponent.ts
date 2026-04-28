@@ -152,16 +152,12 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
         this.containerElement.style.setProperty('--epg-row-height', `${this.config.rowHeight}px`);
 
-        // Create DOM structure
         this.createDOMStructure();
 
-        // Initialize sub-components
         this.initializeViewChildren();
 
-        // Create time indicator
         this.createTimeIndicator();
 
-        // Initialize error boundary callbacks
         this.initializeErrorBoundary();
 
         // Timer starts when shown, not at init (optimization)
@@ -572,9 +568,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
     }
 
-    // ============================================
-    // Visibility Methods
-    // ============================================
 
     private syncPeekMode(): void {
         if (!this.containerElement) return;
@@ -722,9 +715,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         return this.state.isVisible;
     }
 
-    // ============================================
-    // Data Loading Methods
-    // ============================================
 
     /**
      * Load channel list into EPG.
@@ -1007,9 +997,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.timeIndicatorElement.style.left = `${left}px`;
     }
 
-    // ============================================
-    // Navigation Methods
-    // ============================================
 
     /**
      * Focus a specific channel row.
@@ -1051,7 +1038,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         const program = schedule.programs[programIndex];
         if (!program) return;
 
-        // Update focus state
         const previousFocus = this.state.focusedCell;
         if (previousFocus && previousFocus.cellElement) {
             previousFocus.cellElement.classList.remove(EPG_CLASSES.CELL_FOCUSED);
@@ -1073,10 +1059,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             cellElement: null,
         };
 
-        // Update channel list focus
         this.channelList.setFocusedChannel(channelIndex);
 
-        // Update info panel
         this.infoPanelCoordinator.syncFocusedProgram(program);
 
         // Try to focus immediately if the cell is already rendered; otherwise let renderGridInternal()
@@ -1289,9 +1273,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         return didScroll;
     }
 
-    // ============================================
-    // Input Handling Methods
-    // ============================================
 
     /**
      * Handle D-pad navigation input.
@@ -1677,9 +1658,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         return false;
     }
 
-    // ============================================
-    // State Methods
-    // ============================================
 
     /**
      * Get current EPG state.
@@ -1729,9 +1707,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         return this.state.focusedCell.program;
     }
 
-    // ============================================
-    // Rendering Methods
-    // ============================================
 
     /**
      * Render the visible portion of the grid (throttled for 60fps).

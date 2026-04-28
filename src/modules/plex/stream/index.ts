@@ -1,9 +1,3 @@
-/**
- * @fileoverview Plex Stream Resolver module exports.
- * @module modules/plex/stream
- * @version 1.0.0
- */
-
 export { PlexStreamResolver, PlexStreamErrorCode } from './PlexStreamResolver';
 export { mapPlexStreamErrorCodeToAppErrorCode } from './types';
 export { getMimeType } from './streamMimeType';

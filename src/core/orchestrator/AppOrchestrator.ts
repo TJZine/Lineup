@@ -165,9 +165,6 @@ import {
     captureRecoverableRuntimeResultAsync,
 } from './OrchestratorRecoverableRuntimeResult';
 
-// ============================================
-// Types
-// ============================================
 
 export type { ModuleStatus, OrchestratorConfig } from './OrchestratorTypes';
 
@@ -250,9 +247,6 @@ export type { ErrorRecoveryAction } from '../error-recovery/types';
 // Re-export AppErrorCode for consumers
 export { AppErrorCode };
 
-// ============================================
-// Implementation
-// ============================================
 
 /**
  * AppOrchestrator - Central coordinator for all application modules.
@@ -529,7 +523,6 @@ export class AppOrchestrator {
             }
         );
 
-        // Create InitializationCoordinator with dependencies and callbacks
         this._initCoordinator = new InitializationCoordinator(
             orchestratorConfig,
             {
@@ -622,7 +615,6 @@ export class AppOrchestrator {
             return true;
         });
 
-        // Update status for all modules
         this._updateModuleStatus('event-emitter', 'ready');
     }
 
@@ -1805,9 +1797,6 @@ export class AppOrchestrator {
         return this._lifecycle.on(event, handler);
     }
 
-    // ============================================
-    // Private Methods - Initialization State
-    // ============================================
 
     private _cloneModuleStatus(status: ModuleStatus): ModuleStatus {
         return {

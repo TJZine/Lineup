@@ -1,9 +1,3 @@
-/**
- * @fileoverview Public exports for Plex Authentication module.
- * @module modules/plex/auth
- * @version 1.1.0
- */
-
 export { PlexAuth, AppErrorCode, PlexApiError } from './PlexAuth';
 export type {
     IPlexAuth,
