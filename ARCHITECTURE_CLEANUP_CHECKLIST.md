@@ -459,7 +459,7 @@ issue ids, package maps, score deltas, or triage as closure input.
   source-backed test-confidence audit, execution-grade plan, and clean plan
   review.
 
-### [ ] `FCP-6` Test Confidence For The Port
+### [x] `FCP-6` Test Confidence For The Port
 
 - Scope: raise confidence that the eventual port will preserve startup,
   navigation, Plex auth/discovery/library/stream behavior, scheduler/channel
@@ -477,13 +477,32 @@ issue ids, package maps, score deltas, or triage as closure input.
   real contract, `npm test`/targeted Jest commands as appropriate, `npm run
   verify` for broad runtime proof, and a final optional external score refresh
   after all six priorities complete.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: planner should start from critical port-survival paths and avoid
-  adding brittle tests that only codify implementation details.
+- Status: completed
+- Plan: `docs/plans/2026-04-29-fcp-6-test-confidence.md`
+- Audit: `docs/plans/2026-04-29-fcp-6-test-confidence-audit.md`
+- Last touched: 2026-04-29
+- Verification: plan-review approved `FCP-6-S1` with no material findings.
+  Implementation commit `ef09466b` passed focused exit-confirm tests (4 tests),
+  `npm run typecheck`, `npm run verify` including coverage/tools/contracts/docs
+  verification/build, `npm run verify:docs` inside full verify, and
+  `git diff --check`. Fresh implementation review found no material findings
+  and approved `FCP-6-S1` for closeout. Fresh FCP-6 priority-exit closeout
+  review found no material findings and approved completion.
+- Follow-ups: proof matrix: `FCP-6-SF2` resolved by commit `ef09466b`
+  (`ExitConfirmCoordinator` tests now cover modal render/accessibility state,
+  focusable registration, Cancel close, Exit-to-Home via `window.close()`,
+  close/unregister cleanup, and destroy DOM cleanup). `FCP-6-SF1` and
+  `FCP-6-SF3` through `FCP-6-SF10` remain existing-coverage/no-action with
+  final owners and revisit triggers in the audit. `FCP-6-SF11` remains deferred
+  to the future-port test owner for real Windows/Electron shell, device Plex,
+  native media, and manual integration proof. Security triage: no P0 security
+  finding admitted.
+- Handoff: FCP-6 is completed after source-backed test-confidence audit,
+  execution plan, proof matrix, verification evidence, security triage/P0
+  disposition, clean implementation review, clean priority-exit closeout
+  review, and owned residuals recorded.
+  Next safe checklist priority is `FCP-EXIT`; do not start it without its own
+  cleanup-loop scope-load, final reconciliation pass, and clean closeout review.
 
 ### [ ] `FCP-EXIT` Final Production Cleanup Exit
 
