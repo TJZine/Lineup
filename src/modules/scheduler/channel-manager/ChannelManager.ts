@@ -5,7 +5,7 @@
 import { EventEmitter } from '../../../utils/EventEmitter';
 import { fnv1a32Uint } from '../../../utils/hash';
 import { summarizeErrorForLog } from '../../../utils/errors';
-import { getAppErrorCode } from '../../../types/app-errors';
+import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
 import { ContentResolver } from './ContentResolver';
 import { ChannelRepository } from './ChannelRepository';
 import { isValidContentSource } from './ChannelContentSourceValidator';
@@ -15,7 +15,6 @@ import {
     isValidPlaybackMode,
     isValidSortOrder,
 } from './ChannelValueValidators';
-import { AppErrorCode } from '../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../lifecycle/constants';
 import { TIMING_CONFIG } from '../../../config/timing';
 import type { IChannelManager, ChannelManagerConfig, IPlexLibraryMinimal } from './interfaces';

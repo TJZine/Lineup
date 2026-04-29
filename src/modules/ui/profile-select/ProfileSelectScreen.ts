@@ -1,7 +1,7 @@
 import type { PlexHomeUser } from '../../plex/auth';
 import type { FocusableElement, INavigationManager, KeyEvent } from '../../navigation';
 import { PlexApiError } from '../../plex/auth';
-import { AppErrorCode } from '../../lifecycle/types';
+import { AppErrorCode } from '../../../types/app-errors';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
 import { createLineupBrandGlyph } from '../common/brandGlyph';
