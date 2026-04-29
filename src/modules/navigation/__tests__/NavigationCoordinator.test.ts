@@ -308,8 +308,12 @@ const setup = (
             if (intent.type === 'page') {
                 return testDoubles.handleMiniGuidePage(intent.direction);
             }
-            testDoubles.handleMiniGuideSelect();
-            return true;
+            if (intent.type === 'select') {
+                testDoubles.setLastChannelChangeSourceRemote();
+                testDoubles.handleMiniGuideSelect();
+                return true;
+            }
+            return false;
         }),
         overlay: { isVisible: testDoubles.isMiniGuideVisible },
         coordinator: {
@@ -710,6 +714,7 @@ describe('NavigationCoordinator', () => {
         const okEvent = makeKeyEvent('ok');
         handlers.keyPress?.(okEvent);
         expect(deps.events.miniGuide.coordinator?.handleSelect).toHaveBeenCalledTimes(1);
+        expect(deps.events.channelSwitching.setLastChannelChangeSourceRemote).toHaveBeenCalledTimes(1);
         expect(deps.keyModeRouter.playback.playerOsd.coordinator?.toggle).not.toHaveBeenCalled();
         expect(okEvent.handled).toBe(true);
     });
