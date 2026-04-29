@@ -193,19 +193,28 @@ issue ids, package maps, score deltas, or triage as closure input.
 - Plan: `docs/plans/2026-04-29-fcp-1-architecture-handoff-coherence.md`
 - Audit: `docs/plans/2026-04-29-fcp-1-architecture-handoff-audit.md`
 - Last touched: 2026-04-29
-- Verification: `npm run verify:docs` passed on 2026-04-29 for the FCP audit
-  artifact/final-pass checklist revision and active tracked plan artifact; rerun
-  required after any further plan-review revision.
-- Follow-ups: deferred source-backed FCP-1 candidates remain in the active plan:
+- Verification: source audits confirmed no app-shell import/exposure of
+  `OrchestratorServerSelectionResult` / `ServerSelectionTypes`, no
+  `startupResume` / `persistedSelection` / `readiness` leakage in app-shell or
+  server-select, and full selected-server result ownership still in
+  core/orchestrator. Targeted tests passed (`npm run test:unit -- ...`, 4 suites
+  / 62 tests). `npm run verify:docs` passed after active-plan verifier alignment.
+  `npm run verify` passed, including typecheck, architecture lint, CSS lint,
+  coverage, tools/contracts/docs checks, and build.
+- Follow-ups: proof matrix: `FCP-1-SF1` resolved by commit `75b59c4f`
+  (`AppShellRuntimeContracts.ts` owns `AppShellServerSelectionResult` and no
+  longer imports the core server-selection result); `FCP-1-SF2` resolved by
+  commit `75b59c4f` (`CURRENT_STATE.md` and `modules.md` distinguish full
+  core/orchestrator result ownership from narrowed app-shell/server-select
+  ownership). Deferred source-backed FCP-1 candidates remain:
   `FCP-1-SF3` channel-setup UI/core handoff and `FCP-1-SF4` AppOrchestrator
   runtime assembly hub, each requiring a future FCP-1 package brief or explicit
   source-backed no-action acceptance.
-- Handoff: plan review should start from
-  `docs/plans/2026-04-29-fcp-1-architecture-handoff-coherence.md`; the selected
-  ready-now execution unit is `FCP-1-S1`, but review must also validate the
-  repo-wide audit candidate matrix before implementation starts. `FCP-1`
-  closeout also requires final source-finding dispositions, verification
-  evidence, and clean adversarial review evidence in this mini-record.
+- Handoff: `FCP-1-S1` implementation and implementation review are clean, with
+  implementation commit `75b59c4f`. `FCP-1` remains in progress and must not be
+  marked complete until `FCP-1-SF3` and `FCP-1-SF4` are resolved or explicitly
+  accepted by source-backed review, the audit artifact is updated with final
+  dispositions, and clean closeout review evidence is recorded.
 
 ### [ ] `FCP-2` Runtime Contracts And Failure Semantics
 
