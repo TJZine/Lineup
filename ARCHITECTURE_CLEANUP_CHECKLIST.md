@@ -94,6 +94,23 @@ artifact must use only `source_finding_id` / `source_finding_ids` coverage and
 must not seed intake, membership, proof, closeout, task generation, or ownership
 from imported, detector, or Desloppify ids.
 
+For every FCP package or priority that claims repo-wide or package-wide audit
+coverage, create or update either one tracked master audit artifact for that
+FCP priority or explicit tracked per-area/package audit artifacts referenced by
+the mini-record. The audit surface must exist before implementation or closeout
+proceeds, and it must record audited areas, source-backed candidates,
+accepted/no-action areas, deferred findings with one owner and revisit trigger,
+known uncertainty/tool fallback, and the rule that future packages update the
+audit when planned or closed. Execution plans may summarize the audit, but they
+must link to the tracked audit surface instead of being the only durable
+coverage record.
+
+Each FCP priority mini-record should link the current audit artifact(s), active
+or completed execution plan(s), `source_finding_id` proof matrix, deferred
+owners and revisit triggers, verification evidence, and clean adversarial review
+evidence before closeout. If any of those are intentionally absent, the
+mini-record must say why and name the next owner or blocking condition.
+
 ## Mini-Record Contract
 
 Every work item and exit gate must keep this compact ledger:
@@ -143,6 +160,18 @@ current evidence.
   commands, issue-id reruns, or package-map reconciliation. A single external
   score refresh is allowed only after `FCP-EXIT` as a retrospective signal.
 
+## Final FCP Reconciliation Pass
+
+After all `FCP-*` checklist priorities are completed or explicitly deferred,
+run a source-backed final reconciliation pass before claiming final production
+cleanup completion. Compare the tracked FCP audit artifacts, implemented source
+and docs changes, mini-record proof matrices, and verification evidence to find
+any follow-ups, ownership drift, stale architecture docs, stale package/audit
+references, or newly introduced architecture/handoff residues. Any residual
+must be recorded with one final owner and revisit trigger, or resolved before
+`FCP-EXIT` closes. This final pass must not use Desloppify output, imported
+issue ids, package maps, score deltas, or triage as closure input.
+
 ## Final Production Cleanup Program
 
 ### [ ] `FCP-1` Architecture And Handoff Coherence
@@ -160,14 +189,23 @@ current evidence.
 - Verification routing: architecture source audit, targeted import/dependency
   audits, targeted tests for touched runtime seams, `npm run verify` for source
   work, and `npm run verify:docs` if current architecture truth changes.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: first planner should audit architecture/handoff seams repo-wide and
-  propose the smallest production-risk package that improves ownership clarity
-  without widening a hotspot.
+- Status: in progress
+- Plan: `docs/plans/2026-04-29-fcp-1-architecture-handoff-coherence.md`
+- Audit: `docs/plans/2026-04-29-fcp-1-architecture-handoff-audit.md`
+- Last touched: 2026-04-29
+- Verification: `npm run verify:docs` passed on 2026-04-29 for the FCP audit
+  artifact/final-pass checklist revision and active tracked plan artifact; rerun
+  required after any further plan-review revision.
+- Follow-ups: deferred source-backed FCP-1 candidates remain in the active plan:
+  `FCP-1-SF3` channel-setup UI/core handoff and `FCP-1-SF4` AppOrchestrator
+  runtime assembly hub, each requiring a future FCP-1 package brief or explicit
+  source-backed no-action acceptance.
+- Handoff: plan review should start from
+  `docs/plans/2026-04-29-fcp-1-architecture-handoff-coherence.md`; the selected
+  ready-now execution unit is `FCP-1-S1`, but review must also validate the
+  repo-wide audit candidate matrix before implementation starts. `FCP-1`
+  closeout also requires final source-finding dispositions, verification
+  evidence, and clean adversarial review evidence in this mini-record.
 
 ### [ ] `FCP-2` Runtime Contracts And Failure Semantics
 
@@ -301,6 +339,8 @@ current evidence.
   - source-backed audit package or explicit no-action rationale for every
     priority
   - package proof matrices with every source finding disposed
+  - final reconciliation pass over tracked FCP audit artifacts, implemented
+    changes, mini-record proof matrices, and architecture docs
   - security triage for any touched runtime boundary
   - verification results for runtime and docs surfaces
   - final portability/test-confidence summary for port handoff
@@ -314,7 +354,8 @@ current evidence.
 - Verification: not run
 - Follow-ups: none yet
 - Handoff: do not declare final production cleanup complete until all six
-  priorities have source-backed closeout records and review evidence.
+  priorities have source-backed closeout records, clean review evidence, and a
+  completed final reconciliation pass with any residuals owned.
 
 ## Not Active Checklist Scope By Default
 
