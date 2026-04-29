@@ -9,6 +9,7 @@ import {
 } from '../priority-one/PriorityOneControllerCollaborators';
 import type { PriorityOneAssemblyInput } from '../priority-one/PriorityOneAssemblyInput';
 import type { OrchestratorPlaybackStateAccessors } from '../OrchestratorPlaybackStateAccessors';
+import { createTestEventSurface } from './eventSurfaceTestUtils';
 
 const makeProgram = (): ScheduledProgram =>
     ({
@@ -28,28 +29,6 @@ const makeProgram = (): ScheduledProgram =>
         isCurrent: true,
     } as unknown as ScheduledProgram);
 
-type EventHandler = (...args: readonly unknown[]) => void;
-type EventRegistry = Record<string, EventHandler>;
-
-function createEmitterSurface(): {
-    on: jest.Mock;
-    off: jest.Mock;
-    emit: (event: string, ...args: readonly unknown[]) => void;
-} {
-    const handlers: EventRegistry = {};
-    return {
-        on: jest.fn((event: string, handler: EventHandler) => {
-            handlers[event] = handler;
-        }),
-        off: jest.fn((event: string) => {
-            delete handlers[event];
-        }),
-        emit: (event: string, ...args: readonly unknown[]): void => {
-            handlers[event]?.(...args);
-        },
-    };
-}
-
 const makeInput = (
     playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors>
 ): PriorityOneAssemblyInput => {
@@ -59,8 +38,8 @@ const makeInput = (
         on: jest.fn(),
         off: jest.fn(),
     };
-    const scheduler = createEmitterSurface();
-    const playerEmitter = createEmitterSurface();
+    const scheduler = createTestEventSurface();
+    const playerEmitter = createTestEventSurface();
     const navigation = {
         getCurrentScreen: jest.fn().mockReturnValue('player'),
         isModalOpen: jest.fn().mockReturnValue(false),

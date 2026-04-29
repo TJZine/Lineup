@@ -160,7 +160,9 @@ const createFakeRuntime = (overrides: FakeRuntimeOverrides = {}): new () => IEPG
         }
         setGridAnchorTime(): void {}
         destroy(): void {}
-        on(): void {}
+        on(): { dispose(): void } {
+            return { dispose(): void {} };
+        }
         off(): void {}
     }
 );

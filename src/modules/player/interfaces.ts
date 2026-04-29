@@ -6,6 +6,7 @@ import type {
     AudioTrack,
     PlayerEventMap,
 } from './types';
+import type { IDisposable } from '../../utils/interfaces';
 
 export interface IVideoPlayer {
     initialize(config: VideoPlayerConfig): Promise<void>;
@@ -45,7 +46,7 @@ export interface IVideoPlayer {
     on<K extends keyof PlayerEventMap>(
         event: K,
         handler: (payload: PlayerEventMap[K]) => void
-    ): void;
+    ): IDisposable;
     off<K extends keyof PlayerEventMap>(
         event: K,
         handler: (payload: PlayerEventMap[K]) => void

@@ -464,14 +464,19 @@ describe('EPGComponent', () => {
             const openHandler = jest.fn();
             const closeHandler = jest.fn();
 
-            epg.on('open', openHandler);
+            const openDisposable = epg.on('open', openHandler);
             epg.on('close', closeHandler);
 
             epg.show();
             expect(openHandler).toHaveBeenCalledTimes(1);
 
+            openDisposable.dispose();
             epg.hide();
-            expect(closeHandler).toHaveBeenCalledTimes(1);
+            epg.show();
+            expect(openHandler).toHaveBeenCalledTimes(1);
+
+            epg.hide();
+            expect(closeHandler).toHaveBeenCalledTimes(2);
         });
 
         it('clears focused ticker state when hiding the guide', () => {

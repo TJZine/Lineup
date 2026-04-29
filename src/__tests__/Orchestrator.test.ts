@@ -155,7 +155,7 @@ const mockConfig: OrchestratorConfig = {
 // Mock EventEmitter
 jest.mock('../utils', () => ({
     EventEmitter: jest.fn().mockImplementation(() => ({
-        on: jest.fn(() => jest.fn()),
+        on: jest.fn(() => ({ dispose: jest.fn() })),
         off: jest.fn(),
         emit: jest.fn(),
         removeAllListeners: jest.fn(),
@@ -196,7 +196,7 @@ const mockNavigation = {
     isInputBlocked: jest.fn().mockReturnValue(false),
     openModal: jest.fn(),
     closeModal: jest.fn(),
-    on: jest.fn(() => jest.fn()),
+    on: jest.fn(() => ({ dispose: jest.fn() })),
     off: jest.fn(),
     handleLongPress: jest.fn(),
     destroy: jest.fn(),
@@ -379,7 +379,7 @@ const mockPlexLibrary = {
     getLibraries: jest.fn().mockResolvedValue([]),
     getImageUrl: jest.fn().mockReturnValue('http://test/resized.jpg'),
     getItem: jest.fn().mockResolvedValue(null),
-    on: jest.fn(() => jest.fn()),
+    on: jest.fn(() => ({ dispose: jest.fn() })),
     off: jest.fn(),
 };
 
@@ -395,7 +395,7 @@ const mockPlexStreamResolver = {
         mimeType: 'video/mp4',
     }),
     stopTranscodeSession: jest.fn().mockResolvedValue(undefined),
-    on: jest.fn(() => jest.fn()),
+    on: jest.fn(() => ({ dispose: jest.fn() })),
     off: jest.fn(),
 };
 
@@ -492,7 +492,7 @@ const mockVideoPlayer = {
     getAvailableAudio: jest.fn().mockReturnValue([]),
     getAvailableSubtitles: jest.fn().mockReturnValue([]),
     isPlaying: jest.fn().mockReturnValue(false),
-    on: jest.fn(() => jest.fn()),
+    on: jest.fn(() => ({ dispose: jest.fn() })),
     off: jest.fn(),
 };
 
@@ -536,7 +536,7 @@ const mockEpg = {
     focusChannel: jest.fn(),
     focusNow: jest.fn(),
     scrollToChannel: jest.fn(),
-    on: jest.fn(() => jest.fn()),
+    on: jest.fn(() => ({ dispose: jest.fn() })),
     off: jest.fn(),
 };
 
@@ -662,7 +662,11 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 if (event === 'scheduleSync') {
                     schedulerHandlers.scheduleSync = handler as () => void;
                 }
-                return jest.fn();
+                return {
+                    dispose: jest.fn(() => {
+                        mockScheduler.off(event, handler);
+                    }),
+                };
             });
         (mockScheduler.off as jest.Mock).mockImplementation(
             (event: string, handler: (payload: unknown) => void) => {
@@ -687,7 +691,11 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                         event: { type: 'audio' | 'subtitle'; trackId: string | null }
                     ) => void;
                 }
-                return jest.fn();
+                return {
+                    dispose: jest.fn(() => {
+                        mockVideoPlayer.off(event, handler);
+                    }),
+                };
             });
         (mockVideoPlayer.off as jest.Mock).mockImplementation(
             (event: string, handler: (payload: unknown) => void) => {
@@ -713,7 +721,19 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 if (event === 'modalClose') {
                     navHandlers.modalClose = handler;
                 }
-                return jest.fn();
+                return {
+                    dispose: jest.fn(() => {
+                        if (event === 'keyPress' && navHandlers.keyPress === handler) {
+                            delete navHandlers.keyPress;
+                        }
+                        if (event === 'modalOpen' && navHandlers.modalOpen === handler) {
+                            delete navHandlers.modalOpen;
+                        }
+                        if (event === 'modalClose' && navHandlers.modalClose === handler) {
+                            delete navHandlers.modalClose;
+                        }
+                    }),
+                };
             });
         (mockChannelManager.on as jest.Mock).mockImplementation(
             (event: string, handler: (payload: unknown) => void) => {

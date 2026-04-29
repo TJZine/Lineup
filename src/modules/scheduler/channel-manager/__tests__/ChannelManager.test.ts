@@ -1356,6 +1356,49 @@ describe('ChannelManager', () => {
             expect(manager.getAllChannels()).toHaveLength(1);
         });
 
+        it('skips imported records when create hits a non-fallback content resolution failure', async () => {
+            expectConsoleWarn([
+                'Access denied resolving channel content',
+                expect.objectContaining({
+                    contentSource: { type: 'library', id: 'denied-lib' },
+                    httpStatus: 403,
+                }),
+            ]);
+            mockLibrary.getLibraryItems.mockImplementation(async (libraryId) => {
+                if (libraryId === 'denied-lib') {
+                    throw Object.assign(new Error('Access denied'), {
+                        code: AppErrorCode.ACCESS_DENIED,
+                        httpStatus: 403,
+                    });
+                }
+                return [createMockItem({ ratingKey: `item-${libraryId}` })];
+            });
+            const importData = JSON.stringify([
+                {
+                    name: 'Denied Channel',
+                    contentSource: {
+                        ...createMockContentSource(),
+                        libraryId: 'denied-lib',
+                    },
+                },
+                {
+                    name: 'Imported Channel',
+                    contentSource: createMockContentSource(),
+                },
+            ]);
+
+            const result = await manager.importChannels(importData);
+
+            expect(result.success).toBe(true);
+            expect(result.importedCount).toBe(1);
+            expect(result.skippedCount).toBe(1);
+            expect(result.errors).toEqual([
+                expect.stringContaining('Failed to import channel: Profile does not have access'),
+            ]);
+            expect(manager.getAllChannels()).toHaveLength(1);
+            expect(manager.getAllChannels()[0]?.name).toBe('Imported Channel');
+        });
+
         it('omits invalid enum-like fields and content filters during import', async () => {
             const importData = JSON.stringify([
                 {

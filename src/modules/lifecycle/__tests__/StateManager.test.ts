@@ -15,6 +15,15 @@ import {
 
 installMockLocalStorage();
 
+const captureThrown = (operation: () => void): unknown => {
+    try {
+        operation();
+    } catch (error) {
+        return error;
+    }
+    throw new Error('Expected operation to throw');
+};
+
 describe('StateManager', () => {
     let stateManager: StateManager;
 
@@ -108,6 +117,57 @@ describe('StateManager', () => {
             // Should have called setItem twice (first failed, retry succeeded)
             expect(localStorage.setItem).toHaveBeenCalledTimes(2);
         });
+
+        it('should ignore cleanup remove failures during quota retry', () => {
+            const state = stateManager.createDefaultState();
+            const defaultSetItemImplementation = mockLocalStorage.setItem.getMockImplementation();
+            let setCallCount = 0;
+            mockLocalStorage.setItem.mockImplementation((key: string, value: string) => {
+                setCallCount++;
+                if (setCallCount === 1) {
+                    throw new DOMException('Quota exceeded', 'QuotaExceededError');
+                }
+                defaultSetItemImplementation?.(key, value);
+            });
+            mockLocalStorage.removeItem.mockImplementation(() => {
+                throw new DOMException('blocked', 'SecurityError');
+            });
+
+            expect(() => stateManager.save(state)).not.toThrow();
+
+            expect(localStorage.setItem).toHaveBeenCalledTimes(2);
+            for (const key of STORAGE_CONFIG.CLEANUP_KEYS) {
+                expect(localStorage.removeItem).toHaveBeenCalledWith(key);
+            }
+            expect(mockLocalStorage.getItem(STORAGE_CONFIG.STATE_KEY)).not.toBeNull();
+        });
+
+        it('should throw a quota error when cleanup retry cannot save state', () => {
+            const state = stateManager.createDefaultState();
+            mockLocalStorage.setItem.mockImplementation(() => {
+                throw new DOMException('Quota exceeded', 'QuotaExceededError');
+            });
+
+            const thrown = captureThrown(() => stateManager.save(state));
+
+            expect(thrown).toBeInstanceOf(DOMException);
+            expect((thrown as DOMException).name).toBe('QuotaExceededError');
+            expect(localStorage.setItem).toHaveBeenCalledTimes(2);
+        });
+
+        it('should throw an unavailable storage error when storage is blocked while saving', () => {
+            const state = stateManager.createDefaultState();
+            mockLocalStorage.setItem.mockImplementation(() => {
+                throw new DOMException('blocked', 'SecurityError');
+            });
+
+            const thrown = captureThrown(() => stateManager.save(state));
+
+            expect(thrown).toBeInstanceOf(DOMException);
+            expect((thrown as DOMException).name).toBe('SecurityError');
+            expect(localStorage.setItem).toHaveBeenCalledTimes(1);
+            expect(localStorage.removeItem).not.toHaveBeenCalled();
+        });
     });
 
     describe('load', () => {
@@ -128,6 +188,14 @@ describe('StateManager', () => {
         it('should return null when no stored state', async () => {
             const loaded = await stateManager.load();
             expect(loaded).toBeNull();
+        });
+
+        it('should return null when storage is blocked while loading', () => {
+            mockLocalStorage.getItem.mockImplementation(() => {
+                throw new DOMException('blocked', 'SecurityError');
+            });
+
+            expect(stateManager.load()).toBeNull();
         });
 
         it('should return null for invalid JSON', async () => {
@@ -251,6 +319,15 @@ describe('StateManager', () => {
 
             await stateManager.clear();
 
+            expect(localStorage.removeItem).toHaveBeenCalledWith(STORAGE_CONFIG.STATE_KEY);
+        });
+
+        it('should not throw when storage is blocked while clearing', () => {
+            mockLocalStorage.removeItem.mockImplementation(() => {
+                throw new DOMException('blocked', 'SecurityError');
+            });
+
+            expect(() => stateManager.clear()).not.toThrow();
             expect(localStorage.removeItem).toHaveBeenCalledWith(STORAGE_CONFIG.STATE_KEY);
         });
     });

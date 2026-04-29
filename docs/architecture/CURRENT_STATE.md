@@ -40,6 +40,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - focused owner for lazy-screen port assembly at the app-shell boundary
 - builds screen-specific port contracts for deferred screens while delegating runtime operations through app-shell-owned runtime port contracts (`AppShellRuntimeContracts`)
 - owns the app-shell/server-select narrowing of selected-server results to `{ kind: 'selected' }` or `{ kind: 'selection_failed'; reason }`; selected-server readiness, persistence, and startup-resume details remain behind the core server-selection/orchestrator result
+- owns the channel-setup screen's selected-server projection as runtime state (`getSelectedServerId`) only; channel setup UI must not construct `ServerSelectionStore` or consume selected-server storage-key getters
 - keeps `src/App.ts` at composition wiring by replacing the previous inline lazy-screen runtime object-literal assembly
 
 ### `src/core/app-shell/AppScreenVisibilityCoordinator.ts`
@@ -161,7 +162,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - `src/modules/debug/DebugOverridesStore.ts` is the canonical owner for the `lineup_debug_epg` flag
 - `src/core/channel-setup/persistence/ChannelSetupRecordStore.ts` owns only the persisted setup-record family `lineup_channel_setup_v2:${serverId}`
 - `src/core/channel-setup/build/ChannelSetupBuildScratchStore.ts` owns temporary Channel Setup build-key lifecycle (`lineup_channels_build_tmp_v1:*`, `lineup_current_channel_build_tmp_v1:*`)
-- `src/core/channel-setup/planning/ChannelSetupPlanningService.ts` owns plan/review composition and uses `ChannelSetupFacetSnapshotLoader` as its internal facet-snapshot collaborator
+- `src/core/channel-setup/planning/ChannelSetupPlanningService.ts` owns plan/review composition and uses `ChannelSetupFacetSnapshotLoader` as its internal facet-snapshot collaborator; collection/playlist facet failures remain partial-warning enrichment failures, while enabled native tag directory/count failures remain blocking or slow planning-boundary failures
 - `src/core/channel-setup/ChannelSetupCoordinator.ts` consumes typed seams for record persistence (`ChannelSetupRecordStore`) and build-scratch cleanup (`ChannelSetupBuildScratchStore`); composition-root wiring no longer forwards raw setup-record storage callbacks
 - `src/core/index.ts` and `src/core/channel-setup/index.ts` are intentionally empty; runtime callers import from owning modules instead of widening root/package barrels
 - `src/bootstrap.ts` still carries the one-off `lineup_debug_transcode` -> `lineup_debug_logging` migration path
@@ -182,6 +183,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - overlay package roots (`now-playing-info`, `player-osd`, `mini-guide`, `channel-transition`, `playback-options`, `exit-confirm`) are the intended cross-module seams for coordinator/value imports used by core/app-shell wiring
 - `src/core/app-shell/AppContainerFactory.ts` materializes a bounded `runtime-chrome-host` under `#app`, canonicalizes app-shell-owned containers plus app-materialized feature mount nodes at document scope, and reparents exactly `player-osd`, `channel-number-overlay`, `channel-badge`, `mini-guide`, and `channel-transition` into that host; the host owns shell-plane structure only, while feature packages keep their DOM markup, visibility, and local z-index ownership
 - `src/modules/ui/channel-setup/ChannelSetupSessionController.ts` is now a UI-facing composition wrapper over `ChannelSetupSessionState` (session state/config serialization/record hydration) and `ChannelSetupSessionRuntime` (workflow I/O, abort/timer lifecycle)
+- `src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts` owns string-only UI runtime error summaries for load, preview/review, build, blocked, and bookkeeping outcomes; typed planning/build failure details stay in core contracts/logs rather than `ChannelSetupScreen`
 - visual rules are governed by [`docs/design/ui-design-language.md`](../design/ui-design-language.md)
 
 ## Current Hotspots

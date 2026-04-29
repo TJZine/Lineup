@@ -1,4 +1,4 @@
-export { PlexServerDiscovery, AppErrorCode, PlexApiError } from './PlexServerDiscovery';
+export { PlexServerDiscovery, PlexApiError } from './PlexServerDiscovery';
 export type {
     IPlexServerDiscovery,
     PlexServerSelectionFailureReason,

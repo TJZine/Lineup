@@ -136,7 +136,6 @@ const createRuntime = (
                 content: items,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             } satisfies ScheduleConfig),
         computeScheduleCacheLimit: () => 64,
         getScheduleLoadConcurrency: () => 1,
@@ -432,7 +431,6 @@ describe('EPGScheduleRefreshRuntime', () => {
                     content: items,
                     playbackMode: 'sequential',
                     shuffleSeed: 1,
-                    loopSchedule: true,
                 };
             },
         });

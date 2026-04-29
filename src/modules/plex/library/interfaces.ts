@@ -9,6 +9,7 @@ import type {
     SearchOptions,
     PlexLibraryEvents,
 } from './types';
+import type { IDisposable } from '../../../utils/interfaces';
 
 export type PlexTagDirectoryUnsupportedReason = 'unavailable' | 'empty';
 
@@ -214,7 +215,7 @@ export interface IPlexLibrary {
     on<K extends keyof PlexLibraryEvents>(
         event: K,
         handler: (payload: PlexLibraryEvents[K]) => void
-    ): void;
+    ): IDisposable;
 
     off<K extends keyof PlexLibraryEvents>(
         event: K,

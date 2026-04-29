@@ -32,12 +32,11 @@ import {
     parseHomeUsersPayload,
     parseSwitchResponsePayload,
 } from './plexAuthPayloadParsers';
-import { AppErrorCode } from '../../lifecycle/types';
+import { AppErrorCode } from '../../../types/app-errors';
 import { fetchWithTimeout } from '../shared/fetchWithTimeout';
 
 // Re-export for consumers
 export { PlexApiError } from './plexAuthTransport';
-export { AppErrorCode } from '../../lifecycle/types';
 
 function isAbortError(error: unknown): error is Error {
     return (

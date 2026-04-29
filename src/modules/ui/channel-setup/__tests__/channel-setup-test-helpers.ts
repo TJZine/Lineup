@@ -1,6 +1,5 @@
 import type { PlexLibrarySection as PlexLibraryModel } from '../../../plex/library/types';
 import type { FocusableElement, KeyEvent } from '../../../navigation/interfaces';
-import { PLEX_DISCOVERY_CONSTANTS } from '../../../plex/discovery/constants';
 import type {
     ChannelBuildSummary,
 } from '../../../../core/channel-setup/types';
@@ -156,8 +155,6 @@ export const createScreenPorts = (
     overrides: Partial<ChannelSetupScreenPorts> = {}
 ): ChannelSetupScreenPorts => ({
     getNavigation: jest.fn(() => null),
-    getSelectedServerStorageKey: jest.fn(() => PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY),
-    getServerHealthStorageKey: jest.fn(() => PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY),
     getSelectedServerId: jest.fn(() => null),
     openServerSelect: jest.fn(),
     switchToChannelByNumber: jest.fn(),

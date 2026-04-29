@@ -7,6 +7,7 @@ import type {
     EPGState,
     EPGEventMap,
 } from './types';
+import type { IDisposable } from '../../../utils/interfaces';
 
 export interface IEPGComponent {
     initialize(config: EPGConfig): void;
@@ -68,7 +69,7 @@ export interface IEPGComponent {
     on<K extends keyof EPGEventMap>(
         event: K,
         handler: (payload: EPGEventMap[K]) => void
-    ): void;
+    ): IDisposable;
 
     off<K extends keyof EPGEventMap>(
         event: K,

@@ -19,7 +19,7 @@ import {
     findFastestConnectionProbe,
     PlexConnectionProbeResult,
 } from './discoveryProbe';
-import { AppErrorCode } from '../../lifecycle/types';
+import { AppErrorCode } from '../../../types/app-errors';
 import { PlexApiError } from '../auth/plexAuthTransport';
 import { redactSensitiveTokens, redactUrlForLog } from '../../../utils/redact';
 import { ServerSelectionStore } from './ServerSelectionStore';
@@ -27,7 +27,7 @@ import { logPlexError, logPlexWarning } from '../shared/plexLogging';
 import { discoverPlexResourcesWithRequestPolicy } from './PlexResourceDiscoveryRequestPolicy';
 
 // Re-export for consumers
-export { AppErrorCode, PlexApiError };
+export { PlexApiError };
 
 export class PlexServerDiscovery implements IPlexServerDiscovery {
     private _state: PlexServerDiscoveryState;

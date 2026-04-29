@@ -267,4 +267,47 @@ describe('ChannelSetupSessionRuntime', () => {
         buildDeferred.reject(new DOMException('Aborted', 'AbortError'));
         await expect(buildPromise).resolves.toEqual({ kind: 'canceled' });
     });
+
+    it('converts runtime failures to string-only UI error fields and outcomes', async () => {
+        const workflowPort = createWorkflowPort({
+            getLibrariesForSetup: jest.fn().mockRejectedValue('load primitive'),
+            getSetupPreview: jest.fn().mockRejectedValue('preview primitive'),
+            getSetupReview: jest.fn().mockRejectedValue('review primitive'),
+            createChannelsFromSetup: jest.fn().mockRejectedValue('build primitive'),
+            markSetupComplete: jest.fn(() => {
+                throw 'bookkeeping primitive';
+            }),
+        });
+        const { runtime, state } = createRuntime({ workflowPort });
+
+        await runtime.loadLibraries();
+        expect(state.loadError).toBe('Unable to load libraries.');
+
+        state.step = 2;
+        runtime.schedulePreview(jest.fn());
+        jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS);
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(state.previewError).toBe('Unable to estimate channels.');
+
+        await runtime.ensureReviewLoaded(jest.fn());
+        expect(state.reviewError).toBe('Unable to load review.');
+
+        await expect(runtime.beginBuild({
+            onProgress: jest.fn(),
+            onStateChange: jest.fn(),
+        })).resolves.toEqual({
+            kind: 'error',
+            message: 'Build failed.',
+        });
+
+        workflowPort.createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
+        await expect(runtime.beginBuild({
+            onProgress: jest.fn(),
+            onStateChange: jest.fn(),
+        })).resolves.toEqual(expect.objectContaining({
+            kind: 'success',
+            bookkeepingError: 'Unable to save setup completion.',
+        }));
+    });
 });

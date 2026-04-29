@@ -2,24 +2,27 @@
 
 > Live cleanup control plane.
 
-This checklist is the compact control plane for the final production cleanup
-program. It replaces the old score-chasing P14 wave loop as the active execution
-surface. Completed P0-P13 and superseded P14 wave details remain historical
-context in package maps, plans, commits, and archived summaries; they should not
-drive the next cleanup task by default.
+This checklist is the compact control plane for production cleanup. It replaces
+the old score-chasing P14 wave loop as the active execution surface. Completed
+P0-P13, superseded P14 wave details, and completed FCP packages remain
+historical context in package maps, plans, commits, and archived summaries; they
+should not drive the next cleanup task by default.
 
 ## Fresh-Session Handoff
 
-- Current execution state: P0-P13 are complete. The old P14 wave ledger is
-  superseded for current decision-making because repeated residual waves did not
-  create meaningful score progress and kept expanding the active control plane.
-- Next safe start: choose the first unchecked final cleanup priority below,
-  perform its repo-wide/source-backed audit, freeze an execution-grade plan, run
-  adversarial plan review, and only then implement the approved package.
+- Current execution state: P0-P13 and FCP-1 through FCP-6 are complete. The old
+  P14 wave ledger is superseded for current decision-making because repeated
+  residual waves did not create meaningful score progress and kept expanding the
+  active control plane.
+- Next safe start: choose the first unchecked `DCR-*` package below, perform
+  package-local source-backed discovery, freeze an execution-grade plan with
+  package decomposition and one `ready_now_execution_unit`, run adversarial plan
+  review, and only then implement the approved unit.
 - Preferred launcher: `cleanup-loop` for approved checklist-linked Tier 3
   cleanup packages.
-- Active program: the six `FCP-*` priorities below. They are production-risk
-  cleanup packages, not detector issue queues.
+- Active program: `Dimension Cleanup Refresh` (`DCR-*`) below. The completed
+  `FCP-*` records are baseline history and retained evidence, not the next task
+  queue.
 - Desloppify role: rubric input and optional end-of-program external score
   refresh only. Do not use Desloppify output as concrete issue intake, task
   admission, execution-unit membership, proof of closure, or wave sequencing.
@@ -47,17 +50,35 @@ source, tests, architecture docs, and reviewer judgment for actual task intake.
 
 - Work top to bottom unless maintainer direction says otherwise.
 - Keep authoritative execution state in Codex `update_plan`.
-- Start each priority with a repo-wide/source-backed audit before implementation.
-  The audit must inspect production source and relevant tests/docs directly.
+- Start each active DCR package with package-local source-backed discovery over
+  the listed files/seams plus targeted adjacent searches required by its
+  stop/replan triggers. Reserve repo-wide audit for `DCR-EXIT` or for a package
+  whose listed scope explicitly requires repo-wide coverage.
 - Use rubric dimensions as audit prompts, not as source truth.
 - Freeze one execution-grade plan per priority or per approved package inside a
   priority. Keep small plans local by default; promote to `docs/plans/*` only
   when durable tracked handoff memory is needed.
+- Active `DCR-*` cleanup-loop packages are durable Tier 3 handoff work by
+  default. Write or refresh a tracked `docs/plans/*` execution plan while the
+  package is active, then collapse durable outcomes into this checklist and
+  current architecture/API docs at closeout. Delete the detailed active plan
+  after closeout unless it contains a reusable architecture decision that must
+  be promoted into a durable reference doc.
 - Execute approved packages through planner -> reviewer -> cleanup_worker ->
   reviewer loops when `cleanup-loop` is used. The checklist names priorities and
   closeout gates; it does not enumerate endless waves.
 - Keep every implementation package bounded by one owner, one seam, one proof
   surface, and explicit stop/replan triggers.
+- For `DCR-*` packages, do not check a package complete unless every listed
+  `actual issue` is fixed or reclassified with source-backed evidence, every
+  `owner decision` is resolved or explicitly accepted with one owner and revisit
+  trigger, every accepted residual is recorded with rationale, and the
+  package-level completion criteria are satisfied.
+- `DCR-*` cleanup-loop planning must plan coherent execution units or waves when
+  the package is large. Do not close a package after one micro-fix while listed
+  issues remain. Parallel `cleanup_worker` slices are allowed only when the
+  approved plan shows disjoint write scopes, disjoint verification surfaces, and
+  one controller-owned integration/closeout path.
 - Run `npm run verify` for UI, navigation, Orchestrator, Plex, lifecycle,
   settings, persistence, or runtime source work.
 - Run `npm run verify:docs` for checklist, launcher, workflow, or reference-doc
@@ -67,8 +88,8 @@ source, tests, architecture docs, and reviewer judgment for actual task intake.
 
 ## Audit-First Package Rules
 
-Each priority audit must produce a short source-backed package brief before any
-implementation begins:
+For the completed FCP baseline, each priority audit had to produce a short
+source-backed package brief before implementation began:
 
 - `source_finding_id`: stable local id such as `FCP-1-SF1`; this is the FCP
   package coverage token and is not a Desloppify or detector issue id
@@ -93,6 +114,12 @@ brief's `source_finding_id` values and proof matrix. Any future companion
 artifact must use only `source_finding_id` / `source_finding_ids` coverage and
 must not seed intake, membership, proof, closeout, task generation, or ownership
 from imported, detector, or Desloppify ids.
+
+For active DCR checklist-linked plans, package coverage is defined by the
+listed `DCR-*-A*` actual issues and `DCR-*-D*` owner decisions, plus any
+absorbed-now residue that meets the approved execution-unit absorption rules.
+Do not invent FCP-style `source_finding_id` coverage for DCR unless a
+maintainer explicitly changes this control-plane contract.
 
 For every FCP package or priority that claims repo-wide or package-wide audit
 coverage, create or update either one tracked master audit artifact for that
@@ -157,22 +184,863 @@ current evidence.
   - source review confirming the closure condition is true and same-area residue
     has one owner
 - FCP closeout exemption: FCP priority closeout does not require Desloppify
-  commands, issue-id reruns, or package-map reconciliation. A single external
-  score refresh is allowed only after `FCP-EXIT` as a retrospective signal.
+  commands, issue-id reruns, or package-map reconciliation. This historical
+  exemption is superseded for active work by `DCR-EXIT`, and any external score
+  refresh waits until `DCR-EXIT` closes.
 
 ## Final FCP Reconciliation Pass
 
-After all `FCP-*` checklist priorities are completed or explicitly deferred,
-run a source-backed final reconciliation pass before claiming final production
-cleanup completion. Compare the tracked FCP audit artifacts, implemented source
-and docs changes, mini-record proof matrices, and verification evidence to find
-any follow-ups, ownership drift, stale architecture docs, stale package/audit
-references, or newly introduced architecture/handoff residues. Any residual
-must be recorded with one final owner and revisit trigger, or resolved before
-`FCP-EXIT` closes. This final pass must not use Desloppify output, imported
-issue ids, package maps, score deltas, or triage as closure input.
+This historical FCP-only pass is superseded by active `DCR-EXIT`. The retained
+FCP records remain required input to final reconciliation, but final production
+cleanup completion now requires DCR package reconciliation first. This final
+pass must not use Desloppify output, imported issue ids, package maps, score
+deltas, or triage as closure input.
 
-## Final Production Cleanup Program
+## Dimension Cleanup Refresh
+
+The `DCR-*` packages are the active cleanup surface after the first six FCP
+priorities. They are seeded from deep source review findings, not from a
+Desloppify queue. Rubric dimensions are review prompts only: file health, code
+quality, duplication, test health, security, naming/API/error/abstraction/logic,
+AI-generated residue, type safety, contract coherence, cross-module design, and
+structure/elegance.
+
+Discovery note for this refresh: Codanna was not available in the planning
+session that created these package briefs, so file orientation used required
+docs plus direct `rg`/source reads. Each execution plan must still run the
+repo-required Codanna-first discovery pass, or record the same fallback if the
+tool remains unavailable.
+
+### DCR Operating Rules
+
+- Treat each `DCR-*` row as one checklist-linked package for `cleanup-loop`.
+- Do not use Desloppify output, imported issue ids, score deltas, or old queue
+  rows as DCR task intake. A package plan may use rubric dimensions to review
+  the scope, but membership is owned by the listed actual issues and owner
+  decisions below.
+- A DCR package may not be checked complete while any listed actual issue
+  remains open. If source discovery disproves an issue, reclassify it with the
+  exact evidence, final owner, and revisit trigger.
+- DCR issue deferral is allowed only inside a completed package at individual
+  issue/residual level, or through explicit maintainer-approved migration out of
+  DCR with a named destination, one owner, revisit trigger, and a reason the
+  migrated issue is not a final-cleanup blocker.
+- Owner decisions must be resolved in the plan or explicitly accepted as
+  residuals with one owner and revisit trigger. Do not hide undecided API,
+  persistence, error, or test policy inside implementation steps.
+- Large packages must plan coherent waves or execution units. A plan that fixes
+  one tiny symptom while leaving same-package listed issues unowned is not
+  implementation-ready.
+- The active DCR plan lives in `docs/plans/*` while implementation/review is in
+  progress. Keep worker implementation commits focused on source/test changes;
+  checklist and plan-progress updates belong to controller closeout or a
+  separate docs commit. At package closeout, preserve long-term facts in the
+  mini-record, delete or archive the verbose execution plan, and promote only
+  durable architecture/API decisions into the relevant reference docs.
+- Parallel `cleanup_worker` execution is allowed only when the approved plan's
+  slice table proves disjoint write scopes and verification, and names the
+  controller-owned integration gate.
+- `ready_now_execution_unit: none until plan is written` means the controller
+  must first create/review an execution-grade plan with package decomposition,
+  `slice_table`, `coverage_check`, and `ready_now_execution_unit`.
+
+### DCR Accepted Baselines
+
+These are not active implementation packages unless source discovery materially
+changes them:
+
+- `src/App.ts` is broadly acceptable as an app-shell composition root.
+- The Settings focus extraction is closed; only shared event/API cleanup and
+  constructor dependency cleanup may revisit Settings focus-adjacent code.
+- `EPGVirtualizer` is a bounded internal performance owner.
+- Plex token redaction/security is currently acceptable and should be preserved
+  by any Plex stream cleanup.
+- `window.close()` in `ExitConfirmCoordinator` is intentional webOS behavior
+  and already has targeted tests.
+- `ChannelSetupSessionState` importing `normalizeChannelSetupConfig` remains an
+  accepted residual unless setup-record normalization ownership changes.
+
+### [x] `DCR-1` Scheduler And ChannelManager Transactional/API Semantics
+
+- Status: completed
+- Dimensions/rubric tags: contract coherence, error consistency, type safety,
+  logic clarity, test strategy, API surface coherence
+- Scope owner: scheduler/channel-manager owner
+- Why this package exists / production risk: channel authoring and scheduling
+  are persistence-backed state machines. Misstated atomic behavior, ambiguous
+  reorder semantics, and unused scheduler config make rollback, import, and
+  port behavior hard to trust.
+- Files in scope:
+  - `src/modules/scheduler/channel-manager/ChannelManager.ts`
+  - `src/modules/scheduler/channel-manager/interfaces.ts`
+  - `src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts`
+  - `src/modules/scheduler/scheduler/interfaces.ts`
+  - `src/modules/scheduler/scheduler/ChannelScheduler.ts`
+  - `src/modules/scheduler/scheduler/__tests__/ChannelScheduler.test.ts`
+  - package docs/tests needed to document scheduler API decisions
+- Files out of scope:
+  - broad channel persistence store redesign
+  - content resolver policy not needed for listed issues
+  - UI channel setup flows except tests that consume public channel-manager
+    behavior
+- Known issues to retire:
+  - actual issues:
+    - `DCR-1-A1`: `ChannelManager.replaceAllChannels` claims atomic behavior
+      but mutates state before persistence can fail; add regression coverage
+      that a failed save preserves prior channels, current channel, and cache.
+    - `DCR-1-A2`: `ChannelManager.importChannels` formats caught errors with
+      `(e as Error).message`, which produces `undefined` for non-`Error`
+      throwables; use the repo error summarizer.
+  - owner decisions:
+    - `DCR-1-D1`: decide whether `reorderChannels` requires an exact full
+      order or supports partial reorder. Current filtering drops omitted
+      existing channels; chosen behavior needs tests and docs/comments at the
+      API seam.
+    - `DCR-1-D2`: decide whether `ScheduleConfig.loopSchedule` is a supported
+      public config field or dead/speculative API. It is written/instantiated
+      but not read by scheduler implementation.
+  - accepted residuals:
+    - none yet; any residual must name one scheduler owner and revisit trigger.
+- Completion means: every actual issue above is fixed or source-disproved; both
+  owner decisions are resolved with tests/docs or explicitly accepted; no
+  ChannelManager transactional claim remains narrower than implemented
+  behavior.
+- Verification routing: targeted ChannelManager and scheduler tests for changed
+  contracts, source audit for non-`Error` handling and reorder/loopSchedule
+  consumers, then `npm run verify`.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `DCR-1-S1` | transactional `replaceAllChannels` behavior and regression coverage | `ChannelManager.ts`, `ChannelManager.test.ts` | serial with S2 |
+  | `DCR-1-S2` | import error summarization and reorder decision/tests | channel-manager files/tests | serial with S1 |
+  | `DCR-1-S3` | `loopSchedule` keep/remove/document decision | scheduler interface/runtime/tests/docs | may run apart only if plan proves no shared tests with S1/S2 |
+
+- Stop/replan triggers: fix requires changing storage owner APIs; reorder
+  decision changes UI-facing product behavior; `loopSchedule` is consumed by
+  undiscovered runtime code; verification requires broader port/manual proof.
+- Plan:
+  [`docs/archive/plans/2026-04-29-dcr-1-scheduler-channel-manager-api-semantics.md`](./docs/archive/plans/2026-04-29-dcr-1-scheduler-channel-manager-api-semantics.md)
+- Last touched: 2026-04-29, implementation commit `12a5647d`
+- Verification: targeted source audits passed for `(e as Error).message`,
+  production `reorderChannels` consumers, and `loopSchedule` under `src`;
+  targeted ChannelManager transactional/import-order tests passed; affected
+  scheduler/core/UI tests passed; `npm run typecheck` passed; `npm run verify`
+  passed. Implementation review found one P3 nit, same-reviewer closure
+  approved the fix, and a fresh final implementation review approved
+  `DCR-1-WAVE1`.
+- Follow-ups: none for `DCR-1`. `DCR-10` remains open for its broader test
+  structure package; `DCR-1` respected it by adding focused ChannelManager test
+  files instead of growing the catch-all `ChannelManager.test.ts`.
+- Handoff: start with a DCR-1 checklist-linked cleanup plan; do not implement a
+  single ChannelManager test without resolving the package decisions.
+
+### [x] `DCR-2` Channel Setup UI Persistence And Runtime Contract
+
+- Status: completed
+- Dimensions/rubric tags: persistence ownership, contract coherence, error
+  consistency, cross-module architecture, type safety, test strategy
+- Scope owner: channel setup UI/core boundary owner
+- Why this package exists / production risk: channel setup spans UI, app-shell,
+  core planning, Plex library facets, and persistence. Direct selected-server
+  storage reads and ambiguous failure/result contracts bypass the intended
+  app-shell/core seams and make setup failures hard to reason about.
+- Files in scope:
+  - `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
+  - `src/modules/ui/channel-setup/ChannelSetupScreenPorts.ts`
+  - `src/modules/ui/channel-setup/ChannelSetupSessionContracts.ts`
+  - `src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts`
+  - `src/modules/ui/channel-setup/ChannelSetupSessionState.ts`
+  - `src/modules/ui/channel-setup/__tests__/*`
+  - `src/core/app-shell/AppLazyScreenPortFactory.ts`
+  - `src/core/app-shell/AppShellRuntimeContracts.ts`
+  - `src/core/channel-setup/workflow/ChannelSetupWorkflowPort.ts`
+  - `src/core/channel-setup/workflow/createChannelSetupWorkflowPort.ts`
+  - `src/core/channel-setup/planning/ChannelSetupPlanningService.ts`
+  - `src/core/channel-setup/planning/ChannelSetupFacetSnapshotFailures.ts`
+- Files out of scope:
+  - deep facet loader/executor cache/test cleanup owned by `DCR-7`
+  - broad Plex library behavior outside setup facet failure semantics
+  - accepted `ChannelSetupSessionState` normalization import unless ownership
+    changes
+- Known issues to retire:
+  - actual issues:
+    - `DCR-2-A1`: `ChannelSetupScreen` imports/instantiates
+      `ServerSelectionStore` and reads selected-server persistence directly,
+      bypassing app-shell/core ports.
+  - owner decisions:
+    - `DCR-2-D1`: decide failure semantics for collections/playlists/native
+      tags. Collection/playlist failures currently continue as warnings while
+      native tag failures block or slow plan creation; chosen behavior needs
+      tests if changed.
+    - `DCR-2-D2`: decide whether the UI runtime result shape should keep
+      string-only load/build/completion errors or move to typed summarized
+      errors. If string-only is retained, record the UI-level contract and
+      owner.
+  - accepted residuals:
+    - `ChannelSetupSessionState` -> `normalizeChannelSetupConfig` remains
+      accepted unless record-normalization ownership changes.
+- Completion means: selected-server persistence flows only through the
+  approved ports; failure semantics and result error shape are decided and
+  tested or explicitly accepted; the package cannot close with only the direct
+  store import removed while the runtime contract decisions remain open.
+- Verification routing: targeted channel setup UI/session/core workflow tests,
+  source audit for `ServerSelectionStore`/selected-server storage use in UI,
+  failure-semantics tests if changed, then `npm run verify`.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `DCR-2-S1` | remove selected-server persistence leak behind app-shell/core port | UI screen/session + app-shell port tests | serial before S2 if runtime result shape changes |
+  | `DCR-2-S2` | settle runtime result error contract | UI session contracts/runtime/tests | serial with S1 |
+  | `DCR-2-S3` | settle facet failure semantics at planning boundary | planning service/failure tests | may run apart from S1/S2 only with disjoint tests |
+
+- Stop/replan triggers: selected-server fix requires changing Plex discovery
+  store ownership; UI error shape change becomes user-visible product behavior;
+  facet decision overlaps DCR-7 cache/executor ownership.
+- Plan:
+  [`docs/archive/plans/2026-04-29-dcr-2-channel-setup-ui-persistence-runtime-contract.md`](./docs/archive/plans/2026-04-29-dcr-2-channel-setup-ui-persistence-runtime-contract.md)
+- Last touched: 2026-04-29, implementation commit `fe7ec675`
+- Verification: plan review approved with no material findings; targeted
+  selected-server source audits passed; targeted channel setup/app-shell Jest
+  coverage passed (`7` suites / `170` tests); targeted channel setup contract
+  test passed (`1` suite / `6` tests); `npm run typecheck` passed;
+  implementation review approved `DCR-2-WAVE1` with no material findings;
+  `npm run verify` passed after checklist/current-state/plan-archive closeout
+  changes; final `npm run verify:docs` passed after the mini-record evidence
+  update.
+- Follow-ups: accepted residual only:
+  `ChannelSetupSessionState` -> `normalizeChannelSetupConfig` remains owned by
+  the channel setup record-normalization owner, with revisit trigger if
+  setup-record normalization ownership changes or `DCR-EXIT` source
+  reconciliation disproves the accepted baseline. `DCR-7` remains open for
+  loader/executor cache, progress, concurrency, and fixture cleanup. `DCR-10`
+  remains open for unrelated catch-all test structure policy.
+- Handoff: `DCR-2` is complete. Do not reopen selected-server persistence in
+  channel setup UI; consume selected-server runtime state through the
+  app-shell/core channel setup port. DCR-3 is the next unchecked DCR package
+  only when the maintainer starts the next cleanup loop.
+
+### [x] `DCR-3` Event Subscription And Error Import Coherence
+
+- Status: completed
+- Dimensions/rubric tags: API surface coherence, contract coherence, type
+  safety, cross-module architecture, duplication, naming/API consistency
+- Scope owner: shared event/API contract owner with module-specific event
+  owners
+- Why this package exists / production risk: runtime listeners span navigation,
+  player, Plex, EPG, auth, discovery, and channel management. Mixed
+  disposable-return and void `on/off` patterns make cleanup ownership and
+  leak-prevention inconsistent, while `AppErrorCode` import-source drift keeps
+  the error taxonomy seam unclear.
+- Files in scope:
+  - `src/utils/EventEmitter.ts`
+  - `src/utils/__tests__/EventEmitter.test.ts`
+  - `src/modules/navigation/interfaces.ts`
+  - `src/modules/navigation/NavigationManager.ts`
+  - `src/modules/navigation/NavigationCoordinator.ts`
+  - `src/modules/navigation/NavigationCoordinatorEventPort.ts`
+  - `src/modules/navigation/__tests__/NavigationManager.test.ts`
+  - `src/modules/navigation/__tests__/NavigationCoordinator.test.ts`
+  - `src/modules/player/interfaces.ts`
+  - `src/modules/player/VideoPlayer.ts`
+  - `src/modules/player/VideoPlayerEvents.ts`
+  - `src/modules/player/__tests__/VideoPlayerEvents.test.ts`
+  - `src/modules/plex/stream/interfaces.ts`
+  - `src/modules/plex/stream/PlexStreamResolver.ts`
+  - `src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts`
+  - `src/modules/plex/library/interfaces.ts`
+  - `src/modules/plex/library/PlexLibrary.ts`
+  - `src/modules/plex/library/__tests__/PlexLibrary.test.ts`
+  - `src/modules/plex/auth/interfaces.ts`
+  - `src/modules/plex/auth/PlexAuth.ts`
+  - `src/modules/plex/discovery/interfaces.ts`
+  - `src/modules/plex/discovery/PlexServerDiscovery.ts`
+  - `src/modules/scheduler/channel-manager/interfaces.ts`
+  - `src/modules/scheduler/channel-manager/ChannelManager.ts`
+  - `src/modules/ui/epg/component/EPGComponent.ts`
+  - `src/modules/ui/epg/component/DeferredEPGComponent.ts`
+  - `src/modules/ui/epg/view/EPGErrorBoundary.ts`
+  - `src/modules/ui/epg/__tests__/EPGComponent.test.ts`
+  - `src/modules/ui/epg/__tests__/EPGErrorBoundary.test.ts`
+  - `src/App.ts`
+  - `src/core/orchestrator/AppOrchestrator.ts`
+  - `src/types/app-errors.ts`
+  - `src/core/error-recovery/LifecycleErrorAdapter.ts`
+- Files out of scope:
+  - unrelated behavior changes inside event producers
+  - broad App or AppOrchestrator decomposition beyond import/API normalization
+  - token/security behavior already owned by Plex packages
+- Known issues to retire:
+  - actual issues:
+    - `DCR-3-A1`: canonical `EventEmitter` returns `IDisposable`, but
+      navigation/player/Plex stream/EPG surfaces expose void `on/off` while
+      Plex auth/discovery/channel-manager expose disposable `on()`.
+    - `DCR-3-A2`: Plex library interface declares void subscription cleanup
+      while implementation returns a disposable.
+    - `DCR-3-A3`: `App`, `AppOrchestrator`, and Plex import `AppErrorCode` from
+      drifted sources; choose and normalize the canonical import path for
+      production modules.
+  - owner decisions:
+    - `DCR-3-D1`: decide whether all event APIs should return `IDisposable`,
+      support `off`, or keep a documented split by module boundary.
+    - `DCR-3-D2`: decide whether lifecycle/error-recovery facade imports remain
+      valid for production callers or whether direct `src/types/app-errors`
+      imports are canonical.
+  - accepted residuals:
+    - none.
+- Completion means: event subscription contracts are internally coherent and
+  documented/tested at the public seams; Plex library interface matches
+  implementation; error-code import source is normalized or explicitly
+  documented. Closing only one event producer is not enough.
+- Verification routing: targeted event surface/interface tests, source audit for
+  `on(`/`off(` return contracts and `AppErrorCode` import paths, then
+  `npm run verify`.
+- Ready-now execution unit: completed.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `DCR-3-S1` | choose and normalize event subscription contract | shared event utilities + module interfaces/tests | serial; shared public seam |
+  | `DCR-3-S2` | normalize Plex library subscription interface | Plex library interface/implementation/tests | may join S1 wave |
+  | `DCR-3-S3` | normalize `AppErrorCode` import source | app/orchestrator/Plex imports/tests | may run after S1 if no shared files |
+
+- Stop/replan triggers: public interface changes require broad caller rewrites;
+  canonical event decision conflicts with existing docs/API; error taxonomy
+  facade ownership is still undecided after source discovery.
+- Plan:
+  [`docs/archive/plans/2026-04-29-dcr-3-event-subscription-error-import-coherence.md`](./docs/archive/plans/2026-04-29-dcr-3-event-subscription-error-import-coherence.md)
+- Last touched: 2026-04-29, implementation commits `53b57edb`,
+  `25a3e2f9`, and `d274fa74`
+- Verification: plan review initially found material scope/audit issues; the
+  planner revised them, same-reviewer closure approved, and a fresh final plan
+  review approved implementation. `DCR-3-WAVE1` implementation review approved
+  disposable-return event contract normalization with no material findings.
+  `DCR-3-S3` implementation review found remaining lifecycle-sourced
+  `AppErrorCode` imports in channel-manager/profile-select production files;
+  revision commit `d274fa74` fixed them, same-reviewer closure approved, and a
+  fresh final implementation review approved S3. Targeted event/interface tests
+  passed; targeted S3 tests passed; source audits passed for public `on()`
+  return contracts and production `AppErrorCode` import/re-export drift;
+  `npm run typecheck` passed; `npm run verify` passed; `npm run verify:docs`
+  passed after the Plex API docs and checklist closeout updates.
+- Follow-ups: none. The canonical event contract is that public `on()` methods
+  return `IDisposable`; existing `off()` remains where already exposed, but new
+  cleanup should prefer the disposable. The canonical production
+  `AppErrorCode` import source for non-lifecycle modules is
+  `src/types/app-errors.ts`; lifecycle-owned non-`AppErrorCode` types remain
+  with lifecycle owners.
+- Handoff: `DCR-3` is complete. Do not reopen event subscription cleanup unless
+  a new public `on()` surface returns `void` or source audit finds a real
+  listener-cleanup regression. Do not reopen `AppErrorCode` import coherence
+  unless a non-lifecycle production module imports or re-exports it from a
+  lifecycle/Plex facade. `DCR-4` is the next unchecked DCR package only when
+  the maintainer starts the next cleanup loop.
+
+### [ ] `DCR-4` EPG Defaults And Constants Coherence
+
+- Status: not started
+- Dimensions/rubric tags: contract coherence, UI correctness, test strategy,
+  source-of-truth coherence, logic clarity
+- Scope owner: EPG config/app-shell config boundary owner
+- Why this package exists / production risk: inconsistent EPG defaults produce
+  subtle layout/runtime drift between UI-owned constants and app-shell
+  orchestrator config assembly.
+- Files in scope:
+  - `src/modules/ui/epg/constants.ts`
+  - `src/modules/ui/epg/types.ts`
+  - `src/modules/ui/epg/component/EPGComponent.ts`
+  - `src/modules/ui/epg/__tests__/*`
+  - `src/core/app-shell/AppOrchestratorConfigFactory.ts`
+  - `src/core/app-shell/__tests__/AppOrchestratorConfigFactory.test.ts`
+  - `src/modules/ui/epg/startup/buildEPGStartupConfig.ts`
+- Files out of scope:
+  - EPGVirtualizer internals unless row-height source-of-truth changes require
+    test updates
+  - broad EPG design/layout refactors
+  - app-shell composition behavior unrelated to EPG config defaults
+- Known issues to retire:
+  - actual issues:
+    - `DCR-4-A1`: UI EPG constants use `rowHeight` 108 while
+      `AppOrchestratorConfigFactory` defines `DEFAULT_EPG_CONFIG.rowHeight` 96.
+  - owner decisions:
+    - `DCR-4-D1`: decide which module owns canonical EPG default config and
+      whether app-shell should import it, adapt it, or intentionally override
+      it with documented rationale.
+  - accepted residuals:
+    - `EPGVirtualizer` remains a bounded performance owner unless canonical
+      defaults force direct changes.
+- Completion means: there is one documented source of truth or an explicit
+  documented override for EPG row height; tests protect the chosen contract; no
+  package closeout if only one literal is changed without deciding ownership.
+- Verification routing: targeted app-shell config and EPG config tests, source
+  audit for `rowHeight` defaults, then `npm run verify`.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `DCR-4-S1` | decide and normalize EPG default ownership | EPG constants + app-shell config/tests | single-slice package |
+
+- Stop/replan triggers: default change requires visual/product approval; tests
+  reveal row height is intentionally context-specific; fix expands into EPG
+  layout/virtualization behavior.
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: start with a small DCR-4 plan that freezes the default owner before
+  editing constants.
+
+### [ ] `DCR-5` Navigation FocusManager Correctness And Tests
+
+- Status: not started
+- Dimensions/rubric tags: test strategy, UI/focus correctness, AI-generated
+  residue, logic clarity, type safety
+- Scope owner: navigation/focus owner
+- Why this package exists / production risk: focus behavior is TV-critical.
+  Restating docblocks lower source signal, while missing visibility/grid/fixed
+  position tests leave D-pad navigation behavior under-proven.
+- Files in scope:
+  - `src/modules/navigation/FocusManager.ts`
+  - `src/modules/navigation/__tests__/FocusManager.test.ts`
+  - focus policy helpers/tests if needed to preserve public behavior
+- Files out of scope:
+  - broad `NavigationManager` or remote input refactors
+  - Settings focus extraction, already closed
+  - UI screen-specific focus coordinators unless source proof shows a direct
+    FocusManager contract dependency
+- Known issues to retire:
+  - actual issues:
+    - `DCR-5-A1`: `FocusManager` contains restating/generated-looking
+      docblocks/comments that should be removed or compressed while preserving
+      real invariants.
+    - `DCR-5-A2`: missing grid/spatial/fixed-position visibility tests leave
+      focus movement behavior under-proven.
+  - owner decisions:
+    - `DCR-5-D1`: decide whether `_isVisible` should rely on `offsetParent`
+      policy as-is, change behavior for fixed-position elements, or document an
+      intentional limitation with tests.
+  - accepted residuals:
+    - no broad navigation rewrite; only FocusManager contract/source-signal
+      cleanup is admitted.
+- Completion means: noisy comments are retired; `_isVisible` policy is decided
+  and covered; grid/spatial/fixed-position tests protect behavior; package
+  cannot close on comment cleanup alone.
+- Verification routing: targeted FocusManager tests, source audit for removed
+  restating comments and `_isVisible` behavior, then `npm run verify`.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `DCR-5-S1` | visibility policy decision and tests | `FocusManager.ts`, `FocusManager.test.ts` | serial |
+  | `DCR-5-S2` | comment/source-signal cleanup after tests lock behavior | `FocusManager.ts` | serial after S1 |
+
+- Stop/replan triggers: visibility behavior affects multiple screen focus
+  coordinators; browser/jsdom limits require manual proof; fix requires public
+  navigation API changes.
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: start with DCR-5 plan; resolve `_isVisible` before cleanup-only
+  edits.
+
+### [ ] `DCR-6` AppOrchestrator Narrow API And File-Health Cleanup
+
+- Status: not started
+- Dimensions/rubric tags: file health, API surface coherence, cross-module
+  architecture, duplication, AI-generated residue, initialization coupling
+- Scope owner: core orchestrator owner
+- Why this package exists / production risk: `AppOrchestrator` remains a large
+  runtime hub. The intended cleanup is narrow: reduce avoidable API/file-health
+  risks without reopening a broad orchestrator rewrite.
+- Files in scope:
+  - `src/core/orchestrator/AppOrchestrator.ts`
+  - `src/Orchestrator.ts`
+  - `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts`
+  - `src/core/orchestrator/OrchestratorCoordinatorContracts.ts`
+  - `src/core/orchestrator/OrchestratorPlaybackStateAccessors.ts`
+  - `src/core/orchestrator/OrchestratorEventCleanupReporter.ts`
+  - `src/core/orchestrator/__tests__/*`
+  - `src/__tests__/Orchestrator.test.ts`
+- Files out of scope:
+  - broad priority-one, app-shell, EPG, Plex, or playback redesign
+  - `src/App.ts` cleanup unless import/API normalization from `DCR-3` requires
+    a narrow touch
+  - module factory rewrites not needed for listed issues
+- Known issues to retire:
+  - actual issues:
+    - `DCR-6-A1`: `AppOrchestrator` remains a large hub with wider public
+      exports/API surface than needed.
+    - `DCR-6-A2`: inline playback snapshot logic should be owned by a focused
+      accessor/helper if source review confirms it is still inline.
+    - `DCR-6-A3`: non-null assertion cluster in coordinator assembly input
+      needs a safer owned construction seam.
+    - `DCR-6-A4`: restating docs/comments and repeated shutdown teardown
+      pattern lower source signal and increase maintenance risk.
+  - owner decisions:
+    - `DCR-6-D1`: decide exact public exports that `src/Orchestrator.ts` should
+      retain for app/test import stability.
+  - accepted residuals:
+    - no broad orchestrator rewrite; this package is file-health/API surface
+      cleanup only.
+    - `src/App.ts` remains broadly acceptable as composition root.
+- Completion means: listed narrow hub/file-health issues are retired or
+  evidence-reclassified; export surface decision is documented in plan/closeout;
+  no package closeout if only comments are removed while API/non-null/shutdown
+  issues remain.
+- Verification routing: targeted orchestrator tests for touched seams,
+  import/export source audit, `npm run verify`; `npm run verify:docs` if
+  architecture truth changes.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `DCR-6-S1` | export/API surface and playback snapshot ownership | orchestrator barrel/accessor/tests | serial |
+  | `DCR-6-S2` | coordinator assembly non-null cluster | assembly contracts/builders/tests | serial with S1 if shared construction |
+  | `DCR-6-S3` | shutdown teardown pattern and source-signal cleanup | orchestrator teardown/reporting/tests | may be same wave after S1/S2 |
+
+- Stop/replan triggers: cleanup requires moving ownership into app-shell or
+  priority-one modules; public runtime API consumers outside tests break;
+  extracted helper starts becoming a second orchestrator.
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: start with DCR-6 plan that explicitly keeps this narrow and names
+  frozen adjacent owners.
+
+### [ ] `DCR-7` Channel Setup Facet Loader/Executor Confidence And Abstraction
+
+- Status: not started
+- Dimensions/rubric tags: test health, duplication, abstraction fitness,
+  contract coherence, logic clarity, file health
+- Scope owner: core channel setup planning owner
+- Why this package exists / production risk: facet loading/execution controls
+  setup plan quality and user feedback. Missing cache/concurrency/progress tests
+  plus duplicated fixtures and wide options ports make future changes risky.
+- Files in scope:
+  - `src/core/channel-setup/planning/ChannelSetupFacetSnapshotLoader.ts`
+  - `src/core/channel-setup/planning/ChannelSetupFacetLibraryExecutor.ts`
+  - `src/core/channel-setup/planning/ChannelSetupFacetSnapshotLoadSession.ts`
+  - `src/core/channel-setup/planning/ChannelSetupFacetCountRecoveryWorker.ts`
+  - `src/core/channel-setup/planning/ChannelSetupPlanningTypes.ts`
+  - `src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoader.test.ts`
+  - `src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoadSession.test.ts`
+  - `src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts`
+  - shared test utilities under `src/core/channel-setup/__tests__/`
+- Files out of scope:
+  - UI selected-server persistence/runtime contract owned by `DCR-2`
+  - broad Plex library parser/request policy
+  - setup build/commit persistence unless tests prove direct dependency
+- Known issues to retire:
+  - actual issues:
+    - `DCR-7-A1`: missing cache hit, invalidation, cacheability, progress
+      replay, and concurrent waiter tests for facet loader/executor behavior.
+    - `DCR-7-A2`: duplicated facet planning test fixtures should be reduced
+      before adding more cases.
+    - `DCR-7-A3`: executor options port is wide; narrow or justify the contract
+      after source review.
+  - owner decisions:
+    - `DCR-7-D1`: decide exact cacheability/progress replay/concurrent waiter
+      contract to protect before writing tests.
+  - accepted residuals:
+    - none yet; do not accept fixture duplication merely to avoid touching test
+      helpers.
+- Completion means: missing behavior tests are added or source-disproved;
+  fixture duplication is reduced or assigned one owner/revisit trigger; executor
+  options contract is narrowed or explicitly justified. Package cannot close by
+  adding one cache test while leaving the rest open.
+- Verification routing: targeted channel setup planning/facet tests, source
+  audit for duplicated fixtures and executor option consumers, then
+  `npm run verify`.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `DCR-7-S1` | fixture/test utility consolidation | channel setup test helpers/tests | serial first |
+  | `DCR-7-S2` | loader cache/progress/concurrency contract tests | loader/session tests | serial after S1 |
+  | `DCR-7-S3` | executor options port cleanup/justification | executor/types/tests | may run after S1 if disjoint from S2 |
+
+- Stop/replan triggers: cache semantics conflict with DCR-2 failure semantics;
+  tests reveal production behavior bug outside planning owner; port narrowing
+  requires Plex library contract changes.
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: start with DCR-7 plan that consolidates fixture ownership before
+  adding substantial new test cases.
+
+### [ ] `DCR-8` Plex Stream Resolver Ownership Cleanup
+
+- Status: not started
+- Dimensions/rubric tags: cross-module architecture, abstraction fitness,
+  security, contract coherence, error consistency, test strategy
+- Scope owner: Plex stream/subtitle policy owner
+- Why this package exists / production risk: stream resolution is a production
+  playback boundary. Resolver orchestration, debug subtitle probing, universal
+  transcode decision fetch/parse, and direct settings/debug store construction
+  are mixed enough to make playback behavior and token safety harder to audit.
+- Files in scope:
+  - `src/modules/plex/stream/PlexStreamResolver.ts`
+  - `src/modules/plex/stream/interfaces.ts`
+  - `src/modules/plex/stream/resolveStreamPipeline.ts`
+  - `src/modules/plex/stream/SubtitleStreamProbe.ts`
+  - `src/modules/plex/stream/SubtitleStreamProbeSupport.ts`
+  - `src/modules/plex/stream/plexStreamUrlPolicy.ts`
+  - `src/modules/plex/stream/__tests__/*`
+  - `src/modules/settings/*Store.ts` only as constructor-injected dependencies
+    if needed
+  - `src/modules/debug/*Store.ts` only as constructor-injected dependencies if
+    needed
+- Files out of scope:
+  - Plex auth/discovery/library parser redesign
+  - token redaction behavior except preserving/strengthening existing coverage
+  - player UI or native media policy outside stream resolver contracts
+- Known issues to retire:
+  - actual issues:
+    - `DCR-8-A1`: `PlexStreamResolver` mixes main stream resolution with debug
+      subtitle probing.
+    - `DCR-8-A2`: universal transcode decision fetch/parse is still owned
+      inline by resolver rather than a focused collaborator if source review
+      confirms the mix.
+    - `DCR-8-A3`: resolver directly instantiates settings/debug stores instead
+      of receiving typed policy dependencies.
+  - owner decisions:
+    - `DCR-8-D1`: choose the narrow owner for debug subtitle probing and
+      universal decision fetch/parse without creating speculative abstractions.
+  - accepted residuals:
+    - Plex token redaction/security is currently acceptable and must remain
+      protected.
+- Completion means: resolver dependency ownership is explicit; debug/probe and
+  universal decision responsibilities are extracted or source-justified; token
+  redaction coverage remains intact; no closeout if only one helper moves while
+  direct store construction remains unaddressed.
+- Verification routing: focused Plex stream/subtitle/url-policy tests, source
+  audit for token-bearing logs and direct store construction, then
+  `npm run verify`; update `docs/api/plex-integration.md` only if public stream
+  contract changes.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `DCR-8-S1` | dependency injection for settings/debug policy | resolver/interfaces/tests | serial |
+  | `DCR-8-S2` | debug subtitle probing ownership | subtitle probe/support/tests | serial with S1 if constructor changes |
+  | `DCR-8-S3` | universal decision fetch/parse ownership | resolver/pipeline/url policy/tests | serial unless plan proves disjoint |
+
+- Stop/replan triggers: extraction changes playback URL/security contract;
+  token redaction behavior regresses; solution requires auth/discovery/library
+  ownership changes; tests require real device/manual proof beyond approved
+  package.
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: start with DCR-8 plan and explicitly preserve token redaction before
+  authorizing stream resolver edits.
+
+### [ ] `DCR-9` Lifecycle Migration And Comment/API Cleanup
+
+- Status: not started
+- Dimensions/rubric tags: AI-generated residue, incomplete migration, API
+  surface coherence, initialization coupling, contract coherence
+- Scope owner: lifecycle module owner
+- Why this package exists / production risk: lifecycle state is a portability
+  and startup boundary. Restating comments and an empty exported migration seam
+  make it unclear which contracts are intentional versus speculative.
+- Files in scope:
+  - `src/modules/lifecycle/AppLifecycle.ts`
+  - `src/modules/lifecycle/constants.ts`
+  - `src/modules/lifecycle/interfaces.ts`
+  - `src/modules/lifecycle/StateManager.ts`
+  - `src/modules/lifecycle/__tests__/AppLifecycle.test.ts`
+  - `src/modules/lifecycle/__tests__/StateManager.test.ts`
+- Files out of scope:
+  - broad storage helper redesign
+  - app-shell startup sequencing unless lifecycle API change requires docs
+  - future Windows/Electron port implementation
+- Known issues to retire:
+  - actual issues:
+    - `DCR-9-A1`: lifecycle/AppLifecycle/constants have restating comments that
+      should be removed or compressed while preserving invariant/platform notes.
+  - owner decisions:
+    - `DCR-9-D1`: decide whether empty exported `MIGRATIONS` is an intentional
+      versioning seam or speculative API. Keep, remove, or document it with
+      tests/source references.
+  - accepted residuals:
+    - none yet; future-port lifecycle work belongs to port owner, not this
+      package, unless source proof shows cleanup is required now.
+- Completion means: restating lifecycle comments are cleaned; `MIGRATIONS`
+  status is decided and protected/documented; package cannot close on comment
+  cleanup alone while the exported empty API remains undecided.
+- Verification routing: targeted lifecycle tests if API changes,
+  behavior-neutral diff/source audit for comment cleanup, then `npm run verify`;
+  `npm run verify:docs` if architecture/current-state docs change.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `DCR-9-S1` | `MIGRATIONS` keep/remove/document decision | lifecycle constants/interfaces/tests | serial |
+  | `DCR-9-S2` | lifecycle comment/source-signal cleanup | lifecycle source/tests as needed | serial after S1 |
+
+- Stop/replan triggers: migration decision changes persisted lifecycle payload
+  contract; cleanup requires app-shell startup changes; storage compatibility
+  policy becomes unclear.
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: start with DCR-9 plan that resolves the migration seam before
+  editing exported lifecycle constants.
+
+### [ ] `DCR-10` Oversized Test Suite Structure Policy
+
+- Status: not started
+- Dimensions/rubric tags: test health, file health, duplication, maintainability,
+  source organization
+- Scope owner: test-suite structure owner for affected packages
+- Why this package exists / production risk: `ChannelManager.test.ts` and
+  `SettingsScreen.test.ts` are catch-all files. Adding DCR coverage directly to
+  them without a split policy will keep concentrating test maintenance risk.
+- Files in scope:
+  - `src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts`
+  - new/split channel-manager test files under the same `__tests__` directory
+  - `src/modules/ui/settings/__tests__/SettingsScreen.test.ts`
+  - new/split settings screen test files under the same `__tests__` directory
+  - local package test utilities needed by the splits
+- Files out of scope:
+  - Settings focus extraction behavior already closed
+  - production source changes except import/export adjustments required by
+    test-only fixture splits
+  - broad repo-wide test harness rewrite
+- Known issues to retire:
+  - actual issues:
+    - `DCR-10-A1`: `ChannelManager.test.ts` should not absorb new
+      transactional/reorder/error coverage without a split policy.
+    - `DCR-10-A2`: `SettingsScreen.test.ts` should not absorb new constructor
+      dependency coverage without a split policy.
+    - `DCR-10-A3`: `SettingsScreen` has an eight-positional-param constructor
+      and tests use `undefined` placeholders; resolve with a deps object and
+      targeted tests, or record a maintainer-approved migration out of DCR with
+      destination, owner, revisit trigger, and non-blocker rationale.
+  - owner decisions:
+    - `DCR-10-D1`: decide whether the constructor cleanup is implemented in this
+      package or split into a named package-specific Settings destination. A
+      split requires maintainer approval and cannot leave DCR-10 incomplete.
+  - accepted residuals:
+    - no broad Settings redesign; existing focus extraction remains closed.
+- Completion means: affected packages have a clear split policy or completed
+  split before new DCR coverage is added; Settings constructor cleanup is
+  implemented with deps-object tests or migrated out under the DCR migration
+  rule; package cannot close with only a note saying tests are large.
+- Verification routing: targeted split test files plus affected package tests,
+  `npm test`/`npm run verify` depending on whether production constructor/API
+  changes are included.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `DCR-10-S1` | ChannelManager test split policy before DCR-1 coverage | channel-manager tests/helpers | can precede DCR-1 |
+  | `DCR-10-S2` | SettingsScreen constructor/test split decision | settings tests and constructor if approved | separate from S1 |
+
+- Stop/replan triggers: constructor cleanup changes public Settings screen
+  construction in app-shell; test split requires production extraction; another
+  reviewed package already completed the DCR-10 split/constructor obligations
+  and updates this record before `DCR-EXIT`.
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: DCR-10 is mandatory before `DCR-EXIT`. It may be planned before
+  DCR-1 or Settings-adjacent work when oversized tests would block adding
+  coverage; otherwise the first package that needs those tests must coordinate
+  with DCR-10 instead of absorbing new cases into catch-all files.
+
+### [ ] `DCR-EXIT` Dimension Cleanup Exit Gate
+
+- Status: not started
+- Dimensions/rubric tags: final reconciliation, source-backed proof, test
+  confidence, portability residuals, docs/control-plane coherence
+- Scope owner: cleanup controller/final reconciliation owner
+- Why this package exists / production risk: the user wants cleanup to be done
+  after these known high-confidence issues are handled, before any fresh
+  scoring-only run. The exit gate prevents another narrow pass by requiring
+  source-backed reconciliation across every DCR package.
+- Files in scope:
+  - `ARCHITECTURE_CLEANUP_CHECKLIST.md`
+  - DCR package plans/audits if created under `docs/plans/`
+  - `docs/architecture/CURRENT_STATE.md`
+  - architecture/API/design docs touched by DCR packages
+  - source/test files only for read-only reconciliation unless a final package
+    explicitly reopens implementation
+- Files out of scope:
+  - fresh Desloppify scan/queue import as task intake
+  - optional external score refresh until after DCR exit is complete
+  - future Windows/Electron port implementation
+- Known issues to retire:
+  - actual issues:
+    - `DCR-EXIT-A1`: reconcile every DCR package and prove all actual issues
+      are fixed, source-disproved, or explicitly reclassified with evidence.
+    - `DCR-EXIT-A2`: confirm all owner decisions have one recorded outcome,
+      owner, and revisit trigger if accepted.
+    - `DCR-EXIT-A3`: verify current architecture/API docs still match source
+      after DCR changes.
+  - owner decisions:
+    - `DCR-EXIT-D1`: decide whether to run the optional external score refresh
+      after exit. It may inform retrospective notes but must not reopen the
+      checklist by itself.
+  - accepted residuals:
+    - `FCP-6` future-port residual remains explicit: real Windows/Electron
+      shell, real device Plex, native media, and manual integration proof belong
+      to the future-port owner and are not DCR source cleanup blockers.
+- Completion means: all `DCR-1` through `DCR-10` packages are completed. Any
+  unresolved work must already be handled inside a completed package as an
+  individual issue/residual disposition or as a maintainer-approved migration
+  out of DCR with named destination, owner, revisit trigger, and non-blocker
+  rationale. Source-backed final reconciliation finds no unowned same-area
+  residue; docs/current-state are accurate; required verification and clean
+  closeout review are recorded.
+- Verification routing: source-backed DCR reconciliation audit, package-local
+  static/source audits for old patterns, strongest relevant package
+  verification already run, final `npm run verify`, and `npm run verify:docs`.
+  Optional external score refresh only after this gate is completed.
+- Ready-now execution unit: none until all DCR packages are complete.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `DCR-EXIT-S1` | package proof matrix reconciliation | checklist/plans/docs read/write | serial |
+  | `DCR-EXIT-S2` | architecture/API/current-state doc reconciliation | docs + source audit | serial after S1 |
+  | `DCR-EXIT-S3` | optional external score refresh decision/result | retrospective artifact only | after exit criteria pass |
+
+- Stop/replan triggers: any DCR package has open actual issues; source audit
+  finds new same-area production residue not owned by a package; docs conflict
+  with source; optional score output is treated as task intake.
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Follow-ups: future-port residuals owned by port/test owner as above; no other
+  follow-ups yet
+- Handoff: do not run a fresh scoring-only pass before this exit gate completes.
+  Start `DCR-1` or another maintainer-selected DCR package first.
+
+## FCP Baseline History
+
+The six `FCP-*` priorities below produced real improvements and are preserved
+as baseline evidence. They were too conservative and narrow for the intended
+production cleanup finish. Do not choose `FCP-*` or `FCP-EXIT` as the next active
+cleanup-loop package unless a maintainer explicitly reopens that history; use
+the `DCR-*` packages above instead.
 
 ### [x] `FCP-1` Architecture And Handoff Coherence
 
@@ -190,8 +1058,8 @@ issue ids, package maps, score deltas, or triage as closure input.
   audits, targeted tests for touched runtime seams, `npm run verify` for source
   work, and `npm run verify:docs` if current architecture truth changes.
 - Status: completed
-- Plan: `docs/plans/2026-04-29-fcp-1-app-orchestrator-runtime-assembly-hub.md`
-- Audit: `docs/plans/2026-04-29-fcp-1-architecture-handoff-audit.md`
+- Plan: archived in git history; baseline summary retained here.
+- Audit: archived in git history; source-finding proof matrix retained here.
 - Last touched: 2026-04-29
 - Verification: `FCP-1-S1` source audits confirmed no app-shell
   import/exposure of `OrchestratorServerSelectionResult` /
@@ -229,8 +1097,8 @@ issue ids, package maps, score deltas, or triage as closure input.
   object). Accepted residual: `ChannelSetupSessionState.ts` still imports
   `normalizeChannelSetupConfig` from core planning; this is not DTO/constants
   residue. Final owner: channel setup UI/core boundary owner. Revisit trigger:
-  rerun the FCP-1 audit if setup record hydration/normalization ownership
-  changes, and include it in the final FCP reconciliation pass after the cleanup
+  recheck this baseline if setup record hydration/normalization ownership
+  changes, and include it in the final DCR reconciliation pass after the cleanup
   checklist completes. `FCP-1-SF4` resolved by commits `f2b33f28` and
   `05b6cf8`: `AppOrchestrator` now keeps only priority-one guards, required
   module validation, grouped call to `createPriorityOneRuntimeAssembly()`, and
@@ -240,12 +1108,8 @@ issue ids, package maps, score deltas, or triage as closure input.
   coordinator assembly, runtime-controller builder, and initialization
   coordinator are accepted/no-action because current source still has focused
   owners and SF4 implementation did not need to edit them.
-- Handoff: Completed plans are
-  `docs/plans/2026-04-29-fcp-1-architecture-handoff-coherence.md`,
-  `docs/plans/2026-04-29-fcp-1-channel-setup-ui-core-handoff.md`, and
-  `docs/plans/2026-04-29-fcp-1-app-orchestrator-runtime-assembly-hub.md`.
-  Master audit:
-  `docs/plans/2026-04-29-fcp-1-architecture-handoff-audit.md`. Plan reviews
+- Handoff: Completed FCP-1 plans and master audit are archived in git history.
+  The retained baseline summary above is the active reference. Plan reviews
   passed for each package; SF4 implementation review closure found no findings
   and a fresh final implementation review approved SF4 source implementation for
   docs/audit closeout. Fresh FCP-1 priority-exit closeout review found no
@@ -254,7 +1118,7 @@ issue ids, package maps, score deltas, or triage as closure input.
   evidence, and mini-record update. `npm run verify:docs` passed after this
   completion status update.
 
-### [ ] `FCP-2` Runtime Contracts And Failure Semantics
+### [x] `FCP-2` Runtime Contracts And Failure Semantics
 
 - Scope: make public/internal runtime contracts predictable across parsing,
   network, Plex, persistence, startup, lifecycle, scheduler, and player paths.
@@ -270,15 +1134,39 @@ issue ids, package maps, score deltas, or triage as closure input.
   regress, source audit of error/fallback propagation, `npm run verify` for
   runtime changes, and reference-doc updates when public behavior contracts
   change.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: planner should start with runtime boundaries whose failures would be
-  user-visible or port-blocking, then freeze one narrow contract/failure package.
+- Status: completed
+- Plan: archived in git history; baseline summary retained here.
+- Audit: archived in git history; source-finding proof matrix retained here.
+- Last touched: 2026-04-29
+- Verification: `FCP-2-SF1` resolved by commit `239b3db5`
+  (`fix(fcp-2): enforce channel authoring failures`). Targeted ChannelManager
+  tests passed (`npm run test:unit --
+  src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts`, 1
+  suite / 83 tests). Focused source audit for error/fallback strings returned
+  expected ChannelManager/test anchors; focused coupling audit for raw storage,
+  raw fetch, and direct Plex owner references in `ChannelManager.ts` returned no
+  matches. Initial final `npm run verify` attempt exited 139 during
+  `npm run test:contracts` after earlier phases passed; direct `npm run
+  test:contracts` rerun passed (7 suites / 201 tests). Final `npm run verify`
+  rerun passed after the completion update, including typecheck, architecture
+  lint, CSS lint, coverage tests, tools tests, contracts, docs verification, and
+  build. Standalone `npm run verify:docs` passed after the completion update.
+- Follow-ups: proof matrix: `FCP-2-SF1` resolved by commit `239b3db5`.
+  `createChannel()` and content-affecting `updateChannel()` now resolve content
+  before publishing channel state, propagate non-fallback failures without
+  persist/emit/state mutation, preserve deleted/empty-source fallback, and keep
+  import non-fallback failures in structured skipped-record `ImportResult`
+  errors. Accepted/no-action areas remain owned by Plex auth,
+  Plex discovery, Plex library, Plex stream, storage owners, lifecycle/startup,
+  channel tuning, and player/playback owners. No deferred `FCP-2` source
+  findings are admitted. Revisit trigger: `DCR-EXIT` must recheck this FCP-2
+  baseline against implemented source/docs changes as retained evidence.
+- Handoff: Fresh FCP-2 closeout review found no material findings and approved
+  completion after accepting the proof matrix, accepted/no-action owner record,
+  verification evidence, and mini-record update. Historical next priority was
+  `FCP-3`; active follow-up now routes through the DCR packages above.
 
-### [ ] `FCP-3` Focused Design Coherence
+### [x] `FCP-3` Focused Design Coherence
 
 - Scope: improve focused design where a file, class, or function mixes distinct
   responsibilities, carries dense control flow, or obscures the domain model.
@@ -294,15 +1182,47 @@ issue ids, package maps, score deltas, or triage as closure input.
 - Verification routing: targeted tests for touched behavior, source review for
   responsibility boundaries, import/API stability audits, and `npm run verify`
   for source work.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: planner should select one cohesive design package whose owner and
-  proof surface are obvious after audit.
+- Status: completed
+- Plan: archived in git history; baseline summary retained here.
+- Audit: archived in git history; source-finding proof matrix retained here.
+- Last touched: 2026-04-29
+- Verification: `FCP-3-SF1` resolved by implementation commit `22847d97`
+  (`Extract settings screen focus coordinator`). Targeted controller rerun
+  passed (`npm run test:unit --
+  src/modules/ui/settings/__tests__/SettingsScreen.test.ts
+  src/modules/ui/settings/__tests__/SettingsScreenStateController.test.ts`, 2
+  suites / 46 tests). Package-local source audits showed focus graph/key
+  handling/dropdown focus restoration terms moved into
+  `SettingsScreenFocusCoordinator.ts`, with no remaining inline focus-owner
+  implementation in `SettingsScreen.ts`; forbidden focus-owner audit found only
+  allowed type-only `INavigationManager` usage and no storage, Plex/network,
+  app-shell, concrete `NavigationManager`, auth, token, authorization, or
+  security-sensitive persistence ownership. Cleanup-worker `npm run verify`
+  passed after implementation. Controller-rerun final `npm run verify` passed
+  after the completed plan, audit, and checklist closeout update, including
+  typecheck, architecture lint, CSS lint, coverage tests, tools tests, contracts,
+  docs verification, and build.
+- Follow-ups: proof matrix: `FCP-3-SF1` resolved by commit `22847d97`.
+  `SettingsScreenFocusCoordinator.ts` now owns focus graph registration, key
+  routing, dropdown focus restoration, per-category detail focus memory,
+  deferred focus restore intent, and focus registry sync; `SettingsScreen.ts`
+  retains rendering, settings-state consumption, and screen lifecycle
+  delegation. Accepted/no-action and deferred-outside-selected-package areas
+  remain owned by EPG component/view owners, Plex stream resolver
+  owner, scheduler/channel-manager owner, channel setup UI/screen owner, and
+  core orchestrator/priority-one assembly owners, each with revisit triggers.
+  Security triage: `no open P0 security findings`; `DCR-EXIT` must recheck this
+  FCP-3 baseline against implemented source/docs changes as retained
+  evidence.
+- Handoff: Fresh FCP-3 implementation review found no findings and approved
+  `FCP-3-S1` for controller closeout. Fresh FCP-3 priority-exit closeout review
+  found no findings and approved completion after accepting the proof matrix,
+  accepted/no-action and deferred-outside-selected-package owner records,
+  security triage, verification evidence, and mini-record update. Historical
+  next priority was `FCP-4`; active follow-up now routes through the DCR
+  packages above.
 
-### [ ] `FCP-4` AI-Generated Residue And Code Signal
+### [x] `FCP-4` AI-Generated Residue And Code Signal
 
 - Scope: remove code-signal noise that makes production source look generated:
   restating comments, docstring bloat, generic names, defensive boilerplate,
@@ -319,16 +1239,39 @@ issue ids, package maps, score deltas, or triage as closure input.
   targeted source searches for removed and preserved patterns, targeted tests
   when code changes beyond comments, and `npm run verify` when source behavior
   or exported surfaces are touched.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: planner should create one broad but bounded code-signal package with
-  explicit preserve rules, or split only when behavior-coupled cleanup needs a
-  separate proof surface.
+- Status: completed
+- Plan: archived in git history; baseline summary retained here.
+- Audit: archived in git history; source-finding proof matrix retained here.
+- Last touched: 2026-04-29
+- Verification: `FCP-4-WAVE1` implementation commit `f9eca40b` passed
+  `ShuffleResult` pre/post source audits, old-pattern source audit,
+  preserved-pattern source audit, package-local security/source audit,
+  `npm run typecheck`, targeted scheduler tests (3 suites / 79 tests),
+  `npm run verify`, `git diff --check`, and `git diff --cached --check`.
+  Fresh implementation review found no blocking findings and approved the
+  execution unit. Controller closeout `npm run verify:docs` passed in the
+  pending-closeout state. Fresh FCP-4 priority-exit closeout review found no
+  blocking findings and approved completion. Final post-completion
+  `npm run verify:docs` passed before the closeout documentation commit.
+- Follow-ups: completed proof matrix: `FCP-4-SF1` resolved by commit `f9eca40b`
+  (scheduler restating comments/docblocks removed or compressed while invariant
+  comments remain); `FCP-4-SF2` resolved by commit `f9eca40b` (`ShuffleResult`
+  declaration and scheduler barrel export removed after fresh consumer proof
+  found no consumers). Accepted/no-action and out-of-scope residual owners
+  remain recorded here: `ScheduleConfig.loopSchedule` belongs to the scheduler
+  API owner; Plex library interface docs belong to the Plex library contract
+  owner; webOS/media-session/fail-open comments belong to player, Plex shared
+  transport, and platform owners; brand glyph SVG comments belong to the UI
+  common brand asset owner; production barrel comments belong to module package
+  owners; test comment bloat belongs to relevant test owners. Security triage:
+  `no open P0 security findings`.
+- Handoff: FCP-4 is completed with source audit, execution plan, proof matrix,
+  verification evidence, security triage/P0 disposition, implementation review,
+  closeout review, final docs verification, and owned residuals recorded.
+  Historical next priority was `FCP-5`; active follow-up now routes through the
+  DCR packages above.
 
-### [ ] `FCP-5` Portability Readiness
+### [x] `FCP-5` Portability Readiness
 
 - Scope: prepare production code for a Windows/Electron-style port without
   implementing the port. Make platform assumptions explicit around webOS,
@@ -343,15 +1286,38 @@ issue ids, package maps, score deltas, or triage as closure input.
 - Verification routing: platform-assumption source audit, targeted tests for
   changed abstractions, `npm run verify` for runtime changes, and architecture
   or API doc updates when platform contracts become explicit.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: planner should produce a portability-readiness package that clarifies
-  assumptions without adding unused platform frameworks or speculative adapters.
+- Status: completed
+- Plan: archived in git history; baseline summary retained here.
+- Audit: archived in git history; source-finding proof matrix retained here.
+- Last touched: 2026-04-29
+- Verification: plan-review approved `FCP-5-S1` with no material findings.
+  Implementation commit `2f54311e` passed focused `StateManager` tests (24
+  tests), `npm run typecheck`, `npm run verify`, `npm run verify:docs` before
+  implementation and again inside full verify, raw-storage source audit (only
+  `src/utils/storage.ts` production hits remain), and `git diff --check`.
+  Fresh implementation review found no material findings and approved
+  `FCP-5-S1` for closeout. Fresh priority-exit closeout review found no
+  blocking findings and approved completion after accepting the source audit,
+  proof matrix, verification evidence, security triage, and deferred/no-action
+  owner records. Final post-completion `npm run verify:docs` passed before the
+  closeout documentation commit.
+- Follow-ups: proof matrix: `FCP-5-SF1` resolved by commit `2f54311e`
+  (`StateManager` now routes lifecycle state reads/writes/cleanup through safe
+  optional-storage helpers, keeps synchronous `save/load/clear`, preserves
+  quota cleanup-and-retry behavior, and tests blocked/unavailable storage).
+  Deferred/no-action final owners and revisit triggers are retained here for
+  `FCP-5-SF2` through `FCP-5-SF7`: platform owner for webOS default runtime,
+  navigation/exit UI owner for root `window.close()`, Plex/player transport
+  owners for browser fetch/XHR contracts, player/Plex stream owners for native
+  media policy, app/runtime owner for filesystem absence, and Plex/security
+  owners for token/security revisit triggers. Security triage: `no open P0
+  security findings`.
+- Handoff: FCP-5 is completed after source audit, execution plan, proof matrix,
+  verification evidence, security triage/P0 disposition, implementation review,
+  and clean priority-exit closeout review. Historical next priority was
+  `FCP-6`; active follow-up now routes through the DCR packages above.
 
-### [ ] `FCP-6` Test Confidence For The Port
+### [x] `FCP-6` Test Confidence For The Port
 
 - Scope: raise confidence that the eventual port will preserve startup,
   navigation, Plex auth/discovery/library/stream behavior, scheduler/channel
@@ -369,15 +1335,35 @@ issue ids, package maps, score deltas, or triage as closure input.
   real contract, `npm test`/targeted Jest commands as appropriate, `npm run
   verify` for broad runtime proof, and a final optional external score refresh
   after all six priorities complete.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: planner should start from critical port-survival paths and avoid
-  adding brittle tests that only codify implementation details.
+- Status: completed
+- Plan: archived in git history; baseline summary retained here.
+- Audit: archived in git history; source-finding proof matrix retained here.
+- Last touched: 2026-04-29
+- Verification: plan-review approved `FCP-6-S1` with no material findings.
+  Implementation commit `ef09466b` passed focused exit-confirm tests (4 tests),
+  `npm run typecheck`, `npm run verify` including coverage/tools/contracts/docs
+  verification/build, `npm run verify:docs` inside full verify, and
+  `git diff --check`. Fresh implementation review found no material findings
+  and approved `FCP-6-S1` for closeout. Fresh FCP-6 priority-exit closeout
+  review found no material findings and approved completion.
+- Follow-ups: proof matrix: `FCP-6-SF2` resolved by commit `ef09466b`
+  (`ExitConfirmCoordinator` tests now cover modal render/accessibility state,
+  focusable registration, Cancel close, Exit-to-Home via `window.close()`,
+  close/unregister cleanup, and destroy DOM cleanup). `FCP-6-SF1` and
+  `FCP-6-SF3` through `FCP-6-SF10` remain existing-coverage/no-action with
+  baseline ownership archived in git history. `FCP-6-SF11` remains deferred
+  to the future-port test owner for real Windows/Electron shell, device Plex,
+  native media, and manual integration proof. Security triage: no P0 security
+  finding admitted.
+- Handoff: FCP-6 is completed after source-backed test-confidence audit,
+  execution plan, proof matrix, verification evidence, security triage/P0
+  disposition, clean implementation review, clean priority-exit closeout
+  review, and owned residuals recorded.
+  Historical next step was `FCP-EXIT`, but that is superseded by the active
+  `DCR-*` refresh. Do not start `FCP-EXIT` unless a maintainer explicitly
+  reopens the FCP baseline; use `DCR-1` or another selected DCR package.
 
-### [ ] `FCP-EXIT` Final Production Cleanup Exit
+### [ ] `FCP-EXIT` Superseded FCP Exit Anchor
 
 - Close only if: every `FCP-*` priority is completed or explicitly deferred with
   one final owner, all priority closeout reviews are clean, current architecture
@@ -386,7 +1372,7 @@ issue ids, package maps, score deltas, or triage as closure input.
   - source-backed audit package or explicit no-action rationale for every
     priority
   - package proof matrices with every source finding disposed
-  - final reconciliation pass over tracked FCP audit artifacts, implemented
+  - final reconciliation pass over archived FCP audit artifacts, implemented
     changes, mini-record proof matrices, and architecture docs
   - security triage for any touched runtime boundary
   - verification results for runtime and docs surfaces
@@ -400,9 +1386,9 @@ issue ids, package maps, score deltas, or triage as closure input.
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: do not declare final production cleanup complete until all six
-  priorities have source-backed closeout records, clean review evidence, and a
-  completed final reconciliation pass with any residuals owned.
+- Handoff: retained as a historical anchor only. Do not declare final production
+  cleanup complete or run an external score refresh until `DCR-EXIT` completes
+  after all active DCR packages are reconciled.
 
 ## Not Active Checklist Scope By Default
 
@@ -514,5 +1500,6 @@ source cleanup passes and left detailed accounting in
 That ledger is now historical, not active control-plane state. Do not route new
 work through old P14 waves, old focused-review admissions, or old detector issue
 ids by default. Any future work in the same source areas must enter through the
-`FCP-*` priorities above with a fresh source-backed audit, owner seam, proof
+active `DCR-*` packages while DCR is open, or through a maintainer-approved
+source-backed package after `DCR-EXIT` closes with a named owner seam, proof
 surface, and reviewed plan.

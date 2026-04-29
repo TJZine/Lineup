@@ -7,7 +7,13 @@ import {
     MIGRATIONS,
     DEFAULT_USER_PREFERENCES,
 } from './constants';
-import { safeLocalStorageRemove } from '../../utils/storage';
+import {
+    safeLocalStorageGet,
+    safeLocalStorageRemove,
+    safeLocalStorageSetWithResult,
+} from '../../utils/storage';
+
+type StorageMutationFailureReason = 'quota-exceeded' | 'unavailable';
 
 /**
  * Manages application state persistence to localStorage.
@@ -40,17 +46,21 @@ export class StateManager {
 
         const serialized = JSON.stringify(stateToSave);
 
-        try {
-            localStorage.setItem(this._storageKey, serialized);
-        } catch (error) {
-            if (this._isQuotaError(error)) {
-                this._performStorageCleanup();
+        const initialResult = safeLocalStorageSetWithResult(this._storageKey, serialized);
+        if (initialResult.ok) {
+            return;
+        }
 
-                // Retry once after cleanup
-                localStorage.setItem(this._storageKey, serialized);
-            } else {
-                throw error;
-            }
+        if (initialResult.reason !== 'quota-exceeded') {
+            throw this._createStorageMutationError(initialResult.reason);
+        }
+
+        this._performStorageCleanup();
+
+        // Retry once after cleanup
+        const retryResult = safeLocalStorageSetWithResult(this._storageKey, serialized);
+        if (!retryResult.ok) {
+            throw this._createStorageMutationError(retryResult.reason);
         }
     }
 
@@ -59,12 +69,12 @@ export class StateManager {
      * @returns Loaded state, or null if not available/invalid
      */
     public load(): PersistentState | null {
-        try {
-            const serialized = localStorage.getItem(this._storageKey);
-            if (serialized === null) {
-                return null;
-            }
+        const serialized = safeLocalStorageGet(this._storageKey);
+        if (serialized === null) {
+            return null;
+        }
 
+        try {
             const parsed: unknown = JSON.parse(serialized);
             if (!this._isMinimalState(parsed)) {
                 return null;
@@ -135,19 +145,20 @@ export class StateManager {
         return currentState;
     }
 
-    /**
-     * Check if error is a quota exceeded error.
-     */
-    private _isQuotaError(error: unknown): boolean {
-        if (typeof DOMException !== 'undefined' && error instanceof DOMException) {
-            // Different browsers use different error codes
-            return (
-                error.code === 22 || // Legacy
-                error.code === 1014 || // Firefox
-                error.name === 'QuotaExceededError'
+    private _createStorageMutationError(reason: StorageMutationFailureReason): Error {
+        if (typeof DOMException !== 'undefined') {
+            return new DOMException(
+                reason === 'quota-exceeded'
+                    ? 'Storage quota exceeded'
+                    : 'Persistent storage unavailable',
+                reason === 'quota-exceeded' ? 'QuotaExceededError' : 'SecurityError'
             );
         }
-        return false;
+        return new Error(
+            reason === 'quota-exceeded'
+                ? 'Storage quota exceeded'
+                : 'Persistent storage unavailable'
+        );
     }
 
     /**
@@ -156,11 +167,7 @@ export class StateManager {
      */
     private _performStorageCleanup(): void {
         for (const key of STORAGE_CONFIG.CLEANUP_KEYS) {
-            try {
-                localStorage.removeItem(key);
-            } catch {
-                // Ignore cleanup errors
-            }
+            safeLocalStorageRemove(key);
         }
     }
 

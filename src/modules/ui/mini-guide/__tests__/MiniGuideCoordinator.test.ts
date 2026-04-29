@@ -124,7 +124,6 @@ const buildScheduleConfig = (
     content: items,
     playbackMode: channel.playbackMode === 'random' ? 'shuffle' : channel.playbackMode,
     shuffleSeed: channel.shuffleSeed ?? 0,
-    loopSchedule: true,
 });
 
 const setup = (overrides?: Partial<{

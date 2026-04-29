@@ -1,4 +1,4 @@
-import type { AppErrorCode } from '../../lifecycle/types';
+import type { AppErrorCode } from '../../../types/app-errors';
 import type { PlexMediaType } from '../../plex/shared/types';
 
 // Playback & Filter Types

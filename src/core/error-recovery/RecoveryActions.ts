@@ -1,4 +1,4 @@
-import { AppErrorCode } from '../../modules/lifecycle';
+import { AppErrorCode } from '../../types/app-errors';
 import type { ErrorRecoveryAction, RecoveryActionDeps } from './types';
 
 type RecoveryActionGroupId =

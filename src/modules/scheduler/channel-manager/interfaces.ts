@@ -13,12 +13,12 @@ import type { IDisposable } from '../../../utils/interfaces';
 export interface IChannelManager {
     /**
      * Create a new channel with default values for missing fields.
-     * @throws ChannelError if content source is missing
+     * @throws ChannelError if content source is missing or non-fallback content resolution fails
      */
     createChannel(config: ChannelCreateInput, options?: { signal?: AbortSignal | null }): Promise<ChannelConfig>;
 
     /**
-     * @throws ChannelError if channel not found
+     * @throws ChannelError if channel not found or a content-affecting update hits a non-fallback resolution failure
      */
     updateChannel(id: string, updates: ChannelUpdateInput): Promise<ChannelConfig>;
 
@@ -60,6 +60,12 @@ export interface IChannelManager {
         options?: { signal?: AbortSignal | null }
     ): Promise<ResolvedChannelContent['items']>;
 
+    /**
+     * Replace channel ordering with an exact full order.
+     * ChannelManager validates before mutating state, so invalid input leaves the
+     * existing in-memory order unchanged and does not queue persistence.
+     * @throws ChannelError if any existing id is missing, duplicated, or unknown.
+     */
     reorderChannels(orderedIds: string[]): Promise<void>;
 
     setCurrentChannel(channelId: string): void;

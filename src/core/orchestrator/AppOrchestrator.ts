@@ -8,13 +8,13 @@
  */
 
 import {
-    AppErrorCode,
     type IAppLifecycle,
     type AppError,
     type LifecycleAppError,
     type AppPhase,
     type LifecycleEventMap,
 } from '../../modules/lifecycle';
+import { AppErrorCode } from '../../types/app-errors';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import {
     type INavigationManager,
@@ -244,9 +244,6 @@ type SelectedSubtitleSnapshot = PlaybackInfoStreamSnapshot['selectedSubtitle'];
 
 export type { OrchestratorServerSelectionResult } from '../server-selection/ServerSelectionTypes';
 export type { ErrorRecoveryAction } from '../error-recovery/types';
-
-// Re-export AppErrorCode for consumers
-export { AppErrorCode };
 
 
 /**

@@ -114,8 +114,6 @@ const makePortFactory = (): PortFactoryLike => ({
         },
         screenPorts: {
             getNavigation: jest.fn().mockReturnValue(null),
-            getSelectedServerStorageKey: jest.fn().mockReturnValue('selected-server-id'),
-            getServerHealthStorageKey: jest.fn().mockReturnValue('server-health'),
             getSelectedServerId: jest.fn().mockReturnValue(null),
             openServerSelect: jest.fn(),
             switchToChannelByNumber: jest.fn().mockResolvedValue(undefined),

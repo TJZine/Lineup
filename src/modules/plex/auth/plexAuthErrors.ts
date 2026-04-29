@@ -1,4 +1,4 @@
-import { AppErrorCode } from '../../lifecycle/types';
+import { AppErrorCode } from '../../../types/app-errors';
 
 const PLEX_AUTH_RECOVERABLE_CODES: ReadonlySet<AppErrorCode> = new Set([
     AppErrorCode.AUTH_REQUIRED,

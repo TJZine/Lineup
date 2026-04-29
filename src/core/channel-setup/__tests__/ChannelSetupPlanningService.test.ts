@@ -253,6 +253,113 @@ describe('ChannelSetupPlanningService', () => {
         );
     });
 
+    it('retains playlist and collection failures as partial warnings while native tag failures block planning', async () => {
+        expectConsoleWarn([
+            'Failed to fetch playlists:',
+            expect.objectContaining({ message: 'playlist endpoint failed' }),
+        ]);
+        expectConsoleWarn([
+            'Failed to fetch collections for library Shows:',
+            expect.objectContaining({ message: 'collections endpoint failed' }),
+        ]);
+        expectConsoleWarn([
+            'Failed to fetch genres for Shows:',
+            expect.objectContaining({ message: 'genre endpoint failed' }),
+        ]);
+        const enrichmentPlexLibrary = {
+            getPlaylists: jest.fn().mockRejectedValue({
+                name: 'Error',
+                code: 'SERVER_ERROR',
+                message: 'playlist endpoint failed',
+            }),
+            getCollections: jest.fn().mockRejectedValue({
+                name: 'Error',
+                code: 'SERVER_ERROR',
+                message: 'collections endpoint failed',
+            }),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn()
+                .mockResolvedValueOnce([])
+                .mockRejectedValueOnce({
+                    name: 'Error',
+                    code: 'SERVER_ERROR',
+                    message: 'genre endpoint failed',
+                }),
+            getDirectors: jest.fn(),
+            getYears: jest.fn(),
+            getActors: jest.fn(),
+            getStudios: jest.fn(),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const enrichmentService = new ChannelSetupPlanningService({
+            plexLibrary: enrichmentPlexLibrary,
+            channelManager,
+        });
+        const libraries = [makeLibrary({
+            id: 'shows',
+            title: 'Shows',
+            type: 'show',
+            contentCount: 1200,
+        })];
+
+        const enrichmentOnly = await enrichmentService.buildSetupPlan(
+            createConfig({
+                selectedLibraryIds: ['shows'],
+                strategyConfig: {
+                    playlists: { enabled: true, priority: 1, scope: 'per-library' },
+                    collections: { enabled: true, priority: 2, scope: 'per-library' },
+                },
+            }),
+            libraries,
+            null,
+            'preview'
+        );
+
+        expect(enrichmentOnly.plan).not.toBeNull();
+        expect(enrichmentOnly.failureReason).toBeUndefined();
+        expect(enrichmentOnly.blockedMessage).toBeUndefined();
+        expect(enrichmentOnly.warnings.join('\n')).toContain('fetch_playlists failed');
+        expect(enrichmentOnly.warnings.join('\n')).toContain('fetch_collections failed');
+
+        const nativePlexLibrary = {
+            getPlaylists: jest.fn(),
+            getCollections: jest.fn(),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn().mockRejectedValue({
+                name: 'Error',
+                code: 'SERVER_ERROR',
+                message: 'genre endpoint failed',
+            }),
+            getDirectors: jest.fn(),
+            getYears: jest.fn(),
+            getActors: jest.fn(),
+            getStudios: jest.fn(),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const nativeService = new ChannelSetupPlanningService({
+            plexLibrary: nativePlexLibrary,
+            channelManager,
+        });
+
+        const nativeTagRequired = await nativeService.buildSetupPlan(
+            createConfig({
+                selectedLibraryIds: ['shows'],
+                strategyConfig: {
+                    genres: { enabled: true, priority: 1, scope: 'per-library' },
+                },
+            }),
+            libraries,
+            null,
+            'preview'
+        );
+
+        expect(nativeTagRequired.plan).toBeNull();
+        expect(nativeTagRequired.failureReason).toBe('error');
+        expect(nativeTagRequired.previewStatus).toBe('blocked');
+        expect(nativeTagRequired.blockedMessage).toContain('stop and re-plan');
+    });
+
     it('recovers missing native tag counts before applying min-items filtering', async () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),

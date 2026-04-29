@@ -1281,7 +1281,7 @@ describe('PlexStreamResolver', () => {
         it('throws a typed parse error and emits it when the item key cannot build a metadata path', () => {
             const resolver = new PlexStreamResolver(createMockConfig());
             const errorHandler = jest.fn();
-            resolver.on('error', errorHandler);
+            const disposable = resolver.on('error', errorHandler);
 
             try {
                 resolver.getTranscodeUrl('   ', {});
@@ -1300,6 +1300,14 @@ describe('PlexStreamResolver', () => {
                     recoverable: false,
                 })
             );
+
+            disposable.dispose();
+            try {
+                resolver.getTranscodeUrl('', {});
+            } catch {
+                // Expected; this assertion only verifies disposable listener cleanup.
+            }
+            expect(errorHandler).toHaveBeenCalledTimes(1);
         });
     });
 

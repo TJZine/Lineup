@@ -1,6 +1,5 @@
 import type { AppError } from '../../modules/lifecycle';
-import { AppErrorCode } from '../../modules/lifecycle';
-import { getAppErrorCode } from '../../types/app-errors';
+import { AppErrorCode, getAppErrorCode } from '../../types/app-errors';
 
 import type { IVideoPlayer } from '../../modules/player';
 import type {

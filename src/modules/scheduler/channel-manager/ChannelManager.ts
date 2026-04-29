@@ -5,7 +5,7 @@
 import { EventEmitter } from '../../../utils/EventEmitter';
 import { fnv1a32Uint } from '../../../utils/hash';
 import { summarizeErrorForLog } from '../../../utils/errors';
-import { getAppErrorCode } from '../../../types/app-errors';
+import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
 import { ContentResolver } from './ContentResolver';
 import { ChannelRepository } from './ChannelRepository';
 import { isValidContentSource } from './ChannelContentSourceValidator';
@@ -15,7 +15,6 @@ import {
     isValidPlaybackMode,
     isValidSortOrder,
 } from './ChannelValueValidators';
-import { AppErrorCode } from '../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../lifecycle/constants';
 import { TIMING_CONFIG } from '../../../config/timing';
 import type { IChannelManager, ChannelManagerConfig, IPlexLibraryMinimal } from './interfaces';
@@ -131,6 +130,22 @@ function isAccessDeniedError(error: unknown): boolean {
     return code === AppErrorCode.ACCESS_DENIED;
 }
 
+function isResourceNotFoundError(error: unknown): boolean {
+    const code = getErrorCode(error);
+    if (code === AppErrorCode.RESOURCE_NOT_FOUND) {
+        return true;
+    }
+    const status = getHttpStatusForLog(error);
+    if (status === 404) {
+        return true;
+    }
+    return error instanceof Error && /\b404\b/.test(error.message);
+}
+
+function isGracefulAuthoringResolutionError(error: unknown): boolean {
+    return isContentUnavailableError(error) || isResourceNotFoundError(error);
+}
+
 function getContentSourceLogIdentity(
     source: ChannelContentSource
 ): { type: ChannelContentSource['type']; id?: string } {
@@ -218,6 +233,19 @@ function createPersistenceFallbackError(message: string): ChannelError {
     return new ChannelError(AppErrorCode.PERSISTENCE_FALLBACK, message, true);
 }
 
+function formatImportErrorMessage(error: unknown): string {
+    const summary = summarizeErrorForLog(error);
+    if (typeof summary === 'string') {
+        return summary;
+    }
+    if (summary && typeof summary === 'object') {
+        if ('message' in summary && typeof summary.message === 'string') {
+            return summary.message;
+        }
+        return JSON.stringify(summary);
+    }
+    return String(summary);
+}
 
 /**
  * Generate a UUID v4.
@@ -342,11 +370,8 @@ export class ChannelManager implements IChannelManager {
         channels: ChannelConfig[],
         options?: { currentChannelId?: string | null }
     ): Promise<void> {
-        this.cancelPendingRetries();
-        this._contentResolver.clearCaches();
-        this._state.channels.clear();
-        this._state.resolvedContent.clear();
-        this._state.channelOrder = [];
+        const nextChannels = new Map<string, ChannelConfig>();
+        const nextChannelOrder: string[] = [];
 
         const availableNumbers: number[] = [];
         for (let n = MIN_CHANNEL_NUMBER; n <= MAX_CHANNEL_NUMBER; n++) {
@@ -367,7 +392,7 @@ export class ChannelManager implements IChannelManager {
                 this._logger.warn(`Skipping invalid channel ${channel.name} (${channel.id}) during replaceAllChannels`);
                 continue;
             }
-            if (this._state.channelOrder.length >= MAX_CHANNELS) {
+            if (nextChannelOrder.length >= MAX_CHANNELS) {
                 this._logger.warn(`Skipping channel ${channel.name} (${channel.id}) due to MAX_CHANNELS limit`);
                 continue;
             }
@@ -401,16 +426,39 @@ export class ChannelManager implements IChannelManager {
             if (typeof normalizedChannel.phaseSeed !== 'number' || !Number.isFinite(normalizedChannel.phaseSeed)) {
                 normalizedChannel.phaseSeed = fnv1a32Uint(`${normalizedChannel.id}:phase`);
             }
-            this._state.channels.set(normalizedChannel.id, normalizedChannel);
-            this._state.channelOrder.push(normalizedChannel.id);
+            nextChannels.set(normalizedChannel.id, normalizedChannel);
+            nextChannelOrder.push(normalizedChannel.id);
         }
 
         const requestedCurrent = options?.currentChannelId ?? null;
-        const fallbackCurrent = this._state.channelOrder[0] ?? null;
-        this._state.currentChannelId =
-            requestedCurrent && this._state.channels.has(requestedCurrent)
+        const fallbackCurrent = nextChannelOrder[0] ?? null;
+        const nextCurrentChannelId =
+            requestedCurrent && nextChannels.has(requestedCurrent)
                 ? requestedCurrent
                 : fallbackCurrent;
+
+        try {
+            this._persistStoredChannelData({
+                channels: Array.from(nextChannels.values()),
+                channelOrder: nextChannelOrder,
+                currentChannelId: nextCurrentChannelId,
+                savedAt: Date.now(),
+            });
+            this._onPersistenceSuccess();
+        } catch (error) {
+            this._reportPersistenceFailure(
+                'ChannelManager.replaceAllChannels failed to persist channels',
+                error
+            );
+            throw error;
+        }
+
+        this.cancelPendingRetries();
+        this._contentResolver.clearCaches();
+        this._state.channels = nextChannels;
+        this._state.resolvedContent.clear();
+        this._state.channelOrder = nextChannelOrder;
+        this._state.currentChannelId = nextCurrentChannelId;
 
         if (this._state.currentChannelId) {
             try {
@@ -425,21 +473,10 @@ export class ChannelManager implements IChannelManager {
                     }
                     throw createPersistenceFallbackError('Failed to persist current channel');
                 }
-                this._onPersistenceSuccess();
             } catch (e) {
                 this._logger.warn('Failed to persist current channel', summarizeErrorForLog(e));
                 this._emitPersistenceWarning(e);
             }
-        }
-
-        try {
-            this._persistCurrentStateNow();
-        } catch (error) {
-            this._reportPersistenceFailure(
-                'ChannelManager.replaceAllChannels failed to persist channels',
-                error
-            );
-            throw error;
         }
     }
 
@@ -531,34 +568,44 @@ export class ChannelManager implements IChannelManager {
         if (config.maxEpisodeRunTimeMs !== undefined) channel.maxEpisodeRunTimeMs = config.maxEpisodeRunTimeMs;
         if (config.minEpisodeRunTimeMs !== undefined) channel.minEpisodeRunTimeMs = config.minEpisodeRunTimeMs;
 
-        this._state.channels.set(channel.id, channel);
-        this._state.channelOrder.push(channel.id);
+        let resolvedContent: ResolvedChannelContent | null = null;
+        let shouldEmitContentResolved = false;
 
-        // Resolve content initially
         try {
             if (options?.initialContent) {
                 channel.itemCount = options.initialContent.length;
                 channel.totalDurationMs = options.initialContent.reduce((sum, item) => sum + item.durationMs, 0);
                 channel.lastContentRefresh = Date.now();
-                // Cache it for immediate use
-                this._state.resolvedContent.set(channel.id, {
+                resolvedContent = {
                     items: options.initialContent,
                     orderedItems: options.initialContent,
                     totalDurationMs: channel.totalDurationMs,
                     channelId: channel.id,
                     resolvedAt: channel.lastContentRefresh
-                });
+                };
             } else {
-                const content = await this._resolveContentInternal(channel, options);
-                channel.itemCount = content.items.length;
-                channel.totalDurationMs = content.totalDurationMs;
-                channel.lastContentRefresh = Date.now();
+                resolvedContent = await this._resolveContentForAuthoring(channel, options);
+                this._applyResolvedContentMetadata(channel, resolvedContent);
+                shouldEmitContentResolved = !resolvedContent.fromCache;
             }
         } catch (error) {
+            if (!isGracefulAuthoringResolutionError(error)) {
+                throw error;
+            }
             this._logger.warn(
                 `Failed initial content resolution for channel ${channel.id}`,
                 summarizeErrorForLog(error)
             );
+        }
+
+        this._state.channels.set(channel.id, channel);
+        this._state.channelOrder.push(channel.id);
+
+        if (resolvedContent) {
+            this._state.resolvedContent.set(channel.id, resolvedContent);
+            if (shouldEmitContentResolved) {
+                this._emitter.emit('contentResolved', resolvedContent);
+            }
         }
 
         // Persist and emit event
@@ -599,20 +646,29 @@ export class ChannelManager implements IChannelManager {
             totalDurationMs: channel.totalDurationMs,
         };
 
-        this._state.channels.set(id, updated);
+        let resolvedContent: ResolvedChannelContent | null = null;
 
         if (affectsResolvedContent(updates)) {
-            this._state.resolvedContent.delete(id);
             try {
-                const content = await this._resolveContentInternal(updated);
-                updated.itemCount = content.items.length;
-                updated.totalDurationMs = content.totalDurationMs;
-                updated.lastContentRefresh = Date.now();
+                resolvedContent = await this._resolveContentForAuthoring(updated);
+                this._applyResolvedContentMetadata(updated, resolvedContent);
             } catch (error) {
+                if (!isGracefulAuthoringResolutionError(error)) {
+                    throw error;
+                }
                 this._logger.warn(
                     `Failed content resolution during update for ${id}`,
                     summarizeErrorForLog(error)
                 );
+            }
+        }
+
+        this._state.channels.set(id, updated);
+
+        if (resolvedContent) {
+            this._state.resolvedContent.set(id, resolvedContent);
+            if (!resolvedContent.fromCache) {
+                this._emitter.emit('contentResolved', resolvedContent);
             }
         }
 
@@ -749,11 +805,10 @@ export class ChannelManager implements IChannelManager {
      * Reorder channels.
      * @remarks In-memory order is updated synchronously; persistence is queued via debounced save.
      */
-    reorderChannels(orderedIds: string[]): Promise<void> {
-        const validIds = orderedIds.filter((id) => this._state.channels.has(id));
-        this._state.channelOrder = validIds;
+    async reorderChannels(orderedIds: string[]): Promise<void> {
+        this._assertExactChannelOrder(orderedIds);
+        this._state.channelOrder = [...orderedIds];
         this._queueSave();
-        return Promise.resolve();
     }
 
     /**
@@ -882,9 +937,7 @@ export class ChannelManager implements IChannelManager {
                 result.importedCount++;
             } catch (e) {
                 result.skippedCount++;
-                result.errors.push(
-                    `Failed to import channel: ${(e as Error).message}`
-                );
+                result.errors.push(`Failed to import channel: ${formatImportErrorMessage(e)}`);
             }
         }
 
@@ -1030,15 +1083,6 @@ export class ChannelManager implements IChannelManager {
         });
     }
 
-    private _persistCurrentStateNow(): void {
-        if (this._saveTimer) {
-            this._flushPendingSaveNow();
-            return;
-        }
-        this._performSaveSync();
-        this._onPersistenceSuccess();
-    }
-
     private _shouldEmitPersistenceWarning(isQuotaError: boolean): boolean {
         const now = Date.now();
         if (now < this._nextPersistenceWarningAt) {
@@ -1129,6 +1173,10 @@ export class ChannelManager implements IChannelManager {
             savedAt: Date.now(),
         };
 
+        this._persistStoredChannelData(data);
+    }
+
+    private _persistStoredChannelData(data: StoredChannelData): void {
         const writeResult = this._channelRepository.saveStoredChannelData(data);
 
         if (!writeResult.ok && writeResult.reason === 'quota-exceeded') {
@@ -1140,6 +1188,23 @@ export class ChannelManager implements IChannelManager {
         }
         if (!writeResult.ok && writeResult.reason === 'unavailable') {
             throw createPersistenceFallbackError('Failed to persist channels to storage');
+        }
+    }
+
+    private _assertExactChannelOrder(orderedIds: string[]): void {
+        if (orderedIds.length !== this._state.channels.size) {
+            throw createStorageValidationError('Channel reorder must include every channel exactly once');
+        }
+
+        const seen = new Set<string>();
+        for (const id of orderedIds) {
+            if (seen.has(id)) {
+                throw createStorageValidationError('Channel reorder cannot include duplicate channel ids');
+            }
+            seen.add(id);
+            if (!this._state.channels.has(id)) {
+                throw createStorageValidationError('Channel reorder cannot include unknown channel ids');
+            }
         }
     }
 
@@ -1283,6 +1348,110 @@ export class ChannelManager implements IChannelManager {
         return items;
     }
 
+    private _createResolvedContent(
+        channel: ChannelConfig,
+        items: ResolvedContentItem[]
+    ): ResolvedChannelContent {
+        const orderedItems = this._contentResolver.applyPlaybackMode(
+            items,
+            channel.playbackMode,
+            (typeof channel.shuffleSeed === 'number' && Number.isFinite(channel.shuffleSeed))
+                ? channel.shuffleSeed
+                : fnv1a32Uint(`${channel.id}:shuffle`),
+            channel.blockSize
+        );
+
+        const totalDurationMs = items.reduce((sum, item) => sum + item.durationMs, 0);
+        return {
+            channelId: channel.id,
+            resolvedAt: Date.now(),
+            items,
+            totalDurationMs,
+            orderedItems,
+            fromCache: false,
+            isStale: false,
+            cacheReason: 'fresh',
+        };
+    }
+
+    private _applyResolvedContentMetadata(
+        channel: ChannelConfig,
+        content: ResolvedChannelContent
+    ): void {
+        if (content.fromCache) {
+            return;
+        }
+        channel.lastContentRefresh = content.resolvedAt;
+        channel.itemCount = content.items.length;
+        channel.totalDurationMs = content.totalDurationMs;
+    }
+
+    private _createAccessDeniedResolutionError(
+        channel: ChannelConfig,
+        error: unknown
+    ): ChannelError {
+        this._logger.warn('Access denied resolving channel content', {
+            channelId: channel.id,
+            contentSource: getContentSourceLogIdentity(channel.contentSource),
+            httpStatus: getHttpStatusForLog(error),
+            error: summarizeErrorForLog(error),
+        });
+
+        return new ChannelError(
+            AppErrorCode.ACCESS_DENIED,
+            `Profile does not have access to this channel's content library`,
+            false
+        );
+    }
+
+    private async _resolveContentForAuthoring(
+        channel: ChannelConfig,
+        options?: { signal?: AbortSignal | null }
+    ): Promise<ResolvedChannelContent> {
+        const cached = this._state.resolvedContent.get(channel.id);
+
+        try {
+            const items = await this._resolveFilteredItems(channel, options);
+            return this._createResolvedContent(channel, items);
+        } catch (error) {
+            if (error instanceof ChannelError && error.code === AppErrorCode.SCHEDULER_EMPTY_CHANNEL) {
+                throw error;
+            }
+
+            if (isNetworkError(error) && cached) {
+                const wasStale = this._isStale(cached);
+                this._logger.warn(
+                    `Resolution failed for channel ${channel.id} during authoring due to network error, using cached content as stale (ttlStale: ${wasStale})`,
+                    summarizeErrorForLog(error)
+                );
+                this._queueRetry(channel.id);
+                return this._cloneResolvedContent(cached, {
+                    fromCache: true,
+                    isStale: true,
+                    cacheReason: 'network_error',
+                });
+            }
+
+            if (isGracefulAuthoringResolutionError(error) && cached) {
+                this._logger.warn(
+                    `Content unavailable for channel ${channel.id}, using stale cache`,
+                    summarizeErrorForLog(error)
+                );
+                return this._cloneResolvedContent(cached, {
+                    fromCache: true,
+                    isStale: true,
+                    cacheReason: 'content_unavailable',
+                });
+            }
+
+            if (isAccessDeniedError(error)) {
+                throw this._createAccessDeniedResolutionError(channel, error);
+            }
+
+            throw error;
+        }
+    }
+
     private async _resolveContentInternal(
         channel: ChannelConfig,
         options?: { signal?: AbortSignal | null }
@@ -1292,44 +1461,21 @@ export class ChannelManager implements IChannelManager {
         try {
             const items = await this._resolveFilteredItems(channel, options);
 
-            // Apply playback mode
-            const orderedItems = this._contentResolver.applyPlaybackMode(
-                items,
-                channel.playbackMode,
-                (typeof channel.shuffleSeed === 'number' && Number.isFinite(channel.shuffleSeed))
-                    ? channel.shuffleSeed
-                    : fnv1a32Uint(`${channel.id}:shuffle`),
-                channel.blockSize
-            );
-
-            const totalDurationMs = items.reduce((sum, item) => sum + item.durationMs, 0);
-            const result: ResolvedChannelContent = {
-                channelId: channel.id,
-                resolvedAt: Date.now(),
-                items,
-                totalDurationMs,
-                orderedItems,
-                // Issue 2: Include cache status for fresh content
-                fromCache: false,
-                isStale: false,
-                cacheReason: 'fresh',
-            };
+            const result = this._createResolvedContent(channel, items);
 
             // Cache
             this._state.resolvedContent.set(channel.id, result);
             this._emitter.emit('contentResolved', result);
 
             // Issue 4: Update channel metadata after every successful resolve
-            channel.lastContentRefresh = Date.now();
-            channel.itemCount = items.length;
-            channel.totalDurationMs = result.totalDurationMs;
+            this._applyResolvedContentMetadata(channel, result);
             this._state.channels.set(channel.id, channel);
 
             this._queueSave();
 
             return this._cloneResolvedContent(result);
         } catch (error) {
-            // Cache fallback is allowed only for network errors and CONTENT_UNAVAILABLE (separate branch below).
+            // Cache fallback is allowed for network errors and graceful source-unavailable errors.
             // SCHEDULER_EMPTY_CHANNEL and other non-network errors should propagate
             if (error instanceof ChannelError && error.code === AppErrorCode.SCHEDULER_EMPTY_CHANNEL) {
                 // No fallback for empty content - throw directly
@@ -1350,8 +1496,8 @@ export class ChannelManager implements IChannelManager {
                 });
             }
 
-            // Per spec: library/collection deleted should return stale cache
-            if (isContentUnavailableError(error) && cached) {
+            // Per spec: library/collection deleted should return stale cache.
+            if (isGracefulAuthoringResolutionError(error) && cached) {
                 this._logger.warn(
                     `Content unavailable for channel ${channel.id}, using stale cache`,
                     summarizeErrorForLog(error)
@@ -1365,16 +1511,9 @@ export class ChannelManager implements IChannelManager {
 
             // Access denied (403): profile lacks library permission.
             // Do NOT use stale cache — the 403 persists for the entire session.
-            // Note: isContentUnavailableError() and isAccessDeniedError() are mutually exclusive
-            // (they check different AppErrorCode values), so ordering here is not load-bearing.
+            // Note: graceful source-unavailable errors and access-denied errors are mutually exclusive
+            // by code/status policy, so ordering here is not load-bearing.
             if (isAccessDeniedError(error)) {
-                this._logger.warn('Access denied resolving channel content', {
-                    channelId: channel.id,
-                    contentSource: getContentSourceLogIdentity(channel.contentSource),
-                    httpStatus: getHttpStatusForLog(error),
-                    error: summarizeErrorForLog(error),
-                });
-
                 // Prevent any future cache fallback for a persistent 403.
                 this._state.resolvedContent.delete(channel.id);
                 this._contentResolver.invalidateSource(channel.contentSource);
@@ -1385,11 +1524,7 @@ export class ChannelManager implements IChannelManager {
                     this._pendingRetries.delete(channel.id);
                 }
 
-                throw new ChannelError(
-                    AppErrorCode.ACCESS_DENIED,
-                    `Profile does not have access to this channel's content library`,
-                    false // non-recoverable within this profile session
-                );
+                throw this._createAccessDeniedResolutionError(channel, error);
             }
 
             // No cache fallback for other errors - re-throw
@@ -1398,7 +1533,7 @@ export class ChannelManager implements IChannelManager {
     }
 
     private _isStale(content: ResolvedChannelContent): boolean {
-        return Date.now() - content.resolvedAt > CACHE_TTL_MS;
+        return content.isStale === true || Date.now() - content.resolvedAt > CACHE_TTL_MS;
     }
 
     private _validateChannelNumber(number: number): void {

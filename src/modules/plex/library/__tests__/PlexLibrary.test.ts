@@ -1548,11 +1548,15 @@ describe('PlexLibrary', () => {
             mockFetchJson(mockLibrarySectionsResponse);
             const library = new PlexLibrary(mockConfig);
             const handler = jest.fn();
-            library.on('libraryRefreshed', handler);
+            const disposable = library.on('libraryRefreshed', handler);
 
             await library.refreshLibrary('1');
 
             expect(handler).toHaveBeenCalledWith({ libraryId: '1' });
+
+            disposable.dispose();
+            await library.refreshLibrary('1');
+            expect(handler).toHaveBeenCalledTimes(1);
         });
     });
 });

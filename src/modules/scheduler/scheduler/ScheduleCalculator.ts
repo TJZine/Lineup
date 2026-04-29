@@ -13,17 +13,6 @@ function assertNeverPlaybackMode(mode: never): never {
     throw new Error(`Unknown scheduler playback mode: ${String(mode)}`);
 }
 
-// Schedule Index Building
-
-/**
- * Build a schedule index from configuration.
- * Pre-computes cumulative offsets for O(log n) lookups.
- *
- * @param config - Schedule configuration
- * @param shuffler - Shuffle generator for playback mode
- * @returns Pre-computed schedule index
- * @throws Error if content is empty
- */
 export function buildScheduleIndex(
     config: ScheduleConfig,
     shuffler: IShuffleGenerator
@@ -53,7 +42,7 @@ export function buildScheduleIndex(
 
     const totalLoopDurationMs = cumulativeOffset;
 
-    // Fix #3: Guard against zero-duration schedules (division by zero prevention)
+    // Prevent division by zero in modulo/time lookups.
     if (totalLoopDurationMs === 0) {
         throw new Error(SCHEDULER_ERROR_MESSAGES.INVALID_SCHEDULE_DURATION);
     }
@@ -67,15 +56,6 @@ export function buildScheduleIndex(
     };
 }
 
-/**
- * Binary search to find the item index at a given position in the loop.
- * Returns the index of the item where positionInLoop falls within
- * [itemStartOffsets[index], itemStartOffsets[index+1]).
- *
- * @param positionInLoop - Position within the loop (ms)
- * @param itemStartOffsets - Cumulative start offsets
- * @returns Index of the item at that position
- */
 export function binarySearchForItem(
     positionInLoop: number,
     itemStartOffsets: number[]
@@ -84,7 +64,6 @@ export function binarySearchForItem(
     let high = itemStartOffsets.length - 1;
 
     while (low < high) {
-        // Use ceil to find upper bound
         const mid = Math.ceil((low + high + 1) / 2);
         const midOffset = itemStartOffsets[mid];
         if (midOffset !== undefined && midOffset <= positionInLoop) {
@@ -97,15 +76,6 @@ export function binarySearchForItem(
     return low;
 }
 
-/**
- * Calculate the program playing at a specific time.
- * Core algorithm with O(log n) complexity.
- *
- * @param queryTime - Unix timestamp in ms
- * @param index - Pre-computed schedule index
- * @param anchorTime - Schedule anchor time
- * @returns The scheduled program at that time
- */
 export function calculateProgramAtTime(
     queryTime: number,
     index: ScheduleIndex,
@@ -147,25 +117,16 @@ export function calculateProgramAtTime(
         remainingMs,
         scheduleIndex: itemIndex,
         loopNumber,
-        streamDescriptor: null, // Resolved separately by orchestrator
+        streamDescriptor: null,
         isCurrent,
     };
 }
 
-/**
- * Calculate the next program after a given program.
- *
- * @param currentProgram - Current program
- * @param index - Schedule index
- * @param anchorTime - Schedule anchor time
- * @returns The next scheduled program
- */
 export function calculateNextProgram(
     currentProgram: ScheduledProgram,
     index: ScheduleIndex,
     anchorTime: number
 ): ScheduledProgram {
-    // Query 1ms after current program ends to get next
     return calculateProgramAtTime(
         currentProgram.scheduledEndTime + 1,
         index,
@@ -173,21 +134,11 @@ export function calculateNextProgram(
     );
 }
 
-/**
- * Calculate the previous program before a given program.
- *
- * @param currentProgram - Current program
- * @param index - Schedule index
- * @param anchorTime - Schedule anchor time
- * @returns The previous scheduled program
- */
 export function calculatePreviousProgram(
     currentProgram: ScheduledProgram,
     index: ScheduleIndex,
     anchorTime: number
 ): ScheduledProgram {
-    // Query 1ms before current program starts to get previous
-    // Returns the program at its actual elapsed position in the schedule
     return calculateProgramAtTime(
         currentProgram.scheduledStartTime - 1,
         index,
@@ -195,19 +146,6 @@ export function calculatePreviousProgram(
     );
 }
 
-/**
- * Apply playback mode to content items.
- * Scheduler only supports deterministic modes for replay/debugging.
- *
- * @param items - Original content items
- * @param mode - Playback mode
- * @param seed - Shuffle seed (used for shuffle mode)
- * @param shuffler - Shuffle generator
- * @returns Ordered items based on mode
- *
- * @remarks
- * Scheduler playback is deterministic-only. Invalid runtime modes are rejected.
- */
 export function applyPlaybackMode(
     items: ResolvedContentItem[],
     mode: SchedulerPlaybackMode,
@@ -254,27 +192,11 @@ export function applyPlaybackMode(
 }
 
 /**
- * Maximum programs to return in a schedule window.
- * Acts as a memory safety guard for EPG generation.
- * 
- * Rationale: EPG typically shows 24 hours of content.
- * At 30-min programs, that's 48 programs per channel.
- * With 20 channels visible, that's ~1000 programs max.
- * This limit prevents unbounded growth from edge cases.
+ * MAX_WINDOW_PROGRAMS is a memory safety guard for EPG window generation.
+ * A 24-hour guide at 30-minute programs across 20 visible channels is about
+ * 1000 entries, and this cap prevents unbounded edge-case growth.
  */
 const MAX_WINDOW_PROGRAMS = 1000;
-
-/**
- * Generate a schedule window for EPG display.
- * Accepts optional pre-allocated output array to avoid allocation.
- *
- * @param startTime - Window start (Unix ms)
- * @param endTime - Window end (Unix ms)
- * @param index - Schedule index
- * @param anchorTime - Schedule anchor time
- * @param output - Optional pre-allocated output array (will be cleared and reused)
- * @returns Schedule window with all programs
- */
 
 export function generateScheduleWindow(
     startTime: number,

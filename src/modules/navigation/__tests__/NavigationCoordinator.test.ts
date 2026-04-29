@@ -42,6 +42,7 @@ import { advanceTimersUntil } from '../../../__tests__/helpers';
 import { EXIT_CONFIRM_MODAL_ID } from '../../ui/exit-confirm';
 import { NOW_PLAYING_INFO_MODAL_ID } from '../../ui/now-playing-info';
 import { PLAYBACK_OPTIONS_MODAL_ID } from '../../ui/playback-options';
+import type { IDisposable } from '../../../utils/interfaces';
 
 type HandlerMap = Partial<{
     [K in keyof NavigationEventMap]: (payload: NavigationEventMap[K]) => void;
@@ -96,8 +97,10 @@ type NavigationCoordinatorTestDeps = NavigationCoordinatorDeps & {
 const makeNavigation = (): {
     navigation: INavigationManager;
     handlers: HandlerMap;
+    disposeCalls: jest.Mock[];
 } => {
     const handlers: HandlerMap = {};
+    const disposeCalls: jest.Mock[] = [];
     const state = {
         currentScreen: 'player' as Screen,
         screenStack: [] as Screen[],
@@ -120,12 +123,19 @@ const makeNavigation = (): {
         on: jest.fn(<K extends keyof NavigationEventMap>(
             event: K,
             handler: (payload: NavigationEventMap[K]) => void
-        ) => {
+        ): IDisposable => {
             handlers[event] = handler;
+            const dispose = jest.fn((): void => {
+                if (handlers[event] === handler) {
+                    delete handlers[event];
+                }
+            });
+            disposeCalls.push(dispose);
+            return { dispose };
         }),
         off: jest.fn(),
     } as unknown as INavigationManager;
-    return { navigation, handlers };
+    return { navigation, handlers, disposeCalls };
 };
 
 const makeKeyEvent = (
@@ -195,8 +205,10 @@ const setup = (
     epg: NavigationEpgPort;
     videoPlayer: NavigationVideoPlayerPort;
     plexAuth: NavigationAuthPort;
+    unsubs: Array<() => void>;
+    disposeCalls: jest.Mock[];
 } => {
-    const { navigation, handlers } = makeNavigation();
+    const { navigation, handlers, disposeCalls } = makeNavigation();
     const epg: NavigationEpgPort = {
         isVisible: jest.fn().mockReturnValue(false),
         handleNavigation: jest.fn().mockReturnValue(false),
@@ -442,9 +454,9 @@ const setup = (
     };
 
     const coordinator = new NavigationCoordinator(deps);
-    coordinator.wireNavigationEvents();
+    const unsubs = coordinator.wireNavigationEvents();
 
-    return { coordinator, deps, handlers, navigation, epg, videoPlayer, plexAuth };
+    return { coordinator, deps, handlers, navigation, epg, videoPlayer, plexAuth, unsubs, disposeCalls };
 };
 
 describe('computeAcceleratedRepeatIntervalMs', () => {
@@ -468,6 +480,20 @@ describe('computeAcceleratedRepeatIntervalMs', () => {
 describe('NavigationCoordinator', () => {
     beforeEach(() => {
         jest.restoreAllMocks();
+    });
+
+    it('returns cleanup callbacks that dispose navigation subscriptions', () => {
+        const { unsubs, disposeCalls, handlers, navigation } = setup();
+
+        expect(unsubs.length).toBeGreaterThan(0);
+        for (const unsubscribe of unsubs) {
+            unsubscribe();
+        }
+
+        expect(disposeCalls.length).toBeGreaterThan(0);
+        expect(disposeCalls.every((dispose) => dispose.mock.calls.length === 1)).toBe(true);
+        expect(handlers.keyPress).toBeUndefined();
+        expect(navigation.off).not.toHaveBeenCalled();
     });
 
     it('does not log an error when channel-number entry is superseded (AbortError)', async () => {
