@@ -13,12 +13,12 @@ import type { IDisposable } from '../../../utils/interfaces';
 export interface IChannelManager {
     /**
      * Create a new channel with default values for missing fields.
-     * @throws ChannelError if content source is missing
+     * @throws ChannelError if content source is missing or non-fallback content resolution fails
      */
     createChannel(config: ChannelCreateInput, options?: { signal?: AbortSignal | null }): Promise<ChannelConfig>;
 
     /**
-     * @throws ChannelError if channel not found
+     * @throws ChannelError if channel not found or a content-affecting update hits a non-fallback resolution failure
      */
     updateChannel(id: string, updates: ChannelUpdateInput): Promise<ChannelConfig>;
 

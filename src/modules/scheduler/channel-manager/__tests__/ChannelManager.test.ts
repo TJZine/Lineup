@@ -690,6 +690,129 @@ describe('ChannelManager', () => {
             expect(channel.itemCount).toBe(0);
         });
 
+        it('propagates non-fallback create resolution failures without publishing a channel', async () => {
+            const logger = { warn: jest.fn(), error: jest.fn() };
+            manager = new ChannelManager({ plexLibrary: mockLibrary, logger });
+            const createdHandler = jest.fn();
+            const saveSpy = jest.spyOn(ChannelRepository.prototype, 'saveStoredChannelData');
+            manager.on('channelCreated', createdHandler);
+            mockLibrary.getLibraryItems.mockRejectedValue(
+                Object.assign(new Error('Access denied'), {
+                    code: AppErrorCode.ACCESS_DENIED,
+                    httpStatus: 403,
+                })
+            );
+
+            await expect(
+                manager.createChannel({
+                    name: 'Denied Channel',
+                    contentSource: createMockContentSource(),
+                })
+            ).rejects.toMatchObject({
+                name: 'ChannelError',
+                code: AppErrorCode.ACCESS_DENIED,
+                recoverable: false,
+            });
+
+            expect(manager.getAllChannels()).toHaveLength(0);
+            expect(createdHandler).not.toHaveBeenCalled();
+            expect(saveSpy).not.toHaveBeenCalled();
+            expect(logger.warn).toHaveBeenCalledWith(
+                'Access denied resolving channel content',
+                expect.objectContaining({
+                    contentSource: { type: 'library', id: 'lib1' },
+                    httpStatus: 403,
+                })
+            );
+        });
+
+        it('propagates non-fallback content-affecting update failures without mutating state or cache', async () => {
+            expectConsoleWarn([
+                'Access denied resolving channel content',
+                expect.objectContaining({
+                    contentSource: { type: 'library', id: 'denied-lib' },
+                    httpStatus: 403,
+                }),
+            ]);
+            const channel = await manager.createChannel({
+                name: 'Original',
+                contentSource: createMockContentSource(),
+            });
+            const originalContent = await manager.resolveChannelContent(channel.id);
+            await manager.flushSaves();
+            mockLocalStorage.setItem.mockClear();
+            const updatedHandler = jest.fn();
+            const saveSpy = jest.spyOn(ChannelRepository.prototype, 'saveStoredChannelData');
+            manager.on('channelUpdated', updatedHandler);
+            mockLibrary.getLibraryItems.mockClear();
+            mockLibrary.getLibraryItems.mockRejectedValue(
+                Object.assign(new Error('Access denied'), {
+                    code: AppErrorCode.ACCESS_DENIED,
+                    httpStatus: 403,
+                })
+            );
+
+            await expect(
+                manager.updateChannel(channel.id, {
+                    name: 'Denied Update',
+                    contentSource: {
+                        ...createMockContentSource(),
+                        libraryId: 'denied-lib',
+                    },
+                })
+            ).rejects.toMatchObject({
+                name: 'ChannelError',
+                code: AppErrorCode.ACCESS_DENIED,
+                recoverable: false,
+            });
+
+            expect(manager.getChannel(channel.id)).toEqual(channel);
+            expect(updatedHandler).not.toHaveBeenCalled();
+            expect(saveSpy).not.toHaveBeenCalled();
+            expect(mockLocalStorage.setItem).not.toHaveBeenCalled();
+
+            const cachedAfterFailure = await manager.resolveChannelContent(channel.id);
+            expect(cachedAfterFailure.fromCache).toBe(true);
+            expect(cachedAfterFailure.items.map((item) => item.ratingKey)).toEqual(
+                originalContent.items.map((item) => item.ratingKey)
+            );
+            expect(mockLibrary.getLibraryItems).not.toHaveBeenCalledWith(
+                'lib1',
+                expect.anything()
+            );
+        });
+
+        it('preserves stale cached content when a content-affecting update hits a deleted source fallback', async () => {
+            expectConsoleWarn([
+                expect.stringContaining('Content unavailable for channel'),
+                expect.objectContaining({
+                    code: AppErrorCode.CONTENT_UNAVAILABLE,
+                }),
+            ]);
+            const channel = await manager.createChannel({
+                name: 'Original',
+                contentSource: createMockContentSource(),
+            });
+            const originalContent = await manager.resolveChannelContent(channel.id);
+            mockLibrary.getLibraryItems.mockResolvedValue([]);
+
+            const updated = await manager.updateChannel(channel.id, {
+                contentSource: {
+                    ...createMockContentSource(),
+                    libraryId: 'deleted-lib',
+                },
+            });
+
+            expect(updated.contentSource).toEqual(
+                expect.objectContaining({ libraryId: 'deleted-lib' })
+            );
+            const cachedAfterFallback = await manager.resolveChannelContent(channel.id);
+            expect(cachedAfterFallback.fromCache).toBe(true);
+            expect(cachedAfterFallback.items.map((item) => item.ratingKey)).toEqual(
+                originalContent.items.map((item) => item.ratingKey)
+            );
+        });
+
         it('should throw ACCESS_DENIED when library returns ACCESS_DENIED (403)', async () => {
             expectConsoleWarn([
                 'Access denied resolving channel content',
@@ -1354,6 +1477,49 @@ describe('ChannelManager', () => {
             expect(result.importedCount).toBe(1);
             expect(result.errors).toHaveLength(0);
             expect(manager.getAllChannels()).toHaveLength(1);
+        });
+
+        it('skips imported records when create hits a non-fallback content resolution failure', async () => {
+            expectConsoleWarn([
+                'Access denied resolving channel content',
+                expect.objectContaining({
+                    contentSource: { type: 'library', id: 'denied-lib' },
+                    httpStatus: 403,
+                }),
+            ]);
+            mockLibrary.getLibraryItems.mockImplementation(async (libraryId) => {
+                if (libraryId === 'denied-lib') {
+                    throw Object.assign(new Error('Access denied'), {
+                        code: AppErrorCode.ACCESS_DENIED,
+                        httpStatus: 403,
+                    });
+                }
+                return [createMockItem({ ratingKey: `item-${libraryId}` })];
+            });
+            const importData = JSON.stringify([
+                {
+                    name: 'Denied Channel',
+                    contentSource: {
+                        ...createMockContentSource(),
+                        libraryId: 'denied-lib',
+                    },
+                },
+                {
+                    name: 'Imported Channel',
+                    contentSource: createMockContentSource(),
+                },
+            ]);
+
+            const result = await manager.importChannels(importData);
+
+            expect(result.success).toBe(true);
+            expect(result.importedCount).toBe(1);
+            expect(result.skippedCount).toBe(1);
+            expect(result.errors).toEqual([
+                expect.stringContaining('Failed to import channel: Profile does not have access'),
+            ]);
+            expect(manager.getAllChannels()).toHaveLength(1);
+            expect(manager.getAllChannels()[0]?.name).toBe('Imported Channel');
         });
 
         it('omits invalid enum-like fields and content filters during import', async () => {
