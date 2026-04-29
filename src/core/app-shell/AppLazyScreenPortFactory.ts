@@ -8,6 +8,7 @@ import type {
 } from '../../modules/ui/server-select';
 import type { GuideSettingChange } from '../../modules/ui/settings/types';
 import type { ThemeName } from '../../modules/ui/theme';
+import type { ChannelSetupWorkflowPort } from '../channel-setup/workflow/ChannelSetupWorkflowPort';
 import type {
     AppShellAuthRuntimePort,
     AppShellChannelSetupRuntimePort,
@@ -21,6 +22,19 @@ function assertUnhandledServerSelectionResult(result: never): never {
     const resultKind = (result as { kind?: unknown }).kind;
     throw new Error(`Unhandled server selection result kind: ${String(resultKind)}`);
 }
+
+export const createChannelSetupScreenWorkflowPort = (
+    workflowPort: ChannelSetupWorkflowPort
+): ChannelSetupScreenWorkflowPort => ({
+    invalidateFacetSnapshot: () => workflowPort.invalidateFacetSnapshot(),
+    getLibrariesForSetup: (signal) => workflowPort.getLibrariesForSetup(signal),
+    getChannelSetupRecord: (serverId) => workflowPort.getChannelSetupRecord(serverId),
+    getSetupContextForSelectedServer: () => workflowPort.getSetupContextForSelectedServer(),
+    getSetupPreview: (config, options) => workflowPort.getSetupPreview(config, options),
+    getSetupReview: (config, options) => workflowPort.getSetupReview(config, options),
+    createChannelsFromSetup: (config, options) => workflowPort.createChannelsFromSetup(config, options),
+    markSetupComplete: (serverId, setupConfig) => workflowPort.markSetupComplete(serverId, setupConfig),
+});
 
 export interface AppLazyScreenPortFactoryOptions {
     getNavigationRuntime: () => AppShellNavigationRuntimePort | null;

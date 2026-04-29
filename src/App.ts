@@ -15,7 +15,10 @@ import { AppOrchestrator, type AppOrchestratorRuntime } from './Orchestrator';
 import {
     AppLazyScreenRegistry,
 } from './core/app-shell/AppLazyScreenRegistry';
-import { AppLazyScreenPortFactory } from './core/app-shell/AppLazyScreenPortFactory';
+import {
+    AppLazyScreenPortFactory,
+    createChannelSetupScreenWorkflowPort,
+} from './core/app-shell/AppLazyScreenPortFactory';
 import { AppScreenVisibilityCoordinator } from './core/app-shell/AppScreenVisibilityCoordinator';
 import {
     AppBlockingErrorOverlayPresenter,
@@ -29,8 +32,6 @@ import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
 import { SplashScreen } from './modules/ui/splash';
 import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';
 import type { ChannelSetupConfig } from './core/channel-setup/types';
-import type { ChannelSetupWorkflowPort } from './core/channel-setup/workflow/ChannelSetupWorkflowPort';
-import type { ChannelSetupScreenWorkflowPort } from './modules/ui/channel-setup';
 import { getAppErrorCode } from './types/app-errors';
 import type { IDisposable } from './utils/interfaces';
 import { summarizeErrorForLog } from './utils/errors';
@@ -54,19 +55,6 @@ type AppShellChannelSetupOrchestratorRuntime = Omit<
     AppShellChannelSetupRuntimePort,
     'getChannelSetupScreenWorkflowPort'
 >;
-
-const createChannelSetupScreenWorkflowPort = (
-    workflowPort: ChannelSetupWorkflowPort
-): ChannelSetupScreenWorkflowPort => ({
-    invalidateFacetSnapshot: () => workflowPort.invalidateFacetSnapshot(),
-    getLibrariesForSetup: (signal) => workflowPort.getLibrariesForSetup(signal),
-    getChannelSetupRecord: (serverId) => workflowPort.getChannelSetupRecord(serverId),
-    getSetupContextForSelectedServer: () => workflowPort.getSetupContextForSelectedServer(),
-    getSetupPreview: (config, options) => workflowPort.getSetupPreview(config, options),
-    getSetupReview: (config, options) => workflowPort.getSetupReview(config, options),
-    createChannelsFromSetup: (config, options) => workflowPort.createChannelsFromSetup(config, options),
-    markSetupComplete: (serverId, setupConfig) => workflowPort.markSetupComplete(serverId, setupConfig),
-});
 
 interface AppShellOrchestratorRuntime
     extends AppOrchestratorRuntime,

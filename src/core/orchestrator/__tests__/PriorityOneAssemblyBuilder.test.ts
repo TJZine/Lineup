@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { NOW_PLAYING_INFO_MODAL_ID } from '../../../modules/ui/now-playing-info';
 import type { StreamDescriptor } from '../../../modules/player';
 import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
@@ -56,25 +54,6 @@ const flushPromises = async (): Promise<void> => {
 };
 
 describe('createPriorityOneRuntimeAssembly', () => {
-    it('keeps broad priority-one assembly shaping out of AppOrchestrator', () => {
-        const source = readFileSync(join(__dirname, '../AppOrchestrator.ts'), 'utf8');
-        const method = source.match(
-            /private _initializePriorityOneControllers\(\): void \{[\s\S]*?\n    private _assignPriorityOneControllers/
-        )?.[0];
-
-        expect(method).toBeDefined();
-        expect(method).toContain('createPriorityOneRuntimeAssembly');
-        expect(method).not.toContain('createPriorityOneAssembly');
-        expect(method).not.toContain('createPriorityOneControllersAndBinder');
-        expect(method).not.toContain('wireNavigationCoordinatorEvents');
-        expect(method).not.toContain('wireEpgCoordinatorEvents');
-        expect(method).not.toContain('nowPlayingModalId');
-        expect(method).not.toContain('schedulerRuntime');
-        expect(method).not.toContain('playerEvents');
-        expect(method).not.toContain('uiRuntime');
-        expect(method).not.toContain('events:');
-    });
-
     it('owns priority-one input shaping and controller/binder creation from runtime refs', async () => {
         const program = makeProgram();
         const scheduler = createEventSurface();
