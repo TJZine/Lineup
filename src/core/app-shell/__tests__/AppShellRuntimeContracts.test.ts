@@ -34,6 +34,17 @@ describe('AppShellRuntimeContracts boundaries', () => {
         expect(match?.[0]).toBeDefined();
         expect(match?.[0]).not.toContain('ChannelSetupWorkflowPort');
         expect(match?.[0]).not.toContain('getSetupPlanDiagnostics');
-        expect(match?.[0]).not.toContain('ChannelSetupScreenWorkflowPort');
+        expect(match?.[0]).toContain('getChannelSetupScreenWorkflowPort(): ChannelSetupScreenWorkflowPort');
+    });
+
+    it('keeps the full channel setup workflow port on the diagnostics runtime port', () => {
+        const source = readFileSync(
+            path.resolve(process.cwd(), 'src/core/app-shell/AppShellRuntimeContracts.ts'),
+            'utf8'
+        );
+        const match = source.match(/export interface AppShellDiagnosticsRuntimePort \{[\s\S]*?\n\}/);
+
+        expect(match?.[0]).toBeDefined();
+        expect(match?.[0]).toContain('getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort');
     });
 });

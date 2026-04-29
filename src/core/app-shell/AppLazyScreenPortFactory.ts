@@ -8,35 +8,18 @@ import type {
 } from '../../modules/ui/server-select';
 import type { GuideSettingChange } from '../../modules/ui/settings/types';
 import type { ThemeName } from '../../modules/ui/theme';
-import {
-    APP_SHELL_CHANNEL_SETUP_WORKFLOW_ACCESSOR,
-    type AppShellAuthRuntimePort,
-    type AppShellChannelSetupRuntimePort,
-    type AppShellChannelSetupScreenWorkflowSource,
-    type AppShellNavigationRuntimePort,
-    type AppShellProfileRuntimePort,
-    type AppShellServerSelectionRuntimePort,
-    type AppShellSettingsRuntimePort,
+import type {
+    AppShellAuthRuntimePort,
+    AppShellChannelSetupRuntimePort,
+    AppShellNavigationRuntimePort,
+    AppShellProfileRuntimePort,
+    AppShellServerSelectionRuntimePort,
+    AppShellSettingsRuntimePort,
 } from './AppShellRuntimeContracts';
 
 function assertUnhandledServerSelectionResult(result: never): never {
     const resultKind = (result as { kind?: unknown }).kind;
     throw new Error(`Unhandled server selection result kind: ${String(resultKind)}`);
-}
-
-function hasChannelSetupScreenWorkflowPort(
-    runtime: AppShellChannelSetupRuntimePort
-): runtime is AppShellChannelSetupRuntimePort & AppShellChannelSetupScreenWorkflowSource {
-    return APP_SHELL_CHANNEL_SETUP_WORKFLOW_ACCESSOR in runtime;
-}
-
-function getChannelSetupScreenWorkflowPort(
-    runtime: AppShellChannelSetupRuntimePort
-): ChannelSetupScreenWorkflowPort {
-    if (!hasChannelSetupScreenWorkflowPort(runtime)) {
-        throw new Error('Channel setup screen workflow port is unavailable');
-    }
-    return runtime[APP_SHELL_CHANNEL_SETUP_WORKFLOW_ACCESSOR]();
 }
 
 export interface AppLazyScreenPortFactoryOptions {
@@ -146,7 +129,7 @@ export class AppLazyScreenPortFactory {
         }
 
         return {
-            workflowPort: getChannelSetupScreenWorkflowPort(runtime),
+            workflowPort: runtime.getChannelSetupScreenWorkflowPort(),
             screenPorts: {
                 getNavigation: () => this.getNavigation(),
                 getSelectedServerStorageKey: () => runtime.getSelectedServerStorageKey(),

@@ -29,6 +29,8 @@ import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
 import { SplashScreen } from './modules/ui/splash';
 import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';
 import type { ChannelSetupConfig } from './core/channel-setup/types';
+import type { ChannelSetupWorkflowPort } from './core/channel-setup/workflow/ChannelSetupWorkflowPort';
+import type { ChannelSetupScreenWorkflowPort } from './modules/ui/channel-setup';
 import { getAppErrorCode } from './types/app-errors';
 import type { IDisposable } from './utils/interfaces';
 import { summarizeErrorForLog } from './utils/errors';
@@ -48,11 +50,28 @@ const NON_BLOCKING_LIFECYCLE_CODES = new Set<AppErrorCode>(
 const ERROR_OVERLAY_MODAL_ID = 'modal:error-overlay';
 
 type AppRuntimeLifecycleEvents = Pick<LifecycleEventMap, 'networkWarning' | 'persistenceWarning' | 'phaseChange'>;
+type AppShellChannelSetupOrchestratorRuntime = Omit<
+    AppShellChannelSetupRuntimePort,
+    'getChannelSetupScreenWorkflowPort'
+>;
+
+const createChannelSetupScreenWorkflowPort = (
+    workflowPort: ChannelSetupWorkflowPort
+): ChannelSetupScreenWorkflowPort => ({
+    invalidateFacetSnapshot: () => workflowPort.invalidateFacetSnapshot(),
+    getLibrariesForSetup: (signal) => workflowPort.getLibrariesForSetup(signal),
+    getChannelSetupRecord: (serverId) => workflowPort.getChannelSetupRecord(serverId),
+    getSetupContextForSelectedServer: () => workflowPort.getSetupContextForSelectedServer(),
+    getSetupPreview: (config, options) => workflowPort.getSetupPreview(config, options),
+    getSetupReview: (config, options) => workflowPort.getSetupReview(config, options),
+    createChannelsFromSetup: (config, options) => workflowPort.createChannelsFromSetup(config, options),
+    markSetupComplete: (serverId, setupConfig) => workflowPort.markSetupComplete(serverId, setupConfig),
+});
 
 interface AppShellOrchestratorRuntime
     extends AppOrchestratorRuntime,
     AppShellAuthRuntimePort,
-    AppShellChannelSetupRuntimePort,
+    AppShellChannelSetupOrchestratorRuntime,
     AppShellDiagnosticsRuntimePort,
     AppShellNavigationRuntimePort,
     AppShellProfileRuntimePort,
@@ -260,6 +279,24 @@ export class App {
         return refs;
     }
 
+    private _createChannelSetupRuntime(): AppShellChannelSetupRuntimePort | null {
+        const runtime = this._orchestrator;
+        if (!runtime) {
+            return null;
+        }
+
+        return {
+            getChannelSetupScreenWorkflowPort: () =>
+                createChannelSetupScreenWorkflowPort(runtime.getChannelSetupWorkflowPort()),
+            getSelectedServerStorageKey: () => runtime.getSelectedServerStorageKey(),
+            getServerHealthStorageKey: () => runtime.getServerHealthStorageKey(),
+            getSelectedServerId: () => runtime.getSelectedServerId(),
+            openServerSelect: () => runtime.openServerSelect(),
+            switchToChannelByNumber: (number, options) => runtime.switchToChannelByNumber(number, options),
+            openEPG: () => runtime.openEPG(),
+        };
+    }
+
     private _initializeScreens(containerRefs: AppContainerRefs): void {
         if (!this._orchestrator) {
             return;
@@ -273,7 +310,7 @@ export class App {
             getAuthRuntime: (): AppShellAuthRuntimePort | null => this._orchestrator,
             getProfileRuntime: (): AppShellProfileRuntimePort | null => this._orchestrator,
             getServerSelectionRuntime: (): AppShellServerSelectionRuntimePort | null => this._orchestrator,
-            getChannelSetupRuntime: (): AppShellChannelSetupRuntimePort | null => this._orchestrator,
+            getChannelSetupRuntime: (): AppShellChannelSetupRuntimePort | null => this._createChannelSetupRuntime(),
             getSettingsRuntime: (): AppShellSettingsRuntimePort | null => {
                 const runtime = this._orchestrator;
                 if (!runtime) {
