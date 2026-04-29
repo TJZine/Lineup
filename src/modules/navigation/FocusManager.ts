@@ -1,9 +1,6 @@
 import { IFocusManager, FocusableElement, FocusGroup } from './interfaces';
 import { FOCUS_CLASSES } from './constants';
 
-/**
- * Internal state for focus tracking.
- */
 interface FocusManagerState {
     currentFocusId: string | null;
     focusableElements: Map<string, FocusableElement>;
@@ -12,11 +9,6 @@ interface FocusManagerState {
     preFocusIdBeforeModal: string | null;
 }
 
-/**
- * Manages focus state, spatial navigation, and focus memory per screen.
- *
- * @implements IFocusManager
- */
 export class FocusManager implements IFocusManager {
     private _state: FocusManagerState;
 
@@ -30,18 +22,10 @@ export class FocusManager implements IFocusManager {
         };
     }
 
-    /**
-     * Get the current focused element ID.
-     * @returns The focused element ID or null
-     */
     public getCurrentFocusId(): string | null {
         return this._state.currentFocusId;
     }
 
-    /**
-     * Get the currently focused focusable element.
-     * @returns The focused element or null
-     */
     public getFocusedElement(): FocusableElement | null {
         if (!this._state.currentFocusId) {
             return null;
@@ -50,30 +34,17 @@ export class FocusManager implements IFocusManager {
         return element !== undefined ? element : null;
     }
 
-    /**
-     * Get a registered focusable element by ID.
-     * @param elementId - The element ID to retrieve
-     * @returns The focusable element or null if not found
-     */
     public getElement(elementId: string): FocusableElement | null {
         const element = this._state.focusableElements.get(elementId);
         return element !== undefined ? element : null;
     }
 
-    /**
-     * Register a focusable element.
-     * @param element - The focusable element to register
-     */
     public registerFocusable(element: FocusableElement): void {
         this._state.focusableElements.set(element.id, element);
         element.element.tabIndex = -1;
         element.element.classList.add(FOCUS_CLASSES.FOCUSABLE);
     }
 
-    /**
-     * Unregister a focusable element.
-     * @param elementId - The element ID to unregister
-     */
     public unregisterFocusable(elementId: string): void {
         const element = this._state.focusableElements.get(elementId);
         if (element) {
@@ -82,51 +53,34 @@ export class FocusManager implements IFocusManager {
         }
         this._state.focusableElements.delete(elementId);
 
-        // Clear focus if the removed element was focused
         if (this._state.currentFocusId === elementId) {
             this._state.currentFocusId = null;
         }
     }
 
-    /**
-     * Register a focus group.
-     * @param group - The focus group to register
-     */
     public registerFocusGroup(group: FocusGroup): void {
         this._state.focusGroups.set(group.id, group);
     }
 
-    /**
-     * Unregister a focus group.
-     * @param groupId - The group ID to unregister
-     */
     public unregisterFocusGroup(groupId: string): void {
         this._state.focusGroups.delete(groupId);
     }
 
-    /**
-     * Focus an element by ID.
-     * @param elementId - The element ID to focus
-     * @returns true if focus was set, false if element not found
-     */
     public focus(elementId: string): boolean {
         const element = this._state.focusableElements.get(elementId);
         if (!element) {
             return false;
         }
 
-        // Blur previous element
         const previousId = this._state.currentFocusId;
         if (previousId && previousId !== elementId) {
             this.blur();
         }
 
-        // Focus new element
         this._state.currentFocusId = elementId;
         element.element.classList.add(FOCUS_CLASSES.FOCUSED);
         this.updateFocusRing(elementId);
 
-        // Call onFocus callback
         if (element.onFocus) {
             element.onFocus();
         }
@@ -134,9 +88,6 @@ export class FocusManager implements IFocusManager {
         return true;
     }
 
-    /**
-     * Blur the currently focused element.
-     */
     public blur(): void {
         const currentId = this._state.currentFocusId;
         if (!currentId) {
@@ -147,7 +98,6 @@ export class FocusManager implements IFocusManager {
         if (element) {
             element.element.classList.remove(FOCUS_CLASSES.FOCUSED);
 
-            // Call onBlur callback
             if (element.onBlur) {
                 element.onBlur();
             }
@@ -157,13 +107,6 @@ export class FocusManager implements IFocusManager {
         this._state.currentFocusId = null;
     }
 
-    /**
-     * Find the neighbor element in a given direction.
-     * Uses explicit neighbors first, then spatial navigation fallback.
-     * @param fromId - Starting element ID
-     * @param direction - Navigation direction
-     * @returns The neighbor element ID or null
-     */
     public findNeighbor(
         fromId: string,
         direction: 'up' | 'down' | 'left' | 'right'
@@ -173,16 +116,13 @@ export class FocusManager implements IFocusManager {
             return null;
         }
 
-        // Check explicit neighbor first
         const explicitNeighbor = fromElement.neighbors[direction];
         if (explicitNeighbor !== undefined) {
-            // Verify the neighbor exists
             if (this._state.focusableElements.has(explicitNeighbor)) {
                 return explicitNeighbor;
             }
         }
 
-        // Check group navigation
         const groupId = fromElement.group;
         if (groupId !== undefined) {
             const group = this._state.focusGroups.get(groupId);
@@ -194,14 +134,9 @@ export class FocusManager implements IFocusManager {
             }
         }
 
-        // Fallback to spatial navigation
         return this._calculateSpatialNeighbor(fromId, direction);
     }
 
-    /**
-     * Save the current focus state for a screen.
-     * @param screenId - The screen identifier
-     */
     public saveFocusState(screenId: string): void {
         const currentFocusId = this._state.currentFocusId;
         if (!currentFocusId) {
@@ -223,11 +158,6 @@ export class FocusManager implements IFocusManager {
         this._state.focusMemory.set(screenId, record);
     }
 
-    /**
-     * Restore focus state for a screen.
-     * @param screenId - The screen identifier
-     * @returns true if focus was restored, false otherwise
-     */
     public restoreFocusState(screenId: string): boolean {
         const saved = this._state.focusMemory.get(screenId);
         if (!saved) {
@@ -260,17 +190,10 @@ export class FocusManager implements IFocusManager {
         return false;
     }
 
-    /**
-     * Save the focus ID before opening a modal.
-     */
     public savePreModalFocus(): void {
         this._state.preFocusIdBeforeModal = this._state.currentFocusId;
     }
 
-    /**
-     * Restore focus after closing a modal.
-     * @returns true if focus was restored
-     */
     public restorePreModalFocus(): boolean {
         const preModalId = this._state.preFocusIdBeforeModal;
         this._state.preFocusIdBeforeModal = null;
@@ -281,10 +204,6 @@ export class FocusManager implements IFocusManager {
         return false;
     }
 
-    /**
-     * Update focus ring position for an element.
-     * @param elementId - The element ID to show focus ring on
-     */
     public updateFocusRing(elementId: string): void {
         const element = this._state.focusableElements.get(elementId);
         if (element) {
@@ -292,18 +211,10 @@ export class FocusManager implements IFocusManager {
         }
     }
 
-    /**
-     * Hide the focus ring.
-     */
     public hideFocusRing(): void {
-        // Focus ring is CSS-based, no explicit action needed beyond class removal
     }
 
-    /**
-     * Clear all registered elements and state.
-     */
     public clear(): void {
-        // Clear focus classes from all elements
         this._state.focusableElements.forEach((element) => {
             element.element.classList.remove(FOCUS_CLASSES.FOCUSABLE);
             element.element.classList.remove(FOCUS_CLASSES.FOCUSED);
@@ -316,9 +227,6 @@ export class FocusManager implements IFocusManager {
         // to maintain focus state across screen transitions and modal cycles.
     }
 
-    /**
-     * Find the next element within a focus group.
-     */
     private _findNextInGroup(
         currentId: string,
         direction: 'up' | 'down' | 'left' | 'right',
@@ -329,19 +237,17 @@ export class FocusManager implements IFocusManager {
             return null;
         }
 
-        // Handle grid navigation
         if (group.orientation === 'grid' && group.columns !== undefined) {
             return this._navigateGrid(currentIndex, direction, group);
         }
 
-        // Handle linear navigation (horizontal/vertical)
         const isVertical = group.orientation === 'vertical';
         const isPrimary =
             (isVertical && (direction === 'up' || direction === 'down')) ||
             (!isVertical && (direction === 'left' || direction === 'right'));
 
         if (!isPrimary) {
-            return null; // Direction doesn't match orientation
+            return null;
         }
 
         const isForward = direction === 'down' || direction === 'right';
@@ -367,9 +273,6 @@ export class FocusManager implements IFocusManager {
         return nextElement !== undefined ? nextElement : null;
     }
 
-    /**
-     * Navigate within a grid layout.
-     */
     private _navigateGrid(
         currentIndex: number,
         direction: 'up' | 'down' | 'left' | 'right',
@@ -450,10 +353,6 @@ export class FocusManager implements IFocusManager {
         return targetElement !== undefined ? targetElement : null;
     }
 
-    /**
-     * Calculate the spatial neighbor using geometric analysis.
-     * @complexity O(n) where n = number of focusable elements
-     */
     private _calculateSpatialNeighbor(
         fromId: string,
         direction: 'up' | 'down' | 'left' | 'right'
@@ -478,19 +377,15 @@ export class FocusManager implements IFocusManager {
                 return;
             }
 
-            // Check if element is in the correct direction
             if (!this._isInDirection(fromRect, rect, direction)) {
                 return;
             }
 
-            // Calculate overlap on perpendicular axis
             const overlap = this._calculateOverlap(fromRect, rect, direction);
-
-            // Calculate distance in primary direction
             const distance = this._calculateDistance(fromRect, rect, direction);
 
-            // Score: prefer overlap, then minimal distance
-            // Higher overlap = better, lower distance = better
+            // Prefer candidates aligned on the perpendicular axis, then nearer
+            // candidates in the requested direction.
             const score = overlap * 1000 - distance;
 
             if (score > bestScore) {
@@ -502,9 +397,6 @@ export class FocusManager implements IFocusManager {
         return bestCandidateId;
     }
 
-    /**
-     * Check if an element is visible.
-     */
     private _isVisible(element: HTMLElement, rect?: DOMRect): boolean {
         const resolvedRect = rect ?? element.getBoundingClientRect();
         if (resolvedRect.width <= 0 || resolvedRect.height <= 0 || !element.isConnected) {
@@ -521,9 +413,6 @@ export class FocusManager implements IFocusManager {
         return element.offsetParent !== null || style.position === 'fixed';
     }
 
-    /**
-     * Check if target rect is in the specified direction from source rect.
-     */
     private _isInDirection(
         fromRect: DOMRect,
         toRect: DOMRect,
@@ -550,23 +439,18 @@ export class FocusManager implements IFocusManager {
         }
     }
 
-    /**
-     * Calculate overlap percentage on perpendicular axis.
-     */
     private _calculateOverlap(
         fromRect: DOMRect,
         toRect: DOMRect,
         direction: 'up' | 'down' | 'left' | 'right'
     ): number {
         if (direction === 'up' || direction === 'down') {
-            // Horizontal overlap
             const overlapStart = Math.max(fromRect.left, toRect.left);
             const overlapEnd = Math.min(fromRect.right, toRect.right);
             const overlap = Math.max(0, overlapEnd - overlapStart);
             const maxWidth = Math.min(fromRect.width, toRect.width);
             return maxWidth > 0 ? overlap / maxWidth : 0;
         } else {
-            // Vertical overlap
             const overlapStart = Math.max(fromRect.top, toRect.top);
             const overlapEnd = Math.min(fromRect.bottom, toRect.bottom);
             const overlap = Math.max(0, overlapEnd - overlapStart);
@@ -575,9 +459,6 @@ export class FocusManager implements IFocusManager {
         }
     }
 
-    /**
-     * Calculate distance from edge of source to edge of target in primary direction.
-     */
     private _calculateDistance(
         fromRect: DOMRect,
         toRect: DOMRect,
