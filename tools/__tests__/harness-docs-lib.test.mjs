@@ -1836,7 +1836,7 @@ test('checkPlanConformance rejects imported ids in FCP coverage_check text', () 
         ),
     });
 
-    assert.ok(result.errors.includes('checklist-linked FCP plans must not include detector/imported issue ids or Desloppify evidence in `## Package Decomposition`'));
+    assert.ok(result.errors.includes('checklist-linked FCP plans must not include detector/imported issue ids, package-map evidence, or Desloppify evidence in `## Package Decomposition`'));
 });
 
 test('checkPlanConformance rejects Desloppify commands in FCP package decomposition', () => {
@@ -1850,7 +1850,21 @@ test('checkPlanConformance rejects Desloppify commands in FCP package decomposit
         ),
     });
 
-    assert.ok(result.errors.includes('checklist-linked FCP plans must not include detector/imported issue ids or Desloppify evidence in `## Package Decomposition`'));
+    assert.ok(result.errors.includes('checklist-linked FCP plans must not include detector/imported issue ids, package-map evidence, or Desloppify evidence in `## Package Decomposition`'));
+});
+
+test('checkPlanConformance rejects package-map evidence in FCP package decomposition', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-28-fcp-example.md',
+        content: buildActiveCleanupPlan(
+            buildFcpSingleSlicePackageDecomposition().replace(
+                'every approved source finding is mapped to one slice-owned execution path',
+                'package-map evidence maps every approved source finding to one slice-owned execution path'
+            )
+        ),
+    });
+
+    assert.ok(result.errors.includes('checklist-linked FCP plans must not include detector/imported issue ids, package-map evidence, or Desloppify evidence in `## Package Decomposition`'));
 });
 
 test('checkPlanConformance rejects detector-shaped source_finding_ids in FCP plans', () => {
@@ -1940,7 +1954,7 @@ test('checkPlanConformance rejects imported ids in nested FCP priority-exit proo
         ),
     });
 
-    assert.ok(result.errors.includes('FCP priority-exit readiness must not include detector/imported issue ids or Desloppify evidence'));
+    assert.ok(result.errors.includes('FCP priority-exit readiness must not include detector/imported issue ids, package-map evidence, or Desloppify evidence'));
 });
 
 test('checkPlanConformance rejects Desloppify paths in nested FCP priority-exit proof text', () => {
@@ -1962,7 +1976,29 @@ test('checkPlanConformance rejects Desloppify paths in nested FCP priority-exit 
         ),
     });
 
-    assert.ok(result.errors.includes('FCP priority-exit readiness must not include detector/imported issue ids or Desloppify evidence'));
+    assert.ok(result.errors.includes('FCP priority-exit readiness must not include detector/imported issue ids, package-map evidence, or Desloppify evidence'));
+});
+
+test('checkPlanConformance rejects package-map proof in FCP priority-exit readiness', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-28-fcp-example.md',
+        content: buildActiveCleanupPlan(
+            buildFcpSingleSlicePackageDecomposition(),
+            `
+## Priority-Exit Readiness
+
+- \`FCP-1-SF1\`
+  - disposition: resolved
+  - final owner: \`FCP-1\`
+  - proof: source audit compared against package map reconciliation
+  - revisit trigger: rerun the source audit if the owner seam changes
+- security triage: no open P0 security findings
+- priority-exit review blocks FCP-(n+1) until FCP-n is completed
+`
+        ),
+    });
+
+    assert.ok(result.errors.includes('FCP priority-exit readiness must not include detector/imported issue ids, package-map evidence, or Desloppify evidence'));
 });
 
 test('checkPlanConformance rejects undeclared FCP source_finding_id closeout headers', () => {

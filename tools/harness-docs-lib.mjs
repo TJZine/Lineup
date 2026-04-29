@@ -197,6 +197,9 @@ const LEGACY_CHECKLIST_SLICE_ID_RE = new RegExp(`^${LEGACY_CHECKLIST_SLICE_ID_PA
 const FCP_CHECKLIST_SLICE_ID_RE = new RegExp(`^${FCP_CHECKLIST_SLICE_ID_PATTERN}$`, 'u');
 const FCP_FORBIDDEN_IMPORTED_ID_RE = /\b[A-Za-z][A-Za-z0-9_-]*::/u;
 const FCP_FORBIDDEN_DESLOPPIFY_RE = /\b(?:desloppify|\.desloppify)\b/iu;
+const FCP_FORBIDDEN_PACKAGE_MAP_RE = /\bpackage[-_\s]?map\b/iu;
+const FCP_FORBIDDEN_EVIDENCE_MESSAGE =
+    'detector/imported issue ids, package-map evidence, or Desloppify evidence';
 const PRIORITY_EXIT_ISSUE_HEADER_RE =
     /^\s*(?:[-*]|\d+\.)\s+`?([A-Za-z0-9/._:-]*[._:-][A-Za-z0-9/._:-]*)`?\s*$/iu;
 const PRIORITY_EXIT_DISPOSITION_RE =
@@ -403,7 +406,11 @@ function extractChecklistFieldValues(block) {
 }
 
 function hasFcpForbiddenImportedEvidence(section) {
-    return FCP_FORBIDDEN_IMPORTED_ID_RE.test(section) || FCP_FORBIDDEN_DESLOPPIFY_RE.test(section);
+    return (
+        FCP_FORBIDDEN_IMPORTED_ID_RE.test(section)
+        || FCP_FORBIDDEN_DESLOPPIFY_RE.test(section)
+        || FCP_FORBIDDEN_PACKAGE_MAP_RE.test(section)
+    );
 }
 
 function getRequiredInlineScalarFieldValue(section, label, errors, missingError, blockOnlyError) {
@@ -525,7 +532,7 @@ function getChecklistLinkedPackagePlanErrors(content) {
 
     if (isFcpPackage) {
         if (hasFcpForbiddenImportedEvidence(packageDecomposition)) {
-            errors.push('checklist-linked FCP plans must not include detector/imported issue ids or Desloppify evidence in `## Package Decomposition`');
+            errors.push(`checklist-linked FCP plans must not include ${FCP_FORBIDDEN_EVIDENCE_MESSAGE} in \`## Package Decomposition\``);
         }
         if (extractChecklistPackageFieldBlock(packageDecomposition, '`package_issue_ids`') !== null) {
             errors.push('checklist-linked FCP plans must use `source_finding_ids`, not `package_issue_ids`');
@@ -799,7 +806,7 @@ function getPriorityExitErrors(section, { isFcpPackage = false, checklistToken =
     const issueBlocks = getPriorityExitIssueBlocks(section);
 
     if (isFcpPackage && hasFcpForbiddenImportedEvidence(section)) {
-        errors.push('FCP priority-exit readiness must not include detector/imported issue ids or Desloppify evidence');
+        errors.push(`FCP priority-exit readiness must not include ${FCP_FORBIDDEN_EVIDENCE_MESSAGE}`);
     }
 
     if (issueBlocks.length === 0) {
