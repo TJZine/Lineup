@@ -172,6 +172,7 @@ import {
     captureRecoverableRuntimeResult,
     captureRecoverableRuntimeResultAsync,
 } from './OrchestratorRecoverableRuntimeResult';
+import { OrchestratorShutdownTeardown } from './OrchestratorShutdownTeardown';
 
 const QA_003B_ISSUE_ID = 'QA-003b';
 
@@ -774,20 +775,12 @@ export class AppOrchestrator {
     }
 
     /**
-     * Shutdown the application gracefully.
-     * Saves state, stops playback, and cleans up all resources.
-     *
-     * NOTE: The orchestrator follows a singleton lifecycle pattern.
-     * After shutdown, the instance should be discarded. To restart,
-     * create a new AppOrchestrator instance and call initialize() + start().
-     * Internal state (_errorHandlers, _moduleStatus) is not reset because
-     * instance reuse is not a supported pattern.
+     * The orchestrator follows a singleton lifecycle pattern. After shutdown,
+     * discard this instance and create a new one before initialize() + start().
+     * Internal state is not fully reset because instance reuse is unsupported.
      */
     async shutdown(): Promise<void> {
-        const teardownFailures: Array<{ step: string; error: unknown }> = [];
-        const recordTeardownFailure = (step: string, error: unknown): void => {
-            teardownFailures.push({ step, error: summarizeErrorForLog(error) });
-        };
+        const teardown = new OrchestratorShutdownTeardown();
 
         if (this._initCoordinator) {
             this._initCoordinator.clearAuthResume();
@@ -796,234 +789,126 @@ export class AppOrchestrator {
         }
 
         if (this._scheduleDayRolloverController) {
-            try {
-                this._scheduleDayRolloverController.dispose();
-            } catch (error) {
-                recordTeardownFailure('scheduleDayRolloverController.dispose', error);
-            }
+            teardown.run('scheduleDayRolloverController.dispose', () =>
+                this._scheduleDayRolloverController?.dispose()
+            );
             this._scheduleDayRolloverController = null;
         }
 
-        try {
+        teardown.run('events.unsubscribe', () => {
             this._eventBinder?.dispose((error: unknown): void => {
-                recordTeardownFailure('events.unsubscribe', error);
+                teardown.recordFailure('events.unsubscribe', error);
             });
-        } catch (error) {
-            recordTeardownFailure('events.unsubscribe', error);
-        }
+        });
         this._eventBinder = null;
 
-        if (this._channelManager?.flushSaves) {
-            try {
-                await this._channelManager.flushSaves();
-            } catch (error) {
-                recordTeardownFailure('channelManager.flushSaves', error);
-            }
+        const channelManager = this._channelManager;
+        const flushChannelSaves = channelManager?.flushSaves;
+        if (flushChannelSaves) {
+            await teardown.runAsync('channelManager.flushSaves', () => flushChannelSaves.call(channelManager));
         }
-        if (this._channelManager?.dispose) {
-            try {
-                this._channelManager.dispose();
-            } catch (error) {
-                recordTeardownFailure('channelManager.dispose', error);
-            }
+        const disposeChannelManager = channelManager?.dispose;
+        if (disposeChannelManager) {
+            teardown.run('channelManager.dispose', () => disposeChannelManager.call(channelManager));
         }
         this._channelManager = null;
 
-        // Shutdown lifecycle (flushes state and removes global listeners)
-        if (this._lifecycle) {
-            try {
-                await this._lifecycle.shutdown();
-            } catch (error) {
-                recordTeardownFailure('lifecycle.shutdown', error);
-            }
+        const lifecycle = this._lifecycle;
+        if (lifecycle) {
+            await teardown.runAsync('lifecycle.shutdown', () => lifecycle.shutdown());
             this._lifecycle = null;
         }
 
-        // Stop playback (resilient to errors)
         if (this._videoPlayer) {
-            try {
-                this._stopPlayback();
-            } catch (error) {
-                recordTeardownFailure('videoPlayer.stop', error);
-            }
+            teardown.run('videoPlayer.stop', () => this._stopPlayback());
         }
 
-        if (this._scheduler) {
-            try {
-                this._scheduler.pauseSyncTimer();
-            } catch (error) {
-                recordTeardownFailure('scheduler.pauseSyncTimer', error);
-            }
-            try {
-                this._scheduler.unloadChannel();
-            } catch (error) {
-                recordTeardownFailure('scheduler.unloadChannel', error);
-            }
+        const scheduler = this._scheduler;
+        if (scheduler) {
+            teardown.run('scheduler.pauseSyncTimer', () => scheduler.pauseSyncTimer());
+            teardown.run('scheduler.unloadChannel', () => scheduler.unloadChannel());
             this._scheduler = null;
         }
 
-        try {
-            this._epgCoordinator?.dispose('shutdown');
-        } catch (error) {
-            recordTeardownFailure('epgCoordinator.dispose', error);
-        }
+        teardown.run('epgCoordinator.dispose', () => this._epgCoordinator?.dispose('shutdown'));
         this._epgCoordinator = null;
         if (this._epg) {
-            try {
-                this._epg.destroy();
-            } catch (error) {
-                recordTeardownFailure('epg.destroy', error);
-            }
+            teardown.run('epg.destroy', () => this._epg?.destroy());
         }
         this._epg = null;
         if (this._epgDebugRuntime) {
-            try {
-                this._epgDebugRuntime.destroy();
-            } catch (error) {
-                recordTeardownFailure('epgDebugRuntime.destroy', error);
-            }
+            teardown.run('epgDebugRuntime.destroy', () => this._epgDebugRuntime?.destroy());
             this._epgDebugRuntime = null;
         }
         if (this._nowPlayingDebugManager) {
-            try {
-                this._nowPlayingDebugManager.dispose();
-            } catch (error) {
-                recordTeardownFailure('nowPlayingDebugManager.dispose', error);
-            }
+            teardown.run('nowPlayingDebugManager.dispose', () => this._nowPlayingDebugManager?.dispose());
             this._nowPlayingDebugManager = null;
         }
-        try {
-            this._nowPlayingInfoCoordinator?.dispose();
-        } catch (error) {
-            recordTeardownFailure('nowPlayingInfoCoordinator.dispose', error);
-        }
+        teardown.run('nowPlayingInfoCoordinator.dispose', () => this._nowPlayingInfoCoordinator?.dispose());
         this._nowPlayingInfoCoordinator = null;
         if (this._nowPlayingInfo) {
-            try {
-                this._nowPlayingInfo.destroy();
-            } catch (error) {
-                recordTeardownFailure('nowPlayingInfo.destroy', error);
-            }
+            teardown.run('nowPlayingInfo.destroy', () => this._nowPlayingInfo?.destroy());
             this._nowPlayingInfo = null;
         }
-        try {
-            this._playerOsdCoordinator?.hide();
-        } catch (error) {
-            recordTeardownFailure('playerOsdCoordinator.hide', error);
-        }
+        teardown.run('playerOsdCoordinator.hide', () => this._playerOsdCoordinator?.hide());
         this._playerOsdCoordinator = null;
         if (this._playerOsd) {
-            try {
-                this._playerOsd.destroy();
-            } catch (error) {
-                recordTeardownFailure('playerOsd.destroy', error);
-            }
+            teardown.run('playerOsd.destroy', () => this._playerOsd?.destroy());
             this._playerOsd = null;
         }
         if (this._channelNumberOverlay) {
-            try {
-                this._channelNumberOverlay.destroy();
-            } catch (error) {
-                recordTeardownFailure('channelNumberOverlay.destroy', error);
-            }
+            teardown.run('channelNumberOverlay.destroy', () => this._channelNumberOverlay?.destroy());
             this._channelNumberOverlay = null;
         }
         if (this._channelBadgeOverlay) {
-            try {
-                this._channelBadgeOverlay.destroy();
-            } catch (error) {
-                recordTeardownFailure('channelBadgeOverlay.destroy', error);
-            }
+            teardown.run('channelBadgeOverlay.destroy', () => this._channelBadgeOverlay?.destroy());
             this._channelBadgeOverlay = null;
         }
-        try {
-            this._miniGuideCoordinator?.hide();
-        } catch (error) {
-            recordTeardownFailure('miniGuideCoordinator.hide', error);
-        }
+        teardown.run('miniGuideCoordinator.hide', () => this._miniGuideCoordinator?.hide());
         this._miniGuideCoordinator = null;
         if (this._miniGuide) {
-            try {
-                this._miniGuide.destroy();
-            } catch (error) {
-                recordTeardownFailure('miniGuide.destroy', error);
-            }
+            teardown.run('miniGuide.destroy', () => this._miniGuide?.destroy());
             this._miniGuide = null;
         }
-        try {
-            this._channelTransitionCoordinator?.hide();
-        } catch (error) {
-            recordTeardownFailure('channelTransitionCoordinator.hide', error);
-        }
+        teardown.run('channelTransitionCoordinator.hide', () => this._channelTransitionCoordinator?.hide());
         this._channelTransitionCoordinator = null;
         if (this._channelTransitionOverlay) {
-            try {
-                this._channelTransitionOverlay.destroy();
-            } catch (error) {
-                recordTeardownFailure('channelTransitionOverlay.destroy', error);
-            }
+            teardown.run('channelTransitionOverlay.destroy', () => this._channelTransitionOverlay?.destroy());
             this._channelTransitionOverlay = null;
         }
-        try {
-            this._playbackOptionsCoordinator?.dispose();
-        } catch (error) {
-            recordTeardownFailure('playbackOptionsCoordinator.dispose', error);
-        }
+        teardown.run('playbackOptionsCoordinator.dispose', () => this._playbackOptionsCoordinator?.dispose());
         this._playbackOptionsCoordinator = null;
         if (this._playbackOptionsModal) {
-            try {
-                this._playbackOptionsModal.destroy();
-            } catch (error) {
-                recordTeardownFailure('playbackOptionsModal.destroy', error);
-            }
+            teardown.run('playbackOptionsModal.destroy', () => this._playbackOptionsModal?.destroy());
             this._playbackOptionsModal = null;
         }
         if (this._exitConfirmModal) {
             if (this._navigation?.isModalOpen(EXIT_CONFIRM_MODAL_ID)) {
-                try {
-                    this._navigation.closeModal(EXIT_CONFIRM_MODAL_ID);
-                } catch (error) {
-                    recordTeardownFailure('navigation.closeModal(exit-confirm)', error);
-                }
+                teardown.run('navigation.closeModal(exit-confirm)', () =>
+                    this._navigation?.closeModal(EXIT_CONFIRM_MODAL_ID)
+                );
             }
-            try {
-                this._exitConfirmCoordinator?.handleModalClose(EXIT_CONFIRM_MODAL_ID);
-            } catch (error) {
-                recordTeardownFailure('exitConfirmCoordinator.handleModalClose', error);
-            }
-            try {
-                this._exitConfirmModal.destroy();
-            } catch (error) {
-                recordTeardownFailure('exitConfirmModal.destroy', error);
-            }
+            teardown.run('exitConfirmCoordinator.handleModalClose', () =>
+                this._exitConfirmCoordinator?.handleModalClose(EXIT_CONFIRM_MODAL_ID)
+            );
+            teardown.run('exitConfirmModal.destroy', () => this._exitConfirmModal?.destroy());
             this._exitConfirmModal = null;
             this._exitConfirmCoordinator = null;
         }
         if (this._videoPlayer) {
-            try {
-                this._videoPlayer.destroy();
-            } catch (error) {
-                recordTeardownFailure('videoPlayer.destroy', error);
-            }
+            teardown.run('videoPlayer.destroy', () => this._videoPlayer?.destroy());
             this._videoPlayer = null;
         }
         if (this._sleepTimer) {
-            try {
-                this._sleepTimer.destroy();
-            } catch (error) {
-                recordTeardownFailure('sleepTimer.destroy', error);
-            }
+            teardown.run('sleepTimer.destroy', () => this._sleepTimer?.destroy());
             this._sleepTimer = null;
         }
         if (this._navigation) {
-            try {
-                this._navigation.destroy();
-            } catch (error) {
-                recordTeardownFailure('navigation.destroy', error);
-            }
+            teardown.run('navigation.destroy', () => this._navigation?.destroy());
             this._navigation = null;
         }
 
+        const teardownFailures = teardown.getFailures();
         if (teardownFailures.length > 0) {
             this._warnRecoverableRuntimeIssue(
                 'orchestrator.shutdown.teardown',
