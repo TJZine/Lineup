@@ -34,7 +34,10 @@ describe('AppShellRuntimeContracts boundaries', () => {
         expect(match?.[0]).toBeDefined();
         expect(match?.[0]).not.toContain('ChannelSetupWorkflowPort');
         expect(match?.[0]).not.toContain('getSetupPlanDiagnostics');
+        expect(match?.[0]).not.toContain('getSelectedServerStorageKey');
+        expect(match?.[0]).not.toContain('getServerHealthStorageKey');
         expect(match?.[0]).toContain('getChannelSetupScreenWorkflowPort(): ChannelSetupScreenWorkflowPort');
+        expect(match?.[0]).toContain('getSelectedServerId(): string | null');
     });
 
     it('keeps the full channel setup workflow port on the diagnostics runtime port', () => {
@@ -46,5 +49,6 @@ describe('AppShellRuntimeContracts boundaries', () => {
 
         expect(match?.[0]).toBeDefined();
         expect(match?.[0]).toContain('getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort');
+        expect(match?.[0]).toContain('getSelectedServerStorageKey(): string');
     });
 });

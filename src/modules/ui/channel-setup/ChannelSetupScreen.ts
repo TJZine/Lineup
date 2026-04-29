@@ -5,7 +5,6 @@ import {
     type ChannelSetupConfig,
 } from '../../../core/channel-setup/types';
 import type { FocusableElement, KeyEvent } from '../../navigation';
-import { ServerSelectionStore } from '../../plex/discovery/ServerSelectionStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../scheduler/channel-manager/constants';
 import {
@@ -57,7 +56,6 @@ const SHOW_SVG = `
 export class ChannelSetupScreen {
     private _container: HTMLElement;
     private _screenPorts: ChannelSetupScreenPorts;
-    private readonly _serverSelectionStore: ServerSelectionStore;
     private readonly _focus: ChannelSetupFocusCoordinator;
     private _destroyScreenShell: (() => void) | null = null;
     private readonly _libraryStep = new LibraryStepController();
@@ -162,10 +160,6 @@ export class ChannelSetupScreen {
     ) {
         this._container = container;
         this._screenPorts = deps.screenPorts;
-        this._serverSelectionStore = new ServerSelectionStore(() => ({
-            selectedServerKey: this._screenPorts.getSelectedServerStorageKey(),
-            serverHealthKey: this._screenPorts.getServerHealthStorageKey(),
-        }));
         this._focus = new ChannelSetupFocusCoordinator({
             getNavigation: (): ReturnType<ChannelSetupScreenPorts['getNavigation']> => this._screenPorts.getNavigation(),
         });
@@ -925,10 +919,6 @@ export class ChannelSetupScreen {
     }
 
     private _getSelectedServerId(): string | null {
-        const stored = this._serverSelectionStore.readSelectedServerIdAndClean();
-        if (stored) {
-            return stored;
-        }
         return this._screenPorts.getSelectedServerId();
     }
 }

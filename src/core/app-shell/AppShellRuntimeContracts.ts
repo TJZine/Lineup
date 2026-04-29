@@ -43,8 +43,6 @@ export interface AppShellServerSelectionRuntimePort {
 
 export interface AppShellChannelSetupRuntimePort {
     getChannelSetupScreenWorkflowPort(): ChannelSetupScreenWorkflowPort;
-    getSelectedServerStorageKey(): string;
-    getServerHealthStorageKey(): string;
     getSelectedServerId(): string | null;
     openServerSelect(): void;
     switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void>;

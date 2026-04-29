@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  */
 
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { ChannelSetupScreen } from '../ChannelSetupScreen';
 import type { INavigationManager } from '../../../navigation/interfaces';
 import { flushPromises, flushPromisesAndTimers } from '../../../../__tests__/helpers';
@@ -34,6 +36,49 @@ describe('ChannelSetupScreen contracts', () => {
         jest.useRealTimers();
         jest.clearAllMocks();
         document.body.innerHTML = '';
+    });
+
+    it('keeps selected-server persistence behind app-shell ports', () => {
+        const source = readFileSync(
+            path.resolve(process.cwd(), 'src/modules/ui/channel-setup/ChannelSetupScreen.ts'),
+            'utf8'
+        );
+        const ports = readFileSync(
+            path.resolve(process.cwd(), 'src/modules/ui/channel-setup/ChannelSetupScreenPorts.ts'),
+            'utf8'
+        );
+        const storeName = 'Server' + 'SelectionStore';
+        const readAndClean = 'readSelected' + 'ServerIdAndClean';
+        const selectedStorageKeyGetter = 'getSelected' + 'ServerStorageKey';
+        const healthStorageKeyGetter = 'getServer' + 'HealthStorageKey';
+
+        expect(source).not.toContain(storeName);
+        expect(source).not.toContain(readAndClean);
+        expect(source).not.toContain(selectedStorageKeyGetter);
+        expect(source).not.toContain(healthStorageKeyGetter);
+        expect(ports).not.toContain(selectedStorageKeyGetter);
+        expect(ports).not.toContain(healthStorageKeyGetter);
+        expect(ports).toContain('getSelectedServerId(): string | null');
+    });
+
+    it('keeps channel setup UI runtime errors as strings at the screen boundary', () => {
+        const contracts = readFileSync(
+            path.resolve(process.cwd(), 'src/modules/ui/channel-setup/ChannelSetupSessionContracts.ts'),
+            'utf8'
+        );
+        const screen = readFileSync(
+            path.resolve(process.cwd(), 'src/modules/ui/channel-setup/ChannelSetupScreen.ts'),
+            'utf8'
+        );
+
+        expect(contracts).toContain('loadError: string | null');
+        expect(contracts).toContain('previewError: string | null');
+        expect(contracts).toContain('reviewError: string | null');
+        expect(contracts).toContain("{ kind: 'blocked'; message: string }");
+        expect(contracts).toContain("{ kind: 'error'; message: string }");
+        expect(contracts).toContain('bookkeepingError?: string');
+        expect(screen).not.toContain('AppErrorCode');
+        expect(screen).not.toContain('getAppErrorCode');
     });
 
     it('preserves first-pass DOM IDs across all steps', async () => {

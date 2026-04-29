@@ -38,8 +38,6 @@ export const createChannelSetupScreenWorkflowPort = (
 
 interface AppShellChannelSetupRuntimeSource {
     getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort;
-    getSelectedServerStorageKey(): string;
-    getServerHealthStorageKey(): string;
     getSelectedServerId(): string | null;
     openServerSelect(): void;
     switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void>;
@@ -56,8 +54,6 @@ export const createChannelSetupRuntimePort = (
     return {
         getChannelSetupScreenWorkflowPort: () =>
             createChannelSetupScreenWorkflowPort(runtime.getChannelSetupWorkflowPort()),
-        getSelectedServerStorageKey: () => runtime.getSelectedServerStorageKey(),
-        getServerHealthStorageKey: () => runtime.getServerHealthStorageKey(),
         getSelectedServerId: () => runtime.getSelectedServerId(),
         openServerSelect: () => runtime.openServerSelect(),
         switchToChannelByNumber: (number, options) => runtime.switchToChannelByNumber(number, options),
@@ -175,8 +171,6 @@ export class AppLazyScreenPortFactory {
             workflowPort: runtime.getChannelSetupScreenWorkflowPort(),
             screenPorts: {
                 getNavigation: () => this.getNavigation(),
-                getSelectedServerStorageKey: () => runtime.getSelectedServerStorageKey(),
-                getServerHealthStorageKey: () => runtime.getServerHealthStorageKey(),
                 getSelectedServerId: () => runtime.getSelectedServerId(),
                 openServerSelect: () => runtime.openServerSelect(),
                 switchToChannelByNumber: (number, options) => runtime.switchToChannelByNumber(number, options),

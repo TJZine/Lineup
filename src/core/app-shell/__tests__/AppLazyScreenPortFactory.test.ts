@@ -347,8 +347,6 @@ describe('AppLazyScreenPortFactory', () => {
         expect('getSetupPlanDiagnostics' in (screenWorkflowPort ?? {})).toBe(false);
         screenWorkflowPort?.invalidateFacetSnapshot();
         expect(workflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(1);
-        expect(runtimePort?.getSelectedServerStorageKey()).toBe('selected-server-id');
-        expect(runtimePort?.getServerHealthStorageKey()).toBe('server-health');
         expect(runtimePort?.getSelectedServerId()).toBe('server-1');
         runtimePort?.openServerSelect();
         runtimePort?.openEPG();
@@ -381,10 +379,10 @@ describe('AppLazyScreenPortFactory', () => {
         expect(channelSetupInput).not.toBeNull();
         expect(channelSetupInput?.workflowPort).not.toBe(workflowPort);
         expect('getSetupPlanDiagnostics' in (channelSetupInput?.workflowPort ?? {})).toBe(false);
+        expect('getSelectedServerStorageKey' in (channelSetupInput?.screenPorts ?? {})).toBe(false);
+        expect('getServerHealthStorageKey' in (channelSetupInput?.screenPorts ?? {})).toBe(false);
         channelSetupInput?.workflowPort.invalidateFacetSnapshot();
 
-        expect(channelSetupInput?.screenPorts.getSelectedServerStorageKey()).toBe('selected-server-id');
-        expect(channelSetupInput?.screenPorts.getServerHealthStorageKey()).toBe('server-health');
         expect(channelSetupInput?.screenPorts.getSelectedServerId()).toBe('server-1');
         channelSetupInput?.screenPorts.openServerSelect();
         channelSetupInput?.screenPorts.openEPG();
