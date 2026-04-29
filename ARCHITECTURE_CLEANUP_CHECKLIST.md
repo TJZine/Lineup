@@ -304,7 +304,7 @@ issue ids, package maps, score deltas, or triage as closure input.
   `FCP-3`; do not start it without its own cleanup-loop scope-load, source audit,
   plan, and review.
 
-### [ ] `FCP-3` Focused Design Coherence
+### [x] `FCP-3` Focused Design Coherence
 
 - Scope: improve focused design where a file, class, or function mixes distinct
   responsibilities, carries dense control flow, or obscures the domain model.
@@ -320,13 +320,45 @@ issue ids, package maps, score deltas, or triage as closure input.
 - Verification routing: targeted tests for touched behavior, source review for
   responsibility boundaries, import/API stability audits, and `npm run verify`
   for source work.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: planner should select one cohesive design package whose owner and
-  proof surface are obvious after audit.
+- Status: completed
+- Plan: `docs/plans/2026-04-29-fcp-3-focused-design-coherence.md`
+- Audit: `docs/plans/2026-04-29-fcp-3-focused-design-coherence-audit.md`
+- Last touched: 2026-04-29
+- Verification: `FCP-3-SF1` resolved by implementation commit `22847d97`
+  (`Extract settings screen focus coordinator`). Targeted controller rerun
+  passed (`npm run test:unit --
+  src/modules/ui/settings/__tests__/SettingsScreen.test.ts
+  src/modules/ui/settings/__tests__/SettingsScreenStateController.test.ts`, 2
+  suites / 46 tests). Package-local source audits showed focus graph/key
+  handling/dropdown focus restoration terms moved into
+  `SettingsScreenFocusCoordinator.ts`, with no remaining inline focus-owner
+  implementation in `SettingsScreen.ts`; forbidden focus-owner audit found only
+  allowed type-only `INavigationManager` usage and no storage, Plex/network,
+  app-shell, concrete `NavigationManager`, auth, token, authorization, or
+  security-sensitive persistence ownership. Cleanup-worker `npm run verify`
+  passed after implementation. Controller-rerun final `npm run verify` passed
+  after the completed plan, audit, and checklist closeout update, including
+  typecheck, architecture lint, CSS lint, coverage tests, tools tests, contracts,
+  docs verification, and build.
+- Follow-ups: proof matrix: `FCP-3-SF1` resolved by commit `22847d97`.
+  `SettingsScreenFocusCoordinator.ts` now owns focus graph registration, key
+  routing, dropdown focus restoration, per-category detail focus memory,
+  deferred focus restore intent, and focus registry sync; `SettingsScreen.ts`
+  retains rendering, settings-state consumption, and screen lifecycle
+  delegation. Accepted/no-action and deferred-outside-selected-package areas
+  remain owned in the audit: EPG component/view owners, Plex stream resolver
+  owner, scheduler/channel-manager owner, channel setup UI/screen owner, and
+  core orchestrator/priority-one assembly owners, each with revisit triggers.
+  Security triage: `no open P0 security findings`; final FCP reconciliation
+  must recheck the FCP-3 audit against implemented source/docs changes before
+  `FCP-EXIT` closes.
+- Handoff: Fresh FCP-3 implementation review found no findings and approved
+  `FCP-3-S1` for controller closeout. Fresh FCP-3 priority-exit closeout review
+  found no findings and approved completion after accepting the proof matrix,
+  accepted/no-action and deferred-outside-selected-package owner records,
+  security triage, verification evidence, and mini-record update. Next safe
+  checklist priority is `FCP-4`; do not start it without its own cleanup-loop
+  scope-load, source audit, execution-grade plan, and clean plan review.
 
 ### [ ] `FCP-4` AI-Generated Residue And Code Signal
 
