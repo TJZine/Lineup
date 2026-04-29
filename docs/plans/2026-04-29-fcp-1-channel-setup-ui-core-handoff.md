@@ -1,4 +1,4 @@
-**Plan Status:** active
+**Plan Status:** completed
 **Task family:** cleanup/refactor
 **Cleanup subtype:** checklist-linked
 
@@ -262,6 +262,52 @@ If an implementer edits `AppOrchestrator`, core planning/build/persistence, or d
    - architecture docs if ownership changed, audit/checklist proof matrix after clean implementation review.
 
 If the implementation batch is small, the controller may combine these only after runtime and docs verification pass. Active tracked plan docs should stay out of delegated implementation commits unless the controller explicitly owns a separate docs checkpoint.
+
+## Implementation Closeout
+
+Closed execution unit: `FCP-1-S2`
+
+Closed source finding:
+
+| source_finding_id | disposition | proof |
+| --- | --- | --- |
+| `FCP-1-SF3` | Resolved for the approved workflow-port handoff scope. | Commits `23effad7` and `2326562f` move the channel setup screen/session path to `ChannelSetupScreenWorkflowPort`, keep `getSetupPlanDiagnostics` out of the UI-facing runtime port, and project the full core workflow port into a diagnostics-free screen object before lazy screen construction. |
+
+Runtime closure evidence:
+
+- `src/modules/ui/channel-setup/ChannelSetupScreenPorts.ts` owns the screen workflow contract and does not include `getSetupPlanDiagnostics`.
+- `src/core/app-shell/AppShellRuntimeContracts.ts` exposes `getChannelSetupScreenWorkflowPort(): ChannelSetupScreenWorkflowPort` for `AppShellChannelSetupRuntimePort` while keeping the full `getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort` on `AppShellDiagnosticsRuntimePort`.
+- `src/core/app-shell/AppLazyScreenPortFactory.ts` calls only `runtime.getChannelSetupScreenWorkflowPort()` for screen construction.
+- `src/App.ts` projects the full core workflow port into a new screen-only object before passing it to lazy screen wiring; the screen no longer receives the full core workflow object by reference.
+- `src/__tests__/App.test.ts` asserts the projected workflow object is distinct from the full workflow port and does not expose `getSetupPlanDiagnostics`.
+
+Accepted residuals:
+
+- `src/modules/ui/channel-setup/ChannelSetupSessionState.ts` still imports `normalizeChannelSetupConfig` from `src/core/channel-setup/planning/normalizeChannelSetupConfig.ts`. This is a live planning-policy import, not DTO/constants residue. It is accepted only as an owned residual for this package because `FCP-1-S2` targeted the workflow-port handoff, not session-state policy normalization. Final owner: channel setup UI/core boundary owner. Revisit trigger: before any `FCP-1` closeout claim, or earlier if a later channel setup package changes setup record hydration/normalization ownership.
+- Remaining `src/modules/ui/channel-setup/**` imports from `src/core/channel-setup/types.ts` and `src/core/channel-setup/constants.ts` are accepted data-contract residue for this package. Revisit trigger: if UI starts importing core planning/build/persistence behavior beyond the named `normalizeChannelSetupConfig` residual.
+
+Verification evidence:
+
+- Source audit: `if rg -n "ChannelSetupWorkflowPort|getSetupPlanDiagnostics" src/modules/ui/channel-setup src/core/app-shell/AppLazyScreenPortFactory.ts; then exit 1; else test $? -eq 1; fi` passed with no matches.
+- Runtime contract audit: `node -e "const fs=require('fs'); const s=fs.readFileSync('src/core/app-shell/AppShellRuntimeContracts.ts','utf8'); const m=s.match(/export interface AppShellChannelSetupRuntimePort \\{[\\s\\S]*?\\n\\}/); if (!m) process.exit(2); if (/ChannelSetupWorkflowPort|getSetupPlanDiagnostics/.test(m[0])) { console.error(m[0]); process.exit(1); }"` passed with no output.
+- Residual import audit: `rg -n "normalizeChannelSetupConfig|core/channel-setup|ChannelSetupWorkflowPort|getSetupPlanDiagnostics" src/modules/ui/channel-setup src/core/app-shell/AppShellRuntimeContracts.ts src/core/app-shell/AppLazyScreenPortFactory.ts` identified the accepted DTO/constants imports, the owned `normalizeChannelSetupConfig` residual, and diagnostics-only full workflow exposure in `AppShellDiagnosticsRuntimePort`.
+- Targeted tests: `npx jest --config jest.config.js --runTestsByPath src/__tests__/App.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupSessionRuntime.test.ts src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts src/core/app-shell/__tests__/AppLazyScreenPortFactory.test.ts src/core/app-shell/__tests__/AppShellRuntimeContracts.test.ts --runInBand` passed, 7 suites / 166 tests.
+- Contract test: `npx jest --config jest.contracts.config.js --runTestsByPath src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts --runInBand` passed, 1 suite / 4 tests.
+- Verifier policy test for the user-requested reasoning-effort verifier change: `npx jest --config jest.tools.config.js --runInBand src/__tests__/tools/verifyDocs.test.ts -t "allows maintainers to tune" --verbose` passed, 2 tests.
+- Full gate: `npm run verify` passed after the corrected implementation. An earlier full run reported a shell segmentation fault immediately after contract suites printed pass; direct `npm run test:contracts` passed, and the subsequent full `npm run verify` passed end to end.
+- Docs/control-plane gate: `npm run verify:docs` passed after this plan, the master audit, and the checklist mini-record were updated for `FCP-1-S2` closeout.
+
+Review evidence:
+
+- First fresh adversarial implementation review found that the provider was explicit but still returned the full workflow object and that app-level coverage did not prove runtime projection.
+- The controller addressed both findings in commit `2326562f`.
+- Second fresh adversarial re-review returned no findings and confirmed the runtime projection, diagnostics full-port path, verifier policy scope, and accepted residual handling.
+
+Priority status:
+
+- `FCP-1-SF3` is resolved for this package.
+- `FCP-1-SF4` remains deferred to a future source-backed package or explicit no-action acceptance.
+- `FCP-1` remains in progress and must not be marked complete from this plan alone.
 
 ## Current-Unit Execution Packet
 

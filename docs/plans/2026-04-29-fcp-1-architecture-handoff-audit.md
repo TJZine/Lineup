@@ -59,7 +59,7 @@ Known uncertainty:
 | --- | --- | --- | --- | --- | --- |
 | App-shell server-selection runtime port exposes full core selected-server result. | `src/core/app-shell/AppShellRuntimeContracts.ts` imports `OrchestratorServerSelectionResult`; `src/core/server-selection/ServerSelectionTypes.ts` includes readiness, persistence, and startup resume details; `src/core/app-shell/AppLazyScreenPortFactory.ts` drops those details; `src/modules/ui/server-select/ServerSelectScreen.ts` only consumes selected/failed. | Resolved by first package. | `FCP-1-SF1` | App-shell runtime contract owner. | Narrowed the app-shell result contract while keeping the rich core/orchestrator result. Completed plan: `docs/plans/2026-04-29-fcp-1-architecture-handoff-coherence.md`; implementation commit `75b59c4f`. |
 | Architecture docs omit the app-shell result-narrowing owner. | `docs/architecture/CURRENT_STATE.md` names `AppLazyScreenPortFactory` and `ServerSelectionCoordinator`; `docs/architecture/modules.md` names `ServerSelectionTypes` as owner of `OrchestratorServerSelectionResult`; neither names where app-shell narrowing must happen. | Resolved by first package. | `FCP-1-SF2` | Architecture docs owner. | Docs distinguish full core selected-server result ownership from app-shell/screen result ownership. Completed plan: `docs/plans/2026-04-29-fcp-1-architecture-handoff-coherence.md`; implementation commit `75b59c4f`. |
-| Channel setup UI/app-shell screen wiring exposes the full core `ChannelSetupWorkflowPort` to the UI setup workflow. | Current source shows `AppShellChannelSetupRuntimePort` and `AppLazyScreenPortFactory` hand the full core workflow port to `ChannelSetupScreen`; UI session files type against `ChannelSetupWorkflowPort`; the full port includes diagnostics (`getSetupPlanDiagnostics`) used by app-shell diagnostics, not by screen/session runtime. Remaining core DTO/constants imports appear to be domain data contracts and need package closeout accounting if retained. | Ready package finding in active execution plan. | `FCP-1-SF3` | Channel setup UI/core boundary owner. | Narrow the UI-facing workflow contract for screen/session/app-shell screen wiring while keeping the full core workflow/diagnostics port available to core diagnostics. Active plan: `docs/plans/2026-04-29-fcp-1-channel-setup-ui-core-handoff.md`. |
+| Channel setup UI/app-shell screen wiring exposes the full core `ChannelSetupWorkflowPort` to the UI setup workflow. | Original source showed `AppShellChannelSetupRuntimePort` and `AppLazyScreenPortFactory` handing the full core workflow port to `ChannelSetupScreen`; UI session files typed against `ChannelSetupWorkflowPort`; the full port includes diagnostics (`getSetupPlanDiagnostics`) used by app-shell diagnostics, not by screen/session runtime. Closure source now shows `ChannelSetupScreenWorkflowPort` owns the screen contract, `AppLazyScreenPortFactory` calls `getChannelSetupScreenWorkflowPort()`, and `App.ts` projects the full core workflow into a diagnostics-free screen object. | Resolved by second package. | `FCP-1-SF3` | Channel setup UI/core boundary owner. | Completed plan: `docs/plans/2026-04-29-fcp-1-channel-setup-ui-core-handoff.md`; implementation commits `23effad7` and `2326562f`. Accepted residual: `ChannelSetupSessionState.ts` still imports `normalizeChannelSetupConfig` from core planning; owner is channel setup UI/core boundary owner; revisit before `FCP-1` closeout or any setup record normalization ownership change. |
 | AppOrchestrator remains a broad runtime assembly hub. | `src/core/orchestrator/AppOrchestrator.ts` is 2449 lines; field/constructor reads show many module refs plus server-selection/channel-setup/runtime wiring; `PriorityOneAssemblyBuilder.ts` accepts a broad runtime assembly input. | Deferred FCP-1 candidate. | `FCP-1-SF4` | Core orchestrator runtime assembly owner. | Future package must isolate one concrete AppOrchestrator handoff and prove it reduces owner breadth rather than moving hub responsibility. |
 | `src/Orchestrator.ts` root runtime barrel. | Source is 14 lines and re-exports `AppOrchestrator`, `PlaybackInfoSnapshot`, `ModuleStatus`, and `AppOrchestratorRuntime`; `CURRENT_STATE.md` explicitly says it is a thin public runtime entry barrel and must not export internal lifecycle/core owners. | Accepted/no action. | none | Public runtime barrel owner. | No source-backed widening found. Keep accepted seam. |
 | Empty core/package roots. | `src/core/index.ts` contains only the intentional empty comment; `src/core/channel-setup/index.ts` is empty; targeted root-import audit found no production imports from broad `core` roots. | Accepted/no action. | none | Owning modules, not root barrels. | Current source matches `CURRENT_STATE.md`; no FCP-1 fix. |
@@ -99,6 +99,18 @@ Closure condition: channel setup UI/session/app-shell screen wiring no longer im
 
 Execution path: `FCP-1-S2` in `docs/plans/2026-04-29-fcp-1-channel-setup-ui-core-handoff.md`.
 
+Disposition: resolved by commits `23effad7` and `2326562f`.
+
+Proof:
+
+- `src/modules/ui/channel-setup/ChannelSetupScreenPorts.ts` owns `ChannelSetupScreenWorkflowPort` and omits `getSetupPlanDiagnostics`.
+- `src/core/app-shell/AppShellRuntimeContracts.ts` exposes `getChannelSetupScreenWorkflowPort(): ChannelSetupScreenWorkflowPort` for channel setup screen construction while retaining `getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort` only on diagnostics runtime.
+- `src/core/app-shell/AppLazyScreenPortFactory.ts` no longer imports or calls the full core workflow port for channel setup screen construction.
+- `src/App.ts` projects the full core workflow port into a new screen-only object before lazy screen construction, so the screen does not receive the full object by reference.
+- Source audit and targeted tests listed in the completed plan passed, full `npm run verify` passed after the corrected implementation, and `npm run verify:docs` passed after this audit, the completed plan, and the checklist mini-record were updated for `FCP-1-S2` closeout.
+
+Owned residual: `src/modules/ui/channel-setup/ChannelSetupSessionState.ts` still imports `normalizeChannelSetupConfig` from core planning. This is not DTO/constants residue. Final owner is the channel setup UI/core boundary owner. Revisit trigger: before `FCP-1` closeout, or earlier if setup record hydration/normalization ownership changes.
+
 ## Deferred Source Findings
 
 ### `FCP-1-SF4`
@@ -126,11 +138,11 @@ Required future package brief rule: the future brief must not authorize broad `A
 `FCP-1` cannot be marked complete until:
 
 - `FCP-1-SF1` and `FCP-1-SF2` remain resolved by the completed first package or are explicitly superseded by review.
-- `FCP-1-SF3` is resolved by the active channel-setup UI/core handoff package or explicitly superseded by review.
+- `FCP-1-SF3` remains resolved by the completed channel-setup UI/core handoff package or is explicitly superseded by review.
 - `FCP-1-SF4` is either resolved by a future source-backed FCP-1 package or accepted as no-action with source-backed owner rationale.
 - this audit artifact is updated with final disposition, verification evidence, and any owned residuals.
 - the checklist mini-record points to the final plan/audit state and records verification.
 - the cleanup-loop closeout review accepts the source-finding proof matrix.
 - the final FCP reconciliation pass, when the whole FCP checklist is ready to close, rechecks this audit against implemented source/docs changes so any new follow-up, ownership drift, stale doc, or architecture/handoff residue has one owner and revisit trigger.
 
-`FCP-1-S1` is only the first completed package. `FCP-1-S2` is the next active ready package. This audit does not claim `FCP-1` closeout while `FCP-1-SF3` is active and `FCP-1-SF4` remains deferred.
+`FCP-1-S1` and `FCP-1-S2` are completed packages. This audit does not claim `FCP-1` closeout while `FCP-1-SF4` remains deferred and the `ChannelSetupSessionState.ts` normalization residual still needs closeout disposition or an owned follow-up.
