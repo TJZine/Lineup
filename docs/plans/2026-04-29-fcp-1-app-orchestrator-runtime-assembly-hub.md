@@ -1,4 +1,4 @@
-**Plan Status:** active
+**Plan Status:** completed
 **Task family:** cleanup/refactor
 **Cleanup subtype:** checklist-linked
 
@@ -286,3 +286,38 @@ constraints: extract one priority-one runtime assembly owner; preserve startup/s
 verification: run the source audits, targeted priority-one/orchestrator tests, `npm run verify`, and `npm run verify:docs` after docs updates.
 
 stop_and_replan_if: any adjacent owner must change, behavior changes are needed, source audits show the hub was only moved sideways, verification scope widens materially, or residual accounting changes.
+
+## Completion Evidence
+
+Implemented by:
+
+- `f2b33f28` `refactor(fcp-1): extract priority-one runtime assembly owner`
+- `05b6cf8` `refactor(fcp-1): move priority-one runtime mapping owner`
+
+Final source disposition:
+
+- `src/core/orchestrator/AppOrchestrator.ts` keeps the priority-one idempotence/reentrancy guards, required-module validation, call to `createPriorityOneRuntimeAssembly()`, and assignment of returned controllers/binder.
+- `src/core/orchestrator/priority-one/PriorityOneAssemblyBuilder.ts` owns the mapping from grouped runtime refs/callbacks to `PriorityOneAssemblyInput`, including navigation/EPG event wiring, cleanup reporting, now-playing modal id, player/scheduler/UI event groups, and controller/binder creation.
+- `src/core/orchestrator/__tests__/PriorityOneAssemblyBuilder.test.ts` covers the runtime-ref contract and a narrow architecture boundary assertion that broad priority-one assembly markers do not return to `_initializePriorityOneControllers()`.
+
+Verification evidence:
+
+- Source audit: `rg -n "createPriorityOneAssembly\\(|createPriorityOneControllersAndBinder\\(|nowPlayingModalId|wireNavigationCoordinatorEvents|wireEpgCoordinatorEvents" src/core/orchestrator/AppOrchestrator.ts src/core/orchestrator/priority-one` returned no `AppOrchestrator.ts` hits; expected priority-one owner hits remained.
+- Source audit: `rg -n "_priorityOneControllersInitializing|_eventBinder|_assignPriorityOneControllers|_requireEventBinder\\(\\)\\.bind" src/core/orchestrator/AppOrchestrator.ts` confirmed the startup guard, assignment, and deferred event-binding anchors remain.
+- Source audit: `rg -n "new InitializationCoordinator|createOrchestratorRuntimeControllers|createOrchestratorCoordinators|createOrchestratorModules" src/core/orchestrator/AppOrchestrator.ts` confirmed startup assembly anchors remain.
+- `npm run test:unit -- src/core/orchestrator/__tests__/PriorityOneAssemblyBuilder.test.ts --runInBand` passed.
+- `npm run test:unit -- src/core/orchestrator/__tests__/PriorityOneControllerCollaborators.test.ts src/core/orchestrator/__tests__/PriorityOneControllerFactory.playbackState.test.ts src/core/orchestrator/__tests__/OrchestratorRuntimeSeams.test.ts --runInBand` passed.
+- `npm run test:unit -- src/__tests__/Orchestrator.test.ts --runInBand` passed.
+- `npm run verify` passed.
+
+Review evidence:
+
+- Initial adversarial implementation review found that the first extraction was still wrapper-shaped and that the test did not prove the app-level boundary.
+- Revision commit `05b6cf8` addressed those findings by moving the runtime mapping owner into the priority-one assembly package.
+- Reviewer closure found no findings and explicitly closed the prior high/medium implementation findings.
+- Fresh final implementation review found no findings and approved `FCP-1-SF4` source implementation for docs/audit closeout.
+
+Residual disposition:
+
+- Accepted/no-action SF4 adjacent areas remain unchanged: `OrchestratorModuleFactory`, `OrchestratorCoordinatorAssembly`, `OrchestratorRuntimeControllerBuilder`, and `InitializationCoordinator` continue to own their existing focused seams.
+- `src/modules/ui/channel-setup/ChannelSetupSessionState.ts` still imports `normalizeChannelSetupConfig` from core planning. Final owner remains the channel setup UI/core boundary owner. Revisit trigger: rerun the FCP-1 audit if setup record hydration/normalization ownership changes, and include it in the final FCP reconciliation pass after the cleanup checklist completes.

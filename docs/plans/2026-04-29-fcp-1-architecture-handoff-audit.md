@@ -61,7 +61,7 @@ Known uncertainty:
 | App-shell server-selection runtime port exposes full core selected-server result. | `src/core/app-shell/AppShellRuntimeContracts.ts` imports `OrchestratorServerSelectionResult`; `src/core/server-selection/ServerSelectionTypes.ts` includes readiness, persistence, and startup resume details; `src/core/app-shell/AppLazyScreenPortFactory.ts` drops those details; `src/modules/ui/server-select/ServerSelectScreen.ts` only consumes selected/failed. | Resolved by first package. | `FCP-1-SF1` | App-shell runtime contract owner. | Narrowed the app-shell result contract while keeping the rich core/orchestrator result. Completed plan: `docs/plans/2026-04-29-fcp-1-architecture-handoff-coherence.md`; implementation commit `75b59c4f`. |
 | Architecture docs omit the app-shell result-narrowing owner. | `docs/architecture/CURRENT_STATE.md` names `AppLazyScreenPortFactory` and `ServerSelectionCoordinator`; `docs/architecture/modules.md` names `ServerSelectionTypes` as owner of `OrchestratorServerSelectionResult`; neither names where app-shell narrowing must happen. | Resolved by first package. | `FCP-1-SF2` | Architecture docs owner. | Docs distinguish full core selected-server result ownership from app-shell/screen result ownership. Completed plan: `docs/plans/2026-04-29-fcp-1-architecture-handoff-coherence.md`; implementation commit `75b59c4f`. |
 | Channel setup UI/app-shell screen wiring exposes the full core `ChannelSetupWorkflowPort` to the UI setup workflow. | Original source showed `AppShellChannelSetupRuntimePort` and `AppLazyScreenPortFactory` handing the full core workflow port to `ChannelSetupScreen`; UI session files typed against `ChannelSetupWorkflowPort`; the full port includes diagnostics (`getSetupPlanDiagnostics`) used by app-shell diagnostics, not by screen/session runtime. Closure source now shows `ChannelSetupScreenWorkflowPort` owns the screen contract, `AppLazyScreenPortFactory` calls `getChannelSetupScreenWorkflowPort()`, and `App.ts` projects the full core workflow into a diagnostics-free screen object. | Resolved by second package. | `FCP-1-SF3` | Channel setup UI/core boundary owner. | Completed plan: `docs/plans/2026-04-29-fcp-1-channel-setup-ui-core-handoff.md`; implementation commits `23effad7` and `2326562f`. Accepted residual: `ChannelSetupSessionState.ts` still imports `normalizeChannelSetupConfig` from core planning; owner is channel setup UI/core boundary owner; revisit before `FCP-1` closeout or any setup record normalization ownership change. |
-| AppOrchestrator priority-one runtime assembly input is still shaped inline. | `src/core/orchestrator/AppOrchestrator.ts` is 2449 lines; `_initializePriorityOneControllers()` constructs the full `createPriorityOneAssembly({...})` input inline before calling `createPriorityOneControllersAndBinder()`. `PriorityOneAssemblyBuilder.ts`, `PriorityOneAssemblyInput.ts`, `PriorityOneControllerFactory.ts`, and `PriorityOneControllerCollaborators.ts` show priority-one already owns the downstream assembly/controller contracts. | Active package planned. | `FCP-1-SF4` | Priority-one runtime assembly owner. | Active plan: `docs/plans/2026-04-29-fcp-1-app-orchestrator-runtime-assembly-hub.md`. Closure requires moving priority-one assembly shaping out of `AppOrchestrator` without changing startup/shutdown/listener/timer/error handling behavior or moving the hub sideways. |
+| AppOrchestrator priority-one runtime assembly input was shaped inline. | Original source showed `_initializePriorityOneControllers()` constructing the full `createPriorityOneAssembly({...})` input inline before calling `createPriorityOneControllersAndBinder()`. Closure source shows `AppOrchestrator` passing grouped runtime refs/callbacks to `createPriorityOneRuntimeAssembly()`, while `PriorityOneAssemblyBuilder.ts` owns mapping those refs into `PriorityOneAssemblyInput` and controller/binder creation. | Resolved by third package. | `FCP-1-SF4` | Priority-one runtime assembly owner. | Completed plan: `docs/plans/2026-04-29-fcp-1-app-orchestrator-runtime-assembly-hub.md`; implementation commits `f2b33f28` and `05b6cf8`. Closure audits found no broad priority-one assembly markers in `AppOrchestrator`; clean implementation closure and fresh final implementation reviews found no findings. |
 | AppOrchestrator adjacent assembly owners for modules, coordinators, runtime controllers, and initialization. | `OrchestratorModuleFactory.ts` is a focused module constructor/config owner; `OrchestratorCoordinatorAssembly.ts` owns coordinator construction; `OrchestratorRuntimeControllerBuilder.ts` is 71 lines and owns schedule-day rollover plus subtitle-track recovery construction; `InitializationCoordinator.ts` owns startup sequencing. `CURRENT_STATE.md` and `modules.md` already name these owners. | Accepted/no action for SF4 package. | none | Existing focused owners. | Do not widen the SF4 package into these areas unless implementation proves a direct priority-one dependency and triggers replan. |
 | `src/Orchestrator.ts` root runtime barrel. | Source is 14 lines and re-exports `AppOrchestrator`, `PlaybackInfoSnapshot`, `ModuleStatus`, and `AppOrchestratorRuntime`; `CURRENT_STATE.md` explicitly says it is a thin public runtime entry barrel and must not export internal lifecycle/core owners. | Accepted/no action. | none | Public runtime barrel owner. | No source-backed widening found. Keep accepted seam. |
 | Empty core/package roots. | `src/core/index.ts` contains only the intentional empty comment; `src/core/channel-setup/index.ts` is empty; targeted root-import audit found no production imports from broad `core` roots. | Accepted/no action. | none | Owning modules, not root barrels. | Current source matches `CURRENT_STATE.md`; no FCP-1 fix. |
@@ -111,11 +111,11 @@ Proof:
 - `src/App.ts` projects the full core workflow port into a new screen-only object before lazy screen construction, so the screen does not receive the full object by reference.
 - Source audit and targeted tests listed in the completed plan passed, full `npm run verify` passed after the corrected implementation, and `npm run verify:docs` passed after this audit, the completed plan, and the checklist mini-record were updated for `FCP-1-S2` closeout.
 
-Owned residual: `src/modules/ui/channel-setup/ChannelSetupSessionState.ts` still imports `normalizeChannelSetupConfig` from core planning. This is not DTO/constants residue. Final owner is the channel setup UI/core boundary owner. Revisit trigger: before `FCP-1` closeout, or earlier if setup record hydration/normalization ownership changes.
+Owned residual: `src/modules/ui/channel-setup/ChannelSetupSessionState.ts` still imports `normalizeChannelSetupConfig` from core planning. This is not DTO/constants residue. Final owner is the channel setup UI/core boundary owner. Revisit trigger: rerun the FCP-1 audit if setup record hydration/normalization ownership changes, and include it in the final FCP reconciliation pass after the cleanup checklist completes.
 
 ### `FCP-1-SF4`
 
-Finding: `AppOrchestrator._initializePriorityOneControllers()` still owns priority-one runtime assembly input shaping. This is the concrete source-backed sub-scope selected for the broad AppOrchestrator runtime assembly hub finding.
+Finding: `AppOrchestrator._initializePriorityOneControllers()` owned priority-one runtime assembly input shaping. This was the concrete source-backed sub-scope selected for the broad AppOrchestrator runtime assembly hub finding.
 
 Owner: priority-one runtime assembly owner.
 
@@ -123,11 +123,25 @@ Closure condition: `AppOrchestrator` keeps top-level guards, required-module val
 
 Execution path: `FCP-1-S3` in `docs/plans/2026-04-29-fcp-1-app-orchestrator-runtime-assembly-hub.md`.
 
-Disposition: active plan, not implemented. Other adjacent SF4 audit areas are accepted/no-action for this package because current source already has focused owners for module construction, coordinator assembly, runtime-controller construction, and initialization sequencing. Closeout must confirm those accepted/no-action areas remain true and that no other concrete `FCP-1-SF4` runtime assembly handoff is needed before `FCP-1` completion.
+Disposition: resolved by commits `f2b33f28` and `05b6cf8`.
+
+Proof:
+
+- `src/core/orchestrator/AppOrchestrator.ts` keeps the priority-one idempotence/reentrancy guards, required-module validation, a grouped call to `createPriorityOneRuntimeAssembly()`, and assignment of returned controllers/binder.
+- `src/core/orchestrator/priority-one/PriorityOneAssemblyBuilder.ts` owns the runtime-ref-to-`PriorityOneAssemblyInput` mapping, including navigation/EPG event wiring, cleanup reporting, now-playing modal id, player/scheduler/UI event groups, and controller/binder creation.
+- `src/core/orchestrator/__tests__/PriorityOneAssemblyBuilder.test.ts` covers the runtime-ref contract and includes a narrow boundary assertion that broad priority-one assembly markers do not return to `_initializePriorityOneControllers()`.
+- Source audit `rg -n "createPriorityOneAssembly\\(|createPriorityOneControllersAndBinder\\(|nowPlayingModalId|wireNavigationCoordinatorEvents|wireEpgCoordinatorEvents" src/core/orchestrator/AppOrchestrator.ts src/core/orchestrator/priority-one` returned no `AppOrchestrator.ts` hits and expected priority-one owner hits.
+- Source audit `rg -n "_priorityOneControllersInitializing|_eventBinder|_assignPriorityOneControllers|_requireEventBinder\\(\\)\\.bind" src/core/orchestrator/AppOrchestrator.ts` confirmed the startup guard, assignment, and deferred event-binding anchors remain.
+- Source audit `rg -n "new InitializationCoordinator|createOrchestratorRuntimeControllers|createOrchestratorCoordinators|createOrchestratorModules" src/core/orchestrator/AppOrchestrator.ts` confirmed startup assembly anchors remain.
+- Targeted tests passed: `PriorityOneAssemblyBuilder.test.ts`; `PriorityOneControllerCollaborators.test.ts`, `PriorityOneControllerFactory.playbackState.test.ts`, and `OrchestratorRuntimeSeams.test.ts`; `src/__tests__/Orchestrator.test.ts`.
+- `npm run verify` passed after the implementation revision.
+- Reviewer closure found no findings and explicitly closed the prior wrapper-shaped implementation/test findings; fresh final implementation review found no findings and approved `FCP-1-SF4` source implementation for docs/audit closeout.
+
+Accepted/no-action adjacent SF4 areas remain true: `OrchestratorModuleFactory`, `OrchestratorCoordinatorAssembly`, `OrchestratorRuntimeControllerBuilder`, and `InitializationCoordinator` continue to own their existing focused seams and did not need edits for this package.
 
 ## Deferred Source Findings
 
-No deferred `FCP-1` source finding remains admitted at this planning pass. The channel-setup normalization residual is an owned residual from `FCP-1-SF3`, not a new source finding. If implementation or closeout review finds another concrete AppOrchestrator handoff under the broad `FCP-1-SF4` theme, stop and update this audit plus the active plan before proceeding.
+No deferred `FCP-1` source finding remains admitted at this closeout pass. The channel-setup normalization residual is an owned residual from `FCP-1-SF3`, not a new source finding. If closeout review or a future audit finds another concrete AppOrchestrator handoff under the broad `FCP-1-SF4` theme, stop and update this audit plus the checklist record before proceeding.
 
 ## Audited Accepted Areas
 
@@ -138,16 +152,16 @@ No deferred `FCP-1` source finding remains admitted at this planning pass. The c
 - `OrchestratorModuleFactory`, `OrchestratorCoordinatorAssembly`, `OrchestratorRuntimeControllerBuilder`, and `InitializationCoordinator`: accepted focused owners for their current seams in the `FCP-1-SF4` audit. No action unless `FCP-1-S3` implementation proves a direct priority-one dependency and replans.
 - Hotspot size alone: accepted as not enough for FCP-1 package admission. Create a source finding only when a concrete architecture/handoff ownership seam is proven.
 
-## Closeout Rules For FCP-1
+## FCP-1 Closeout
 
-`FCP-1` cannot be marked complete until:
+FCP-1 was marked completed after these closeout gates were satisfied:
 
 - `FCP-1-SF1` and `FCP-1-SF2` remain resolved by the completed first package or are explicitly superseded by review.
 - `FCP-1-SF3` remains resolved by the completed channel-setup UI/core handoff package or is explicitly superseded by review.
 - `FCP-1-SF4` is resolved by `FCP-1-S3` or explicitly accepted by source-backed review, and accepted/no-action adjacent SF4 areas remain true.
 - this audit artifact is updated with final disposition, verification evidence, and any owned residuals.
 - the checklist mini-record points to the final plan/audit state and records verification.
-- the cleanup-loop closeout review accepts the source-finding proof matrix.
+- the cleanup-loop closeout review accepted the source-finding proof matrix.
 - the final FCP reconciliation pass, when the whole FCP checklist is ready to close, rechecks this audit against implemented source/docs changes so any new follow-up, ownership drift, stale doc, or architecture/handoff residue has one owner and revisit trigger.
 
-`FCP-1-S1` and `FCP-1-S2` are completed packages. This audit does not claim `FCP-1` closeout while `FCP-1-SF4` remains active/not implemented and the `ChannelSetupSessionState.ts` normalization residual still needs closeout disposition or an owned follow-up.
+`FCP-1-S1`, `FCP-1-S2`, and `FCP-1-S3` are completed packages. Fresh FCP-1 priority-exit closeout review found no closeout findings and approved completion after accepting the resolved source findings, accepted/no-action SF4 areas, and the owned `ChannelSetupSessionState.ts` normalization residual. `npm run verify:docs` passed after the checklist completion status update.

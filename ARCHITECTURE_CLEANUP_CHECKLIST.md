@@ -174,7 +174,7 @@ issue ids, package maps, score deltas, or triage as closure input.
 
 ## Final Production Cleanup Program
 
-### [ ] `FCP-1` Architecture And Handoff Coherence
+### [x] `FCP-1` Architecture And Handoff Coherence
 
 - Scope: reduce production risk from unclear ownership, broad handoff seams,
   composition-root drift, module hubs, and cross-module glue that makes behavior
@@ -189,7 +189,7 @@ issue ids, package maps, score deltas, or triage as closure input.
 - Verification routing: architecture source audit, targeted import/dependency
   audits, targeted tests for touched runtime seams, `npm run verify` for source
   work, and `npm run verify:docs` if current architecture truth changes.
-- Status: in progress
+- Status: completed
 - Plan: `docs/plans/2026-04-29-fcp-1-app-orchestrator-runtime-assembly-hub.md`
 - Audit: `docs/plans/2026-04-29-fcp-1-architecture-handoff-audit.md`
 - Last touched: 2026-04-29
@@ -206,8 +206,17 @@ issue ids, package maps, score deltas, or triage as closure input.
   (7 suites / 166 tests) plus `ChannelSetupScreen.contracts.test.ts` (1 suite /
   4 tests). `npm run verify` passed after the corrected implementation. `npm run
   verify:docs` passed after the `FCP-1-S2` completed plan, master audit, and
-  checklist mini-record updates. `FCP-1-S3` is planned, not implemented;
-  verification not run for that execution unit yet.
+  checklist mini-record updates. `FCP-1-S3` source audits confirmed no
+  `createPriorityOneAssembly(` / `createPriorityOneControllersAndBinder(` /
+  `nowPlayingModalId` / `wireNavigationCoordinatorEvents` /
+  `wireEpgCoordinatorEvents` hits in `AppOrchestrator`, while expected
+  priority-one owner hits remained; confirmed priority-one guard, assignment,
+  deferred bind, module/coordinator/runtime-controller/initialization startup
+  anchors remained. Targeted tests passed:
+  `PriorityOneAssemblyBuilder.test.ts`; `PriorityOneControllerCollaborators`,
+  `PriorityOneControllerFactory.playbackState`, and `OrchestratorRuntimeSeams`;
+  `src/__tests__/Orchestrator.test.ts`. `npm run verify` passed after the
+  implementation revision.
 - Follow-ups: proof matrix: `FCP-1-SF1` resolved by commit `75b59c4f`
   (`AppShellRuntimeContracts.ts` owns `AppShellServerSelectionResult` and no
   longer imports the core server-selection result); `FCP-1-SF2` resolved by
@@ -220,23 +229,30 @@ issue ids, package maps, score deltas, or triage as closure input.
   object). Accepted residual: `ChannelSetupSessionState.ts` still imports
   `normalizeChannelSetupConfig` from core planning; this is not DTO/constants
   residue. Final owner: channel setup UI/core boundary owner. Revisit trigger:
-  before any `FCP-1` closeout claim, or earlier if setup record
-  hydration/normalization ownership changes. `FCP-1-SF4` is now scoped by
-  source audit to the priority-one runtime assembly sub-scope: assembly input
-  shaping remains inline in `AppOrchestrator._initializePriorityOneControllers()`.
-  Adjacent SF4 audit areas for module factory, coordinator assembly,
-  runtime-controller builder, and initialization coordinator are accepted/no
-  action for the active package unless implementation proves a direct
-  priority-one dependency and replans.
-- Handoff: Active plan is
-  `docs/plans/2026-04-29-fcp-1-app-orchestrator-runtime-assembly-hub.md`;
-  ready_now_execution_unit: `FCP-1-S3`; ready_now_slice: `FCP-1-S3`. Next step
-  is adversarial plan review, then implement only the approved priority-one
-  runtime assembly owner extraction. `FCP-1` remains in progress and must not be
-  marked complete until plan review, implementation/no-action review,
-  verification evidence, `FCP-1-SF4` disposition, the
-  `ChannelSetupSessionState.ts` normalization residual owner disposition, audit
-  artifact updates, and clean closeout review evidence are recorded.
+  rerun the FCP-1 audit if setup record hydration/normalization ownership
+  changes, and include it in the final FCP reconciliation pass after the cleanup
+  checklist completes. `FCP-1-SF4` resolved by commits `f2b33f28` and
+  `05b6cf8`: `AppOrchestrator` now keeps only priority-one guards, required
+  module validation, grouped call to `createPriorityOneRuntimeAssembly()`, and
+  assignment of returned controllers/binder; `PriorityOneAssemblyBuilder.ts`
+  owns mapping grouped runtime refs/callbacks into `PriorityOneAssemblyInput`
+  plus controller/binder creation. Adjacent SF4 audit areas for module factory,
+  coordinator assembly, runtime-controller builder, and initialization
+  coordinator are accepted/no-action because current source still has focused
+  owners and SF4 implementation did not need to edit them.
+- Handoff: Completed plans are
+  `docs/plans/2026-04-29-fcp-1-architecture-handoff-coherence.md`,
+  `docs/plans/2026-04-29-fcp-1-channel-setup-ui-core-handoff.md`, and
+  `docs/plans/2026-04-29-fcp-1-app-orchestrator-runtime-assembly-hub.md`.
+  Master audit:
+  `docs/plans/2026-04-29-fcp-1-architecture-handoff-audit.md`. Plan reviews
+  passed for each package; SF4 implementation review closure found no findings
+  and a fresh final implementation review approved SF4 source implementation for
+  docs/audit closeout. Fresh FCP-1 priority-exit closeout review found no
+  closeout findings and approved completion after accepting the source-finding
+  proof matrix, accepted/no-action SF4 areas, residual owner, verification
+  evidence, and mini-record update. `npm run verify:docs` passed after this
+  completion status update.
 
 ### [ ] `FCP-2` Runtime Contracts And Failure Semantics
 
