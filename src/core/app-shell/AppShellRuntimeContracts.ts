@@ -1,10 +1,9 @@
 import type { INavigationManager } from '../../modules/navigation';
 import type { PlexHomeUser, PlexPinRequest } from '../../modules/plex/auth';
-import type { PlexServer } from '../../modules/plex/discovery';
+import type { PlexServer, PlexServerSelectionFailureReason } from '../../modules/plex/discovery';
 import type { GuideSettingChange } from '../../modules/ui/settings/types';
 import type { ThemeName } from '../../modules/ui/theme';
 import type { ChannelSetupWorkflowPort } from '../channel-setup/workflow/ChannelSetupWorkflowPort';
-import type { OrchestratorServerSelectionResult } from '../server-selection/ServerSelectionTypes';
 
 export interface AppShellNavigationRuntimePort {
     getNavigation(): INavigationManager | null;
@@ -23,9 +22,18 @@ export interface AppShellProfileRuntimePort {
     signOutPlex(): Promise<void>;
 }
 
+export type AppShellServerSelectionResult =
+    | {
+        kind: 'selection_failed';
+        reason: 'server_not_found' | PlexServerSelectionFailureReason;
+    }
+    | {
+        kind: 'selected';
+    };
+
 export interface AppShellServerSelectionRuntimePort {
     discoverServers(forceRefresh?: boolean): Promise<PlexServer[]>;
-    selectServer(serverId: string): Promise<OrchestratorServerSelectionResult>;
+    selectServer(serverId: string): Promise<AppShellServerSelectionResult>;
     clearSelectedServer(): Promise<void>;
     getSelectedServerStorageKey(): string;
     getServerHealthStorageKey(): string;

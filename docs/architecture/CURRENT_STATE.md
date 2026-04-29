@@ -39,6 +39,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - focused owner for lazy-screen port assembly at the app-shell boundary
 - builds screen-specific port contracts for deferred screens while delegating runtime operations through app-shell-owned runtime port contracts (`AppShellRuntimeContracts`)
+- owns the app-shell/server-select narrowing of selected-server results to `{ kind: 'selected' }` or `{ kind: 'selection_failed'; reason }`; selected-server readiness, persistence, and startup-resume details remain behind the core server-selection/orchestrator result
 - keeps `src/App.ts` at composition wiring by replacing the previous inline lazy-screen runtime object-literal assembly
 
 ### `src/core/app-shell/AppScreenVisibilityCoordinator.ts`
@@ -66,7 +67,8 @@ If another architecture doc disagrees with this one, update the other doc or arc
 ### `src/core/server-selection/`
 
 - focused server-selection collaborators shared between app shell and orchestrator
-- `ServerSelectionCoordinator.selectServer()` owns the app-shell-facing selected-server workflow/result contract, including discovery-result translation, transactional persistence handoff, rollback, and selected-server startup-resume invocation
+- `ServerSelectionCoordinator.selectServer()` owns the full core/orchestrator selected-server workflow/result contract, including discovery-result translation, transactional persistence handoff, rollback, selected-server readiness, persistence status, and selected-server startup-resume invocation
+- app-shell/server-select callers consume the narrowed app-shell result owned by `src/core/app-shell/AppShellRuntimeContracts.ts` and adapted through `src/core/app-shell/AppLazyScreenPortFactory.ts`
 - `SelectedServerPersistenceAdapter` owns selected-server credential persistence, active-user snapshot/restore helpers, and `selectedServerByUserId` updates behind a narrow Plex-auth port
 - `SelectedServerRuntimeController` owns clear-selection cleanup, discovery selected-server snapshot/restore delegation, and the concrete selected-server startup-resume helper invoked by that flow; it does not own the app-shell orchestration path itself
 

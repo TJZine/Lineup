@@ -69,10 +69,11 @@ This document is directory-oriented and lists file-level owners where the canoni
 ### `src/core/server-selection/`
 
 - focused server-selection collaborators shared between app shell and orchestrator
-- `src/core/server-selection/ServerSelectionTypes.ts` owns `OrchestratorServerSelectionResult`
-- `src/core/server-selection/ServerSelectionCoordinator.ts` owns the app-shell-facing selected-server workflow previously assembled inline in `AppOrchestrator.selectServer()`, including discovery-result translation, result shaping, transactional persistence handoff, rollback, and selected-server startup-resume invocation
+- `src/core/server-selection/ServerSelectionTypes.ts` owns the full core/orchestrator `OrchestratorServerSelectionResult`, including readiness, persistence, and startup-resume details
+- `src/core/server-selection/ServerSelectionCoordinator.ts` owns the full selected-server workflow previously assembled inline in `AppOrchestrator.selectServer()`, including discovery-result translation, full result shaping, transactional persistence handoff, rollback, and selected-server startup-resume invocation
 - `src/core/server-selection/SelectedServerPersistenceAdapter.ts` owns selected-server credential persistence, active-user snapshot/restore helpers, and `selectedServerByUserId` updates behind a narrow Plex-auth port
 - `src/core/server-selection/SelectedServerRuntimeController.ts` owns clear-selection cleanup, discovery selected-server snapshot/restore delegation, and the concrete selected-server startup-resume helper consumed by the server-selection flow rather than the flow orchestration itself
+- `src/core/app-shell/AppShellRuntimeContracts.ts` owns the narrowed app-shell selected-server result exposed to app-shell/server-select callers, and `src/core/app-shell/AppLazyScreenPortFactory.ts` adapts that result into the server-select screen port without exposing core resume details
 
 ### `src/config/`
 
