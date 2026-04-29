@@ -8,9 +8,6 @@ reviews:
   poem: false
   auto_review:
     enabled: false
-    description_keyword: "@coderabbitai review"
-    auto_incremental_review: false
-    drafts: false
   path_filters:
     - "!**/.worktrees/**"
     - "!**/worktrees/**"
