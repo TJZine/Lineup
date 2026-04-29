@@ -4,15 +4,21 @@
 
 import type { FocusableElement, INavigationManager, KeyEvent } from '../../../navigation';
 import { SettingsScreenFocusCoordinator } from '../SettingsScreenFocusCoordinator';
+import { createSettingsDropdown } from '../SettingsDropdown';
 import type { SettingsCategoryConfig, SettingsCategoryId, SettingsSelectOption } from '../types';
 
-let lastDropdownConfig: {
+type DropdownMockConfig = {
     onDismiss: () => void;
-} | null = null;
-let dropdownHandle: { destroy: jest.Mock; dismiss: jest.Mock } | null = null;
+    onSelect: (value: number) => void;
+};
+
+type DropdownMockHandle = { destroy: jest.Mock; dismiss: jest.Mock };
+
+let lastDropdownConfig: DropdownMockConfig | null = null;
+let dropdownHandle: DropdownMockHandle | null = null;
 
 jest.mock('../SettingsDropdown', () => ({
-    createSettingsDropdown: jest.fn((config: { onDismiss: () => void }) => {
+    createSettingsDropdown: jest.fn((config: DropdownMockConfig) => {
         lastDropdownConfig = config;
         dropdownHandle = {
             destroy: jest.fn(),
@@ -74,11 +80,7 @@ const createNavigation = (): NavigationTestDouble => {
             if (!focusedId) {
                 return null;
             }
-            return focusables.get(focusedId) ?? {
-                id: focusedId,
-                element: document.createElement('button'),
-                neighbors: {},
-            };
+            return focusables.get(focusedId) ?? null;
         }),
         on: jest.fn((event: string, handler: (event: KeyEvent) => void) => {
             if (event === 'keyPress') {
@@ -225,6 +227,31 @@ describe('SettingsScreenFocusCoordinator', () => {
 
         expect(backEvent.handled).toBe(false);
         expect(dropdownHandle?.dismiss).not.toHaveBeenCalled();
+        expect(navigation.setFocus).toHaveBeenCalledWith('settings-appearance-select');
+    });
+
+    it('does not retain dropdown ownership when the factory dismisses synchronously', () => {
+        const coordinator = createCoordinator();
+        activeCategoryId = 'appearance';
+        const synchronousHandle: DropdownMockHandle = {
+            destroy: jest.fn(),
+            dismiss: jest.fn(),
+        };
+        const createDropdownMock = createSettingsDropdown as jest.MockedFunction<typeof createSettingsDropdown>;
+        createDropdownMock.mockImplementationOnce((config) => {
+            lastDropdownConfig = config;
+            dropdownHandle = synchronousHandle;
+            config.onDismiss();
+            return synchronousHandle;
+        });
+
+        coordinator.attachKeyHandler();
+        expect(() => coordinator.openDropdownForSelect('settings-appearance-select')).not.toThrow();
+        const backEvent = { handled: false, button: 'back' } as KeyEvent;
+        navigation.keyHandler?.(backEvent);
+
+        expect(backEvent.handled).toBe(false);
+        expect(synchronousHandle.dismiss).not.toHaveBeenCalled();
         expect(navigation.setFocus).toHaveBeenCalledWith('settings-appearance-select');
     });
 });

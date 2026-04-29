@@ -7,6 +7,7 @@ import type { SettingsCategoryConfig, SettingsCategoryId } from './types';
 
 type SettingsToggleControl = ReturnType<typeof createSettingsToggle>;
 type SettingsSelectControl = ReturnType<typeof createSettingsSelect>;
+type SettingsDropdownHandle = ReturnType<typeof createSettingsDropdown>;
 
 export interface SettingsScreenSetActiveCategoryOptions {
     preferredFocusId?: string | null;
@@ -44,7 +45,7 @@ export class SettingsScreenFocusCoordinator {
     ) => void;
     private readonly _isVisible: () => boolean;
     private readonly _isDeferredDetailSwapActive: () => boolean;
-    private _activeDropdown: { destroy: () => void; dismiss: () => void } | null = null;
+    private _activeDropdown: SettingsDropdownHandle | null = null;
     private _focusableIds: string[] = [];
     private _lastFocusedItemByCategory: Partial<Record<SettingsCategoryId, string>> = {};
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
@@ -201,7 +202,9 @@ export class SettingsScreenFocusCoordinator {
         if (!select || select.isDisabled()) return;
 
         const nav = this._getNavigation();
-        const dropdown = createSettingsDropdown({
+        let dropdown: SettingsDropdownHandle | null = null;
+        let completedDuringCreate = false;
+        dropdown = createSettingsDropdown({
             anchor: select.element,
             container: this._container,
             options: select.getOptions(),
@@ -210,6 +213,9 @@ export class SettingsScreenFocusCoordinator {
                 try {
                     select.setValue(value);
                 } finally {
+                    if (!dropdown) {
+                        completedDuringCreate = true;
+                    }
                     this.closeDropdown();
                     try {
                         nav?.setFocus(selectId);
@@ -219,7 +225,9 @@ export class SettingsScreenFocusCoordinator {
                 }
             },
             onDismiss: (): void => {
-                if (this._activeDropdown === dropdown) {
+                if (!dropdown) {
+                    completedDuringCreate = true;
+                } else if (this._activeDropdown === dropdown) {
                     this._activeDropdown = null;
                 }
                 try {
@@ -230,7 +238,9 @@ export class SettingsScreenFocusCoordinator {
             },
             nav,
         });
-        this._activeDropdown = dropdown;
+        if (!completedDuringCreate) {
+            this._activeDropdown = dropdown;
+        }
     }
 
     public closeDropdown(): void {

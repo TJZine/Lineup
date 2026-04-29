@@ -85,6 +85,16 @@ const createScreenWorkflowPort = (): jest.Mocked<ChannelSetupScreenWorkflowPort>
     markSetupComplete: jest.fn((_serverId, _setupConfig) => {}),
 });
 
+const createChannelSetupWorkflowPortFixture = (): jest.Mocked<ChannelSetupWorkflowPort> => ({
+    ...createScreenWorkflowPort(),
+    getSetupPlanDiagnostics: jest.fn().mockResolvedValue({
+        status: 'ready',
+        diagnostics: null,
+        warnings: [],
+        reachedMaxChannels: false,
+    }),
+});
+
 const makeOrchestrator = (): MockRuntimeOrchestrator => ({
     requestAuthPin: jest.fn().mockResolvedValue({ id: 1 }),
     pollForPin: jest.fn().mockResolvedValue({ id: 1, authToken: 'token' }),
@@ -106,7 +116,7 @@ const makeOrchestrator = (): MockRuntimeOrchestrator => ({
     clearSelectedServer: jest.fn().mockResolvedValue(undefined),
     getSelectedServerStorageKey: jest.fn().mockReturnValue('selected-server-id'),
     getServerHealthStorageKey: jest.fn().mockReturnValue('server-health'),
-    getChannelSetupWorkflowPort: jest.fn().mockReturnValue(createScreenWorkflowPort()),
+    getChannelSetupWorkflowPort: jest.fn().mockReturnValue(createChannelSetupWorkflowPortFixture()),
     getSelectedServerId: jest.fn().mockReturnValue('server-1'),
     openServerSelect: jest.fn(),
     switchToChannelByNumber: jest.fn().mockResolvedValue(undefined),
@@ -245,63 +255,7 @@ describe('AppLazyScreenPortFactory', () => {
     });
 
     it('projects the full channel setup workflow port into the screen-only workflow contract', async (): Promise<void> => {
-        const fullWorkflowPort: jest.Mocked<ChannelSetupWorkflowPort> = {
-            invalidateFacetSnapshot: jest.fn(),
-            getLibrariesForSetup: jest.fn().mockResolvedValue([]),
-            getChannelSetupRecord: jest.fn().mockReturnValue(null),
-            getSetupContextForSelectedServer: jest.fn().mockReturnValue('unknown'),
-            getSetupPreview: jest.fn().mockResolvedValue({
-                estimates: {
-                    total: 0,
-                    collections: 0,
-                    playlists: 0,
-                    genres: 0,
-                    directors: 0,
-                    decades: 0,
-                    recentlyAdded: 0,
-                    studios: 0,
-                    actors: 0,
-                },
-                warnings: [],
-                reachedMaxChannels: false,
-            }),
-            getSetupReview: jest.fn().mockResolvedValue({
-                preview: {
-                    estimates: {
-                        total: 0,
-                        collections: 0,
-                        playlists: 0,
-                        genres: 0,
-                        directors: 0,
-                        decades: 0,
-                        recentlyAdded: 0,
-                        studios: 0,
-                        actors: 0,
-                    },
-                    warnings: [],
-                    reachedMaxChannels: false,
-                },
-                diff: {
-                    summary: { created: 0, removed: 0, unchanged: 0 },
-                    samples: { created: [], removed: [], unchanged: [] },
-                },
-            }),
-            getSetupPlanDiagnostics: jest.fn().mockResolvedValue({
-                status: 'ready',
-                diagnostics: null,
-                warnings: [],
-                reachedMaxChannels: false,
-            }),
-            createChannelsFromSetup: jest.fn().mockResolvedValue({
-                created: 0,
-                skipped: 0,
-                reachedMaxChannels: false,
-                errorCount: 0,
-                canceled: false,
-                lastTask: 'done',
-            }),
-            markSetupComplete: jest.fn(),
-        };
+        const fullWorkflowPort = createChannelSetupWorkflowPortFixture();
         const signal = new AbortController().signal;
         const config = { serverId: 'server-1' } as Parameters<ChannelSetupScreenWorkflowPort['getSetupPreview']>[0];
         const buildOptions = {
@@ -336,7 +290,7 @@ describe('AppLazyScreenPortFactory', () => {
 
     it('creates a channel-setup runtime port from the app-shell source runtime', async (): Promise<void> => {
         const orchestrator = makeOrchestrator();
-        const workflowPort = createScreenWorkflowPort();
+        const workflowPort = createChannelSetupWorkflowPortFixture();
         orchestrator.getChannelSetupWorkflowPort.mockReturnValue(workflowPort);
 
         const runtimePort = createChannelSetupRuntimePort(orchestrator);
@@ -369,7 +323,7 @@ describe('AppLazyScreenPortFactory', () => {
 
     it('creates channel-setup input that delegates workflow and screen ports through orchestrator', async (): Promise<void> => {
         const orchestrator = makeOrchestrator();
-        const workflowPort = createScreenWorkflowPort();
+        const workflowPort = createChannelSetupWorkflowPortFixture();
         orchestrator.getChannelSetupWorkflowPort.mockReturnValue(workflowPort);
 
         const factory = createFactory(orchestrator);
