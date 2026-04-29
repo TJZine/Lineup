@@ -46,6 +46,7 @@ Do not claim repo-wide `FCP-1` audit coverage or `FCP-1` closeout from an execut
 - `find_symbol AppOrchestrator` resolved to `src/core/orchestrator/AppOrchestrator.ts`; `find_symbol ServerSelectionCoordinator` returned an unrelated EPG binding symbol, so exact lookup was insufficient for that owner.
 - `analyze_impact` returned zero impacted symbols for shared runtime seams where zero impact was not credible.
 - Deterministic fallback used targeted `rg`, `find`, `wc -l`, and direct `nl -ba` source reads.
+- `FCP-1-SF3` planning refresh: Codanna CLI was available with 11117 symbols, 696 files, semantic search enabled, and embeddings updated about 53 minutes before the pass. `semantic_search_with_context` for channel-setup handoff queries was weak/noisy, `search_symbols` found the expected channel setup screen/session/core anchors, `search_documents` returned prior channel-setup cleanup plan context with a lock-busy warning, and `analyze_impact ChannelSetupCoordinator` returned zero impacted symbols. Because that impact result was not credible for a shared runtime seam, the package brief uses targeted `rg`, `wc -l`, and direct source reads as deterministic fallback.
 
 Known uncertainty:
 
@@ -56,9 +57,9 @@ Known uncertainty:
 
 | area/candidate | source evidence | disposition | source_finding_id | final owner | closure or no-action rationale |
 | --- | --- | --- | --- | --- | --- |
-| App-shell server-selection runtime port exposes full core selected-server result. | `src/core/app-shell/AppShellRuntimeContracts.ts` imports `OrchestratorServerSelectionResult`; `src/core/server-selection/ServerSelectionTypes.ts` includes readiness, persistence, and startup resume details; `src/core/app-shell/AppLazyScreenPortFactory.ts` drops those details; `src/modules/ui/server-select/ServerSelectScreen.ts` only consumes selected/failed. | Ready package finding in active execution plan. | `FCP-1-SF1` | App-shell runtime contract owner. | Narrow the app-shell result contract while keeping the rich core/orchestrator result. Active plan: `docs/plans/2026-04-29-fcp-1-architecture-handoff-coherence.md`. |
-| Architecture docs omit the app-shell result-narrowing owner. | `docs/architecture/CURRENT_STATE.md` names `AppLazyScreenPortFactory` and `ServerSelectionCoordinator`; `docs/architecture/modules.md` names `ServerSelectionTypes` as owner of `OrchestratorServerSelectionResult`; neither names where app-shell narrowing must happen. | Ready package finding in active execution plan. | `FCP-1-SF2` | Architecture docs owner. | Docs must distinguish full core selected-server result ownership from app-shell/screen result ownership. Active plan: `docs/plans/2026-04-29-fcp-1-architecture-handoff-coherence.md`. |
-| Channel setup UI imports core channel-setup contracts directly across screen/session/steps. | Targeted production import audit found only channel-setup UI importing core owners under `src/modules`; direct reads show `ChannelSetupScreen.ts`, `ChannelSetupSessionController.ts`, `ChannelSetupSessionState.ts`, step constants/types importing core setup types/constants/workflow ports. | Deferred FCP-1 candidate. | `FCP-1-SF3` | Channel setup UI/core boundary owner. | Future package must either narrow the UI-facing channel-setup contract or record source-backed acceptance of direct domain imports. |
+| App-shell server-selection runtime port exposes full core selected-server result. | `src/core/app-shell/AppShellRuntimeContracts.ts` imports `OrchestratorServerSelectionResult`; `src/core/server-selection/ServerSelectionTypes.ts` includes readiness, persistence, and startup resume details; `src/core/app-shell/AppLazyScreenPortFactory.ts` drops those details; `src/modules/ui/server-select/ServerSelectScreen.ts` only consumes selected/failed. | Resolved by first package. | `FCP-1-SF1` | App-shell runtime contract owner. | Narrowed the app-shell result contract while keeping the rich core/orchestrator result. Completed plan: `docs/plans/2026-04-29-fcp-1-architecture-handoff-coherence.md`; implementation commit `75b59c4f`. |
+| Architecture docs omit the app-shell result-narrowing owner. | `docs/architecture/CURRENT_STATE.md` names `AppLazyScreenPortFactory` and `ServerSelectionCoordinator`; `docs/architecture/modules.md` names `ServerSelectionTypes` as owner of `OrchestratorServerSelectionResult`; neither names where app-shell narrowing must happen. | Resolved by first package. | `FCP-1-SF2` | Architecture docs owner. | Docs distinguish full core selected-server result ownership from app-shell/screen result ownership. Completed plan: `docs/plans/2026-04-29-fcp-1-architecture-handoff-coherence.md`; implementation commit `75b59c4f`. |
+| Channel setup UI/app-shell screen wiring exposes the full core `ChannelSetupWorkflowPort` to the UI setup workflow. | Current source shows `AppShellChannelSetupRuntimePort` and `AppLazyScreenPortFactory` hand the full core workflow port to `ChannelSetupScreen`; UI session files type against `ChannelSetupWorkflowPort`; the full port includes diagnostics (`getSetupPlanDiagnostics`) used by app-shell diagnostics, not by screen/session runtime. Remaining core DTO/constants imports appear to be domain data contracts and need package closeout accounting if retained. | Ready package finding in active execution plan. | `FCP-1-SF3` | Channel setup UI/core boundary owner. | Narrow the UI-facing workflow contract for screen/session/app-shell screen wiring while keeping the full core workflow/diagnostics port available to core diagnostics. Active plan: `docs/plans/2026-04-29-fcp-1-channel-setup-ui-core-handoff.md`. |
 | AppOrchestrator remains a broad runtime assembly hub. | `src/core/orchestrator/AppOrchestrator.ts` is 2449 lines; field/constructor reads show many module refs plus server-selection/channel-setup/runtime wiring; `PriorityOneAssemblyBuilder.ts` accepts a broad runtime assembly input. | Deferred FCP-1 candidate. | `FCP-1-SF4` | Core orchestrator runtime assembly owner. | Future package must isolate one concrete AppOrchestrator handoff and prove it reduces owner breadth rather than moving hub responsibility. |
 | `src/Orchestrator.ts` root runtime barrel. | Source is 14 lines and re-exports `AppOrchestrator`, `PlaybackInfoSnapshot`, `ModuleStatus`, and `AppOrchestratorRuntime`; `CURRENT_STATE.md` explicitly says it is a thin public runtime entry barrel and must not export internal lifecycle/core owners. | Accepted/no action. | none | Public runtime barrel owner. | No source-backed widening found. Keep accepted seam. |
 | Empty core/package roots. | `src/core/index.ts` contains only the intentional empty comment; `src/core/channel-setup/index.ts` is empty; targeted root-import audit found no production imports from broad `core` roots. | Accepted/no action. | none | Owning modules, not root barrels. | Current source matches `CURRENT_STATE.md`; no FCP-1 fix. |
@@ -88,19 +89,17 @@ Closure condition: `CURRENT_STATE.md` and `modules.md` distinguish the full core
 
 Execution path: `FCP-1-S1` in `docs/plans/2026-04-29-fcp-1-architecture-handoff-coherence.md`.
 
-## Deferred Source Findings
-
 ### `FCP-1-SF3`
 
-Finding: channel setup UI/core handoff is broad.
+Finding: channel setup UI/app-shell screen wiring exposes the full core channel-setup workflow port to the TV-facing setup workflow.
 
 Owner: channel setup UI/core boundary owner.
 
-Closure condition: a future FCP-1 package either narrows the UI-facing channel-setup contract to the minimal screen/session port or records source-backed acceptance that the direct core domain imports are intentional and do not leak core workflow internals into UI.
+Closure condition: channel setup UI/session/app-shell screen wiring no longer imports or exposes the full core `ChannelSetupWorkflowPort`; the UI-facing workflow contract omits diagnostics; remaining direct core DTO/constants imports are either removed inside the same seam or recorded as accepted data-contract residue; behavior tests and source audits pass.
 
-Revisit trigger: after `FCP-1-S1` is reviewed/implemented, before marking `FCP-1` complete, or sooner if channel-setup UI/core files are touched by another FCP-1 package.
+Execution path: `FCP-1-S2` in `docs/plans/2026-04-29-fcp-1-channel-setup-ui-core-handoff.md`.
 
-Required future package brief rule: the future brief must identify exact UI/core files in and out of scope, decide whether the target owner lives under `src/modules/ui/channel-setup/` or `src/core/channel-setup/`, name the preservation contracts for setup session state/workflow/preview behavior, and include targeted channel-setup tests plus `npm run verify`.
+## Deferred Source Findings
 
 ### `FCP-1-SF4`
 
@@ -126,11 +125,12 @@ Required future package brief rule: the future brief must not authorize broad `A
 
 `FCP-1` cannot be marked complete until:
 
-- `FCP-1-SF1` and `FCP-1-SF2` are resolved by the active execution plan or explicitly superseded by review.
-- `FCP-1-SF3` and `FCP-1-SF4` are either resolved by future source-backed FCP-1 packages or accepted as no-action with source-backed owner rationale.
+- `FCP-1-SF1` and `FCP-1-SF2` remain resolved by the completed first package or are explicitly superseded by review.
+- `FCP-1-SF3` is resolved by the active channel-setup UI/core handoff package or explicitly superseded by review.
+- `FCP-1-SF4` is either resolved by a future source-backed FCP-1 package or accepted as no-action with source-backed owner rationale.
 - this audit artifact is updated with final disposition, verification evidence, and any owned residuals.
 - the checklist mini-record points to the final plan/audit state and records verification.
 - the cleanup-loop closeout review accepts the source-finding proof matrix.
 - the final FCP reconciliation pass, when the whole FCP checklist is ready to close, rechecks this audit against implemented source/docs changes so any new follow-up, ownership drift, stale doc, or architecture/handoff residue has one owner and revisit trigger.
 
-`FCP-1-S1` is only the first ready package. This audit does not claim `FCP-1` closeout while `FCP-1-SF3` and `FCP-1-SF4` remain deferred.
+`FCP-1-S1` is only the first completed package. `FCP-1-S2` is the next active ready package. This audit does not claim `FCP-1` closeout while `FCP-1-SF3` is active and `FCP-1-SF4` remains deferred.
