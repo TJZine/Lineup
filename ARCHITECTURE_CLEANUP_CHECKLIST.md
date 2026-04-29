@@ -254,7 +254,7 @@ issue ids, package maps, score deltas, or triage as closure input.
   evidence, and mini-record update. `npm run verify:docs` passed after this
   completion status update.
 
-### [ ] `FCP-2` Runtime Contracts And Failure Semantics
+### [x] `FCP-2` Runtime Contracts And Failure Semantics
 
 - Scope: make public/internal runtime contracts predictable across parsing,
   network, Plex, persistence, startup, lifecycle, scheduler, and player paths.
@@ -270,13 +270,39 @@ issue ids, package maps, score deltas, or triage as closure input.
   regress, source audit of error/fallback propagation, `npm run verify` for
   runtime changes, and reference-doc updates when public behavior contracts
   change.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: planner should start with runtime boundaries whose failures would be
-  user-visible or port-blocking, then freeze one narrow contract/failure package.
+- Status: completed
+- Plan: `docs/plans/2026-04-29-fcp-2-runtime-contracts-failure-semantics.md`
+- Audit: `docs/plans/2026-04-29-fcp-2-runtime-contracts-failure-semantics-audit.md`
+- Last touched: 2026-04-29
+- Verification: `FCP-2-SF1` resolved by commit `239b3db5`
+  (`fix(fcp-2): enforce channel authoring failures`). Targeted ChannelManager
+  tests passed (`npm run test:unit --
+  src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts`, 1
+  suite / 83 tests). Focused source audit for error/fallback strings returned
+  expected ChannelManager/test anchors; focused coupling audit for raw storage,
+  raw fetch, and direct Plex owner references in `ChannelManager.ts` returned no
+  matches. Initial final `npm run verify` attempt exited 139 during
+  `npm run test:contracts` after earlier phases passed; direct `npm run
+  test:contracts` rerun passed (7 suites / 201 tests). Final `npm run verify`
+  rerun passed after the completion update, including typecheck, architecture
+  lint, CSS lint, coverage tests, tools tests, contracts, docs verification, and
+  build. Standalone `npm run verify:docs` passed after the completion update.
+- Follow-ups: proof matrix: `FCP-2-SF1` resolved by commit `239b3db5`.
+  `createChannel()` and content-affecting `updateChannel()` now resolve content
+  before publishing channel state, propagate non-fallback failures without
+  persist/emit/state mutation, preserve deleted/empty-source fallback, and keep
+  import non-fallback failures in structured skipped-record `ImportResult`
+  errors. Accepted/no-action areas in the audit remain owned by Plex auth,
+  Plex discovery, Plex library, Plex stream, storage owners, lifecycle/startup,
+  channel tuning, and player/playback owners. No deferred `FCP-2` source
+  findings are admitted. Revisit trigger: final FCP reconciliation must recheck
+  the FCP-2 audit against implemented source/docs changes before `FCP-EXIT`
+  closes.
+- Handoff: Fresh FCP-2 closeout review found no material findings and approved
+  completion after accepting the proof matrix, accepted/no-action owner record,
+  verification evidence, and mini-record update. Next safe checklist priority is
+  `FCP-3`; do not start it without its own cleanup-loop scope-load, source audit,
+  plan, and review.
 
 ### [ ] `FCP-3` Focused Design Coherence
 
