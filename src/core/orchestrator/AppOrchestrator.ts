@@ -112,9 +112,12 @@ import type {
     OrchestratorConfig,
 } from './OrchestratorTypes';
 import { createOrchestratorModules } from './OrchestratorModuleFactory';
-import { createOrchestratorCoordinators } from './OrchestratorCoordinatorAssembly';
+import {
+    createOrchestratorCoordinatorAssemblyInput,
+    createOrchestratorCoordinators,
+} from './OrchestratorCoordinatorAssembly';
 import type {
-    OrchestratorCoordinatorAssemblyInput,
+    OrchestratorCoordinatorAssemblyInputDraft,
     OrchestratorCoordinators,
 } from './OrchestratorCoordinatorContracts';
 import {
@@ -564,29 +567,6 @@ export class AppOrchestrator {
     private _createCoordinators(): void {
         // This method assumes `initialize()` has already created the module instances it references.
         // It must not perform side effects other than assigning coordinator fields.
-        if (
-            !this._lifecycle ||
-            !this._navigation ||
-            !this._plexAuth ||
-            !this._plexDiscovery ||
-            !this._plexLibrary ||
-            !this._plexStreamResolver ||
-            !this._channelManager ||
-            !this._scheduler ||
-            !this._videoPlayer ||
-            !this._epg ||
-            !this._nowPlayingInfo ||
-            !this._playerOsd ||
-            !this._channelNumberOverlay ||
-            !this._channelBadgeOverlay ||
-            !this._miniGuide ||
-            !this._channelTransitionOverlay ||
-            !this._playbackOptionsModal ||
-            !this._exitConfirmModal ||
-            !this._sleepTimer
-        ) {
-            throw new Error('Orchestrator coordinator initialization requires module instances');
-        }
         if (!this._initCoordinator) {
             throw new Error('InitializationCoordinator must exist before coordinator assembly');
         }
@@ -598,7 +578,9 @@ export class AppOrchestrator {
 
         this._assignCoordinators(
             createOrchestratorCoordinators(
-                this._buildCoordinatorAssemblyInput(initCoordinator, appendIssueDiagnostic)
+                createOrchestratorCoordinatorAssemblyInput(
+                    this._buildCoordinatorAssemblyInput(initCoordinator, appendIssueDiagnostic)
+                )
             )
         );
         this._assignRuntimeControllers(
@@ -648,7 +630,7 @@ export class AppOrchestrator {
     private _buildCoordinatorAssemblyInput(
         initCoordinator: InitializationCoordinator,
         appendIssueDiagnostic: AppendIssueDiagnostic
-    ): OrchestratorCoordinatorAssemblyInput {
+    ): OrchestratorCoordinatorAssemblyInputDraft {
         return {
             epgDebugRuntime: this._epgDebugRuntime,
             config: this._config,
@@ -658,26 +640,29 @@ export class AppOrchestrator {
                     initCoordinator.ensureEPGInitialized(),
             },
             modules: {
-                navigation: this._navigation!,
-                plexAuth: this._plexAuth!,
-                plexDiscovery: this._plexDiscovery!,
-                plexLibrary: this._plexLibrary!,
-                plexStreamResolver: this._plexStreamResolver!,
-                channelManager: this._channelManager!,
-                scheduler: this._scheduler!,
-                videoPlayer: this._videoPlayer!,
-                lifecycle: this._lifecycle!,
-                epg: this._epg!,
+                navigation: this._navigation,
+                plexAuth: this._plexAuth,
+                plexDiscovery: this._plexDiscovery,
+                plexLibrary: this._plexLibrary,
+                plexStreamResolver: this._plexStreamResolver,
+                channelManager: this._channelManager,
+                scheduler: this._scheduler,
+                videoPlayer: this._videoPlayer,
+                lifecycle: this._lifecycle,
+                epg: this._epg,
             },
             overlays: {
-                nowPlayingInfo: this._nowPlayingInfo!,
-                playerOsd: this._playerOsd!,
-                channelNumberOverlay: this._channelNumberOverlay!,
-                miniGuide: this._miniGuide!,
-                channelTransitionOverlay: this._channelTransitionOverlay!,
-                playbackOptionsModal: this._playbackOptionsModal!,
-                exitConfirmModal: this._exitConfirmModal!,
-                sleepTimer: this._sleepTimer!,
+                nowPlayingInfo: this._nowPlayingInfo,
+                playerOsd: this._playerOsd,
+                channelNumberOverlay: this._channelNumberOverlay,
+                miniGuide: this._miniGuide,
+                channelTransitionOverlay: this._channelTransitionOverlay,
+                playbackOptionsModal: this._playbackOptionsModal,
+                exitConfirmModal: this._exitConfirmModal,
+                sleepTimer: this._sleepTimer,
+            },
+            requiredSurfaces: {
+                channelBadgeOverlay: this._channelBadgeOverlay,
             },
             stores: {
                 developerSettingsStore: this._developerSettingsStore,

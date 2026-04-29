@@ -63,7 +63,10 @@ import type { SubtitlePreferencesStore } from '../../modules/settings/SubtitlePr
 import type { DeveloperSettingsStore } from '../../modules/settings/DeveloperSettingsStore';
 import type { ToastInput } from '../../modules/ui/toast/types';
 import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
-import type { ChannelNumberOverlayRuntimePort } from './OverlayPorts';
+import type {
+    ChannelBadgeOverlayInitPort,
+    ChannelNumberOverlayRuntimePort,
+} from './OverlayPorts';
 import type { ChannelSetupCoordinator } from '../channel-setup/ChannelSetupCoordinator';
 import type { ChannelSetupWorkflowPortOwners } from '../channel-setup/workflow/createChannelSetupWorkflowPort';
 import type { EPGCoordinator } from '../../modules/ui/epg';
@@ -158,6 +161,23 @@ export interface OrchestratorCoordinatorAssemblyInput {
         handler: () => ((toast: ToastInput) => void) | null;
     };
 }
+
+export type OrchestratorCoordinatorAssemblyInputDraft = Omit<
+    OrchestratorCoordinatorAssemblyInput,
+    'modules' | 'overlays'
+> & {
+    modules: {
+        [K in keyof OrchestratorCoordinatorAssemblyInput['modules']]:
+        OrchestratorCoordinatorAssemblyInput['modules'][K] | null;
+    };
+    overlays: {
+        [K in keyof OrchestratorCoordinatorAssemblyInput['overlays']]:
+        OrchestratorCoordinatorAssemblyInput['overlays'][K] | null;
+    };
+    requiredSurfaces: {
+        channelBadgeOverlay: ChannelBadgeOverlayInitPort | null;
+    };
+};
 
 type CoordinatorModules = OrchestratorCoordinatorAssemblyInput['modules'];
 type CoordinatorOverlays = OrchestratorCoordinatorAssemblyInput['overlays'];

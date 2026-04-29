@@ -4,6 +4,7 @@ import type {
     OrchestratorChannelSetupBuilderInput,
     OrchestratorChannelTuningBuilderInput,
     OrchestratorCoordinatorAssemblyInput,
+    OrchestratorCoordinatorAssemblyInputDraft,
     OrchestratorCoordinators,
     OrchestratorEpgCoordinatorBuilderInput,
     OrchestratorChannelTransitionCoordinatorBuilderInput,
@@ -34,8 +35,52 @@ import {
 
 export type {
     OrchestratorCoordinatorAssemblyInput,
+    OrchestratorCoordinatorAssemblyInputDraft,
     OrchestratorCoordinators,
 } from './OrchestratorCoordinatorContracts';
+
+const COORDINATOR_PRECONDITION_ERROR = 'Orchestrator coordinator initialization requires module instances';
+
+function requireCoordinatorDependency<T>(dependency: T | null): T {
+    if (!dependency) {
+        throw new Error(COORDINATOR_PRECONDITION_ERROR);
+    }
+
+    return dependency;
+}
+
+export function createOrchestratorCoordinatorAssemblyInput(
+    draft: OrchestratorCoordinatorAssemblyInputDraft
+): OrchestratorCoordinatorAssemblyInput {
+    const { requiredSurfaces, ...assemblyDraft } = draft;
+    requireCoordinatorDependency(requiredSurfaces.channelBadgeOverlay);
+
+    return {
+        ...assemblyDraft,
+        modules: {
+            navigation: requireCoordinatorDependency(draft.modules.navigation),
+            plexAuth: requireCoordinatorDependency(draft.modules.plexAuth),
+            plexDiscovery: requireCoordinatorDependency(draft.modules.plexDiscovery),
+            plexLibrary: requireCoordinatorDependency(draft.modules.plexLibrary),
+            plexStreamResolver: requireCoordinatorDependency(draft.modules.plexStreamResolver),
+            channelManager: requireCoordinatorDependency(draft.modules.channelManager),
+            scheduler: requireCoordinatorDependency(draft.modules.scheduler),
+            videoPlayer: requireCoordinatorDependency(draft.modules.videoPlayer),
+            lifecycle: requireCoordinatorDependency(draft.modules.lifecycle),
+            epg: requireCoordinatorDependency(draft.modules.epg),
+        },
+        overlays: {
+            nowPlayingInfo: requireCoordinatorDependency(draft.overlays.nowPlayingInfo),
+            playerOsd: requireCoordinatorDependency(draft.overlays.playerOsd),
+            channelNumberOverlay: requireCoordinatorDependency(draft.overlays.channelNumberOverlay),
+            miniGuide: requireCoordinatorDependency(draft.overlays.miniGuide),
+            channelTransitionOverlay: requireCoordinatorDependency(draft.overlays.channelTransitionOverlay),
+            playbackOptionsModal: requireCoordinatorDependency(draft.overlays.playbackOptionsModal),
+            exitConfirmModal: requireCoordinatorDependency(draft.overlays.exitConfirmModal),
+            sleepTimer: requireCoordinatorDependency(draft.overlays.sleepTimer),
+        },
+    };
+}
 
 function buildEpgCoordinatorInput(
     input: OrchestratorCoordinatorAssemblyInput
