@@ -110,4 +110,5 @@ knowledge_base:
       - "docs/architecture/CURRENT_STATE.md"
       - "ARCHITECTURE_CLEANUP_CHECKLIST.md"
       - "docs/design/ui-design-language.md"
+      - "docs/design/css-governance.md"
       - "docs/api/plex-integration.md"
