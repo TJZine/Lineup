@@ -539,9 +539,9 @@ changes them:
   lifecycle/Plex facade. `DCR-4` is the next unchecked DCR package only when
   the maintainer starts the next cleanup loop.
 
-### [ ] `DCR-4` EPG Defaults And Constants Coherence
+### [x] `DCR-4` EPG Defaults And Constants Coherence
 
-- Status: not started
+- Status: completed
 - Dimensions/rubric tags: contract coherence, UI correctness, test strategy,
   source-of-truth coherence, logic clarity
 - Scope owner: EPG config/app-shell config boundary owner
@@ -577,7 +577,7 @@ changes them:
   package closeout if only one literal is changed without deciding ownership.
 - Verification routing: targeted app-shell config and EPG config tests, source
   audit for `rowHeight` defaults, then `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: completed.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -587,12 +587,24 @@ changes them:
 - Stop/replan triggers: default change requires visual/product approval; tests
   reveal row height is intentionally context-specific; fix expands into EPG
   layout/virtualization behavior.
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start with a small DCR-4 plan that freezes the default owner before
-  editing constants.
+- Plan:
+  [`docs/archive/plans/2026-04-29-dcr-4-epg-defaults-constants-coherence.md`](./docs/archive/plans/2026-04-29-dcr-4-epg-defaults-constants-coherence.md)
+- Last touched: 2026-04-29, implementation commit `0b1dce57`
+- Verification: plan review approved with no material findings. `DCR-4-S1`
+  implementation review approved with no material findings. Targeted
+  app-shell/EPG config tests passed (`6` suites / `98` tests); source audit
+  found no app-shell `rowHeight: 96` default or app-shell
+  `DEFAULT_EPG_CONFIG` remaining; `npm run plans:check` passed; `npm run
+  verify` passed; `npm run verify:docs` passed after the checklist/current-state
+  closeout updates and plan archive.
+- Follow-ups: none. `src/modules/ui/epg/constants.ts` owns canonical EPG
+  default config values, including row height `108`; app-shell consumes fresh
+  defaults through the EPG package seam and has no independent EPG row-height
+  override. `EPGVirtualizer` remains a bounded performance owner.
+- Handoff: `DCR-4` is complete. Do not reopen EPG default coherence unless
+  app-shell regains an independent EPG default literal or product-approved
+  visual requirements create an explicit documented override. DCR-5 is the next
+  unchecked DCR package only when the maintainer starts the next cleanup loop.
 
 ### [ ] `DCR-5` Navigation FocusManager Correctness And Tests
 
