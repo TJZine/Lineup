@@ -1,46 +1,18 @@
 import { ChannelManager } from '../ChannelManager';
-import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
-import type { LibraryContentSource } from '../types';
+import type { IPlexLibraryMinimal } from '../interfaces';
 import { CACHE_TTL_MS } from '../constants';
 import { AppErrorCode } from '../../../lifecycle/types';
 import { expectConsoleWarn } from '../../../../__tests__/helpers';
+import {
+    createMockContentSource,
+    createMockLibrary,
+    seedDefaultLibrary,
+} from './channel-manager-test-helpers';
 import {
     installMockLocalStorage,
     resetMockLocalStorage,
     restoreOriginalLocalStorage,
 } from '../../../../__tests__/mocks/localStorage';
-
-function createMockLibrary(): jest.Mocked<IPlexLibraryMinimal> {
-    return {
-        getLibraryItems: jest.fn(),
-        getCollectionItems: jest.fn(),
-        getShowEpisodes: jest.fn(),
-        getPlaylistItems: jest.fn(),
-        getItem: jest.fn(),
-    };
-}
-
-function createMockItem(overrides: Partial<PlexMediaItemMinimal> = {}): PlexMediaItemMinimal {
-    return {
-        ratingKey: '1',
-        type: 'movie',
-        title: 'Test Movie',
-        year: 2020,
-        durationMs: 7200000,
-        thumb: '/thumb/1',
-        addedAt: new Date(),
-        ...overrides,
-    };
-}
-
-function createMockContentSource(libraryId = 'lib1'): LibraryContentSource {
-    return {
-        type: 'library',
-        libraryId,
-        libraryType: 'movie',
-        includeWatched: true,
-    };
-}
 
 installMockLocalStorage();
 
@@ -54,10 +26,7 @@ describe('ChannelManager stale content fallback', () => {
         resetMockLocalStorage();
 
         mockLibrary = createMockLibrary();
-        mockLibrary.getLibraryItems.mockResolvedValue([
-            createMockItem({ ratingKey: '1' }),
-            createMockItem({ ratingKey: '2' }),
-        ]);
+        seedDefaultLibrary(mockLibrary);
 
         manager = new ChannelManager({ plexLibrary: mockLibrary });
     });
@@ -72,7 +41,7 @@ describe('ChannelManager stale content fallback', () => {
         restoreOriginalLocalStorage();
     });
 
-    it('records stale fallback metadata after a content-affecting update hits a deleted source', async () => {
+    it('preserves stale cached content when a content-affecting update hits a deleted source fallback', async () => {
         expectConsoleWarn([
             expect.stringContaining('Content unavailable for channel'),
             expect.objectContaining({

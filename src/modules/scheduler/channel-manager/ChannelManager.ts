@@ -1420,15 +1420,15 @@ export class ChannelManager implements IChannelManager {
             }
 
             if (isNetworkError(error) && cached) {
-                const isStale = this._isStale(cached);
+                const wasStale = this._isStale(cached);
                 this._logger.warn(
-                    `Resolution failed for channel ${channel.id} due to network error, using cached content (stale: ${isStale})`,
+                    `Resolution failed for channel ${channel.id} during authoring due to network error, using cached content as stale (ttlStale: ${wasStale})`,
                     summarizeErrorForLog(error)
                 );
                 this._queueRetry(channel.id);
                 return this._cloneResolvedContent(cached, {
                     fromCache: true,
-                    isStale,
+                    isStale: true,
                     cacheReason: 'network_error',
                 });
             }

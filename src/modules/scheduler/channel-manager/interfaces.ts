@@ -62,6 +62,8 @@ export interface IChannelManager {
 
     /**
      * Replace channel ordering with an exact full order.
+     * ChannelManager validates before mutating state, so invalid input leaves the
+     * existing in-memory order unchanged and does not queue persistence.
      * @throws ChannelError if any existing id is missing, duplicated, or unknown.
      */
     reorderChannels(orderedIds: string[]): Promise<void>;
