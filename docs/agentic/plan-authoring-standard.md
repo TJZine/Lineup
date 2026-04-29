@@ -224,6 +224,43 @@ The cleanup overlay applies only when `**Task family:** cleanup/refactor`.
 Cleanup plans must satisfy `Universal Plan Core + Cleanup Overlay`.
 Feature/design plans satisfy `Universal Plan Core` only and must not rely on cleanup-overlay-only sections.
 
+### FCP Source-Backed Checklist Override
+
+The final production cleanup program in `ARCHITECTURE_CLEANUP_CHECKLIST.md`
+uses source-backed package briefs instead of detector/imported issue ids.
+
+For checklist-linked `FCP-*` plans only:
+
+- package coverage is defined by `source_finding_id` entries from the approved
+  audit/package brief, not by Desloppify ids, imported review ids, or companion
+  package-map membership
+- `source_finding_id` values must match the checklist token, for example
+  `FCP-1-SF1` for `FCP-1` and `FCP-EXIT-SF1` for `FCP-EXIT`; detector-shaped
+  ids such as `review::...` or `smells::...` are invalid in FCP plans
+- use `source_finding_ids` wherever this overlay would otherwise require
+  `package_issue_ids` or `exact_issue_ids`
+- `coverage_check` must map every approved `source_finding_id` to exactly one
+  planned slice or one explicit defer path with one final owner
+- `slice_table` must include `source_finding_ids` instead of
+  `exact_issue_ids`; the rest of the slice-table ownership, verification,
+  dependency, stop-condition, and handoff requirements still apply
+- no checklist companion map or detector package map is required for FCP
+  membership; if maintainers later create a companion artifact for FCP, it must
+  use `source_finding_id` coverage only
+- detector, imported-issue, package-map, and Desloppify evidence must not be
+  used for FCP intake, membership, proof, or closeout
+- priority closeout does not require Desloppify commands, issue-id reruns, or
+  package-map reconciliation; the only Desloppify use allowed by default is an
+  optional end-of-program external score refresh after `FCP-EXIT`
+- `## Priority-Exit Readiness` applies to the final package for an `FCP-*`
+  priority and must record source findings, owned residuals, verification, clean
+  review, and the rule that `FCP-(n+1)` cannot start until `FCP-n` is completed
+
+The legacy detector-backed rules below continue to apply to legacy non-FCP
+checklist-linked work, including older `P#-W#` / `P#-EXIT` work and `S#-W#`
+style-cleanup plans. Any future detector-backed cleanup exception must live
+outside the FCP override.
+
 ### Cleanup-Only Required Content
 
 - declare `**Cleanup subtype:** checklist-linked` or `**Cleanup subtype:** standalone remediation`
@@ -269,7 +306,7 @@ Feature/design plans satisfy `Universal Plan Core` only and must not rely on cle
   - `replan_triggers`
 - for `checklist-linked` package work, decomposition is still mandatory even when the package is small enough to yield exactly one slice
 - for `checklist-linked` package work, large-package execution should review coherent retirement batches, not one tiny fix at a time
-- add `## Priority-Exit Readiness` only when the cleanup plan is intended to close the last `P#-W#` item in a cleanup priority or is itself `P#-EXIT`
+- add `## Priority-Exit Readiness` only when the cleanup plan is intended to close the last legacy non-FCP checklist item in a cleanup priority, is itself `P#-EXIT`, or is the final package for an `FCP-*` priority
 - for `standalone remediation`, say explicitly that no checklist update is expected unless the task is intentionally promoted later
 
 ### Execution-Unit Absorption Rules
@@ -280,13 +317,25 @@ Feature/design plans satisfy `Universal Plan Core` only and must not rely on cle
 
 ### Cleanup Closeout Rules
 
-For a final `P#-W#` plan in a cleanup priority, the verification section must also name the priority-exit evidence that will be rerun before moving on:
+For a final legacy non-FCP detector-backed checklist-linked plan in a cleanup priority, including `P#-W#` and `S#-W#` style-cleanup plans, the verification section must also name the priority-exit evidence that will be rerun before moving on:
 
 - `desloppify status`
 - `desloppify show review --status open`
 - any `desloppify show <mapped-issue>` calls needed to verify imported-issue retirement
 - the strongest task-specific verification already required by the plan
-- the exact `P#-EXIT` checklist update and evidence refresh the implementer must complete before any `P(n+1)` work starts
+- the exact legacy checklist-exit update and evidence refresh the implementer
+  must complete before any next-priority work starts, including the exact
+  P#-EXIT checklist update for `P#-W#` work or the matching style-cleanup exit
+  gate for `S#-W#` work
+
+For a final `FCP-*` package, the verification section must instead name:
+
+- the source-backed audit rerun or source review that proves each
+  `source_finding_id` disposition
+- the package-local static/source audits for old and replacement patterns
+- targeted tests and the strongest applicable `npm` verification command
+- the priority mini-record update and clean closeout review required before any
+  `FCP-(n+1)` work starts
 
 ### Priority-Exit Readiness
 
@@ -294,9 +343,17 @@ For a final `P#-W#` plan in a cleanup priority, the verification section must al
 
 When present, the section must explicitly record:
 
-- every imported review issue mapped to the priority, with its exact issue id, and whether this plan retires it, defers it, or splits it into a follow-up owner
-- for every deferred or split item, the exact current or follow-up owner, the reason it remains open, and the revisit trigger; if one issue spans multiple `P#-W#` items, nominate one single final owner
-- for any issue that this plan resolves on current-code proof while the detector id still carries stale or broader wording, say so directly and keep the same final owner for any truly remaining residual instead of inventing a new owner transfer
+- for legacy detector-backed priorities, every imported review issue mapped to
+  the priority, with its exact issue id, and whether this plan retires it,
+  defers it, or splits it into a follow-up owner
+- for FCP priorities, every approved `source_finding_id` mapped to the priority,
+  and whether this plan retires it, defers it, or splits it into a follow-up
+  owner; do not include detector/imported issue ids
+- for every deferred or split item, the exact current or follow-up owner, the reason it remains open, and the revisit trigger; if one issue spans multiple legacy non-FCP checklist items, nominate one single final owner
+- for legacy detector-backed priorities only, if an issue resolves on
+  current-code proof while the detector id still carries stale or broader
+  wording, say so directly and keep the same final owner for any truly remaining
+  residual instead of inventing a new owner transfer
 - the expected `P0` security-gate disposition before the next priority begins, including exact issue ids and revisit triggers for anything not cleared
 - any residual debt in the priority area that is intentionally left behind, with its new owner
 
