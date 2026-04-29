@@ -4,8 +4,7 @@ import { PLEX_DISCOVERY_CONSTANTS } from '../../../plex/discovery/constants';
 import type {
     ChannelBuildSummary,
 } from '../../../../core/channel-setup/types';
-import type { ChannelSetupWorkflowPort } from '../../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
-import type { ChannelSetupScreenPorts } from '../ChannelSetupScreenPorts';
+import type { ChannelSetupScreenPorts, ChannelSetupScreenWorkflowPort } from '../ChannelSetupScreenPorts';
 import type { ChannelSetupScreen } from '../ChannelSetupScreen';
 
 type Focusable = Pick<FocusableElement, 'id' | 'neighbors'>;
@@ -133,15 +132,15 @@ export const createNavigationMock = (): NavigationMock => {
 };
 
 export const createOrchestrator = (
-    overrides: Partial<ChannelSetupWorkflowPort & ChannelSetupScreenPorts> = {}
-): ChannelSetupWorkflowPort & ChannelSetupScreenPorts => ({
+    overrides: Partial<ChannelSetupScreenWorkflowPort & ChannelSetupScreenPorts> = {}
+): ChannelSetupScreenWorkflowPort & ChannelSetupScreenPorts => ({
     ...createWorkflowPort(overrides),
     ...createScreenPorts(overrides),
 });
 
 export const createWorkflowPort = (
-    overrides: Partial<ChannelSetupWorkflowPort> = {}
-): ChannelSetupWorkflowPort => ({
+    overrides: Partial<ChannelSetupScreenWorkflowPort> = {}
+): ChannelSetupScreenWorkflowPort => ({
     getLibrariesForSetup: jest.fn().mockResolvedValue([]),
     getChannelSetupRecord: jest.fn(() => null),
     getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
@@ -150,12 +149,6 @@ export const createWorkflowPort = (
     markSetupComplete: jest.fn(),
     getSetupPreview: jest.fn().mockResolvedValue(DEFAULT_PREVIEW),
     getSetupReview: jest.fn().mockResolvedValue(DEFAULT_REVIEW),
-    getSetupPlanDiagnostics: jest.fn().mockResolvedValue({
-        status: 'ready',
-        diagnostics: null,
-        warnings: [],
-        reachedMaxChannels: false,
-    }),
     ...overrides,
 });
 
@@ -173,25 +166,25 @@ export const createScreenPorts = (
 });
 
 export type SplitScreenTestPorts = {
-    workflowPort: ChannelSetupWorkflowPort;
+    workflowPort: ChannelSetupScreenWorkflowPort;
     screenPorts: ChannelSetupScreenPorts;
-    orchestrator: ChannelSetupWorkflowPort & ChannelSetupScreenPorts;
+    orchestrator: ChannelSetupScreenWorkflowPort & ChannelSetupScreenPorts;
 };
 
 export const createSplitScreenPorts = (
-    overrides: Partial<ChannelSetupWorkflowPort & ChannelSetupScreenPorts> = {}
+    overrides: Partial<ChannelSetupScreenWorkflowPort & ChannelSetupScreenPorts> = {}
 ): SplitScreenTestPorts => {
     const workflowPort = createWorkflowPort(overrides);
     const screenPorts = createScreenPorts(overrides);
     return {
         workflowPort,
         screenPorts,
-        orchestrator: { ...workflowPort, ...screenPorts } satisfies ChannelSetupWorkflowPort & ChannelSetupScreenPorts,
+        orchestrator: { ...workflowPort, ...screenPorts } satisfies ChannelSetupScreenWorkflowPort & ChannelSetupScreenPorts,
     };
 };
 
 export const createScreenDeps = (
-    input: { workflowPort: ChannelSetupWorkflowPort; screenPorts: ChannelSetupScreenPorts }
+    input: { workflowPort: ChannelSetupScreenWorkflowPort; screenPorts: ChannelSetupScreenPorts }
 ): ConstructorParameters<typeof ChannelSetupScreen>[1] => ({
     workflowPort: input.workflowPort,
     screenPorts: input.screenPorts,

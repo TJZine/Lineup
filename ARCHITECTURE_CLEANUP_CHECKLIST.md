@@ -94,6 +94,23 @@ artifact must use only `source_finding_id` / `source_finding_ids` coverage and
 must not seed intake, membership, proof, closeout, task generation, or ownership
 from imported, detector, or Desloppify ids.
 
+For every FCP package or priority that claims repo-wide or package-wide audit
+coverage, create or update either one tracked master audit artifact for that
+FCP priority or explicit tracked per-area/package audit artifacts referenced by
+the mini-record. The audit surface must exist before implementation or closeout
+proceeds, and it must record audited areas, source-backed candidates,
+accepted/no-action areas, deferred findings with one owner and revisit trigger,
+known uncertainty/tool fallback, and the rule that future packages update the
+audit when planned or closed. Execution plans may summarize the audit, but they
+must link to the tracked audit surface instead of being the only durable
+coverage record.
+
+Each FCP priority mini-record should link the current audit artifact(s), active
+or completed execution plan(s), `source_finding_id` proof matrix, deferred
+owners and revisit triggers, verification evidence, and clean adversarial review
+evidence before closeout. If any of those are intentionally absent, the
+mini-record must say why and name the next owner or blocking condition.
+
 ## Mini-Record Contract
 
 Every work item and exit gate must keep this compact ledger:
@@ -143,9 +160,21 @@ current evidence.
   commands, issue-id reruns, or package-map reconciliation. A single external
   score refresh is allowed only after `FCP-EXIT` as a retrospective signal.
 
+## Final FCP Reconciliation Pass
+
+After all `FCP-*` checklist priorities are completed or explicitly deferred,
+run a source-backed final reconciliation pass before claiming final production
+cleanup completion. Compare the tracked FCP audit artifacts, implemented source
+and docs changes, mini-record proof matrices, and verification evidence to find
+any follow-ups, ownership drift, stale architecture docs, stale package/audit
+references, or newly introduced architecture/handoff residues. Any residual
+must be recorded with one final owner and revisit trigger, or resolved before
+`FCP-EXIT` closes. This final pass must not use Desloppify output, imported
+issue ids, package maps, score deltas, or triage as closure input.
+
 ## Final Production Cleanup Program
 
-### [ ] `FCP-1` Architecture And Handoff Coherence
+### [x] `FCP-1` Architecture And Handoff Coherence
 
 - Scope: reduce production risk from unclear ownership, broad handoff seams,
   composition-root drift, module hubs, and cross-module glue that makes behavior
@@ -160,14 +189,70 @@ current evidence.
 - Verification routing: architecture source audit, targeted import/dependency
   audits, targeted tests for touched runtime seams, `npm run verify` for source
   work, and `npm run verify:docs` if current architecture truth changes.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: first planner should audit architecture/handoff seams repo-wide and
-  propose the smallest production-risk package that improves ownership clarity
-  without widening a hotspot.
+- Status: completed
+- Plan: `docs/plans/2026-04-29-fcp-1-app-orchestrator-runtime-assembly-hub.md`
+- Audit: `docs/plans/2026-04-29-fcp-1-architecture-handoff-audit.md`
+- Last touched: 2026-04-29
+- Verification: `FCP-1-S1` source audits confirmed no app-shell
+  import/exposure of `OrchestratorServerSelectionResult` /
+  `ServerSelectionTypes`, no `startupResume` / `persistedSelection` /
+  `readiness` leakage in app-shell or server-select, and full selected-server
+  result ownership still in core/orchestrator. Targeted tests passed (`npm run
+  test:unit -- ...`, 4 suites / 62 tests). `npm run verify:docs` and `npm run
+  verify` passed for `FCP-1-S1`. `FCP-1-S2` source audits confirmed no
+  `ChannelSetupWorkflowPort` / `getSetupPlanDiagnostics` exposure in
+  channel-setup UI or `AppLazyScreenPortFactory`, and no full workflow/diagnostic
+  method exposure in `AppShellChannelSetupRuntimePort`. Targeted tests passed
+  (7 suites / 166 tests) plus `ChannelSetupScreen.contracts.test.ts` (1 suite /
+  4 tests). `npm run verify` passed after the corrected implementation. `npm run
+  verify:docs` passed after the `FCP-1-S2` completed plan, master audit, and
+  checklist mini-record updates. `FCP-1-S3` source audits confirmed no
+  `createPriorityOneAssembly(` / `createPriorityOneControllersAndBinder(` /
+  `nowPlayingModalId` / `wireNavigationCoordinatorEvents` /
+  `wireEpgCoordinatorEvents` hits in `AppOrchestrator`, while expected
+  priority-one owner hits remained; confirmed priority-one guard, assignment,
+  deferred bind, module/coordinator/runtime-controller/initialization startup
+  anchors remained. Targeted tests passed:
+  `PriorityOneAssemblyBuilder.test.ts`; `PriorityOneControllerCollaborators`,
+  `PriorityOneControllerFactory.playbackState`, and `OrchestratorRuntimeSeams`;
+  `src/__tests__/Orchestrator.test.ts`. `npm run verify` passed after the
+  implementation revision.
+- Follow-ups: proof matrix: `FCP-1-SF1` resolved by commit `75b59c4f`
+  (`AppShellRuntimeContracts.ts` owns `AppShellServerSelectionResult` and no
+  longer imports the core server-selection result); `FCP-1-SF2` resolved by
+  commit `75b59c4f` (`CURRENT_STATE.md` and `modules.md` distinguish full
+  core/orchestrator result ownership from narrowed app-shell/server-select
+  ownership). `FCP-1-SF3` resolved by commits `23effad7` and `2326562f`
+  (`ChannelSetupScreenWorkflowPort` owns the screen/session contract,
+  app-shell screen runtime exposes `getChannelSetupScreenWorkflowPort()`, and
+  `App.ts` projects the full core workflow into a diagnostics-free screen
+  object). Accepted residual: `ChannelSetupSessionState.ts` still imports
+  `normalizeChannelSetupConfig` from core planning; this is not DTO/constants
+  residue. Final owner: channel setup UI/core boundary owner. Revisit trigger:
+  rerun the FCP-1 audit if setup record hydration/normalization ownership
+  changes, and include it in the final FCP reconciliation pass after the cleanup
+  checklist completes. `FCP-1-SF4` resolved by commits `f2b33f28` and
+  `05b6cf8`: `AppOrchestrator` now keeps only priority-one guards, required
+  module validation, grouped call to `createPriorityOneRuntimeAssembly()`, and
+  assignment of returned controllers/binder; `PriorityOneAssemblyBuilder.ts`
+  owns mapping grouped runtime refs/callbacks into `PriorityOneAssemblyInput`
+  plus controller/binder creation. Adjacent SF4 audit areas for module factory,
+  coordinator assembly, runtime-controller builder, and initialization
+  coordinator are accepted/no-action because current source still has focused
+  owners and SF4 implementation did not need to edit them.
+- Handoff: Completed plans are
+  `docs/plans/2026-04-29-fcp-1-architecture-handoff-coherence.md`,
+  `docs/plans/2026-04-29-fcp-1-channel-setup-ui-core-handoff.md`, and
+  `docs/plans/2026-04-29-fcp-1-app-orchestrator-runtime-assembly-hub.md`.
+  Master audit:
+  `docs/plans/2026-04-29-fcp-1-architecture-handoff-audit.md`. Plan reviews
+  passed for each package; SF4 implementation review closure found no findings
+  and a fresh final implementation review approved SF4 source implementation for
+  docs/audit closeout. Fresh FCP-1 priority-exit closeout review found no
+  closeout findings and approved completion after accepting the source-finding
+  proof matrix, accepted/no-action SF4 areas, residual owner, verification
+  evidence, and mini-record update. `npm run verify:docs` passed after this
+  completion status update.
 
 ### [ ] `FCP-2` Runtime Contracts And Failure Semantics
 
@@ -301,6 +386,8 @@ current evidence.
   - source-backed audit package or explicit no-action rationale for every
     priority
   - package proof matrices with every source finding disposed
+  - final reconciliation pass over tracked FCP audit artifacts, implemented
+    changes, mini-record proof matrices, and architecture docs
   - security triage for any touched runtime boundary
   - verification results for runtime and docs surfaces
   - final portability/test-confidence summary for port handoff
@@ -314,7 +401,8 @@ current evidence.
 - Verification: not run
 - Follow-ups: none yet
 - Handoff: do not declare final production cleanup complete until all six
-  priorities have source-backed closeout records and review evidence.
+  priorities have source-backed closeout records, clean review evidence, and a
+  completed final reconciliation pass with any residuals owned.
 
 ## Not Active Checklist Scope By Default
 

@@ -15,7 +15,10 @@ import { AppOrchestrator, type AppOrchestratorRuntime } from './Orchestrator';
 import {
     AppLazyScreenRegistry,
 } from './core/app-shell/AppLazyScreenRegistry';
-import { AppLazyScreenPortFactory } from './core/app-shell/AppLazyScreenPortFactory';
+import {
+    AppLazyScreenPortFactory,
+    createChannelSetupScreenWorkflowPort,
+} from './core/app-shell/AppLazyScreenPortFactory';
 import { AppScreenVisibilityCoordinator } from './core/app-shell/AppScreenVisibilityCoordinator';
 import {
     AppBlockingErrorOverlayPresenter,
@@ -48,11 +51,15 @@ const NON_BLOCKING_LIFECYCLE_CODES = new Set<AppErrorCode>(
 const ERROR_OVERLAY_MODAL_ID = 'modal:error-overlay';
 
 type AppRuntimeLifecycleEvents = Pick<LifecycleEventMap, 'networkWarning' | 'persistenceWarning' | 'phaseChange'>;
+type AppShellChannelSetupOrchestratorRuntime = Omit<
+    AppShellChannelSetupRuntimePort,
+    'getChannelSetupScreenWorkflowPort'
+>;
 
 interface AppShellOrchestratorRuntime
     extends AppOrchestratorRuntime,
     AppShellAuthRuntimePort,
-    AppShellChannelSetupRuntimePort,
+    AppShellChannelSetupOrchestratorRuntime,
     AppShellDiagnosticsRuntimePort,
     AppShellNavigationRuntimePort,
     AppShellProfileRuntimePort,
@@ -260,6 +267,24 @@ export class App {
         return refs;
     }
 
+    private _createChannelSetupRuntime(): AppShellChannelSetupRuntimePort | null {
+        const runtime = this._orchestrator;
+        if (!runtime) {
+            return null;
+        }
+
+        return {
+            getChannelSetupScreenWorkflowPort: () =>
+                createChannelSetupScreenWorkflowPort(runtime.getChannelSetupWorkflowPort()),
+            getSelectedServerStorageKey: () => runtime.getSelectedServerStorageKey(),
+            getServerHealthStorageKey: () => runtime.getServerHealthStorageKey(),
+            getSelectedServerId: () => runtime.getSelectedServerId(),
+            openServerSelect: () => runtime.openServerSelect(),
+            switchToChannelByNumber: (number, options) => runtime.switchToChannelByNumber(number, options),
+            openEPG: () => runtime.openEPG(),
+        };
+    }
+
     private _initializeScreens(containerRefs: AppContainerRefs): void {
         if (!this._orchestrator) {
             return;
@@ -273,7 +298,7 @@ export class App {
             getAuthRuntime: (): AppShellAuthRuntimePort | null => this._orchestrator,
             getProfileRuntime: (): AppShellProfileRuntimePort | null => this._orchestrator,
             getServerSelectionRuntime: (): AppShellServerSelectionRuntimePort | null => this._orchestrator,
-            getChannelSetupRuntime: (): AppShellChannelSetupRuntimePort | null => this._orchestrator,
+            getChannelSetupRuntime: (): AppShellChannelSetupRuntimePort | null => this._createChannelSetupRuntime(),
             getSettingsRuntime: (): AppShellSettingsRuntimePort | null => {
                 const runtime = this._orchestrator;
                 if (!runtime) {

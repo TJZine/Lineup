@@ -6,7 +6,12 @@ import { DEFAULT_BUILD_RESULT, DEFAULT_PREVIEW, createWorkflowPort, makeLibrary 
 import { ChannelSetupSessionRuntime } from '../ChannelSetupSessionRuntime';
 import { ChannelSetupSessionState } from '../ChannelSetupSessionState';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
-import { ChannelSetupWorkflowUnavailableError } from '../../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
+
+const createUnavailableError = (): Error => {
+    const error = new Error('Channel setup not initialized');
+    error.name = 'ChannelSetupWorkflowUnavailableError';
+    return error;
+};
 
 const createDeferred = <T>(): {
     promise: Promise<T>;
@@ -123,7 +128,7 @@ describe('ChannelSetupSessionRuntime', () => {
                 .mockReturnValueOnce('existing')
                 .mockReturnValueOnce('unexpected')
                 .mockImplementationOnce(() => {
-                    throw new ChannelSetupWorkflowUnavailableError();
+                    throw createUnavailableError();
                 }),
         });
         const { runtime, state } = createRuntime({ workflowPort });
@@ -155,14 +160,14 @@ describe('ChannelSetupSessionRuntime', () => {
     it('treats unavailable workflow queries as UI-safe defaults at the runtime edge', async () => {
         const workflowPort = createWorkflowPort({
             invalidateFacetSnapshot: jest.fn(() => {
-                throw new ChannelSetupWorkflowUnavailableError();
+                throw createUnavailableError();
             }),
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getChannelSetupRecord: jest.fn(() => {
-                throw new ChannelSetupWorkflowUnavailableError();
+                throw createUnavailableError();
             }),
             getSetupContextForSelectedServer: jest.fn(() => {
-                throw new ChannelSetupWorkflowUnavailableError();
+                throw createUnavailableError();
             }),
         });
         const { runtime, state } = createRuntime({ workflowPort });

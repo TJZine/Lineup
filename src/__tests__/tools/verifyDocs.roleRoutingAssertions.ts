@@ -351,20 +351,23 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         expect(result.stderr).toContain('monitor_fallback');
     });
 
-    it('fails when the planner role does not preserve the tracked high-reasoning contract', () => {
+    it('allows maintainers to tune planner reasoning effort without failing role verification', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
 
         writeRoleWorkflowClaimFixture(repoRoot);
         writeValidCodexRoleConfigFixture(repoRoot);
-        writeRepoFile(repoRoot, '.codex/agents/planner.toml', 'model = "gpt-5.5"\nmodel_reasoning_effort = "medium"\n');
+        writeRepoFile(
+            repoRoot,
+            '.codex/agents/planner.toml',
+            'model = "gpt-5.5"\nmodel_reasoning_effort = "medium"\ndeveloper_instructions = """\nOwn bounded planning work, not product-code implementation.\nUse write access only for planning artifacts, scoped workflow docs, and execution-ready handoffs that the parent explicitly requested.\nDo the discovery needed to freeze the plan, surface unresolved seams early, and leave implementation to the worker role unless the parent narrows the scope to a planning-surface edit.\n"""\n'
+        );
+        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
 
         const result = runVerifier(repoRoot);
 
-        expect(result.status).toBe(1);
-        expect(result.stderr).toContain(
-            'Codex role config is missing required planner contract line (model_reasoning_effort = "high"): .codex/agents/planner.toml'
-        );
+        expect(result.status).toBe(0);
+        expect(result.stderr).not.toContain('model_reasoning_effort');
     });
 
     it('fails when the planner role loses its planning-only boundary instructions', () => {
@@ -390,7 +393,7 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         );
     });
 
-    it('fails when the cleanup_worker role does not preserve the tracked medium-reasoning contract', () => {
+    it('allows maintainers to tune cleanup_worker reasoning effort without failing role verification', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
 
@@ -399,15 +402,14 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         writeRepoFile(
             repoRoot,
             '.codex/agents/cleanup-worker.toml',
-            'model = "gpt-5.5"\nmodel_reasoning_effort = "low"\n'
+            'model = "gpt-5.5"\nmodel_reasoning_effort = "high"\ndeveloper_instructions = """\nOwn one bounded cleanup-loop implementation write scope at a time.\nMake the smallest defensible cleanup change inside the approved execution unit, avoid unrelated edits, and validate the changed behavior before returning.\nUse this role only for Tier 3 cleanup-loop implementation passes; leave general implementation routing to the worker role.\n"""\n'
         );
+        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
 
         const result = runVerifier(repoRoot);
 
-        expect(result.status).toBe(1);
-        expect(result.stderr).toContain(
-            'Codex role config is missing required cleanup_worker contract line (model_reasoning_effort = "medium"): .codex/agents/cleanup-worker.toml'
-        );
+        expect(result.status).toBe(0);
+        expect(result.stderr).not.toContain('model_reasoning_effort');
     });
 
     it('fails when the cleanup_worker role loses its cleanup-loop-only boundary instructions', () => {

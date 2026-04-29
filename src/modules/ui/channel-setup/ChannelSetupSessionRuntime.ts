@@ -3,8 +3,6 @@ import type {
     ChannelSetupPreview,
     ChannelSetupRecord,
 } from '../../../core/channel-setup/types';
-import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
-import { isChannelSetupWorkflowUnavailableError } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import { isAbortLikeError } from '../../../utils/errors';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from './constants';
 import type {
@@ -14,6 +12,13 @@ import type {
     StrategyStepMutableState,
 } from './ChannelSetupSessionContracts';
 import type { ChannelSetupSessionState } from './ChannelSetupSessionState';
+import type { ChannelSetupScreenWorkflowPort } from './ChannelSetupScreenPorts';
+
+const CHANNEL_SETUP_UNAVAILABLE_ERROR_NAME = 'ChannelSetupWorkflowUnavailableError';
+
+function isChannelSetupWorkflowUnavailableError(error: unknown): boolean {
+    return error instanceof Error && error.name === CHANNEL_SETUP_UNAVAILABLE_ERROR_NAME;
+}
 
 export class ChannelSetupSessionRuntime {
     private static readonly PREVIEW_TIMEOUT_MS = 15000;
@@ -28,7 +33,7 @@ export class ChannelSetupSessionRuntime {
 
     constructor(
         private readonly _deps: {
-            workflowPort: ChannelSetupWorkflowPort;
+            workflowPort: ChannelSetupScreenWorkflowPort;
             getSelectedServerId: () => string | null;
             state: ChannelSetupSessionState;
         }

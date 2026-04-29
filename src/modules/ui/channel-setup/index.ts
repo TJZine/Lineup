@@ -1,2 +1,2 @@
 export { ChannelSetupScreen } from './ChannelSetupScreen';
-export type { ChannelSetupScreenPorts } from './ChannelSetupScreenPorts';
+export type { ChannelSetupScreenPorts, ChannelSetupScreenWorkflowPort } from './ChannelSetupScreenPorts';

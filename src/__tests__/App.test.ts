@@ -8,8 +8,10 @@ import { createAppOrchestratorConfig } from '../core/app-shell/AppOrchestratorCo
 import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../core/app-shell/constants';
 import { AppThemeController } from '../core/app-shell/AppThemeController';
 import type { ChannelSetupConfig } from '../core/channel-setup/types';
+import type { ChannelSetupWorkflowPort } from '../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import { AppOrchestrator, type PlaybackInfoSnapshot } from '../Orchestrator';
 import { PLEX_AUTH_CONSTANTS } from '../modules/plex/auth';
+import type { ChannelSetupScreenWorkflowPort } from '../modules/ui/channel-setup';
 import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
 import { createWebOsPlatformServices } from '../platform';
 
@@ -280,6 +282,59 @@ describe('App bootstrap smoke', () => {
         await app.start();
         return app;
     };
+
+    const createFullChannelSetupWorkflowPort = (): jest.Mocked<ChannelSetupWorkflowPort> => ({
+        invalidateFacetSnapshot: jest.fn(),
+        getLibrariesForSetup: jest.fn((_signal?: AbortSignal | null) => Promise.resolve([])),
+        getChannelSetupRecord: jest.fn((_serverId: string) => null),
+        getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
+        getSetupPreview: jest.fn((_config, _options) => Promise.resolve({
+            estimates: {
+                total: 0,
+                collections: 0,
+                playlists: 0,
+                genres: 0,
+                directors: 0,
+                decades: 0,
+                recentlyAdded: 0,
+                studios: 0,
+                actors: 0,
+            },
+            warnings: [],
+            reachedMaxChannels: false,
+        })),
+        getSetupReview: jest.fn((_config, _options) => Promise.resolve({
+            preview: {
+                estimates: {
+                    total: 0,
+                    collections: 0,
+                    playlists: 0,
+                    genres: 0,
+                    directors: 0,
+                    decades: 0,
+                    recentlyAdded: 0,
+                    studios: 0,
+                    actors: 0,
+                },
+                warnings: [],
+                reachedMaxChannels: false,
+            },
+            diff: {
+                summary: { created: 0, removed: 0, unchanged: 0 },
+                samples: { created: [], removed: [], unchanged: [] },
+            },
+        })),
+        getSetupPlanDiagnostics: jest.fn(),
+        createChannelsFromSetup: jest.fn((_config, _options) => Promise.resolve({
+            created: 0,
+            skipped: 0,
+            reachedMaxChannels: false,
+            errorCount: 0,
+            canceled: false,
+            lastTask: 'done',
+        })),
+        markSetupComplete: jest.fn((_serverId, _setupConfig) => {}),
+    });
 
     afterEach(async () => {
         if (app) {
@@ -1003,6 +1058,31 @@ describe('App bootstrap smoke', () => {
         screenChangeHandler?.('channel-setup', 'channel-setup');
         await flushPromises();
         expect(channelSetupScreenConstructed).toHaveBeenCalledTimes(1);
+    });
+
+    it('projects the full channel setup workflow into a screen-only port', async () => {
+        const fullWorkflowPort = createFullChannelSetupWorkflowPort();
+        jest.spyOn(AppOrchestrator.prototype, 'getChannelSetupWorkflowPort').mockReturnValue(fullWorkflowPort);
+        let currentScreen: string | null = null;
+        (AppOrchestrator.prototype.getCurrentScreen as unknown as jest.Mock).mockImplementation(() => currentScreen);
+        await bootstrapApp(() => {
+        });
+
+        currentScreen = 'channel-setup';
+        screenChangeHandler?.('auth', 'channel-setup');
+        await flushPromises();
+
+        const constructorArgs = channelSetupScreenConstructed.mock.calls[0]?.[0] as [
+            HTMLElement,
+            { workflowPort: ChannelSetupScreenWorkflowPort },
+        ];
+        const workflowPort = constructorArgs[1].workflowPort;
+
+        expect(workflowPort).not.toBe(fullWorkflowPort);
+        expect('getSetupPlanDiagnostics' in workflowPort).toBe(false);
+
+        workflowPort.invalidateFacetSnapshot();
+        expect(fullWorkflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(1);
     });
 
     it('routes audio setup completion to channel-setup through the lazy-screen callback', async () => {
