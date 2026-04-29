@@ -58,6 +58,12 @@ source, tests, architecture docs, and reviewer judgment for actual task intake.
 - Freeze one execution-grade plan per priority or per approved package inside a
   priority. Keep small plans local by default; promote to `docs/plans/*` only
   when durable tracked handoff memory is needed.
+- Active `DCR-*` cleanup-loop packages are durable Tier 3 handoff work by
+  default. Write or refresh a tracked `docs/plans/*` execution plan while the
+  package is active, then collapse durable outcomes into this checklist and
+  current architecture/API docs at closeout. Delete the detailed active plan
+  after closeout unless it contains a reusable architecture decision that must
+  be promoted into a durable reference doc.
 - Execute approved packages through planner -> reviewer -> cleanup_worker ->
   reviewer loops when `cleanup-loop` is used. The checklist names priorities and
   closeout gates; it does not enumerate endless waves.
@@ -225,6 +231,12 @@ tool remains unavailable.
 - Large packages must plan coherent waves or execution units. A plan that fixes
   one tiny symptom while leaving same-package listed issues unowned is not
   implementation-ready.
+- The active DCR plan lives in `docs/plans/*` while implementation/review is in
+  progress. Keep worker implementation commits focused on source/test changes;
+  checklist and plan-progress updates belong to controller closeout or a
+  separate docs commit. At package closeout, preserve long-term facts in the
+  mini-record, delete or archive the verbose execution plan, and promote only
+  durable architecture/API decisions into the relevant reference docs.
 - Parallel `cleanup_worker` execution is allowed only when the approved plan's
   slice table proves disjoint write scopes and verification, and names the
   controller-owned integration gate.
