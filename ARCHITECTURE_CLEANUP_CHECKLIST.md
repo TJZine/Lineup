@@ -1000,8 +1000,8 @@ the `DCR-*` packages above instead.
   audits, targeted tests for touched runtime seams, `npm run verify` for source
   work, and `npm run verify:docs` if current architecture truth changes.
 - Status: completed
-- Plan: `docs/plans/2026-04-29-fcp-1-app-orchestrator-runtime-assembly-hub.md`
-- Audit: `docs/plans/2026-04-29-fcp-1-architecture-handoff-audit.md`
+- Plan: archived in git history; baseline summary retained here.
+- Audit: archived in git history; source-finding proof matrix retained here.
 - Last touched: 2026-04-29
 - Verification: `FCP-1-S1` source audits confirmed no app-shell
   import/exposure of `OrchestratorServerSelectionResult` /
@@ -1039,8 +1039,8 @@ the `DCR-*` packages above instead.
   object). Accepted residual: `ChannelSetupSessionState.ts` still imports
   `normalizeChannelSetupConfig` from core planning; this is not DTO/constants
   residue. Final owner: channel setup UI/core boundary owner. Revisit trigger:
-  rerun the FCP-1 audit if setup record hydration/normalization ownership
-  changes, and include it in the final FCP reconciliation pass after the cleanup
+  recheck this baseline if setup record hydration/normalization ownership
+  changes, and include it in the final DCR reconciliation pass after the cleanup
   checklist completes. `FCP-1-SF4` resolved by commits `f2b33f28` and
   `05b6cf8`: `AppOrchestrator` now keeps only priority-one guards, required
   module validation, grouped call to `createPriorityOneRuntimeAssembly()`, and
@@ -1050,12 +1050,8 @@ the `DCR-*` packages above instead.
   coordinator assembly, runtime-controller builder, and initialization
   coordinator are accepted/no-action because current source still has focused
   owners and SF4 implementation did not need to edit them.
-- Handoff: Completed plans are
-  `docs/plans/2026-04-29-fcp-1-architecture-handoff-coherence.md`,
-  `docs/plans/2026-04-29-fcp-1-channel-setup-ui-core-handoff.md`, and
-  `docs/plans/2026-04-29-fcp-1-app-orchestrator-runtime-assembly-hub.md`.
-  Master audit:
-  `docs/plans/2026-04-29-fcp-1-architecture-handoff-audit.md`. Plan reviews
+- Handoff: Completed FCP-1 plans and master audit are archived in git history.
+  The retained baseline summary above is the active reference. Plan reviews
   passed for each package; SF4 implementation review closure found no findings
   and a fresh final implementation review approved SF4 source implementation for
   docs/audit closeout. Fresh FCP-1 priority-exit closeout review found no
@@ -1081,8 +1077,8 @@ the `DCR-*` packages above instead.
   runtime changes, and reference-doc updates when public behavior contracts
   change.
 - Status: completed
-- Plan: `docs/plans/2026-04-29-fcp-2-runtime-contracts-failure-semantics.md`
-- Audit: `docs/plans/2026-04-29-fcp-2-runtime-contracts-failure-semantics-audit.md`
+- Plan: archived in git history; baseline summary retained here.
+- Audit: archived in git history; source-finding proof matrix retained here.
 - Last touched: 2026-04-29
 - Verification: `FCP-2-SF1` resolved by commit `239b3db5`
   (`fix(fcp-2): enforce channel authoring failures`). Targeted ChannelManager
@@ -1102,11 +1098,11 @@ the `DCR-*` packages above instead.
   before publishing channel state, propagate non-fallback failures without
   persist/emit/state mutation, preserve deleted/empty-source fallback, and keep
   import non-fallback failures in structured skipped-record `ImportResult`
-  errors. Accepted/no-action areas in the audit remain owned by Plex auth,
+  errors. Accepted/no-action areas remain owned by Plex auth,
   Plex discovery, Plex library, Plex stream, storage owners, lifecycle/startup,
   channel tuning, and player/playback owners. No deferred `FCP-2` source
-  findings are admitted. Revisit trigger: `DCR-EXIT` must recheck the FCP-2
-  audit against implemented source/docs changes as retained baseline evidence.
+  findings are admitted. Revisit trigger: `DCR-EXIT` must recheck this FCP-2
+  baseline against implemented source/docs changes as retained evidence.
 - Handoff: Fresh FCP-2 closeout review found no material findings and approved
   completion after accepting the proof matrix, accepted/no-action owner record,
   verification evidence, and mini-record update. Historical next priority was
@@ -1129,8 +1125,8 @@ the `DCR-*` packages above instead.
   responsibility boundaries, import/API stability audits, and `npm run verify`
   for source work.
 - Status: completed
-- Plan: `docs/plans/2026-04-29-fcp-3-focused-design-coherence.md`
-- Audit: `docs/plans/2026-04-29-fcp-3-focused-design-coherence-audit.md`
+- Plan: archived in git history; baseline summary retained here.
+- Audit: archived in git history; source-finding proof matrix retained here.
 - Last touched: 2026-04-29
 - Verification: `FCP-3-SF1` resolved by implementation commit `22847d97`
   (`Extract settings screen focus coordinator`). Targeted controller rerun
@@ -1154,11 +1150,11 @@ the `DCR-*` packages above instead.
   deferred focus restore intent, and focus registry sync; `SettingsScreen.ts`
   retains rendering, settings-state consumption, and screen lifecycle
   delegation. Accepted/no-action and deferred-outside-selected-package areas
-  remain owned in the audit: EPG component/view owners, Plex stream resolver
+  remain owned by EPG component/view owners, Plex stream resolver
   owner, scheduler/channel-manager owner, channel setup UI/screen owner, and
   core orchestrator/priority-one assembly owners, each with revisit triggers.
-  Security triage: `no open P0 security findings`; `DCR-EXIT` must recheck the
-  FCP-3 audit against implemented source/docs changes as retained baseline
+  Security triage: `no open P0 security findings`; `DCR-EXIT` must recheck this
+  FCP-3 baseline against implemented source/docs changes as retained
   evidence.
 - Handoff: Fresh FCP-3 implementation review found no findings and approved
   `FCP-3-S1` for controller closeout. Fresh FCP-3 priority-exit closeout review
@@ -1186,9 +1182,8 @@ the `DCR-*` packages above instead.
   when code changes beyond comments, and `npm run verify` when source behavior
   or exported surfaces are touched.
 - Status: completed
-- Plan: `docs/plans/2026-04-29-fcp-4-ai-generated-residue-code-signal.md`
-- Audit:
-  `docs/plans/2026-04-29-fcp-4-ai-generated-residue-code-signal-audit.md`
+- Plan: archived in git history; baseline summary retained here.
+- Audit: archived in git history; source-finding proof matrix retained here.
 - Last touched: 2026-04-29
 - Verification: `FCP-4-WAVE1` implementation commit `f9eca40b` passed
   `ShuffleResult` pre/post source audits, old-pattern source audit,
@@ -1205,7 +1200,7 @@ the `DCR-*` packages above instead.
   comments remain); `FCP-4-SF2` resolved by commit `f9eca40b` (`ShuffleResult`
   declaration and scheduler barrel export removed after fresh consumer proof
   found no consumers). Accepted/no-action and out-of-scope residual owners
-  remain in the audit: `ScheduleConfig.loopSchedule` belongs to the scheduler
+  remain recorded here: `ScheduleConfig.loopSchedule` belongs to the scheduler
   API owner; Plex library interface docs belong to the Plex library contract
   owner; webOS/media-session/fail-open comments belong to player, Plex shared
   transport, and platform owners; brand glyph SVG comments belong to the UI
@@ -1234,8 +1229,8 @@ the `DCR-*` packages above instead.
   changed abstractions, `npm run verify` for runtime changes, and architecture
   or API doc updates when platform contracts become explicit.
 - Status: completed
-- Plan: `docs/plans/2026-04-29-fcp-5-portability-readiness.md`
-- Audit: `docs/plans/2026-04-29-fcp-5-portability-readiness-audit.md`
+- Plan: archived in git history; baseline summary retained here.
+- Audit: archived in git history; source-finding proof matrix retained here.
 - Last touched: 2026-04-29
 - Verification: plan-review approved `FCP-5-S1` with no material findings.
   Implementation commit `2f54311e` passed focused `StateManager` tests (24
@@ -1252,7 +1247,7 @@ the `DCR-*` packages above instead.
   (`StateManager` now routes lifecycle state reads/writes/cleanup through safe
   optional-storage helpers, keeps synchronous `save/load/clear`, preserves
   quota cleanup-and-retry behavior, and tests blocked/unavailable storage).
-  Deferred/no-action final owners and revisit triggers remain in the audit for
+  Deferred/no-action final owners and revisit triggers are retained here for
   `FCP-5-SF2` through `FCP-5-SF7`: platform owner for webOS default runtime,
   navigation/exit UI owner for root `window.close()`, Plex/player transport
   owners for browser fetch/XHR contracts, player/Plex stream owners for native
@@ -1283,8 +1278,8 @@ the `DCR-*` packages above instead.
   verify` for broad runtime proof, and a final optional external score refresh
   after all six priorities complete.
 - Status: completed
-- Plan: `docs/plans/2026-04-29-fcp-6-test-confidence.md`
-- Audit: `docs/plans/2026-04-29-fcp-6-test-confidence-audit.md`
+- Plan: archived in git history; baseline summary retained here.
+- Audit: archived in git history; source-finding proof matrix retained here.
 - Last touched: 2026-04-29
 - Verification: plan-review approved `FCP-6-S1` with no material findings.
   Implementation commit `ef09466b` passed focused exit-confirm tests (4 tests),
@@ -1298,7 +1293,7 @@ the `DCR-*` packages above instead.
   focusable registration, Cancel close, Exit-to-Home via `window.close()`,
   close/unregister cleanup, and destroy DOM cleanup). `FCP-6-SF1` and
   `FCP-6-SF3` through `FCP-6-SF10` remain existing-coverage/no-action with
-  final owners and revisit triggers in the audit. `FCP-6-SF11` remains deferred
+  baseline ownership archived in git history. `FCP-6-SF11` remains deferred
   to the future-port test owner for real Windows/Electron shell, device Plex,
   native media, and manual integration proof. Security triage: no P0 security
   finding admitted.
@@ -1319,7 +1314,7 @@ the `DCR-*` packages above instead.
   - source-backed audit package or explicit no-action rationale for every
     priority
   - package proof matrices with every source finding disposed
-  - final reconciliation pass over tracked FCP audit artifacts, implemented
+  - final reconciliation pass over archived FCP audit artifacts, implemented
     changes, mini-record proof matrices, and architecture docs
   - security triage for any touched runtime boundary
   - verification results for runtime and docs surfaces
