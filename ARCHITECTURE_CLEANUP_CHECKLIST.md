@@ -606,9 +606,9 @@ changes them:
   visual requirements create an explicit documented override. DCR-5 is the next
   unchecked DCR package only when the maintainer starts the next cleanup loop.
 
-### [ ] `DCR-5` Navigation FocusManager Correctness And Tests
+### [x] `DCR-5` Navigation FocusManager Correctness And Tests
 
-- Status: not started
+- Status: completed
 - Dimensions/rubric tags: test strategy, UI/focus correctness, AI-generated
   residue, logic clarity, type safety
 - Scope owner: navigation/focus owner
@@ -643,7 +643,7 @@ changes them:
   cannot close on comment cleanup alone.
 - Verification routing: targeted FocusManager tests, source audit for removed
   restating comments and `_isVisible` behavior, then `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: completed.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -654,12 +654,29 @@ changes them:
 - Stop/replan triggers: visibility behavior affects multiple screen focus
   coordinators; browser/jsdom limits require manual proof; fix requires public
   navigation API changes.
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start with DCR-5 plan; resolve `_isVisible` before cleanup-only
-  edits.
+- Plan:
+  [`docs/archive/plans/2026-04-29-dcr-5-navigation-focusmanager-correctness-and-tests.md`](./docs/archive/plans/2026-04-29-dcr-5-navigation-focusmanager-correctness-and-tests.md)
+- Last touched: 2026-04-29, implementation commits `ceee655a` and `42245764`
+- Verification: plan review approved with no material findings. `DCR-5-S1`
+  implementation review found one zero-size coverage gap, which was fixed and
+  cleared by closure review plus a fresh final approval pass. `DCR-5-S2`
+  implementation review approved with no material findings. Targeted
+  `FocusManager` tests passed (`21` tests); source audit confirmed `_isVisible`
+  excludes zero-size, hidden, detached, and non-fixed `offsetParent === null`
+  candidates while admitting visible fixed-position candidates with non-zero
+  rects, and confirmed only invariant comments remain; `npm run plans:check`
+  passed; `npm run verify` passed.
+- Follow-ups: none. `_isVisible` now has one intentional private policy:
+  fixed-position overlays with visible rects can participate in spatial focus
+  even when `offsetParent === null`; detached, hidden, zero-size, and non-fixed
+  layoutless candidates remain excluded. Grid, spatial fallback, hidden,
+  detached, zero-size, and fixed-position behavior are covered through
+  `findNeighbor` tests.
+- Handoff: `DCR-5` is complete. Do not reopen navigation focus visibility
+  policy unless source proof shows screen-specific focus coordinators need
+  incompatible semantics, browser/jsdom behavior diverges from the tested
+  contract, or the public navigation API changes. DCR-6 is the next unchecked
+  DCR package only when the maintainer starts the next cleanup loop.
 
 ### [ ] `DCR-6` AppOrchestrator Narrow API And File-Health Cleanup
 
