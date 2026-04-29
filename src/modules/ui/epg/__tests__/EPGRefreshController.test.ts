@@ -154,7 +154,6 @@ const makeDeps = (
                 content: items,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             } satisfies ScheduleConfig),
         appendIssueDiagnostic: jest.fn(),
         epgPreferencesStore: new EpgPreferencesStore(),

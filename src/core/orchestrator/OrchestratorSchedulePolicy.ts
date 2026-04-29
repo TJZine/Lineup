@@ -40,7 +40,6 @@ export class OrchestratorSchedulePolicy {
             content: items,
             playbackMode,
             shuffleSeed: effectiveSeed,
-            loopSchedule: true,
         };
 
         if (typeof channel.blockSize === 'number' && Number.isFinite(channel.blockSize)) {

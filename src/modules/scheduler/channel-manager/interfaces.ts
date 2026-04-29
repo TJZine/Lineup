@@ -60,6 +60,10 @@ export interface IChannelManager {
         options?: { signal?: AbortSignal | null }
     ): Promise<ResolvedChannelContent['items']>;
 
+    /**
+     * Replace channel ordering with an exact full order.
+     * @throws ChannelError if any existing id is missing, duplicated, or unknown.
+     */
     reorderChannels(orderedIds: string[]): Promise<void>;
 
     setCurrentChannel(channelId: string): void;

@@ -112,7 +112,6 @@ const makeHarness = (): RolloverHarness => {
             content: items,
             playbackMode: 'sequential',
             shuffleSeed: 0,
-            loopSchedule: true,
         })
     );
 

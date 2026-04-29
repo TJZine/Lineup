@@ -61,7 +61,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
 
             scheduler.loadChannel(config);
@@ -81,7 +80,6 @@ describe('ChannelScheduler', () => {
                 content: [],
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
 
             expect(() => scheduler.loadChannel(config)).toThrow(
@@ -99,7 +97,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
 
@@ -118,7 +115,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
 
@@ -147,7 +143,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
 
@@ -167,7 +162,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
 
@@ -187,7 +181,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
 
@@ -205,7 +198,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'shuffle',
                 shuffleSeed: 42,
-                loopSchedule: true,
             };
             const config2: ScheduleConfig = {
                 channelId: 'c1',
@@ -213,7 +205,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'shuffle',
                 shuffleSeed: 42,
-                loopSchedule: true,
             };
 
             const s1 = new ChannelScheduler(shuffler);
@@ -242,7 +233,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
 
@@ -261,7 +251,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
 
@@ -283,7 +272,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
 
@@ -300,7 +288,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
 
@@ -320,7 +307,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
 
@@ -355,7 +341,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
 
@@ -380,7 +365,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
             scheduler.on('scheduleSync', handler);
@@ -402,7 +386,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
 
@@ -443,7 +426,6 @@ describe('ChannelScheduler', () => {
                 content, // [a: 10s, b: 20s] = 30s total loop
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
 
@@ -487,7 +469,6 @@ describe('ChannelScheduler', () => {
                 content, // [a: 10s, b: 20s] = 30s total loop
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
 
@@ -519,7 +500,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
             scheduler.on('programEnd', programEndHandler);
@@ -553,7 +533,6 @@ describe('ChannelScheduler', () => {
                 content, // [a: 10s, b: 20s]
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
             scheduler.on('programStart', programStartHandler);
@@ -595,7 +574,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
             scheduler.on('programStart', programStartHandler);
@@ -621,7 +599,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
             scheduler.on('programStart', programStartHandler);
@@ -650,7 +627,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
 
@@ -672,7 +648,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
 
@@ -699,7 +674,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
             scheduler.unloadChannel();
@@ -722,7 +696,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
             scheduler.on('scheduleSync', syncHandler);
@@ -748,7 +721,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
 
@@ -764,7 +736,6 @@ describe('ChannelScheduler', () => {
                 content,
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
 
             // Should not throw
@@ -790,7 +761,6 @@ describe('ChannelScheduler', () => {
                 content, // [a: 10s, b: 20s]
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
 
@@ -823,7 +793,6 @@ describe('ChannelScheduler', () => {
                 content, // [a: 10s, b: 20s]
                 playbackMode: 'sequential',
                 shuffleSeed: 1,
-                loopSchedule: true,
             };
             scheduler.loadChannel(config);
 

@@ -70,7 +70,6 @@ describe('ScheduleCalculator', () => {
                 content: testContent,
                 playbackMode: 'sequential',
                 shuffleSeed: 12345,
-                loopSchedule: true,
             };
 
             const index = buildScheduleIndex(config, shuffler);
@@ -87,7 +86,6 @@ describe('ScheduleCalculator', () => {
                 content: testContent,
                 playbackMode: 'sequential',
                 shuffleSeed: 12345,
-                loopSchedule: true,
             };
 
             const index = buildScheduleIndex(config, shuffler);
@@ -106,7 +104,6 @@ describe('ScheduleCalculator', () => {
                 content: [],
                 playbackMode: 'sequential',
                 shuffleSeed: 12345,
-                loopSchedule: true,
             };
 
             expect(() => buildScheduleIndex(config, shuffler)).toThrow(
@@ -121,7 +118,6 @@ describe('ScheduleCalculator', () => {
                 content: testContent,
                 playbackMode: 'shuffle',
                 shuffleSeed: 42,
-                loopSchedule: true,
             };
             const config2: ScheduleConfig = {
                 channelId: 'test-channel',
@@ -129,7 +125,6 @@ describe('ScheduleCalculator', () => {
                 content: testContent,
                 playbackMode: 'shuffle',
                 shuffleSeed: 42,
-                loopSchedule: true,
             };
 
             const index1 = buildScheduleIndex(config1, shuffler);
@@ -182,7 +177,6 @@ describe('ScheduleCalculator', () => {
                 content: testContent,
                 playbackMode: 'sequential',
                 shuffleSeed: 12345,
-                loopSchedule: true,
             };
             index = buildScheduleIndex(config, shuffler);
         });
@@ -256,7 +250,6 @@ describe('ScheduleCalculator', () => {
                 content: testContent,
                 playbackMode: 'sequential',
                 shuffleSeed: 12345,
-                loopSchedule: true,
             };
             const index = buildScheduleIndex(config, shuffler);
             const current = calculateProgramAtTime(anchorTime, index, anchorTime);
@@ -273,7 +266,6 @@ describe('ScheduleCalculator', () => {
                 content: testContent,
                 playbackMode: 'sequential',
                 shuffleSeed: 12345,
-                loopSchedule: true,
             };
             const index = buildScheduleIndex(config, shuffler);
             // Go to third item (70 min after anchor)
@@ -300,7 +292,6 @@ describe('ScheduleCalculator', () => {
                 content: testContent,
                 playbackMode: 'sequential',
                 shuffleSeed: 12345,
-                loopSchedule: true,
             };
             const index = buildScheduleIndex(config, shuffler);
             // Go to second item
@@ -322,7 +313,6 @@ describe('ScheduleCalculator', () => {
                 content: testContent,
                 playbackMode: 'sequential',
                 shuffleSeed: 12345,
-                loopSchedule: true,
             };
             const index = buildScheduleIndex(config, shuffler);
             const current = calculateProgramAtTime(anchorTime, index, anchorTime);
@@ -419,7 +409,6 @@ describe('ScheduleCalculator', () => {
                 content: testContent,
                 playbackMode: 'sequential',
                 shuffleSeed: 12345,
-                loopSchedule: true,
             };
             const index = buildScheduleIndex(config, shuffler);
 
@@ -444,7 +433,6 @@ describe('ScheduleCalculator', () => {
                 content: testContent,
                 playbackMode: 'sequential',
                 shuffleSeed: 12345,
-                loopSchedule: true,
             };
             const index = buildScheduleIndex(config, shuffler);
 
@@ -468,7 +456,6 @@ describe('ScheduleCalculator', () => {
                 content: testContent,
                 playbackMode: 'sequential',
                 shuffleSeed: 12345,
-                loopSchedule: true,
             };
             const index = buildScheduleIndex(config, shuffler);
 
@@ -508,7 +495,6 @@ describe('ScheduleCalculator', () => {
                 content: largeContent,
                 playbackMode: 'sequential',
                 shuffleSeed: 12345,
-                loopSchedule: true,
             };
             const index = buildScheduleIndex(config, shuffler);
 

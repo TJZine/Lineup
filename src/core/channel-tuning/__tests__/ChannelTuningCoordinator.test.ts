@@ -31,7 +31,6 @@ const createScheduleConfig = (channelId: string, anchorTime: number): ScheduleCo
     content: [],
     playbackMode: 'sequential',
     shuffleSeed: 0,
-    loopSchedule: true,
 });
 
 const createLocalStorageMock = (): Storage => {

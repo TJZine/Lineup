@@ -15,11 +15,11 @@ export type { StreamDescriptor };
 export interface ScheduleConfig {
     channelId: string;
     anchorTime: number;
+    /** Scheduler timelines continuously loop through this indexed content. */
     content: import('../channel-manager/types').ResolvedContentItem[];
     playbackMode: SchedulerPlaybackMode;
     shuffleSeed: number;
     blockSize?: number;
-    loopSchedule: boolean;
 }
 
 export interface ScheduledProgram {

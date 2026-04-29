@@ -234,6 +234,19 @@ function createPersistenceFallbackError(message: string): ChannelError {
     return new ChannelError(AppErrorCode.PERSISTENCE_FALLBACK, message, true);
 }
 
+function formatImportErrorMessage(error: unknown): string {
+    const summary = summarizeErrorForLog(error);
+    if (typeof summary === 'string') {
+        return summary;
+    }
+    if (summary && typeof summary === 'object') {
+        if ('message' in summary && typeof summary.message === 'string') {
+            return summary.message;
+        }
+        return JSON.stringify(summary);
+    }
+    return String(summary);
+}
 
 /**
  * Generate a UUID v4.
@@ -358,11 +371,8 @@ export class ChannelManager implements IChannelManager {
         channels: ChannelConfig[],
         options?: { currentChannelId?: string | null }
     ): Promise<void> {
-        this.cancelPendingRetries();
-        this._contentResolver.clearCaches();
-        this._state.channels.clear();
-        this._state.resolvedContent.clear();
-        this._state.channelOrder = [];
+        const nextChannels = new Map<string, ChannelConfig>();
+        const nextChannelOrder: string[] = [];
 
         const availableNumbers: number[] = [];
         for (let n = MIN_CHANNEL_NUMBER; n <= MAX_CHANNEL_NUMBER; n++) {
@@ -383,7 +393,7 @@ export class ChannelManager implements IChannelManager {
                 this._logger.warn(`Skipping invalid channel ${channel.name} (${channel.id}) during replaceAllChannels`);
                 continue;
             }
-            if (this._state.channelOrder.length >= MAX_CHANNELS) {
+            if (nextChannelOrder.length >= MAX_CHANNELS) {
                 this._logger.warn(`Skipping channel ${channel.name} (${channel.id}) due to MAX_CHANNELS limit`);
                 continue;
             }
@@ -417,16 +427,39 @@ export class ChannelManager implements IChannelManager {
             if (typeof normalizedChannel.phaseSeed !== 'number' || !Number.isFinite(normalizedChannel.phaseSeed)) {
                 normalizedChannel.phaseSeed = fnv1a32Uint(`${normalizedChannel.id}:phase`);
             }
-            this._state.channels.set(normalizedChannel.id, normalizedChannel);
-            this._state.channelOrder.push(normalizedChannel.id);
+            nextChannels.set(normalizedChannel.id, normalizedChannel);
+            nextChannelOrder.push(normalizedChannel.id);
         }
 
         const requestedCurrent = options?.currentChannelId ?? null;
-        const fallbackCurrent = this._state.channelOrder[0] ?? null;
-        this._state.currentChannelId =
-            requestedCurrent && this._state.channels.has(requestedCurrent)
+        const fallbackCurrent = nextChannelOrder[0] ?? null;
+        const nextCurrentChannelId =
+            requestedCurrent && nextChannels.has(requestedCurrent)
                 ? requestedCurrent
                 : fallbackCurrent;
+
+        try {
+            this._persistStoredChannelData({
+                channels: Array.from(nextChannels.values()),
+                channelOrder: nextChannelOrder,
+                currentChannelId: nextCurrentChannelId,
+                savedAt: Date.now(),
+            });
+            this._onPersistenceSuccess();
+        } catch (error) {
+            this._reportPersistenceFailure(
+                'ChannelManager.replaceAllChannels failed to persist channels',
+                error
+            );
+            throw error;
+        }
+
+        this.cancelPendingRetries();
+        this._contentResolver.clearCaches();
+        this._state.channels = nextChannels;
+        this._state.resolvedContent.clear();
+        this._state.channelOrder = nextChannelOrder;
+        this._state.currentChannelId = nextCurrentChannelId;
 
         if (this._state.currentChannelId) {
             try {
@@ -441,21 +474,10 @@ export class ChannelManager implements IChannelManager {
                     }
                     throw createPersistenceFallbackError('Failed to persist current channel');
                 }
-                this._onPersistenceSuccess();
             } catch (e) {
                 this._logger.warn('Failed to persist current channel', summarizeErrorForLog(e));
                 this._emitPersistenceWarning(e);
             }
-        }
-
-        try {
-            this._persistCurrentStateNow();
-        } catch (error) {
-            this._reportPersistenceFailure(
-                'ChannelManager.replaceAllChannels failed to persist channels',
-                error
-            );
-            throw error;
         }
     }
 
@@ -782,11 +804,10 @@ export class ChannelManager implements IChannelManager {
      * Reorder channels.
      * @remarks In-memory order is updated synchronously; persistence is queued via debounced save.
      */
-    reorderChannels(orderedIds: string[]): Promise<void> {
-        const validIds = orderedIds.filter((id) => this._state.channels.has(id));
-        this._state.channelOrder = validIds;
+    async reorderChannels(orderedIds: string[]): Promise<void> {
+        this._assertExactChannelOrder(orderedIds);
+        this._state.channelOrder = [...orderedIds];
         this._queueSave();
-        return Promise.resolve();
     }
 
     /**
@@ -915,9 +936,7 @@ export class ChannelManager implements IChannelManager {
                 result.importedCount++;
             } catch (e) {
                 result.skippedCount++;
-                result.errors.push(
-                    `Failed to import channel: ${(e as Error).message}`
-                );
+                result.errors.push(`Failed to import channel: ${formatImportErrorMessage(e)}`);
             }
         }
 
@@ -1063,15 +1082,6 @@ export class ChannelManager implements IChannelManager {
         });
     }
 
-    private _persistCurrentStateNow(): void {
-        if (this._saveTimer) {
-            this._flushPendingSaveNow();
-            return;
-        }
-        this._performSaveSync();
-        this._onPersistenceSuccess();
-    }
-
     private _shouldEmitPersistenceWarning(isQuotaError: boolean): boolean {
         const now = Date.now();
         if (now < this._nextPersistenceWarningAt) {
@@ -1162,6 +1172,10 @@ export class ChannelManager implements IChannelManager {
             savedAt: Date.now(),
         };
 
+        this._persistStoredChannelData(data);
+    }
+
+    private _persistStoredChannelData(data: StoredChannelData): void {
         const writeResult = this._channelRepository.saveStoredChannelData(data);
 
         if (!writeResult.ok && writeResult.reason === 'quota-exceeded') {
@@ -1173,6 +1187,23 @@ export class ChannelManager implements IChannelManager {
         }
         if (!writeResult.ok && writeResult.reason === 'unavailable') {
             throw createPersistenceFallbackError('Failed to persist channels to storage');
+        }
+    }
+
+    private _assertExactChannelOrder(orderedIds: string[]): void {
+        if (orderedIds.length !== this._state.channels.size) {
+            throw createStorageValidationError('Channel reorder must include every channel exactly once');
+        }
+
+        const seen = new Set<string>();
+        for (const id of orderedIds) {
+            if (seen.has(id)) {
+                throw createStorageValidationError('Channel reorder cannot include duplicate channel ids');
+            }
+            seen.add(id);
+            if (!this._state.channels.has(id)) {
+                throw createStorageValidationError('Channel reorder cannot include unknown channel ids');
+            }
         }
     }
 

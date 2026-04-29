@@ -207,7 +207,6 @@ const makeDeps = (
             content: items,
             playbackMode: 'sequential',
             shuffleSeed: 1,
-            loopSchedule: true,
         } satisfies ScheduleConfig),
         getPreserveFocusOnOpen: () => false,
         setLastChannelChangeSourceToGuide: jest.fn(),
