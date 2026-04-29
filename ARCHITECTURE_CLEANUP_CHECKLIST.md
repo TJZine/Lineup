@@ -190,7 +190,7 @@ issue ids, package maps, score deltas, or triage as closure input.
   audits, targeted tests for touched runtime seams, `npm run verify` for source
   work, and `npm run verify:docs` if current architecture truth changes.
 - Status: in progress
-- Plan: `docs/plans/2026-04-29-fcp-1-channel-setup-ui-core-handoff.md`
+- Plan: `docs/plans/2026-04-29-fcp-1-app-orchestrator-runtime-assembly-hub.md`
 - Audit: `docs/plans/2026-04-29-fcp-1-architecture-handoff-audit.md`
 - Last touched: 2026-04-29
 - Verification: `FCP-1-S1` source audits confirmed no app-shell
@@ -206,7 +206,8 @@ issue ids, package maps, score deltas, or triage as closure input.
   (7 suites / 166 tests) plus `ChannelSetupScreen.contracts.test.ts` (1 suite /
   4 tests). `npm run verify` passed after the corrected implementation. `npm run
   verify:docs` passed after the `FCP-1-S2` completed plan, master audit, and
-  checklist mini-record updates.
+  checklist mini-record updates. `FCP-1-S3` is planned, not implemented;
+  verification not run for that execution unit yet.
 - Follow-ups: proof matrix: `FCP-1-SF1` resolved by commit `75b59c4f`
   (`AppShellRuntimeContracts.ts` owns `AppShellServerSelectionResult` and no
   longer imports the core server-selection result); `FCP-1-SF2` resolved by
@@ -220,17 +221,22 @@ issue ids, package maps, score deltas, or triage as closure input.
   `normalizeChannelSetupConfig` from core planning; this is not DTO/constants
   residue. Final owner: channel setup UI/core boundary owner. Revisit trigger:
   before any `FCP-1` closeout claim, or earlier if setup record
-  hydration/normalization ownership changes. `FCP-1-SF4` AppOrchestrator runtime
-  assembly hub remains deferred and needs a future source-backed package brief
-  or explicit no-action acceptance.
-- Handoff: `FCP-1-S2` is implemented and recorded in
-  `docs/plans/2026-04-29-fcp-1-channel-setup-ui-core-handoff.md`. Next FCP-1
-  loop must plan `FCP-1-SF4` or produce explicit source-backed no-action
-  acceptance, then run final closeout reconciliation. `FCP-1` remains in
-  progress and must not be marked complete until `FCP-1-SF4` and the
-  `ChannelSetupSessionState.ts` normalization residual are resolved or
-  explicitly accepted by source-backed review, the audit artifact is updated
-  with final dispositions, and clean closeout review evidence is recorded.
+  hydration/normalization ownership changes. `FCP-1-SF4` is now scoped by
+  source audit to the priority-one runtime assembly sub-scope: assembly input
+  shaping remains inline in `AppOrchestrator._initializePriorityOneControllers()`.
+  Adjacent SF4 audit areas for module factory, coordinator assembly,
+  runtime-controller builder, and initialization coordinator are accepted/no
+  action for the active package unless implementation proves a direct
+  priority-one dependency and replans.
+- Handoff: Active plan is
+  `docs/plans/2026-04-29-fcp-1-app-orchestrator-runtime-assembly-hub.md`;
+  ready_now_execution_unit: `FCP-1-S3`; ready_now_slice: `FCP-1-S3`. Next step
+  is adversarial plan review, then implement only the approved priority-one
+  runtime assembly owner extraction. `FCP-1` remains in progress and must not be
+  marked complete until plan review, implementation/no-action review,
+  verification evidence, `FCP-1-SF4` disposition, the
+  `ChannelSetupSessionState.ts` normalization residual owner disposition, audit
+  artifact updates, and clean closeout review evidence are recorded.
 
 ### [ ] `FCP-2` Runtime Contracts And Failure Semantics
 
