@@ -29,6 +29,15 @@ type DeferredEmptyTagDirectoryFailure = {
     type: number;
 };
 
+type FacetEntriesKey = `${ChannelSetupNativeFacetFamily}:${number}`;
+
+function createFacetEntriesKey(
+    family: ChannelSetupNativeFacetFamily,
+    mediaType: number
+): FacetEntriesKey {
+    return `${family}:${mediaType}`;
+}
+
 function createReadonlyFacetMap<T>(source: Map<string, T[]>): ChannelSetupFacetMap<T> {
     const snapshot = new Map<string, readonly T[]>();
     for (const [libraryId, values] of source.entries()) {
@@ -65,7 +74,7 @@ export class ChannelSetupFacetSnapshotLoadState {
     readonly actorsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
     readonly studiosByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
     private readonly _warnings = new Set<string>();
-    private readonly _facetFamiliesWithEntries = new Set<ChannelSetupNativeFacetFamily>();
+    private readonly _facetKeysWithEntries = new Set<FacetEntriesKey>();
     private readonly _deferredEmptyTagDirectoryFailures: DeferredEmptyTagDirectoryFailure[] = [];
     errorsTotal = 0;
     playlistMs = 0;
@@ -81,9 +90,13 @@ export class ChannelSetupFacetSnapshotLoadState {
         this._warnings.add(message);
     }
 
-    markFacetEntries(family: ChannelSetupNativeFacetFamily, tags: PlexTagDirectoryItem[]): void {
+    markFacetEntries(
+        family: ChannelSetupNativeFacetFamily,
+        mediaType: number,
+        tags: PlexTagDirectoryItem[]
+    ): void {
         if (tags.length > 0) {
-            this._facetFamiliesWithEntries.add(family);
+            this._facetKeysWithEntries.add(createFacetEntriesKey(family, mediaType));
         }
     }
 
@@ -101,7 +114,7 @@ export class ChannelSetupFacetSnapshotLoadState {
             .sort(compareDeferredEmptyTagDirectoryFailures);
 
         for (const failure of orderedFailures) {
-            if (!this._facetFamiliesWithEntries.has(failure.family)) {
+            if (!this._facetKeysWithEntries.has(createFacetEntriesKey(failure.family, failure.type))) {
                 return failure;
             }
         }

@@ -613,6 +613,61 @@ describe('ChannelSetupPlanningService', () => {
         expect(result.plan?.pendingChannels.some((c) => c.name.includes('Studio A'))).toBe(true);
     });
 
+    it('does not let movie facet entries suppress empty show facet failures for the same family', async () => {
+        const plexLibrary = {
+            getPlaylists: jest.fn(),
+            getCollections: jest.fn(),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn().mockImplementation(
+                async (
+                    libraryId: string,
+                    options: {
+                        type?: number;
+                        onUnsupported?: (reason: PlexTagDirectoryUnsupportedReason) => void;
+                    }
+                ) => {
+                    if (libraryId === 'movies') {
+                        expect(options.type).toBe(PLEX_MEDIA_TYPES.MOVIE);
+                        return [makeTag({ key: 'movie-comedy', title: 'Movie Comedy', count: 12 })];
+                    }
+                    expect(options.type).toBe(PLEX_MEDIA_TYPES.SHOW);
+                    options.onUnsupported?.('empty');
+                    return [];
+                }
+            ),
+            getDirectors: jest.fn(),
+            getYears: jest.fn(),
+            getActors: jest.fn(),
+            getStudios: jest.fn(),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['movies', 'shows'],
+            strategyConfig: {
+                genres: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        }));
+
+        const libraries = [
+            makeLibrary({ id: 'movies', title: 'Movie Home', type: 'movie', contentCount: 1200 }),
+            makeLibrary({ id: 'shows', title: 'Show Home', type: 'show', contentCount: 1200 }),
+        ];
+
+        const result = await service.buildSetupPlan(config, libraries, null, 'preview');
+
+        expect(result.canceled).toBe(false);
+        expect(result.plan).toBeNull();
+        expect(result.failureReason).toBe('empty');
+        expect(result.previewStatus).toBe('blocked');
+        expect(result.blockedMessage).toContain('Required genres tag directory (type=2) returned no entries for Show Home');
+        expect(plexLibrary.getLibraryItems).not.toHaveBeenCalled();
+    });
+
     it('chooses deferred empty-tag failures in deterministic sorted order instead of task completion order', async () => {
         const genresDeferred = createDeferred<PlexTagDirectoryItem[]>();
         const directorsDeferred = createDeferred<PlexTagDirectoryItem[]>();

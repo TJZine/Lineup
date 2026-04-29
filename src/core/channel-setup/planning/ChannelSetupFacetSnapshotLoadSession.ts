@@ -223,7 +223,8 @@ export class ChannelSetupFacetSnapshotLoadSession {
                 yearsByLibraryId: this._loadState.yearsByLibraryId,
                 actorsByLibraryId: this._loadState.actorsByLibraryId,
                 studiosByLibraryId: this._loadState.studiosByLibraryId,
-                markFacetEntries: (family, tags): void => this._markFacetEntries(family, tags),
+                markFacetEntries: (family, mediaType, tags): void =>
+                    this._markFacetEntries(family, mediaType, tags),
                 deferEmptyTagDirectoryFailure: (family, label, libraryTitle, type): void =>
                     this._deferEmptyTagDirectoryFailure(family, label, libraryTitle, type),
             },
@@ -273,9 +274,10 @@ export class ChannelSetupFacetSnapshotLoadSession {
 
     private _markFacetEntries(
         family: ChannelSetupNativeFacetFamily,
+        mediaType: number,
         tags: PlexTagDirectoryItem[]
     ): void {
-        this._loadState.markFacetEntries(family, tags);
+        this._loadState.markFacetEntries(family, mediaType, tags);
     }
 
     private _deferEmptyTagDirectoryFailure(

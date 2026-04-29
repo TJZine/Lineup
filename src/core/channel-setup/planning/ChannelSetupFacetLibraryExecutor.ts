@@ -64,7 +64,11 @@ type ChannelSetupFacetLibraryExecutorOptions = {
         yearsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
         actorsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
         studiosByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-        markFacetEntries: (family: ChannelSetupNativeFacetFamily, tags: PlexTagDirectoryItem[]) => void;
+        markFacetEntries: (
+            family: ChannelSetupNativeFacetFamily,
+            mediaType: number,
+            tags: PlexTagDirectoryItem[]
+        ) => void;
         deferEmptyTagDirectoryFailure: (
             family: ChannelSetupNativeFacetFamily,
             label: ChannelSetupRequiredTagDirectoryLabel,
@@ -397,7 +401,7 @@ export class ChannelSetupFacetLibraryExecutor {
                     unsupportedReason
                 );
             }
-            this._options.state.markFacetEntries(definition.family, tags);
+            this._options.state.markFacetEntries(definition.family, definition.mediaType, tags);
             definition.tagsByLibraryId.set(libraryId, tags);
             return null;
         } catch (error) {
