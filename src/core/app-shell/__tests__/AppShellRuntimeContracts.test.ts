@@ -23,4 +23,17 @@ describe('AppShellRuntimeContracts boundaries', () => {
         expect(source).not.toContain('OrchestratorServerSelectionResult');
         expect(source).toContain('AppShellServerSelectionResult');
     });
+
+    it('does not expose diagnostics on the channel setup screen runtime port', () => {
+        const source = readFileSync(
+            path.resolve(process.cwd(), 'src/core/app-shell/AppShellRuntimeContracts.ts'),
+            'utf8'
+        );
+        const match = source.match(/export interface AppShellChannelSetupRuntimePort \{[\s\S]*?\n\}/);
+
+        expect(match?.[0]).toBeDefined();
+        expect(match?.[0]).not.toContain('ChannelSetupWorkflowPort');
+        expect(match?.[0]).not.toContain('getSetupPlanDiagnostics');
+        expect(match?.[0]).not.toContain('ChannelSetupScreenWorkflowPort');
+    });
 });

@@ -4,10 +4,10 @@ import type {
     ChannelSetupConfig,
     ChannelSetupRecord,
 } from '../../../../core/channel-setup/types';
-import type { ChannelSetupWorkflowPort } from '../../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { PlexLibrarySection as PlexLibraryModel } from '../../../plex/library/types';
 import { ChannelSetupSessionController } from '../ChannelSetupSessionController';
 import type { ChannelSetupBuildOutcome } from '../ChannelSetupSessionContracts';
+import type { ChannelSetupScreenWorkflowPort } from '../ChannelSetupScreenPorts';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
 import { flushPromises } from '../../../../__tests__/helpers';
 import { DEFAULT_BUILD_RESULT, DEFAULT_PREVIEW, DEFAULT_REVIEW, makeLibrary } from './channel-setup-test-helpers';
@@ -29,10 +29,10 @@ const createDeferred = <T>(): {
     return { promise, resolve, reject };
 };
 
-type WorkflowPortOverrides = Partial<jest.Mocked<ChannelSetupWorkflowPort>>;
+type WorkflowPortOverrides = Partial<jest.Mocked<ChannelSetupScreenWorkflowPort>>;
 
-const createWorkflowPort = (overrides: WorkflowPortOverrides = {}): jest.Mocked<ChannelSetupWorkflowPort> => {
-    const base: jest.Mocked<ChannelSetupWorkflowPort> = {
+const createWorkflowPort = (overrides: WorkflowPortOverrides = {}): jest.Mocked<ChannelSetupScreenWorkflowPort> => {
+    const base: jest.Mocked<ChannelSetupScreenWorkflowPort> = {
         getLibrariesForSetup: jest.fn().mockResolvedValue([]),
         getChannelSetupRecord: jest.fn((_serverId: string) => null),
         getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
@@ -41,12 +41,6 @@ const createWorkflowPort = (overrides: WorkflowPortOverrides = {}): jest.Mocked<
         markSetupComplete: jest.fn((_serverId: string, _setupConfig) => {}),
         getSetupPreview: jest.fn().mockResolvedValue(DEFAULT_PREVIEW),
         getSetupReview: jest.fn().mockResolvedValue(DEFAULT_REVIEW),
-        getSetupPlanDiagnostics: jest.fn().mockResolvedValue({
-            status: 'ready',
-            diagnostics: null,
-            warnings: [],
-            reachedMaxChannels: false,
-        }),
     };
 
     return { ...base, ...overrides };
@@ -628,7 +622,7 @@ describe('ChannelSetupSessionController', () => {
 
     it('syncSetupContext() preserves first-time/existing/unknown and falls back to unknown', (): void => {
         const getSetupContextForSelectedServer = jest
-            .fn<ReturnType<ChannelSetupWorkflowPort['getSetupContextForSelectedServer']>, []>()
+            .fn<ReturnType<ChannelSetupScreenWorkflowPort['getSetupContextForSelectedServer']>, []>()
             .mockReturnValueOnce('first-time')
             .mockReturnValueOnce('existing')
             .mockReturnValueOnce('unknown')

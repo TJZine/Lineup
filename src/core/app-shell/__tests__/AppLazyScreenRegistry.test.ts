@@ -101,12 +101,6 @@ const makePortFactory = (): PortFactoryLike => ({
                     samples: { created: [], removed: [], unchanged: [] },
                 },
             }),
-            getSetupPlanDiagnostics: jest.fn().mockResolvedValue({
-                status: 'ready',
-                diagnostics: null,
-                warnings: [],
-                reachedMaxChannels: false,
-            }),
             createChannelsFromSetup: jest.fn().mockResolvedValue({
                 created: 0,
                 skipped: 0,

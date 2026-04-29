@@ -1,7 +1,6 @@
 import type {
     ChannelSetupConfig,
 } from '../../../core/channel-setup/types';
-import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type {
     ChannelSetupBuildHandlers,
     ChannelSetupBuildOutcome,
@@ -15,13 +14,14 @@ import {
 import {
     ChannelSetupSessionState,
 } from './ChannelSetupSessionState';
+import type { ChannelSetupScreenWorkflowPort } from './ChannelSetupScreenPorts';
 
 export class ChannelSetupSessionController {
     private readonly _state: ChannelSetupSessionState;
     private readonly _runtime: ChannelSetupSessionRuntime;
 
     constructor(deps: {
-        workflowPort: ChannelSetupWorkflowPort;
+        workflowPort: ChannelSetupScreenWorkflowPort;
         getSelectedServerId: () => string | null;
     }) {
         this._state = new ChannelSetupSessionState();

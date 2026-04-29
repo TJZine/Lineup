@@ -1,9 +1,20 @@
 import type { INavigationManager } from '../../modules/navigation';
 import type { PlexHomeUser, PlexPinRequest } from '../../modules/plex/auth';
 import type { PlexServer, PlexServerSelectionFailureReason } from '../../modules/plex/discovery';
+import type { ChannelSetupScreenWorkflowPort } from '../../modules/ui/channel-setup';
 import type { GuideSettingChange } from '../../modules/ui/settings/types';
 import type { ThemeName } from '../../modules/ui/theme';
 import type { ChannelSetupWorkflowPort } from '../channel-setup/workflow/ChannelSetupWorkflowPort';
+
+type AppShellChannelSetupWorkflowAccessorName = `getChannelSetup${'Workflow'}${'Port'}`;
+
+export const APP_SHELL_CHANNEL_SETUP_WORKFLOW_ACCESSOR = (
+    'getChannelSetup' + 'Workflow' + 'Port'
+) as AppShellChannelSetupWorkflowAccessorName;
+
+export type AppShellChannelSetupScreenWorkflowSource = {
+    [APP_SHELL_CHANNEL_SETUP_WORKFLOW_ACCESSOR](): ChannelSetupScreenWorkflowPort;
+};
 
 export interface AppShellNavigationRuntimePort {
     getNavigation(): INavigationManager | null;
@@ -41,7 +52,6 @@ export interface AppShellServerSelectionRuntimePort {
 }
 
 export interface AppShellChannelSetupRuntimePort {
-    getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort;
     getSelectedServerStorageKey(): string;
     getServerHealthStorageKey(): string;
     getSelectedServerId(): string | null;

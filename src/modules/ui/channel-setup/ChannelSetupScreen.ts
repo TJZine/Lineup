@@ -4,7 +4,6 @@ import {
     type ChannelBuildProgress,
     type ChannelSetupConfig,
 } from '../../../core/channel-setup/types';
-import type { ChannelSetupWorkflowPort } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { FocusableElement, KeyEvent } from '../../navigation';
 import { ServerSelectionStore } from '../../plex/discovery/ServerSelectionStore';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
@@ -32,7 +31,7 @@ import type {
     EstimateKey,
     StrategyStepMutableState,
 } from './ChannelSetupSessionContracts';
-import type { ChannelSetupScreenPorts } from './ChannelSetupScreenPorts';
+import type { ChannelSetupScreenPorts, ChannelSetupScreenWorkflowPort } from './ChannelSetupScreenPorts';
 
 const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
 
@@ -159,7 +158,7 @@ export class ChannelSetupScreen {
 
     constructor(
         container: HTMLElement,
-        deps: { workflowPort: ChannelSetupWorkflowPort; screenPorts: ChannelSetupScreenPorts }
+        deps: { workflowPort: ChannelSetupScreenWorkflowPort; screenPorts: ChannelSetupScreenPorts }
     ) {
         this._container = container;
         this._screenPorts = deps.screenPorts;
