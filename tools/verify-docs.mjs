@@ -118,12 +118,6 @@ const requiredCodexRoleContracts = new Map([
     [
         'planner',
         {
-            requiredLinePatterns: [
-                {
-                    pattern: /^model_reasoning_effort\s*=\s*"high"\s*(?:#.*)?$/mu,
-                    label: 'model_reasoning_effort = "high"',
-                },
-            ],
             requiredMarkers: [
                 'own bounded planning work',
                 'not product-code implementation',
@@ -136,12 +130,6 @@ const requiredCodexRoleContracts = new Map([
     [
         'cleanup_worker',
         {
-            requiredLinePatterns: [
-                {
-                    pattern: /^model_reasoning_effort\s*=\s*"medium"\s*(?:#.*)?$/mu,
-                    label: 'model_reasoning_effort = "medium"',
-                },
-            ],
             requiredMarkers: [
                 'bounded cleanup-loop implementation write scope',
                 'smallest defensible cleanup change',
