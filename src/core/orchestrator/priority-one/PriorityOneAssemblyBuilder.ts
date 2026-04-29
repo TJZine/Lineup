@@ -13,6 +13,12 @@ import type { IChannelScheduler, ScheduledProgram } from '../../../modules/sched
 import type { OrchestratorEventCleanupReporter } from '../OrchestratorEventCleanupReporter';
 import type { OrchestratorPlaybackStateAccessors } from '../OrchestratorPlaybackStateAccessors';
 import type { PriorityOneAssemblyInput } from './PriorityOneAssemblyInput';
+import {
+    createPriorityOneControllersAndBinder,
+    type PriorityOneControllersAndBinder,
+} from './PriorityOneControllerFactory';
+
+export type { PriorityOneControllersAndBinder } from './PriorityOneControllerFactory';
 
 export interface PriorityOneAssemblyBuilderInput {
     scheduler: IChannelScheduler;
@@ -124,4 +130,12 @@ export function createPriorityOneAssembly(
         },
         nowPlayingModalId: input.nowPlayingModalId,
     };
+}
+
+export function createPriorityOneRuntimeAssembly(
+    input: PriorityOneAssemblyBuilderInput
+): PriorityOneControllersAndBinder {
+    return createPriorityOneControllersAndBinder(
+        createPriorityOneAssembly(input)
+    );
 }
