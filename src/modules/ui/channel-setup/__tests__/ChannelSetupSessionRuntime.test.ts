@@ -6,6 +6,7 @@ import { DEFAULT_BUILD_RESULT, DEFAULT_PREVIEW, createWorkflowPort, makeLibrary 
 import { ChannelSetupSessionRuntime } from '../ChannelSetupSessionRuntime';
 import { ChannelSetupSessionState } from '../ChannelSetupSessionState';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
+import { flushPromises } from '../../../../__tests__/helpers';
 
 const createUnavailableError = (): Error => {
     const error = new Error('Channel setup not initialized');
@@ -286,8 +287,7 @@ describe('ChannelSetupSessionRuntime', () => {
         state.step = 2;
         runtime.schedulePreview(jest.fn());
         jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS);
-        await Promise.resolve();
-        await Promise.resolve();
+        await flushPromises();
         expect(state.previewError).toBe('Unable to estimate channels.');
 
         await runtime.ensureReviewLoaded(jest.fn());

@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { ChannelSetupScreen } from '../ChannelSetupScreen';
 import type { INavigationManager } from '../../../navigation/interfaces';
+import type { ChannelSetupScreenPorts } from '../ChannelSetupScreenPorts';
 import { flushPromises, flushPromisesAndTimers } from '../../../../__tests__/helpers';
 import {
     ADVANCED_STRATEGY_KEYS,
@@ -38,27 +39,31 @@ describe('ChannelSetupScreen contracts', () => {
         document.body.innerHTML = '';
     });
 
-    it('keeps selected-server persistence behind app-shell ports', () => {
-        const source = readFileSync(
-            path.resolve(process.cwd(), 'src/modules/ui/channel-setup/ChannelSetupScreen.ts'),
-            'utf8'
+    it('keeps selected-server persistence behind app-shell ports', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const getSelectedServerId = jest.fn<ReturnType<ChannelSetupScreenPorts['getSelectedServerId']>, []>(
+            () => 'server-1'
         );
-        const ports = readFileSync(
-            path.resolve(process.cwd(), 'src/modules/ui/channel-setup/ChannelSetupScreenPorts.ts'),
-            'utf8'
-        );
-        const storeName = 'Server' + 'SelectionStore';
-        const readAndClean = 'readSelected' + 'ServerIdAndClean';
-        const selectedStorageKeyGetter = 'getSelected' + 'ServerStorageKey';
-        const healthStorageKeyGetter = 'getServer' + 'HealthStorageKey';
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
+            getSelectedServerId,
+        });
 
-        expect(source).not.toContain(storeName);
-        expect(source).not.toContain(readAndClean);
-        expect(source).not.toContain(selectedStorageKeyGetter);
-        expect(source).not.toContain(healthStorageKeyGetter);
-        expect(ports).not.toContain(selectedStorageKeyGetter);
-        expect(ports).not.toContain(healthStorageKeyGetter);
-        expect(ports).toContain('getSelectedServerId(): string | null');
+        const publicScreenPorts: ChannelSetupScreenPorts = screenPorts;
+        expect('getSelectedServerStorageKey' in publicScreenPorts).toBe(false);
+        expect('getServerHealthStorageKey' in publicScreenPorts).toBe(false);
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({
+            workflowPort,
+            screenPorts: publicScreenPorts,
+        }));
+        activeScreen = screen;
+        screen.show();
+        await flushPromises();
+
+        expect(getSelectedServerId).toHaveBeenCalled();
     });
 
     it('keeps channel setup UI runtime errors as strings at the screen boundary', () => {

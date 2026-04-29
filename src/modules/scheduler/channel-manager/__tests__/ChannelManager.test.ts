@@ -399,6 +399,25 @@ describe('ChannelManager', () => {
             expect(result[3]!.number).toBe(4);
         });
 
+        it('skips duplicate channel ids without duplicating persisted order', async () => {
+            const warn = jest.fn();
+            manager = new ChannelManager({ plexLibrary: mockLibrary, logger: { warn, error: jest.fn() } });
+
+            await manager.replaceAllChannels([
+                createBaseChannel({ id: 'duplicate', name: 'First', number: 1 }),
+                createBaseChannel({ id: 'duplicate', name: 'Second', number: 2 }),
+                createBaseChannel({ id: 'third', name: 'Third', number: 3 }),
+            ]);
+
+            expect(manager.getAllChannels().map((channel) => channel.name)).toEqual(['First', 'Third']);
+            expect(JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual(expect.objectContaining({
+                channelOrder: ['duplicate', 'third'],
+            }));
+            expect(warn).toHaveBeenCalledWith(
+                'Skipping duplicate channel Second (duplicate) during replaceAllChannels'
+            );
+        });
+
         it('skips channels over MAX_CHANNELS and warns per skipped channel', async () => {
             const warn = jest.fn();
             manager = new ChannelManager({ plexLibrary: mockLibrary, logger: { warn, error: jest.fn() } });

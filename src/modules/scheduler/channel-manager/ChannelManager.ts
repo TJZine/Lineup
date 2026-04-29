@@ -392,6 +392,10 @@ export class ChannelManager implements IChannelManager {
                 this._logger.warn(`Skipping invalid channel ${channel.name} (${channel.id}) during replaceAllChannels`);
                 continue;
             }
+            if (nextChannels.has(channel.id)) {
+                this._logger.warn(`Skipping duplicate channel ${channel.name} (${channel.id}) during replaceAllChannels`);
+                continue;
+            }
             if (nextChannelOrder.length >= MAX_CHANNELS) {
                 this._logger.warn(`Skipping channel ${channel.name} (${channel.id}) due to MAX_CHANNELS limit`);
                 continue;
