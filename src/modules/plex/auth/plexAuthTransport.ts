@@ -1,6 +1,6 @@
 import { PLEX_AUTH_CONSTANTS } from './constants';
 import type { PlexAuthConfig } from './interfaces';
-import { AppErrorCode } from '../../lifecycle/types';
+import { AppErrorCode } from '../../../types/app-errors';
 import { redactSensitiveTokens, safeStringifyForLog } from '../../../utils/redact';
 
 /**

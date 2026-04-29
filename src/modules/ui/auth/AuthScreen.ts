@@ -1,6 +1,6 @@
-import { AppErrorCode, PlexApiError, type PlexPinRequest } from '../../plex/auth';
+import { PlexApiError, type PlexPinRequest } from '../../plex/auth';
 import type { AuthScreenNavigationPort } from '../../navigation';
-import { getAppErrorCode } from '../../../types/app-errors';
+import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
 import { setTrustedInlineSvg } from '../../../utils/inlineSvg';
 import { createScreenShell } from '../common/ScreenShell';
 import type { ScreenError, ScreenStatus, ScreenTone } from '../types/screen-shell';

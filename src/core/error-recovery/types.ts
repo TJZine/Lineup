@@ -1,4 +1,5 @@
-import type { AppErrorCode, AppError, AppPhase, LifecycleAppError } from '../../modules/lifecycle';
+import type { AppError, AppPhase, LifecycleAppError } from '../../modules/lifecycle';
+import type { AppErrorCode } from '../../types/app-errors';
 
 /** User-facing action button for error recovery overlay. */
 export interface ErrorRecoveryAction {
@@ -25,4 +26,4 @@ export interface LifecycleErrorAdapterDeps {
     nowMs: () => number; // MUST be Date.now in production
 }
 
-export type { AppErrorCode, AppError, LifecycleAppError, AppPhase };
+export type { AppError, LifecycleAppError, AppPhase };

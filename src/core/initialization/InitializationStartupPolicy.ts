@@ -1,4 +1,5 @@
-import { AppErrorCode, type AppError, type IAppLifecycle } from '../../modules/lifecycle';
+import type { AppError, IAppLifecycle } from '../../modules/lifecycle';
+import { AppErrorCode } from '../../types/app-errors';
 import type { INavigationManager } from '../../modules/navigation';
 import { type IPlexAuth, isPlexAuthRecoverable } from '../../modules/plex/auth';
 import type { IPlexServerDiscovery } from '../../modules/plex/discovery';

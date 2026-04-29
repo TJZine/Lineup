@@ -1,4 +1,4 @@
-export { PlexAuth, AppErrorCode, PlexApiError } from './PlexAuth';
+export { PlexAuth, PlexApiError } from './PlexAuth';
 export type {
     IPlexAuth,
     PlexAuthConfig,

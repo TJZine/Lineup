@@ -1,5 +1,5 @@
 import type { PlexHomeUser } from './interfaces';
-import { AppErrorCode } from '../../lifecycle/types';
+import { AppErrorCode } from '../../../types/app-errors';
 import { PlexApiError } from './plexAuthTransport';
 
 const HOME_USER_CONTAINER_KEYS = new Set([

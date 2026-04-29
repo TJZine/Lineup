@@ -1,4 +1,4 @@
-import { AppErrorCode } from '../../lifecycle/types';
+import { AppErrorCode } from '../../../types/app-errors';
 import { PlexApiError } from './plexAuthTransport';
 
 const SWITCH_TOKEN_KEYS = ['authToken', 'authenticationToken', 'token'] as const;

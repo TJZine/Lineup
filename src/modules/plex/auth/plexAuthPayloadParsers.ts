@@ -1,5 +1,5 @@
 import type { PlexAuthToken, PlexPinRequest, PlexHomeUser } from './interfaces';
-import { AppErrorCode } from '../../lifecycle/types';
+import { AppErrorCode } from '../../../types/app-errors';
 import { PlexApiError } from './plexAuthTransport';
 import { parseHomeUsersPayloadData } from './plexHomeUsersPayloadParser';
 import { parseSwitchPayloadData } from './plexSwitchPayloadParser';

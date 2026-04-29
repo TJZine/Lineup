@@ -1,4 +1,4 @@
-import { AppErrorCode } from '../../lifecycle/types';
+import { AppErrorCode } from '../../../types/app-errors';
 import { createPlexServiceError, PlexApiError } from '../auth/plexAuthTransport';
 import { redactUrlForLog } from '../../../utils/redact';
 import { PLEX_DISCOVERY_CONSTANTS } from './constants';

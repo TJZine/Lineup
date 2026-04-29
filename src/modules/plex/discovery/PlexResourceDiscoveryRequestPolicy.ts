@@ -1,4 +1,4 @@
-import { AppErrorCode } from '../../lifecycle/types';
+import { AppErrorCode } from '../../../types/app-errors';
 import { PlexApiError } from '../auth/plexAuthTransport';
 import type { PlexApiConnection, PlexApiResource } from './types';
 import { redactSensitiveTokens } from '../../../utils/redact';

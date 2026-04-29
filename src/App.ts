@@ -1,4 +1,3 @@
-import { AppErrorCode } from './modules/lifecycle';
 import type {
     AppShellAuthRuntimePort,
     AppShellChannelSetupRuntimePort,
@@ -32,7 +31,7 @@ import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
 import { SplashScreen } from './modules/ui/splash';
 import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';
 import type { ChannelSetupConfig } from './core/channel-setup/types';
-import { getAppErrorCode } from './types/app-errors';
+import { AppErrorCode, getAppErrorCode } from './types/app-errors';
 import type { IDisposable } from './utils/interfaces';
 import { summarizeErrorForLog } from './utils/errors';
 import { createWebOsPlatformServices, type PlatformServices } from './platform';

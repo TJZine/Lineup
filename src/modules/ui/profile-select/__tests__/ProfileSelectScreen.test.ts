@@ -3,7 +3,8 @@
  */
 
 import { ProfileSelectScreen, type ProfileSelectScreenPorts } from '../ProfileSelectScreen';
-import { AppErrorCode, PlexApiError } from '../../../plex/auth';
+import { PlexApiError } from '../../../plex/auth';
+import { AppErrorCode } from '../../../../types/app-errors';
 import { ProfileSessionStore } from '../../../settings/ProfileSessionStore';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import { createDeferred } from '../../../../__tests__/helpers';
