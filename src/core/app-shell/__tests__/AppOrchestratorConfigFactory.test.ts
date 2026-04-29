@@ -5,7 +5,7 @@ import { CHANNEL_NUMBER_OVERLAY_CONTAINER_ID } from '../../../modules/ui/channel
 import { CHANNEL_BADGE_CONTAINER_ID } from '../../../modules/ui/channel-badge';
 import { MINI_GUIDE_CONTAINER_ID } from '../../../modules/ui/mini-guide';
 import { CHANNEL_TRANSITION_CONTAINER_ID } from '../../../modules/ui/channel-transition';
-import { EPG_CONTAINER_ID } from '../../../modules/ui/epg';
+import { EPG_CONTAINER_ID, createDefaultEpgConfig } from '../../../modules/ui/epg';
 import { createWebOsPlatformServices } from '../../../platform';
 
 describe('createAppOrchestratorConfig', () => {
@@ -17,6 +17,9 @@ describe('createAppOrchestratorConfig', () => {
         expect(first.navConfig).not.toBe(second.navConfig);
         expect(first.playerConfig).not.toBe(second.playerConfig);
         expect(first.epgConfig).not.toBe(second.epgConfig);
+        expect(first.epgConfig).toEqual(createDefaultEpgConfig());
+        first.epgConfig.rowHeight = 1;
+        expect(second.epgConfig.rowHeight).toBe(createDefaultEpgConfig().rowHeight);
         expect(first.nowPlayingInfoConfig).not.toBe(second.nowPlayingInfoConfig);
         expect(first.playerOsdConfig).not.toBe(second.playerOsdConfig);
         expect(first.channelNumberOverlayConfig).not.toBe(second.channelNumberOverlayConfig);

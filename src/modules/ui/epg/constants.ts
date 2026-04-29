@@ -150,3 +150,7 @@ export const DEFAULT_EPG_CONFIG: EPGConfig = {
     showNowWatchingBanner: true,
     debugRenderGridLogIntervalMs: 1000,
 };
+
+export const createDefaultEpgConfig = (): EPGConfig => ({
+    ...DEFAULT_EPG_CONFIG,
+});
