@@ -126,6 +126,10 @@ import type {
     ChannelNumberOverlayInitPort,
 } from './OverlayPorts';
 import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
+import {
+    createPlaybackInfoSnapshot,
+    type PlaybackInfoSnapshot,
+} from './OrchestratorPlaybackInfoSnapshot';
 import { ChannelSetupCoordinator } from '../channel-setup/ChannelSetupCoordinator';
 import { createChannelSetupWorkflowPort } from '../channel-setup/workflow/createChannelSetupWorkflowPort';
 import type { ChannelSetupWorkflowPortOwners } from '../channel-setup/workflow/createChannelSetupWorkflowPort';
@@ -166,84 +170,7 @@ import {
     captureRecoverableRuntimeResultAsync,
 } from './OrchestratorRecoverableRuntimeResult';
 
-
-export type { ModuleStatus, OrchestratorConfig } from './OrchestratorTypes';
-
 const QA_003B_ISSUE_ID = 'QA-003b';
-
-export type {
-    ChannelSetupConfig,
-    ChannelSetupContext,
-    ChannelBuildSummary,
-    ChannelBuildProgress,
-    ChannelSetupRecord,
-    ChannelSetupPreview,
-    ChannelSetupReview,
-} from '../channel-setup/types';
-
-export interface PlaybackInfoSnapshot {
-    channel: { id: string; number: number; name: string } | null;
-    program:
-    | {
-        itemKey: string;
-        title: string;
-        fullTitle: string;
-        type: string;
-        scheduledStartTime: number;
-        scheduledEndTime: number;
-        elapsedMs: number;
-        remainingMs: number;
-    }
-    | null;
-    stream:
-    | {
-        protocol: StreamDescriptor['protocol'];
-        mimeType: string;
-        isDirectPlay: boolean;
-        isTranscoding: boolean;
-        container: string;
-        videoCodec: string;
-        audioCodec: string;
-        subtitleDelivery: StreamDecision['subtitleDelivery'];
-        bitrate: number;
-        width: number;
-        height: number;
-        sessionId: string;
-        selectedAudio:
-        | {
-            id: string;
-            codec: string | null | undefined;
-            channels?: number;
-            language?: string;
-            title?: string;
-            default?: boolean;
-        }
-        | null;
-        selectedSubtitle:
-        | {
-            id: string;
-            codec: string | null | undefined;
-            language?: string;
-            title?: string;
-            format?: string;
-            default?: boolean;
-        }
-        | null;
-        directPlay?: StreamDecision['directPlay'];
-        audioFallback?: StreamDecision['audioFallback'];
-        source?: StreamDecision['source'];
-        transcodeRequest?: StreamDecision['transcodeRequest'];
-        serverDecision?: StreamDecision['serverDecision'];
-    }
-    | null;
-}
-
-type PlaybackInfoStreamSnapshot = NonNullable<PlaybackInfoSnapshot['stream']>;
-type SelectedAudioSnapshot = PlaybackInfoStreamSnapshot['selectedAudio'];
-type SelectedSubtitleSnapshot = PlaybackInfoStreamSnapshot['selectedSubtitle'];
-
-export type { OrchestratorServerSelectionResult } from '../server-selection/ServerSelectionTypes';
-export type { ErrorRecoveryAction } from '../error-recovery/types';
 
 
 /**
@@ -1192,106 +1119,10 @@ export class AppOrchestrator {
     }
 
     getPlaybackInfoSnapshot(): PlaybackInfoSnapshot {
-        const channel = this._channelManager?.getCurrentChannel() ?? null;
-        const program = this._currentProgramForPlayback;
-        const decision = this._currentStreamDecision;
-        const descriptor = this._currentStreamDescriptor;
-
-        return {
-            channel: channel ? { id: channel.id, number: channel.number, name: channel.name } : null,
-            program: program
-                ? {
-                    itemKey: program.item.ratingKey,
-                    title: program.item.title,
-                    fullTitle: program.item.fullTitle,
-                    type: program.item.type,
-                    scheduledStartTime: program.scheduledStartTime,
-                    scheduledEndTime: program.scheduledEndTime,
-                    elapsedMs: program.elapsedMs,
-                    remainingMs: program.remainingMs,
-                }
-                : null,
-            stream:
-                decision && descriptor
-                    ? {
-                        protocol: descriptor.protocol,
-                        mimeType: descriptor.mimeType,
-                        isDirectPlay: decision.isDirectPlay,
-                        isTranscoding: decision.isTranscoding,
-                        container: decision.container,
-                        videoCodec: decision.videoCodec,
-                        audioCodec: decision.audioCodec,
-                        subtitleDelivery: decision.subtitleDelivery,
-                        bitrate: decision.bitrate,
-                        width: decision.width,
-                        height: decision.height,
-                        sessionId: decision.sessionId,
-                        selectedAudio: this._mapSelectedAudioStream(decision.selectedAudioStream),
-                        selectedSubtitle: this._mapSelectedSubtitleStream(decision.selectedSubtitleStream),
-                        directPlay: decision.directPlay,
-                        audioFallback: decision.audioFallback,
-                        source: decision.source,
-                        transcodeRequest: decision.transcodeRequest,
-                        serverDecision: decision.serverDecision,
-                    }
-                    : null,
-        };
-    }
-
-    private _mapSelectedAudioStream(
-        stream: StreamDecision['selectedAudioStream']
-    ): SelectedAudioSnapshot {
-        if (!stream) {
-            return null;
-        }
-
-        const selectedAudio: NonNullable<SelectedAudioSnapshot> = {
-            id: stream.id,
-            codec: stream.codec,
-        };
-
-        if (typeof stream.channels === 'number') {
-            selectedAudio.channels = stream.channels;
-        }
-        if (typeof stream.language === 'string') {
-            selectedAudio.language = stream.language;
-        }
-        if (typeof stream.title === 'string') {
-            selectedAudio.title = stream.title;
-        }
-        if (typeof stream.default === 'boolean') {
-            selectedAudio.default = stream.default;
-        }
-
-        return selectedAudio;
-    }
-
-    private _mapSelectedSubtitleStream(
-        stream: StreamDecision['selectedSubtitleStream']
-    ): SelectedSubtitleSnapshot {
-        if (!stream) {
-            return null;
-        }
-
-        const selectedSubtitle: NonNullable<SelectedSubtitleSnapshot> = {
-            id: stream.id,
-            codec: stream.codec,
-        };
-
-        if (typeof stream.language === 'string') {
-            selectedSubtitle.language = stream.language;
-        }
-        if (typeof stream.title === 'string') {
-            selectedSubtitle.title = stream.title;
-        }
-        if (typeof stream.format === 'string') {
-            selectedSubtitle.format = stream.format;
-        }
-        if (typeof stream.default === 'boolean') {
-            selectedSubtitle.default = stream.default;
-        }
-
-        return selectedSubtitle;
+        return createPlaybackInfoSnapshot({
+            playback: this._playbackStateAccessors,
+            getCurrentChannel: () => this._channelManager?.getCurrentChannel() ?? null,
+        });
     }
 
     async refreshPlaybackInfoSnapshot(): Promise<PlaybackInfoSnapshot> {
