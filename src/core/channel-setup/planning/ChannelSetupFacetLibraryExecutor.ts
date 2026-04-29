@@ -388,8 +388,12 @@ export class ChannelSetupFacetLibraryExecutor {
             } finally {
                 this._options.state.addLibraryQueryMs(performance.now() - tagStart);
             }
-            if (unsupportedReason === 'empty') {
+            const recordFacetTags = (): void => {
                 definition.tagsByLibraryId.set(libraryId, tags);
+                this._options.state.markFacetEntries(definition.family, definition.mediaType, tags);
+            };
+            if (unsupportedReason === 'empty') {
+                recordFacetTags();
                 this._options.state.deferEmptyTagDirectoryFailure(
                     definition.family,
                     definition.label,
@@ -406,8 +410,7 @@ export class ChannelSetupFacetLibraryExecutor {
                     unsupportedReason
                 );
             }
-            this._options.state.markFacetEntries(definition.family, definition.mediaType, tags);
-            definition.tagsByLibraryId.set(libraryId, tags);
+            recordFacetTags();
             return null;
         } catch (error) {
             if (this._options.control.callerCanceled()) {
