@@ -4,6 +4,13 @@ reviews:
   profile: "assertive"
   review_details: true
   collapse_walkthrough: true
+  in_progress_fortune: false
+  poem: false
+  auto_review:
+    enabled: false
+    description_keyword: "@coderabbitai review"
+    auto_incremental_review: false
+    drafts: false
   path_filters:
     - "!**/.worktrees/**"
     - "!**/worktrees/**"
@@ -54,6 +61,53 @@ reviews:
     - path: "src/modules/plex/**/*.ts"
       instructions: |
         Review Plex changes for policy leakage. Subtitle, auth, discovery, transport, URL construction, and stream policy must stay inside Plex-facing modules rather than spreading into UI or orchestration callers.
+    - path: "src/**/*.css"
+      instructions: |
+        Review CSS for Lineup's TV-first design system discipline. Prefer existing tokens, shared shells, and component-owned class namespaces. Flag one-off color/spacing systems, duplicated theme values, fragile z-index/focus styling, expensive effects for webOS, and changes that weaken readable focus/remote-control states. Do not request cosmetic churn when the diff follows existing local patterns.
+    - path: "docs/design/**"
+      instructions: |
+        Review design docs as source-of-truth guidance. Flag contradictions with current CSS/component practice, token drift, stale UI claims, or advice that would encourage one-off styling instead of the established Lineup design language.
+    - path: "src/platform/**"
+      instructions: |
+        Review platform changes for explicit ownership of webOS and browser/Electron-like assumptions. Flag platform checks, user-agent parsing, lifecycle hooks, Plex headers, or capability detection that leak into generic modules or make future Windows portability harder without a clear contract.
+    - path: "src/bootstrap.ts"
+      instructions: |
+        Review bootstrap changes for startup/lifecycle ownership, global listener cleanup, DOM readiness, and platform assumptions. Flag feature-specific policy, long-lived async work, or webOS/browser behavior hidden in bootstrap instead of an owned service.
+    - path: "src/modules/lifecycle/**/*.ts"
+      instructions: |
+        Review lifecycle changes for explicit pause/resume/relaunch/network/memory semantics and cleanup. Flag assumptions that are webOS-only but not named as such, or portability changes that bypass the platform service boundary.
+    - path: "src/modules/player/**/*.ts"
+      instructions: |
+        Review player changes for media lifecycle cleanup, subtitle/audio ownership, webOS playback quirks, fullscreen/visibility behavior, and portability assumptions. Flag fixes that move Plex stream policy or platform detection into UI/player callers without an explicit boundary.
+    - path: "src/modules/plex/stream/**/*.ts"
+      instructions: |
+        Review stream-resolution changes for Plex policy ownership, codec/container capability handling, URL construction, mixed-content behavior, and platform-specific playback decisions. Flag Windows-port assumptions or webOS rules that are implicit, duplicated, or placed outside the stream policy boundary.
+    - path: "src/core/server-selection/**/*.ts"
+      instructions: |
+        Review server-selection changes for persistence ownership, startup handoff clarity, and platform-neutral contracts. Flag raw storage access, broad result objects leaking into callers, or UI/app-shell code taking over server-selection decisions.
+    - path: "src/modules/scheduler/**/*.ts"
+      instructions: |
+        Review scheduler changes for channel persistence ownership, deterministic schedule behavior, time-window edge cases, and portable runtime assumptions. Flag direct storage or platform coupling outside the established scheduler/channel-manager boundaries.
+    - path: "src/**/*.test.ts"
+      instructions: |
+        Review tests for behavior and contract coverage rather than private-probe coupling. Prefer realistic fixtures, clear regression intent, deterministic async/timer handling, and verification of public seams. Flag brittle tests that mirror implementation details, weaken failure-path coverage, or omit tests for changed persistence, navigation, Plex, scheduler, startup, or platform contracts.
+    - path: "src/**/__tests__/**/*.ts"
+      instructions: |
+        Review test helpers and fixtures for realistic contracts, maintainability, and low coupling to private implementation details. Flag helper changes that hide behavior assertions, make async/timer behavior nondeterministic, or weaken coverage of persistence, navigation, Plex, scheduler, startup, or platform seams.
+    - path: "tools/__tests__/**"
+      instructions: |
+        Review tooling tests as workflow contract tests. Flag missing regression coverage when verifier, harness, or control-plane behavior changes, and prefer fixtures that prove the documented contract instead of only matching current implementation structure.
     - path: "src/**/*.ts"
       instructions: |
         For storage-backed changes, flag new raw localStorage access in feature modules and push toward centralized persistence owners/stores. For shared-symbol edits, expect impact-aware reasoning and verification proportional to risk.
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "agents.md"
+      - "docs/AGENTIC_DEV_WORKFLOW.md"
+      - "docs/architecture/CURRENT_STATE.md"
+      - "ARCHITECTURE_CLEANUP_CHECKLIST.md"
+      - "docs/design/ui-design-language.md"
+      - "docs/api/plex-integration.md"
