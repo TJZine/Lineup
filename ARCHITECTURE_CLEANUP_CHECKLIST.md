@@ -360,7 +360,7 @@ issue ids, package maps, score deltas, or triage as closure input.
   checklist priority is `FCP-4`; do not start it without its own cleanup-loop
   scope-load, source audit, execution-grade plan, and clean plan review.
 
-### [ ] `FCP-4` AI-Generated Residue And Code Signal
+### [x] `FCP-4` AI-Generated Residue And Code Signal
 
 - Scope: remove code-signal noise that makes production source look generated:
   restating comments, docstring bloat, generic names, defensive boilerplate,
@@ -377,14 +377,39 @@ issue ids, package maps, score deltas, or triage as closure input.
   targeted source searches for removed and preserved patterns, targeted tests
   when code changes beyond comments, and `npm run verify` when source behavior
   or exported surfaces are touched.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: planner should create one broad but bounded code-signal package with
-  explicit preserve rules, or split only when behavior-coupled cleanup needs a
-  separate proof surface.
+- Status: completed
+- Plan: `docs/plans/2026-04-29-fcp-4-ai-generated-residue-code-signal.md`
+- Audit:
+  `docs/plans/2026-04-29-fcp-4-ai-generated-residue-code-signal-audit.md`
+- Last touched: 2026-04-29
+- Verification: `FCP-4-WAVE1` implementation commit `f9eca40b` passed
+  `ShuffleResult` pre/post source audits, old-pattern source audit,
+  preserved-pattern source audit, package-local security/source audit,
+  `npm run typecheck`, targeted scheduler tests (3 suites / 79 tests),
+  `npm run verify`, `git diff --check`, and `git diff --cached --check`.
+  Fresh implementation review found no blocking findings and approved the
+  execution unit. Controller closeout `npm run verify:docs` passed in the
+  pending-closeout state. Fresh FCP-4 priority-exit closeout review found no
+  blocking findings and approved completion. Final post-completion
+  `npm run verify:docs` passed before the closeout documentation commit.
+- Follow-ups: completed proof matrix: `FCP-4-SF1` resolved by commit `f9eca40b`
+  (scheduler restating comments/docblocks removed or compressed while invariant
+  comments remain); `FCP-4-SF2` resolved by commit `f9eca40b` (`ShuffleResult`
+  declaration and scheduler barrel export removed after fresh consumer proof
+  found no consumers). Accepted/no-action and out-of-scope residual owners
+  remain in the audit: `ScheduleConfig.loopSchedule` belongs to the scheduler
+  API owner; Plex library interface docs belong to the Plex library contract
+  owner; webOS/media-session/fail-open comments belong to player, Plex shared
+  transport, and platform owners; brand glyph SVG comments belong to the UI
+  common brand asset owner; production barrel comments belong to module package
+  owners; test comment bloat belongs to relevant test owners. Security triage:
+  `no open P0 security findings`.
+- Handoff: FCP-4 is completed with source audit, execution plan, proof matrix,
+  verification evidence, security triage/P0 disposition, implementation review,
+  closeout review, final docs verification, and owned residuals recorded. Next
+  safe checklist priority is `FCP-5`; do not start it without its own
+  cleanup-loop scope-load, source audit, execution-grade plan, and clean plan
+  review.
 
 ### [ ] `FCP-5` Portability Readiness
 
