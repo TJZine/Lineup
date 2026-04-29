@@ -336,9 +336,9 @@ changes them:
 - Handoff: start with a DCR-1 checklist-linked cleanup plan; do not implement a
   single ChannelManager test without resolving the package decisions.
 
-### [ ] `DCR-2` Channel Setup UI Persistence And Runtime Contract
+### [x] `DCR-2` Channel Setup UI Persistence And Runtime Contract
 
-- Status: not started
+- Status: completed
 - Dimensions/rubric tags: persistence ownership, contract coherence, error
   consistency, cross-module architecture, type safety, test strategy
 - Scope owner: channel setup UI/core boundary owner
@@ -400,12 +400,28 @@ changes them:
 - Stop/replan triggers: selected-server fix requires changing Plex discovery
   store ownership; UI error shape change becomes user-visible product behavior;
   facet decision overlaps DCR-7 cache/executor ownership.
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start with a DCR-2 plan that names the app-shell/core selected-server
-  seam before implementation.
+- Plan:
+  [`docs/archive/plans/2026-04-29-dcr-2-channel-setup-ui-persistence-runtime-contract.md`](./docs/archive/plans/2026-04-29-dcr-2-channel-setup-ui-persistence-runtime-contract.md)
+- Last touched: 2026-04-29, implementation commit `fe7ec675`
+- Verification: plan review approved with no material findings; targeted
+  selected-server source audits passed; targeted channel setup/app-shell Jest
+  coverage passed (`7` suites / `170` tests); targeted channel setup contract
+  test passed (`1` suite / `6` tests); `npm run typecheck` passed;
+  implementation review approved `DCR-2-WAVE1` with no material findings;
+  `npm run verify` passed after checklist/current-state/plan-archive closeout
+  changes; final `npm run verify:docs` passed after the mini-record evidence
+  update.
+- Follow-ups: accepted residual only:
+  `ChannelSetupSessionState` -> `normalizeChannelSetupConfig` remains owned by
+  the channel setup record-normalization owner, with revisit trigger if
+  setup-record normalization ownership changes or `DCR-EXIT` source
+  reconciliation disproves the accepted baseline. `DCR-7` remains open for
+  loader/executor cache, progress, concurrency, and fixture cleanup. `DCR-10`
+  remains open for unrelated catch-all test structure policy.
+- Handoff: `DCR-2` is complete. Do not reopen selected-server persistence in
+  channel setup UI; consume selected-server runtime state through the
+  app-shell/core channel setup port. DCR-3 is the next unchecked DCR package
+  only when the maintainer starts the next cleanup loop.
 
 ### [ ] `DCR-3` Event Subscription And Error Import Coherence
 
