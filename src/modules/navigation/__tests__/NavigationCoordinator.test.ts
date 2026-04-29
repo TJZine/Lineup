@@ -265,23 +265,21 @@ const setup = (
         ...overrides,
     };
 
+    const requestPlayerOsdIntent = jest.fn((_intent: NavigationPlayerOsdIntent): void => undefined);
+    const requestMiniGuideIntent = jest.fn((intent: NavigationMiniGuideIntent): boolean => {
+        if (intent.type === 'select') {
+            testDoubles.setLastChannelChangeSourceRemote();
+        }
+        return true;
+    });
+
     const playback = {
         videoPlayer: testDoubles.videoPlayer,
         plexAuth: testDoubles.plexAuth,
         stopPlayback: testDoubles.stopPlayback,
         getSeekIncrementMs: testDoubles.getSeekIncrementMs,
         isPlayerOsdVisible: testDoubles.isPlayerOsdVisible,
-        requestPlayerOsdIntent: jest.fn((intent: NavigationPlayerOsdIntent) => {
-            if (intent.type === 'poke') {
-                testDoubles.pokePlayerOsd(intent.reason);
-                return;
-            }
-            if (intent.type === 'toggle') {
-                testDoubles.togglePlayerOsd();
-                return;
-            }
-            testDoubles.hidePlayerOsd();
-        }),
+        requestPlayerOsdIntent,
         playerOsd: {
             overlay: { isVisible: testDoubles.isPlayerOsdVisible },
             coordinator: {
@@ -293,28 +291,7 @@ const setup = (
     };
     const miniGuide = {
         isVisible: testDoubles.isMiniGuideVisible,
-        requestMiniGuideIntent: jest.fn((intent: NavigationMiniGuideIntent) => {
-            if (intent.type === 'show') {
-                testDoubles.showMiniGuide();
-                return true;
-            }
-            if (intent.type === 'hide') {
-                testDoubles.hideMiniGuide();
-                return true;
-            }
-            if (intent.type === 'navigate') {
-                return testDoubles.handleMiniGuideNavigation(intent.direction);
-            }
-            if (intent.type === 'page') {
-                return testDoubles.handleMiniGuidePage(intent.direction);
-            }
-            if (intent.type === 'select') {
-                testDoubles.setLastChannelChangeSourceRemote();
-                testDoubles.handleMiniGuideSelect();
-                return true;
-            }
-            return false;
-        }),
+        requestMiniGuideIntent,
         overlay: { isVisible: testDoubles.isMiniGuideVisible },
         coordinator: {
             show: testDoubles.showMiniGuide,
@@ -643,7 +620,8 @@ describe('NavigationCoordinator', () => {
         const event = makeKeyEvent('ok');
         keyPress(event);
 
-        expect(deps.keyModeRouter.playback.playerOsd.coordinator?.toggle).toHaveBeenCalledTimes(1);
+        expect(deps.keyModeRouter.playback.requestPlayerOsdIntent).toHaveBeenCalledWith({ type: 'toggle' });
+        expect(deps.keyModeRouter.playback.playerOsd.coordinator?.toggle).not.toHaveBeenCalled();
         expect(event.handled).toBe(true);
         expect(event.originalEvent.preventDefault).toHaveBeenCalled();
     });
@@ -656,6 +634,7 @@ describe('NavigationCoordinator', () => {
 
         handlers.keyPress?.(event);
 
+        expect(deps.keyModeRouter.playback.requestPlayerOsdIntent).not.toHaveBeenCalled();
         expect(deps.keyModeRouter.playback.playerOsd.coordinator?.toggle).not.toHaveBeenCalled();
         expect(event.handled).not.toBe(true);
     });
@@ -668,7 +647,8 @@ describe('NavigationCoordinator', () => {
 
         handlers.keyPress?.(event);
 
-        expect(deps.keyModeRouter.playback.playerOsd.coordinator?.toggle).toHaveBeenCalledTimes(1);
+        expect(deps.keyModeRouter.playback.requestPlayerOsdIntent).toHaveBeenCalledWith({ type: 'toggle' });
+        expect(deps.keyModeRouter.playback.playerOsd.coordinator?.toggle).not.toHaveBeenCalled();
         expect(event.handled).toBe(true);
         expect(event.originalEvent.preventDefault).toHaveBeenCalled();
     });
@@ -682,7 +662,8 @@ describe('NavigationCoordinator', () => {
 
         handlers.keyPress?.(event);
 
-        expect(deps.events.miniGuide.coordinator?.show).toHaveBeenCalledTimes(1);
+        expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledWith({ type: 'show' });
+        expect(deps.events.miniGuide.coordinator?.show).not.toHaveBeenCalled();
         expect(event.handled).toBe(true);
         expect(event.originalEvent.preventDefault).toHaveBeenCalled();
     });
@@ -696,6 +677,7 @@ describe('NavigationCoordinator', () => {
 
         handlers.keyPress?.(event);
 
+        expect(deps.events.miniGuide.requestMiniGuideIntent).not.toHaveBeenCalled();
         expect(deps.events.miniGuide.coordinator?.show).not.toHaveBeenCalled();
         expect(event.handled).not.toBe(true);
     });
@@ -707,14 +689,21 @@ describe('NavigationCoordinator', () => {
 
         const downEvent = makeKeyEvent('down');
         handlers.keyPress?.(downEvent);
-        expect(deps.events.miniGuide.coordinator?.handleNavigation).toHaveBeenCalledWith('down');
+        expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledWith({
+            type: 'navigate',
+            direction: 'down',
+        });
+        expect(deps.events.miniGuide.coordinator?.handleNavigation).not.toHaveBeenCalled();
+        expect(deps.keyModeRouter.playback.requestPlayerOsdIntent).not.toHaveBeenCalled();
         expect(deps.keyModeRouter.playback.playerOsd.coordinator?.toggle).not.toHaveBeenCalled();
         expect(downEvent.handled).toBe(true);
 
         const okEvent = makeKeyEvent('ok');
         handlers.keyPress?.(okEvent);
-        expect(deps.events.miniGuide.coordinator?.handleSelect).toHaveBeenCalledTimes(1);
+        expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledWith({ type: 'select' });
+        expect(deps.events.miniGuide.coordinator?.handleSelect).not.toHaveBeenCalled();
         expect(deps.events.channelSwitching.setLastChannelChangeSourceRemote).toHaveBeenCalledTimes(1);
+        expect(deps.keyModeRouter.playback.requestPlayerOsdIntent).not.toHaveBeenCalled();
         expect(deps.keyModeRouter.playback.playerOsd.coordinator?.toggle).not.toHaveBeenCalled();
         expect(okEvent.handled).toBe(true);
     });
@@ -728,6 +717,7 @@ describe('NavigationCoordinator', () => {
         const event = makeKeyEvent('down');
         handlers.keyPress?.(event);
 
+        expect(deps.events.miniGuide.requestMiniGuideIntent).not.toHaveBeenCalled();
         expect(deps.events.miniGuide.coordinator?.handleNavigation).not.toHaveBeenCalled();
         expect(event.handled).toBe(true);
         expect(event.originalEvent.preventDefault).toHaveBeenCalled();
@@ -741,7 +731,8 @@ describe('NavigationCoordinator', () => {
 
         handlers.keyPress?.(event);
 
-        expect(deps.events.miniGuide.coordinator?.hide).toHaveBeenCalledTimes(1);
+        expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledWith({ type: 'hide' });
+        expect(deps.events.miniGuide.coordinator?.hide).not.toHaveBeenCalled();
         expect(navigation.openModal).not.toHaveBeenCalled();
         expect(event.handled).toBe(true);
     });
@@ -752,11 +743,13 @@ describe('NavigationCoordinator', () => {
         });
 
         handlers.keyPress?.(makeKeyEvent('channelUp'));
-        expect(deps.events.miniGuide.coordinator?.handlePage).toHaveBeenCalledWith('up');
+        expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledWith({ type: 'page', direction: 'up' });
+        expect(deps.events.miniGuide.coordinator?.handlePage).not.toHaveBeenCalled();
         expect(deps.events.channelSwitching.switchToPreviousChannel).not.toHaveBeenCalled();
 
         handlers.keyPress?.(makeKeyEvent('channelDown'));
-        expect(deps.events.miniGuide.coordinator?.handlePage).toHaveBeenCalledWith('down');
+        expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledWith({ type: 'page', direction: 'down' });
+        expect(deps.events.miniGuide.coordinator?.handlePage).not.toHaveBeenCalled();
         expect(deps.events.channelSwitching.switchToNextChannel).not.toHaveBeenCalled();
     });
 
@@ -770,7 +763,8 @@ describe('NavigationCoordinator', () => {
         const event = makeKeyEvent('channelUp');
         handlers.keyPress?.(event);
 
-        expect(deps.events.miniGuide.coordinator?.handlePage).toHaveBeenCalledWith('up');
+        expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledWith({ type: 'page', direction: 'up' });
+        expect(deps.events.miniGuide.coordinator?.handlePage).not.toHaveBeenCalled();
         expect(epg.handlePage).not.toHaveBeenCalled();
         expect(event.handled).toBe(true);
         expect(event.originalEvent.preventDefault).toHaveBeenCalled();
@@ -784,7 +778,8 @@ describe('NavigationCoordinator', () => {
         const event = makeKeyEvent('right');
         handlers.keyPress?.(event);
 
-        expect(deps.events.miniGuide.coordinator?.hide).toHaveBeenCalledTimes(1);
+        expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledWith({ type: 'hide' });
+        expect(deps.events.miniGuide.coordinator?.hide).not.toHaveBeenCalled();
         expect(deps.events.channelSwitching.toggleEpg).toHaveBeenCalledTimes(1);
         expect(event.handled).toBe(true);
     });
@@ -849,7 +844,8 @@ describe('NavigationCoordinator', () => {
 
         handlers.keyPress?.(event);
 
-        expect(deps.keyModeRouter.playback.playerOsd.coordinator?.hide).toHaveBeenCalledTimes(1);
+        expect(deps.keyModeRouter.playback.requestPlayerOsdIntent).toHaveBeenCalledWith({ type: 'hide' });
+        expect(deps.keyModeRouter.playback.playerOsd.coordinator?.hide).not.toHaveBeenCalled();
         expect(navigation.openModal).not.toHaveBeenCalled();
         expect(event.handled).toBe(true);
         expect(event.originalEvent.preventDefault).toHaveBeenCalled();
@@ -1019,7 +1015,11 @@ describe('NavigationCoordinator', () => {
         handlers.keyPress?.(makeKeyEvent('play'));
 
         await Promise.resolve();
-        expect(deps.keyModeRouter.playback.playerOsd.coordinator?.poke).toHaveBeenCalledWith('play');
+        expect(deps.keyModeRouter.playback.requestPlayerOsdIntent).toHaveBeenCalledWith({
+            type: 'poke',
+            reason: 'play',
+        });
+        expect(deps.keyModeRouter.playback.playerOsd.coordinator?.poke).not.toHaveBeenCalled();
     });
 
     it('play jumps to now when EPG is visible', () => {
@@ -1031,6 +1031,10 @@ describe('NavigationCoordinator', () => {
         handlers.keyPress?.(event);
 
         expect(epg.focusNow).toHaveBeenCalledTimes(1);
+        expect(deps.keyModeRouter.playback.requestPlayerOsdIntent).not.toHaveBeenCalledWith({
+            type: 'poke',
+            reason: 'play',
+        });
         expect(deps.keyModeRouter.playback.playerOsd.coordinator?.poke).not.toHaveBeenCalledWith('play');
         expect(videoPlayer.play).not.toHaveBeenCalled();
         expect(event.handled).toBe(true);
@@ -1041,7 +1045,11 @@ describe('NavigationCoordinator', () => {
         const { handlers, deps } = setup();
         handlers.keyPress?.(makeKeyEvent('pause'));
 
-        expect(deps.keyModeRouter.playback.playerOsd.coordinator?.poke).toHaveBeenCalledWith('pause');
+        expect(deps.keyModeRouter.playback.requestPlayerOsdIntent).toHaveBeenCalledWith({
+            type: 'poke',
+            reason: 'pause',
+        });
+        expect(deps.keyModeRouter.playback.playerOsd.coordinator?.poke).not.toHaveBeenCalled();
     });
 
     it('consumes EPG mode input without handling selection while input is blocked', () => {
@@ -1064,7 +1072,11 @@ describe('NavigationCoordinator', () => {
         handlers.keyPress?.(makeKeyEvent('fastforward'));
 
         expect(videoPlayer.seekRelative).toHaveBeenCalledWith(10_000);
-        expect(deps.keyModeRouter.playback.playerOsd.coordinator?.poke).toHaveBeenCalledWith('seek');
+        expect(deps.keyModeRouter.playback.requestPlayerOsdIntent).toHaveBeenCalledWith({
+            type: 'poke',
+            reason: 'seek',
+        });
+        expect(deps.keyModeRouter.playback.playerOsd.coordinator?.poke).not.toHaveBeenCalled();
     });
 
     it('fastforward uses the configured seek increment from the playback port', () => {
@@ -1083,7 +1095,11 @@ describe('NavigationCoordinator', () => {
         handlers.keyPress?.(makeKeyEvent('rewind'));
 
         expect(videoPlayer.seekRelative).toHaveBeenCalledWith(-10_000);
-        expect(deps.keyModeRouter.playback.playerOsd.coordinator?.poke).toHaveBeenCalledWith('seek');
+        expect(deps.keyModeRouter.playback.requestPlayerOsdIntent).toHaveBeenCalledWith({
+            type: 'poke',
+            reason: 'seek',
+        });
+        expect(deps.keyModeRouter.playback.playerOsd.coordinator?.poke).not.toHaveBeenCalled();
     });
 
     it('settings handler only runs from player or guide', () => {
@@ -1110,7 +1126,8 @@ describe('NavigationCoordinator', () => {
 
         handlers.screenChange?.({ from: 'player', to: 'settings' });
         expect(videoPlayer.pause).toHaveBeenCalled();
-        expect(deps.events.miniGuide.coordinator?.hide).toHaveBeenCalled();
+        expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledWith({ type: 'hide' });
+        expect(deps.events.miniGuide.coordinator?.hide).not.toHaveBeenCalled();
 
         handlers.screenChange?.({ from: 'settings', to: 'player' });
         expect(videoPlayer.play).toHaveBeenCalled();
@@ -1213,7 +1230,11 @@ describe('NavigationCoordinator', () => {
             '[Navigation] seek failed:',
             expect.any(Error)
         );
-        expect(deps.keyModeRouter.playback.playerOsd.coordinator?.poke).toHaveBeenCalledWith('seek');
+        expect(deps.keyModeRouter.playback.requestPlayerOsdIntent).toHaveBeenCalledWith({
+            type: 'poke',
+            reason: 'seek',
+        });
+        expect(deps.keyModeRouter.playback.playerOsd.coordinator?.poke).not.toHaveBeenCalled();
     });
 
     it('throttles duplicate non-blocking failures to one toast and one diagnostics callback per key window', async () => {
@@ -1306,6 +1327,7 @@ describe('NavigationCoordinator', () => {
 
         expect(epg.hide).toHaveBeenCalledTimes(1);
         expect(navigation.replaceScreen).toHaveBeenCalledWith('channel-setup');
+        expect(deps.events.miniGuide.requestMiniGuideIntent).not.toHaveBeenCalled();
         expect(deps.events.miniGuide.coordinator?.hide).not.toHaveBeenCalled();
     });
 
@@ -1334,7 +1356,8 @@ describe('NavigationCoordinator', () => {
 
         handlers.modalOpen?.({ modalId: 'any-modal' });
 
-        expect(deps.events.miniGuide.coordinator?.hide).toHaveBeenCalledTimes(1);
+        expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledWith({ type: 'hide' });
+        expect(deps.events.miniGuide.coordinator?.hide).not.toHaveBeenCalled();
     });
 
     it('does not route to EPG when overlay is not visible', () => {
@@ -1422,8 +1445,10 @@ describe('NavigationCoordinator', () => {
 
         expect(epg.hide).toHaveBeenCalledTimes(1);
         expect(navigation.closeModal).toHaveBeenCalledWith(nowPlayingInfoModalId);
-        expect(deps.events.miniGuide.coordinator?.hide).toHaveBeenCalledTimes(1);
-        expect(deps.keyModeRouter.playback.playerOsd.coordinator?.hide).toHaveBeenCalledTimes(1);
+        expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledWith({ type: 'hide' });
+        expect(deps.keyModeRouter.playback.requestPlayerOsdIntent).toHaveBeenCalledWith({ type: 'hide' });
+        expect(deps.events.miniGuide.coordinator?.hide).not.toHaveBeenCalled();
+        expect(deps.keyModeRouter.playback.playerOsd.coordinator?.hide).not.toHaveBeenCalled();
         expect(videoPlayer.pause).toHaveBeenCalledTimes(1);
 
         handlers.screenChange?.({ from: 'settings', to: 'player' });
@@ -1450,19 +1475,24 @@ describe('NavigationCoordinator', () => {
             (navigation.isInputBlocked as jest.Mock).mockReturnValue(false);
 
             handlers.keyPress?.(makeKeyEvent('down'));
-            expect(deps.events.miniGuide.coordinator?.handleNavigation).toHaveBeenCalledTimes(1);
+            expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledTimes(1);
+            expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledWith({
+                type: 'navigate',
+                direction: 'down',
+            });
+            expect(deps.events.miniGuide.coordinator?.handleNavigation).not.toHaveBeenCalled();
 
             await advanceTimersUntil(() => {
-                expect(deps.events.miniGuide.coordinator?.handleNavigation).toHaveBeenCalledTimes(2);
+                expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledTimes(2);
             }, {
                 stepMs: 25,
                 timeoutMs: MINI_GUIDE_REPEAT_TIMING.INITIAL_DELAY_MS + 200,
             });
 
             handlers.keyUp?.({ button: 'down' });
-            const callsOnStop = (deps.events.miniGuide.coordinator?.handleNavigation as jest.Mock).mock.calls.length;
+            const callsOnStop = (deps.events.miniGuide.requestMiniGuideIntent as jest.Mock).mock.calls.length;
             expect(jest.getTimerCount()).toBe(0);
-            expect(deps.events.miniGuide.coordinator?.handleNavigation).toHaveBeenCalledTimes(callsOnStop);
+            expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledTimes(callsOnStop);
         });
 
         it('repeat stops when input is blocked', async () => {
@@ -1475,17 +1505,18 @@ describe('NavigationCoordinator', () => {
 
             handlers.keyPress?.(makeKeyEvent('down'));
             await advanceTimersUntil(() => {
-                expect(deps.events.miniGuide.coordinator?.handleNavigation).toHaveBeenCalledTimes(2);
+                expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledTimes(2);
             }, {
                 stepMs: 25,
                 timeoutMs: MINI_GUIDE_REPEAT_TIMING.INITIAL_DELAY_MS + 200,
             });
 
             isInputBlocked.mockReturnValue(true);
-            const callsBeforeBlock = (deps.events.miniGuide.coordinator?.handleNavigation as jest.Mock).mock.calls.length;
+            const callsBeforeBlock = (deps.events.miniGuide.requestMiniGuideIntent as jest.Mock).mock.calls.length;
             jest.advanceTimersByTime(MINI_GUIDE_REPEAT_TIMING.INTERVAL_1_MS + 1);
             expect(jest.getTimerCount()).toBe(0);
-            expect(deps.events.miniGuide.coordinator?.handleNavigation).toHaveBeenCalledTimes(callsBeforeBlock);
+            expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledTimes(callsBeforeBlock);
+            expect(deps.events.miniGuide.coordinator?.handleNavigation).not.toHaveBeenCalled();
         });
 
         it('repeat stops when leaving player screen', async () => {
@@ -1499,17 +1530,18 @@ describe('NavigationCoordinator', () => {
 
             handlers.keyPress?.(makeKeyEvent('down'));
             await advanceTimersUntil(() => {
-                expect(deps.events.miniGuide.coordinator?.handleNavigation).toHaveBeenCalledTimes(2);
+                expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledTimes(2);
             }, {
                 stepMs: 25,
                 timeoutMs: MINI_GUIDE_REPEAT_TIMING.INITIAL_DELAY_MS + 200,
             });
 
             getCurrentScreen.mockReturnValue('settings');
-            const callsBeforeLeave = (deps.events.miniGuide.coordinator?.handleNavigation as jest.Mock).mock.calls.length;
+            const callsBeforeLeave = (deps.events.miniGuide.requestMiniGuideIntent as jest.Mock).mock.calls.length;
             jest.advanceTimersByTime(MINI_GUIDE_REPEAT_TIMING.INTERVAL_1_MS + 1);
             expect(jest.getTimerCount()).toBe(0);
-            expect(deps.events.miniGuide.coordinator?.handleNavigation).toHaveBeenCalledTimes(callsBeforeLeave);
+            expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledTimes(callsBeforeLeave);
+            expect(deps.events.miniGuide.coordinator?.handleNavigation).not.toHaveBeenCalled();
         });
     });
 
