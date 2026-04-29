@@ -6,6 +6,7 @@ import type {
     HlsOptions,
 } from './types';
 import type { PlatformIdentityService } from '../../../platform';
+import type { IDisposable } from '../../../utils/interfaces';
 
 /**
  * Stream resolver error structure.
@@ -120,7 +121,7 @@ export interface IPlexStreamResolver {
     on<K extends keyof StreamResolverEventMap>(
         event: K,
         handler: (payload: StreamResolverEventMap[K]) => void
-    ): void;
+    ): IDisposable;
 
     off<K extends keyof StreamResolverEventMap>(
         event: K,

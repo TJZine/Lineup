@@ -4,6 +4,7 @@
 
 import { EventEmitter } from '../../../utils/EventEmitter';
 import { AppErrorCode } from '../../../types/app-errors';
+import type { IDisposable } from '../../../utils/interfaces';
 import type {
     IPlexStreamResolver,
     PlexStreamResolverConfig,
@@ -572,10 +573,10 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     on<K extends keyof StreamResolverEventMap>(
         event: K,
         handler: (payload: StreamResolverEventMap[K]) => void
-    ): void {
+    ): IDisposable {
         // Type assertion to handler union - EventEmitter accepts this via index signature
         type HandlerUnion = (payload: StreamResolverEventMap[keyof StreamResolverEventMap]) => void;
-        this._emitter.on(event, handler as HandlerUnion);
+        return this._emitter.on(event, handler as HandlerUnion);
     }
 
     off<K extends keyof StreamResolverEventMap>(

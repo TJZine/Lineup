@@ -58,24 +58,25 @@ export class NavigationCoordinator {
         const navigation = this.deps.events.navigation;
 
         const unsubs: Array<() => void> = [];
+        const subscribe = <K extends keyof NavigationEventMap>(
+            event: K,
+            handler: (payload: NavigationEventMap[K]) => void
+        ): void => {
+            const disposable = navigation.on(event, handler);
+            unsubs.push(() => disposable.dispose());
+        };
 
         navigation.handleLongPress('back', () => this._keyModeRouter.handleLongPressBack());
 
         const keyHandler = (event: KeyEvent): void => {
             this._keyModeRouter.handleKeyPress(event);
         };
-        navigation.on('keyPress', keyHandler);
-        unsubs.push(() => {
-            navigation.off('keyPress', keyHandler);
-        });
+        subscribe('keyPress', keyHandler);
 
         const keyUpHandler = (payload: { button: KeyEvent['button'] }): void => {
             this._repeats.stopForKeyUp(payload.button);
         };
-        navigation.on('keyUp', keyUpHandler);
-        unsubs.push(() => {
-            navigation.off('keyUp', keyUpHandler);
-        });
+        subscribe('keyUp', keyUpHandler);
 
         const channelNumberHandler = (payload: { channelNumber: number }): void => {
             if (!Number.isFinite(payload.channelNumber)) {
@@ -88,18 +89,12 @@ export class NavigationCoordinator {
                 'Could not switch to that channel'
             );
         };
-        navigation.on('channelNumberEntered', channelNumberHandler);
-        unsubs.push(() => {
-            navigation.off('channelNumberEntered', channelNumberHandler);
-        });
+        subscribe('channelNumberEntered', channelNumberHandler);
 
         const inputUpdateHandler = (payload: { digits: string; isComplete: boolean }): void => {
             this.deps.events.channelSwitching.onChannelInputUpdate?.(payload);
         };
-        navigation.on('channelInputUpdate', inputUpdateHandler);
-        unsubs.push(() => {
-            navigation.off('channelInputUpdate', inputUpdateHandler);
-        });
+        subscribe('channelInputUpdate', inputUpdateHandler);
 
         const guideHandler = (): void => {
             // EPG is an overlay, not a navigation screen; toggle based on EPG visibility.
@@ -108,10 +103,7 @@ export class NavigationCoordinator {
             this.deps.guideMiniGuide.hideForGuideToggle();
             this.deps.events.channelSwitching.toggleEpg();
         };
-        navigation.on('guide', guideHandler);
-        unsubs.push(() => {
-            navigation.off('guide', guideHandler);
-        });
+        subscribe('guide', guideHandler);
 
         const settingsHandler = (): void => {
             const currentScreen = navigation.getCurrentScreen();
@@ -119,18 +111,12 @@ export class NavigationCoordinator {
                 navigation.goTo('settings');
             }
         };
-        navigation.on('settings', settingsHandler);
-        unsubs.push(() => {
-            navigation.off('settings', settingsHandler);
-        });
+        subscribe('settings', settingsHandler);
 
         const screenHandler = (payload: NavigationEventMap['screenChange']): void => {
             this._screenEffects.handleScreenChange(payload.from, payload.to);
         };
-        navigation.on('screenChange', screenHandler);
-        unsubs.push(() => {
-            navigation.off('screenChange', screenHandler);
-        });
+        subscribe('screenChange', screenHandler);
 
         const modalOpenHandler = (payload: { modalId: string }): void => {
             this._modalEffects.handleModalOpen(payload.modalId);
@@ -138,11 +124,11 @@ export class NavigationCoordinator {
         const modalCloseHandler = (payload: { modalId: string }): void => {
             this._modalEffects.handleModalClose(payload.modalId);
         };
-        navigation.on('modalOpen', modalOpenHandler);
-        navigation.on('modalClose', modalCloseHandler);
+        const modalOpenDisposable = navigation.on('modalOpen', modalOpenHandler);
+        const modalCloseDisposable = navigation.on('modalClose', modalCloseHandler);
         unsubs.push(() => {
-            navigation.off('modalOpen', modalOpenHandler);
-            navigation.off('modalClose', modalCloseHandler);
+            modalOpenDisposable.dispose();
+            modalCloseDisposable.dispose();
         });
 
         return unsubs;

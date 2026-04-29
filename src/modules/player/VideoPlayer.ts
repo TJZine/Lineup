@@ -5,6 +5,7 @@ import { VideoPlayerEvents } from './VideoPlayerEvents';
 import { RetryManager } from './RetryManager';
 import { KeepAliveManager } from './KeepAliveManager';
 import type { IVideoPlayer } from './interfaces';
+import type { IDisposable } from '../../utils/interfaces';
 import type {
     VideoPlayerConfig,
     StreamDescriptor,
@@ -633,8 +634,8 @@ export class VideoPlayer implements IVideoPlayer {
     public on<K extends keyof PlayerEventMap>(
         event: K,
         handler: (payload: PlayerEventMap[K]) => void
-    ): void {
-        this._emitter.on(event, handler);
+    ): IDisposable {
+        return this._emitter.on(event, handler);
     }
 
     public off<K extends keyof PlayerEventMap>(

@@ -133,7 +133,7 @@ interface IPlexLibrary {
   on<K extends keyof PlexLibraryEvents>(
     event: K,
     handler: (payload: PlexLibraryEvents[K]) => void
-  ): void;
+  ): IDisposable;
 
   off<K extends keyof PlexLibraryEvents>(
     event: K,
@@ -260,7 +260,7 @@ interface IPlexStreamResolver {
   on<K extends keyof StreamResolverEventMap>(
     event: K,
     handler: (payload: StreamResolverEventMap[K]) => void
-  ): void;
+  ): IDisposable;
 
   off<K extends keyof StreamResolverEventMap>(
     event: K,

@@ -76,7 +76,7 @@ describe('EPGErrorBoundary', () => {
 
         it('should emit degradedMode after MAX_ERRORS_PER_TYPE', () => {
             const degradedHandler = jest.fn();
-            errorBoundary.on('degradedMode', degradedHandler);
+            const disposable = errorBoundary.on('degradedMode', degradedHandler);
 
             // Trigger 3 errors (MAX_ERRORS_PER_TYPE = 3)
             errorBoundary.handleError(AppErrorCode.RENDER_ERROR, 'ctx1');
@@ -88,6 +88,10 @@ describe('EPGErrorBoundary', () => {
                 type: AppErrorCode.RENDER_ERROR,
                 count: 3,
             });
+
+            disposable.dispose();
+            errorBoundary.handleError(AppErrorCode.RENDER_ERROR, 'ctx4');
+            expect(degradedHandler).toHaveBeenCalledTimes(1);
         });
     });
 

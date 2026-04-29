@@ -1,4 +1,5 @@
 import type { PlatformRemoteButton } from '../../platform/services';
+import type { IDisposable } from '../../utils/interfaces';
 
 // Navigation module interfaces - local definitions matching the app's shared type surface.
 
@@ -58,7 +59,7 @@ export interface INavigationManager {
     on<K extends keyof NavigationEventMap>(
         event: K,
         handler: (payload: NavigationEventMap[K]) => void
-    ): void;
+    ): IDisposable;
     off<K extends keyof NavigationEventMap>(
         event: K,
         handler: (payload: NavigationEventMap[K]) => void

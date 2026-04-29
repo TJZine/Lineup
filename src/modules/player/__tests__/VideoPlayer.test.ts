@@ -943,13 +943,17 @@ describe('VideoPlayer', () => {
 
         it('should emit stateChange on status changes', async () => {
             const handler = jest.fn();
-            player.on('stateChange', handler);
+            const disposable = player.on('stateChange', handler);
 
             await player.loadStream(createMockDescriptor());
 
             expect(handler).toHaveBeenCalledWith(
                 expect.objectContaining({ status: 'loading' })
             );
+
+            disposable.dispose();
+            player.pause();
+            expect(handler).toHaveBeenCalledTimes(1);
         });
 
         it('should emit timeUpdate during playback', async () => {

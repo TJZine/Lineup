@@ -100,7 +100,7 @@ describe('NavigationManager', () => {
 
         it('should emit screenChange event on goTo', () => {
             const handler = jest.fn();
-            nav.on('screenChange', handler);
+            const disposable = nav.on('screenChange', handler);
 
             nav.goTo('settings');
 
@@ -108,6 +108,10 @@ describe('NavigationManager', () => {
                 from: 'splash',
                 to: 'settings',
             });
+
+            disposable.dispose();
+            nav.goTo('home');
+            expect(handler).toHaveBeenCalledTimes(1);
         });
 
         it('should emit screenChange event on goBack', () => {
