@@ -165,86 +165,81 @@ Stop and replan if:
 
 ## Package Decomposition
 
-package_id: `fcp-1-architecture-handoff-audit-and-first-package`
+- `package_id`: `fcp-1-architecture-handoff-audit-and-first-package`
+- `checklist_token`: `FCP-1`
+- `source_finding_ids`:
+  - `FCP-1-SF1`
+  - `FCP-1-SF2`
+  - `FCP-1-SF3`
+  - `FCP-1-SF4`
+- `slice_table`:
 
-checklist_token: `FCP-1`
+### `FCP-1-S1` App-Shell Server-Selection Handoff
 
-source_finding_ids: `FCP-1-SF1`, `FCP-1-SF2`, `FCP-1-SF3`, `FCP-1-SF4`
-
-slice_table:
-
-| slice_id | goal | areas/files | source_finding_ids | verification | dependencies | stop_condition | handoff_condition | serial_only_or_parallel_group | parallel_justification |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `FCP-1-S1` | Narrow the app-shell server-selection result handoff and document the owner seam. | `src/core/app-shell/AppShellRuntimeContracts.ts`, `src/core/app-shell/AppLazyScreenPortFactory.ts`, app-shell tests, `docs/architecture/CURRENT_STATE.md`, `docs/architecture/modules.md`, checklist mini-record at closeout. | `FCP-1-SF1`, `FCP-1-SF2` | Contract/source audits, targeted app-shell/server-selection/server-select tests, `npm run verify`, `npm run verify:docs`. | None. | Any required behavior edit outside the app-shell contract/doc seam, or any need to change core/server-selection result semantics. | Narrow app-shell contract is in source, targeted tests pass, docs identify core-vs-app-shell ownership, checklist mini-record/proof matrix is updated after clean review. | `serial_only` | Single cross-module contract seam; splitting docs/tests/source would create dependent partial states. |
-
-coverage_check:
-
-| source_finding_id | planned_slice_or_defer_path | final_owner | closure_check |
-| --- | --- | --- | --- |
-| `FCP-1-SF1` | `FCP-1-S1` | App-shell runtime contract owner | `AppShellRuntimeContracts.ts` no longer imports `OrchestratorServerSelectionResult` or `ServerSelectionTypes`; app-shell tests assert the boundary; adapter behavior is unchanged. |
-| `FCP-1-SF2` | `FCP-1-S1` | Architecture docs owner | `CURRENT_STATE.md` and `modules.md` name the full core selected-server result owner and the app-shell result-narrowing owner without widening public barrels. |
-| `FCP-1-SF3` | Deferred to a future FCP-1 channel-setup handoff package or explicit no-action acceptance after fresh source review. | Channel setup UI/core boundary owner | Future closure either narrows the UI-facing channel-setup contract or records source-backed acceptance of direct core domain imports with docs. |
-| `FCP-1-SF4` | Deferred to a future FCP-1 AppOrchestrator runtime assembly package after a narrower source brief is proven. | Core orchestrator runtime assembly owner | Future closure names one concrete AppOrchestrator handoff to narrow and proves the change reduces owner breadth rather than moving hub responsibility. |
-
-ready_now_slice: `FCP-1-S1`
-
-ready_now_execution_unit: `FCP-1-S1`
-
-recommended_slice_order: `FCP-1-S1`
-
-deferred_finding_order: `FCP-1-SF3`, then `FCP-1-SF4`, unless plan review or fresh source audit changes the order.
-
-parallel_execution_policy: Parallel execution is unavailable for the ready-now package. `FCP-1-SF3` and `FCP-1-SF4` are not approved execution units yet; parallel execution may be reconsidered only after later source-backed package splits prove disjoint scopes, independent verification, and explicit rejoin conditions.
+- `goal`: narrow the app-shell server-selection result handoff and document the owner seam.
+- `areas/files`:
+  - `src/core/app-shell/AppShellRuntimeContracts.ts`
+  - `src/core/app-shell/AppLazyScreenPortFactory.ts`
+  - `src/core/app-shell/__tests__/AppShellRuntimeContracts.test.ts`
+  - `src/core/app-shell/__tests__/AppLazyScreenPortFactory.test.ts`
+  - `docs/architecture/CURRENT_STATE.md`
+  - `docs/architecture/modules.md`
+  - `ARCHITECTURE_CLEANUP_CHECKLIST.md` for closeout accounting only
+- `source_finding_ids`:
+  - `FCP-1-SF1`
+  - `FCP-1-SF2`
+- `verification`:
+  - source audits for app-shell/core result separation
+  - targeted app-shell/server-selection/server-select tests
+  - `npm run verify`
+  - `npm run verify:docs`
+- `dependencies`: none
+- `stop_condition`: stop if implementation requires behavior edits outside the app-shell contract/doc seam or any change to core/server-selection result semantics.
+- `handoff_condition`: narrow app-shell contract is in source, targeted tests pass, docs identify core-vs-app-shell ownership, and checklist mini-record/proof matrix is updated after clean review.
+- `serial_only`: true
+- `parallel_justification`: single cross-module contract seam; splitting docs/tests/source would create dependent partial states.
+- `coverage_check`:
+  - `FCP-1-SF1`: `FCP-1-S1`; final owner: app-shell runtime contract owner; closure check: `AppShellRuntimeContracts.ts` no longer imports `OrchestratorServerSelectionResult` or `ServerSelectionTypes`, app-shell tests assert the boundary, and adapter behavior is unchanged.
+  - `FCP-1-SF2`: `FCP-1-S1`; final owner: architecture docs owner; closure check: `CURRENT_STATE.md` and `modules.md` name the full core selected-server result owner and the app-shell result-narrowing owner without widening public barrels.
+  - `FCP-1-SF3`: deferred to a future FCP-1 channel-setup handoff package or explicit no-action acceptance after fresh source review; final owner: channel setup UI/core boundary owner; closure check: future closure either narrows the UI-facing channel-setup contract or records source-backed acceptance of direct core domain imports with docs.
+  - `FCP-1-SF4`: deferred to a future FCP-1 AppOrchestrator runtime assembly package after a narrower source brief is proven; final owner: core orchestrator runtime assembly owner; closure check: future closure names one concrete AppOrchestrator handoff to narrow and proves the change reduces owner breadth rather than moving hub responsibility.
+- `recommended_slice_order`:
+  1. `FCP-1-S1`
+- `deferred_finding_order`:
+  1. `FCP-1-SF3`
+  2. `FCP-1-SF4`
+- `ready_now_slice`: `FCP-1-S1`
+- `ready_now_execution_unit`: `FCP-1-S1`
+- `parallel_execution_policy`: Parallel execution is unavailable for the ready-now package. `FCP-1-SF3` and `FCP-1-SF4` are not approved execution units yet; parallel execution may be reconsidered only after later source-backed package splits prove disjoint scopes, independent verification, and explicit rejoin conditions.
 
 ## Verification Commands
 
-Primary verification mode: `contract-first`
-
-Plan classification: `new regression/contract test required`
+- Primary verification mode: `contract-first`
+- Verification classification: `new regression/contract test required`
 
 Required source audits after implementation:
 
-```sh
-rg -n "OrchestratorServerSelectionResult|ServerSelectionTypes" src/core/app-shell/AppShellRuntimeContracts.ts
-```
-
-Expected: no matches.
-
-```sh
-rg -n "startupResume|persistedSelection|readiness" src/core/app-shell/AppShellRuntimeContracts.ts src/modules/ui/server-select/ServerSelectScreen.ts
-```
-
-Expected: no matches for app-shell/server-select contract leakage. If a match appears only in a comment explaining the separation, prefer removing the comment unless it is necessary for docs; source should stay contract-focused.
-
-```sh
-rg -n "OrchestratorServerSelectionResult|SelectedServerStartupResumeResult|startupResume" src/core/server-selection src/core/orchestrator/AppOrchestrator.ts src/__tests__/Orchestrator.test.ts src/core/server-selection/__tests__/ServerSelectionCoordinator.test.ts
-```
-
-Expected: the full selected-server result remains in core/orchestrator ownership and core tests still cover startup-resume details.
+- Run: `rg -n "OrchestratorServerSelectionResult|ServerSelectionTypes" src/core/app-shell/AppShellRuntimeContracts.ts`
+- Expected: no matches.
+- Run: `rg -n "startupResume|persistedSelection|readiness" src/core/app-shell/AppShellRuntimeContracts.ts src/modules/ui/server-select/ServerSelectScreen.ts`
+- Expected: no matches for app-shell/server-select contract leakage. If a match appears only in a comment explaining the separation, prefer removing the comment unless it is necessary for docs; source should stay contract-focused.
+- Run: `rg -n "OrchestratorServerSelectionResult|SelectedServerStartupResumeResult|startupResume" src/core/server-selection src/core/orchestrator/AppOrchestrator.ts src/__tests__/Orchestrator.test.ts src/core/server-selection/__tests__/ServerSelectionCoordinator.test.ts`
+- Expected: the full selected-server result remains in core/orchestrator ownership and core tests still cover startup-resume details.
 
 Required targeted tests:
 
-```sh
-npm run test:unit -- src/core/app-shell/__tests__/AppShellRuntimeContracts.test.ts src/core/app-shell/__tests__/AppLazyScreenPortFactory.test.ts src/core/server-selection/__tests__/ServerSelectionCoordinator.test.ts src/modules/ui/server-select/__tests__/ServerSelectScreen.test.ts --runInBand
-```
-
-Expected: all named suites pass. The app-shell boundary test must include a new assertion that `AppShellRuntimeContracts.ts` does not import `core/server-selection/ServerSelectionTypes` or expose `OrchestratorServerSelectionResult`.
+- Run: `npm run test:unit -- src/core/app-shell/__tests__/AppShellRuntimeContracts.test.ts src/core/app-shell/__tests__/AppLazyScreenPortFactory.test.ts src/core/server-selection/__tests__/ServerSelectionCoordinator.test.ts src/modules/ui/server-select/__tests__/ServerSelectScreen.test.ts --runInBand`
+- Expected: all named suites pass. The app-shell boundary test must include a new assertion that `AppShellRuntimeContracts.ts` does not import `core/server-selection/ServerSelectionTypes` or expose `OrchestratorServerSelectionResult`.
 
 Required full runtime gate:
 
-```sh
-npm run verify
-```
-
-Expected: pass, because this is UI/app-shell/Orchestrator-adjacent source work.
+- Run: `npm run verify`
+- Expected: pass, because this is UI/app-shell/Orchestrator-adjacent source work.
 
 Required docs/control-plane gate if docs or checklist are updated:
 
-```sh
-npm run verify:docs
-```
-
-Expected: pass.
+- Run: `npm run verify:docs`
+- Expected: pass.
 
 Why this proof depth matches risk: the source change is a contract boundary cleanup, not a behavior change. A narrow contract assertion protects against the same ownership regression returning, targeted tests protect the adapter/core result behavior, and `npm run verify` covers broader TypeScript/runtime regressions.
 
