@@ -423,9 +423,9 @@ changes them:
   app-shell/core channel setup port. DCR-3 is the next unchecked DCR package
   only when the maintainer starts the next cleanup loop.
 
-### [ ] `DCR-3` Event Subscription And Error Import Coherence
+### [x] `DCR-3` Event Subscription And Error Import Coherence
 
-- Status: not started
+- Status: completed
 - Dimensions/rubric tags: API surface coherence, contract coherence, type
   safety, cross-module architecture, duplication, naming/API consistency
 - Scope owner: shared event/API contract owner with module-specific event
@@ -490,8 +490,7 @@ changes them:
       valid for production callers or whether direct `src/types/app-errors`
       imports are canonical.
   - accepted residuals:
-    - none yet; any intentional event API split must be documented with owner
-      and revisit trigger.
+    - none.
 - Completion means: event subscription contracts are internally coherent and
   documented/tested at the public seams; Plex library interface matches
   implementation; error-code import source is normalized or explicitly
@@ -499,7 +498,7 @@ changes them:
 - Verification routing: targeted event surface/interface tests, source audit for
   `on(`/`off(` return contracts and `AppErrorCode` import paths, then
   `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: completed.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -511,12 +510,34 @@ changes them:
 - Stop/replan triggers: public interface changes require broad caller rewrites;
   canonical event decision conflicts with existing docs/API; error taxonomy
   facade ownership is still undecided after source discovery.
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start with a DCR-3 plan that resolves the canonical event and error
-  import decisions before authorizing write slices.
+- Plan:
+  [`docs/archive/plans/2026-04-29-dcr-3-event-subscription-error-import-coherence.md`](./docs/archive/plans/2026-04-29-dcr-3-event-subscription-error-import-coherence.md)
+- Last touched: 2026-04-29, implementation commits `53b57edb`,
+  `25a3e2f9`, and `d274fa74`
+- Verification: plan review initially found material scope/audit issues; the
+  planner revised them, same-reviewer closure approved, and a fresh final plan
+  review approved implementation. `DCR-3-WAVE1` implementation review approved
+  disposable-return event contract normalization with no material findings.
+  `DCR-3-S3` implementation review found remaining lifecycle-sourced
+  `AppErrorCode` imports in channel-manager/profile-select production files;
+  revision commit `d274fa74` fixed them, same-reviewer closure approved, and a
+  fresh final implementation review approved S3. Targeted event/interface tests
+  passed; targeted S3 tests passed; source audits passed for public `on()`
+  return contracts and production `AppErrorCode` import/re-export drift;
+  `npm run typecheck` passed; `npm run verify` passed; `npm run verify:docs`
+  passed after the Plex API docs and checklist closeout updates.
+- Follow-ups: none. The canonical event contract is that public `on()` methods
+  return `IDisposable`; existing `off()` remains where already exposed, but new
+  cleanup should prefer the disposable. The canonical production
+  `AppErrorCode` import source for non-lifecycle modules is
+  `src/types/app-errors.ts`; lifecycle-owned non-`AppErrorCode` types remain
+  with lifecycle owners.
+- Handoff: `DCR-3` is complete. Do not reopen event subscription cleanup unless
+  a new public `on()` surface returns `void` or source audit finds a real
+  listener-cleanup regression. Do not reopen `AppErrorCode` import coherence
+  unless a non-lifecycle production module imports or re-exports it from a
+  lifecycle/Plex facade. `DCR-4` is the next unchecked DCR package only when
+  the maintainer starts the next cleanup loop.
 
 ### [ ] `DCR-4` EPG Defaults And Constants Coherence
 
