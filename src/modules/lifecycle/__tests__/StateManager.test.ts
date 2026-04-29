@@ -15,6 +15,15 @@ import {
 
 installMockLocalStorage();
 
+const captureThrown = (operation: () => void): unknown => {
+    try {
+        operation();
+    } catch (error) {
+        return error;
+    }
+    throw new Error('Expected operation to throw');
+};
+
 describe('StateManager', () => {
     let stateManager: StateManager;
 
@@ -139,12 +148,7 @@ describe('StateManager', () => {
                 throw new DOMException('Quota exceeded', 'QuotaExceededError');
             });
 
-            let thrown: unknown;
-            try {
-                stateManager.save(state);
-            } catch (error) {
-                thrown = error;
-            }
+            const thrown = captureThrown(() => stateManager.save(state));
 
             expect(thrown).toBeInstanceOf(DOMException);
             expect((thrown as DOMException).name).toBe('QuotaExceededError');
@@ -157,12 +161,7 @@ describe('StateManager', () => {
                 throw new DOMException('blocked', 'SecurityError');
             });
 
-            let thrown: unknown;
-            try {
-                stateManager.save(state);
-            } catch (error) {
-                thrown = error;
-            }
+            const thrown = captureThrown(() => stateManager.save(state));
 
             expect(thrown).toBeInstanceOf(DOMException);
             expect((thrown as DOMException).name).toBe('SecurityError');

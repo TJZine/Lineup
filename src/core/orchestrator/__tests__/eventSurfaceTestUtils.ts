@@ -27,9 +27,14 @@ export function createTestEventSurface(): TestEventSurface {
             }
         }),
         emit: (event: string, ...args: readonly unknown[]): void => {
-            handlers.get(event)?.forEach((handler) => {
+            const eventHandlers = handlers.get(event);
+            if (!eventHandlers) {
+                return;
+            }
+
+            for (const handler of [...eventHandlers]) {
                 handler(...args);
-            });
+            }
         },
     };
 }

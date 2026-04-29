@@ -353,11 +353,16 @@ describe('AppLazyScreenPortFactory', () => {
         runtimePort?.openServerSelect();
         runtimePort?.openEPG();
         await runtimePort?.switchToChannelByNumber(12);
+        const controller = new AbortController();
+        await runtimePort?.switchToChannelByNumber(12, { signal: controller.signal });
 
         expect(orchestrator.getChannelSetupWorkflowPort).toHaveBeenCalledTimes(1);
         expect(orchestrator.openServerSelect).toHaveBeenCalledTimes(1);
         expect(orchestrator.openEPG).toHaveBeenCalledTimes(1);
         expect(orchestrator.switchToChannelByNumber).toHaveBeenCalledWith(12, undefined);
+        expect(orchestrator.switchToChannelByNumber).toHaveBeenCalledWith(12, {
+            signal: controller.signal,
+        });
     });
 
     it('returns null channel-setup runtime port without a source runtime', (): void => {

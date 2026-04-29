@@ -131,6 +131,33 @@ describe('ExitConfirmCoordinator', () => {
         expect(document.getElementById(EXIT_CONFIRM_ACTION_IDS.exit)).toBeNull();
     });
 
+    it('re-registers focusables and restores accessible state after close and reopen', () => {
+        const { coordinator, modal, navigation, container } = setup();
+
+        coordinator.handleModalOpen(EXIT_CONFIRM_MODAL_ID);
+        coordinator.handleModalClose(EXIT_CONFIRM_MODAL_ID);
+        coordinator.handleModalOpen(EXIT_CONFIRM_MODAL_ID);
+
+        const cancelRegistrations = navigation.registerFocusable.mock.calls.filter(
+            ([focusable]) => focusable.id === EXIT_CONFIRM_ACTION_IDS.cancel
+        );
+        const exitRegistrations = navigation.registerFocusable.mock.calls.filter(
+            ([focusable]) => focusable.id === EXIT_CONFIRM_ACTION_IDS.exit
+        );
+        expect(cancelRegistrations).toHaveLength(2);
+        expect(exitRegistrations).toHaveLength(2);
+        expect(navigation.unregisterFocusable).toHaveBeenCalledWith(EXIT_CONFIRM_ACTION_IDS.cancel);
+        expect(navigation.unregisterFocusable).toHaveBeenCalledWith(EXIT_CONFIRM_ACTION_IDS.exit);
+        expect(modal.isVisible()).toBe(true);
+        expect(container.classList.contains('visible')).toBe(true);
+        expect(container.getAttribute('role')).toBe('dialog');
+        expect(container.getAttribute('aria-modal')).toBe('true');
+        expect(container.getAttribute('aria-labelledby')).toBe('exit-confirm-title');
+        expect(container.getAttribute('aria-describedby')).toBe('exit-confirm-message');
+        expect(document.getElementById(EXIT_CONFIRM_ACTION_IDS.cancel)).not.toBeNull();
+        expect(document.getElementById(EXIT_CONFIRM_ACTION_IDS.exit)).not.toBeNull();
+    });
+
     it('destroys the modal without leaving visible dialog content behind', () => {
         const { coordinator, modal, container } = setup();
 

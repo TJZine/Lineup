@@ -302,13 +302,10 @@ describe('EventEmitter', () => {
 
             emitter.emit('test', 1);
 
-            // All handlers should be called on first emit (Set iteration snapshot)
-            expect(calls).toContain('A');
-            expect(calls).toContain('C');
-            // handlerB may or may not be called depending on Set iteration order
+            expect(calls).toEqual(['A', 'B', 'C']);
         });
 
-        it('should safely handle handler addition during emit', () => {
+        it('delivers handlers added during emit on the next emit only', () => {
             const emitter = new EventEmitter<{ test: number }>();
             const calls: string[] = [];
             const lateHandler = (): void => { calls.push('late'); };
@@ -321,15 +318,12 @@ describe('EventEmitter', () => {
             emitter.on('test', handlerA);
             emitter.emit('test', 1);
 
-            // First emit should include 'A'
-            expect(calls).toContain('A');
+            expect(calls).toEqual(['A']);
 
-            calls.length = 0; // Reset for next emit
+            calls.length = 0;
             emitter.emit('test', 2);
 
-            // Second emit should include both handlers
-            expect(calls).toContain('A');
-            expect(calls).toContain('late');
+            expect(calls).toEqual(['A', 'late']);
         });
     });
 });

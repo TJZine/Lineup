@@ -85,7 +85,13 @@ export class SettingsScreenFocusCoordinator {
         const categoryButtonId = this.getCategoryButtonId(categoryId);
         const categoryConfig = this._getCategories().find((entry) => entry.id === categoryId);
         if (options.focusDetail) {
-            return this._lastFocusedItemByCategory[categoryId] ?? categoryConfig?.items[0]?.id ?? categoryButtonId;
+            const rememberedId = this._lastFocusedItemByCategory[categoryId];
+            const rememberedStillBelongsToCategory = Boolean(
+                rememberedId && categoryConfig?.items.some((item) => item.id === rememberedId)
+            );
+            return rememberedStillBelongsToCategory
+                ? rememberedId ?? categoryButtonId
+                : categoryConfig?.items[0]?.id ?? categoryButtonId;
         }
 
         return options.preferredFocusId ?? categoryButtonId;
@@ -195,7 +201,7 @@ export class SettingsScreenFocusCoordinator {
         if (!select || select.isDisabled()) return;
 
         const nav = this._getNavigation();
-        this._activeDropdown = createSettingsDropdown({
+        const dropdown = createSettingsDropdown({
             anchor: select.element,
             container: this._container,
             options: select.getOptions(),
@@ -213,12 +219,18 @@ export class SettingsScreenFocusCoordinator {
                 }
             },
             onDismiss: (): void => {
-                if (nav) {
-                    nav.setFocus(selectId);
+                if (this._activeDropdown === dropdown) {
+                    this._activeDropdown = null;
+                }
+                try {
+                    nav?.setFocus(selectId);
+                } catch {
+                    // Ignore focus restore failures.
                 }
             },
             nav,
         });
+        this._activeDropdown = dropdown;
     }
 
     public closeDropdown(): void {

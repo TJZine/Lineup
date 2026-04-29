@@ -65,7 +65,7 @@ export class EventEmitter<TEventMap extends Record<string, unknown>>
             return;
         }
 
-        eventHandlers.forEach((handler) => {
+        for (const handler of [...eventHandlers]) {
             try {
                 handler(payload);
             } catch (error) {
@@ -75,7 +75,7 @@ export class EventEmitter<TEventMap extends Record<string, unknown>>
                     // Best-effort logging only; delivery isolation is the real contract.
                 }
             }
-        });
+        }
     }
 
     public removeAllListeners(event?: keyof TEventMap): void {
