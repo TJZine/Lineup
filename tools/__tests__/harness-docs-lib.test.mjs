@@ -128,6 +128,112 @@ function buildWaveScopedPackageDecomposition() {
 `;
 }
 
+function buildFcpSingleSlicePackageDecomposition() {
+    return `
+## Package Decomposition
+
+- \`package_id\`: \`pkg_fcp_architecture_handoff\`
+- \`checklist_token\`: \`FCP-1\`
+- \`source_finding_ids\`:
+  - \`FCP-1-SF1\`
+- \`slice_table\`:
+
+### \`FCP-1-S1\` Architecture Handoff Slice
+
+- \`goal\`: retire the source-backed handoff seam without widening scope
+- \`areas/files\`:
+  - \`src/core/orchestrator/AppOrchestrator.ts\`
+- \`source_finding_ids\`:
+  - \`FCP-1-SF1\`
+- \`verification\`:
+  - \`npm run verify\`
+- \`dependencies\`: none
+- \`stop_condition\`: stop if the source audit finds a different owner seam
+- \`handoff_condition\`: hand off once review is clean
+- \`serial_only\`: true
+- \`parallel_justification\`: keep the execution unit serial
+- \`coverage_check\`:
+  - every approved source finding is mapped to one slice-owned execution path
+- \`recommended_slice_order\`:
+  1. \`FCP-1-S1\`
+- \`ready_now_slice\`: \`FCP-1-S1\`
+- \`ready_now_execution_unit\`: \`FCP-1-S1\`
+- \`parallel_execution_policy\`: serial
+`;
+}
+
+function buildActiveCleanupPlan(packageDecomposition, extraSections = '') {
+    return `# Cleanup Example
+
+**Plan Status:** active
+**Task family:** cleanup/refactor
+**Cleanup subtype:** checklist-linked
+
+## Goal
+
+- Do the cleanup.
+
+## Non-Goals
+
+- No unrelated runtime changes.
+
+## Parent Architecture Alignment
+
+- Keep the control plane small.
+
+## Required Reading
+
+- \`docs/AGENTIC_DEV_WORKFLOW.md\`
+
+## Required Skills
+
+- \`execution-plan-authoring\`
+
+## Codanna Discovery
+
+- fallback: direct reads only.
+
+## Impact Snapshot
+
+- \`ARCHITECTURE_CLEANUP_CHECKLIST.md\`
+
+## Files In Scope
+
+- \`ARCHITECTURE_CLEANUP_CHECKLIST.md\`
+
+## Files Out Of Scope
+
+- \`src/App.ts\`
+
+## Planner Self-Check
+
+- resolved.
+
+## Architecture Seam Decision Gate
+
+- explicit.
+
+## Verification Commands
+
+- Verification classification: \`existing coverage sufficient\`
+
+- Run: \`npm run verify:docs\`
+- Expected: \`Documentation verification passed.\`
+
+## Rollback Notes
+
+- revert.
+
+## Commit Checkpoints
+
+- \`docs: update plan rules\`
+
+${packageDecomposition}
+
+${extraSections}
+`;
+}
+
 test('parseSkillMirrorManifest reads tracked allowlist entries and ignores comments', () => {
     const entries = parseSkillMirrorManifest(`
 # comment
@@ -180,6 +286,22 @@ test('extractChecklistPlanPaths ignores placeholders and non-plan values', () =>
     `);
 
     assert.deepEqual(paths, ['docs/plans/example-plan.md']);
+});
+
+test('extractChecklistPlanPaths reads mini-record Plan fields case-insensitively', () => {
+    const paths = extractChecklistPlanPaths(`
+### [ ] \`FCP-1\` Architecture And Handoff Coherence
+
+- Status: not started
+- Plan: docs/plans/fcp.md
+- Handoff: pending
+
+### [x] \`P6-W1\`
+
+- plan: docs/archive/plans/legacy.md
+    `);
+
+    assert.deepEqual(paths, ['docs/plans/fcp.md', 'docs/archive/plans/legacy.md']);
 });
 
 test('classifyChecklistPlanPathStatus distinguishes tracked, untracked, and missing plan refs', () => {
@@ -1662,6 +1784,242 @@ ${buildSingleSlicePackageDecomposition()}
 
     assert.equal(result.isSerious, true);
     assert.deepEqual(result.errors, []);
+});
+
+test('checkPlanConformance accepts FCP checklist-linked plans with source_finding_ids', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-28-fcp-example.md',
+        content: buildActiveCleanupPlan(buildFcpSingleSlicePackageDecomposition()),
+    });
+
+    assert.equal(result.isSerious, true);
+    assert.deepEqual(result.errors, []);
+});
+
+test('checkPlanConformance accepts legacy non-FCP checklist tokens such as S9-W1', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-19-s9-inline-style-bootstrap-cleanup.md',
+        content: buildActiveCleanupPlan(
+            buildSingleSlicePackageDecomposition({ readyNowSlice: 'S9-W1-S1' })
+                .replace('`checklist_token`: `P6-W1`', '`checklist_token`: `S9-W1`')
+                .replaceAll('P6-W1-S1', 'S9-W1-S1')
+        ),
+    });
+
+    assert.deepEqual(result.errors, []);
+});
+
+test('checkPlanConformance rejects legacy issue fields in FCP checklist-linked plans', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-28-fcp-example.md',
+        content: buildActiveCleanupPlan(
+            buildFcpSingleSlicePackageDecomposition()
+                .replace('- `source_finding_ids`:\n  - `FCP-1-SF1`', '- `package_issue_ids`:\n  - `review::.::holistic::design_coherence::old_issue`')
+                .replace('- `source_finding_ids`:\n  - `FCP-1-SF1`', '- `exact_issue_ids`:\n  - `review::.::holistic::design_coherence::old_issue`')
+        ),
+    });
+
+    assert.ok(result.errors.includes('checklist-linked FCP plans must use `source_finding_ids`, not `package_issue_ids`'));
+    assert.ok(result.errors.includes('checklist-linked FCP plans must use `source_finding_ids`, not `exact_issue_ids`'));
+    assert.ok(result.errors.includes('checklist-linked plans must include `source_finding_ids` in `## Package Decomposition`'));
+    assert.ok(result.errors.includes('FCP-1-S1 in `slice_table` must include `source_finding_ids`'));
+});
+
+test('checkPlanConformance rejects imported ids in FCP coverage_check text', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-28-fcp-example.md',
+        content: buildActiveCleanupPlan(
+            buildFcpSingleSlicePackageDecomposition().replace(
+                'every approved source finding is mapped to one slice-owned execution path',
+                'review::.::holistic::design_coherence::old_issue is mapped to one slice-owned execution path'
+            )
+        ),
+    });
+
+    assert.ok(result.errors.includes('checklist-linked FCP plans must not include detector/imported issue ids, package-map evidence, or Desloppify evidence in `## Package Decomposition`'));
+});
+
+test('checkPlanConformance rejects Desloppify commands in FCP package decomposition', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-28-fcp-example.md',
+        content: buildActiveCleanupPlan(
+            buildFcpSingleSlicePackageDecomposition().replace(
+                'every approved source finding is mapped to one slice-owned execution path',
+                'desloppify status maps every approved source finding to one slice-owned execution path'
+            )
+        ),
+    });
+
+    assert.ok(result.errors.includes('checklist-linked FCP plans must not include detector/imported issue ids, package-map evidence, or Desloppify evidence in `## Package Decomposition`'));
+});
+
+test('checkPlanConformance rejects package-map evidence in FCP package decomposition', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-28-fcp-example.md',
+        content: buildActiveCleanupPlan(
+            buildFcpSingleSlicePackageDecomposition().replace(
+                'every approved source finding is mapped to one slice-owned execution path',
+                'package-map evidence maps every approved source finding to one slice-owned execution path'
+            )
+        ),
+    });
+
+    assert.ok(result.errors.includes('checklist-linked FCP plans must not include detector/imported issue ids, package-map evidence, or Desloppify evidence in `## Package Decomposition`'));
+});
+
+test('checkPlanConformance rejects detector-shaped source_finding_ids in FCP plans', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-28-fcp-example.md',
+        content: buildActiveCleanupPlan(
+            buildFcpSingleSlicePackageDecomposition()
+                .replaceAll('FCP-1-SF1', 'review::.::holistic::design_coherence::old_issue')
+        ),
+    });
+
+    assert.ok(result.errors.includes('checklist-linked FCP plans must use source_finding_ids matching `FCP-1-SF#`'));
+    assert.ok(result.errors.includes('FCP-1-S1 in `slice_table` must use source_finding_ids matching `FCP-1-SF#`'));
+});
+
+test('checkPlanConformance rejects source_finding_ids from a different FCP checklist token', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-28-fcp-example.md',
+        content: buildActiveCleanupPlan(
+            buildFcpSingleSlicePackageDecomposition()
+                .replaceAll('FCP-1-SF1', 'FCP-2-SF1')
+        ),
+    });
+
+    assert.ok(result.errors.includes('checklist-linked FCP plans must use source_finding_ids matching `FCP-1-SF#`'));
+    assert.ok(result.errors.includes('FCP-1-S1 in `slice_table` must use source_finding_ids matching `FCP-1-SF#`'));
+});
+
+test('checkPlanConformance accepts FCP priority-exit readiness with source findings and FCP gate', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-28-fcp-example.md',
+        content: buildActiveCleanupPlan(
+            buildFcpSingleSlicePackageDecomposition(),
+            `
+## Priority-Exit Readiness
+
+- \`FCP-1-SF1\`
+  - disposition: resolved
+  - final owner: \`FCP-1\`
+  - revisit trigger: rerun the source audit if the owner seam changes
+- security triage: no open P0 security findings
+- priority-exit review blocks FCP-(n+1) until FCP-n is completed
+`
+        ),
+    });
+
+    assert.deepEqual(result.errors, []);
+});
+
+test('checkPlanConformance rejects imported issue ids in FCP priority-exit readiness', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-28-fcp-example.md',
+        content: buildActiveCleanupPlan(
+            buildFcpSingleSlicePackageDecomposition(),
+            `
+## Priority-Exit Readiness
+
+- \`review::.::holistic::design_coherence::old_issue\`
+  - disposition: resolved
+  - final owner: \`FCP-1\`
+  - revisit trigger: rerun the source audit if the owner seam changes
+- security triage: no open P0 security findings
+- priority-exit review blocks FCP-(n+1) until FCP-n is completed
+`
+        ),
+    });
+
+    assert.ok(result.errors.includes('FCP priority-exit readiness must use declared source_finding_id headers, not imported issue ids'));
+});
+
+test('checkPlanConformance rejects imported ids in nested FCP priority-exit proof text', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-28-fcp-example.md',
+        content: buildActiveCleanupPlan(
+            buildFcpSingleSlicePackageDecomposition(),
+            `
+## Priority-Exit Readiness
+
+- \`FCP-1-SF1\`
+  - disposition: resolved
+  - final owner: \`FCP-1\`
+  - proof: source audit independently resolved review::.::holistic::design_coherence::old_issue
+  - revisit trigger: rerun the source audit if the owner seam changes
+- security triage: no open P0 security findings
+- priority-exit review blocks FCP-(n+1) until FCP-n is completed
+`
+        ),
+    });
+
+    assert.ok(result.errors.includes('FCP priority-exit readiness must not include detector/imported issue ids, package-map evidence, or Desloppify evidence'));
+});
+
+test('checkPlanConformance rejects Desloppify paths in nested FCP priority-exit proof text', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-28-fcp-example.md',
+        content: buildActiveCleanupPlan(
+            buildFcpSingleSlicePackageDecomposition(),
+            `
+## Priority-Exit Readiness
+
+- \`FCP-1-SF1\`
+  - disposition: resolved
+  - final owner: \`FCP-1\`
+  - proof: source audit compared against .desloppify/state-typescript.json
+  - revisit trigger: rerun the source audit if the owner seam changes
+- security triage: no open P0 security findings
+- priority-exit review blocks FCP-(n+1) until FCP-n is completed
+`
+        ),
+    });
+
+    assert.ok(result.errors.includes('FCP priority-exit readiness must not include detector/imported issue ids, package-map evidence, or Desloppify evidence'));
+});
+
+test('checkPlanConformance rejects package-map proof in FCP priority-exit readiness', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-28-fcp-example.md',
+        content: buildActiveCleanupPlan(
+            buildFcpSingleSlicePackageDecomposition(),
+            `
+## Priority-Exit Readiness
+
+- \`FCP-1-SF1\`
+  - disposition: resolved
+  - final owner: \`FCP-1\`
+  - proof: source audit compared against package map reconciliation
+  - revisit trigger: rerun the source audit if the owner seam changes
+- security triage: no open P0 security findings
+- priority-exit review blocks FCP-(n+1) until FCP-n is completed
+`
+        ),
+    });
+
+    assert.ok(result.errors.includes('FCP priority-exit readiness must not include detector/imported issue ids, package-map evidence, or Desloppify evidence'));
+});
+
+test('checkPlanConformance rejects undeclared FCP source_finding_id closeout headers', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-28-fcp-example.md',
+        content: buildActiveCleanupPlan(
+            buildFcpSingleSlicePackageDecomposition(),
+            `
+## Priority-Exit Readiness
+
+- \`FCP-1-SF2\`
+  - disposition: resolved
+  - final owner: \`FCP-1\`
+  - revisit trigger: rerun the source audit if the owner seam changes
+- security triage: no open P0 security findings
+- priority-exit review blocks FCP-(n+1) until FCP-n is completed
+`
+        ),
+    });
+
+    assert.ok(result.errors.includes('FCP priority-exit readiness must use declared source_finding_id headers, not imported issue ids'));
 });
 
 test('checkPlanConformance requires ready_now_execution_unit for checklist-linked package plans', () => {

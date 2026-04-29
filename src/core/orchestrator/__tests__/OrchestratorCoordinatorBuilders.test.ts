@@ -375,7 +375,7 @@ describe('OrchestratorCoordinatorBuilders', () => {
         const coordinator = buildNavigationCoordinator(input, deps as never);
         expect(coordinator).toBe(mockNavigationCoordinatorInstance);
         const navigationDeps = mockNavigationCoordinator.mock.calls[0]?.[0] as
-            import('../../../modules/navigation/NavigationCoordinatorContracts').NavigationCoordinatorDeps;
+            import('../../../modules/navigation/NavigationCoordinator').NavigationCoordinatorDeps;
 
         expect(navigationDeps.events.reportRecoverableAsyncFailure).toBe(reportRecoverableAsyncFailure);
         expect(navigationDeps.events.reportToast).toBeDefined();

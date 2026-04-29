@@ -3,9 +3,6 @@ import { DEFAULT_SETTINGS } from '../settings/constants';
 import { setTrustedInlineSvg } from '../../../utils/inlineSvg';
 import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
 
-/**
- * Audio choice configuration.
- */
 interface AudioChoice {
     id: 'external' | 'tv-speakers';
     label: string;
@@ -75,9 +72,6 @@ export class AudioSetupScreen {
         this._buildUI();
     }
 
-    /**
-     * Build the UI.
-     */
     private _buildUI(): void {
         this._container.className = 'screen';
         this._container.id = 'audio-setup-screen';
@@ -85,7 +79,6 @@ export class AudioSetupScreen {
         const panel = document.createElement('div');
         panel.className = 'screen-panel setup-panel';
 
-        // Header
         const title = document.createElement('h1');
         title.className = 'screen-title';
         title.textContent = 'Audio Setup';
@@ -102,7 +95,6 @@ export class AudioSetupScreen {
         panel.appendChild(stepLabel);
         panel.appendChild(subtitle);
 
-        // Choices
         const choicesList = document.createElement('div');
         choicesList.className = 'audio-choice-row';
 
@@ -172,13 +164,11 @@ export class AudioSetupScreen {
             'If enabled, Lineup can play a compatible audio track instead of transcoding. Recommended: On for most users.';
         panel.appendChild(helper);
 
-        // Hint
         const hint = document.createElement('p');
         hint.className = 'screen-detail';
         hint.textContent = 'This helps optimize audio playback. You can change this later in Settings.';
         panel.appendChild(hint);
 
-        // Actions
         const actions = document.createElement('div');
         actions.className = 'button-row';
 
@@ -193,9 +183,6 @@ export class AudioSetupScreen {
         this._container.appendChild(panel);
     }
 
-    /**
-     * Select an audio choice.
-     */
     private _selectChoice(choiceId: AudioChoice['id']): void {
         this._didUserExplicitlyChoose = true;
         this._selectedChoice = choiceId;
@@ -212,7 +199,6 @@ export class AudioSetupScreen {
             }
         }
 
-        // Enable continue button
         const continueBtn = this._container.querySelector('#audio-setup-continue') as HTMLButtonElement | null;
         if (continueBtn) {
             continueBtn.disabled = false;
@@ -220,18 +206,12 @@ export class AudioSetupScreen {
         }
     }
 
-    /**
-     * Apply settings and continue.
-     */
     private _applyAndContinue(): void {
         if (!this._selectedChoice) return;
 
-        // Apply settings based on choice
         if (this._selectedChoice === 'external') {
-            // External receiver: enable DTS passthrough
             this._audioSettingsStore.writeDtsPassthroughEnabled(true);
         } else {
-            // TV speakers: disable DTS passthrough
             this._audioSettingsStore.writeDtsPassthroughEnabled(false);
         }
 
@@ -241,33 +221,21 @@ export class AudioSetupScreen {
         this._onComplete();
     }
 
-    /**
-     * Check if audio setup is already complete.
-     */
     public static isSetupComplete(): boolean {
         return new AudioSettingsStore().readAudioSetupCompleteAndClean(false);
     }
 
-    /**
-     * Show the screen and register focusables.
-     */
     public show(): void {
         this._container.classList.add('visible');
         this._ensureInitialSelectionAndState();
         this._registerFocusables();
     }
 
-    /**
-     * Hide the screen and unregister focusables.
-     */
     public hide(): void {
         this._container.classList.remove('visible');
         this._unregisterFocusables();
     }
 
-    /**
-     * Register focusable elements.
-     */
     private _registerFocusables(preferredFocusId?: string): void {
         const nav = this._getNavigation();
         if (!nav) return;
@@ -389,10 +357,6 @@ export class AudioSetupScreen {
         }
     }
 
-
-    /**
-     * Unregister focusable elements.
-     */
     private _unregisterFocusables(): void {
         const nav = this._getNavigation();
         if (!nav) return;
@@ -404,9 +368,6 @@ export class AudioSetupScreen {
         this._fallbackFocusable = null;
     }
 
-    /**
-     * Destroy the component.
-     */
     public destroy(): void {
         this._unregisterFocusables();
         this._container.replaceChildren();

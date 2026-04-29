@@ -190,7 +190,16 @@ const VERIFICATION_CLASSIFICATION_LINE_RE =
 const PLAN_LIST_ENTRY_RE = /^\s*(?:[-*]|\d+\.)\s+\S+/mu;
 const PLAN_RUN_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Run:\s*`[^`]+`/imu;
 const PLAN_EXPECTED_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Expected:\s*.+$/imu;
-const CHECKLIST_SLICE_ID_RE = /^P\d+-W\d+-S\d+$/u;
+const FCP_CHECKLIST_TOKEN_RE = /^FCP-(?:\d+|EXIT)$/u;
+const LEGACY_CHECKLIST_SLICE_ID_PATTERN = '[PS]\\d+-W\\d+-S\\d+';
+const FCP_CHECKLIST_SLICE_ID_PATTERN = 'FCP-(?:\\d+|EXIT)-S\\d+';
+const LEGACY_CHECKLIST_SLICE_ID_RE = new RegExp(`^${LEGACY_CHECKLIST_SLICE_ID_PATTERN}$`, 'u');
+const FCP_CHECKLIST_SLICE_ID_RE = new RegExp(`^${FCP_CHECKLIST_SLICE_ID_PATTERN}$`, 'u');
+const FCP_FORBIDDEN_IMPORTED_ID_RE = /\b[A-Za-z][A-Za-z0-9_-]*::/u;
+const FCP_FORBIDDEN_DESLOPPIFY_RE = /\b(?:desloppify|\.desloppify)\b/iu;
+const FCP_FORBIDDEN_PACKAGE_MAP_RE = /\bpackage[-_\s]?map\b/iu;
+const FCP_FORBIDDEN_EVIDENCE_MESSAGE =
+    'detector/imported issue ids, package-map evidence, or Desloppify evidence';
 const PRIORITY_EXIT_ISSUE_HEADER_RE =
     /^\s*(?:[-*]|\d+\.)\s+`?([A-Za-z0-9/._:-]*[._:-][A-Za-z0-9/._:-]*)`?\s*$/iu;
 const PRIORITY_EXIT_DISPOSITION_RE =
@@ -205,7 +214,7 @@ const PRIORITY_EXIT_SECURITY_RE =
 const PRIORITY_EXIT_SECURITY_DISPOSITION_RE =
     /(?:no\s+open\s+`?P0`?\s+security\s+findings|none\s+open|exact(?:\s+open\/deferred)?\s+(?:`?P0`?\s+)?security\s+issue\s+ids|list\s+the\s+exact(?:\s+open\/deferred)?\s+(?:`?P0`?\s+)?security\s+issue\s+ids|`?P0`?\s+security\s+issue\s+ids|no\s+`?P0`?\s+security\s+issue\s+id\s+is\s+currently\s+mapped)/iu;
 const PRIORITY_EXIT_NEXT_PRIORITY_GATE_RE =
-    /(?:priority-exit\s+review|P#-EXIT|P\(n\+1\)|(?:before|no)\s+`?P\d+(?:-EXIT)?`?.*?\b(?:(?:should\s+)?(?:begin|begins|start|starts))\b|until\s+`?P\d+(?:-EXIT)?`?.*?\b(?:is\s+)?unresolved\b)/iu;
+    /(?:priority-exit\s+review|P#-EXIT|P\(n\+1\)|FCP-\(n\+1\)|FCP-n|(?:before|no)\s+`?(?:P\d+(?:-EXIT)?|FCP-(?:\d+|EXIT))`?.*?\b(?:(?:should\s+)?(?:begin|begins|start|starts))\b|until\s+`?(?:P\d+(?:-EXIT)?|FCP-(?:\d+|EXIT))`?.*?\b(?:is\s+)?unresolved\b)/iu;
 
 const PLAN_SECTION_RULES = [
     { label: 'goal', patterns: [/^\*\*Goal:\*\*/im, /^## Goal$/im] },
@@ -368,6 +377,42 @@ function extractChecklistPackageFieldBlock(section, label, nextLabels = null) {
     return collected.join('\n').trim();
 }
 
+function extractChecklistFieldValues(block) {
+    if (block === null) {
+        return [];
+    }
+
+    const values = [];
+    const lines = block.split(/\r?\n/u);
+
+    for (let index = 0; index < lines.length; index += 1) {
+        const line = lines[index];
+        const valueText = index === 0 ? (line.match(/^[^:]+:\s*(.*)$/u)?.[1] ?? '') : line;
+        const backtickValues = Array.from(valueText.matchAll(/`([^`]+)`/gu), (match) => match[1].trim());
+        if (backtickValues.length > 0) {
+            values.push(...backtickValues);
+            continue;
+        }
+
+        const bulletValue = valueText.match(/^\s*(?:[-*]|\d+\.)\s+(.+?)\s*$/u)?.[1]?.trim() ?? '';
+        if (bulletValue.length === 0 || bulletValue.endsWith(':')) {
+            continue;
+        }
+
+        values.push(...bulletValue.split(/\s*,\s*/u).map((value) => value.replace(/^`(.+)`$/u, '$1').trim()));
+    }
+
+    return values.filter((value) => value.length > 0);
+}
+
+function hasFcpForbiddenImportedEvidence(section) {
+    return (
+        FCP_FORBIDDEN_IMPORTED_ID_RE.test(section)
+        || FCP_FORBIDDEN_DESLOPPIFY_RE.test(section)
+        || FCP_FORBIDDEN_PACKAGE_MAP_RE.test(section)
+    );
+}
+
 function getRequiredInlineScalarFieldValue(section, label, errors, missingError, blockOnlyError) {
     const inlineFieldPattern = new RegExp(`^- ${escapeRegExp(label)}:[ \\t]*(.*)$`, 'mu');
     const inlineFieldMatch = inlineFieldPattern.exec(section);
@@ -390,8 +435,9 @@ function getRequiredInlineScalarFieldValue(section, label, errors, missingError,
     return null;
 }
 
-function getChecklistSliceSections(sliceTableBlock) {
-    const matches = Array.from(sliceTableBlock.matchAll(/^###\s+`(P\d+-W\d+-S\d+)`[^\n]*$/gmu));
+function getChecklistSliceSections(sliceTableBlock, sliceIdPattern) {
+    const sliceHeadingRe = new RegExp(`^###\\s+\`(${sliceIdPattern})\`[^\\n]*$`, 'gmu');
+    const matches = Array.from(sliceTableBlock.matchAll(sliceHeadingRe));
     if (matches.length === 0) {
         return [];
     }
@@ -425,10 +471,12 @@ function getExecutionWaveEntries(executionWavesBlock) {
     });
 }
 
-function getDeclaredExecutionWaveSliceIds(waveContent) {
+function getDeclaredExecutionWaveSliceIds(waveContent, sliceIdPattern) {
     const lines = waveContent.split(/\r?\n/u);
     let collecting = false;
     const sliceIds = [];
+    const inlineSliceIdRe = new RegExp(sliceIdPattern, 'gu');
+    const nestedSliceIdRe = new RegExp(`^[ \\t]+(?:[-*]|\\d+\\.)[ \\t]+\`(${sliceIdPattern})\``, 'u');
 
     for (const line of lines) {
         if (!collecting) {
@@ -437,7 +485,7 @@ function getDeclaredExecutionWaveSliceIds(waveContent) {
                 continue;
             }
 
-            const inlineIds = Array.from(sliceIdsLineMatch[1].matchAll(/P\d+-W\d+-S\d+/gu), (match) => match[0]);
+            const inlineIds = Array.from(sliceIdsLineMatch[1].matchAll(inlineSliceIdRe), (match) => match[0]);
             if (inlineIds.length > 0) {
                 return inlineIds;
             }
@@ -446,7 +494,7 @@ function getDeclaredExecutionWaveSliceIds(waveContent) {
             continue;
         }
 
-        const nestedSliceId = line.match(/^[ \t]+(?:[-*]|\d+\.)[ \t]+`(P\d+-W\d+-S\d+)`/u)?.[1] ?? null;
+        const nestedSliceId = line.match(nestedSliceIdRe)?.[1] ?? null;
         if (nestedSliceId !== null) {
             sliceIds.push(nestedSliceId);
             continue;
@@ -469,10 +517,35 @@ function getChecklistLinkedPackagePlanErrors(content) {
         return ['checklist-linked plans must include `## Package Decomposition`'];
     }
 
+    const checklistToken = parseInlineField(packageDecomposition, '`checklist_token`');
+    const isFcpPackage = checklistToken !== null && FCP_CHECKLIST_TOKEN_RE.test(checklistToken);
+    const packageIssueField = isFcpPackage ? '`source_finding_ids`' : '`package_issue_ids`';
+    const sliceIssueField = isFcpPackage ? '`source_finding_ids`' : '`exact_issue_ids`';
+    const fcpSliceIdPattern = checklistToken === null ? FCP_CHECKLIST_SLICE_ID_PATTERN : `${escapeRegExp(checklistToken)}-S\\d+`;
+    const fcpSliceIdRe = new RegExp(`^${fcpSliceIdPattern}$`, 'u');
+    const sliceIdRe = isFcpPackage ? fcpSliceIdRe : LEGACY_CHECKLIST_SLICE_ID_RE;
+    const sliceIdPattern = isFcpPackage ? fcpSliceIdPattern : LEGACY_CHECKLIST_SLICE_ID_PATTERN;
+    const fcpSourceFindingIdRe = checklistToken === null ? null : new RegExp(`^${escapeRegExp(checklistToken)}-SF\\d+$`, 'u');
+    const sliceIdError = isFcpPackage
+        ? 'checklist-linked FCP plans must keep `ready_now_slice` on an FCP package-scoped slice id'
+        : 'checklist-linked plans must keep `ready_now_slice` on a package-scoped slice id';
+
+    if (isFcpPackage) {
+        if (hasFcpForbiddenImportedEvidence(packageDecomposition)) {
+            errors.push(`checklist-linked FCP plans must not include ${FCP_FORBIDDEN_EVIDENCE_MESSAGE} in \`## Package Decomposition\``);
+        }
+        if (extractChecklistPackageFieldBlock(packageDecomposition, '`package_issue_ids`') !== null) {
+            errors.push('checklist-linked FCP plans must use `source_finding_ids`, not `package_issue_ids`');
+        }
+        if (extractChecklistPackageFieldBlock(packageDecomposition, '`exact_issue_ids`') !== null) {
+            errors.push('checklist-linked FCP plans must use `source_finding_ids`, not `exact_issue_ids`');
+        }
+    }
+
     const requiredFields = [
         '`package_id`',
         '`checklist_token`',
-        '`package_issue_ids`',
+        packageIssueField,
         '`slice_table`',
         '`coverage_check`',
         '`recommended_slice_order`',
@@ -487,6 +560,21 @@ function getChecklistLinkedPackagePlanErrors(content) {
         }
     }
 
+    let packageSourceFindingIds = [];
+    if (isFcpPackage) {
+        const packageSourceFindingBlock = extractChecklistPackageFieldBlock(packageDecomposition, '`source_finding_ids`');
+        packageSourceFindingIds = extractChecklistFieldValues(packageSourceFindingBlock);
+        if (packageSourceFindingIds.length === 0) {
+            errors.push('checklist-linked FCP plans must list at least one `source_finding_ids` value');
+        }
+        if (fcpSourceFindingIdRe !== null) {
+            const invalidPackageSourceFinding = packageSourceFindingIds.some((id) => !fcpSourceFindingIdRe.test(id));
+            if (invalidPackageSourceFinding) {
+                errors.push(`checklist-linked FCP plans must use source_finding_ids matching \`${checklistToken}-SF#\``);
+            }
+        }
+    }
+
     const readyNowSlice = getRequiredInlineScalarFieldValue(
         packageDecomposition,
         '`ready_now_slice`',
@@ -494,8 +582,8 @@ function getChecklistLinkedPackagePlanErrors(content) {
         'checklist-linked plans must include `ready_now_slice` in `## Package Decomposition`',
         '`ready_now_slice` must be an inline scalar value in `## Package Decomposition`'
     );
-    if (readyNowSlice !== null && !CHECKLIST_SLICE_ID_RE.test(readyNowSlice)) {
-        errors.push('checklist-linked plans must keep `ready_now_slice` on a package-scoped slice id');
+    if (readyNowSlice !== null && !sliceIdRe.test(readyNowSlice)) {
+        errors.push(sliceIdError);
     }
 
     const sliceTableBlock = extractChecklistPackageFieldBlock(packageDecomposition, '`slice_table`', [
@@ -507,7 +595,7 @@ function getChecklistLinkedPackagePlanErrors(content) {
         '`ready_now_execution_unit`',
         '`parallel_execution_policy`',
     ]);
-    const sliceSections = sliceTableBlock === null ? [] : getChecklistSliceSections(sliceTableBlock);
+    const sliceSections = sliceTableBlock === null ? [] : getChecklistSliceSections(sliceTableBlock, sliceIdPattern);
     const declaredSliceIds = new Set(sliceSections.map((sliceSection) => sliceSection.sliceId));
     if (sliceTableBlock !== null) {
         if (sliceSections.length === 0) {
@@ -522,7 +610,7 @@ function getChecklistLinkedPackagePlanErrors(content) {
             const requiredSliceFields = [
                 '`goal`',
                 '`areas/files`',
-                '`exact_issue_ids`',
+                sliceIssueField,
                 '`verification`',
                 '`dependencies`',
                 '`stop_condition`',
@@ -535,6 +623,24 @@ function getChecklistLinkedPackagePlanErrors(content) {
                 const hasBlockValue = extractChecklistPackageFieldBlock(sliceSection.content, field) !== null;
                 if (!hasInlineValue && !hasBlockValue) {
                     errors.push(`${sliceSection.sliceId} in \`slice_table\` must include ${field}`);
+                }
+            }
+
+            if (isFcpPackage) {
+                const sliceSourceFindingBlock = extractChecklistPackageFieldBlock(sliceSection.content, '`source_finding_ids`');
+                const sliceSourceFindingIds = extractChecklistFieldValues(sliceSourceFindingBlock);
+                if (sliceSourceFindingIds.length === 0) {
+                    errors.push(`${sliceSection.sliceId} in \`slice_table\` must list at least one \`source_finding_ids\` value`);
+                }
+                if (fcpSourceFindingIdRe !== null) {
+                    const invalidSliceSourceFinding = sliceSourceFindingIds.some((id) => !fcpSourceFindingIdRe.test(id));
+                    if (invalidSliceSourceFinding) {
+                        errors.push(`${sliceSection.sliceId} in \`slice_table\` must use source_finding_ids matching \`${checklistToken}-SF#\``);
+                    }
+                }
+                const unknownSliceSourceFinding = sliceSourceFindingIds.some((id) => !packageSourceFindingIds.includes(id));
+                if (unknownSliceSourceFinding) {
+                    errors.push(`${sliceSection.sliceId} in \`slice_table\` must use source_finding_ids declared at package level`);
                 }
             }
 
@@ -586,7 +692,7 @@ function getChecklistLinkedPackagePlanErrors(content) {
 
         if (sliceTableBlock !== null) {
             const hasUnknownWaveSliceId = waveEntries.some((waveEntry) =>
-                getDeclaredExecutionWaveSliceIds(waveEntry.content).some((sliceId) => !declaredSliceIds.has(sliceId))
+                getDeclaredExecutionWaveSliceIds(waveEntry.content, sliceIdPattern).some((sliceId) => !declaredSliceIds.has(sliceId))
             );
             if (hasUnknownWaveSliceId) {
                 errors.push('`execution_waves` slice_ids must reference declared `slice_table` slices');
@@ -600,7 +706,7 @@ function getChecklistLinkedPackagePlanErrors(content) {
         if (readyNowExecutionUnit !== null && readyNowSlice !== null) {
             const selectedWave = waveEntries.find((entry) => entry.waveId === readyNowExecutionUnit) ?? null;
             if (selectedWave !== null) {
-                const firstDeclaredSlice = getDeclaredExecutionWaveSliceIds(selectedWave.content)[0] ?? null;
+                const firstDeclaredSlice = getDeclaredExecutionWaveSliceIds(selectedWave.content, sliceIdPattern)[0] ?? null;
                 if (firstDeclaredSlice !== null && readyNowSlice !== firstDeclaredSlice) {
                     errors.push('`ready_now_slice` must match the first declared `slice_id` in the selected `ready_now_execution_unit` wave');
                 }
@@ -631,6 +737,29 @@ function getChecklistLinkedPackagePlanErrors(content) {
     }
 
     return errors;
+}
+
+function getChecklistLinkedPackageContext(content) {
+    const packageDecomposition = extractFirstMatchingMarkdownSection(content, ['Package Decomposition']);
+    if (packageDecomposition === null) {
+        return {
+            isFcpPackage: false,
+            checklistToken: null,
+            sourceFindingIds: [],
+        };
+    }
+
+    const checklistToken = parseInlineField(packageDecomposition, '`checklist_token`');
+    const isFcpPackage = checklistToken !== null && FCP_CHECKLIST_TOKEN_RE.test(checklistToken);
+    const sourceFindingIds = isFcpPackage
+        ? extractChecklistFieldValues(extractChecklistPackageFieldBlock(packageDecomposition, '`source_finding_ids`'))
+        : [];
+
+    return {
+        isFcpPackage,
+        checklistToken,
+        sourceFindingIds,
+    };
 }
 
 function getPriorityExitIssueBlocks(section) {
@@ -668,13 +797,43 @@ function getPriorityExitIssueBlocks(section) {
     return blocks;
 }
 
-function getPriorityExitErrors(section) {
+function getPriorityExitIssueBlockHeader(block) {
+    return block.split(/\r?\n/u)[0]?.match(PRIORITY_EXIT_ISSUE_HEADER_RE)?.[1] ?? null;
+}
+
+function getPriorityExitErrors(section, { isFcpPackage = false, checklistToken = null, sourceFindingIds = [] } = {}) {
     const errors = [];
     const issueBlocks = getPriorityExitIssueBlocks(section);
 
+    if (isFcpPackage && hasFcpForbiddenImportedEvidence(section)) {
+        errors.push(`FCP priority-exit readiness must not include ${FCP_FORBIDDEN_EVIDENCE_MESSAGE}`);
+    }
+
     if (issueBlocks.length === 0) {
-        errors.push('priority-exit readiness section must name each mapped imported issue by exact issue id');
+        errors.push(
+            isFcpPackage
+                ? 'priority-exit readiness section must name each mapped FCP source_finding_id'
+                : 'priority-exit readiness section must name each mapped imported issue by exact issue id'
+        );
     } else {
+        if (isFcpPackage) {
+            const declaredSourceFindingIds = new Set(sourceFindingIds);
+            const sourceFindingIdRe = checklistToken === null
+                ? /^FCP-(?:\d+|EXIT)-SF\d+$/u
+                : new RegExp(`^${escapeRegExp(checklistToken)}-SF\\d+$`, 'u');
+            const hasInvalidSourceFindingHeader = issueBlocks.some((block) => {
+                const header = getPriorityExitIssueBlockHeader(block);
+                if (header === null || !sourceFindingIdRe.test(header)) {
+                    return true;
+                }
+
+                return declaredSourceFindingIds.size > 0 && !declaredSourceFindingIds.has(header);
+            });
+            if (hasInvalidSourceFindingHeader) {
+                errors.push('FCP priority-exit readiness must use declared source_finding_id headers, not imported issue ids');
+            }
+        }
+
         const missingDisposition = issueBlocks.some((block) => !PRIORITY_EXIT_DISPOSITION_RE.test(block));
         if (missingDisposition) {
             errors.push('priority-exit readiness section must record exact disposition tokens for mapped imported issues');
@@ -765,7 +924,7 @@ export function parseSkillMirrorManifest(content) {
 }
 
 export function extractChecklistPlanPaths(content) {
-    return Array.from(content.matchAll(/plan:\s*(docs\/(?:plans|archive\/plans)\/[^\s)]+\.md)/gu))
+    return Array.from(content.matchAll(/^[^\n]*\bplan\s*:\s*(docs\/(?:plans|archive\/plans)\/[^\s),]+\.md)/gimu))
         .map((match) => match[1])
         .filter((relativePath) => !relativePath.includes('<'));
 }
@@ -1051,6 +1210,10 @@ export function checkPlanConformance({ filePath, content }) {
         errors.push('**Cleanup subtype:** is only valid when **Task family:** is cleanup/refactor');
     }
 
+    const checklistPackageContext = taskFamily === 'cleanup/refactor' && cleanupSubtype === 'checklist-linked'
+        ? getChecklistLinkedPackageContext(content)
+        : null;
+
     if (taskFamily === 'cleanup/refactor' && cleanupSubtype === 'checklist-linked') {
         errors.push(...getChecklistLinkedPackagePlanErrors(content));
     }
@@ -1108,7 +1271,7 @@ export function checkPlanConformance({ filePath, content }) {
         if (priorityExitReadiness.trim().length === 0) {
             errors.push('priority-exit readiness section must contain substantive content when present');
         } else {
-            errors.push(...getPriorityExitErrors(priorityExitReadiness));
+            errors.push(...getPriorityExitErrors(priorityExitReadiness, checklistPackageContext ?? undefined));
         }
     }
 

@@ -1,4 +1,7 @@
-import type { NavigationRepeatRuntime } from './NavigationRepeatHandler';
+import type {
+    NavigationModalEffectsRuntime,
+    NavigationRepeatRuntime,
+} from './NavigationHandlerContracts';
 import type {
     NavigationMiniGuidePort,
     NavigationModalsPort,
@@ -11,11 +14,6 @@ export interface NavigationModalEffectsPort {
     modals: NavigationModalsPort;
 }
 
-export interface NavigationModalEffectsRuntime {
-    handleModalOpen(modalId: string): void;
-    handleModalClose(modalId: string): void;
-}
-
 export class NavigationModalEffectsHandler implements NavigationModalEffectsRuntime {
     constructor(
         private readonly deps: NavigationModalEffectsPort,
@@ -25,7 +23,7 @@ export class NavigationModalEffectsHandler implements NavigationModalEffectsRunt
     handleModalOpen(modalId: string): void {
         this.repeats.stopEpgRepeat('modalOpen');
         this.repeats.stopMiniGuideRepeat('modalOpen');
-        this.deps.miniGuide.coordinator?.hide();
+        this.deps.miniGuide.requestMiniGuideIntent({ type: 'hide' });
         if (modalId === this.deps.nowPlayingInfo.modalId) {
             this.deps.nowPlayingInfo.showOverlay();
         } else if (modalId === this.deps.modals.playbackOptions.modalId) {

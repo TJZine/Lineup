@@ -104,22 +104,12 @@ function describeTopLevelJsonValue(value: unknown): string {
     return typeof value;
 }
 
-
-/**
- * Plex Library implementation.
- * Provides access to Plex media libraries and content.
- * @implements {IPlexLibrary}
- */
 export class PlexLibrary implements IPlexLibrary {
     private readonly _config: PlexLibraryConfig;
     private readonly _emitter: EventEmitter<PlexLibraryEvents>;
     private readonly _state: PlexLibraryState;
     private readonly _logger: NonNullable<PlexLibraryConfig['logger']>;
 
-    /**
-     * Create a new PlexLibrary instance.
-     * @param config - Configuration with auth and server URI getters
-     */
     constructor(config: PlexLibraryConfig) {
         this._config = config;
         this._logger = config.logger ?? createPlexConsoleLogger();
@@ -763,14 +753,6 @@ export class PlexLibrary implements IPlexLibrary {
         return this._getLibrarySectionTags(libraryId, PLEX_ENDPOINTS.LIBRARY_SECTION_YEARS, 'Years', options);
     }
 
-
-    /**
-     * Generate authenticated URL for Plex images.
-     * @param imagePath - Image path from Plex metadata
-     * @param width - Optional resize width
-     * @param height - Optional resize height (defaults to width)
-     * @returns Full URL with authentication token, or null when no image URL can be built
-     */
     getImageUrl(imagePath: string, width?: number, height?: number): string | null {
         if (!imagePath) return null;
 
@@ -805,31 +787,16 @@ export class PlexLibrary implements IPlexLibrary {
         return url.toString();
     }
 
-
-    /**
-     * Refresh cached library data.
-     * Invalidates cache and emits libraryRefreshed event.
-     * @param libraryId - Library section ID to refresh
-     */
     async refreshLibrary(libraryId: string): Promise<void> {
         this._ensureCacheScope();
-        // Invalidate cache for this library
         this._state.libraryCache.delete(libraryId);
 
-        // Re-fetch the library
         await this.getLibrary(libraryId);
 
-        // Emit refresh event
         this._emitter.emit('libraryRefreshed', { libraryId });
     }
 
 
-    /**
-     * Register an event handler.
-     * @param event - Event name
-     * @param handler - Handler function
-     * @returns Disposable to remove handler
-     */
     on<K extends keyof PlexLibraryEvents>(
         event: K,
         handler: (payload: PlexLibraryEvents[K]) => void
@@ -837,11 +804,6 @@ export class PlexLibrary implements IPlexLibrary {
         return this._emitter.on(event, handler);
     }
 
-    /**
-     * Remove an event handler.
-     * @param event - Event name
-     * @param handler - Handler function
-     */
     off<K extends keyof PlexLibraryEvents>(
         event: K,
         handler: (payload: PlexLibraryEvents[K]) => void
@@ -849,13 +811,6 @@ export class PlexLibrary implements IPlexLibrary {
         this._emitter.off(event, handler);
     }
 
-
-    /**
-     * Build a full URL with query parameters.
-     * @param endpoint - API endpoint path
-     * @param params - Optional query parameters
-     * @returns Full URL string
-     */
     private _buildUrl(endpoint: string, params: Record<string, string | number> = {}): string {
         const serverUri = this._config.getServerUri();
         if (!serverUri) {
@@ -1167,10 +1122,6 @@ export class PlexLibrary implements IPlexLibrary {
         }
     }
 
-    /**
-     * Delay for a specified time.
-     * @param ms - Milliseconds to delay
-     */
     private _delay(ms: number): Promise<void> {
         return new Promise((resolve) => setTimeout(resolve, ms));
     }

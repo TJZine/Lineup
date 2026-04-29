@@ -2,14 +2,41 @@ import type {
     KeyEvent,
     NavigationEventMap,
 } from './interfaces';
+import type { NavigationCoordinatorEventPort } from './NavigationCoordinatorEventPort';
+import type { NavigationCoordinatorRuntimeServices } from './NavigationCoordinatorRuntimeServices';
 import type {
-    NavigationCoordinatorDeps,
-} from './NavigationCoordinatorContracts';
-import type { NavigationChannelNumberHandlerRuntime } from './NavigationChannelNumberHandler';
-import type { NavigationKeyModeRouterRuntime } from './NavigationKeyModeRouter';
-import type { NavigationModalEffectsRuntime } from './NavigationModalEffectsHandler';
-import type { NavigationRepeatRuntime } from './NavigationRepeatHandler';
-import type { NavigationScreenEffectsRuntime } from './NavigationScreenEffectsHandler';
+    NavigationChannelNumberHandlerRuntime,
+    NavigationKeyModeRouterRuntime,
+    NavigationModalEffectsRuntime,
+    NavigationRepeatRuntime,
+    NavigationScreenEffectsRuntime,
+} from './NavigationHandlerContracts';
+
+export interface NavigationCoordinatorHandlers {
+    repeats: NavigationRepeatRuntime;
+    keyModeRouter: NavigationKeyModeRouterRuntime;
+    screenEffects: NavigationScreenEffectsRuntime;
+    modalEffects: NavigationModalEffectsRuntime;
+    channelNumber: NavigationChannelNumberHandlerRuntime;
+}
+
+export interface NavigationGuideMiniGuideEvents {
+    hideForGuideToggle(): void;
+}
+
+/**
+ * Ports referenced by multiple dependency groups must point at the same runtime
+ * instances. For example, orchestrator wiring should pass one shared
+ * NavigationMiniGuidePort, NavigationChannelSwitchingPort, INavigationManager,
+ * and NavigationEpgPort anywhere those ports appear so handlers operate on the
+ * same navigation state.
+ */
+export interface NavigationCoordinatorDeps {
+    events: NavigationCoordinatorEventPort;
+    handlers: NavigationCoordinatorHandlers;
+    guideMiniGuide: NavigationGuideMiniGuideEvents;
+    runtime: NavigationCoordinatorRuntimeServices;
+}
 
 export class NavigationCoordinator {
     private readonly _repeats: NavigationRepeatRuntime;
@@ -78,7 +105,7 @@ export class NavigationCoordinator {
             // EPG is an overlay, not a navigation screen; toggle based on EPG visibility.
             this._repeats.stopEpgRepeat('guide');
             this._repeats.stopMiniGuideRepeat('guide');
-            this.deps.events.miniGuide.coordinator?.hide();
+            this.deps.guideMiniGuide.hideForGuideToggle();
             this.deps.events.channelSwitching.toggleEpg();
         };
         navigation.on('guide', guideHandler);

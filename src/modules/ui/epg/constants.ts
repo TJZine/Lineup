@@ -7,13 +7,10 @@ export const EPG_CONTAINER_ID = 'epg-container' as const;
  * See ADR-003 for rationale on MAX_DOM_ELEMENTS and buffer sizes.
  */
 export const EPG_CONSTANTS = {
-    /** Number of visible channel rows at once */
     VISIBLE_CHANNELS: 5,
-    /** Grid time slot granularity (minutes) */
     TIME_SLOT_MINUTES: 30,
     VISIBLE_HOURS: 2,
     TOTAL_HOURS: 24,
-    /** Pixels per minute (width scaling) */
     PIXELS_PER_MINUTE: 4,
     ROW_HEIGHT: 108,
     /** Virtualization row buffer above/below visible */
@@ -24,7 +21,6 @@ export const EPG_CONSTANTS = {
     TIME_INDICATOR_UPDATE_MS: 60_000,
     MAX_DOM_ELEMENTS: 200,
     MAX_POOL_SIZE: 250,
-    /** Scroll amount when navigating past visible window (minutes) */
     TIME_SCROLL_AMOUNT: 30,
     CHANNEL_COLUMN_WIDTH: 200,
 } as const;

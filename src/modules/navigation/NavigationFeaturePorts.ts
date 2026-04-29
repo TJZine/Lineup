@@ -21,30 +21,30 @@ export interface NavigationAuthPort {
     isAuthenticated: () => boolean;
 }
 
+export type NavigationPlayerOsdIntent =
+    | { type: 'poke'; reason: 'play' | 'pause' | 'seek' }
+    | { type: 'toggle' }
+    | { type: 'hide' };
+
 export interface NavigationPlaybackPort {
     videoPlayer: NavigationVideoPlayerPort | null;
     plexAuth: NavigationAuthPort | null;
     stopPlayback: () => void;
     getSeekIncrementMs: () => number;
-    playerOsd: {
-        overlay: { isVisible: () => boolean } | null;
-        coordinator: {
-            poke: (reason: 'play' | 'pause' | 'seek') => void;
-            toggle: () => void;
-            hide: () => void;
-        } | null;
-    };
+    isPlayerOsdVisible: () => boolean;
+    requestPlayerOsdIntent: (intent: NavigationPlayerOsdIntent) => void;
 }
 
+export type NavigationMiniGuideIntent =
+    | { type: 'show' }
+    | { type: 'hide' }
+    | { type: 'navigate'; direction: NavigationVerticalDirection }
+    | { type: 'page'; direction: NavigationVerticalDirection }
+    | { type: 'select' };
+
 export interface NavigationMiniGuidePort {
-    overlay: { isVisible: () => boolean } | null;
-    coordinator: {
-        show: () => void;
-        hide: () => void;
-        handleNavigation: (direction: NavigationVerticalDirection) => boolean;
-        handlePage: (direction: NavigationVerticalDirection) => boolean;
-        handleSelect: () => void;
-    } | null;
+    isVisible: () => boolean;
+    requestMiniGuideIntent: (intent: NavigationMiniGuideIntent) => boolean;
 }
 
 export interface NavigationNowPlayingInfoPort {
@@ -82,11 +82,6 @@ export interface NavigationChannelSwitchingPort {
     focusEpgOnCurrentChannel: () => void;
     toggleEpg: () => void;
     onChannelInputUpdate?: (payload: { digits: string; isComplete: boolean }) => void;
-}
-
-export interface NavigationUiGuardsPort {
-    shouldRunChannelSetup: () => boolean;
-    hideChannelTransition: () => void;
 }
 
 export type NavigationFourWayDirection = 'up' | 'down' | 'left' | 'right';

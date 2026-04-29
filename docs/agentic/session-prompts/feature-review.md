@@ -48,6 +48,7 @@ When reviewing a feature/design plan, require evidence of:
 - correct `brainstorming` usage before implementation hardening
 - correct `interface-design` or `frontend-design` usage and repo design-doc references when UI creation/redesign applies
 - explicit scope boundaries, verification commands, and stop conditions
+- low-eligible implementation recommendations challenged unless the packet, scope, invariants, verification, and stop conditions make low reasoning safe
 - no hidden architecture seams, ownership seams, or adjacent contract changes left for the implementer to invent
 - full Codanna evidence trail plus explicit fallback logging when used
 - preservation contracts for likely UX/runtime regression areas
@@ -63,6 +64,7 @@ When reviewing a feature/design implementation, focus on:
 - generic/sloppy UI patterns that ignore repo design direction
 - missing accessibility, focus, and motion constraints where relevant
 - mismatch between approved plan and implementation output
+- low-eligible execution did not expand scope, miss constraints, or under-handle ambiguity
 - cleanup-oriented assumptions incorrectly applied to net-new feature work
 
 ## Output Contract

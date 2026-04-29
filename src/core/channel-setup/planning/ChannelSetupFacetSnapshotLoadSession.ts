@@ -1,60 +1,27 @@
 import type {
     IPlexLibrary,
-    PlexCollection,
     PlexLibrarySection,
-    PlexPlaylist,
     PlexTagDirectoryItem,
     PlexTagDirectoryUnsupportedReason,
 } from '../../../modules/plex/library';
-import { getTagDirectoryMediaTypesForLibraryType } from '../../../modules/plex/library';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import type { ChannelBuildProgress, ChannelSetupConfig } from '../types';
 import { isSignalAborted } from '../shared/utils';
-import {
-    getChannelSetupErrorSummaryObject,
-    getChannelSetupFailureDetail,
-} from './ChannelSetupErrorSummary';
 import { createAbortError } from './ChannelSetupFacetSnapshotAbort';
 import {
-    ChannelSetupFacetCountRecoveryWorker,
-    type ChannelSetupFacetCountRecoveryFamily,
-    type FacetCountRecoveryLimiter,
-} from './ChannelSetupFacetCountRecoveryWorker';
+    ChannelSetupFacetLibraryExecutor,
+} from './ChannelSetupFacetLibraryExecutor';
 import {
+    ChannelSetupFacetSnapshotLoadState,
     ChannelSetupFacetSnapshotFailureBuilder,
+    type ChannelSetupNativeFacetFamily,
     type ChannelSetupRequiredTagDirectoryLabel,
 } from './ChannelSetupFacetSnapshotFailures';
 import type {
-    ChannelSetupFacetMap,
     ChannelSetupFacetSnapshot,
     ChannelSetupFacetSnapshotData,
     ChannelSetupPlexRequestIntent,
 } from './ChannelSetupPlanningTypes';
-
-type ChannelSetupNativeFacetFamily = 'genres' | 'directors' | 'decades' | 'actors' | 'studios';
-
-type DeferredEmptyTagDirectoryFailure = {
-    family: ChannelSetupNativeFacetFamily;
-    label: ChannelSetupRequiredTagDirectoryLabel;
-    libraryTitle: string;
-    type: number;
-};
-
-type NativeFacetTaskDefinition = {
-    family: ChannelSetupNativeFacetFamily;
-    label: ChannelSetupRequiredTagDirectoryLabel;
-    mediaType: number;
-    countRecoveryFamily: ChannelSetupFacetCountRecoveryFamily;
-    tagsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-    fetchTags: (
-        options: {
-            signal: AbortSignal;
-            requireEntries: boolean;
-            requestIntent: ChannelSetupPlexRequestIntent;
-            onUnsupported: (reason: PlexTagDirectoryUnsupportedReason) => void;
-        }
-    ) => Promise<PlexTagDirectoryItem[]>;
-};
 
 type ChannelSetupFacetSnapshotLoadSessionOptions = {
     plexLibrary: IPlexLibrary;
@@ -67,109 +34,6 @@ type ChannelSetupFacetSnapshotLoadSessionOptions = {
 };
 
 const MAX_FACET_LIBRARY_CONCURRENCY = 2;
-const MAX_FACET_COUNT_RECOVERY_CONCURRENCY = 8;
-
-function createReadonlyFacetMap<T>(source: Map<string, T[]>): ChannelSetupFacetMap<T> {
-    const snapshot = new Map<string, readonly T[]>();
-    for (const [libraryId, values] of source.entries()) {
-        snapshot.set(libraryId, Object.freeze([...values]));
-    }
-    const readonlyMap: ChannelSetupFacetMap<T> = {
-        get size() {
-            return snapshot.size;
-        },
-        get: (key: string): readonly T[] | undefined => snapshot.get(key),
-        has: (key: string): boolean => snapshot.has(key),
-        entries: (): MapIterator<[string, readonly T[]]> => snapshot.entries(),
-        keys: (): MapIterator<string> => snapshot.keys(),
-        values: (): MapIterator<readonly T[]> => snapshot.values(),
-        forEach: (
-            callbackfn: (value: readonly T[], key: string, map: ReadonlyMap<string, readonly T[]>) => void,
-            thisArg?: unknown
-        ): void => {
-            snapshot.forEach((value, key) => {
-                callbackfn.call(thisArg, value, key, readonlyMap);
-            });
-        },
-        [Symbol.iterator]: (): MapIterator<[string, readonly T[]]> => snapshot[Symbol.iterator](),
-    };
-    return Object.freeze(readonlyMap);
-}
-
-class ChannelSetupFacetSnapshotDataAccumulator {
-    readonly playlists: PlexPlaylist[] = [];
-    readonly collectionsByLibraryId = new Map<string, PlexCollection[]>();
-    readonly genresByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
-    readonly directorsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
-    readonly yearsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
-    readonly actorsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
-    readonly studiosByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
-    private readonly _warnings = new Set<string>();
-    private readonly _facetFamiliesWithEntries = new Set<ChannelSetupNativeFacetFamily>();
-    private readonly _deferredEmptyTagDirectoryFailures: DeferredEmptyTagDirectoryFailure[] = [];
-    errorsTotal = 0;
-    playlistMs = 0;
-    collectionsMs = 0;
-    libraryQueryMs = 0;
-
-    addPartialWarning(task: ChannelBuildProgress['task'], detail: string, error: unknown): void {
-        const message = getChannelSetupFailureDetail(getChannelSetupErrorSummaryObject(error));
-        this._warnings.add(`Partial setup plan (${task}): ${detail} (${message})`);
-    }
-
-    addWarning(message: string): void {
-        this._warnings.add(message);
-    }
-
-    markFacetEntries(family: ChannelSetupNativeFacetFamily, tags: PlexTagDirectoryItem[]): void {
-        if (tags.length > 0) {
-            this._facetFamiliesWithEntries.add(family);
-        }
-    }
-
-    deferEmptyTagDirectoryFailure(
-        family: ChannelSetupNativeFacetFamily,
-        label: ChannelSetupRequiredTagDirectoryLabel,
-        libraryTitle: string,
-        type: number
-    ): void {
-        this._deferredEmptyTagDirectoryFailures.push({ family, label, libraryTitle, type });
-    }
-
-    resolveDeferredEmptyTagDirectoryFailure(): DeferredEmptyTagDirectoryFailure | null {
-        const orderedFailures = [...this._deferredEmptyTagDirectoryFailures]
-            .sort(compareDeferredEmptyTagDirectoryFailures);
-
-        for (const failure of orderedFailures) {
-            if (!this._facetFamiliesWithEntries.has(failure.family)) {
-                return failure;
-            }
-        }
-        return null;
-    }
-
-    snapshotData(
-        hasTransientLoadFailure: boolean,
-        lastTask: ChannelBuildProgress['task'] | undefined
-    ): ChannelSetupFacetSnapshotData {
-        return {
-            playlists: Object.freeze([...this.playlists]),
-            collectionsByLibraryId: createReadonlyFacetMap(this.collectionsByLibraryId),
-            genresByLibraryId: createReadonlyFacetMap(this.genresByLibraryId),
-            directorsByLibraryId: createReadonlyFacetMap(this.directorsByLibraryId),
-            yearsByLibraryId: createReadonlyFacetMap(this.yearsByLibraryId),
-            actorsByLibraryId: createReadonlyFacetMap(this.actorsByLibraryId),
-            studiosByLibraryId: createReadonlyFacetMap(this.studiosByLibraryId),
-            warnings: Object.freeze(Array.from(this._warnings).sort((a, b) => a.localeCompare(b))),
-            hasTransientLoadFailure,
-            errorsTotal: this.errorsTotal,
-            playlistMs: this.playlistMs,
-            collectionsMs: this.collectionsMs,
-            libraryQueryMs: this.libraryQueryMs,
-            ...(lastTask !== undefined ? { lastTask } : {}),
-        };
-    }
-}
 
 class ChannelSetupFacetSnapshotLibraryQueue {
     private readonly _queue: Array<{ library: PlexLibrarySection; index: number }>;
@@ -193,11 +57,11 @@ class ChannelSetupFacetSnapshotLibraryQueue {
 
 export class ChannelSetupFacetSnapshotLoadSession {
     private readonly _selectedLibraries: PlexLibrarySection[];
-    private readonly _snapshotDataAccumulator = new ChannelSetupFacetSnapshotDataAccumulator();
+    private readonly _loadState = new ChannelSetupFacetSnapshotLoadState();
     private readonly _failureBuilder = new ChannelSetupFacetSnapshotFailureBuilder({
-        addWarning: (message): void => this._snapshotDataAccumulator.addWarning(message),
+        addWarning: (message): void => this._loadState.addWarning(message),
         incrementErrors: (): void => {
-            this._snapshotDataAccumulator.errorsTotal++;
+            this._loadState.errorsTotal++;
         },
         snapshotData: (hasTransientLoadFailure): ChannelSetupFacetSnapshotData =>
             this._snapshotData(hasTransientLoadFailure),
@@ -242,7 +106,7 @@ export class ChannelSetupFacetSnapshotLoadSession {
 
             return {
                 status: 'ready',
-                ...this._snapshotData(this._snapshotDataAccumulator.errorsTotal > 0),
+                ...this._snapshotData(this._loadState.errorsTotal > 0),
             };
         } finally {
             this._removeSignalForwarder?.();
@@ -281,7 +145,7 @@ export class ChannelSetupFacetSnapshotLoadSession {
                 signal: this._requestSignal,
                 requestIntent: this._options.requestIntent,
             });
-            this._snapshotDataAccumulator.playlists.push(...fetched);
+            this._loadState.playlists.push(...fetched);
         } catch (error) {
             if (this._callerCanceled()) {
                 throw createAbortError(this._lastTask);
@@ -291,9 +155,9 @@ export class ChannelSetupFacetSnapshotLoadSession {
             }
             console.warn('Failed to fetch playlists:', summarizeErrorForLog(error));
             this._addPartialWarning('fetch_playlists', 'fetch_playlists failed', error);
-            this._snapshotDataAccumulator.errorsTotal++;
+            this._loadState.errorsTotal++;
         } finally {
-            this._snapshotDataAccumulator.playlistMs += performance.now() - playlistsStart;
+            this._loadState.playlistMs += performance.now() - playlistsStart;
         }
     }
 
@@ -328,398 +192,53 @@ export class ChannelSetupFacetSnapshotLoadSession {
         library: PlexLibrarySection,
         libIndex: number
     ): Promise<ChannelSetupFacetSnapshot | null> {
-        if (this._options.config.strategyConfig.collections.enabled) {
-            const shouldContinue = await this._loadCollections(library, libIndex);
-            if (!shouldContinue) {
-                return null;
-            }
-        }
-
-        const nativeFacetDefinitions = this._createNativeFacetDefinitions(library);
-        if (nativeFacetDefinitions.length === 0) {
-            return null;
-        }
-
-        const libraryAbortController = new AbortController();
-        const librarySignal = libraryAbortController.signal;
-        let libraryFailureActive = false;
-        const removeLibrarySignalForwarder = this._forwardRequestAbortToLibrary(libraryAbortController);
-        const libraryFailureStopRequested = (): boolean =>
-            libraryFailureActive
-            && librarySignal.aborted
-            && !this._callerCanceled()
-            && !this._failureStopRequested();
-        const abortLibraryFacetRequests = (): void => {
-            libraryFailureActive = true;
-            if (!librarySignal.aborted) {
-                libraryAbortController.abort();
-            }
-        };
-
-        try {
-            const requireEntries = library.contentCount !== 0;
-            const nativeFacetTasks = nativeFacetDefinitions.map((definition) =>
-                this._createNativeFacetTask(
-                    definition,
-                    library.id,
-                    library.title,
-                    librarySignal,
-                    requireEntries,
-                    libraryFailureStopRequested
-                )
-            );
-
-            this._reportSnapshotProgress({
-                task: 'scan_library_items',
-                label: 'Resolving filters...',
-                detail: library.title,
-                current: libIndex,
-                total: this._selectedLibraries.length,
-            });
-            const libraryFailure = await this._awaitFirstLibraryFacetFailure(
-                nativeFacetTasks,
-                abortLibraryFacetRequests
-            );
-            if (libraryFailure) {
-                this._firstFailure = this._firstFailure ?? libraryFailure;
-                this._abortSiblingRequests();
-                return libraryFailure;
-            }
-
-            const countRecoveryFailure = await this._recoverLibraryFacetCounts(
-                nativeFacetDefinitions,
-                library,
-                librarySignal,
-                libraryFailureStopRequested,
-                abortLibraryFacetRequests
-            );
-            if (countRecoveryFailure) {
-                this._firstFailure = this._firstFailure ?? countRecoveryFailure;
-                this._abortSiblingRequests();
-                return countRecoveryFailure;
-            }
-            return null;
-        } finally {
-            removeLibrarySignalForwarder?.();
-        }
-    }
-
-    private async _loadCollections(library: PlexLibrarySection, libIndex: number): Promise<boolean> {
-        this._reportSnapshotProgress({
-            task: 'fetch_collections',
-            label: 'Fetching collections...',
-            detail: library.title,
-            current: libIndex,
-            total: this._selectedLibraries.length,
-        });
-        const collectionsStart = performance.now();
-        try {
-            const collections = await this._options.plexLibrary.getCollections(library.id, {
-                signal: this._requestSignal,
-                requestIntent: this._options.requestIntent,
-            });
-            this._snapshotDataAccumulator.collectionsByLibraryId.set(library.id, collections);
-            return true;
-        } catch (error) {
-            if (this._callerCanceled()) {
-                throw createAbortError(this._lastTask);
-            }
-            if (this._failureStopRequested()) {
-                return false;
-            }
-            console.warn(`Failed to fetch collections for library ${library.title}:`, summarizeErrorForLog(error));
-            this._addPartialWarning('fetch_collections', `fetch_collections failed for ${library.title}`, error);
-            this._snapshotDataAccumulator.errorsTotal++;
-            this._snapshotDataAccumulator.collectionsByLibraryId.set(library.id, []);
-            return true;
-        } finally {
-            this._snapshotDataAccumulator.collectionsMs += performance.now() - collectionsStart;
-        }
-    }
-
-    private _forwardRequestAbortToLibrary(libraryAbortController: AbortController): (() => void) | null {
-        if (this._requestSignal.aborted) {
-            libraryAbortController.abort();
-            return null;
-        }
-        const onRequestAbort = (): void => {
-            libraryAbortController.abort();
-        };
-        this._requestSignal.addEventListener('abort', onRequestAbort, { once: true });
-        return (): void => {
-            this._requestSignal.removeEventListener('abort', onRequestAbort);
-        };
-    }
-
-    private async _awaitFirstLibraryFacetFailure(
-        nativeFacetTasks: Array<Promise<ChannelSetupFacetSnapshot | null>>,
-        abortLibraryFacetRequests: () => void
-    ): Promise<ChannelSetupFacetSnapshot | null> {
-        const settledFacetTasks = nativeFacetTasks.map((task, facetIndex) =>
-            task.then((result) => ({ facetIndex, result }))
-        );
-        const pendingFacetIndexes = new Set(settledFacetTasks.map((_, facetIndex) => facetIndex));
-        let libraryFailure: ChannelSetupFacetSnapshot | null = null;
-        try {
-            while (pendingFacetIndexes.size > 0) {
-                const settled = await Promise.race(
-                    Array.from(pendingFacetIndexes, (facetIndex) => settledFacetTasks[facetIndex])
-                );
-                if (this._requestSignal.aborted && !this._failureAbortActive) {
-                    throw createAbortError(this._lastTask);
-                }
-                if (!settled) {
-                    break;
-                }
-                pendingFacetIndexes.delete(settled.facetIndex);
-                if (settled.result) {
-                    libraryFailure = settled.result;
-                    abortLibraryFacetRequests();
-                    break;
-                }
-            }
-        } catch (error) {
-            await Promise.allSettled(nativeFacetTasks);
-            throw error;
-        }
-        if (libraryFailure) {
-            await Promise.allSettled(nativeFacetTasks);
-        }
-        return libraryFailure;
-    }
-
-    private async _recoverLibraryFacetCounts(
-        nativeFacetDefinitions: NativeFacetTaskDefinition[],
-        library: PlexLibrarySection,
-        librarySignal: AbortSignal,
-        libraryFailureStopRequested: () => boolean,
-        abortLibraryFacetRequests: () => void
-    ): Promise<ChannelSetupFacetSnapshot | null> {
-        let firstFailure: ChannelSetupFacetSnapshot | null = null;
-        const countRecoveryLimiter = createFacetCountRecoveryLimiter(MAX_FACET_COUNT_RECOVERY_CONCURRENCY);
-        const recoveryTasks = nativeFacetDefinitions.map(async (definition) => {
-            if (libraryFailureStopRequested()) {
-                return null;
-            }
-            const countRecoveryFailure = await this._recoverAndStoreFacetCounts(
-                definition,
-                library,
-                librarySignal,
-                libraryFailureStopRequested,
-                countRecoveryLimiter
-            );
-            if (countRecoveryFailure && !firstFailure) {
-                firstFailure = countRecoveryFailure;
-                abortLibraryFacetRequests();
-            }
-            return countRecoveryFailure;
-        });
-        await Promise.all(recoveryTasks);
-        return firstFailure;
-    }
-
-    private _createNativeFacetDefinitions(library: PlexLibrarySection): NativeFacetTaskDefinition[] {
-        const { genreType, detailType } = getTagDirectoryMediaTypesForLibraryType(library.type);
-        const definitions: NativeFacetTaskDefinition[] = [];
-        if (this._options.config.strategyConfig.genres.enabled) {
-            definitions.push({
-                family: 'genres',
-                label: 'Genres',
-                mediaType: genreType,
-                countRecoveryFamily: 'genre',
-                tagsByLibraryId: this._snapshotDataAccumulator.genresByLibraryId,
-                fetchTags: (options) => this._options.plexLibrary.getGenres(library.id, {
-                    type: genreType,
-                    ...options,
-                }),
-            });
-        }
-        if (this._options.config.strategyConfig.directors.enabled) {
-            definitions.push({
-                family: 'directors',
-                label: 'Directors',
-                mediaType: detailType,
-                countRecoveryFamily: 'director',
-                tagsByLibraryId: this._snapshotDataAccumulator.directorsByLibraryId,
-                fetchTags: (options) => this._options.plexLibrary.getDirectors(library.id, {
-                    type: detailType,
-                    ...options,
-                }),
-            });
-        }
-        if (this._options.config.strategyConfig.decades.enabled) {
-            definitions.push({
-                family: 'decades',
-                label: 'Years',
-                mediaType: detailType,
-                countRecoveryFamily: 'year',
-                tagsByLibraryId: this._snapshotDataAccumulator.yearsByLibraryId,
-                fetchTags: (options) => this._options.plexLibrary.getYears(library.id, {
-                    type: detailType,
-                    ...options,
-                }),
-            });
-        }
-        if (this._options.config.strategyConfig.studios.enabled) {
-            definitions.push({
-                family: 'studios',
-                label: 'Studios',
-                mediaType: detailType,
-                countRecoveryFamily: 'studio',
-                tagsByLibraryId: this._snapshotDataAccumulator.studiosByLibraryId,
-                fetchTags: (options) => this._options.plexLibrary.getStudios(library.id, {
-                    type: detailType,
-                    ...options,
-                }),
-            });
-        }
-        if (this._options.config.strategyConfig.actors.enabled) {
-            definitions.push({
-                family: 'actors',
-                label: 'Actors',
-                mediaType: detailType,
-                countRecoveryFamily: 'actor',
-                tagsByLibraryId: this._snapshotDataAccumulator.actorsByLibraryId,
-                fetchTags: (options) => this._options.plexLibrary.getActors(library.id, {
-                    type: detailType,
-                    ...options,
-                }),
-            });
-        }
-        return definitions;
-    }
-
-    private async _createNativeFacetTask(
-        definition: NativeFacetTaskDefinition,
-        libraryId: string,
-        libraryTitle: string,
-        librarySignal: AbortSignal,
-        requireEntries: boolean,
-        libraryFailureStopRequested: () => boolean
-    ): Promise<ChannelSetupFacetSnapshot | null> {
-        try {
-            const tagStart = performance.now();
-            let unsupportedReason: PlexTagDirectoryUnsupportedReason | null = null;
-            let tags: PlexTagDirectoryItem[];
-            try {
-                tags = await definition.fetchTags({
-                    signal: librarySignal,
-                    requireEntries,
-                    requestIntent: this._options.requestIntent,
-                    onUnsupported: (reason) => {
-                        unsupportedReason = reason;
-                    },
-                });
-            } finally {
-                this._snapshotDataAccumulator.libraryQueryMs += performance.now() - tagStart;
-            }
-            if (unsupportedReason === 'empty') {
-                definition.tagsByLibraryId.set(libraryId, tags);
-                this._deferEmptyTagDirectoryFailure(
-                    definition.family,
-                    definition.label,
-                    libraryTitle,
-                    definition.mediaType
-                );
-                return null;
-            }
-            if (unsupportedReason) {
-                return this._buildRequiredTagDirectoryFailure(
-                    definition.label,
-                    libraryTitle,
-                    definition.mediaType,
-                    unsupportedReason
-                );
-            }
-            this._markFacetEntries(definition.family, tags);
-            definition.tagsByLibraryId.set(libraryId, tags);
-            return null;
-        } catch (error) {
-            if (this._callerCanceled()) {
-                throw createAbortError(this._lastTask);
-            }
-            if (this._failureStopRequested() || libraryFailureStopRequested()) {
-                return null;
-            }
-            console.warn(`Failed to fetch ${definition.family} for ${libraryTitle}:`, summarizeErrorForLog(error));
-            return this._buildRequiredTagDirectoryFailure(
-                definition.label,
-                libraryTitle,
-                definition.mediaType,
-                'error',
-                error
-            );
-        }
-    }
-
-    private async _recoverAndStoreFacetCounts(
-        definition: NativeFacetTaskDefinition,
-        library: PlexLibrarySection,
-        librarySignal: AbortSignal,
-        libraryFailureStopRequested: () => boolean,
-        countRecoveryLimiter: FacetCountRecoveryLimiter
-    ): Promise<ChannelSetupFacetSnapshot | null> {
-        const tags = definition.tagsByLibraryId.get(library.id) ?? [];
-        if (tags.length === 0 || tags.every((tag) => tag.count !== null)) {
-            return null;
-        }
-        try {
-            const hydrated = await this._recoverUnknownTagCounts(
-                library.id,
-                definition.mediaType,
-                definition.countRecoveryFamily,
-                tags,
-                librarySignal,
-                countRecoveryLimiter
-            );
-            definition.tagsByLibraryId.set(library.id, hydrated);
-            return null;
-        } catch (error) {
-            if (this._callerCanceled()) {
-                throw createAbortError(this._lastTask);
-            }
-            if (this._failureStopRequested() || libraryFailureStopRequested()) {
-                return null;
-            }
-            console.warn(
-                `Failed to recover ${definition.countRecoveryFamily} counts for ${library.title}:`,
-                summarizeErrorForLog(error)
-            );
-            return this._buildRequiredTagCountRecoveryFailure(
-                definition.label,
-                library.title,
-                definition.mediaType,
-                error
-            );
-        }
-    }
-
-    private async _recoverUnknownTagCounts(
-        libraryId: string,
-        mediaType: number,
-        family: ChannelSetupFacetCountRecoveryFamily,
-        tags: PlexTagDirectoryItem[],
-        tagSignal: AbortSignal,
-        countRecoveryLimiter: FacetCountRecoveryLimiter
-    ): Promise<PlexTagDirectoryItem[]> {
-        return new ChannelSetupFacetCountRecoveryWorker({
+        const failure = await new ChannelSetupFacetLibraryExecutor({
             plexLibrary: this._options.plexLibrary,
-            libraryId,
-            mediaType,
-            family,
-            tags,
-            tagSignal,
-            countRecoveryLimiter,
-            getLastTask: () => this._lastTask,
-            addLibraryQueryMs: (durationMs): void => {
-                this._snapshotDataAccumulator.libraryQueryMs += durationMs;
+            config: this._options.config,
+            requestIntent: this._options.requestIntent,
+            requestSignal: this._requestSignal,
+            selectedLibraryCount: this._selectedLibraries.length,
+            control: {
+                getLastTask: (): ChannelBuildProgress['task'] | undefined => this._lastTask,
+                callerCanceled: (): boolean => this._callerCanceled(),
+                failureStopRequested: (): boolean => this._failureStopRequested(),
+                requestAbortRequiresThrow: (): boolean => this._requestSignal.aborted && !this._failureAbortActive,
+                reportSnapshotProgress: (progress): void => this._reportSnapshotProgress(progress),
+                addPartialWarning: (task, detail, error): void => this._addPartialWarning(task, detail, error),
+                abortSiblingRequests: (): void => this._abortSiblingRequests(),
             },
-            maxConcurrency: MAX_FACET_COUNT_RECOVERY_CONCURRENCY,
-        }).recover();
+            state: {
+                incrementErrors: (): void => {
+                    this._loadState.errorsTotal++;
+                },
+                addCollectionsMs: (durationMs): void => {
+                    this._loadState.collectionsMs += durationMs;
+                },
+                addLibraryQueryMs: (durationMs): void => {
+                    this._loadState.libraryQueryMs += durationMs;
+                },
+                collectionsByLibraryId: this._loadState.collectionsByLibraryId,
+                genresByLibraryId: this._loadState.genresByLibraryId,
+                directorsByLibraryId: this._loadState.directorsByLibraryId,
+                yearsByLibraryId: this._loadState.yearsByLibraryId,
+                actorsByLibraryId: this._loadState.actorsByLibraryId,
+                studiosByLibraryId: this._loadState.studiosByLibraryId,
+                markFacetEntries: (family, mediaType, tags): void =>
+                    this._markFacetEntries(family, mediaType, tags),
+                deferEmptyTagDirectoryFailure: (family, label, libraryTitle, type): void =>
+                    this._deferEmptyTagDirectoryFailure(family, label, libraryTitle, type),
+            },
+            buildRequiredTagDirectoryFailure: (label, libraryTitle, type, reason, error): ChannelSetupFacetSnapshot =>
+                this._buildRequiredTagDirectoryFailure(label, libraryTitle, type, reason, error),
+            buildRequiredTagCountRecoveryFailure: (label, libraryTitle, type, error): ChannelSetupFacetSnapshot =>
+                this._buildRequiredTagCountRecoveryFailure(label, libraryTitle, type, error),
+        }).loadLibraryFacets(library, libIndex);
+        this._firstFailure = this._firstFailure ?? failure;
+        return failure;
     }
 
     private _snapshotData(hasTransientLoadFailure: boolean): ChannelSetupFacetSnapshotData {
-        return this._snapshotDataAccumulator.snapshotData(hasTransientLoadFailure, this._lastTask);
+        return this._loadState.snapshotData(hasTransientLoadFailure, this._lastTask);
     }
     private _reportSnapshotProgress(progress: ChannelBuildProgress): void {
         this._lastTask = progress.task;
@@ -731,7 +250,7 @@ export class ChannelSetupFacetSnapshotLoadSession {
         detail: string,
         error: unknown
     ): void {
-        this._snapshotDataAccumulator.addPartialWarning(task, detail, error);
+        this._loadState.addPartialWarning(task, detail, error);
     }
 
     private _buildRequiredTagDirectoryFailure(
@@ -755,9 +274,10 @@ export class ChannelSetupFacetSnapshotLoadSession {
 
     private _markFacetEntries(
         family: ChannelSetupNativeFacetFamily,
+        mediaType: number,
         tags: PlexTagDirectoryItem[]
     ): void {
-        this._snapshotDataAccumulator.markFacetEntries(family, tags);
+        this._loadState.markFacetEntries(family, mediaType, tags);
     }
 
     private _deferEmptyTagDirectoryFailure(
@@ -766,11 +286,11 @@ export class ChannelSetupFacetSnapshotLoadSession {
         libraryTitle: string,
         type: number
     ): void {
-        this._snapshotDataAccumulator.deferEmptyTagDirectoryFailure(family, label, libraryTitle, type);
+        this._loadState.deferEmptyTagDirectoryFailure(family, label, libraryTitle, type);
     }
 
     private _resolveDeferredEmptyTagDirectoryFailure(): ChannelSetupFacetSnapshot | null {
-        const failure = this._snapshotDataAccumulator.resolveDeferredEmptyTagDirectoryFailure();
+        const failure = this._loadState.resolveDeferredEmptyTagDirectoryFailure();
         if (failure) {
             return this._buildRequiredTagDirectoryFailure(
                 failure.label,
@@ -797,44 +317,4 @@ export class ChannelSetupFacetSnapshotLoadSession {
             this._options.snapshotAbortController.abort();
         }
     }
-}
-
-function compareDeferredEmptyTagDirectoryFailures(
-    left: DeferredEmptyTagDirectoryFailure,
-    right: DeferredEmptyTagDirectoryFailure
-): number {
-    const familyDiff = left.family.localeCompare(right.family);
-    if (familyDiff !== 0) return familyDiff;
-
-    const labelDiff = left.label.localeCompare(right.label);
-    if (labelDiff !== 0) return labelDiff;
-
-    const titleDiff = left.libraryTitle.localeCompare(right.libraryTitle);
-    if (titleDiff !== 0) return titleDiff;
-
-    return left.type - right.type;
-}
-
-function createFacetCountRecoveryLimiter(maxConcurrency: number): FacetCountRecoveryLimiter {
-    const pending: Array<() => void> = [];
-    let active = 0;
-
-    const release = (): void => {
-        active--;
-        const next = pending.shift();
-        next?.();
-    };
-
-    return <T>(task: () => Promise<T>): Promise<T> => new Promise<T>((resolve, reject) => {
-        const run = (): void => {
-            active++;
-            void Promise.resolve().then(task).then(resolve, reject).finally(release);
-        };
-
-        if (active < maxConcurrency) {
-            run();
-            return;
-        }
-        pending.push(run);
-    });
 }

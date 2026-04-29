@@ -1,16 +1,21 @@
-import type { NavigationRepeatRuntime } from './NavigationRepeatHandler';
+import type {
+    NavigationRepeatRuntime,
+    NavigationScreenEffectsRuntime,
+} from './NavigationHandlerContracts';
 import type {
     NavigationChannelSwitchingPort,
     NavigationEpgPort,
     NavigationMiniGuidePort,
     NavigationNowPlayingInfoPort,
     NavigationPlaybackPort,
-    NavigationUiGuardsPort,
 } from './NavigationFeaturePorts';
 import type { INavigationManager, Screen } from './interfaces';
-import type { NavigationCoordinatorRuntimeServices } from './NavigationCoordinatorRuntimeServices';
+import type { NavigationFireAndReport } from './NavigationCoordinatorRuntimeServices';
 
-type NavigationScreenEffectsFireAndReport = NavigationCoordinatorRuntimeServices['fireAndReport'];
+export interface NavigationUiGuardsPort {
+    shouldRunChannelSetup: () => boolean;
+    hideChannelTransition: () => void;
+}
 
 export interface NavigationScreenEffectsPort {
     navigation: INavigationManager;
@@ -23,15 +28,11 @@ export interface NavigationScreenEffectsPort {
     readKeepPlayingInSettings: () => boolean;
 }
 
-export interface NavigationScreenEffectsRuntime {
-    handleScreenChange(from: Screen, to: Screen): void;
-}
-
 export class NavigationScreenEffectsHandler implements NavigationScreenEffectsRuntime {
     constructor(
         private readonly deps: NavigationScreenEffectsPort,
         private readonly repeats: NavigationRepeatRuntime,
-        private readonly fireAndReport: NavigationScreenEffectsFireAndReport
+        private readonly fireAndReport: NavigationFireAndReport
     ) { }
 
     handleScreenChange(from: Screen, to: Screen): void {
@@ -56,8 +57,8 @@ export class NavigationScreenEffectsHandler implements NavigationScreenEffectsRu
             if (navigation.isModalOpen(this.deps.nowPlayingInfo.modalId)) {
                 navigation.closeModal(this.deps.nowPlayingInfo.modalId);
             }
-            this.deps.miniGuide.coordinator?.hide();
-            this.deps.playback.playerOsd.coordinator?.hide();
+            this.deps.miniGuide.requestMiniGuideIntent({ type: 'hide' });
+            this.deps.playback.requestPlayerOsdIntent({ type: 'hide' });
             this.deps.uiGuards.hideChannelTransition();
         }
 

@@ -1,4 +1,9 @@
 import type { INavigationManager, KeyEvent } from './interfaces';
+import type {
+    EpgStopReason,
+    MiniGuideStopReason,
+    NavigationRepeatRuntime,
+} from './NavigationHandlerContracts';
 import {
     computeAcceleratedRepeatIntervalMs,
     EPG_REPEAT_TIMING,
@@ -10,44 +15,6 @@ import type {
     NavigationMiniGuidePort,
     NavigationVerticalDirection,
 } from './NavigationFeaturePorts';
-
-export type NavigationRepeatStopReason =
-    | 'inputBlocked'
-    | 'keyup'
-    | 'nonDirectional'
-    | 'directionChange'
-    | 'restart'
-    | 'notVisible'
-    | 'modalOpen'
-    | 'noButton'
-    | 'blocked'
-    | 'guide'
-    | 'screenChange'
-    | 'ok'
-    | 'back';
-
-export type EpgStopReason =
-    | NavigationRepeatStopReason
-    | 'play'
-    | 'channelPage';
-
-export type MiniGuideStopReason =
-    | NavigationRepeatStopReason
-    | 'page'
-    | 'right'
-    | 'notPlayer';
-
-export interface NavigationRepeatRuntime {
-    stopForKeyUp(button: KeyEvent['button']): void;
-    stopForNonDirectionalInput(event: KeyEvent): void;
-    stopEpgRepeat(reason: EpgStopReason): void;
-    startEpgRepeat(button: NavigationFourWayDirection): void;
-    stopEpgRepeatForDirectionChange(button: NavigationFourWayDirection): void;
-    stopMiniGuideRepeat(reason: MiniGuideStopReason): void;
-    startMiniGuideRepeat(button: NavigationVerticalDirection): void;
-    stopMiniGuideRepeatForDirectionChange(button: NavigationVerticalDirection): void;
-    hasMiniGuideRepeatButton(): boolean;
-}
 
 export interface NavigationRepeatHandlerPort {
     navigation: INavigationManager;
@@ -186,7 +153,7 @@ export class NavigationRepeatHandler implements NavigationRepeatRuntime {
             this.stopMiniGuideRepeat('notPlayer');
             return;
         }
-        if (!(this.deps.miniGuide.overlay?.isVisible() ?? false)) {
+        if (!this.deps.miniGuide.isVisible()) {
             this.stopMiniGuideRepeat('notVisible');
             return;
         }
@@ -195,7 +162,10 @@ export class NavigationRepeatHandler implements NavigationRepeatRuntime {
             return;
         }
 
-        const moved = this.deps.miniGuide.coordinator?.handleNavigation(this._miniGuideRepeatButton) ?? false;
+        const moved = this.deps.miniGuide.requestMiniGuideIntent({
+            type: 'navigate',
+            direction: this._miniGuideRepeatButton,
+        });
         if (!moved) {
             this.stopMiniGuideRepeat('blocked');
             return;

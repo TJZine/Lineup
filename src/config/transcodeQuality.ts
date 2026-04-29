@@ -1,17 +1,11 @@
-/**
- * @fileoverview Transcode quality tiers exposed to users.
- * Used to map a single Settings selection onto Plex transcoder query params.
- * @module config/transcodeQuality
- */
+// Maps one Settings selection onto Plex transcoder query params.
 
 export type TranscodeQualityOption = Readonly<{
-    /** Stored in localStorage under LINEUP_STORAGE_KEYS.TRANSCODE_QUALITY */
     storageValue: string;
-    /** User-visible label */
     label: string;
     /** Plex transcoder max video bitrate (kbps). When omitted, no override is applied. */
     maxVideoBitrateKbps?: number;
-    /** Optional Plex video resolution cap (e.g. "1280x720") */
+    /** Plex video resolution cap, e.g. "1280x720". */
     videoResolution?: string;
 }>;
 
@@ -20,7 +14,7 @@ export type TranscodeQualityOption = Readonly<{
  * Keep this list small and TV-appropriate; it is user-facing.
  */
 export const TRANSCODE_QUALITY_OPTIONS: readonly TranscodeQualityOption[] = [
-    // Empty storageValue means "no override" (use existing app defaults).
+    // Empty storageValue means "no override" so the app keeps its default stream policy.
     { storageValue: '', label: 'Default (Recommended)' },
 
     { storageValue: '12000-1080p', label: '12 Mbps (1080p)', maxVideoBitrateKbps: 12_000, videoResolution: '1920x1080' },
