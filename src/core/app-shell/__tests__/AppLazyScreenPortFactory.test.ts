@@ -1,5 +1,6 @@
 import {
     AppLazyScreenPortFactory,
+    createChannelSetupRuntimePort,
     createChannelSetupScreenWorkflowPort,
 } from '../AppLazyScreenPortFactory';
 import type { ChannelSetupWorkflowPort } from '../../channel-setup/workflow/ChannelSetupWorkflowPort';
@@ -18,7 +19,7 @@ type MockRuntimeOrchestrator = {
     clearSelectedServer: jest.Mock<Promise<void>, []>;
     getSelectedServerStorageKey: jest.Mock;
     getServerHealthStorageKey: jest.Mock;
-    getChannelSetupScreenWorkflowPort: jest.Mock;
+    getChannelSetupWorkflowPort: jest.Mock;
     getSelectedServerId: jest.Mock;
     openServerSelect: jest.Mock;
     switchToChannelByNumber: jest.Mock;
@@ -105,7 +106,7 @@ const makeOrchestrator = (): MockRuntimeOrchestrator => ({
     clearSelectedServer: jest.fn().mockResolvedValue(undefined),
     getSelectedServerStorageKey: jest.fn().mockReturnValue('selected-server-id'),
     getServerHealthStorageKey: jest.fn().mockReturnValue('server-health'),
-    getChannelSetupScreenWorkflowPort: jest.fn().mockReturnValue(createScreenWorkflowPort()),
+    getChannelSetupWorkflowPort: jest.fn().mockReturnValue(createScreenWorkflowPort()),
     getSelectedServerId: jest.fn().mockReturnValue('server-1'),
     openServerSelect: jest.fn(),
     switchToChannelByNumber: jest.fn().mockResolvedValue(undefined),
@@ -125,7 +126,7 @@ const createFactory = (runtime: MockRuntimeOrchestrator | null): AppLazyScreenPo
         getAuthRuntime: (): MockRuntimeOrchestrator | null => runtime,
         getProfileRuntime: (): MockRuntimeOrchestrator | null => runtime,
         getServerSelectionRuntime: (): MockRuntimeOrchestrator | null => runtime,
-        getChannelSetupRuntime: (): MockRuntimeOrchestrator | null => runtime,
+        getChannelSetupRuntime: () => createChannelSetupRuntimePort(runtime),
         getSettingsRuntime: (): MockRuntimeOrchestrator | null => runtime,
     });
 
@@ -333,18 +334,49 @@ describe('AppLazyScreenPortFactory', () => {
         expect(fullWorkflowPort.getSetupPlanDiagnostics).not.toHaveBeenCalled();
     });
 
+    it('creates a channel-setup runtime port from the app-shell source runtime', async (): Promise<void> => {
+        const orchestrator = makeOrchestrator();
+        const workflowPort = createScreenWorkflowPort();
+        orchestrator.getChannelSetupWorkflowPort.mockReturnValue(workflowPort);
+
+        const runtimePort = createChannelSetupRuntimePort(orchestrator);
+        const screenWorkflowPort = runtimePort?.getChannelSetupScreenWorkflowPort();
+
+        expect(runtimePort).not.toBeNull();
+        expect(screenWorkflowPort).not.toBe(workflowPort);
+        expect('getSetupPlanDiagnostics' in (screenWorkflowPort ?? {})).toBe(false);
+        screenWorkflowPort?.invalidateFacetSnapshot();
+        expect(workflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(1);
+        expect(runtimePort?.getSelectedServerStorageKey()).toBe('selected-server-id');
+        expect(runtimePort?.getServerHealthStorageKey()).toBe('server-health');
+        expect(runtimePort?.getSelectedServerId()).toBe('server-1');
+        runtimePort?.openServerSelect();
+        runtimePort?.openEPG();
+        await runtimePort?.switchToChannelByNumber(12);
+
+        expect(orchestrator.getChannelSetupWorkflowPort).toHaveBeenCalledTimes(1);
+        expect(orchestrator.openServerSelect).toHaveBeenCalledTimes(1);
+        expect(orchestrator.openEPG).toHaveBeenCalledTimes(1);
+        expect(orchestrator.switchToChannelByNumber).toHaveBeenCalledWith(12, undefined);
+    });
+
+    it('returns null channel-setup runtime port without a source runtime', (): void => {
+        expect(createChannelSetupRuntimePort(null)).toBeNull();
+    });
+
     it('creates channel-setup input that delegates workflow and screen ports through orchestrator', async (): Promise<void> => {
         const orchestrator = makeOrchestrator();
         const workflowPort = createScreenWorkflowPort();
-        orchestrator.getChannelSetupScreenWorkflowPort.mockReturnValue(workflowPort);
+        orchestrator.getChannelSetupWorkflowPort.mockReturnValue(workflowPort);
 
         const factory = createFactory(orchestrator);
 
         const channelSetupInput = factory.createChannelSetupScreenInput();
 
         expect(channelSetupInput).not.toBeNull();
-        expect(channelSetupInput?.workflowPort).toBe(workflowPort);
+        expect(channelSetupInput?.workflowPort).not.toBe(workflowPort);
         expect('getSetupPlanDiagnostics' in (channelSetupInput?.workflowPort ?? {})).toBe(false);
+        channelSetupInput?.workflowPort.invalidateFacetSnapshot();
 
         expect(channelSetupInput?.screenPorts.getSelectedServerStorageKey()).toBe('selected-server-id');
         expect(channelSetupInput?.screenPorts.getServerHealthStorageKey()).toBe('server-health');
@@ -355,7 +387,8 @@ describe('AppLazyScreenPortFactory', () => {
 
         expect(orchestrator.openServerSelect).toHaveBeenCalledTimes(1);
         expect(orchestrator.openEPG).toHaveBeenCalledTimes(1);
-        expect(orchestrator.getChannelSetupScreenWorkflowPort).toHaveBeenCalledTimes(1);
+        expect(orchestrator.getChannelSetupWorkflowPort).toHaveBeenCalledTimes(1);
+        expect(workflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(1);
         expect(orchestrator.switchToChannelByNumber).toHaveBeenCalledWith(12, undefined);
     });
 
@@ -373,7 +406,8 @@ describe('AppLazyScreenPortFactory', () => {
             getAuthRuntime: (): MockRuntimeOrchestrator => currentOrchestrator,
             getProfileRuntime: (): MockRuntimeOrchestrator => currentOrchestrator,
             getServerSelectionRuntime: (): MockRuntimeOrchestrator => currentOrchestrator,
-            getChannelSetupRuntime: (): MockRuntimeOrchestrator => currentOrchestrator,
+            getChannelSetupRuntime: (): ReturnType<typeof createChannelSetupRuntimePort> =>
+                createChannelSetupRuntimePort(currentOrchestrator),
             getSettingsRuntime: (): MockRuntimeOrchestrator => currentOrchestrator,
         });
 

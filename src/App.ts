@@ -17,7 +17,7 @@ import {
 } from './core/app-shell/AppLazyScreenRegistry';
 import {
     AppLazyScreenPortFactory,
-    createChannelSetupScreenWorkflowPort,
+    createChannelSetupRuntimePort,
 } from './core/app-shell/AppLazyScreenPortFactory';
 import { AppScreenVisibilityCoordinator } from './core/app-shell/AppScreenVisibilityCoordinator';
 import {
@@ -267,24 +267,6 @@ export class App {
         return refs;
     }
 
-    private _createChannelSetupRuntime(): AppShellChannelSetupRuntimePort | null {
-        const runtime = this._orchestrator;
-        if (!runtime) {
-            return null;
-        }
-
-        return {
-            getChannelSetupScreenWorkflowPort: () =>
-                createChannelSetupScreenWorkflowPort(runtime.getChannelSetupWorkflowPort()),
-            getSelectedServerStorageKey: () => runtime.getSelectedServerStorageKey(),
-            getServerHealthStorageKey: () => runtime.getServerHealthStorageKey(),
-            getSelectedServerId: () => runtime.getSelectedServerId(),
-            openServerSelect: () => runtime.openServerSelect(),
-            switchToChannelByNumber: (number, options) => runtime.switchToChannelByNumber(number, options),
-            openEPG: () => runtime.openEPG(),
-        };
-    }
-
     private _initializeScreens(containerRefs: AppContainerRefs): void {
         if (!this._orchestrator) {
             return;
@@ -298,7 +280,8 @@ export class App {
             getAuthRuntime: (): AppShellAuthRuntimePort | null => this._orchestrator,
             getProfileRuntime: (): AppShellProfileRuntimePort | null => this._orchestrator,
             getServerSelectionRuntime: (): AppShellServerSelectionRuntimePort | null => this._orchestrator,
-            getChannelSetupRuntime: (): AppShellChannelSetupRuntimePort | null => this._createChannelSetupRuntime(),
+            getChannelSetupRuntime: (): AppShellChannelSetupRuntimePort | null =>
+                createChannelSetupRuntimePort(this._orchestrator),
             getSettingsRuntime: (): AppShellSettingsRuntimePort | null => {
                 const runtime = this._orchestrator;
                 if (!runtime) {

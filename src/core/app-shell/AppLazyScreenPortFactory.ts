@@ -36,6 +36,35 @@ export const createChannelSetupScreenWorkflowPort = (
     markSetupComplete: (serverId, setupConfig) => workflowPort.markSetupComplete(serverId, setupConfig),
 });
 
+interface AppShellChannelSetupRuntimeSource {
+    getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort;
+    getSelectedServerStorageKey(): string;
+    getServerHealthStorageKey(): string;
+    getSelectedServerId(): string | null;
+    openServerSelect(): void;
+    switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void>;
+    openEPG(): void;
+}
+
+export const createChannelSetupRuntimePort = (
+    runtime: AppShellChannelSetupRuntimeSource | null
+): AppShellChannelSetupRuntimePort | null => {
+    if (!runtime) {
+        return null;
+    }
+
+    return {
+        getChannelSetupScreenWorkflowPort: () =>
+            createChannelSetupScreenWorkflowPort(runtime.getChannelSetupWorkflowPort()),
+        getSelectedServerStorageKey: () => runtime.getSelectedServerStorageKey(),
+        getServerHealthStorageKey: () => runtime.getServerHealthStorageKey(),
+        getSelectedServerId: () => runtime.getSelectedServerId(),
+        openServerSelect: () => runtime.openServerSelect(),
+        switchToChannelByNumber: (number, options) => runtime.switchToChannelByNumber(number, options),
+        openEPG: () => runtime.openEPG(),
+    };
+};
+
 export interface AppLazyScreenPortFactoryOptions {
     getNavigationRuntime: () => AppShellNavigationRuntimePort | null;
     getAuthRuntime: () => AppShellAuthRuntimePort | null;

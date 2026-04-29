@@ -6,28 +6,7 @@ import {
     createPriorityOneRuntimeAssembly,
     type PriorityOneRuntimeAssemblyInput,
 } from '../priority-one/PriorityOneAssemblyBuilder';
-
-type EventHandler = (...args: readonly unknown[]) => void;
-
-function createEventSurface(): {
-    on: jest.Mock;
-    off: jest.Mock;
-    emit: (event: string, ...args: readonly unknown[]) => void;
-} {
-    const handlers = new Map<string, EventHandler>();
-
-    return {
-        on: jest.fn((event: string, handler: EventHandler) => {
-            handlers.set(event, handler);
-        }),
-        off: jest.fn((event: string) => {
-            handlers.delete(event);
-        }),
-        emit: (event: string, ...args: readonly unknown[]): void => {
-            handlers.get(event)?.(...args);
-        },
-    };
-}
+import { createTestEventSurface } from './eventSurfaceTestUtils';
 
 const makeProgram = (): ScheduledProgram =>
     ({
@@ -56,9 +35,9 @@ const flushPromises = async (): Promise<void> => {
 describe('createPriorityOneRuntimeAssembly', () => {
     it('owns priority-one input shaping and controller/binder creation from runtime refs', async () => {
         const program = makeProgram();
-        const scheduler = createEventSurface();
-        const videoPlayer = createEventSurface();
-        const navigation = createEventSurface();
+        const scheduler = createTestEventSurface();
+        const videoPlayer = createTestEventSurface();
+        const navigation = createTestEventSurface();
         const cleanupError = new Error('cleanup failed');
         const navigationCleanup = jest.fn(() => {
             throw cleanupError;
