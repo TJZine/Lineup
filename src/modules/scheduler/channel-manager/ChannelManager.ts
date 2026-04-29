@@ -666,9 +666,11 @@ export class ChannelManager implements IChannelManager {
 
         this._state.channels.set(id, updated);
 
-        if (resolvedContent && !resolvedContent.fromCache) {
+        if (resolvedContent) {
             this._state.resolvedContent.set(id, resolvedContent);
-            this._emitter.emit('contentResolved', resolvedContent);
+            if (!resolvedContent.fromCache) {
+                this._emitter.emit('contentResolved', resolvedContent);
+            }
         }
 
         // Persist and emit event
@@ -1474,7 +1476,7 @@ export class ChannelManager implements IChannelManager {
 
             return this._cloneResolvedContent(result);
         } catch (error) {
-            // Cache fallback is allowed only for network errors and CONTENT_UNAVAILABLE (separate branch below).
+            // Cache fallback is allowed for network errors and graceful source-unavailable errors.
             // SCHEDULER_EMPTY_CHANNEL and other non-network errors should propagate
             if (error instanceof ChannelError && error.code === AppErrorCode.SCHEDULER_EMPTY_CHANNEL) {
                 // No fallback for empty content - throw directly
@@ -1495,8 +1497,8 @@ export class ChannelManager implements IChannelManager {
                 });
             }
 
-            // Per spec: library/collection deleted should return stale cache
-            if (isContentUnavailableError(error) && cached) {
+            // Per spec: library/collection deleted should return stale cache.
+            if (isGracefulAuthoringResolutionError(error) && cached) {
                 this._logger.warn(
                     `Content unavailable for channel ${channel.id}, using stale cache`,
                     summarizeErrorForLog(error)
@@ -1510,8 +1512,8 @@ export class ChannelManager implements IChannelManager {
 
             // Access denied (403): profile lacks library permission.
             // Do NOT use stale cache — the 403 persists for the entire session.
-            // Note: isContentUnavailableError() and isAccessDeniedError() are mutually exclusive
-            // (they check different AppErrorCode values), so ordering here is not load-bearing.
+            // Note: graceful source-unavailable errors and access-denied errors are mutually exclusive
+            // by code/status policy, so ordering here is not load-bearing.
             if (isAccessDeniedError(error)) {
                 // Prevent any future cache fallback for a persistent 403.
                 this._state.resolvedContent.delete(channel.id);
@@ -1532,7 +1534,7 @@ export class ChannelManager implements IChannelManager {
     }
 
     private _isStale(content: ResolvedChannelContent): boolean {
-        return Date.now() - content.resolvedAt > CACHE_TTL_MS;
+        return content.isStale === true || Date.now() - content.resolvedAt > CACHE_TTL_MS;
     }
 
     private _validateChannelNumber(number: number): void {

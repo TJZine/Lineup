@@ -788,7 +788,7 @@ describe('ChannelManager', () => {
                 expect.objectContaining({
                     code: AppErrorCode.CONTENT_UNAVAILABLE,
                 }),
-            ]);
+            ], { times: 2 });
             const channel = await manager.createChannel({
                 name: 'Original',
                 contentSource: createMockContentSource(),
@@ -808,6 +808,8 @@ describe('ChannelManager', () => {
             );
             const cachedAfterFallback = await manager.resolveChannelContent(channel.id);
             expect(cachedAfterFallback.fromCache).toBe(true);
+            expect(cachedAfterFallback.isStale).toBe(true);
+            expect(cachedAfterFallback.cacheReason).toBe('content_unavailable');
             expect(cachedAfterFallback.items.map((item) => item.ratingKey)).toEqual(
                 originalContent.items.map((item) => item.ratingKey)
             );
