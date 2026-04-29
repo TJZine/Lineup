@@ -260,9 +260,9 @@ changes them:
 - `ChannelSetupSessionState` importing `normalizeChannelSetupConfig` remains an
   accepted residual unless setup-record normalization ownership changes.
 
-### [ ] `DCR-1` Scheduler And ChannelManager Transactional/API Semantics
+### [x] `DCR-1` Scheduler And ChannelManager Transactional/API Semantics
 
-- Status: not started
+- Status: completed
 - Dimensions/rubric tags: contract coherence, error consistency, type safety,
   logic clarity, test strategy, API surface coherence
 - Scope owner: scheduler/channel-manager owner
@@ -320,10 +320,19 @@ changes them:
 - Stop/replan triggers: fix requires changing storage owner APIs; reorder
   decision changes UI-facing product behavior; `loopSchedule` is consumed by
   undiscovered runtime code; verification requires broader port/manual proof.
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
+- Plan:
+  [`docs/archive/plans/2026-04-29-dcr-1-scheduler-channel-manager-api-semantics.md`](./docs/archive/plans/2026-04-29-dcr-1-scheduler-channel-manager-api-semantics.md)
+- Last touched: 2026-04-29, implementation commit `12a5647d`
+- Verification: targeted source audits passed for `(e as Error).message`,
+  production `reorderChannels` consumers, and `loopSchedule` under `src`;
+  targeted ChannelManager transactional/import-order tests passed; affected
+  scheduler/core/UI tests passed; `npm run typecheck` passed; `npm run verify`
+  passed. Implementation review found one P3 nit, same-reviewer closure
+  approved the fix, and a fresh final implementation review approved
+  `DCR-1-WAVE1`.
+- Follow-ups: none for `DCR-1`. `DCR-10` remains open for its broader test
+  structure package; `DCR-1` respected it by adding focused ChannelManager test
+  files instead of growing the catch-all `ChannelManager.test.ts`.
 - Handoff: start with a DCR-1 checklist-linked cleanup plan; do not implement a
   single ChannelManager test without resolving the package decisions.
 
