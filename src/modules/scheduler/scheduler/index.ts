@@ -18,7 +18,6 @@ export type {
     ScheduleWindow,
     SchedulerState,
     ScheduleIndex,
-    ShuffleResult,
     SchedulerEventMap,
     PlaybackMode,
     ResolvedContentItem,

@@ -24,29 +24,6 @@ import {
     SCHEDULER_ERROR_MESSAGES,
 } from './constants';
 
-
-/**
- * Channel Scheduler implementation.
- * Generates and maintains deterministic playback schedules based on wall-clock time.
- *
- * @implements {IChannelScheduler}
- *
- * @example
- * ```typescript
- * const scheduler = new ChannelScheduler();
- * scheduler.on('programStart', (program) => {
- *     console.log('Now playing:', program.item.title);
- * });
- * scheduler.loadChannel({
- *     channelId: 'ch1',
- *     anchorTime: Date.now(),
- *     content: resolvedItems,
- *     playbackMode: 'shuffle',
- *     shuffleSeed: 12345,
- *     loopSchedule: true,
- * });
- * ```
- */
 export class ChannelScheduler implements IChannelScheduler {
 
     private readonly _emitter: EventEmitter<SchedulerEventMap>;
@@ -66,22 +43,12 @@ export class ChannelScheduler implements IChannelScheduler {
         interval: null,
     };
 
-
-    /**
-     * Create a new ChannelScheduler instance.
-     * @param shuffler - Optional custom shuffle generator (for testing)
-     */
     constructor(shuffler?: IShuffleGenerator) {
         this._emitter = new EventEmitter<SchedulerEventMap>();
         this._shuffler = shuffler || new ShuffleGenerator();
     }
 
 
-    /**
-     * Load a channel and build the schedule index.
-     * @param config - Schedule configuration
-     * @throws Error if config.content is empty
-     */
     public loadChannel(config: ScheduleConfig): void {
         if (!config.content || config.content.length === 0) {
             throw new Error(SCHEDULER_ERROR_MESSAGES.EMPTY_CHANNEL);
@@ -89,14 +56,13 @@ export class ChannelScheduler implements IChannelScheduler {
 
         this._stopSyncTimer();
 
-        // Validate anchorTime - fallback to now only if non-finite (NaN, Infinity)
-        // Zero (epoch) and negative timestamps are valid for deterministic schedules
+        // Zero (epoch) and negative timestamps are valid deterministic anchors.
+        // Fall back only for non-finite input.
         let anchorTime = config.anchorTime;
         if (!Number.isFinite(anchorTime)) {
             anchorTime = Date.now();
         }
 
-        // Store config with validated anchorTime
         this._config = { ...config, anchorTime };
 
         this._index = buildScheduleIndex(this._config, this._shuffler);
@@ -104,7 +70,6 @@ export class ChannelScheduler implements IChannelScheduler {
         this._isActive = true;
         this._lastSyncTime = Date.now();
 
-        // Calculate initial programs
         this._currentProgram = this.getProgramAtTime(Date.now());
         this._nextProgram = calculateNextProgram(
             this._currentProgram,
@@ -112,16 +77,11 @@ export class ChannelScheduler implements IChannelScheduler {
             this._config.anchorTime
         );
 
-        // Start sync timer
         this._startSyncTimer();
 
-        // Emit initial programStart
         this._emitter.emit('programStart', this._currentProgram);
     }
 
-    /**
-     * Unload the current channel.
-     */
     public unloadChannel(): void {
         this._stopSyncTimer();
         this._config = null;
@@ -132,16 +92,10 @@ export class ChannelScheduler implements IChannelScheduler {
         this._lastSyncTime = 0;
     }
 
-    /**
-     * Pause the sync timer without unloading the channel.
-     */
     public pauseSyncTimer(): void {
         this._stopSyncTimer();
     }
 
-    /**
-     * Resume the sync timer without re-loading the channel.
-     */
     public resumeSyncTimer(): void {
         if (!this._isActive || !this._config || !this._index) {
             return;
@@ -152,44 +106,22 @@ export class ChannelScheduler implements IChannelScheduler {
         this._startSyncTimer();
     }
 
-
-    /**
-     * Get the program playing at a specific time.
-     * @param time - Unix timestamp in ms
-     * @returns The scheduled program at that time
-     * @throws Error if no channel is loaded
-     */
     public getProgramAtTime(time: number): ScheduledProgram {
         this._ensureLoaded();
         return calculateProgramAtTime(time, this._index!, this._config!.anchorTime);
     }
 
-    /**
-     * Get the currently playing program.
-     * @returns The current program
-     * @throws Error if no channel is loaded
-     */
     public getCurrentProgram(): ScheduledProgram {
         this._ensureLoaded();
         return this.getProgramAtTime(Date.now());
     }
 
-    /**
-     * Get the next program after the current one.
-     * @returns The next program
-     * @throws Error if no channel is loaded
-     */
     public getNextProgram(): ScheduledProgram {
         this._ensureLoaded();
         const current = this.getCurrentProgram();
         return calculateNextProgram(current, this._index!, this._config!.anchorTime);
     }
 
-    /**
-     * Get the previous program before the current one.
-     * @returns The previous program
-     * @throws Error if no channel is loaded
-     */
     public getPreviousProgram(): ScheduledProgram {
         this._ensureLoaded();
         const current = this.getCurrentProgram();
@@ -197,15 +129,6 @@ export class ChannelScheduler implements IChannelScheduler {
     }
 
 
-    /**
-     * Get all programs within a time window.
-     * Uses caller-provided output buffer when supplied.
-     * @param startTime - Window start (Unix ms)
-     * @param endTime - Window end (Unix ms)
-     * @param output - Optional pre-allocated output array (cleared before use)
-     * @returns Schedule window with caller output or a fresh per-call array
-     * @throws Error if no channel is loaded or invalid range
-     */
     public getScheduleWindow(
         startTime: number,
         endTime: number,
@@ -233,18 +156,11 @@ export class ChannelScheduler implements IChannelScheduler {
         };
     }
 
-    /**
-     * Get the next N upcoming programs.
-     * @param count - Number of programs to return
-     * @param output - Optional pre-allocated output array (will be cleared before use)
-     * @returns Array of upcoming programs (caller output or fresh per-call array)
-     * @throws Error if no channel is loaded
-     */
     public getUpcoming(count: number, output?: ScheduledProgram[]): ScheduledProgram[] {
         this._ensureLoaded();
 
         const programs = output ?? [];
-        programs.length = 0; // Clear existing contents
+        programs.length = 0;
 
         if (count <= 0) {
             return programs;
@@ -261,10 +177,6 @@ export class ChannelScheduler implements IChannelScheduler {
         return programs;
     }
 
-
-    /**
-     * Synchronize scheduler state with wall-clock time.
-     */
     public syncToCurrentTime(): void {
         if (!this._isActive || !this._config || !this._index) {
             return;
@@ -273,32 +185,21 @@ export class ChannelScheduler implements IChannelScheduler {
         const now = Date.now();
         const newCurrentProgram = this.getProgramAtTime(now);
 
-        // Update current program (emits events if changed)
         this._updateCurrentProgram(newCurrentProgram);
 
-        // Emit sync event
         this._emitter.emit('scheduleSync', this.getState());
     }
 
-    /**
-     * Check if the schedule is stale.
-     * @param currentTime - Current wall-clock time
-     * @returns True if schedule needs resync
-     */
     public isScheduleStale(currentTime: number): boolean {
         if (!this._currentProgram) {
             return true;
         }
 
-        // Check if current program should have ended
+        // Staleness is based on sync drift, not only program boundaries.
         const drift = Math.abs(currentTime - this._lastSyncTime);
         return drift > RESYNC_THRESHOLD_MS;
     }
 
-    /**
-     * Force recalculation from a specific time.
-     * @param time - Time to recalculate from
-     */
     public recalculateFromTime(time: number): void {
         if (!this._isActive || !this._config || !this._index) {
             return;
@@ -309,12 +210,6 @@ export class ChannelScheduler implements IChannelScheduler {
     }
 
 
-    /**
-     * Jump to a specific program in the schedule.
-     * Adjusts the schedule anchor so the jumped-to program aligns with wall-clock time,
-     * ensuring the navigation persists across sync ticks.
-     * @param program - The program to jump to
-     */
     public jumpToProgram(program: ScheduledProgram): void {
         if (!this._isActive || !this._config || !this._index) {
             return;
@@ -322,15 +217,11 @@ export class ChannelScheduler implements IChannelScheduler {
 
         const now = Date.now();
 
-        // Calculate how much to shift the anchor so this program is "current" at wall time
-        // program.scheduledStartTime is relative to old anchor
-        // We want: newAnchor + offset = now - elapsedMs
-        // Where offset is the program's position in the loop
+        // Shift the anchor so the selected program remains current across sync ticks.
         const programPositionInLoop = this._index.itemStartOffsets[program.scheduleIndex] ?? 0;
         const loopOffset = program.loopNumber * this._index.totalLoopDurationMs;
         const programStartFromAnchor = loopOffset + programPositionInLoop;
 
-        // Calculate true elapsed time based on scheduledStartTime to avoid stale metadata
         const trueElapsed = now - program.scheduledStartTime;
 
         // If program is "live" (within duration), preserve schedule (resume).
@@ -338,22 +229,18 @@ export class ChannelScheduler implements IChannelScheduler {
         const isLive = trueElapsed >= 0 && trueElapsed < program.item.durationMs;
         const effectiveElapsed = isLive ? trueElapsed : 0;
 
-        // New anchor: now - effectiveElapsed - programStartFromAnchor
         const newAnchorTime = now - effectiveElapsed - programStartFromAnchor;
 
-        // Update config with new anchor
         this._config = { ...this._config, anchorTime: newAnchorTime };
 
         // Note: No need to rebuild index - orderedItems, itemStartOffsets, and
         // totalLoopDurationMs are independent of anchorTime (same seed = same shuffle).
         // All time calculations use _config.anchorTime, not index data.
 
-        // Emit programEnd for old program
         if (this._currentProgram) {
             this._emitter.emit('programEnd', this._currentProgram);
         }
 
-        // Recalculate program at new anchor-adjusted "now"
         this._currentProgram = this.getProgramAtTime(now);
         this._nextProgram = calculateNextProgram(this._currentProgram, this._index, this._config.anchorTime);
         this._lastSyncTime = now;
@@ -361,9 +248,6 @@ export class ChannelScheduler implements IChannelScheduler {
         this._emitter.emit('programStart', this._currentProgram);
     }
 
-    /**
-     * Skip to the next program.
-     */
     public skipToNext(): void {
         if (!this._isActive || !this._config || !this._index) {
             return;
@@ -373,18 +257,13 @@ export class ChannelScheduler implements IChannelScheduler {
         this.jumpToProgram(next);
     }
 
-    /**
-     * Skip to the previous program.
-     * Resets elapsed position to 0 for "restart from beginning" user experience.
-     */
     public skipToPrevious(): void {
         if (!this._isActive || !this._config || !this._index) {
             return;
         }
 
         const previous = this.getPreviousProgram();
-        // Reset elapsed position for proper "skip to previous" behavior
-        // User expects to start from beginning, not resume from where we queried
+        // Skip-back restarts the program instead of resuming at the queried elapsed position.
         const resetProgram = {
             ...previous,
             elapsedMs: 0,
@@ -394,10 +273,6 @@ export class ChannelScheduler implements IChannelScheduler {
     }
 
 
-    /**
-     * Get the current scheduler state.
-     * @returns Current state
-     */
     public getState(): SchedulerState {
         const channelId = this._config?.channelId || '';
         const currentProgram = this._currentProgram;
@@ -416,11 +291,6 @@ export class ChannelScheduler implements IChannelScheduler {
         };
     }
 
-    /**
-     * Get the pre-computed schedule index.
-     * @returns Schedule index
-     * @throws Error if no channel is loaded
-     */
     public getScheduleIndex(): ScheduleIndex {
         this._ensureLoaded();
         return this._index!;
@@ -443,21 +313,12 @@ export class ChannelScheduler implements IChannelScheduler {
         this._emitter.off(event, handler as (payload: unknown) => void);
     }
 
-    /**
-     * Ensure a channel is loaded.
-     * @throws Error if no channel is loaded
-     */
     private _ensureLoaded(): void {
         if (!this._config || !this._index) {
             throw new Error(SCHEDULER_ERROR_MESSAGES.NO_CHANNEL_LOADED);
         }
     }
 
-    /**
-     * Update current program and emit transition events if changed.
-     * @param newProgram - The new program to set as current
-     * @returns true if program changed, false otherwise
-     */
     private _updateCurrentProgram(newProgram: ScheduledProgram): boolean {
         const programChanged = this._currentProgram && (
             newProgram.scheduledStartTime !== this._currentProgram.scheduledStartTime ||
@@ -465,7 +326,6 @@ export class ChannelScheduler implements IChannelScheduler {
         );
 
         if (programChanged) {
-            // _currentProgram is guaranteed to be non-null here by programChanged definition
             this._emitter.emit('programEnd', this._currentProgram!);
             this._emitter.emit('programStart', newProgram);
         }
@@ -477,9 +337,6 @@ export class ChannelScheduler implements IChannelScheduler {
         return !!programChanged;
     }
 
-    /**
-     * Start the sync timer with drift detection.
-     */
     private _startSyncTimer(): void {
         this._syncTimerState.expectedNextTick = Date.now() + SYNC_INTERVAL_MS;
 
@@ -487,14 +344,13 @@ export class ChannelScheduler implements IChannelScheduler {
             const now = Date.now();
             const drift = now - this._syncTimerState.expectedNextTick;
 
-            // Case 1: Normal tick (within tolerance)
             if (Math.abs(drift) < this._syncTimerState.maxDriftMs) {
                 this.syncToCurrentTime();
                 this._syncTimerState.expectedNextTick = now + SYNC_INTERVAL_MS;
                 return;
             }
 
-            // Case 2: Significant drift detected (system was suspended, tab inactive)
+            // Large drift indicates suspended/inactive time; hard resync from wall clock.
             if (drift > this._syncTimerState.resyncThreshold) {
                 console.warn(
                     '[Scheduler] Timer drift detected: ' + drift + 'ms, performing hard resync'
@@ -504,7 +360,6 @@ export class ChannelScheduler implements IChannelScheduler {
                 return;
             }
 
-            // Case 3: Minor drift - adjust timing
             this.syncToCurrentTime();
 
             // Only compensate for positive drift (timer running late)
@@ -518,9 +373,6 @@ export class ChannelScheduler implements IChannelScheduler {
         }, SYNC_INTERVAL_MS);
     }
 
-    /**
-     * Stop the sync timer.
-     */
     private _stopSyncTimer(): void {
         if (this._syncTimerState.interval !== null) {
             globalThis.clearInterval(this._syncTimerState.interval);
@@ -528,10 +380,6 @@ export class ChannelScheduler implements IChannelScheduler {
         }
     }
 
-    /**
-     * Hard resync: Called when drift exceeds threshold.
-     * Recalculates everything from wall-clock time.
-     */
     private _hardResync(): void {
         if (!this._config || !this._index) {
             return;
@@ -540,11 +388,9 @@ export class ChannelScheduler implements IChannelScheduler {
         const now = Date.now();
         const previousCurrent = this._currentProgram;
 
-        // Get and update to current program
         const currentProgram = this.getProgramAtTime(now);
         this._updateCurrentProgram(currentProgram);
 
-        // Emit sync event with hard resync info
         const previousEndTime = previousCurrent
             ? previousCurrent.scheduledEndTime
             : now;
