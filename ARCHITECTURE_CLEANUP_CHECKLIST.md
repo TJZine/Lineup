@@ -411,7 +411,7 @@ issue ids, package maps, score deltas, or triage as closure input.
   cleanup-loop scope-load, source audit, execution-grade plan, and clean plan
   review.
 
-### [ ] `FCP-5` Portability Readiness
+### [x] `FCP-5` Portability Readiness
 
 - Scope: prepare production code for a Windows/Electron-style port without
   implementing the port. Make platform assumptions explicit around webOS,
@@ -426,13 +426,38 @@ issue ids, package maps, score deltas, or triage as closure input.
 - Verification routing: platform-assumption source audit, targeted tests for
   changed abstractions, `npm run verify` for runtime changes, and architecture
   or API doc updates when platform contracts become explicit.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: planner should produce a portability-readiness package that clarifies
-  assumptions without adding unused platform frameworks or speculative adapters.
+- Status: completed
+- Plan: `docs/plans/2026-04-29-fcp-5-portability-readiness.md`
+- Audit: `docs/plans/2026-04-29-fcp-5-portability-readiness-audit.md`
+- Last touched: 2026-04-29
+- Verification: plan-review approved `FCP-5-S1` with no material findings.
+  Implementation commit `2f54311e` passed focused `StateManager` tests (24
+  tests), `npm run typecheck`, `npm run verify`, `npm run verify:docs` before
+  implementation and again inside full verify, raw-storage source audit (only
+  `src/utils/storage.ts` production hits remain), and `git diff --check`.
+  Fresh implementation review found no material findings and approved
+  `FCP-5-S1` for closeout. Fresh priority-exit closeout review found no
+  blocking findings and approved completion after accepting the source audit,
+  proof matrix, verification evidence, security triage, and deferred/no-action
+  owner records. Final post-completion `npm run verify:docs` passed before the
+  closeout documentation commit.
+- Follow-ups: proof matrix: `FCP-5-SF1` resolved by commit `2f54311e`
+  (`StateManager` now routes lifecycle state reads/writes/cleanup through safe
+  optional-storage helpers, keeps synchronous `save/load/clear`, preserves
+  quota cleanup-and-retry behavior, and tests blocked/unavailable storage).
+  Deferred/no-action final owners and revisit triggers remain in the audit for
+  `FCP-5-SF2` through `FCP-5-SF7`: platform owner for webOS default runtime,
+  navigation/exit UI owner for root `window.close()`, Plex/player transport
+  owners for browser fetch/XHR contracts, player/Plex stream owners for native
+  media policy, app/runtime owner for filesystem absence, and Plex/security
+  owners for token/security revisit triggers. Security triage: `no open P0
+  security findings`.
+- Handoff: FCP-5 is completed after source audit, execution plan, proof matrix,
+  verification evidence, security triage/P0 disposition, implementation review,
+  and clean priority-exit closeout review. Next safe checklist priority is
+  `FCP-6`; do not start it without its own cleanup-loop scope-load,
+  source-backed test-confidence audit, execution-grade plan, and clean plan
+  review.
 
 ### [ ] `FCP-6` Test Confidence For The Port
 
