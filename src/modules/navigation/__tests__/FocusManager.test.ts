@@ -10,12 +10,53 @@
 import { FocusManager } from '../FocusManager';
 import { FocusGroup } from '../interfaces';
 
+type LayoutOptions = {
+    display?: string;
+    offsetParent?: HTMLElement | null;
+    position?: string;
+    visibility?: string;
+};
+
 // Mock elements
 function createMockElement(id: string): HTMLElement {
     const el = document.createElement('button');
     el.id = id;
     document.body.appendChild(el);
     return el;
+}
+
+function rect(left: number, top: number, width: number, height: number): DOMRect {
+    return {
+        x: left,
+        y: top,
+        left,
+        top,
+        width,
+        height,
+        right: left + width,
+        bottom: top + height,
+        toJSON: () => ({}),
+    } as DOMRect;
+}
+
+function setLayout(
+    element: HTMLElement,
+    elementRect: DOMRect,
+    options: LayoutOptions = {}
+): void {
+    element.getBoundingClientRect = jest.fn(() => elementRect);
+    element.style.display = options.display ?? 'block';
+    element.style.position = options.position ?? 'static';
+    element.style.visibility = options.visibility ?? 'visible';
+
+    Object.defineProperty(element, 'offsetParent', {
+        configurable: true,
+        get: () => (
+            Object.prototype.hasOwnProperty.call(options, 'offsetParent')
+                ? options.offsetParent
+                : document.body
+        ),
+    });
 }
 
 describe('FocusManager', () => {
@@ -257,6 +298,113 @@ describe('FocusManager', () => {
 
             const neighbor = focusManager.findNeighbor('h1', 'right');
             expect(neighbor).toBe('h2');
+        });
+
+        it('should navigate within grid groups by row and column', () => {
+            const gridElements = Array.from({ length: 6 }, (_, index) => {
+                const el = createMockElement(`grid-${index + 1}`);
+                elements.push(el);
+                focusManager.registerFocusable({
+                    id: el.id,
+                    element: el,
+                    group: 'grid',
+                    neighbors: {},
+                });
+                return el.id;
+            });
+
+            const group: FocusGroup = {
+                id: 'grid',
+                elements: gridElements,
+                wrapAround: false,
+                orientation: 'grid',
+                columns: 3,
+            };
+            focusManager.registerFocusGroup(group);
+
+            expect(focusManager.findNeighbor('grid-2', 'down')).toBe('grid-5');
+            expect(focusManager.findNeighbor('grid-5', 'up')).toBe('grid-2');
+            expect(focusManager.findNeighbor('grid-3', 'right')).toBeNull();
+            expect(focusManager.findNeighbor('grid-4', 'left')).toBeNull();
+        });
+    });
+
+    describe('spatial navigation fallback', () => {
+        it('should choose the best visible spatial candidate when no explicit or group neighbor exists', () => {
+            const origin = createMockElement('origin');
+            const aligned = createMockElement('aligned');
+            const offAxis = createMockElement('off-axis');
+            elements.push(origin, aligned, offAxis);
+
+            setLayout(origin, rect(100, 100, 50, 50));
+            setLayout(aligned, rect(170, 100, 50, 50));
+            setLayout(offAxis, rect(155, 210, 50, 50));
+
+            focusManager.registerFocusable({ id: 'origin', element: origin, neighbors: {} });
+            focusManager.registerFocusable({ id: 'off-axis', element: offAxis, neighbors: {} });
+            focusManager.registerFocusable({ id: 'aligned', element: aligned, neighbors: {} });
+
+            expect(focusManager.findNeighbor('origin', 'right')).toBe('aligned');
+        });
+
+        it('should ignore zero-size, hidden, and detached spatial candidates', () => {
+            const origin = createMockElement('origin');
+            const zeroSize = createMockElement('zero-size');
+            const hidden = createMockElement('hidden');
+            const detached = createMockElement('detached');
+            const visible = createMockElement('visible');
+            elements.push(origin, zeroSize, hidden, detached, visible);
+
+            detached.remove();
+            setLayout(origin, rect(100, 100, 50, 50));
+            setLayout(zeroSize, rect(160, 100, 0, 50));
+            setLayout(hidden, rect(165, 100, 50, 50), { visibility: 'hidden' });
+            setLayout(detached, rect(170, 100, 50, 50));
+            setLayout(visible, rect(230, 100, 50, 50));
+
+            focusManager.registerFocusable({ id: 'origin', element: origin, neighbors: {} });
+            focusManager.registerFocusable({ id: 'zero-size', element: zeroSize, neighbors: {} });
+            focusManager.registerFocusable({ id: 'hidden', element: hidden, neighbors: {} });
+            focusManager.registerFocusable({ id: 'detached', element: detached, neighbors: {} });
+            focusManager.registerFocusable({ id: 'visible', element: visible, neighbors: {} });
+
+            expect(focusManager.findNeighbor('origin', 'right')).toBe('visible');
+        });
+
+        it('should ignore a zero-size spatial candidate even when it is the only directional candidate', () => {
+            const origin = createMockElement('origin');
+            const zeroSize = createMockElement('zero-size');
+            elements.push(origin, zeroSize);
+
+            setLayout(origin, rect(100, 100, 50, 50));
+            setLayout(zeroSize, rect(160, 100, 0, 50));
+
+            focusManager.registerFocusable({ id: 'origin', element: origin, neighbors: {} });
+            focusManager.registerFocusable({ id: 'zero-size', element: zeroSize, neighbors: {} });
+
+            expect(focusManager.findNeighbor('origin', 'right')).toBeNull();
+        });
+
+        it('should include fixed-position candidates without offsetParent when they have a visible rect', () => {
+            const origin = createMockElement('origin');
+            const fixed = createMockElement('fixed');
+            const regularWithoutParent = createMockElement('regular-without-parent');
+            elements.push(origin, fixed, regularWithoutParent);
+
+            setLayout(origin, rect(100, 100, 50, 50));
+            setLayout(fixed, rect(170, 100, 50, 50), {
+                offsetParent: null,
+                position: 'fixed',
+            });
+            setLayout(regularWithoutParent, rect(160, 100, 50, 50), {
+                offsetParent: null,
+            });
+
+            focusManager.registerFocusable({ id: 'origin', element: origin, neighbors: {} });
+            focusManager.registerFocusable({ id: 'regular-without-parent', element: regularWithoutParent, neighbors: {} });
+            focusManager.registerFocusable({ id: 'fixed', element: fixed, neighbors: {} });
+
+            expect(focusManager.findNeighbor('origin', 'right')).toBe('fixed');
         });
     });
 

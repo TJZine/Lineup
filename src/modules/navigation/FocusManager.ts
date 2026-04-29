@@ -507,11 +507,18 @@ export class FocusManager implements IFocusManager {
      */
     private _isVisible(element: HTMLElement, rect?: DOMRect): boolean {
         const resolvedRect = rect ?? element.getBoundingClientRect();
-        return (
-            resolvedRect.width > 0 &&
-            resolvedRect.height > 0 &&
-            element.offsetParent !== null
-        );
+        if (resolvedRect.width <= 0 || resolvedRect.height <= 0 || !element.isConnected) {
+            return false;
+        }
+
+        const style = window.getComputedStyle(element);
+        if (style.display === 'none' || style.visibility === 'hidden') {
+            return false;
+        }
+
+        // Fixed-position overlays have no offsetParent in browsers but still
+        // participate in spatial focus when they have a visible rect.
+        return element.offsetParent !== null || style.position === 'fixed';
     }
 
     /**
