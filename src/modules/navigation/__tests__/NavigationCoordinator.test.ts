@@ -1261,6 +1261,7 @@ describe('NavigationCoordinator', () => {
 
         handlers.guide?.(undefined);
 
+        expect(deps.guideMiniGuide.hideForGuideToggle).toHaveBeenCalledTimes(1);
         expect(deps.events.miniGuide.coordinator?.hide).toHaveBeenCalledTimes(1);
         expect(deps.events.channelSwitching.toggleEpg).toHaveBeenCalledTimes(1);
     });

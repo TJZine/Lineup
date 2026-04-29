@@ -266,6 +266,14 @@ export class ChannelSetupFacetLibraryExecutor {
         abortLibraryFacetRequests: () => void
     ): Promise<ChannelSetupFacetSnapshot | null> {
         let firstFailure: ChannelSetupFacetSnapshot | null = null;
+        const setFirstFailureOnce = (failure: ChannelSetupFacetSnapshot | null): void => {
+            if (!failure || firstFailure) {
+                return;
+            }
+
+            firstFailure = failure;
+            abortLibraryFacetRequests();
+        };
         const countRecoveryLimiter = createFacetCountRecoveryLimiter(MAX_FACET_COUNT_RECOVERY_CONCURRENCY);
         const recoveryTasks = nativeFacetDefinitions.map(async (definition) => {
             if (libraryFailureStopRequested()) {
@@ -278,10 +286,7 @@ export class ChannelSetupFacetLibraryExecutor {
                 libraryFailureStopRequested,
                 countRecoveryLimiter
             );
-            if (countRecoveryFailure && !firstFailure) {
-                firstFailure = countRecoveryFailure;
-                abortLibraryFacetRequests();
-            }
+            setFirstFailureOnce(countRecoveryFailure);
             return countRecoveryFailure;
         });
         await Promise.all(recoveryTasks);
