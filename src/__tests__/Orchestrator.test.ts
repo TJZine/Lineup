@@ -22,6 +22,7 @@ import { CHANNEL_BADGE_CONTAINER_ID } from '../modules/ui/channel-badge';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import { InitializationCoordinator, STARTUP_PHASE } from '../core/initialization/InitializationCoordinator';
 import { ChannelTuningCoordinator } from '../core/channel-tuning';
+import type { ChannelSwitchOutcome } from '../types/channelSwitch';
 import type { PlatformServices } from '../platform';
 import type { StreamDecision } from '../modules/plex/stream';
 import { AudioSettingsStore } from '../modules/settings/AudioSettingsStore';
@@ -2365,6 +2366,26 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 expect(switchSpy).toHaveBeenCalledWith('ch1', {
                     guideSelectionSnapshot,
                 });
+            } finally {
+                switchSpy.mockRestore();
+            }
+        });
+
+        it('carries ID-based switch outcomes through the internal startup and guide port', async () => {
+            const switchSpy = jest
+                .spyOn(ChannelTuningCoordinator.prototype, 'switchToChannel')
+                .mockResolvedValueOnce('failed')
+                .mockResolvedValueOnce('aborted')
+                .mockResolvedValueOnce('switched');
+            const switchWithOutcome = Reflect.get(
+                orchestrator as object,
+                '_switchToChannelWithOutcome'
+            ) as (channelId: string) => Promise<ChannelSwitchOutcome>;
+
+            try {
+                await expect(switchWithOutcome.call(orchestrator, 'ch1')).resolves.toBe('failed');
+                await expect(switchWithOutcome.call(orchestrator, 'ch1')).resolves.toBe('aborted');
+                await expect(switchWithOutcome.call(orchestrator, 'ch1')).resolves.toBe('switched');
             } finally {
                 switchSpy.mockRestore();
             }

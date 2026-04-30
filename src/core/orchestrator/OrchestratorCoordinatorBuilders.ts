@@ -18,6 +18,7 @@ import type {
     NavigationPlaybackOptionsSectionId,
     NavigationPlaybackPort,
 } from '../../modules/navigation/NavigationFeaturePorts';
+import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import { NavigationChannelNumberHandler } from '../../modules/navigation/NavigationChannelNumberHandler';
 import { NavigationKeyModeRouter } from '../../modules/navigation/NavigationKeyModeRouter';
 import { NavigationModalEffectsHandler } from '../../modules/navigation/NavigationModalEffectsHandler';
@@ -215,7 +216,8 @@ export function buildEpgCoordinator(input: OrchestratorEpgCoordinatorBuilderInpu
         switchToChannel: (
             channelId: string,
             options?: { guideSelectionSnapshot?: GuideSelectionSnapshot }
-        ): Promise<void> => input.actions.switchToChannel(channelId, options),
+        ): Promise<ChannelSwitchOutcome> =>
+            input.actions.switchToChannelWithOutcome(channelId, options),
         onVisibilityChange: (visible: boolean): void => {
             input.actions.onOverlayVisibilityChange(visible);
         },

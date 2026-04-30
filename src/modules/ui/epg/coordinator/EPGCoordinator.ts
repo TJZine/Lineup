@@ -2,6 +2,7 @@ import type { EpgGuideDensity } from '../../../settings/EpgPreferencesStore';
 import type { IEPGComponent } from '../interfaces';
 import type { ChannelConfig as EpgChannel, EPGConfig, EpgVisibleRange, ScheduledProgram as EpgScheduledProgram } from '../types';
 import type { GuideSettingChange } from '../../settings/types';
+import type { ChannelSwitchOutcome } from '../../../../types/channelSwitch';
 import type { IChannelManager, ChannelConfig as SchedulerChannelConfig, ResolvedChannelContent } from '../../../scheduler/channel-manager';
 import type {
     IChannelScheduler,
@@ -48,7 +49,7 @@ export interface EPGCoordinatorDeps {
     switchToChannel: (
         channelId: string,
         options?: EpgChannelSwitchOptions
-    ) => Promise<void>;
+    ) => Promise<ChannelSwitchOutcome>;
     onVisibilityChange?: (visible: boolean) => void;
     reportEpgInitWarning: (error: unknown) => void;
     epgPreferencesStore: EpgPreferencesStore;
@@ -545,6 +546,16 @@ export class EPGCoordinator {
             return;
         }
         this._closeEpg(false);
-        await this.deps.switchToChannel(channelId, snapshot ? { guideSelectionSnapshot: snapshot } : undefined);
+        const outcome = await this.deps.switchToChannel(
+            channelId,
+            snapshot ? { guideSelectionSnapshot: snapshot } : undefined
+        );
+        if (outcome === 'failed') {
+            this._reportIssue('epg.switchToChannelFailed', new Error('Guide channel switch failed'), {
+                channelId,
+                ratingKey: program.item.ratingKey,
+                selectedAt,
+            });
+        }
     }
 }

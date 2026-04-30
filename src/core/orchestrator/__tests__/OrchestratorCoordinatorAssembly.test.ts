@@ -113,6 +113,7 @@ const createCoordinatorAssemblyInput = (): OrchestratorCoordinatorAssemblyInput 
     },
     actions: {
         switchToChannel: async () => undefined,
+        switchToChannelWithOutcome: async () => 'switched',
         switchToNextChannel: jest.fn(),
         switchToPreviousChannel: jest.fn(),
         switchToChannelByNumberWithOutcome: async (): Promise<never> => {
@@ -206,6 +207,7 @@ describe('createOrchestratorCoordinators', () => {
             },
             actions: {
                 switchToChannel: deps.actions.switchToChannel,
+                switchToChannelWithOutcome: deps.actions.switchToChannelWithOutcome,
                 onOverlayVisibilityChange: deps.actions.onOverlayVisibilityChange,
             },
             nowPlaying: deps.nowPlaying,

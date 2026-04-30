@@ -9,7 +9,11 @@ import type {
 } from '../../../modules/plex/auth';
 import { PlexAuth } from '../../../modules/plex/auth/PlexAuth';
 import { PLEX_AUTH_CONSTANTS } from '../../../modules/plex/auth/constants';
-import { applyAuthValidationPolicy, type AuthValidationPolicyInputs } from '../InitializationStartupPolicy';
+import {
+    applyAuthValidationPolicy,
+    applyPostReadyRoutingPolicy,
+    type AuthValidationPolicyInputs,
+} from '../InitializationStartupPolicy';
 
 type PlexAuthGateMock = Pick<
     IPlexAuth,
@@ -59,6 +63,58 @@ const createToken = (
     thumb: '',
     expiresAt: new Date(),
     issuedAt: new Date(),
+});
+
+describe('applyPostReadyRoutingPolicy', () => {
+    type PostReadyRoutingPolicyTestInputs = Parameters<typeof applyPostReadyRoutingPolicy>[0];
+
+    const createInputs = (
+        switchOutcome: 'switched' | 'failed' | 'aborted' = 'switched'
+    ): PostReadyRoutingPolicyTestInputs => ({
+        navigation: {
+            replaceScreen: jest.fn(),
+        },
+        channelManager: {
+            getCurrentChannel: jest.fn().mockReturnValue({ id: 'current-channel-id' }),
+            getAllChannels: jest.fn().mockReturnValue([]),
+        },
+        shouldRunAudioSetup: jest.fn().mockReturnValue(false),
+        shouldRunChannelSetup: jest.fn().mockReturnValue(false),
+        switchToChannel: jest.fn().mockResolvedValue(switchOutcome),
+        openServerSelect: jest.fn(),
+    });
+
+    it('routes to player and completes when the startup tune switches', async () => {
+        const inputs = createInputs('switched');
+
+        await expect(applyPostReadyRoutingPolicy(inputs)).resolves.toBeUndefined();
+
+        expect(inputs.navigation.replaceScreen).toHaveBeenCalledWith('player');
+        expect(inputs.switchToChannel).toHaveBeenCalledWith('current-channel-id');
+        expect(inputs.openServerSelect).not.toHaveBeenCalled();
+    });
+
+    it('rejects without opening server select when the startup tune fails', async () => {
+        const inputs = createInputs('failed');
+
+        await expect(applyPostReadyRoutingPolicy(inputs)).rejects.toThrow(
+            'Initial channel switch failed for current-channel-id.'
+        );
+
+        expect(inputs.navigation.replaceScreen).toHaveBeenCalledWith('player');
+        expect(inputs.openServerSelect).not.toHaveBeenCalled();
+    });
+
+    it('rejects without opening server select when the startup tune aborts', async () => {
+        const inputs = createInputs('aborted');
+
+        await expect(applyPostReadyRoutingPolicy(inputs)).rejects.toThrow(
+            'Initial channel switch aborted for current-channel-id.'
+        );
+
+        expect(inputs.navigation.replaceScreen).toHaveBeenCalledWith('player');
+        expect(inputs.openServerSelect).not.toHaveBeenCalled();
+    });
 });
 
 const createStoredCredentials = (): PlexAuthDataV2 => ({

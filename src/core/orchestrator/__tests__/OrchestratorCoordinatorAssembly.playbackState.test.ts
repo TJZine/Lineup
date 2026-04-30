@@ -180,6 +180,7 @@ const makeDeps = (
         },
         actions: {
             switchToChannel: jest.fn().mockResolvedValue(undefined),
+            switchToChannelWithOutcome: jest.fn().mockResolvedValue('switched'),
             switchToNextChannel: jest.fn(),
             switchToPreviousChannel: jest.fn(),
             switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue('failed'),

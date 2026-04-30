@@ -142,6 +142,7 @@ const createInput = (): OrchestratorCoordinatorAssemblyInput => {
         },
         actions: {
             switchToChannel: jest.fn(),
+            switchToChannelWithOutcome: jest.fn().mockResolvedValue('switched'),
             switchToNextChannel: jest.fn(),
             switchToPreviousChannel: jest.fn(),
             switchToChannelByNumberWithOutcome: jest.fn(),

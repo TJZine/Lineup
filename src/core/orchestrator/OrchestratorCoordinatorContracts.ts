@@ -51,6 +51,7 @@ import type {
     ExitConfirmModal,
 } from '../../modules/ui/exit-confirm';
 import type { SleepTimerManager } from '../../modules/ui/sleep-timer';
+import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import type { GuideSelectionSnapshot } from '../channel-tuning';
 import type { ModuleStatus, OrchestratorConfig } from './OrchestratorTypes';
 import type { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
@@ -146,9 +147,13 @@ export interface OrchestratorCoordinatorAssemblyInput {
             channelId: string,
             options?: { guideSelectionSnapshot?: GuideSelectionSnapshot }
         ) => Promise<void>;
+        switchToChannelWithOutcome: (
+            channelId: string,
+            options?: { guideSelectionSnapshot?: GuideSelectionSnapshot }
+        ) => Promise<ChannelSwitchOutcome>;
         switchToNextChannel: () => void;
         switchToPreviousChannel: () => void;
-        switchToChannelByNumberWithOutcome: (n: number) => Promise<import('../../types/channelSwitch').ChannelSwitchOutcome>;
+        switchToChannelByNumberWithOutcome: (n: number) => Promise<ChannelSwitchOutcome>;
         toggleEPG: () => void;
         onOverlayVisibilityChange: (visible: boolean) => void;
         onChannelTransitionActivityChange: (active: boolean) => void;
@@ -198,7 +203,10 @@ export interface OrchestratorEpgCoordinatorBuilderInput {
         CoordinatorSchedule,
         'lastChannelChangeSource' | 'setLastChannelChangeSource' | 'getLocalMidnightMs' | 'buildDailyScheduleConfig'
     >;
-    actions: Pick<CoordinatorActions, 'switchToChannel' | 'onOverlayVisibilityChange'>;
+    actions: Pick<
+        CoordinatorActions,
+        'switchToChannel' | 'switchToChannelWithOutcome' | 'onOverlayVisibilityChange'
+    >;
     nowPlaying: OrchestratorCoordinatorAssemblyInput['nowPlaying'];
 }
 

@@ -517,7 +517,7 @@ export class AppOrchestrator {
                 routing: {
                     shouldRunAudioSetup: this._shouldRunAudioSetup.bind(this),
                     shouldRunChannelSetup: (): boolean => this._channelSetup?.shouldRunChannelSetup() ?? false,
-                    switchToChannel: this.switchToChannel.bind(this),
+                    switchToChannel: this._switchToChannelWithOutcome.bind(this),
                     openServerSelect: this.openServerSelect.bind(this),
                 },
                 resources: {
@@ -715,6 +715,10 @@ export class AppOrchestrator {
                     channelId: string,
                     options?: { guideSelectionSnapshot?: import('../channel-tuning').GuideSelectionSnapshot }
                 ): Promise<void> => this.switchToChannel(channelId, options),
+                switchToChannelWithOutcome: (
+                    channelId: string,
+                    options?: { guideSelectionSnapshot?: import('../channel-tuning').GuideSelectionSnapshot }
+                ): Promise<ChannelSwitchOutcome> => this._switchToChannelWithOutcome(channelId, options),
                 switchToNextChannel: (): void => this._channelSwitchRuntime.switchToNextChannel(),
                 switchToPreviousChannel: (): void => this._channelSwitchRuntime.switchToPreviousChannel(),
                 switchToChannelByNumberWithOutcome: (n: number): Promise<ChannelSwitchOutcome> =>
@@ -1248,6 +1252,16 @@ export class AppOrchestrator {
         }
     ): Promise<void> {
         await this._channelSwitchRuntime.switchToChannel(channelId, options);
+    }
+
+    private async _switchToChannelWithOutcome(
+        channelId: string,
+        options?: {
+            signal?: AbortSignal;
+            guideSelectionSnapshot?: import('../channel-tuning').GuideSelectionSnapshot;
+        }
+    ): Promise<ChannelSwitchOutcome> {
+        return this._channelSwitchRuntime.switchToChannelWithOutcome(channelId, options);
     }
 
     /**
