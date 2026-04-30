@@ -53,7 +53,10 @@ import type {
 } from './OverlayPorts';
 import type { PlatformServices } from '../../platform';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
+import { AudioSettingsStore } from '../../modules/settings/AudioSettingsStore';
+import { PlaybackSettingsStore } from '../../modules/settings/PlaybackSettingsStore';
 import type { DeveloperSettingsStore } from '../../modules/settings/DeveloperSettingsStore';
+import { createPlexStreamSubtitleDebugLogPort } from '../../modules/plex/stream/PlexStreamSubtitleDebugLogPort';
 
 export interface OrchestratorModuleFactoryDeps {
     config: OrchestratorConfig;
@@ -106,6 +109,9 @@ export function createOrchestratorModules(deps: OrchestratorModuleFactoryDeps): 
         },
     };
     const plexLibrary = new PlexLibrary(plexLibraryConfig);
+    const audioSettingsStore = new AudioSettingsStore();
+    const playbackSettingsStore = new PlaybackSettingsStore();
+    const subtitleDebugPolicyReader = deps.developerSettingsStore;
 
     const streamResolverConfig: PlexStreamResolverConfig = {
         getAuthHeaders: () => plexAuth.getAuthHeaders(),
@@ -127,7 +133,12 @@ export function createOrchestratorModules(deps: OrchestratorModuleFactoryDeps): 
         },
         getItem: async (ratingKey: string) => plexLibrary.getItem(ratingKey),
         clientIdentifier: deps.config.plexConfig.clientIdentifier,
-        debugOverridesStore: deps.debugOverridesStore,
+        audioPolicyReader: audioSettingsStore,
+        playbackPolicyReader: playbackSettingsStore,
+        debugPolicyReader: deps.developerSettingsStore,
+        subtitleDebugPolicyReader,
+        debugOverridesReader: deps.debugOverridesStore,
+        subtitleDebugLogPort: createPlexStreamSubtitleDebugLogPort(subtitleDebugPolicyReader),
         identityService: deps.platformServices.identity,
     };
     const plexStreamResolver = new PlexStreamResolver(streamResolverConfig);

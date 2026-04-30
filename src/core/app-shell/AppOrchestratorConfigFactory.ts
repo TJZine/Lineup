@@ -1,7 +1,7 @@
 import { createDefaultPlexAuthConfig } from '../../modules/plex/auth';
 import type { NavigationConfig } from '../../modules/navigation';
 import type { VideoPlayerConfig } from '../../modules/player';
-import { EPG_CONTAINER_ID, type EPGConfig } from '../../modules/ui/epg';
+import { createDefaultEpgConfig, type EPGConfig } from '../../modules/ui/epg';
 import type { NowPlayingInfoConfig } from '../../modules/ui/now-playing-info';
 import { APP_SHELL_CONTAINER_IDS } from '../../modules/ui/common/appShellContainerIds';
 import { PLAYER_OSD_CONTAINER_ID, type PlayerOsdConfig } from '../../modules/ui/player-osd';
@@ -29,18 +29,6 @@ const DEFAULT_PLAYER_CONFIG: VideoPlayerConfig = {
     hideControlsAfterMs: 3000,
     retryAttempts: 3,
     retryDelayMs: 1000,
-};
-
-const DEFAULT_EPG_CONFIG: EPGConfig = {
-    containerId: EPG_CONTAINER_ID,
-    visibleChannels: 5,
-    timeSlotMinutes: 30,
-    visibleHours: 2,
-    totalHours: 24,
-    pixelsPerMinute: 4,
-    rowHeight: 96,
-    showCurrentTimeIndicator: true,
-    autoScrollToNow: true,
 };
 
 const DEFAULT_NOW_PLAYING_INFO_CONFIG: NowPlayingInfoConfig = {
@@ -83,7 +71,7 @@ const createPlayerConfig = (): VideoPlayerConfig => ({
 });
 
 const createEpgConfig = (): EPGConfig => ({
-    ...DEFAULT_EPG_CONFIG,
+    ...createDefaultEpgConfig(),
 });
 
 const createNowPlayingInfoConfig = (): NowPlayingInfoConfig => ({

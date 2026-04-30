@@ -219,6 +219,19 @@ describe('StateManager', () => {
             expect(loaded).toBeNull();
         });
 
+        it('should reject older persisted versions without an approved migration', async () => {
+            const oldState = {
+                version: 0,
+                userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
+                lastUpdated: Date.now(),
+            };
+            mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, JSON.stringify(oldState));
+
+            const loaded = await stateManager.load();
+
+            expect(loaded).toBeNull();
+        });
+
         it('should handle future version gracefully', async () => {
             const futureState = {
                 version: 999,

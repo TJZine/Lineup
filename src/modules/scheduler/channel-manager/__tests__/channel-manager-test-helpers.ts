@@ -1,5 +1,5 @@
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
-import type { LibraryContentSource } from '../types';
+import type { ChannelConfig, LibraryContentSource } from '../types';
 
 export function createMockLibrary(): jest.Mocked<IPlexLibraryMinimal> {
     return {
@@ -30,6 +30,27 @@ export function createMockContentSource(libraryId = 'lib1'): LibraryContentSourc
         libraryId,
         libraryType: 'movie',
         includeWatched: true,
+    };
+}
+
+export function createBaseChannel(overrides: Partial<ChannelConfig> = {}): ChannelConfig {
+    return {
+        id: 'base',
+        number: 1,
+        name: 'Base Channel',
+        contentSource: createMockContentSource(),
+        playbackMode: 'shuffle',
+        shuffleSeed: 1,
+        phaseSeed: 1,
+        startTimeAnchor: 0,
+        skipIntros: false,
+        skipCredits: false,
+        createdAt: 0,
+        updatedAt: 0,
+        lastContentRefresh: 0,
+        itemCount: 0,
+        totalDurationMs: 0,
+        ...overrides,
     };
 }
 

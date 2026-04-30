@@ -13,18 +13,12 @@ import type {
 } from './interfaces';
 import type {
     PlexMediaItem,
-    PlexStream,
     StreamRequest,
     StreamDecision,
     HlsOptions,
 } from './types';
-import { isTextSubtitleFormat } from './constants';
 import { generatePlexSessionId } from './plexSessionId';
-import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
-import { PlaybackSettingsStore } from '../../settings/PlaybackSettingsStore';
-import { DeveloperSettingsStore } from '../../settings/DeveloperSettingsStore';
 import { summarizeErrorForLog } from '../../../utils/errors';
-import { redactSensitiveTokens } from '../../../utils/redact';
 import {
     getDirectPlayDecision,
 } from './playbackCompatibilityPolicy';
@@ -44,8 +38,8 @@ import {
     buildPlexTranscodeStartUrl,
 } from './plexStreamUrlPolicy';
 import { logPlexWarning } from '../shared/plexLogging';
-import { SubtitleDebugLogger } from '../../debug/SubtitleDebugLogger';
-import { probeSubtitleStreamDelivery } from './SubtitleStreamProbe';
+import { SubtitleStreamDebugProbeCoordinator } from './SubtitleStreamDebugProbeCoordinator';
+import { UniversalTranscodeDecisionClient } from './UniversalTranscodeDecisionClient';
 
 // Re-export types for consumers
 export { PlexStreamErrorCode } from './types';
@@ -59,16 +53,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     private readonly _config: PlexStreamResolverConfig;
     private readonly _emitter: EventEmitter<StreamResolverEventMap>;
     private readonly _identityService: PlatformIdentityService;
-    private readonly _audioSettingsStore = new AudioSettingsStore();
-    private readonly _playbackSettingsStore = new PlaybackSettingsStore();
-    private readonly _developerSettingsStore = new DeveloperSettingsStore();
-    private readonly _subtitleDebugLogger = new SubtitleDebugLogger({
-        scope: 'PlexStreamResolver',
-        sink: (scope, event, payload): void => {
-            logPlexWarning('subtitle_debug', scope, event, payload);
-        },
-        settingsReader: this._developerSettingsStore,
-    });
+    private readonly _subtitleDebugProbeCoordinator: SubtitleStreamDebugProbeCoordinator;
+    private readonly _universalTranscodeDecisionClient: UniversalTranscodeDecisionClient;
 
     /**
      * Create a new PlexStreamResolver instance.
@@ -78,6 +64,16 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         this._config = config;
         this._emitter = new EventEmitter<StreamResolverEventMap>();
         this._identityService = config.identityService ?? createPlatformIdentityService();
+        this._subtitleDebugProbeCoordinator = new SubtitleStreamDebugProbeCoordinator({
+            getServerUri: config.getServerUri,
+            getAuthHeaders: config.getAuthHeaders,
+            subtitleDebugLogPort: config.subtitleDebugLogPort,
+        });
+        this._universalTranscodeDecisionClient = new UniversalTranscodeDecisionClient({
+            getAuthHeaders: config.getAuthHeaders,
+            getTranscodeUrl: (itemKey, options): string => this.getTranscodeUrl(itemKey, options),
+            throwIfAuthFailure: (response): void => this._throwIfAuthFailure(response),
+        });
     }
 
     private _getChromeMajor(): number | null {
@@ -106,7 +102,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
     private _isDtsPassthroughEnabled(): boolean {
         try {
-            const userEnabled = this._audioSettingsStore.readDtsPassthroughEnabledAndClean(false);
+            const userEnabled = this._config.audioPolicyReader.readDtsPassthroughEnabledAndClean(false);
             const chromeMajor = this._getChromeMajor();
             return userEnabled && chromeMajor !== null && chromeMajor >= 108;
         } catch {
@@ -127,15 +123,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
     }
 
-    private _isSubtitleDebugEnabled(): boolean {
-        return this._subtitleDebugLogger.isEnabled();
-    }
-
-    private _logSubtitleDebug(event: string, context: Record<string, unknown>): void {
-        this._subtitleDebugLogger.log(event, context);
-    }
-
-
     /**
      * Resolve the best stream URL for a media item.
      * @param request - Stream request parameters
@@ -152,7 +139,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         const sessionId = generatePlexSessionId();
-        const allowDirectPlayAudioFallback = this._audioSettingsStore.readDirectPlayAudioFallbackEnabledAndClean();
+        const allowDirectPlayAudioFallback = this._config.audioPolicyReader.readDirectPlayAudioFallbackEnabledAndClean();
         const dtsPassthroughEnabled = this._isDtsPassthroughEnabled();
         const userAgent = this._getBrowserUserAgent();
         const hdr10FallbackMode = this._getHdr10FallbackMode();
@@ -195,83 +182,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             availableSubtitleStreams,
         } = pipeline;
 
-        if (this._isSubtitleDebugEnabled()) {
-            const isTextCandidate = (s: PlexStream): boolean => {
-                return isTextSubtitleFormat(s.codec) || isTextSubtitleFormat(s.format);
-            };
-            const hasKey = (s: PlexStream): boolean => typeof s.key === 'string' && s.key.length > 0;
-            const codecCounts = availableSubtitleStreams.reduce<Record<string, number>>((acc, stream) => {
-                const codec = (stream.codec ?? stream.format ?? 'unknown').toLowerCase();
-                acc[codec] = (acc[codec] ?? 0) + 1;
-                return acc;
-            }, {});
-            const withKeyCount = availableSubtitleStreams.filter(hasKey).length;
-            this._logSubtitleDebug('subtitle_tracks_discovered', {
-                count: availableSubtitleStreams.length,
-                codecs: codecCounts,
-                withKeyCount,
-                withoutKeyCount: Math.max(0, availableSubtitleStreams.length - withKeyCount),
-            });
-            this._logSubtitleDebug('subtitle_streams_discovered', {
-                itemKey: request.itemKey,
-                subtitlesCount: availableSubtitleStreams.length,
-                subtitleStreams: availableSubtitleStreams.map((s) => ({
-                    id: s.id,
-                    codec: s.codec,
-                    format: s.format,
-                    language: s.language,
-                    languageCode: s.languageCode,
-                    title: s.title,
-                    default: s.default,
-                    forced: s.forced,
-                    selected: subtitleStream?.id === s.id,
-                    isTextCandidate: isTextCandidate(s),
-                    fetchableViaKey: hasKey(s),
-                    key: typeof s.key === 'string' ? redactSensitiveTokens(s.key) : null,
-                })),
-            });
-
-            const candidates = availableSubtitleStreams.filter(isTextCandidate);
-            if (candidates.length > 0) {
-                const pickPreferred = (streams: PlexStream[]): PlexStream => {
-                    const forced = streams.find((s) => s.forced);
-                    if (forced) return forced;
-                    const english = streams.find(
-                        (s) => (s.language ?? '').toLowerCase() === 'english' || (s.languageCode ?? '').toLowerCase() === 'en'
-                    );
-                    if (english) return english;
-                    return streams[0]!;
-                };
-
-                // Probe both a key-backed and keyless candidate when possible, to categorize behavior.
-                const withKey = candidates.filter(hasKey);
-                const withoutKey = candidates.filter((s) => !hasKey(s));
-                const toProbe: PlexStream[] = [];
-                if (withKey.length > 0) toProbe.push(pickPreferred(withKey));
-                if (withoutKey.length > 0 && toProbe.length < 2) toProbe.push(pickPreferred(withoutKey));
-                while (toProbe.length < 2) {
-                    const next = candidates.find((s) => !toProbe.some((p) => p.id === s.id));
-                    if (!next) break;
-                    toProbe.push(next);
-                }
-                for (const s of toProbe) {
-                    void probeSubtitleStreamDelivery(
-                        {
-                            itemKey: request.itemKey,
-                            subtitleStreamId: s.id,
-                            ...(typeof s.key === 'string' ? { subtitleStreamKey: s.key } : {}),
-                            codec: s.codec,
-                            ...(typeof s.language === 'string' ? { language: s.language } : {}),
-                        },
-                        {
-                            serverUri: this._config.getServerUri(),
-                            getAuthHeaders: this._config.getAuthHeaders,
-                            logDebug: (event, context) => this._logSubtitleDebug(event, context),
-                        }
-                    );
-                }
-            }
-        }
+        this._subtitleDebugProbeCoordinator.scheduleDebugProbes({
+            itemKey: request.itemKey,
+            selectedSubtitleStream: subtitleStream ?? null,
+            availableSubtitleStreams,
+        });
 
         if (debugEnabled) {
             if (pipeline.hdrFallbackReason) {
@@ -410,10 +325,10 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             );
         }
 
-        const compatMode = this._playbackSettingsStore.readTranscodeCompatEnabledAndClean(false);
-        const quality = this._playbackSettingsStore.readTranscodeQualityOptionAndClean();
+        const compatMode = this._config.playbackPolicyReader.readTranscodeCompatEnabledAndClean(false);
+        const quality = this._config.playbackPolicyReader.readTranscodeQualityOptionAndClean();
         const authHeaders = this._config.getAuthHeaders();
-        const forcedProfileName = this._config.debugOverridesStore.readTranscodeProfileNameAndClean();
+        const forcedProfileName = this._config.debugOverridesReader.readTranscodeProfileNameAndClean();
         const defaultIdentityParams = this._identityService.getDefaultPlexIdentity(
             this._config.clientIdentifier
         );
@@ -459,115 +374,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         itemKey: string,
         request: NonNullable<StreamDecision['transcodeRequest']>
     ): Promise<NonNullable<StreamDecision['serverDecision']>> {
-        const hlsOptions: HlsOptions = {
-            sessionId: request.sessionId,
-            maxBitrate: request.maxBitrate,
-        };
-        if (typeof request.mediaIndex === 'number') {
-            hlsOptions.mediaIndex = request.mediaIndex;
-        }
-        if (typeof request.partIndex === 'number') {
-            hlsOptions.partIndex = request.partIndex;
-        }
-        if (typeof request.audioStreamId === 'string') {
-            hlsOptions.audioStreamId = request.audioStreamId;
-        }
-        if (typeof request.subtitleStreamId === 'string') {
-            hlsOptions.subtitleStreamId = request.subtitleStreamId;
-        }
-        if (request.subtitleMode === 'burn') {
-            hlsOptions.subtitleMode = 'burn';
-        }
-        if (request.hideDolbyVision === true) {
-            hlsOptions.hideDolbyVision = true;
-        }
-
-        const startUrl = this.getTranscodeUrl(itemKey, hlsOptions);
-
-        const decisionUrl = ((): string => {
-            const url = new URL(startUrl);
-            url.pathname = '/video/:/transcode/universal/decision';
-            return url.toString();
-        })();
-
-        const response = await fetchWithTimeout({
-            url: decisionUrl,
-            init: { method: 'GET', headers: this._config.getAuthHeaders() },
-            timeoutMs: 4000,
-        });
-        this._throwIfAuthFailure(response);
-        if (!response.ok) {
-            throw new Error(`PMS decision request failed: ${response.status}`);
-        }
-        const raw = await response.text();
-
-        const parsed = this._parseUniversalDecisionResponse(raw);
-        return { fetchedAt: Date.now(), ...parsed };
-    }
-
-    private _parseUniversalDecisionResponse(
-        raw: string
-    ): Omit<NonNullable<StreamDecision['serverDecision']>, 'fetchedAt'> {
-        // Best-effort parsing. Plex typically responds with XML for this endpoint.
-        // We extract commonly used attributes: decisionCode/decisionText and video/audio/subtitle decisions.
-        try {
-            if (typeof DOMParser !== 'undefined') {
-                const doc = new DOMParser().parseFromString(raw, 'text/xml');
-                const container = doc.querySelector('MediaContainer');
-                const transcode = doc.querySelector('TranscodeSession');
-
-                const decisionCode =
-                    container?.getAttribute('decisionCode') ??
-                    transcode?.getAttribute('decisionCode') ??
-                    undefined;
-                const decisionText =
-                    container?.getAttribute('decisionText') ??
-                    container?.getAttribute('generalDecisionText') ??
-                    transcode?.getAttribute('decisionText') ??
-                    undefined;
-
-                const videoDecision =
-                    transcode?.getAttribute('videoDecision') ??
-                    container?.getAttribute('videoDecision') ??
-                    undefined;
-                const audioDecision =
-                    transcode?.getAttribute('audioDecision') ??
-                    container?.getAttribute('audioDecision') ??
-                    undefined;
-                const subtitleDecision =
-                    transcode?.getAttribute('subtitleDecision') ??
-                    container?.getAttribute('subtitleDecision') ??
-                    undefined;
-
-                const result: Record<string, string> = {};
-                if (decisionCode) result.decisionCode = decisionCode;
-                if (decisionText) result.decisionText = decisionText;
-                if (videoDecision) result.videoDecision = videoDecision;
-                if (audioDecision) result.audioDecision = audioDecision;
-                if (subtitleDecision) result.subtitleDecision = subtitleDecision;
-                return result as Omit<NonNullable<StreamDecision['serverDecision']>, 'fetchedAt'>;
-            }
-        } catch {
-            // fall through to regex parsing
-        }
-
-        const attr = (name: string): string | undefined => {
-            const match = raw.match(new RegExp(`${name}=\"([^\"]+)\"`));
-            return match?.[1];
-        };
-        const decisionCode = attr('decisionCode') ?? attr('generalDecisionCode');
-        const decisionText = attr('decisionText') ?? attr('generalDecisionText');
-        const videoDecision = attr('videoDecision');
-        const audioDecision = attr('audioDecision');
-        const subtitleDecision = attr('subtitleDecision');
-
-        const result: Record<string, string> = {};
-        if (decisionCode) result.decisionCode = decisionCode;
-        if (decisionText) result.decisionText = decisionText;
-        if (videoDecision) result.videoDecision = videoDecision;
-        if (audioDecision) result.audioDecision = audioDecision;
-        if (subtitleDecision) result.subtitleDecision = subtitleDecision;
-        return result as Omit<NonNullable<StreamDecision['serverDecision']>, 'fetchedAt'>;
+        return this._universalTranscodeDecisionClient.fetchDecision(itemKey, request);
     }
 
     on<K extends keyof StreamResolverEventMap>(
@@ -724,11 +531,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
 
     private _getHdr10FallbackMode(): 'off' | 'smart' | 'force' {
-        return this._playbackSettingsStore.readHdr10FallbackModeAndClean();
+        return this._config.playbackPolicyReader.readHdr10FallbackModeAndClean();
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        return this._developerSettingsStore.readDebugLoggingEnabledAndClean(false);
+        return this._config.debugPolicyReader.readDebugLoggingEnabledAndClean(false);
     }
 
 

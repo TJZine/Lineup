@@ -86,13 +86,9 @@ export class SettingsScreenFocusCoordinator {
         const categoryButtonId = this.getCategoryButtonId(categoryId);
         const categoryConfig = this._getCategories().find((entry) => entry.id === categoryId);
         if (options.focusDetail) {
-            const rememberedId = this._lastFocusedItemByCategory[categoryId];
-            const rememberedStillBelongsToCategory = Boolean(
-                rememberedId && categoryConfig?.items.some((item) => item.id === rememberedId)
-            );
-            return rememberedStillBelongsToCategory
-                ? rememberedId ?? categoryButtonId
-                : categoryConfig?.items[0]?.id ?? categoryButtonId;
+            return this._getValidRememberedDetailFocusId(categoryId, categoryConfig)
+                ?? this._getFirstEnabledCategoryItemId(categoryConfig)
+                ?? categoryButtonId;
         }
 
         return options.preferredFocusId ?? categoryButtonId;
@@ -405,12 +401,10 @@ export class SettingsScreenFocusCoordinator {
     }
 
     private _getPreferredDetailFocusId(categoryId: SettingsCategoryId): string | undefined {
-        const rememberedId = this._lastFocusedItemByCategory[categoryId];
-        if (rememberedId) {
-            if (this._getActiveCategoryId() !== categoryId || this._isFocusableEnabled(rememberedId)) {
-                return rememberedId;
-            }
-        }
+        const category = this._getCategories().find((entry) => entry.id === categoryId);
+        const rememberedId = this._getValidRememberedDetailFocusId(categoryId, category);
+        if (rememberedId) return rememberedId;
+
         if (this._getActiveCategoryId() === categoryId) {
             const activeItemIds = this._getActiveCategoryItemIds();
             const activeId = activeItemIds.find((id) => this._isFocusableEnabled(id)) ?? activeItemIds[0];
@@ -418,8 +412,21 @@ export class SettingsScreenFocusCoordinator {
                 return activeId;
             }
         }
-        const category = this._getCategories().find((entry) => entry.id === categoryId);
-        return category?.items[0]?.id;
+        return this._getFirstEnabledCategoryItemId(category) ?? category?.items[0]?.id;
+    }
+
+    private _getValidRememberedDetailFocusId(
+        categoryId: SettingsCategoryId,
+        category?: SettingsCategoryConfig
+    ): string | undefined {
+        const rememberedId = this._lastFocusedItemByCategory[categoryId];
+        if (!rememberedId) return undefined;
+        if (!category?.items.some((item) => item.id === rememberedId)) return undefined;
+        return this._isFocusableEnabled(rememberedId) ? rememberedId : undefined;
+    }
+
+    private _getFirstEnabledCategoryItemId(category?: SettingsCategoryConfig): string | undefined {
+        return category?.items.find((item) => this._isFocusableEnabled(item.id))?.id;
     }
 
     private _isDetailFocusable(id: string): boolean {

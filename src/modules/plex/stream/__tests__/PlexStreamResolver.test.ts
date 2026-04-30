@@ -297,6 +297,127 @@ describe('PlexStreamResolver', () => {
             expect(decision.playbackUrl).toContain('X-Plex-Token=mock-token');
         });
 
+        it('reads stream policy through injected readers and subtitle debug through the injected port', async () => {
+            const mockItem = createMockMediaItem({
+                container: 'mp4',
+                videoCodec: 'h264',
+                audioCodec: 'aac',
+            });
+            const readDirectPlayAudioFallbackEnabledAndClean = jest.fn(() => false);
+            const readDtsPassthroughEnabledAndClean = jest.fn(() => false);
+            const readHdr10FallbackModeAndClean = jest.fn(() => 'off' as const);
+            const readDebugLoggingEnabledAndClean = jest.fn(() => false);
+            const subtitleDebugLogPort = {
+                isEnabled: jest.fn(() => false),
+                log: jest.fn(),
+            };
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+                audioPolicyReader: {
+                    readDirectPlayAudioFallbackEnabledAndClean,
+                    readDtsPassthroughEnabledAndClean,
+                },
+                playbackPolicyReader: {
+                    readHdr10FallbackModeAndClean,
+                    readTranscodeCompatEnabledAndClean: jest.fn(() => false),
+                    readTranscodeQualityOptionAndClean: jest.fn(() => null),
+                },
+                debugPolicyReader: {
+                    readDebugLoggingEnabledAndClean,
+                },
+                subtitleDebugLogPort,
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            await resolver.resolveStream({ itemKey: '12345' });
+
+            expect(readDirectPlayAudioFallbackEnabledAndClean).toHaveBeenCalledTimes(1);
+            expect(readDtsPassthroughEnabledAndClean).toHaveBeenCalled();
+            expect(readHdr10FallbackModeAndClean).toHaveBeenCalledTimes(1);
+            expect(readDebugLoggingEnabledAndClean).toHaveBeenCalledWith(false);
+            expect(subtitleDebugLogPort.isEnabled).toHaveBeenCalledTimes(1);
+            expect(subtitleDebugLogPort.log).not.toHaveBeenCalled();
+        });
+
+        it('delegates subtitle debug discovery through the debug probe coordinator', async () => {
+            const subtitleDebugLogPort = {
+                isEnabled: jest.fn(() => true),
+                log: jest.fn(),
+            };
+            const mockItem = createMockMediaItem(
+                {
+                    container: 'mp4',
+                    videoCodec: 'h264',
+                    audioCodec: 'aac',
+                },
+                {
+                    extraStreams: [
+                        {
+                            id: 'sub-key-nonpreferred',
+                            streamType: 3,
+                            codec: 'srt',
+                            key: '/library/streams/sub-key-nonpreferred',
+                            language: 'Spanish',
+                            languageCode: 'es',
+                        },
+                        {
+                            id: 'sub-key-english',
+                            streamType: 3,
+                            codec: 'srt',
+                            key: '/library/streams/sub-key-english',
+                            language: 'English',
+                            languageCode: 'en',
+                        },
+                        {
+                            id: 'sub-keyless-forced',
+                            streamType: 3,
+                            codec: 'unknown',
+                            format: 'vtt',
+                            language: 'French',
+                            languageCode: 'fr',
+                            forced: true,
+                        },
+                        {
+                            id: 'sub-image',
+                            streamType: 3,
+                            codec: 'pgs',
+                            key: '/library/streams/sub-image',
+                        },
+                    ],
+                }
+            );
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+                subtitleDebugLogPort,
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            await resolver.resolveStream({ itemKey: '12345' });
+
+            expect(subtitleDebugLogPort.log).toHaveBeenCalledWith(
+                'subtitle_tracks_discovered',
+                expect.objectContaining({
+                    count: 4,
+                    withKeyCount: 3,
+                    withoutKeyCount: 1,
+                })
+            );
+            expect(subtitleDebugLogPort.log).toHaveBeenCalledWith(
+                'subtitle_streams_discovered',
+                expect.objectContaining({
+                    itemKey: '12345',
+                    subtitlesCount: 4,
+                    subtitleStreams: expect.arrayContaining([
+                        expect.objectContaining({
+                            id: 'sub-image',
+                            isTextCandidate: false,
+                            fetchableViaKey: true,
+                        }),
+                    ]),
+                })
+            );
+        });
+
         it('keeps explicit audio selection in the direct-play url when the requested track is compatible', async () => {
             const mockItem = createMockMediaItem(
                 { audioCodec: 'dts' },
@@ -1037,7 +1158,7 @@ describe('PlexStreamResolver', () => {
             const readTranscodeProfileNameAndClean = jest.fn(() => 'Generic');
             const resolver = new PlexStreamResolver(
                 createMockConfig({
-                    debugOverridesStore: { readTranscodeProfileNameAndClean },
+                    debugOverridesReader: { readTranscodeProfileNameAndClean },
                 })
             );
 
@@ -1050,7 +1171,7 @@ describe('PlexStreamResolver', () => {
         it('falls back to HTML TV App when injected profile override is absent', () => {
             const resolver = new PlexStreamResolver(
                 createMockConfig({
-                    debugOverridesStore: { readTranscodeProfileNameAndClean: () => null },
+                    debugOverridesReader: { readTranscodeProfileNameAndClean: () => null },
                 })
             );
 
@@ -1498,6 +1619,52 @@ describe('PlexStreamResolver', () => {
             expect(result?.audioDecision).toBe('transcode');
             expect(result?.subtitleDecision).toBe('none');
             setTimeoutSpy.mockRestore();
+        });
+
+        it('falls back to regex decision parsing when DOMParser returns parsererror XML', async () => {
+            const originalDomParser = globalThis.DOMParser;
+            Object.defineProperty(globalThis, 'DOMParser', {
+                configurable: true,
+                writable: true,
+                value: class {
+                    parseFromString(): Pick<Document, 'querySelector'> {
+                        return {
+                            querySelector: (selector: string): Element | null =>
+                                selector === 'parsererror' ? ({} as Element) : null,
+                        };
+                    }
+                },
+            });
+            const config = createMockConfig();
+            const resolver = new PlexStreamResolver(config);
+
+            try {
+                mockFetch.mockResolvedValue({
+                    ok: true,
+                    status: 200,
+                    text: async () =>
+                        '<MediaContainer decisionCode="1000" decisionText="Transcode">' +
+                        '<TranscodeSession videoDecision="copy" audioDecision="transcode" subtitleDecision="none">' +
+                        '</MediaContainer>',
+                });
+
+                const result = await resolver.fetchUniversalTranscodeDecision('12345', {
+                    sessionId: 'sess-1',
+                    maxBitrate: 20000,
+                });
+
+                expect(result?.decisionCode).toBe('1000');
+                expect(result?.decisionText).toBe('Transcode');
+                expect(result?.videoDecision).toBe('copy');
+                expect(result?.audioDecision).toBe('transcode');
+                expect(result?.subtitleDecision).toBe('none');
+            } finally {
+                Object.defineProperty(globalThis, 'DOMParser', {
+                    configurable: true,
+                    writable: true,
+                    value: originalDomParser,
+                });
+            }
         });
 
         it('throws ACCESS_DENIED when Plex forbids the decision request', async () => {

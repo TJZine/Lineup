@@ -1,69 +1,36 @@
 import { ChannelManager } from '../ChannelManager';
 import { ChannelRepository } from '../ChannelRepository';
-import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
-import type { ChannelConfig, LibraryContentSource } from '../types';
+import { ContentResolver } from '../ContentResolver';
+import type { IPlexLibraryMinimal } from '../interfaces';
 import { AppErrorCode } from '../../../lifecycle/types';
+import { STORAGE_CONFIG } from '../../../lifecycle/constants';
 import { expectConsoleError, expectConsoleWarn } from '../../../../__tests__/helpers';
 import {
     installMockLocalStorage,
+    mockLocalStorage,
     resetMockLocalStorage,
     restoreOriginalLocalStorage,
 } from '../../../../__tests__/mocks/localStorage';
-
-function createMockLibrary(): jest.Mocked<IPlexLibraryMinimal> {
-    return {
-        getLibraryItems: jest.fn(),
-        getCollectionItems: jest.fn(),
-        getShowEpisodes: jest.fn(),
-        getPlaylistItems: jest.fn(),
-        getItem: jest.fn(),
-    };
-}
-
-function createMockItem(overrides: Partial<PlexMediaItemMinimal> = {}): PlexMediaItemMinimal {
-    return {
-        ratingKey: '1',
-        type: 'movie',
-        title: 'Test Movie',
-        year: 2020,
-        durationMs: 7200000,
-        thumb: '/thumb/1',
-        addedAt: new Date(),
-        ...overrides,
-    };
-}
-
-function createMockContentSource(libraryId = 'lib1'): LibraryContentSource {
-    return {
-        type: 'library',
-        libraryId,
-        libraryType: 'movie',
-        includeWatched: true,
-    };
-}
-
-function createBaseChannel(overrides: Partial<ChannelConfig> = {}): ChannelConfig {
-    return {
-        id: 'base',
-        number: 1,
-        name: 'Base Channel',
-        contentSource: createMockContentSource(),
-        playbackMode: 'shuffle',
-        shuffleSeed: 1,
-        phaseSeed: 1,
-        startTimeAnchor: 0,
-        skipIntros: false,
-        skipCredits: false,
-        createdAt: 0,
-        updatedAt: 0,
-        lastContentRefresh: 0,
-        itemCount: 0,
-        totalDurationMs: 0,
-        ...overrides,
-    };
-}
+import { MAX_CHANNELS, STORAGE_KEY } from '../constants';
+import {
+    createBaseChannel,
+    createMockContentSource,
+    createMockItem,
+    createMockLibrary,
+} from './channel-manager-test-helpers';
 
 installMockLocalStorage();
+
+const expectPersistCurrentChannelWarning = (times: number = 1): void => {
+    expectConsoleWarn([
+        'Failed to persist current channel',
+        expect.objectContaining({
+            name: 'ChannelError',
+            code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+            message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+        }),
+    ], { times });
+};
 
 describe('ChannelManager replaceAllChannels transactional persistence', () => {
     let mockLibrary: jest.Mocked<IPlexLibraryMinimal>;
@@ -153,6 +120,95 @@ describe('ChannelManager replaceAllChannels transactional persistence', () => {
         expect(channels.every((channel) => Number.isFinite(channel.phaseSeed))).toBe(true);
         expect(manager.getCurrentChannel()?.id).toBe('second');
         expect(saveCurrentSpy).toHaveBeenCalledWith('second');
+    });
+
+    it('normalizes duplicate and invalid channel numbers in input order', async () => {
+        const channels = [
+            createBaseChannel({ id: 'c1', number: 1 }),
+            createBaseChannel({ id: 'c2', number: 1 }),
+            createBaseChannel({ id: 'c3', number: 999 }),
+            createBaseChannel({ id: 'c4', number: 2 }),
+        ];
+
+        await manager.replaceAllChannels(channels);
+
+        const result = manager.getAllChannels();
+        expect(result).toHaveLength(4);
+        expect(result[0]!.number).toBe(1);
+        expect(result[1]!.number).toBe(2);
+        expect(result[2]!.number).toBe(3);
+        expect(result[3]!.number).toBe(4);
+    });
+
+    it('skips channels over MAX_CHANNELS and warns per skipped channel', async () => {
+        const warn = jest.fn();
+        manager = new ChannelManager({ plexLibrary: mockLibrary, logger: { warn, error: jest.fn() } });
+
+        const channels = Array.from({ length: MAX_CHANNELS + 2 }, (_, index) => ({
+            ...createBaseChannel({ id: `c${index + 1}`, number: index + 1 }),
+        }));
+
+        await manager.replaceAllChannels(channels);
+
+        expect(manager.getAllChannels()).toHaveLength(MAX_CHANNELS);
+        expect(warn).toHaveBeenCalledTimes(2);
+    });
+
+    it('clears resolver source cache when replacing full lineup', async () => {
+        const clearCachesSpy = jest.spyOn(ContentResolver.prototype, 'clearCaches');
+
+        await manager.replaceAllChannels([createBaseChannel({ id: 'replace-1', number: 10 })]);
+
+        expect(clearCachesSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('routes replaceAllChannels current-channel persistence through ChannelRepository.saveCurrentChannelId', async () => {
+        const writeCurrentSpy = jest.spyOn(ChannelRepository.prototype, 'saveCurrentChannelId');
+        const channels = [createBaseChannel({ id: 'replace-1', number: 10 })];
+
+        await manager.replaceAllChannels(channels, { currentChannelId: 'replace-1' });
+
+        expect(writeCurrentSpy).toHaveBeenCalledWith('replace-1');
+    });
+
+    it('emits quota-specific persistenceWarning when replaceAllChannels current-channel write hits quota', async () => {
+        expectPersistCurrentChannelWarning();
+        const warningHandler = jest.fn();
+        manager.on('persistenceWarning', warningHandler);
+        jest
+            .spyOn(ChannelRepository.prototype, 'saveCurrentChannelId')
+            .mockReturnValue({ ok: false, reason: 'quota-exceeded' });
+
+        await manager.replaceAllChannels([createBaseChannel({ id: 'replace-1', number: 10 })], {
+            currentChannelId: 'replace-1',
+        });
+
+        expect(warningHandler).toHaveBeenCalledWith(
+            expect.objectContaining({
+                code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+                isQuotaError: true,
+                message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+            })
+        );
+    });
+
+    it('skips duplicate channel ids without duplicating persisted order', async () => {
+        const warn = jest.fn();
+        manager = new ChannelManager({ plexLibrary: mockLibrary, logger: { warn, error: jest.fn() } });
+
+        await manager.replaceAllChannels([
+            createBaseChannel({ id: 'duplicate', name: 'First', number: 1 }),
+            createBaseChannel({ id: 'duplicate', name: 'Second', number: 2 }),
+            createBaseChannel({ id: 'third', name: 'Third', number: 3 }),
+        ]);
+
+        expect(manager.getAllChannels().map((channel) => channel.name)).toEqual(['First', 'Third']);
+        expect(JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual(expect.objectContaining({
+            channelOrder: ['duplicate', 'third'],
+        }));
+        expect(warn).toHaveBeenCalledWith(
+            'Skipping duplicate channel Second (duplicate) during replaceAllChannels'
+        );
     });
 
     it('resets persistence warning backoff after channel-data save even when current-channel persistence is best-effort', async () => {

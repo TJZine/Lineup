@@ -1,6 +1,10 @@
 import type { PlexStreamResolverConfig } from '../interfaces';
 import type { PlexMediaItem, PlexMediaFile, PlexStream } from '../types';
 import type { PlatformIdentityService } from '../../../../platform';
+import { AudioSettingsStore } from '../../../settings/AudioSettingsStore';
+import { PlaybackSettingsStore } from '../../../settings/PlaybackSettingsStore';
+import { DeveloperSettingsStore } from '../../../settings/DeveloperSettingsStore';
+import { createPlexStreamSubtitleDebugLogPort } from '../PlexStreamSubtitleDebugLogPort';
 
 const mockIdentityService: PlatformIdentityService = {
     isWebOs: () => true,
@@ -20,6 +24,9 @@ const mockIdentityService: PlatformIdentityService = {
 export function createMockConfig(
     overrides: Partial<PlexStreamResolverConfig> = {}
 ): PlexStreamResolverConfig {
+    const developerSettingsStore = new DeveloperSettingsStore();
+    const subtitleDebugPolicyReader =
+        overrides.subtitleDebugPolicyReader ?? developerSettingsStore;
     return {
         getAuthHeaders: () => ({
             'X-Plex-Token': 'mock-token',
@@ -28,9 +35,14 @@ export function createMockConfig(
         getServerUri: () => 'http://192.168.1.100:32400',
         getHttpsConnection: () => null,
         getRelayConnection: () => null,
-        debugOverridesStore: {
+        audioPolicyReader: new AudioSettingsStore(),
+        playbackPolicyReader: new PlaybackSettingsStore(),
+        debugPolicyReader: developerSettingsStore,
+        subtitleDebugPolicyReader,
+        debugOverridesReader: {
             readTranscodeProfileNameAndClean: () => null,
         },
+        subtitleDebugLogPort: createPlexStreamSubtitleDebugLogPort(subtitleDebugPolicyReader),
         getItem: jest.fn().mockResolvedValue(null),
         clientIdentifier: 'test-client-id',
         identityService: mockIdentityService,

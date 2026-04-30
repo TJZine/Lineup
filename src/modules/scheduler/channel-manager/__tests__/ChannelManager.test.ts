@@ -8,10 +8,8 @@ import { ChannelRepository } from '../ChannelRepository';
 import { ContentResolver } from '../ContentResolver';
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
 import type {
-    ChannelConfig,
     ChannelCreateInput,
     ChannelUpdateInput,
-    LibraryContentSource,
 } from '../types';
 import { AppErrorCode } from '../../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../../lifecycle/constants';
@@ -25,66 +23,15 @@ import {
 import {
     STORAGE_KEY,
     CURRENT_CHANNEL_KEY,
-    CACHE_TTL_MS,
     MAX_CHANNELS,
 } from '../constants';
-
-// ============================================
-// Mock Setup
-// ============================================
-
-function createMockLibrary(): jest.Mocked<IPlexLibraryMinimal> {
-    return {
-        getLibraryItems: jest.fn(),
-        getCollectionItems: jest.fn(),
-        getShowEpisodes: jest.fn(),
-        getPlaylistItems: jest.fn(),
-        getItem: jest.fn(),
-    };
-}
-
-function createMockItem(overrides: Partial<PlexMediaItemMinimal> = {}): PlexMediaItemMinimal {
-    return {
-        ratingKey: '1',
-        type: 'movie',
-        title: 'Test Movie',
-        year: 2020,
-        durationMs: 7200000,
-        thumb: '/thumb/1',
-        addedAt: new Date(),
-        ...overrides,
-    };
-}
-
-function createMockContentSource(): LibraryContentSource {
-    return {
-        type: 'library',
-        libraryId: 'lib1',
-        libraryType: 'movie',
-        includeWatched: true,
-    };
-}
-
-function createBaseChannel(overrides: Partial<ChannelConfig> = {}): ChannelConfig {
-    return {
-        id: 'base',
-        number: 1,
-        name: 'Base Channel',
-        contentSource: createMockContentSource(),
-        playbackMode: 'shuffle',
-        shuffleSeed: 1,
-        phaseSeed: 1,
-        startTimeAnchor: 0,
-        skipIntros: false,
-        skipCredits: false,
-        createdAt: 0,
-        updatedAt: 0,
-        lastContentRefresh: 0,
-        itemCount: 0,
-        totalDurationMs: 0,
-        ...overrides,
-    };
-}
+import {
+    createBaseChannel,
+    createMockContentSource,
+    createMockItem,
+    createMockLibrary,
+    seedDefaultLibrary,
+} from './channel-manager-test-helpers';
 
 installMockLocalStorage();
 
@@ -124,10 +71,7 @@ describe('ChannelManager', () => {
         resetMockLocalStorage();
 
         mockLibrary = createMockLibrary();
-        mockLibrary.getLibraryItems.mockResolvedValue([
-            createMockItem({ ratingKey: '1' }),
-            createMockItem({ ratingKey: '2' }),
-        ]);
+        seedDefaultLibrary(mockLibrary);
 
         manager = new ChannelManager({ plexLibrary: mockLibrary });
     });
@@ -380,78 +324,6 @@ describe('ChannelManager', () => {
         });
     });
 
-    describe('replaceAllChannels', () => {
-        it('normalizes duplicate and invalid channel numbers in input order', async () => {
-            const channels = [
-                createBaseChannel({ id: 'c1', number: 1 }),
-                createBaseChannel({ id: 'c2', number: 1 }),
-                createBaseChannel({ id: 'c3', number: 999 }),
-                createBaseChannel({ id: 'c4', number: 2 }),
-            ];
-
-            await manager.replaceAllChannels(channels);
-
-            const result = manager.getAllChannels();
-            expect(result).toHaveLength(4);
-            expect(result[0]!.number).toBe(1);
-            expect(result[1]!.number).toBe(2);
-            expect(result[2]!.number).toBe(3);
-            expect(result[3]!.number).toBe(4);
-        });
-
-        it('skips channels over MAX_CHANNELS and warns per skipped channel', async () => {
-            const warn = jest.fn();
-            manager = new ChannelManager({ plexLibrary: mockLibrary, logger: { warn, error: jest.fn() } });
-
-            const channels = Array.from({ length: MAX_CHANNELS + 2 }, (_, index) => ({
-                ...createBaseChannel({ id: `c${index + 1}`, number: index + 1 }),
-            }));
-
-            await manager.replaceAllChannels(channels);
-
-            expect(manager.getAllChannels()).toHaveLength(MAX_CHANNELS);
-            expect(warn).toHaveBeenCalledTimes(2);
-        });
-
-        it('clears resolver source cache when replacing full lineup', async () => {
-            const clearCachesSpy = jest.spyOn(ContentResolver.prototype, 'clearCaches');
-
-            await manager.replaceAllChannels([createBaseChannel({ id: 'replace-1', number: 10 })]);
-
-            expect(clearCachesSpy).toHaveBeenCalledTimes(1);
-        });
-
-        it('routes replaceAllChannels current-channel persistence through ChannelRepository.saveCurrentChannelId', async () => {
-            const writeCurrentSpy = jest.spyOn(ChannelRepository.prototype, 'saveCurrentChannelId');
-            const channels = [createBaseChannel({ id: 'replace-1', number: 10 })];
-
-            await manager.replaceAllChannels(channels, { currentChannelId: 'replace-1' });
-
-            expect(writeCurrentSpy).toHaveBeenCalledWith('replace-1');
-        });
-
-        it('emits quota-specific persistenceWarning when replaceAllChannels current-channel write hits quota', async () => {
-            expectPersistCurrentChannelWarning();
-            const warningHandler = jest.fn();
-            manager.on('persistenceWarning', warningHandler);
-            jest
-                .spyOn(ChannelRepository.prototype, 'saveCurrentChannelId')
-                .mockReturnValue({ ok: false, reason: 'quota-exceeded' });
-
-            await manager.replaceAllChannels([createBaseChannel({ id: 'replace-1', number: 10 })], {
-                currentChannelId: 'replace-1',
-            });
-
-            expect(warningHandler).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
-                    isQuotaError: true,
-                    message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
-                })
-            );
-        });
-    });
-
     describe('storage key updates', () => {
         it('clears resolver source cache when ChannelManager storage scope changes', () => {
             const clearCachesSpy = jest.spyOn(ContentResolver.prototype, 'clearCaches');
@@ -690,107 +562,6 @@ describe('ChannelManager', () => {
             expect(channel.itemCount).toBe(0);
         });
 
-        it('should throw ACCESS_DENIED when library returns ACCESS_DENIED (403)', async () => {
-            expectConsoleWarn([
-                'Access denied resolving channel content',
-                expect.objectContaining({
-                    channelId: expect.any(String),
-                    contentSource: expect.objectContaining({
-                        type: 'library',
-                        id: 'lib1',
-                    }),
-                    error: expect.objectContaining({
-                        code: AppErrorCode.ACCESS_DENIED,
-                        message: 'Access denied',
-                    }),
-                }),
-            ]);
-            // First create a channel successfully
-            const channel = await manager.createChannel({
-                contentSource: createMockContentSource(),
-            });
-
-            // Now mock library to throw ACCESS_DENIED (simulating 403 for non-admin profile)
-            const accessDeniedError = Object.assign(new Error('Access denied'), {
-                code: AppErrorCode.ACCESS_DENIED,
-            });
-            mockLibrary.getLibraryItems.mockRejectedValue(accessDeniedError);
-
-            // Force re-resolve (bypass cache) — single call to avoid side-effect drift
-            try {
-                await manager.refreshChannelContent(channel.id);
-                fail('Expected error to be thrown');
-            } catch (error) {
-                expect(error).toHaveProperty('code', AppErrorCode.ACCESS_DENIED);
-                expect(error).toHaveProperty('recoverable', false);
-            }
-        });
-
-        it('invalidates the source, cancels pending retries, and does not serve stale cache after ACCESS_DENIED', async () => {
-            const logger = { warn: jest.fn(), error: jest.fn() };
-            const localManager = new ChannelManager({ plexLibrary: mockLibrary, logger });
-            const invalidateSourceSpy = jest.spyOn(ContentResolver.prototype, 'invalidateSource');
-            const baseNow = Date.now();
-            const nowSpy = jest.spyOn(Date, 'now');
-            nowSpy.mockReturnValue(baseNow);
-
-            try {
-                const channel = await localManager.createChannel({
-                    contentSource: createMockContentSource(),
-                });
-
-                nowSpy.mockReturnValue(baseNow + CACHE_TTL_MS + 1);
-                mockLibrary.getLibraryItems.mockRejectedValueOnce(
-                    Object.assign(new Error('Network timeout'), {
-                        code: AppErrorCode.NETWORK_TIMEOUT,
-                    })
-                );
-
-                const staleResult = await localManager.resolveChannelContent(channel.id);
-                expect(staleResult.items).toHaveLength(2);
-
-                const accessDeniedError = Object.assign(new Error('Access denied'), {
-                    code: AppErrorCode.ACCESS_DENIED,
-                    httpStatus: 403,
-                });
-                mockLibrary.getLibraryItems.mockRejectedValueOnce(accessDeniedError);
-
-                await expect(localManager.resolveChannelContent(channel.id)).rejects.toHaveProperty(
-                    'code',
-                    AppErrorCode.ACCESS_DENIED
-                );
-
-                expect(invalidateSourceSpy).toHaveBeenCalledWith(channel.contentSource);
-
-                mockLibrary.getLibraryItems.mockRejectedValueOnce(
-                    Object.assign(new Error('Network timeout after 403'), {
-                        code: AppErrorCode.NETWORK_TIMEOUT,
-                    })
-                );
-
-                await expect(localManager.resolveChannelContent(channel.id)).rejects.toHaveProperty(
-                    'code',
-                    AppErrorCode.NETWORK_TIMEOUT
-                );
-
-                jest.advanceTimersByTime(30_000);
-                await Promise.resolve();
-
-                expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(4);
-                expect(logger.warn).toHaveBeenCalledWith(
-                    'Access denied resolving channel content',
-                    expect.objectContaining({
-                        channelId: channel.id,
-                        httpStatus: 403,
-                        contentSource: { type: 'library', id: 'lib1' },
-                    })
-                );
-            } finally {
-                nowSpy.mockRestore();
-                await localManager.flushSaves().catch(() => undefined);
-                localManager.dispose();
-            }
-        });
     });
 
     describe('channel switching', () => {
@@ -1340,224 +1111,6 @@ describe('ChannelManager', () => {
             expect(parsed[0].name).toBe('Export Test');
         });
 
-        it('should import channels from JSON', async () => {
-            const importData = JSON.stringify([
-                {
-                    name: 'Imported Channel',
-                    contentSource: createMockContentSource(),
-                },
-            ]);
-
-            const result = await manager.importChannels(importData);
-
-            expect(result.success).toBe(true);
-            expect(result.importedCount).toBe(1);
-            expect(result.errors).toHaveLength(0);
-            expect(manager.getAllChannels()).toHaveLength(1);
-        });
-
-        it('skips imported records when create hits a non-fallback content resolution failure', async () => {
-            expectConsoleWarn([
-                'Access denied resolving channel content',
-                expect.objectContaining({
-                    contentSource: { type: 'library', id: 'denied-lib' },
-                    httpStatus: 403,
-                }),
-            ]);
-            mockLibrary.getLibraryItems.mockImplementation(async (libraryId) => {
-                if (libraryId === 'denied-lib') {
-                    throw Object.assign(new Error('Access denied'), {
-                        code: AppErrorCode.ACCESS_DENIED,
-                        httpStatus: 403,
-                    });
-                }
-                return [createMockItem({ ratingKey: `item-${libraryId}` })];
-            });
-            const importData = JSON.stringify([
-                {
-                    name: 'Denied Channel',
-                    contentSource: {
-                        ...createMockContentSource(),
-                        libraryId: 'denied-lib',
-                    },
-                },
-                {
-                    name: 'Imported Channel',
-                    contentSource: createMockContentSource(),
-                },
-            ]);
-
-            const result = await manager.importChannels(importData);
-
-            expect(result.success).toBe(true);
-            expect(result.importedCount).toBe(1);
-            expect(result.skippedCount).toBe(1);
-            expect(result.errors).toEqual([
-                expect.stringContaining('Failed to import channel: Profile does not have access'),
-            ]);
-            expect(manager.getAllChannels()).toHaveLength(1);
-            expect(manager.getAllChannels()[0]?.name).toBe('Imported Channel');
-        });
-
-        it('omits invalid enum-like fields and content filters during import', async () => {
-            const importData = JSON.stringify([
-                {
-                    name: 'Imported Channel',
-                    contentSource: createMockContentSource(),
-                    buildStrategy: 'not-a-strategy',
-                    playbackMode: 'not-a-mode',
-                    sortOrder: 'not-a-sort-order',
-                    contentFilters: [{ field: 'year', operator: 'definitely', value: 2020 }],
-                },
-            ]);
-
-            const result = await manager.importChannels(importData);
-
-            expect(result.success).toBe(true);
-            expect(result.importedCount).toBe(1);
-            expect(result.errors).toHaveLength(0);
-
-            const [channel] = manager.getAllChannels();
-            expect(channel).toEqual(expect.objectContaining({
-                name: 'Imported Channel',
-                playbackMode: 'sequential',
-            }));
-            expect(channel?.buildStrategy).toBeUndefined();
-            expect(channel?.sortOrder).toBeUndefined();
-            expect(channel?.contentFilters).toBeUndefined();
-        });
-
-        it('preserves valid enum-like fields and content filters during import', async () => {
-            const importData = JSON.stringify([
-                {
-                    name: 'Imported Channel',
-                    contentSource: createMockContentSource(),
-                    buildStrategy: 'genres',
-                    playbackMode: 'shuffle',
-                    sortOrder: 'title_asc',
-                    contentFilters: [{ field: 'year', operator: 'gte', value: 2020 }],
-                },
-            ]);
-
-            const result = await manager.importChannels(importData);
-
-            expect(result.success).toBe(true);
-            expect(result.importedCount).toBe(1);
-
-            const [channel] = manager.getAllChannels();
-            expect(channel).toEqual(expect.objectContaining({
-                buildStrategy: 'genres',
-                playbackMode: 'shuffle',
-                sortOrder: 'title_asc',
-                contentFilters: [{ field: 'year', operator: 'gte', value: 2020 }],
-            }));
-        });
-
-        it('omits the entire content filter array during import when any filter is invalid', async () => {
-            const importData = JSON.stringify([
-                {
-                    name: 'Imported Channel',
-                    contentSource: createMockContentSource(),
-                    contentFilters: [
-                        { field: 'year', operator: 'gte', value: 2020 },
-                        { field: 'year', operator: 'definitely', value: 2020 },
-                    ],
-                },
-            ]);
-
-            const result = await manager.importChannels(importData);
-
-            expect(result.success).toBe(true);
-            expect(result.importedCount).toBe(1);
-            expect(result.errors).toHaveLength(0);
-
-            const [channel] = manager.getAllChannels();
-            expect(channel?.contentFilters).toBeUndefined();
-        });
-
-        it('omits fractional channel numbers during import', async () => {
-            const importData = JSON.stringify([
-                {
-                    name: 'Fractional Channel',
-                    number: 7.5,
-                    contentSource: createMockContentSource(),
-                },
-            ]);
-
-            const result = await manager.importChannels(importData);
-
-            expect(result.success).toBe(true);
-            expect(result.importedCount).toBe(1);
-            expect(result.errors).toHaveLength(0);
-
-            const [channel] = manager.getAllChannels();
-            expect(channel?.number).toBe(1);
-        });
-
-        it('ignores legacy isSequentialVariant when importing channels without canonical playback variant metadata', async () => {
-            const importData = JSON.stringify([
-                {
-                    name: 'Imported Variant',
-                    contentSource: createMockContentSource(),
-                    playbackMode: 'block',
-                    blockSize: 4,
-                    isSequentialVariant: true,
-                },
-            ]);
-
-            const result = await manager.importChannels(importData);
-
-            expect(result.success).toBe(true);
-            expect(result.importedCount).toBe(1);
-            expect(result.errors).toHaveLength(0);
-
-            const channels = manager.getAllChannels();
-            expect(channels).toHaveLength(1);
-            expect(channels[0]?.isPlaybackModeVariant).toBeUndefined();
-        });
-
-        it('should handle invalid import data', async () => {
-            const result = await manager.importChannels('not valid json');
-
-            expect(result.success).toBe(false);
-            expect(result.errors.length).toBeGreaterThan(0);
-        });
-
-        it('should skip invalid channels during import', async () => {
-            const importData = JSON.stringify([
-                { name: 'Missing contentSource' },
-                { name: 'Valid', contentSource: createMockContentSource() },
-            ]);
-
-            const result = await manager.importChannels(importData);
-
-            expect(result.importedCount).toBe(1);
-            expect(result.skippedCount).toBe(1);
-        });
-    });
-
-    describe('channel ordering', () => {
-        it('should reorder channels', async () => {
-            const ch1 = await manager.createChannel({
-                name: 'Ch1',
-                contentSource: createMockContentSource(),
-            });
-            const ch2 = await manager.createChannel({
-                name: 'Ch2',
-                contentSource: createMockContentSource(),
-            });
-            const ch3 = await manager.createChannel({
-                name: 'Ch3',
-                contentSource: createMockContentSource(),
-            });
-
-            await manager.reorderChannels([ch3.id, ch1.id, ch2.id]);
-
-            const all = manager.getAllChannels();
-            expect(all[0]!.id).toBe(ch3.id);
-            expect(all[1]!.id).toBe(ch1.id);
-            expect(all[2]!.id).toBe(ch2.id);
-        });
     });
 
     describe('content filtering and sorting', () => {

@@ -539,9 +539,9 @@ changes them:
   lifecycle/Plex facade. `DCR-4` is the next unchecked DCR package only when
   the maintainer starts the next cleanup loop.
 
-### [ ] `DCR-4` EPG Defaults And Constants Coherence
+### [x] `DCR-4` EPG Defaults And Constants Coherence
 
-- Status: not started
+- Status: completed
 - Dimensions/rubric tags: contract coherence, UI correctness, test strategy,
   source-of-truth coherence, logic clarity
 - Scope owner: EPG config/app-shell config boundary owner
@@ -577,7 +577,7 @@ changes them:
   package closeout if only one literal is changed without deciding ownership.
 - Verification routing: targeted app-shell config and EPG config tests, source
   audit for `rowHeight` defaults, then `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: completed.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -587,16 +587,28 @@ changes them:
 - Stop/replan triggers: default change requires visual/product approval; tests
   reveal row height is intentionally context-specific; fix expands into EPG
   layout/virtualization behavior.
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start with a small DCR-4 plan that freezes the default owner before
-  editing constants.
+- Plan:
+  [`docs/archive/plans/2026-04-29-dcr-4-epg-defaults-constants-coherence.md`](./docs/archive/plans/2026-04-29-dcr-4-epg-defaults-constants-coherence.md)
+- Last touched: 2026-04-29, implementation commit `0b1dce57`
+- Verification: plan review approved with no material findings. `DCR-4-S1`
+  implementation review approved with no material findings. Targeted
+  app-shell/EPG config tests passed (`6` suites / `98` tests); source audit
+  found no app-shell `rowHeight: 96` default or app-shell
+  `DEFAULT_EPG_CONFIG` remaining; `npm run plans:check` passed; `npm run
+  verify` passed; `npm run verify:docs` passed after the checklist/current-state
+  closeout updates and plan archive.
+- Follow-ups: none. `src/modules/ui/epg/constants.ts` owns canonical EPG
+  default config values, including row height `108`; app-shell consumes fresh
+  defaults through the EPG package seam and has no independent EPG row-height
+  override. `EPGVirtualizer` remains a bounded performance owner.
+- Handoff: `DCR-4` is complete. Do not reopen EPG default coherence unless
+  app-shell regains an independent EPG default literal or product-approved
+  visual requirements create an explicit documented override. DCR-5 is the next
+  unchecked DCR package only when the maintainer starts the next cleanup loop.
 
-### [ ] `DCR-5` Navigation FocusManager Correctness And Tests
+### [x] `DCR-5` Navigation FocusManager Correctness And Tests
 
-- Status: not started
+- Status: completed
 - Dimensions/rubric tags: test strategy, UI/focus correctness, AI-generated
   residue, logic clarity, type safety
 - Scope owner: navigation/focus owner
@@ -631,7 +643,7 @@ changes them:
   cannot close on comment cleanup alone.
 - Verification routing: targeted FocusManager tests, source audit for removed
   restating comments and `_isVisible` behavior, then `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: completed.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -642,16 +654,33 @@ changes them:
 - Stop/replan triggers: visibility behavior affects multiple screen focus
   coordinators; browser/jsdom limits require manual proof; fix requires public
   navigation API changes.
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start with DCR-5 plan; resolve `_isVisible` before cleanup-only
-  edits.
+- Plan:
+  [`docs/archive/plans/2026-04-29-dcr-5-navigation-focusmanager-correctness-and-tests.md`](./docs/archive/plans/2026-04-29-dcr-5-navigation-focusmanager-correctness-and-tests.md)
+- Last touched: 2026-04-29, implementation commits `ceee655a` and `42245764`
+- Verification: plan review approved with no material findings. `DCR-5-S1`
+  implementation review found one zero-size coverage gap, which was fixed and
+  cleared by closure review plus a fresh final approval pass. `DCR-5-S2`
+  implementation review approved with no material findings. Targeted
+  `FocusManager` tests passed (`21` tests); source audit confirmed `_isVisible`
+  excludes zero-size, hidden, detached, and non-fixed `offsetParent === null`
+  candidates while admitting visible fixed-position candidates with non-zero
+  rects, and confirmed only invariant comments remain; `npm run plans:check`
+  passed; `npm run verify` passed.
+- Follow-ups: none. `_isVisible` now has one intentional private policy:
+  fixed-position overlays with visible rects can participate in spatial focus
+  even when `offsetParent === null`; detached, hidden, zero-size, and non-fixed
+  layoutless candidates remain excluded. Grid, spatial fallback, hidden,
+  detached, zero-size, and fixed-position behavior are covered through
+  `findNeighbor` tests.
+- Handoff: `DCR-5` is complete. Do not reopen navigation focus visibility
+  policy unless source proof shows screen-specific focus coordinators need
+  incompatible semantics, browser/jsdom behavior diverges from the tested
+  contract, or the public navigation API changes. DCR-6 is the next unchecked
+  DCR package only when the maintainer starts the next cleanup loop.
 
-### [ ] `DCR-6` AppOrchestrator Narrow API And File-Health Cleanup
+### [x] `DCR-6` AppOrchestrator Narrow API And File-Health Cleanup
 
-- Status: not started
+- Status: completed
 - Dimensions/rubric tags: file health, API surface coherence, cross-module
   architecture, duplication, AI-generated residue, initialization coupling
 - Scope owner: core orchestrator owner
@@ -663,8 +692,10 @@ changes them:
   - `src/Orchestrator.ts`
   - `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts`
   - `src/core/orchestrator/OrchestratorCoordinatorContracts.ts`
+  - `src/core/orchestrator/OrchestratorPlaybackInfoSnapshot.ts`
   - `src/core/orchestrator/OrchestratorPlaybackStateAccessors.ts`
   - `src/core/orchestrator/OrchestratorEventCleanupReporter.ts`
+  - `src/core/orchestrator/OrchestratorShutdownTeardown.ts`
   - `src/core/orchestrator/__tests__/*`
   - `src/__tests__/Orchestrator.test.ts`
 - Files out of scope:
@@ -696,7 +727,7 @@ changes them:
 - Verification routing: targeted orchestrator tests for touched seams,
   import/export source audit, `npm run verify`; `npm run verify:docs` if
   architecture truth changes.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: completed.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -708,16 +739,42 @@ changes them:
 - Stop/replan triggers: cleanup requires moving ownership into app-shell or
   priority-one modules; public runtime API consumers outside tests break;
   extracted helper starts becoming a second orchestrator.
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start with DCR-6 plan that explicitly keeps this narrow and names
-  frozen adjacent owners.
+- Plan:
+  [`docs/archive/plans/2026-04-29-dcr-6-app-orchestrator-api-file-health.md`](./docs/archive/plans/2026-04-29-dcr-6-app-orchestrator-api-file-health.md)
+- Last touched: 2026-04-30, implementation commits `aa199687`,
+  `7f6097b1`, `2e19f997`, and `8e9f4e81`
+- Verification: plan review approved with no material findings. `DCR-6-S1`
+  implementation review approved export/API surface and playback snapshot
+  ownership with no material findings. `DCR-6-S2` implementation review
+  approved the typed coordinator assembly construction seam with no material
+  findings. `DCR-6-S3` implementation review found one missing
+  shutdown-order/aggregate-report test, commit `8e9f4e81` fixed it,
+  same-reviewer closure approved the fix, and a fresh final implementation
+  review approved the package. Targeted playback snapshot tests passed;
+  targeted coordinator assembly tests passed; targeted shutdown/recoverable
+  runtime tests passed; source audits passed for public orchestrator barrel
+  consumers, non-null assertion containment, and shutdown/source-signal
+  comments; `npm run verify` passed after each implementation unit and after
+  the S3 review fix.
+- Follow-ups: none. The public `src/Orchestrator.ts` barrel remains limited to
+  `AppOrchestrator`, `AppOrchestratorRuntime`, `ModuleStatus`, and
+  `PlaybackInfoSnapshot` for app/test import stability. Playback snapshot
+  projection is owned by `OrchestratorPlaybackInfoSnapshot`, coordinator
+  assembly required-module validation is owned by the typed assembly seam, and
+  shutdown failure collection is owned by `OrchestratorShutdownTeardown`.
+  Broad `AppOrchestrator`, app-shell, priority-one, Plex/player, UI, module
+  factory, `DCR-7`, and `DCR-EXIT` cleanup remain out of scope.
+- Handoff: `DCR-6` is complete. Do not reopen AppOrchestrator API/file-health
+  cleanup unless source proof shows the public barrel widened beyond the
+  recorded policy, playback snapshot projection regressed inline, coordinator
+  assembly reintroduced scattered non-null assertions, or shutdown teardown
+  loses the verified order/failure-continuation/aggregate-report behavior.
+  DCR-7 is the next unchecked DCR package only when the maintainer starts the
+  next cleanup loop.
 
-### [ ] `DCR-7` Channel Setup Facet Loader/Executor Confidence And Abstraction
+### [x] `DCR-7` Channel Setup Facet Loader/Executor Confidence And Abstraction
 
-- Status: not started
+- Status: completed
 - Dimensions/rubric tags: test health, duplication, abstraction fitness,
   contract coherence, logic clarity, file health
 - Scope owner: core channel setup planning owner
@@ -759,7 +816,7 @@ changes them:
 - Verification routing: targeted channel setup planning/facet tests, source
   audit for duplicated fixtures and executor option consumers, then
   `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: completed.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -771,16 +828,37 @@ changes them:
 - Stop/replan triggers: cache semantics conflict with DCR-2 failure semantics;
   tests reveal production behavior bug outside planning owner; port narrowing
   requires Plex library contract changes.
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start with DCR-7 plan that consolidates fixture ownership before
-  adding substantial new test cases.
+- Plan:
+  [`docs/archive/plans/2026-04-29-dcr-7-channel-setup-facet-loader-executor.md`](./docs/archive/plans/2026-04-29-dcr-7-channel-setup-facet-loader-executor.md)
+- Last touched: 2026-04-30, implementation commits `0139258e`,
+  `df37bc3b`, `cb0f0691`, and `a267d680`
+- Verification: plan review approved with no material findings. `DCR-7-S1`
+  implementation review approved the facet-planning test helper consolidation
+  with no material findings, and the targeted loader/session/planning service
+  tests passed. `DCR-7-S2` implementation review found two missing direct
+  loader-contract assertions for stale invalidated progress and attached source
+  cancellation with multiple waiters; commit `cb0f0691` fixed both, the
+  same-reviewer closure check approved the fix, and a fresh final
+  implementation review approved the loader cache/progress/concurrency
+  contract tests. `DCR-7-S3` implementation review approved the executor
+  options narrowing with no material findings. Targeted S3 session/planning
+  service tests passed and `npm run typecheck` passed.
+- Follow-ups: none. Fixture duplication was reduced into the focused
+  `ChannelSetupFacetPlanningTestHelpers` test helper; the loader cache,
+  invalidation, cacheability, progress replay, concurrent waiter, waiter
+  abort/detach, and in-flight failure/cancellation contract is covered by
+  direct loader tests; and the executor options port now groups native failure
+  builders under an explicit `failures` option while keeping control/state
+  callbacks visible and typed.
+- Handoff: `DCR-7` is complete. Do not reopen Channel Setup facet
+  loader/executor cleanup unless source proof shows the helper has become a
+  broad test dumping ground, DCR-7-D1 loader contract coverage has regressed,
+  DCR-2 facet failure semantics changed, or executor option ownership again
+  hides required state/control callbacks.
 
-### [ ] `DCR-8` Plex Stream Resolver Ownership Cleanup
+### [x] `DCR-8` Plex Stream Resolver Ownership Cleanup
 
-- Status: not started
+- Status: completed
 - Dimensions/rubric tags: cross-module architecture, abstraction fitness,
   security, contract coherence, error consistency, test strategy
 - Scope owner: Plex stream/subtitle policy owner
@@ -827,7 +905,7 @@ changes them:
   audit for token-bearing logs and direct store construction, then
   `npm run verify`; update `docs/api/plex-integration.md` only if public stream
   contract changes.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: completed.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -840,16 +918,44 @@ changes them:
   token redaction behavior regresses; solution requires auth/discovery/library
   ownership changes; tests require real device/manual proof beyond approved
   package.
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start with DCR-8 plan and explicitly preserve token redaction before
-  authorizing stream resolver edits.
+- Plan:
+  [`docs/archive/plans/2026-04-30-dcr-8-plex-stream-resolver-ownership-cleanup.md`](./docs/archive/plans/2026-04-30-dcr-8-plex-stream-resolver-ownership-cleanup.md)
+- Last touched: 2026-04-30, implementation commits `1cb3bb7f`,
+  `cbfb833f`, and `7f616597`
+- Verification: plan review initially found material logger-seam and
+  `DCR-8-D1` coverage-accounting blockers; the planner revised the active
+  plan, same-reviewer closure approved the fixes, and a fresh final plan
+  reviewer approved `DCR-8-S1`. `DCR-8-S1` implementation review approved the
+  typed policy-reader and subtitle-debug logging-port injection with no
+  material findings; targeted resolver/orchestrator wiring tests and
+  `npm run typecheck` passed. `DCR-8-S2` implementation review approved the
+  stream-local subtitle debug probe coordinator with no material findings;
+  targeted resolver/probe tests passed and source audit confirmed no remaining
+  inline probe candidate selection or scheduling in `PlexStreamResolver`.
+  `DCR-8-S3` implementation review approved the universal transcode decision
+  client extraction with no material findings; targeted resolver/debug-manager
+  tests, `npm run typecheck`, and `npm run verify` passed. Closeout source
+  audits confirmed no direct settings/debug store or logger construction in
+  `PlexStreamResolver`, debug subtitle probing and universal decision
+  fetch/parse now have focused stream-local owners, public
+  `IPlexStreamResolver` methods and stream decision shapes remain unchanged,
+  and no raw token/auth URL/header/subtitle-key logging was introduced.
+- Follow-ups: none. `PlexStreamResolver` now receives typed audio, playback,
+  debug, subtitle-debug, and debug-override policy readers plus a
+  subtitle-debug logging port; `SubtitleStreamDebugProbeCoordinator` owns debug
+  subtitle discovery/probe selection and scheduling; and
+  `UniversalTranscodeDecisionClient` owns universal transcode decision
+  fetch/parse. Plex token redaction/security remains an accepted protected
+  baseline, not an open DCR-8 residual.
+- Handoff: `DCR-8` is complete. Do not reopen Plex stream resolver ownership
+  cleanup unless source proof shows resolver direct store/logger construction
+  has returned, debug subtitle probing or universal decision fetch/parse has
+  moved back inline, public stream resolver contracts changed without matching
+  tests/docs, or token redaction coverage regressed.
 
-### [ ] `DCR-9` Lifecycle Migration And Comment/API Cleanup
+### [x] `DCR-9` Lifecycle Migration And Comment/API Cleanup
 
-- Status: not started
+- Status: completed
 - Dimensions/rubric tags: AI-generated residue, incomplete migration, API
   surface coherence, initialization coupling, contract coherence
 - Scope owner: lifecycle module owner
@@ -884,7 +990,7 @@ changes them:
 - Verification routing: targeted lifecycle tests if API changes,
   behavior-neutral diff/source audit for comment cleanup, then `npm run verify`;
   `npm run verify:docs` if architecture/current-state docs change.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: completed.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -895,16 +1001,35 @@ changes them:
 - Stop/replan triggers: migration decision changes persisted lifecycle payload
   contract; cleanup requires app-shell startup changes; storage compatibility
   policy becomes unclear.
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start with DCR-9 plan that resolves the migration seam before
-  editing exported lifecycle constants.
+- Plan:
+  [`docs/archive/plans/2026-04-29-dcr-9-lifecycle-migration-comment-api-cleanup.md`](./docs/archive/plans/2026-04-29-dcr-9-lifecycle-migration-comment-api-cleanup.md)
+- Last touched: 2026-04-30, implementation commits `900c96fb`,
+  `bd25e51d`, and `58a63db6`
+- Verification: plan review approved the active DCR-9 plan with no material
+  findings after `npm run plans:check` passed. `DCR-9-S1` implementation
+  review approved the package-internal `MIGRATIONS` decision with no material
+  findings; targeted `StateManager` tests passed and source audits confirmed
+  the registry remains consumed only by `StateManager` and absent from the
+  lifecycle barrel. `DCR-9-S2` implementation review found a missing
+  cleanup-key ownership note; the narrow revision restored that source signal,
+  same-reviewer closure approved it, and a fresh final implementation reviewer
+  approved the package. Targeted lifecycle tests, `npm run typecheck`, and
+  `npm run verify` passed.
+- Follow-ups: none. `MIGRATIONS` remains an intentional package-internal
+  lifecycle persistence registry, not public lifecycle API; older persisted
+  versions without an approved migration remain rejected. Restating lifecycle
+  comments were removed or compressed while storage ownership, cleanup-key,
+  phase/save-ordering, platform, and async persistence invariants remain
+  discoverable.
+- Handoff: `DCR-9` is complete. Do not reopen lifecycle migration/comment API
+  cleanup unless source proof shows `MIGRATIONS` became public API, external
+  consumers were added, older-version-without-migration rejection regressed,
+  cleanup keys became lifecycle-owned schemas, or restating/generated lifecycle
+  comments returned in the DCR-9 source surface.
 
-### [ ] `DCR-10` Oversized Test Suite Structure Policy
+### [x] `DCR-10` Oversized Test Suite Structure Policy
 
-- Status: not started
+- Status: completed 2026-04-30
 - Dimensions/rubric tags: test health, file health, duplication, maintainability,
   source organization
 - Scope owner: test-suite structure owner for affected packages
@@ -913,29 +1038,46 @@ changes them:
   them without a split policy will keep concentrating test maintenance risk.
 - Files in scope:
   - `src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts`
-  - new/split channel-manager test files under the same `__tests__` directory
+  - focused channel-manager test files under the same `__tests__` directory:
+    `ChannelManager.transactional.test.ts`,
+    `ChannelManager.import-order.test.ts`,
+    `ChannelManager.error-semantics.test.ts`, and
+    `ChannelManager.stale-fallback.test.ts`
   - `src/modules/ui/settings/__tests__/SettingsScreen.test.ts`
-  - new/split settings screen test files under the same `__tests__` directory
-  - local package test utilities needed by the splits
+  - `src/modules/ui/settings/__tests__/SettingsScreen.deps.test.ts`
+  - `src/modules/ui/settings/__tests__/settings-screen-test-helpers.ts`
+  - `src/modules/ui/settings/SettingsScreen.ts`
+  - `src/modules/ui/settings/index.ts`
+  - `src/core/app-shell/AppLazyScreenRegistry.ts`
+  - `src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts`
 - Files out of scope:
   - Settings focus extraction behavior already closed
-  - production source changes except import/export adjustments required by
-    test-only fixture splits
+  - production source changes outside the approved SettingsScreen deps-object
+    constructor seam and app-shell construction call shape
   - broad repo-wide test harness rewrite
 - Known issues to retire:
   - actual issues:
-    - `DCR-10-A1`: `ChannelManager.test.ts` should not absorb new
-      transactional/reorder/error coverage without a split policy.
-    - `DCR-10-A2`: `SettingsScreen.test.ts` should not absorb new constructor
-      dependency coverage without a split policy.
-    - `DCR-10-A3`: `SettingsScreen` has an eight-positional-param constructor
-      and tests use `undefined` placeholders; resolve with a deps object and
-      targeted tests, or record a maintainer-approved migration out of DCR with
-      destination, owner, revisit trigger, and non-blocker rationale.
+    - `DCR-10-A1`: completed by commit `ff01fcce`
+      (`test(dcr-10): split channel manager coverage`). ChannelManager
+      transactional replace-all/current-channel persistence coverage now lives
+      in `ChannelManager.transactional.test.ts`; import/reorder contracts live
+      in `ChannelManager.import-order.test.ts`; typed error and non-fallback
+      failure semantics live in `ChannelManager.error-semantics.test.ts`; stale
+      fallback coverage remains in `ChannelManager.stale-fallback.test.ts`.
+      Residual policy-term matches in `ChannelManager.test.ts` were reviewed as
+      incidental setup, broad CRUD/storage/current-channel behavior, or export
+      coverage rather than new transactional/reorder/error DCR coverage.
+    - `DCR-10-A2`: completed by commit `713f6a21`
+      (`Refactor SettingsScreen constructor deps`). Constructor/dependency
+      coverage lives in `SettingsScreen.deps.test.ts` and the catch-all
+      `SettingsScreen.test.ts` only migrated existing helper wiring.
+    - `DCR-10-A3`: completed by commit `713f6a21`. `SettingsScreen` now uses a
+      single `SettingsScreenDeps` object constructor, and the test helper no
+      longer passes a positional `undefined` placeholder.
   - owner decisions:
-    - `DCR-10-D1`: decide whether the constructor cleanup is implemented in this
-      package or split into a named package-specific Settings destination. A
-      split requires maintainer approval and cannot leave DCR-10 incomplete.
+    - `DCR-10-D1`: resolved in this package. The SettingsScreen constructor
+      cleanup was implemented as a deps-object seam with targeted tests; no
+      migration-out or positional compatibility overload was used.
   - accepted residuals:
     - no broad Settings redesign; existing focus extraction remains closed.
 - Completion means: affected packages have a clear split policy or completed
@@ -945,26 +1087,40 @@ changes them:
 - Verification routing: targeted split test files plus affected package tests,
   `npm test`/`npm run verify` depending on whether production constructor/API
   changes are included.
-- Ready-now execution unit: none until plan is written.
-- Suggested slice table / wave candidates:
+- Completed slice table:
 
-  | Slice | Candidate goal | Write scope | Parallel policy |
+  | Slice | Completed goal | Write scope | Result |
   | --- | --- | --- | --- |
-  | `DCR-10-S1` | ChannelManager test split policy before DCR-1 coverage | channel-manager tests/helpers | can precede DCR-1 |
-  | `DCR-10-S2` | SettingsScreen constructor/test split decision | settings tests and constructor if approved | separate from S1 |
+  | `DCR-10-S1` | ChannelManager test split policy before future DCR coverage | channel-manager tests/helpers | completed and reviewed clean |
+  | `DCR-10-S2` | SettingsScreen constructor/test split decision and deps-object migration | settings tests, SettingsScreen constructor, app-shell call site | completed and reviewed clean |
 
 - Stop/replan triggers: constructor cleanup changes public Settings screen
   construction in app-shell; test split requires production extraction; another
   reviewed package already completed the DCR-10 split/constructor obligations
   and updates this record before `DCR-EXIT`.
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
+- Plan: archived at
+  `docs/archive/plans/2026-04-30-dcr-10-oversized-test-suite-structure.md`
+- Last touched: completed 2026-04-30
+- Verification:
+  - Plan gate: direct `checkPlanConformance` for the DCR-10 plan passed after
+    the narrow DCR slice-id harness update; `node --test
+    tools/__tests__/harness-docs-lib.test.mjs` passed; `npm run plans:check`
+    passed; plan review and fresh final approval were clean.
+  - `DCR-10-S1`: targeted ChannelManager suites passed (`5` suites, `94`
+    tests), and implementation review was clean.
+  - `DCR-10-S2`: targeted Settings/AppLazyScreenRegistry suites passed (`3`
+    suites, `52` tests), `npm run typecheck` passed, `npm run verify` passed,
+    and implementation review was clean.
+  - Closeout docs: `npm run verify:docs` required after this checklist/archive
+    update.
 - Follow-ups: none yet
-- Handoff: DCR-10 is mandatory before `DCR-EXIT`. It may be planned before
-  DCR-1 or Settings-adjacent work when oversized tests would block adding
-  coverage; otherwise the first package that needs those tests must coordinate
-  with DCR-10 instead of absorbing new cases into catch-all files.
+- Handoff: DCR-10 is complete and no longer blocks `DCR-EXIT`. Future
+  ChannelManager transactional/reorder/error/stale-fallback coverage should use
+  the focused ChannelManager test files named above instead of growing the
+  catch-all suite. Future SettingsScreen constructor/dependency coverage should
+  use `SettingsScreen.deps.test.ts` or the local
+  `settings-screen-test-helpers.ts` seam instead of adding constructor-policy
+  assertions to `SettingsScreen.test.ts`.
 
 ### [ ] `DCR-EXIT` Dimension Cleanup Exit Gate
 

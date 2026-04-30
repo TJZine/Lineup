@@ -1,4 +1,7 @@
-import type { OrchestratorCoordinatorAssemblyInput } from '../OrchestratorCoordinatorContracts';
+import type {
+    OrchestratorCoordinatorAssemblyInput,
+    OrchestratorCoordinatorAssemblyInputDraft,
+} from '../OrchestratorCoordinatorContracts';
 import type { PlaybackOptionsSectionId } from '../../../modules/ui/playback-options';
 
 const buildEpgCoordinator = jest.fn();
@@ -31,7 +34,10 @@ jest.mock('../OrchestratorCoordinatorBuilders', () => ({
     buildNavigationCoordinator: (...args: unknown[]): unknown => buildNavigationCoordinator(...args),
 }));
 
-import { createOrchestratorCoordinators } from '../OrchestratorCoordinatorAssembly';
+import {
+    createOrchestratorCoordinatorAssemblyInput,
+    createOrchestratorCoordinators,
+} from '../OrchestratorCoordinatorAssembly';
 
 type PlaybackOptionsPreparationResult = {
     focusableIds: string[];
@@ -124,6 +130,17 @@ const createCoordinatorAssemblyInput = (): OrchestratorCoordinatorAssemblyInput 
         handler: () => null,
     },
 });
+
+const createCoordinatorAssemblyInputDraft = (): OrchestratorCoordinatorAssemblyInputDraft => {
+    const input = createCoordinatorAssemblyInput();
+
+    return {
+        ...input,
+        requiredSurfaces: {
+            channelBadgeOverlay: {},
+        },
+    } as OrchestratorCoordinatorAssemblyInputDraft;
+};
 
 describe('createOrchestratorCoordinators', () => {
     beforeEach(() => {
@@ -399,6 +416,48 @@ describe('createOrchestratorCoordinators', () => {
             channelTuning,
             navigationCoordinator,
         });
+    });
+
+    it('creates typed assembly input from a complete nullable draft', () => {
+        const draft = createCoordinatorAssemblyInputDraft();
+
+        const input = createOrchestratorCoordinatorAssemblyInput(draft);
+
+        expect(input.modules.navigation).toBe(draft.modules.navigation);
+        expect(input.modules.plexStreamResolver).toBe(draft.modules.plexStreamResolver);
+        expect(input.overlays.nowPlayingInfo).toBe(draft.overlays.nowPlayingInfo);
+        expect(input.overlays.sleepTimer).toBe(draft.overlays.sleepTimer);
+        expect(input).not.toHaveProperty('requiredSurfaces');
+    });
+
+    it('fails before coordinator creation when a required module is missing', () => {
+        const draft = createCoordinatorAssemblyInputDraft();
+        draft.modules.plexLibrary = null;
+
+        expect(() => createOrchestratorCoordinatorAssemblyInput(draft)).toThrow(
+            'Orchestrator coordinator initialization requires module instances: modules.plexLibrary'
+        );
+        expect(buildEpgCoordinator).not.toHaveBeenCalled();
+    });
+
+    it('fails before coordinator creation when a required overlay is missing', () => {
+        const draft = createCoordinatorAssemblyInputDraft();
+        draft.overlays.nowPlayingInfo = null;
+
+        expect(() => createOrchestratorCoordinatorAssemblyInput(draft)).toThrow(
+            'Orchestrator coordinator initialization requires module instances: overlays.nowPlayingInfo'
+        );
+        expect(buildEpgCoordinator).not.toHaveBeenCalled();
+    });
+
+    it('keeps channel badge overlay in the pre-coordinator required surface contract', () => {
+        const draft = createCoordinatorAssemblyInputDraft();
+        draft.requiredSurfaces.channelBadgeOverlay = null;
+
+        expect(() => createOrchestratorCoordinatorAssemblyInput(draft)).toThrow(
+            'Orchestrator coordinator initialization requires module instances: requiredSurfaces.channelBadgeOverlay'
+        );
+        expect(buildEpgCoordinator).not.toHaveBeenCalled();
     });
 
     it('keeps the deferred playback-options preparation seam wired through the assembled callback', () => {

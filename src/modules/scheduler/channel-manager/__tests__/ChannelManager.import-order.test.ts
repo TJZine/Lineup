@@ -1,66 +1,18 @@
 import { ChannelManager } from '../ChannelManager';
 import { ChannelRepository } from '../ChannelRepository';
-import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
-import type { ChannelConfig, LibraryContentSource } from '../types';
+import type { IPlexLibraryMinimal } from '../interfaces';
 import { AppErrorCode } from '../../../lifecycle/types';
 import {
     installMockLocalStorage,
     resetMockLocalStorage,
     restoreOriginalLocalStorage,
 } from '../../../../__tests__/mocks/localStorage';
-
-function createMockLibrary(): jest.Mocked<IPlexLibraryMinimal> {
-    return {
-        getLibraryItems: jest.fn(),
-        getCollectionItems: jest.fn(),
-        getShowEpisodes: jest.fn(),
-        getPlaylistItems: jest.fn(),
-        getItem: jest.fn(),
-    };
-}
-
-function createMockItem(overrides: Partial<PlexMediaItemMinimal> = {}): PlexMediaItemMinimal {
-    return {
-        ratingKey: '1',
-        type: 'movie',
-        title: 'Test Movie',
-        year: 2020,
-        durationMs: 7200000,
-        thumb: '/thumb/1',
-        addedAt: new Date(),
-        ...overrides,
-    };
-}
-
-function createMockContentSource(libraryId = 'lib1'): LibraryContentSource {
-    return {
-        type: 'library',
-        libraryId,
-        libraryType: 'movie',
-        includeWatched: true,
-    };
-}
-
-function createBaseChannel(overrides: Partial<ChannelConfig> = {}): ChannelConfig {
-    return {
-        id: 'base',
-        number: 1,
-        name: 'Base Channel',
-        contentSource: createMockContentSource(),
-        playbackMode: 'shuffle',
-        shuffleSeed: 1,
-        phaseSeed: 1,
-        startTimeAnchor: 0,
-        skipIntros: false,
-        skipCredits: false,
-        createdAt: 0,
-        updatedAt: 0,
-        lastContentRefresh: 0,
-        itemCount: 0,
-        totalDurationMs: 0,
-        ...overrides,
-    };
-}
+import {
+    createBaseChannel,
+    createMockContentSource,
+    createMockItem,
+    createMockLibrary,
+} from './channel-manager-test-helpers';
 
 installMockLocalStorage();
 
@@ -105,6 +57,158 @@ describe('ChannelManager import and reorder contracts', () => {
         expect(result.errors).toEqual(['Failed to import channel: plain failure']);
     });
 
+    it('imports valid channel records from JSON', async () => {
+        const importData = JSON.stringify([
+            {
+                name: 'Imported Channel',
+                contentSource: createMockContentSource(),
+            },
+        ]);
+
+        const result = await manager.importChannels(importData);
+
+        expect(result.success).toBe(true);
+        expect(result.importedCount).toBe(1);
+        expect(result.errors).toHaveLength(0);
+        expect(manager.getAllChannels()).toHaveLength(1);
+    });
+
+    it('omits invalid enum-like fields and content filters during import', async () => {
+        const importData = JSON.stringify([
+            {
+                name: 'Imported Channel',
+                contentSource: createMockContentSource(),
+                buildStrategy: 'not-a-strategy',
+                playbackMode: 'not-a-mode',
+                sortOrder: 'not-a-sort-order',
+                contentFilters: [{ field: 'year', operator: 'definitely', value: 2020 }],
+            },
+        ]);
+
+        const result = await manager.importChannels(importData);
+
+        expect(result.success).toBe(true);
+        expect(result.importedCount).toBe(1);
+        expect(result.errors).toHaveLength(0);
+
+        const [channel] = manager.getAllChannels();
+        expect(channel).toEqual(expect.objectContaining({
+            name: 'Imported Channel',
+            playbackMode: 'sequential',
+        }));
+        expect(channel?.buildStrategy).toBeUndefined();
+        expect(channel?.sortOrder).toBeUndefined();
+        expect(channel?.contentFilters).toBeUndefined();
+    });
+
+    it('preserves valid enum-like fields and content filters during import', async () => {
+        const importData = JSON.stringify([
+            {
+                name: 'Imported Channel',
+                contentSource: createMockContentSource(),
+                buildStrategy: 'genres',
+                playbackMode: 'shuffle',
+                sortOrder: 'title_asc',
+                contentFilters: [{ field: 'year', operator: 'gte', value: 2020 }],
+            },
+        ]);
+
+        const result = await manager.importChannels(importData);
+
+        expect(result.success).toBe(true);
+        expect(result.importedCount).toBe(1);
+
+        const [channel] = manager.getAllChannels();
+        expect(channel).toEqual(expect.objectContaining({
+            buildStrategy: 'genres',
+            playbackMode: 'shuffle',
+            sortOrder: 'title_asc',
+            contentFilters: [{ field: 'year', operator: 'gte', value: 2020 }],
+        }));
+    });
+
+    it('omits the entire content filter array during import when any filter is invalid', async () => {
+        const importData = JSON.stringify([
+            {
+                name: 'Imported Channel',
+                contentSource: createMockContentSource(),
+                contentFilters: [
+                    { field: 'year', operator: 'gte', value: 2020 },
+                    { field: 'year', operator: 'definitely', value: 2020 },
+                ],
+            },
+        ]);
+
+        const result = await manager.importChannels(importData);
+
+        expect(result.success).toBe(true);
+        expect(result.importedCount).toBe(1);
+        expect(result.errors).toHaveLength(0);
+
+        const [channel] = manager.getAllChannels();
+        expect(channel?.contentFilters).toBeUndefined();
+    });
+
+    it('omits fractional channel numbers during import', async () => {
+        const importData = JSON.stringify([
+            {
+                name: 'Fractional Channel',
+                number: 7.5,
+                contentSource: createMockContentSource(),
+            },
+        ]);
+
+        const result = await manager.importChannels(importData);
+
+        expect(result.success).toBe(true);
+        expect(result.importedCount).toBe(1);
+        expect(result.errors).toHaveLength(0);
+
+        const [channel] = manager.getAllChannels();
+        expect(channel?.number).toBe(1);
+    });
+
+    it('ignores legacy isSequentialVariant when importing channels without canonical playback variant metadata', async () => {
+        const importData = JSON.stringify([
+            {
+                name: 'Imported Variant',
+                contentSource: createMockContentSource(),
+                playbackMode: 'block',
+                blockSize: 4,
+                isSequentialVariant: true,
+            },
+        ]);
+
+        const result = await manager.importChannels(importData);
+
+        expect(result.success).toBe(true);
+        expect(result.importedCount).toBe(1);
+        expect(result.errors).toHaveLength(0);
+
+        const channels = manager.getAllChannels();
+        expect(channels).toHaveLength(1);
+        expect(channels[0]?.isPlaybackModeVariant).toBeUndefined();
+    });
+
+    it('reports invalid import data', async () => {
+        const result = await manager.importChannels('not valid json');
+
+        expect(result.success).toBe(false);
+        expect(result.errors.length).toBeGreaterThan(0);
+    });
+
+    it('skips invalid channels during import', async () => {
+        const importData = JSON.stringify([
+            { name: 'Missing contentSource' },
+            { name: 'Valid', contentSource: createMockContentSource() },
+        ]);
+
+        const result = await manager.importChannels(importData);
+
+        expect(result.importedCount).toBe(1);
+        expect(result.skippedCount).toBe(1);
+    });
+
     it('accepts an exact full reorder and queues persistence', async () => {
         await manager.replaceAllChannels([
             createBaseChannel({ id: 'one', number: 1 }),
@@ -120,6 +224,28 @@ describe('ChannelManager import and reorder contracts', () => {
         expect(saveSpy).toHaveBeenCalledWith(expect.objectContaining({
             channelOrder: ['three', 'one', 'two'],
         }));
+    });
+
+    it('reorders channels created through the public create API', async () => {
+        const ch1 = await manager.createChannel({
+            name: 'Ch1',
+            contentSource: createMockContentSource(),
+        });
+        const ch2 = await manager.createChannel({
+            name: 'Ch2',
+            contentSource: createMockContentSource(),
+        });
+        const ch3 = await manager.createChannel({
+            name: 'Ch3',
+            contentSource: createMockContentSource(),
+        });
+
+        await manager.reorderChannels([ch3.id, ch1.id, ch2.id]);
+
+        const all = manager.getAllChannels();
+        expect(all[0]!.id).toBe(ch3.id);
+        expect(all[1]!.id).toBe(ch1.id);
+        expect(all[2]!.id).toBe(ch2.id);
     });
 
     it.each([

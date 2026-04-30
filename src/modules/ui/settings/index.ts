@@ -1,4 +1,5 @@
 export { SettingsScreen } from './SettingsScreen';
+export type { SettingsScreenDeps } from './SettingsScreen';
 export { createSettingsToggle } from './SettingsToggle';
 export { createSettingsSelect } from './SettingsSelect';
 export { SETTINGS_STORAGE_KEYS, DEFAULT_SETTINGS } from './constants';

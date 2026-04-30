@@ -8,6 +8,7 @@ describe('epg root barrel', () => {
         expect(epgRoot.buildEPGStartupConfig).toBeDefined();
         expect(epgRoot.withEpgVisibleRangeChangeBinding).toBeDefined();
         expect(epgRoot.EPG_CONTAINER_ID).toBeDefined();
+        expect(epgRoot.createDefaultEpgConfig).toBeDefined();
         expect((epgRoot as Record<string, unknown>).DeferredEpgComponent).toBeUndefined();
         expect((epgRoot as Record<string, unknown>).buildEpgStartupConfig).toBeUndefined();
     });

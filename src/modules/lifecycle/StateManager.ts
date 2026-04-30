@@ -15,28 +15,15 @@ import {
 
 type StorageMutationFailureReason = 'quota-exceeded' | 'unavailable';
 
-/**
- * Manages application state persistence to localStorage.
- * Handles versioning, migrations, and quota errors.
- */
 export class StateManager {
     private readonly _storageKey: string;
     private readonly _currentVersion: number;
 
-    /**
-     * Create a new StateManager.
-     * @param storageKey - Override storage key (for testing)
-     */
     constructor(storageKey?: string) {
         this._storageKey = storageKey !== undefined ? storageKey : STORAGE_CONFIG.STATE_KEY;
         this._currentVersion = STORAGE_CONFIG.STATE_VERSION;
     }
 
-    /**
-     * Save state to localStorage.
-     * Handles QuotaExceededError by attempting cleanup and retry.
-     * @param state - State to save
-     */
     public save(state: PersistentState): void {
         const stateToSave: PersistentState = {
             ...state,
@@ -57,17 +44,12 @@ export class StateManager {
 
         this._performStorageCleanup();
 
-        // Retry once after cleanup
         const retryResult = safeLocalStorageSetWithResult(this._storageKey, serialized);
         if (!retryResult.ok) {
             throw this._createStorageMutationError(retryResult.reason);
         }
     }
 
-    /**
-     * Load state from localStorage and apply migrations if needed.
-     * @returns Loaded state, or null if not available/invalid
-     */
     public load(): PersistentState | null {
         const serialized = safeLocalStorageGet(this._storageKey);
         if (serialized === null) {
@@ -80,7 +62,6 @@ export class StateManager {
                 return null;
             }
 
-            // Apply migrations if needed
             const migrated = this._migrateState(parsed as Record<string, unknown>);
             if (migrated === null) {
                 return null;
@@ -93,17 +74,10 @@ export class StateManager {
         }
     }
 
-    /**
-     * Clear stored state.
-     */
     public clear(): void {
         safeLocalStorageRemove(this._storageKey);
     }
 
-    /**
-     * Create a default persistent state.
-     * @returns Default state object
-     */
     public createDefaultState(): PersistentState {
         return {
             version: this._currentVersion,
@@ -112,18 +86,13 @@ export class StateManager {
         };
     }
 
-    /**
-     * Apply version migrations to state.
-     * @param state - State to migrate
-     * @returns Migrated state, or null if migration fails
-     */
     private _migrateState(state: Record<string, unknown>): Record<string, unknown> | null {
         const version = state['version'];
         if (typeof version !== 'number') {
             return null;
         }
 
-        // Handle future versions gracefully (don't downgrade)
+        // Future versions are accepted and repaired without downgrading.
         if (version > this._currentVersion) {
             return state;
         }
@@ -131,7 +100,6 @@ export class StateManager {
         let currentState = state;
         let currentVersion = version;
 
-        // Apply migrations sequentially
         while (currentVersion < this._currentVersion) {
             const migration = MIGRATIONS[currentVersion];
             if (!migration) {
@@ -161,19 +129,12 @@ export class StateManager {
         );
     }
 
-    /**
-     * Perform storage cleanup to free space.
-     * Removes non-critical cached data defined in STORAGE_CONFIG.CLEANUP_KEYS.
-     */
     private _performStorageCleanup(): void {
         for (const key of STORAGE_CONFIG.CLEANUP_KEYS) {
             safeLocalStorageRemove(key);
         }
     }
 
-    /**
-     * Minimal validation: must be an object with a numeric version.
-     */
     private _isMinimalState(data: unknown): data is Record<string, unknown> {
         if (!this._isRecord(data)) {
             return false;
@@ -181,9 +142,6 @@ export class StateManager {
         return typeof data['version'] === 'number';
     }
 
-    /**
-     * Repair state shape after migration to ensure a safe PersistentState.
-     */
     private _repairState(state: Record<string, unknown>): PersistentState {
         const version =
             typeof state['version'] === 'number' ? state['version'] : this._currentVersion;

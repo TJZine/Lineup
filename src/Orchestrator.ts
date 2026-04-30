@@ -1,7 +1,8 @@
 import type { ModuleStatus } from './core/orchestrator/OrchestratorTypes';
 import type { Screen } from './modules/navigation';
 
-export { AppOrchestrator, type PlaybackInfoSnapshot } from './core/orchestrator/AppOrchestrator';
+export { AppOrchestrator } from './core/orchestrator/AppOrchestrator';
+export type { PlaybackInfoSnapshot } from './core/orchestrator/OrchestratorPlaybackInfoSnapshot';
 export type { ModuleStatus } from './core/orchestrator/OrchestratorTypes';
 
 export interface AppOrchestratorRuntime {

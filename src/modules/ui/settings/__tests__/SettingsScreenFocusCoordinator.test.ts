@@ -213,6 +213,42 @@ describe('SettingsScreenFocusCoordinator', () => {
         ).toBe('settings-audio-new');
     });
 
+    it('falls back when remembered category detail focus is disabled', () => {
+        const coordinator = createCoordinator();
+
+        coordinator.registerFocusables();
+        navigation.setFocus('settings-audio-old');
+        toggles.set('settings-audio-old', {
+            ...toggles.get('settings-audio-old')!,
+            isDisabled: (): boolean => true,
+        });
+
+        expect(
+            coordinator.resolveCategoryChangePreferredFocus('audio_subtitles', { focusDetail: true })
+        ).toBe('settings-audio-new');
+    });
+
+    it('does not wire inactive category RIGHT navigation to stale remembered detail focus', () => {
+        const coordinator = createCoordinator();
+
+        coordinator.registerFocusables();
+        navigation.setFocus('settings-audio-old');
+
+        activeCategoryId = 'appearance';
+        categories = [
+            {
+                id: 'audio_subtitles',
+                label: 'Audio',
+                items: [{ id: 'settings-audio-new', label: 'New', value: false, onChange: jest.fn() }],
+            },
+            categories[1]!,
+        ];
+        coordinator.resetFocusables();
+
+        expect(navigation.focusables.get('settings-category-audio_subtitles')?.neighbors.right)
+            .toBe('settings-audio-new');
+    });
+
     it('clears dropdown ownership when the dropdown dismiss callback runs', () => {
         const coordinator = createCoordinator();
         activeCategoryId = 'appearance';

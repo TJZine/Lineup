@@ -76,19 +76,21 @@ type ChannelSetupFacetLibraryExecutorOptions = {
             type: number
         ) => void;
     };
-    buildRequiredTagDirectoryFailure: (
-        label: ChannelSetupRequiredTagDirectoryLabel,
-        libraryTitle: string,
-        type: number,
-        reason: PlexTagDirectoryUnsupportedReason | 'error',
-        error?: unknown
-    ) => ChannelSetupFacetSnapshot;
-    buildRequiredTagCountRecoveryFailure: (
-        label: ChannelSetupRequiredTagDirectoryLabel,
-        libraryTitle: string,
-        type: number,
-        error: unknown
-    ) => ChannelSetupFacetSnapshot;
+    failures: {
+        buildRequiredTagDirectoryFailure: (
+            label: ChannelSetupRequiredTagDirectoryLabel,
+            libraryTitle: string,
+            type: number,
+            reason: PlexTagDirectoryUnsupportedReason | 'error',
+            error?: unknown
+        ) => ChannelSetupFacetSnapshot;
+        buildRequiredTagCountRecoveryFailure: (
+            label: ChannelSetupRequiredTagDirectoryLabel,
+            libraryTitle: string,
+            type: number,
+            error: unknown
+        ) => ChannelSetupFacetSnapshot;
+    };
 };
 
 const MAX_FACET_COUNT_RECOVERY_CONCURRENCY = 8;
@@ -403,7 +405,7 @@ export class ChannelSetupFacetLibraryExecutor {
                 return null;
             }
             if (unsupportedReason) {
-                return this._options.buildRequiredTagDirectoryFailure(
+                return this._options.failures.buildRequiredTagDirectoryFailure(
                     definition.label,
                     libraryTitle,
                     definition.mediaType,
@@ -420,7 +422,7 @@ export class ChannelSetupFacetLibraryExecutor {
                 return null;
             }
             console.warn(`Failed to fetch ${definition.family} for ${libraryTitle}:`, summarizeErrorForLog(error));
-            return this._options.buildRequiredTagDirectoryFailure(
+            return this._options.failures.buildRequiredTagDirectoryFailure(
                 definition.label,
                 libraryTitle,
                 definition.mediaType,
@@ -463,7 +465,7 @@ export class ChannelSetupFacetLibraryExecutor {
                 `Failed to recover ${definition.countRecoveryFamily} counts for ${library.title}:`,
                 summarizeErrorForLog(error)
             );
-            return this._options.buildRequiredTagCountRecoveryFailure(
+            return this._options.failures.buildRequiredTagCountRecoveryFailure(
                 definition.label,
                 library.title,
                 definition.mediaType,

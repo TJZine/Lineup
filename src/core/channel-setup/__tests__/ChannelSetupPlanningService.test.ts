@@ -4,8 +4,6 @@
 
 import { ChannelSetupPlanningService } from '../planning/ChannelSetupPlanningService';
 import { ChannelSetupFacetSnapshotLoader } from '../planning/ChannelSetupFacetSnapshotLoader';
-import type { ChannelSetupConfig, SetupStrategyConfig, SetupStrategyKey } from '../types';
-import { DEFAULT_STRATEGY_PRIORITIES, MIXED_SCOPE_STRATEGY_KEYS, SETUP_STRATEGY_KEYS } from '../constants';
 import { PLEX_MEDIA_TYPES } from '../../../modules/plex/library';
 import type {
     IPlexLibrary,
@@ -15,8 +13,14 @@ import type {
 } from '../../../modules/plex/library';
 import type { IChannelManager } from '../../../modules/scheduler/channel-manager';
 import { expectConsoleWarn, flushPromisesAndMacrotask } from '../../../__tests__/helpers';
+import {
+    createDeferred,
+    createFacetPlanningConfig as createConfig,
+    createFacetPlanningLibrary,
+    createFacetPlanningTag as makeTag,
+} from './ChannelSetupFacetPlanningTestHelpers';
 
-const makeLibrary = (overrides: Partial<PlexLibrarySection>): PlexLibrarySection => ({
+const makeLibrary = (overrides: Partial<PlexLibrarySection>): PlexLibrarySection => createFacetPlanningLibrary({
     id: 'lib1',
     uuid: 'uuid-1',
     title: 'Shows',
@@ -25,66 +29,12 @@ const makeLibrary = (overrides: Partial<PlexLibrarySection>): PlexLibrarySection
     scanner: 'scanner',
     contentCount: 0,
     lastScannedAt: new Date(0),
-    art: null,
-    thumb: null,
     ...overrides,
 });
-
-const makeTag = (overrides: Partial<PlexTagDirectoryItem>): PlexTagDirectoryItem => ({
-    key: 'tag',
-    title: 'Tag One',
-    count: 1,
-    ...overrides,
-});
-
-const createDeferred = <T>(): {
-    promise: Promise<T>;
-    resolve: (value: T | PromiseLike<T>) => void;
-    reject: (reason?: unknown) => void;
-} => {
-    let resolve: ((value: T | PromiseLike<T>) => void) | undefined;
-    let reject: ((reason?: unknown) => void) | undefined;
-    const promise = new Promise<T>((res, rej) => {
-        resolve = res;
-        reject = rej;
-    });
-    if (!resolve || !reject) {
-        throw new Error('Failed to create deferred promise');
-    }
-    return { promise, resolve, reject };
-};
 
 const resolvePendingAfterMacrotask = async (): Promise<'pending'> => {
     await flushPromisesAndMacrotask();
     return 'pending';
-};
-
-const createConfig = (
-    overrides: Omit<Partial<ChannelSetupConfig>, 'strategyConfig'> & {
-        strategyConfig?: Partial<Record<SetupStrategyKey, Partial<SetupStrategyConfig>>>;
-    }
-): ChannelSetupConfig => {
-    const { strategyConfig: strategyOverrides, ...rest } = overrides;
-    const strategyConfig = SETUP_STRATEGY_KEYS.reduce<ChannelSetupConfig['strategyConfig']>((acc, key) => {
-        const candidate = strategyOverrides?.[key];
-        acc[key] = {
-            enabled: candidate?.enabled ?? false,
-            priority: candidate?.priority ?? DEFAULT_STRATEGY_PRIORITIES[key],
-            scope: MIXED_SCOPE_STRATEGY_KEYS.has(key) && candidate?.scope === 'cross-library' ? 'cross-library' : 'per-library',
-        };
-        return acc;
-    }, {} as ChannelSetupConfig['strategyConfig']);
-
-    return {
-        serverId: 'server-1',
-        selectedLibraryIds: [],
-        maxChannels: 25,
-        buildMode: 'replace',
-        strategyConfig,
-        actorStudioCombineMode: 'separate',
-        minItemsPerChannel: 5,
-        ...rest,
-    };
 };
 
 describe('ChannelSetupPlanningService', () => {
