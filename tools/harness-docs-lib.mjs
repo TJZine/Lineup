@@ -192,8 +192,10 @@ const PLAN_RUN_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Run:\s*`[^`]+`/imu;
 const PLAN_EXPECTED_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Expected:\s*.+$/imu;
 const FCP_CHECKLIST_TOKEN_RE = /^FCP-(?:\d+|EXIT)$/u;
 const LEGACY_CHECKLIST_SLICE_ID_PATTERN = '[PS]\\d+-W\\d+-S\\d+';
+const DCR_CHECKLIST_SLICE_ID_PATTERN = 'DCR-(?:\\d+|EXIT)-S\\d+';
 const FCP_CHECKLIST_SLICE_ID_PATTERN = 'FCP-(?:\\d+|EXIT)-S\\d+';
-const LEGACY_CHECKLIST_SLICE_ID_RE = new RegExp(`^${LEGACY_CHECKLIST_SLICE_ID_PATTERN}$`, 'u');
+const CHECKLIST_SLICE_ID_PATTERN = `(?:${LEGACY_CHECKLIST_SLICE_ID_PATTERN}|${DCR_CHECKLIST_SLICE_ID_PATTERN})`;
+const CHECKLIST_SLICE_ID_RE = new RegExp(`^${CHECKLIST_SLICE_ID_PATTERN}$`, 'u');
 const FCP_CHECKLIST_SLICE_ID_RE = new RegExp(`^${FCP_CHECKLIST_SLICE_ID_PATTERN}$`, 'u');
 const FCP_FORBIDDEN_IMPORTED_ID_RE = /\b[A-Za-z][A-Za-z0-9_-]*::/u;
 const FCP_FORBIDDEN_DESLOPPIFY_RE = /\b(?:desloppify|\.desloppify)\b/iu;
@@ -523,8 +525,8 @@ function getChecklistLinkedPackagePlanErrors(content) {
     const sliceIssueField = isFcpPackage ? '`source_finding_ids`' : '`exact_issue_ids`';
     const fcpSliceIdPattern = checklistToken === null ? FCP_CHECKLIST_SLICE_ID_PATTERN : `${escapeRegExp(checklistToken)}-S\\d+`;
     const fcpSliceIdRe = new RegExp(`^${fcpSliceIdPattern}$`, 'u');
-    const sliceIdRe = isFcpPackage ? fcpSliceIdRe : LEGACY_CHECKLIST_SLICE_ID_RE;
-    const sliceIdPattern = isFcpPackage ? fcpSliceIdPattern : LEGACY_CHECKLIST_SLICE_ID_PATTERN;
+    const sliceIdRe = isFcpPackage ? fcpSliceIdRe : CHECKLIST_SLICE_ID_RE;
+    const sliceIdPattern = isFcpPackage ? fcpSliceIdPattern : CHECKLIST_SLICE_ID_PATTERN;
     const fcpSourceFindingIdRe = checklistToken === null ? null : new RegExp(`^${escapeRegExp(checklistToken)}-SF\\d+$`, 'u');
     const sliceIdError = isFcpPackage
         ? 'checklist-linked FCP plans must keep `ready_now_slice` on an FCP package-scoped slice id'

@@ -1809,6 +1809,23 @@ test('checkPlanConformance accepts legacy non-FCP checklist tokens such as S9-W1
     assert.deepEqual(result.errors, []);
 });
 
+test('checkPlanConformance accepts DCR checklist-linked package slice ids', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-30-dcr-10-oversized-test-suite-structure.md',
+        content: buildActiveCleanupPlan(
+            buildSingleSlicePackageDecomposition({ readyNowSlice: 'DCR-10-S1' })
+                .replace('`package_id`: `pkg_example_cleanup`', '`package_id`: `DCR-10`')
+                .replace('`checklist_token`: `P6-W1`', '`checklist_token`: `DCR-10`')
+                .replaceAll(
+                    'review::.::holistic::contract_coherence::read-apis-hide-cleanup-writes',
+                    'DCR-10-A1'
+                )
+        ),
+    });
+
+    assert.deepEqual(result.errors, []);
+});
+
 test('checkPlanConformance rejects legacy issue fields in FCP checklist-linked plans', () => {
     const result = checkPlanConformance({
         filePath: 'docs/plans/2026-04-28-fcp-example.md',

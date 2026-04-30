@@ -1027,9 +1027,9 @@ changes them:
   cleanup keys became lifecycle-owned schemas, or restating/generated lifecycle
   comments returned in the DCR-9 source surface.
 
-### [ ] `DCR-10` Oversized Test Suite Structure Policy
+### [x] `DCR-10` Oversized Test Suite Structure Policy
 
-- Status: not started
+- Status: completed 2026-04-30
 - Dimensions/rubric tags: test health, file health, duplication, maintainability,
   source organization
 - Scope owner: test-suite structure owner for affected packages
@@ -1038,29 +1038,46 @@ changes them:
   them without a split policy will keep concentrating test maintenance risk.
 - Files in scope:
   - `src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts`
-  - new/split channel-manager test files under the same `__tests__` directory
+  - focused channel-manager test files under the same `__tests__` directory:
+    `ChannelManager.transactional.test.ts`,
+    `ChannelManager.import-order.test.ts`,
+    `ChannelManager.error-semantics.test.ts`, and
+    `ChannelManager.stale-fallback.test.ts`
   - `src/modules/ui/settings/__tests__/SettingsScreen.test.ts`
-  - new/split settings screen test files under the same `__tests__` directory
-  - local package test utilities needed by the splits
+  - `src/modules/ui/settings/__tests__/SettingsScreen.deps.test.ts`
+  - `src/modules/ui/settings/__tests__/settings-screen-test-helpers.ts`
+  - `src/modules/ui/settings/SettingsScreen.ts`
+  - `src/modules/ui/settings/index.ts`
+  - `src/core/app-shell/AppLazyScreenRegistry.ts`
+  - `src/core/app-shell/__tests__/AppLazyScreenRegistry.test.ts`
 - Files out of scope:
   - Settings focus extraction behavior already closed
-  - production source changes except import/export adjustments required by
-    test-only fixture splits
+  - production source changes outside the approved SettingsScreen deps-object
+    constructor seam and app-shell construction call shape
   - broad repo-wide test harness rewrite
 - Known issues to retire:
   - actual issues:
-    - `DCR-10-A1`: `ChannelManager.test.ts` should not absorb new
-      transactional/reorder/error coverage without a split policy.
-    - `DCR-10-A2`: `SettingsScreen.test.ts` should not absorb new constructor
-      dependency coverage without a split policy.
-    - `DCR-10-A3`: `SettingsScreen` has an eight-positional-param constructor
-      and tests use `undefined` placeholders; resolve with a deps object and
-      targeted tests, or record a maintainer-approved migration out of DCR with
-      destination, owner, revisit trigger, and non-blocker rationale.
+    - `DCR-10-A1`: completed by commit `ff01fcce`
+      (`test(dcr-10): split channel manager coverage`). ChannelManager
+      transactional replace-all/current-channel persistence coverage now lives
+      in `ChannelManager.transactional.test.ts`; import/reorder contracts live
+      in `ChannelManager.import-order.test.ts`; typed error and non-fallback
+      failure semantics live in `ChannelManager.error-semantics.test.ts`; stale
+      fallback coverage remains in `ChannelManager.stale-fallback.test.ts`.
+      Residual policy-term matches in `ChannelManager.test.ts` were reviewed as
+      incidental setup, broad CRUD/storage/current-channel behavior, or export
+      coverage rather than new transactional/reorder/error DCR coverage.
+    - `DCR-10-A2`: completed by commit `713f6a21`
+      (`Refactor SettingsScreen constructor deps`). Constructor/dependency
+      coverage lives in `SettingsScreen.deps.test.ts` and the catch-all
+      `SettingsScreen.test.ts` only migrated existing helper wiring.
+    - `DCR-10-A3`: completed by commit `713f6a21`. `SettingsScreen` now uses a
+      single `SettingsScreenDeps` object constructor, and the test helper no
+      longer passes a positional `undefined` placeholder.
   - owner decisions:
-    - `DCR-10-D1`: decide whether the constructor cleanup is implemented in this
-      package or split into a named package-specific Settings destination. A
-      split requires maintainer approval and cannot leave DCR-10 incomplete.
+    - `DCR-10-D1`: resolved in this package. The SettingsScreen constructor
+      cleanup was implemented as a deps-object seam with targeted tests; no
+      migration-out or positional compatibility overload was used.
   - accepted residuals:
     - no broad Settings redesign; existing focus extraction remains closed.
 - Completion means: affected packages have a clear split policy or completed
@@ -1070,26 +1087,40 @@ changes them:
 - Verification routing: targeted split test files plus affected package tests,
   `npm test`/`npm run verify` depending on whether production constructor/API
   changes are included.
-- Ready-now execution unit: none until plan is written.
-- Suggested slice table / wave candidates:
+- Completed slice table:
 
-  | Slice | Candidate goal | Write scope | Parallel policy |
+  | Slice | Completed goal | Write scope | Result |
   | --- | --- | --- | --- |
-  | `DCR-10-S1` | ChannelManager test split policy before DCR-1 coverage | channel-manager tests/helpers | can precede DCR-1 |
-  | `DCR-10-S2` | SettingsScreen constructor/test split decision | settings tests and constructor if approved | separate from S1 |
+  | `DCR-10-S1` | ChannelManager test split policy before future DCR coverage | channel-manager tests/helpers | completed and reviewed clean |
+  | `DCR-10-S2` | SettingsScreen constructor/test split decision and deps-object migration | settings tests, SettingsScreen constructor, app-shell call site | completed and reviewed clean |
 
 - Stop/replan triggers: constructor cleanup changes public Settings screen
   construction in app-shell; test split requires production extraction; another
   reviewed package already completed the DCR-10 split/constructor obligations
   and updates this record before `DCR-EXIT`.
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
+- Plan: archived at
+  `docs/archive/plans/2026-04-30-dcr-10-oversized-test-suite-structure.md`
+- Last touched: completed 2026-04-30
+- Verification:
+  - Plan gate: direct `checkPlanConformance` for the DCR-10 plan passed after
+    the narrow DCR slice-id harness update; `node --test
+    tools/__tests__/harness-docs-lib.test.mjs` passed; `npm run plans:check`
+    passed; plan review and fresh final approval were clean.
+  - `DCR-10-S1`: targeted ChannelManager suites passed (`5` suites, `94`
+    tests), and implementation review was clean.
+  - `DCR-10-S2`: targeted Settings/AppLazyScreenRegistry suites passed (`3`
+    suites, `52` tests), `npm run typecheck` passed, `npm run verify` passed,
+    and implementation review was clean.
+  - Closeout docs: `npm run verify:docs` required after this checklist/archive
+    update.
 - Follow-ups: none yet
-- Handoff: DCR-10 is mandatory before `DCR-EXIT`. It may be planned before
-  DCR-1 or Settings-adjacent work when oversized tests would block adding
-  coverage; otherwise the first package that needs those tests must coordinate
-  with DCR-10 instead of absorbing new cases into catch-all files.
+- Handoff: DCR-10 is complete and no longer blocks `DCR-EXIT`. Future
+  ChannelManager transactional/reorder/error/stale-fallback coverage should use
+  the focused ChannelManager test files named above instead of growing the
+  catch-all suite. Future SettingsScreen constructor/dependency coverage should
+  use `SettingsScreen.deps.test.ts` or the local
+  `settings-screen-test-helpers.ts` seam instead of adding constructor-policy
+  assertions to `SettingsScreen.test.ts`.
 
 ### [ ] `DCR-EXIT` Dimension Cleanup Exit Gate
 
