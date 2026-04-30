@@ -10,6 +10,15 @@ Retire the `DCR-12` checklist package by fixing or source-disproving the app-she
 
 This is a Tier 3 cleanup-loop package. The implementation must reduce live responsibility in `src/core/orchestrator/AppOrchestrator.ts`, not only add tests around it. `DCR-12-A1` may close only by actual source responsibility reduction plus a fresh file-health source audit proving `S0-L01-F1` no longer describes current source, or by explicit maintainer reclassification with owner, rationale, and revisit trigger.
 
+## Execution Update
+
+2026-04-30 controller update:
+
+- `DCR-12-S1` was implemented in commits `70a83725` and `992afedb`,
+  reviewed clean after fixes, and verified by full `npm run verify`.
+- The tracked-plan/docs checkpoint was recorded in commit `0b48e578`.
+- `DCR-12-S2` is now the next approved execution unit.
+
 ## Non-Goals
 
 - Do not run or use Desloppify runtime intake, scans, queue/import output, score refreshes, status/next/plan output, or review packets.
@@ -231,8 +240,8 @@ Stop and replan if:
   - `DCR-12-A2` maps exactly once to `DCR-12-S2`.
   - `DCR-12-A3` maps exactly once to `DCR-12-S3`.
   - `DCR-12-A4` maps exactly once to `DCR-12-S4`.
-- `ready_now_slice`: `DCR-12-S1`
-- `ready_now_execution_unit`: `DCR-12-S1`
+- `ready_now_slice`: `DCR-12-S2`
+- `ready_now_execution_unit`: `DCR-12-S2`
 - `recommended_slice_order`:
   1. `DCR-12-S1`
   2. `DCR-12-S2`
