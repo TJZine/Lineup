@@ -3317,6 +3317,118 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             }
         });
 
+        it('preserves teardown order and reports aggregate failures after teardown attempts complete', async () => {
+            const order: string[] = [];
+            const initCoordinator = Reflect.get(orchestrator as object, '_initCoordinator') as {
+                clearAuthResume: () => void;
+                clearServerResume: () => void;
+                clearProfileResume: () => void;
+            };
+            const scheduleDayRolloverController = Reflect.get(
+                orchestrator as object,
+                '_scheduleDayRolloverController'
+            ) as { dispose: () => void };
+            const eventBinder = Reflect.get(orchestrator as object, '_eventBinder') as {
+                dispose: (onCleanupError?: (error: unknown) => void) => void;
+            };
+            let reportRecorded = false;
+
+            expectConsoleWarn((args) => {
+                const [message, data] = args;
+                if (message !== 'Shutdown teardown failures') {
+                    return false;
+                }
+                if (!reportRecorded) {
+                    reportRecorded = true;
+                    order.push('aggregate-report');
+                }
+
+                return (
+                    typeof data === 'object' &&
+                    data !== null &&
+                    Array.isArray((data as { teardownFailures?: unknown }).teardownFailures)
+                );
+            });
+
+            jest.spyOn(initCoordinator, 'clearAuthResume').mockImplementation(() => {
+                order.push('clearAuthResume');
+            });
+            jest.spyOn(initCoordinator, 'clearServerResume').mockImplementation(() => {
+                order.push('clearServerResume');
+            });
+            jest.spyOn(initCoordinator, 'clearProfileResume').mockImplementation(() => {
+                order.push('clearProfileResume');
+            });
+            jest.spyOn(scheduleDayRolloverController, 'dispose').mockImplementation(() => {
+                order.push('scheduleDayRolloverController.dispose');
+            });
+            jest.spyOn(eventBinder, 'dispose').mockImplementation(() => {
+                order.push('events.unsubscribe');
+            });
+
+            (mockChannelManager.flushSaves as jest.Mock).mockImplementationOnce(async () => {
+                order.push('channelManager.flushSaves');
+            });
+            (mockChannelManager.dispose as jest.Mock).mockImplementationOnce(() => {
+                order.push('channelManager.dispose');
+            });
+            (mockLifecycle.shutdown as jest.Mock).mockImplementationOnce(async () => {
+                order.push('lifecycle.shutdown');
+                throw new Error('lifecycle failed');
+            });
+            (mockVideoPlayer.stop as jest.Mock).mockImplementationOnce(() => {
+                order.push('videoPlayer.stop');
+                throw new Error('stop failed');
+            });
+            (mockScheduler.pauseSyncTimer as jest.Mock).mockImplementationOnce(() => {
+                order.push('scheduler.pauseSyncTimer');
+                throw new Error('pause failed');
+            });
+            (mockScheduler.unloadChannel as jest.Mock).mockImplementationOnce(() => {
+                order.push('scheduler.unloadChannel');
+            });
+            (mockEpg.destroy as jest.Mock).mockImplementationOnce(() => {
+                order.push('epg.destroy');
+                throw new Error('epg destroy failed');
+            });
+            (mockVideoPlayer.destroy as jest.Mock).mockImplementationOnce(() => {
+                order.push('videoPlayer.destroy');
+            });
+            (mockNavigation.destroy as jest.Mock).mockImplementationOnce(() => {
+                order.push('navigation.destroy');
+            });
+
+            try {
+                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+
+                expect(order).toEqual([
+                    'clearAuthResume',
+                    'clearServerResume',
+                    'clearProfileResume',
+                    'scheduleDayRolloverController.dispose',
+                    'events.unsubscribe',
+                    'channelManager.flushSaves',
+                    'channelManager.dispose',
+                    'lifecycle.shutdown',
+                    'videoPlayer.stop',
+                    'scheduler.pauseSyncTimer',
+                    'scheduler.unloadChannel',
+                    'epg.destroy',
+                    'videoPlayer.destroy',
+                    'navigation.destroy',
+                    'aggregate-report',
+                ]);
+            } finally {
+                (mockLifecycle.shutdown as jest.Mock).mockResolvedValue(undefined);
+                (mockVideoPlayer.stop as jest.Mock).mockImplementation(() => undefined);
+                (mockScheduler.pauseSyncTimer as jest.Mock).mockImplementation(() => undefined);
+                (mockScheduler.unloadChannel as jest.Mock).mockImplementation(() => undefined);
+                (mockEpg.destroy as jest.Mock).mockImplementation(() => undefined);
+                (mockVideoPlayer.destroy as jest.Mock).mockImplementation(() => undefined);
+                (mockNavigation.destroy as jest.Mock).mockImplementation(() => undefined);
+            }
+        });
+
         it('stops the video player during shutdown when active transcode cleanup fails', async () => {
             expectConsoleWarn([
                 'stopActiveTranscodeSession failed during playback stop',
