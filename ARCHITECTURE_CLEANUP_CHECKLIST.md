@@ -678,9 +678,9 @@ changes them:
   contract, or the public navigation API changes. DCR-6 is the next unchecked
   DCR package only when the maintainer starts the next cleanup loop.
 
-### [ ] `DCR-6` AppOrchestrator Narrow API And File-Health Cleanup
+### [x] `DCR-6` AppOrchestrator Narrow API And File-Health Cleanup
 
-- Status: not started
+- Status: completed
 - Dimensions/rubric tags: file health, API surface coherence, cross-module
   architecture, duplication, AI-generated residue, initialization coupling
 - Scope owner: core orchestrator owner
@@ -692,8 +692,10 @@ changes them:
   - `src/Orchestrator.ts`
   - `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts`
   - `src/core/orchestrator/OrchestratorCoordinatorContracts.ts`
+  - `src/core/orchestrator/OrchestratorPlaybackInfoSnapshot.ts`
   - `src/core/orchestrator/OrchestratorPlaybackStateAccessors.ts`
   - `src/core/orchestrator/OrchestratorEventCleanupReporter.ts`
+  - `src/core/orchestrator/OrchestratorShutdownTeardown.ts`
   - `src/core/orchestrator/__tests__/*`
   - `src/__tests__/Orchestrator.test.ts`
 - Files out of scope:
@@ -725,7 +727,7 @@ changes them:
 - Verification routing: targeted orchestrator tests for touched seams,
   import/export source audit, `npm run verify`; `npm run verify:docs` if
   architecture truth changes.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: completed.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -737,12 +739,38 @@ changes them:
 - Stop/replan triggers: cleanup requires moving ownership into app-shell or
   priority-one modules; public runtime API consumers outside tests break;
   extracted helper starts becoming a second orchestrator.
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start with DCR-6 plan that explicitly keeps this narrow and names
-  frozen adjacent owners.
+- Plan:
+  [`docs/archive/plans/2026-04-29-dcr-6-app-orchestrator-api-file-health.md`](./docs/archive/plans/2026-04-29-dcr-6-app-orchestrator-api-file-health.md)
+- Last touched: 2026-04-30, implementation commits `aa199687`,
+  `7f6097b1`, `2e19f997`, and `8e9f4e81`
+- Verification: plan review approved with no material findings. `DCR-6-S1`
+  implementation review approved export/API surface and playback snapshot
+  ownership with no material findings. `DCR-6-S2` implementation review
+  approved the typed coordinator assembly construction seam with no material
+  findings. `DCR-6-S3` implementation review found one missing
+  shutdown-order/aggregate-report test, commit `8e9f4e81` fixed it,
+  same-reviewer closure approved the fix, and a fresh final implementation
+  review approved the package. Targeted playback snapshot tests passed;
+  targeted coordinator assembly tests passed; targeted shutdown/recoverable
+  runtime tests passed; source audits passed for public orchestrator barrel
+  consumers, non-null assertion containment, and shutdown/source-signal
+  comments; `npm run verify` passed after each implementation unit and after
+  the S3 review fix.
+- Follow-ups: none. The public `src/Orchestrator.ts` barrel remains limited to
+  `AppOrchestrator`, `AppOrchestratorRuntime`, `ModuleStatus`, and
+  `PlaybackInfoSnapshot` for app/test import stability. Playback snapshot
+  projection is owned by `OrchestratorPlaybackInfoSnapshot`, coordinator
+  assembly required-module validation is owned by the typed assembly seam, and
+  shutdown failure collection is owned by `OrchestratorShutdownTeardown`.
+  Broad `AppOrchestrator`, app-shell, priority-one, Plex/player, UI, module
+  factory, `DCR-7`, and `DCR-EXIT` cleanup remain out of scope.
+- Handoff: `DCR-6` is complete. Do not reopen AppOrchestrator API/file-health
+  cleanup unless source proof shows the public barrel widened beyond the
+  recorded policy, playback snapshot projection regressed inline, coordinator
+  assembly reintroduced scattered non-null assertions, or shutdown teardown
+  loses the verified order/failure-continuation/aggregate-report behavior.
+  DCR-7 is the next unchecked DCR package only when the maintainer starts the
+  next cleanup loop.
 
 ### [ ] `DCR-7` Channel Setup Facet Loader/Executor Confidence And Abstraction
 

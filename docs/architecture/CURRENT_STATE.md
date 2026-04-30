@@ -76,7 +76,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 ### `src/Orchestrator.ts`
 
 - thin public runtime entry barrel
-- re-exports `AppOrchestrator` and runtime-facing types for app/test import stability
+- re-exports only `AppOrchestrator`, `AppOrchestratorRuntime`, `ModuleStatus`, and `PlaybackInfoSnapshot` for app/test import stability
 - does not re-export lifecycle error taxonomy or internal core/channel-setup owners; import those from their owning modules
 
 ### `src/core/orchestrator/AppOrchestrator.ts`
@@ -85,6 +85,24 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - owns composition-root diagnostics append wiring (`AppendIssueDiagnostic`) for runtime collaborators while `IssueDiagnosticsStore` remains the storage/debug owner
 - constructs the initialization-package `InitializationCoordinator` before coordinator assembly so `ensureEpgInitialized` callbacks always bind the real startup owner (no fake no-op readiness path)
 - delegates grouped priority-one runtime assembly shaping to `src/core/orchestrator/priority-one/PriorityOneAssemblyBuilder.ts` and delegates schedule-day rollover plus subtitle-track recovery construction to `src/core/orchestrator/OrchestratorRuntimeControllerBuilder.ts`
+- delegates playback info snapshot projection to `src/core/orchestrator/OrchestratorPlaybackInfoSnapshot.ts`; `AppOrchestrator` remains the runtime state source and refresh trigger owner
+- delegates coordinator assembly required-module hardening to `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts` / `OrchestratorCoordinatorContracts.ts`, which own the typed assembly input seam
+- delegates shutdown teardown failure collection to `src/core/orchestrator/OrchestratorShutdownTeardown.ts` while preserving `AppOrchestrator.shutdown()` ordering, field nulling, and singleton/no-reuse lifecycle ownership
+
+### `src/core/orchestrator/OrchestratorPlaybackInfoSnapshot.ts`
+
+- focused owner for the `PlaybackInfoSnapshot` projection contract consumed through the public `src/Orchestrator.ts` barrel
+- projects from narrow orchestrator playback/channel state accessors and does not own mutable playback state or Plex/player stream policy
+
+### `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts`
+
+- owns coordinator assembly input construction and required-module validation before coordinator creation
+- exposes the typed assembly input seam used by `AppOrchestrator` without no-op module fallbacks or scattered non-null assertions
+
+### `src/core/orchestrator/OrchestratorShutdownTeardown.ts`
+
+- focused shutdown helper for best-effort teardown failure collection
+- preserves continuation after individual teardown failures and returns failures for one aggregate `orchestrator.shutdown.teardown` report from `AppOrchestrator`
 
 ### `src/core/orchestrator/priority-one/`
 
