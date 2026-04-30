@@ -9,8 +9,9 @@ import {
     createMockPlexLibrary,
     type FacetPlanningConfigOverrides,
 } from './ChannelSetupFacetPlanningTestHelpers';
+import type { ChannelSetupConfig } from '../types';
 
-const createConfig = (overrides: FacetPlanningConfigOverrides = {}) => createFacetPlanningConfig({
+const createConfig = (overrides: FacetPlanningConfigOverrides = {}): ChannelSetupConfig => createFacetPlanningConfig({
     selectedLibraryIds: ['lib-1'],
     maxChannels: 10,
     minItemsPerChannel: 1,

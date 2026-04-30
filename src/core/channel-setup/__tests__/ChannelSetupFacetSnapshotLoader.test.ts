@@ -9,7 +9,7 @@ import {
     ChannelSetupPlanningError,
 } from '../planning/ChannelSetupFacetSnapshotLoader';
 import { flushPromises, flushPromisesAndMacrotask } from '../../../__tests__/helpers';
-import type { PlexTagDirectoryItem } from '../../../modules/plex/library';
+import type { IPlexLibrary, PlexTagDirectoryItem } from '../../../modules/plex/library';
 import {
     createDeferred,
     createFacetPlanningConfig,
@@ -18,8 +18,9 @@ import {
     createMockPlexLibrary,
     type FacetPlanningConfigOverrides,
 } from './ChannelSetupFacetPlanningTestHelpers';
+import type { ChannelSetupConfig } from '../types';
 
-const createConfig = (overrides: FacetPlanningConfigOverrides = {}) => createFacetPlanningConfig({
+const createConfig = (overrides: FacetPlanningConfigOverrides = {}): ChannelSetupConfig => createFacetPlanningConfig({
     selectedLibraryIds: ['lib-1'],
     maxChannels: 10,
     minItemsPerChannel: 1,
@@ -32,7 +33,9 @@ const createConfig = (overrides: FacetPlanningConfigOverrides = {}) => createFac
 
 const createLibrary = createFacetPlanningLibrary;
 
-const createPlexLibrary = (overrides = {}) => createMockPlexLibrary({
+const createPlexLibrary = (
+    overrides: Partial<jest.Mocked<IPlexLibrary>> = {}
+): jest.Mocked<IPlexLibrary> => createMockPlexLibrary({
     getCollections: jest.fn().mockResolvedValue([]),
     getPlaylists: jest.fn().mockResolvedValue([]),
     getActors: jest.fn().mockResolvedValue([]),
