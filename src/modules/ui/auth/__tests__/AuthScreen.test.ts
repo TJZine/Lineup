@@ -301,6 +301,55 @@ describe('AuthScreen', () => {
         expect(ports.pollForPin).toHaveBeenNthCalledWith(2, 12, { signal: expect.any(AbortSignal) });
     });
 
+    it('hide during retry cleanup prevents requesting and polling a new PIN', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const oldCancelDeferred = createDeferred<void>();
+        const ports = createPorts({
+            requestAuthPin: jest.fn()
+                .mockResolvedValueOnce({
+                    id: 21,
+                    code: 'FAIL',
+                    expiresAt: new Date(Date.now() + 60_000),
+                    authToken: null,
+                    clientIdentifier: 'client-id',
+                })
+                .mockResolvedValueOnce({
+                    id: 22,
+                    code: 'NEXT',
+                    expiresAt: new Date(Date.now() + 60_000),
+                    authToken: null,
+                    clientIdentifier: 'client-id',
+                }),
+            pollForPin: jest.fn()
+                .mockRejectedValueOnce(new Error('poll failed'))
+                .mockImplementation(() => new Promise(() => undefined)),
+            cancelPin: jest.fn((pinId: number) => {
+                if (pinId === 21) {
+                    return oldCancelDeferred.promise;
+                }
+                return Promise.resolve();
+            }),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+
+        click(container, '#btn-auth-retry');
+        await flushPromises();
+        screen.hide();
+        oldCancelDeferred.resolve(undefined);
+        await flushPromises();
+
+        expect(ports.cancelPin).toHaveBeenCalledWith(21);
+        expect(ports.requestAuthPin).toHaveBeenCalledTimes(1);
+        expect(ports.pollForPin).toHaveBeenCalledTimes(1);
+    });
+
     it('unregisters retry focusable and moves focus when retry disappears', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
