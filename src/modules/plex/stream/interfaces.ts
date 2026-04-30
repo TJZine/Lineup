@@ -5,6 +5,7 @@ import type {
     StreamDecision,
     HlsOptions,
 } from './types';
+import type { TranscodeQualityOption } from '../../../config/transcodeQuality';
 import type { PlatformIdentityService } from '../../../platform';
 import type { IDisposable } from '../../../utils/interfaces';
 
@@ -48,6 +49,35 @@ export interface PlexStreamDebugOverridesReader {
     readTranscodeProfileNameAndClean(): string | null;
 }
 
+export interface PlexStreamAudioPolicyReader {
+    readDirectPlayAudioFallbackEnabledAndClean(): boolean;
+    readDtsPassthroughEnabledAndClean(fallback?: boolean): boolean;
+}
+
+export interface PlexStreamPlaybackPolicyReader {
+    readHdr10FallbackModeAndClean(): 'off' | 'smart' | 'force';
+    readTranscodeCompatEnabledAndClean(fallback?: boolean): boolean;
+    readTranscodeQualityOptionAndClean(): TranscodeQualityOption | null;
+}
+
+export interface PlexStreamDebugPolicyReader {
+    readDebugLoggingEnabledAndClean(fallback?: boolean): boolean;
+}
+
+export interface PlexStreamSubtitleDebugPolicyReader {
+    readSubtitleDebugLoggingEnabledAndClean(fallback?: boolean): boolean;
+}
+
+export type PlexStreamSubtitleDebugLogContext = Record<string, unknown>;
+
+export interface PlexStreamSubtitleDebugLogPort {
+    isEnabled(): boolean;
+    log(
+        event: string,
+        context: PlexStreamSubtitleDebugLogContext | (() => PlexStreamSubtitleDebugLogContext)
+    ): void;
+}
+
 export interface PlexStreamResolverConfig {
     /** Function to get auth headers for Plex API requests */
     getAuthHeaders: () => Record<string, string>;
@@ -66,8 +96,18 @@ export interface PlexStreamResolverConfig {
     getItem: (ratingKey: string) => Promise<PlexMediaItem | null>;
     /** Client identifier for session tracking */
     clientIdentifier: string;
+    /** Audio playback policy reader seam */
+    audioPolicyReader: PlexStreamAudioPolicyReader;
+    /** Playback/transcode policy reader seam */
+    playbackPolicyReader: PlexStreamPlaybackPolicyReader;
+    /** Debug logging policy reader seam */
+    debugPolicyReader: PlexStreamDebugPolicyReader;
+    /** Subtitle debug logging policy reader seam */
+    subtitleDebugPolicyReader: PlexStreamSubtitleDebugPolicyReader;
     /** Debug override reader seam for profile-name injection */
-    debugOverridesStore: PlexStreamDebugOverridesReader;
+    debugOverridesReader: PlexStreamDebugOverridesReader;
+    /** Subtitle debug logging port */
+    subtitleDebugLogPort: PlexStreamSubtitleDebugLogPort;
     /** Optional platform identity abstraction */
     identityService?: PlatformIdentityService;
 }

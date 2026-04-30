@@ -297,6 +297,48 @@ describe('PlexStreamResolver', () => {
             expect(decision.playbackUrl).toContain('X-Plex-Token=mock-token');
         });
 
+        it('reads stream policy through injected readers and subtitle debug through the injected port', async () => {
+            const mockItem = createMockMediaItem({
+                container: 'mp4',
+                videoCodec: 'h264',
+                audioCodec: 'aac',
+            });
+            const readDirectPlayAudioFallbackEnabledAndClean = jest.fn(() => false);
+            const readDtsPassthroughEnabledAndClean = jest.fn(() => false);
+            const readHdr10FallbackModeAndClean = jest.fn(() => 'off' as const);
+            const readDebugLoggingEnabledAndClean = jest.fn(() => false);
+            const subtitleDebugLogPort = {
+                isEnabled: jest.fn(() => false),
+                log: jest.fn(),
+            };
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+                audioPolicyReader: {
+                    readDirectPlayAudioFallbackEnabledAndClean,
+                    readDtsPassthroughEnabledAndClean,
+                },
+                playbackPolicyReader: {
+                    readHdr10FallbackModeAndClean,
+                    readTranscodeCompatEnabledAndClean: jest.fn(() => false),
+                    readTranscodeQualityOptionAndClean: jest.fn(() => null),
+                },
+                debugPolicyReader: {
+                    readDebugLoggingEnabledAndClean,
+                },
+                subtitleDebugLogPort,
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            await resolver.resolveStream({ itemKey: '12345' });
+
+            expect(readDirectPlayAudioFallbackEnabledAndClean).toHaveBeenCalledTimes(1);
+            expect(readDtsPassthroughEnabledAndClean).toHaveBeenCalled();
+            expect(readHdr10FallbackModeAndClean).toHaveBeenCalledTimes(1);
+            expect(readDebugLoggingEnabledAndClean).toHaveBeenCalledWith(false);
+            expect(subtitleDebugLogPort.isEnabled).toHaveBeenCalledTimes(1);
+            expect(subtitleDebugLogPort.log).not.toHaveBeenCalled();
+        });
+
         it('keeps explicit audio selection in the direct-play url when the requested track is compatible', async () => {
             const mockItem = createMockMediaItem(
                 { audioCodec: 'dts' },
@@ -1037,7 +1079,7 @@ describe('PlexStreamResolver', () => {
             const readTranscodeProfileNameAndClean = jest.fn(() => 'Generic');
             const resolver = new PlexStreamResolver(
                 createMockConfig({
-                    debugOverridesStore: { readTranscodeProfileNameAndClean },
+                    debugOverridesReader: { readTranscodeProfileNameAndClean },
                 })
             );
 
@@ -1050,7 +1092,7 @@ describe('PlexStreamResolver', () => {
         it('falls back to HTML TV App when injected profile override is absent', () => {
             const resolver = new PlexStreamResolver(
                 createMockConfig({
-                    debugOverridesStore: { readTranscodeProfileNameAndClean: () => null },
+                    debugOverridesReader: { readTranscodeProfileNameAndClean: () => null },
                 })
             );
 

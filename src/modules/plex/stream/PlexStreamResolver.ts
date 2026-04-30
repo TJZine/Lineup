@@ -20,9 +20,6 @@ import type {
 } from './types';
 import { isTextSubtitleFormat } from './constants';
 import { generatePlexSessionId } from './plexSessionId';
-import { AudioSettingsStore } from '../../settings/AudioSettingsStore';
-import { PlaybackSettingsStore } from '../../settings/PlaybackSettingsStore';
-import { DeveloperSettingsStore } from '../../settings/DeveloperSettingsStore';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { redactSensitiveTokens } from '../../../utils/redact';
 import {
@@ -44,7 +41,6 @@ import {
     buildPlexTranscodeStartUrl,
 } from './plexStreamUrlPolicy';
 import { logPlexWarning } from '../shared/plexLogging';
-import { SubtitleDebugLogger } from '../../debug/SubtitleDebugLogger';
 import { probeSubtitleStreamDelivery } from './SubtitleStreamProbe';
 
 // Re-export types for consumers
@@ -59,16 +55,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     private readonly _config: PlexStreamResolverConfig;
     private readonly _emitter: EventEmitter<StreamResolverEventMap>;
     private readonly _identityService: PlatformIdentityService;
-    private readonly _audioSettingsStore = new AudioSettingsStore();
-    private readonly _playbackSettingsStore = new PlaybackSettingsStore();
-    private readonly _developerSettingsStore = new DeveloperSettingsStore();
-    private readonly _subtitleDebugLogger = new SubtitleDebugLogger({
-        scope: 'PlexStreamResolver',
-        sink: (scope, event, payload): void => {
-            logPlexWarning('subtitle_debug', scope, event, payload);
-        },
-        settingsReader: this._developerSettingsStore,
-    });
 
     /**
      * Create a new PlexStreamResolver instance.
@@ -106,7 +92,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
     private _isDtsPassthroughEnabled(): boolean {
         try {
-            const userEnabled = this._audioSettingsStore.readDtsPassthroughEnabledAndClean(false);
+            const userEnabled = this._config.audioPolicyReader.readDtsPassthroughEnabledAndClean(false);
             const chromeMajor = this._getChromeMajor();
             return userEnabled && chromeMajor !== null && chromeMajor >= 108;
         } catch {
@@ -128,11 +114,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     }
 
     private _isSubtitleDebugEnabled(): boolean {
-        return this._subtitleDebugLogger.isEnabled();
+        return this._config.subtitleDebugLogPort.isEnabled();
     }
 
     private _logSubtitleDebug(event: string, context: Record<string, unknown>): void {
-        this._subtitleDebugLogger.log(event, context);
+        this._config.subtitleDebugLogPort.log(event, context);
     }
 
 
@@ -152,7 +138,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         const sessionId = generatePlexSessionId();
-        const allowDirectPlayAudioFallback = this._audioSettingsStore.readDirectPlayAudioFallbackEnabledAndClean();
+        const allowDirectPlayAudioFallback = this._config.audioPolicyReader.readDirectPlayAudioFallbackEnabledAndClean();
         const dtsPassthroughEnabled = this._isDtsPassthroughEnabled();
         const userAgent = this._getBrowserUserAgent();
         const hdr10FallbackMode = this._getHdr10FallbackMode();
@@ -410,10 +396,10 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             );
         }
 
-        const compatMode = this._playbackSettingsStore.readTranscodeCompatEnabledAndClean(false);
-        const quality = this._playbackSettingsStore.readTranscodeQualityOptionAndClean();
+        const compatMode = this._config.playbackPolicyReader.readTranscodeCompatEnabledAndClean(false);
+        const quality = this._config.playbackPolicyReader.readTranscodeQualityOptionAndClean();
         const authHeaders = this._config.getAuthHeaders();
-        const forcedProfileName = this._config.debugOverridesStore.readTranscodeProfileNameAndClean();
+        const forcedProfileName = this._config.debugOverridesReader.readTranscodeProfileNameAndClean();
         const defaultIdentityParams = this._identityService.getDefaultPlexIdentity(
             this._config.clientIdentifier
         );
@@ -724,11 +710,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
 
     private _getHdr10FallbackMode(): 'off' | 'smart' | 'force' {
-        return this._playbackSettingsStore.readHdr10FallbackModeAndClean();
+        return this._config.playbackPolicyReader.readHdr10FallbackModeAndClean();
     }
 
     private _isDebugLoggingEnabled(): boolean {
-        return this._developerSettingsStore.readDebugLoggingEnabledAndClean(false);
+        return this._config.debugPolicyReader.readDebugLoggingEnabledAndClean(false);
     }
 
 
