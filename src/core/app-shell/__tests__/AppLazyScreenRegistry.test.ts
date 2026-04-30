@@ -355,6 +355,51 @@ describe('AppLazyScreenRegistry', () => {
         expect(third).toBe(settingsScreen as never);
     });
 
+    it('reports subtitle-track clearing failures without leaking an unhandled rejection', async () => {
+        const settingsScreen = makeScreen();
+        const SettingsScreen = jest.fn().mockImplementation(() => settingsScreen);
+        const loadSettingsModule = jest.fn().mockResolvedValue({ SettingsScreen });
+        const clearError = new Error('clear failed');
+        const portFactory = makePortFactory();
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+        (portFactory.createSettingsRuntimePorts as jest.Mock).mockReturnValueOnce({
+            getNavigation: jest.fn().mockReturnValue(null),
+            clearSubtitleTrack: jest.fn().mockRejectedValue(clearError),
+            onGuideSettingChange: jest.fn(),
+            getActiveUsername: jest.fn().mockReturnValue('UnitTestUser'),
+            getTheme: jest.fn().mockReturnValue('ember-steel'),
+            setTheme: jest.fn(),
+        } satisfies AppLazySettingsRuntimePorts);
+
+        const registry = new AppLazyScreenRegistry({
+            portFactory: portFactory as AppLazyScreenPortFactory,
+            profileSessionStore: new ProfileSessionStore(),
+            containers: {
+                settingsContainer: document.createElement('div'),
+            },
+            loaders: {
+                loadSettingsModule,
+            },
+        });
+
+        await registry.ensureSettingsScreen();
+        const constructorArgs = SettingsScreen.mock.calls[0]?.[0];
+
+        constructorArgs.onSubtitleModeChange('off');
+        await flushMicrotasks();
+
+        const settingsRuntimePorts = (portFactory.createSettingsRuntimePorts as jest.Mock).mock.results[0]?.value;
+        expect(settingsRuntimePorts.clearSubtitleTrack).toHaveBeenCalledTimes(1);
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[AppLazyScreenRegistry] Failed to clear subtitle track after subtitle mode off',
+            expect.objectContaining({
+                name: 'Error',
+                message: 'clear failed',
+            })
+        );
+    });
+
     it('dedupes concurrent channel-setup loads and caches the instance', async () => {
         const channelSetupScreen = makeScreen();
         const ChannelSetupScreen = jest.fn().mockImplementation(() => channelSetupScreen);
