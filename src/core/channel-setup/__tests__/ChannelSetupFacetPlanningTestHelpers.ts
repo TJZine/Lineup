@@ -38,23 +38,17 @@ export const createFacetPlanningLibrary = (
     overrides: Partial<PlexLibrarySection> = {}
 ): PlexLibrarySection => ({
     id: 'lib-1',
-    key: '1',
+    uuid: 'uuid-1',
     title: 'Movies',
     type: 'movie',
     agent: 'tv.plex.agents.movie',
     scanner: 'Plex Movie',
-    language: 'en',
-    updatedAt: 0,
-    uuid: 'uuid-1',
-    icon: null,
-    art: null,
-    composite: null,
-    content: true,
-    refreshable: true,
-    thumb: null,
     contentCount: 10,
+    lastScannedAt: new Date(0),
+    art: null,
+    thumb: null,
     ...overrides,
-} as PlexLibrarySection);
+});
 
 export const createFacetPlanningTag = (
     overrides: Partial<PlexTagDirectoryItem> = {}
@@ -84,27 +78,33 @@ export const createDeferred = <T>(): {
 
 export const createMockPlexLibrary = (
     overrides: Partial<jest.Mocked<IPlexLibrary>> = {}
-): jest.Mocked<IPlexLibrary> => ({
-    getLibraries: jest.fn(),
-    getLibrary: jest.fn(),
-    getLibraryItems: jest.fn(),
-    getLibraryItemCount: jest.fn(),
-    getItem: jest.fn(),
-    getShows: jest.fn(),
-    getShowSeasons: jest.fn(),
-    getSeasonEpisodes: jest.fn(),
-    getShowEpisodes: jest.fn(),
-    search: jest.fn(),
-    getCollections: jest.fn(),
-    getCollectionItems: jest.fn(),
-    getPlaylists: jest.fn(),
-    getPlaylistItems: jest.fn(),
-    getActors: jest.fn(),
-    getStudios: jest.fn(),
-    getGenres: jest.fn(),
-    getDirectors: jest.fn(),
-    getYears: jest.fn(),
-    on: jest.fn(),
-    off: jest.fn(),
-    ...overrides,
-} as unknown as jest.Mocked<IPlexLibrary>);
+): jest.Mocked<IPlexLibrary> => {
+    const mock: jest.Mocked<IPlexLibrary> = {
+        getLibraries: jest.fn(),
+        getLibrary: jest.fn(),
+        getLibraryItems: jest.fn(),
+        getLibraryItemCount: jest.fn(),
+        getItem: jest.fn(),
+        getShows: jest.fn(),
+        getShowSeasons: jest.fn(),
+        getSeasonEpisodes: jest.fn(),
+        getShowEpisodes: jest.fn(),
+        search: jest.fn(),
+        getCollections: jest.fn(),
+        getCollectionItems: jest.fn(),
+        getPlaylists: jest.fn(),
+        getPlaylistItems: jest.fn(),
+        getActors: jest.fn(),
+        getStudios: jest.fn(),
+        getGenres: jest.fn(),
+        getDirectors: jest.fn(),
+        getYears: jest.fn(),
+        getImageUrl: jest.fn(),
+        refreshLibrary: jest.fn(),
+        on: jest.fn(),
+        off: jest.fn(),
+        ...overrides,
+    };
+
+    return mock;
+};
