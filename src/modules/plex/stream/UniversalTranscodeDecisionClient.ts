@@ -111,12 +111,32 @@ export class UniversalTranscodeDecisionClient {
                 return result as Omit<NonNullable<StreamDecision['serverDecision']>, 'fetchedAt'>;
             }
         } catch {
-            // Fall through to regex parsing.
+            // Fall through to lightweight attribute parsing.
         }
 
-        const attr = (name: string): string | undefined => {
-            const match = raw.match(new RegExp(`${name}=\"([^\"]+)\"`));
-            return match?.[1];
+        type DecisionAttributeName =
+            | 'decisionCode'
+            | 'generalDecisionCode'
+            | 'decisionText'
+            | 'generalDecisionText'
+            | 'videoDecision'
+            | 'audioDecision'
+            | 'subtitleDecision';
+
+        const attr = (name: DecisionAttributeName): string | undefined => {
+            const marker = `${name}="`;
+            const markerStart = raw.indexOf(marker);
+            if (markerStart < 0) {
+                return undefined;
+            }
+
+            const valueStart = markerStart + marker.length;
+            const valueEnd = raw.indexOf('"', valueStart);
+            if (valueEnd < 0) {
+                return undefined;
+            }
+
+            return raw.slice(valueStart, valueEnd);
         };
         const decisionCode = attr('decisionCode') ?? attr('generalDecisionCode');
         const decisionText = attr('decisionText') ?? attr('generalDecisionText');

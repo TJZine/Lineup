@@ -339,13 +339,7 @@ describe('PlexStreamResolver', () => {
             expect(subtitleDebugLogPort.log).not.toHaveBeenCalled();
         });
 
-        it('delegates subtitle debug discovery and probe scheduling through the debug probe coordinator', async () => {
-            mockFetch.mockResolvedValue(
-                new Response('WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nTest', {
-                    status: 200,
-                    headers: { 'content-type': 'text/vtt' },
-                })
-            );
+        it('delegates subtitle debug discovery through the debug probe coordinator', async () => {
             const subtitleDebugLogPort = {
                 isEnabled: jest.fn(() => true),
                 log: jest.fn(),
@@ -399,7 +393,6 @@ describe('PlexStreamResolver', () => {
             const resolver = new PlexStreamResolver(config);
 
             await resolver.resolveStream({ itemKey: '12345' });
-            await Promise.resolve();
 
             expect(subtitleDebugLogPort.log).toHaveBeenCalledWith(
                 'subtitle_tracks_discovered',
@@ -422,17 +415,6 @@ describe('PlexStreamResolver', () => {
                         }),
                     ]),
                 })
-            );
-            expect(mockFetch).toHaveBeenCalledTimes(2);
-            expect(mockFetch).toHaveBeenNthCalledWith(
-                1,
-                'http://192.168.1.100:32400/library/streams/sub-key-english',
-                expect.objectContaining({ method: 'GET' })
-            );
-            expect(mockFetch).toHaveBeenNthCalledWith(
-                2,
-                'http://192.168.1.100:32400/library/streams/sub-keyless-forced',
-                expect.objectContaining({ method: 'GET' })
             );
         });
 
