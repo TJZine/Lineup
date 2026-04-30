@@ -13,15 +13,12 @@ import type {
 } from './interfaces';
 import type {
     PlexMediaItem,
-    PlexStream,
     StreamRequest,
     StreamDecision,
     HlsOptions,
 } from './types';
-import { isTextSubtitleFormat } from './constants';
 import { generatePlexSessionId } from './plexSessionId';
 import { summarizeErrorForLog } from '../../../utils/errors';
-import { redactSensitiveTokens } from '../../../utils/redact';
 import {
     getDirectPlayDecision,
 } from './playbackCompatibilityPolicy';
@@ -41,7 +38,7 @@ import {
     buildPlexTranscodeStartUrl,
 } from './plexStreamUrlPolicy';
 import { logPlexWarning } from '../shared/plexLogging';
-import { probeSubtitleStreamDelivery } from './SubtitleStreamProbe';
+import { SubtitleStreamDebugProbeCoordinator } from './SubtitleStreamDebugProbeCoordinator';
 
 // Re-export types for consumers
 export { PlexStreamErrorCode } from './types';
@@ -55,6 +52,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     private readonly _config: PlexStreamResolverConfig;
     private readonly _emitter: EventEmitter<StreamResolverEventMap>;
     private readonly _identityService: PlatformIdentityService;
+    private readonly _subtitleDebugProbeCoordinator: SubtitleStreamDebugProbeCoordinator;
 
     /**
      * Create a new PlexStreamResolver instance.
@@ -64,6 +62,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         this._config = config;
         this._emitter = new EventEmitter<StreamResolverEventMap>();
         this._identityService = config.identityService ?? createPlatformIdentityService();
+        this._subtitleDebugProbeCoordinator = new SubtitleStreamDebugProbeCoordinator({
+            getServerUri: config.getServerUri,
+            getAuthHeaders: config.getAuthHeaders,
+            subtitleDebugLogPort: config.subtitleDebugLogPort,
+        });
     }
 
     private _getChromeMajor(): number | null {
@@ -112,15 +115,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             }
         }
     }
-
-    private _isSubtitleDebugEnabled(): boolean {
-        return this._config.subtitleDebugLogPort.isEnabled();
-    }
-
-    private _logSubtitleDebug(event: string, context: Record<string, unknown>): void {
-        this._config.subtitleDebugLogPort.log(event, context);
-    }
-
 
     /**
      * Resolve the best stream URL for a media item.
@@ -181,83 +175,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             availableSubtitleStreams,
         } = pipeline;
 
-        if (this._isSubtitleDebugEnabled()) {
-            const isTextCandidate = (s: PlexStream): boolean => {
-                return isTextSubtitleFormat(s.codec) || isTextSubtitleFormat(s.format);
-            };
-            const hasKey = (s: PlexStream): boolean => typeof s.key === 'string' && s.key.length > 0;
-            const codecCounts = availableSubtitleStreams.reduce<Record<string, number>>((acc, stream) => {
-                const codec = (stream.codec ?? stream.format ?? 'unknown').toLowerCase();
-                acc[codec] = (acc[codec] ?? 0) + 1;
-                return acc;
-            }, {});
-            const withKeyCount = availableSubtitleStreams.filter(hasKey).length;
-            this._logSubtitleDebug('subtitle_tracks_discovered', {
-                count: availableSubtitleStreams.length,
-                codecs: codecCounts,
-                withKeyCount,
-                withoutKeyCount: Math.max(0, availableSubtitleStreams.length - withKeyCount),
-            });
-            this._logSubtitleDebug('subtitle_streams_discovered', {
-                itemKey: request.itemKey,
-                subtitlesCount: availableSubtitleStreams.length,
-                subtitleStreams: availableSubtitleStreams.map((s) => ({
-                    id: s.id,
-                    codec: s.codec,
-                    format: s.format,
-                    language: s.language,
-                    languageCode: s.languageCode,
-                    title: s.title,
-                    default: s.default,
-                    forced: s.forced,
-                    selected: subtitleStream?.id === s.id,
-                    isTextCandidate: isTextCandidate(s),
-                    fetchableViaKey: hasKey(s),
-                    key: typeof s.key === 'string' ? redactSensitiveTokens(s.key) : null,
-                })),
-            });
-
-            const candidates = availableSubtitleStreams.filter(isTextCandidate);
-            if (candidates.length > 0) {
-                const pickPreferred = (streams: PlexStream[]): PlexStream => {
-                    const forced = streams.find((s) => s.forced);
-                    if (forced) return forced;
-                    const english = streams.find(
-                        (s) => (s.language ?? '').toLowerCase() === 'english' || (s.languageCode ?? '').toLowerCase() === 'en'
-                    );
-                    if (english) return english;
-                    return streams[0]!;
-                };
-
-                // Probe both a key-backed and keyless candidate when possible, to categorize behavior.
-                const withKey = candidates.filter(hasKey);
-                const withoutKey = candidates.filter((s) => !hasKey(s));
-                const toProbe: PlexStream[] = [];
-                if (withKey.length > 0) toProbe.push(pickPreferred(withKey));
-                if (withoutKey.length > 0 && toProbe.length < 2) toProbe.push(pickPreferred(withoutKey));
-                while (toProbe.length < 2) {
-                    const next = candidates.find((s) => !toProbe.some((p) => p.id === s.id));
-                    if (!next) break;
-                    toProbe.push(next);
-                }
-                for (const s of toProbe) {
-                    void probeSubtitleStreamDelivery(
-                        {
-                            itemKey: request.itemKey,
-                            subtitleStreamId: s.id,
-                            ...(typeof s.key === 'string' ? { subtitleStreamKey: s.key } : {}),
-                            codec: s.codec,
-                            ...(typeof s.language === 'string' ? { language: s.language } : {}),
-                        },
-                        {
-                            serverUri: this._config.getServerUri(),
-                            getAuthHeaders: this._config.getAuthHeaders,
-                            logDebug: (event, context) => this._logSubtitleDebug(event, context),
-                        }
-                    );
-                }
-            }
-        }
+        this._subtitleDebugProbeCoordinator.scheduleDebugProbes({
+            itemKey: request.itemKey,
+            selectedSubtitleStream: subtitleStream ?? null,
+            availableSubtitleStreams,
+        });
 
         if (debugEnabled) {
             if (pipeline.hdrFallbackReason) {

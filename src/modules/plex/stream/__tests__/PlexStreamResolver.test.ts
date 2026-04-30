@@ -339,6 +339,103 @@ describe('PlexStreamResolver', () => {
             expect(subtitleDebugLogPort.log).not.toHaveBeenCalled();
         });
 
+        it('delegates subtitle debug discovery and probe scheduling through the debug probe coordinator', async () => {
+            mockFetch.mockResolvedValue(
+                new Response('WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nTest', {
+                    status: 200,
+                    headers: { 'content-type': 'text/vtt' },
+                })
+            );
+            const subtitleDebugLogPort = {
+                isEnabled: jest.fn(() => true),
+                log: jest.fn(),
+            };
+            const mockItem = createMockMediaItem(
+                {
+                    container: 'mp4',
+                    videoCodec: 'h264',
+                    audioCodec: 'aac',
+                },
+                {
+                    extraStreams: [
+                        {
+                            id: 'sub-key-nonpreferred',
+                            streamType: 3,
+                            codec: 'srt',
+                            key: '/library/streams/sub-key-nonpreferred',
+                            language: 'Spanish',
+                            languageCode: 'es',
+                        },
+                        {
+                            id: 'sub-key-english',
+                            streamType: 3,
+                            codec: 'srt',
+                            key: '/library/streams/sub-key-english',
+                            language: 'English',
+                            languageCode: 'en',
+                        },
+                        {
+                            id: 'sub-keyless-forced',
+                            streamType: 3,
+                            codec: 'unknown',
+                            format: 'vtt',
+                            language: 'French',
+                            languageCode: 'fr',
+                            forced: true,
+                        },
+                        {
+                            id: 'sub-image',
+                            streamType: 3,
+                            codec: 'pgs',
+                            key: '/library/streams/sub-image',
+                        },
+                    ],
+                }
+            );
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+                subtitleDebugLogPort,
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            await resolver.resolveStream({ itemKey: '12345' });
+            await Promise.resolve();
+
+            expect(subtitleDebugLogPort.log).toHaveBeenCalledWith(
+                'subtitle_tracks_discovered',
+                expect.objectContaining({
+                    count: 4,
+                    withKeyCount: 3,
+                    withoutKeyCount: 1,
+                })
+            );
+            expect(subtitleDebugLogPort.log).toHaveBeenCalledWith(
+                'subtitle_streams_discovered',
+                expect.objectContaining({
+                    itemKey: '12345',
+                    subtitlesCount: 4,
+                    subtitleStreams: expect.arrayContaining([
+                        expect.objectContaining({
+                            id: 'sub-image',
+                            isTextCandidate: false,
+                            fetchableViaKey: true,
+                        }),
+                    ]),
+                })
+            );
+            expect(mockFetch).toHaveBeenCalledTimes(2);
+            expect(mockFetch).toHaveBeenNthCalledWith(
+                1,
+                'http://192.168.1.100:32400/library/streams/sub-key-english',
+                expect.objectContaining({ method: 'GET' })
+            );
+            expect(mockFetch).toHaveBeenNthCalledWith(
+                2,
+                'http://192.168.1.100:32400/library/streams/sub-keyless-forced',
+                expect.objectContaining({ method: 'GET' })
+            );
+        });
+
         it('keeps explicit audio selection in the direct-play url when the requested track is compatible', async () => {
             const mockItem = createMockMediaItem(
                 { audioCodec: 'dts' },
