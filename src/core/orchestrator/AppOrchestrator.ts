@@ -264,6 +264,7 @@ export class AppOrchestrator {
     private readonly _schedulePolicy = new OrchestratorSchedulePolicy();
     private readonly _reportedModuleStatusCloneFallbackContexts = new WeakSet<object>();
     private _shutdownStarted = false;
+    private _shutdownPromise: Promise<void> | null = null;
 
     private _throwModuleInitPreconditionError(
         message: string,
@@ -800,10 +801,23 @@ export class AppOrchestrator {
      * Internal state is not fully reset because instance reuse is unsupported.
      */
     async shutdown(): Promise<void> {
+        if (this._shutdownPromise) {
+            return this._shutdownPromise;
+        }
         if (this._shutdownStarted) {
             return;
         }
         this._shutdownStarted = true;
+        this._shutdownPromise = this._runShutdownTeardown();
+
+        try {
+            await this._shutdownPromise;
+        } finally {
+            this._shutdownPromise = null;
+        }
+    }
+
+    private async _runShutdownTeardown(): Promise<void> {
         const teardown = new OrchestratorShutdownTeardown();
 
         const initCoordinator = this._initCoordinator;

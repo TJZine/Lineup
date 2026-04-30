@@ -3179,6 +3179,39 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             expect(mockChannelManager.dispose).toHaveBeenCalledTimes(1);
         });
 
+        it('makes concurrent shutdown callers wait for the active teardown', async () => {
+            let resolveFlush!: () => void;
+            const flushRelease = new Promise<void>((resolve) => {
+                resolveFlush = resolve;
+            });
+            const flushStarted = new Promise<void>((resolve) => {
+                (mockChannelManager.flushSaves as jest.Mock).mockImplementationOnce(async () => {
+                    resolve();
+                    await flushRelease;
+                });
+            });
+
+            const firstShutdown = orchestrator.shutdown();
+            await flushStarted;
+
+            let secondShutdownResolved = false;
+            const secondShutdown = orchestrator.shutdown().then(() => {
+                secondShutdownResolved = true;
+            });
+
+            await Promise.resolve();
+
+            expect(secondShutdownResolved).toBe(false);
+            expect(mockChannelManager.flushSaves).toHaveBeenCalledTimes(1);
+
+            resolveFlush();
+
+            await expect(Promise.all([firstShutdown, secondShutdown])).resolves.toEqual([undefined, undefined]);
+            expect(secondShutdownResolved).toBe(true);
+            expect(mockLifecycle.shutdown).toHaveBeenCalledTimes(1);
+            expect(mockNavigation.destroy).toHaveBeenCalledTimes(1);
+        });
+
         it('should destroy modules on shutdown', async () => {
             await orchestrator.shutdown();
 
@@ -3421,6 +3454,9 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 );
                 expect(order.indexOf('channelManager.dispose')).toBeLessThan(order.indexOf('lifecycle.shutdown'));
                 expect(order.indexOf('lifecycle.shutdown')).toBeLessThan(order.indexOf('videoPlayer.stop'));
+                expect(order.indexOf('scheduler.pauseSyncTimer')).toBeLessThan(
+                    order.indexOf('scheduler.unloadChannel')
+                );
                 expect(order.indexOf('navigation.destroy')).toBeLessThan(order.indexOf('aggregate-report'));
             } finally {
                 (mockLifecycle.shutdown as jest.Mock).mockResolvedValue(undefined);
@@ -3438,11 +3474,21 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             clearAuthResumeSpy.mockImplementationOnce(() => {
                 throw new Error('auth resume clear failed');
             });
+            const clearServerResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearServerResume');
+            clearServerResumeSpy.mockImplementationOnce(() => {
+                throw new Error('server resume clear failed');
+            });
+            const clearProfileResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearProfileResume');
+            clearProfileResumeSpy.mockImplementationOnce(() => {
+                throw new Error('profile resume clear failed');
+            });
             expectConsoleWarn([
                 'Shutdown teardown failures',
                 expect.objectContaining({
                     teardownFailures: expect.arrayContaining([
                         expect.objectContaining({ step: 'initCoordinator.clearAuthResume' }),
+                        expect.objectContaining({ step: 'initCoordinator.clearServerResume' }),
+                        expect.objectContaining({ step: 'initCoordinator.clearProfileResume' }),
                     ]),
                 }),
             ]);
@@ -3451,6 +3497,8 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 await expect(orchestrator.shutdown()).resolves.toBeUndefined();
             } finally {
                 clearAuthResumeSpy.mockRestore();
+                clearServerResumeSpy.mockRestore();
+                clearProfileResumeSpy.mockRestore();
             }
 
             expect(mockChannelManager.flushSaves).toHaveBeenCalled();
