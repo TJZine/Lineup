@@ -1,4 +1,4 @@
-**Plan Status:** active
+**Plan Status:** completed
 **Task family:** cleanup/refactor
 **Cleanup subtype:** checklist-linked
 
@@ -21,7 +21,31 @@ This is a Tier 3 cleanup-loop package. The implementation must reduce live respo
   `23514c3f`, and `67cbd79e`; the fresh final implementation review was clean.
 - `DCR-12-S3` was implemented in commits `cb03d7ad` and `a7a36cac`;
   the fresh final implementation review was clean.
-- `DCR-12-S4` is now the next approved execution unit.
+- `DCR-12-S4` was implemented in commit `f1bf2d6f`; the implementation
+  review was clean.
+- `DCR-12` is closed. `DCR-EXIT-S2` remains blocked on `DCR-13` through
+  `DCR-16` unless those packages are explicitly maintainer-routed.
+
+Closeout evidence:
+
+- `DCR-12-A1`: closed by actual responsibility reduction. Channel-switch
+  runtime policy, Plex auth screen-runtime facade methods, and selected-server
+  runtime/startup-swap orchestration moved out of `AppOrchestrator` into
+  focused runtime owners. The fresh source audit recorded `AppOrchestrator.ts`
+  at 1923 lines with replacement owners at 151/41/227 lines after S4 closeout,
+  and `CURRENT_STATE.md` no longer lists `AppOrchestrator.ts` as active for the
+  `S0-L01-F1` issue shape.
+- `DCR-12-A2`: closed by cancellable Plex PIN polling. Cancel/hide before PIN
+  request completion, during polling, after claim/profile fetch, and during
+  retry cleanup cannot store credentials, emit `authChange`, or resume startup;
+  successful auth and retry flows remain covered.
+- `DCR-12-A3`: closed by replacing app-shell/server-select/diagnostics storage
+  key getters with owner-projected screen state. Source audits found no
+  `getSelectedServerStorageKey`, `getServerHealthStorageKey`, or
+  `ServerSelectionStore` exposure in app-shell/server-select callers.
+- `DCR-12-A4`: closed by outcome-aware startup and guide routing. Startup and
+  guide owners now observe `switched`, `failed`, and `aborted` according to the
+  approved A4 policy, with public number-entry/navigation behavior preserved.
 
 ## Non-Goals
 
@@ -244,8 +268,8 @@ Stop and replan if:
   - `DCR-12-A2` maps exactly once to `DCR-12-S2`.
   - `DCR-12-A3` maps exactly once to `DCR-12-S3`.
   - `DCR-12-A4` maps exactly once to `DCR-12-S4`.
-- `ready_now_slice`: `DCR-12-S4`
-- `ready_now_execution_unit`: `DCR-12-S4`
+- `ready_now_slice`: none; `DCR-12` implementation is complete.
+- `ready_now_execution_unit`: none; `DCR-12` implementation is complete.
 - `recommended_slice_order`:
   1. `DCR-12-S1`
   2. `DCR-12-S2`

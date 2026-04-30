@@ -1213,10 +1213,10 @@ as intake.
 - Handoff: DCR-11 is closed. Do not resume `DCR-EXIT-S2` until `DCR-12` through
   `DCR-16` are complete or explicitly maintainer-routed out of DCR.
 
-### [ ] `DCR-12` App-Shell, Startup, And Server-Selection Contracts
+### [x] `DCR-12` App-Shell, Startup, And Server-Selection Contracts
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan: `docs/plans/2026-04-30-dcr-12-app-shell-startup-server-selection-contracts.md`
 - Dimensions/rubric tags: file health, code quality, abstraction fitness,
   contract coherence, logic clarity, initialization coupling
 - Scope owner: app-shell/orchestrator/initialization/server-selection owner with
@@ -1231,26 +1231,31 @@ as intake.
       selected-server storage-key details through app-shell ports.
     - `DCR-12-A4`: `F-S0-L09-001` channel-switch failure outcomes are
       discarded before startup/guide routing can react.
-- Completion means: each listed contract is fixed or source-disproved;
-  app-shell/server-selection/auth startup boundaries are documented by tests
-  rather than DCR-EXIT prose; and `S0-L01-F1` is closed by actual responsibility
-  reduction in `AppOrchestrator` or explicit maintainer reclassification. A
-  plan may not close `DCR-12-A1` by adding tests only, documenting the hotspot,
-  or accepting it as residual without maintainer approval.
+- Completion evidence: all four package issues are closed by implementation and
+  tests. `DCR-12-A1` closed through actual `AppOrchestrator` responsibility
+  reduction: channel-switch runtime policy, Plex auth screen-runtime facade, and
+  selected-server runtime/startup-swap orchestration moved to focused runtime
+  owners with fresh source-audit proof. `DCR-12-A2` closed through cancellable
+  Plex PIN polling from AuthScreen through PlexAuth/startup resume.
+  `DCR-12-A3` closed by replacing app-shell/server-select/diagnostics storage
+  key exposure with owner-projected selected-server screen state. `DCR-12-A4`
+  closed by carrying channel-switch outcomes through startup and guide routing
+  under the approved A4 policy.
 - Verification routing: targeted orchestrator, Plex auth cancellation,
-  server-selection, initialization/channel-switch tests, a fresh file-health
-  source audit proving `S0-L01-F1` no longer describes current source, then
-  `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+  server-selection/app-shell, initialization/channel-switch, and EPG tests
+  passed across the slice commits; source audits for `AppOrchestrator` file
+  health and selected-server storage-key exposure passed; `npm run plans:check`,
+  `npm run verify:docs`, and full `npm run verify` passed during DCR-12.
+- Ready-now execution unit: none; package complete.
 - Stop/replan triggers: public runtime contracts change, auth/session ownership
   moves across boundaries, app-shell decomposition becomes broad refactor, or
   the planned slices do not name concrete owner seams for reducing the
   `AppOrchestrator` hotspot.
-- Last touched: not started
-- Verification: not run
+- Last touched: 2026-04-30
+- Verification: targeted slice verification and full `npm run verify` passed.
 - Follow-ups: none yet.
-- Handoff: plan after `DCR-11` unless maintainer explicitly prioritizes this
-  runtime contract package.
+- Handoff: DCR-12 is closed. Do not resume `DCR-EXIT-S2` until `DCR-13`
+  through `DCR-16` are complete or explicitly maintainer-routed out of DCR.
 
 ### [ ] `DCR-13` Scheduler, ChannelManager, And Test Architecture
 
