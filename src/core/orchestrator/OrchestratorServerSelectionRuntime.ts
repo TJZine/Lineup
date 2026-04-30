@@ -83,10 +83,7 @@ export class OrchestratorServerSelectionRuntime {
             capturePersistedSelectionSnapshot: (): Promise<PersistedSelectedServerSnapshot> =>
                 this._selectedServerRuntimeController.capturePersistedSelectionSnapshot(),
             selectServer: async (serverId: string): Promise<PlexServerSelectionResult> => {
-                const plexDiscovery = this._deps.getPlexDiscovery();
-                if (!plexDiscovery) {
-                    throw new Error('PlexServerDiscovery not initialized');
-                }
+                const plexDiscovery = this._requirePlexDiscovery('selectServer');
                 return plexDiscovery.selectServer(serverId);
             },
             getSelectedServerUri: (): string | null =>

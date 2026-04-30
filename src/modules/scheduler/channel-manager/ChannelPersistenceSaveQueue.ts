@@ -30,6 +30,7 @@ export class ChannelPersistenceSaveQueue {
     private _queuedSaveCatchPromise: Promise<void> | null = null;
     private _nextPersistenceWarningAt = 0;
     private _persistenceWarningBackoffMs: number = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
+    private _isDisposed = false;
 
     constructor(config: ChannelPersistenceSaveQueueConfig) {
         this._runSave = config.runSave;
@@ -39,6 +40,12 @@ export class ChannelPersistenceSaveQueue {
     }
 
     save(): Promise<void> {
+        if (this._isDisposed) {
+            const disposedError = this._createDisposedError();
+            this._markPersistenceFailureReported(disposedError);
+            return Promise.reject(disposedError);
+        }
+
         const pendingSave = this._ensurePendingSavePromise();
         if (this._saveTimer) {
             clearTimeout(this._saveTimer);
@@ -57,6 +64,11 @@ export class ChannelPersistenceSaveQueue {
     }
 
     queue(): void {
+        if (this._isDisposed) {
+            this._markPersistenceFailureReported(this._createDisposedError());
+            return;
+        }
+
         const pendingSave = this.save();
         if (this._queuedSaveCatchPromise === pendingSave) {
             return;
@@ -100,6 +112,7 @@ export class ChannelPersistenceSaveQueue {
             clearTimeout(this._saveTimer);
             this._saveTimer = null;
         }
+        this._isDisposed = true;
         const disposedError = this._createDisposedError();
         this._markPersistenceFailureReported(disposedError);
         this._rejectPendingSave(disposedError);

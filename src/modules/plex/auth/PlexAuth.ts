@@ -964,6 +964,9 @@ export class PlexAuth implements IPlexAuth {
                 return;
             }
             signal.addEventListener('abort', onAbort, { once: true });
+            if (signal.aborted) {
+                onAbort();
+            }
         });
     }
 }

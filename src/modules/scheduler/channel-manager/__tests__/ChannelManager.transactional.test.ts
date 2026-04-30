@@ -52,6 +52,7 @@ describe('ChannelManager replaceAllChannels transactional persistence', () => {
     afterEach(async () => {
         await manager.flushSaves().catch(() => undefined);
         jest.clearAllTimers();
+        jest.useRealTimers();
         jest.restoreAllMocks();
     });
 

@@ -1838,6 +1838,7 @@ test('checkPlanConformance accepts DCR wave-scoped execution_waves slice ids', (
         ),
     });
 
+    assert.strictEqual(result.isSerious, true);
     assert.deepEqual(result.errors, []);
 });
 

@@ -66,6 +66,7 @@ describe('ChannelManager persistence and storage keys', () => {
             await manager.flushSaves().catch(() => undefined);
         }
         jest.clearAllTimers();
+        jest.useRealTimers();
         jest.restoreAllMocks();
     });
 

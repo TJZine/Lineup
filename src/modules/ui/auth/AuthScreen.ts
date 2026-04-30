@@ -216,6 +216,9 @@ export class AuthScreen {
             this._startExpiryTimer();
             this._startPolling(pin);
         } catch (error) {
+            if (requestToken !== this._requestToken) {
+                return;
+            }
             this._handleError(error, 'Failed to request PIN.');
             this._setButtons({ request: true, cancel: false, retry: true });
         }

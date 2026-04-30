@@ -71,6 +71,7 @@ export class OrchestratorChannelSwitchRuntime {
         number: number,
         options?: { signal?: AbortSignal }
     ): Promise<ChannelSwitchOutcome> {
+        this._deps.assertNotShutdown('switchToChannelByNumber');
         const channelTuning = this._deps.getChannelTuning();
         if (!channelTuning) {
             this._logMissingChannelTuningDependencies('switchToChannelByNumberWithOutcome');

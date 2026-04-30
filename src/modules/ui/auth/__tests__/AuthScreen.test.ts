@@ -262,6 +262,37 @@ describe('AuthScreen', () => {
         expect(ports.pollForPin).not.toHaveBeenCalled();
     });
 
+    it('hide before requestAuthPin rejects suppresses stale request failure UI', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const pinDeferred = createDeferred<{
+            id: number;
+            code: string;
+            expiresAt: Date;
+            authToken: string | null;
+            clientIdentifier: string;
+        }>();
+        const ports = createPorts({
+            requestAuthPin: jest.fn().mockImplementation(() => pinDeferred.promise),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+        screen.hide();
+
+        pinDeferred.reject(new Error('late request failure'));
+        await flushPromises();
+
+        const error = container.querySelector('.screen-error') as HTMLElement | null;
+        const retryButton = container.querySelector('#btn-auth-retry') as HTMLButtonElement | null;
+        expect(error?.textContent ?? '').toBe('');
+        expect(retryButton?.style.display).toBe('none');
+    });
+
     it('retry after a polling failure cancels the old PIN and starts polling the new PIN', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);

@@ -36,6 +36,7 @@ describe('ChannelManager content resolution', () => {
             await manager.flushSaves().catch(() => undefined);
         }
         jest.clearAllTimers();
+        jest.useRealTimers();
         jest.restoreAllMocks();
     });
 

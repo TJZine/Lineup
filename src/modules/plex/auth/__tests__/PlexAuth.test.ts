@@ -525,6 +525,46 @@ describe('PlexAuth', () => {
             }
         });
 
+        it('aborts polling immediately when the signal aborts during sleep listener registration', async () => {
+            jest.useFakeTimers();
+            const auth = new PlexAuth(mockConfig);
+            const unclaimedPin = {
+                id: 12345,
+                code: 'ABCD',
+                expiresAt: new Date('2026-01-15T12:15:00Z'),
+                authToken: null,
+                clientIdentifier: mockConfig.clientIdentifier,
+            };
+            jest.spyOn(auth, 'checkPinStatus').mockResolvedValue(unclaimedPin);
+
+            let aborted = false;
+            const abortReason = new DOMException('Aborted', 'AbortError');
+            const signal = {
+                get aborted(): boolean {
+                    return aborted;
+                },
+                get reason(): DOMException {
+                    return abortReason;
+                },
+                addEventListener: jest.fn(() => {
+                    aborted = true;
+                }),
+                removeEventListener: jest.fn(),
+            } as unknown as AbortSignal;
+            const request = auth.pollForPin(12345, { signal });
+
+            try {
+                await Promise.resolve();
+                await Promise.resolve();
+
+                await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+            } finally {
+                jest.runOnlyPendingTimers();
+                await request.catch(() => undefined);
+                jest.useRealTimers();
+            }
+        });
+
         it('rethrows non-PlexApiError polling failures immediately', async () => {
             jest.useFakeTimers();
             try {
