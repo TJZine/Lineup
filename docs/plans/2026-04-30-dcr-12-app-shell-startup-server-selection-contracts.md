@@ -17,7 +17,9 @@ This is a Tier 3 cleanup-loop package. The implementation must reduce live respo
 - `DCR-12-S1` was implemented in commits `70a83725` and `992afedb`,
   reviewed clean after fixes, and verified by full `npm run verify`.
 - The tracked-plan/docs checkpoint was recorded in commit `0b48e578`.
-- `DCR-12-S2` is now the next approved execution unit.
+- `DCR-12-S2` was implemented in commits `6120dfe0`, `83dc568c`,
+  `23514c3f`, and `67cbd79e`; the fresh final implementation review was clean.
+- `DCR-12-S3` is now the next approved execution unit.
 
 ## Non-Goals
 
@@ -240,8 +242,8 @@ Stop and replan if:
   - `DCR-12-A2` maps exactly once to `DCR-12-S2`.
   - `DCR-12-A3` maps exactly once to `DCR-12-S3`.
   - `DCR-12-A4` maps exactly once to `DCR-12-S4`.
-- `ready_now_slice`: `DCR-12-S2`
-- `ready_now_execution_unit`: `DCR-12-S2`
+- `ready_now_slice`: `DCR-12-S3`
+- `ready_now_execution_unit`: `DCR-12-S3`
 - `recommended_slice_order`:
   1. `DCR-12-S1`
   2. `DCR-12-S2`
