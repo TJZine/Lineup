@@ -1,23 +1,9 @@
 import type { IShuffleGenerator } from './interfaces';
-import { createMulberry32 } from '../shared/prng';
+import { shuffleWithSeed } from '../shared/prng';
 
 export class ShuffleGenerator implements IShuffleGenerator {
     public shuffle<T>(items: T[], seed: number): T[] {
-        if (items.length <= 1) {
-            return [...items];
-        }
-
-        const result = [...items];
-        const random = createMulberry32(seed);
-
-        for (let i = result.length - 1; i > 0; i--) {
-            const j = Math.floor(random() * (i + 1));
-            const temp = result[i];
-            result[i] = result[j] as T;
-            result[j] = temp as T;
-        }
-
-        return result;
+        return shuffleWithSeed(items, seed);
     }
 
     public shuffleIndices(count: number, seed: number): number[] {
