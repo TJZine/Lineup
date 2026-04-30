@@ -83,8 +83,9 @@ export const VALID_PHASE_TRANSITIONS: Record<string, readonly string[]> = {
 } as const;
 
 /**
- * State version migrations.
- * Each migration function upgrades state from version N to N+1.
+ * Package-internal migration registry consumed by StateManager only.
+ * Intentionally not re-exported from the lifecycle barrel; missing older-version
+ * entries mean that persisted version is unsupported and load() returns null.
  */
 export const MIGRATIONS: Record<number, (state: Record<string, unknown>) => Record<string, unknown>> = {
 };
