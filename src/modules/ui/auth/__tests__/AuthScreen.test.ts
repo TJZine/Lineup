@@ -330,6 +330,71 @@ describe('AuthScreen', () => {
         expect(ports.cancelPin).toHaveBeenCalledWith(11);
         expect(ports.pollForPin).toHaveBeenNthCalledWith(1, 11, { signal: expect.any(AbortSignal) });
         expect(ports.pollForPin).toHaveBeenNthCalledWith(2, 12, { signal: expect.any(AbortSignal) });
+
+        const pollForPinMock = ports.pollForPin as jest.MockedFunction<AuthScreenPorts['pollForPin']>;
+        const firstPollOptions = pollForPinMock.mock.calls[0]?.[1];
+        const secondPollOptions = pollForPinMock.mock.calls[1]?.[1];
+        expect(firstPollOptions?.signal).toBeInstanceOf(AbortSignal);
+        expect(secondPollOptions?.signal).toBeInstanceOf(AbortSignal);
+        expect(secondPollOptions?.signal).not.toBe(firstPollOptions?.signal);
+        expect(secondPollOptions?.signal?.aborted).toBe(false);
+    });
+
+    it('hide restores idle UI state before the screen is shown again', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const pinDeferred = createDeferred<{
+            id: number;
+            code: string;
+            expiresAt: Date;
+            authToken: string | null;
+            clientIdentifier: string;
+        }>();
+        const ports = createPorts({
+            requestAuthPin: jest.fn().mockImplementation(() => pinDeferred.promise),
+            pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+
+        const requestButton = container.querySelector('#btn-auth-request') as HTMLButtonElement | null;
+        const cancelButton = container.querySelector('#btn-auth-cancel') as HTMLButtonElement | null;
+        const retryButton = container.querySelector('#btn-auth-retry') as HTMLButtonElement | null;
+        const qr = container.querySelector('.auth-qr') as HTMLElement | null;
+        expect(requestButton?.disabled).toBe(true);
+        expect(cancelButton?.disabled).toBe(false);
+
+        screen.hide();
+        pinDeferred.resolve({
+            id: 31,
+            code: 'LATE',
+            expiresAt: new Date(Date.now() + 60_000),
+            authToken: null,
+            clientIdentifier: 'client-id',
+        });
+        await flushPromises();
+
+        screen.show();
+
+        const pin = Array.from(container.querySelectorAll('.auth-pin-character'))
+            .map((node) => node.textContent)
+            .join('');
+        const status = container.querySelector('.screen-status');
+        const detail = container.querySelector('.screen-detail') as HTMLElement | null;
+
+        expect(requestButton?.disabled).toBe(false);
+        expect(cancelButton?.disabled).toBe(true);
+        expect(retryButton?.style.display).toBe('none');
+        expect(qr?.style.display).toBe('none');
+        expect(pin).toBe('----');
+        expect(status?.textContent ?? '').toContain('Ready to request a PIN.');
+        expect(detail?.textContent ?? '').toBe('');
+        expect(detail?.classList.contains('screen-detail--warning')).toBe(false);
     });
 
     it('hide during retry cleanup prevents requesting and polling a new PIN', async () => {

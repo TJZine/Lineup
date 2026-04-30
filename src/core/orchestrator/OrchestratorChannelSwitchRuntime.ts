@@ -49,7 +49,12 @@ export class OrchestratorChannelSwitchRuntime {
             if (isAbortLikeError(error, options?.signal)) {
                 return 'aborted';
             }
-            throw error;
+            this._deps.reportError(
+                'orchestrator.channelSwitch.idOutcome',
+                'switchToChannelWithOutcome failed',
+                error
+            );
+            return 'failed';
         }
     }
 

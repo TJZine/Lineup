@@ -98,7 +98,7 @@ export class ChannelPersistenceSaveQueue {
     }
 
     flush(): void {
-        if (!this._saveTimer) {
+        if (this._isDisposed || !this._saveTimer) {
             return;
         }
 

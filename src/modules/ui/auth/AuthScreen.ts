@@ -161,6 +161,7 @@ export class AuthScreen {
         this._activePinId = null;
         this._activeCode = null;
         this._expiresAt = null;
+        this._restoreIdleState();
         if (activePinId !== null) {
             void Promise.resolve(this._ports.cancelPin(activePinId)).catch(() => {
                 // Best-effort cancellation while hiding screen.
@@ -277,6 +278,16 @@ export class AuthScreen {
         this._renderPin('----');
         this._qrWrapEl.style.display = 'none';
         this._setStatus('Cancelled.', 'Request a new PIN to continue.', { tone: 'neutral' });
+        this._setButtons({ request: true, cancel: false, retry: false });
+    }
+
+    private _restoreIdleState(): void {
+        this._clearError();
+        this._renderPin('----');
+        this._qrWrapEl.style.display = 'none';
+        this._detailEl.textContent = '';
+        this._setCountdownWarningVisible(false);
+        this._setStatus('Ready to request a PIN.', '', { tone: 'neutral', ariaLive: 'polite' });
         this._setButtons({ request: true, cancel: false, retry: false });
     }
 

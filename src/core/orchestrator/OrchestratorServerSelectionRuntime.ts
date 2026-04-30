@@ -71,7 +71,17 @@ export class OrchestratorServerSelectionRuntime {
             resumeStartupAfterSelection: (): Promise<SelectedServerStartupResumeResult> =>
                 this._resumeStartupAfterSelectedServerChange(),
             clearDiscoverySelection: (): void => {
-                this._deps.getPlexDiscovery()?.clearSelection();
+                const plexDiscovery = this._deps.getPlexDiscovery();
+                if (!plexDiscovery) {
+                    this._deps.throwModuleInitPreconditionError(
+                        'IPlexServerDiscovery not initialized while clearing selected server',
+                        {
+                            method: 'clearSelectedServer',
+                            dependency: 'IPlexServerDiscovery',
+                        }
+                    );
+                }
+                plexDiscovery.clearSelection();
             },
         });
         this._serverSelectionCoordinator = new ServerSelectionCoordinator({
@@ -166,23 +176,6 @@ export class OrchestratorServerSelectionRuntime {
         try {
             await initCoordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
 
-            const epg = this._deps.getEpg();
-            if (epg) {
-                const epgCoordinator = this._deps.getEpgCoordinator();
-
-                step = 'clearSelectedChannelScheduleSnapshot';
-                epgCoordinator?.clearSelectedChannelScheduleSnapshot();
-
-                step = 'clearScheduleCaches';
-                epgCoordinator?.clearScheduleCaches();
-
-                step = 'clearSchedules';
-                epg.clearSchedules();
-
-                step = 'primeEpgChannels';
-                epgCoordinator?.primeEpgChannels();
-            }
-
             const epgCoordinator = this._deps.getEpgCoordinator();
             if (!epgCoordinator) {
                 return {
@@ -190,6 +183,21 @@ export class OrchestratorServerSelectionRuntime {
                     epgRefresh: { kind: 'skipped_no_coordinator' },
                 };
             }
+            const epg = this._deps.getEpg();
+
+            step = 'clearSelectedChannelScheduleSnapshot';
+            epgCoordinator.clearSelectedChannelScheduleSnapshot();
+
+            step = 'clearScheduleCaches';
+            epgCoordinator.clearScheduleCaches();
+
+            if (epg) {
+                step = 'clearSchedules';
+                epg.clearSchedules();
+            }
+
+            step = 'primeEpgChannels';
+            epgCoordinator.primeEpgChannels();
 
             step = 'refreshEpgSchedules';
             const refreshResult = await captureRecoverableRuntimeResultAsync(

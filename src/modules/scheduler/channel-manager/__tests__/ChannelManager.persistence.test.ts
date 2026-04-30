@@ -2,6 +2,7 @@ import { ChannelError, ChannelManager } from '../ChannelManager';
 import { ChannelRepository } from '../ChannelRepository';
 import { ContentResolver } from '../ContentResolver';
 import type { IPlexLibraryMinimal } from '../interfaces';
+import { TIMING_CONFIG } from '../../../../config/timing';
 import { AppErrorCode } from '../../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../../lifecycle/constants';
 import { expectConsoleWarn } from '../../../../__tests__/helpers';
@@ -23,6 +24,19 @@ import {
 } from './channel-manager-test-helpers';
 
 installMockLocalStorage();
+
+afterAll(() => {
+    restoreOriginalLocalStorage();
+});
+
+const advanceSaveDebounce = (): void => {
+    jest.advanceTimersByTime(TIMING_CONFIG.SAVE_DEBOUNCE_MS);
+};
+
+const settleSaveDebounce = async (): Promise<void> => {
+    advanceSaveDebounce();
+    await Promise.resolve();
+};
 
 const expectPersistCurrentChannelWarning = (times: number = 1): void => {
     expectConsoleWarn([
@@ -68,10 +82,6 @@ describe('ChannelManager persistence and storage keys', () => {
         jest.clearAllTimers();
         jest.useRealTimers();
         jest.restoreAllMocks();
-    });
-
-    afterAll(() => {
-        restoreOriginalLocalStorage();
     });
 
     describe('storage key updates', () => {
@@ -339,11 +349,12 @@ describe('ChannelManager persistence and storage keys', () => {
             const second = manager.saveChannels();
             expect(second).toBe(first);
 
-            jest.advanceTimersByTime(500);
-
-            await expect(first).rejects.toMatchObject({
+            const rejectedSave = expect(first).rejects.toMatchObject({
                 code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
             });
+            advanceSaveDebounce();
+
+            await rejectedSave;
         });
 
         it('routes debounced channel blob writes through ChannelRepository.saveStoredChannelData', async () => {
@@ -374,12 +385,10 @@ describe('ChannelManager persistence and storage keys', () => {
             });
 
             const channel = await manager.createChannel({ contentSource: createMockContentSource() });
-            jest.advanceTimersByTime(500);
-            await Promise.resolve();
+            await settleSaveDebounce();
 
             await manager.updateChannel(channel.id, { name: 'Updated Name' });
-            jest.advanceTimersByTime(500);
-            await Promise.resolve();
+            await settleSaveDebounce();
 
             expect(warningHandler).toHaveBeenCalledTimes(1);
             expect(warningHandler).toHaveBeenCalledWith(
@@ -400,11 +409,12 @@ describe('ChannelManager persistence and storage keys', () => {
             });
 
             const pendingSave = manager.saveChannels();
-            jest.advanceTimersByTime(500);
-
-            await expect(pendingSave).rejects.toMatchObject({
+            const rejectedSave = expect(pendingSave).rejects.toMatchObject({
                 code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
             });
+            advanceSaveDebounce();
+
+            await rejectedSave;
         });
 
         it('flushSaves should propagate persistence failure when pending save exists', async () => {
@@ -443,7 +453,6 @@ describe('ChannelManager persistence and storage keys', () => {
             const pendingSave = manager.saveChannels();
 
             manager.dispose();
-            jest.advanceTimersByTime(500);
 
             await expect(pendingSave).rejects.toMatchObject({
                 name: 'ChannelError',
