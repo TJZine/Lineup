@@ -338,10 +338,18 @@ describe('AppLazyScreenRegistry', () => {
         expect(loadSettingsModule).toHaveBeenCalledTimes(1);
         expect(SettingsScreen).toHaveBeenCalledTimes(1);
         expect(constructorArgs).toBeDefined();
-        expect(constructorArgs).toHaveLength(7);
+        expect(constructorArgs).toHaveLength(1);
         expect(portFactory.createSettingsRuntimePorts).toHaveBeenCalledTimes(1);
         const settingsRuntimePorts = (portFactory.createSettingsRuntimePorts as jest.Mock).mock.results[0]?.value;
-        expect(constructorArgs?.[6]).toBe(settingsRuntimePorts?.setTheme);
+        expect(constructorArgs?.[0]).toEqual({
+            container: expect.any(HTMLElement),
+            getNavigation: settingsRuntimePorts?.getNavigation,
+            onSubtitleModeChange: expect.any(Function),
+            onGuideSettingChange: expect.any(Function),
+            getActiveUsername: settingsRuntimePorts?.getActiveUsername,
+            getTheme: settingsRuntimePorts?.getTheme,
+            setTheme: settingsRuntimePorts?.setTheme,
+        });
         expect(first).toBe(settingsScreen as never);
         expect(second).toBe(settingsScreen as never);
         expect(third).toBe(settingsScreen as never);

@@ -329,20 +329,20 @@ export class AppLazyScreenRegistry {
                 const settingsRuntimePorts = this._portFactory.createSettingsRuntimePorts();
                 if (!settingsRuntimePorts) return null;
 
-                const screen = new SettingsScreen(
+                const screen = new SettingsScreen({
                     container,
-                    settingsRuntimePorts.getNavigation,
-                    (mode): void => {
+                    getNavigation: settingsRuntimePorts.getNavigation,
+                    onSubtitleModeChange: (mode): void => {
                         if (mode !== 'off') return;
                         void settingsRuntimePorts.clearSubtitleTrack();
                     },
-                    (change): void => {
+                    onGuideSettingChange: (change): void => {
                         settingsRuntimePorts.onGuideSettingChange(change);
                     },
-                    settingsRuntimePorts.getActiveUsername,
-                    settingsRuntimePorts.getTheme,
-                    settingsRuntimePorts.setTheme
-                );
+                    getActiveUsername: settingsRuntimePorts.getActiveUsername,
+                    getTheme: settingsRuntimePorts.getTheme,
+                    setTheme: settingsRuntimePorts.setTheme,
+                });
 
                 if (this._destroyed) {
                     screen.destroy();

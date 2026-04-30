@@ -93,14 +93,12 @@ const createScreen = (
     CREATED_CONTAINERS.push(container);
     const nav = createNavigationStub();
     let currentTheme = initialTheme;
-    const screen = new SettingsScreen(
+    const screen = new SettingsScreen({
         container,
-        () => nav as unknown as never,
-        undefined,
+        getNavigation: (): never => nav as unknown as never,
         onGuideSettingChange,
-        getActiveUsername,
-        () => currentTheme,
-        (theme): void => {
+        getTheme: (): ThemeName => currentTheme,
+        setTheme: (theme): void => {
             currentTheme = theme;
             document.body.classList.remove(...ALL_THEME_CLASSES);
             const themeClass = THEME_CLASSES[theme];
@@ -109,8 +107,9 @@ const createScreen = (
             }
             localStorage.setItem(SETTINGS_STORAGE_KEYS.THEME, theme);
         },
-        settingsStore
-    );
+        ...(getActiveUsername ? { getActiveUsername } : {}),
+        ...(settingsStore ? { settingsStore } : {}),
+    });
     return { container, nav, screen };
 };
 

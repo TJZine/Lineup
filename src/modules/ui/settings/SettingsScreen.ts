@@ -19,6 +19,17 @@ import {
 } from './SettingsScreenFocusCoordinator';
 import type { ThemeName } from '../theme/themeDefinitions';
 
+export interface SettingsScreenDeps {
+    container: HTMLElement;
+    getNavigation: () => INavigationManager | null;
+    onSubtitleModeChange?: (mode: SubtitleMode) => void;
+    onGuideSettingChange?: (change: GuideSettingChange) => void;
+    getActiveUsername?: () => string | null;
+    getTheme?: () => ThemeName;
+    setTheme?: (theme: ThemeName) => void;
+    settingsStore?: SettingsStore;
+}
+
 /**
  * Settings screen component.
  * Manages settings display, pane transitions, and focus navigation.
@@ -43,16 +54,16 @@ export class SettingsScreen {
     private readonly _stateController: SettingsScreenStateController;
     private readonly _focusCoordinator: SettingsScreenFocusCoordinator;
 
-    constructor(
-        container: HTMLElement,
-        getNavigation: () => INavigationManager | null,
-        onSubtitleModeChange?: (mode: SubtitleMode) => void,
-        onGuideSettingChange?: (change: GuideSettingChange) => void,
-        getActiveUsername?: () => string | null,
-        getTheme?: () => ThemeName,
-        setTheme?: (theme: ThemeName) => void,
-        settingsStore: SettingsStore = new SettingsStore()
-    ) {
+    constructor({
+        container,
+        getNavigation,
+        onSubtitleModeChange,
+        onGuideSettingChange,
+        getActiveUsername,
+        getTheme,
+        setTheme,
+        settingsStore = new SettingsStore(),
+    }: SettingsScreenDeps) {
         this._container = container;
         this._getNavigation = getNavigation;
         this._onSubtitleModeChange = onSubtitleModeChange ?? null;
