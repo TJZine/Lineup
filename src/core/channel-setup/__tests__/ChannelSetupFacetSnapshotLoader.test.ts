@@ -442,15 +442,23 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
             createLibrary({ id: 'old-b', title: 'Old B' }),
             createLibrary({ id: 'old-c', title: 'Old C' }),
         ];
-        const deferredByLibraryId = new Map(
+        const oldDeferredByLibraryId = new Map(
             libraries.map((library) => [library.id, createDeferred<PlexTagDirectoryItem[]>()])
         );
+        const replacementDeferredByLibraryId = new Map(
+            libraries.map((library) => [library.id, createDeferred<PlexTagDirectoryItem[]>()])
+        );
+        const requestCountByLibraryId = new Map<string, number>();
         const signalByLibraryId = new Map<string, AbortSignal | undefined>();
         const loader = new ChannelSetupFacetSnapshotLoader({
             plexLibrary: createPlexLibrary({
                 getGenres: jest.fn().mockImplementation((libraryId: string, options) => {
                     signalByLibraryId.set(libraryId, options.signal);
-                    const deferred = deferredByLibraryId.get(libraryId);
+                    const requestCount = requestCountByLibraryId.get(libraryId) ?? 0;
+                    requestCountByLibraryId.set(libraryId, requestCount + 1);
+                    const deferred = requestCount === 0
+                        ? oldDeferredByLibraryId.get(libraryId)
+                        : replacementDeferredByLibraryId.get(libraryId);
                     if (!deferred) {
                         throw new Error(`Missing deferred for ${libraryId}`);
                     }
@@ -474,12 +482,35 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
         expect(signalByLibraryId.get('old-a')?.aborted).toBe(true);
         expect(signalByLibraryId.get('old-b')?.aborted).toBe(true);
 
-        deferredByLibraryId.get('old-b')?.resolve([createFacetPlanningTag({ title: 'Comedy', count: 5 })]);
+        const replacementProgress = jest.fn();
+        const replacementLoad = loader.loadSnapshot(
+            config,
+            libraries,
+            'preview',
+            createWaitOptions({ reportProgress: replacementProgress })
+        );
+        await flushPromises();
+        expect(replacementProgress).toHaveBeenCalledWith(expect.objectContaining({ detail: 'Old B' }));
+
+        oldDeferredByLibraryId.get('old-a')?.resolve([createFacetPlanningTag({ title: 'Stale Action', count: 4 })]);
+        oldDeferredByLibraryId.get('old-b')?.resolve([createFacetPlanningTag({ title: 'Stale Comedy', count: 5 })]);
         await flushPromises();
         expect(progress).not.toHaveBeenCalledWith(expect.objectContaining({ detail: 'Old C' }));
+        expect(replacementProgress).not.toHaveBeenCalledWith(expect.objectContaining({ detail: 'Old C' }));
 
-        deferredByLibraryId.get('old-a')?.resolve([createFacetPlanningTag({ title: 'Action', count: 4 })]);
+        oldDeferredByLibraryId.get('old-c')?.resolve([createFacetPlanningTag({ title: 'Stale Drama', count: 6 })]);
+        await flushPromises();
+        expect(replacementProgress).not.toHaveBeenCalledWith(expect.objectContaining({ detail: 'Old C' }));
         await rejected;
+
+        replacementDeferredByLibraryId.get('old-a')?.resolve([createFacetPlanningTag({ title: 'Action', count: 4 })]);
+        replacementDeferredByLibraryId.get('old-b')?.resolve([createFacetPlanningTag({ title: 'Comedy', count: 5 })]);
+        for (let attempt = 0; attempt < 5 && replacementProgress.mock.calls.length < 2; attempt++) {
+            await flushPromisesAndMacrotask();
+        }
+        expect(replacementProgress).toHaveBeenCalledWith(expect.objectContaining({ detail: 'Old C' }));
+        replacementDeferredByLibraryId.get('old-c')?.resolve([createFacetPlanningTag({ title: 'Drama', count: 6 })]);
+        await expect(replacementLoad).resolves.toMatchObject({ status: 'ready' });
     });
 
     it('resolves all active same-key waiters from one in-flight failure result and clears the failed load before retrying', async () => {
@@ -582,8 +613,15 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
             createWaitOptions({ signal: attachedAbortController.signal })
         );
         await flushPromises();
+        const attachedSecondWaiter = attachedLoader.loadSnapshot(
+            createConfig({ selectedLibraryIds: ['lib-2'] }),
+            [createLibrary({ id: 'lib-2' })],
+            'preview',
+            createWaitOptions()
+        );
         attachedAbortController.abort();
         await expect(attachedCancellation).rejects.toMatchObject({ name: 'AbortError' });
+        await expect(attachedSecondWaiter).rejects.toMatchObject({ name: 'AbortError' });
         await flushPromisesAndMacrotask();
         await expect(attachedLoader.loadSnapshot(
             createConfig({ selectedLibraryIds: ['lib-2'] }),
