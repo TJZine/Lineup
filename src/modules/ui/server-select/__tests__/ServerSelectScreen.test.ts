@@ -397,6 +397,42 @@ describe('ServerSelectScreen', () => {
         expect(status.textContent).toContain('Saved server unavailable.');
     });
 
+    it('refreshes server health after a saved server auto-select failure updates screen state', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = createBodyAppendedTestContainer();
+        const testedAt = Date.now();
+
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+        orchestrator.selectServer.mockImplementation(async () => {
+            setServerSelectState(orchestrator, {
+                selectedServerId: 'srv-1',
+                serverHealth: {
+                    'srv-1': { status: 'auth_required', testedAt: testedAt + 1000 },
+                },
+            });
+            return { kind: 'selection_failed', reason: 'auth_required' };
+        });
+        setServerSelectState(orchestrator, {
+            selectedServerId: 'srv-1',
+            serverHealth: {
+                'srv-1': { status: 'ok', latencyMs: 50, testedAt },
+            },
+        });
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: true });
+        await settleScreen(screen);
+
+        const activeRow = container.querySelector('.server-row.active') as HTMLElement;
+        const pill = activeRow.querySelector('.server-status-pill') as HTMLElement;
+        const button = activeRow.querySelector('button') as HTMLButtonElement;
+
+        expect(orchestrator.getSelectedServerScreenState).toHaveBeenCalledTimes(2);
+        expect(pill.textContent).toContain('Auth Required');
+        expect(button.textContent).toBe('Reconnect');
+        expect(container.querySelector('.screen-status')?.textContent).toContain('Saved server unavailable.');
+    });
+
     it('shows explicit auth-required guidance when selection fails with auth_required', async () => {
         const orchestrator = createOrchestratorStub();
         const container = createBodyAppendedTestContainer();
@@ -922,6 +958,44 @@ describe('ServerSelectScreen', () => {
         expect(detail?.textContent).toBe('Pick a server to continue.');
 
         expect(nav.setFocus).toHaveBeenCalledWith('btn-server-refresh');
+    });
+
+    it('preserves server health while removing active row state after clearing saved server', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = createBodyAppendedTestContainer();
+        const testedAt = Date.now();
+
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+        orchestrator.clearSelectedServer.mockImplementation(async () => {
+            setServerSelectState(orchestrator, {
+                selectedServerId: null,
+                serverHealth: {
+                    'srv-1': { status: 'ok', latencyMs: 50, testedAt },
+                },
+            });
+        });
+        setServerSelectState(orchestrator, {
+            selectedServerId: 'srv-1',
+            serverHealth: {
+                'srv-1': { status: 'ok', latencyMs: 50, testedAt },
+            },
+        });
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await settleScreen(screen);
+
+        const clearBtn = container.querySelector('#btn-server-forget') as HTMLButtonElement;
+        clearBtn.click();
+        await settleScreen(screen);
+
+        expect(container.querySelector('.server-row.active')).toBeNull();
+        const row = container.querySelector('.server-row') as HTMLElement;
+        const pill = row.querySelector('.server-status-pill') as HTMLElement;
+        const button = row.querySelector('button') as HTMLButtonElement;
+        expect(pill.textContent).toContain('OK');
+        expect(pill.textContent).toContain('50ms');
+        expect(button.textContent).toBe('Connect');
     });
 
     it('shows an error and keeps the server list when clearing saved server fails without console logging', async () => {

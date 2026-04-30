@@ -303,7 +303,11 @@ export class ServerSelectScreen {
             }
 
             // Fallback to rendering list
-            this._renderServers(servers, screenState, { savedServerUnavailable, emptyStateReason: 'no_servers' });
+            this._renderServers(
+                servers,
+                this._ports.getSelectedServerScreenState(),
+                { savedServerUnavailable, emptyStateReason: 'no_servers' }
+            );
             this._setServerListStatus(servers, { savedServerUnavailable, autoSelectError });
             this._setAutoConnectHintVisible(false);
         } catch (error) {
@@ -487,7 +491,7 @@ export class ServerSelectScreen {
             this._setStatus('Selection cleared.', 'Pick a server to continue.', 'success');
             this._renderServers(
                 this._lastDiscoveredServers,
-                { selectedServerId: null, serverHealth: {} },
+                this._ports.getSelectedServerScreenState(),
                 { emptyStateReason: 'no_servers' }
             );
             this._restoreFocus(generation);
