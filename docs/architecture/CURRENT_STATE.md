@@ -88,6 +88,9 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - delegates playback info snapshot projection to `src/core/orchestrator/OrchestratorPlaybackInfoSnapshot.ts`; `AppOrchestrator` remains the runtime state source and refresh trigger owner
 - delegates coordinator assembly required-module hardening to `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts` / `OrchestratorCoordinatorContracts.ts`, which own the typed assembly input seam
 - delegates shutdown teardown failure collection to `src/core/orchestrator/OrchestratorShutdownTeardown.ts` while preserving `AppOrchestrator.shutdown()` ordering, field nulling, and singleton/no-reuse lifecycle ownership
+- delegates channel-switch runtime commands and missing-dependency reporting to `src/core/orchestrator/OrchestratorChannelSwitchRuntime.ts`
+- delegates Plex auth screen-runtime PIN operations to `src/core/orchestrator/OrchestratorPlexAuthRuntime.ts`
+- delegates selected-server projection, selection/clear commands, and selected-server startup-swap handoff to `src/core/orchestrator/OrchestratorServerSelectionRuntime.ts`
 
 ### `src/core/orchestrator/OrchestratorPlaybackInfoSnapshot.ts`
 
@@ -103,6 +106,21 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - focused shutdown helper for best-effort teardown failure collection
 - preserves continuation after individual teardown failures and returns failures for one aggregate `orchestrator.shutdown.teardown` report from `AppOrchestrator`
+
+### `src/core/orchestrator/OrchestratorChannelSwitchRuntime.ts`
+
+- focused owner for AppOrchestrator-facing channel-switch runtime commands
+- owns ID and number switch delegation, missing channel-tuning dependency reporting, outcome-aware number-switch adaptation, and best-effort next/previous channel commands
+
+### `src/core/orchestrator/OrchestratorPlexAuthRuntime.ts`
+
+- focused owner for AppOrchestrator-facing Plex auth screen-runtime PIN operations
+- preserves initialized/shutdown checks for `requestAuthPin`, `pollForPin`, and `cancelPin` while Plex auth remains the credential/token owner
+
+### `src/core/orchestrator/OrchestratorServerSelectionRuntime.ts`
+
+- focused owner for AppOrchestrator-facing selected-server runtime operations
+- owns selected-server ID projection, select/clear commands, selected-server coordinator/runtime-controller handoff, and post-selection startup-swap orchestration
 
 ### `src/core/orchestrator/priority-one/`
 

@@ -4,7 +4,7 @@
  * - Cross-module event wiring
  * - State restoration on startup
  * - Error handling and recovery
- * - Channel switching and EPG management
+ * - Runtime collaborator composition
  */
 
 import {
@@ -29,7 +29,6 @@ import {
 } from '../../modules/plex/auth';
 import {
     type IPlexServerDiscovery,
-    type PlexServerSelectionResult,
     type PlexServer,
 } from '../../modules/plex/discovery';
 import {
@@ -97,16 +96,8 @@ import { OverlayRuntimePolicyController } from './OverlayRuntimePolicyController
 import { ProfileSwitchCleanupController } from './ProfileSwitchCleanupController';
 import { PlaybackRuntimeController } from './priority-one/PlaybackRuntimeController';
 import type {
-    DiscoverySelectedServerSnapshot,
-    OrchestratorServerSelectionReadiness,
     OrchestratorServerSelectionResult,
-    PersistedSelectedServerSnapshot,
-    SelectedServerPersistenceResult,
-    SelectedServerStartupResumeResult,
 } from '../server-selection/ServerSelectionTypes';
-import { ServerSelectionCoordinator } from '../server-selection/ServerSelectionCoordinator';
-import { SelectedServerRuntimeController } from '../server-selection/SelectedServerRuntimeController';
-import { SelectedServerPersistenceAdapter } from '../server-selection/SelectedServerPersistenceAdapter';
 import type {
     ModuleStatus,
     OrchestratorConfig,
@@ -157,7 +148,7 @@ import {
 import type { ToastInput } from '../../modules/ui/toast/types';
 import type { PlatformServices } from '../../platform';
 import { createWebOsPlatformServices } from '../../platform';
-import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
+import { summarizeErrorForLog } from '../../utils/errors';
 import { ScheduleDayRolloverController } from './ScheduleDayRolloverController';
 import { SubtitleTrackRecoveryController } from './SubtitleTrackRecoveryController';
 import { createOrchestratorRuntimeControllers } from './OrchestratorRuntimeControllerBuilder';
@@ -173,6 +164,9 @@ import {
     captureRecoverableRuntimeResultAsync,
 } from './OrchestratorRecoverableRuntimeResult';
 import { OrchestratorShutdownTeardown } from './OrchestratorShutdownTeardown';
+import { OrchestratorChannelSwitchRuntime } from './OrchestratorChannelSwitchRuntime';
+import { OrchestratorPlexAuthRuntime } from './OrchestratorPlexAuthRuntime';
+import { OrchestratorServerSelectionRuntime } from './OrchestratorServerSelectionRuntime';
 
 const QA_003B_ISSUE_ID = 'QA-003b';
 
@@ -185,7 +179,7 @@ const QA_003B_ISSUE_ID = 'QA-003b';
  * - Cross-module event wiring
  * - State restoration on startup
  * - Error handling with recovery actions
- * - Channel switching and EPG management
+ * - Runtime collaborator composition
  */
 export class AppOrchestrator {
     private static readonly MAX_PENDING_GLOBAL_ERRORS = 5;
@@ -258,9 +252,9 @@ export class AppOrchestrator {
     private _epgDebugRuntime: IEPGDebugRuntime | null = null;
     private readonly _playbackStateAccessors: OrchestratorPlaybackStateAccessors;
     private readonly _channelSetupWorkflowPort: ChannelSetupWorkflowPort;
-    private readonly _serverSelectionCoordinator: ServerSelectionCoordinator;
-    private readonly _selectedServerRuntimeController: SelectedServerRuntimeController;
-    private readonly _selectedServerPersistenceAdapter: SelectedServerPersistenceAdapter;
+    private readonly _channelSwitchRuntime: OrchestratorChannelSwitchRuntime;
+    private readonly _plexAuthRuntime: OrchestratorPlexAuthRuntime;
+    private readonly _serverSelectionRuntime: OrchestratorServerSelectionRuntime;
     private readonly _schedulePolicy = new OrchestratorSchedulePolicy();
     private readonly _reportedModuleStatusCloneFallbackContexts = new WeakSet<object>();
     private _shutdownStarted = false;
@@ -325,9 +319,27 @@ export class AppOrchestrator {
             QA_003B_ISSUE_ID,
             this._issueDiagnosticsStore.append.bind(this._issueDiagnosticsStore)
         );
+        this._serverSelectionRuntime = new OrchestratorServerSelectionRuntime({
+            assertNotShutdown: this._assertNotShutdown.bind(this),
+            getPlexAuth: (): IPlexAuth | null => this._plexAuth,
+            getPlexDiscovery: (): IPlexServerDiscovery | null => this._plexDiscovery,
+            getInitializationCoordinator: (): InitializationCoordinator | null => this._initCoordinator,
+            getEpg: (): IEPGComponent | null => this._epg,
+            getEpgCoordinator: (): EPGCoordinator | null => this._epgCoordinator,
+            isReady: (): boolean => this._ready,
+            reportError: (
+                event: string,
+                message: string,
+                error: unknown,
+                data?: Record<string, unknown>
+            ): void => {
+                this._warnRecoverableRuntimeError(event, message, error, data);
+            },
+            throwModuleInitPreconditionError: this._throwModuleInitPreconditionError.bind(this),
+        });
         this._storageContext = new OrchestratorStorageContext({
             getActiveUserId: this._getActiveUserId.bind(this),
-            getSelectedServerId: this._getSelectedServerId.bind(this),
+            getSelectedServerId: (): string | null => this._serverSelectionRuntime.getSelectedServerId(),
             setDiscoveryStorageKeys: (selectedKey: string, healthKey: string): void => {
                 this._plexDiscovery?.setStorageKeys(selectedKey, healthKey);
             },
@@ -361,55 +373,27 @@ export class AppOrchestrator {
         this._channelSetupWorkflowPort = createChannelSetupWorkflowPort({
             getOwners: (): ChannelSetupWorkflowPortOwners | null => this._channelSetupPortOwners,
         });
-        this._selectedServerPersistenceAdapter = new SelectedServerPersistenceAdapter({
-            getCredentialsPort: (): IPlexAuth | null => this._plexAuth,
+        this._plexAuthRuntime = new OrchestratorPlexAuthRuntime({
+            assertNotShutdown: this._assertNotShutdown.bind(this),
+            getPlexAuth: (): IPlexAuth | null => this._plexAuth,
+            throwModuleInitPreconditionError: this._throwModuleInitPreconditionError.bind(this),
         });
-        this._selectedServerRuntimeController = new SelectedServerRuntimeController({
-            capturePersistedSelectionSnapshot: (): Promise<PersistedSelectedServerSnapshot> =>
-                this._selectedServerPersistenceAdapter.capturePersistedSelectionSnapshot(),
-            persistSelection: (
-                serverId: string | null,
-                serverUri: string | null
-            ): Promise<SelectedServerPersistenceResult> =>
-                this._selectedServerPersistenceAdapter.persistSelection(serverId, serverUri),
-            restorePersistedSelectionSnapshot: (
-                snapshot: PersistedSelectedServerSnapshot
-            ): Promise<SelectedServerPersistenceResult> =>
-                this._selectedServerPersistenceAdapter.restorePersistedSelectionSnapshot(snapshot),
-            resumeStartupAfterSelection: (): Promise<SelectedServerStartupResumeResult> =>
-                this._resumeStartupAfterSelectedServerChange(),
-            clearDiscoverySelection: (): void => {
-                this._plexDiscovery?.clearSelection();
+        this._channelSwitchRuntime = new OrchestratorChannelSwitchRuntime({
+            assertNotShutdown: this._assertNotShutdown.bind(this),
+            getChannelTuning: (): ChannelTuningCoordinator | null => this._channelTuning,
+            getChannelManager: (): IChannelManager | null => this._channelManager,
+            getScheduler: (): IChannelScheduler | null => this._scheduler,
+            getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
+            reportIssue: (
+                event: string,
+                message: string,
+                data?: Record<string, unknown>
+            ): void => {
+                this._warnRecoverableRuntimeIssue(event, message, data);
             },
-        });
-        this._serverSelectionCoordinator = new ServerSelectionCoordinator({
-            captureDiscoverySelectionSnapshot: (): DiscoverySelectedServerSnapshot =>
-                this._captureDiscoverySelectedServerSnapshot(),
-            restoreDiscoverySelectionSnapshot: (snapshot: DiscoverySelectedServerSnapshot): void => {
-                this._restoreDiscoverySelectedServerSnapshot(snapshot);
+            reportError: (event: string, message: string, error: unknown): void => {
+                this._warnRecoverableRuntimeError(event, message, error);
             },
-            capturePersistedSelectionSnapshot: (): Promise<PersistedSelectedServerSnapshot> =>
-                this._selectedServerRuntimeController.capturePersistedSelectionSnapshot(),
-            selectServer: async (serverId: string): Promise<PlexServerSelectionResult> => {
-                if (!this._plexDiscovery) {
-                    throw new Error('PlexServerDiscovery not initialized');
-                }
-                return this._plexDiscovery.selectServer(serverId);
-            },
-            getSelectedServerUri: (): string | null => this._plexDiscovery?.getServerUri() ?? null,
-            persistSelection: async (
-                serverId: string,
-                serverUri: string | null
-            ): Promise<SelectedServerPersistenceResult> =>
-                this._selectedServerRuntimeController.persistSelection(serverId, serverUri),
-            restorePersistedSelectionSnapshot: (
-                snapshot: PersistedSelectedServerSnapshot
-            ): Promise<SelectedServerPersistenceResult> =>
-                this._selectedServerRuntimeController.restorePersistedSelectionSnapshot(snapshot),
-            resumeStartupAfterSelection: (): Promise<SelectedServerStartupResumeResult> =>
-                this._selectedServerRuntimeController.resumeStartupAfterSelection(),
-            getReadiness: (): OrchestratorServerSelectionReadiness =>
-                (this._ready ? 'ready' : 'startup_pending'),
         });
         this._initializeModuleStatus();
     }
@@ -527,7 +511,7 @@ export class AppOrchestrator {
                 serverStorage: {
                     configureDiscoveryStorage: this._configureDiscoveryStorageKeysForActiveUser.bind(this),
                     configureChannelManagerStorage: this._configureChannelManagerStorageForSelectedServer.bind(this),
-                    getSelectedServerId: this._getSelectedServerId.bind(this),
+                    getSelectedServerId: (): string | null => this._serverSelectionRuntime.getSelectedServerId(),
                 },
                 routing: {
                     shouldRunAudioSetup: this._shouldRunAudioSetup.bind(this),
@@ -716,7 +700,7 @@ export class AppOrchestrator {
                 setActiveScheduleDayKey: (dayKey: number): void => {
                     this._scheduleDayRolloverController?.setActiveScheduleDayKey(dayKey);
                 },
-                getSelectedServerId: (): string | null => this._getSelectedServerId(),
+                getSelectedServerId: (): string | null => this._serverSelectionRuntime.getSelectedServerId(),
                 getLocalMidnightMs: (timeMs: number): number => this._schedulePolicy.getLocalMidnightMs(timeMs),
                 getLocalDayKey: (timeMs: number): number => this._schedulePolicy.getLocalDayKey(timeMs),
                 buildDailyScheduleConfig: (
@@ -730,8 +714,8 @@ export class AppOrchestrator {
                     channelId: string,
                     options?: { guideSelectionSnapshot?: import('../channel-tuning').GuideSelectionSnapshot }
                 ): Promise<void> => this.switchToChannel(channelId, options),
-                switchToNextChannel: (): void => this._switchToNextChannel(),
-                switchToPreviousChannel: (): void => this._switchToPreviousChannel(),
+                switchToNextChannel: (): void => this._channelSwitchRuntime.switchToNextChannel(),
+                switchToPreviousChannel: (): void => this._channelSwitchRuntime.switchToPreviousChannel(),
                 switchToChannelByNumberWithOutcome: (n: number): Promise<ChannelSwitchOutcome> =>
                     this._switchToChannelByNumberWithOutcome(n),
                 toggleEPG: (): void => this.toggleEPG(),
@@ -1001,7 +985,7 @@ export class AppOrchestrator {
     }
 
     getSelectedServerId(): string | null {
-        return this._getSelectedServerId();
+        return this._serverSelectionRuntime.getSelectedServerId();
     }
 
     getSelectedServerStorageKey(): string {
@@ -1092,42 +1076,21 @@ export class AppOrchestrator {
      * Request a Plex PIN for authentication.
      */
     async requestAuthPin(): Promise<PlexPinRequest> {
-        this._assertNotShutdown('requestAuthPin');
-        if (!this._plexAuth) {
-            this._throwModuleInitPreconditionError('PlexAuth not initialized', {
-                method: 'requestAuthPin',
-                dependency: 'PlexAuth',
-            });
-        }
-        return this._plexAuth.requestPin();
+        return this._plexAuthRuntime.requestAuthPin();
     }
 
     /**
      * Poll for PIN claim status.
      */
     async pollForPin(pinId: number): Promise<PlexPinRequest> {
-        this._assertNotShutdown('pollForPin');
-        if (!this._plexAuth) {
-            this._throwModuleInitPreconditionError('PlexAuth not initialized', {
-                method: 'pollForPin',
-                dependency: 'PlexAuth',
-            });
-        }
-        return this._plexAuth.pollForPin(pinId);
+        return this._plexAuthRuntime.pollForPin(pinId);
     }
 
     /**
      * Cancel an active PIN request.
      */
     async cancelPin(pinId: number): Promise<void> {
-        this._assertNotShutdown('cancelPin');
-        if (!this._plexAuth) {
-            this._throwModuleInitPreconditionError('PlexAuth not initialized', {
-                method: 'cancelPin',
-                dependency: 'PlexAuth',
-            });
-        }
-        await this._plexAuth.cancelPin(pinId);
+        await this._plexAuthRuntime.cancelPin(pinId);
     }
 
     async getHomeUsers(): Promise<PlexHomeUser[]> {
@@ -1243,29 +1206,14 @@ export class AppOrchestrator {
      * Select a Plex server to connect to.
      */
     async selectServer(serverId: string): Promise<OrchestratorServerSelectionResult> {
-        this._assertNotShutdown('selectServer');
-        if (!this._plexDiscovery) {
-            this._throwModuleInitPreconditionError('PlexServerDiscovery not initialized', {
-                method: 'selectServer',
-                dependency: 'PlexServerDiscovery',
-            });
-        }
-        return this._serverSelectionCoordinator.selectServer(serverId);
+        return this._serverSelectionRuntime.selectServer(serverId);
     }
 
     /**
      * Clear saved server selection.
      */
     async clearSelectedServer(): Promise<void> {
-        this._assertNotShutdown('clearSelectedServer');
-        if (!this._plexDiscovery) {
-            this._throwModuleInitPreconditionError('PlexServerDiscovery not initialized', {
-                method: 'clearSelectedServer',
-                dependency: 'PlexServerDiscovery',
-            });
-        }
-
-        await this._selectedServerRuntimeController.clearSelection();
+        await this._serverSelectionRuntime.clearSelectedServer();
     }
 
     private async _resumeStartupAfterProfileSwitch(initCoordinator: InitializationCoordinator): Promise<void> {
@@ -1282,32 +1230,6 @@ export class AppOrchestrator {
         this._requireChannelSetupCoordinator().requestChannelSetupRerun();
     }
 
-    // Runtime channel-switch commands are intentionally best-effort: remote input can
-    // arrive before tuning modules are assembled, so these methods no-op safely.
-    // Setup/capability entrypoints still enforce strict precondition throws.
-    private _logMissingChannelTuningDependencies(context: string): void {
-        const missingModules = [
-            !this._channelTuning ? '_channelTuning' : null,
-            !this._channelManager ? '_channelManager' : null,
-            !this._scheduler ? '_scheduler' : null,
-            !this._videoPlayer ? '_videoPlayer' : null,
-        ].filter((module): module is string => module !== null);
-
-        if (missingModules.length === 0) {
-            this._warnRecoverableRuntimeIssue(
-                'orchestrator.channelTuningUnavailable',
-                `${context}: channel tuning unavailable`
-            );
-            return;
-        }
-
-        this._warnRecoverableRuntimeIssue(
-            'orchestrator.channelTuningUnavailable',
-            `${context}: channel tuning unavailable`,
-            { missingModules }
-        );
-    }
-
     /**
      * Switch to a channel by ID.
      * Stops current playback, resolves content, configures scheduler, and syncs.
@@ -1320,13 +1242,7 @@ export class AppOrchestrator {
             guideSelectionSnapshot?: import('../channel-tuning').GuideSelectionSnapshot;
         }
     ): Promise<void> {
-        this._assertNotShutdown('switchToChannel');
-        if (!this._channelTuning) {
-            this._logMissingChannelTuningDependencies('switchToChannel');
-            return;
-        }
-
-        await this._channelTuning.switchToChannel(channelId, options);
+        await this._channelSwitchRuntime.switchToChannel(channelId, options);
     }
 
     /**
@@ -1334,37 +1250,14 @@ export class AppOrchestrator {
      * @param number - Channel number
      */
     async switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void> {
-        this._assertNotShutdown('switchToChannelByNumber');
-        if (!this._channelTuning) {
-            this._logMissingChannelTuningDependencies('switchToChannelByNumber');
-            return;
-        }
-
-        await this._channelTuning.switchToChannelByNumber(number, options);
+        await this._channelSwitchRuntime.switchToChannelByNumber(number, options);
     }
 
     private async _switchToChannelByNumberWithOutcome(
         number: number,
         options?: { signal?: AbortSignal }
     ): Promise<ChannelSwitchOutcome> {
-        if (!this._channelTuning) {
-            this._logMissingChannelTuningDependencies('switchToChannelByNumberWithOutcome');
-            return 'failed';
-        }
-
-        try {
-            return await this._channelTuning.switchToChannelByNumber(number, options);
-        } catch (error: unknown) {
-            if (isAbortLikeError(error, options?.signal)) {
-                return 'aborted';
-            }
-            this._warnRecoverableRuntimeError(
-                'orchestrator.channelSwitch.byNumberOutcome',
-                'switchToChannelByNumberWithOutcome failed',
-                error
-            );
-            return 'failed';
-        }
+        return this._channelSwitchRuntime.switchToChannelByNumberWithOutcome(number, options);
     }
 
     /**
@@ -1712,14 +1605,6 @@ export class AppOrchestrator {
         }
     }
 
-    private _getSelectedServerId(): string | null {
-        if (!this._plexDiscovery) {
-            return null;
-        }
-        const server = this._plexDiscovery.getSelectedServer();
-        return server ? server.id : null;
-    }
-
     private _getActiveUserId(): string | null {
         if (!this._plexAuth) {
             return null;
@@ -1749,89 +1634,6 @@ export class AppOrchestrator {
 
     private async _configureChannelManagerStorageForSelectedServer(): Promise<void> {
         await this._storageContext.configureChannelManagerStorageForSelectedServer();
-    }
-
-    private _captureDiscoverySelectedServerSnapshot(): DiscoverySelectedServerSnapshot {
-        if (!this._plexDiscovery) {
-            return {
-                server: null,
-                connection: null,
-                storedServerId: null,
-            };
-        }
-
-        return this._plexDiscovery.captureSelectedServerSnapshot();
-    }
-
-    private _restoreDiscoverySelectedServerSnapshot(snapshot: DiscoverySelectedServerSnapshot): void {
-        this._plexDiscovery?.restoreSelectedServerSnapshot(snapshot);
-    }
-
-    private async _resumeStartupAfterSelectedServerChange(): Promise<SelectedServerStartupResumeResult> {
-        if (!this._initCoordinator) {
-            return {
-                startup: 'skipped_no_coordinator',
-                epgRefresh: { kind: 'skipped_no_coordinator' },
-            };
-        }
-
-        let step = 'runStartup';
-
-        try {
-            await this._initCoordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
-
-            const epg = this._epg;
-            if (epg) {
-                step = 'clearSelectedChannelScheduleSnapshot';
-                this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
-
-                step = 'clearScheduleCaches';
-                this._epgCoordinator?.clearScheduleCaches();
-
-                step = 'clearSchedules';
-                epg.clearSchedules();
-
-                step = 'primeEpgChannels';
-                this._epgCoordinator?.primeEpgChannels();
-            }
-
-            const epgCoordinator = this._epgCoordinator;
-            if (!epgCoordinator) {
-                return {
-                    startup: 'completed',
-                    epgRefresh: { kind: 'skipped_no_coordinator' },
-                };
-            }
-
-            step = 'refreshEpgSchedules';
-            const refreshResult = await captureRecoverableRuntimeResultAsync(
-                async () => epgCoordinator.refreshEpgSchedules({ reason: 'server-swap' })
-            );
-            if (!refreshResult.ok) {
-                this._warnRecoverableRuntimeError(
-                    'orchestrator.serverSwap.refreshEpgSchedules',
-                    'Post-selection EPG refresh failed',
-                    refreshResult.error,
-                    { step }
-                );
-                return {
-                    startup: 'completed',
-                    epgRefresh: { kind: 'failed', error: refreshResult.error },
-                };
-            }
-            return {
-                startup: 'completed',
-                epgRefresh: { kind: 'succeeded' },
-            };
-        } catch (error) {
-            this._warnRecoverableRuntimeError(
-                'orchestrator.serverSwap.runStartup',
-                'Post-selection runtime swap failed',
-                error,
-                { step }
-            );
-            throw error;
-        }
     }
 
     private _shouldRunAudioSetup(): boolean {
@@ -2094,44 +1896,6 @@ export class AppOrchestrator {
         }
         // Fallback
         return 'video/mp4';
-    }
-
-    /**
-     * Switch to next channel.
-     */
-    private _switchToNextChannel(): void {
-        if (!this._channelManager) return;
-
-        const nextChannel = this._channelManager.getNextChannel();
-        if (nextChannel) {
-            this.switchToChannel(nextChannel.id).catch((error: unknown) => {
-                if (isAbortLikeError(error)) return;
-                this._warnRecoverableRuntimeError(
-                    'orchestrator.channelSwitch.next',
-                    'Next channel switch failed',
-                    error
-                );
-            });
-        }
-    }
-
-    /**
-     * Switch to previous channel.
-     */
-    private _switchToPreviousChannel(): void {
-        if (!this._channelManager) return;
-
-        const prevChannel = this._channelManager.getPreviousChannel();
-        if (prevChannel) {
-            this.switchToChannel(prevChannel.id).catch((error: unknown) => {
-                if (isAbortLikeError(error)) return;
-                this._warnRecoverableRuntimeError(
-                    'orchestrator.channelSwitch.previous',
-                    'Previous channel switch failed',
-                    error
-                );
-            });
-        }
     }
 
     setNowPlayingHandler(handler: ((toast: ToastInput) => void) | null): void {
