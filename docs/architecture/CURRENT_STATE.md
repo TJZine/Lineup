@@ -122,6 +122,23 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - focused owner for AppOrchestrator-facing selected-server runtime operations
 - owns selected-server ID projection, select/clear commands, selected-server coordinator/runtime-controller handoff, and post-selection startup-swap orchestration
 
+### DCR-12-S1 AppOrchestrator Source Audit
+
+Current source audit on 2026-04-30 records `src/core/orchestrator/AppOrchestrator.ts`
+at 1904 lines after extracting the frozen `DCR-12-A1` closure set. The remaining
+large-file shape is the public runtime facade, module field ownership, lifecycle
+composition, coordinator/controller assembly, and cross-module wiring. The file no
+longer owns the three DCR-12-S1 hotspot responsibility groups: channel-switch
+runtime policy lives in `OrchestratorChannelSwitchRuntime.ts`, Plex auth PIN
+screen-runtime operations live in `OrchestratorPlexAuthRuntime.ts`, and
+selected-server projection/selection/clear plus post-selection startup-swap
+orchestration live in `OrchestratorServerSelectionRuntime.ts`.
+
+`S0-L01-F1` no longer describes the current `AppOrchestrator` source for the
+DCR-12-S1 closure scope. Future cleanup may still split additional facade or
+composition responsibilities, but that is not the active DCR-12-A1 issue shape
+after this extraction.
+
 ### `src/core/orchestrator/priority-one/`
 
 - focused owner for the grouped priority-one runtime assembly contract plus controller/binder composition
@@ -238,9 +255,8 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 ## Current Hotspots
 
-The main structural hotspots still called out by the cleanup backlog are:
+The main structural hotspots still treated as current by this architecture source are:
 
-- `src/core/orchestrator/AppOrchestrator.ts`
 - `src/App.ts`
 - `src/modules/ui/epg/component/EPGComponent.ts`
 - `src/modules/ui/channel-setup/ChannelSetupScreen.ts`

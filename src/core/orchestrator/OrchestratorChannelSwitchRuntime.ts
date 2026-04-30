@@ -22,7 +22,14 @@ export class OrchestratorChannelSwitchRuntime {
     constructor(private readonly _deps: OrchestratorChannelSwitchRuntimeDeps) {}
 
     async switchToChannel(channelId: string, options?: ChannelSwitchOptions): Promise<void> {
-        await this.switchToChannelWithOutcome(channelId, options);
+        this._deps.assertNotShutdown('switchToChannel');
+        const channelTuning = this._deps.getChannelTuning();
+        if (!channelTuning) {
+            this._logMissingChannelTuningDependencies('switchToChannel');
+            return;
+        }
+
+        await channelTuning.switchToChannel(channelId, options);
     }
 
     async switchToChannelWithOutcome(

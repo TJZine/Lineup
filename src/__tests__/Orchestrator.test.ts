@@ -2451,6 +2451,40 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             expect(mockChannelManager.setCurrentChannel).toHaveBeenNthCalledWith(2, 'ch2');
         });
 
+        it('propagates abort rejections for public channel switches superseded while queued', async () => {
+            let resolveFirst: () => void = (): void => { };
+            mockChannelManager.resolveChannelContent.mockImplementation(
+                (channelId: string): Promise<{ channelId: string; items: never[]; orderedItems: never[]; totalDurationMs: number; resolvedAt: number }> =>
+                    new Promise<{ channelId: string; items: never[]; orderedItems: never[]; totalDurationMs: number; resolvedAt: number }>((resolve) => {
+                        if (mockChannelManager.resolveChannelContent.mock.calls.length === 1) {
+                            resolveFirst = (): void => resolve({ channelId, items: [], orderedItems: [], totalDurationMs: 0, resolvedAt: Date.now() });
+                            return;
+                        }
+                        resolve({ channelId, items: [], orderedItems: [], totalDurationMs: 0, resolvedAt: Date.now() });
+                    })
+            );
+
+            const switch1 = orchestrator.switchToChannel('ch1');
+
+            expectConsoleWarn(/already in progress/, { times: 2 });
+            const switch2 = orchestrator.switchToChannel('ch2');
+            const switch2Result = switch2.then(
+                () => 'resolved',
+                (error: unknown) => error
+            );
+
+            const switch3 = orchestrator.switchToChannel('ch3');
+
+            await expect(switch2Result).resolves.toMatchObject({ name: 'AbortError' });
+
+            resolveFirst();
+            await switch1;
+            await switch3;
+
+            expect(mockChannelManager.setCurrentChannel).toHaveBeenNthCalledWith(1, 'ch1');
+            expect(mockChannelManager.setCurrentChannel).toHaveBeenNthCalledWith(2, 'ch3');
+        });
+
         it('should allow sequential channel switches', async () => {
             mockChannelManager.resolveChannelContent.mockResolvedValue({
                 channelId: 'ch1',
