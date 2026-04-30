@@ -953,9 +953,9 @@ changes them:
   moved back inline, public stream resolver contracts changed without matching
   tests/docs, or token redaction coverage regressed.
 
-### [ ] `DCR-9` Lifecycle Migration And Comment/API Cleanup
+### [x] `DCR-9` Lifecycle Migration And Comment/API Cleanup
 
-- Status: not started
+- Status: completed
 - Dimensions/rubric tags: AI-generated residue, incomplete migration, API
   surface coherence, initialization coupling, contract coherence
 - Scope owner: lifecycle module owner
@@ -990,7 +990,7 @@ changes them:
 - Verification routing: targeted lifecycle tests if API changes,
   behavior-neutral diff/source audit for comment cleanup, then `npm run verify`;
   `npm run verify:docs` if architecture/current-state docs change.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: completed.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -1001,12 +1001,31 @@ changes them:
 - Stop/replan triggers: migration decision changes persisted lifecycle payload
   contract; cleanup requires app-shell startup changes; storage compatibility
   policy becomes unclear.
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start with DCR-9 plan that resolves the migration seam before
-  editing exported lifecycle constants.
+- Plan:
+  [`docs/archive/plans/2026-04-29-dcr-9-lifecycle-migration-comment-api-cleanup.md`](./docs/archive/plans/2026-04-29-dcr-9-lifecycle-migration-comment-api-cleanup.md)
+- Last touched: 2026-04-30, implementation commits `900c96fb`,
+  `bd25e51d`, and `58a63db6`
+- Verification: plan review approved the active DCR-9 plan with no material
+  findings after `npm run plans:check` passed. `DCR-9-S1` implementation
+  review approved the package-internal `MIGRATIONS` decision with no material
+  findings; targeted `StateManager` tests passed and source audits confirmed
+  the registry remains consumed only by `StateManager` and absent from the
+  lifecycle barrel. `DCR-9-S2` implementation review found a missing
+  cleanup-key ownership note; the narrow revision restored that source signal,
+  same-reviewer closure approved it, and a fresh final implementation reviewer
+  approved the package. Targeted lifecycle tests, `npm run typecheck`, and
+  `npm run verify` passed.
+- Follow-ups: none. `MIGRATIONS` remains an intentional package-internal
+  lifecycle persistence registry, not public lifecycle API; older persisted
+  versions without an approved migration remain rejected. Restating lifecycle
+  comments were removed or compressed while storage ownership, cleanup-key,
+  phase/save-ordering, platform, and async persistence invariants remain
+  discoverable.
+- Handoff: `DCR-9` is complete. Do not reopen lifecycle migration/comment API
+  cleanup unless source proof shows `MIGRATIONS` became public API, external
+  consumers were added, older-version-without-migration rejection regressed,
+  cleanup keys became lifecycle-owned schemas, or restating/generated lifecycle
+  comments returned in the DCR-9 source surface.
 
 ### [ ] `DCR-10` Oversized Test Suite Structure Policy
 

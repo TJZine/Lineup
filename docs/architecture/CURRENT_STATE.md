@@ -124,7 +124,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - `src/modules/lifecycle/`
 - owns lifecycle state, visibility, persistence coordination, and recovery concerns
-- `src/modules/lifecycle/StateManager.ts` owns the lifecycle storage key `lineup_app_state` only (versioned lifecycle payload: `userPreferences`, `lastUpdated`) and deletes the bounded cleanup-only keys in `STORAGE_CONFIG.CLEANUP_KEYS` as a helper; it does not own their schema or migrations
+- `src/modules/lifecycle/StateManager.ts` owns the lifecycle storage key `lineup_app_state` only (versioned lifecycle payload: `userPreferences`, `lastUpdated`) and deletes the bounded cleanup-only keys in `STORAGE_CONFIG.CLEANUP_KEYS` as a helper; it does not own their schema or migrations. The empty `MIGRATIONS` registry is package-internal lifecycle persistence policy, exported from `constants.ts` only for `StateManager` consumption, intentionally absent from the lifecycle barrel, and older persisted versions without an approved migration are rejected.
 
 ### Navigation
 
