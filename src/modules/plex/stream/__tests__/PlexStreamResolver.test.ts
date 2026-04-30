@@ -1639,6 +1639,52 @@ describe('PlexStreamResolver', () => {
             setTimeoutSpy.mockRestore();
         });
 
+        it('falls back to regex decision parsing when DOMParser returns parsererror XML', async () => {
+            const originalDomParser = globalThis.DOMParser;
+            Object.defineProperty(globalThis, 'DOMParser', {
+                configurable: true,
+                writable: true,
+                value: class {
+                    parseFromString(): Pick<Document, 'querySelector'> {
+                        return {
+                            querySelector: (selector: string): Element | null =>
+                                selector === 'parsererror' ? ({} as Element) : null,
+                        };
+                    }
+                },
+            });
+            const config = createMockConfig();
+            const resolver = new PlexStreamResolver(config);
+
+            try {
+                mockFetch.mockResolvedValue({
+                    ok: true,
+                    status: 200,
+                    text: async () =>
+                        '<MediaContainer decisionCode="1000" decisionText="Transcode">' +
+                        '<TranscodeSession videoDecision="copy" audioDecision="transcode" subtitleDecision="none">' +
+                        '</MediaContainer>',
+                });
+
+                const result = await resolver.fetchUniversalTranscodeDecision('12345', {
+                    sessionId: 'sess-1',
+                    maxBitrate: 20000,
+                });
+
+                expect(result?.decisionCode).toBe('1000');
+                expect(result?.decisionText).toBe('Transcode');
+                expect(result?.videoDecision).toBe('copy');
+                expect(result?.audioDecision).toBe('transcode');
+                expect(result?.subtitleDecision).toBe('none');
+            } finally {
+                Object.defineProperty(globalThis, 'DOMParser', {
+                    configurable: true,
+                    writable: true,
+                    value: originalDomParser,
+                });
+            }
+        });
+
         it('throws ACCESS_DENIED when Plex forbids the decision request', async () => {
             const config = createMockConfig();
             const resolver = new PlexStreamResolver(config);

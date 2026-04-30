@@ -73,6 +73,9 @@ export class UniversalTranscodeDecisionClient {
         try {
             if (typeof DOMParser !== 'undefined') {
                 const doc = new DOMParser().parseFromString(raw, 'text/xml');
+                if (doc.querySelector('parsererror')) {
+                    throw new Error('Invalid universal transcode decision XML');
+                }
                 const container = doc.querySelector('MediaContainer');
                 const transcode = doc.querySelector('TranscodeSession');
 
