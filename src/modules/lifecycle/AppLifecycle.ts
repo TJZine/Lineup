@@ -98,9 +98,6 @@ export class AppLifecycle implements IAppLifecycle {
         });
     }
 
-    /**
-     * Sets up event listeners and restores state.
-     */
     public async initialize(): Promise<void> {
         if (this._initialized) {
             return;
@@ -143,7 +140,7 @@ export class AppLifecycle implements IAppLifecycle {
             TIMING_CONFIG.CALLBACK_TIMEOUT_MS
         );
 
-        // Save final state (already saved by _transitionPhase, but flush any pending)
+        // Final shutdown must flush any debounced save left outside phase transitions.
         await this._statePersistenceQueue.flush({ finalShutdown: true });
 
         this._memoryMonitor.stopMonitoring();
@@ -238,12 +235,6 @@ export class AppLifecycle implements IAppLifecycle {
         );
     }
 
-    /**
-     * Internal: Transition phase with validation and state save.
-     * MUST reject invalid transitions per spec.
-     * @param phase - New phase
-     * @returns true if transition succeeded
-     */
     private async _transitionPhase(phase: AppPhase): Promise<boolean> {
         if (this._phase === phase) {
             return true;
@@ -251,11 +242,10 @@ export class AppLifecycle implements IAppLifecycle {
 
         const validTransitions = VALID_PHASE_TRANSITIONS[this._phase];
         if (validTransitions && !validTransitions.includes(phase)) {
-            // Reject invalid transition per spec
             return false;
         }
 
-        // Save state BEFORE transition (per spec)
+        // State is flushed before emitting the phase change contract.
         await this._statePersistenceQueue.flush();
 
         const from = this._phase;
@@ -276,7 +266,6 @@ export class AppLifecycle implements IAppLifecycle {
             actions: [],
         };
 
-        // Set phase to error if not already
         if (this._phase !== 'error' && this._phase !== 'terminating') {
             this._trackPendingTransition(this._transitionPhase('error'));
         }
@@ -323,9 +312,6 @@ export class AppLifecycle implements IAppLifecycle {
         }
     }
 
-    /**
-     * Handle app pause (backgrounding).
-     */
     private async _handlePause(): Promise<void> {
         if (!this._isVisible) {
             return;
@@ -334,7 +320,7 @@ export class AppLifecycle implements IAppLifecycle {
         this._isVisible = false;
         this._emitter.emit('visibilityChange', { isVisible: false });
 
-        // Save state immediately on pause
+        // Backgrounding is a persistence boundary on TV platforms.
         await this._statePersistenceQueue.flush();
 
         await this._executeCallbacksWithTimeout(
@@ -347,9 +333,6 @@ export class AppLifecycle implements IAppLifecycle {
         }
     }
 
-    /**
-     * Handle app resume (foregrounding).
-     */
     private async _handleResume(): Promise<void> {
         if (this._isVisible) {
             return;
@@ -376,9 +359,6 @@ export class AppLifecycle implements IAppLifecycle {
         }
     }
 
-    /**
-     * Execute callbacks with a timeout.
-     */
     private async _executeCallbacksWithTimeout(
         callbacks: LifecycleCallback[],
         timeoutMs: number
@@ -437,9 +417,6 @@ export class AppLifecycle implements IAppLifecycle {
         this._asyncErrorReporter.handle(error, context);
     }
 
-    /**
-     * Build current state for saving.
-     */
     private _buildCurrentState(): PersistentState {
         const existingState =
             this._stateManager.load() ?? this._stateManager.createDefaultState();
