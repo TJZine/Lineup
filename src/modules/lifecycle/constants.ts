@@ -3,6 +3,7 @@ export { TIMING_CONFIG } from '../../config/timing';
 export const STORAGE_CONFIG = {
     STATE_KEY: 'lineup_app_state',
     STATE_VERSION: 1,
+    // Removal-only quota cleanup helpers; lifecycle StateManager does not own their schemas or migrations.
     CLEANUP_KEYS: [
         'lineup_focus_memory',
         'lineup_image_cache',
