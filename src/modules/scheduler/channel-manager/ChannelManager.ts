@@ -8,15 +8,10 @@ import { summarizeErrorForLog } from '../../../utils/errors';
 import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
 import { ContentResolver } from './ContentResolver';
 import { ChannelRepository } from './ChannelRepository';
+import { ChannelPersistenceSaveQueue } from './ChannelPersistenceSaveQueue';
+import { ChannelImportNormalizer } from './ChannelImportNormalizer';
 import { isValidContentSource } from './ChannelContentSourceValidator';
-import {
-    isValidBuildStrategy,
-    isValidContentFilterArray,
-    isValidPlaybackMode,
-    isValidSortOrder,
-} from './ChannelValueValidators';
 import { STORAGE_CONFIG } from '../../lifecycle/constants';
-import { TIMING_CONFIG } from '../../../config/timing';
 import type { IChannelManager, ChannelManagerConfig, IPlexLibraryMinimal } from './interfaces';
 import type { IDisposable } from '../../../utils/interfaces';
 import type {
@@ -213,14 +208,6 @@ function createInvalidChannelNumberError(): ChannelError {
     );
 }
 
-function createInvalidImportDataError(): ChannelError {
-    return new ChannelError(
-        AppErrorCode.INVALID_IMPORT_DATA,
-        CHANNEL_ERROR_MESSAGES.INVALID_IMPORT_DATA,
-        false
-    );
-}
-
 function createStorageValidationError(message: string): ChannelError {
     return new ChannelError(AppErrorCode.STORAGE_VALIDATION_FAILED, message, false);
 }
@@ -231,20 +218,6 @@ function createDisposedError(): ChannelError {
 
 function createPersistenceFallbackError(message: string): ChannelError {
     return new ChannelError(AppErrorCode.PERSISTENCE_FALLBACK, message, true);
-}
-
-function formatImportErrorMessage(error: unknown): string {
-    const summary = summarizeErrorForLog(error);
-    if (typeof summary === 'string') {
-        return summary;
-    }
-    if (summary && typeof summary === 'object') {
-        if ('message' in summary && typeof summary.message === 'string') {
-            return summary.message;
-        }
-        return JSON.stringify(summary);
-    }
-    return String(summary);
 }
 
 /**
@@ -269,24 +242,17 @@ export class ChannelManager implements IChannelManager {
     private readonly _contentResolver: ContentResolver;
     private readonly _library: IPlexLibraryMinimal;
     private readonly _channelRepository: ChannelRepository;
+    private readonly _saveQueue: ChannelPersistenceSaveQueue;
+    private readonly _importNormalizer: ChannelImportNormalizer;
     private readonly _logger: {
         warn: (message: string, ...args: unknown[]) => void;
         error: (message: string, ...args: unknown[]) => void;
     };
 
     private _state: ChannelManagerState;
-    private readonly _reportedPersistenceFailures = new WeakSet<object>();
     /** Pending retry timers keyed by channel id. */
     private readonly _pendingRetries: Map<string, ReturnType<typeof setTimeout>> = new Map();
     private static readonly RETRY_DELAY_MS = 30000; // 30 seconds
-
-    private _saveTimer: ReturnType<typeof setTimeout> | null = null;
-    private _pendingSavePromise: Promise<void> | null = null;
-    private _pendingSaveResolve: (() => void) | null = null;
-    private _pendingSaveReject: ((error: unknown) => void) | null = null;
-    private _queuedSaveCatchPromise: Promise<void> | null = null;
-    private _nextPersistenceWarningAt = 0;
-    private _persistenceWarningBackoffMs: number = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
 
     /**
      * Create a new ChannelManager instance.
@@ -327,6 +293,13 @@ export class ChannelManager implements IChannelManager {
             this._logger
         );
         this._contentResolver = new ContentResolver(this._library, this._logger);
+        this._saveQueue = new ChannelPersistenceSaveQueue({
+            runSave: (): void => this._performSaveSync(),
+            createDisposedError,
+            emitPersistenceWarning: (payload): void => this._emitter.emit('persistenceWarning', payload),
+            logger: this._logger,
+        });
+        this._importNormalizer = new ChannelImportNormalizer();
 
         this._state = {
             channels: new Map(),
@@ -348,9 +321,9 @@ export class ChannelManager implements IChannelManager {
         }
         this.cancelPendingRetries();
         try {
-            this._flushPendingSaveNow();
+            this._saveQueue.flush();
         } catch (error) {
-            this._reportPersistenceFailure(
+            this._saveQueue.reportFailure(
                 'ChannelManager.setStorageKeys failed while flushing pending saves',
                 error
             );
@@ -448,9 +421,9 @@ export class ChannelManager implements IChannelManager {
                 currentChannelId: nextCurrentChannelId,
                 savedAt: Date.now(),
             });
-            this._onPersistenceSuccess();
+            this._saveQueue.markSuccess();
         } catch (error) {
-            this._reportPersistenceFailure(
+            this._saveQueue.reportFailure(
                 'ChannelManager.replaceAllChannels failed to persist channels',
                 error
             );
@@ -479,7 +452,7 @@ export class ChannelManager implements IChannelManager {
                 }
             } catch (e) {
                 this._logger.warn('Failed to persist current channel', summarizeErrorForLog(e));
-                this._emitPersistenceWarning(e);
+                this._saveQueue.emitWarning(e);
             }
         }
     }
@@ -842,7 +815,7 @@ export class ChannelManager implements IChannelManager {
             this._onPersistenceSuccess();
         } catch (e) {
             this._logger.warn('Failed to persist current channel', summarizeErrorForLog(e));
-            this._emitPersistenceWarning(e);
+            this._saveQueue.emitWarning(e);
         }
 
         const index = this._state.channelOrder.indexOf(channelId);
@@ -908,28 +881,15 @@ export class ChannelManager implements IChannelManager {
             errors: [],
         };
 
-        let parsed: unknown;
-        try {
-            parsed = JSON.parse(data);
-        } catch {
-            result.errors.push(CHANNEL_ERROR_MESSAGES.INVALID_IMPORT_DATA);
+        const normalized = this._importNormalizer.normalizePayload(data);
+        if (!normalized.ok) {
+            result.errors.push(normalized.error);
             return result;
         }
+        result.skippedCount += normalized.skippedCount;
 
-        if (!Array.isArray(parsed)) {
-            result.errors.push(CHANNEL_ERROR_MESSAGES.INVALID_IMPORT_DATA);
-            return result;
-        }
-
-        for (const item of parsed) {
-            if (!this._isValidChannelImport(item)) {
-                result.skippedCount++;
-                continue;
-            }
-
+        for (const channelData of normalized.channels) {
             try {
-                const channelData = this._buildImportedChannelCreateInput(item);
-
                 if (
                     typeof channelData.number === 'number' &&
                     this._isChannelNumberInUse(channelData.number)
@@ -941,7 +901,7 @@ export class ChannelManager implements IChannelManager {
                 result.importedCount++;
             } catch (e) {
                 result.skippedCount++;
-                result.errors.push(`Failed to import channel: ${formatImportErrorMessage(e)}`);
+                result.errors.push(`Failed to import channel: ${this._importNormalizer.formatErrorMessage(e)}`);
             }
         }
 
@@ -955,7 +915,7 @@ export class ChannelManager implements IChannelManager {
      */
     flushSaves(): Promise<void> {
         try {
-            this._flushPendingSaveNow();
+            this._saveQueue.flush();
             return Promise.resolve();
         } catch (error) {
             return Promise.reject(error);
@@ -964,15 +924,7 @@ export class ChannelManager implements IChannelManager {
 
     dispose(): void {
         this.cancelPendingRetries();
-        if (this._saveTimer) {
-            clearTimeout(this._saveTimer);
-            this._saveTimer = null;
-        }
-        // Teardown is expected; do not treat cancellation as a persistence failure.
-        // Rejecting the pending save also clears internal promise state + queued catch tracking.
-        const disposedError = createDisposedError();
-        this._markPersistenceFailureReported(disposedError);
-        this._rejectPendingSave(disposedError);
+        this._saveQueue.dispose();
         this._contentResolver.clearCaches();
         this._emitter.removeAllListeners();
     }
@@ -981,192 +933,15 @@ export class ChannelManager implements IChannelManager {
      * Queues a debounced persistence write through the channel repository/store boundary.
      */
     saveChannels(): Promise<void> {
-        const pendingSave = this._ensurePendingSavePromise();
-        if (this._saveTimer) {
-            clearTimeout(this._saveTimer);
-        }
-
-        // Debounce by 500ms to batch all closely related saves
-        this._saveTimer = setTimeout(() => {
-            this._saveTimer = null;
-            try {
-                this._runPendingSaveNow();
-            } catch {
-                // Errors are propagated to pending promise and handled by callers.
-            }
-        }, TIMING_CONFIG.SAVE_DEBOUNCE_MS);
-
-        return pendingSave;
-    }
-
-    private _ensurePendingSavePromise(): Promise<void> {
-        if (this._pendingSavePromise) {
-            return this._pendingSavePromise;
-        }
-        this._pendingSavePromise = new Promise((resolve, reject) => {
-            this._pendingSaveResolve = resolve;
-            this._pendingSaveReject = reject;
-        });
-        return this._pendingSavePromise;
-    }
-
-    private _clearPendingSavePromise(): void {
-        this._pendingSavePromise = null;
-        this._pendingSaveResolve = null;
-        this._pendingSaveReject = null;
-        this._queuedSaveCatchPromise = null;
-    }
-
-    private _resolvePendingSave(): void {
-        const resolve = this._pendingSaveResolve;
-        this._clearPendingSavePromise();
-        if (resolve) {
-            resolve();
-        }
-    }
-
-    private _rejectPendingSave(error: unknown): void {
-        const reject = this._pendingSaveReject;
-        this._clearPendingSavePromise();
-        if (reject) {
-            reject(error);
-        }
-    }
-
-    private _runPendingSaveNow(): void {
-        try {
-            this._performSaveSync();
-            this._onPersistenceSuccess();
-            this._resolvePendingSave();
-        } catch (error) {
-            this._rejectPendingSave(error);
-            throw error;
-        }
-    }
-
-    private _flushPendingSaveNow(): void {
-        if (!this._saveTimer) {
-            return;
-        }
-
-        clearTimeout(this._saveTimer);
-        this._saveTimer = null;
-        this._runPendingSaveNow();
+        return this._saveQueue.save();
     }
 
     private _queueSave(): void {
-        const pendingSave = this.saveChannels();
-        if (this._queuedSaveCatchPromise === pendingSave) {
-            return;
-        }
-        this._queuedSaveCatchPromise = pendingSave;
-        void pendingSave.catch((error) => {
-            if (this._wasPersistenceFailureReported(error)) {
-                return;
-            }
-            this._markPersistenceFailureReported(error);
-
-            const didEmitWarning = this._emitPersistenceWarning(error);
-            const isQuotaError =
-                (error instanceof ChannelError && error.code === AppErrorCode.STORAGE_QUOTA_EXCEEDED) ||
-                this._isQuotaExceeded(error);
-            const summary = summarizeErrorForLog(error);
-
-            if (isQuotaError) {
-                // Quota errors are expected and user-facing; keep logs quiet and throttled.
-                if (didEmitWarning) {
-                    this._logger.warn('Debounced save failed (quota)', summary);
-                }
-                return;
-            }
-
-            // Unexpected failures should remain error-level, but avoid spamming logs on rapid repeats.
-            if (didEmitWarning) {
-                this._logger.error('Debounced save failed', summary);
-            }
-        });
-    }
-
-    private _shouldEmitPersistenceWarning(isQuotaError: boolean): boolean {
-        const now = Date.now();
-        if (now < this._nextPersistenceWarningAt) {
-            return false;
-        }
-        const backoff = isQuotaError
-            ? this._persistenceWarningBackoffMs
-            : TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
-        this._nextPersistenceWarningAt = now + backoff;
-        if (isQuotaError) {
-            this._persistenceWarningBackoffMs = Math.min(
-                this._persistenceWarningBackoffMs * 2,
-                TIMING_CONFIG.PERSISTENCE_WARNING_MAX_BACKOFF_MS
-            );
-        } else {
-            // Non-quota warnings are a different failure class than quota exhaustion.
-            // Reset any quota-driven exponential backoff to the baseline so we don't suppress
-            // future warnings due to stale quota backoff state (mirrors _onPersistenceSuccess()).
-            this._persistenceWarningBackoffMs = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
-        }
-        return true;
-    }
-
-    private _emitPersistenceWarning(error: unknown): boolean {
-        const isQuotaError =
-            (error instanceof ChannelError && error.code === AppErrorCode.STORAGE_QUOTA_EXCEEDED) ||
-            this._isQuotaExceeded(error);
-        if (!this._shouldEmitPersistenceWarning(isQuotaError)) {
-            return false;
-        }
-        const code = isQuotaError
-            ? AppErrorCode.STORAGE_QUOTA_EXCEEDED
-            : (getErrorCode(error) ?? AppErrorCode.UNKNOWN);
-        this._emitter.emit('persistenceWarning', {
-            message: isQuotaError
-                ? STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED
-                : 'Failed to persist channels; some changes may not be saved',
-            code,
-            isQuotaError,
-            timestamp: Date.now(),
-        });
-        return true;
-    }
-
-    private _reportPersistenceFailure(message: string, error: unknown): void {
-        this._markPersistenceFailureReported(error);
-
-        const didEmitWarning = this._emitPersistenceWarning(error);
-        const isQuotaError =
-            (error instanceof ChannelError && error.code === AppErrorCode.STORAGE_QUOTA_EXCEEDED) ||
-            this._isQuotaExceeded(error);
-        const summary = summarizeErrorForLog(error);
-
-        if (isQuotaError) {
-            // Quota errors are common on TVs; avoid log spam by tying logs to the same backoff as the warning.
-            if (didEmitWarning) {
-                this._logger.warn(message, summary);
-            }
-            return;
-        }
-
-        this._logger.error(message, summary);
+        this._saveQueue.queue();
     }
 
     private _onPersistenceSuccess(): void {
-        this._nextPersistenceWarningAt = 0;
-        this._persistenceWarningBackoffMs = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
-    }
-
-    private _markPersistenceFailureReported(error: unknown): void {
-        if (error && (typeof error === 'object' || typeof error === 'function')) {
-            this._reportedPersistenceFailures.add(error as object);
-        }
-    }
-
-    private _wasPersistenceFailureReported(error: unknown): boolean {
-        if (!error || (typeof error !== 'object' && typeof error !== 'function')) {
-            return false;
-        }
-        return this._reportedPersistenceFailures.has(error as object);
+        this._saveQueue.markSuccess();
     }
 
     private _performSaveSync(): void {
@@ -1573,124 +1348,6 @@ export class ChannelManager implements IChannelManager {
 
         // Fallback (should never reach due to MAX_CHANNELS check)
         return this._state.channels.size + 1;
-    }
-
-    private _isQuotaExceeded(error: unknown): boolean {
-        return (
-            typeof DOMException !== 'undefined' &&
-            error instanceof DOMException &&
-            (error.code === 22 ||
-                error.code === 1014 ||
-                error.name === 'QuotaExceededError' ||
-                error.name === 'NS_ERROR_DOM_QUOTA_REACHED')
-        );
-    }
-
-    private _isValidChannelImport(item: unknown): boolean {
-        if (!item || typeof item !== 'object') {
-            return false;
-        }
-
-        const obj = item as Record<string, unknown>;
-
-        return isValidContentSource(obj['contentSource']);
-    }
-
-    private _buildImportedChannelCreateInput(item: unknown): ChannelCreateInput {
-        const record = item as Record<string, unknown>;
-        const contentSource = record['contentSource'];
-        if (!isValidContentSource(contentSource)) {
-            throw createInvalidImportDataError();
-        }
-
-        const channel: ChannelCreateInput = {
-            contentSource,
-        };
-
-        if (
-            typeof record['number'] === 'number' &&
-            Number.isInteger(record['number'])
-        ) {
-            channel.number = record['number'];
-        }
-        if (typeof record['name'] === 'string') {
-            channel.name = record['name'];
-        }
-        if (typeof record['description'] === 'string') {
-            channel.description = record['description'];
-        }
-        if (typeof record['isAutoGenerated'] === 'boolean') {
-            channel.isAutoGenerated = record['isAutoGenerated'];
-        }
-        if (typeof record['icon'] === 'string') {
-            channel.icon = record['icon'];
-        }
-        if (typeof record['color'] === 'string') {
-            channel.color = record['color'];
-        }
-        if (isValidBuildStrategy(record['buildStrategy'])) {
-            channel.buildStrategy = record['buildStrategy'];
-        }
-        if (typeof record['sourceLibraryId'] === 'string') {
-            channel.sourceLibraryId = record['sourceLibraryId'];
-        }
-        if (typeof record['sourceLibraryName'] === 'string') {
-            channel.sourceLibraryName = record['sourceLibraryName'];
-        }
-        if (typeof record['lineupReplicaIndex'] === 'number' && Number.isFinite(record['lineupReplicaIndex'])) {
-            channel.lineupReplicaIndex = record['lineupReplicaIndex'];
-        }
-        if (typeof record['isPlaybackModeVariant'] === 'boolean') {
-            channel.isPlaybackModeVariant = record['isPlaybackModeVariant'];
-        }
-        const playbackMode = isValidPlaybackMode(record['playbackMode'])
-            ? record['playbackMode']
-            : undefined;
-        if (playbackMode !== undefined) {
-            channel.playbackMode = playbackMode;
-        }
-        if (typeof record['shuffleSeed'] === 'number' && Number.isFinite(record['shuffleSeed'])) {
-            channel.shuffleSeed = record['shuffleSeed'];
-        }
-        if (
-            playbackMode === 'block'
-            && typeof record['blockSize'] === 'number'
-            && Number.isFinite(record['blockSize'])
-        ) {
-            channel.blockSize = record['blockSize'];
-        }
-        if (typeof record['phaseSeed'] === 'number' && Number.isFinite(record['phaseSeed'])) {
-            channel.phaseSeed = record['phaseSeed'];
-        }
-        if (typeof record['startTimeAnchor'] === 'number' && Number.isFinite(record['startTimeAnchor'])) {
-            channel.startTimeAnchor = record['startTimeAnchor'];
-        }
-        if (isValidContentFilterArray(record['contentFilters'])) {
-            channel.contentFilters = record['contentFilters'];
-        }
-        if (isValidSortOrder(record['sortOrder'])) {
-            channel.sortOrder = record['sortOrder'];
-        }
-        if (typeof record['skipIntros'] === 'boolean') {
-            channel.skipIntros = record['skipIntros'];
-        }
-        if (typeof record['skipCredits'] === 'boolean') {
-            channel.skipCredits = record['skipCredits'];
-        }
-        if (
-            typeof record['maxEpisodeRunTimeMs'] === 'number'
-            && Number.isFinite(record['maxEpisodeRunTimeMs'])
-        ) {
-            channel.maxEpisodeRunTimeMs = record['maxEpisodeRunTimeMs'];
-        }
-        if (
-            typeof record['minEpisodeRunTimeMs'] === 'number'
-            && Number.isFinite(record['minEpisodeRunTimeMs'])
-        ) {
-            channel.minEpisodeRunTimeMs = record['minEpisodeRunTimeMs'];
-        }
-
-        return channel;
     }
 
     /**
