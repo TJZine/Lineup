@@ -228,10 +228,12 @@ export class ChannelSetupFacetSnapshotLoadSession {
                 deferEmptyTagDirectoryFailure: (family, label, libraryTitle, type): void =>
                     this._deferEmptyTagDirectoryFailure(family, label, libraryTitle, type),
             },
-            buildRequiredTagDirectoryFailure: (label, libraryTitle, type, reason, error): ChannelSetupFacetSnapshot =>
-                this._buildRequiredTagDirectoryFailure(label, libraryTitle, type, reason, error),
-            buildRequiredTagCountRecoveryFailure: (label, libraryTitle, type, error): ChannelSetupFacetSnapshot =>
-                this._buildRequiredTagCountRecoveryFailure(label, libraryTitle, type, error),
+            failures: {
+                buildRequiredTagDirectoryFailure: (label, libraryTitle, type, reason, error): ChannelSetupFacetSnapshot =>
+                    this._buildRequiredTagDirectoryFailure(label, libraryTitle, type, reason, error),
+                buildRequiredTagCountRecoveryFailure: (label, libraryTitle, type, error): ChannelSetupFacetSnapshot =>
+                    this._buildRequiredTagCountRecoveryFailure(label, libraryTitle, type, error),
+            },
         }).loadLibraryFacets(library, libIndex);
         this._firstFailure = this._firstFailure ?? failure;
         return failure;
