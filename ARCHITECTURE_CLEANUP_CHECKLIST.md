@@ -772,9 +772,9 @@ changes them:
   DCR-7 is the next unchecked DCR package only when the maintainer starts the
   next cleanup loop.
 
-### [ ] `DCR-7` Channel Setup Facet Loader/Executor Confidence And Abstraction
+### [x] `DCR-7` Channel Setup Facet Loader/Executor Confidence And Abstraction
 
-- Status: not started
+- Status: completed
 - Dimensions/rubric tags: test health, duplication, abstraction fitness,
   contract coherence, logic clarity, file health
 - Scope owner: core channel setup planning owner
@@ -816,7 +816,7 @@ changes them:
 - Verification routing: targeted channel setup planning/facet tests, source
   audit for duplicated fixtures and executor option consumers, then
   `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: completed.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -828,12 +828,33 @@ changes them:
 - Stop/replan triggers: cache semantics conflict with DCR-2 failure semantics;
   tests reveal production behavior bug outside planning owner; port narrowing
   requires Plex library contract changes.
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start with DCR-7 plan that consolidates fixture ownership before
-  adding substantial new test cases.
+- Plan:
+  [`docs/archive/plans/2026-04-29-dcr-7-channel-setup-facet-loader-executor.md`](./docs/archive/plans/2026-04-29-dcr-7-channel-setup-facet-loader-executor.md)
+- Last touched: 2026-04-30, implementation commits `0139258e`,
+  `df37bc3b`, `cb0f0691`, and `a267d680`
+- Verification: plan review approved with no material findings. `DCR-7-S1`
+  implementation review approved the facet-planning test helper consolidation
+  with no material findings, and the targeted loader/session/planning service
+  tests passed. `DCR-7-S2` implementation review found two missing direct
+  loader-contract assertions for stale invalidated progress and attached source
+  cancellation with multiple waiters; commit `cb0f0691` fixed both, the
+  same-reviewer closure check approved the fix, and a fresh final
+  implementation review approved the loader cache/progress/concurrency
+  contract tests. `DCR-7-S3` implementation review approved the executor
+  options narrowing with no material findings. Targeted S3 session/planning
+  service tests passed and `npm run typecheck` passed.
+- Follow-ups: none. Fixture duplication was reduced into the focused
+  `ChannelSetupFacetPlanningTestHelpers` test helper; the loader cache,
+  invalidation, cacheability, progress replay, concurrent waiter, waiter
+  abort/detach, and in-flight failure/cancellation contract is covered by
+  direct loader tests; and the executor options port now groups native failure
+  builders under an explicit `failures` option while keeping control/state
+  callbacks visible and typed.
+- Handoff: `DCR-7` is complete. Do not reopen Channel Setup facet
+  loader/executor cleanup unless source proof shows the helper has become a
+  broad test dumping ground, DCR-7-D1 loader contract coverage has regressed,
+  DCR-2 facet failure semantics changed, or executor option ownership again
+  hides required state/control callbacks.
 
 ### [ ] `DCR-8` Plex Stream Resolver Ownership Cleanup
 
