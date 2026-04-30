@@ -435,7 +435,7 @@ describe('createOrchestratorCoordinators', () => {
         draft.modules.plexLibrary = null;
 
         expect(() => createOrchestratorCoordinatorAssemblyInput(draft)).toThrow(
-            'Orchestrator coordinator initialization requires module instances'
+            'Orchestrator coordinator initialization requires module instances: modules.plexLibrary'
         );
         expect(buildEpgCoordinator).not.toHaveBeenCalled();
     });
@@ -445,7 +445,7 @@ describe('createOrchestratorCoordinators', () => {
         draft.overlays.nowPlayingInfo = null;
 
         expect(() => createOrchestratorCoordinatorAssemblyInput(draft)).toThrow(
-            'Orchestrator coordinator initialization requires module instances'
+            'Orchestrator coordinator initialization requires module instances: overlays.nowPlayingInfo'
         );
         expect(buildEpgCoordinator).not.toHaveBeenCalled();
     });
@@ -455,7 +455,7 @@ describe('createOrchestratorCoordinators', () => {
         draft.requiredSurfaces.channelBadgeOverlay = null;
 
         expect(() => createOrchestratorCoordinatorAssemblyInput(draft)).toThrow(
-            'Orchestrator coordinator initialization requires module instances'
+            'Orchestrator coordinator initialization requires module instances: requiredSurfaces.channelBadgeOverlay'
         );
         expect(buildEpgCoordinator).not.toHaveBeenCalled();
     });

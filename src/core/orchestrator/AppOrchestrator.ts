@@ -882,18 +882,20 @@ export class AppOrchestrator {
             teardown.run('playbackOptionsModal.destroy', () => this._playbackOptionsModal?.destroy());
             this._playbackOptionsModal = null;
         }
-        if (this._exitConfirmModal) {
-            if (this._navigation?.isModalOpen(EXIT_CONFIRM_MODAL_ID)) {
-                teardown.run('navigation.closeModal(exit-confirm)', () =>
-                    this._navigation?.closeModal(EXIT_CONFIRM_MODAL_ID)
-                );
-            }
+        if (this._exitConfirmModal && this._navigation?.isModalOpen(EXIT_CONFIRM_MODAL_ID)) {
+            teardown.run('navigation.closeModal(exit-confirm)', () =>
+                this._navigation?.closeModal(EXIT_CONFIRM_MODAL_ID)
+            );
+        }
+        if (this._exitConfirmCoordinator) {
             teardown.run('exitConfirmCoordinator.handleModalClose', () =>
                 this._exitConfirmCoordinator?.handleModalClose(EXIT_CONFIRM_MODAL_ID)
             );
+            this._exitConfirmCoordinator = null;
+        }
+        if (this._exitConfirmModal) {
             teardown.run('exitConfirmModal.destroy', () => this._exitConfirmModal?.destroy());
             this._exitConfirmModal = null;
-            this._exitConfirmCoordinator = null;
         }
         if (this._videoPlayer) {
             teardown.run('videoPlayer.destroy', () => this._videoPlayer?.destroy());

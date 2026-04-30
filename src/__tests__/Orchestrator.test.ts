@@ -27,6 +27,7 @@ import type { StreamDecision } from '../modules/plex/stream';
 import { AudioSettingsStore } from '../modules/settings/AudioSettingsStore';
 import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
 import { PlaybackRecoveryManager } from '../modules/player/PlaybackRecoveryManager';
+import { EXIT_CONFIRM_MODAL_ID } from '../modules/ui/exit-confirm';
 import * as orchestratorCoordinatorAssembly from '../core/orchestrator/OrchestratorCoordinatorAssembly';
 import { OverlayRuntimePolicyController } from '../core/orchestrator/OverlayRuntimePolicyController';
 import * as recoverableRuntimeReporterModule from '../core/orchestrator/OrchestratorRecoverableRuntimeReporter';
@@ -3280,6 +3281,17 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 program: null,
                 stream: null,
             });
+        });
+
+        it('clears the exit-confirm coordinator even when the modal reference is already gone', async () => {
+            const handleModalClose = jest.fn();
+            Reflect.set(orchestrator as object, '_exitConfirmModal', null);
+            Reflect.set(orchestrator as object, '_exitConfirmCoordinator', { handleModalClose });
+
+            await orchestrator.shutdown();
+
+            expect(handleModalClose).toHaveBeenCalledWith(EXIT_CONFIRM_MODAL_ID);
+            expect(Reflect.get(orchestrator as object, '_exitConfirmCoordinator')).toBeNull();
         });
 
         it('continues teardown and logs aggregated warnings when shutdown steps fail', async () => {

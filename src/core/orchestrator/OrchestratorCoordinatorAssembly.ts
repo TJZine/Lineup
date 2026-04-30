@@ -41,9 +41,9 @@ export type {
 
 const COORDINATOR_PRECONDITION_ERROR = 'Orchestrator coordinator initialization requires module instances';
 
-function requireCoordinatorDependency<T>(dependency: T | null): T {
+function requireCoordinatorDependency<T>(dependencyName: string, dependency: T | null): T {
     if (!dependency) {
-        throw new Error(COORDINATOR_PRECONDITION_ERROR);
+        throw new Error(`${COORDINATOR_PRECONDITION_ERROR}: ${dependencyName}`);
     }
 
     return dependency;
@@ -53,31 +53,40 @@ export function createOrchestratorCoordinatorAssemblyInput(
     draft: OrchestratorCoordinatorAssemblyInputDraft
 ): OrchestratorCoordinatorAssemblyInput {
     const { requiredSurfaces, ...assemblyDraft } = draft;
-    requireCoordinatorDependency(requiredSurfaces.channelBadgeOverlay);
+    requireCoordinatorDependency('requiredSurfaces.channelBadgeOverlay', requiredSurfaces.channelBadgeOverlay);
 
     return {
         ...assemblyDraft,
         modules: {
-            navigation: requireCoordinatorDependency(draft.modules.navigation),
-            plexAuth: requireCoordinatorDependency(draft.modules.plexAuth),
-            plexDiscovery: requireCoordinatorDependency(draft.modules.plexDiscovery),
-            plexLibrary: requireCoordinatorDependency(draft.modules.plexLibrary),
-            plexStreamResolver: requireCoordinatorDependency(draft.modules.plexStreamResolver),
-            channelManager: requireCoordinatorDependency(draft.modules.channelManager),
-            scheduler: requireCoordinatorDependency(draft.modules.scheduler),
-            videoPlayer: requireCoordinatorDependency(draft.modules.videoPlayer),
-            lifecycle: requireCoordinatorDependency(draft.modules.lifecycle),
-            epg: requireCoordinatorDependency(draft.modules.epg),
+            navigation: requireCoordinatorDependency('modules.navigation', draft.modules.navigation),
+            plexAuth: requireCoordinatorDependency('modules.plexAuth', draft.modules.plexAuth),
+            plexDiscovery: requireCoordinatorDependency('modules.plexDiscovery', draft.modules.plexDiscovery),
+            plexLibrary: requireCoordinatorDependency('modules.plexLibrary', draft.modules.plexLibrary),
+            plexStreamResolver: requireCoordinatorDependency('modules.plexStreamResolver', draft.modules.plexStreamResolver),
+            channelManager: requireCoordinatorDependency('modules.channelManager', draft.modules.channelManager),
+            scheduler: requireCoordinatorDependency('modules.scheduler', draft.modules.scheduler),
+            videoPlayer: requireCoordinatorDependency('modules.videoPlayer', draft.modules.videoPlayer),
+            lifecycle: requireCoordinatorDependency('modules.lifecycle', draft.modules.lifecycle),
+            epg: requireCoordinatorDependency('modules.epg', draft.modules.epg),
         },
         overlays: {
-            nowPlayingInfo: requireCoordinatorDependency(draft.overlays.nowPlayingInfo),
-            playerOsd: requireCoordinatorDependency(draft.overlays.playerOsd),
-            channelNumberOverlay: requireCoordinatorDependency(draft.overlays.channelNumberOverlay),
-            miniGuide: requireCoordinatorDependency(draft.overlays.miniGuide),
-            channelTransitionOverlay: requireCoordinatorDependency(draft.overlays.channelTransitionOverlay),
-            playbackOptionsModal: requireCoordinatorDependency(draft.overlays.playbackOptionsModal),
-            exitConfirmModal: requireCoordinatorDependency(draft.overlays.exitConfirmModal),
-            sleepTimer: requireCoordinatorDependency(draft.overlays.sleepTimer),
+            nowPlayingInfo: requireCoordinatorDependency('overlays.nowPlayingInfo', draft.overlays.nowPlayingInfo),
+            playerOsd: requireCoordinatorDependency('overlays.playerOsd', draft.overlays.playerOsd),
+            channelNumberOverlay: requireCoordinatorDependency(
+                'overlays.channelNumberOverlay',
+                draft.overlays.channelNumberOverlay
+            ),
+            miniGuide: requireCoordinatorDependency('overlays.miniGuide', draft.overlays.miniGuide),
+            channelTransitionOverlay: requireCoordinatorDependency(
+                'overlays.channelTransitionOverlay',
+                draft.overlays.channelTransitionOverlay
+            ),
+            playbackOptionsModal: requireCoordinatorDependency(
+                'overlays.playbackOptionsModal',
+                draft.overlays.playbackOptionsModal
+            ),
+            exitConfirmModal: requireCoordinatorDependency('overlays.exitConfirmModal', draft.overlays.exitConfirmModal),
+            sleepTimer: requireCoordinatorDependency('overlays.sleepTimer', draft.overlays.sleepTimer),
         },
     };
 }
