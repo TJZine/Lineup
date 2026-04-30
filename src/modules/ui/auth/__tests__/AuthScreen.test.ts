@@ -262,6 +262,45 @@ describe('AuthScreen', () => {
         expect(ports.pollForPin).not.toHaveBeenCalled();
     });
 
+    it('retry after a polling failure cancels the old PIN and starts polling the new PIN', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const ports = createPorts({
+            requestAuthPin: jest.fn()
+                .mockResolvedValueOnce({
+                    id: 11,
+                    code: 'FAIL',
+                    expiresAt: new Date(Date.now() + 60_000),
+                    authToken: null,
+                    clientIdentifier: 'client-id',
+                })
+                .mockResolvedValueOnce({
+                    id: 12,
+                    code: 'NEXT',
+                    expiresAt: new Date(Date.now() + 60_000),
+                    authToken: null,
+                    clientIdentifier: 'client-id',
+                }),
+            pollForPin: jest.fn()
+                .mockRejectedValueOnce(new Error('poll failed'))
+                .mockImplementation(() => new Promise(() => undefined)),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+
+        click(container, '#btn-auth-retry');
+        await flushPromises();
+
+        expect(ports.cancelPin).toHaveBeenCalledWith(11);
+        expect(ports.pollForPin).toHaveBeenNthCalledWith(1, 11, { signal: expect.any(AbortSignal) });
+        expect(ports.pollForPin).toHaveBeenNthCalledWith(2, 12, { signal: expect.any(AbortSignal) });
+    });
+
     it('unregisters retry focusable and moves focus when retry disappears', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);

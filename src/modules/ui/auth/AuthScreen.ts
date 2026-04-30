@@ -173,7 +173,6 @@ export class AuthScreen {
 
     private async _handleRequestPin(): Promise<void> {
         this._requestToken += 1;
-        const requestToken = this._requestToken;
         this._clearError();
         this._setButtons({ request: false, cancel: true, retry: false });
         this._setStatus('Requesting PIN…', '', { tone: 'loading' });
@@ -197,6 +196,7 @@ export class AuthScreen {
         this._activePinId = null;
         this._activeCode = null;
         this._expiresAt = null;
+        const requestToken = this._requestToken;
 
         try {
             const pin = await this._ports.requestAuthPin();
