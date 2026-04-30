@@ -263,6 +263,7 @@ export class AppOrchestrator {
     private readonly _selectedServerPersistenceAdapter: SelectedServerPersistenceAdapter;
     private readonly _schedulePolicy = new OrchestratorSchedulePolicy();
     private readonly _reportedModuleStatusCloneFallbackContexts = new WeakSet<object>();
+    private _shutdownStarted = false;
 
     private _throwModuleInitPreconditionError(
         message: string,
@@ -273,6 +274,23 @@ export class AppOrchestrator {
             recoverable: true,
             context,
         } satisfies Pick<AppError, 'code' | 'recoverable' | 'context'>);
+    }
+
+    private _throwShutdownPreconditionError(method: string): never {
+        throw Object.assign(new Error('AppOrchestrator cannot be used after shutdown; create a new instance.'), {
+            code: AppErrorCode.MODULE_INIT_FAILED,
+            recoverable: false,
+            context: {
+                method,
+                lifecycle: 'shutdown',
+            },
+        } satisfies Pick<AppError, 'code' | 'recoverable' | 'context'>);
+    }
+
+    private _assertNotShutdown(method: string): void {
+        if (this._shutdownStarted) {
+            this._throwShutdownPreconditionError(method);
+        }
     }
 
     private _warnRecoverableRuntimeIssue(
@@ -401,6 +419,7 @@ export class AppOrchestrator {
      * @param config - Configuration for all modules
      */
     async initialize(config: OrchestratorConfig): Promise<void> {
+        this._assertNotShutdown('initialize');
         const orchestratorConfig = this._prepareConfig(config);
         this._config = orchestratorConfig;
 
@@ -763,6 +782,7 @@ export class AppOrchestrator {
      * Follows the named startup sequence order per spec.
      */
     async start(): Promise<void> {
+        this._assertNotShutdown('start');
         if (!this._initCoordinator) {
             this._throwModuleInitPreconditionError('Orchestrator must be initialized before starting', {
                 method: 'start',
@@ -780,12 +800,17 @@ export class AppOrchestrator {
      * Internal state is not fully reset because instance reuse is unsupported.
      */
     async shutdown(): Promise<void> {
+        if (this._shutdownStarted) {
+            return;
+        }
+        this._shutdownStarted = true;
         const teardown = new OrchestratorShutdownTeardown();
 
-        if (this._initCoordinator) {
-            this._initCoordinator.clearAuthResume();
-            this._initCoordinator.clearServerResume();
-            this._initCoordinator.clearProfileResume();
+        const initCoordinator = this._initCoordinator;
+        if (initCoordinator) {
+            teardown.run('initCoordinator.clearAuthResume', () => initCoordinator.clearAuthResume());
+            teardown.run('initCoordinator.clearServerResume', () => initCoordinator.clearServerResume());
+            teardown.run('initCoordinator.clearProfileResume', () => initCoordinator.clearProfileResume());
         }
 
         if (this._scheduleDayRolloverController) {
@@ -1010,6 +1035,7 @@ export class AppOrchestrator {
     }
 
     async setSubtitleTrack(trackId: string | null): Promise<void> {
+        this._assertNotShutdown('setSubtitleTrack');
         if (!this._videoPlayer) return;
         const setTrackResult = await captureRecoverableRuntimeResultAsync(
             async () => this._videoPlayer?.setSubtitleTrack(trackId)
@@ -1031,6 +1057,7 @@ export class AppOrchestrator {
      * Subscribe to navigation screen change events.
      */
     onScreenChange(handler: (from: string, to: string) => void): IDisposable {
+        this._assertNotShutdown('onScreenChange');
         if (!this._navigation) {
             return { dispose: (): void => undefined };
         }
@@ -1051,6 +1078,7 @@ export class AppOrchestrator {
      * Request a Plex PIN for authentication.
      */
     async requestAuthPin(): Promise<PlexPinRequest> {
+        this._assertNotShutdown('requestAuthPin');
         if (!this._plexAuth) {
             this._throwModuleInitPreconditionError('PlexAuth not initialized', {
                 method: 'requestAuthPin',
@@ -1064,6 +1092,7 @@ export class AppOrchestrator {
      * Poll for PIN claim status.
      */
     async pollForPin(pinId: number): Promise<PlexPinRequest> {
+        this._assertNotShutdown('pollForPin');
         if (!this._plexAuth) {
             this._throwModuleInitPreconditionError('PlexAuth not initialized', {
                 method: 'pollForPin',
@@ -1077,6 +1106,7 @@ export class AppOrchestrator {
      * Cancel an active PIN request.
      */
     async cancelPin(pinId: number): Promise<void> {
+        this._assertNotShutdown('cancelPin');
         if (!this._plexAuth) {
             this._throwModuleInitPreconditionError('PlexAuth not initialized', {
                 method: 'cancelPin',
@@ -1087,6 +1117,7 @@ export class AppOrchestrator {
     }
 
     async getHomeUsers(): Promise<PlexHomeUser[]> {
+        this._assertNotShutdown('getHomeUsers');
         if (!this._plexAuth) {
             this._throwModuleInitPreconditionError('PlexAuth not initialized', {
                 method: 'getHomeUsers',
@@ -1109,6 +1140,7 @@ export class AppOrchestrator {
     }
 
     async switchHomeUser(userId: string, pin?: string): Promise<void> {
+        this._assertNotShutdown('switchHomeUser');
         if (!this._plexAuth || !this._plexDiscovery) {
             const missingDependency = !this._plexAuth ? 'PlexAuth' : 'PlexServerDiscovery';
             this._throwModuleInitPreconditionError(`${missingDependency} not initialized`, {
@@ -1134,6 +1166,7 @@ export class AppOrchestrator {
     }
 
     async useMainAccountProfile(): Promise<void> {
+        this._assertNotShutdown('useMainAccountProfile');
         if (!this._plexAuth || !this._plexDiscovery) {
             const missingDependency = !this._plexAuth ? 'PlexAuth' : 'PlexServerDiscovery';
             this._throwModuleInitPreconditionError(`${missingDependency} not initialized`, {
@@ -1159,6 +1192,7 @@ export class AppOrchestrator {
     }
 
     async signOutPlex(): Promise<void> {
+        this._assertNotShutdown('signOutPlex');
         if (!this._plexAuth) {
             this._throwModuleInitPreconditionError('PlexAuth not initialized', {
                 method: 'signOutPlex',
@@ -1178,6 +1212,7 @@ export class AppOrchestrator {
      * Discover Plex servers (optionally forcing refresh).
      */
     async discoverServers(forceRefresh: boolean = false): Promise<PlexServer[]> {
+        this._assertNotShutdown('discoverServers');
         if (!this._plexDiscovery) {
             this._throwModuleInitPreconditionError('PlexServerDiscovery not initialized', {
                 method: 'discoverServers',
@@ -1194,6 +1229,7 @@ export class AppOrchestrator {
      * Select a Plex server to connect to.
      */
     async selectServer(serverId: string): Promise<OrchestratorServerSelectionResult> {
+        this._assertNotShutdown('selectServer');
         if (!this._plexDiscovery) {
             this._throwModuleInitPreconditionError('PlexServerDiscovery not initialized', {
                 method: 'selectServer',
@@ -1207,6 +1243,7 @@ export class AppOrchestrator {
      * Clear saved server selection.
      */
     async clearSelectedServer(): Promise<void> {
+        this._assertNotShutdown('clearSelectedServer');
         if (!this._plexDiscovery) {
             this._throwModuleInitPreconditionError('PlexServerDiscovery not initialized', {
                 method: 'clearSelectedServer',
@@ -1227,6 +1264,7 @@ export class AppOrchestrator {
     }
 
     requestChannelSetupRerun(): void {
+        this._assertNotShutdown('requestChannelSetupRerun');
         this._requireChannelSetupCoordinator().requestChannelSetupRerun();
     }
 
@@ -1268,6 +1306,7 @@ export class AppOrchestrator {
             guideSelectionSnapshot?: import('../channel-tuning').GuideSelectionSnapshot;
         }
     ): Promise<void> {
+        this._assertNotShutdown('switchToChannel');
         if (!this._channelTuning) {
             this._logMissingChannelTuningDependencies('switchToChannel');
             return;
@@ -1281,6 +1320,7 @@ export class AppOrchestrator {
      * @param number - Channel number
      */
     async switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void> {
+        this._assertNotShutdown('switchToChannelByNumber');
         if (!this._channelTuning) {
             this._logMissingChannelTuningDependencies('switchToChannelByNumber');
             return;
@@ -1317,6 +1357,7 @@ export class AppOrchestrator {
      * Open the EPG overlay.
      */
     openEPG(): void {
+        this._assertNotShutdown('openEPG');
         this._epgCoordinator?.openEPG();
     }
 
@@ -1324,6 +1365,7 @@ export class AppOrchestrator {
      * Close the EPG overlay.
      */
     closeEPG(): void {
+        this._assertNotShutdown('closeEPG');
         this._epgCoordinator?.closeEPG();
     }
 
@@ -1331,6 +1373,7 @@ export class AppOrchestrator {
      * Open the server selection screen.
      */
     openServerSelect(options?: { allowAutoConnect?: boolean }): void {
+        this._assertNotShutdown('openServerSelect');
         if (!this._navigation) {
             return;
         }
@@ -1343,6 +1386,7 @@ export class AppOrchestrator {
      * Toggle the server selection screen.
      */
     toggleServerSelect(): void {
+        this._assertNotShutdown('toggleServerSelect');
         if (!this._navigation) {
             return;
         }
@@ -1362,10 +1406,12 @@ export class AppOrchestrator {
      * Toggle EPG visibility.
      */
     toggleEPG(): void {
+        this._assertNotShutdown('toggleEPG');
         this._epgCoordinator?.toggleEPG();
     }
 
     onGuideSettingChange(change: GuideSettingChange): void {
+        this._assertNotShutdown('onGuideSettingChange');
         this._epgCoordinator?.handleGuideSettingChange(change);
     }
 
@@ -1376,6 +1422,7 @@ export class AppOrchestrator {
      * @param context - Module or operation context
      */
     handleGlobalError(error: AppError, context: string): void {
+        this._assertNotShutdown('handleGlobalError');
         if (this._isHandlingGlobalError) {
             this._queueReentrantGlobalError(error, context);
             return;
@@ -1419,6 +1466,7 @@ export class AppOrchestrator {
         moduleId: string,
         handler: (error: AppError) => boolean
     ): void {
+        this._assertNotShutdown('registerErrorHandler');
         this._errorHandlers.set(moduleId, handler);
     }
 
@@ -1490,6 +1538,7 @@ export class AppOrchestrator {
         event: K,
         handler: (payload: LifecycleEventMap[K]) => void
     ): IDisposable {
+        this._assertNotShutdown('onLifecycleEvent');
         if (!this._lifecycle) {
             return { dispose: (): void => undefined };
         }

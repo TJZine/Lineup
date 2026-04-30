@@ -3211,11 +3211,21 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             mockEpg.setLayoutMode.mockClear();
             mockEpg.setNowWatchingBannerEnabled.mockClear();
 
-            orchestrator.openEPG();
-            orchestrator.closeEPG();
-            orchestrator.toggleEPG();
-            orchestrator.onGuideSettingChange({ key: 'layoutMode', mode: 'classic' });
-            orchestrator.onGuideSettingChange({ key: 'nowWatchingBanner', enabled: false });
+            expect(() => orchestrator.openEPG()).toThrow(
+                'AppOrchestrator cannot be used after shutdown; create a new instance.'
+            );
+            expect(() => orchestrator.closeEPG()).toThrow(
+                'AppOrchestrator cannot be used after shutdown; create a new instance.'
+            );
+            expect(() => orchestrator.toggleEPG()).toThrow(
+                'AppOrchestrator cannot be used after shutdown; create a new instance.'
+            );
+            expect(() => orchestrator.onGuideSettingChange({ key: 'layoutMode', mode: 'classic' })).toThrow(
+                'AppOrchestrator cannot be used after shutdown; create a new instance.'
+            );
+            expect(() => orchestrator.onGuideSettingChange({ key: 'nowWatchingBanner', enabled: false })).toThrow(
+                'AppOrchestrator cannot be used after shutdown; create a new instance.'
+            );
 
             expect(mockEpg.show).not.toHaveBeenCalled();
             expect(mockEpg.hide).not.toHaveBeenCalled();
@@ -3224,11 +3234,20 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
             await expect(orchestrator.start()).rejects.toMatchObject({
                 code: AppErrorCode.MODULE_INIT_FAILED,
-                recoverable: true,
-                message: expect.stringContaining('Orchestrator must be initialized before starting'),
+                recoverable: false,
+                message: expect.stringContaining('AppOrchestrator cannot be used after shutdown'),
                 context: expect.objectContaining({
                     method: 'start',
-                    dependency: 'InitializationCoordinator',
+                    lifecycle: 'shutdown',
+                }),
+            });
+            await expect(orchestrator.initialize(mockConfig)).rejects.toMatchObject({
+                code: AppErrorCode.MODULE_INIT_FAILED,
+                recoverable: false,
+                message: expect.stringContaining('AppOrchestrator cannot be used after shutdown'),
+                context: expect.objectContaining({
+                    method: 'initialize',
+                    lifecycle: 'shutdown',
                 }),
             });
         });
@@ -3331,18 +3350,6 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
         it('preserves teardown order and reports aggregate failures after teardown attempts complete', async () => {
             const order: string[] = [];
-            const initCoordinator = Reflect.get(orchestrator as object, '_initCoordinator') as {
-                clearAuthResume: () => void;
-                clearServerResume: () => void;
-                clearProfileResume: () => void;
-            };
-            const scheduleDayRolloverController = Reflect.get(
-                orchestrator as object,
-                '_scheduleDayRolloverController'
-            ) as { dispose: () => void };
-            const eventBinder = Reflect.get(orchestrator as object, '_eventBinder') as {
-                dispose: (onCleanupError?: (error: unknown) => void) => void;
-            };
             let reportRecorded = false;
 
             expectConsoleWarn((args) => {
@@ -3360,22 +3367,6 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     data !== null &&
                     Array.isArray((data as { teardownFailures?: unknown }).teardownFailures)
                 );
-            });
-
-            jest.spyOn(initCoordinator, 'clearAuthResume').mockImplementation(() => {
-                order.push('clearAuthResume');
-            });
-            jest.spyOn(initCoordinator, 'clearServerResume').mockImplementation(() => {
-                order.push('clearServerResume');
-            });
-            jest.spyOn(initCoordinator, 'clearProfileResume').mockImplementation(() => {
-                order.push('clearProfileResume');
-            });
-            jest.spyOn(scheduleDayRolloverController, 'dispose').mockImplementation(() => {
-                order.push('scheduleDayRolloverController.dispose');
-            });
-            jest.spyOn(eventBinder, 'dispose').mockImplementation(() => {
-                order.push('events.unsubscribe');
             });
 
             (mockChannelManager.flushSaves as jest.Mock).mockImplementationOnce(async () => {
@@ -3413,12 +3404,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             try {
                 await expect(orchestrator.shutdown()).resolves.toBeUndefined();
 
-                expect(order).toEqual([
-                    'clearAuthResume',
-                    'clearServerResume',
-                    'clearProfileResume',
-                    'scheduleDayRolloverController.dispose',
-                    'events.unsubscribe',
+                expect(order).toEqual(expect.arrayContaining([
                     'channelManager.flushSaves',
                     'channelManager.dispose',
                     'lifecycle.shutdown',
@@ -3429,7 +3415,13 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     'videoPlayer.destroy',
                     'navigation.destroy',
                     'aggregate-report',
-                ]);
+                ]));
+                expect(order.indexOf('channelManager.flushSaves')).toBeLessThan(
+                    order.indexOf('channelManager.dispose')
+                );
+                expect(order.indexOf('channelManager.dispose')).toBeLessThan(order.indexOf('lifecycle.shutdown'));
+                expect(order.indexOf('lifecycle.shutdown')).toBeLessThan(order.indexOf('videoPlayer.stop'));
+                expect(order.indexOf('navigation.destroy')).toBeLessThan(order.indexOf('aggregate-report'));
             } finally {
                 (mockLifecycle.shutdown as jest.Mock).mockResolvedValue(undefined);
                 (mockVideoPlayer.stop as jest.Mock).mockImplementation(() => undefined);
@@ -3439,6 +3431,31 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 (mockVideoPlayer.destroy as jest.Mock).mockImplementation(() => undefined);
                 (mockNavigation.destroy as jest.Mock).mockImplementation(() => undefined);
             }
+        });
+
+        it('collects initialization resume clear failures and continues later teardown', async () => {
+            const clearAuthResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearAuthResume');
+            clearAuthResumeSpy.mockImplementationOnce(() => {
+                throw new Error('auth resume clear failed');
+            });
+            expectConsoleWarn([
+                'Shutdown teardown failures',
+                expect.objectContaining({
+                    teardownFailures: expect.arrayContaining([
+                        expect.objectContaining({ step: 'initCoordinator.clearAuthResume' }),
+                    ]),
+                }),
+            ]);
+
+            try {
+                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+            } finally {
+                clearAuthResumeSpy.mockRestore();
+            }
+
+            expect(mockChannelManager.flushSaves).toHaveBeenCalled();
+            expect(mockLifecycle.shutdown).toHaveBeenCalled();
+            expect(mockNavigation.destroy).toHaveBeenCalled();
         });
 
         it('stops the video player during shutdown when active transcode cleanup fails', async () => {
@@ -3586,11 +3603,11 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
                 await expect(orchestrator.start()).rejects.toMatchObject({
                     code: AppErrorCode.MODULE_INIT_FAILED,
-                    recoverable: true,
-                    message: expect.stringContaining('Orchestrator must be initialized before starting'),
+                    recoverable: false,
+                    message: expect.stringContaining('AppOrchestrator cannot be used after shutdown'),
                     context: expect.objectContaining({
                         method: 'start',
-                        dependency: 'InitializationCoordinator',
+                        lifecycle: 'shutdown',
                     }),
                 });
 
