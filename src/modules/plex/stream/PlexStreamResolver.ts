@@ -39,6 +39,7 @@ import {
 } from './plexStreamUrlPolicy';
 import { logPlexWarning } from '../shared/plexLogging';
 import { SubtitleStreamDebugProbeCoordinator } from './SubtitleStreamDebugProbeCoordinator';
+import { UniversalTranscodeDecisionClient } from './UniversalTranscodeDecisionClient';
 
 // Re-export types for consumers
 export { PlexStreamErrorCode } from './types';
@@ -53,6 +54,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     private readonly _emitter: EventEmitter<StreamResolverEventMap>;
     private readonly _identityService: PlatformIdentityService;
     private readonly _subtitleDebugProbeCoordinator: SubtitleStreamDebugProbeCoordinator;
+    private readonly _universalTranscodeDecisionClient: UniversalTranscodeDecisionClient;
 
     /**
      * Create a new PlexStreamResolver instance.
@@ -66,6 +68,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             getServerUri: config.getServerUri,
             getAuthHeaders: config.getAuthHeaders,
             subtitleDebugLogPort: config.subtitleDebugLogPort,
+        });
+        this._universalTranscodeDecisionClient = new UniversalTranscodeDecisionClient({
+            getAuthHeaders: config.getAuthHeaders,
+            getTranscodeUrl: (itemKey, options): string => this.getTranscodeUrl(itemKey, options),
+            throwIfAuthFailure: (response): void => this._throwIfAuthFailure(response),
         });
     }
 
@@ -367,115 +374,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         itemKey: string,
         request: NonNullable<StreamDecision['transcodeRequest']>
     ): Promise<NonNullable<StreamDecision['serverDecision']>> {
-        const hlsOptions: HlsOptions = {
-            sessionId: request.sessionId,
-            maxBitrate: request.maxBitrate,
-        };
-        if (typeof request.mediaIndex === 'number') {
-            hlsOptions.mediaIndex = request.mediaIndex;
-        }
-        if (typeof request.partIndex === 'number') {
-            hlsOptions.partIndex = request.partIndex;
-        }
-        if (typeof request.audioStreamId === 'string') {
-            hlsOptions.audioStreamId = request.audioStreamId;
-        }
-        if (typeof request.subtitleStreamId === 'string') {
-            hlsOptions.subtitleStreamId = request.subtitleStreamId;
-        }
-        if (request.subtitleMode === 'burn') {
-            hlsOptions.subtitleMode = 'burn';
-        }
-        if (request.hideDolbyVision === true) {
-            hlsOptions.hideDolbyVision = true;
-        }
-
-        const startUrl = this.getTranscodeUrl(itemKey, hlsOptions);
-
-        const decisionUrl = ((): string => {
-            const url = new URL(startUrl);
-            url.pathname = '/video/:/transcode/universal/decision';
-            return url.toString();
-        })();
-
-        const response = await fetchWithTimeout({
-            url: decisionUrl,
-            init: { method: 'GET', headers: this._config.getAuthHeaders() },
-            timeoutMs: 4000,
-        });
-        this._throwIfAuthFailure(response);
-        if (!response.ok) {
-            throw new Error(`PMS decision request failed: ${response.status}`);
-        }
-        const raw = await response.text();
-
-        const parsed = this._parseUniversalDecisionResponse(raw);
-        return { fetchedAt: Date.now(), ...parsed };
-    }
-
-    private _parseUniversalDecisionResponse(
-        raw: string
-    ): Omit<NonNullable<StreamDecision['serverDecision']>, 'fetchedAt'> {
-        // Best-effort parsing. Plex typically responds with XML for this endpoint.
-        // We extract commonly used attributes: decisionCode/decisionText and video/audio/subtitle decisions.
-        try {
-            if (typeof DOMParser !== 'undefined') {
-                const doc = new DOMParser().parseFromString(raw, 'text/xml');
-                const container = doc.querySelector('MediaContainer');
-                const transcode = doc.querySelector('TranscodeSession');
-
-                const decisionCode =
-                    container?.getAttribute('decisionCode') ??
-                    transcode?.getAttribute('decisionCode') ??
-                    undefined;
-                const decisionText =
-                    container?.getAttribute('decisionText') ??
-                    container?.getAttribute('generalDecisionText') ??
-                    transcode?.getAttribute('decisionText') ??
-                    undefined;
-
-                const videoDecision =
-                    transcode?.getAttribute('videoDecision') ??
-                    container?.getAttribute('videoDecision') ??
-                    undefined;
-                const audioDecision =
-                    transcode?.getAttribute('audioDecision') ??
-                    container?.getAttribute('audioDecision') ??
-                    undefined;
-                const subtitleDecision =
-                    transcode?.getAttribute('subtitleDecision') ??
-                    container?.getAttribute('subtitleDecision') ??
-                    undefined;
-
-                const result: Record<string, string> = {};
-                if (decisionCode) result.decisionCode = decisionCode;
-                if (decisionText) result.decisionText = decisionText;
-                if (videoDecision) result.videoDecision = videoDecision;
-                if (audioDecision) result.audioDecision = audioDecision;
-                if (subtitleDecision) result.subtitleDecision = subtitleDecision;
-                return result as Omit<NonNullable<StreamDecision['serverDecision']>, 'fetchedAt'>;
-            }
-        } catch {
-            // fall through to regex parsing
-        }
-
-        const attr = (name: string): string | undefined => {
-            const match = raw.match(new RegExp(`${name}=\"([^\"]+)\"`));
-            return match?.[1];
-        };
-        const decisionCode = attr('decisionCode') ?? attr('generalDecisionCode');
-        const decisionText = attr('decisionText') ?? attr('generalDecisionText');
-        const videoDecision = attr('videoDecision');
-        const audioDecision = attr('audioDecision');
-        const subtitleDecision = attr('subtitleDecision');
-
-        const result: Record<string, string> = {};
-        if (decisionCode) result.decisionCode = decisionCode;
-        if (decisionText) result.decisionText = decisionText;
-        if (videoDecision) result.videoDecision = videoDecision;
-        if (audioDecision) result.audioDecision = audioDecision;
-        if (subtitleDecision) result.subtitleDecision = subtitleDecision;
-        return result as Omit<NonNullable<StreamDecision['serverDecision']>, 'fetchedAt'>;
+        return this._universalTranscodeDecisionClient.fetchDecision(itemKey, request);
     }
 
     on<K extends keyof StreamResolverEventMap>(
