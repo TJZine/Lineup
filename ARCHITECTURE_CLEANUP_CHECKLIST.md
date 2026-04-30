@@ -1125,8 +1125,10 @@ changes them:
 ### [ ] `DCR-EXIT` Dimension Cleanup Exit Gate
 
 - Status: not started
-- Dimensions/rubric tags: final reconciliation, source-backed proof, test
-  confidence, portability residuals, docs/control-plane coherence
+- Plan: `docs/plans/2026-04-30-dcr-exit-final-dimension-audit-plan.md`
+- Dimensions/rubric tags: final reconciliation, full rubric coverage,
+  source-backed proof, test confidence, dependency/config/tooling health,
+  player/runtime coverage, portability residuals, docs/control-plane coherence
 - Scope owner: cleanup controller/final reconciliation owner
 - Why this package exists / production risk: the user wants cleanup to be done
   after these known high-confidence issues are handled, before any fresh
@@ -1137,14 +1139,20 @@ changes them:
   - DCR package plans/audits if created under `docs/plans/`
   - `docs/architecture/CURRENT_STATE.md`
   - architecture/API/design docs touched by DCR packages
+  - dependency/config/tooling/app metadata surfaces required by the active plan
   - source/test files only for read-only reconciliation unless a final package
     explicitly reopens implementation
 - Files out of scope:
   - fresh Desloppify scan/queue import as task intake
-  - optional external score refresh until after DCR exit is complete
+  - external/manual score refresh; maintainer may run it after DCR exit closes,
+    but it is not a DCR-EXIT execution slice or blocker
   - future Windows/Electron port implementation
 - Known issues to retire:
   - actual issues:
+    - `DCR-EXIT-A0`: run a comprehensive final source-backed dimension audit
+      before package reconciliation, using Desloppify objective/subjective
+      dimensions as rubric only and requiring an audit matrix/findings ledger
+      with no unowned follow-ups.
     - `DCR-EXIT-A1`: reconcile every DCR package and prove all actual issues
       are fixed, source-disproved, or explicitly reclassified with evidence.
     - `DCR-EXIT-A2`: confirm all owner decisions have one recorded outcome,
@@ -1152,9 +1160,9 @@ changes them:
     - `DCR-EXIT-A3`: verify current architecture/API docs still match source
       after DCR changes.
   - owner decisions:
-    - `DCR-EXIT-D1`: decide whether to run the optional external score refresh
-      after exit. It may inform retrospective notes but must not reopen the
-      checklist by itself.
+    - `DCR-EXIT-D1`: external/manual by maintainer after exit closeout. It may
+      inform retrospective notes but is out of DCR-EXIT execution and must not
+      reopen the checklist by itself.
   - accepted residuals:
     - `FCP-6` future-port residual remains explicit: real Windows/Electron
       shell, real device Plex, native media, and manual integration proof belong
@@ -1169,26 +1177,31 @@ changes them:
 - Verification routing: source-backed DCR reconciliation audit, package-local
   static/source audits for old patterns, strongest relevant package
   verification already run, final `npm run verify`, and `npm run verify:docs`.
-  Optional external score refresh only after this gate is completed.
-- Ready-now execution unit: none until all DCR packages are complete.
+  `npm run plans:check` applies while the active plan is the handoff surface.
+  External/manual score refresh is maintainer-owned after this gate closes.
+- Ready-now execution unit: `DCR-EXIT-W0` / `DCR-EXIT-S0` once all DCR packages
+  are complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
   | --- | --- | --- | --- |
-  | `DCR-EXIT-S1` | package proof matrix reconciliation | checklist/plans/docs read/write | serial |
-  | `DCR-EXIT-S2` | architecture/API/current-state doc reconciliation | docs + source audit | serial after S1 |
-  | `DCR-EXIT-S3` | optional external score refresh decision/result | retrospective artifact only | after exit criteria pass |
+  | `DCR-EXIT-S0` | comprehensive source-backed dimension audit | read-only reviewer lanes; controller synthesis | up to 4 read-only reviewers, then serial synthesis |
+  | `DCR-EXIT-S1` | package proof matrix reconciliation | checklist/plans/docs read/write | serial after S0 |
+  | `DCR-EXIT-S2` | owner-decision ledger reconciliation | checklist/plans/docs read/write | serial after S1 |
+  | `DCR-EXIT-S3` | architecture/API/current-state doc reconciliation | docs + source audit | serial after S2 |
+  | `DCR-EXIT-S4` | final verification, adversarial review, checklist closeout | checklist/docs only unless replanned | serial after S3 |
 
 - Stop/replan triggers: any DCR package has open actual issues; source audit
   finds new same-area production residue not owned by a package; docs conflict
-  with source; optional score output is treated as task intake.
-- Plan: none yet
+  with source; security issue appears; a finding lacks final owner/revisit
+  trigger; score refresh output is treated as task intake.
 - Last touched: not started
 - Verification: not run
 - Follow-ups: future-port residuals owned by port/test owner as above; no other
   follow-ups yet
 - Handoff: do not run a fresh scoring-only pass before this exit gate completes.
-  Start `DCR-1` or another maintainer-selected DCR package first.
+  Once `DCR-1` through `DCR-10` are complete, execute the active plan beginning
+  with `DCR-EXIT-S0`; do not close DCR-EXIT from known package checkboxes alone.
 
 ## FCP Baseline History
 
