@@ -177,6 +177,91 @@ describe('AuthScreen', () => {
         expect(ports.cancelPin).toHaveBeenCalledWith(42);
     });
 
+    it('cancel before requestAuthPin resolves cancels the returned PIN without polling', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const pinDeferred = createDeferred<{
+            id: number;
+            code: string;
+            expiresAt: Date;
+            authToken: string | null;
+            clientIdentifier: string;
+        }>();
+        const ports = createPorts({
+            requestAuthPin: jest.fn().mockImplementation(() => pinDeferred.promise),
+            pollForPin: jest.fn().mockResolvedValue({
+                id: 55,
+                code: 'LATE',
+                expiresAt: new Date(Date.now() + 60_000),
+                authToken: 'auth-token',
+                clientIdentifier: 'client-id',
+            }),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+        click(container, '#btn-auth-cancel');
+        await flushPromises();
+
+        pinDeferred.resolve({
+            id: 55,
+            code: 'LATE',
+            expiresAt: new Date(Date.now() + 60_000),
+            authToken: null,
+            clientIdentifier: 'client-id',
+        });
+        await flushPromises();
+
+        expect(ports.cancelPin).toHaveBeenCalledWith(55);
+        expect(ports.pollForPin).not.toHaveBeenCalled();
+    });
+
+    it('hide before requestAuthPin resolves cancels the returned PIN without polling', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const pinDeferred = createDeferred<{
+            id: number;
+            code: string;
+            expiresAt: Date;
+            authToken: string | null;
+            clientIdentifier: string;
+        }>();
+        const ports = createPorts({
+            requestAuthPin: jest.fn().mockImplementation(() => pinDeferred.promise),
+            pollForPin: jest.fn().mockResolvedValue({
+                id: 77,
+                code: 'HIDE',
+                expiresAt: new Date(Date.now() + 60_000),
+                authToken: 'auth-token',
+                clientIdentifier: 'client-id',
+            }),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+        screen.hide();
+
+        pinDeferred.resolve({
+            id: 77,
+            code: 'HIDE',
+            expiresAt: new Date(Date.now() + 60_000),
+            authToken: null,
+            clientIdentifier: 'client-id',
+        });
+        await flushPromises();
+
+        expect(ports.cancelPin).toHaveBeenCalledWith(77);
+        expect(ports.pollForPin).not.toHaveBeenCalled();
+    });
+
     it('unregisters retry focusable and moves focus when retry disappears', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);

@@ -27,6 +27,7 @@ export class AuthScreen {
     private _requestButton: HTMLButtonElement;
     private _cancelButton: HTMLButtonElement;
     private _retryButton: HTMLButtonElement;
+    private _requestToken: number = 0;
     private _pollToken: number = 0;
     private _expiryTimer: number | null = null;
     private _expiresAt: Date | null = null;
@@ -153,6 +154,7 @@ export class AuthScreen {
 
     hide(): void {
         this._stopExpiryTimer();
+        this._requestToken += 1;
         this._pollToken += 1;
         this._abortActivePolling();
         const activePinId = this._activePinId;
@@ -170,6 +172,8 @@ export class AuthScreen {
     }
 
     private async _handleRequestPin(): Promise<void> {
+        this._requestToken += 1;
+        const requestToken = this._requestToken;
         this._clearError();
         this._setButtons({ request: false, cancel: true, retry: false });
         this._setStatus('Requesting PIN…', '', { tone: 'loading' });
@@ -180,6 +184,7 @@ export class AuthScreen {
 
         if (this._activePinId !== null) {
             // Cancel any in-flight poll and best-effort cancel server-side PIN.
+            this._requestToken += 1;
             this._pollToken += 1;
             this._abortActivePolling();
             this._stopExpiryTimer();
@@ -195,6 +200,12 @@ export class AuthScreen {
 
         try {
             const pin = await this._ports.requestAuthPin();
+            if (requestToken !== this._requestToken) {
+                void Promise.resolve(this._ports.cancelPin(pin.id)).catch(() => {
+                    // Best-effort cancellation for a PIN returned after the auth request became stale.
+                });
+                return;
+            }
             this._activePinId = pin.id;
             this._activeCode = pin.code;
             this._expiresAt = pin.expiresAt;
@@ -244,6 +255,7 @@ export class AuthScreen {
     }
 
     private async _handleCancel(): Promise<void> {
+        this._requestToken += 1;
         this._pollToken += 1;
         this._abortActivePolling();
         this._stopExpiryTimer();
@@ -448,6 +460,7 @@ export class AuthScreen {
 
     private async _handleExpiredPin(): Promise<void> {
         this._stopExpiryTimer();
+        this._requestToken += 1;
         this._pollToken += 1;
         this._abortActivePolling();
 
