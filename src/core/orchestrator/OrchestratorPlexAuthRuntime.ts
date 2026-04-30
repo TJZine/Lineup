@@ -19,8 +19,8 @@ export class OrchestratorPlexAuthRuntime {
         return this._withPlexAuth('requestAuthPin').requestPin();
     }
 
-    async pollForPin(pinId: number): Promise<PlexPinRequest> {
-        return this._withPlexAuth('pollForPin').pollForPin(pinId);
+    async pollForPin(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest> {
+        return this._withPlexAuth('pollForPin').pollForPin(pinId, options);
     }
 
     async cancelPin(pinId: number): Promise<void> {

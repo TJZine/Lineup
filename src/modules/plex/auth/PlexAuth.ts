@@ -108,7 +108,11 @@ export class PlexAuth implements IPlexAuth {
      * @returns Updated PIN request with authToken if claimed
      * @throws {PlexApiError} If PIN doesn't exist or on connection failure
      */
-    public async checkPinStatus(pinId: number): Promise<PlexPinRequest> {
+    public async checkPinStatus(
+        pinId: number,
+        options?: { signal?: AbortSignal | null }
+    ): Promise<PlexPinRequest> {
+        throwIfAborted(options?.signal);
         const url = PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL +
             PLEX_AUTH_CONSTANTS.PIN_ENDPOINT + '/' + String(pinId);
         const headers = buildRequestHeaders(this._state.config);
@@ -116,13 +120,17 @@ export class PlexAuth implements IPlexAuth {
         const response = await fetchWithRetry(url, {
             method: 'GET',
             headers: headers,
+            ...(options?.signal ? { signal: options.signal } : {}),
         });
+        throwIfAborted(options?.signal);
 
         const data = await response.json();
         const pin = parsePinResponse(data, this._state.config.clientIdentifier);
 
         if (pin.authToken !== null) {
-            const userToken = await this._fetchUserProfile(pin.authToken);
+            throwIfAborted(options?.signal);
+            const userToken = await this._fetchUserProfile(pin.authToken, options?.signal ?? null);
+            throwIfAborted(options?.signal);
             this.storeCredentials({
                 accountToken: userToken,
                 activeToken: userToken,
@@ -141,15 +149,20 @@ export class PlexAuth implements IPlexAuth {
      * @returns Updated PIN request with authToken when claimed
      * @throws {PlexApiError} If PIN expires or on connection failure
      */
-    public async pollForPin(pinId: number): Promise<PlexPinRequest> {
+    public async pollForPin(
+        pinId: number,
+        options?: { signal?: AbortSignal | null }
+    ): Promise<PlexPinRequest> {
         const startTime = Date.now();
         const timeout = PLEX_AUTH_CONSTANTS.PIN_TIMEOUT_MS;
         const interval = PLEX_AUTH_CONSTANTS.PIN_POLL_INTERVAL_MS;
         let lastRetryableError: PlexApiError | null = null;
 
+        throwIfAborted(options?.signal);
         while (Date.now() - startTime < timeout) {
             try {
-                const pin = await this.checkPinStatus(pinId);
+                throwIfAborted(options?.signal);
+                const pin = await this.checkPinStatus(pinId, options);
                 if (pin.authToken !== null) {
                     return pin;
                 }
@@ -164,7 +177,7 @@ export class PlexAuth implements IPlexAuth {
                     throw error;
                 }
             }
-            await this._sleep(interval);
+            await this._sleep(interval, options?.signal ?? null);
         }
 
         if (lastRetryableError) {
@@ -739,7 +752,9 @@ export class PlexAuth implements IPlexAuth {
         });
         throwIfAborted(signal);
         const data = await response.json();
-        return parseUserResponse(data, token);
+        const user = parseUserResponse(data, token);
+        throwIfAborted(signal);
+        return user;
     }
 
     /**
@@ -927,7 +942,28 @@ export class PlexAuth implements IPlexAuth {
         return out;
     }
 
-    private _sleep(ms: number): Promise<void> {
-        return new Promise(function (resolve) { setTimeout(resolve, ms); });
+    private _sleep(ms: number, signal: AbortSignal | null = null): Promise<void> {
+        throwIfAborted(signal);
+        return new Promise(function (resolve, reject) {
+            let timeoutId: ReturnType<typeof setTimeout>;
+            const cleanup = (): void => {
+                clearTimeout(timeoutId);
+                if (signal) {
+                    signal.removeEventListener('abort', onAbort);
+                }
+            };
+            const onAbort = (): void => {
+                cleanup();
+                reject(signal?.reason ?? new DOMException('Aborted', 'AbortError'));
+            };
+            timeoutId = setTimeout(() => {
+                cleanup();
+                resolve();
+            }, ms);
+            if (!signal) {
+                return;
+            }
+            signal.addEventListener('abort', onAbort, { once: true });
+        });
     }
 }

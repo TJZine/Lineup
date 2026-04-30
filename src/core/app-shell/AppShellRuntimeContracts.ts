@@ -12,7 +12,7 @@ export interface AppShellNavigationRuntimePort {
 
 export interface AppShellAuthRuntimePort {
     requestAuthPin(): Promise<PlexPinRequest>;
-    pollForPin(pinId: number): Promise<PlexPinRequest>;
+    pollForPin(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
     cancelPin(pinId: number): Promise<void>;
 }
 

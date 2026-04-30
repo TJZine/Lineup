@@ -369,6 +369,40 @@ describe('InitializationCoordinator (Plex Home)', () => {
         expect(navigation.goTo).not.toHaveBeenCalledWith('auth');
     });
 
+    it('does not resume startup for unauthenticated authChange events from cancelled auth flows', async () => {
+        const { coordinator, deps } = makeCoordinator();
+        const plexAuth = deps.plexAuth as unknown as {
+            readStoredCredentialsAndClearCorruption: jest.Mock;
+            on: jest.Mock;
+        };
+        const authChangeHandlers: Array<(isAuthenticated: boolean) => void> = [];
+        plexAuth.on.mockImplementation((event: string, handler: (isAuthenticated: boolean) => void) => {
+            if (event === 'authChange') {
+                authChangeHandlers.push(handler);
+            }
+            return { dispose: jest.fn() };
+        });
+        plexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue({ kind: 'missing' });
+        const runSpy = jest.spyOn(coordinator, 'runStartup');
+
+        await coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
+        const handler = authChangeHandlers[0];
+        if (!handler) {
+            throw new Error('Expected authChange handler to be registered');
+        }
+
+        runSpy.mockClear();
+        handler(false);
+        await Promise.resolve();
+
+        expect(runSpy).not.toHaveBeenCalled();
+
+        handler(true);
+        expect(runSpy).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
+        const resumePromise = runSpy.mock.results[0]?.value as Promise<void>;
+        await resumePromise;
+    });
+
     it('does not redundantly reset lifecycle phases during full startup', async () => {
         const lifecycle = {
             initialize: jest.fn().mockResolvedValue(undefined),

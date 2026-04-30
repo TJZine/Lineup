@@ -103,6 +103,7 @@ describe('AuthScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
+        let pollSignal: AbortSignal | undefined;
         const ports = createPorts({
             requestAuthPin: jest.fn().mockResolvedValue({
                 id: 88,
@@ -113,7 +114,10 @@ describe('AuthScreen', () => {
             }),
             pollForPin: jest.fn().mockImplementation(
                 // Never resolves - simulates indefinite polling until the screen is hidden/cancelled.
-                () => new Promise(() => undefined)
+                (_pinId: number, options?: { signal?: AbortSignal | null }) => {
+                    pollSignal = options?.signal ?? undefined;
+                    return new Promise(() => undefined);
+                }
             ),
         });
 
@@ -125,7 +129,52 @@ describe('AuthScreen', () => {
 
         screen.hide();
 
+        expect(ports.pollForPin).toHaveBeenCalledWith(88, { signal: expect.any(AbortSignal) });
+        expect(pollSignal?.aborted).toBe(true);
         expect(ports.cancelPin).toHaveBeenCalledWith(88);
+    });
+
+    it('cancel aborts the active poll before cancelling the server-side PIN', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const order: string[] = [];
+        let pollSignal: AbortSignal | undefined;
+        const ports = createPorts({
+            requestAuthPin: jest.fn().mockResolvedValue({
+                id: 42,
+                code: 'ABCD',
+                expiresAt: new Date(Date.now() + 60_000),
+                authToken: null,
+                clientIdentifier: 'client-id',
+            }),
+            pollForPin: jest.fn().mockImplementation(
+                (_pinId: number, options?: { signal?: AbortSignal | null }) => {
+                    pollSignal = options?.signal ?? undefined;
+                    pollSignal?.addEventListener('abort', () => {
+                        order.push('abort');
+                    });
+                    return new Promise(() => undefined);
+                }
+            ),
+            cancelPin: jest.fn().mockImplementation(() => {
+                order.push('cancelPin');
+                return Promise.resolve();
+            }),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+
+        click(container, '#btn-auth-cancel');
+        await flushPromises();
+
+        expect(pollSignal?.aborted).toBe(true);
+        expect(order).toEqual(['abort', 'cancelPin']);
+        expect(ports.cancelPin).toHaveBeenCalledWith(42);
     });
 
     it('unregisters retry focusable and moves focus when retry disappears', async () => {

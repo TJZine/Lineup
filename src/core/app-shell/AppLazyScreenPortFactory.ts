@@ -113,7 +113,7 @@ export class AppLazyScreenPortFactory {
 
         return {
             requestAuthPin: () => runtime.requestAuthPin(),
-            pollForPin: (pinId: number) => runtime.pollForPin(pinId),
+            pollForPin: (pinId: number, options) => runtime.pollForPin(pinId, options),
             cancelPin: (pinId: number) => runtime.cancelPin(pinId),
             getNavigation: () => this.getNavigation(),
         };

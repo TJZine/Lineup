@@ -184,7 +184,8 @@ describe('AppLazyScreenPortFactory', () => {
         expect(typeof serverPorts?.getNavigation).toBe('function');
 
         await authPorts?.requestAuthPin();
-        await authPorts?.pollForPin(123);
+        const authPollController = new AbortController();
+        await authPorts?.pollForPin(123, { signal: authPollController.signal });
         await authPorts?.cancelPin(123);
         expect(authPorts?.getNavigation()).toBe(navigation);
 
@@ -203,7 +204,7 @@ describe('AppLazyScreenPortFactory', () => {
         expect(serverPorts?.getNavigation()).toBe(navigation);
 
         expect(orchestrator.requestAuthPin).toHaveBeenCalledTimes(1);
-        expect(orchestrator.pollForPin).toHaveBeenCalledWith(123);
+        expect(orchestrator.pollForPin).toHaveBeenCalledWith(123, { signal: authPollController.signal });
         expect(orchestrator.cancelPin).toHaveBeenCalledWith(123);
         expect(orchestrator.getHomeUsers).toHaveBeenCalledTimes(1);
         expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('user-1', '4321');

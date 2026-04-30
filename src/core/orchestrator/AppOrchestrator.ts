@@ -1082,8 +1082,8 @@ export class AppOrchestrator {
     /**
      * Poll for PIN claim status.
      */
-    async pollForPin(pinId: number): Promise<PlexPinRequest> {
-        return this._plexAuthRuntime.pollForPin(pinId);
+    async pollForPin(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest> {
+        return this._plexAuthRuntime.pollForPin(pinId, options);
     }
 
     /**
