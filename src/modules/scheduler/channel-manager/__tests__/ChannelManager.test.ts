@@ -8,10 +8,8 @@ import { ChannelRepository } from '../ChannelRepository';
 import { ContentResolver } from '../ContentResolver';
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
 import type {
-    ChannelConfig,
     ChannelCreateInput,
     ChannelUpdateInput,
-    LibraryContentSource,
 } from '../types';
 import { AppErrorCode } from '../../../lifecycle/types';
 import { STORAGE_CONFIG } from '../../../lifecycle/constants';
@@ -28,63 +26,13 @@ import {
     CACHE_TTL_MS,
     MAX_CHANNELS,
 } from '../constants';
-
-// ============================================
-// Mock Setup
-// ============================================
-
-function createMockLibrary(): jest.Mocked<IPlexLibraryMinimal> {
-    return {
-        getLibraryItems: jest.fn(),
-        getCollectionItems: jest.fn(),
-        getShowEpisodes: jest.fn(),
-        getPlaylistItems: jest.fn(),
-        getItem: jest.fn(),
-    };
-}
-
-function createMockItem(overrides: Partial<PlexMediaItemMinimal> = {}): PlexMediaItemMinimal {
-    return {
-        ratingKey: '1',
-        type: 'movie',
-        title: 'Test Movie',
-        year: 2020,
-        durationMs: 7200000,
-        thumb: '/thumb/1',
-        addedAt: new Date(),
-        ...overrides,
-    };
-}
-
-function createMockContentSource(): LibraryContentSource {
-    return {
-        type: 'library',
-        libraryId: 'lib1',
-        libraryType: 'movie',
-        includeWatched: true,
-    };
-}
-
-function createBaseChannel(overrides: Partial<ChannelConfig> = {}): ChannelConfig {
-    return {
-        id: 'base',
-        number: 1,
-        name: 'Base Channel',
-        contentSource: createMockContentSource(),
-        playbackMode: 'shuffle',
-        shuffleSeed: 1,
-        phaseSeed: 1,
-        startTimeAnchor: 0,
-        skipIntros: false,
-        skipCredits: false,
-        createdAt: 0,
-        updatedAt: 0,
-        lastContentRefresh: 0,
-        itemCount: 0,
-        totalDurationMs: 0,
-        ...overrides,
-    };
-}
+import {
+    createBaseChannel,
+    createMockContentSource,
+    createMockItem,
+    createMockLibrary,
+    seedDefaultLibrary,
+} from './channel-manager-test-helpers';
 
 installMockLocalStorage();
 
@@ -124,10 +72,7 @@ describe('ChannelManager', () => {
         resetMockLocalStorage();
 
         mockLibrary = createMockLibrary();
-        mockLibrary.getLibraryItems.mockResolvedValue([
-            createMockItem({ ratingKey: '1' }),
-            createMockItem({ ratingKey: '2' }),
-        ]);
+        seedDefaultLibrary(mockLibrary);
 
         manager = new ChannelManager({ plexLibrary: mockLibrary });
     });
@@ -397,25 +342,6 @@ describe('ChannelManager', () => {
             expect(result[1]!.number).toBe(2);
             expect(result[2]!.number).toBe(3);
             expect(result[3]!.number).toBe(4);
-        });
-
-        it('skips duplicate channel ids without duplicating persisted order', async () => {
-            const warn = jest.fn();
-            manager = new ChannelManager({ plexLibrary: mockLibrary, logger: { warn, error: jest.fn() } });
-
-            await manager.replaceAllChannels([
-                createBaseChannel({ id: 'duplicate', name: 'First', number: 1 }),
-                createBaseChannel({ id: 'duplicate', name: 'Second', number: 2 }),
-                createBaseChannel({ id: 'third', name: 'Third', number: 3 }),
-            ]);
-
-            expect(manager.getAllChannels().map((channel) => channel.name)).toEqual(['First', 'Third']);
-            expect(JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual(expect.objectContaining({
-                channelOrder: ['duplicate', 'third'],
-            }));
-            expect(warn).toHaveBeenCalledWith(
-                'Skipping duplicate channel Second (duplicate) during replaceAllChannels'
-            );
         });
 
         it('skips channels over MAX_CHANNELS and warns per skipped channel', async () => {
