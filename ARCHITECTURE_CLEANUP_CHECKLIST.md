@@ -1257,10 +1257,10 @@ as intake.
 - Handoff: DCR-12 is closed. Do not resume `DCR-EXIT-S2` until `DCR-13`
   through `DCR-16` are complete or explicitly maintainer-routed out of DCR.
 
-### [ ] `DCR-13` Scheduler, ChannelManager, And Test Architecture
+### [x] `DCR-13` Scheduler, ChannelManager, And Test Architecture
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan: `docs/plans/2026-04-30-dcr-13-scheduler-channelmanager-test-architecture.md`
 - Dimensions/rubric tags: file health, duplication, test strategy, type safety,
   logic clarity
 - Scope owner: scheduler/channel owner with test-suite structure owner
@@ -1286,16 +1286,48 @@ as intake.
   `ContentResolver` suites; private-probe policy proof; fresh file/test-health
   source audit proving `S0-L01-F3` and `S0-L01-F4` no longer describe current
   source; `npm run verify` if helpers or production source move.
-- Ready-now execution unit: none until plan is written.
+- Completion evidence: all five package issues are closed by implementation,
+  source audit, and clean reviews. `DCR-13-A1` closed through actual
+  `ChannelManager` responsibility reduction: debounced save lifecycle and
+  import normalization moved to package-local owners
+  `ChannelPersistenceSaveQueue` and `ChannelImportNormalizer`, reducing
+  `ChannelManager.ts` from `1742` to `1399` lines while preserving persistence
+  schema/key ownership in `ChannelPersistenceStore`. `DCR-13-A2` closed through
+  actual catch-all test responsibility reduction: `ChannelManager.test.ts`
+  shrank from `1218` to `385` lines, with persistence/storage/current-channel
+  coverage in `ChannelManager.persistence.test.ts` and content-resolution
+  coverage in `ChannelManager.content-resolution.test.ts`. `DCR-13-A3` closed
+  by routing scheduler `ShuffleGenerator` through shared `shuffleWithSeed` and
+  adding finite-seed compatibility plus non-finite seed validation contracts.
+  `DCR-13-A4` closed by removing duplicate `ContentResolver.test.ts`
+  `createMockLibrary` / `createMockItem` factories in favor of package-local
+  helpers. `DCR-13-A5` closed by removing the private `_queueSave` spy and
+  replacing it with public storage/repository proof; private-probe policy
+  baseline was not weakened.
+- Ready-now execution unit: none; package complete.
 - Stop/replan triggers: ChannelManager public behavior or persistence contract
   changes, the package becomes a broad test harness rewrite, or the planned
   slices do not name concrete owner seams for reducing the ChannelManager and
   catch-all-test hotspots.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet.
-- Handoff: may run after `DCR-11` and independently from EPG/player packages if
-  the approved plan proves disjoint files and verification.
+- Last touched: 2026-04-30, implementation commits `add1fedd`, `e1af8d67`,
+  `34bdaf9a`, and `edaa07f4`
+- Verification: DCR-13 plan reached clean final approval after one reviewer
+  finding was fixed. S1, S2, S3, and S4 implementation reviews were clean.
+  Targeted ChannelManager, scheduler, ContentResolver, and private-probe policy
+  tests passed during slice execution/review; `npm run typecheck` passed for
+  production extraction; `npm run verify` passed after each implementation
+  slice. Final closeout source/test-health audits passed: `ChannelManager.ts`
+  is `1399` lines, `ChannelManager.test.ts` is `385` lines, no unapproved
+  ChannelManager private-probe grep matches remain, `ContentResolver.test.ts`
+  no longer defines duplicate `createMockLibrary` / `createMockItem` factories,
+  and scheduler `ShuffleGenerator` delegates to shared `shuffleWithSeed`.
+  Controller closeout `npm run plans:check`, `npm run verify:docs`, and full
+  `npm run verify` passed. The Vite build kept its existing large-chunk warning
+  for `dist/assets/index-Bt0C3_fN.js`; the command exited successfully.
+- Follow-ups: none for `DCR-13`. DCR-EXIT remains blocked on `DCR-14` through
+  `DCR-16` until those packages close or are explicitly maintainer-routed.
+- Handoff: DCR-13 is closed. Do not resume `DCR-EXIT-S2` until `DCR-14`
+  through `DCR-16` are complete or explicitly maintainer-routed out of DCR.
 
 ### [ ] `DCR-14` EPG Component File-Health Follow-Through
 

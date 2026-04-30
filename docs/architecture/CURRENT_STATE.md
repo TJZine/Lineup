@@ -196,7 +196,20 @@ after this extraction.
 
 - `src/modules/scheduler/`
 - owns scheduling behavior, shuffle logic, and channel domain flows
-- channel-domain persistence ownership (including selected/current channel state) stays in `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`; `src/modules/scheduler/channel-manager/ChannelRepository.ts` is a thin consumer wrapper over that store, with server/user-scoped keys configured through `src/core/orchestrator/OrchestratorStorageContext.ts`
+- scheduler shuffle order uses `src/modules/scheduler/shared/prng.ts` as the
+  shared seeded-shuffle owner; `src/modules/scheduler/scheduler/ShuffleGenerator.ts`
+  delegates to that helper instead of owning a duplicate shuffle loop
+- channel-domain persistence ownership (including selected/current channel
+  state) stays in `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`;
+  `src/modules/scheduler/channel-manager/ChannelRepository.ts` is a thin
+  consumer wrapper over that store, with server/user-scoped keys configured
+  through `src/core/orchestrator/OrchestratorStorageContext.ts`
+- `src/modules/scheduler/channel-manager/ChannelManager.ts` remains the public
+  channel-domain API/state owner, while package-local collaborators own focused
+  responsibilities: `ChannelPersistenceSaveQueue.ts` owns debounced save
+  promise/timer/warning orchestration through callbacks, and
+  `ChannelImportNormalizer.ts` owns import payload validation and create-input
+  shaping without mutating manager state or changing persistence schema
 
 ### Player
 
@@ -260,14 +273,14 @@ The main structural hotspots still treated as current by this architecture sourc
 - `src/App.ts`
 - `src/modules/ui/epg/component/EPGComponent.ts`
 - `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
-- `src/modules/scheduler/channel-manager/ChannelManager.ts`
 
 `src/modules/ui/settings/SettingsScreen.ts`,
-and `src/modules/plex/stream/PlexStreamResolver.ts` remain important ownership
-surfaces, but they are no longer treated as current primary file-size hotspots
-after their latest split/delegation passes. `ChannelSetupScreen.ts` remains on
-the active hotspot list until a current source audit proves its remaining size
-and ownership concentration are no longer cleanup-relevant.
+`src/modules/plex/stream/PlexStreamResolver.ts`, and
+`src/modules/scheduler/channel-manager/ChannelManager.ts` remain important
+ownership surfaces, but they are no longer treated as current primary file-size
+hotspots after their latest split/delegation passes. `ChannelSetupScreen.ts`
+remains on the active hotspot list until a current source audit proves its
+remaining size and ownership concentration are no longer cleanup-relevant.
 
 The active remediation queue for these is [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md).
 
