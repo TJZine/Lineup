@@ -136,7 +136,7 @@ export class AppDiagnosticsSurface {
             result,
         };
 
-        this._logChannelSetupPlannerDiagnostics(runtime.getSelectedServerStorageKey(), dump);
+        this._logChannelSetupPlannerDiagnostics(dump);
         return dump;
     }
 
@@ -168,20 +168,16 @@ export class AppDiagnosticsSurface {
             result,
         };
 
-        this._logChannelSetupPlannerDiagnostics(runtime.getSelectedServerStorageKey(), dump);
+        this._logChannelSetupPlannerDiagnostics(dump);
         return dump;
     }
 
     /* eslint-disable no-console */
-    private _logChannelSetupPlannerDiagnostics(
-        selectedServerStorageKey: string,
-        dump: ChannelSetupPlannerDiagnosticsDump
-    ): void {
+    private _logChannelSetupPlannerDiagnostics(dump: ChannelSetupPlannerDiagnosticsDump): void {
         const summary = summarizeChannelSetupPlannerDiagnostics(dump.result);
 
         console.groupCollapsed('[lineup] Channel setup planner diagnostics');
         console.info('Selected server:', dump.selectedServerId);
-        console.info('Selected server storage key:', selectedServerStorageKey);
         console.info('Record source:', dump.recordSource);
         console.info('Planner summary:', summary.overview);
         if (summary.familySummaries.length > 0) {

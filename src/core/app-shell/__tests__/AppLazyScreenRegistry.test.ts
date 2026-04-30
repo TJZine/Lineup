@@ -55,8 +55,10 @@ const makePortFactory = (): PortFactoryLike => ({
             kind: 'selected',
         }),
         clearSelectedServer: jest.fn().mockResolvedValue(undefined),
-        getSelectedServerStorageKey: jest.fn().mockReturnValue('selected-server-id'),
-        getServerHealthStorageKey: jest.fn().mockReturnValue('server-health'),
+        getSelectedServerScreenState: jest.fn().mockReturnValue({
+            selectedServerId: null,
+            serverHealth: {},
+        }),
         requestChannelSetupRerun: jest.fn(),
         getNavigation: jest.fn().mockReturnValue(null),
     })),
@@ -297,8 +299,7 @@ describe('AppLazyScreenRegistry', () => {
                 discoverServers: expect.any(Function),
                 selectServer: expect.any(Function),
                 clearSelectedServer: expect.any(Function),
-                getSelectedServerStorageKey: expect.any(Function),
-                getServerHealthStorageKey: expect.any(Function),
+                getSelectedServerScreenState: expect.any(Function),
                 requestChannelSetupRerun: expect.any(Function),
                 getNavigation: expect.any(Function),
             })

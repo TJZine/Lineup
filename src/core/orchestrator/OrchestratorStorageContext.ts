@@ -1,5 +1,9 @@
 import { PLEX_DISCOVERY_CONSTANTS } from '../../modules/plex/discovery/constants';
 import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
+import {
+    SelectedServerScreenStateProjection,
+    type SelectedServerScreenState,
+} from '../server-selection/SelectedServerScreenStateProjection';
 
 export interface OrchestratorStorageContextDeps {
     getActiveUserId: () => string | null;
@@ -9,6 +13,11 @@ export interface OrchestratorStorageContextDeps {
 }
 
 export class OrchestratorStorageContext {
+    private readonly _selectedServerScreenStateProjection = new SelectedServerScreenStateProjection(() => ({
+        selectedServerKey: this.getSelectedServerStorageKey(),
+        serverHealthKey: this.getServerHealthStorageKey(),
+    }));
+
     constructor(private readonly _deps: OrchestratorStorageContextDeps) {}
 
     private _userScopedKey(baseKey: string): string {
@@ -22,6 +31,10 @@ export class OrchestratorStorageContext {
 
     getServerHealthStorageKey(): string {
         return this._userScopedKey(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY);
+    }
+
+    getSelectedServerScreenState(): SelectedServerScreenState {
+        return this._selectedServerScreenStateProjection.readAndClean();
     }
 
     configureDiscoveryStorageKeysForActiveUser(): void {

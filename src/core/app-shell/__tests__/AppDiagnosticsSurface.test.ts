@@ -91,7 +91,6 @@ const createOrchestrator = (
     toggleServerSelect: jest.fn(),
     refreshPlaybackInfoSnapshot: jest.fn().mockResolvedValue(createSnapshot()),
     getSelectedServerId: jest.fn().mockReturnValue('server-1'),
-    getSelectedServerStorageKey: jest.fn().mockReturnValue('selected-server'),
     getChannelSetupWorkflowPort: jest.fn().mockReturnValue(createWorkflowPort()),
     ...overrides,
 });

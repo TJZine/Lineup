@@ -2,7 +2,11 @@
  * @jest-environment jsdom
  */
 
-import { ServerSelectScreen, type ServerSelectScreenPorts } from '../ServerSelectScreen';
+import {
+    ServerSelectScreen,
+    type ServerSelectScreenPorts,
+    type ServerSelectScreenState,
+} from '../ServerSelectScreen';
 import type { ServerSelectScreenNavigationPort } from '../../../navigation';
 import type { PlexServer } from '../../../plex/discovery/types';
 import { createBodyAppendedTestContainer, createDeferred } from '../../../../__tests__/helpers';
@@ -47,6 +51,21 @@ const makeSelectedServerResult = (): Extract<
     kind: 'selected' as const,
 });
 
+const makeServerSelectState = (
+    overrides: Partial<ServerSelectScreenState> = {}
+): ServerSelectScreenState => ({
+    selectedServerId: null,
+    serverHealth: {},
+    ...overrides,
+});
+
+const setServerSelectState = (
+    orchestrator: ServerSelectScreenHarness,
+    state: Partial<ServerSelectScreenState>
+): void => {
+    orchestrator.getSelectedServerScreenState.mockReturnValue(makeServerSelectState(state));
+};
+
 const createOrchestratorStub = (): ServerSelectScreenHarness => {
     const navigation = createNavigationStub();
     const requestChannelSetupRerun = jest.fn();
@@ -57,8 +76,7 @@ const createOrchestratorStub = (): ServerSelectScreenHarness => {
         selectServer: jest.fn().mockResolvedValue({ kind: 'selection_failed', reason: 'unreachable' }),
         requestChannelSetupRerun,
         clearSelectedServer: jest.fn().mockResolvedValue(undefined),
-        getSelectedServerStorageKey: jest.fn(() => 'selected-server-id'),
-        getServerHealthStorageKey: jest.fn(() => 'server-health'),
+        getSelectedServerScreenState: jest.fn(() => makeServerSelectState()),
     } as ServerSelectScreenHarness;
 };
 
@@ -75,7 +93,6 @@ describe('ServerSelectScreen', () => {
 
     afterEach(() => {
         jest.useRealTimers();
-        localStorage.clear();
         document.body.innerHTML = '';
         jest.clearAllMocks();
         jest.restoreAllMocks();
@@ -125,12 +142,11 @@ describe('ServerSelectScreen', () => {
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
-        localStorage.setItem(
-            orchestrator.getServerHealthStorageKey(),
-            JSON.stringify({
+        setServerSelectState(orchestrator, {
+            serverHealth: {
                 'srv-1': { status: 'ok', latencyMs: 250, testedAt: Date.now() },
-            })
-        );
+            },
+        });
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
@@ -148,12 +164,11 @@ describe('ServerSelectScreen', () => {
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
-        localStorage.setItem(
-            orchestrator.getServerHealthStorageKey(),
-            JSON.stringify({
+        setServerSelectState(orchestrator, {
+            serverHealth: {
                 'srv-1': { status: 'ok', latencyMs: 500, testedAt: Date.now() },
-            })
-        );
+            },
+        });
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
@@ -165,13 +180,11 @@ describe('ServerSelectScreen', () => {
         expect(pill.classList.contains('latency-very-slow')).toBe(true);
     });
 
-    it('ignores malformed persisted health payload when rendering server list', async () => {
+    it('renders unknown health when the screen state has no server health record', async () => {
         const orchestrator = createOrchestratorStub();
         const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
-
-        localStorage.setItem(orchestrator.getServerHealthStorageKey(), '{not-json');
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
@@ -179,7 +192,7 @@ describe('ServerSelectScreen', () => {
 
         const pill = container.querySelector('.server-status-pill') as HTMLElement;
         expect(pill.textContent).toContain('Unknown');
-        expect(localStorage.getItem(orchestrator.getServerHealthStorageKey())).toBeNull();
+        expect(orchestrator.getSelectedServerScreenState).toHaveBeenCalled();
     });
 
     it('renders access_denied health state explicitly', async () => {
@@ -188,12 +201,11 @@ describe('ServerSelectScreen', () => {
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
-        localStorage.setItem(
-            orchestrator.getServerHealthStorageKey(),
-            JSON.stringify({
+        setServerSelectState(orchestrator, {
+            serverHealth: {
                 'srv-1': { status: 'access_denied', testedAt: Date.now() },
-            })
-        );
+            },
+        });
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
@@ -204,15 +216,13 @@ describe('ServerSelectScreen', () => {
         expect(pill.classList.contains('access-denied')).toBe(true);
     });
 
-    it('does not mutate persisted selection/health keys during show/refresh when storage is empty', async () => {
+    it('reads screen-ready selected-server state without writing storage during show/refresh', async () => {
         const orchestrator = createOrchestratorStub();
         const container = createBodyAppendedTestContainer();
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
         const setSpy = jest.spyOn(Storage.prototype, 'setItem');
         const removeSpy = jest.spyOn(Storage.prototype, 'removeItem');
-        const selectedKey = orchestrator.getSelectedServerStorageKey();
-        const healthKey = orchestrator.getServerHealthStorageKey();
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
@@ -220,10 +230,9 @@ describe('ServerSelectScreen', () => {
         await screen.refresh();
         await settleScreen(screen);
 
-        expect(setSpy).not.toHaveBeenCalledWith(selectedKey, expect.any(String));
-        expect(setSpy).not.toHaveBeenCalledWith(healthKey, expect.any(String));
-        expect(removeSpy).not.toHaveBeenCalledWith(selectedKey);
-        expect(removeSpy).not.toHaveBeenCalledWith(healthKey);
+        expect(orchestrator.getSelectedServerScreenState).toHaveBeenCalled();
+        expect(setSpy).not.toHaveBeenCalled();
+        expect(removeSpy).not.toHaveBeenCalled();
 
         setSpy.mockRestore();
         removeSpy.mockRestore();
@@ -235,13 +244,12 @@ describe('ServerSelectScreen', () => {
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
 
-        localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
-        localStorage.setItem(
-            orchestrator.getServerHealthStorageKey(),
-            JSON.stringify({
+        setServerSelectState(orchestrator, {
+            selectedServerId: 'srv-1',
+            serverHealth: {
                 'srv-1': { status: 'ok', latencyMs: 50, testedAt: Date.now() },
-            })
-        );
+            },
+        });
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
@@ -300,7 +308,7 @@ describe('ServerSelectScreen', () => {
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
         orchestrator.selectServer.mockResolvedValue(makeSelectedServerResult());
 
-        localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
+        setServerSelectState(orchestrator, { selectedServerId: 'srv-1' });
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show();
@@ -323,7 +331,7 @@ describe('ServerSelectScreen', () => {
             })
         );
         orchestrator.selectServer.mockResolvedValue({ kind: 'selection_failed', reason: 'unreachable' });
-        localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
+        setServerSelectState(orchestrator, { selectedServerId: 'srv-1' });
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: true });
@@ -347,7 +355,7 @@ describe('ServerSelectScreen', () => {
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
         orchestrator.selectServer.mockResolvedValue(makeSelectedServerResult());
 
-        localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
+        setServerSelectState(orchestrator, { selectedServerId: 'srv-1' });
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: true });
@@ -369,13 +377,12 @@ describe('ServerSelectScreen', () => {
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
         orchestrator.selectServer.mockResolvedValue({ kind: 'selection_failed', reason: 'unreachable' });
 
-        localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
-        localStorage.setItem(
-            orchestrator.getServerHealthStorageKey(),
-            JSON.stringify({
+        setServerSelectState(orchestrator, {
+            selectedServerId: 'srv-1',
+            serverHealth: {
                 'srv-1': { status: 'ok', latencyMs: 50, testedAt: Date.now() },
-            })
-        );
+            },
+        });
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: true });
@@ -448,12 +455,14 @@ describe('ServerSelectScreen', () => {
         }
     });
 
-    it('surfaces initial show-load failures thrown before async discovery starts through screen error UI', async () => {
+    it('surfaces screen-state query failures thrown before async discovery starts through screen error UI', async () => {
         const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
         const orchestrator = createOrchestratorStub();
         const container = createBodyAppendedTestContainer();
 
-        orchestrator.getSelectedServerStorageKey.mockReturnValue('');
+        orchestrator.getSelectedServerScreenState.mockImplementation(() => {
+            throw new Error('screen state unavailable');
+        });
 
         try {
             const screen = new ServerSelectScreen(container, orchestrator);
@@ -461,7 +470,7 @@ describe('ServerSelectScreen', () => {
             await settleScreen(screen);
 
             expect(container.querySelector('.screen-status')?.textContent).toBe('Discovery failed.');
-            expect(container.querySelector('.screen-error')?.textContent).toBe('Storage keys must be non-empty strings');
+            expect(container.querySelector('.screen-error')?.textContent).toBe('screen state unavailable');
             expect(consoleErrorSpy).not.toHaveBeenCalled();
         } finally {
             consoleErrorSpy.mockRestore();
@@ -632,7 +641,7 @@ describe('ServerSelectScreen', () => {
 
         orchestrator.discoverServers.mockResolvedValue([server]);
         orchestrator.selectServer.mockReturnValue(selectDeferred.promise);
-        localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
+        setServerSelectState(orchestrator, { selectedServerId: 'srv-1' });
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: false });
@@ -798,7 +807,7 @@ describe('ServerSelectScreen', () => {
         const container = createBodyAppendedTestContainer();
 
         orchestrator.discoverServers.mockResolvedValue([makeServer('srv-2', 'Server Two')]);
-        localStorage.setItem(orchestrator.getSelectedServerStorageKey(), 'srv-1');
+        setServerSelectState(orchestrator, { selectedServerId: 'srv-1' });
 
         const screen = new ServerSelectScreen(container, orchestrator);
         screen.show({ allowAutoConnect: true });

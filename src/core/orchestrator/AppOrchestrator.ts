@@ -167,6 +167,7 @@ import { OrchestratorShutdownTeardown } from './OrchestratorShutdownTeardown';
 import { OrchestratorChannelSwitchRuntime } from './OrchestratorChannelSwitchRuntime';
 import { OrchestratorPlexAuthRuntime } from './OrchestratorPlexAuthRuntime';
 import { OrchestratorServerSelectionRuntime } from './OrchestratorServerSelectionRuntime';
+import type { SelectedServerScreenState } from '../server-selection/SelectedServerScreenStateProjection';
 
 const QA_003B_ISSUE_ID = 'QA-003b';
 
@@ -986,6 +987,10 @@ export class AppOrchestrator {
 
     getSelectedServerId(): string | null {
         return this._serverSelectionRuntime.getSelectedServerId();
+    }
+
+    getSelectedServerScreenState(): SelectedServerScreenState {
+        return this._storageContext.getSelectedServerScreenState();
     }
 
     getSelectedServerStorageKey(): string {

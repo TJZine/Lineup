@@ -154,8 +154,7 @@ export class AppLazyScreenPortFactory {
                 }
             },
             clearSelectedServer: () => runtime.clearSelectedServer(),
-            getSelectedServerStorageKey: () => runtime.getSelectedServerStorageKey(),
-            getServerHealthStorageKey: () => runtime.getServerHealthStorageKey(),
+            getSelectedServerScreenState: () => runtime.getSelectedServerScreenState(),
             requestChannelSetupRerun: () => runtime.requestChannelSetupRerun(),
             getNavigation: () => this.getNavigation(),
         };
