@@ -1122,6 +1122,18 @@ changes them:
   `settings-screen-test-helpers.ts` seam instead of adding constructor-policy
   assertions to `SettingsScreen.test.ts`.
 
+### DCR-EXIT S0 Evidence Lookup
+
+`DCR-11` through `DCR-16` are routed from the completed `DCR-EXIT-S0`
+controller synthesis. For each package plan, start from the exact S0 finding
+ids listed in that package's `Known issues to retire`, search those ids in the
+local DCR-EXIT S0 run artifacts and active DCR-EXIT plan, then verify against
+current source/docs/config before choosing implementation slices. The checklist
+summarizes each issue, but the S0 lane reports and synthesis provide the
+supporting source-family proof, recommended disposition, owner, and verification
+notes. Do not use stale style/package-map artifacts or fresh Desloppify output
+as intake.
+
 ### [ ] `DCR-11` Verification, Dependency, And Control-Plane Truth
 
 - Status: not started
