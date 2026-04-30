@@ -856,9 +856,9 @@ changes them:
   DCR-2 facet failure semantics changed, or executor option ownership again
   hides required state/control callbacks.
 
-### [ ] `DCR-8` Plex Stream Resolver Ownership Cleanup
+### [x] `DCR-8` Plex Stream Resolver Ownership Cleanup
 
-- Status: not started
+- Status: completed
 - Dimensions/rubric tags: cross-module architecture, abstraction fitness,
   security, contract coherence, error consistency, test strategy
 - Scope owner: Plex stream/subtitle policy owner
@@ -905,7 +905,7 @@ changes them:
   audit for token-bearing logs and direct store construction, then
   `npm run verify`; update `docs/api/plex-integration.md` only if public stream
   contract changes.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: completed.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -918,12 +918,40 @@ changes them:
   token redaction behavior regresses; solution requires auth/discovery/library
   ownership changes; tests require real device/manual proof beyond approved
   package.
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start with DCR-8 plan and explicitly preserve token redaction before
-  authorizing stream resolver edits.
+- Plan:
+  [`docs/archive/plans/2026-04-30-dcr-8-plex-stream-resolver-ownership-cleanup.md`](./docs/archive/plans/2026-04-30-dcr-8-plex-stream-resolver-ownership-cleanup.md)
+- Last touched: 2026-04-30, implementation commits `1cb3bb7f`,
+  `cbfb833f`, and `7f616597`
+- Verification: plan review initially found material logger-seam and
+  `DCR-8-D1` coverage-accounting blockers; the planner revised the active
+  plan, same-reviewer closure approved the fixes, and a fresh final plan
+  reviewer approved `DCR-8-S1`. `DCR-8-S1` implementation review approved the
+  typed policy-reader and subtitle-debug logging-port injection with no
+  material findings; targeted resolver/orchestrator wiring tests and
+  `npm run typecheck` passed. `DCR-8-S2` implementation review approved the
+  stream-local subtitle debug probe coordinator with no material findings;
+  targeted resolver/probe tests passed and source audit confirmed no remaining
+  inline probe candidate selection or scheduling in `PlexStreamResolver`.
+  `DCR-8-S3` implementation review approved the universal transcode decision
+  client extraction with no material findings; targeted resolver/debug-manager
+  tests, `npm run typecheck`, and `npm run verify` passed. Closeout source
+  audits confirmed no direct settings/debug store or logger construction in
+  `PlexStreamResolver`, debug subtitle probing and universal decision
+  fetch/parse now have focused stream-local owners, public
+  `IPlexStreamResolver` methods and stream decision shapes remain unchanged,
+  and no raw token/auth URL/header/subtitle-key logging was introduced.
+- Follow-ups: none. `PlexStreamResolver` now receives typed audio, playback,
+  debug, subtitle-debug, and debug-override policy readers plus a
+  subtitle-debug logging port; `SubtitleStreamDebugProbeCoordinator` owns debug
+  subtitle discovery/probe selection and scheduling; and
+  `UniversalTranscodeDecisionClient` owns universal transcode decision
+  fetch/parse. Plex token redaction/security remains an accepted protected
+  baseline, not an open DCR-8 residual.
+- Handoff: `DCR-8` is complete. Do not reopen Plex stream resolver ownership
+  cleanup unless source proof shows resolver direct store/logger construction
+  has returned, debug subtitle probing or universal decision fetch/parse has
+  moved back inline, public stream resolver contracts changed without matching
+  tests/docs, or token redaction coverage regressed.
 
 ### [ ] `DCR-9` Lifecycle Migration And Comment/API Cleanup
 

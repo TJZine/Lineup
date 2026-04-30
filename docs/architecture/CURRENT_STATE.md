@@ -140,6 +140,19 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - `src/modules/plex/library/`
 - `src/modules/plex/stream/`
 - owns Plex-facing auth, discovery, library metadata, and stream/subtitle policy
+- `src/modules/plex/stream/PlexStreamResolver.ts` remains the public
+  `IPlexStreamResolver` implementation and delegates focused stream
+  responsibilities instead of constructing settings/debug storage owners
+  directly. It receives typed policy readers and a subtitle-debug logging port
+  from composition wiring.
+- `src/modules/plex/stream/SubtitleStreamDebugProbeCoordinator.ts` owns debug
+  subtitle discovery summaries, text-candidate selection, key-backed/keyless
+  probe selection, and fire-and-forget subtitle probe scheduling.
+- `src/modules/plex/stream/UniversalTranscodeDecisionClient.ts` owns universal
+  transcode decision request conversion, decision URL derivation, fetch timeout,
+  non-ok handling, and XML/regex decision parsing while
+  `PlexStreamResolver.fetchUniversalTranscodeDecision()` remains the public
+  delegating contract.
 - `src/modules/plex/auth/PlexAuth.ts` owns the auth credential storage key `lineup_plex_auth`
 - `src/modules/plex/auth/clientIdentifier.ts` owns `lineup_client_id` resolution/persistence (`resolveClientIdentifier(preferred?: string): string`) and the value is resolved once at config assembly (`createDefaultPlexAuthConfig`) before `PlexAuth` construction
 - `src/modules/plex/auth/plexAuthTransport.ts` owns shared Plex auth transport concerns (`PlexApiError`, request headers, retry transport policy) consumed by auth and discovery
