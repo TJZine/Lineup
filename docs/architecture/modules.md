@@ -215,9 +215,12 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 ### `src/core/channel-setup/`
 
-- channel setup record persistence
-- `src/core/channel-setup/ChannelSetupRecordStore.ts`
-- owns the `lineup_channel_setup_v2:${serverId}` family and prefix cleanup helpers
+- channel setup record persistence and build-scratch lifecycle owners
+- `src/core/channel-setup/persistence/ChannelSetupRecordStore.ts`
+- owns only the persisted setup-record family `lineup_channel_setup_v2:${serverId}`
+- `src/core/channel-setup/build/ChannelSetupBuildScratchStore.ts`
+- owns temporary Channel Setup build-key cleanup for `lineup_channels_build_tmp_v1:*`
+  and `lineup_current_channel_build_tmp_v1:*`
 
 ### `src/modules/plex/discovery/`
 
@@ -234,7 +237,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 ### Direct-storage Exception Wraps (`P3-W3`, completed 2026-03-11)
 
 - `src/modules/debug/DebugOverridesStore.ts` owns the `lineup_debug_epg` flag; `src/modules/ui/epg/debug/debugRuntimeGuards.ts` (`appendDebugRuntimeLog`) owns safe helper fan-out to `EPGDebugRuntime.append(...)`; `src/modules/ui/epg/debug/EPGDebugRuntime.ts` owns bounded `lineup_debug_epg_log` buffering and flush scheduling
-- `src/core/channel-setup/ChannelSetupRecordStore.ts` (`cleanupStaleBuildKeys`) now routes stale temp-key cleanup through `src/utils/storage.ts` prefix-based helper; `ChannelSetupCoordinator.ts` just delegates
+- `src/core/channel-setup/persistence/ChannelSetupRecordStore.ts` owns persisted setup records only; `src/core/channel-setup/build/ChannelSetupBuildScratchStore.ts` owns stale build-temp-key cleanup through `src/utils/storage.ts` prefix-based helpers; `ChannelSetupCoordinator.ts` just delegates to those typed seams
 - `src/bootstrap.ts` still contains the one-off `lineup_debug_transcode` -> `lineup_debug_logging` migration helper
 - `src/modules/ui/audio-setup/AudioSetupScreen.ts` and `src/Orchestrator.ts` now consume `AudioSettingsStore` for `lineup_audio_setup_complete`; `src/Orchestrator.ts` now uses `SubtitlePreferencesStore` subtitle mode policy instead of the retired `lineup_subtitle_allow_burn_in` key
 - broader repo drift cleanup is still tracked under `P3-W4`
@@ -280,10 +283,14 @@ The most important structural hotspots remain and should be treated as active wo
 - `src/Orchestrator.ts`
 - `src/App.ts`
 - `src/modules/ui/epg/component/EPGComponent.ts`
-- `src/modules/ui/settings/SettingsScreen.ts`
 - `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
-- `src/modules/plex/stream/PlexStreamResolver.ts`
 - `src/modules/scheduler/channel-manager/ChannelManager.ts`
+
+`src/modules/ui/settings/SettingsScreen.ts`,
+and `src/modules/plex/stream/PlexStreamResolver.ts` remain backlog-owned
+surfaces, but current source size/delegation evidence no longer supports
+listing them as primary active hotspots. `ChannelSetupScreen.ts` remains an
+active hotspot until a current source audit proves otherwise.
 
 ## Cleanup Backlog Direction
 

@@ -225,10 +225,15 @@ The main structural hotspots still called out by the cleanup backlog are:
 - `src/core/orchestrator/AppOrchestrator.ts`
 - `src/App.ts`
 - `src/modules/ui/epg/component/EPGComponent.ts`
-- `src/modules/ui/settings/SettingsScreen.ts`
 - `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
-- `src/modules/plex/stream/PlexStreamResolver.ts`
 - `src/modules/scheduler/channel-manager/ChannelManager.ts`
+
+`src/modules/ui/settings/SettingsScreen.ts`,
+and `src/modules/plex/stream/PlexStreamResolver.ts` remain important ownership
+surfaces, but they are no longer treated as current primary file-size hotspots
+after their latest split/delegation passes. `ChannelSetupScreen.ts` remains on
+the active hotspot list until a current source audit proves its remaining size
+and ownership concentration are no longer cleanup-relevant.
 
 The active remediation queue for these is [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md).
 

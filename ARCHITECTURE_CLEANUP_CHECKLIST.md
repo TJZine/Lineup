@@ -1134,10 +1134,10 @@ supporting source-family proof, recommended disposition, owner, and verification
 notes. Do not use stale style/package-map artifacts or fresh Desloppify output
 as intake.
 
-### [ ] `DCR-11` Verification, Dependency, And Control-Plane Truth
+### [x] `DCR-11` Verification, Dependency, And Control-Plane Truth
 
-- Status: not started
-- Plan: none yet
+- Status: completed after clean fresh final adversarial review
+- Plan: `docs/plans/2026-04-30-dcr-11-verification-dependency-control-plane-truth.md`
 - Dimensions/rubric tags: verified strictness, dependency health, docs/source
   coherence, AI-generated debt, package organization, design coherence
 - Scope owner: docs/control-plane owner with dependency/config/tooling and
@@ -1177,23 +1177,41 @@ as intake.
       resolved in this package.
 - Completion means: listed docs/control-plane contradictions are corrected or
   retired with source proof, DCR-10 docs verification proof is recorded,
-  `verify:bundle` is included in the final proof path or explicitly required by
-  DCR-EXIT closeout, dependency advisory state has one owner/outcome, and
-  `S0-L10-F3` has a final residual or resolved disposition. The stale style
-  cleanup package map is retired or archived so it cannot keep generating active
-  UI-panel cleanup work.
+  `verify:bundle` has maintainer-routed residual/future-owner evidence,
+  dependency advisory state has one owner/outcome, and `S0-L10-F3` has a final
+  residual or resolved disposition. The stale style cleanup package map is
+  retired or archived so it cannot keep generating active UI-panel cleanup work.
 - Verification routing: `npm run plans:check`, `npm run verify:docs`,
   `npm run verify:bundle`, `npm audit --audit-level=high`, `npm ls --depth=0`,
   and `npm run lint:css` if CSS changes.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; `DCR-11-W1` has executed and package closeout
+  is complete.
 - Stop/replan triggers: dependency remediation requires broad package upgrades,
   style-control artifacts cannot be restored or retired cleanly, or bundle
   verification failure exposes implementation work outside this package.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: source-backed from `DCR-EXIT-S0` synthesis only; none accepted yet.
-- Handoff: next fresh cleanup-loop should start here after `DCR-EXIT-S1`
-  routing review is clean.
+- Last touched: 2026-04-30 during `DCR-11-W1` execution and bounded dependency
+  remediation.
+- Verification: reviewed DCR-11 plan reached clean final approval; implementation
+  review, closure review, and fresh final adversarial review were clean; `npm
+  run plans:check` passed; `npm run verify:docs` passed after removing
+  local-only run-artifact paths from the active plan; `npm run lint:css` passed
+  in the implementation worker; `npm ls --depth=0` passed; bounded Vite patch
+  bump plus package-lock refresh of affected dev-tooling packages cleared
+  dependency advisories and `npm audit --audit-level=high` passed with `found 0
+  vulnerabilities`; `npm run
+  verify:bundle` failed because startup entry asset `assets/index-D1ytKM3-.js`
+  is `697501` bytes and the guard requires `< 500000`.
+- Follow-ups: `DCR-11-A1`, `DCR-11-A2`, `DCR-11-A3`, `DCR-11-A4`,
+  `DCR-11-A5`, `DCR-11-A7`, and `DCR-11-A8` have in-scope resolution evidence;
+  `DCR-11-A6` is accepted as a maintainer-routed residual owned by the
+  release/bundle guard owner with revisit trigger before future bundle-size
+  remediation or any attempt to add `verify:bundle` to `npm run verify` /
+  DCR-EXIT final proof. `DCR-11-D1` remains the accepted residual owned by
+  dependency/config/tooling with revisit trigger on the next CSS/stylelint
+  strictness pass or any docs/checklist claim that stylelint strictness is
+  closed.
+- Handoff: DCR-11 is closed. Do not resume `DCR-EXIT-S2` until `DCR-12` through
+  `DCR-16` are complete or explicitly maintainer-routed out of DCR.
 
 ### [ ] `DCR-12` App-Shell, Startup, And Server-Selection Contracts
 

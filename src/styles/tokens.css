@@ -44,7 +44,7 @@
     --color-bg-surface: rgba(10, 12, 14, 0.92);
     --color-bg-elevated: rgba(16, 20, 24, 0.94);
     --color-bg-overlay: rgba(6, 8, 10, 0.86);
-    /* Scrim tint token (defined now, consumed in later design-pass plans). */
+    /* Scrim tint shared by current overlay and shell surfaces. */
     --scrim-tint-rgb: 6 8 10;
     /* Comma-separated legacy companion for CSS Color 3 `rgba(var(--...),
        alpha)` fallbacks. Keep in sync with --scrim-tint-rgb. */

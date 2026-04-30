@@ -1,9 +1,8 @@
 {
   "artifact_version": 1,
-  "artifact_role": "Retired historical companion for the 2026-04-18 style cleanup package tokens. This file is not a live cleanup intake, checklist, or package-membership surface.",
+  "artifact_role": "Archived historical companion mapping the retired 2026-04-18 style cleanup checklist package tokens to exact issue membership distilled from STYLE_AUDIT evidence.",
   "retired_on": "2026-04-30",
   "retired_by": "DCR-11-S1",
-  "archive_copy": "docs/archive/design/2026-04-30-retired-style-cleanup-package-map.json",
   "active_intake_status": "retired",
   "historical_backlog_date": "2026-04-18",
   "package_model": "retired_style_cleanup_reference",
@@ -23,7 +22,7 @@
       "Codanna was unavailable during package authoring in this session.",
       "Fallback discovery used rg, wc -l, and direct tracked-file reads in the workspace."
     ],
-    "evidence_boundary_note": "STYLE_AUDIT.md and STYLE_CLEANUP_CHECKLIST.md are absent from the current workspace. This companion map is retained only as historical context and must not drive active cleanup intake."
+    "evidence_boundary_note": "STYLE_AUDIT.md and STYLE_CLEANUP_CHECKLIST.md are absent from the current workspace. This archived companion map is historical context only and must not drive active cleanup intake."
   },
   "program_size": {
     "package_count": 9,
