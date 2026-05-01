@@ -506,6 +506,7 @@ export class PlexAuth implements IPlexAuth {
     ): Promise<PlexHomeEndpointResult> {
         let lastError: unknown = null;
         let lastRetryableResponse: Response | null = null;
+        let sawUnsupportedResponse = false;
         for (let index = 0; index < endpoints.length; index++) {
             const url = endpoints[index];
             if (!url) {
@@ -522,10 +523,14 @@ export class PlexAuth implements IPlexAuth {
                 throwIfAborted(signal);
 
                 if (shouldTryNext(response)) {
-                    if (response.status !== 404 && response.status !== 405) {
-                        lastRetryableResponse = response;
+                    if (response.status === 404 || response.status === 405) {
+                        sawUnsupportedResponse = true;
                         lastError = null;
+                        continue;
                     }
+
+                    lastRetryableResponse = response;
+                    lastError = null;
                     continue;
                 }
                 return { kind: 'response', response, endpointIndex: index };
@@ -537,7 +542,7 @@ export class PlexAuth implements IPlexAuth {
             }
         }
 
-        if (lastError !== null) {
+        if (lastError !== null && !sawUnsupportedResponse) {
             throw lastError;
         }
 
@@ -548,6 +553,10 @@ export class PlexAuth implements IPlexAuth {
                 response: lastRetryableResponse,
                 endpointIndex: endpoints.length - 1,
             };
+        }
+
+        if (sawUnsupportedResponse) {
+            return { kind: 'unsupported' };
         }
 
         return { kind: 'unsupported' };

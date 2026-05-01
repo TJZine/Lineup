@@ -1358,7 +1358,7 @@ describe('PlexAuth', () => {
         });
 
         it.each([404, 405])(
-            'rejects SERVER_UNREACHABLE when getHomeUsers sees a v2 transport failure followed by v1 %s',
+            'returns no Home users when getHomeUsers sees a v2 transport failure followed by v1 unsupported %s',
             async (unsupportedStatus) => {
                 const auth = new PlexAuth(mockConfig);
                 const testToken = createAuthToken('account-token', 'admin');
@@ -1375,10 +1375,7 @@ describe('PlexAuth', () => {
                     });
                 (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
 
-                await expect(auth.getHomeUsers()).rejects.toMatchObject({
-                    code: 'SERVER_UNREACHABLE',
-                    retryable: true,
-                });
+                await expect(auth.getHomeUsers()).resolves.toEqual([]);
                 expect(fetchMock).toHaveBeenCalledTimes(2);
             }
         );
@@ -1540,7 +1537,7 @@ describe('PlexAuth', () => {
         });
 
         it.each([404, 405])(
-            'rejects SERVER_UNREACHABLE when switchHomeUser sees a v2 transport failure followed by v1 %s',
+            'rejects RESOURCE_NOT_FOUND when switchHomeUser sees a v2 transport failure followed by v1 unsupported %s',
             async (unsupportedStatus) => {
                 const auth = new PlexAuth(mockConfig);
                 const testToken = createAuthToken('account-token', 'admin');
@@ -1558,8 +1555,8 @@ describe('PlexAuth', () => {
                 (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
 
                 await expect(auth.switchHomeUser('2')).rejects.toMatchObject({
-                    code: 'SERVER_UNREACHABLE',
-                    retryable: true,
+                    code: 'RESOURCE_NOT_FOUND',
+                    retryable: false,
                 });
                 expect(fetchMock).toHaveBeenCalledTimes(2);
             }
