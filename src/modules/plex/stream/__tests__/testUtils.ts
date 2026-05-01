@@ -5,20 +5,22 @@ import { AudioSettingsStore } from '../../../settings/AudioSettingsStore';
 import { PlaybackSettingsStore } from '../../../settings/PlaybackSettingsStore';
 import { DeveloperSettingsStore } from '../../../settings/DeveloperSettingsStore';
 import { createPlexStreamSubtitleDebugLogPort } from '../PlexStreamSubtitleDebugLogPort';
+import {
+    createPlexIdentityHeaders,
+    createPlexIdentityMetadata,
+} from '../../auth/config';
 
 const mockIdentityService: PlatformIdentityService = {
     isWebOs: () => true,
     detectPlatformVersion: () => '6.0',
-    getDefaultPlexIdentity: (clientIdentifier: string) => ({
-        'X-Plex-Client-Identifier': clientIdentifier,
-        'X-Plex-Platform': 'webOS',
-        'X-Plex-Product': 'Lineup',
-        'X-Plex-Version': '1.0.0',
-        'X-Plex-Device': 'LG Smart TV',
-        'X-Plex-Device-Name': 'Lineup',
-        'X-Plex-Platform-Version': '6.0',
-        'X-Plex-Model': 'LGTV',
-    }),
+    getDefaultPlexIdentity: (clientIdentifier: string) => {
+        const metadata = createPlexIdentityMetadata(clientIdentifier, '6.0');
+        return createPlexIdentityHeaders(metadata, {
+            platformVersion: metadata.platformVersion,
+            deviceName: metadata.deviceName,
+            model: 'LGTV',
+        });
+    },
 };
 
 export function createMockConfig(
