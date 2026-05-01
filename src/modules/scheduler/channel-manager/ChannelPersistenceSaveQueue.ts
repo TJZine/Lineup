@@ -108,11 +108,11 @@ export class ChannelPersistenceSaveQueue {
     }
 
     dispose(): void {
+        this._isDisposed = true;
         if (this._saveTimer) {
             clearTimeout(this._saveTimer);
             this._saveTimer = null;
         }
-        this._isDisposed = true;
         const disposedError = this._createDisposedError();
         this._markPersistenceFailureReported(disposedError);
         this._rejectPendingSave(disposedError);
