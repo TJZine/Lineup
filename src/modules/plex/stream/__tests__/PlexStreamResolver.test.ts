@@ -565,6 +565,56 @@ describe('PlexStreamResolver', () => {
             expect(decision.isTranscoding).toBe(true);
         });
 
+        it('does not emit a stream error when the debug PMS decision fetch is denied', async () => {
+            expectConsoleWarn([
+                'Transcode URL (compat=0):',
+                expect.stringContaining('X-Plex-Token=REDACTED'),
+            ], { times: 2 });
+            expectConsoleWarn([
+                'HDR10 fallback applied:',
+                expect.objectContaining({ itemKey: '12345', reason: expect.any(String) }),
+            ]);
+            expectConsoleWarn([
+                'Stream decision:',
+                expect.objectContaining({ itemKey: '12345', mode: 'transcode' }),
+            ]);
+            expectConsoleWarn([
+                'PMS universal decision fetch failed:',
+                expect.objectContaining({ itemKey: '12345' }),
+            ]);
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: jest.fn((key: string) =>
+                        key === LINEUP_STORAGE_KEYS.DEBUG_LOGGING ? '1' : null
+                    ),
+                },
+                configurable: true,
+            });
+
+            const mockItem = createMockMediaItem({
+                container: 'avi',
+                videoCodec: 'mpeg4',
+                audioCodec: 'mp2',
+            });
+            const resolver = new PlexStreamResolver(
+                createMockConfig({ getItem: jest.fn().mockResolvedValue(mockItem) })
+            );
+            const errorHandler = jest.fn();
+            const disposable = resolver.on('error', errorHandler);
+            mockFetch.mockResolvedValueOnce({
+                ok: false,
+                status: 403,
+                text: async () => '',
+            });
+
+            const decision = await resolver.resolveStream({ itemKey: '12345' });
+
+            expect(decision.isTranscoding).toBe(true);
+            expect(decision.serverDecision).toBeUndefined();
+            expect(errorHandler).not.toHaveBeenCalled();
+            disposable.dispose();
+        });
+
         it('logs debug stream decision summary and HDR10 fallback reason', async () => {
             expectConsoleWarn([
                 'Transcode URL (compat=0):',
@@ -1670,6 +1720,8 @@ describe('PlexStreamResolver', () => {
         it('throws ACCESS_DENIED when Plex forbids the decision request', async () => {
             const config = createMockConfig();
             const resolver = new PlexStreamResolver(config);
+            const errorHandler = jest.fn();
+            const disposable = resolver.on('error', errorHandler);
 
             mockFetch.mockResolvedValue({
                 ok: false,
@@ -1684,6 +1736,8 @@ describe('PlexStreamResolver', () => {
                 message: 'Access denied',
                 recoverable: false,
             });
+            expect(errorHandler).not.toHaveBeenCalled();
+            disposable.dispose();
         });
     });
 
@@ -1741,6 +1795,35 @@ describe('PlexStreamResolver', () => {
 
             await resolver.stopTranscodeSession('sess-1');
         });
+
+        it.each([
+            [401, AppErrorCode.AUTH_EXPIRED],
+            [403, AppErrorCode.ACCESS_DENIED],
+        ])(
+            'logs but does not emit a stream error when stopTranscodeSession receives %s',
+            async (status, code) => {
+                expectConsoleWarn([
+                    'stopTranscodeSession failed:',
+                    expect.objectContaining({
+                        sessionId: 'sess-1',
+                        error: expect.objectContaining({ code }),
+                    }),
+                ]);
+                const resolver = new PlexStreamResolver(createMockConfig());
+                const errorHandler = jest.fn();
+                const disposable = resolver.on('error', errorHandler);
+
+                mockFetch.mockResolvedValueOnce({
+                    ok: false,
+                    status,
+                });
+
+                await resolver.stopTranscodeSession('sess-1');
+
+                expect(errorHandler).not.toHaveBeenCalled();
+                disposable.dispose();
+            }
+        );
     });
 
     // ========================================
@@ -1805,6 +1888,33 @@ describe('PlexStreamResolver', () => {
                 code: 'MIXED_CONTENT_BLOCKED',
                 recoverable: false,
             });
+        });
+
+        it('still emits playback-critical resolver errors', async () => {
+            const mockItem = createMockMediaItem();
+            const resolver = new PlexStreamResolver(
+                createMockConfig({
+                    getItem: jest.fn().mockResolvedValue(mockItem),
+                    getServerUri: () => 'http://192.168.1.100:32400',
+                    getHttpsConnection: () => null,
+                    getRelayConnection: () => null,
+                })
+            );
+            const errorHandler = jest.fn();
+            const disposable = resolver.on('error', errorHandler);
+
+            await expect(resolver.resolveStream({ itemKey: '12345' })).rejects.toMatchObject({
+                code: AppErrorCode.MIXED_CONTENT_BLOCKED,
+                recoverable: false,
+            });
+
+            expect(errorHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: AppErrorCode.MIXED_CONTENT_BLOCKED,
+                    recoverable: false,
+                })
+            );
+            disposable.dispose();
         });
     });
 });

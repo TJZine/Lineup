@@ -73,7 +73,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         this._universalTranscodeDecisionClient = new UniversalTranscodeDecisionClient({
             getAuthHeaders: config.getAuthHeaders,
             getTranscodeUrl: (itemKey, options): string => this.getTranscodeUrl(itemKey, options),
-            throwIfAuthFailure: (response): void => this._throwIfAuthFailure(response),
+            throwIfAuthFailure: (response): void => this._throwIfAuthFailure(response, false),
         });
     }
 
@@ -263,7 +263,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 init: { method: 'DELETE', headers: this._config.getAuthHeaders() },
                 timeoutMs: 5000,
             });
-            this._throwIfAuthFailure(response);
+            this._throwIfAuthFailure(response, false);
         } catch (error) {
             logPlexWarning('stopTranscodeSession failed:', {
                 sessionId: trimmedSessionId,
@@ -513,19 +513,19 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         );
     }
 
-    private _throwIfAuthFailure(response: Response): void {
+    private _throwIfAuthFailure(response: Response, emitError = true): void {
         if (response.status === 401) {
-            throw this._createError(
+            throw this._createAuthError(
                 AppErrorCode.AUTH_EXPIRED,
                 'Authentication expired',
-                false
+                emitError
             );
         }
         if (response.status === 403) {
-            throw this._createError(
+            throw this._createAuthError(
                 AppErrorCode.ACCESS_DENIED,
                 'Access denied',
-                false
+                emitError
             );
         }
     }
@@ -563,5 +563,21 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
         this._emitter.emit('error', error);
         return error;
+    }
+
+    private _createAuthError(
+        code: typeof AppErrorCode.AUTH_EXPIRED | typeof AppErrorCode.ACCESS_DENIED,
+        message: string,
+        emitError: boolean
+    ): StreamResolverError {
+        if (emitError) {
+            return this._createError(code, message, false);
+        }
+
+        return {
+            code,
+            message,
+            recoverable: false,
+        };
     }
 }
