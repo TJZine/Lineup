@@ -29,11 +29,11 @@ Execution update on 2026-04-30:
 
 Therefore `DCR-EXIT-S1` is now the next required gate before package reconciliation. `DCR-EXIT-S1` repairs the active plan/checklist state, routes S0 findings into `DCR-11` through `DCR-16`, records accepted residual/source-disprove wording, and blocks package reconciliation until those follow-up packages close or are explicitly maintainer-routed out of DCR.
 
-Execution update after `DCR-14` closeout on 2026-04-30:
+Execution update after `DCR-15` closeout on 2026-05-01:
 
-- `DCR-11`, `DCR-12`, `DCR-13`, and `DCR-14` are complete.
-- `DCR-EXIT-S2` remains blocked until `DCR-15` and `DCR-16` close or are explicitly maintainer-routed out of DCR.
-- The next cleanup-loop implementation package is `DCR-15`, not `DCR-EXIT`.
+- `DCR-11`, `DCR-12`, `DCR-13`, `DCR-14`, and `DCR-15` are complete.
+- `DCR-EXIT-S2` remains blocked until `DCR-16` closes or is explicitly maintainer-routed out of DCR.
+- The next cleanup-loop implementation package is `DCR-16`, not `DCR-EXIT`.
 
 ## Non-Goals
 
@@ -232,7 +232,7 @@ Accepted residuals and source-disproved S0 artifact gaps:
   - `DCR-EXIT-D1` is external/manual by maintainer after closeout and is not active plan coverage.
 - `coverage_ledger`:
   - `DCR-EXIT-A0`: `slice_id` `DCR-EXIT-S0` and `DCR-EXIT-S1`; `execution_unit` `DCR-EXIT-W0` and `DCR-EXIT-W1`; default survivor disposition is `split follow-up` until routed to a checklist package, source-disproved, or accepted as residual with owner/revisit/non-blocker/future-port wording.
-  - `DCR-EXIT-A1`: `slice_id` `DCR-EXIT-S2`; `execution_unit` `DCR-EXIT-S2`; default survivor disposition is `deferred` until `DCR-15` and `DCR-16` are closed or maintainer-routed out of DCR.
+  - `DCR-EXIT-A1`: `slice_id` `DCR-EXIT-S2`; `execution_unit` `DCR-EXIT-S2`; default survivor disposition is `deferred` until `DCR-16` is closed or maintainer-routed out of DCR.
   - `DCR-EXIT-A2`: `slice_id` `DCR-EXIT-S3`; `execution_unit` `DCR-EXIT-S3`; default survivor disposition is `deferred` with final owner assigned by the controller.
   - `DCR-EXIT-A3`: `slice_id` `DCR-EXIT-S4`; `execution_unit` `DCR-EXIT-S4`; default survivor disposition is `deferred` with final owner assigned by the controller.
 - `execution_waves`:
@@ -247,21 +247,21 @@ Accepted residuals and source-disproved S0 artifact gaps:
   - `completion_condition`: Active plan/checklist state reflects the S0 synthesis, new checklist follow-up packages, accepted residual candidates, source-disproved rows, and next ready-now package.
   - `absorb_now_scope`: Plan/checklist routing only. No production/test implementation is absorbed during W1.
   - `replan_triggers`: Plan conformance failure, reviewer rejection, missing S0 artifact reference, missing final disposition, or contradiction between the plan, checklist, and S0 synthesis.
-  - `current_status`: complete. `DCR-11` through `DCR-14` are also complete; DCR-EXIT package reconciliation is blocked on `DCR-15` and `DCR-16`.
+  - `current_status`: complete. `DCR-11` through `DCR-15` are also complete; DCR-EXIT package reconciliation is blocked on `DCR-16`.
   - `wave_id`: `DCR-EXIT-W2`
   - `slice_ids`: `DCR-EXIT-S2`
-  - `completion_condition`: `DCR-15` and `DCR-16` are complete or explicitly maintainer-routed out of DCR, then package proof matrix reconciliation is completed.
+  - `completion_condition`: `DCR-16` is complete or explicitly maintainer-routed out of DCR, then package proof matrix reconciliation is completed.
   - `absorb_now_scope`: DCR package proof reconciliation only. Production/test fixes remain out of DCR-EXIT.
-  - `current_status`: blocked until `DCR-15` and `DCR-16` close or are maintainer-routed.
-  - `replan_triggers`: Any DCR package has open actual issues, a completed package lacks source-backed evidence, DCR-15/DCR-16 changes alter package membership, or reconciliation finds unowned same-area residue.
+  - `current_status`: blocked until `DCR-16` closes or is maintainer-routed.
+  - `replan_triggers`: Any DCR package has open actual issues, a completed package lacks source-backed evidence, DCR-16 changes alter package membership, or reconciliation finds unowned same-area residue.
 - `ready_now_slice`: `DCR-EXIT-S2`
 - `ready_now_execution_unit`: `DCR-EXIT-W2`
-- `blocked_until`: `DCR-15` and `DCR-16` are complete or explicitly maintainer-routed out of DCR.
+- `blocked_until`: `DCR-16` is complete or explicitly maintainer-routed out of DCR.
 - `recommended_slice_order`:
   1. `DCR-EXIT-S0`
   2. `DCR-EXIT-S1`
   3. `DCR-11` through `DCR-14` checklist packages, complete
-  4. `DCR-15` and `DCR-16` checklist packages, each with its own cleanup-loop plan and review
+  4. `DCR-16` checklist package, with its own cleanup-loop plan and review
   5. `DCR-EXIT-S2`
   6. `DCR-EXIT-S3`
   7. `DCR-EXIT-S4`
@@ -595,7 +595,7 @@ Before closing `DCR-EXIT`, execution must record:
 
 MODEL_SUGGESTION
 PLANNER: gpt-5.5 high
-IMPLEMENTER: n/a for `DCR-EXIT` until `DCR-15` and `DCR-16` close; package sessions use gpt-5.5 medium cleanup_worker after their own approved plans
+IMPLEMENTER: n/a for `DCR-EXIT` until `DCR-16` closes; package sessions use gpt-5.5 medium cleanup_worker after their own approved plans
 REVIEWER: gpt-5.5 high
 WHY: Tier 3 priority-exit routing gate with cross-boundary S0 evidence, security/docs/source risk, and checklist closeout consequences. Use gpt-5.4 fallback if gpt-5.5 is unavailable.
 
@@ -603,16 +603,16 @@ WHY: Tier 3 priority-exit routing gate with cross-boundary S0 evidence, security
 NEXT_SESSION_HANDOFF
 LAUNCHER: $lineup-cleanup-loop
 PLAN: none yet
-CHECKLIST: ARCHITECTURE_CLEANUP_CHECKLIST.md section DCR-15
+CHECKLIST: ARCHITECTURE_CLEANUP_CHECKLIST.md section DCR-16
 TASK_FAMILY: cleanup/refactor
 CLEANUP_SUBTYPE: checklist-linked
-PACKAGE_ID: DCR-15
+PACKAGE_ID: DCR-16
 READY_NOW_EXECUTION_UNIT: none until plan is written
 READY_NOW_SLICE: none until plan is written
 MESSAGE:
-  Run cleanup-loop for DCR-15. DCR-EXIT-S0 and S1 are complete, and DCR-11
-  through DCR-14 are closed. DCR-EXIT-S2 remains blocked until DCR-15 and
-  DCR-16 close or are explicitly maintainer-routed out of DCR. Use the active
+  Run cleanup-loop for DCR-16. DCR-EXIT-S0 and S1 are complete, and DCR-11
+  through DCR-15 are closed. DCR-EXIT-S2 remains blocked until DCR-16 closes
+  or is explicitly maintainer-routed out of DCR. Use the active
   DCR-EXIT plan only for S0 routing context; do not resume DCR-EXIT
   reconciliation, do not run Desloppify intake or score refresh, and do not
   implement production/test fixes inside DCR-EXIT.

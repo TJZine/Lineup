@@ -1378,13 +1378,15 @@ as intake.
   closeout `npm run plans:check`, `npm run verify:docs`, and `git diff --check`
   passed.
 - Follow-ups: none yet.
-- Handoff: DCR-14 is closed. Do not resume `DCR-EXIT-S2` until `DCR-15` and
-  `DCR-16` are complete or explicitly maintainer-routed out of DCR.
+- Handoff: DCR-14 is closed. DCR-15 is now also closed. Do not resume
+  `DCR-EXIT-S2` until `DCR-16` is complete or explicitly maintainer-routed out
+  of DCR.
 
-### [ ] `DCR-15` Player, Plex Runtime, Settings, And Media Contracts
+### [x] `DCR-15` Player, Plex Runtime, Settings, And Media Contracts
 
-- Status: not started
-- Plan: none yet
+- Status: complete
+- Plan:
+  `docs/plans/2026-05-01-dcr-15-player-plex-runtime-settings-media-contracts-plan.md`
 - Dimensions/rubric tags: code quality, duplication, naming quality, error
   consistency, authorization consistency, type safety, incomplete migration
 - Scope owner: player/runtime, Plex stream/library, settings boundary, and
@@ -1412,15 +1414,18 @@ as intake.
 - Verification routing: RetryManager/VideoPlayer, SubtitleManager,
   HDR10/settings resolver, cleanup/debug 401/403, Plex identity, parser
   scalar-validation tests, typecheck, then `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; package complete.
 - Stop/replan triggers: auth/session ownership changes, stream error contract
   changes, media parsing policy requires API redesign, or package scope needs
   multiple disjoint plans.
-- Last touched: not started
-- Verification: not run
+- Last touched: 2026-05-01
+- Verification: clean plan review; clean implementation reviews for
+  `DCR-15-S1` through `DCR-15-S8`; focused DCR-15 Jest suites passed during
+  implementation/review; final `npm run typecheck`, `npm run verify`,
+  `npm run plans:check`, `npm run verify:docs`, and `git diff --check` passed.
 - Follow-ups: none yet.
-- Handoff: plan after `DCR-11`; split internally only if the approved plan can
-  prove disjoint write scopes and one integration gate.
+- Handoff: DCR-15 is closed. Do not resume `DCR-EXIT-S2` until `DCR-16` is
+  complete or explicitly maintainer-routed out of DCR.
 
 ### [ ] `DCR-16` Production Source-Signal Residue
 
@@ -1449,8 +1454,8 @@ as intake.
 
 ### [ ] `DCR-EXIT` Dimension Cleanup Exit Gate
 
-- Status: blocked after S0 route; follow-up packages `DCR-15` and `DCR-16`
-  must close or be maintainer-routed before final reconciliation resumes.
+- Status: blocked after S0 route; follow-up package `DCR-16` must close or be
+  maintainer-routed before final reconciliation resumes.
 - Plan: `docs/plans/2026-04-30-dcr-exit-final-dimension-audit-plan.md`
 - Dimensions/rubric tags: final reconciliation, full rubric coverage,
   source-backed proof, test confidence, dependency/config/tooling health,
@@ -1506,7 +1511,7 @@ as intake.
   `npm run plans:check` applies while the active plan is the handoff surface.
   External/manual score refresh is maintainer-owned after this gate closes.
 - Ready-now execution unit: none for DCR-EXIT; final reconciliation remains
-  blocked until `DCR-15` and `DCR-16` close or are maintainer-routed.
+  blocked until `DCR-16` closes or is maintainer-routed.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -1527,10 +1532,10 @@ as intake.
   summarized in the active plan; `npm run plans:check` passed; `npm run
   verify:docs` passed; read-only S0 routing review approved with no material
   findings.
-- Follow-ups: `DCR-11` through `DCR-14` are complete; `DCR-15` and `DCR-16`
-  remain admitted from S0 findings; future-port residuals remain owned by
-  port/test owner as above.
-- Handoff: stop DCR-EXIT here and start `DCR-15` in a fresh cleanup-loop
+- Follow-ups: `DCR-11` through `DCR-15` are complete; `DCR-16` remains
+  admitted from S0 findings; future-port residuals remain owned by port/test
+  owner as above.
+- Handoff: stop DCR-EXIT here and start `DCR-16` in a fresh cleanup-loop
   session. Do not run a fresh scoring-only pass or implement production/test
   fixes inside DCR-EXIT.
 
